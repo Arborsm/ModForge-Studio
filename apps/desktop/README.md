@@ -1,73 +1,104 @@
-# React + TypeScript + Vite
+# ModForge Studio Desktop
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Desktop editor shell for ModForge Studio.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `React 19`
+- `TypeScript`
+- `Vite`
+- `Tailwind CSS 4`
+- `react-resizable-panels`
+- `Radix Context Menu`
+- `Tauri 2`
 
-## React Compiler
+## Current Scope
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The desktop app currently focuses on Stardew Valley map inspection inside a desktop-style authoring shell.
 
-## Expanding the ESLint configuration
+Implemented:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- choose or auto-detect a game directory
+- validate Stardew Valley folder structure
+- scan `TMX / XNB` map assets
+- load `TMX` content into an internal `MapDocument`
+- render tile layers in a central canvas viewport
+- render TMX object groups as overlay bounds
+- inspect hovered tiles and object hits
+- toggle visible tile layers and object groups
+- use right-click editor context menus in the viewport
+- pan the viewport with pointer capture
+- zoom with toolbar controls, context menu actions, and mouse wheel
+- fit map to screen or switch to `1:1`
+- switch between light and dark themes
+- switch between Chinese and English UI copy
+- use a locked three-pane editor layout with internal pane scrolling only
+- use a frameless Tauri window with custom minimize / maximize / close controls
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Commands
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+From the repository root:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run lint --workspace @modforge/desktop
+npm run build --workspace @modforge/desktop
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+To run the desktop shell in development:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run desktop:dev
 ```
+
+To run only the frontend dev server:
+
+```bash
+npm run dev
+```
+
+## Rider Hot Reload
+
+Recommended Rider run configuration:
+
+1. Create an `npm` configuration from the repository root `package.json`
+2. Select script `desktop:dev`
+3. Run it from Rider
+
+Behavior:
+
+- changes under `apps/desktop/src` hot-reload through Vite HMR
+- changes under `apps/desktop/src-tauri` rebuild and restart the desktop host
+- changes to `tauri.conf.json`, capabilities, Tailwind/PostCSS config, or package dependencies usually require a manual restart
+
+## Important Files
+
+- `src/App.tsx`
+- `src/styles/globals.css`
+- `src/components/TopMenuBar.tsx`
+- `src/components/LeftDock.tsx`
+- `src/components/CentralWorkspace.tsx`
+- `src/components/RightDock.tsx`
+- `src/components/StatusBar.tsx`
+- `src/components/MapViewport.tsx`
+- `src/lib/editor-shell.ts`
+- `src/lib/desktop.ts`
+- `src/lib/maps/tmx.ts`
+- `src/lib/maps/types.ts`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/capabilities/default.json`
+
+## Current Constraints
+
+- `TMX` is the active map loading path
+- `XNB` scanning exists, but `XNB` parsing/loading is not implemented yet
+- object editing is not implemented yet
+- external `.tsx` tilesets are not supported yet
+- compressed layer data is not supported yet
+
+## Next Focus
+
+- object selection and editing
+- richer inspectors for map objects
+- character / building / item editors behind the top module switcher
+- event graph editor
+- `XNB` compatibility path

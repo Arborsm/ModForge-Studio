@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 
 export type GameDirectoryInfo = {
   rootPath: string
@@ -75,4 +76,28 @@ export function scanMaps(path: string) {
 
 export function loadMapAsset(rootPath: string, mapPath: string) {
   return invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath })
+}
+
+export async function minimizeCurrentWindow() {
+  if (!isDesktopHost()) {
+    return
+  }
+
+  await getCurrentWindow().minimize()
+}
+
+export async function toggleMaximizeCurrentWindow() {
+  if (!isDesktopHost()) {
+    return
+  }
+
+  await getCurrentWindow().toggleMaximize()
+}
+
+export async function closeCurrentWindow() {
+  if (!isDesktopHost()) {
+    return
+  }
+
+  await getCurrentWindow().close()
 }

@@ -15,3 +15,8 @@ services/**/obj/
 .dotnet/
 .idea/
 .vscode/
+.codex/
+.uv-roaming/
+.tmp-pywinauto-stdout.txt
+.tmp-pywinauto-stderr.txt
+pywinauto-mcp.log

@@ -1,138 +1,235 @@
-import { useEffect, useState } from 'react'
-import './App.css'
-import { MapViewport, type TileHoverInfo } from './components/MapViewport'
+import { startTransition, useDeferredValue, useEffect, useState } from 'react'
+import { Group, Panel, Separator } from 'react-resizable-panels'
+import CentralWorkspace from './components/CentralWorkspace'
+import LeftDock from './components/LeftDock'
+import RightDock from './components/RightDock'
+import StatusBar from './components/StatusBar'
+import TopMenuBar from './components/TopMenuBar'
+import type { TileHoverInfo } from './components/MapViewport'
 import {
   canUseDesktopHost,
   chooseGameDirectory,
+  closeCurrentWindow,
   detectDefaultGameDirectory,
   loadMapAsset,
+  minimizeCurrentWindow,
   scanMaps,
+  toggleMaximizeCurrentWindow,
   validateGameDirectory,
   type GameDirectoryInfo,
   type MapAssetSummary,
 } from './lib/desktop'
+import { editorCopy, type LocaleCode, type ThemeMode, type WorkspaceMode } from './lib/editor-shell'
 import { parseTmxMap } from './lib/maps/tmx'
 import type { MapDocument } from './lib/maps/types'
 
-const knownGamePath = 'E:\\SteamLibrary\\steamapps\\common\\Stardew Valley'
-
-function formatBytes(sizeBytes: number) {
-  if (sizeBytes < 1024) {
-    return `${sizeBytes} B`
-  }
-
-  if (sizeBytes < 1024 * 1024) {
-    return `${(sizeBytes / 1024).toFixed(1)} KB`
-  }
-
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`
+type WorkspaceStatus = {
+  tone: 'idle' | 'working' | 'ready' | 'error'
+  message: string
 }
 
-function App() {
-  const [gameDirectory, setGameDirectory] = useState(knownGamePath)
-  const [directoryInfo, setDirectoryInfo] = useState<GameDirectoryInfo | null>(null)
-  const [maps, setMaps] = useState<MapAssetSummary[]>([])
-  const [selectedMapId, setSelectedMapId] = useState<string | null>(null)
-  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
-  const [visibleLayerIds, setVisibleLayerIds] = useState<number[]>([])
-  const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
-  const [status, setStatus] = useState('Waiting for a game directory')
-  const [error, setError] = useState<string | null>(null)
-  const [mapLoadError, setMapLoadError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [mapBusy, setMapBusy] = useState(false)
+function getPreferredScene(assets: MapAssetSummary[]) {
+  return (
+    assets.find((asset) => asset.format === 'tmx' && /^town$/i.test(asset.name)) ??
+    assets.find((asset) => asset.format === 'tmx') ??
+    null
+  )
+}
 
-  const desktopHostReady = canUseDesktopHost()
+export default function App() {
+  const [theme, setTheme] = useState<ThemeMode>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
+  )
+  const [locale, setLocale] = useState<LocaleCode>(() =>
+    typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
+  )
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
+  const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
+  const [gameDirectory, setGameDirectory] = useState('')
+  const [directoryInfo, setDirectoryInfo] = useState<GameDirectoryInfo | null>(null)
+  const [mapAssets, setMapAssets] = useState<MapAssetSummary[]>([])
+  const [activeMapId, setActiveMapId] = useState<string | null>(null)
+  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
+  const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
+  const [visibleLayerIds, setVisibleLayerIds] = useState<number[]>([])
+  const [visibleObjectGroupIds, setVisibleObjectGroupIds] = useState<number[]>([])
+  const [assetFilter, setAssetFilter] = useState('')
+
+  const copy = editorCopy[locale]
+  const desktopHost = canUseDesktopHost()
+  const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
+  const filteredAssets = mapAssets.filter((asset) => {
+    if (!deferredAssetFilter) {
+      return true
+    }
+
+    const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
+    return haystack.includes(deferredAssetFilter)
+  })
+  const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
+  const moduleBlueprint = workspaceMode === 'map' ? undefined : copy.moduleBlueprints[workspaceMode]
 
   useEffect(() => {
-    if (!desktopHostReady) {
-      setStatus('Run this screen inside Tauri to access your local Stardew Valley folder.')
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.lang = locale
+  }, [locale, theme])
+
+  useEffect(() => {
+    if (!desktopHost) {
+      setWorkspaceStatus({ tone: 'idle', message: copy.messages.browserHostPrompt })
       return
     }
 
-    void (async () => {
-      setBusy(true)
-      setError(null)
-      setStatus('Detecting a default Stardew Valley installation...')
+    let cancelled = false
+
+    async function detectKnownPath() {
+      setWorkspaceStatus({ tone: 'working', message: copy.messages.detectingDefaultInstall })
 
       try {
         const detectedPath = await detectDefaultGameDirectory()
-        const nextPath = detectedPath ?? knownGamePath
-        setGameDirectory(nextPath)
-        const info = await validateGameDirectory(nextPath)
-        const mapResults = await scanMaps(nextPath)
-        setDirectoryInfo(info)
-        setMaps(mapResults)
-        setStatus(`Loaded ${mapResults.length} ${info.preferredFormat.toUpperCase()} map assets`)
-      } catch (bootstrapError) {
-        setError(bootstrapError instanceof Error ? bootstrapError.message : String(bootstrapError))
-        setStatus('Automatic detection failed. Choose the folder manually.')
-      } finally {
-        setBusy(false)
-      }
-    })()
-  }, [desktopHostReady])
+        if (cancelled) {
+          return
+        }
 
-  async function handleValidate(path = gameDirectory) {
-    if (!path.trim()) {
-      setError('Enter a Stardew Valley game folder before validating.')
-      return
+        if (detectedPath) {
+          setGameDirectory(detectedPath)
+          setWorkspaceStatus({ tone: 'idle', message: copy.messages.detectedKnownPath(detectedPath) })
+        } else {
+          setWorkspaceStatus({ tone: 'idle', message: copy.messages.automaticDetectionFailed })
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setWorkspaceStatus({
+            tone: 'error',
+            message: `${copy.messages.automaticDetectionFailed} ${error instanceof Error ? error.message : String(error)}`,
+          })
+        }
+      }
     }
 
-    setBusy(true)
-    setError(null)
-    setStatus('Validating game directory...')
+    void detectKnownPath()
+
+    return () => {
+      cancelled = true
+    }
+  }, [copy.messages, desktopHost])
+
+  async function ensureValidatedDirectory(currentPath: string) {
+    const trimmedPath = currentPath.trim()
+    if (!trimmedPath) {
+      setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeValidating })
+      return null
+    }
+
+    setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingDirectory })
 
     try {
-      const info = await validateGameDirectory(path)
+      const info = await validateGameDirectory(trimmedPath)
       setDirectoryInfo(info)
-      setStatus(`Validated ${info.rootPath}`)
-    } catch (validationError) {
+      setGameDirectory(info.rootPath)
+      setWorkspaceStatus({ tone: 'ready', message: copy.messages.validatedDirectory(info.rootPath) })
+      return info
+    } catch (error) {
       setDirectoryInfo(null)
-      setMaps([])
-      setSelectedMapId(null)
+      setMapAssets([])
+      setActiveMapId(null)
       setMapDocument(null)
-      setVisibleLayerIds([])
       setHoverInfo(null)
-      setError(validationError instanceof Error ? validationError.message : String(validationError))
-      setStatus('Directory validation failed.')
-    } finally {
-      setBusy(false)
+      setVisibleLayerIds([])
+      setVisibleObjectGroupIds([])
+      setWorkspaceStatus({
+        tone: 'error',
+        message: `${copy.messages.validationFailed} ${error instanceof Error ? error.message : String(error)}`,
+      })
+      return null
     }
   }
 
-  async function handleScan(path = gameDirectory) {
-    if (!path.trim()) {
-      setError('Enter a Stardew Valley game folder before scanning.')
+  async function openMap(
+    summary: MapAssetSummary,
+    knownDirectoryInfo?: GameDirectoryInfo | null,
+    knownMapCount = mapAssets.length,
+  ) {
+    const info = knownDirectoryInfo ?? directoryInfo ?? (await ensureValidatedDirectory(gameDirectory))
+    if (!info) {
       return
     }
 
-    setBusy(true)
-    setError(null)
-    setMapLoadError(null)
-    setStatus('Validating and scanning map assets...')
+    if (summary.format !== 'tmx') {
+      setWorkspaceStatus({ tone: 'error', message: copy.messages.onlyTmxSupported })
+      return
+    }
+
+    setWorkspaceMode('map')
+    setActiveMapId(summary.id)
+    setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
 
     try {
-      const info = await validateGameDirectory(path)
-      const mapResults = await scanMaps(path)
+      const asset = await loadMapAsset(info.rootPath, summary.absolutePath)
+      if (asset.format !== 'tmx') {
+        throw new Error(copy.messages.onlyTmxSupported)
+      }
+
+      const parsedDocument = parseTmxMap(asset.absolutePath, asset.relativePath, asset.content)
+      startTransition(() => {
+        setMapDocument(parsedDocument)
+        setVisibleLayerIds(parsedDocument.layers.filter((layer) => layer.visible).map((layer) => layer.id))
+        setVisibleObjectGroupIds(
+          parsedDocument.objectGroups.filter((group) => group.visible).map((group) => group.id),
+        )
+        setHoverInfo(null)
+      })
+
+      setWorkspaceStatus({
+        tone: 'ready',
+        message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, asset.format, asset.name),
+      })
+    } catch (error) {
+      setMapDocument(null)
+      setHoverInfo(null)
+      setVisibleLayerIds([])
+      setVisibleObjectGroupIds([])
+      setWorkspaceStatus({
+        tone: 'error',
+        message: `${copy.messages.loadingMapFailed} ${error instanceof Error ? error.message : String(error)}`,
+      })
+    }
+  }
+
+  async function handleValidateOnly() {
+    void ensureValidatedDirectory(gameDirectory)
+  }
+
+  async function handleScanAndOpenTown() {
+    const trimmedPath = gameDirectory.trim()
+    if (!trimmedPath) {
+      setWorkspaceStatus({ tone: 'error', message: copy.messages.enterFolderBeforeScanning })
+      return
+    }
+
+    setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingAndScanning })
+
+    try {
+      const info = await validateGameDirectory(trimmedPath)
+      const assets = await scanMaps(trimmedPath)
       setDirectoryInfo(info)
-      setMaps(mapResults)
-      setSelectedMapId(null)
-      setMapDocument(null)
-      setVisibleLayerIds([])
-      setHoverInfo(null)
-      setStatus(`Loaded ${mapResults.length} ${info.preferredFormat.toUpperCase()} map assets`)
-    } catch (scanError) {
-      setDirectoryInfo(null)
-      setMaps([])
-      setSelectedMapId(null)
-      setMapDocument(null)
-      setVisibleLayerIds([])
-      setHoverInfo(null)
-      setError(scanError instanceof Error ? scanError.message : String(scanError))
-      setStatus('Map scan failed.')
-    } finally {
-      setBusy(false)
+      setGameDirectory(info.rootPath)
+      setMapAssets(assets)
+
+      const preferredScene = getPreferredScene(assets)
+      if (preferredScene) {
+        await openMap(preferredScene, info, assets.length)
+      } else {
+        setWorkspaceStatus({
+          tone: 'ready',
+          message: copy.messages.loadedMapAssets(assets.length, info.preferredFormat),
+        })
+      }
+    } catch (error) {
+      setWorkspaceStatus({
+        tone: 'error',
+        message: `${copy.messages.mapScanFailed} ${error instanceof Error ? error.message : String(error)}`,
+      })
     }
   }
 
@@ -144,377 +241,152 @@ function App() {
       }
 
       setGameDirectory(selectedPath)
-      await handleValidate(selectedPath)
-    } catch (dialogError) {
-      setError(dialogError instanceof Error ? dialogError.message : String(dialogError))
-      setStatus('Directory selection failed.')
+      setWorkspaceStatus({ tone: 'idle', message: copy.messages.detectedKnownPath(selectedPath) })
+    } catch (error) {
+      setWorkspaceStatus({
+        tone: 'error',
+        message: `${copy.messages.directorySelectionFailed} ${error instanceof Error ? error.message : String(error)}`,
+      })
     }
   }
 
-  async function handleLoadMap(map: MapAssetSummary) {
-    if (!directoryInfo) {
-      setMapLoadError('Validate a game directory before loading a map.')
+  async function handleUseKnownPath() {
+    if (!desktopHost) {
+      setWorkspaceStatus({ tone: 'error', message: copy.messages.browserHostPrompt })
       return
     }
 
-    setSelectedMapId(map.id)
-    setMapBusy(true)
-    setMapLoadError(null)
+    setWorkspaceStatus({ tone: 'working', message: copy.messages.detectingDefaultInstall })
 
     try {
-      const loadedMap = await loadMapAsset(directoryInfo.rootPath, map.absolutePath)
-      if (loadedMap.format !== 'tmx') {
-        throw new Error('Only TMX maps are supported for MapDocument loading right now.')
+      const detectedPath = await detectDefaultGameDirectory()
+      if (!detectedPath) {
+        setWorkspaceStatus({ tone: 'error', message: copy.messages.automaticDetectionFailed })
+        return
       }
 
-      const document = parseTmxMap(loadedMap.absolutePath, loadedMap.relativePath, loadedMap.content)
-      setMapDocument(document)
-      setVisibleLayerIds(document.layers.filter((layer) => layer.visible).map((layer) => layer.id))
-      setHoverInfo(null)
-    } catch (loadError) {
-      setMapDocument(null)
-      setVisibleLayerIds([])
-      setHoverInfo(null)
-      setMapLoadError(loadError instanceof Error ? loadError.message : String(loadError))
-    } finally {
-      setMapBusy(false)
+      setGameDirectory(detectedPath)
+      setWorkspaceStatus({ tone: 'ready', message: copy.messages.detectedKnownPath(detectedPath) })
+      void ensureValidatedDirectory(detectedPath)
+    } catch (error) {
+      setWorkspaceStatus({
+        tone: 'error',
+        message: `${copy.messages.automaticDetectionFailed} ${error instanceof Error ? error.message : String(error)}`,
+      })
     }
   }
 
-  function toggleLayer(layerId: number) {
+  function toggleLayer(id: number) {
     setVisibleLayerIds((current) =>
-      current.includes(layerId)
-        ? current.filter((id) => id !== layerId)
-        : [...current, layerId],
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  function toggleObjectGroup(id: number) {
+    setVisibleObjectGroupIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    )
+  }
+
+  function setAllLayers(visible: boolean) {
+    setVisibleLayerIds(visible && mapDocument ? mapDocument.layers.map((layer) => layer.id) : [])
+  }
+
+  function setAllObjectGroups(visible: boolean) {
+    setVisibleObjectGroupIds(
+      visible && mapDocument ? mapDocument.objectGroups.map((group) => group.id) : [],
     )
   }
 
   return (
-    <main className="shell">
-      <section className="hero">
-        <p className="eyebrow">ModForge Studio</p>
-        <h1>MapDocument loading now drives a first-pass tile viewport.</h1>
-        <p className="lede">
-          The desktop shell can now choose a game folder, scan the available maps, load a selected
-          TMX file into the editor&apos;s internal data model, and render its visible tile layers.
-        </p>
-      </section>
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]">
+      <TopMenuBar
+        copy={copy}
+        workspaceMode={workspaceMode}
+        onWorkspaceChange={setWorkspaceMode}
+        theme={theme}
+        onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+        locale={locale}
+        onToggleLocale={() => setLocale((current) => (current === 'zh-CN' ? 'en-US' : 'zh-CN'))}
+        statusTone={workspaceStatus.tone}
+        desktopHost={desktopHost}
+        onMinimizeWindow={() => void minimizeCurrentWindow()}
+        onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+        onCloseWindow={() => void closeCurrentWindow()}
+      />
 
-      <section className="workspace-grid">
-        <article className="panel panel-emphasis">
-          <span className="label">Game Source</span>
-          <h2>Stardew Valley directory</h2>
-          <p className="panel-copy">
-            For the current machine the known path is `E:\SteamLibrary\steamapps\common\Stardew Valley`.
-          </p>
-
-          <label className="field">
-            <span>Game directory</span>
-            <input
-              value={gameDirectory}
-              onChange={(event) => setGameDirectory(event.target.value)}
-              placeholder="Select the Stardew Valley install folder"
-            />
-          </label>
-
-          <div className="actions">
-            <button type="button" onClick={handleChooseDirectory} disabled={busy || !desktopHostReady}>
-              Choose folder
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                setGameDirectory(knownGamePath)
-                void handleValidate(knownGamePath)
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <Group orientation="horizontal" id="modforge-desktop-layout">
+          <Panel defaultSize={23} minSize={18}>
+            <LeftDock
+              copy={copy}
+              workspaceMode={workspaceMode}
+              desktopHost={desktopHost}
+              gameDirectory={gameDirectory}
+              onGameDirectoryChange={setGameDirectory}
+              onChooseDirectory={() => void handleChooseDirectory()}
+              onUseKnownPath={() => void handleUseKnownPath()}
+              onValidateOnly={() => void handleValidateOnly()}
+              onScanAndOpenTown={() => void handleScanAndOpenTown()}
+              directoryInfo={directoryInfo}
+              mapAssets={mapAssets}
+              filteredAssets={filteredAssets}
+              activeMapId={activeMapId}
+              assetFilter={assetFilter}
+              onAssetFilterChange={setAssetFilter}
+              onOpenAsset={(asset) => {
+                void openMap(asset)
               }}
-              disabled={busy}
-            >
-              Use known path
-            </button>
-            <button type="button" className="secondary" onClick={() => void handleValidate()} disabled={busy}>
-              Validate
-            </button>
-            <button type="button" onClick={() => void handleScan()} disabled={busy}>
-              Scan maps
-            </button>
-          </div>
+            />
+          </Panel>
 
-          <p className="status">{busy ? 'Working...' : status}</p>
-          {error ? <p className="error">{error}</p> : null}
-        </article>
+          <Separator className="resize-handle" />
 
-        <article className="panel">
-          <span className="label">Validation</span>
-          <h2>Directory summary</h2>
-          {directoryInfo ? (
-            <dl className="details">
-              <div>
-                <dt>Preferred source</dt>
-                <dd>{directoryInfo.preferredFormat.toUpperCase()}</dd>
-              </div>
-              <div>
-                <dt>Executable</dt>
-                <dd>{directoryInfo.executablePath}</dd>
-              </div>
-              <div>
-                <dt>Preferred maps path</dt>
-                <dd>{directoryInfo.preferredMapsPath ?? 'Unavailable'}</dd>
-              </div>
-              <div>
-                <dt>Unpacked maps</dt>
-                <dd>{directoryInfo.hasUnpackedMaps ? 'Yes' : 'No'}</dd>
-              </div>
-              <div>
-                <dt>XNB maps</dt>
-                <dd>{directoryInfo.hasXnbMaps ? 'Yes' : 'No'}</dd>
-              </div>
-              <div>
-                <dt>Map count</dt>
-                <dd>{directoryInfo.mapCount}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="placeholder">Validate a directory to inspect its layout.</p>
-          )}
-        </article>
+          <Panel defaultSize={54} minSize={34}>
+            <CentralWorkspace
+              copy={copy}
+              workspaceMode={workspaceMode}
+              activeAsset={activeAsset}
+              mapDocument={mapDocument}
+              theme={theme}
+              visibleLayerIds={visibleLayerIds}
+              visibleObjectGroupIds={visibleObjectGroupIds}
+              onHoverChange={setHoverInfo}
+              moduleBlueprint={moduleBlueprint}
+            />
+          </Panel>
 
-        <article className="panel">
-          <span className="label">MapDocument</span>
-          <h2>Selected map summary</h2>
-          {mapDocument ? (
-            <dl className="details">
-              <div>
-                <dt>Name</dt>
-                <dd>{mapDocument.name}</dd>
-              </div>
-              <div>
-                <dt>Dimensions</dt>
-                <dd>
-                  {mapDocument.width} x {mapDocument.height} tiles
-                </dd>
-              </div>
-              <div>
-                <dt>Tile size</dt>
-                <dd>
-                  {mapDocument.tileWidth} x {mapDocument.tileHeight} px
-                </dd>
-              </div>
-              <div>
-                <dt>Layers</dt>
-                <dd>{mapDocument.layers.length}</dd>
-              </div>
-              <div>
-                <dt>Object groups</dt>
-                <dd>{mapDocument.objectGroups.length}</dd>
-              </div>
-              <div>
-                <dt>Tilesets</dt>
-                <dd>{mapDocument.tilesets.length}</dd>
-              </div>
-            </dl>
-          ) : (
-            <p className="placeholder">Pick a scanned TMX map to build the first internal MapDocument.</p>
-          )}
-          {mapLoadError ? <p className="error">{mapLoadError}</p> : null}
-          {mapBusy ? <p className="status">Loading selected map...</p> : null}
-        </article>
-      </section>
+          <Separator className="resize-handle" />
 
-      <section className="map-workspace">
-        <section className="panel maps-panel">
-          <div className="maps-header">
-            <div>
-              <span className="label">Maps</span>
-              <h2>Scanned map assets</h2>
-            </div>
-            <p>{maps.length ? `${maps.length} files ready for TMX parsing` : 'No maps loaded yet.'}</p>
-          </div>
+          <Panel defaultSize={23} minSize={18}>
+            <RightDock
+              copy={copy}
+              mapDocument={mapDocument}
+              hoverInfo={hoverInfo}
+              visibleLayerIds={visibleLayerIds}
+              visibleObjectGroupIds={visibleObjectGroupIds}
+              onToggleLayer={toggleLayer}
+              onToggleObjectGroup={toggleObjectGroup}
+              onShowAllLayers={() => setAllLayers(true)}
+              onHideAllLayers={() => setAllLayers(false)}
+              onShowAllObjectGroups={() => setAllObjectGroups(true)}
+              onHideAllObjectGroups={() => setAllObjectGroups(false)}
+              directoryInfo={directoryInfo}
+              workspaceStatus={workspaceStatus}
+              moduleBlueprint={moduleBlueprint}
+            />
+          </Panel>
+        </Group>
+      </div>
 
-          {maps.length ? (
-            <div className="map-list">
-              {maps.map((map) => (
-                <button
-                  type="button"
-                  className={`map-card ${selectedMapId === map.id ? 'map-card-selected' : ''}`}
-                  key={map.id}
-                  onClick={() => void handleLoadMap(map)}
-                  disabled={mapBusy}
-                >
-                  <div className="map-card-heading">
-                    <strong>{map.name}</strong>
-                    <span>{map.format.toUpperCase()}</span>
-                  </div>
-                  <p>{map.relativePath}</p>
-                  <footer>
-                    <span>{map.fileName}</span>
-                    <span>{formatBytes(map.sizeBytes)}</span>
-                  </footer>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="placeholder">
-              After scanning, this panel will show the maps discovered in the selected game folder.
-            </p>
-          )}
-        </section>
-
-        <section className="panel document-panel">
-          <div className="maps-header">
-            <div>
-              <span className="label">Document</span>
-              <h2>MapDocument internals</h2>
-            </div>
-            <p>{mapDocument ? mapDocument.relativePath : 'No map loaded yet.'}</p>
-          </div>
-
-          {mapDocument ? (
-            <div className="document-sections">
-              <section className="document-section">
-                <h3>Viewport</h3>
-                <MapViewport
-                  key={mapDocument.sourcePath}
-                  mapDocument={mapDocument}
-                  visibleLayerIds={visibleLayerIds}
-                  onHoverChange={setHoverInfo}
-                />
-              </section>
-
-              <section className="document-section">
-                <h3>Map properties</h3>
-                {Object.keys(mapDocument.properties).length ? (
-                  <dl className="details compact-details">
-                    {Object.entries(mapDocument.properties).map(([key, value]) => (
-                      <div key={key}>
-                        <dt>{key}</dt>
-                        <dd>{String(value)}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <p className="placeholder">This map has no root-level custom properties.</p>
-                )}
-              </section>
-
-              <section className="document-section">
-                <h3>Tilesets</h3>
-                <div className="document-list">
-                  {mapDocument.tilesets.map((tileset) => (
-                    <article className="document-card" key={`${tileset.firstGid}-${tileset.name}`}>
-                      <strong>{tileset.name}</strong>
-                      <p>firstgid {tileset.firstGid}</p>
-                      <p>
-                        {tileset.tileCount} tiles at {tileset.tileWidth} x {tileset.tileHeight}
-                      </p>
-                      <p>{tileset.imageSource ?? 'No image source'}</p>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="document-section">
-                <h3>Tile layers</h3>
-                <div className="layer-controls">
-                  {mapDocument.layers.map((layer) => (
-                    <label key={layer.id} className="layer-toggle">
-                      <input
-                        type="checkbox"
-                        checked={visibleLayerIds.includes(layer.id)}
-                        onChange={() => toggleLayer(layer.id)}
-                      />
-                      <span>{layer.name}</span>
-                    </label>
-                  ))}
-                </div>
-                <div className="document-list">
-                  {mapDocument.layers.map((layer) => (
-                    <article className="document-card" key={`${layer.id}-${layer.name}`}>
-                      <strong>{layer.name}</strong>
-                      <p>
-                        {layer.width} x {layer.height}
-                      </p>
-                      <p>{layer.nonEmptyTiles} non-empty tiles</p>
-                      <p>{layer.visible ? 'Visible' : 'Hidden'}</p>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="document-section">
-                <h3>Object groups</h3>
-                {mapDocument.objectGroups.length ? (
-                  <div className="document-list">
-                    {mapDocument.objectGroups.map((group) => (
-                      <article className="document-card" key={`${group.id}-${group.name}`}>
-                        <strong>{group.name}</strong>
-                        <p>{group.objects.length} objects</p>
-                        <p>{group.visible ? 'Visible' : 'Hidden'}</p>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="placeholder">This map has no object groups.</p>
-                )}
-              </section>
-
-              <section className="document-section">
-                <h3>Hovered tile</h3>
-                {hoverInfo ? (
-                  <dl className="details compact-details">
-                    <div>
-                      <dt>Tile</dt>
-                      <dd>
-                        {hoverInfo.tileX}, {hoverInfo.tileY}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Pixel</dt>
-                      <dd>
-                        {hoverInfo.pixelX}, {hoverInfo.pixelY}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Layer</dt>
-                      <dd>{hoverInfo.layerName ?? 'Empty across visible layers'}</dd>
-                    </div>
-                    <div>
-                      <dt>GID</dt>
-                      <dd>{hoverInfo.gid ?? 0}</dd>
-                    </div>
-                    <div>
-                      <dt>Tileset</dt>
-                      <dd>{hoverInfo.tilesetName ?? 'None'}</dd>
-                    </div>
-                    <div>
-                      <dt>Tile ID</dt>
-                      <dd>{hoverInfo.tileId ?? 'None'}</dd>
-                    </div>
-                    <div>
-                      <dt>Tile properties</dt>
-                      <dd>
-                        {hoverInfo.tileProperties && Object.keys(hoverInfo.tileProperties).length
-                          ? Object.entries(hoverInfo.tileProperties)
-                              .map(([key, value]) => `${key}=${String(value)}`)
-                              .join(', ')
-                          : 'None'}
-                      </dd>
-                    </div>
-                  </dl>
-                ) : (
-                  <p className="placeholder">Move the cursor over the viewport to inspect a tile.</p>
-                )}
-              </section>
-            </div>
-          ) : (
-            <p className="placeholder">
-              Load a TMX map from the left to inspect the parsed MapDocument structure.
-            </p>
-          )}
-        </section>
-      </section>
-    </main>
+      <StatusBar
+        copy={copy}
+        workspaceStatus={workspaceStatus}
+        directoryInfo={directoryInfo}
+        mapAssets={mapAssets}
+        activeAsset={activeAsset}
+        hoverInfo={hoverInfo}
+      />
+    </div>
   )
 }
-
-export default App

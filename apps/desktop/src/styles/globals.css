@@ -1,0 +1,354 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans:
+      "Segoe UI Variable Text", "SF Pro Text", "PingFang SC", "Microsoft YaHei UI", system-ui,
+      sans-serif;
+    --font-mono: "IBM Plex Mono", "Cascadia Mono", "JetBrains Mono", monospace;
+    --bg-app: #eef1f5;
+    --bg-panel: #f8fafc;
+    --bg-panel-muted: #eef2f7;
+    --bg-viewport: #dce2ec;
+    --bg-active: #dde7ff;
+    --bg-elevated: rgba(255, 255, 255, 0.88);
+    --text-primary: #18212f;
+    --text-secondary: #5b6576;
+    --text-tertiary: #7d8798;
+    --border-color: rgba(113, 128, 150, 0.28);
+    --accent: #4f46e5;
+    --accent-soft: rgba(79, 70, 229, 0.14);
+    --success: #16a34a;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --shadow-panel:
+      0 1px 2px rgba(15, 23, 42, 0.05),
+      0 12px 24px rgba(15, 23, 42, 0.08);
+    --shadow-float:
+      0 20px 40px rgba(15, 23, 42, 0.16),
+      0 8px 20px rgba(15, 23, 42, 0.12);
+    --grid-minor: rgba(92, 104, 124, 0.13);
+    --grid-major: rgba(92, 104, 124, 0.19);
+  }
+
+  .dark {
+    --bg-app: #14161d;
+    --bg-panel: #1c2028;
+    --bg-panel-muted: #171b22;
+    --bg-viewport: #0b0d12;
+    --bg-active: #303746;
+    --bg-elevated: rgba(28, 32, 40, 0.92);
+    --text-primary: #f3f6fb;
+    --text-secondary: #afb7c4;
+    --text-tertiary: #7d8798;
+    --border-color: rgba(161, 170, 184, 0.16);
+    --accent: #6366f1;
+    --accent-soft: rgba(99, 102, 241, 0.18);
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #f87171;
+    --shadow-panel:
+      0 1px 2px rgba(0, 0, 0, 0.25),
+      0 20px 40px rgba(0, 0, 0, 0.2);
+    --shadow-float:
+      0 26px 60px rgba(0, 0, 0, 0.35),
+      0 10px 24px rgba(0, 0, 0, 0.24);
+    --grid-minor: rgba(255, 255, 255, 0.05);
+    --grid-major: rgba(255, 255, 255, 0.08);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, color-mix(in srgb, var(--accent-soft) 100%, transparent), transparent 30%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-app) 94%, white 6%), var(--bg-app));
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior: none;
+    user-select: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent-soft) 92%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-secondary) 50%, transparent);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--text-secondary) 80%, transparent);
+  }
+}
+
+@layer components {
+  .panel-surface {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, white 4%), var(--bg-panel));
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-panel);
+    @apply flex min-h-0 flex-col overflow-hidden rounded-xl;
+  }
+
+  .panel-header {
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
+    @apply flex items-center justify-between gap-3 px-3 py-2;
+  }
+
+  .panel-title {
+    color: var(--text-secondary);
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+  }
+
+  .panel-subtitle {
+    color: var(--text-primary);
+    @apply text-xs font-medium;
+  }
+
+  .panel-body {
+    @apply min-h-0 flex-1 overflow-auto;
+  }
+
+  .control-input {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+    color: var(--text-primary);
+    @apply h-10 w-full rounded-lg px-3 text-sm outline-none transition-colors;
+  }
+
+  .control-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .control-input:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .control-button {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
+    color: var(--text-primary);
+    @apply inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium transition-colors;
+  }
+
+  .control-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 80%, transparent);
+  }
+
+  .control-button-primary {
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, white 14%), var(--accent));
+    color: white;
+  }
+
+  .icon-button {
+    color: var(--text-secondary);
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors;
+  }
+
+  .icon-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .window-control-button {
+    color: var(--text-secondary);
+    @apply inline-flex h-8 w-8 items-center justify-center transition-colors;
+  }
+
+  .window-control-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .window-control-close:hover {
+    background: color-mix(in srgb, var(--danger) 82%, transparent);
+    color: white;
+  }
+
+  .dock-chip {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
+    color: var(--text-secondary);
+    @apply inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold;
+  }
+
+  .status-pill-idle {
+    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
+    color: var(--text-secondary);
+  }
+
+  .status-pill-working {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .status-pill-ready {
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: var(--success);
+  }
+
+  .status-pill-error {
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    color: var(--danger);
+  }
+
+  .asset-row {
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    @apply w-full rounded-lg px-3 py-2 text-left transition-colors;
+  }
+
+  .asset-row:hover {
+    border-color: var(--border-color);
+    background: color-mix(in srgb, var(--bg-active) 68%, transparent);
+  }
+
+  .asset-row-active {
+    border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .tool-button {
+    color: var(--text-secondary);
+    @apply inline-flex h-8 items-center justify-center rounded-md px-2 transition-colors;
+  }
+
+  .tool-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .tool-button-active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .metric-card {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
+    @apply rounded-lg px-3 py-2;
+  }
+
+  .metric-label {
+    color: var(--text-secondary);
+    @apply text-[11px] uppercase tracking-[0.16em];
+  }
+
+  .metric-value {
+    color: var(--text-primary);
+    @apply mt-1 block text-sm font-semibold;
+  }
+
+  .kv-row {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+    @apply flex items-start justify-between gap-3 py-2 text-xs last:border-b-0;
+  }
+
+  .kv-row span:first-child {
+    color: var(--text-secondary);
+  }
+
+  .kv-row span:last-child {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    @apply text-right;
+  }
+
+  .context-menu-content {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-elevated) 100%, transparent);
+    box-shadow: var(--shadow-float);
+    @apply z-50 min-w-[190px] rounded-xl p-1 backdrop-blur-xl;
+  }
+
+  .context-menu-item {
+    color: var(--text-primary);
+    @apply flex h-8 items-center rounded-lg px-3 text-xs outline-none transition-colors;
+  }
+
+  .context-menu-item[data-highlighted] {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .context-menu-item[data-disabled] {
+    color: var(--text-tertiary);
+    @apply cursor-not-allowed;
+  }
+
+  .context-menu-separator {
+    background: color-mix(in srgb, var(--border-color) 80%, transparent);
+    @apply my-1 h-px;
+  }
+
+  .resize-handle {
+    @apply relative w-1.5 shrink-0;
+  }
+
+  .resize-handle::before {
+    content: "";
+    position: absolute;
+    inset: 0.375rem 0.125rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--border-color) 90%, transparent);
+    transition: background-color 160ms ease;
+  }
+
+  .resize-handle:hover::before,
+  .resize-handle[data-resize-handle-active]::before {
+    background: var(--accent);
+  }
+
+  .viewport-scroll-hidden {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .viewport-scroll-hidden::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
