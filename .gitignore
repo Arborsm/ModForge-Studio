@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+Thumbs.db
+
+apps/desktop/dist/
+apps/desktop/node_modules/
+apps/desktop/src-tauri/target/
+
+services/**/bin/
+services/**/obj/
+
+.vite/
+.dotnet/
+.idea/
+.vscode/

@@ -1,0 +1,16 @@
+{
+  "name": "modforge-studio",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @modforge/desktop",
+    "desktop:dev": "npm run tauri dev -w @modforge/desktop",
+    "build": "npm run build -w @modforge/desktop",
+    "lint": "npm run lint -w @modforge/desktop",
+    "desktop:build": "npm run tauri build -w @modforge/desktop"
+  }
+}
