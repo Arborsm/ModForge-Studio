@@ -83,12 +83,21 @@ export type MapAtlasWarpRoute = {
   path: MapAtlasPoint[]
 }
 
+export type MapAtlasPortal = {
+  id: string
+  fromMap: string
+  targetMap: string
+  label: string
+  position: MapAtlasPoint
+}
+
 export type MapAtlasData = {
   rootMapName: string
   originOffsetX: number
   originOffsetY: number
   placements: MapAtlasPlacement[]
   warpRoutes: MapAtlasWarpRoute[]
+  portals: MapAtlasPortal[]
 }
 
 export type MapDocument = {

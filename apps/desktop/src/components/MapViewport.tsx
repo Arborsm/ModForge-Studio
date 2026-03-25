@@ -12,13 +12,22 @@ import {
 } from 'react'
 import { resolveTilesetImagePath, toAssetUrl } from '../lib/maps/assets'
 import type { ThemeMode, ViewportLabels } from '../lib/editor-shell'
-import type { MapAtlasPoint, MapAtlasWarpRoute, MapDocument, MapObject, MapPropertyValue, MapTileset } from '../lib/maps/types'
+import type {
+  MapAtlasPoint,
+  MapAtlasPortal,
+  MapAtlasWarpRoute,
+  MapDocument,
+  MapObject,
+  MapPropertyValue,
+  MapTileset,
+} from '../lib/maps/types'
 
 type MapViewportProps = {
   mapDocument: MapDocument | null
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
   onHoverChange?: (info: TileHoverInfo | null) => void
+  onAtlasPortalOpen?: (targetMapName: string) => void
   labels: ViewportLabels
   theme: ThemeMode
   showGrid: boolean
@@ -232,6 +241,64 @@ function drawWarpRoute(context: CanvasRenderingContext2D, route: MapAtlasWarpRou
   context.restore()
 }
 
+function drawAtlasPortal(
+  context: CanvasRenderingContext2D,
+  portal: MapAtlasPortal,
+  tileWidth: number,
+  tileHeight: number,
+  zoom: number,
+  theme: ThemeMode,
+) {
+  const point = toCanvasPoint(portal.position, tileWidth, tileHeight, zoom)
+  const outerRadius = Math.max(6, 8 * zoom)
+  const innerRadius = Math.max(2.5, 3.5 * zoom)
+  const glowColor = theme === 'light' ? 'rgba(37, 99, 235, 0.3)' : 'rgba(56, 189, 248, 0.38)'
+  const ringColor = theme === 'light' ? 'rgba(30, 64, 175, 0.95)' : 'rgba(125, 211, 252, 0.98)'
+  const centerColor = theme === 'light' ? '#ffffff' : '#e0f2fe'
+  const label = portal.label
+
+  context.save()
+  context.shadowBlur = Math.max(10, 18 * zoom)
+  context.shadowColor = glowColor
+  context.beginPath()
+  context.fillStyle = glowColor
+  context.arc(point.x, point.y, outerRadius + Math.max(3, 5 * zoom), 0, Math.PI * 2)
+  context.fill()
+
+  context.shadowBlur = 0
+  context.beginPath()
+  context.fillStyle = ringColor
+  context.arc(point.x, point.y, outerRadius, 0, Math.PI * 2)
+  context.fill()
+
+  context.beginPath()
+  context.fillStyle = centerColor
+  context.arc(point.x, point.y, innerRadius, 0, Math.PI * 2)
+  context.fill()
+
+  context.beginPath()
+  context.strokeStyle = 'rgba(255,255,255,0.92)'
+  context.lineWidth = Math.max(1.5, 2.2 * zoom)
+  context.arc(point.x, point.y, outerRadius + Math.max(2, 3 * zoom), 0, Math.PI * 2)
+  context.stroke()
+
+  if (zoom >= 0.42) {
+    context.font = `${Math.max(10, Math.round(11 * Math.min(zoom, 1.25)))}px "Segoe UI", sans-serif`
+    const labelWidth = context.measureText(label).width + 12
+    const labelX = point.x + outerRadius + 8
+    const labelY = point.y - 11
+    context.fillStyle = theme === 'light' ? 'rgba(255,255,255,0.94)' : 'rgba(8,10,16,0.92)'
+    context.fillRect(labelX, labelY, labelWidth, 22)
+    context.strokeStyle = ringColor
+    context.lineWidth = 1
+    context.strokeRect(labelX, labelY, labelWidth, 22)
+    context.fillStyle = theme === 'light' ? '#0f172a' : '#f8fafc'
+    context.fillText(label, labelX + 6, labelY + 14.5)
+  }
+
+  context.restore()
+}
+
 function getObjectBounds(object: MapObject, minimumWorldSize: number) {
   const isPoint = object.width === 0 && object.height === 0
   const width = Math.abs(object.width) || minimumWorldSize
@@ -364,6 +431,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     visibleLayerIds,
     visibleObjectGroupIds,
     onHoverChange,
+    onAtlasPortalOpen,
     labels,
     theme,
     showGrid,
@@ -492,6 +560,27 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   )
   const atlasPlacements = useMemo(() => mapDocument?.atlas?.placements ?? [], [mapDocument])
   const atlasWarpRoutes = useMemo(() => mapDocument?.atlas?.warpRoutes ?? [], [mapDocument])
+  const atlasPortals = useMemo(() => mapDocument?.atlas?.portals ?? [], [mapDocument])
+
+  function getAtlasPortalAtWorldPoint(pixelX: number, pixelY: number) {
+    if (!mapDocument || !atlasPortals.length) {
+      return null
+    }
+
+    const pointX = pixelX / mapDocument.tileWidth
+    const pointY = pixelY / mapDocument.tileHeight
+    const hitRadius = Math.max(0.8, 14 / (Math.max(zoom, 0.1) * mapDocument.tileWidth))
+
+    for (const portal of atlasPortals) {
+      const deltaX = portal.position.x - pointX
+      const deltaY = portal.position.y - pointY
+      if (Math.hypot(deltaX, deltaY) <= hitRadius) {
+        return portal
+      }
+    }
+
+    return null
+  }
 
   function getFitZoom(document: MapDocument) {
     if (!viewportSize.width || !viewportSize.height) {
@@ -978,6 +1067,12 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       }
     }
 
+    if (atlasPortals.length) {
+      for (const portal of atlasPortals) {
+        drawAtlasPortal(context, portal, mapDocument.tileWidth, mapDocument.tileHeight, zoom, theme)
+      }
+    }
+
     if (atlasPlacements.length && mapDocument.format === 'atlas') {
       context.save()
       context.textBaseline = 'top'
@@ -1019,6 +1114,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     canvasLogicalSize.height,
     canvasLogicalSize.width,
     atlasPlacements,
+    atlasPortals,
     atlasWarpRoutes,
     mapDocument,
     showGrid,
@@ -1112,6 +1208,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       viewport.releasePointerCapture(event.pointerId)
     }
     viewport.style.cursor = 'grab'
+
+    const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY)
+    if (event.button === 0 && moved <= 6) {
+      const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
+      const portal = worldPoint ? getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY) : null
+      if (portal) {
+        onAtlasPortalOpen?.(portal.targetMap)
+        onHoverChange?.(null)
+        return
+      }
+    }
+
     updateHover(event)
   }
 

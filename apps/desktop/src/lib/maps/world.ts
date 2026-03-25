@@ -1,4 +1,5 @@
 import type {
+  MapAtlasPortal,
   MapAtlasPoint,
   MapAtlasPlacement,
   MapAtlasWarpRoute,
@@ -1379,6 +1380,211 @@ function buildAtlasWarpRoutes(placements: MapPlacement[], worldWidth: number, wo
   return routes
 }
 
+function buildAtlasPortals(placements: MapPlacement[]) {
+  const placementsByName = new Map<string, MapPlacement>()
+  const placedAliases = new Set<string>()
+
+  for (const placement of placements) {
+    for (const alias of getWorldAtlasNameAliases(placement.document.name)) {
+      placedAliases.add(alias)
+      if (!placementsByName.has(alias)) {
+        placementsByName.set(alias, placement)
+      }
+    }
+  }
+
+  const portalSamples = new Map<
+    string,
+    {
+      fromMap: string
+      targetMap: string
+      label: string
+      sourceX: number
+      sourceY: number
+      samples: number
+    }
+  >()
+
+  function addPortalSample(
+    sourceDocument: MapDocument,
+    targetMap: string,
+    sourceX: number,
+    sourceY: number,
+    label = targetMap,
+  ) {
+    const normalizedTargetMap = normalizeMapName(targetMap)
+    const sourceMapName = normalizeMapName(sourceDocument.name)
+    if (!normalizedTargetMap || normalizedTargetMap === sourceMapName || placedAliases.has(normalizedTargetMap)) {
+      return
+    }
+
+    const key = `${sourceMapName}=>${normalizedTargetMap}`
+    const sample = portalSamples.get(key)
+    if (sample) {
+      sample.sourceX += clamp(sourceX, 0, sourceDocument.width - 1)
+      sample.sourceY += clamp(sourceY, 0, sourceDocument.height - 1)
+      sample.samples += 1
+      return
+    }
+
+    portalSamples.set(key, {
+      fromMap: sourceDocument.name,
+      targetMap,
+      label,
+      sourceX: clamp(sourceX, 0, sourceDocument.width - 1),
+      sourceY: clamp(sourceY, 0, sourceDocument.height - 1),
+      samples: 1,
+    })
+  }
+
+  function parsePortalTargetMapFromAction(rawAction: string) {
+    const tokens = rawAction.trim().split(/\s+/)
+    if (!tokens.length) {
+      return null
+    }
+
+    const actionName = tokens[0]
+    if (actionName === 'LockedDoorWarp' && tokens.length >= 4) {
+      return tokens[3]
+    }
+
+    if (actionName === 'MagicWarp' && tokens.length >= 2) {
+      return tokens[1]
+    }
+
+    if (actionName === 'Warp') {
+      if (tokens.length >= 4 && Number.isFinite(Number(tokens[1])) && Number.isFinite(Number(tokens[2]))) {
+        return tokens[3]
+      }
+
+      if (tokens.length >= 2) {
+        return tokens[1]
+      }
+    }
+
+    return null
+  }
+
+  function getActionTargetMap(rawGid: number, sourceDocument: MapDocument) {
+    const gid = rawGid >>> 0
+    const baseGid = gid & TILE_ID_MASK
+    if (baseGid === 0) {
+      return null
+    }
+
+    const tileset = findTileset(sourceDocument.tilesets, baseGid)
+    if (!tileset) {
+      return null
+    }
+
+    const tileId = baseGid - tileset.firstGid
+    const tileProperties = tileset.tileProperties[tileId]
+    if (!tileProperties) {
+      return null
+    }
+
+    for (const propertyName of ['Action', 'TouchAction']) {
+      const rawAction = asPropertyString(tileProperties[propertyName]).trim()
+      if (!rawAction) {
+        continue
+      }
+
+      const targetMap = parsePortalTargetMapFromAction(rawAction)
+      if (targetMap) {
+        return targetMap
+      }
+    }
+
+    return null
+  }
+
+  function getPortalTargetMapFromProperties(properties: Record<string, MapPropertyValue>) {
+    for (const propertyName of ['Action', 'TouchAction']) {
+      const rawAction = asPropertyString(properties[propertyName]).trim()
+      if (!rawAction) {
+        continue
+      }
+
+      const targetMap = parsePortalTargetMapFromAction(rawAction)
+      if (targetMap) {
+        return targetMap
+      }
+    }
+
+    return null
+  }
+
+  for (const placement of placements) {
+    const sourceDocument = placement.document
+
+    for (const group of sourceDocument.objectGroups) {
+      for (const object of group.objects) {
+        const targetMap = getPortalTargetMapFromProperties(object.properties)
+        if (!targetMap) {
+          continue
+        }
+
+        addPortalSample(
+          sourceDocument,
+          targetMap,
+          object.x / sourceDocument.tileWidth,
+          object.y / sourceDocument.tileHeight,
+          targetMap,
+        )
+      }
+    }
+
+    for (const entry of parseWarpEntries(sourceDocument)) {
+      if (isExteriorWarp(sourceDocument, entry)) {
+        continue
+      }
+
+      addPortalSample(sourceDocument, entry.targetMap, entry.sourceX, entry.sourceY)
+    }
+
+    for (const layer of sourceDocument.layers) {
+      for (let index = 0; index < layer.gids.length; index += 1) {
+        const rawGid = layer.gids[index] ?? 0
+        const targetMap = getActionTargetMap(rawGid, sourceDocument)
+        if (!targetMap) {
+          continue
+        }
+
+        const tileX = index % layer.width
+        const tileY = Math.floor(index / layer.width)
+        addPortalSample(
+          sourceDocument,
+          targetMap,
+          tileX,
+          tileY,
+          targetMap,
+        )
+      }
+    }
+  }
+
+  const portals: MapAtlasPortal[] = []
+  for (const [key, sample] of portalSamples) {
+    const sourcePlacement = placementsByName.get(normalizeMapName(sample.fromMap))
+    if (!sourcePlacement) {
+      continue
+    }
+
+    portals.push({
+      id: key,
+      fromMap: sourcePlacement.document.name,
+      targetMap: sample.targetMap,
+      label: sample.label,
+      position: {
+        x: sourcePlacement.offsetX + sample.sourceX / sample.samples + 0.5,
+        y: sourcePlacement.offsetY + sample.sourceY / sample.samples + 0.5,
+      },
+    })
+  }
+
+  return portals
+}
+
 function normalizePlacements(placements: MapPlacement[]) {
   const minX = Math.min(...placements.map((placement) => placement.offsetX))
   const minY = Math.min(...placements.map((placement) => placement.offsetY))
@@ -1440,6 +1646,7 @@ export function buildWorldAtlas(
   const atlasLayers = buildAtlasLayers(normalizedPlacements, worldWidth, worldHeight, firstGidMaps)
   const atlasObjectGroups = buildAtlasObjectGroups(normalizedPlacements)
   const atlasWarpRoutes = buildAtlasWarpRoutes(normalizedPlacements, worldWidth, worldHeight)
+  const atlasPortals = buildAtlasPortals(normalizedPlacements)
   const atlasPlacements: MapAtlasPlacement[] = normalizedPlacements.map((placement) => ({
     mapName: placement.document.name,
     sourcePath: placement.document.sourcePath,
@@ -1475,6 +1682,7 @@ export function buildWorldAtlas(
       originOffsetY: normalizedLayout.originOffsetY,
       placements: atlasPlacements,
       warpRoutes: atlasWarpRoutes,
+      portals: atlasPortals,
     },
   }
 }

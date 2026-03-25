@@ -85,6 +85,11 @@ function pickWorldAtlasRootMapName(mapDocuments: MapDocument[], candidates: stri
   return mapDocuments[0]?.name ?? null
 }
 
+function matchesWorldAtlasMapName(left: string, right: string) {
+  const rightAliases = new Set(getWorldAtlasNameAliases(right))
+  return getWorldAtlasNameAliases(left).some((alias) => rightAliases.has(alias))
+}
+
 function isRemoteWorldAtlasDocument(document: MapDocument) {
   const normalizedName = document.name.trim().toLowerCase()
   const locationContext =
@@ -237,6 +242,22 @@ export default function App() {
     }
 
     return parseTmxMap(asset.absolutePath, asset.relativePath, asset.content)
+  }
+
+  function findMapAssetByName(mapName: string) {
+    const normalizedAliases = new Set(getWorldAtlasNameAliases(mapName))
+    return (
+      mapAssets.find((asset) => asset.format === 'tmx' && getWorldAtlasNameAliases(asset.name).some((alias) => normalizedAliases.has(alias))) ??
+      null
+    )
+  }
+
+  function findWorldAtlasViewByMapName(mapName: string) {
+    return (
+      worldAtlasViews.find((view) =>
+        view.document.atlas?.placements.some((placement) => matchesWorldAtlasMapName(placement.mapName, mapName)),
+      ) ?? null
+    )
   }
 
   async function openMap(
@@ -426,6 +447,25 @@ export default function App() {
     })
   }
 
+  function handleOpenAtlasTarget(targetMapName: string) {
+    const atlasView = findWorldAtlasViewByMapName(targetMapName)
+    if (atlasView) {
+      handleSelectWorldAtlasView(atlasView.id)
+      return
+    }
+
+    const targetAsset = findMapAssetByName(targetMapName)
+    if (targetAsset) {
+      void openMap(targetAsset)
+      return
+    }
+
+    setWorkspaceStatus({
+      tone: 'error',
+      message: `${copy.messages.loadingMapFailed} Missing map asset "${targetMapName}".`,
+    })
+  }
+
   async function handleValidateOnly() {
     void ensureValidatedDirectory(gameDirectory)
   }
@@ -574,6 +614,7 @@ export default function App() {
               worldAtlasViews={worldAtlasViews}
               activeWorldAtlasViewId={activeWorldAtlasViewId}
               onSelectWorldAtlasView={handleSelectWorldAtlasView}
+              onOpenAtlasTarget={handleOpenAtlasTarget}
               theme={theme}
               visibleLayerIds={visibleLayerIds}
               visibleObjectGroupIds={visibleObjectGroupIds}

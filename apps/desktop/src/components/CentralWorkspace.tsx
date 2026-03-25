@@ -23,6 +23,7 @@ type CentralWorkspaceProps = {
   worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
   activeWorldAtlasViewId: 'main' | 'remote' | null
   onSelectWorldAtlasView: (viewId: 'main' | 'remote') => void
+  onOpenAtlasTarget: (targetMapName: string) => void
   theme: ThemeMode
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
@@ -40,6 +41,7 @@ export default function CentralWorkspace({
   worldAtlasViews,
   activeWorldAtlasViewId,
   onSelectWorldAtlasView,
+  onOpenAtlasTarget,
   theme,
   visibleLayerIds,
   visibleObjectGroupIds,
@@ -162,6 +164,7 @@ export default function CentralWorkspace({
             visibleLayerIds={visibleLayerIds}
             visibleObjectGroupIds={visibleObjectGroupIds}
             onHoverChange={onHoverChange}
+            onAtlasPortalOpen={onOpenAtlasTarget}
             labels={copy.viewportLabels}
             theme={theme}
             showGrid={showGrid}
