@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type CSSProperties,
   type PointerEvent,
 } from 'react'
@@ -34,6 +35,10 @@ type MapViewportProps = {
   accentColor: string
   showGrid: boolean
   onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
+  showStatsChips?: boolean
+  mapOverlay?: ReactNode
+  viewportOverlay?: ReactNode
+  focusWorldPoint?: ViewportWorldPoint | null
 }
 
 type TilesetImageState = {
@@ -106,6 +111,8 @@ type FocusWorldPoint = {
   worldX: number
   worldY: number
 }
+
+export type ViewportWorldPoint = FocusWorldPoint
 
 const imageCache = new Map<string, HTMLImageElement>()
 const imagePromiseCache = new Map<string, Promise<HTMLImageElement>>()
@@ -577,6 +584,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     accentColor,
     showGrid,
     onZoomChange,
+    showStatsChips = true,
+    mapOverlay,
+    viewportOverlay,
+    focusWorldPoint,
   },
   ref,
 ) {
@@ -1028,6 +1039,14 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     },
     [canvasOffset.left, canvasOffset.top, forceViewportRefresh, zoom],
   )
+
+  useLayoutEffect(() => {
+    if (!mapDocument || !focusWorldPoint) {
+      return
+    }
+
+    centerViewportOnWorldPoint(focusWorldPoint.worldX, focusWorldPoint.worldY)
+  }, [centerViewportOnWorldPoint, focusWorldPoint, mapDocument])
 
   const setZoomAnchorFromClient = useCallback((clientX: number, clientY: number) => {
     const viewport = viewportRef.current
@@ -1697,19 +1716,21 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             }}
           />
 
-          <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
-            <span className="dock-chip">
-              {mapDocument.width} x {mapDocument.height} {labels.tilesLabel}
-            </span>
-            <span className="dock-chip">
-              {labels.tilesetsLoadedLabel(Object.keys(tilesetImages).length, mapDocument.tilesets.length)}
-            </span>
-            <span className="dock-chip">{labels.layersVisibleLabel(visibleLayers.length, mapDocument.layers.length)}</span>
-            <span className="dock-chip">
-              {labels.objectGroupsVisibleLabel(visibleObjectGroups.length, mapDocument.objectGroups.length)}
-            </span>
-            <span className="dock-chip">{labels.zoomLabel(zoom)}</span>
-          </div>
+          {showStatsChips ? (
+            <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
+              <span className="dock-chip">
+                {mapDocument.width} x {mapDocument.height} {labels.tilesLabel}
+              </span>
+              <span className="dock-chip">
+                {labels.tilesetsLoadedLabel(Object.keys(tilesetImages).length, mapDocument.tilesets.length)}
+              </span>
+              <span className="dock-chip">{labels.layersVisibleLabel(visibleLayers.length, mapDocument.layers.length)}</span>
+              <span className="dock-chip">
+                {labels.objectGroupsVisibleLabel(visibleObjectGroups.length, mapDocument.objectGroups.length)}
+              </span>
+              <span className="dock-chip">{labels.zoomLabel(zoom)}</span>
+            </div>
+          ) : null}
 
           {imageError ? (
             <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-[var(--danger)]">
@@ -1726,6 +1747,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
               display: viewportSize.width > 0 && viewportSize.height > 0 ? 'block' : 'none',
             }}
           />
+
+          {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-[3]">{viewportOverlay}</div> : null}
 
           <div ref={frameRef} className="absolute inset-0">
             <div
@@ -1753,6 +1776,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                     height: `${canvasLogicalSize.height}px`,
                   }}
                 />
+                {mapOverlay ? (
+                  <div
+                    className="pointer-events-none absolute z-[2]"
+                    style={{
+                      left: `${canvasOffset.left}px`,
+                      top: `${canvasOffset.top}px`,
+                      width: `${canvasLogicalSize.width}px`,
+                      height: `${canvasLogicalSize.height}px`,
+                    }}
+                  >
+                    {mapOverlay}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

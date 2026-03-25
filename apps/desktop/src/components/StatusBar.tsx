@@ -1,11 +1,12 @@
 import { CheckCircle2, FolderSearch, TriangleAlert } from 'lucide-react'
 import type { TileHoverInfo } from './MapViewport'
-import type { EditorCopy, WorkspaceTone } from '../lib/editor-shell'
+import type { EditorCopy, WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import type { MapDocument } from '../lib/maps/types'
 
 type StatusBarProps = {
   copy: EditorCopy
+  workspaceMode: WorkspaceMode
   workspaceStatus: {
     tone: WorkspaceTone
     message: string
@@ -20,6 +21,7 @@ type StatusBarProps = {
 
 export default function StatusBar({
   copy,
+  workspaceMode,
   workspaceStatus,
   directoryInfo,
   mapAssets,
@@ -55,23 +57,25 @@ export default function StatusBar({
         <div className="truncate">{workspaceStatus.message || copy.statusTone[workspaceStatus.tone]}</div>
       </div>
 
-      <div className="flex min-w-0 items-center gap-4 overflow-hidden font-mono">
-        <span className="truncate">
-          {copy.center.activeScene}: {mapDocument?.name ?? activeAsset?.name ?? copy.common.none}
-        </span>
-        <span className="truncate" title={pathLabel}>
-          {copy.common.path}: {pathLabel}
-        </span>
-        <span className="truncate" title={hoverSummary}>
-          {copy.statusBar.hover}: {hoverSummary}
-        </span>
-        <span>
-          {copy.statusBar.coordinates}: X {hoverInfo?.pixelX ?? 0} Y {hoverInfo?.pixelY ?? 0}
-        </span>
-        <span className="truncate" title={hoverDetails}>
-          {hoverDetails}
-        </span>
-      </div>
+      {workspaceMode === 'map' ? (
+        <div className="flex min-w-0 items-center gap-4 overflow-hidden font-mono">
+          <span className="truncate">
+            {copy.center.activeScene}: {mapDocument?.name ?? activeAsset?.name ?? copy.common.none}
+          </span>
+          <span className="truncate" title={pathLabel}>
+            {copy.common.path}: {pathLabel}
+          </span>
+          <span className="truncate" title={hoverSummary}>
+            {copy.statusBar.hover}: {hoverSummary}
+          </span>
+          <span>
+            {copy.statusBar.coordinates}: X {hoverInfo?.pixelX ?? 0} Y {hoverInfo?.pixelY ?? 0}
+          </span>
+          <span className="truncate" title={hoverDetails}>
+            {hoverDetails}
+          </span>
+        </div>
+      ) : null}
     </footer>
   )
 }

@@ -15,6 +15,7 @@ import {
 } from './lib/editor-shell'
 import { rgbaFromHex } from './lib/app/color'
 import { ACCENT_PRESETS, ACCENT_STORAGE_KEY, WORKSPACE_LAYOUT_VERSION } from './lib/app/constants'
+import { useEventWorkspace } from './lib/app/useEventWorkspace'
 import { useMapWorkspace } from './lib/app/useMapWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 
@@ -47,6 +48,7 @@ export default function App() {
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
   const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
+  const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
 
   const copy = editorCopy[locale]
@@ -96,11 +98,36 @@ export default function App() {
     getWorldAtlasViewLabel,
   })
 
-  const moduleBlueprint = workspaceMode === 'map' ? undefined : copy.moduleBlueprints[workspaceMode]
+  const {
+    eventAssets,
+    filteredEventAssets,
+    eventAssetFilter,
+    setEventAssetFilter,
+    activeEventAssetId,
+    activeEventAsset,
+    parsedEventAsset,
+    selectedEventKey,
+    selectedEvent,
+    selectedTimelineEntryId,
+    setSelectedTimelineEntryId,
+    timelineJumpRequestId,
+    requestTimelineJump,
+    clearTimelineJumpRequest,
+    eventStatusMessage,
+    handleOpenEventAsset,
+    handleSelectEvent,
+  } = useEventWorkspace({
+    copy,
+    locale,
+    directoryInfo,
+  })
+
+  const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' ? undefined : copy.moduleBlueprints[workspaceMode]
   const viewMenuCopy = getViewMenuCopy(locale)
   const settingsMenuCopy = getSettingsMenuCopy(locale)
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
+  const activeSceneLabel = workspaceMode === 'events' ? activeEventAsset?.name : activeAssetName
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -118,6 +145,7 @@ export default function App() {
 
   const workspacePanels = buildWorkspacePanels({
     copy,
+    locale,
     workspaceMode,
     desktopHost,
     gameDirectory,
@@ -161,6 +189,25 @@ export default function App() {
     onHoverChange: setHoverInfo,
     workspaceStatus,
     moduleBlueprint,
+    eventAssets,
+    filteredEventAssets,
+    activeEventAssetId,
+    eventAssetFilter,
+    onEventAssetFilterChange: setEventAssetFilter,
+    onOpenEventAsset: handleOpenEventAsset,
+    parsedEventAsset,
+    selectedEventKey,
+    selectedEvent,
+    selectedTimelineEntryId,
+    timelineJumpRequestId,
+    currentEventCommandId,
+    eventStatusMessage,
+    onSelectEvent: handleSelectEvent,
+    onSelectTimelineEntry: setSelectedTimelineEntryId,
+    onActivateTimelineEntry: requestTimelineJump,
+    onTimelineJumpHandled: clearTimelineJumpRequest,
+    activeSceneLabel,
+    onPlaybackCommandChange: setCurrentEventCommandId,
   })
 
   const handleLayoutMetaChange = useCallback(
@@ -262,9 +309,9 @@ export default function App() {
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <WorkspaceLayout
-          key={WORKSPACE_LAYOUT_VERSION}
+          key={`${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
           ref={workspaceLayoutRef}
-          storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}`}
+          storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
           panels={workspacePanels}
           onLayoutMetaChange={handleLayoutMetaChange}
         />
@@ -272,6 +319,7 @@ export default function App() {
 
       <StatusBar
         copy={copy}
+        workspaceMode={workspaceMode}
         workspaceStatus={workspaceStatus}
         directoryInfo={directoryInfo}
         mapAssets={mapAssets}

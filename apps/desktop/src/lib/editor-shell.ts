@@ -312,7 +312,7 @@ function buildEditorCopy(raw: RawEditorCopy): EditorCopy {
   }
 }
 
-export const workspaceModes: WorkspaceMode[] = ['map', 'characters', 'buildings', 'items', 'events']
+export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
   'zh-CN': buildEditorCopy(localeBundles['zh-CN'].editor),

@@ -24,6 +24,15 @@ export type MapAssetSummary = {
   sizeBytes: number
 }
 
+export type EventAssetSummary = {
+  id: string
+  name: string
+  fileName: string
+  absolutePath: string
+  relativePath: string
+  sizeBytes: number
+}
+
 export type MapAssetContent = {
   name: string
   format: 'tmx' | 'xnb'
@@ -78,6 +87,10 @@ export function validateGameDirectory(path: string) {
 
 export function scanMaps(path: string) {
   return invokeDesktop<MapAssetSummary[]>('scan_maps', { path })
+}
+
+export function scanEvents(path: string) {
+  return invokeDesktop<EventAssetSummary[]>('scan_events', { path })
 }
 
 export function loadMapAsset(rootPath: string, mapPath: string) {

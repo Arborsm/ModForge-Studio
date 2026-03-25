@@ -1,15 +1,21 @@
 import CentralWorkspace from '../../components/CentralWorkspace'
-import { AssetBrowserPanel, ProjectPanel } from '../../components/LeftPanels'
+import EventStageWorkspace from '../../components/EventStageWorkspace'
+import { AssetBrowserPanel, EventBrowserPanel, ProjectPanel } from '../../components/LeftPanels'
 import { DiagnosticsPanel, InspectorPanel, LayersPanel, ObjectGroupsPanel } from '../../components/RightPanels'
+import { EventTimelinePanel } from '../../components/panels/bottom/EventTimelinePanel'
+import { EventCommandInspectorPanel } from '../../components/panels/right/EventCommandInspectorPanel'
+import { EventDirectoryPanel } from '../../components/panels/right/EventDirectoryPanel'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '../../components/MapViewport'
 import type { WorkspacePanelConfig } from '../../components/WorkspaceLayout'
-import type { GameDirectoryInfo, MapAssetSummary } from '../desktop'
-import type { EditorCopy, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../editor-shell'
+import type { EventAssetSummary, GameDirectoryInfo, MapAssetSummary } from '../desktop'
+import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../editor-shell'
+import type { EventScript, ParsedEventAsset } from '../events/types'
 import type { MapDocument } from '../maps/types'
 import type { WorldAtlasView } from './types'
 
 type BuildWorkspacePanelsOptions = {
   copy: EditorCopy
+  locale: LocaleCode
   workspaceMode: WorkspaceMode
   desktopHost: boolean
   gameDirectory: string
@@ -60,10 +66,30 @@ type BuildWorkspacePanelsOptions = {
     message: string
   }
   moduleBlueprint?: ModuleBlueprint
+  eventAssets: EventAssetSummary[]
+  filteredEventAssets: EventAssetSummary[]
+  activeEventAssetId: string | null
+  eventAssetFilter: string
+  onEventAssetFilterChange: (value: string) => void
+  onOpenEventAsset: (asset: EventAssetSummary) => void
+  parsedEventAsset: ParsedEventAsset | null
+  selectedEventKey: string | null
+  selectedEvent: EventScript | null
+  selectedTimelineEntryId: string
+  timelineJumpRequestId: string | null
+  currentEventCommandId: string | null
+  eventStatusMessage: string
+  onSelectEvent: (eventKey: string) => void
+  onSelectTimelineEntry: (entryId: string) => void
+  onActivateTimelineEntry: (entryId: string) => void
+  onTimelineJumpHandled: () => void
+  onPlaybackCommandChange: (commandId: string | null) => void
+  activeSceneLabel?: string
 }
 
 export function buildWorkspacePanels({
   copy,
+  locale,
   workspaceMode,
   desktopHost,
   gameDirectory,
@@ -105,6 +131,25 @@ export function buildWorkspacePanels({
   onHoverChange,
   workspaceStatus,
   moduleBlueprint,
+  eventAssets,
+  filteredEventAssets,
+  activeEventAssetId,
+  eventAssetFilter,
+  onEventAssetFilterChange,
+  onOpenEventAsset,
+  parsedEventAsset,
+  selectedEventKey,
+  selectedEvent,
+  selectedTimelineEntryId,
+  timelineJumpRequestId,
+  currentEventCommandId,
+  eventStatusMessage,
+  onSelectEvent,
+  onSelectTimelineEntry,
+  onActivateTimelineEntry,
+  onTimelineJumpHandled,
+  onPlaybackCommandChange,
+  activeSceneLabel,
 }: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
   return [
     {
@@ -131,7 +176,7 @@ export function buildWorkspacePanels({
           directoryInfo={directoryInfo}
           mapAssets={mapAssets}
           activeMapId={activeMapId}
-          sceneLabel={workspaceMode === 'map' ? activeAssetName : undefined}
+          sceneLabel={workspaceMode === 'map' ? activeAssetName : activeSceneLabel}
         />
       ),
     },
@@ -144,7 +189,17 @@ export function buildWorkspacePanels({
       dockMinHeight: 240,
       defaultDock: 'left-bottom',
       defaultDockHeight: 520,
-      content: (
+      content: workspaceMode === 'events' ? (
+        <EventBrowserPanel
+          locale={locale}
+          eventAssets={eventAssets}
+          filteredEventAssets={filteredEventAssets}
+          activeEventAssetId={activeEventAssetId}
+          assetFilter={eventAssetFilter}
+          onAssetFilterChange={onEventAssetFilterChange}
+          onOpenAsset={onOpenEventAsset}
+        />
+      ) : (
         <AssetBrowserPanel
           copy={copy}
           mapAssets={mapAssets}
@@ -164,7 +219,22 @@ export function buildWorkspacePanels({
       minHeight: 420,
       defaultDock: 'center',
       defaultDockHeight: 760,
-      content: (
+      content: workspaceMode === 'events' ? (
+        <EventStageWorkspace
+          locale={locale}
+          directoryInfo={directoryInfo}
+          viewportLabels={copy.viewportLabels}
+          theme={theme}
+          accentColor={accentColor}
+          parsedEventAsset={parsedEventAsset}
+          selectedEvent={selectedEvent}
+          eventStatusMessage={eventStatusMessage}
+          timelineJumpRequestId={timelineJumpRequestId}
+          onTimelineJumpHandled={onTimelineJumpHandled}
+          onSelectTimelineEntry={onSelectTimelineEntry}
+          onPlaybackCommandChange={onPlaybackCommandChange}
+        />
+      ) : (
         <CentralWorkspace
           copy={copy}
           workspaceMode={workspaceMode}
@@ -190,77 +260,110 @@ export function buildWorkspacePanels({
     },
     {
       id: 'inspector',
-      title: copy.rightDock.inspector,
-      subtitle: copy.rightDock.sceneSummary,
+      title: workspaceMode === 'events' ? 'Event Directory' : copy.rightDock.inspector,
+      subtitle: workspaceMode === 'events' ? eventStatusMessage : copy.rightDock.sceneSummary,
       minWidth: 320,
       minHeight: 260,
       dockMinHeight: 180,
       dockAutoHeight: true,
       defaultDock: 'right-top',
-      defaultDockHeight: 220,
-      content: <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />,
+      defaultDockHeight: workspaceMode === 'events' ? 280 : 220,
+      content:
+        workspaceMode === 'events' ? (
+          <EventDirectoryPanel
+            locale={locale}
+            events={parsedEventAsset?.events ?? []}
+            selectedEventKey={selectedEventKey}
+            subtitle={eventStatusMessage}
+            onSelectEvent={onSelectEvent}
+          />
+        ) : (
+          <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />
+        ),
     },
     {
       id: 'layers',
-      title: copy.rightDock.layers,
-      subtitle: copy.rightDock.subtitle,
+      title: workspaceMode === 'events' ? 'Command Inspector' : copy.rightDock.layers,
+      subtitle: workspaceMode === 'events' ? (selectedEvent?.eventId ?? parsedEventAsset?.asset.name ?? '') : copy.rightDock.subtitle,
       minWidth: 320,
-      minHeight: 260,
-      dockMinHeight: 220,
+      minHeight: workspaceMode === 'events' ? 180 : 260,
+      dockMinHeight: workspaceMode === 'events' ? 160 : 220,
+      dockAutoHeight: workspaceMode === 'events',
       defaultDock: 'right-bottom',
-      defaultDockHeight: 320,
-      content: (
-        <LayersPanel
-          copy={copy}
-          mapDocument={mapDocument}
-          visibleLayerIds={visibleLayerIds}
-          onToggleLayer={onToggleLayer}
-          onShowAllLayers={onShowAllLayers}
-          onHideAllLayers={onHideAllLayers}
-        />
-      ),
+      defaultDockHeight: workspaceMode === 'events' ? 220 : 320,
+      content:
+        workspaceMode === 'events' ? (
+          <EventCommandInspectorPanel
+            locale={locale}
+            selectedEvent={selectedEvent}
+            selectedTimelineEntryId={selectedTimelineEntryId}
+          />
+        ) : (
+          <LayersPanel
+            copy={copy}
+            mapDocument={mapDocument}
+            visibleLayerIds={visibleLayerIds}
+            onToggleLayer={onToggleLayer}
+            onShowAllLayers={onShowAllLayers}
+            onHideAllLayers={onHideAllLayers}
+          />
+        ),
     },
-    {
-      id: 'object-groups',
-      title: copy.rightDock.objectGroups,
-      subtitle: copy.rightDock.subtitle,
-      minWidth: 320,
-      minHeight: 300,
-      dockMinHeight: 240,
-      defaultDock: 'right-bottom',
-      defaultDockHeight: 360,
-      content: (
-        <ObjectGroupsPanel
-          copy={copy}
-          mapDocument={mapDocument}
-          visibleObjectGroupIds={visibleObjectGroupIds}
-          onToggleObjectGroup={onToggleObjectGroup}
-          onShowAllObjectGroups={onShowAllObjectGroups}
-          onHideAllObjectGroups={onHideAllObjectGroups}
-          focusedObjectTarget={focusedObjectTarget}
-          onFocusObject={onFocusObject}
-        />
-      ),
-    },
+    ...(workspaceMode === 'events'
+      ? []
+      : [
+          {
+            id: 'object-groups',
+            title: copy.rightDock.objectGroups,
+            subtitle: copy.rightDock.subtitle,
+            minWidth: 320,
+            minHeight: 300,
+            dockMinHeight: 240,
+            defaultDock: 'right-bottom',
+            defaultDockHeight: 360,
+            content: (
+              <ObjectGroupsPanel
+                copy={copy}
+                mapDocument={mapDocument}
+                visibleObjectGroupIds={visibleObjectGroupIds}
+                onToggleObjectGroup={onToggleObjectGroup}
+                onShowAllObjectGroups={onShowAllObjectGroups}
+                onHideAllObjectGroups={onHideAllObjectGroups}
+                focusedObjectTarget={focusedObjectTarget}
+                onFocusObject={onFocusObject}
+              />
+            ),
+          } satisfies WorkspacePanelConfig,
+        ]),
     {
       id: 'diagnostics',
-      title: copy.rightDock.diagnostics,
-      subtitle: copy.rightDock.projectFacts,
+      title: workspaceMode === 'events' ? 'Script Timeline' : copy.rightDock.diagnostics,
+      subtitle: workspaceMode === 'events' ? (selectedEvent?.eventId ?? parsedEventAsset?.asset.name ?? '') : copy.rightDock.projectFacts,
       minWidth: 320,
-      minHeight: 260,
-      dockMinHeight: 160,
+      minHeight: 180,
+      dockMinHeight: 140,
       dockAutoHeight: true,
-      defaultDock: 'bottom-right',
-      defaultDockHeight: 300,
-      content: (
-        <DiagnosticsPanel
-          copy={copy}
-          directoryInfo={directoryInfo}
-          visibleLayerIds={visibleLayerIds}
-          visibleObjectGroupIds={visibleObjectGroupIds}
-          workspaceStatus={workspaceStatus}
-        />
-      ),
+      defaultDock: workspaceMode === 'events' ? 'bottom-left' : 'bottom-right',
+      defaultDockHeight: 190,
+      content:
+        workspaceMode === 'events' ? (
+          <EventTimelinePanel
+            locale={locale}
+            selectedEvent={selectedEvent}
+            selectedTimelineEntryId={selectedTimelineEntryId}
+            currentCommandId={currentEventCommandId}
+            onSelectTimelineEntry={onSelectTimelineEntry}
+            onActivateTimelineEntry={onActivateTimelineEntry}
+          />
+        ) : (
+          <DiagnosticsPanel
+            copy={copy}
+            directoryInfo={directoryInfo}
+            visibleLayerIds={visibleLayerIds}
+            visibleObjectGroupIds={visibleObjectGroupIds}
+            workspaceStatus={workspaceStatus}
+          />
+        ),
     },
   ]
 }

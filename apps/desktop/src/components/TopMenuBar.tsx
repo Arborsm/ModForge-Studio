@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { EditorCopy, LocaleCode, ThemeMode, WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
+import { workspaceModes, type EditorCopy, type LocaleCode, type ThemeMode, type WorkspaceMode, type WorkspaceTone } from '../lib/editor-shell'
 import { cx } from '../lib/cx'
 import type { WorkspacePanelMeta } from './WorkspaceLayout'
 
@@ -76,6 +76,8 @@ export default function TopMenuBar({
 }: TopMenuBarProps) {
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
+  const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
+  const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [mode, copy.nav[mode]] as const)
 
   useEffect(() => {
     if (!viewMenuOpen) {
@@ -93,7 +95,6 @@ export default function TopMenuBar({
     window.addEventListener('mousedown', handlePointerDown)
     return () => window.removeEventListener('mousedown', handlePointerDown)
   }, [viewMenuOpen])
-
   return (
     <header className="relative z-[120] border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
       <div className="flex h-12 items-center justify-between gap-3 px-3">
@@ -251,8 +252,7 @@ export default function TopMenuBar({
       </div>
 
       <div className="flex h-12 items-center gap-2 overflow-x-auto border-t border-[color-mix(in_srgb,var(--border-color)_70%,transparent)] px-3">
-        {Object.entries(copy.nav).map(([mode, label]) => {
-          const typedMode = mode as WorkspaceMode
+        {visibleNavEntries.map(([typedMode, label]) => {
           const Icon = MODULE_ICONS[typedMode]
           const active = workspaceMode === typedMode
 

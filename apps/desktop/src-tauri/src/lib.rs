@@ -30,6 +30,17 @@ struct MapAssetSummary {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct EventAssetSummary {
+    id: String,
+    name: String,
+    file_name: String,
+    absolute_path: String,
+    relative_path: String,
+    size_bytes: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct MapAssetContent {
     name: String,
     format: String,
@@ -79,6 +90,10 @@ fn map_source_paths(root: &Path) -> (PathBuf, PathBuf) {
         root.join("Content (unpacked)").join("Maps"),
         root.join("Content").join("Maps"),
     )
+}
+
+fn event_source_path(root: &Path) -> PathBuf {
+    root.join("Content (unpacked)").join("Data").join("Events")
 }
 
 fn count_map_files(maps_path: &Path, extension: &str) -> Result<usize, String> {
@@ -226,6 +241,75 @@ fn scan_maps(path: String) -> Result<Vec<MapAssetSummary>, String> {
 }
 
 #[tauri::command]
+fn scan_events(path: String) -> Result<Vec<EventAssetSummary>, String> {
+    let root = clean_input_path(&path);
+    read_directory_info(&root)?;
+
+    let events_path = event_source_path(&root);
+    if !events_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = fs::read_dir(&events_path)
+        .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&events_path)))?;
+
+    let mut events = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Failed to inspect event entry: {error}"))?;
+        let absolute_path = entry.path();
+        if !absolute_path.is_file() {
+            continue;
+        }
+
+        let is_json = absolute_path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("json"));
+        if !is_json {
+            continue;
+        }
+
+        let stem = absolute_path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+
+        // Filter out locale variants like Town.zh-CN.json from the main asset list.
+        if stem
+            .rsplit_once('.')
+            .is_some_and(|(_, suffix)| suffix.len() == 5 && suffix.chars().nth(2) == Some('-'))
+        {
+            continue;
+        }
+
+        let metadata = entry
+            .metadata()
+            .map_err(|error| format!("Failed to read file metadata: {error}"))?;
+        let relative_path = absolute_path
+            .strip_prefix(&root)
+            .map_err(|error| format!("Failed to derive relative path: {error}"))?;
+        let name = stem.to_string();
+        let file_name = absolute_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_string();
+
+        events.push(EventAssetSummary {
+            id: normalize_path(relative_path).replace('\\', "/"),
+            name,
+            file_name,
+            absolute_path: normalize_path(&absolute_path),
+            relative_path: normalize_path(relative_path),
+            size_bytes: metadata.len(),
+        });
+    }
+
+    events.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(events)
+}
+
+#[tauri::command]
 fn load_map_asset(root_path: String, map_path: String) -> Result<MapAssetContent, String> {
     let root = clean_input_path(&root_path);
     let absolute_path = clean_input_path(&map_path);
@@ -305,6 +389,7 @@ pub fn run() {
             detect_default_game_directory,
             validate_game_directory,
             scan_maps,
+            scan_events,
             load_map_asset,
             load_text_asset
         ])
