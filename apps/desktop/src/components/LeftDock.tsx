@@ -18,6 +18,7 @@ type LeftDockProps = {
   mapAssets: MapAssetSummary[]
   filteredAssets: MapAssetSummary[]
   activeMapId: string | null
+  sceneLabel?: string
   assetFilter: string
   onAssetFilterChange: (value: string) => void
   onOpenAsset: (asset: MapAssetSummary) => void
@@ -49,11 +50,12 @@ export default function LeftDock({
   mapAssets,
   filteredAssets,
   activeMapId,
+  sceneLabel,
   assetFilter,
   onAssetFilterChange,
   onOpenAsset,
 }: LeftDockProps) {
-  const activeAssetName = mapAssets.find((item) => item.id === activeMapId)?.name ?? copy.common.none
+  const activeAssetName = sceneLabel ?? mapAssets.find((item) => item.id === activeMapId)?.name ?? copy.common.none
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-hidden bg-[var(--bg-panel)] p-3">

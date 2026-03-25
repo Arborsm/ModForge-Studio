@@ -13,6 +13,7 @@ export type MapTileset = {
   tileCount: number
   columns: number
   imageSource: string | null
+  imagePath: string | null
   imageWidth: number | null
   imageHeight: number | null
   properties: Record<string, MapPropertyValue>
@@ -58,9 +59,41 @@ export type MapObjectGroup = {
   objects: MapObject[]
 }
 
+export type MapAtlasPlacement = {
+  mapName: string
+  sourcePath: string
+  relativePath: string
+  offsetX: number
+  offsetY: number
+  width: number
+  height: number
+}
+
+export type MapAtlasPoint = {
+  x: number
+  y: number
+}
+
+export type MapAtlasWarpRoute = {
+  id: string
+  fromMap: string
+  toMap: string
+  source: MapAtlasPoint
+  target: MapAtlasPoint
+  path: MapAtlasPoint[]
+}
+
+export type MapAtlasData = {
+  rootMapName: string
+  originOffsetX: number
+  originOffsetY: number
+  placements: MapAtlasPlacement[]
+  warpRoutes: MapAtlasWarpRoute[]
+}
+
 export type MapDocument = {
   name: string
-  format: 'tmx'
+  format: 'tmx' | 'atlas'
   sourcePath: string
   relativePath: string
   width: number
@@ -73,4 +106,5 @@ export type MapDocument = {
   tilesets: MapTileset[]
   layers: MapLayer[]
   objectGroups: MapObjectGroup[]
+  atlas?: MapAtlasData
 }

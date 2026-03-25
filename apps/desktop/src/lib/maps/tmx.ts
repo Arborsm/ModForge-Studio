@@ -36,6 +36,24 @@ function getBooleanAttribute(element: Element, name: string, fallback = true) {
   return value !== '0' && value.toLowerCase() !== 'false'
 }
 
+function normalizePath(path: string) {
+  return path.replaceAll('/', '\\')
+}
+
+function resolveTilesetImagePath(sourcePath: string, imageSource: string | null) {
+  if (!imageSource) {
+    return null
+  }
+
+  const normalizedMapPath = normalizePath(sourcePath)
+  const separatorIndex = normalizedMapPath.lastIndexOf('\\')
+  const mapDirectory = separatorIndex >= 0 ? normalizedMapPath.slice(0, separatorIndex) : normalizedMapPath
+  const normalizedSource = normalizePath(imageSource)
+  const fileName = /\.[A-Za-z0-9]+$/.test(normalizedSource) ? normalizedSource : `${normalizedSource}.png`
+
+  return `${mapDirectory}\\${fileName}`
+}
+
 function parsePropertyValue(element: Element): MapPropertyValue {
   const declaredType = element.getAttribute('type') ?? 'string'
   const rawValue = element.getAttribute('value') ?? element.textContent?.trim() ?? ''
@@ -155,7 +173,7 @@ function parseObjectGroup(groupElement: Element): MapObjectGroup {
   }
 }
 
-function parseTileset(tilesetElement: Element): MapTileset {
+function parseTileset(sourcePath: string, tilesetElement: Element): MapTileset {
   const tileProperties: Record<number, Record<string, MapPropertyValue>> = {}
   const animations: Record<number, MapTilesetAnimationFrame[]> = {}
 
@@ -175,6 +193,7 @@ function parseTileset(tilesetElement: Element): MapTileset {
   }
 
   const imageElement = tilesetElement.querySelector(':scope > image')
+  const imageSource = imageElement?.getAttribute('source') ?? null
 
   return {
     firstGid: getNumberAttribute(tilesetElement, 'firstgid', 1),
@@ -183,7 +202,8 @@ function parseTileset(tilesetElement: Element): MapTileset {
     tileHeight: getNumberAttribute(tilesetElement, 'tileheight'),
     tileCount: getNumberAttribute(tilesetElement, 'tilecount'),
     columns: getNumberAttribute(tilesetElement, 'columns'),
-    imageSource: imageElement?.getAttribute('source') ?? null,
+    imageSource,
+    imagePath: resolveTilesetImagePath(sourcePath, imageSource),
     imageWidth: imageElement ? getNumberAttribute(imageElement, 'width') : null,
     imageHeight: imageElement ? getNumberAttribute(imageElement, 'height') : null,
     properties: parseProperties(tilesetElement),
@@ -211,7 +231,9 @@ export function parseTmxMap(
 
   const layers = Array.from(mapElement.querySelectorAll(':scope > layer')).map(parseLayer)
   const objectGroups = Array.from(mapElement.querySelectorAll(':scope > objectgroup')).map(parseObjectGroup)
-  const tilesets = Array.from(mapElement.querySelectorAll(':scope > tileset')).map(parseTileset)
+  const tilesets = Array.from(mapElement.querySelectorAll(':scope > tileset')).map((tilesetElement) =>
+    parseTileset(sourcePath, tilesetElement),
+  )
 
   return {
     name: relativePath.split(/[/\\]/).pop()?.replace(/\.tmx$/i, '') ?? 'Unnamed',

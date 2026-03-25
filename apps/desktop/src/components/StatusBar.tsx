@@ -2,6 +2,7 @@ import { CheckCircle2, FolderSearch, TriangleAlert } from 'lucide-react'
 import type { TileHoverInfo } from './MapViewport'
 import type { EditorCopy, WorkspaceTone } from '../lib/editor-shell'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
+import type { MapDocument } from '../lib/maps/types'
 
 type StatusBarProps = {
   copy: EditorCopy
@@ -12,6 +13,7 @@ type StatusBarProps = {
   directoryInfo: GameDirectoryInfo | null
   mapAssets: MapAssetSummary[]
   activeAsset: MapAssetSummary | null
+  mapDocument: MapDocument | null
   hoverInfo: TileHoverInfo | null
 }
 
@@ -21,6 +23,7 @@ export default function StatusBar({
   directoryInfo,
   mapAssets,
   activeAsset,
+  mapDocument,
   hoverInfo,
 }: StatusBarProps) {
   const tmxCount = mapAssets.filter((asset) => asset.format === 'tmx').length
@@ -46,7 +49,7 @@ export default function StatusBar({
 
       <div className="flex min-w-0 items-center gap-4 overflow-hidden font-mono">
         <span className="truncate">
-          {copy.center.activeScene}: {activeAsset?.name ?? copy.common.none}
+          {copy.center.activeScene}: {mapDocument?.name ?? activeAsset?.name ?? copy.common.none}
         </span>
         <span className="truncate">
           {copy.statusBar.hover}: {hoverInfo ? `${hoverInfo.tileX}, ${hoverInfo.tileY}` : copy.common.none}

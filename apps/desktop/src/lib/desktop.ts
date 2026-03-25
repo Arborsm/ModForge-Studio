@@ -32,6 +32,12 @@ export type MapAssetContent = {
   content: string
 }
 
+export type TextAssetContent = {
+  absolutePath: string
+  relativePath: string
+  content: string
+}
+
 function isDesktopHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
@@ -76,6 +82,10 @@ export function scanMaps(path: string) {
 
 export function loadMapAsset(rootPath: string, mapPath: string) {
   return invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath })
+}
+
+export function loadTextAsset(rootPath: string, assetPath: string) {
+  return invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath })
 }
 
 export async function minimizeCurrentWindow() {

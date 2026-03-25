@@ -38,6 +38,14 @@ struct MapAssetContent {
     content: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TextAssetContent {
+    absolute_path: String,
+    relative_path: String,
+    content: String,
+}
+
 fn normalize_path(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -265,6 +273,29 @@ fn load_map_asset(root_path: String, map_path: String) -> Result<MapAssetContent
     })
 }
 
+#[tauri::command]
+fn load_text_asset(root_path: String, asset_path: String) -> Result<TextAssetContent, String> {
+    let root = clean_input_path(&root_path);
+    let absolute_path = root.join(clean_input_path(&asset_path));
+
+    if !absolute_path.exists() {
+        return Err(format!("Text asset does not exist: {}", normalize_path(&absolute_path)));
+    }
+
+    let relative_path = absolute_path
+        .strip_prefix(&root)
+        .map_err(|error| format!("Text asset path is outside the selected game directory: {error}"))?;
+
+    let content = fs::read_to_string(&absolute_path)
+        .map_err(|error| format!("Failed to read text asset {}: {error}", normalize_path(&absolute_path)))?;
+
+    Ok(TextAssetContent {
+        absolute_path: normalize_path(&absolute_path),
+        relative_path: normalize_path(relative_path),
+        content,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -274,7 +305,8 @@ pub fn run() {
             detect_default_game_directory,
             validate_game_directory,
             scan_maps,
-            load_map_asset
+            load_map_asset,
+            load_text_asset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

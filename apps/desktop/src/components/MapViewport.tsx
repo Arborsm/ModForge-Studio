@@ -12,7 +12,7 @@ import {
 } from 'react'
 import { resolveTilesetImagePath, toAssetUrl } from '../lib/maps/assets'
 import type { ThemeMode, ViewportLabels } from '../lib/editor-shell'
-import type { MapDocument, MapObject, MapPropertyValue, MapTileset } from '../lib/maps/types'
+import type { MapAtlasPoint, MapAtlasWarpRoute, MapDocument, MapObject, MapPropertyValue, MapTileset } from '../lib/maps/types'
 
 type MapViewportProps = {
   mapDocument: MapDocument | null
@@ -128,6 +128,108 @@ function hashString(value: string) {
 
 function getGroupColor(groupName: string) {
   return `hsl(${hashString(groupName) % 360} 78% 64%)`
+}
+
+function getWarpRoutePalette(route: MapAtlasWarpRoute) {
+  const seed = hashString(route.id)
+  return {
+    hue: seed % 360,
+    saturation: 78 + (seed % 18),
+    lightness: 58 + ((seed >> 3) % 12),
+    accentHue: (seed + 96) % 360,
+  }
+}
+
+function toCanvasPoint(point: MapAtlasPoint, tileWidth: number, tileHeight: number, zoom: number) {
+  return {
+    x: point.x * tileWidth * zoom,
+    y: point.y * tileHeight * zoom,
+  }
+}
+
+function drawWarpRoute(context: CanvasRenderingContext2D, route: MapAtlasWarpRoute, tileWidth: number, tileHeight: number, zoom: number) {
+  if (route.path.length < 2) {
+    return
+  }
+
+  const points = route.path.map((point) => toCanvasPoint(point, tileWidth, tileHeight, zoom))
+  const palette = getWarpRoutePalette(route)
+  const tracePath = () => {
+    context.beginPath()
+    context.moveTo(points[0].x, points[0].y)
+
+    if (points.length === 2) {
+      context.lineTo(points[1].x, points[1].y)
+      return
+    }
+
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const current = points[index]
+      const next = points[index + 1]
+      const midpointX = (current.x + next.x) / 2
+      const midpointY = (current.y + next.y) / 2
+      context.quadraticCurveTo(current.x, current.y, midpointX, midpointY)
+    }
+
+    const lastControl = points[points.length - 2]
+    const lastPoint = points[points.length - 1]
+    context.quadraticCurveTo(lastControl.x, lastControl.y, lastPoint.x, lastPoint.y)
+  }
+
+  context.save()
+  context.lineJoin = 'round'
+  context.lineCap = 'round'
+
+  context.shadowBlur = Math.max(10, 18 * zoom)
+  context.shadowColor = `hsla(${palette.hue} ${palette.saturation}% ${palette.lightness}% / 0.55)`
+  context.strokeStyle = `hsla(${palette.hue} ${palette.saturation}% ${palette.lightness - 2}% / 0.16)`
+  context.lineWidth = Math.max(10, 14 * zoom)
+  tracePath()
+  context.stroke()
+
+  context.shadowBlur = Math.max(6, 12 * zoom)
+  context.shadowColor = `hsla(${palette.hue} ${Math.min(100, palette.saturation + 4)}% ${Math.min(78, palette.lightness + 8)}% / 0.65)`
+  context.strokeStyle = `hsla(${palette.hue} ${Math.min(100, palette.saturation + 2)}% ${Math.min(78, palette.lightness + 6)}% / 0.56)`
+  context.lineWidth = Math.max(4, 6 * zoom)
+  tracePath()
+  context.stroke()
+
+  context.shadowBlur = 0
+  context.setLineDash([Math.max(6, 12 * zoom), Math.max(4, 10 * zoom)])
+  context.lineDashOffset = (hashString(route.id) % 17) * -0.5
+  context.strokeStyle = 'rgba(255,255,255,0.9)'
+  context.lineWidth = Math.max(1.25, 1.8 * zoom)
+  tracePath()
+  context.stroke()
+  context.setLineDash([])
+
+  const endpoints = [
+    {
+      point: toCanvasPoint(route.source, tileWidth, tileHeight, zoom),
+      color: `hsla(${palette.hue} ${Math.min(100, palette.saturation + 2)}% ${Math.min(82, palette.lightness + 10)}% / 0.98)`,
+    },
+    {
+      point: toCanvasPoint(route.target, tileWidth, tileHeight, zoom),
+      color: `hsla(${palette.accentHue} ${Math.min(100, palette.saturation + 4)}% ${Math.min(84, palette.lightness + 12)}% / 0.98)`,
+    },
+  ]
+
+  for (const endpoint of endpoints) {
+    context.beginPath()
+    context.fillStyle = endpoint.color
+    context.shadowBlur = Math.max(8, 14 * zoom)
+    context.shadowColor = endpoint.color
+    context.arc(endpoint.point.x, endpoint.point.y, Math.max(2.5, 3.8 * zoom), 0, Math.PI * 2)
+    context.fill()
+
+    context.beginPath()
+    context.shadowBlur = 0
+    context.fillStyle = 'rgba(255,255,255,0.95)'
+    context.arc(endpoint.point.x, endpoint.point.y, Math.max(1.2, 1.8 * zoom), 0, Math.PI * 2)
+    context.fill()
+  }
+
+  context.restore()
 }
 
 function getObjectBounds(object: MapObject, minimumWorldSize: number) {
@@ -257,7 +359,16 @@ function buildHoverInfo(
 }
 
 export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(function MapViewport(
-  { mapDocument, visibleLayerIds, visibleObjectGroupIds, onHoverChange, labels, theme, showGrid, onZoomChange },
+  {
+    mapDocument,
+    visibleLayerIds,
+    visibleObjectGroupIds,
+    onHoverChange,
+    labels,
+    theme,
+    showGrid,
+    onZoomChange,
+  },
   ref,
 ) {
   const frameRef = useRef<HTMLDivElement | null>(null)
@@ -379,6 +490,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         : [],
     [mapDocument, visibleObjectGroupIds],
   )
+  const atlasPlacements = useMemo(() => mapDocument?.atlas?.placements ?? [], [mapDocument])
+  const atlasWarpRoutes = useMemo(() => mapDocument?.atlas?.warpRoutes ?? [], [mapDocument])
 
   function getFitZoom(document: MapDocument) {
     if (!viewportSize.width || !viewportSize.height) {
@@ -859,22 +972,91 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       }
     }
 
+    if (atlasWarpRoutes.length) {
+      for (const route of atlasWarpRoutes) {
+        drawWarpRoute(context, route, mapDocument.tileWidth, mapDocument.tileHeight, zoom)
+      }
+    }
+
+    if (atlasPlacements.length && mapDocument.format === 'atlas') {
+      context.save()
+      context.textBaseline = 'top'
+      context.setLineDash([8, 8])
+
+      for (const placement of atlasPlacements) {
+        const x = placement.offsetX * mapDocument.tileWidth * zoom
+        const y = placement.offsetY * mapDocument.tileHeight * zoom
+        const width = placement.width * mapDocument.tileWidth * zoom
+        const height = placement.height * mapDocument.tileHeight * zoom
+
+        context.globalAlpha = 0.04
+        context.fillStyle = theme === 'light' ? '#3b82f6' : '#60a5fa'
+        context.fillRect(x, y, width, height)
+
+        context.globalAlpha = 0.38
+        context.lineWidth = Math.max(1.5, zoom * 0.12)
+        context.strokeStyle = theme === 'light' ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.28)'
+        context.strokeRect(x, y, width, height)
+
+        if (zoom >= 0.28) {
+          const label = placement.mapName
+          context.font = `${Math.max(10, Math.round(12 * Math.min(zoom, 1.2)))}px "Segoe UI", sans-serif`
+          const labelWidth = context.measureText(label).width + 12
+          context.fillStyle = theme === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(8,10,16,0.9)'
+          context.fillRect(x + 4, y + 4, labelWidth, 20)
+          context.strokeStyle = theme === 'light' ? 'rgba(15,23,42,0.4)' : 'rgba(255,255,255,0.28)'
+          context.strokeRect(x + 4, y + 4, labelWidth, 20)
+          context.fillStyle = theme === 'light' ? '#0f172a' : '#f8fafc'
+          context.fillText(label, x + 10, y + 8)
+        }
+      }
+
+      context.restore()
+    }
+
     context.globalAlpha = 1
-  }, [canvasLogicalSize.height, canvasLogicalSize.width, mapDocument, showGrid, theme, tilesetImages, visibleLayers, visibleObjectGroups, zoom])
+  }, [
+    canvasLogicalSize.height,
+    canvasLogicalSize.width,
+    atlasPlacements,
+    atlasWarpRoutes,
+    mapDocument,
+    showGrid,
+    theme,
+    tilesetImages,
+    visibleLayers,
+    visibleObjectGroups,
+    zoom,
+  ])
 
   function updateHover(event: PointerEvent<HTMLDivElement>) {
-    if (!mapDocument) {
+    const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
+    if (!mapDocument || !worldPoint) {
       return
+    }
+
+    onHoverChange?.(buildHoverInfo(mapDocument, visibleLayerIds, visibleObjectGroupIds, worldPoint.pixelX, worldPoint.pixelY))
+  }
+
+  function getCanvasWorldPoint(clientX: number, clientY: number) {
+    if (!mapDocument) {
+      return null
     }
 
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) {
-      return
+      return null
     }
 
-    const canvasX = (event.clientX - rect.left) / zoom
-    const canvasY = (event.clientY - rect.top) / zoom
-    onHoverChange?.(buildHoverInfo(mapDocument, visibleLayerIds, visibleObjectGroupIds, canvasX, canvasY))
+    const pixelX = (clientX - rect.left) / zoom
+    const pixelY = (clientY - rect.top) / zoom
+
+    return {
+      pixelX,
+      pixelY,
+      tileX: Math.floor(pixelX / mapDocument.tileWidth),
+      tileY: Math.floor(pixelY / mapDocument.tileHeight),
+    }
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {

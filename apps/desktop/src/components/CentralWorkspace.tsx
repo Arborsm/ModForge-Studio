@@ -20,6 +20,9 @@ type CentralWorkspaceProps = {
   workspaceMode: WorkspaceMode
   activeAsset: MapAssetSummary | null
   mapDocument: MapDocument | null
+  worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
+  activeWorldAtlasViewId: 'main' | 'remote' | null
+  onSelectWorldAtlasView: (viewId: 'main' | 'remote') => void
   theme: ThemeMode
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
@@ -34,6 +37,9 @@ export default function CentralWorkspace({
   workspaceMode,
   activeAsset,
   mapDocument,
+  worldAtlasViews,
+  activeWorldAtlasViewId,
+  onSelectWorldAtlasView,
   theme,
   visibleLayerIds,
   visibleObjectGroupIds,
@@ -51,13 +57,13 @@ export default function CentralWorkspace({
         <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4">
           <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
           <span className="text-xs font-semibold text-[var(--text-primary)]">
-            {workspaceMode === 'map' ? activeAsset?.name ?? copy.center.activeScene : moduleBlueprint?.title}
+            {workspaceMode === 'map' ? mapDocument?.name ?? activeAsset?.name ?? copy.center.activeScene : moduleBlueprint?.title}
           </span>
           <span className="h-2 w-2 rounded-full bg-[var(--text-secondary)]/70" />
         </div>
         <div className="ml-3 hidden items-center gap-3 text-[11px] text-[var(--text-secondary)] lg:flex">
           <span>
-            {workspaceMode === 'map' ? activeAsset?.relativePath ?? copy.center.noSceneLoaded : moduleBlueprint?.summary}
+            {workspaceMode === 'map' ? mapDocument?.relativePath ?? activeAsset?.relativePath ?? copy.center.noSceneLoaded : moduleBlueprint?.summary}
           </span>
         </div>
       </div>
@@ -84,6 +90,20 @@ export default function CentralWorkspace({
           </div>
           <span className="dock-chip">{copy.center.canvas}</span>
           <span className="dock-chip">{copy.center.rightClick}</span>
+          {workspaceMode === 'map' && mapDocument?.format === 'atlas' && worldAtlasViews.length > 1 ? (
+            <div className="ml-2 flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+              {worldAtlasViews.map((view) => (
+                <button
+                  key={view.id}
+                  type="button"
+                  className={cx('tool-button px-2 text-xs', activeWorldAtlasViewId === view.id && 'tool-button-active')}
+                  onClick={() => onSelectWorldAtlasView(view.id)}
+                >
+                  {view.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">

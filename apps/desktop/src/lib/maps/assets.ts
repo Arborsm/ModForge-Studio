@@ -6,6 +6,10 @@ function normalizePath(path: string) {
 }
 
 export function resolveTilesetImagePath(mapDocument: MapDocument, tileset: MapTileset) {
+  if (tileset.imagePath) {
+    return tileset.imagePath
+  }
+
   if (!tileset.imageSource) {
     return null
   }
