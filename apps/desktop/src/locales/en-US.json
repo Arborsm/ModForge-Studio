@@ -1,0 +1,327 @@
+{
+  "editor": {
+    "brand": {
+      "name": "ModForge Studio",
+      "tagline": "Professional mod authoring workspace"
+    },
+    "menus": [
+      "File",
+      "Edit",
+      "View",
+      "Tools",
+      "Window"
+    ],
+    "nav": {
+      "map": "Map",
+      "characters": "Characters",
+      "buildings": "Buildings",
+      "items": "Items",
+      "events": "Events"
+    },
+    "localeShort": {
+      "zh-CN": "中",
+      "en-US": "EN"
+    },
+    "statusTone": {
+      "idle": "Idle",
+      "working": "Working",
+      "ready": "Ready",
+      "error": "Error"
+    },
+    "controls": {
+      "toggleTheme": "Toggle theme",
+      "toggleLocale": "Toggle language",
+      "browse": "Browse",
+      "useKnownPath": "Known Path",
+      "validateOnly": "Validate",
+      "scanAndOpenTown": "Scan World",
+      "showAll": "Show all",
+      "hideAll": "Hide all"
+    },
+    "leftDock": {
+      "project": "Project Navigator",
+      "projectSubtitle": "Game directory and workspace health",
+      "contentBrowser": "Content Browser",
+      "contentSubtitle": "Map assets",
+      "extensionRail": "Extension Rail",
+      "extensionSubtitle": "Reserved for upcoming editor modules",
+      "hostMode": "Host mode",
+      "browserHost": "Browser",
+      "desktopHost": "Desktop",
+      "gameDirectory": "Game directory",
+      "directoryPlaceholder": "Select the Stardew Valley install folder",
+      "filterMaps": "Filter maps",
+      "filterPlaceholder": "Filter by name, file name, or relative path",
+      "preferredFormat": "Preferred format",
+      "detectedMaps": "Detected maps",
+      "sceneFocus": "Scene focus",
+      "installState": "Install state",
+      "preferredMaps": "Preferred maps path",
+      "noMapsFound": "No loadable map assets have been scanned yet.",
+      "noFilteredMaps": "No map assets match the current filter.",
+      "pinned": "Pinned",
+      "reserved": "Reserved"
+    },
+    "center": {
+      "activeScene": "Active document",
+      "noSceneLoaded": "No map loaded",
+      "viewport": "Viewport",
+      "canvas": "Main canvas",
+      "rightClick": "Right-click menu enabled",
+      "selectTool": "Select",
+      "panTool": "Pan",
+      "moduleWorkspace": "Module Workspace",
+      "moduleCanvas": "Main Editing Surface",
+      "moduleInspector": "Module Sidebar"
+    },
+    "rightDock": {
+      "title": "Properties & Layers",
+      "subtitle": "Inspector / Layers / Diagnostics",
+      "inspector": "Inspector",
+      "layers": "Tile Layers",
+      "objectGroups": "Object Groups",
+      "diagnostics": "Diagnostics",
+      "sceneSummary": "Scene Summary",
+      "hoverProbe": "Hover Probe",
+      "hoverDetails": "Hover Details",
+      "projectFacts": "Project Facts",
+      "workspaceStatus": "Workspace Status",
+      "noTileProperties": "The current tile has no extra properties.",
+      "noObjectGroups": "This map has no object groups.",
+      "noHoveredObjects": "No objects are hit at the current hover point.",
+      "diagnosticsPrompt": "Validate a game directory to populate diagnostics.",
+      "layerTiles": "tiles",
+      "objectCount": "objects"
+    },
+    "statusBar": {
+      "pathValid": "SDV path valid",
+      "pathMissing": "Path not validated",
+      "scanned": "Scanned",
+      "hover": "Hover",
+      "coordinates": "Coordinates"
+    },
+    "common": {
+      "none": "None",
+      "yes": "Yes",
+      "no": "No",
+      "dimensions": "Dimensions",
+      "tileSize": "Tile size",
+      "tilesets": "Tilesets",
+      "objectGroups": "Object groups",
+      "path": "Path",
+      "orientation": "Orientation",
+      "renderOrder": "Render order",
+      "format": "Format",
+      "tile": "Tile",
+      "pixel": "Pixel",
+      "gid": "GID",
+      "layer": "Layer",
+      "tileId": "Tile ID",
+      "tileProperties": "Tile properties",
+      "type": "Type",
+      "bounds": "Bounds",
+      "executable": "Executable",
+      "unpackedMaps": "Unpacked maps",
+      "xnbMaps": "XNB maps",
+      "visibleLayers": "Visible layers",
+      "visibleObjects": "Visible objects",
+      "objectLabelTemplate": "Object {id}"
+    },
+    "messages": {
+      "browserHostPrompt": "Run this screen inside the Tauri desktop host to access the local Stardew Valley directory.",
+      "detectingDefaultInstall": "Detecting a default Stardew Valley installation...",
+      "automaticDetectionFailed": "Automatic detection failed. Choose the folder manually.",
+      "enterFolderBeforeValidating": "Enter a Stardew Valley folder before validating.",
+      "validatingDirectory": "Validating game directory...",
+      "validationFailed": "Directory validation failed.",
+      "enterFolderBeforeScanning": "Enter a Stardew Valley folder before scanning.",
+      "validatingAndScanning": "Validating and scanning map assets...",
+      "mapScanFailed": "Map scan failed.",
+      "loadingMap": "Loading map...",
+      "loadingMapFailed": "Map load failed.",
+      "onlyTmxSupported": "Only TMX map loading is supported right now.",
+      "directorySelectionFailed": "Directory selection failed.",
+      "detectedKnownPathTemplate": "Detected directory: {path}",
+      "validatedDirectoryTemplate": "Validated directory: {path}",
+      "loadedMapAssetsTemplate": "Loaded {count} {FORMAT} map assets.",
+      "loadedMapAssetsWithActiveMapTemplate": "Loaded {count} {FORMAT} map assets. {mapName} is active."
+    },
+    "viewportLabels": {
+      "loadPrompt": "Load a TMX map and this becomes the pan-able, zoomable main viewport.",
+      "zoomOut": "Zoom out",
+      "oneToOne": "1:1",
+      "fit": "Fit",
+      "zoomIn": "Zoom in",
+      "fitMap": "Fit map",
+      "setOneToOne": "Original scale",
+      "centerView": "Center view",
+      "resetPan": "Reset pan",
+      "addObjectHere": "Add object here",
+      "inspectHover": "Inspect hover data",
+      "unavailable": "Unavailable",
+      "tilesLabel": "tiles",
+      "tilesetsLoadedLabelTemplate": "Tilesets {loaded}/{total}",
+      "layersVisibleLabelTemplate": "Layers {visible}/{total}",
+      "objectGroupsVisibleLabelTemplate": "Object groups {visible}/{total}",
+      "zoomLabelTemplate": "Zoom {percent}%",
+      "failedToLoadTilesetImageTemplate": "Failed to load tileset image: {path}"
+    },
+    "moduleBlueprints": {
+      "characters": {
+        "title": "Character Editor",
+        "state": "Reserved",
+        "summary": "Roster, portraits, schedules, dialogue bindings, and relationships will converge here.",
+        "focusTitle": "Portrait / Schedule Focus",
+        "listTitle": "Roster",
+        "inspectorTitle": "Linked Parameters",
+        "list": [
+          "Abigail",
+          "Lewis",
+          "Robin",
+          "Wizard"
+        ],
+        "lanes": [
+          "Portrait + emotions",
+          "Schedule timeline",
+          "Dialogue relations",
+          "Festival conditions"
+        ],
+        "bullets": [
+          "Bidirectional map anchors",
+          "NPC spawn validation",
+          "Weather and season conditions"
+        ],
+        "nodes": []
+      },
+      "buildings": {
+        "title": "Building Editor",
+        "state": "Reserved",
+        "summary": "Footprints, entry points, interior mapping, and upgrade stages will reuse the same dock system.",
+        "focusTitle": "Footprint / Entry Focus",
+        "listTitle": "Building List",
+        "inspectorTitle": "Upgrade Chain",
+        "list": [
+          "Barn",
+          "Coop",
+          "Shop",
+          "Town Hall"
+        ],
+        "lanes": [
+          "Footprint",
+          "Entry",
+          "Interior mapping",
+          "Upgrade stage"
+        ],
+        "bullets": [
+          "Collision footprint checks",
+          "Entry visualization",
+          "Upgrade diff preview"
+        ],
+        "nodes": []
+      },
+      "items": {
+        "title": "Item Editor",
+        "state": "Reserved",
+        "summary": "Definitions, atlases, shop rules, drops, and rewards will share one dense editing surface.",
+        "focusTitle": "Atlas / Definition Focus",
+        "listTitle": "Catalog",
+        "inspectorTitle": "Distribution Rules",
+        "list": [
+          "Seeds",
+          "Quest Item",
+          "Craftable",
+          "Festival Reward"
+        ],
+        "lanes": [
+          "Definition",
+          "Icon atlas",
+          "Shop rules",
+          "Drops + rewards"
+        ],
+        "bullets": [
+          "Atlas coordinate preview",
+          "Rarity and value balancing",
+          "Reward source chains"
+        ],
+        "nodes": []
+      },
+      "events": {
+        "title": "Event Graph",
+        "state": "Reserved",
+        "summary": "Trigger, Condition, Action, and Dialogue will work as a graph linked back into the map viewport.",
+        "focusTitle": "Node Graph",
+        "listTitle": "Node Catalog",
+        "inspectorTitle": "Execution Rules",
+        "list": [
+          "Trigger",
+          "Condition",
+          "Action",
+          "Dialogue"
+        ],
+        "lanes": [
+          "Map trigger",
+          "Conditional branch",
+          "Action node",
+          "Dialogue node"
+        ],
+        "bullets": [
+          "Bidirectional links to map objects",
+          "Time and relationship conditions",
+          "Graph-to-inspector write-back"
+        ],
+        "nodes": [
+          {
+            "title": "Town Entry",
+            "detail": "Trigger"
+          },
+          {
+            "title": "Festival Gate",
+            "detail": "Condition"
+          },
+          {
+            "title": "Mayor Intro",
+            "detail": "Dialogue"
+          },
+          {
+            "title": "Reward Mail",
+            "detail": "Action"
+          }
+        ]
+      }
+    }
+  },
+  "worldAtlasViews": {
+    "main": "Main World",
+    "remote": "Remote Regions"
+  },
+  "viewMenu": {
+    "title": "View",
+    "resetLabel": "Reset Default Layout",
+    "savePresetLabel": "Save Current Layout",
+    "panelsLabel": "Windows",
+    "presetsLabel": "Workspace Presets",
+    "emptyPresetsLabel": "No saved presets yet",
+    "presetNamePrompt": "Preset name",
+    "deletePresetConfirmTemplate": "Delete preset \"{name}\"?"
+  },
+  "settingsMenu": {
+    "title": "Settings",
+    "categories": {
+      "appearance": "Appearance",
+      "view": "View",
+      "interaction": "Interaction",
+      "advanced": "Advanced"
+    },
+    "accentLabel": "Accent Color",
+    "resetAccentLabel": "Reset Accent Color",
+    "accentDescription": "Controls the viewport background, portal highlights, and accent-driven UI states.",
+    "futureLabel": "More Settings",
+    "futureDescription": "Future editor preferences, display options, and behavior settings will live here.",
+    "categoryDescriptions": {
+      "appearance": "Theme, accent color, and overall visual style.",
+      "view": "Map display, canvas, and information presentation.",
+      "interaction": "Input, navigation, and editing behavior.",
+      "advanced": "Experimental options, diagnostics, and advanced controls."
+    }
+  }
+}
