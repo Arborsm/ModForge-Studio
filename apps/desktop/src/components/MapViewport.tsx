@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent,
 } from 'react'
 import { resolveTilesetImagePath, toAssetUrl } from '../lib/maps/assets'
@@ -30,6 +31,7 @@ type MapViewportProps = {
   onAtlasPortalOpen?: (targetMapName: string) => void
   labels: ViewportLabels
   theme: ThemeMode
+  accentColor: string
   showGrid: boolean
   onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
 }
@@ -76,6 +78,13 @@ export type MapViewportHandle = {
   setOneToOne: () => void
   centerView: () => void
   resetPan: () => void
+  focusObject: (target: FocusedMapObjectTarget) => void
+}
+
+export type FocusedMapObjectTarget = {
+  groupId: number
+  objectId: number
+  nonce: number
 }
 
 type DragState = {
@@ -93,6 +102,14 @@ type ZoomAnchor = {
   worldY: number
 }
 
+type FocusWorldPoint = {
+  worldX: number
+  worldY: number
+}
+
+const imageCache = new Map<string, HTMLImageElement>()
+const imagePromiseCache = new Map<string, Promise<HTMLImageElement>>()
+
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
 const FLIPPED_VERTICALLY_FLAG = 0x40000000
 const FLIPPED_DIAGONALLY_FLAG = 0x20000000
@@ -109,20 +126,128 @@ const VIEWPORT_PADDING = 56
 const VIEWPORT_OVERPAN = 160
 const TOOLBAR_ZOOM_FACTOR = 1.12
 const WHEEL_ZOOM_INTENSITY = 0.0007
-const BACKDROP_MINOR_GRID_SIZE = 24
-const BACKDROP_MAJOR_GRID_SIZE = 96
+const MAX_RENDER_CANVAS_DIMENSION = 4096
+const MAX_RENDER_CANVAS_AREA = 16_777_216
+const INTERACTIVE_OBJECT_PROPERTY_KEYS = ['Action', 'TouchAction', 'Warp', 'NPCWarp', 'LockedDoorWarp', 'MagicWarp']
 
 function clampZoom(value: number) {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value))
 }
 
+function getNumericMapProperty(mapDocument: MapDocument, key: string) {
+  const value = mapDocument.properties[key]
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function getDefaultViewportState(mapDocument: MapDocument | null) {
+  if (!mapDocument) {
+    return null
+  }
+
+  const worldX = getNumericMapProperty(mapDocument, 'defaultViewportCenterX')
+  const worldY = getNumericMapProperty(mapDocument, 'defaultViewportCenterY')
+  if (worldX === null || worldY === null) {
+    return null
+  }
+
+  return {
+    worldX,
+    worldY,
+    zoom: clampZoom(getNumericMapProperty(mapDocument, 'defaultViewportZoom') ?? 1),
+  }
+}
+
+function getCanvasRenderScale(logicalWidth: number, logicalHeight: number, pixelRatio: number) {
+  const scaledWidth = Math.max(1, logicalWidth * pixelRatio)
+  const scaledHeight = Math.max(1, logicalHeight * pixelRatio)
+  const dimensionScale = Math.min(
+    1,
+    MAX_RENDER_CANVAS_DIMENSION / scaledWidth,
+    MAX_RENDER_CANVAS_DIMENSION / scaledHeight,
+  )
+  const areaScale = Math.min(1, Math.sqrt(MAX_RENDER_CANVAS_AREA / (scaledWidth * scaledHeight)))
+
+  return Math.min(dimensionScale, areaScale)
+}
+
+function getCanvasViewportRect(
+  scrollLeft: number,
+  scrollTop: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  canvasOffsetLeft: number,
+  canvasOffsetTop: number,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const left = Math.max(0, scrollLeft - canvasOffsetLeft)
+  const top = Math.max(0, scrollTop - canvasOffsetTop)
+  const right = Math.min(canvasWidth, scrollLeft + viewportWidth - canvasOffsetLeft)
+  const bottom = Math.min(canvasHeight, scrollTop + viewportHeight - canvasOffsetTop)
+
+  return {
+    left,
+    top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  }
+}
+
+function hexToRgb(value: string) {
+  const normalized = value.replace('#', '')
+  const hex = normalized.length === 3 ? normalized.split('').map((char) => `${char}${char}`).join('') : normalized
+  const parsed = Number.parseInt(hex, 16)
+
+  return {
+    r: (parsed >> 16) & 255,
+    g: (parsed >> 8) & 255,
+    b: parsed & 255,
+  }
+}
+
+function rgbaFromHex(value: string, alpha: number) {
+  const { r, g, b } = hexToRgb(value)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 function loadImage(path: string, errorFactory: (path: string) => string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
+  const cachedImage = imageCache.get(path)
+  if (cachedImage) {
+    return Promise.resolve(cachedImage)
+  }
+
+  const pendingImage = imagePromiseCache.get(path)
+  if (pendingImage) {
+    return pendingImage
+  }
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
-    image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error(errorFactory(path)))
+    image.onload = () => {
+      imageCache.set(path, image)
+      imagePromiseCache.delete(path)
+      resolve(image)
+    }
+    image.onerror = () => {
+      imagePromiseCache.delete(path)
+      reject(new Error(errorFactory(path)))
+    }
     image.src = toAssetUrl(path)
   })
+
+  imagePromiseCache.set(path, promise)
+  return promise
 }
 
 function hashString(value: string) {
@@ -137,6 +262,20 @@ function hashString(value: string) {
 
 function getGroupColor(groupName: string) {
   return `hsl(${hashString(groupName) % 360} 78% 64%)`
+}
+
+function getObjectInteractionTag(object: MapObject) {
+  for (const key of INTERACTIVE_OBJECT_PROPERTY_KEYS) {
+    if (key in object.properties) {
+      return key
+    }
+  }
+
+  return null
+}
+
+function getObjectDisplayLabel(object: MapObject) {
+  return object.name || object.type || `Object ${object.id}`
 }
 
 function getWarpRoutePalette(route: MapAtlasWarpRoute) {
@@ -248,13 +387,14 @@ function drawAtlasPortal(
   tileHeight: number,
   zoom: number,
   theme: ThemeMode,
+  accentColor: string,
 ) {
   const point = toCanvasPoint(portal.position, tileWidth, tileHeight, zoom)
   const outerRadius = Math.max(6, 8 * zoom)
   const innerRadius = Math.max(2.5, 3.5 * zoom)
-  const glowColor = theme === 'light' ? 'rgba(37, 99, 235, 0.3)' : 'rgba(56, 189, 248, 0.38)'
-  const ringColor = theme === 'light' ? 'rgba(30, 64, 175, 0.95)' : 'rgba(125, 211, 252, 0.98)'
-  const centerColor = theme === 'light' ? '#ffffff' : '#e0f2fe'
+  const glowColor = rgbaFromHex(accentColor, theme === 'light' ? 0.28 : 0.36)
+  const ringColor = rgbaFromHex(accentColor, theme === 'light' ? 0.94 : 0.98)
+  const centerColor = theme === 'light' ? '#ffffff' : rgbaFromHex(accentColor, 0.22)
   const label = portal.label
 
   context.save()
@@ -434,18 +574,27 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     onAtlasPortalOpen,
     labels,
     theme,
+    accentColor,
     showGrid,
     onZoomChange,
   },
   ref,
 ) {
+  const initialDefaultViewportState = getDefaultViewportState(mapDocument)
   const frameRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const mapRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
   const pendingZoomAnchorRef = useRef<ZoomAnchor | null>(null)
+  const pendingFocusWorldPointRef = useRef<FocusWorldPoint | null>(
+    initialDefaultViewportState
+      ? {
+          worldX: initialDefaultViewportState.worldX,
+          worldY: initialDefaultViewportState.worldY,
+        }
+      : null,
+  )
   const wheelZoomFrameRef = useRef<number | null>(null)
   const pendingWheelDeltaRef = useRef(0)
   const zoomRef = useRef(1)
@@ -454,11 +603,14 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     items: {},
     error: null,
   })
-  const [manualZoom, setManualZoom] = useState(1)
-  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>('fit')
+  const [manualZoom, setManualZoom] = useState(() => initialDefaultViewportState?.zoom ?? 1)
+  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() => (initialDefaultViewportState ? 'manual' : 'fit'))
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
+  const [viewportScroll, setViewportScroll] = useState({ left: 0, top: 0 })
+  const [refreshToken, setRefreshToken] = useState(0)
+  const [highlightedObjectTarget, setHighlightedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const frame = frameRef.current
     if (!frame) {
       return
@@ -561,6 +713,43 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const atlasPlacements = useMemo(() => mapDocument?.atlas?.placements ?? [], [mapDocument])
   const atlasWarpRoutes = useMemo(() => mapDocument?.atlas?.warpRoutes ?? [], [mapDocument])
   const atlasPortals = useMemo(() => mapDocument?.atlas?.portals ?? [], [mapDocument])
+  const viewportBackdropStyle = useMemo(() => {
+    if (theme === 'light') {
+      return {
+        backgroundColor: '#ffffff',
+        backgroundImage: [
+          `linear-gradient(${rgbaFromHex(accentColor, 0.15)} 1px, transparent 1px)`,
+          `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.15)} 1px, transparent 1px)`,
+          `linear-gradient(${rgbaFromHex(accentColor, 0.04)} 1px, transparent 1px)`,
+          `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.04)} 1px, transparent 1px)`,
+        ].join(', '),
+        backgroundSize: ['100px 100px', '100px 100px', '20px 20px', '20px 20px'].join(', '),
+        backgroundPosition: ['-1px -1px', '-1px -1px', '-1px -1px', '-1px -1px'].join(', '),
+      } satisfies CSSProperties
+    }
+
+    return {
+      backgroundColor: '#09111d',
+      backgroundImage: [
+        `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.08)}, transparent 24%)`,
+        `linear-gradient(${rgbaFromHex(accentColor, 0.16)} 1px, transparent 1px)`,
+        `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.16)} 1px, transparent 1px)`,
+        `linear-gradient(${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
+        `linear-gradient(90deg, ${rgbaFromHex(accentColor, 0.05)} 1px, transparent 1px)`,
+      ].join(', '),
+      backgroundSize: ['auto', '100px 100px', '100px 100px', '20px 20px', '20px 20px'].join(', '),
+      backgroundPosition: ['0 0', '-1px -1px', '-1px -1px', '-1px -1px', '-1px -1px'].join(', '),
+    } satisfies CSSProperties
+  }, [accentColor, theme])
+  const highlightedObject = useMemo(() => {
+    if (!mapDocument || !highlightedObjectTarget) {
+      return null
+    }
+
+    const group = mapDocument.objectGroups.find((candidate) => candidate.id === highlightedObjectTarget.groupId)
+    const object = group?.objects.find((candidate) => candidate.id === highlightedObjectTarget.objectId)
+    return group && object ? { group, object } : null
+  }, [highlightedObjectTarget, mapDocument])
 
   function getAtlasPortalAtWorldPoint(pixelX: number, pixelY: number) {
     if (!mapDocument || !atlasPortals.length) {
@@ -618,53 +807,73 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }),
     [canvasLogicalSize.height, canvasLogicalSize.width, viewportSize.height, viewportSize.width],
   )
+  const canvasOffset = useMemo(
+    () => ({
+      left: (stageSize.width - canvasLogicalSize.width) / 2,
+      top: (stageSize.height - canvasLogicalSize.height) / 2,
+    }),
+    [canvasLogicalSize.height, canvasLogicalSize.width, stageSize.height, stageSize.width],
+  )
+  const viewportCanvasRect = useMemo(
+    () =>
+      mapDocument
+        ? getCanvasViewportRect(
+            viewportScroll.left,
+            viewportScroll.top,
+            viewportSize.width,
+            viewportSize.height,
+            canvasOffset.left,
+            canvasOffset.top,
+            canvasLogicalSize.width,
+            canvasLogicalSize.height,
+          )
+        : { left: 0, top: 0, width: 0, height: 0 },
+    [
+      canvasLogicalSize.height,
+      canvasLogicalSize.width,
+      canvasOffset.left,
+      canvasOffset.top,
+      mapDocument,
+      viewportScroll.left,
+      viewportScroll.top,
+      viewportSize.height,
+      viewportSize.width,
+    ],
+  )
+  const mapDisplayOffset = useMemo(
+    () => ({
+      left: canvasOffset.left - viewportScroll.left,
+      top: canvasOffset.top - viewportScroll.top,
+    }),
+    [canvasOffset.left, canvasOffset.top, viewportScroll.left, viewportScroll.top],
+  )
 
   useEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
 
   useEffect(() => {
-    const gridCanvas = gridCanvasRef.current
-    if (!gridCanvas || !viewportSize.width || !viewportSize.height) {
+    const viewport = viewportRef.current
+    if (!viewport) {
       return
     }
 
-    const context = gridCanvas.getContext('2d')
-    if (!context) {
-      return
+    const syncScrollState = () => {
+      setViewportScroll({
+        left: viewport.scrollLeft,
+        top: viewport.scrollTop,
+      })
     }
 
-    const pixelRatio =
-      typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
-        ? window.devicePixelRatio
-        : 1
-    const width = Math.max(1, Math.ceil(viewportSize.width * pixelRatio))
-    const height = Math.max(1, Math.ceil(viewportSize.height * pixelRatio))
+    syncScrollState()
+    viewport.addEventListener('scroll', syncScrollState, { passive: true })
 
-    gridCanvas.width = width
-    gridCanvas.height = height
-
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, width, height)
-
-    const minorColor = theme === 'light' ? 'rgba(92, 104, 124, 0.15)' : 'rgba(255, 255, 255, 0.05)'
-    const majorColor = theme === 'light' ? 'rgba(92, 104, 124, 0.22)' : 'rgba(255, 255, 255, 0.09)'
-    const hairline = 1 / pixelRatio
-
-    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
-
-    for (let x = 0; x <= viewportSize.width; x += BACKDROP_MINOR_GRID_SIZE) {
-      context.fillStyle = x % BACKDROP_MAJOR_GRID_SIZE === 0 ? majorColor : minorColor
-      context.fillRect(x, 0, hairline, viewportSize.height)
+    return () => {
+      viewport.removeEventListener('scroll', syncScrollState)
     }
+  }, [mapDocument, viewportSize.height, viewportSize.width])
 
-    for (let y = 0; y <= viewportSize.height; y += BACKDROP_MINOR_GRID_SIZE) {
-      context.fillStyle = y % BACKDROP_MAJOR_GRID_SIZE === 0 ? majorColor : minorColor
-      context.fillRect(0, y, viewportSize.width, hairline)
-    }
-  }, [theme, viewportSize.height, viewportSize.width])
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!mapDocument) {
       mapRasterCanvasRef.current = null
       return
@@ -768,6 +977,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     onZoomChange?.(zoom, zoomMode)
   }, [onZoomChange, zoom, zoomMode])
 
+  const forceViewportRefresh = useCallback(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    setViewportScroll({
+      left: viewport.scrollLeft,
+      top: viewport.scrollTop,
+    })
+    setRefreshToken((current) => current + 1)
+  }, [])
+
   const centerViewport = useCallback(() => {
     const viewport = viewportRef.current
     if (!viewport) {
@@ -776,7 +998,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
     viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2)
     viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2)
-  }, [])
+    forceViewportRefresh()
+  }, [forceViewportRefresh])
 
   const resetViewportToOrigin = useCallback(() => {
     const viewport = viewportRef.current
@@ -786,7 +1009,25 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
     viewport.scrollLeft = 0
     viewport.scrollTop = 0
-  }, [])
+    forceViewportRefresh()
+  }, [forceViewportRefresh])
+
+  const centerViewportOnWorldPoint = useCallback(
+    (worldX: number, worldY: number) => {
+      const viewport = viewportRef.current
+      if (!viewport) {
+        return
+      }
+
+      const targetScrollLeft = canvasOffset.left + worldX * zoom - viewport.clientWidth / 2
+      const targetScrollTop = canvasOffset.top + worldY * zoom - viewport.clientHeight / 2
+
+      viewport.scrollLeft = Math.max(0, Math.min(targetScrollLeft, viewport.scrollWidth - viewport.clientWidth))
+      viewport.scrollTop = Math.max(0, Math.min(targetScrollTop, viewport.scrollHeight - viewport.clientHeight))
+      forceViewportRefresh()
+    },
+    [canvasOffset.left, canvasOffset.top, forceViewportRefresh, zoom],
+  )
 
   const setZoomAnchorFromClient = useCallback((clientX: number, clientY: number) => {
     const viewport = viewportRef.current
@@ -798,16 +1039,14 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const rect = viewport.getBoundingClientRect()
     const viewportX = clientX - rect.left
     const viewportY = clientY - rect.top
-    const canvasOffsetX = (stageSize.width - canvasLogicalSize.width) / 2
-    const canvasOffsetY = (stageSize.height - canvasLogicalSize.height) / 2
 
     pendingZoomAnchorRef.current = {
       viewportX,
       viewportY,
-      worldX: (viewport.scrollLeft + viewportX - canvasOffsetX) / zoom,
-      worldY: (viewport.scrollTop + viewportY - canvasOffsetY) / zoom,
+      worldX: (viewport.scrollLeft + viewportX - canvasOffset.left) / zoom,
+      worldY: (viewport.scrollTop + viewportY - canvasOffset.top) / zoom,
     }
-  }, [canvasLogicalSize.height, canvasLogicalSize.width, stageSize.height, stageSize.width, zoom])
+  }, [canvasOffset.left, canvasOffset.top, zoom])
 
   const setZoomAnchorFromViewportCenter = useCallback(() => {
     const viewport = viewportRef.current
@@ -846,6 +1085,36 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     applyManualZoom(zoom / TOOLBAR_ZOOM_FACTOR)
   }, [applyManualZoom, zoom])
 
+  const focusObjectTarget = useCallback(
+    (target: FocusedMapObjectTarget) => {
+      if (!mapDocument) {
+        return
+      }
+
+      const group = mapDocument.objectGroups.find((candidate) => candidate.id === target.groupId)
+      const object = group?.objects.find((candidate) => candidate.id === target.objectId)
+      if (!group || !object) {
+        return
+      }
+
+      const bounds = getObjectBounds(object, 12)
+      const worldX = bounds.x + bounds.width / 2
+      const worldY = bounds.y + bounds.height / 2
+
+      setHighlightedObjectTarget(target)
+
+      if (zoomMode === 'fit') {
+        pendingFocusWorldPointRef.current = { worldX, worldY }
+        setManualZoom(zoomRef.current)
+        setZoomMode('manual')
+        return
+      }
+
+      centerViewportOnWorldPoint(worldX, worldY)
+    },
+    [centerViewportOnWorldPoint, mapDocument, zoomMode],
+  )
+
   useImperativeHandle(
     ref,
     () => ({
@@ -855,8 +1124,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       setOneToOne: () => applyManualZoom(1),
       centerView: centerViewport,
       resetPan: resetViewportToOrigin,
+      focusObject: focusObjectTarget,
     }),
-    [applyFitZoom, applyManualZoom, centerViewport, resetViewportToOrigin, zoomInStep, zoomOutStep],
+    [applyFitZoom, applyManualZoom, centerViewport, focusObjectTarget, resetViewportToOrigin, zoomInStep, zoomOutStep],
   )
 
   useEffect(() => {
@@ -868,7 +1138,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    if (pendingZoomAnchorRef.current) {
+    if (pendingZoomAnchorRef.current || pendingFocusWorldPointRef.current) {
       return
     }
 
@@ -895,15 +1165,29 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    const canvasOffsetX = (stageSize.width - canvasLogicalSize.width) / 2
-    const canvasOffsetY = (stageSize.height - canvasLogicalSize.height) / 2
-    const targetScrollLeft = canvasOffsetX + nextAnchor.worldX * zoom - nextAnchor.viewportX
-    const targetScrollTop = canvasOffsetY + nextAnchor.worldY * zoom - nextAnchor.viewportY
+    const targetScrollLeft = canvasOffset.left + nextAnchor.worldX * zoom - nextAnchor.viewportX
+    const targetScrollTop = canvasOffset.top + nextAnchor.worldY * zoom - nextAnchor.viewportY
 
     viewport.scrollLeft = Math.max(0, Math.min(targetScrollLeft, viewport.scrollWidth - viewport.clientWidth))
     viewport.scrollTop = Math.max(0, Math.min(targetScrollTop, viewport.scrollHeight - viewport.clientHeight))
+    forceViewportRefresh()
     pendingZoomAnchorRef.current = null
-  }, [canvasLogicalSize.height, canvasLogicalSize.width, mapDocument, stageSize.height, stageSize.width, zoom])
+  }, [canvasOffset.left, canvasOffset.top, forceViewportRefresh, mapDocument, zoom])
+
+  useLayoutEffect(() => {
+    const pendingFocusWorldPoint = pendingFocusWorldPointRef.current
+    const viewport = viewportRef.current
+    if (!mapDocument || !pendingFocusWorldPoint || !viewport) {
+      return
+    }
+
+    if (!viewportSize.width || !viewportSize.height || !viewport.clientWidth || !viewport.clientHeight) {
+      return
+    }
+
+    centerViewportOnWorldPoint(pendingFocusWorldPoint.worldX, pendingFocusWorldPoint.worldY)
+    pendingFocusWorldPointRef.current = null
+  }, [centerViewportOnWorldPoint, mapDocument, viewportSize.height, viewportSize.width, zoom])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -925,6 +1209,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
             ? viewport.clientHeight
             : 1
+      const anchor = {
+        clientX: event.clientX,
+        clientY: event.clientY,
+      }
       pendingWheelDeltaRef.current += event.deltaY * deltaScale
 
       if (wheelZoomFrameRef.current !== null) {
@@ -940,7 +1228,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           return
         }
 
-        applyManualZoom(zoomRef.current * Math.exp(-delta * WHEEL_ZOOM_INTENSITY))
+        applyManualZoom(zoomRef.current * Math.exp(-delta * WHEEL_ZOOM_INTENSITY), anchor)
       })
     }
 
@@ -956,9 +1244,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
   }, [applyManualZoom, mapDocument])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !mapDocument) {
+    if (!canvas || !mapDocument || !viewportSize.width || !viewportSize.height) {
       return
     }
 
@@ -971,10 +1259,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       typeof window !== 'undefined' && Number.isFinite(window.devicePixelRatio) && window.devicePixelRatio > 0
         ? window.devicePixelRatio
         : 1
-    const logicalWidth = canvasLogicalSize.width
-    const logicalHeight = canvasLogicalSize.height
-    const width = Math.max(1, Math.ceil(logicalWidth * pixelRatio))
-    const height = Math.max(1, Math.ceil(logicalHeight * pixelRatio))
+    const logicalWidth = Math.max(1, viewportSize.width)
+    const logicalHeight = Math.max(1, viewportSize.height)
+    const renderScale = getCanvasRenderScale(logicalWidth, logicalHeight, pixelRatio)
+    const width = Math.max(1, Math.ceil(logicalWidth * pixelRatio * renderScale))
+    const height = Math.max(1, Math.ceil(logicalHeight * pixelRatio * renderScale))
+    const worldLeft = viewportCanvasRect.left / zoom
+    const worldTop = viewportCanvasRect.top / zoom
+    const worldWidth = viewportCanvasRect.width / zoom
+    const worldHeight = viewportCanvasRect.height / zoom
 
     canvas.width = width
     canvas.height = height
@@ -982,69 +1275,139 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const canvasFill = theme === 'light' ? '#f8fafc' : '#12151c'
     const overlayLabelFill = theme === 'light' ? '#ffffff' : '#080a10'
     const overlayLabelText = theme === 'light' ? '#101724' : '#eef4ff'
+    const visibleMapLeft = mapDisplayOffset.left + viewportCanvasRect.left
+    const visibleMapTop = mapDisplayOffset.top + viewportCanvasRect.top
+    const visibleMapWidth = viewportCanvasRect.width
+    const visibleMapHeight = viewportCanvasRect.height
 
     context.imageSmoothingEnabled = false
     context.setTransform(1, 0, 0, 1, 0, 0)
     context.clearRect(0, 0, width, height)
-    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    context.setTransform(pixelRatio * renderScale, 0, 0, pixelRatio * renderScale, 0, 0)
+    context.save()
+    context.beginPath()
+    context.rect(visibleMapLeft, visibleMapTop, visibleMapWidth, visibleMapHeight)
+    context.clip()
     context.fillStyle = canvasFill
-    context.fillRect(0, 0, logicalWidth, logicalHeight)
+    context.fillRect(visibleMapLeft, visibleMapTop, visibleMapWidth, visibleMapHeight)
 
     const rasterCanvas = mapRasterCanvasRef.current
-    if (rasterCanvas) {
-      context.drawImage(rasterCanvas, 0, 0, logicalWidth, logicalHeight)
+    if (rasterCanvas && worldWidth > 0 && worldHeight > 0) {
+      context.drawImage(
+        rasterCanvas,
+        worldLeft,
+        worldTop,
+        worldWidth,
+        worldHeight,
+        mapDisplayOffset.left + viewportCanvasRect.left,
+        mapDisplayOffset.top + viewportCanvasRect.top,
+        viewportCanvasRect.width,
+        viewportCanvasRect.height,
+      )
     }
 
     if (showGrid) {
       const gridColor = theme === 'light' ? 'rgba(20, 28, 40, 0.22)' : 'rgba(244, 244, 245, 0.18)'
-      const hairline = 1 / pixelRatio
+      const hairline = 1 / Math.max(pixelRatio * renderScale, 1)
       const tileWidth = mapDocument.tileWidth * zoom
       const tileHeight = mapDocument.tileHeight * zoom
 
       context.fillStyle = gridColor
 
-      for (let x = tileWidth; x < logicalWidth; x += tileWidth) {
-        context.fillRect(x - hairline / 2, 0, hairline, logicalHeight)
+      for (
+        let x = Math.max(tileWidth, Math.ceil(viewportCanvasRect.left / tileWidth) * tileWidth);
+        x < viewportCanvasRect.left + viewportCanvasRect.width;
+        x += tileWidth
+      ) {
+        context.fillRect(mapDisplayOffset.left + x - hairline / 2, visibleMapTop, hairline, visibleMapHeight)
       }
 
-      for (let y = tileHeight; y < logicalHeight; y += tileHeight) {
-        context.fillRect(0, y - hairline / 2, logicalWidth, hairline)
+      for (
+        let y = Math.max(tileHeight, Math.ceil(viewportCanvasRect.top / tileHeight) * tileHeight);
+        y < viewportCanvasRect.top + viewportCanvasRect.height;
+        y += tileHeight
+      ) {
+        context.fillRect(visibleMapLeft, mapDisplayOffset.top + y - hairline / 2, visibleMapWidth, hairline)
       }
     }
+    context.restore()
 
     context.globalAlpha = 1
+    context.save()
+    context.beginPath()
+    context.rect(mapDisplayOffset.left, mapDisplayOffset.top, canvasLogicalSize.width, canvasLogicalSize.height)
+    context.clip()
+    context.translate(mapDisplayOffset.left, mapDisplayOffset.top)
 
     for (const group of visibleObjectGroups) {
       const color = getGroupColor(group.name)
-      context.strokeStyle = color
-      context.fillStyle = color
-      context.globalAlpha = Math.max(0.18, Math.min(0.45, group.opacity * 0.32))
-      context.lineWidth = Math.max(1.25, zoom * 0.1)
 
       for (const object of group.objects) {
+        const interactionTag = getObjectInteractionTag(object)
+        const label = getObjectDisplayLabel(object)
         const bounds = getObjectBounds(object, 12 / zoom)
         const destinationX = bounds.x * zoom
         const destinationY = bounds.y * zoom
         const destinationWidth = bounds.width * zoom
         const destinationHeight = bounds.height * zoom
+        const centerX = (bounds.x + bounds.width / 2) * zoom
+        const centerY = (bounds.y + bounds.height / 2) * zoom
+        const fillAlpha = interactionTag ? Math.max(0.22, Math.min(0.42, group.opacity * 0.42)) : Math.max(0.12, Math.min(0.28, group.opacity * 0.24))
+        const strokeAlpha = interactionTag ? Math.max(0.76, Math.min(0.98, group.opacity + 0.12)) : Math.max(0.48, Math.min(0.82, group.opacity * 0.84))
 
+        context.save()
+        context.strokeStyle = color
+        context.fillStyle = color
+        context.globalAlpha = fillAlpha
         context.fillRect(destinationX, destinationY, destinationWidth, destinationHeight)
-        context.globalAlpha = Math.max(0.5, Math.min(0.9, group.opacity))
+        context.globalAlpha = strokeAlpha
+        context.lineWidth = Math.max(interactionTag ? 1.8 : 1.25, zoom * (interactionTag ? 0.18 : 0.1))
+        if (interactionTag) {
+          context.setLineDash([Math.max(5, 8 * zoom), Math.max(3, 5 * zoom)])
+        }
         context.strokeRect(destinationX, destinationY, destinationWidth, destinationHeight)
+        context.setLineDash([])
 
         if (bounds.isPoint) {
           context.beginPath()
-          context.arc(object.x * zoom, object.y * zoom, Math.max(4, 5 * zoom), 0, Math.PI * 2)
+          context.globalAlpha = interactionTag ? 1 : 0.92
+          context.shadowBlur = interactionTag ? Math.max(8, 14 * zoom) : 0
+          context.shadowColor = interactionTag ? color : 'transparent'
+          context.arc(object.x * zoom, object.y * zoom, Math.max(interactionTag ? 5 : 4, 5.5 * zoom), 0, Math.PI * 2)
+          context.fill()
+          context.shadowBlur = 0
+        } else {
+          context.beginPath()
+          context.globalAlpha = interactionTag ? 0.94 : 0.72
+          context.arc(centerX, centerY, Math.max(interactionTag ? 3.5 : 2.5, 3.5 * zoom), 0, Math.PI * 2)
           context.fill()
         }
 
-        if (zoom >= 0.45) {
-          const label = object.name || object.type || `Object ${object.id}`
+        if (interactionTag) {
+          const markerRadius = Math.max(6, 8 * zoom)
+
+          context.globalAlpha = 0.92
+          context.strokeStyle = 'rgba(255,255,255,0.96)'
+          context.lineWidth = Math.max(1.2, 1.8 * zoom)
+          context.beginPath()
+          context.moveTo(centerX, centerY - markerRadius)
+          context.lineTo(centerX + markerRadius, centerY)
+          context.lineTo(centerX, centerY + markerRadius)
+          context.lineTo(centerX - markerRadius, centerY)
+          context.closePath()
+          context.stroke()
+        }
+
+        const labelThreshold = interactionTag || bounds.isPoint ? 0.28 : 0.45
+        if (zoom >= labelThreshold) {
+          const secondaryLabel = interactionTag ?? object.type
           context.font = `${Math.max(10, Math.round(11 * Math.min(zoom, 1.3)))}px "Segoe UI", sans-serif`
-          const labelWidth = context.measureText(label).width + 10
-          const labelHeight = 18
-          const labelX = destinationX
-          const labelY = Math.max(4, destinationY - labelHeight)
+          const primaryWidth = context.measureText(label).width
+          const secondaryWidth = secondaryLabel ? context.measureText(secondaryLabel).width : 0
+          const labelWidth = Math.max(primaryWidth, secondaryWidth) + 12
+          const labelHeight = secondaryLabel ? 30 : 18
+          const labelX = bounds.isPoint ? centerX + 10 : destinationX
+          const labelY = bounds.isPoint ? centerY - labelHeight / 2 : Math.max(4, destinationY - labelHeight)
 
           context.globalAlpha = 0.88
           context.fillStyle = overlayLabelFill
@@ -1054,10 +1417,12 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           context.strokeRect(labelX, labelY, labelWidth, labelHeight)
           context.fillStyle = overlayLabelText
           context.fillText(label, labelX + 5, labelY + 12.5)
-          context.fillStyle = color
+          if (secondaryLabel) {
+            context.fillStyle = theme === 'light' ? '#475569' : '#cbd5e1'
+            context.fillText(secondaryLabel, labelX + 5, labelY + 24)
+          }
         }
-
-        context.globalAlpha = Math.max(0.18, Math.min(0.45, group.opacity * 0.32))
+        context.restore()
       }
     }
 
@@ -1067,9 +1432,49 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       }
     }
 
+    if (highlightedObject) {
+      const bounds = getObjectBounds(highlightedObject.object, 12 / zoom)
+      const destinationX = bounds.x * zoom
+      const destinationY = bounds.y * zoom
+      const destinationWidth = bounds.width * zoom
+      const destinationHeight = bounds.height * zoom
+      const centerX = (bounds.x + bounds.width / 2) * zoom
+      const centerY = (bounds.y + bounds.height / 2) * zoom
+      const highlightColor = theme === 'light' ? 'rgba(245, 158, 11, 0.96)' : 'rgba(250, 204, 21, 0.98)'
+      const haloColor = theme === 'light' ? 'rgba(249, 115, 22, 0.24)' : 'rgba(250, 204, 21, 0.28)'
+
+      context.save()
+      context.globalAlpha = 1
+      context.shadowBlur = Math.max(14, 22 * zoom)
+      context.shadowColor = haloColor
+      context.fillStyle = haloColor
+      context.fillRect(destinationX - 4, destinationY - 4, destinationWidth + 8, destinationHeight + 8)
+      context.shadowBlur = 0
+      context.strokeStyle = highlightColor
+      context.lineWidth = Math.max(2, 3 * zoom)
+      context.setLineDash([Math.max(8, 10 * zoom), Math.max(4, 6 * zoom)])
+      context.strokeRect(destinationX - 2, destinationY - 2, destinationWidth + 4, destinationHeight + 4)
+      context.setLineDash([])
+
+      context.beginPath()
+      context.fillStyle = highlightColor
+      context.arc(centerX, centerY, Math.max(4.5, 6 * zoom), 0, Math.PI * 2)
+      context.fill()
+
+      context.beginPath()
+      context.strokeStyle = 'rgba(255,255,255,0.96)'
+      context.lineWidth = Math.max(1.5, 2 * zoom)
+      context.moveTo(centerX - Math.max(8, 12 * zoom), centerY)
+      context.lineTo(centerX + Math.max(8, 12 * zoom), centerY)
+      context.moveTo(centerX, centerY - Math.max(8, 12 * zoom))
+      context.lineTo(centerX, centerY + Math.max(8, 12 * zoom))
+      context.stroke()
+      context.restore()
+    }
+
     if (atlasPortals.length) {
       for (const portal of atlasPortals) {
-        drawAtlasPortal(context, portal, mapDocument.tileWidth, mapDocument.tileHeight, zoom, theme)
+        drawAtlasPortal(context, portal, mapDocument.tileWidth, mapDocument.tileHeight, zoom, theme, accentColor)
       }
     }
 
@@ -1110,19 +1515,31 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     context.globalAlpha = 1
+    context.restore()
   }, [
-    canvasLogicalSize.height,
-    canvasLogicalSize.width,
+    accentColor,
     atlasPlacements,
+    highlightedObject,
     atlasPortals,
     atlasWarpRoutes,
     mapDocument,
     showGrid,
     theme,
     tilesetImages,
+    viewportCanvasRect.height,
+    viewportCanvasRect.left,
+    viewportCanvasRect.top,
+    viewportCanvasRect.width,
     visibleLayers,
     visibleObjectGroups,
+    viewportSize.height,
+    viewportSize.width,
     zoom,
+    canvasLogicalSize.height,
+    canvasLogicalSize.width,
+    mapDisplayOffset.left,
+    mapDisplayOffset.top,
+    refreshToken,
   ])
 
   function updateHover(event: PointerEvent<HTMLDivElement>) {
@@ -1135,17 +1552,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   function getCanvasWorldPoint(clientX: number, clientY: number) {
-    if (!mapDocument) {
+    const viewport = viewportRef.current
+    if (!mapDocument || !viewport) {
       return null
     }
 
-    const rect = canvasRef.current?.getBoundingClientRect()
-    if (!rect) {
-      return null
-    }
-
-    const pixelX = (clientX - rect.left) / zoom
-    const pixelY = (clientY - rect.top) / zoom
+    const rect = viewport.getBoundingClientRect()
+    const viewportX = clientX - rect.left
+    const viewportY = clientY - rect.top
+    const pixelX = (viewport.scrollLeft + viewportX - canvasOffset.left) / zoom
+    const pixelY = (viewport.scrollTop + viewportY - canvasOffset.top) / zoom
 
     return {
       pixelX,
@@ -1190,6 +1606,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       const deltaY = event.clientY - dragState.startY
       viewport.scrollLeft = dragState.scrollLeft - deltaX
       viewport.scrollTop = dragState.scrollTop - deltaY
+      forceViewportRefresh()
       return
     }
 
@@ -1246,16 +1663,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   if (!mapDocument) {
     return (
-      <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)]">
+      <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)]" style={viewportBackdropStyle}>
         <div
-          className="absolute inset-0 opacity-70"
+          className="absolute inset-0"
           style={{
-            backgroundImage:
-              'linear-gradient(var(--grid-minor) 1px, transparent 1px), linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
+            background:
+                theme === 'light'
+                ? `radial-gradient(circle at center, ${rgbaFromHex(accentColor, 0.06)}, transparent 38%)`
+                : `radial-gradient(circle at center, ${rgbaFromHex(accentColor, 0.08)}, transparent 38%)`,
           }}
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.14),transparent_38%)]" />
         <div className="relative flex h-full items-center justify-center p-10">
           <div className="max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-5 text-center shadow-[var(--shadow-panel)]">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-tertiary)]">{labels.fitMap}</p>
@@ -1269,9 +1686,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>
-        <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)] shadow-[var(--shadow-panel)]">
-          <canvas ref={gridCanvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.12),transparent_28%)]" />
+        <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)] shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                theme === 'light'
+                  ? `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.05)}, transparent 28%)`
+                  : `radial-gradient(circle at top left, ${rgbaFromHex(accentColor, 0.08)}, transparent 28%)`,
+            }}
+          />
 
           <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
             <span className="dock-chip">
@@ -1293,6 +1717,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             </div>
           ) : null}
 
+          <canvas
+            ref={canvasRef}
+            className="pointer-events-none absolute inset-0 z-[1] [image-rendering:pixelated]"
+            style={{
+              width: `${viewportSize.width}px`,
+              height: `${viewportSize.height}px`,
+              display: viewportSize.width > 0 && viewportSize.height > 0 ? 'block' : 'none',
+            }}
+          />
+
           <div ref={frameRef} className="absolute inset-0">
             <div
               ref={viewportRef}
@@ -1310,16 +1744,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                   height: `${stageSize.height}px`,
                 }}
               >
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <canvas
-                    ref={canvasRef}
-                    className="border border-white/10 shadow-2xl [image-rendering:pixelated]"
-                    style={{
-                      width: `${canvasLogicalSize.width}px`,
-                      height: `${canvasLogicalSize.height}px`,
-                    }}
-                  />
-                </div>
+                <div
+                  className="pointer-events-none absolute border border-white/10"
+                  style={{
+                    left: `${canvasOffset.left}px`,
+                    top: `${canvasOffset.top}px`,
+                    width: `${canvasLogicalSize.width}px`,
+                    height: `${canvasLogicalSize.height}px`,
+                  }}
+                />
               </div>
             </div>
           </div>

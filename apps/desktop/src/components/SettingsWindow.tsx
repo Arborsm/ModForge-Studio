@@ -1,0 +1,166 @@
+import { Palette, Settings2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { cx } from '../lib/cx'
+
+type AccentOption = {
+  id: string
+  label: string
+  color: string
+}
+
+type SettingsWindowProps = {
+  open: boolean
+  title: string
+  categories: {
+    appearance: string
+    view: string
+    interaction: string
+    advanced: string
+  }
+  categoryDescriptions: {
+    appearance: string
+    view: string
+    interaction: string
+    advanced: string
+  }
+  accentLabel: string
+  resetAccentLabel: string
+  accentDescription: string
+  futureLabel: string
+  futureDescription: string
+  accentOptions: AccentOption[]
+  activeAccentId: string
+  onSelectAccent: (id: string) => void
+  onResetAccent: () => void
+  onClose: () => void
+}
+
+export default function SettingsWindow({
+  open,
+  title,
+  categories,
+  categoryDescriptions,
+  accentLabel,
+  resetAccentLabel,
+  accentDescription,
+  futureLabel,
+  futureDescription,
+  accentOptions,
+  activeAccentId,
+  onSelectAccent,
+  onResetAccent,
+  onClose,
+}: SettingsWindowProps) {
+  const [activeCategory, setActiveCategory] = useState<'appearance' | 'view' | 'interaction' | 'advanced'>('appearance')
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose, open])
+
+  if (!open) {
+    return null
+  }
+
+  return (
+    <div className="settings-window-backdrop" onClick={onClose}>
+      <section className="settings-window-panel" onClick={(event) => event.stopPropagation()}>
+        <header className="settings-window-header">
+          <div className="min-w-0">
+            <p className="settings-window-eyebrow">
+              <Settings2 className="h-3.5 w-3.5" />
+              <span>{title}</span>
+            </p>
+            <p className="settings-window-title">{title}</p>
+          </div>
+
+          <button type="button" className="workspace-panel-action h-8 w-8" onClick={onClose} title="Close settings">
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="settings-window-body">
+          <aside className="settings-window-sidebar">
+            {(['appearance', 'view', 'interaction', 'advanced'] as const).map((categoryId) => (
+              <button
+                key={categoryId}
+                type="button"
+                className={cx(
+                  'settings-window-nav-item',
+                  activeCategory === categoryId && 'settings-window-nav-item-active',
+                )}
+                onClick={() => setActiveCategory(categoryId)}
+              >
+                <span className="settings-window-nav-title">{categories[categoryId]}</span>
+                <span className="settings-window-nav-copy">{categoryDescriptions[categoryId]}</span>
+              </button>
+            ))}
+          </aside>
+
+          <div className="settings-window-content">
+            {activeCategory === 'appearance' ? (
+              <section className="settings-window-section">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-[var(--accent)]" />
+                      <p className="settings-window-section-title">{accentLabel}</p>
+                    </div>
+                    <p className="settings-window-section-copy">{accentDescription}</p>
+                  </div>
+                  <button type="button" className="control-button h-8 shrink-0" onClick={onResetAccent}>
+                    {resetAccentLabel}
+                  </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  {accentOptions.map((option) => {
+                    const active = option.id === activeAccentId
+
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={cx('settings-accent-card', active && 'settings-accent-card-active')}
+                        onClick={() => onSelectAccent(option.id)}
+                      >
+                        <span className="settings-accent-swatch" style={{ backgroundColor: option.color }} />
+                        <span className="truncate text-sm font-medium">{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {activeCategory !== 'appearance' ? (
+              <section className="settings-window-section">
+                <p className="settings-window-section-title">{categories[activeCategory]}</p>
+                <p className="settings-window-section-copy mt-2">{categoryDescriptions[activeCategory]}</p>
+                <div className="settings-window-placeholder">
+                  <p className="settings-window-placeholder-title">{futureLabel}</p>
+                  <p className="settings-window-placeholder-copy">{futureDescription}</p>
+                </div>
+              </section>
+            ) : (
+              <section className="settings-window-section">
+                <p className="settings-window-section-title">{futureLabel}</p>
+                <p className="settings-window-section-copy mt-2">{futureDescription}</p>
+              </section>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}

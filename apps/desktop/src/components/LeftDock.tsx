@@ -1,4 +1,5 @@
-import { Search } from 'lucide-react'
+import { ChevronDown, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { EditorCopy, WorkspaceMode } from '../lib/editor-shell'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import { cx } from '../lib/cx'
@@ -36,6 +37,17 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function getAssetGroupLabel(asset: MapAssetSummary) {
+  const relativePath = asset.relativePath.replaceAll('\\', '/')
+  const pathSegments = relativePath.split('/')
+  const fileName = pathSegments[pathSegments.length - 1]?.replace(/\.(tmx|xnb)$/i, '') ?? asset.name
+  const familySource = /^Island(?:_|-|[A-Z])/.test(fileName)
+    ? 'Island'
+    : fileName.split(/[-_]/)[0]?.replace(/\d+$/u, '') || fileName
+
+  return familySource || '#'
+}
+
 export default function LeftDock({
   copy,
   workspaceMode,
@@ -56,6 +68,31 @@ export default function LeftDock({
   onOpenAsset,
 }: LeftDockProps) {
   const activeAssetName = sceneLabel ?? mapAssets.find((item) => item.id === activeMapId)?.name ?? copy.common.none
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  const groupedAssets = useMemo(() => {
+    const groups = new Map<string, MapAssetSummary[]>()
+    for (const asset of filteredAssets) {
+      const groupLabel = getAssetGroupLabel(asset)
+      const current = groups.get(groupLabel)
+      if (current) {
+        current.push(asset)
+      } else {
+        groups.set(groupLabel, [asset])
+      }
+    }
+
+    return Array.from(groups.entries())
+      .map(([label, items]) => ({
+        label,
+        items: items.sort((left, right) => left.name.localeCompare(right.name)),
+        grouped: items.length > 1,
+      }))
+      .sort(
+        (left, right) =>
+          right.items.length - left.items.length ||
+          left.label.localeCompare(right.label),
+      )
+  }, [filteredAssets])
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-hidden bg-[var(--bg-panel)] p-3">
@@ -143,31 +180,92 @@ export default function LeftDock({
             />
           </div>
 
-          <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
-            {filteredAssets.length ? (
-              filteredAssets.map((asset) => {
-                const isActive = asset.id === activeMapId
-                const isPinned = /^town$/i.test(asset.name)
+          <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
+            {groupedAssets.length ? (
+              groupedAssets.map((group) => {
+                const isCollapsed = collapsedGroups[group.label] ?? true
+
+                if (!group.grouped) {
+                  const asset = group.items[0]
+                  const isActive = asset.id === activeMapId
+                  const isPinned = /^town$/i.test(asset.name)
+
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      className={cx('asset-row', isActive && 'asset-row-active')}
+                      onClick={() => onOpenAsset(asset)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
+                          <p className="truncate text-xs text-[var(--text-secondary)]">{asset.relativePath}</p>
+                        </div>
+                        <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                          {isPinned ? <p className="font-semibold text-[var(--accent)]">{copy.leftDock.pinned}</p> : null}
+                          <p>{asset.format.toUpperCase()}</p>
+                          <p>{formatBytes(asset.sizeBytes)}</p>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                }
 
                 return (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    className={cx('asset-row', isActive && 'asset-row-active')}
-                    onClick={() => onOpenAsset(asset)}
+                  <section
+                    key={group.label}
+                    className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-[var(--bg-active)]"
+                      onClick={() =>
+                        setCollapsedGroups((current) => ({
+                          ...current,
+                          [group.label]: !isCollapsed,
+                        }))
+                      }
+                    >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
-                        <p className="truncate text-xs text-[var(--text-secondary)]">{asset.relativePath}</p>
+                        <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
+                          {group.label}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                       </div>
-                      <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
-                        {isPinned ? <p className="font-semibold text-[var(--accent)]">{copy.leftDock.pinned}</p> : null}
-                        <p>{asset.format.toUpperCase()}</p>
-                        <p>{formatBytes(asset.sizeBytes)}</p>
+                      <ChevronDown className={cx('h-4 w-4 text-[var(--text-secondary)] transition-transform', !isCollapsed && 'rotate-180')} />
+                    </button>
+
+                    {!isCollapsed ? (
+                      <div className="space-y-2 border-t border-[var(--border-color)] p-2">
+                        {group.items.map((asset) => {
+                          const isActive = asset.id === activeMapId
+                          const isPinned = /^town$/i.test(asset.name)
+
+                          return (
+                            <button
+                              key={asset.id}
+                              type="button"
+                              className={cx('asset-row', isActive && 'asset-row-active')}
+                              onClick={() => onOpenAsset(asset)}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
+                                  <p className="truncate text-xs text-[var(--text-secondary)]">{asset.relativePath}</p>
+                                </div>
+                                <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                                  {isPinned ? <p className="font-semibold text-[var(--accent)]">{copy.leftDock.pinned}</p> : null}
+                                  <p>{asset.format.toUpperCase()}</p>
+                                  <p>{formatBytes(asset.sizeBytes)}</p>
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
-                    </div>
-                  </button>
+                    ) : null}
+                  </section>
                 )
               })
             ) : (

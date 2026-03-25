@@ -1,111 +1,145 @@
 # ModForge Studio 编辑器工作区说明
 
+## 2026-03 Workspace Update
+
+- 中央工作区改为真实文档选项卡，不再使用单个伪标签头。
+- `World Atlas` 固定在第一个选项卡，不能关闭。
+- 从资源浏览器或世界地图入口打开地图时，会新增或聚焦到对应地图选项卡。
+- 普通地图选项卡支持关闭和拖拽排序。
+- 当前文档路径从顶部条移到底部状态栏显示。
+
 ## 当前界面结构
 
-当前桌面端前端已经重构为固定式编辑器工作台，而不是网页式长页面。
+当前桌面端已经不是固定三栏编辑器，而是更接近 IDE 工具窗口的工作区。
 
-主结构：
+主要结构：
 
-- 顶部：自绘标题栏、模块切换、主题切换、语言切换、窗口控制按钮
-- 左侧：项目导航与地图资源浏览器
-- 中央：主地图视口与视口工具栏
-- 右侧：Inspector、图层、对象组、悬停探针、诊断
-- 底部：状态栏
+- 顶部：自绘标题栏、模块切换、主题切换、语言切换、窗口控制
+- 左侧：工具窗口图标栏，承载 `项目导航`、`资源浏览器` 以及左侧底部分组入口
+- 中央：主地图视口与主工作区
+- 右侧：工具窗口图标栏，承载 `Inspector`、`图层`、`对象组` 以及右侧底部分组入口
+- 底部：可停靠的信息型窗口区域，例如 `诊断`
+- 底栏：状态栏与悬停探针摘要
 
-布局特征：
+工作区特征：
 
-- 外层窗口无页面滚动
-- 滚动只发生在左侧列表、右侧面板和局部内容区
-- 左、中、右三栏支持拖拽调整宽度
-- 顶部模块切换负责角色 / 建筑 / 物品 / 事件编辑器入口，因此不再保留左下角扩展位
+- 左右侧是 IDE 风格工具窗口栏，不是固定栏位
+- 图标支持展开、收起、右键菜单、浮动窗口化
+- 面板支持停靠到 `left-top`、`left-bottom`、`right-top`、`right-bottom`、`bottom-left`、`bottom-right`、`center`
+- 停靠布局与窗口位置支持本地持久化
+- 工具窗口图标支持拖拽，并显示目标落位示意
+- 中央视图窗口栏已隐藏，主视图更像纯画布
+- 停靠在侧边和底部的信息面板默认隐藏标题栏
 
-## 当前视觉与交互方向
+## 当前交互模型
 
-当前 UI 的目标不是网页 dashboard，而是更接近 Unity / Rider / VS Code 一类桌面创作工具。
+当前 UI 目标不是网页式 dashboard，而是接近 Rider / IntelliJ / VS Code 一类的桌面创作工具。
 
-已落实：
+已落地：
 
 - 浅色 / 深色双主题
 - `zh-CN / en-US` 双语文案
-- 基于 CSS 变量的统一编辑器视觉 token
-- 统一按钮、输入框、卡片、状态条、右键菜单、拖拽分栏样式
-- Tauri 无边框窗口
-- 自定义最小化 / 最大化 / 关闭按钮
-- 顶部可拖动标题栏空白区
+- Tauri 无边框窗口与自定义最小化 / 最大化 / 关闭按钮
+- 顶部标题栏空白区域可拖动窗口
+- 视图菜单可控制工作区窗口显隐、重置布局、保存 / 加载预设
+- 悬停探针已移入底栏，不再作为独立侧栏面板
+- 主视图、信息面板、列表面板已经按不同密度分别布局
 
 ## 当前已实现能力
 
 - 自动检测或手动选择 Stardew Valley 安装目录
 - 验证游戏目录结构
 - 扫描 `TMX / XNB` 地图资产
-- 优先自动打开 `Town` 地图
-- 主视口渲染 Tile Layer
-- 主视口叠加渲染 TMX Object Group 边界与标签
+- 优先自动打开世界地图视图
+- 主视口渲染 `Tile Layer`
+- 主视口叠加渲染 `TMX Object Group` 边界、标签、Warp 路径
+- 通过世界图视图查看主世界与远程区域
 - 图层显隐切换
 - 对象组显隐切换
-- 鼠标悬停查看 Tile 坐标、像素坐标、GID、Tileset、Tile 属性、命中对象
+- 右侧对象预览点击后在画布中高亮并定位对象
+- 鼠标悬停查看 Tile 坐标、像素坐标、GID、Tileset、命中对象摘要
 - 右键弹出自定义编辑器菜单
 - 视口拖拽平移
 - 工具栏 / 右键菜单 / 鼠标滚轮缩放
 - `Fit` 与 `1:1` 视口比例切换
 
-## 当前不再适用的旧描述
+## 当前布局实现重点
 
-以下描述已经过时，不应继续作为实现方向：
+### 1. 工具窗口系统
 
-- 底部大 Dock 作为角色 / 建筑 / 物品 / 事件的主入口
-- 左下角扩展位
-- `App.css` / `index.css` 作为主要样式入口
-- 旧的单体 `i18n.ts` 文案结构
+由以下文件负责：
+
+- `apps/desktop/src/components/WorkspaceLayout.tsx`
+- `apps/desktop/src/styles/globals.css`
+
+当前逻辑：
+
+- 左右两侧是图标工具栏
+- 同一停靠槽位只展开一个窗口
+- 停靠窗口和浮窗共享同一套布局状态
+- 停靠窗口支持右键切换停靠目标
+- 图标拖拽会出现左右上下与底部左右的目标区域示意
+
+### 2. 面板拆分
+
+左侧面板：
+
+- `apps/desktop/src/components/LeftPanels.tsx`
+
+右侧面板：
+
+- `apps/desktop/src/components/RightPanels.tsx`
+
+中央工作区：
+
+- `apps/desktop/src/components/CentralWorkspace.tsx`
+- `apps/desktop/src/components/MapViewport.tsx`
+
+### 3. 当前信息面板优化
+
+信息型面板已做过一轮紧凑化：
+
+- `项目导航`
+- `Inspector`
+- `诊断`
+
+优化方向：
+
+- 更低默认高度
+- 更高信息密度
+- 更短的统计卡片
+- 更紧凑的键值行
+
+## 已过时描述
+
+以下描述已经不再适用：
+
+- 固定左中右三栏布局
+- `LeftDock.tsx / RightDock.tsx` 作为当前主要布局入口
+- 独立的悬停探针侧栏窗口
+- 主视图始终带完整窗口栏
 
 当前应以这些文件为准：
 
 - `apps/desktop/src/App.tsx`
 - `apps/desktop/src/styles/globals.css`
 - `apps/desktop/src/components/TopMenuBar.tsx`
-- `apps/desktop/src/components/LeftDock.tsx`
+- `apps/desktop/src/components/LeftPanels.tsx`
+- `apps/desktop/src/components/RightPanels.tsx`
+- `apps/desktop/src/components/WorkspaceLayout.tsx`
 - `apps/desktop/src/components/CentralWorkspace.tsx`
-- `apps/desktop/src/components/RightDock.tsx`
 - `apps/desktop/src/components/StatusBar.tsx`
 - `apps/desktop/src/components/MapViewport.tsx`
 - `apps/desktop/src/lib/editor-shell.ts`
 
-## 后续适合继续实现的方向
+## 开发与热重载
 
-### 1. 对象编辑
+推荐从仓库根目录运行：
 
-优先补齐：
-
-- 点击选择对象
-- 选中高亮
-- Inspector 写回
-- 数值编辑或控制柄
-
-### 2. 专用模块编辑器
-
-继续沿用顶部模块切换，不再新增底部模块入口：
-
-- 角色编辑器
-- 建筑编辑器
-- 物品编辑器
-- 事件图编辑器
-
-### 3. 事件图
-
-事件编辑器建议继续放在中央主工作区中，以图编辑器方式呈现，而不是回退成普通表单页。
-
-### 4. XNB 路径
-
-当前只支持扫描，不支持真正加载和解析。后续要么在 Tauri / Rust 内补，要么接回 `.NET bridge` 做解码。
-
-## 开发与热载
-
-Rider 中推荐直接运行根目录脚本：
-
-- `desktop:dev`
+- `npm run desktop:dev`
 
 行为：
 
 - `apps/desktop/src` 下的 React / TS / CSS 改动走 Vite HMR
-- `apps/desktop/src-tauri` 下的 Rust 改动会重编并重启桌面宿主
-- `tauri.conf.json`、capability、依赖、Tailwind / PostCSS 配置改动通常需要手动重启
+- `apps/desktop/src-tauri` 下的 Rust 改动会重编译并重启桌面宿主
+- `tauri.conf.json`、capabilities、依赖、Tailwind/PostCSS 配置变更通常需要手动重启

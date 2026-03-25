@@ -5,28 +5,41 @@ import {
   Maximize,
   MousePointer2,
   Move,
+  Pin,
+  X,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { EditorCopy, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../lib/editor-shell'
-import type { MapAssetSummary } from '../lib/desktop'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
-import { MapViewport, type MapViewportHandle, type TileHoverInfo } from './MapViewport'
+import { MapViewport, type FocusedMapObjectTarget, type MapViewportHandle, type TileHoverInfo } from './MapViewport'
 
 type CentralWorkspaceProps = {
   copy: EditorCopy
   workspaceMode: WorkspaceMode
-  activeAsset: MapAssetSummary | null
+  tabs: Array<{
+    id: string
+    title: string
+    pathLabel: string
+    closable: boolean
+    pinned?: boolean
+  }>
+  activeTabId: string
+  onSelectTab: (tabId: string) => void
+  onCloseTab: (tabId: string) => void
+  onReorderTabs: (sourceTabId: string, targetTabId: string) => void
   mapDocument: MapDocument | null
   worldAtlasViews: Array<{ id: 'main' | 'remote'; label: string }>
   activeWorldAtlasViewId: 'main' | 'remote' | null
   onSelectWorldAtlasView: (viewId: 'main' | 'remote') => void
   onOpenAtlasTarget: (targetMapName: string) => void
   theme: ThemeMode
+  accentColor: string
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
+  focusedObjectTarget: FocusedMapObjectTarget | null
   onHoverChange: (info: TileHoverInfo | null) => void
   moduleBlueprint?: ModuleBlueprint
 }
@@ -36,38 +49,116 @@ type ToolMode = 'select' | 'pan'
 export default function CentralWorkspace({
   copy,
   workspaceMode,
-  activeAsset,
+  tabs,
+  activeTabId,
+  onSelectTab,
+  onCloseTab,
+  onReorderTabs,
   mapDocument,
   worldAtlasViews,
   activeWorldAtlasViewId,
   onSelectWorldAtlasView,
   onOpenAtlasTarget,
   theme,
+  accentColor,
   visibleLayerIds,
   visibleObjectGroupIds,
+  focusedObjectTarget,
   onHoverChange,
   moduleBlueprint,
 }: CentralWorkspaceProps) {
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
   const [zoomLabel, setZoomLabel] = useState('100%')
+  const [draggedTabId, setDraggedTabId] = useState<string | null>(null)
+  const [dropTargetTabId, setDropTargetTabId] = useState<string | null>(null)
   const viewportRef = useRef<MapViewportHandle | null>(null)
+
+  useLayoutEffect(() => {
+    if (!focusedObjectTarget) {
+      return
+    }
+
+    viewportRef.current?.focusObject(focusedObjectTarget)
+  }, [focusedObjectTarget])
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-viewport)]">
-      <div className="flex h-10 items-end overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-2">
-        <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4">
-          <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
-          <span className="text-xs font-semibold text-[var(--text-primary)]">
-            {workspaceMode === 'map' ? mapDocument?.name ?? activeAsset?.name ?? copy.center.activeScene : moduleBlueprint?.title}
-          </span>
-          <span className="h-2 w-2 rounded-full bg-[var(--text-secondary)]/70" />
-        </div>
-        <div className="ml-3 hidden items-center gap-3 text-[11px] text-[var(--text-secondary)] lg:flex">
-          <span>
-            {workspaceMode === 'map' ? mapDocument?.relativePath ?? activeAsset?.relativePath ?? copy.center.noSceneLoaded : moduleBlueprint?.summary}
-          </span>
-        </div>
+      <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-2">
+        {workspaceMode === 'map'
+          ? tabs.map((tab) => {
+              const isActive = activeTabId === tab.id
+              const isDragged = draggedTabId === tab.id
+              const isDropTarget = dropTargetTabId === tab.id && draggedTabId !== tab.id
+
+              return (
+                <div
+                  key={tab.id}
+                  draggable={tab.closable}
+                  className={cx(
+                    'group flex h-9 shrink-0 items-center gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors',
+                    isActive
+                      ? 'border-[var(--border-color)] bg-[var(--bg-active)] text-[var(--text-primary)]'
+                      : 'border-transparent bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:border-[var(--border-color)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]',
+                    isDragged && 'opacity-50',
+                    isDropTarget && 'border-[var(--accent)]',
+                  )}
+                  onDragStart={(event) => {
+                    if (!tab.closable) {
+                      return
+                    }
+
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', tab.id)
+                    setDraggedTabId(tab.id)
+                  }}
+                  onDragOver={(event) => {
+                    if (!draggedTabId || draggedTabId === tab.id || !tab.closable) {
+                      return
+                    }
+
+                    event.preventDefault()
+                    if (dropTargetTabId !== tab.id) {
+                      setDropTargetTabId(tab.id)
+                    }
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    const sourceTabId = event.dataTransfer.getData('text/plain') || draggedTabId
+                    if (sourceTabId && sourceTabId !== tab.id) {
+                      onReorderTabs(sourceTabId, tab.id)
+                    }
+
+                    setDraggedTabId(null)
+                    setDropTargetTabId(null)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedTabId(null)
+                    setDropTargetTabId(null)
+                  }}
+                >
+                  <button type="button" className="flex min-w-0 flex-1 items-center gap-2" onClick={() => onSelectTab(tab.id)}>
+                    {tab.pinned ? <Pin className="h-3.5 w-3.5 text-[var(--accent)]" /> : <MapIcon className="h-3.5 w-3.5" />}
+                    <span className="max-w-44 truncate font-semibold">{tab.title}</span>
+                  </button>
+                  {tab.closable ? (
+                    <button
+                      type="button"
+                      className="rounded p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)] group-hover:opacity-100 group-focus-within:opacity-100"
+                      onClick={() => onCloseTab(tab.id)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              )
+            })
+          : (
+            <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4 text-xs text-[var(--text-primary)]">
+              <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <span className="font-semibold">{moduleBlueprint?.title ?? copy.center.viewport}</span>
+            </div>
+            )}
       </div>
 
       <div className="flex h-11 items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-app)] px-3">
@@ -159,6 +250,7 @@ export default function CentralWorkspace({
       <div className="min-h-0 flex-1 p-3">
         {workspaceMode === 'map' ? (
           <MapViewport
+            key={mapDocument ? `${mapDocument.format}:${mapDocument.sourcePath}` : 'empty-map'}
             ref={viewportRef}
             mapDocument={mapDocument}
             visibleLayerIds={visibleLayerIds}
@@ -167,6 +259,7 @@ export default function CentralWorkspace({
             onAtlasPortalOpen={onOpenAtlasTarget}
             labels={copy.viewportLabels}
             theme={theme}
+            accentColor={accentColor}
             showGrid={showGrid}
             onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
           />

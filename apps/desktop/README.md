@@ -24,15 +24,27 @@ Implemented:
 - load `TMX` content into an internal `MapDocument`
 - render tile layers in a central canvas viewport
 - render TMX object groups as overlay bounds
-- inspect hovered tiles and object hits
+- inspect hovered tiles and object hits through the bottom status bar
 - toggle visible tile layers and object groups
+- focus map objects from the object groups panel
 - use right-click editor context menus in the viewport
 - pan the viewport with pointer capture
 - zoom with toolbar controls, context menu actions, and mouse wheel
 - fit map to screen or switch to `1:1`
+- build stitched world-atlas views, including remote regions
+- draw colored warp-link routes in atlas views
+- keep `World Atlas` pinned as the first center tab
+- open maps as closeable, draggable document tabs
+- reopen or focus an existing map tab when the same map is selected again
+- show the active document path in the bottom status bar instead of the top tab strip
 - switch between light and dark themes
 - switch between Chinese and English UI copy
-- use a locked three-pane editor layout with internal pane scrolling only
+- use an IDE-style tool-window workspace with:
+  - left/right icon rails
+  - docked side and bottom tool windows
+  - floating windows
+  - drag-to-dock targets
+  - layout persistence and presets
 - use a frameless Tauri window with custom minimize / maximize / close controls
 
 ## Commands
@@ -75,9 +87,10 @@ Behavior:
 - `src/App.tsx`
 - `src/styles/globals.css`
 - `src/components/TopMenuBar.tsx`
-- `src/components/LeftDock.tsx`
+- `src/components/LeftPanels.tsx`
+- `src/components/RightPanels.tsx`
+- `src/components/WorkspaceLayout.tsx`
 - `src/components/CentralWorkspace.tsx`
-- `src/components/RightDock.tsx`
 - `src/components/StatusBar.tsx`
 - `src/components/MapViewport.tsx`
 - `src/lib/editor-shell.ts`

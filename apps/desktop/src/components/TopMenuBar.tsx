@@ -11,8 +11,10 @@ import {
   Users,
   X,
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import type { EditorCopy, LocaleCode, ThemeMode, WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
 import { cx } from '../lib/cx'
+import type { WorkspacePanelMeta } from './WorkspaceLayout'
 
 type TopMenuBarProps = {
   copy: EditorCopy
@@ -27,6 +29,25 @@ type TopMenuBarProps = {
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
   onCloseWindow: () => void
+  viewMenu: {
+    title: string
+    resetLabel: string
+    savePresetLabel: string
+    panelsLabel: string
+    presetsLabel: string
+    emptyPresetsLabel: string
+    panelItems: WorkspacePanelMeta[]
+    presetNames: string[]
+    onTogglePanel: (id: string, visible: boolean) => void
+    onResetLayout: () => void
+    onSavePreset: () => void
+    onLoadPreset: (name: string) => void
+    onDeletePreset: (name: string) => void
+  }
+  settingsMenu: {
+    title: string
+    onOpen: () => void
+  }
 }
 
 const MODULE_ICONS = {
@@ -50,9 +71,31 @@ export default function TopMenuBar({
   onMinimizeWindow,
   onToggleMaximizeWindow,
   onCloseWindow,
+  viewMenu,
+  settingsMenu,
 }: TopMenuBarProps) {
+  const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const viewMenuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!viewMenuOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (viewMenuRef.current?.contains(event.target as Node)) {
+        return
+      }
+
+      setViewMenuOpen(false)
+    }
+
+    window.addEventListener('mousedown', handlePointerDown)
+    return () => window.removeEventListener('mousedown', handlePointerDown)
+  }, [viewMenuOpen])
+
   return (
-    <header className="border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
+    <header className="relative z-[120] border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
       <div className="flex h-12 items-center justify-between gap-3 px-3">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex min-w-0 items-center gap-3" data-tauri-drag-region>
@@ -63,15 +106,88 @@ export default function TopMenuBar({
           </div>
 
           <nav className="hidden items-center gap-2 xl:flex">
-            {copy.menus.map((label) => (
-              <button
-                key={label}
-                type="button"
-                className="rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
-              >
-                {label}
-              </button>
-            ))}
+            {copy.menus.map((label, index) =>
+              index === 2 ? (
+                <div key={label} className="relative" ref={viewMenuRef}>
+                  <button
+                    type="button"
+                    className="rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
+                    onClick={() => setViewMenuOpen((current) => !current)}
+                  >
+                    {viewMenu.title}
+                  </button>
+
+                  {viewMenuOpen ? (
+                    <div className="top-menu-dropdown">
+                      <div className="top-menu-section">
+                        <p className="top-menu-section-title">{viewMenu.panelsLabel}</p>
+                        {viewMenu.panelItems.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="top-menu-row"
+                            onClick={() => viewMenu.onTogglePanel(item.id, !item.visible)}
+                          >
+                            <span>{item.title}</span>
+                            <span className={cx('status-pill', item.visible ? 'status-pill-ready' : 'status-pill-idle')}>
+                              {item.visible ? 'On' : 'Off'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="top-menu-section">
+                        <p className="top-menu-section-title">{viewMenu.presetsLabel}</p>
+                        <button type="button" className="top-menu-row" onClick={viewMenu.onSavePreset}>
+                          <span>{viewMenu.savePresetLabel}</span>
+                        </button>
+                        <button type="button" className="top-menu-row" onClick={viewMenu.onResetLayout}>
+                          <span>{viewMenu.resetLabel}</span>
+                        </button>
+                        {viewMenu.presetNames.length ? (
+                          viewMenu.presetNames.map((name) => (
+                            <div key={name} className="top-menu-row">
+                              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => viewMenu.onLoadPreset(name)}>
+                                <span className="truncate">{name}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="workspace-panel-action h-7 w-7"
+                                onClick={() => viewMenu.onDeletePreset(name)}
+                                title="Delete preset"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="top-menu-empty">{viewMenu.emptyPresetsLabel}</div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <button
+                  key={label}
+                  type="button"
+                  className="rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
+                >
+                  {label}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
+              onClick={() => {
+                setViewMenuOpen(false)
+                settingsMenu.onOpen()
+              }}
+            >
+              <span>{settingsMenu.title}</span>
+            </button>
           </nav>
         </div>
 

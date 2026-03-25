@@ -1,11 +1,17 @@
-import { startTransition, useDeferredValue, useEffect, useState } from 'react'
-import { Group, Panel, Separator } from 'react-resizable-panels'
+import { startTransition, useCallback, useDeferredValue, useEffect, useRef, useState } from 'react'
 import CentralWorkspace from './components/CentralWorkspace'
-import LeftDock from './components/LeftDock'
-import RightDock from './components/RightDock'
+import { AssetBrowserPanel, ProjectPanel } from './components/LeftPanels'
+import {
+  DiagnosticsPanel,
+  InspectorPanel,
+  LayersPanel,
+  ObjectGroupsPanel,
+} from './components/RightPanels'
 import StatusBar from './components/StatusBar'
+import SettingsWindow from './components/SettingsWindow'
 import TopMenuBar from './components/TopMenuBar'
-import type { TileHoverInfo } from './components/MapViewport'
+import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
+import type { FocusedMapObjectTarget, TileHoverInfo } from './components/MapViewport'
 import {
   canUseDesktopHost,
   chooseGameDirectory,
@@ -42,8 +48,36 @@ type WorldAtlasView = {
   document: MapDocument
 }
 
+type MapWorkspaceTab = {
+  id: string
+  assetId: string
+  document: MapDocument
+}
+
+type AccentPreset = {
+  id: string
+  label: string
+  color: string
+}
+
 const WORLD_ROOT_MAP_NAME = 'Town'
 const REMOTE_WORLD_ROOT_CANDIDATES = ['Island_S', 'Desert', 'Summit', 'Island_W', 'Island_N', 'Island_E', 'Island_SE']
+const WORLD_ATLAS_TAB_ID = 'world-atlas'
+const ACCENT_STORAGE_KEY = 'modforge:accent-preset:v1'
+const DEFAULT_WORLD_ATLAS_VIEW_ZOOM = 1
+
+const ACCENT_PRESETS: AccentPreset[] = [
+  { id: 'indigo', label: 'Indigo', color: '#4f46e5' },
+  { id: 'blue', label: 'Blue', color: '#0078ff' },
+  { id: 'cyan', label: 'Cyan', color: '#0891b2' },
+  { id: 'emerald', label: 'Emerald', color: '#059669' },
+  { id: 'amber', label: 'Amber', color: '#d97706' },
+  { id: 'rose', label: 'Rose', color: '#e11d48' },
+]
+
+function getMapWorkspaceTabId(assetId: string) {
+  return `map:${assetId}`
+}
 
 function getPreferredScene(assets: MapAssetSummary[]) {
   return (
@@ -62,6 +96,9 @@ function getWorldAtlasViewLabel(locale: LocaleCode, viewId: WorldAtlasView['id']
 }
 
 function withWorldAtlasViewMetadata(document: MapDocument, viewId: WorldAtlasView['id'], label: string): MapDocument {
+  const townPlacement =
+    viewId === 'main' ? document.atlas?.placements.find((placement) => /^town$/i.test(placement.mapName)) : null
+
   return {
     ...document,
     name: `World Atlas · ${label}`,
@@ -70,6 +107,13 @@ function withWorldAtlasViewMetadata(document: MapDocument, viewId: WorldAtlasVie
       ...document.properties,
       atlasViewId: viewId,
       atlasViewLabel: label,
+      ...(townPlacement
+        ? {
+            defaultViewportCenterX: (townPlacement.offsetX + townPlacement.width / 2) * document.tileWidth,
+            defaultViewportCenterY: (townPlacement.offsetY + townPlacement.height / 2) * document.tileHeight,
+            defaultViewportZoom: DEFAULT_WORLD_ATLAS_VIEW_ZOOM,
+          }
+        : {}),
     },
   }
 }
@@ -105,18 +149,129 @@ function isRemoteWorldAtlasDocument(document: MapDocument) {
   )
 }
 
+function getViewMenuCopy(locale: LocaleCode) {
+  if (locale === 'zh-CN') {
+    return {
+      title: '视图',
+      resetLabel: '重置默认布局',
+      savePresetLabel: '保存当前布局',
+      panelsLabel: '窗口',
+      presetsLabel: '工作区预设',
+      emptyPresetsLabel: '还没有保存的预设',
+      presetNamePrompt: '输入预设名称',
+      deletePresetConfirm: (name: string) => `删除预设“${name}”？`,
+    }
+  }
+
+  return {
+    title: 'View',
+    resetLabel: 'Reset Default Layout',
+    savePresetLabel: 'Save Current Layout',
+    panelsLabel: 'Windows',
+    presetsLabel: 'Workspace Presets',
+    emptyPresetsLabel: 'No saved presets yet',
+    presetNamePrompt: 'Preset name',
+    deletePresetConfirm: (name: string) => `Delete preset "${name}"?`,
+  }
+}
+
+function getSettingsMenuCopy(locale: LocaleCode) {
+  if (locale === 'zh-CN') {
+    return {
+      title: '设置',
+      categories: {
+        appearance: '外观',
+        view: '视图',
+        interaction: '交互',
+        advanced: '高级',
+      },
+      accentLabel: '强调色',
+      resetAccentLabel: '恢复默认强调色',
+      accentDescription: '影响视口背景、入口点高亮，以及编辑器中的强调态元素。',
+      futureLabel: '更多配置',
+      futureDescription: '后续的编辑器偏好、显示选项和行为设置都会放在这里。',
+      categoryDescriptions: {
+        appearance: '主题、强调色和整体视觉风格。',
+        view: '地图显示、画布与信息呈现方式。',
+        interaction: '输入、导航和编辑交互体验。',
+        advanced: '实验性选项、诊断和更高级的行为控制。',
+      },
+    }
+  }
+
+  return {
+    title: 'Settings',
+    categories: {
+      appearance: 'Appearance',
+      view: 'View',
+      interaction: 'Interaction',
+      advanced: 'Advanced',
+    },
+    accentLabel: 'Accent Color',
+    resetAccentLabel: 'Reset Accent Color',
+    accentDescription: 'Controls the viewport background, portal highlights, and accent-driven UI states.',
+    futureLabel: 'More Settings',
+    futureDescription: 'Future editor preferences, display options, and behavior settings will live here.',
+    categoryDescriptions: {
+      appearance: 'Theme, accent color, and overall visual style.',
+      view: 'Map display, canvas, and information presentation.',
+      interaction: 'Input, navigation, and editing behavior.',
+      advanced: 'Experimental options, diagnostics, and advanced controls.',
+    },
+  }
+}
+
+function hexToRgb(value: string) {
+  const normalized = value.replace('#', '')
+  const hex = normalized.length === 3 ? normalized.split('').map((char) => `${char}${char}`).join('') : normalized
+  const parsed = Number.parseInt(hex, 16)
+
+  return {
+    r: (parsed >> 16) & 255,
+    g: (parsed >> 8) & 255,
+    b: parsed & 255,
+  }
+}
+
+function rgbaFromHex(value: string, alpha: number) {
+  const { r, g, b } = hexToRgb(value)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
 export default function App() {
+  const workspaceLayoutVersion = 'v7'
+  useEffect(() => {
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault()
+    }
+
+    document.addEventListener('contextmenu', handleContextMenu)
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+    }
+  }, [])
+
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
   const [locale, setLocale] = useState<LocaleCode>(() =>
     typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
   )
+  const [accentPresetId, setAccentPresetId] = useState<string>(() => {
+    if (typeof window === 'undefined') {
+      return ACCENT_PRESETS[0].id
+    }
+
+    return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? ACCENT_PRESETS[0].id
+  })
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
+  const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
   const [gameDirectory, setGameDirectory] = useState('')
   const [directoryInfo, setDirectoryInfo] = useState<GameDirectoryInfo | null>(null)
   const [mapAssets, setMapAssets] = useState<MapAssetSummary[]>([])
+  const [mapTabs, setMapTabs] = useState<MapWorkspaceTab[]>([])
+  const [activeTabId, setActiveTabId] = useState<string>(WORLD_ATLAS_TAB_ID)
   const [activeMapId, setActiveMapId] = useState<string | null>(null)
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [worldAtlasViews, setWorldAtlasViews] = useState<WorldAtlasView[]>([])
@@ -124,7 +279,11 @@ export default function App() {
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
   const [visibleLayerIds, setVisibleLayerIds] = useState<number[]>([])
   const [visibleObjectGroupIds, setVisibleObjectGroupIds] = useState<number[]>([])
+  const [focusedObjectTarget, setFocusedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
   const [assetFilter, setAssetFilter] = useState('')
+  const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
+  const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
+  const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
@@ -137,8 +296,33 @@ export default function App() {
     const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
     return haystack.includes(deferredAssetFilter)
   })
+  const activeAtlasView =
+    (activeWorldAtlasViewId ? worldAtlasViews.find((view) => view.id === activeWorldAtlasViewId) : null) ??
+    worldAtlasViews[0] ??
+    null
   const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
+  const worldAtlasDocument = activeAtlasView?.document ?? null
+  const workspaceTabs = [
+    {
+      id: WORLD_ATLAS_TAB_ID,
+      title: worldAtlasDocument?.name ?? 'World Atlas',
+      pathLabel: worldAtlasDocument?.relativePath ?? 'World Atlas',
+      closable: false,
+      pinned: true,
+    },
+    ...mapTabs.map((tab) => ({
+      id: tab.id,
+      title: tab.document.name,
+      pathLabel: tab.document.relativePath,
+      closable: true,
+      pinned: false,
+    })),
+  ]
   const moduleBlueprint = workspaceMode === 'map' ? undefined : copy.moduleBlueprints[workspaceMode]
+  const viewMenuCopy = getViewMenuCopy(locale)
+  const settingsMenuCopy = getSettingsMenuCopy(locale)
+  const activeAccentPreset =
+    ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
 
   function getDefaultVisibleLayerIds(nextDocument: MapDocument) {
     return nextDocument.layers.filter((layer) => layer.visible).map((layer) => layer.id)
@@ -148,11 +332,13 @@ export default function App() {
     return nextDocument.objectGroups.filter((group) => group.visible).map((group) => group.id)
   }
 
-  function applyMapDocument(nextDocument: MapDocument) {
+  function applyMapDocument(nextDocument: MapDocument | null, nextMapId: string | null) {
+    setActiveMapId(nextMapId)
     startTransition(() => {
       setMapDocument(nextDocument)
-      setVisibleLayerIds(getDefaultVisibleLayerIds(nextDocument))
-      setVisibleObjectGroupIds(getDefaultVisibleObjectGroupIds(nextDocument))
+      setVisibleLayerIds(nextDocument ? getDefaultVisibleLayerIds(nextDocument) : [])
+      setVisibleObjectGroupIds(nextDocument ? getDefaultVisibleObjectGroupIds(nextDocument) : [])
+      setFocusedObjectTarget(null)
       setHoverInfo(null)
     })
   }
@@ -161,6 +347,15 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
+
+  useEffect(() => {
+    const root = document.documentElement
+    const accent = activeAccentPreset.color
+    root.style.setProperty('--accent', accent)
+    root.style.setProperty('--accent-soft', rgbaFromHex(accent, theme === 'dark' ? 0.18 : 0.14))
+    root.style.setProperty('--bg-active', theme === 'dark' ? rgbaFromHex(accent, 0.22) : rgbaFromHex(accent, 0.12))
+    window.localStorage.setItem(ACCENT_STORAGE_KEY, activeAccentPreset.id)
+  }, [activeAccentPreset.color, activeAccentPreset.id, theme])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -220,6 +415,8 @@ export default function App() {
     } catch (error) {
       setDirectoryInfo(null)
       setMapAssets([])
+      setMapTabs([])
+      setActiveTabId(WORLD_ATLAS_TAB_ID)
       setActiveMapId(null)
       setMapDocument(null)
       setWorldAtlasViews([])
@@ -227,6 +424,7 @@ export default function App() {
       setHoverInfo(null)
       setVisibleLayerIds([])
       setVisibleObjectGroupIds([])
+      setFocusedObjectTarget(null)
       setWorkspaceStatus({
         tone: 'error',
         message: `${copy.messages.validationFailed} ${error instanceof Error ? error.message : String(error)}`,
@@ -276,24 +474,36 @@ export default function App() {
     }
 
     setWorkspaceMode('map')
-    setActiveMapId(summary.id)
-    setWorldAtlasViews([])
-    setActiveWorldAtlasViewId(null)
     setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
 
     try {
+      const existingTab = mapTabs.find((tab) => tab.assetId === summary.id)
+      if (existingTab) {
+        setActiveTabId(existingTab.id)
+        applyMapDocument(existingTab.document, summary.id)
+        setWorkspaceStatus({
+          tone: 'ready',
+          message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, existingTab.document.format, existingTab.document.name),
+        })
+        return
+      }
+
       const parsedDocument = await loadParsedMap(summary, info)
-      applyMapDocument(parsedDocument)
+      const nextTab = {
+        id: getMapWorkspaceTabId(summary.id),
+        assetId: summary.id,
+        document: parsedDocument,
+      }
+
+      setMapTabs((current) => [...current, nextTab])
+      setActiveTabId(nextTab.id)
+      applyMapDocument(parsedDocument, summary.id)
 
       setWorkspaceStatus({
         tone: 'ready',
         message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, parsedDocument.format, parsedDocument.name),
       })
     } catch (error) {
-      setMapDocument(null)
-      setHoverInfo(null)
-      setVisibleLayerIds([])
-      setVisibleObjectGroupIds([])
       setWorkspaceStatus({
         tone: 'error',
         message: `${copy.messages.loadingMapFailed} ${error instanceof Error ? error.message : String(error)}`,
@@ -329,7 +539,11 @@ export default function App() {
     const resolvedNames = new Set<string>()
 
     setWorkspaceMode('map')
-    setActiveMapId(null)
+    setMapTabs([])
+    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    setWorldAtlasViews([])
+    setActiveWorldAtlasViewId(null)
+    applyMapDocument(null, null)
     setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
 
     while (pendingNames.length) {
@@ -416,7 +630,8 @@ export default function App() {
     const nextWorldAtlasView = nextWorldAtlasViews[0]
     setWorldAtlasViews(nextWorldAtlasViews)
     setActiveWorldAtlasViewId(nextWorldAtlasView.id)
-    applyMapDocument(nextWorldAtlasView.document)
+    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    applyMapDocument(nextWorldAtlasView.document, null)
     setWorkspaceStatus({
       tone: 'ready',
       message: copy.messages.loadedMapAssetsWithActiveMap(
@@ -434,9 +649,9 @@ export default function App() {
     }
 
     setWorkspaceMode('map')
-    setActiveMapId(null)
     setActiveWorldAtlasViewId(viewId)
-    applyMapDocument(nextWorldAtlasView.document)
+    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    applyMapDocument(nextWorldAtlasView.document, null)
     setWorkspaceStatus({
       tone: 'ready',
       message: copy.messages.loadedMapAssetsWithActiveMap(
@@ -444,6 +659,72 @@ export default function App() {
         nextWorldAtlasView.document.format,
         nextWorldAtlasView.document.name,
       ),
+    })
+  }
+
+  function handleSelectWorkspaceTab(tabId: string) {
+    setWorkspaceMode('map')
+
+    if (tabId === WORLD_ATLAS_TAB_ID) {
+      setActiveTabId(WORLD_ATLAS_TAB_ID)
+      applyMapDocument(worldAtlasDocument, null)
+      return
+    }
+
+    const nextTab = mapTabs.find((tab) => tab.id === tabId)
+    if (!nextTab) {
+      return
+    }
+
+    setActiveTabId(nextTab.id)
+    applyMapDocument(nextTab.document, nextTab.assetId)
+  }
+
+  function handleCloseWorkspaceTab(tabId: string) {
+    if (tabId === WORLD_ATLAS_TAB_ID) {
+      return
+    }
+
+    const index = mapTabs.findIndex((tab) => tab.id === tabId)
+    if (index === -1) {
+      return
+    }
+
+    const nextTabs = mapTabs.filter((tab) => tab.id !== tabId)
+    setMapTabs(nextTabs)
+
+    if (activeTabId !== tabId) {
+      return
+    }
+
+    const fallbackTab = nextTabs[index] ?? nextTabs[index - 1] ?? null
+    if (fallbackTab) {
+      setActiveTabId(fallbackTab.id)
+      applyMapDocument(fallbackTab.document, fallbackTab.assetId)
+      return
+    }
+
+    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    applyMapDocument(worldAtlasDocument, null)
+  }
+
+  function handleReorderWorkspaceTabs(sourceTabId: string, targetTabId: string) {
+    if (sourceTabId === targetTabId || sourceTabId === WORLD_ATLAS_TAB_ID || targetTabId === WORLD_ATLAS_TAB_ID) {
+      return
+    }
+
+    setMapTabs((current) => {
+      const sourceIndex = current.findIndex((tab) => tab.id === sourceTabId)
+      const targetIndex = current.findIndex((tab) => tab.id === targetTabId)
+
+      if (sourceIndex === -1 || targetIndex === -1) {
+        return current
+      }
+
+      const nextTabs = [...current]
+      const [movedTab] = nextTabs.splice(sourceIndex, 1)
+      nextTabs.splice(targetIndex, 0, movedTab)
+      return nextTabs
     })
   }
 
@@ -560,6 +841,206 @@ export default function App() {
     )
   }
 
+  function focusObject(groupId: number, objectId: number) {
+    setVisibleObjectGroupIds((current) => (current.includes(groupId) ? current : [...current, groupId]))
+    setFocusedObjectTarget((current) => ({
+      groupId,
+      objectId,
+      nonce: (current?.nonce ?? 0) + 1,
+    }))
+  }
+
+  const workspacePanels = [
+      {
+        id: 'project',
+        title: copy.leftDock.project,
+        subtitle: copy.leftDock.projectSubtitle,
+        minWidth: 300,
+        minHeight: 280,
+        dockMinHeight: 220,
+        dockAutoHeight: true,
+        defaultDock: 'left-top' as const,
+        defaultDockHeight: 280,
+        content: (
+          <ProjectPanel
+            copy={copy}
+            workspaceMode={workspaceMode}
+            desktopHost={desktopHost}
+            gameDirectory={gameDirectory}
+            onGameDirectoryChange={setGameDirectory}
+            onChooseDirectory={() => void handleChooseDirectory()}
+            onUseKnownPath={() => void handleUseKnownPath()}
+            onValidateOnly={() => void handleValidateOnly()}
+            onScanAndOpenTown={() => void handleScanAndOpenTown()}
+            directoryInfo={directoryInfo}
+            mapAssets={mapAssets}
+            activeMapId={activeMapId}
+            sceneLabel={workspaceMode === 'map' ? mapDocument?.name ?? activeAsset?.name ?? undefined : undefined}
+          />
+        ),
+      },
+      {
+        id: 'assets',
+        title: copy.leftDock.contentBrowser,
+        subtitle: copy.leftDock.contentSubtitle,
+        minWidth: 320,
+        minHeight: 320,
+        dockMinHeight: 240,
+        defaultDock: 'left-bottom' as const,
+        defaultDockHeight: 520,
+        content: (
+          <AssetBrowserPanel
+            copy={copy}
+            mapAssets={mapAssets}
+            filteredAssets={filteredAssets}
+            activeMapId={activeMapId}
+            assetFilter={assetFilter}
+            onAssetFilterChange={setAssetFilter}
+            onOpenAsset={(asset) => {
+              void openMap(asset)
+            }}
+          />
+        ),
+      },
+      {
+        id: 'viewport',
+        title: copy.center.viewport,
+        subtitle: copy.center.activeScene,
+        minWidth: 640,
+        minHeight: 420,
+        defaultDock: 'center' as const,
+        defaultDockHeight: 760,
+        content: (
+          <CentralWorkspace
+            copy={copy}
+            workspaceMode={workspaceMode}
+            tabs={workspaceTabs}
+            activeTabId={activeTabId}
+            onSelectTab={handleSelectWorkspaceTab}
+            onCloseTab={handleCloseWorkspaceTab}
+            onReorderTabs={handleReorderWorkspaceTabs}
+            mapDocument={mapDocument}
+            worldAtlasViews={worldAtlasViews}
+            activeWorldAtlasViewId={activeWorldAtlasViewId}
+            onSelectWorldAtlasView={handleSelectWorldAtlasView}
+            onOpenAtlasTarget={handleOpenAtlasTarget}
+            theme={theme}
+            accentColor={activeAccentPreset.color}
+            visibleLayerIds={visibleLayerIds}
+            visibleObjectGroupIds={visibleObjectGroupIds}
+            focusedObjectTarget={focusedObjectTarget}
+            onHoverChange={setHoverInfo}
+            moduleBlueprint={moduleBlueprint}
+          />
+        ),
+      },
+      {
+        id: 'inspector',
+        title: copy.rightDock.inspector,
+        subtitle: copy.rightDock.sceneSummary,
+        minWidth: 320,
+        minHeight: 260,
+        dockMinHeight: 180,
+        dockAutoHeight: true,
+        defaultDock: 'right-top' as const,
+        defaultDockHeight: 220,
+        content: <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />,
+      },
+      {
+        id: 'layers',
+        title: copy.rightDock.layers,
+        subtitle: copy.rightDock.subtitle,
+        minWidth: 320,
+        minHeight: 260,
+        dockMinHeight: 220,
+        defaultDock: 'right-bottom' as const,
+        defaultDockHeight: 320,
+        content: (
+          <LayersPanel
+            copy={copy}
+            mapDocument={mapDocument}
+            visibleLayerIds={visibleLayerIds}
+            onToggleLayer={toggleLayer}
+            onShowAllLayers={() => setAllLayers(true)}
+            onHideAllLayers={() => setAllLayers(false)}
+          />
+        ),
+      },
+      {
+        id: 'object-groups',
+        title: copy.rightDock.objectGroups,
+        subtitle: copy.rightDock.subtitle,
+        minWidth: 320,
+        minHeight: 300,
+        dockMinHeight: 240,
+        defaultDock: 'right-bottom' as const,
+        defaultDockHeight: 360,
+        content: (
+          <ObjectGroupsPanel
+            copy={copy}
+            mapDocument={mapDocument}
+            visibleObjectGroupIds={visibleObjectGroupIds}
+            onToggleObjectGroup={toggleObjectGroup}
+            onShowAllObjectGroups={() => setAllObjectGroups(true)}
+            onHideAllObjectGroups={() => setAllObjectGroups(false)}
+            focusedObjectTarget={focusedObjectTarget}
+            onFocusObject={focusObject}
+          />
+        ),
+      },
+      {
+        id: 'diagnostics',
+        title: copy.rightDock.diagnostics,
+        subtitle: copy.rightDock.projectFacts,
+        minWidth: 320,
+        minHeight: 260,
+        dockMinHeight: 160,
+        dockAutoHeight: true,
+        defaultDock: 'bottom-right' as const,
+        defaultDockHeight: 300,
+        content: (
+          <DiagnosticsPanel
+            copy={copy}
+            directoryInfo={directoryInfo}
+            visibleLayerIds={visibleLayerIds}
+            visibleObjectGroupIds={visibleObjectGroupIds}
+            workspaceStatus={workspaceStatus}
+          />
+        ),
+      },
+    ]
+
+  const handleLayoutMetaChange = useCallback(
+    ({ panelItems, presetNames }: { panelItems: typeof viewMenuPanelItems; presetNames: string[] }) => {
+      setViewMenuPanelItems((current) => {
+        if (
+          current.length === panelItems.length &&
+          current.every(
+            (item, index) =>
+              item.id === panelItems[index]?.id &&
+              item.title === panelItems[index]?.title &&
+              item.visible === panelItems[index]?.visible &&
+              item.mode === panelItems[index]?.mode &&
+              item.dock === panelItems[index]?.dock,
+          )
+        ) {
+          return current
+        }
+
+        return panelItems
+      })
+
+      setViewMenuPresetNames((current) => {
+        if (current.length === presetNames.length && current.every((name, index) => name === presetNames[index])) {
+          return current
+        }
+
+        return presetNames
+      })
+    },
+    [],
+  )
+
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]">
       <TopMenuBar
@@ -575,75 +1056,65 @@ export default function App() {
         onMinimizeWindow={() => void minimizeCurrentWindow()}
         onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
         onCloseWindow={() => void closeCurrentWindow()}
+        viewMenu={{
+          title: viewMenuCopy.title,
+          resetLabel: viewMenuCopy.resetLabel,
+          savePresetLabel: viewMenuCopy.savePresetLabel,
+          panelsLabel: viewMenuCopy.panelsLabel,
+          presetsLabel: viewMenuCopy.presetsLabel,
+          emptyPresetsLabel: viewMenuCopy.emptyPresetsLabel,
+          panelItems: viewMenuPanelItems,
+          presetNames: viewMenuPresetNames,
+          onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
+          onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
+          onSavePreset: () => {
+            const presetName = window.prompt(viewMenuCopy.presetNamePrompt)
+            if (!presetName?.trim()) {
+              return
+            }
+
+            workspaceLayoutRef.current?.savePreset(presetName.trim())
+          },
+          onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
+          onDeletePreset: (name) => {
+            if (!window.confirm(viewMenuCopy.deletePresetConfirm(name))) {
+              return
+            }
+
+            workspaceLayoutRef.current?.deletePreset(name)
+          },
+        }}
+        settingsMenu={{
+          title: settingsMenuCopy.title,
+          onOpen: () => setSettingsWindowOpen(true),
+        }}
+      />
+
+      <SettingsWindow
+        open={settingsWindowOpen}
+        title={settingsMenuCopy.title}
+        categories={settingsMenuCopy.categories}
+        categoryDescriptions={settingsMenuCopy.categoryDescriptions}
+        accentLabel={settingsMenuCopy.accentLabel}
+        resetAccentLabel={settingsMenuCopy.resetAccentLabel}
+        accentDescription={settingsMenuCopy.accentDescription}
+        futureLabel={settingsMenuCopy.futureLabel}
+        futureDescription={settingsMenuCopy.futureDescription}
+        accentOptions={ACCENT_PRESETS}
+        activeAccentId={activeAccentPreset.id}
+        onSelectAccent={setAccentPresetId}
+        onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+        onClose={() => setSettingsWindowOpen(false)}
       />
 
       <div className="min-h-0 flex-1 overflow-hidden">
-        <Group orientation="horizontal" id="modforge-desktop-layout">
-          <Panel defaultSize={23} minSize={18}>
-            <LeftDock
-              copy={copy}
-              workspaceMode={workspaceMode}
-              desktopHost={desktopHost}
-              gameDirectory={gameDirectory}
-              onGameDirectoryChange={setGameDirectory}
-              onChooseDirectory={() => void handleChooseDirectory()}
-              onUseKnownPath={() => void handleUseKnownPath()}
-              onValidateOnly={() => void handleValidateOnly()}
-              onScanAndOpenTown={() => void handleScanAndOpenTown()}
-              directoryInfo={directoryInfo}
-              mapAssets={mapAssets}
-              filteredAssets={filteredAssets}
-              activeMapId={activeMapId}
-              sceneLabel={workspaceMode === 'map' ? mapDocument?.name ?? activeAsset?.name ?? undefined : undefined}
-              assetFilter={assetFilter}
-              onAssetFilterChange={setAssetFilter}
-              onOpenAsset={(asset) => {
-                void openMap(asset)
-              }}
-            />
-          </Panel>
-
-          <Separator className="resize-handle" />
-
-          <Panel defaultSize={54} minSize={34}>
-            <CentralWorkspace
-              copy={copy}
-              workspaceMode={workspaceMode}
-              activeAsset={activeAsset}
-              mapDocument={mapDocument}
-              worldAtlasViews={worldAtlasViews}
-              activeWorldAtlasViewId={activeWorldAtlasViewId}
-              onSelectWorldAtlasView={handleSelectWorldAtlasView}
-              onOpenAtlasTarget={handleOpenAtlasTarget}
-              theme={theme}
-              visibleLayerIds={visibleLayerIds}
-              visibleObjectGroupIds={visibleObjectGroupIds}
-              onHoverChange={setHoverInfo}
-              moduleBlueprint={moduleBlueprint}
-            />
-          </Panel>
-
-          <Separator className="resize-handle" />
-
-          <Panel defaultSize={23} minSize={18}>
-            <RightDock
-              copy={copy}
-              mapDocument={mapDocument}
-              hoverInfo={hoverInfo}
-              visibleLayerIds={visibleLayerIds}
-              visibleObjectGroupIds={visibleObjectGroupIds}
-              onToggleLayer={toggleLayer}
-              onToggleObjectGroup={toggleObjectGroup}
-              onShowAllLayers={() => setAllLayers(true)}
-              onHideAllLayers={() => setAllLayers(false)}
-              onShowAllObjectGroups={() => setAllObjectGroups(true)}
-              onHideAllObjectGroups={() => setAllObjectGroups(false)}
-              directoryInfo={directoryInfo}
-              workspaceStatus={workspaceStatus}
-              moduleBlueprint={moduleBlueprint}
-            />
-          </Panel>
-        </Group>
+        <WorkspaceLayout
+          key={workspaceLayoutVersion}
+          ref={workspaceLayoutRef}
+          storageKey={`modforge:workspace-layout:${workspaceLayoutVersion}`}
+          panels={workspacePanels}
+          onLayoutMetaChange={handleLayoutMetaChange}
+        />
       </div>
 
       <StatusBar
@@ -653,6 +1124,7 @@ export default function App() {
         mapAssets={mapAssets}
         activeAsset={activeAsset}
         mapDocument={mapDocument}
+        pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
         hoverInfo={hoverInfo}
       />
     </div>

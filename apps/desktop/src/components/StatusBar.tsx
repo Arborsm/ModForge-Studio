@@ -14,6 +14,7 @@ type StatusBarProps = {
   mapAssets: MapAssetSummary[]
   activeAsset: MapAssetSummary | null
   mapDocument: MapDocument | null
+  pathLabel: string
   hoverInfo: TileHoverInfo | null
 }
 
@@ -24,10 +25,17 @@ export default function StatusBar({
   mapAssets,
   activeAsset,
   mapDocument,
+  pathLabel,
   hoverInfo,
 }: StatusBarProps) {
   const tmxCount = mapAssets.filter((asset) => asset.format === 'tmx').length
   const xnbCount = mapAssets.filter((asset) => asset.format === 'xnb').length
+  const hoverSummary = hoverInfo
+    ? `${hoverInfo.tileX}, ${hoverInfo.tileY} | ${copy.common.layer}: ${hoverInfo.layerName ?? copy.common.none} | ${copy.common.gid}: ${hoverInfo.gid ?? copy.common.none}`
+    : copy.common.none
+  const hoverDetails = hoverInfo
+    ? `${copy.common.tilesets}: ${hoverInfo.tilesetName ?? copy.common.none} | ${copy.rightDock.objectCount}: ${hoverInfo.objectHits.length}`
+    : `${copy.common.tilesets}: ${copy.common.none}`
 
   return (
     <footer className="flex h-8 items-center justify-between gap-4 border-t border-[var(--border-color)] bg-[var(--bg-app)] px-3 text-[11px] text-[var(--text-secondary)]">
@@ -51,11 +59,17 @@ export default function StatusBar({
         <span className="truncate">
           {copy.center.activeScene}: {mapDocument?.name ?? activeAsset?.name ?? copy.common.none}
         </span>
-        <span className="truncate">
-          {copy.statusBar.hover}: {hoverInfo ? `${hoverInfo.tileX}, ${hoverInfo.tileY}` : copy.common.none}
+        <span className="truncate" title={pathLabel}>
+          {copy.common.path}: {pathLabel}
+        </span>
+        <span className="truncate" title={hoverSummary}>
+          {copy.statusBar.hover}: {hoverSummary}
         </span>
         <span>
           {copy.statusBar.coordinates}: X {hoverInfo?.pixelX ?? 0} Y {hoverInfo?.pixelY ?? 0}
+        </span>
+        <span className="truncate" title={hoverDetails}>
+          {hoverDetails}
         </span>
       </div>
     </footer>
