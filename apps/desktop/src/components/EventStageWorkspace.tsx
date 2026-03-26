@@ -55,6 +55,33 @@ type PlaybackChoiceState = {
   choices: NonNullable<EventCommand['choices']>
 }
 
+type PlaybackNoticeTone = 'system' | 'info' | 'gain' | 'loss' | 'visual'
+
+type PlaybackNoticeIcon = {
+  textureName: string
+  sourceX: number
+  sourceY: number
+  sourceWidth: number
+  sourceHeight: number
+}
+
+type PlaybackNotice = {
+  id: string
+  title: string
+  detail: string
+  tone: PlaybackNoticeTone
+  startedAtMs: number
+  durationMs: number
+  icon?: PlaybackNoticeIcon | null
+}
+
+type ScreenFlashState = {
+  color: string
+  alpha: number
+  startedAtMs: number
+  durationMs: number
+}
+
 type ActorAnimationState = {
   frames: number[]
   frameDurationMs: number
@@ -162,6 +189,12 @@ type PlaybackState = {
   waitingMs: number | null
   blockingMovement: boolean
   focusTile: { tileX: number; tileY: number } | null
+  notices: PlaybackNotice[]
+  ambientOverlayColor: string | null
+  fadeOverlay: { color: string; alpha: number } | null
+  flashOverlay: ScreenFlashState | null
+  activeMusicCue: string | null
+  activeSoundCue: string | null
   ended: boolean
 }
 
@@ -442,6 +475,105 @@ function parseEffectColor(value: string | undefined) {
   return NAMED_EFFECT_COLORS[normalized] ?? null
 }
 
+function clampColorChannel(value: string | undefined) {
+  const parsed = Number.parseInt(value ?? '', 10)
+  if (!Number.isFinite(parsed)) {
+    return null
+  }
+
+  return Math.max(0, Math.min(255, parsed))
+}
+
+function parseRgbColorFromArgs(args: string[], startIndex: number) {
+  const red = clampColorChannel(args[startIndex])
+  const green = clampColorChannel(args[startIndex + 1])
+  const blue = clampColorChannel(args[startIndex + 2])
+  if (red == null || green == null || blue == null) {
+    return null
+  }
+
+  return `rgb(${red} ${green} ${blue})`
+}
+
+const ITEM_TOKEN_ALIASES: Record<string, string> = {
+  pan: '(T)Pan',
+  hero: '(BC)116',
+  sculpture: '(F)1306',
+  samboombox: '(F)1309',
+  joja: '(BC)117',
+  slimeegg: '(O)680',
+  rod: '(T)BambooPole',
+  sword: '(W)0',
+  ore: '(O)334',
+  pot: '(BC)62',
+  jukebox: '(BC)209',
+}
+
+function normalizeEventItemId(rawItemId: string | undefined) {
+  const trimmed = rawItemId?.trim() ?? ''
+  if (!trimmed) {
+    return null
+  }
+
+  return ITEM_TOKEN_ALIASES[trimmed.toLowerCase()] ?? trimmed
+}
+
+function parseSpringObjectIndexFromItemId(rawItemId: string | undefined) {
+  const itemId = normalizeEventItemId(rawItemId)
+  if (!itemId) {
+    return null
+  }
+
+  const objectMatch = /^\(O\)(\d+)$/u.exec(itemId)
+  if (objectMatch) {
+    return Number.parseInt(objectMatch[1] ?? '', 10)
+  }
+
+  if (/^\d+$/u.test(itemId)) {
+    return Number.parseInt(itemId, 10)
+  }
+
+  return null
+}
+
+function createNoticeIconForItemId(rawItemId: string | undefined): PlaybackNoticeIcon | null {
+  const itemIndex = parseSpringObjectIndexFromItemId(rawItemId)
+  if (itemIndex == null) {
+    return null
+  }
+
+  const sourceRect = getSpringObjectsSourceRect(itemIndex)
+  return {
+    textureName: 'Maps\\springobjects',
+    sourceX: sourceRect.x,
+    sourceY: sourceRect.y,
+    sourceWidth: sourceRect.width,
+    sourceHeight: sourceRect.height,
+  }
+}
+
+function prunePlaybackNotices(notices: PlaybackNotice[], nowMs: number) {
+  return notices.filter((notice) => nowMs - notice.startedAtMs < notice.durationMs)
+}
+
+function enqueuePlaybackNotice(
+  state: PlaybackState,
+  notice: Omit<PlaybackNotice, 'id' | 'startedAtMs'> & { id?: string },
+  nowMs = performance.now(),
+) {
+  const nextNotice: PlaybackNotice = {
+    id: notice.id ?? `${state.currentCommandId ?? 'notice'}:${nowMs}`,
+    startedAtMs: nowMs,
+    durationMs: notice.durationMs,
+    title: notice.title,
+    detail: notice.detail,
+    tone: notice.tone,
+    icon: notice.icon ?? null,
+  }
+
+  return [...prunePlaybackNotices(state.notices, nowMs), nextNotice].slice(-4)
+}
+
 function buildStageEffectId(commandId: string, suffix: string) {
   return `${commandId}:effect:${suffix}`
 }
@@ -542,6 +674,47 @@ function createAnimationRowEffect(
   })
 }
 
+function createItemAtTileEffect(commandId: string, suffix: string, tileX: number, tileY: number, rawItemId: string | undefined) {
+  const itemIndex = parseSpringObjectIndexFromItemId(rawItemId)
+  if (itemIndex == null) {
+    return null
+  }
+
+  return createObjectSheetEffect(commandId, suffix, itemIndex, {
+    baseX: tileX * 64 + 16,
+    baseY: tileY * 64 + 16,
+    space: 'world',
+    scale: 4,
+    layerDepth: (tileY * 64 + 32) / 10000,
+  })
+}
+
+function createItemAboveActorEffect(
+  commandId: string,
+  suffix: string,
+  actors: Record<string, EventActorState>,
+  actorName: string | undefined,
+  rawItemId: string | undefined,
+) {
+  if (!actorName) {
+    return null
+  }
+
+  const actor = getActorByName(actors, actorName)
+  const itemIndex = parseSpringObjectIndexFromItemId(rawItemId)
+  if (!actor || itemIndex == null) {
+    return null
+  }
+
+  return createObjectSheetEffect(commandId, suffix, itemIndex, {
+    baseX: actor.tileX * 64 + actor.offsetX + 16,
+    baseY: actor.tileY * 64 + actor.offsetY - 80,
+    space: 'world',
+    scale: 4,
+    layerDepth: ((actor.tileY - 1) * 64) / 10000,
+  })
+}
+
 async function loadHatMetadataIndex(rootPath: string) {
   const cached = hatMetadataCache.get(rootPath)
   if (cached) {
@@ -618,6 +791,12 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
       waitingMs: null,
       blockingMovement: false,
       focusTile: null,
+      notices: [],
+      ambientOverlayColor: null,
+      fadeOverlay: null,
+      flashOverlay: null,
+      activeMusicCue: null,
+      activeSoundCue: null,
       ended: true,
     }
   }
@@ -639,6 +818,12 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
     waitingMs: null,
     blockingMovement: false,
     focusTile: resolveCameraFocus(event, actors),
+    notices: [],
+    ambientOverlayColor: null,
+    fadeOverlay: null,
+    flashOverlay: null,
+    activeMusicCue: null,
+    activeSoundCue: null,
     ended: event.commands.length === 0,
   }
 }
@@ -5001,6 +5186,49 @@ function seekPlaybackToEntry(
   return state
 }
 
+function buildCommandEntry(
+  command: EventCommand,
+  suffix: string,
+  detail = command.detail || command.raw,
+  title = command.title,
+): PlaybackLogEntry {
+  return {
+    id: `${command.id}:${suffix}`,
+    tone: 'command',
+    title,
+    detail,
+  }
+}
+
+function advanceCommandPlayback(
+  state: PlaybackState,
+  command: EventCommand,
+  options: {
+    entrySuffix?: string
+    entryDetail?: string
+    entryTitle?: string
+    waitingMs?: number | null
+    blockingMovement?: boolean
+    ended?: boolean
+  } = {},
+): PlaybackState {
+  return {
+    ...state,
+    pointer: state.pointer + 1,
+    currentEntry: buildCommandEntry(
+      command,
+      options.entrySuffix ?? 'command',
+      options.entryDetail ?? (command.detail || command.raw),
+      options.entryTitle ?? command.title,
+    ),
+    activeDialogue: null,
+    waitingMs: options.waitingMs ?? null,
+    blockingMovement: options.blockingMovement ?? false,
+    ended: options.ended ?? false,
+    pendingChoice: null,
+  }
+}
+
 function continuePlayback(state: PlaybackState, eventIndex: Record<string, EventScript>): PlaybackState {
   if (state.blockingMovement && Object.values(state.actors).some((actor) => actor.movement)) {
     return state
@@ -5272,6 +5500,398 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
           pendingChoice: null,
         }
       }
+      case 'playMusic': {
+        const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
+        const nextBase = {
+          ...base,
+          activeMusicCue: cue,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: cue ? `Cue: ${cue}` : 'Music stopped',
+            tone: 'info',
+            durationMs: 2600,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'music', entryDetail: cue ?? command.detail })
+      }
+      case 'stopMusic': {
+        const nextBase = {
+          ...base,
+          activeMusicCue: null,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: 'Stop current event music',
+            tone: 'info',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'music', entryDetail: 'none' })
+      }
+      case 'playSound': {
+        const cue = command.args[1] ?? null
+        const nextBase = {
+          ...base,
+          activeSoundCue: cue,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: cue ? `Cue: ${cue}` : command.detail,
+            tone: 'info',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'sound', entryDetail: cue ?? command.detail })
+      }
+      case 'stopSound': {
+        const cue = command.args[1] ?? null
+        const nextBase = {
+          ...base,
+          activeSoundCue: cue && base.activeSoundCue === cue ? null : base.activeSoundCue,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: cue ? `Stop: ${cue}` : 'Stop tracked sound',
+            tone: 'info',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'sound', entryDetail: cue ?? command.detail })
+      }
+      case 'ambientLight': {
+        const ambientOverlayColor = parseRgbColorFromArgs(command.args, 1)
+        const nextBase = {
+          ...base,
+          ambientOverlayColor,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: ambientOverlayColor ?? command.detail,
+            tone: 'visual',
+            durationMs: 2400,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'ambient', entryDetail: ambientOverlayColor ?? command.detail })
+      }
+      case 'fade': {
+        const fadeOverlay = command.args[1] === 'unfade' ? null : { color: '#000000', alpha: 0.68 }
+        const nextBase = {
+          ...base,
+          fadeOverlay,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: command.args[1] === 'unfade' ? 'Fade cleared' : 'Screen fade to black',
+            tone: 'visual',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, {
+          entrySuffix: 'fade',
+          entryDetail: command.args[1] === 'unfade' ? 'clear' : command.detail,
+        })
+      }
+      case 'globalFade': {
+        const nextBase = {
+          ...base,
+          fadeOverlay: { color: '#000000', alpha: 0.92 },
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: command.detail || 'Global fade to black',
+            tone: 'visual',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'globalFade' })
+      }
+      case 'globalFadeToClear': {
+        const nextBase = {
+          ...base,
+          fadeOverlay: null,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: 'Global fade cleared',
+            tone: 'visual',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'globalFadeClear', entryDetail: command.detail || 'clear' })
+      }
+      case 'screenFlash': {
+        const flashAlpha = Math.max(0, Math.min(1, parseNumber(command.args[1]) ?? 1))
+        const nextBase = {
+          ...base,
+          flashOverlay: { color: '#ffffff', alpha: flashAlpha, startedAtMs: performance.now(), durationMs: 320 },
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: `Alpha ${flashAlpha.toFixed(2)}`,
+            tone: 'visual',
+            durationMs: 1400,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'flash', entryDetail: `flash ${flashAlpha.toFixed(2)}` })
+      }
+      case 'glow': {
+        const glowColor = parseRgbColorFromArgs(command.args, 1) ?? '#ffffff'
+        const hold = parseBoolean(command.args[4], false)
+        const nextBase = {
+          ...base,
+          flashOverlay: { color: glowColor, alpha: hold ? 0.42 : 0.3, startedAtMs: performance.now(), durationMs: hold ? 1800 : 720 },
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: `${glowColor}${hold ? ' hold' : ''}`,
+            tone: 'visual',
+            durationMs: 1800,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'glow', entryDetail: glowColor })
+      }
+      case 'stopGlowing': {
+        const nextBase = {
+          ...base,
+          flashOverlay: null,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: 'Screen glow cleared',
+            tone: 'visual',
+            durationMs: 1600,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'glowStop', entryDetail: 'clear' })
+      }
+      case 'addItem':
+      case 'removeItem': {
+        const itemId = normalizeEventItemId(command.args[1])
+        const count = Math.max(1, Number.parseInt(command.args[2] ?? '1', 10) || 1)
+        const isGain = command.command === 'addItem'
+        const detail = `${isGain ? '+' : '-'}${count} ${itemId ?? 'item'}`
+        const nextBase = {
+          ...base,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail,
+            tone: isGain ? 'gain' : 'loss',
+            durationMs: 3200,
+            icon: createNoticeIconForItemId(itemId ?? undefined),
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'inventory', entryDetail: detail })
+      }
+      case 'money': {
+        const amount = Number.parseInt(command.args[1] ?? '0', 10) || 0
+        const detail = `${amount >= 0 ? '+' : ''}${amount}g`
+        const nextBase = {
+          ...base,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail,
+            tone: amount >= 0 ? 'gain' : 'loss',
+            durationMs: 2600,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'money', entryDetail: detail })
+      }
+      case 'friendship':
+      case 'addQuest':
+      case 'removeQuest':
+      case 'addSpecialOrder':
+      case 'removeSpecialOrder':
+      case 'addConversationTopic':
+      case 'addCookingRecipe':
+      case 'addCraftingRecipe':
+      case 'mail':
+      case 'mailToday':
+      case 'mailReceived':
+      case 'eventSeen':
+      case 'questionAnswered':
+      case 'rustyKey':
+      case 'dump': {
+        const tone: PlaybackNoticeTone =
+          command.command.startsWith('remove') || command.command === 'dump' ? 'loss' : 'info'
+        const nextBase = {
+          ...base,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: command.detail || command.raw,
+            tone,
+            durationMs: 2800,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'state' })
+      }
+      case 'itemAboveHead': {
+        const stageEffect = createItemAboveActorEffect(command.id, 'itemAboveHead', nextState.actors, 'farmer', command.args[1])
+        const detail = normalizeEventItemId(command.args[1]) ?? command.detail
+        const nextBase = {
+          ...base,
+          stageEffects: stageEffect ? [...nextState.stageEffects, stageEffect] : nextState.stageEffects,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail,
+            tone: 'visual',
+            durationMs: 2400,
+            icon: createNoticeIconForItemId(command.args[1]),
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'itemAboveHead', entryDetail: detail })
+      }
+      case 'addObject': {
+        const point = parsePoint(command.args[1], command.args[2])
+        const stageEffect = point ? createItemAtTileEffect(command.id, 'addObject', point.tileX, point.tileY, command.args[3]) : null
+        const detail = point ? `${normalizeEventItemId(command.args[3]) ?? 'object'} @ (${point.tileX}, ${point.tileY})` : command.detail
+        const nextBase = {
+          ...base,
+          stageEffects: stageEffect ? [...nextState.stageEffects, stageEffect] : nextState.stageEffects,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail,
+            tone: 'visual',
+            durationMs: 2600,
+            icon: createNoticeIconForItemId(command.args[3]),
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'addObject', entryDetail: detail })
+      }
+      case 'removeObject': {
+        const point = parsePoint(command.args[1], command.args[2])
+        const detail = point ? `(${point.tileX}, ${point.tileY})` : command.detail
+        const nextBase = {
+          ...base,
+          stageEffects: point ? removeStageEffectsByTile(nextState.stageEffects, point.tileX, point.tileY) : nextState.stageEffects,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail,
+            tone: 'visual',
+            durationMs: 2200,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'removeObject', entryDetail: detail })
+      }
+      case 'addTemporaryActor': {
+        const actorName = command.args[1]
+        const tileX = parseNumber(command.args[4])
+        const tileY = parseNumber(command.args[5])
+        const facingDirection = Number.parseInt(command.args[6] ?? '', 10)
+        const nextActors =
+          actorName && tileX != null && tileY != null && Number.isFinite(facingDirection)
+            ? {
+                ...nextState.actors,
+                [toActorKey(command.args[9] ?? actorName)]: createActorState({
+                  id: `${command.id}:tempActor`,
+                  actorName: command.args[9] ?? actorName,
+                  tileX,
+                  tileY,
+                  facingDirection,
+                }),
+              }
+            : nextState.actors
+        const nextBase = {
+          ...base,
+          actors: nextActors,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: actorName ? `${command.args[9] ?? actorName} @ (${tileX ?? '?'}, ${tileY ?? '?'})` : command.detail,
+            tone: 'visual',
+            durationMs: 2600,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'tempActor' })
+      }
+      case 'waitForAllStationary':
+        if (Object.values(nextState.actors).some((actor) => actor.movement)) {
+          return {
+            ...base,
+            currentEntry: { id: `${command.id}:waitForAllStationary`, tone: 'system', title: command.title, detail: command.detail || 'waiting for movement' },
+            activeDialogue: null,
+            waitingMs: 80,
+            blockingMovement: true,
+            ended: false,
+            pendingChoice: null,
+          }
+        }
+        return advanceCommandPlayback(base, command, { entrySuffix: 'waitForAllStationary', entryDetail: 'all stationary' })
+      case 'waitForOtherPlayers':
+        return advanceCommandPlayback(
+          {
+            ...base,
+            notices: enqueuePlaybackNotice(base, {
+              title: command.title,
+              detail: command.detail || 'Single-user preview advances immediately',
+              tone: 'system',
+              durationMs: 2200,
+            }),
+          },
+          command,
+          { entrySuffix: 'waitForOtherPlayers', entryDetail: 'single-user preview' },
+        )
+      case 'beginSimultaneousCommand':
+      case 'endSimultaneousCommand':
+      case 'skippable':
+      case 'setSkipActions':
+      case 'ignoreEventTileOffset':
+      case 'ignoreCollisions':
+      case 'ignoreMovementAnimation':
+      case 'playerControl':
+      case 'tutorialMenu':
+      case 'animalNaming':
+      case 'catQuestion':
+      case 'cave':
+      case 'updateMinigame':
+      case 'broadcastEvent':
+      case 'loadActors':
+      case 'replaceWithClone':
+      case 'removeTile':
+      case 'changeMapTile':
+      case 'setRunning':
+      case 'stopRunning':
+      case 'swimming':
+      case 'stopSwimming':
+      case 'emote':
+      case 'jump':
+      case 'eyes':
+      case 'advancedMove':
+      case 'speed':
+      case 'stopAdvancedMoves':
+      case 'farmerAnimation':
+      case 'farmerEat':
+      case 'tossConcession':
+      case 'awardFestivalPrize':
+      case 'action':
+      case 'doAction':
+      case 'textAboveHead':
+      case 'changeName':
+      case 'translateName':
+      case 'changeYSourceRectOffset':
+      case 'extendSourceRect':
+      case 'makeInvisible':
+      case 'addBigProp':
+      case 'addFloorProp':
+      case 'addProp':
+      case 'addLantern':
+      case 'proceedPosition':
+      case 'resetVariable':
+      case 'shake':
+      case 'startJittering':
+      case 'stopJittering':
+      case 'hideShadow':
+      case 'cutscene':
+      case 'halt':
+      case 'minedeath':
+      case 'hospitaldeath':
+      case 'characterSelect':
+      case 'elliotbooktalk':
+      case 'grandpaCandles':
+      case 'grandpaEvaluation':
+      case 'grandpaEvaluation2':
+      case 'warpFarmers':
+        return advanceCommandPlayback(
+          {
+            ...base,
+            notices: enqueuePlaybackNotice(base, {
+              title: command.title,
+              detail: command.detail || command.raw,
+              tone: 'visual',
+              durationMs: 2600,
+            }),
+          },
+          command,
+          { entrySuffix: 'fallback' },
+        )
       case 'fork': {
         const targetEvent = command.targetEventKey && !command.isTranslationKey ? eventIndex[command.targetEventKey] : undefined
         if (targetEvent && shouldTakeFork(command, nextState.forkFlag)) {
@@ -5344,16 +5964,18 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
           pendingChoice: null,
         }
       default:
-        return {
-          ...base,
-          pointer: nextState.pointer + 1,
-          currentEntry: { id: `${command.id}:command`, tone: 'command', title: command.title, detail: command.detail || command.raw },
-          activeDialogue: null,
-          waitingMs: null,
-          blockingMovement: false,
-          ended: false,
-          pendingChoice: null,
-        }
+        return advanceCommandPlayback(
+          {
+            ...base,
+            notices: enqueuePlaybackNotice(base, {
+              title: command.title,
+              detail: command.detail || command.raw,
+              tone: 'system',
+              durationMs: 2200,
+            }),
+          },
+          command,
+        )
     }
   }
 
@@ -6067,7 +6689,8 @@ export default function EventStageWorkspace({
         effect.yPeriodic ||
         effect.pulse,
     )
-    if (!hasAnimatedActors && !hasAnimatedEffects) {
+    const hasAnimatedHud = playbackState.notices.length > 0 || playbackState.flashOverlay != null
+    if (!hasAnimatedActors && !hasAnimatedEffects && !hasAnimatedHud) {
       return
     }
 
@@ -6079,7 +6702,36 @@ export default function EventStageWorkspace({
 
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
-  }, [playbackState.actors, playbackState.stageEffects])
+  }, [playbackState.actors, playbackState.flashOverlay, playbackState.notices.length, playbackState.stageEffects])
+
+  useEffect(() => {
+    if (playbackState.notices.length === 0 && playbackState.flashOverlay == null) {
+      return
+    }
+
+    setPlaybackState((current) => {
+      const nowMs = performance.now()
+      const notices = prunePlaybackNotices(current.notices, nowMs)
+      const flashOverlay =
+        current.flashOverlay && nowMs - current.flashOverlay.startedAtMs >= current.flashOverlay.durationMs
+          ? null
+          : current.flashOverlay
+
+      if (notices === current.notices && flashOverlay === current.flashOverlay) {
+        return current
+      }
+
+      if (notices.length === current.notices.length && flashOverlay === current.flashOverlay) {
+        return current
+      }
+
+      return {
+        ...current,
+        notices,
+        flashOverlay,
+      }
+    })
+  }, [animationNowMs, playbackState.flashOverlay, playbackState.notices])
 
   useEffect(() => {
     const completedActorKeys = Object.values(playbackState.actors)
@@ -6248,8 +6900,16 @@ export default function EventStageWorkspace({
   }, [directoryInfo?.rootPath, pendingActorAssetRequests])
 
   const effectTextureRequests = useMemo(
-    () => Array.from(new Set(playbackState.stageEffects.map((effect) => effect.textureName).filter(Boolean))),
-    [playbackState.stageEffects],
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...playbackState.stageEffects.map((effect) => effect.textureName),
+            ...playbackState.notices.map((notice) => notice.icon?.textureName ?? null),
+          ].filter((value): value is string => Boolean(value)),
+        ),
+      ),
+    [playbackState.notices, playbackState.stageEffects],
   )
 
   useEffect(() => {
@@ -6320,6 +6980,43 @@ export default function EventStageWorkspace({
     () => getPortraitFrameBounds(currentDialogueActorAsset, playbackState.currentEntry?.portraitIndex ?? 0),
     [currentDialogueActorAsset, playbackState.currentEntry?.portraitIndex],
   )
+  const flashOverlayOpacity = useMemo(() => {
+    if (!playbackState.flashOverlay) {
+      return 0
+    }
+
+    const elapsedMs = Math.max(0, animationNowMs - playbackState.flashOverlay.startedAtMs)
+    const progress = Math.max(0, Math.min(1, elapsedMs / Math.max(1, playbackState.flashOverlay.durationMs)))
+    return playbackState.flashOverlay.alpha * (1 - progress)
+  }, [animationNowMs, playbackState.flashOverlay])
+  const playbackStatusChips = useMemo(() => {
+    const chips: Array<{ id: string; label: string; value: string }> = []
+
+    if (playbackState.activeMusicCue) {
+      chips.push({ id: 'music', label: locale === 'zh-CN' ? '音乐' : 'Music', value: playbackState.activeMusicCue })
+    }
+    if (playbackState.activeSoundCue) {
+      chips.push({ id: 'sound', label: locale === 'zh-CN' ? '音效' : 'Sound', value: playbackState.activeSoundCue })
+    }
+    if (playbackState.ambientOverlayColor) {
+      chips.push({ id: 'ambient', label: locale === 'zh-CN' ? '环境光' : 'Ambient', value: playbackState.ambientOverlayColor })
+    }
+    if (playbackState.fadeOverlay) {
+      chips.push({
+        id: 'fade',
+        label: locale === 'zh-CN' ? '淡入淡出' : 'Fade',
+        value: `${Math.round(playbackState.fadeOverlay.alpha * 100)}%`,
+      })
+    }
+
+    return chips
+  }, [
+    locale,
+    playbackState.activeMusicCue,
+    playbackState.activeSoundCue,
+    playbackState.ambientOverlayColor,
+    playbackState.fadeOverlay,
+  ])
 
   const mapOverlay = useMemo(() => {
     if (!mapDocument) {
@@ -6515,17 +7212,46 @@ export default function EventStageWorkspace({
 
   const viewportOverlay = (
     <div className="absolute inset-0">
+      {playbackState.ambientOverlayColor ? (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundColor: playbackState.ambientOverlayColor, opacity: 0.14, mixBlendMode: 'screen' }}
+        />
+      ) : null}
+      {playbackState.fadeOverlay ? (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundColor: playbackState.fadeOverlay.color, opacity: playbackState.fadeOverlay.alpha }}
+        />
+      ) : null}
+      {flashOverlayOpacity > 0 && playbackState.flashOverlay ? (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundColor: playbackState.flashOverlay.color, opacity: flashOverlayOpacity }}
+        />
+      ) : null}
       {screenEffectsOverlay}
       <div className="absolute inset-0 flex flex-col justify-between p-4">
         <div className="flex justify-between gap-3">
           <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
             {selectedEvent?.eventId ?? labels.scene}
           </div>
-          {playbackState.activeEventKey && selectedEvent && playbackState.activeEventKey !== selectedEvent.key ? (
-            <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-              {labels.branch}
-            </div>
-          ) : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            {playbackStatusChips.map((chip) => (
+              <div
+                key={chip.id}
+                className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]"
+              >
+                <span className="font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{chip.label}</span>{' '}
+                <span>{chip.value}</span>
+              </div>
+            ))}
+            {playbackState.activeEventKey && selectedEvent && playbackState.activeEventKey !== selectedEvent.key ? (
+              <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+                {labels.branch}
+              </div>
+            ) : null}
+          </div>
         </div>
         <div className="flex justify-center">
           {playbackState.pendingChoice ? (
@@ -6581,6 +7307,57 @@ export default function EventStageWorkspace({
             <div className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-panel)]">
               {labels.sceneIdle}
             </div>
+          )}
+        </div>
+        <div className="flex justify-start">
+          {playbackState.notices.length ? (
+            <div className="pointer-events-none flex max-w-md flex-col gap-2">
+              {playbackState.notices
+                .slice()
+                .reverse()
+                .map((notice) => {
+                  const iconAsset = notice.icon ? effectAssets[notice.icon.textureName] : null
+                  const toneClassName =
+                    notice.tone === 'gain'
+                      ? 'border-[color-mix(in_srgb,var(--success)_38%,transparent)] bg-[color-mix(in_srgb,var(--success)_12%,var(--bg-panel))]'
+                      : notice.tone === 'loss'
+                        ? 'border-[color-mix(in_srgb,var(--danger)_36%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg-panel))]'
+                        : notice.tone === 'visual'
+                          ? 'border-[color-mix(in_srgb,var(--warning)_34%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]'
+                          : 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
+
+                  return (
+                    <div key={notice.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-2 shadow-[var(--shadow-panel)] backdrop-blur ${toneClassName}`}>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)]">
+                        {notice.icon && iconAsset?.url ? (
+                          <div
+                            style={{
+                              width: `${notice.icon.sourceWidth}px`,
+                              height: `${notice.icon.sourceHeight}px`,
+                              transform: `scale(${40 / notice.icon.sourceWidth})`,
+                              transformOrigin: 'top left',
+                              backgroundImage: `url("${iconAsset.url}")`,
+                              backgroundPosition: `-${notice.icon.sourceX}px -${notice.icon.sourceY}px`,
+                              backgroundRepeat: 'no-repeat',
+                              imageRendering: 'pixelated',
+                            }}
+                          />
+                        ) : (
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                            HUD
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{notice.title}</p>
+                        <p className="truncate text-sm text-[var(--text-primary)]">{notice.detail}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          ) : (
+            <div />
           )}
         </div>
       </div>
