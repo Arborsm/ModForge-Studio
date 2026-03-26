@@ -1,145 +1,245 @@
 # ModForge Studio 编辑器工作区说明
 
-## 2026-03 Workspace Update
+## 文档目的
 
-- 中央工作区改为真实文档选项卡，不再使用单个伪标签头。
-- `World Atlas` 固定在第一个选项卡，不能关闭。
-- 从资源浏览器或世界地图入口打开地图时，会新增或聚焦到对应地图选项卡。
-- 普通地图选项卡支持关闭和拖拽排序。
-- 当前文档路径从顶部条移到底部状态栏显示。
+这份文档只描述当前桌面端编辑器工作区的真实状态，用于统一对界面结构、交互模型和实现入口的理解。它不是理想设计稿，而是和当前代码同步的说明。
 
-## 当前界面结构
+## 2026-03 当前版本概览
 
-当前桌面端已经不是固定三栏编辑器，而是更接近 IDE 工具窗口的工作区。
+当前工作区已经从早期固定三栏布局，演进为接近 IDE 的工具窗口系统，核心特征如下：
 
-主要结构：
+- 顶部保留自绘标题栏、模块切换、主题、语言、设置与视图菜单
+- 左右两侧是图标轨道，不再是固定写死的 Dock 面板
+- 工具窗口支持停靠、收起、浮动、拖拽换位
+- 底部信息区也纳入统一布局系统
+- 中央区域使用文档型工作区，地图以标签页打开
+- `World Atlas` 作为固定首个标签页，普通地图标签页可关闭与拖拽排序
+- 当前活动文档路径显示在底部状态栏，而不是继续堆在顶栏
 
-- 顶部：自绘标题栏、模块切换、主题切换、语言切换、窗口控制
-- 左侧：工具窗口图标栏，承载 `项目导航`、`资源浏览器` 以及左侧底部分组入口
-- 中央：主地图视口与主工作区
-- 右侧：工具窗口图标栏，承载 `Inspector`、`图层`、`对象组` 以及右侧底部分组入口
-- 底部：可停靠的信息型窗口区域，例如 `诊断`
-- 底栏：状态栏与悬停探针摘要
+## 顶层布局
 
-工作区特征：
+当前界面大致由五部分组成：
 
-- 左右侧是 IDE 风格工具窗口栏，不是固定栏位
-- 图标支持展开、收起、右键菜单、浮动窗口化
-- 面板支持停靠到 `left-top`、`left-bottom`、`right-top`、`right-bottom`、`bottom-left`、`bottom-right`、`center`
-- 停靠布局与窗口位置支持本地持久化
-- 工具窗口图标支持拖拽，并显示目标落位示意
-- 中央视图窗口栏已隐藏，主视图更像纯画布
-- 停靠在侧边和底部的信息面板默认隐藏标题栏
+### 1. 顶部
 
-## 当前交互模型
+负责：
 
-当前 UI 目标不是网页式 dashboard，而是接近 Rider / IntelliJ / VS Code 一类的桌面创作工具。
+- 品牌与标题栏拖拽区域
+- 模块切换：`map / events / characters / buildings / items`
+- 明暗主题切换
+- `zh-CN / en-US` 语言切换
+- 视图菜单
+- 设置窗口入口
+- 无边框窗口控制按钮
 
-已落地：
+主要文件：
 
-- 浅色 / 深色双主题
-- `zh-CN / en-US` 双语文案
-- Tauri 无边框窗口与自定义最小化 / 最大化 / 关闭按钮
-- 顶部标题栏空白区域可拖动窗口
-- 视图菜单可控制工作区窗口显隐、重置布局、保存 / 加载预设
-- 悬停探针已移入底栏，不再作为独立侧栏面板
-- 主视图、信息面板、列表面板已经按不同密度分别布局
-
-## 当前已实现能力
-
-- 自动检测或手动选择 Stardew Valley 安装目录
-- 验证游戏目录结构
-- 扫描 `TMX / XNB` 地图资产
-- 优先自动打开世界地图视图
-- 主视口渲染 `Tile Layer`
-- 主视口叠加渲染 `TMX Object Group` 边界、标签、Warp 路径
-- 通过世界图视图查看主世界与远程区域
-- 图层显隐切换
-- 对象组显隐切换
-- 右侧对象预览点击后在画布中高亮并定位对象
-- 鼠标悬停查看 Tile 坐标、像素坐标、GID、Tileset、命中对象摘要
-- 右键弹出自定义编辑器菜单
-- 视口拖拽平移
-- 工具栏 / 右键菜单 / 鼠标滚轮缩放
-- `Fit` 与 `1:1` 视口比例切换
-
-## 当前布局实现重点
-
-### 1. 工具窗口系统
-
-由以下文件负责：
-
-- `apps/desktop/src/components/WorkspaceLayout.tsx`
-- `apps/desktop/src/styles/globals.css`
-
-当前逻辑：
-
-- 左右两侧是图标工具栏
-- 同一停靠槽位只展开一个窗口
-- 停靠窗口和浮窗共享同一套布局状态
-- 停靠窗口支持右键切换停靠目标
-- 图标拖拽会出现左右上下与底部左右的目标区域示意
-
-### 2. 面板拆分
-
-左侧面板：
-
-- `apps/desktop/src/components/LeftPanels.tsx`
-
-右侧面板：
-
-- `apps/desktop/src/components/RightPanels.tsx`
-
-中央工作区：
-
-- `apps/desktop/src/components/CentralWorkspace.tsx`
-- `apps/desktop/src/components/MapViewport.tsx`
-
-### 3. 当前信息面板优化
-
-信息型面板已做过一轮紧凑化：
-
-- `项目导航`
-- `Inspector`
-- `诊断`
-
-优化方向：
-
-- 更低默认高度
-- 更高信息密度
-- 更短的统计卡片
-- 更紧凑的键值行
-
-## 已过时描述
-
-以下描述已经不再适用：
-
-- 固定左中右三栏布局
-- `LeftDock.tsx / RightDock.tsx` 作为当前主要布局入口
-- 独立的悬停探针侧栏窗口
-- 主视图始终带完整窗口栏
-
-当前应以这些文件为准：
-
-- `apps/desktop/src/App.tsx`
-- `apps/desktop/src/styles/globals.css`
 - `apps/desktop/src/components/TopMenuBar.tsx`
-- `apps/desktop/src/components/LeftPanels.tsx`
-- `apps/desktop/src/components/RightPanels.tsx`
-- `apps/desktop/src/components/WorkspaceLayout.tsx`
-- `apps/desktop/src/components/CentralWorkspace.tsx`
-- `apps/desktop/src/components/StatusBar.tsx`
-- `apps/desktop/src/components/MapViewport.tsx`
 - `apps/desktop/src/lib/editor-shell.ts`
 
-## 开发与热重载
+### 2. 左侧轨道
+
+负责：
+
+- 显示左侧面板图标
+- 展开与收起左侧工具窗口
+- 在拖拽时作为停靠目标
+
+常见面板：
+
+- 项目/目录面板
+- 地图资源面板
+- 事件文件面板
+
+### 3. 中央工作区
+
+负责：
+
+- `World Atlas` 与地图文档标签页
+- 地图视口
+- 事件舞台
+- 非地图模块的蓝图工作区
+
+主要文件：
+
+- `apps/desktop/src/components/CentralWorkspace.tsx`
+- `apps/desktop/src/components/MapViewport.tsx`
+- `apps/desktop/src/components/EventStageWorkspace.tsx`
+
+### 4. 右侧轨道
+
+负责：
+
+- Inspector
+- 图层面板
+- 对象组面板
+- 事件目录
+- 命令检查器
+- 诊断面板
+
+### 5. 底部区域与状态栏
+
+负责：
+
+- 时间线等底部信息面板
+- 当前路径
+- 工作区状态
+- 地图悬停探针摘要
+
+主要文件：
+
+- `apps/desktop/src/components/StatusBar.tsx`
+- `apps/desktop/src/components/panels/bottom/EventTimelinePanel.tsx`
+
+## 工作区交互模型
+
+### 文档标签页
+
+中央区域使用文档式标签页，当前规则是：
+
+- `World Atlas` 固定为第一个标签页
+- 普通地图标签页可关闭
+- 普通地图标签页支持拖拽排序
+- 再次打开已打开地图时，不重复创建，而是直接聚焦现有标签页
+
+这部分逻辑主要在：
+
+- `apps/desktop/src/lib/app/useMapWorkspace.ts`
+- `apps/desktop/src/lib/app/mapWorkspace.ts`
+
+### 工具窗口
+
+所有工具窗口都接入统一布局系统，支持：
+
+- 停靠到 `left-top`
+- 停靠到 `left-bottom`
+- 停靠到 `right-top`
+- 停靠到 `right-bottom`
+- 停靠到 `bottom-left`
+- 停靠到 `bottom-right`
+- 停靠到 `center`
+- 变成浮动窗口
+- 从浮动窗口恢复回边栏
+- 隐藏和重新显示
+
+布局状态支持本地持久化，还支持命名预设。
+
+主要文件：
+
+- `apps/desktop/src/components/WorkspaceLayout.tsx`
+
+### 视图菜单
+
+视图菜单已经不只是简单开关，而是工作区管理入口，可用于：
+
+- 切换面板显隐
+- 重置布局
+- 保存布局预设
+- 加载布局预设
+- 删除布局预设
+
+## 当前已经实现的工作区体验
+
+### 地图模式
+
+在 `map` 模式下，当前体验是：
+
+- 左侧查看项目与地图资源
+- 中央先进入 `World Atlas`
+- 可从 Atlas 跳到具体地图
+- 具体地图以标签页打开
+- 右侧查看图层、对象组与检查信息
+- 底部状态栏展示当前路径和悬停信息
+
+### 事件模式
+
+在 `events` 模式下，当前体验是：
+
+- 左侧浏览事件文件
+- 中央查看事件舞台
+- 右侧查看事件目录和命令检查器
+- 底部查看事件时间线
+- 可打开玩家外观窗口，为舞台中的 `player / farmer` 提供配置
+
+### 其他模式
+
+`characters / buildings / items` 目前主要是蓝图占位区，目的是先保留模块切换结构和后续扩展入口，并没有进入完整编辑器阶段。
+
+## 当前实现重点
+
+### 1. 工作区布局引擎
+
+实现入口：
+
+- `apps/desktop/src/components/WorkspaceLayout.tsx`
+
+已实现能力：
+
+- 左右图标轨道
+- 面板停靠与浮窗
+- 拖拽停靠引导
+- 侧边与底部尺寸调整
+- 浮窗拖拽与缩放
+- 面板显隐状态
+- 预设持久化
+
+### 2. 面板装配层
+
+实现入口：
+
+- `apps/desktop/src/lib/app/workspacePanels.tsx`
+
+职责：
+
+- 按当前模块生成面板配置
+- 为不同模式装配不同内容
+- 把地图工作区、事件工作区和布局系统连接起来
+
+### 3. 中央内容切换
+
+实现入口：
+
+- `apps/desktop/src/components/CentralWorkspace.tsx`
+
+职责：
+
+- 决定当前显示地图视口、事件舞台还是蓝图工作区
+- 管理文档标签页的呈现
+- 提供中央主区域的顶部工具条
+
+## 已经过时的说法
+
+下面这些说法已经不适用于当前项目：
+
+- “当前界面仍是固定三栏布局”
+- “左侧入口是 `LeftDock.tsx`，右侧入口是 `RightDock.tsx`”
+- “中央区域始终只有单一地图视口”
+- “悬停探针是独立右侧面板”
+
+虽然 `LeftDock.tsx` 和 `RightDock.tsx` 还在仓库里，但当前主路径已经切换到新的面板与工作区系统，真实入口应以这些文件为准：
+
+- `apps/desktop/src/App.tsx`
+- `apps/desktop/src/components/WorkspaceLayout.tsx`
+- `apps/desktop/src/lib/app/workspacePanels.tsx`
+- `apps/desktop/src/components/LeftPanels.tsx`
+- `apps/desktop/src/components/RightPanels.tsx`
+- `apps/desktop/src/components/CentralWorkspace.tsx`
+- `apps/desktop/src/components/StatusBar.tsx`
+
+## 开发与热更新
 
 推荐从仓库根目录运行：
 
-- `npm run desktop:dev`
+```bash
+npm run desktop:dev
+```
 
-行为：
+当前行为：
 
-- `apps/desktop/src` 下的 React / TS / CSS 改动走 Vite HMR
+- `apps/desktop/src` 下的 React / TypeScript / CSS 改动会走 Vite HMR
 - `apps/desktop/src-tauri` 下的 Rust 改动会重编译并重启桌面宿主
-- `tauri.conf.json`、capabilities、依赖、Tailwind/PostCSS 配置变更通常需要手动重启
+- `tauri.conf.json`、capabilities、Tailwind/PostCSS 配置或依赖变更通常需要手动重启
+
+## 结论
+
+当前工作区已经是项目里最成熟的一部分。后续新增功能时，应优先复用现有布局系统和面板装配层，而不是再回到固定式的左右栏思路。真正要继续推进的方向，是让这些面板承载更强的编辑能力，而不是继续重复造新的外壳。

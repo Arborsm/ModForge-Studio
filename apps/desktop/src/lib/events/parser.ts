@@ -1,4 +1,5 @@
 import type { EventAssetSummary } from '../desktop'
+import { getEventCommandKind, getEventCommandTitle, isKnownEventCommand } from './commandCatalog'
 import type {
   EventBranchChoice,
   EventCommand,
@@ -268,32 +269,19 @@ function extractQuestionChoices(args: string[]) {
 }
 
 function getCommandKind(command: string): EventCommandKind {
-  switch (command) {
-    case 'speak':
-      return 'dialogue'
-    case 'message':
-      return 'message'
-    case 'question':
-    case 'quickQuestion':
-      return 'choice'
-    case 'fork':
-    case 'switchEvent':
-      return 'branch'
-    case 'pause':
-      return 'timing'
-    case 'end':
-      return 'flow'
-    default:
-      return 'action'
-  }
+  return getEventCommandKind(command)
 }
 
 function parseCommandTitle(command: string, args: string[]) {
   switch (command) {
     case 'speak':
       return `Speak | ${args[1] ?? 'Unknown'}`
+    case 'splitSpeak':
+      return `Split Speak | ${args[1] ?? 'Unknown'}`
     case 'changePortrait':
       return `Change Portrait | ${args[1] ?? 'Unknown'}`
+    case 'changeSprite':
+      return `Change Sprite | ${args[1] ?? 'Unknown'}`
     case 'message':
       return 'Message'
     case 'move':
@@ -308,6 +296,10 @@ function parseCommandTitle(command: string, args: string[]) {
       return 'Viewport'
     case 'pause':
       return `Pause | ${args[1] ?? '0'} ms`
+    case 'animate':
+      return `Animate | ${args[1] ?? 'Unknown'}`
+    case 'stopAnimation':
+      return `Stop Animation | ${args[1] ?? 'Unknown'}`
     case 'question':
       return 'Question'
     case 'quickQuestion':
@@ -319,15 +311,18 @@ function parseCommandTitle(command: string, args: string[]) {
     case 'end':
       return args[1] === 'dialogue' ? `End Dialogue | ${args[2] ?? 'Unknown'}` : 'End'
     default:
-      return command
+      return isKnownEventCommand(command) ? getEventCommandTitle(command) : command
   }
 }
 
 function parseCommandDetail(command: string, args: string[]) {
   switch (command) {
     case 'speak':
+    case 'splitSpeak':
       return summarizeDialoguePages(stripOuterQuotes(args[2] ?? ''))
     case 'changePortrait':
+      return args[2] ? `${args[1] ?? 'actor'} -> ${args[2]}` : `${args[1] ?? 'actor'} -> default`
+    case 'changeSprite':
       return args[2] ? `${args[1] ?? 'actor'} -> ${args[2]}` : `${args[1] ?? 'actor'} -> default`
     case 'message':
       return truncate(stripOuterQuotes(args[1] ?? ''))
@@ -344,8 +339,16 @@ function parseCommandDetail(command: string, args: string[]) {
     }
     case 'viewport':
       return truncate(args.slice(1).join(' '))
+    case 'changeLocation':
+      return args[1] ?? 'current map'
+    case 'changeToTemporaryMap':
+      return args[1] ?? 'temporary map'
     case 'pause':
       return `${args[1] ?? '0'} ms`
+    case 'animate':
+      return `${args[1] ?? 'actor'} | ${Math.max(0, args.length - 5)} frames @ ${args[4] ?? '?'} ms`
+    case 'stopAnimation':
+      return args[2] ? `${args[1] ?? 'actor'} -> frame ${args[2]}` : `${args[1] ?? 'actor'} -> stop`
     case 'question': {
       const { prompt, choices, forkChoiceIndex } = extractQuestionChoices(args)
       const forkLabel = forkChoiceIndex == null ? '' : ` | fork ${forkChoiceIndex}`
@@ -362,7 +365,7 @@ function parseCommandDetail(command: string, args: string[]) {
     case 'end':
       return args[1] === 'dialogue' ? summarizeDialoguePages(stripOuterQuotes(args[3] ?? '')) : truncate(args.slice(1).join(' '))
     default:
-      return truncate(args.slice(1).map(stripOuterQuotes).join(' '))
+      return truncate(args.slice(1).map(stripOuterQuotes).join(' ') || getEventCommandTitle(command))
   }
 }
 
@@ -381,7 +384,7 @@ export function parseEventCommand(raw: string, index: number): EventCommand {
     detail: parseCommandDetail(command, args),
   }
 
-  if (command === 'speak') {
+  if (command === 'speak' || command === 'splitSpeak') {
     eventCommand.actorName = args[1]
     eventCommand.text = stripOuterQuotes(args[2] ?? '')
     eventCommand.dialoguePages = parseDialoguePages(eventCommand.text)
@@ -392,6 +395,19 @@ export function parseEventCommand(raw: string, index: number): EventCommand {
   } else if (command === 'changePortrait') {
     eventCommand.actorName = args[1]
     eventCommand.portraitSuffix = args[2] ?? null
+  } else if (command === 'changeSprite') {
+    eventCommand.actorName = args[1]
+    eventCommand.spriteSuffix = args[2] ?? null
+  } else if (command === 'animate') {
+    eventCommand.actorName = args[1]
+    eventCommand.animationFlip = args[2] === 'true'
+    eventCommand.animationLoop = args[3] === 'true'
+    eventCommand.animationFrameDurationMs = Number.parseInt(args[4] ?? '', 10)
+    eventCommand.animationFrames = args.slice(5).map((value) => Number.parseInt(value, 10)).filter(Number.isFinite)
+  } else if (command === 'stopAnimation') {
+    eventCommand.actorName = args[1]
+    const frame = Number.parseInt(args[2] ?? '', 10)
+    eventCommand.frame = Number.isFinite(frame) ? frame : undefined
   } else if (command === 'question') {
     const { questionKey, prompt, choices, forkChoiceIndex } = extractQuestionChoices(args)
     eventCommand.questionKey = questionKey

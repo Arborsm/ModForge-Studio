@@ -8,6 +8,7 @@ import { EventDirectoryPanel } from '../../components/panels/right/EventDirector
 import type { FocusedMapObjectTarget, TileHoverInfo } from '../../components/MapViewport'
 import type { WorkspacePanelConfig } from '../../components/WorkspaceLayout'
 import type { EventAssetSummary, GameDirectoryInfo, MapAssetSummary } from '../desktop'
+import type { PlayerAppearanceProfile } from './playerAppearance'
 import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../editor-shell'
 import type { EventScript, ParsedEventAsset } from '../events/types'
 import type { MapDocument } from '../maps/types'
@@ -85,6 +86,8 @@ type BuildWorkspacePanelsOptions = {
   onTimelineJumpHandled: () => void
   onPlaybackCommandChange: (commandId: string | null) => void
   activeSceneLabel?: string
+  activePlayerAppearanceProfile: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow: () => void
 }
 
 export function buildWorkspacePanels({
@@ -150,6 +153,8 @@ export function buildWorkspacePanels({
   onTimelineJumpHandled,
   onPlaybackCommandChange,
   activeSceneLabel,
+  activePlayerAppearanceProfile,
+  onOpenPlayerAppearanceWindow,
 }: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
   return [
     {
@@ -229,10 +234,12 @@ export function buildWorkspacePanels({
           parsedEventAsset={parsedEventAsset}
           selectedEvent={selectedEvent}
           eventStatusMessage={eventStatusMessage}
+          playerAppearanceProfile={activePlayerAppearanceProfile}
           timelineJumpRequestId={timelineJumpRequestId}
           onTimelineJumpHandled={onTimelineJumpHandled}
           onSelectTimelineEntry={onSelectTimelineEntry}
           onPlaybackCommandChange={onPlaybackCommandChange}
+          onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
         />
       ) : (
         <CentralWorkspace
@@ -343,7 +350,7 @@ export function buildWorkspacePanels({
       minHeight: 180,
       dockMinHeight: 140,
       dockAutoHeight: true,
-      defaultDock: workspaceMode === 'events' ? 'bottom-left' : 'bottom-right',
+      defaultDock: workspaceMode === 'events' ? 'left-bottom' : 'bottom-right',
       defaultDockHeight: 190,
       content:
         workspaceMode === 'events' ? (

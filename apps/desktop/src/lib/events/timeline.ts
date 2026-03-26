@@ -10,6 +10,12 @@ export type EventTimelineEntry = {
   command: EventCommand | null
 }
 
+export type EventTimelineBeat = {
+  id: string
+  primaryEntry: EventTimelineEntry
+  supportingEntries: EventTimelineEntry[]
+}
+
 export function buildEventTimelineLabels(locale: 'zh-CN' | 'en-US') {
   return locale === 'zh-CN'
     ? {
@@ -57,4 +63,64 @@ export function buildEventTimelineEntries(event: EventScript | null, locale: 'zh
       command,
     })),
   ]
+}
+
+function isPrimaryTimelineEntry(entry: EventTimelineEntry) {
+  if (entry.id === EVENT_SETUP_ENTRY_ID) {
+    return true
+  }
+
+  const command = entry.command
+  if (!command) {
+    return false
+  }
+
+  if (entry.kind === 'dialogue' || entry.kind === 'message' || entry.kind === 'choice') {
+    return true
+  }
+
+  if (command.command === 'end' && (command.dialoguePages?.length ?? 0) > 0) {
+    return true
+  }
+
+  return false
+}
+
+export function buildEventTimelineBeats(event: EventScript | null, locale: 'zh-CN' | 'en-US'): EventTimelineBeat[] {
+  const entries = buildEventTimelineEntries(event, locale)
+  if (entries.length === 0) {
+    return []
+  }
+
+  const beats: EventTimelineBeat[] = []
+  let currentBeat: EventTimelineBeat | null = null
+
+  for (const entry of entries) {
+    if (currentBeat == null) {
+      currentBeat = {
+        id: `beat:${entry.id}`,
+        primaryEntry: entry,
+        supportingEntries: [],
+      }
+      continue
+    }
+
+    if (isPrimaryTimelineEntry(entry)) {
+      beats.push(currentBeat)
+      currentBeat = {
+        id: `beat:${entry.id}`,
+        primaryEntry: entry,
+        supportingEntries: [],
+      }
+      continue
+    }
+
+    currentBeat.supportingEntries.push(entry)
+  }
+
+  if (currentBeat) {
+    beats.push(currentBeat)
+  }
+
+  return beats
 }

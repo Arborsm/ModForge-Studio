@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { DevDebugOverlay } from './components/DevDebugOverlay'
+import PlayerAppearanceWindow from './components/PlayerAppearanceWindow'
 import StatusBar from './components/StatusBar'
 import SettingsWindow from './components/SettingsWindow'
 import TopMenuBar from './components/TopMenuBar'
 import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
-import { canUseDesktopHost, closeCurrentWindow, minimizeCurrentWindow, toggleMaximizeCurrentWindow } from './lib/desktop'
+import {
+  canUseDesktopHost,
+  closeCurrentWindow,
+  minimizeCurrentWindow,
+  toggleMaximizeCurrentWindow,
+} from './lib/desktop'
 import {
   editorCopy,
   getSettingsMenuCopy,
@@ -14,23 +21,25 @@ import {
   type WorkspaceMode,
 } from './lib/editor-shell'
 import { rgbaFromHex } from './lib/app/color'
-import { ACCENT_PRESETS, ACCENT_STORAGE_KEY, WORKSPACE_LAYOUT_VERSION } from './lib/app/constants'
+import {
+  ACCENT_PRESETS,
+  ACCENT_STORAGE_KEY,
+  PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY,
+  PLAYER_APPEARANCE_PROFILES_STORAGE_KEY,
+  WORKSPACE_LAYOUT_VERSION,
+} from './lib/app/constants'
+import {
+  clonePlayerAppearanceProfile,
+  createDefaultPlayerAppearanceProfile,
+  readStoredPlayerAppearanceState,
+  sanitizePlayerAppearanceProfile,
+  type PlayerAppearanceProfile,
+} from './lib/app/playerAppearance'
 import { useEventWorkspace } from './lib/app/useEventWorkspace'
 import { useMapWorkspace } from './lib/app/useMapWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 
 export default function App() {
-  useEffect(() => {
-    const handleContextMenu = (event: MouseEvent) => {
-      event.preventDefault()
-    }
-
-    document.addEventListener('contextmenu', handleContextMenu)
-    return () => {
-      document.removeEventListener('contextmenu', handleContextMenu)
-    }
-  }, [])
-
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
@@ -46,9 +55,46 @@ export default function App() {
   })
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
+  const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
   const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
   const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
+  useEffect(() => {
+    if (workspaceMode !== 'map') {
+      return
+    }
+
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault()
+    }
+
+    document.addEventListener('contextmenu', handleContextMenu)
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+    }
+  }, [workspaceMode])
+
+  const [playerAppearanceProfiles, setPlayerAppearanceProfiles] = useState(() => {
+    if (typeof window === 'undefined') {
+      return [createDefaultPlayerAppearanceProfile()]
+    }
+
+    return readStoredPlayerAppearanceState(
+      window.localStorage.getItem(PLAYER_APPEARANCE_PROFILES_STORAGE_KEY),
+      window.localStorage.getItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY),
+    ).profiles
+  })
+  const [activePlayerAppearanceProfileId, setActivePlayerAppearanceProfileId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+
+    return readStoredPlayerAppearanceState(
+      window.localStorage.getItem(PLAYER_APPEARANCE_PROFILES_STORAGE_KEY),
+      window.localStorage.getItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY),
+    ).activeProfileId
+  })
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
 
   const copy = editorCopy[locale]
@@ -128,11 +174,21 @@ export default function App() {
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const activeSceneLabel = workspaceMode === 'events' ? activeEventAsset?.name : activeAssetName
+  const activePlayerAppearanceProfile =
+    playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
+
+  useEffect(() => {
+    if (workspaceMode !== 'events' || !currentEventCommandId) {
+      return
+    }
+
+    workspaceLayoutRef.current?.setPanelVisibility('diagnostics', true)
+  }, [currentEventCommandId, workspaceMode])
 
   useEffect(() => {
     const root = document.documentElement
@@ -142,6 +198,73 @@ export default function App() {
     root.style.setProperty('--bg-active', theme === 'dark' ? rgbaFromHex(accent, 0.22) : rgbaFromHex(accent, 0.12))
     window.localStorage.setItem(ACCENT_STORAGE_KEY, activeAccentPreset.id)
   }, [activeAccentPreset.color, activeAccentPreset.id, theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(PLAYER_APPEARANCE_PROFILES_STORAGE_KEY, JSON.stringify(playerAppearanceProfiles))
+    if (activePlayerAppearanceProfileId) {
+      window.localStorage.setItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY, activePlayerAppearanceProfileId)
+    } else {
+      window.localStorage.removeItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY)
+    }
+  }, [activePlayerAppearanceProfileId, playerAppearanceProfiles])
+
+  const openAppearanceWindow = useCallback(() => {
+    setPlayerAppearanceWindowNonce((current) => current + 1)
+    setPlayerAppearanceWindowOpen(true)
+  }, [])
+
+  const handleCreatePlayerAppearanceProfile = useCallback(() => {
+    const nextProfile = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? `玩家 ${playerAppearanceProfiles.length + 1}` : `Player ${playerAppearanceProfiles.length + 1}`)
+    setPlayerAppearanceProfiles((current) => [...current, nextProfile])
+    setActivePlayerAppearanceProfileId(nextProfile.id)
+    openAppearanceWindow()
+  }, [locale, openAppearanceWindow, playerAppearanceProfiles.length])
+
+  const handleDuplicatePlayerAppearanceProfile = useCallback(() => {
+    if (!activePlayerAppearanceProfile) {
+      return
+    }
+
+    const nextProfile = clonePlayerAppearanceProfile(activePlayerAppearanceProfile)
+    setPlayerAppearanceProfiles((current) => [...current, nextProfile])
+    setActivePlayerAppearanceProfileId(nextProfile.id)
+  }, [activePlayerAppearanceProfile])
+
+  const handleDeletePlayerAppearanceProfile = useCallback(() => {
+    if (!activePlayerAppearanceProfile) {
+      return
+    }
+
+    const remainingProfiles = playerAppearanceProfiles.filter((profile) => profile.id !== activePlayerAppearanceProfile.id)
+    if (remainingProfiles.length === 0) {
+      const fallback = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? '默认玩家' : 'Default Player')
+      setPlayerAppearanceProfiles([fallback])
+      setActivePlayerAppearanceProfileId(fallback.id)
+      return
+    }
+
+    setPlayerAppearanceProfiles(remainingProfiles)
+    setActivePlayerAppearanceProfileId(remainingProfiles[0]?.id ?? null)
+  }, [activePlayerAppearanceProfile, locale, playerAppearanceProfiles])
+
+  const handleChangePlayerAppearanceProfile = useCallback((nextProfile: Parameters<typeof sanitizePlayerAppearanceProfile>[0]) => {
+    const sanitized = sanitizePlayerAppearanceProfile(nextProfile)
+    setPlayerAppearanceProfiles((current) => current.map((profile) => (profile.id === sanitized.id ? sanitized : profile)))
+  }, [])
+
+  const handleImportPlayerAppearanceProfile = useCallback(
+    (nextProfile: PlayerAppearanceProfile) => {
+      const sanitized = sanitizePlayerAppearanceProfile(nextProfile)
+      setPlayerAppearanceProfiles((current) => [...current, sanitized])
+      setActivePlayerAppearanceProfileId(sanitized.id)
+      openAppearanceWindow()
+    },
+    [openAppearanceWindow],
+  )
 
   const workspacePanels = buildWorkspacePanels({
     copy,
@@ -208,6 +331,8 @@ export default function App() {
     onTimelineJumpHandled: clearTimelineJumpRequest,
     activeSceneLabel,
     onPlaybackCommandChange: setCurrentEventCommandId,
+    activePlayerAppearanceProfile,
+    onOpenPlayerAppearanceWindow: openAppearanceWindow,
   })
 
   const handleLayoutMetaChange = useCallback(
@@ -307,6 +432,22 @@ export default function App() {
         onClose={() => setSettingsWindowOpen(false)}
       />
 
+      <PlayerAppearanceWindow
+        key={`player-appearance:${playerAppearanceWindowNonce}`}
+        open={playerAppearanceWindowOpen}
+        locale={locale}
+        rootPath={directoryInfo?.rootPath ?? null}
+        profiles={playerAppearanceProfiles}
+        activeProfileId={activePlayerAppearanceProfileId}
+        onSelectProfile={setActivePlayerAppearanceProfileId}
+        onCreateProfile={handleCreatePlayerAppearanceProfile}
+        onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
+        onDeleteProfile={handleDeletePlayerAppearanceProfile}
+        onImportProfile={handleImportPlayerAppearanceProfile}
+        onChangeProfile={handleChangePlayerAppearanceProfile}
+        onClose={() => setPlayerAppearanceWindowOpen(false)}
+      />
+
       <div className="min-h-0 flex-1 overflow-hidden">
         <WorkspaceLayout
           key={`${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
@@ -316,6 +457,16 @@ export default function App() {
           onLayoutMetaChange={handleLayoutMetaChange}
         />
       </div>
+
+      {import.meta.env.DEV ? (
+        <DevDebugOverlay
+          workspaceMode={workspaceMode}
+          mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
+          eventName={selectedEvent?.eventId ?? null}
+          currentEventCommandId={currentEventCommandId}
+          actorCount={selectedEvent?.scene.actors.length ?? 0}
+        />
+      ) : null}
 
       <StatusBar
         copy={copy}

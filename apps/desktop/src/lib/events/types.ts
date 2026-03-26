@@ -33,6 +33,11 @@ export type EventCommand = {
   actorName?: string
   text?: string
   dialoguePages?: EventDialoguePage[]
+  frame?: number
+  animationFrames?: number[]
+  animationFlip?: boolean
+  animationLoop?: boolean
+  animationFrameDurationMs?: number
   delayMs?: number
   questionKey?: string
   prompt?: string
@@ -42,6 +47,7 @@ export type EventCommand = {
   isTranslationKey?: boolean
   forkChoiceIndex?: number | null
   portraitSuffix?: string | null
+  spriteSuffix?: string | null
 }
 
 export type EventSceneActor = {

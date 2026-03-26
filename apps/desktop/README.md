@@ -1,8 +1,8 @@
 # ModForge Studio Desktop
 
-Desktop editor shell for ModForge Studio.
+`@modforge/desktop` 是 ModForge Studio 当前的主应用，定位为《星露谷物语》内容创作工具的桌面端编辑器原型。
 
-## Stack
+## 技术栈
 
 - `React 19`
 - `TypeScript`
@@ -12,106 +12,100 @@ Desktop editor shell for ModForge Studio.
 - `Radix Context Menu`
 - `Tauri 2`
 
-## Current Scope
+## 当前能力
 
-The desktop app currently focuses on Stardew Valley map inspection inside a desktop-style authoring shell.
+### 地图工作区
 
-Implemented:
+- 自动探测或手动选择游戏目录
+- 校验 `Stardew Valley` 目录结构
+- 扫描 `TMX / XNB` 地图资源摘要
+- 实际加载 `TMX` 到内部 `MapDocument`
+- 构建 `World Atlas` 视图，并拆分主世界 / 远程区域
+- 地图作为可关闭、可拖拽排序的文档标签页打开
+- 渲染 Tile Layer
+- 渲染 `TMX Object Group` 边界、标签与 Warp 路径
+- 查看悬停 tile 与对象命中信息
+- 图层显隐与对象组显隐切换
+- 从对象面板定位对象
+- 右键视口上下文菜单
+- 拖拽平移、滚轮缩放、`Fit`、`1:1`
 
-- choose or auto-detect a game directory
-- validate Stardew Valley folder structure
-- scan `TMX / XNB` map assets
-- load `TMX` content into an internal `MapDocument`
-- render tile layers in a central canvas viewport
-- render TMX object groups as overlay bounds
-- inspect hovered tiles and object hits through the bottom status bar
-- toggle visible tile layers and object groups
-- focus map objects from the object groups panel
-- use right-click editor context menus in the viewport
-- pan the viewport with pointer capture
-- zoom with toolbar controls, context menu actions, and mouse wheel
-- fit map to screen or switch to `1:1`
-- build stitched world-atlas views, including remote regions
-- draw colored warp-link routes in atlas views
-- keep `World Atlas` pinned as the first center tab
-- open maps as closeable, draggable document tabs
-- reopen or focus an existing map tab when the same map is selected again
-- show the active document path in the bottom status bar instead of the top tab strip
-- switch between light and dark themes
-- switch between Chinese and English UI copy
-- use an IDE-style tool-window workspace with:
-  - left/right icon rails
-  - docked side and bottom tool windows
-  - floating windows
-  - drag-to-dock targets
-  - layout persistence and presets
-- use a frameless Tauri window with custom minimize / maximize / close controls
+### 事件工作区
 
-## Commands
+- 扫描 `Content (unpacked)\Data\Events` 下的事件文件
+- 读取基础事件文件和本地化事件文件
+- 解析事件脚本、场景初始化和命令序列
+- 展示事件文件列表、事件目录、命令检查器和时间线
+- 在中央舞台中进行事件回放与预览
 
-From the repository root:
+### 玩家外观与编辑器外壳
+
+- 独立玩家外观配置窗口
+- 从默认存档导入外观
+- 当前激活玩家配置直接用于事件舞台里的 `player / farmer`
+- IDE 风格工作区：侧边栏、停靠面板、浮动窗口、布局预设
+- 无边框 Tauri 窗口，自定义最小化 / 最大化 / 关闭按钮
+- 明暗主题切换
+- `zh-CN / en-US` 双语界面
+
+## 当前限制
+
+- `TMX` 是当前唯一真正可加载的地图格式
+- `XNB` 目前只有扫描，没有解析与加载
+- 外部 `.tsx` tileset 还不支持
+- 压缩图层数据还不支持
+- 地图对象编辑还没有落地，当前偏只读检查
+- 角色 / 建筑 / 物品模块仍是蓝图占位
+- `.NET bridge` 还未接入实际业务
+- 玩家外观渲染还没有和游戏本体完全逐像素一致
+
+## 目录重点
+
+- `src/App.tsx`：应用总装配入口
+- `src/components/WorkspaceLayout.tsx`：工作区布局引擎
+- `src/components/CentralWorkspace.tsx`：中央文档区
+- `src/components/MapViewport.tsx`：地图视口
+- `src/components/EventStageWorkspace.tsx`：事件舞台
+- `src/components/PlayerAppearanceWindow.tsx`：玩家外观窗口
+- `src/lib/app/useMapWorkspace.ts`：地图工作区状态
+- `src/lib/app/useEventWorkspace.ts`：事件工作区状态
+- `src/lib/maps/tmx.ts`：TMX 解析
+- `src/lib/maps/world.ts`：世界地图 Atlas 构建
+- `src/lib/events/parser.ts`：事件解析
+- `src/lib/desktop.ts`：前端到 Tauri 的本地能力封装
+- `src-tauri/src/lib.rs`：Tauri 命令实现
+
+## 常用命令
+
+在仓库根目录运行：
 
 ```bash
 npm run lint --workspace @modforge/desktop
 npm run build --workspace @modforge/desktop
 ```
 
-To run the desktop shell in development:
+启动桌面开发环境：
 
 ```bash
 npm run desktop:dev
 ```
 
-To run only the frontend dev server:
+仅启动前端开发服务器：
 
 ```bash
 npm run dev
 ```
 
-## Rider Hot Reload
+## 开发说明
 
-Recommended Rider run configuration:
+- `apps/desktop/src` 下的前端改动通过 Vite HMR 热更新
+- `apps/desktop/src-tauri` 下的 Rust 改动会重编译并重启桌面宿主
+- `tauri.conf.json`、权限配置、Tailwind/PostCSS 配置或依赖变更通常需要手动重启
 
-1. Create an `npm` configuration from the repository root `package.json`
-2. Select script `desktop:dev`
-3. Run it from Rider
+## 下一步重点
 
-Behavior:
-
-- changes under `apps/desktop/src` hot-reload through Vite HMR
-- changes under `apps/desktop/src-tauri` rebuild and restart the desktop host
-- changes to `tauri.conf.json`, capabilities, Tailwind/PostCSS config, or package dependencies usually require a manual restart
-
-## Important Files
-
-- `src/App.tsx`
-- `src/styles/globals.css`
-- `src/components/TopMenuBar.tsx`
-- `src/components/LeftPanels.tsx`
-- `src/components/RightPanels.tsx`
-- `src/components/WorkspaceLayout.tsx`
-- `src/components/CentralWorkspace.tsx`
-- `src/components/StatusBar.tsx`
-- `src/components/MapViewport.tsx`
-- `src/lib/editor-shell.ts`
-- `src/lib/desktop.ts`
-- `src/lib/maps/tmx.ts`
-- `src/lib/maps/types.ts`
-- `src-tauri/tauri.conf.json`
-- `src-tauri/capabilities/default.json`
-
-## Current Constraints
-
-- `TMX` is the active map loading path
-- `XNB` scanning exists, but `XNB` parsing/loading is not implemented yet
-- object editing is not implemented yet
-- external `.tsx` tilesets are not supported yet
-- compressed layer data is not supported yet
-
-## Next Focus
-
-- object selection and editing
-- richer inspectors for map objects
-- character / building / item editors behind the top module switcher
-- event graph editor
-- `XNB` compatibility path
+- 地图对象选择与编辑
+- 更强的对象检查器与属性写回
+- 事件工作区命令覆盖率继续补齐
+- farmer 渲染继续向原版靠齐
+- `XNB` 兼容路径与 `.NET bridge` 接入

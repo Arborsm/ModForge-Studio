@@ -74,6 +74,7 @@ type PlaybackState = {
 
 const SETUP_ENTRY_ID = 'setup'
 const FARMER_NAME_PATTERN = /^farmer\d*$/iu
+const EVENT_STAGE_INITIAL_ZOOM = 2.5
 
 function buildLabels(locale: 'zh-CN' | 'en-US') {
   return locale === 'zh-CN'
@@ -161,11 +162,11 @@ function getTextureName(actorName: string) {
 function getDefaultFrame(direction: number) {
   switch (direction) {
     case 0:
-      return 12
+      return 8
     case 1:
-      return 6
+      return 4
     case 3:
-      return 18
+      return 12
     default:
       return 0
   }
@@ -847,7 +848,7 @@ export default function EventWorkspace({
   const labels = buildLabels(locale)
   const [autoPlay, setAutoPlay] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
-  const [zoomLabel, setZoomLabel] = useState('100%')
+  const [zoomLabel, setZoomLabel] = useState(() => viewportLabels.zoomLabel(EVENT_STAGE_INITIAL_ZOOM))
   const [selectedEntryId, setSelectedEntryId] = useState<string>(SETUP_ENTRY_ID)
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() =>
     createInitialPlaybackState(selectedEvent, directoryInfo?.rootPath ?? null),
@@ -1231,6 +1232,8 @@ export default function EventWorkspace({
                 accentColor={accentColor}
                 showGrid={showGrid}
                 showStatsChips={false}
+                contextMenuEnabled={false}
+                initialZoom={EVENT_STAGE_INITIAL_ZOOM}
                 mapOverlay={mapOverlay}
                 viewportOverlay={viewportOverlay}
                 focusWorldPoint={focusWorldPoint}

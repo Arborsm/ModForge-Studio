@@ -47,6 +47,18 @@ export type TextAssetContent = {
   content: string
 }
 
+export type LocalTextFileContent = {
+  absolutePath: string
+  content: string
+}
+
+export type DefaultSaveSlotSummary = {
+  slotName: string
+  folderPath: string
+  filePath: string
+  modifiedTimeMs: number
+}
+
 function isDesktopHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
@@ -77,6 +89,20 @@ export async function chooseGameDirectory() {
   return typeof selected === 'string' ? selected : null
 }
 
+export async function chooseDirectory(title: string) {
+  if (!isDesktopHost()) {
+    throw new Error('Directory selection requires the desktop host.')
+  }
+
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    title,
+  })
+
+  return typeof selected === 'string' ? selected : null
+}
+
 export function detectDefaultGameDirectory() {
   return invokeDesktop<string | null>('detect_default_game_directory')
 }
@@ -99,6 +125,18 @@ export function loadMapAsset(rootPath: string, mapPath: string) {
 
 export function loadTextAsset(rootPath: string, assetPath: string) {
   return invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath })
+}
+
+export function loadTextFile(path: string) {
+  return invokeDesktop<LocalTextFileContent>('load_text_file', { path })
+}
+
+export function loadImageDataUrl(path: string) {
+  return invokeDesktop<string>('load_image_data_url', { path })
+}
+
+export function scanDefaultSaveSlots() {
+  return invokeDesktop<DefaultSaveSlotSummary[]>('scan_default_save_slots')
 }
 
 export async function minimizeCurrentWindow() {

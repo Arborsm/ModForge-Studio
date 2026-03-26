@@ -39,6 +39,8 @@ type MapViewportProps = {
   mapOverlay?: ReactNode
   viewportOverlay?: ReactNode
   focusWorldPoint?: ViewportWorldPoint | null
+  contextMenuEnabled?: boolean
+  initialZoom?: number | null
 }
 
 type TilesetImageState = {
@@ -226,6 +228,15 @@ function hexToRgb(value: string) {
 function rgbaFromHex(value: string, alpha: number) {
   const { r, g, b } = hexToRgb(value)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function normalizeLayerName(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/gu, '')
+}
+
+function isForegroundTileLayer(layerName: string) {
+  const normalized = normalizeLayerName(layerName)
+  return normalized === 'front' || normalized === 'alwaysfront' || normalized.endsWith('front')
 }
 
 function loadImage(path: string, errorFactory: (path: string) => string) {
@@ -572,6 +583,104 @@ function buildHoverInfo(
   } satisfies TileHoverInfo
 }
 
+function rasterizeTileLayers(
+  targetCanvas: HTMLCanvasElement,
+  mapDocument: MapDocument,
+  layers: MapDocument['layers'],
+  tilesets: MapTileset[],
+  tilesetImages: Record<number, LoadedTilesetImage>,
+) {
+  const rasterContext = targetCanvas.getContext('2d')
+  if (!rasterContext) {
+    return false
+  }
+
+  const rasterWidth = Math.max(1, mapDocument.width * mapDocument.tileWidth)
+  const rasterHeight = Math.max(1, mapDocument.height * mapDocument.tileHeight)
+  targetCanvas.width = rasterWidth
+  targetCanvas.height = rasterHeight
+
+  rasterContext.setTransform(1, 0, 0, 1, 0, 0)
+  rasterContext.clearRect(0, 0, rasterWidth, rasterHeight)
+  rasterContext.imageSmoothingEnabled = false
+
+  for (const layer of layers) {
+    rasterContext.globalAlpha = layer.opacity
+
+    for (let index = 0; index < layer.gids.length; index += 1) {
+      const rawGid = layer.gids[index] >>> 0
+      const gid = rawGid & TILE_ID_MASK
+      if (gid === 0) {
+        continue
+      }
+
+      const tileset = findTileset(tilesets, gid)
+      if (!tileset) {
+        continue
+      }
+
+      const loadedTileset = tilesetImages[tileset.firstGid]
+      if (!loadedTileset) {
+        continue
+      }
+
+      const tileId = gid - tileset.firstGid
+      const sourceX = (tileId % tileset.columns) * tileset.tileWidth
+      const sourceY = Math.floor(tileId / tileset.columns) * tileset.tileHeight
+      const destinationX = (index % layer.width) * mapDocument.tileWidth + layer.offsetX
+      const destinationY = Math.floor(index / layer.width) * mapDocument.tileHeight + layer.offsetY
+
+      const flipHorizontally = (rawGid & FLIPPED_HORIZONTALLY_FLAG) !== 0
+      const flipVertically = (rawGid & FLIPPED_VERTICALLY_FLAG) !== 0
+      const flipDiagonally = (rawGid & FLIPPED_DIAGONALLY_FLAG) !== 0
+
+      if (!flipHorizontally && !flipVertically && !flipDiagonally) {
+        rasterContext.drawImage(
+          loadedTileset.image,
+          sourceX,
+          sourceY,
+          tileset.tileWidth,
+          tileset.tileHeight,
+          destinationX,
+          destinationY,
+          mapDocument.tileWidth,
+          mapDocument.tileHeight,
+        )
+        continue
+      }
+
+      rasterContext.save()
+      rasterContext.translate(
+        destinationX + mapDocument.tileWidth / 2,
+        destinationY + mapDocument.tileHeight / 2,
+      )
+
+      if (flipDiagonally) {
+        rasterContext.rotate(-Math.PI / 2)
+        rasterContext.scale(flipHorizontally ? -1 : 1, flipVertically ? -1 : 1)
+      } else {
+        rasterContext.scale(flipHorizontally ? -1 : 1, flipVertically ? -1 : 1)
+      }
+
+      rasterContext.drawImage(
+        loadedTileset.image,
+        sourceX,
+        sourceY,
+        tileset.tileWidth,
+        tileset.tileHeight,
+        -mapDocument.tileWidth / 2,
+        -mapDocument.tileHeight / 2,
+        mapDocument.tileWidth,
+        mapDocument.tileHeight,
+      )
+      rasterContext.restore()
+    }
+  }
+
+  rasterContext.globalAlpha = 1
+  return true
+}
+
 export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(function MapViewport(
   {
     mapDocument,
@@ -588,13 +697,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     mapOverlay,
     viewportOverlay,
     focusWorldPoint,
+    contextMenuEnabled = true,
+    initialZoom = null,
   },
   ref,
 ) {
   const initialDefaultViewportState = getDefaultViewportState(mapDocument)
+  const resolvedInitialZoom = clampZoom(initialZoom ?? initialDefaultViewportState?.zoom ?? 1)
   const frameRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const mapRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const foregroundRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
   const pendingZoomAnchorRef = useRef<ZoomAnchor | null>(null)
@@ -614,8 +728,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     items: {},
     error: null,
   })
-  const [manualZoom, setManualZoom] = useState(() => initialDefaultViewportState?.zoom ?? 1)
-  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() => (initialDefaultViewportState ? 'manual' : 'fit'))
+  const [manualZoom, setManualZoom] = useState(() => resolvedInitialZoom)
+  const [zoomMode, setZoomMode] = useState<'fit' | 'manual'>(() => (initialZoom != null || initialDefaultViewportState ? 'manual' : 'fit'))
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 })
   const [viewportScroll, setViewportScroll] = useState({ left: 0, top: 0 })
   const [refreshToken, setRefreshToken] = useState(0)
@@ -711,6 +825,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         ? mapDocument.layers.filter((layer) => layer.visible && visibleLayerIds.includes(layer.id))
         : [],
     [mapDocument, visibleLayerIds],
+  )
+  const shouldSplitForegroundLayers = Boolean(mapOverlay)
+  const backgroundLayers = useMemo(
+    () => (shouldSplitForegroundLayers ? visibleLayers.filter((layer) => !isForegroundTileLayer(layer.name)) : visibleLayers),
+    [shouldSplitForegroundLayers, visibleLayers],
+  )
+  const foregroundLayers = useMemo(
+    () => (shouldSplitForegroundLayers ? visibleLayers.filter((layer) => isForegroundTileLayer(layer.name)) : []),
+    [shouldSplitForegroundLayers, visibleLayers],
   )
   const visibleObjectGroups = useMemo(
     () =>
@@ -870,9 +993,17 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }
 
     const syncScrollState = () => {
-      setViewportScroll({
-        left: viewport.scrollLeft,
-        top: viewport.scrollTop,
+      setViewportScroll((current) => {
+        const nextLeft = viewport.scrollLeft
+        const nextTop = viewport.scrollTop
+        if (current.left === nextLeft && current.top === nextTop) {
+          return current
+        }
+
+        return {
+          left: nextLeft,
+          top: nextTop,
+        }
       })
     }
 
@@ -887,102 +1018,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   useLayoutEffect(() => {
     if (!mapDocument) {
       mapRasterCanvasRef.current = null
+      foregroundRasterCanvasRef.current = null
       return
     }
-
-    const rasterCanvas = mapRasterCanvasRef.current ?? document.createElement('canvas')
-    const rasterContext = rasterCanvas.getContext('2d')
-    if (!rasterContext) {
-      return
-    }
-
-    const rasterWidth = Math.max(1, mapDocument.width * mapDocument.tileWidth)
-    const rasterHeight = Math.max(1, mapDocument.height * mapDocument.tileHeight)
-    rasterCanvas.width = rasterWidth
-    rasterCanvas.height = rasterHeight
-    mapRasterCanvasRef.current = rasterCanvas
-
-    rasterContext.setTransform(1, 0, 0, 1, 0, 0)
-    rasterContext.clearRect(0, 0, rasterWidth, rasterHeight)
-    rasterContext.imageSmoothingEnabled = false
 
     const sortedTilesets = [...mapDocument.tilesets].sort((left, right) => left.firstGid - right.firstGid)
+    const backgroundRasterCanvas = mapRasterCanvasRef.current ?? document.createElement('canvas')
+    const foregroundRasterCanvas = foregroundRasterCanvasRef.current ?? document.createElement('canvas')
+    mapRasterCanvasRef.current = backgroundRasterCanvas
+    foregroundRasterCanvasRef.current = foregroundRasterCanvas
 
-    for (const layer of visibleLayers) {
-      rasterContext.globalAlpha = layer.opacity
-
-      for (let index = 0; index < layer.gids.length; index += 1) {
-        const rawGid = layer.gids[index] >>> 0
-        const gid = rawGid & TILE_ID_MASK
-        if (gid === 0) {
-          continue
-        }
-
-        const tileset = findTileset(sortedTilesets, gid)
-        if (!tileset) {
-          continue
-        }
-
-        const loadedTileset = tilesetImages[tileset.firstGid]
-        if (!loadedTileset) {
-          continue
-        }
-
-        const tileId = gid - tileset.firstGid
-        const sourceX = (tileId % tileset.columns) * tileset.tileWidth
-        const sourceY = Math.floor(tileId / tileset.columns) * tileset.tileHeight
-        const destinationX = (index % layer.width) * mapDocument.tileWidth + layer.offsetX
-        const destinationY = Math.floor(index / layer.width) * mapDocument.tileHeight + layer.offsetY
-
-        const flipHorizontally = (rawGid & FLIPPED_HORIZONTALLY_FLAG) !== 0
-        const flipVertically = (rawGid & FLIPPED_VERTICALLY_FLAG) !== 0
-        const flipDiagonally = (rawGid & FLIPPED_DIAGONALLY_FLAG) !== 0
-
-        if (!flipHorizontally && !flipVertically && !flipDiagonally) {
-          rasterContext.drawImage(
-            loadedTileset.image,
-            sourceX,
-            sourceY,
-            tileset.tileWidth,
-            tileset.tileHeight,
-            destinationX,
-            destinationY,
-            mapDocument.tileWidth,
-            mapDocument.tileHeight,
-          )
-          continue
-        }
-
-        rasterContext.save()
-        rasterContext.translate(
-          destinationX + mapDocument.tileWidth / 2,
-          destinationY + mapDocument.tileHeight / 2,
-        )
-
-        if (flipDiagonally) {
-          rasterContext.rotate(-Math.PI / 2)
-          rasterContext.scale(flipHorizontally ? -1 : 1, flipVertically ? -1 : 1)
-        } else {
-          rasterContext.scale(flipHorizontally ? -1 : 1, flipVertically ? -1 : 1)
-        }
-
-        rasterContext.drawImage(
-          loadedTileset.image,
-          sourceX,
-          sourceY,
-          tileset.tileWidth,
-          tileset.tileHeight,
-          -mapDocument.tileWidth / 2,
-          -mapDocument.tileHeight / 2,
-          mapDocument.tileWidth,
-          mapDocument.tileHeight,
-        )
-        rasterContext.restore()
-      }
-    }
-
-    rasterContext.globalAlpha = 1
-  }, [mapDocument, tilesetImages, visibleLayers])
+    rasterizeTileLayers(backgroundRasterCanvas, mapDocument, backgroundLayers, sortedTilesets, tilesetImages)
+    rasterizeTileLayers(foregroundRasterCanvas, mapDocument, foregroundLayers, sortedTilesets, tilesetImages)
+  }, [backgroundLayers, foregroundLayers, mapDocument, tilesetImages])
 
   useEffect(() => {
     onZoomChange?.(zoom, zoomMode)
@@ -1561,6 +1609,73 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     refreshToken,
   ])
 
+  useLayoutEffect(() => {
+    const canvas = foregroundCanvasRef.current
+    if (!canvas || !mapDocument) {
+      return
+    }
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      return
+    }
+
+    const pixelRatio = window.devicePixelRatio || 1
+    const renderScale = getCanvasRenderScale(viewportSize.width, viewportSize.height, pixelRatio)
+    const width = Math.max(1, Math.round(viewportSize.width * pixelRatio * renderScale))
+    const height = Math.max(1, Math.round(viewportSize.height * pixelRatio * renderScale))
+    const worldLeft = viewportCanvasRect.left / zoom
+    const worldTop = viewportCanvasRect.top / zoom
+    const worldWidth = viewportCanvasRect.width / zoom
+    const worldHeight = viewportCanvasRect.height / zoom
+
+    canvas.width = width
+    canvas.height = height
+    context.imageSmoothingEnabled = false
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, width, height)
+
+    const rasterCanvas = foregroundRasterCanvasRef.current
+    if (!rasterCanvas || foregroundLayers.length === 0 || worldWidth <= 0 || worldHeight <= 0) {
+      return
+    }
+
+    context.setTransform(pixelRatio * renderScale, 0, 0, pixelRatio * renderScale, 0, 0)
+    context.save()
+    context.beginPath()
+    context.rect(
+      mapDisplayOffset.left + viewportCanvasRect.left,
+      mapDisplayOffset.top + viewportCanvasRect.top,
+      viewportCanvasRect.width,
+      viewportCanvasRect.height,
+    )
+    context.clip()
+    context.drawImage(
+      rasterCanvas,
+      worldLeft,
+      worldTop,
+      worldWidth,
+      worldHeight,
+      mapDisplayOffset.left + viewportCanvasRect.left,
+      mapDisplayOffset.top + viewportCanvasRect.top,
+      viewportCanvasRect.width,
+      viewportCanvasRect.height,
+    )
+    context.restore()
+  }, [
+    foregroundLayers.length,
+    mapDisplayOffset.left,
+    mapDisplayOffset.top,
+    mapDocument,
+    viewportCanvasRect.height,
+    viewportCanvasRect.left,
+    viewportCanvasRect.top,
+    viewportCanvasRect.width,
+    viewportSize.height,
+    viewportSize.width,
+    zoom,
+  ])
+
   function updateHover(event: PointerEvent<HTMLDivElement>) {
     const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
     if (!mapDocument || !worldPoint) {
@@ -1702,10 +1817,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     )
   }
 
-  return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>
-        <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)] shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
+  const viewportContent = (
+    <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)] shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
           <div
             className="pointer-events-none absolute inset-0"
             style={{
@@ -1748,7 +1861,17 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             }}
           />
 
-          {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-[3]">{viewportOverlay}</div> : null}
+          <canvas
+            ref={foregroundCanvasRef}
+            className="pointer-events-none absolute inset-0 z-[3] [image-rendering:pixelated]"
+            style={{
+              width: `${viewportSize.width}px`,
+              height: `${viewportSize.height}px`,
+              display: viewportSize.width > 0 && viewportSize.height > 0 && foregroundLayers.length > 0 ? 'block' : 'none',
+            }}
+          />
+
+          {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-[4]">{viewportOverlay}</div> : null}
 
           <div ref={frameRef} className="absolute inset-0">
             <div
@@ -1793,7 +1916,15 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             </div>
           </div>
         </div>
-      </ContextMenu.Trigger>
+  )
+
+  if (!contextMenuEnabled) {
+    return viewportContent
+  }
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>{viewportContent}</ContextMenu.Trigger>
 
       <ContextMenu.Portal>
         <ContextMenu.Content className="context-menu-content" collisionPadding={12}>

@@ -1,6 +1,20 @@
-import { useEffect, useMemo, useRef } from 'react'
+import {
+  ArrowRightLeft,
+  AudioLines,
+  CircleDot,
+  Compass,
+  GitBranch,
+  ListChecks,
+  Map,
+  MessageSquareText,
+  PlayCircle,
+  Settings2,
+  TimerReset,
+} from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { buildEventTimelineEntries, EVENT_SETUP_ENTRY_ID } from '../../../lib/events/timeline'
+import type { EventTimelineEntry } from '../../../lib/events/timeline'
 import type { EventScript } from '../../../lib/events/types'
 import { cx } from '../../../lib/cx'
 
@@ -13,23 +27,145 @@ type EventTimelinePanelProps = {
   onActivateTimelineEntry: (entryId: string) => void
 }
 
-function getToneClass(kind: ReturnType<typeof buildEventTimelineEntries>[number]['kind']) {
-  switch (kind) {
-    case 'dialogue':
-      return 'border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]'
-    case 'message':
-      return 'border-[color-mix(in_srgb,var(--success)_40%,transparent)] bg-[color-mix(in_srgb,var(--success)_10%,var(--bg-panel))]'
-    case 'choice':
-      return 'border-[color-mix(in_srgb,var(--accent)_50%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]'
-    case 'branch':
-      return 'border-[color-mix(in_srgb,var(--danger)_36%,transparent)] bg-[color-mix(in_srgb,var(--danger)_8%,var(--bg-panel))]'
-    case 'timing':
-      return 'border-[color-mix(in_srgb,var(--text-secondary)_28%,transparent)] bg-[var(--bg-panel)]'
-    case 'setup':
-      return 'border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_7%,var(--bg-panel))]'
-    default:
-      return 'border-[var(--border-color)] bg-[var(--bg-panel)]'
+function getEntryAppearance(entry: EventTimelineEntry) {
+  if (entry.id === EVENT_SETUP_ENTRY_ID) {
+    return {
+      icon: Settings2,
+      iconClassName: 'text-[var(--accent)]',
+      accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_75%,white_25%)]',
+    }
   }
+
+  const command = entry.command
+  switch (command?.command) {
+    case 'move':
+    case 'positionOffset':
+    case 'warp':
+      return {
+        icon: ArrowRightLeft,
+        iconClassName: 'text-[var(--warning)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_72%,white_28%)]',
+      }
+    case 'faceDirection':
+      return {
+        icon: Compass,
+        iconClassName: 'text-[var(--warning)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_60%,white_40%)]',
+      }
+    case 'playSound':
+    case 'stopSound':
+    case 'playMusic':
+    case 'stopMusic':
+      return {
+        icon: AudioLines,
+        iconClassName: 'text-[var(--success)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--success)_72%,white_28%)]',
+      }
+    case 'viewport':
+    case 'changeLocation':
+    case 'changeToTemporaryMap':
+      return {
+        icon: Map,
+        iconClassName: 'text-[var(--accent)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
+      }
+    case 'animate':
+    case 'stopAnimation':
+    case 'showFrame':
+      return {
+        icon: PlayCircle,
+        iconClassName: 'text-[var(--accent)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_58%,white_42%)]',
+      }
+    case 'question':
+    case 'quickQuestion':
+      return {
+        icon: ListChecks,
+        iconClassName: 'text-[var(--accent)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
+      }
+    case 'fork':
+    case 'switchEvent':
+      return {
+        icon: GitBranch,
+        iconClassName: 'text-[var(--danger)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--danger)_60%,white_40%)]',
+      }
+    case 'pause':
+      return {
+        icon: TimerReset,
+        iconClassName: 'text-[var(--text-secondary)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_55%,white_45%)]',
+      }
+    default:
+      if (entry.kind === 'dialogue' || entry.kind === 'message') {
+        return {
+          icon: MessageSquareText,
+          iconClassName: 'text-[var(--warning)]',
+          accentClassName: 'bg-[color-mix(in_srgb,var(--warning)_74%,white_26%)]',
+        }
+      }
+      if (entry.kind === 'choice') {
+        return {
+          icon: ListChecks,
+          iconClassName: 'text-[var(--accent)]',
+          accentClassName: 'bg-[color-mix(in_srgb,var(--accent)_68%,white_32%)]',
+        }
+      }
+      if (entry.kind === 'branch') {
+        return {
+          icon: GitBranch,
+          iconClassName: 'text-[var(--danger)]',
+          accentClassName: 'bg-[color-mix(in_srgb,var(--danger)_60%,white_40%)]',
+        }
+      }
+      if (entry.kind === 'timing') {
+        return {
+          icon: TimerReset,
+          iconClassName: 'text-[var(--text-secondary)]',
+          accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_55%,white_45%)]',
+        }
+      }
+      return {
+        icon: CircleDot,
+        iconClassName: 'text-[var(--text-secondary)]',
+        accentClassName: 'bg-[color-mix(in_srgb,var(--text-secondary)_42%,white_58%)]',
+      }
+  }
+}
+
+function getEntryPrimaryText(entry: EventTimelineEntry, locale: 'zh-CN' | 'en-US') {
+  if (entry.id === EVENT_SETUP_ENTRY_ID) {
+    return locale === 'zh-CN' ? '场景初始化' : 'Scene setup'
+  }
+
+  const command = entry.command
+  if (!command) {
+    return entry.title
+  }
+
+  if (command.actorName) {
+    return `${command.actorName} | ${entry.title.replace(/\s*\|\s*.+$/u, '')}`
+  }
+
+  if (entry.kind === 'dialogue' || entry.kind === 'message') {
+    return entry.title
+  }
+
+  return entry.title
+}
+
+function getEntrySecondaryText(entry: EventTimelineEntry, locale: 'zh-CN' | 'en-US') {
+  if (entry.id === EVENT_SETUP_ENTRY_ID) {
+    return entry.detail
+  }
+
+  const detail = entry.detail.replace(/\s+/gu, ' ').trim()
+  if (detail) {
+    return detail
+  }
+
+  return locale === 'zh-CN' ? '无详细信息' : 'No detail'
 }
 
 export function EventTimelinePanel({
@@ -43,27 +179,21 @@ export function EventTimelinePanel({
   const labels =
     locale === 'zh-CN'
       ? {
-          title: '事件脚本时间轴',
-          subtitle: '线性脚本按顺序排布，点击任意命令查看细节。',
+          title: '脚本列表',
+          subtitle: '紧凑顺序视图。选中一条后在右侧查看和编辑详细属性。',
           current: '当前',
-          empty: '这个事件没有后续脚本命令。',
-          setup: '场景初始化',
+          empty: '这个事件没有可播放的脚本命令。',
         }
       : {
-          title: 'Script Timeline',
-          subtitle: 'Commands stay linear. Click any step to inspect it.',
+          title: 'Script List',
+          subtitle: 'Compact sequential view. Select a row to inspect and edit details on the right.',
           current: 'Current',
           empty: 'This event has no playable commands.',
-          setup: 'Scene Setup',
         }
 
   const entries = buildEventTimelineEntries(selectedEvent, locale)
   const entryRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const activeEntryId = currentCommandId ?? selectedTimelineEntryId
-  const activeIndex = useMemo(
-    () => entries.findIndex((entry) => entry.id === activeEntryId),
-    [activeEntryId, entries],
-  )
 
   useEffect(() => {
     if (!activeEntryId) {
@@ -72,8 +202,8 @@ export function EventTimelinePanel({
 
     entryRefs.current[activeEntryId]?.scrollIntoView({
       behavior: 'smooth',
-      inline: 'center',
       block: 'nearest',
+      inline: 'nearest',
     })
   }, [activeEntryId])
 
@@ -81,76 +211,60 @@ export function EventTimelinePanel({
     <PanelFrame
       title={labels.title}
       subtitle={labels.subtitle}
-      bodyClassName="p-3"
+      bodyClassName="p-0"
       headerAction={<span className="dock-chip">{selectedEvent?.commands.length ?? 0}</span>}
     >
       {entries.length ? (
-        <div className="relative">
-          <div className="pointer-events-none absolute left-0 right-0 top-[46px] h-px bg-[linear-gradient(90deg,transparent,var(--border-color),transparent)]" />
-          <div className="flex gap-3 overflow-x-auto overflow-y-hidden pb-2 pt-1">
-            {entries.map((entry, index) => {
-              const isSelected = entry.id === selectedTimelineEntryId
-              const isCurrent = entry.command != null && currentCommandId === entry.command.id
-              const isComplete = activeIndex >= 0 && index <= activeIndex
-              const rawLabel = entry.id === EVENT_SETUP_ENTRY_ID ? labels.setup : entry.kind
+        <div className="h-full overflow-y-auto">
+          {entries.map((entry, index) => {
+            const appearance = getEntryAppearance(entry)
+            const Icon = appearance.icon
+            const isSelected = entry.id === selectedTimelineEntryId
+            const isCurrent = entry.id !== EVENT_SETUP_ENTRY_ID && currentCommandId === entry.command?.id
 
-              return (
-                <button
-                  key={entry.id}
-                  type="button"
-                  ref={(node) => {
-                    entryRefs.current[entry.id] = node
-                  }}
-                  className={cx(
-                    'group relative flex h-[118px] min-w-[184px] max-w-[220px] flex-col justify-between rounded-[24px] border px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-panel)]',
-                    getToneClass(entry.kind),
-                    isSelected && 'ring-2 ring-[color-mix(in_srgb,var(--accent)_72%,transparent)]',
-                    isCurrent && 'border-[color-mix(in_srgb,var(--accent)_72%,transparent)] shadow-[var(--shadow-panel)]',
-                  )}
-                  onClick={() => {
-                    onSelectTimelineEntry(entry.id)
-                    onActivateTimelineEntry(entry.id)
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={cx(
-                            'flex h-6 min-w-6 items-center justify-center rounded-full border px-2 text-[10px] font-semibold uppercase tracking-[0.14em]',
-                            isComplete
-                              ? 'border-[color-mix(in_srgb,var(--accent)_55%,transparent)] bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-primary)]'
-                              : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-secondary)]',
-                          )}
-                        >
-                          {entry.id === EVENT_SETUP_ENTRY_ID ? 'S' : index}
-                        </span>
-                        <span className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                          {rawLabel}
-                        </span>
-                      </div>
-                      <p className="mt-3 line-clamp-1 text-sm font-semibold text-[var(--text-primary)]">{entry.title}</p>
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--text-secondary)]">{entry.detail}</p>
-                    </div>
-                    {isCurrent ? <span className="dock-chip shrink-0">{labels.current}</span> : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cx(
-                        'h-2 flex-1 rounded-full transition-colors',
-                        isCurrent
-                          ? 'bg-[linear-gradient(90deg,var(--accent),color-mix(in_srgb,var(--accent)_32%,transparent))]'
-                          : isComplete
-                            ? 'bg-[color-mix(in_srgb,var(--accent)_26%,transparent)]'
-                            : 'bg-[var(--bg-panel-muted)]',
-                      )}
-                    />
-                    <span className="text-[10px] font-medium text-[var(--text-tertiary)]">{index + 1}</span>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                ref={(node) => {
+                  entryRefs.current[entry.id] = node
+                }}
+                className={cx(
+                  'grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border-b border-[var(--border-color)] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[color-mix(in_srgb,var(--bg-active)_65%,transparent)]',
+                  isSelected && 'bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]',
+                  isCurrent && 'bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-panel))]',
+                )}
+                onClick={() => {
+                  onSelectTimelineEntry(entry.id)
+                  onActivateTimelineEntry(entry.id)
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cx(
+                      'inline-flex h-7 min-w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white',
+                      appearance.accentClassName,
+                    )}
+                  >
+                    {entry.id === EVENT_SETUP_ENTRY_ID ? 'S' : index}
+                  </span>
+                  <Icon className={cx('h-4 w-4 shrink-0', appearance.iconClassName)} />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)]">{getEntryPrimaryText(entry, locale)}</p>
+                  <p className="truncate text-[11px] text-[var(--text-secondary)]">{getEntrySecondaryText(entry, locale)}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                    {entry.id === EVENT_SETUP_ENTRY_ID ? (locale === 'zh-CN' ? '场景' : 'Setup') : entry.kind}
+                  </span>
+                  {isCurrent ? <span className="dock-chip">{labels.current}</span> : null}
+                </div>
+              </button>
+            )
+          })}
         </div>
       ) : (
         <div className="flex min-h-[132px] items-center justify-center rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">

@@ -20,3 +20,5 @@ services/**/obj/
 .tmp-pywinauto-stdout.txt
 .tmp-pywinauto-stderr.txt
 pywinauto-mcp.log
+.tools/
+*tmp*

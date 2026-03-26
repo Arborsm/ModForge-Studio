@@ -218,7 +218,7 @@ type DragInteraction =
       dragging: boolean
     }
 
-const STORAGE_VERSION = 8
+const STORAGE_VERSION = 9
 const ROOT_PADDING = 12
 const COLUMN_GAP = 12
 const TOOL_WINDOW_RAIL_WIDTH = 42
@@ -234,11 +234,7 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
 }
 
-function getForcedDockForPanel(panelId: string): DockArea | null {
-  if (panelId === 'diagnostics') {
-    return 'bottom-right'
-  }
-
+function getForcedDockForPanel(): DockArea | null {
   return null
 }
 
@@ -352,7 +348,7 @@ function buildDefaultSnapshot(panels: WorkspacePanelConfig[]): WorkspaceSnapshot
       height: Math.max(panel.minHeight, 280),
     }
 
-    const forcedDock = getForcedDockForPanel(panel.id)
+    const forcedDock = getForcedDockForPanel()
 
     defaultPanels[panel.id] = {
       mode: panel.defaultMode ?? 'docked',
@@ -378,7 +374,7 @@ function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefined, pane
   const mergedPanels: Record<string, WorkspacePanelState> = {}
 
   panels.forEach((panel) => {
-    const forcedDock = getForcedDockForPanel(panel.id)
+    const forcedDock = getForcedDockForPanel()
     mergedPanels[panel.id] = {
       ...defaults.panels[panel.id],
       ...(snapshot?.panels?.[panel.id] ?? {}),
@@ -1507,7 +1503,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
 
     const targetDock =
       currentPanel.dock === 'center'
-        ? getForcedDockForPanel(panelId) ?? panel.defaultDock ?? 'right-top'
+        ? getForcedDockForPanel() ?? panel.defaultDock ?? 'right-top'
         : currentPanel.dock
 
     dock(panelId, targetDock)
