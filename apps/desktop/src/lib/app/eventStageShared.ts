@@ -1,5 +1,11 @@
 import { loadTextAsset } from '../desktop'
-import { getFarmerDirectionalFrame, getFarmerWalkAnimation, type FarmerAppearanceCompositeAssets, type FarmerSpriteLayerDescriptor } from './farmerAppearanceRenderer'
+import {
+  getFarmerDirectionalFrame,
+  getFarmerWalkAnimation,
+  type FarmerAppearanceCompositeAssets,
+  type FarmerHairMetadataEntry,
+  type FarmerSpriteLayerDescriptor,
+} from './farmerAppearanceRenderer'
 import type { PlayerAppearanceProfile } from './playerAppearance'
 import type { EventCommand, EventDialoguePage, EventSceneActor, EventScript } from '../events/types'
 
@@ -128,6 +134,22 @@ type EventActorState = {
   spriteOverrideSuffix: string | null
   animation: ActorAnimationState | null
   movement: ActorMovementState | null
+  farmerRenderState: FarmerRenderState | null
+}
+
+type FarmerRenderState = {
+  currentEyes: number
+  blinkTimerMs: number
+  eyesSetAtMs: number
+  swimming: boolean
+  bathingClothes: boolean
+  isInBed: boolean
+  timeWentToBed: number
+  pauseForSingleAnimation: boolean
+  usingTool: boolean
+  toolKind: 'none' | 'fishingRod' | 'slingshot' | 'other'
+  fishingRodIsCasting: boolean
+  lastMovementEndedAtMs: number
 }
 
 type ActiveDialogueState = {
@@ -247,12 +269,14 @@ const DEFAULT_FARMER_PANTS_SPRITE_INDEX = 0
 const EVENT_STAGE_INITIAL_ZOOM = 2.5
 type SpriteLayerDescriptor = FarmerSpriteLayerDescriptor
 const CHARACTER_DATA_PATH = 'Content (unpacked)\\Data\\Characters.json'
+const HAIR_DATA_PATH = 'Content (unpacked)\\Data\\HairData.json'
 const HAT_DATA_PATH = 'Content (unpacked)\\Data\\hats.json'
 const EFFECT_VIEWPORT_BASE_WIDTH = 1280
 const EFFECT_VIEWPORT_BASE_HEIGHT = 720
 type HatMetadataEntry = {
   hairDrawMode: 'normal' | 'hide' | 'cover'
   ignoreHairstyleOffset: boolean
+  isMask: boolean
 }
 const MANUAL_TEXTURE_NAME_ALIASES: Record<string, string[]> = {
   leahex: ['LeahExFemale', 'LeahExMale', 'LeahEx'],
@@ -272,6 +296,7 @@ const NAMED_EFFECT_COLORS: Record<string, string> = {
   deepskyblue: '#00bfff',
 }
 const hatMetadataCache = new Map<string, Promise<Record<string, HatMetadataEntry>>>()
+const hairMetadataCache = new Map<string, Promise<Record<string, FarmerHairMetadataEntry>>>()
 
 function normalizeActorName(value: string) {
   return value.trim().replace(/\?$/u, '')
@@ -325,9 +350,27 @@ function getInitialActorOffset() {
   return { offsetX: 0, offsetY: 0 }
 }
 
+function createFarmerRenderState(nowMs = performance.now()): FarmerRenderState {
+  return {
+    currentEyes: 0,
+    blinkTimerMs: 0,
+    eyesSetAtMs: nowMs,
+    swimming: false,
+    bathingClothes: false,
+    isInBed: false,
+    timeWentToBed: 0,
+    pauseForSingleAnimation: false,
+    usingTool: false,
+    toolKind: 'none',
+    fishingRodIsCasting: true,
+    lastMovementEndedAtMs: nowMs,
+  }
+}
+
 function createActorState(actor: EventSceneActor): EventActorState {
   const initialOffset = getInitialActorOffset()
   const frameState = getActorDefaultFrameState(actor.actorName, actor.facingDirection)
+  const nowMs = performance.now()
 
   return {
     id: actor.id,
@@ -344,6 +387,7 @@ function createActorState(actor: EventSceneActor): EventActorState {
     spriteOverrideSuffix: null,
     animation: null,
     movement: null,
+    farmerRenderState: isFarmerActor(actor.actorName) ? createFarmerRenderState(nowMs) : null,
   }
 }
 
@@ -661,12 +705,14 @@ async function loadHatMetadataIndex(rootPath: string) {
           const segments = value.split('/')
           const rawHairDraw = segments[2]?.trim().toLowerCase() ?? ''
           const hairDrawMode: HatMetadataEntry['hairDrawMode'] =
-            rawHairDraw === 'hide' ? 'hide' : rawHairDraw === 'true' ? 'cover' : 'normal'
+            rawHairDraw === 'hide' ? 'hide' : rawHairDraw === 'true' ? 'normal' : 'cover'
+          const displayName = segments[0]?.trim() ?? ''
           return [
             key,
             {
               hairDrawMode,
               ignoreHairstyleOffset: (segments[3]?.trim().toLowerCase() ?? '') === 'true',
+              isMask: /mask/iu.test(displayName) && hairDrawMode !== 'hide',
             },
           ]
         }),
@@ -675,6 +721,39 @@ async function loadHatMetadataIndex(rootPath: string) {
     .catch(() => ({} as Record<string, HatMetadataEntry>))
 
   hatMetadataCache.set(rootPath, pending)
+  return pending
+}
+
+async function loadHairMetadataIndex(rootPath: string) {
+  const cached = hairMetadataCache.get(rootPath)
+  if (cached) {
+    return cached
+  }
+
+  const pending = loadTextAsset(rootPath, HAIR_DATA_PATH)
+    .then((asset: { content: string }) => {
+      const parsed = JSON.parse(asset.content) as Record<string, string>
+      return Object.fromEntries(
+        Object.entries(parsed).map(([key, value]): [string, FarmerHairMetadataEntry] => {
+          const segments = value.split('/')
+          const coveredIndex = Number.parseInt(segments[4] ?? '-1', 10)
+          return [
+            key,
+            {
+              textureName: segments[0]?.trim() || 'hairstyles',
+              tileX: Number.parseInt(segments[1] ?? '0', 10) || 0,
+              tileY: Number.parseInt(segments[2] ?? '0', 10) || 0,
+              usesUniqueLeftSprite: (segments[3]?.trim().toLowerCase() ?? '') === 'true',
+              coveredIndex: Number.isFinite(coveredIndex) ? coveredIndex : -1,
+              isBaldStyle: (segments[5]?.trim().toLowerCase() ?? '') === 'true',
+            },
+          ]
+        }),
+      ) as Record<string, FarmerHairMetadataEntry>
+    })
+    .catch(() => ({} as Record<string, FarmerHairMetadataEntry>))
+
+  hairMetadataCache.set(rootPath, pending)
   return pending
 }
 
@@ -785,6 +864,7 @@ export {
   getSpringObjectsSourceRect,
   isFarmerActor,
   isPathsLayerName,
+  loadHairMetadataIndex,
   normalizeActorName,
   normalizeStageMapName,
   parseBoolean,
@@ -817,6 +897,7 @@ export type {
   CharacterDataEntry,
   EffectAssetState,
   EventActorState,
+  FarmerRenderState,
   FarmerAppearanceAssetState,
   HatMetadataEntry,
   PlaybackChoiceState,

@@ -300,7 +300,18 @@ export function useEventStageWorkspace({
         }
 
         const frameState = getActorDefaultFrameState(actor.actorName, actor.facingDirection)
-        nextActors[actorKey] = { ...actor, movement: null, frame: frameState.frame, directionalFlip: frameState.directionalFlip }
+        nextActors[actorKey] = {
+          ...actor,
+          movement: null,
+          frame: frameState.frame,
+          directionalFlip: frameState.directionalFlip,
+          farmerRenderState: actor.farmerRenderState
+            ? {
+                ...actor.farmerRenderState,
+                lastMovementEndedAtMs: animationNowMs,
+              }
+            : null,
+        }
         changed = true
       }
 

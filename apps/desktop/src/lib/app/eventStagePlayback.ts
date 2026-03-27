@@ -28,6 +28,13 @@ import {
   type PlaybackState,
 } from './eventStageShared'
 
+function updateFarmerRenderState(actor: EventActorState, mutate: NonNullable<EventActorState['farmerRenderState']>) {
+  return {
+    ...actor,
+    farmerRenderState: mutate,
+  }
+}
+
 function applyMoveCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const nextActors = { ...actors }
   let durationMs = 0
@@ -170,6 +177,45 @@ function applyPositionOffsetCommand(actors: Record<string, EventActorState>, com
         },
       }
     : actors
+}
+
+function applyFarmerEyesCommand(actors: Record<string, EventActorState>, command: EventCommand) {
+  const farmer = getActorByName(actors, 'farmer')
+  const eyes = Number.parseInt(command.args[1] ?? '', 10)
+  const blinkTimerMs = Number.parseInt(command.args[2] ?? '', 10)
+  if (!farmer?.farmerRenderState || !Number.isFinite(eyes) || !Number.isFinite(blinkTimerMs)) {
+    return actors
+  }
+
+  return {
+    ...actors,
+    [toActorKey(farmer.actorName)]: updateFarmerRenderState(farmer, {
+      ...farmer.farmerRenderState,
+      currentEyes: eyes,
+      blinkTimerMs,
+      eyesSetAtMs: performance.now(),
+    }),
+  }
+}
+
+function applyFarmerSwimmingCommand(state: PlaybackState, actorName: string | undefined, swimming: boolean) {
+  if (!actorName) {
+    return state.actors
+  }
+
+  const actor = getActorByName(state.actors, actorName)
+  if (!actor?.farmerRenderState) {
+    return state.actors
+  }
+
+  return {
+    ...state.actors,
+    [toActorKey(actor.actorName)]: updateFarmerRenderState(actor, {
+      ...actor.farmerRenderState,
+      swimming,
+      bathingClothes: swimming ? true : state.currentMapName === 'BathHouse_Pool',
+    }),
+  }
 }
 
 function applyChangePortraitCommand(actors: Record<string, EventActorState>, command: EventCommand) {
@@ -559,6 +605,42 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
           actors: applyPositionOffsetCommand(nextState.actors, command),
           pointer: nextState.pointer + 1,
           currentEntry: { id: `${command.id}:offset`, tone: 'command', title: command.title, detail: command.detail },
+          activeDialogue: null,
+          waitingMs: null,
+          blockingMovement: false,
+          ended: false,
+          pendingChoice: null,
+        }
+      case 'eyes':
+        return {
+          ...base,
+          actors: applyFarmerEyesCommand(nextState.actors, command),
+          pointer: nextState.pointer + 1,
+          currentEntry: { id: `${command.id}:eyes`, tone: 'command', title: command.title, detail: command.detail },
+          activeDialogue: null,
+          waitingMs: null,
+          blockingMovement: false,
+          ended: false,
+          pendingChoice: null,
+        }
+      case 'swimming':
+        return {
+          ...base,
+          actors: applyFarmerSwimmingCommand(nextState, command.args[1], true),
+          pointer: nextState.pointer + 1,
+          currentEntry: { id: `${command.id}:swimming`, tone: 'command', title: command.title, detail: command.detail },
+          activeDialogue: null,
+          waitingMs: null,
+          blockingMovement: false,
+          ended: false,
+          pendingChoice: null,
+        }
+      case 'stopSwimming':
+        return {
+          ...base,
+          actors: applyFarmerSwimmingCommand(nextState, command.args[1], false),
+          pointer: nextState.pointer + 1,
+          currentEntry: { id: `${command.id}:stopSwimming`, tone: 'command', title: command.title, detail: command.detail },
           activeDialogue: null,
           waitingMs: null,
           blockingMovement: false,
@@ -1023,11 +1105,8 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
       case 'changeMapTile':
       case 'setRunning':
       case 'stopRunning':
-      case 'swimming':
-      case 'stopSwimming':
       case 'emote':
       case 'jump':
-      case 'eyes':
       case 'advancedMove':
       case 'speed':
       case 'stopAdvancedMoves':

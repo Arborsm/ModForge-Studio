@@ -14,11 +14,19 @@ export type FarmerAppearanceCompositeAssets = {
   hairStyleIndex: number
   accessoryIndex: number
   hatSpriteIndex: number | null
+  hatIsMask: boolean
   hatHairDrawMode: 'normal' | 'hide' | 'cover'
   hatIgnoreHairstyleOffset: boolean
   recoloredBaseTextureUrl: string | null
   hairTextureUrl: string | null
   bakedHairTextureUrl: string | null
+  hairTextureWidth: number | null
+  hairStyleMetadata: FarmerHairMetadataEntry | null
+  obscuredHairStyleIndex: number | null
+  obscuredHairTextureUrl: string | null
+  obscuredBakedHairTextureUrl: string | null
+  obscuredHairTextureWidth: number | null
+  obscuredHairStyleMetadata: FarmerHairMetadataEntry | null
   shirtsTextureUrl: string | null
   bakedShirtTextureUrl: string | null
   pantsTextureUrl: string | null
@@ -31,7 +39,7 @@ export type FarmerAppearanceCompositeAssets = {
 
 export type FarmerSpriteLayerDescriptor = {
   key: string
-  url: string
+  url: string | null
   width: number
   height: number
   offsetX: number
@@ -39,6 +47,37 @@ export type FarmerSpriteLayerDescriptor = {
   sourceX: number
   sourceY: number
   flip: boolean
+  opacity?: number
+  backgroundColor?: string | null
+  rotation?: number
+}
+
+export type FarmerHairMetadataEntry = {
+  textureName: string
+  tileX: number
+  tileY: number
+  usesUniqueLeftSprite: boolean
+  coveredIndex: number
+  isBaldStyle: boolean
+}
+
+export type FarmerVisualToolKind = 'none' | 'fishingRod' | 'slingshot' | 'other'
+
+export type FarmerRenderState = {
+  bodyFlip?: boolean
+  currentEyes?: number
+  bathingClothes?: boolean
+  swimming?: boolean
+  swimmingYOffset?: number
+  isDrawingForUi?: boolean
+  isInBed?: boolean
+  timeWentToBed?: number
+  timeOfDay?: number
+  pauseForSingleAnimation?: boolean
+  usingTool?: boolean
+  toolKind?: FarmerVisualToolKind
+  fishingRodIsCasting?: boolean
+  rotation?: number
 }
 
 export type FarmerDirectionalFrameState = {
@@ -213,6 +252,117 @@ export function getFarmerHairYOffsetAdjustment(isFemale: boolean, hairStyleIndex
   return 0
 }
 
+export function getFarmerObscuredHairStyleIndex(hairStyleIndex: number) {
+  switch (hairStyleIndex) {
+    case 50:
+    case 51:
+    case 52:
+    case 53:
+    case 54:
+    case 55:
+    case 1:
+    case 3:
+    case 5:
+    case 6:
+    case 9:
+    case 11:
+    case 17:
+    case 20:
+    case 23:
+    case 24:
+    case 25:
+    case 27:
+    case 28:
+    case 29:
+    case 30:
+    case 32:
+    case 33:
+    case 34:
+    case 36:
+    case 39:
+    case 41:
+    case 43:
+    case 44:
+    case 45:
+    case 46:
+    case 47:
+      return hairStyleIndex
+    case 48:
+      return 6
+    case 49:
+      return 52
+    case 18:
+    case 19:
+    case 21:
+    case 31:
+      return 23
+    case 42:
+      return 46
+    default:
+      if (hairStyleIndex >= 16) {
+        return hairStyleIndex < 100 ? 30 : hairStyleIndex
+      }
+      return 7
+  }
+}
+
+function getFarmerRotationAdjustment(facingDirection: number, rotation: number) {
+  if (rotation === -Math.PI / 32) {
+    return { x: 6, y: -2 }
+  }
+
+  if (rotation === Math.PI / 32) {
+    return facingDirection === 3 ? { x: -5, y: 1 } : { x: -6, y: 1 }
+  }
+
+  return { x: 0, y: 0 }
+}
+
+function shouldDrawFarmerEyes(facingDirection: number, renderState: FarmerRenderState, currentEyes: number) {
+  if (currentEyes === 0 || facingDirection === 0) {
+    return false
+  }
+
+  const timeOfDay = renderState.timeOfDay ?? 1200
+  const canStayAwake = timeOfDay < 2600 || (renderState.isInBed && (renderState.timeWentToBed ?? 0) !== 0)
+  if (!canStayAwake) {
+    return false
+  }
+
+  if ((!renderState.pauseForSingleAnimation && !renderState.usingTool) || renderState.toolKind === 'fishingRod') {
+    return !(renderState.usingTool && renderState.toolKind === 'fishingRod' && renderState.fishingRodIsCasting === false)
+  }
+
+  return false
+}
+
+function getFarmerHairSourceRect(
+  styleIndex: number,
+  textureWidth: number | null,
+  metadata: FarmerHairMetadataEntry | null,
+  facingDirection: number,
+  usingBakedTexture: boolean,
+) {
+  const width = Math.max(16, textureWidth ?? 128)
+  const rowOffset = facingDirection === 0 ? 64 : facingDirection === 2 ? 0 : facingDirection === 3 && metadata?.usesUniqueLeftSprite ? 96 : 32
+
+  if (usingBakedTexture) {
+    return { sourceX: 0, sourceY: rowOffset }
+  }
+
+  if (metadata) {
+    return {
+      sourceX: metadata.tileX * 16,
+      sourceY: metadata.tileY * 16 + rowOffset,
+    }
+  }
+
+  return {
+    sourceX: (styleIndex * 16) % width,
+    sourceY: Math.floor((styleIndex * 16) / width) * 96 + rowOffset,
+  }
+}
+
 function isFarmerAccessoryFacialHair(accessoryIndex: number) {
   return accessoryIndex < 6 || (accessoryIndex >= 19 && accessoryIndex <= 22)
 }
@@ -269,6 +419,7 @@ export function buildFarmerSpriteLayerDescriptors(
   facingDirection: number,
   spriteUrl: string,
   directionalFlip = false,
+  renderState: FarmerRenderState = {},
 ): FarmerSpriteLayerDescriptor[] {
   const frameWidth = 16
   const frameHeight = 32
@@ -276,25 +427,48 @@ export function buildFarmerSpriteLayerDescriptors(
   const frameX = (frame % spriteColumns) * frameWidth
   const frameY = Math.floor(frame / spriteColumns) * frameHeight
   const recoloredBaseUrl = farmerAppearance.recoloredBaseTextureUrl ?? spriteUrl
-  const effectiveFacingDirection = getFarmerFacingDirectionFromFrame(frame, directionalFlip, facingDirection)
+  const bodyFlip = renderState.bodyFlip ?? directionalFlip
+  const effectiveFacingDirection = getFarmerFacingDirectionFromFrame(frame, bodyFlip, facingDirection)
   const featureX = getFarmerFeatureXOffset(frame)
   const featureY = getFarmerFeatureYOffset(frame)
   const hairYOffsetAdjustment = getFarmerHairYOffsetAdjustment(farmerAppearance.isFemale, farmerAppearance.hairStyleIndex)
-  const hairColorOverrideUrl = farmerAppearance.bakedHairTextureUrl ?? farmerAppearance.hairTextureUrl
   const accessoryUnderHair = shouldDrawFarmerAccessoryBelowHair(farmerAppearance.accessoryIndex)
   const hatHairOffset = farmerAppearance.hatIgnoreHairstyleOffset
     ? 0
     : (FARMER_HAIRSTYLE_HAT_OFFSET[farmerAppearance.hairStyleIndex % 16] ?? 0)
-  const bodyFlip = directionalFlip
+  const rotationAdjustment = getFarmerRotationAdjustment(effectiveFacingDirection, renderState.rotation ?? 0)
+  const currentEyes = renderState.currentEyes ?? 0
+  const bathingClothes = renderState.bathingClothes ?? false
+  const swimming = !renderState.isDrawingForUi && Boolean(renderState.swimming)
+  const swimmingYOffset = swimming ? renderState.swimmingYOffset ?? 0 : 0
+  const swimmingCropHeight = Math.max(1, Math.min(32, 16 - Math.trunc(swimmingYOffset / 4)))
+  const verticalOffset = swimming ? 16 : 0
+
+  const activeHairStyleIndex =
+    !bathingClothes && farmerAppearance.hatHairDrawMode === 'cover' && farmerAppearance.obscuredHairStyleIndex != null
+      ? farmerAppearance.obscuredHairStyleIndex
+      : farmerAppearance.hairStyleIndex
+  const activeHairTextureUrl =
+    !bathingClothes && farmerAppearance.hatHairDrawMode === 'cover'
+      ? (farmerAppearance.obscuredBakedHairTextureUrl ?? farmerAppearance.obscuredHairTextureUrl)
+      : (farmerAppearance.bakedHairTextureUrl ?? farmerAppearance.hairTextureUrl)
+  const activeHairTextureWidth =
+    !bathingClothes && farmerAppearance.hatHairDrawMode === 'cover'
+      ? farmerAppearance.obscuredHairTextureWidth
+      : farmerAppearance.hairTextureWidth
+  const activeHairMetadata =
+    !bathingClothes && farmerAppearance.hatHairDrawMode === 'cover'
+      ? farmerAppearance.obscuredHairStyleMetadata
+      : farmerAppearance.hairStyleMetadata
 
   const layers: FarmerSpriteLayerDescriptor[] = [
     {
       key: 'base',
       url: recoloredBaseUrl,
       width: 16,
-      height: 32,
+      height: swimming ? swimmingCropHeight : 32,
       offsetX: 0,
-      offsetY: 0,
+      offsetY: verticalOffset,
       sourceX: frameX,
       sourceY: frameY,
       flip: bodyFlip,
@@ -307,18 +481,18 @@ export function buildFarmerSpriteLayerDescriptors(
       key: 'pants',
       url: pantsUrl,
       width: 16,
-      height: 32,
+      height: swimming ? swimmingCropHeight : 32,
       offsetX: 0,
-      offsetY: 0,
+      offsetY: verticalOffset,
       sourceX: farmerAppearance.bakedPantsTextureUrl ? frameX : frameX + (farmerAppearance.pantsSpriteIndex % 10) * 192 + (farmerAppearance.isFemale ? 96 : 0),
       sourceY: farmerAppearance.bakedPantsTextureUrl ? frameY : frameY + Math.floor(farmerAppearance.pantsSpriteIndex / 10) * 688,
       flip: bodyFlip,
     })
   }
 
-  if (effectiveFacingDirection !== 0) {
+  if (shouldDrawFarmerEyes(effectiveFacingDirection, renderState, currentEyes)) {
     const faceOffsetX =
-      5 + (effectiveFacingDirection === 3 ? 1 - featureX : featureX + (effectiveFacingDirection === 1 ? 3 : 0))
+      5 + (bodyFlip ? -featureX : featureX) + (effectiveFacingDirection === 1 ? 3 : effectiveFacingDirection === 3 ? 1 : 0)
     const faceWidth = effectiveFacingDirection === 2 ? 6 : 2
     layers.push({
       key: 'face-skin',
@@ -326,7 +500,7 @@ export function buildFarmerSpriteLayerDescriptors(
       width: faceWidth,
       height: 2,
       offsetX: faceOffsetX,
-      offsetY: featureY + (!farmerAppearance.isFemale && effectiveFacingDirection !== 2 ? 9 : 10),
+      offsetY: verticalOffset + featureY + (!farmerAppearance.isFemale && effectiveFacingDirection !== 2 ? 9 : 10),
       sourceX: 5,
       sourceY: 16,
       flip: false,
@@ -337,26 +511,26 @@ export function buildFarmerSpriteLayerDescriptors(
       width: faceWidth,
       height: 2,
       offsetX: faceOffsetX,
-      offsetY: featureY + (effectiveFacingDirection === 1 || effectiveFacingDirection === 3 ? 10 : 11),
+      offsetY: verticalOffset + featureY + (effectiveFacingDirection === 1 || effectiveFacingDirection === 3 ? 10 : 11),
       sourceX: 264 + (effectiveFacingDirection === 3 ? 4 : 0),
-      sourceY: 2,
+      sourceY: 2 + (currentEyes - 1) * 2,
       flip: false,
     })
   }
 
-  if (farmerAppearance.shirtsTextureUrl) {
+  if (!bathingClothes && farmerAppearance.shirtsTextureUrl) {
     const shirtBaseX = (farmerAppearance.shirtSpriteIndex * 8) % 128
     const shirtBaseY = Math.floor((farmerAppearance.shirtSpriteIndex * 8) / 128) * 32
     const shirtRowOffset =
       effectiveFacingDirection === 0 ? 24 : effectiveFacingDirection === 1 ? 8 : effectiveFacingDirection === 3 ? 16 : 0
-    const shirtOffsetX = effectiveFacingDirection === 3 ? 4 - featureX : 4 + featureX
+    const shirtOffsetX = effectiveFacingDirection === 3 ? 4 - featureX + rotationAdjustment.x : 4 + featureX + rotationAdjustment.x
     layers.push({
       key: 'shirt',
       url: farmerAppearance.bakedShirtTextureUrl ?? farmerAppearance.shirtsTextureUrl,
       width: 8,
       height: 8,
       offsetX: shirtOffsetX,
-      offsetY: 14 + featureY,
+      offsetY: verticalOffset + 14 + featureY + rotationAdjustment.y,
       sourceX: farmerAppearance.bakedShirtTextureUrl ? 0 : shirtBaseX,
       sourceY: farmerAppearance.bakedShirtTextureUrl ? shirtRowOffset : shirtBaseY + shirtRowOffset,
       flip: false,
@@ -370,8 +544,14 @@ export function buildFarmerSpriteLayerDescriptors(
           url: farmerAppearance.accessoriesTextureUrl,
           width: 16,
           height: 16,
-          offsetX: effectiveFacingDirection === 3 ? -featureX : featureX,
-          offsetY: effectiveFacingDirection === 2 ? 4 + featureY : 1 + featureY,
+          offsetX:
+            (effectiveFacingDirection === 3 ? -featureX : featureX) + rotationAdjustment.x,
+          offsetY:
+            verticalOffset +
+            (effectiveFacingDirection === 2
+              ? 3 + featureY + (farmerAppearance.accessoryIndex === 26 && [24, 25, 26, 70].includes(frame) ? 1 : 0)
+              : 1 + featureY) +
+            rotationAdjustment.y,
           sourceX: (farmerAppearance.accessoryIndex * 16) % Math.max(16, farmerAppearance.accessoriesTextureWidth ?? 128),
           sourceY:
             Math.floor((farmerAppearance.accessoryIndex * 16) / Math.max(16, farmerAppearance.accessoriesTextureWidth ?? 128)) * 32 +
@@ -384,19 +564,25 @@ export function buildFarmerSpriteLayerDescriptors(
     layers.push(accessoryLayer)
   }
 
-  if (farmerAppearance.hairTextureUrl && hairColorOverrideUrl && farmerAppearance.hatHairDrawMode !== 'hide') {
-    const hairRowOffset = effectiveFacingDirection === 0 ? 64 : effectiveFacingDirection === 2 ? 0 : 32
+  if (activeHairTextureUrl && (bathingClothes || farmerAppearance.hatHairDrawMode !== 'hide')) {
+    const hairSourceRect = getFarmerHairSourceRect(
+      activeHairStyleIndex,
+      activeHairTextureWidth,
+      activeHairMetadata,
+      effectiveFacingDirection,
+      activeHairTextureUrl === farmerAppearance.bakedHairTextureUrl || activeHairTextureUrl === farmerAppearance.obscuredBakedHairTextureUrl,
+    )
     const hairOffsetX = effectiveFacingDirection === 3 ? -featureX : featureX
-    const hairOffsetY = featureY + hairYOffsetAdjustment + (effectiveFacingDirection === 0 ? 1 : 0)
+    const hairOffsetY = verticalOffset + featureY + hairYOffsetAdjustment + (effectiveFacingDirection === 0 ? 1 : 0)
     layers.push({
       key: 'hair',
-      url: hairColorOverrideUrl,
+      url: activeHairTextureUrl,
       width: 16,
       height: 32,
       offsetX: hairOffsetX,
       offsetY: hairOffsetY,
-      sourceX: farmerAppearance.bakedHairTextureUrl ? 0 : (farmerAppearance.hairStyleIndex * 16) % 128,
-      sourceY: farmerAppearance.bakedHairTextureUrl ? hairRowOffset : Math.floor((farmerAppearance.hairStyleIndex * 16) / 128) * 96 + hairRowOffset,
+      sourceX: hairSourceRect.sourceX,
+      sourceY: hairSourceRect.sourceY,
       flip: effectiveFacingDirection === 3,
     })
   }
@@ -405,33 +591,79 @@ export function buildFarmerSpriteLayerDescriptors(
     layers.push(accessoryLayer)
   }
 
-  if (farmerAppearance.hatsTextureUrl && farmerAppearance.hatSpriteIndex != null) {
+  if (!bathingClothes && farmerAppearance.hatsTextureUrl && farmerAppearance.hatSpriteIndex != null) {
     const hatRowOffset =
       effectiveFacingDirection === 0 ? 60 : effectiveFacingDirection === 1 ? 20 : effectiveFacingDirection === 3 ? 40 : 0
-    layers.push({
-      key: 'hat',
-      url: farmerAppearance.hatsTextureUrl,
-      width: 20,
-      height: 20,
-      offsetX: -2 + (effectiveFacingDirection === 3 ? -featureX : featureX),
-      offsetY: -3 + featureY + hatHairOffset,
-      sourceX: (farmerAppearance.hatSpriteIndex * 20) % Math.max(20, farmerAppearance.hatsTextureWidth ?? 320),
-      sourceY: Math.floor((farmerAppearance.hatSpriteIndex * 20) / Math.max(20, farmerAppearance.hatsTextureWidth ?? 320)) * 80 + hatRowOffset,
-      flip: false,
-    })
+    const hatSourceX = (farmerAppearance.hatSpriteIndex * 20) % Math.max(20, farmerAppearance.hatsTextureWidth ?? 320)
+    const hatSourceY = Math.floor((farmerAppearance.hatSpriteIndex * 20) / Math.max(20, farmerAppearance.hatsTextureWidth ?? 320)) * 80 + hatRowOffset
+    const hatOffsetX = -2 + (bodyFlip ? -featureX : featureX)
+    const hatOffsetY = verticalOffset - 3 + featureY + hatHairOffset
+
+    if (farmerAppearance.hatIsMask && effectiveFacingDirection === 0) {
+      layers.push({
+        key: 'hat-mask-upper',
+        url: farmerAppearance.hatsTextureUrl,
+        width: 20,
+        height: 11,
+        offsetX: hatOffsetX,
+        offsetY: hatOffsetY,
+        sourceX: hatSourceX,
+        sourceY: hatSourceY,
+        flip: false,
+      })
+      layers.push({
+        key: 'hat-mask-lower',
+        url: farmerAppearance.hatsTextureUrl,
+        width: 20,
+        height: 9,
+        offsetX: hatOffsetX,
+        offsetY: hatOffsetY + 11,
+        sourceX: hatSourceX,
+        sourceY: hatSourceY + 11,
+        flip: false,
+      })
+    } else {
+      layers.push({
+        key: 'hat',
+        url: farmerAppearance.hatsTextureUrl,
+        width: 20,
+        height: 20,
+        offsetX: hatOffsetX,
+        offsetY: hatOffsetY,
+        sourceX: hatSourceX,
+        sourceY: hatSourceY,
+        flip: false,
+      })
+    }
   }
 
   layers.push({
     key: 'arms',
     url: recoloredBaseUrl,
     width: 16,
-    height: 32,
+    height: swimming ? swimmingCropHeight : 32,
     offsetX: 0,
-    offsetY: 0,
+    offsetY: verticalOffset,
     sourceX: frameX + 96,
     sourceY: frameY,
     flip: bodyFlip,
   })
+
+  if (swimming) {
+    layers.push({
+      key: 'swim-water-ring',
+      url: null,
+      width: Math.max(8, 12 - swimmingYOffset / 2),
+      height: 1,
+      offsetX: 2 + swimmingYOffset / 4,
+      offsetY: 16 - swimmingYOffset / 4,
+      sourceX: 0,
+      sourceY: 0,
+      flip: false,
+      opacity: 0.75,
+      backgroundColor: '#ffffff',
+    })
+  }
 
   return layers
 }
@@ -677,15 +909,26 @@ export function bakeFarmerPantsTexture(profile: PlayerAppearanceProfile | null, 
   })
 }
 
-export function bakeFarmerHairTexture(profile: PlayerAppearanceProfile | null, hairAsset: FarmerAppearanceImageAsset | null) {
+export function bakeFarmerHairTexture(
+  profile: PlayerAppearanceProfile | null,
+  hairAsset: FarmerAppearanceImageAsset | null,
+  options: {
+    hairStyleIndex?: number
+    metadata?: FarmerHairMetadataEntry | null
+  } = {},
+) {
   if (!hairAsset || !profile) {
     return null
   }
 
+  const hairStyleIndex = options.hairStyleIndex ?? profile.hairStyleIndex
+  const metadata = options.metadata ?? null
+  const captureHeight = metadata?.usesUniqueLeftSprite ? 128 : 96
   const cacheKey = JSON.stringify({
     hair: hairAsset.url,
-    hairStyleIndex: profile.hairStyleIndex,
+    hairStyleIndex,
     hairColor: profile.hairColor,
+    metadata,
   })
   const cached = hairTextureCache.get(cacheKey)
   if (cached) {
@@ -695,16 +938,16 @@ export function bakeFarmerHairTexture(profile: PlayerAppearanceProfile | null, h
   return safeBakeTexture(null, () => {
     const canvas = document.createElement('canvas')
     canvas.width = 16
-    canvas.height = 96
+    canvas.height = captureHeight
     const context = canvas.getContext('2d', { willReadFrequently: true })
     if (!context) {
       return null
     }
 
-    const sourceX = (profile.hairStyleIndex * 16) % 128
-    const sourceY = Math.floor((profile.hairStyleIndex * 16) / 128) * 96
+    const sourceX = metadata ? metadata.tileX * 16 : (hairStyleIndex * 16) % Math.max(16, hairAsset.width)
+    const sourceY = metadata ? metadata.tileY * 16 : Math.floor((hairStyleIndex * 16) / Math.max(16, hairAsset.width)) * 96
     context.clearRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(hairAsset.image, sourceX, sourceY, 16, 96, 0, 0, 16, 96)
+    context.drawImage(hairAsset.image, sourceX, sourceY, 16, captureHeight, 0, 0, 16, captureHeight)
 
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
     tintOpaquePixels(imageData.data, profile.hairColor)

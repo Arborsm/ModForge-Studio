@@ -4,6 +4,9 @@ import {
   bakeFarmerPantsTexture,
   bakeFarmerShirtTexture,
   buildFarmerSpriteLayerDescriptors,
+  getFarmerObscuredHairStyleIndex,
+  type FarmerHairMetadataEntry,
+  type FarmerRenderState,
 } from './farmerAppearanceRenderer'
 import { loadImageDataUrl } from '../desktop'
 import { toAssetUrl } from '../maps/assets'
@@ -15,6 +18,7 @@ import {
   MANUAL_TEXTURE_NAME_ALIASES,
   getActorWalkAnimationState,
   isFarmerActor,
+  loadHairMetadataIndex,
   loadHatMetadataIndex,
   normalizeActorName,
   toLookupTokens,
@@ -103,13 +107,18 @@ function buildSpriteLayerDescriptors(
   frameHeight: number,
   spriteColumns: number,
   directionalFlip: boolean,
+  farmerRenderState: FarmerRenderState | null = null,
+  bodyFlip = directionalFlip,
 ): SpriteLayerDescriptor[] {
   if (!asset?.spriteUrl) {
     return []
   }
 
   if (asset.farmerAppearance && frameWidth === 16 && frameHeight === 32) {
-    return buildFarmerSpriteLayerDescriptors(asset.farmerAppearance, frame, facingDirection, asset.spriteUrl, directionalFlip)
+    return buildFarmerSpriteLayerDescriptors(asset.farmerAppearance, frame, facingDirection, asset.spriteUrl, directionalFlip, {
+      ...farmerRenderState,
+      bodyFlip,
+    })
   }
 
   const frameX = (frame % spriteColumns) * frameWidth
@@ -213,6 +222,7 @@ function getMovementFacingDirection(movement: ActorMovementState, fallbackDirect
 function getActorRenderState(actor: EventActorState, nowMs: number) {
   if (actor.animation) {
     const animatedFrame = getAnimatedFrame(actor, nowMs)
+    const bodyFlip = isFarmerActor(actor.actorName) ? animatedFrame.flip || actor.directionalFlip : actor.directionalFlip
     return {
       tileX: actor.tileX,
       tileY: actor.tileY,
@@ -222,9 +232,26 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       facingDirection: actor.facingDirection,
       flip: animatedFrame.flip,
       directionalFlip: actor.directionalFlip,
+      bodyFlip,
       breathingOffsetY: 0,
       breathingScale: 1,
       moving: false,
+      farmerRenderState: actor.farmerRenderState
+        ? {
+            currentEyes: getFarmerBlinkEyesState(actor, nowMs),
+            bathingClothes: actor.farmerRenderState.bathingClothes,
+            swimming: actor.farmerRenderState.swimming,
+            swimmingYOffset: actor.farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
+            isDrawingForUi: false,
+            isInBed: actor.farmerRenderState.isInBed,
+            timeWentToBed: actor.farmerRenderState.timeWentToBed,
+            timeOfDay: 1200,
+            pauseForSingleAnimation: actor.farmerRenderState.pauseForSingleAnimation,
+            usingTool: actor.farmerRenderState.usingTool,
+            toolKind: actor.farmerRenderState.toolKind,
+            fishingRodIsCasting: actor.farmerRenderState.fishingRodIsCasting,
+          }
+        : null,
     }
   }
 
@@ -233,6 +260,7 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
     const movementFacingDirection = getMovementFacingDirection(actor.movement, actor.facingDirection)
     const walkAnimation = getActorWalkAnimationState(actor.actorName, movementFacingDirection)
     const frameIndex = Math.floor((nowMs - actor.movement.startedAtMs) / 95) % walkAnimation.frames.length
+    const bodyFlip = walkAnimation.directionalFlip
     return {
       tileX: actor.movement.fromTileX + (actor.movement.toTileX - actor.movement.fromTileX) * progress,
       tileY: actor.movement.fromTileY + (actor.movement.toTileY - actor.movement.fromTileY) * progress,
@@ -242,9 +270,26 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       facingDirection: movementFacingDirection,
       flip: false,
       directionalFlip: walkAnimation.directionalFlip,
+      bodyFlip,
       breathingOffsetY: 0,
       breathingScale: 1,
       moving: progress < 1,
+      farmerRenderState: actor.farmerRenderState
+        ? {
+            currentEyes: getFarmerBlinkEyesState(actor, nowMs),
+            bathingClothes: actor.farmerRenderState.bathingClothes,
+            swimming: actor.farmerRenderState.swimming,
+            swimmingYOffset: actor.farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
+            isDrawingForUi: false,
+            isInBed: actor.farmerRenderState.isInBed,
+            timeWentToBed: actor.farmerRenderState.timeWentToBed,
+            timeOfDay: 1200,
+            pauseForSingleAnimation: actor.farmerRenderState.pauseForSingleAnimation,
+            usingTool: actor.farmerRenderState.usingTool,
+            toolKind: actor.farmerRenderState.toolKind,
+            fishingRodIsCasting: actor.farmerRenderState.fishingRodIsCasting,
+          }
+        : null,
     }
   }
 
@@ -259,9 +304,26 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
     facingDirection: actor.facingDirection,
     flip: false,
     directionalFlip: actor.directionalFlip,
+    bodyFlip: actor.directionalFlip,
     breathingOffsetY: Math.sin(breathPhase) * 2.2,
     breathingScale: 1 + Math.sin(breathPhase + 0.8) * 0.028,
     moving: false,
+    farmerRenderState: actor.farmerRenderState
+      ? {
+          currentEyes: getFarmerBlinkEyesState(actor, nowMs),
+          bathingClothes: actor.farmerRenderState.bathingClothes,
+          swimming: actor.farmerRenderState.swimming,
+          swimmingYOffset: actor.farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
+          isDrawingForUi: false,
+          isInBed: actor.farmerRenderState.isInBed,
+          timeWentToBed: actor.farmerRenderState.timeWentToBed,
+          timeOfDay: 1200,
+          pauseForSingleAnimation: actor.farmerRenderState.pauseForSingleAnimation,
+          usingTool: actor.farmerRenderState.usingTool,
+          toolKind: actor.farmerRenderState.toolKind,
+          fishingRodIsCasting: actor.farmerRenderState.fishingRodIsCasting,
+        }
+      : null,
   }
 }
 
@@ -437,6 +499,61 @@ async function resolveEffectAsset(textureName: string, rootPath: string | null):
   }
 }
 
+async function resolveFarmerHairVariant(
+  rootPath: string,
+  profile: PlayerAppearanceProfile | null,
+  fallbackHairAsset: ResolvedAssetCandidate | null,
+  hairMetadataIndex: Record<string, FarmerHairMetadataEntry>,
+  hairStyleIndex: number,
+) {
+  const metadata = hairMetadataIndex[String(hairStyleIndex)] ?? null
+  const hairAsset =
+    metadata && metadata.textureName && metadata.textureName !== 'hairstyles'
+      ? await resolveContentImage(rootPath, `Characters/Farmer/${metadata.textureName}`)
+      : fallbackHairAsset
+
+  return {
+    styleIndex: hairStyleIndex,
+    metadata,
+    asset: hairAsset,
+    bakedUrl: bakeFarmerHairTexture(profile, hairAsset, { hairStyleIndex, metadata }),
+  }
+}
+
+function getFarmerBlinkEyesState(actor: EventActorState, nowMs: number) {
+  const farmerState = actor.farmerRenderState
+  if (!farmerState) {
+    return 0
+  }
+
+  const blinkTimer = farmerState.blinkTimerMs + Math.max(0, nowMs - farmerState.eyesSetAtMs)
+  if (blinkTimer > 2200) {
+    const phase = (blinkTimer - 2200) % 2400
+    if (phase < 50) {
+      return 4
+    }
+    if (phase < 100) {
+      return 1
+    }
+    if (phase < 150) {
+      return 4
+    }
+    return 0
+  }
+
+  if (blinkTimer > -100) {
+    if (blinkTimer < -50) {
+      return 1
+    }
+    if (blinkTimer < 0) {
+      return 4
+    }
+    return 0
+  }
+
+  return farmerState.currentEyes
+}
+
 async function resolveFarmerAppearanceAssets(
   rootPath: string,
   spriteAsset: ResolvedAssetCandidate | null,
@@ -457,21 +574,42 @@ async function resolveFarmerAppearanceAssets(
     return null
   }
 
+  const hairMetadataIndex = await loadHairMetadataIndex(rootPath)
   const hatMetadataIndex: Record<string, HatMetadataEntry> = profile?.hatItemId ? await loadHatMetadataIndex(rootPath) : {}
   const hatMetadata = profile?.hatItemId ? hatMetadataIndex[profile.hatItemId] : undefined
+  const hairStyleIndex = profile?.hairStyleIndex ?? DEFAULT_FARMER_HAIR_STYLE_INDEX
+  const obscuredHairBaseIndex =
+    hatMetadata?.hairDrawMode === 'cover' ? getFarmerObscuredHairStyleIndex(hairStyleIndex) : hairStyleIndex
+  const obscuredHairMetadata = hairMetadataIndex[String(obscuredHairBaseIndex)] ?? null
+  const obscuredHairStyleIndex =
+    hatMetadata?.hairDrawMode === 'cover' && obscuredHairMetadata?.coveredIndex != null && obscuredHairMetadata.coveredIndex !== -1
+      ? obscuredHairMetadata.coveredIndex
+      : obscuredHairBaseIndex
+  const [rawHairVariant, obscuredHairVariant] = await Promise.all([
+    resolveFarmerHairVariant(rootPath, profile, hairAsset, hairMetadataIndex, hairStyleIndex),
+    resolveFarmerHairVariant(rootPath, profile, hairAsset, hairMetadataIndex, obscuredHairStyleIndex),
+  ])
 
   return {
     isFemale,
-    hairStyleIndex: profile?.hairStyleIndex ?? DEFAULT_FARMER_HAIR_STYLE_INDEX,
+    hairStyleIndex,
     shirtSpriteIndex: profile?.shirtSpriteIndex ?? DEFAULT_FARMER_SHIRT_SPRITE_INDEX,
     pantsSpriteIndex: profile?.pantsSpriteIndex ?? DEFAULT_FARMER_PANTS_SPRITE_INDEX,
     accessoryIndex: profile?.accessoryIndex ?? -1,
     hatSpriteIndex: profile?.hatSpriteIndex ?? null,
+    hatIsMask: hatMetadata?.isMask ?? false,
     hatHairDrawMode: hatMetadata?.hairDrawMode ?? 'normal',
     hatIgnoreHairstyleOffset: hatMetadata?.ignoreHairstyleOffset ?? false,
     recoloredBaseTextureUrl: bakeFarmerBaseTexture(profile, spriteAsset, shirtsAsset, skinColorsAsset, shoeColorsAsset),
-    hairTextureUrl: hairAsset?.url ?? null,
-    bakedHairTextureUrl: bakeFarmerHairTexture(profile, hairAsset),
+    hairTextureUrl: rawHairVariant.asset?.url ?? null,
+    bakedHairTextureUrl: rawHairVariant.bakedUrl,
+    hairTextureWidth: rawHairVariant.asset?.width ?? null,
+    hairStyleMetadata: rawHairVariant.metadata,
+    obscuredHairStyleIndex,
+    obscuredHairTextureUrl: obscuredHairVariant.asset?.url ?? null,
+    obscuredBakedHairTextureUrl: obscuredHairVariant.bakedUrl,
+    obscuredHairTextureWidth: obscuredHairVariant.asset?.width ?? null,
+    obscuredHairStyleMetadata: obscuredHairVariant.metadata,
     shirtsTextureUrl: shirtsAsset?.url ?? null,
     bakedShirtTextureUrl: bakeFarmerShirtTexture(profile, shirtsAsset),
     pantsTextureUrl: pantsAsset?.url ?? null,

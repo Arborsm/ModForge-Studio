@@ -171,6 +171,8 @@ export default function EventStageWorkspace({
               frameHeight,
               spriteColumns,
               renderState.directionalFlip,
+              renderState.farmerRenderState,
+              renderState.bodyFlip,
             )
             const actorHeightTiles = frameHeight / 16
             const actorWidthTiles = frameWidth / 16
@@ -181,9 +183,12 @@ export default function EventStageWorkspace({
               renderState.tileY * mapDocument.tileHeight * viewportZoom +
               (renderState.offsetY + renderState.breathingOffsetY) * gamePixelScale * viewportZoom
             const spriteScale = Math.max(1, actorWidth / frameWidth)
-            const spriteTransform = renderState.flip
-              ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale * renderState.breathingScale})`
-              : `scale(${spriteScale}, ${spriteScale * renderState.breathingScale})`
+            const spriteTransform =
+              asset?.farmerAppearance
+                ? `scale(${spriteScale}, ${spriteScale * renderState.breathingScale})`
+                : renderState.flip
+                  ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale * renderState.breathingScale})`
+                  : `scale(${spriteScale}, ${spriteScale * renderState.breathingScale})`
 
             return (
               <div
@@ -210,10 +215,12 @@ export default function EventStageWorkspace({
                             height: `${layer.height}px`,
                             transform: layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : undefined,
                             transformOrigin: 'top left',
-                            backgroundImage: `url("${layer.url}")`,
+                            backgroundImage: layer.url ? `url("${layer.url}")` : undefined,
+                            backgroundColor: layer.backgroundColor ?? undefined,
                             backgroundPosition: `-${layer.sourceX}px -${layer.sourceY}px`,
                             backgroundRepeat: 'no-repeat',
                             imageRendering: 'pixelated',
+                            opacity: layer.opacity,
                           }}
                         />
                       ))}
