@@ -60,6 +60,40 @@ export type ViewportLabels = {
   failedToLoadTilesetImage: (path: string) => string
 }
 
+export type EventStageCopy = {
+  empty: string
+  scene: string
+  sceneIdle: string
+  stageWaiting: string
+  stageMissing: string
+  stageFailed: string
+  play: string
+  pause: string
+  step: string
+  reset: string
+  branch: string
+  choose: string
+  toggleGrid: string
+  showPathsLayer: string
+  configurePlayerAppearance: string
+  statusMusic: string
+  statusSound: string
+  statusAmbient: string
+  statusFade: string
+  stageMapUnsupported: string
+  musicStopped: string
+  stopCurrentEventMusic: string
+  stopTrackedSound: string
+  fadeCleared: string
+  screenFadeToBlack: string
+  globalFadeToBlack: string
+  globalFadeCleared: string
+  clear: string
+  cueLabel: (cue: string) => string
+  stopCueLabel: (cue: string) => string
+  flashAlphaLabel: (alpha: string) => string
+}
+
 type ModuleNode = {
   title: string
   detail: string
@@ -206,6 +240,7 @@ export type EditorCopy = {
     loadedMapAssetsWithActiveMap: (count: number, format: string, mapName: string) => string
   }
   viewportLabels: ViewportLabels
+  eventStage: EventStageCopy
   moduleBlueprints: Record<Exclude<WorkspaceMode, 'map'>, ModuleBlueprint>
 }
 
@@ -234,12 +269,19 @@ type RawViewportLabels = Omit<
   failedToLoadTilesetImageTemplate: string
 }
 
-type RawEditorCopy = Omit<EditorCopy, 'common' | 'messages' | 'viewportLabels'> & {
+type RawEventStageCopy = Omit<EventStageCopy, 'cueLabel' | 'stopCueLabel' | 'flashAlphaLabel'> & {
+  cueLabelTemplate: string
+  stopCueLabelTemplate: string
+  flashAlphaLabelTemplate: string
+}
+
+type RawEditorCopy = Omit<EditorCopy, 'common' | 'messages' | 'viewportLabels' | 'eventStage'> & {
   common: Omit<EditorCopy['common'], 'objectLabel'> & {
     objectLabelTemplate: string
   }
   messages: RawMessages
   viewportLabels: RawViewportLabels
+  eventStage: RawEventStageCopy
 }
 
 type RawLocaleBundle = {
@@ -275,6 +317,7 @@ function buildEditorCopy(raw: RawEditorCopy): EditorCopy {
     failedToLoadTilesetImageTemplate,
     ...viewportRest
   } = raw.viewportLabels
+  const { cueLabelTemplate, stopCueLabelTemplate, flashAlphaLabelTemplate, ...eventStageRest } = raw.eventStage
 
   return {
     ...raw,
@@ -308,6 +351,12 @@ function buildEditorCopy(raw: RawEditorCopy): EditorCopy {
         formatTemplate(objectGroupsVisibleLabelTemplate, { visible, total }),
       zoomLabel: (zoom) => formatTemplate(zoomLabelTemplate, { percent: Math.round(zoom * 100) }),
       failedToLoadTilesetImage: (path) => formatTemplate(failedToLoadTilesetImageTemplate, { path }),
+    },
+    eventStage: {
+      ...eventStageRest,
+      cueLabel: (cue) => formatTemplate(cueLabelTemplate, { cue }),
+      stopCueLabel: (cue) => formatTemplate(stopCueLabelTemplate, { cue }),
+      flashAlphaLabel: (alpha) => formatTemplate(flashAlphaLabelTemplate, { alpha }),
     },
   }
 }

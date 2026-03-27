@@ -226,9 +226,9 @@ export function buildWorkspacePanels({
       defaultDockHeight: 760,
       content: workspaceMode === 'events' ? (
         <EventStageWorkspace
-          locale={locale}
           directoryInfo={directoryInfo}
           viewportLabels={copy.viewportLabels}
+          copy={copy.eventStage}
           theme={theme}
           accentColor={accentColor}
           parsedEventAsset={parsedEventAsset}
