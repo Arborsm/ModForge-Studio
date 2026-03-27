@@ -21,7 +21,7 @@ export function PanelFrame({
   children,
 }: PanelFrameProps) {
   return (
-    <section className={cx('panel-surface', className)}>
+    <section className={cx('panel-surface h-full', className)}>
       {!hideHeader ? (
         <header className="panel-header">
           <div className="min-w-0">

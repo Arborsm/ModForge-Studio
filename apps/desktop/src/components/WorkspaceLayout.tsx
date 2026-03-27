@@ -514,6 +514,7 @@ function getWorkspaceGeometry(
   size: WorkspaceSize,
   measuredDockHeights: Record<string, number>,
 ): WorkspaceGeometry {
+  const defaultChrome = getDefaultChrome()
   const leftRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'left').length > 0
   const rightRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'right').length > 0
   const leftRailUsed = leftRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
@@ -533,22 +534,25 @@ function getWorkspaceGeometry(
 
   const leftPanelUsed = leftPanelVisible ? state.chrome.leftWidth + COLUMN_GAP : 0
   const rightPanelUsed = rightPanelVisible ? state.chrome.rightWidth + COLUMN_GAP : 0
-  const bottomPreferredHeight = [bottomLeftPanel, bottomRightPanel]
-    .filter((panel): panel is WorkspacePanelConfig => Boolean(panel?.dockAutoHeight))
-    .reduce<number | null>((current, panel) => {
-      const measured = measuredDockHeights[panel.id]
-      if (typeof measured !== 'number') {
-        return current
-      }
+  const allowBottomAutoHeight = Math.abs(state.chrome.bottomHeight - defaultChrome.bottomHeight) < 0.5
+  const bottomPreferredHeight = allowBottomAutoHeight
+    ? [bottomLeftPanel, bottomRightPanel]
+        .filter((panel): panel is WorkspacePanelConfig => Boolean(panel?.dockAutoHeight))
+        .reduce<number | null>((current, panel) => {
+          const measured = measuredDockHeights[panel.id]
+          if (typeof measured !== 'number') {
+            return current
+          }
 
-      const clampedMeasured = clamp(
-        Math.round(measured),
-        panel.dockMinHeight ?? panel.minHeight,
-        panel.dockMaxHeight ?? Math.max(panel.minHeight, size.height - ROOT_PADDING * 2 - MIN_CENTER_HEIGHT),
-      )
+          const clampedMeasured = clamp(
+            Math.round(measured),
+            panel.dockMinHeight ?? panel.minHeight,
+            panel.dockMaxHeight ?? Math.max(panel.minHeight, size.height - ROOT_PADDING * 2 - MIN_CENTER_HEIGHT),
+          )
 
-      return current === null ? clampedMeasured : Math.max(current, clampedMeasured)
-    }, null)
+          return current === null ? clampedMeasured : Math.max(current, clampedMeasured)
+        }, null)
+    : null
   const bottomHeight = bottomPreferredHeight ?? state.chrome.bottomHeight
   const bottomPanelUsed = bottomPanelVisible ? bottomHeight + COLUMN_GAP : 0
 
@@ -600,7 +604,8 @@ function getWorkspaceGeometry(
     }
 
     if (leftTopPanel && leftBottomPanel) {
-      const topPreferredHeight = leftTopPanel.dockAutoHeight ? measuredDockHeights[leftTopPanel.id] : undefined
+      const allowAutoHeight = leftTopPanel.dockAutoHeight && Math.abs(state.chrome.leftSplit - defaultChrome.leftSplit) < 0.001
+      const topPreferredHeight = allowAutoHeight ? measuredDockHeights[leftTopPanel.id] : undefined
       const { first, second } = splitSpan(
         container.height,
         state.chrome.leftSplit,
@@ -642,7 +647,8 @@ function getWorkspaceGeometry(
     }
 
     if (rightTopPanel && rightBottomPanel) {
-      const topPreferredHeight = rightTopPanel.dockAutoHeight ? measuredDockHeights[rightTopPanel.id] : undefined
+      const allowAutoHeight = rightTopPanel.dockAutoHeight && Math.abs(state.chrome.rightSplit - defaultChrome.rightSplit) < 0.001
+      const topPreferredHeight = allowAutoHeight ? measuredDockHeights[rightTopPanel.id] : undefined
       const { first, second } = splitSpan(
         container.height,
         state.chrome.rightSplit,

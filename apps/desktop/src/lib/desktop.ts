@@ -59,6 +59,13 @@ export type DefaultSaveSlotSummary = {
   modifiedTimeMs: number
 }
 
+export type AudioAssetSummary = {
+  cue: string
+  kind: 'music' | 'sound'
+  absolutePath: string
+  relativePath: string
+}
+
 function isDesktopHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
@@ -133,6 +140,18 @@ export function loadTextFile(path: string) {
 
 export function loadImageDataUrl(path: string) {
   return invokeDesktop<string>('load_image_data_url', { path })
+}
+
+export function scanAudioAssets(path: string) {
+  return invokeDesktop<AudioAssetSummary[]>('scan_audio_assets', { path })
+}
+
+export function loadAudioDataUrl(path: string) {
+  return invokeDesktop<string>('load_audio_data_url', { path })
+}
+
+export function loadXactAudioDataUrl(rootPath: string, cue: string) {
+  return invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue })
 }
 
 export function scanDefaultSaveSlots() {

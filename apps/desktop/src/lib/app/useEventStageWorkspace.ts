@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ViewportWorldPoint } from '../../components/MapViewport'
 import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '../desktop'
 import { parseTmxMap } from '../maps/tmx'
@@ -41,6 +41,7 @@ import {
   resolveEffectAsset,
 } from './eventStageAssets'
 import type { PlayerAppearanceProfile } from './playerAppearance'
+import { playMusicCue, playSoundCue, resetAudioPreview, stopMusicPreview, stopSoundPreview } from './audioPreview'
 
 type UseEventStageWorkspaceOptions = {
   copy: EventStageCopy
@@ -81,6 +82,7 @@ export function useEventStageWorkspace({
   const [eventObjectDrinkIndex, setEventObjectDrinkIndex] = useState<Record<string, boolean>>({})
   const [actorAssets, setActorAssets] = useState<Record<string, ActorAssetState>>({})
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
+  const lastAudioCommandIdRef = useRef<string | null>(null)
 
   const visibleLayerIds = useMemo(
     () =>
@@ -210,6 +212,11 @@ export function useEventStageWorkspace({
   }, [initialMapName, onPlaybackCommandChange, onSelectTimelineEntry, selectedEvent])
 
   useEffect(() => {
+    resetAudioPreview()
+    lastAudioCommandIdRef.current = null
+  }, [directoryInfo?.rootPath])
+
+  useEffect(() => {
     if (!timelineJumpRequestId) {
       return
     }
@@ -229,6 +236,49 @@ export function useEventStageWorkspace({
       onSelectTimelineEntry(playbackState.currentCommandId)
     }
   }, [onPlaybackCommandChange, onSelectTimelineEntry, playbackState.currentCommandId])
+
+  useEffect(() => {
+    const rootPath = directoryInfo?.rootPath
+    const commandId = playbackState.currentCommandId
+    if (!rootPath || !commandId || commandId === lastAudioCommandIdRef.current) {
+      return
+    }
+
+    lastAudioCommandIdRef.current = commandId
+    const command = playbackState.commands.find((item) => item.id === commandId)
+    if (!command) {
+      return
+    }
+
+    switch (command.command) {
+      case 'playMusic': {
+        const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
+        if (cue) {
+          void playMusicCue(rootPath, cue)
+        } else {
+          stopMusicPreview()
+        }
+        break
+      }
+      case 'stopMusic':
+        stopMusicPreview()
+        break
+      case 'playSound': {
+        const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
+        if (cue) {
+          void playSoundCue(rootPath, cue)
+        } else {
+          stopSoundPreview()
+        }
+        break
+      }
+      case 'stopSound':
+        stopSoundPreview(command.args[1] ?? null)
+        break
+      default:
+        break
+    }
+  }, [directoryInfo?.rootPath, playbackState.commands, playbackState.currentCommandId])
 
   useEffect(() => {
     const hasAnimatedActors = Object.values(playbackState.actors).some((actor) => actor.animation || actor.movement)

@@ -30,6 +30,7 @@ export type FarmerAppearanceCompositeAssets = {
   shirtsTextureUrl: string | null
   bakedShirtTextureUrl: string | null
   pantsTextureUrl: string | null
+  rotation: null
   bakedPantsTextureUrl: string | null
   accessoriesTextureUrl: string | null
   hatsTextureUrl: string | null

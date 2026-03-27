@@ -992,7 +992,7 @@ function continuePlayback(
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'music', entryDetail: copy.musicStopped })
       }
       case 'playSound': {
-        const cue = command.args[1] ?? null
+        const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
         const nextBase = {
           ...base,
           activeSoundCue: cue,
@@ -1009,7 +1009,7 @@ function continuePlayback(
         const cue = command.args[1] ?? null
         const nextBase = {
           ...base,
-          activeSoundCue: cue && base.activeSoundCue === cue ? null : base.activeSoundCue,
+          activeSoundCue: cue ? (base.activeSoundCue === cue ? null : base.activeSoundCue) : null,
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
             detail: cue ? copy.stopCueLabel(cue) : copy.stopTrackedSound,
