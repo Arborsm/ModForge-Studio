@@ -9,21 +9,27 @@ import type { EventStageCopy, ViewportLabels } from '../editor-shell'
 import {
   CHARACTER_DATA_PATH,
   EVENT_STAGE_INITIAL_ZOOM,
+  OBJECT_DATA_PATH,
+  advanceFadeOverlayState,
   createInitialPlaybackState,
   getActorByName,
   getActorDefaultFrameState,
+  isFadeOverlayAnimating,
   isFarmerActor,
   isPathsLayerName,
   normalizeActorName,
   normalizeStageMapName,
   prunePlaybackNotices,
+  resolveFadeOverlayAlpha,
   toActorKey,
   type ActorAssetRequest,
   type ActorAssetState,
   type CharacterTextureIndex,
   type EffectAssetState,
+  type ObjectDataEntry,
   type PlaybackState,
 } from './eventStageShared'
+import { deriveMapDrivenFarmerBedState } from './eventStageFarmerState'
 import { continuePlayback, resolveChoice, seekPlaybackToEntry } from './eventStagePlayback'
 import {
   areAssetMapsEqual,
@@ -72,6 +78,7 @@ export function useEventStageWorkspace({
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapMessage, setMapMessage] = useState('')
   const [characterTextureIndex, setCharacterTextureIndex] = useState<CharacterTextureIndex>({})
+  const [eventObjectDrinkIndex, setEventObjectDrinkIndex] = useState<Record<string, boolean>>({})
   const [actorAssets, setActorAssets] = useState<Record<string, ActorAssetState>>({})
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
 
@@ -102,6 +109,35 @@ export function useEventStageWorkspace({
       } catch {
         if (!cancelled) {
           setCharacterTextureIndex({})
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [directoryInfo?.rootPath])
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath) {
+      setEventObjectDrinkIndex({})
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const objectDataAsset = await loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_PATH)
+        const parsed = JSON.parse(objectDataAsset.content) as Record<string, ObjectDataEntry>
+        if (!cancelled) {
+          setEventObjectDrinkIndex(
+            Object.fromEntries(Object.entries(parsed).map(([itemId, entry]) => [itemId, Boolean(entry?.IsDrink)])),
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          setEventObjectDrinkIndex({})
         }
       }
     })()
@@ -179,9 +215,13 @@ export function useEventStageWorkspace({
     }
 
     setAutoPlay(false)
-    setPlaybackState(seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, timelineJumpRequestId, initialMapName, copy))
+    setPlaybackState(
+      seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, timelineJumpRequestId, initialMapName, copy, {
+        objectDrinkIndex: eventObjectDrinkIndex,
+      }),
+    )
     onTimelineJumpHandled()
-  }, [copy, initialMapName, onTimelineJumpHandled, parsedEventAsset?.eventIndex, selectedEvent, timelineJumpRequestId])
+  }, [copy, eventObjectDrinkIndex, initialMapName, onTimelineJumpHandled, parsedEventAsset?.eventIndex, selectedEvent, timelineJumpRequestId])
 
   useEffect(() => {
     onPlaybackCommandChange(playbackState.currentCommandId)
@@ -206,7 +246,10 @@ export function useEventStageWorkspace({
         effect.yPeriodic ||
         effect.pulse,
     )
-    const hasAnimatedHud = playbackState.notices.length > 0 || playbackState.flashOverlay != null
+    const hasAnimatedHud =
+      playbackState.notices.length > 0 ||
+      playbackState.flashOverlay != null ||
+      isFadeOverlayAnimating(playbackState.fadeOverlay, performance.now())
     if (!hasAnimatedActors && !hasAnimatedEffects && !hasAnimatedHud) {
       return
     }
@@ -222,7 +265,7 @@ export function useEventStageWorkspace({
   }, [playbackState.actors, playbackState.flashOverlay, playbackState.notices.length, playbackState.stageEffects])
 
   useEffect(() => {
-    if (playbackState.notices.length === 0 && playbackState.flashOverlay == null) {
+    if (playbackState.notices.length === 0 && playbackState.flashOverlay == null && playbackState.fadeOverlay == null) {
       return
     }
 
@@ -233,12 +276,13 @@ export function useEventStageWorkspace({
         current.flashOverlay && nowMs - current.flashOverlay.startedAtMs >= current.flashOverlay.durationMs
           ? null
           : current.flashOverlay
+      const fadeOverlay = advanceFadeOverlayState(current.fadeOverlay, nowMs)
 
-      if (notices === current.notices && flashOverlay === current.flashOverlay) {
+      if (notices === current.notices && flashOverlay === current.flashOverlay && fadeOverlay === current.fadeOverlay) {
         return current
       }
 
-      if (notices.length === current.notices.length && flashOverlay === current.flashOverlay) {
+      if (notices.length === current.notices.length && flashOverlay === current.flashOverlay && fadeOverlay === current.fadeOverlay) {
         return current
       }
 
@@ -246,9 +290,43 @@ export function useEventStageWorkspace({
         ...current,
         notices,
         flashOverlay,
+        fadeOverlay,
       }
     })
-  }, [animationNowMs, playbackState.flashOverlay, playbackState.notices])
+  }, [animationNowMs, playbackState.fadeOverlay, playbackState.flashOverlay, playbackState.notices])
+
+  useEffect(() => {
+    setPlaybackState((current) => {
+      let changed = false
+      const nextActors = { ...current.actors }
+
+      for (const [actorKey, actor] of Object.entries(current.actors)) {
+        if (!actor.farmerRenderState) {
+          continue
+        }
+
+        const derivedBedState = deriveMapDrivenFarmerBedState(mapDocument, actor)
+        if (
+          actor.farmerRenderState.isInBed === derivedBedState.isInBed &&
+          actor.farmerRenderState.timeWentToBed === derivedBedState.timeWentToBed
+        ) {
+          continue
+        }
+
+        nextActors[actorKey] = {
+          ...actor,
+          farmerRenderState: {
+            ...actor.farmerRenderState,
+            isInBed: derivedBedState.isInBed,
+            timeWentToBed: derivedBedState.timeWentToBed,
+          },
+        }
+        changed = true
+      }
+
+      return changed ? { ...current, actors: nextActors } : current
+    })
+  }, [mapDocument, playbackState.currentMapName, playbackState.actors])
 
   useEffect(() => {
     const completedActorKeys = Object.values(playbackState.actors)
@@ -270,8 +348,24 @@ export function useEventStageWorkspace({
           continue
         }
 
-        const finalFrame = actor.animation.frames[actor.animation.frames.length - 1] ?? actor.frame
-        nextActors[actorKey] = { ...actor, frame: finalFrame, animation: null }
+        const finalFrame = actor.animation.frames[actor.animation.frames.length - 1]?.frame ?? actor.frame
+        nextActors[actorKey] = {
+          ...actor,
+          frame: finalFrame,
+          animation: null,
+          farmerRenderState: actor.farmerRenderState
+            ? {
+                ...actor.farmerRenderState,
+                pauseForSingleAnimation: false,
+                usingTool: false,
+                toolKind: 'none' as const,
+                armOffset: 6,
+                fishingRodIsCasting: true,
+                slingshotAimRadians: null,
+                slingshotBackArmDistance: 8,
+              }
+            : null,
+        }
         changed = true
       }
 
@@ -323,12 +417,14 @@ export function useEventStageWorkspace({
       const nextState = { ...current, actors: nextActors, blockingMovement: stillMoving ? current.blockingMovement : false }
 
       if (!stillMoving && current.blockingMovement && autoPlay && !current.pendingChoice && !current.ended) {
-        return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy)
+        return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
+          objectDrinkIndex: eventObjectDrinkIndex,
+        })
       }
 
       return nextState
     })
-  }, [animationNowMs, autoPlay, copy, parsedEventAsset?.eventIndex, playbackState.actors])
+  }, [animationNowMs, autoPlay, copy, eventObjectDrinkIndex, parsedEventAsset?.eventIndex, playbackState.actors])
 
   useEffect(() => {
     if (!autoPlay || playbackState.pendingChoice || playbackState.ended || playbackState.blockingMovement) {
@@ -344,19 +440,33 @@ export function useEventStageWorkspace({
           : null)
 
     if (waitMs == null) {
-      setPlaybackState((current) => continuePlayback(current, parsedEventAsset?.eventIndex ?? {}, copy))
+      setPlaybackState((current) =>
+        continuePlayback(current, parsedEventAsset?.eventIndex ?? {}, copy, {
+          objectDrinkIndex: eventObjectDrinkIndex,
+        }),
+      )
       return
     }
 
+    const elapsedWaitMs =
+      playbackState.waitingStartedAtMs == null ? 0 : Math.max(0, performance.now() - playbackState.waitingStartedAtMs)
+    const remainingWaitMs = Math.max(0, waitMs - elapsedWaitMs)
+
     const timeout = window.setTimeout(() => {
-      setPlaybackState((current) => ({
-        ...continuePlayback(current, parsedEventAsset?.eventIndex ?? {}, copy),
-        waitingMs: null,
-      }))
-    }, waitMs)
+      setPlaybackState((current) => {
+        const readyState = {
+          ...current,
+          waitingMs: null,
+          waitingStartedAtMs: null,
+        }
+        return continuePlayback(readyState, parsedEventAsset?.eventIndex ?? {}, copy, {
+          objectDrinkIndex: eventObjectDrinkIndex,
+        })
+      })
+    }, remainingWaitMs)
 
     return () => window.clearTimeout(timeout)
-  }, [autoPlay, copy, parsedEventAsset?.eventIndex, playbackState])
+  }, [autoPlay, copy, eventObjectDrinkIndex, parsedEventAsset?.eventIndex, playbackState])
 
   const actorAssetRequests = useMemo<ActorAssetRequest[]>(
     () =>
@@ -516,6 +626,10 @@ export function useEventStageWorkspace({
     const progress = Math.max(0, Math.min(1, elapsedMs / Math.max(1, playbackState.flashOverlay.durationMs)))
     return playbackState.flashOverlay.alpha * (1 - progress)
   }, [animationNowMs, playbackState.flashOverlay])
+  const fadeOverlayOpacity = useMemo(
+    () => resolveFadeOverlayAlpha(playbackState.fadeOverlay, animationNowMs),
+    [animationNowMs, playbackState.fadeOverlay],
+  )
   const playbackStatusChips = useMemo(() => {
     const chips: Array<{ id: string; label: string; value: string }> = []
 
@@ -532,7 +646,7 @@ export function useEventStageWorkspace({
       chips.push({
         id: 'fade',
         label: copy.statusFade,
-        value: `${Math.round(playbackState.fadeOverlay.alpha * 100)}%`,
+        value: `${Math.round(fadeOverlayOpacity * 100)}%`,
       })
     }
 
@@ -546,10 +660,15 @@ export function useEventStageWorkspace({
     playbackState.activeSoundCue,
     playbackState.ambientOverlayColor,
     playbackState.fadeOverlay,
+    fadeOverlayOpacity,
   ])
 
   function handleSelectChoice(index: number) {
-    setPlaybackState((current) => resolveChoice(current, parsedEventAsset?.eventIndex ?? {}, index, copy))
+    setPlaybackState((current) =>
+      resolveChoice(current, parsedEventAsset?.eventIndex ?? {}, index, copy, {
+        objectDrinkIndex: eventObjectDrinkIndex,
+      }),
+    )
   }
 
   function playNextFrame() {
@@ -557,7 +676,9 @@ export function useEventStageWorkspace({
     setPlaybackState((current) => {
       const nextState =
         current.rootEventKey === selectedEvent?.key && !current.ended ? current : createInitialPlaybackState(selectedEvent, initialMapName)
-      return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy)
+      return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
+        objectDrinkIndex: eventObjectDrinkIndex,
+      })
     })
   }
 
@@ -569,7 +690,11 @@ export function useEventStageWorkspace({
       const shouldAdvanceImmediately =
         current.rootEventKey !== selectedEvent?.key || current.ended || (!current.currentEntry && !current.pendingChoice)
 
-      return shouldAdvanceImmediately ? continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy) : nextState
+      return shouldAdvanceImmediately
+        ? continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
+            objectDrinkIndex: eventObjectDrinkIndex,
+          })
+        : nextState
     })
   }
 
@@ -592,6 +717,7 @@ export function useEventStageWorkspace({
     currentDialogueActorAsset,
     currentDialoguePortrait,
     effectAssets,
+    fadeOverlayOpacity,
     flashOverlayOpacity,
     focusWorldPoint,
     handleSelectChoice,

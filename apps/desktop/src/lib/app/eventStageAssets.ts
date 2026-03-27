@@ -22,6 +22,7 @@ import {
   loadHatMetadataIndex,
   normalizeActorName,
   toLookupTokens,
+  type ActorAnimationFrameState,
   type ActorAssetRequest,
   type ActorAssetState,
   type ActorMovementState,
@@ -170,26 +171,55 @@ function getActorBreathSeed(actorName: string) {
 
 function getAnimatedFrame(actor: EventActorState, nowMs: number) {
   const animation = actor.animation
-  if (!animation || animation.frames.length === 0 || animation.frameDurationMs <= 0) {
-    return { frame: actor.frame, flip: false, complete: true }
+  const fallbackArmOffset = actor.farmerRenderState?.armOffset ?? 6
+  const fallbackFrame: ActorAnimationFrameState = {
+    frame: actor.frame,
+    durationMs: 0,
+    flip: false,
+    positionOffset: 0,
+    xOffset: 0,
+    armOffset: fallbackArmOffset,
+  }
+
+  if (!animation || animation.frames.length === 0) {
+    return { ...fallbackFrame, complete: true }
   }
 
   const elapsedMs = Math.max(0, nowMs - animation.startedAtMs)
-  const rawIndex = Math.floor(elapsedMs / animation.frameDurationMs)
+  const normalizedFrames = animation.frames.map((frame) => ({
+    ...frame,
+    durationMs: Math.max(1, frame.durationMs),
+  }))
+  const totalDurationMs = normalizedFrames.reduce((sum, frame) => sum + frame.durationMs, 0)
+
+  if (totalDurationMs <= 0) {
+    return { ...(normalizedFrames[normalizedFrames.length - 1] ?? fallbackFrame), complete: true }
+  }
+
+  const resolveFrameAtElapsed = (targetElapsedMs: number) => {
+    let remainingElapsedMs = targetElapsedMs
+
+    for (const frame of normalizedFrames) {
+      if (remainingElapsedMs < frame.durationMs) {
+        return frame
+      }
+      remainingElapsedMs -= frame.durationMs
+    }
+
+    return normalizedFrames[normalizedFrames.length - 1] ?? fallbackFrame
+  }
 
   if (animation.loop) {
     return {
-      frame: animation.frames[rawIndex % animation.frames.length] ?? actor.frame,
-      flip: animation.flip,
+      ...resolveFrameAtElapsed(elapsedMs % totalDurationMs),
       complete: false,
     }
   }
 
-  const clampedIndex = Math.min(animation.frames.length - 1, rawIndex)
+  const clampedElapsedMs = Math.min(Math.max(0, totalDurationMs - 1), elapsedMs)
   return {
-    frame: animation.frames[clampedIndex] ?? actor.frame,
-    flip: animation.flip,
-    complete: rawIndex >= animation.frames.length - 1,
+    ...resolveFrameAtElapsed(clampedElapsedMs),
+    complete: elapsedMs >= totalDurationMs,
   }
 }
 
@@ -219,15 +249,40 @@ function getMovementFacingDirection(movement: ActorMovementState, fallbackDirect
   return fallbackDirection
 }
 
+function buildFarmerVisualRenderState(
+  farmerRenderState: NonNullable<EventActorState['farmerRenderState']>,
+  nowMs: number,
+  currentEyes: number,
+  armOffset: number,
+): FarmerRenderState {
+  return {
+    currentEyes,
+    bathingClothes: farmerRenderState.bathingClothes,
+    swimming: farmerRenderState.swimming,
+    swimmingYOffset: farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
+    isDrawingForUi: false,
+    isInBed: farmerRenderState.isInBed,
+    timeWentToBed: farmerRenderState.timeWentToBed,
+    timeOfDay: farmerRenderState.timeOfDay,
+    pauseForSingleAnimation: farmerRenderState.pauseForSingleAnimation,
+    usingTool: farmerRenderState.usingTool,
+    toolKind: farmerRenderState.toolKind,
+    fishingRodIsCasting: farmerRenderState.fishingRodIsCasting,
+    armOffset,
+    slingshotAimRadians: farmerRenderState.slingshotAimRadians ?? undefined,
+    slingshotBackArmDistance: farmerRenderState.slingshotBackArmDistance,
+  }
+}
+
 function getActorRenderState(actor: EventActorState, nowMs: number) {
   if (actor.animation) {
     const animatedFrame = getAnimatedFrame(actor, nowMs)
-    const bodyFlip = isFarmerActor(actor.actorName) ? animatedFrame.flip || actor.directionalFlip : actor.directionalFlip
+    const bodyFlip = isFarmerActor(actor.actorName) ? animatedFrame.flip : actor.directionalFlip
     return {
       tileX: actor.tileX,
       tileY: actor.tileY,
-      offsetX: actor.offsetX,
-      offsetY: actor.offsetY,
+      offsetX: actor.offsetX + animatedFrame.xOffset * 4,
+      offsetY: actor.offsetY + animatedFrame.positionOffset * 4,
       frame: animatedFrame.frame,
       facingDirection: actor.facingDirection,
       flip: animatedFrame.flip,
@@ -237,20 +292,7 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       breathingScale: 1,
       moving: false,
       farmerRenderState: actor.farmerRenderState
-        ? {
-            currentEyes: getFarmerBlinkEyesState(actor, nowMs),
-            bathingClothes: actor.farmerRenderState.bathingClothes,
-            swimming: actor.farmerRenderState.swimming,
-            swimmingYOffset: actor.farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
-            isDrawingForUi: false,
-            isInBed: actor.farmerRenderState.isInBed,
-            timeWentToBed: actor.farmerRenderState.timeWentToBed,
-            timeOfDay: 1200,
-            pauseForSingleAnimation: actor.farmerRenderState.pauseForSingleAnimation,
-            usingTool: actor.farmerRenderState.usingTool,
-            toolKind: actor.farmerRenderState.toolKind,
-            fishingRodIsCasting: actor.farmerRenderState.fishingRodIsCasting,
-          }
+        ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), animatedFrame.armOffset)
         : null,
     }
   }
@@ -275,20 +317,7 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       breathingScale: 1,
       moving: progress < 1,
       farmerRenderState: actor.farmerRenderState
-        ? {
-            currentEyes: getFarmerBlinkEyesState(actor, nowMs),
-            bathingClothes: actor.farmerRenderState.bathingClothes,
-            swimming: actor.farmerRenderState.swimming,
-            swimmingYOffset: actor.farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
-            isDrawingForUi: false,
-            isInBed: actor.farmerRenderState.isInBed,
-            timeWentToBed: actor.farmerRenderState.timeWentToBed,
-            timeOfDay: 1200,
-            pauseForSingleAnimation: actor.farmerRenderState.pauseForSingleAnimation,
-            usingTool: actor.farmerRenderState.usingTool,
-            toolKind: actor.farmerRenderState.toolKind,
-            fishingRodIsCasting: actor.farmerRenderState.fishingRodIsCasting,
-          }
+        ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), actor.farmerRenderState.armOffset)
         : null,
     }
   }
@@ -309,20 +338,7 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
     breathingScale: 1 + Math.sin(breathPhase + 0.8) * 0.028,
     moving: false,
     farmerRenderState: actor.farmerRenderState
-      ? {
-          currentEyes: getFarmerBlinkEyesState(actor, nowMs),
-          bathingClothes: actor.farmerRenderState.bathingClothes,
-          swimming: actor.farmerRenderState.swimming,
-          swimmingYOffset: actor.farmerRenderState.swimming ? Math.cos(nowMs / 2000) * 4 : 0,
-          isDrawingForUi: false,
-          isInBed: actor.farmerRenderState.isInBed,
-          timeWentToBed: actor.farmerRenderState.timeWentToBed,
-          timeOfDay: 1200,
-          pauseForSingleAnimation: actor.farmerRenderState.pauseForSingleAnimation,
-          usingTool: actor.farmerRenderState.usingTool,
-          toolKind: actor.farmerRenderState.toolKind,
-          fishingRodIsCasting: actor.farmerRenderState.fishingRodIsCasting,
-        }
+      ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), actor.farmerRenderState.armOffset)
       : null,
   }
 }

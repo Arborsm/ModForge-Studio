@@ -2,22 +2,36 @@ import { parseEventCommand } from '../events/parser'
 import { EVENT_SETUP_ENTRY_ID } from '../events/timeline'
 import type { EventStageCopy } from '../editor-shell'
 import type { EventCommand, EventDialoguePage, EventScript } from '../events/types'
+import {
+  buildEventAnimationFrames,
+  inferFarmerAnimationFramesVisualState,
+  inferFarmerFrameVisualState,
+  buildFarmerSingleAnimationFrames,
+  getFarmerEatAnimationId,
+  inferFarmerSingleAnimationVisualState,
+} from './farmerEventAnimationData'
 import { applyStageEffectCommand, removeStageEffectsByTile } from './eventStageTemporarySprites'
 import {
+  createFadeOverlayState,
   buildActorMap,
   createActorState,
   createItemAboveActorEffect,
   createItemAtTileEffect,
   createNoticeIconForItemId,
   enqueuePlaybackNotice,
+  getFadeDurationMsFromSpeed,
   getActorByName,
   getActorDefaultFrameState,
+  isFarmerActor,
+  resolveFadeOverlayAlpha,
+  applyEventFarmerStateSeeds,
   normalizeEventItemId,
   normalizeStageMapName,
   parseBoolean,
   parseNumber,
   parsePoint,
   parseRgbColorFromArgs,
+  parseSpringObjectIndexFromItemId,
   resolveCameraFocus,
   resolveActorFocusTile,
   toActorKey,
@@ -27,6 +41,10 @@ import {
   type PlaybackNoticeTone,
   type PlaybackState,
 } from './eventStageShared'
+
+type PlaybackContext = {
+  objectDrinkIndex?: Record<string, boolean>
+}
 
 function updateFarmerRenderState(actor: EventActorState, mutate: NonNullable<EventActorState['farmerRenderState']>) {
   return {
@@ -143,7 +161,33 @@ function applyShowFrameCommand(actors: Record<string, EventActorState>, command:
   }
 
   const actor = getActorByName(actors, actorName)
-  return actor ? { ...actors, [toActorKey(actorName)]: { ...actor, frame, directionalFlip: false, animation: null, movement: null } } : actors
+  if (!actor) {
+    return actors
+  }
+
+  const visualState = actor.farmerRenderState ? inferFarmerFrameVisualState(frame) : null
+  return {
+    ...actors,
+    [toActorKey(actorName)]: {
+      ...actor,
+      frame,
+      directionalFlip: false,
+      animation: null,
+      movement: null,
+      farmerRenderState:
+        actor.farmerRenderState && visualState
+          ? {
+              ...actor.farmerRenderState,
+              pauseForSingleAnimation: false,
+              usingTool: visualState.usingTool,
+              toolKind: visualState.toolKind,
+              fishingRodIsCasting: visualState.fishingRodIsCasting,
+              slingshotAimRadians: visualState.slingshotAimRadians,
+              slingshotBackArmDistance: visualState.slingshotBackArmDistance,
+            }
+          : actor.farmerRenderState,
+    },
+  }
 }
 
 function applyPositionOffsetCommand(actors: Record<string, EventActorState>, command: EventCommand) {
@@ -258,29 +302,45 @@ function applyAnimateCommand(actors: Record<string, EventActorState>, command: E
   const actorName = command.actorName ?? command.args[1]
   const frames = command.animationFrames ?? []
   const frameDurationMs = command.animationFrameDurationMs ?? 0
-  if (!actorName || frames.length === 0 || frameDurationMs <= 0) {
+  const animationFrames = buildEventAnimationFrames(frames, frameDurationMs, command.animationFlip ?? false)
+  if (!actorName || animationFrames.length === 0 || frameDurationMs <= 0) {
     return actors
   }
 
   const actor = getActorByName(actors, actorName)
-  return actor
-    ? {
-        ...actors,
-        [toActorKey(actorName)]: {
-          ...actor,
-          frame: frames[0] ?? actor.frame,
-          directionalFlip: false,
-          movement: null,
-          animation: {
-            frames,
-            frameDurationMs,
-            loop: command.animationLoop ?? false,
-            flip: command.animationFlip ?? false,
-            startedAtMs: performance.now(),
-          },
-        },
-      }
-    : actors
+  if (!actor) {
+    return actors
+  }
+
+  const firstFrame = animationFrames[0] ?? null
+  const visualState = actor.farmerRenderState ? inferFarmerAnimationFramesVisualState(animationFrames.map((frame) => frame.frame)) : null
+  return {
+    ...actors,
+    [toActorKey(actorName)]: {
+      ...actor,
+      frame: firstFrame?.frame ?? actor.frame,
+      directionalFlip: false,
+      movement: null,
+      animation: {
+        frames: animationFrames,
+        loop: command.animationLoop ?? false,
+        startedAtMs: performance.now(),
+        pauseForSingleAnimation: isFarmerActor(actor.actorName),
+      },
+      farmerRenderState: actor.farmerRenderState
+        ? {
+            ...actor.farmerRenderState,
+            pauseForSingleAnimation: true,
+            usingTool: visualState?.usingTool ?? false,
+            toolKind: visualState?.toolKind ?? ('none' as const),
+            fishingRodIsCasting: visualState?.fishingRodIsCasting ?? true,
+            armOffset: firstFrame?.armOffset ?? actor.farmerRenderState.armOffset,
+            slingshotAimRadians: visualState?.slingshotAimRadians ?? null,
+            slingshotBackArmDistance: visualState?.slingshotBackArmDistance ?? 8,
+          }
+        : null,
+    },
+  }
 }
 
 function applyStopAnimationCommand(actors: Record<string, EventActorState>, command: EventCommand) {
@@ -304,6 +364,104 @@ function applyStopAnimationCommand(actors: Record<string, EventActorState>, comm
       directionalFlip: fallbackFrameState.directionalFlip,
       animation: null,
       movement: null,
+      farmerRenderState: actor.farmerRenderState
+        ? {
+            ...actor.farmerRenderState,
+            pauseForSingleAnimation: false,
+            usingTool: false,
+            toolKind: 'none' as const,
+            fishingRodIsCasting: true,
+            armOffset: 6,
+            slingshotAimRadians: null,
+            slingshotBackArmDistance: 8,
+          }
+        : null,
+    },
+  }
+}
+
+function applyFarmerSingleAnimationCommand(actors: Record<string, EventActorState>, animationId: number) {
+  const farmer = getActorByName(actors, 'farmer')
+  if (!farmer?.farmerRenderState) {
+    return actors
+  }
+
+  const animationFrames = buildFarmerSingleAnimationFrames(animationId, farmer.facingDirection)
+  if (!animationFrames?.length) {
+    return actors
+  }
+
+  const firstFrame = animationFrames[0] ?? null
+  const visualState = inferFarmerSingleAnimationVisualState(animationId)
+  return {
+    ...actors,
+    [toActorKey(farmer.actorName)]: {
+      ...farmer,
+      frame: firstFrame?.frame ?? farmer.frame,
+      directionalFlip: false,
+      movement: null,
+      animation: {
+        frames: animationFrames,
+        loop: false,
+        startedAtMs: performance.now(),
+        pauseForSingleAnimation: true,
+      },
+      farmerRenderState: {
+        ...farmer.farmerRenderState,
+        pauseForSingleAnimation: true,
+        usingTool: visualState.usingTool,
+        toolKind: visualState.toolKind,
+        fishingRodIsCasting: visualState.fishingRodIsCasting,
+        armOffset: firstFrame?.armOffset ?? farmer.farmerRenderState.armOffset,
+        slingshotAimRadians: visualState.slingshotAimRadians,
+        slingshotBackArmDistance: visualState.slingshotBackArmDistance,
+      },
+    },
+  }
+}
+
+function applyFarmerEatCommand(
+  actors: Record<string, EventActorState>,
+  rawItemId: string | undefined,
+  objectDrinkIndex: Record<string, boolean>,
+) {
+  const farmer = getActorByName(actors, 'farmer')
+  if (!farmer?.farmerRenderState) {
+    return actors
+  }
+
+  const itemIndex = parseSpringObjectIndexFromItemId(rawItemId)
+  const isDrink = itemIndex != null ? objectDrinkIndex[String(itemIndex)] ?? false : false
+  const animationFrames = buildFarmerSingleAnimationFrames(getFarmerEatAnimationId(isDrink), 2)
+  if (!animationFrames?.length) {
+    return actors
+  }
+
+  const firstFrame = animationFrames[0] ?? null
+  return {
+    ...actors,
+    [toActorKey(farmer.actorName)]: {
+      ...farmer,
+      facingDirection: 2,
+      frame: firstFrame?.frame ?? farmer.frame,
+      directionalFlip: false,
+      movement: null,
+      animation: {
+        frames: animationFrames,
+        loop: false,
+        startedAtMs: performance.now(),
+        pauseForSingleAnimation: true,
+      },
+      farmerRenderState: {
+        ...farmer.farmerRenderState,
+        pauseForSingleAnimation: true,
+        usingTool: false,
+        toolKind: 'none' as const,
+        fishingRodIsCasting: true,
+        armOffset: firstFrame?.armOffset ?? farmer.farmerRenderState.armOffset,
+        slingshotAimRadians: null,
+        slingshotBackArmDistance: 8,
+      },
     },
   }
 }
@@ -349,7 +507,7 @@ function applyStageMapChange(state: PlaybackState, mapName: string | null) {
 }
 
 function mergeEventScene(state: PlaybackState, event: EventScript) {
-  const eventActors = buildActorMap(event)
+  const eventActors = applyEventFarmerStateSeeds(event, buildActorMap(event))
   const actors = event.scene.actors.length ? { ...state.actors, ...eventActors } : state.actors
 
   return {
@@ -381,6 +539,7 @@ function seekPlaybackToEntry(
   entryId: string,
   initialMapName: string | null,
   copy: EventStageCopy,
+  playbackContext: PlaybackContext = {},
 ): PlaybackState {
   const initialState = createInitialPlaybackState(event, initialMapName)
   if (!event || entryId === EVENT_SETUP_ENTRY_ID) {
@@ -389,10 +548,11 @@ function seekPlaybackToEntry(
 
   let state = initialState
   for (let guard = 0; guard < 800; guard += 1) {
-    const rawNextState = continuePlayback(state, eventIndex, copy)
+    const rawNextState = continuePlayback(state, eventIndex, copy, playbackContext)
     const nextState = {
       ...rawNextState,
       waitingMs: null,
+      waitingStartedAtMs: null,
       blockingMovement: false,
       actors: Object.fromEntries(
         Object.entries(rawNextState.actors).map(([actorKey, actor]) => [
@@ -439,6 +599,7 @@ function advanceCommandPlayback(
     ended?: boolean
   } = {},
 ): PlaybackState {
+  const waitingMs = options.waitingMs ?? null
   return {
     ...state,
     pointer: state.pointer + 1,
@@ -449,14 +610,24 @@ function advanceCommandPlayback(
       options.entryTitle ?? command.title,
     ),
     activeDialogue: null,
-    waitingMs: options.waitingMs ?? null,
+    waitingMs,
+    waitingStartedAtMs: waitingMs != null ? performance.now() : null,
     blockingMovement: options.blockingMovement ?? false,
     ended: options.ended ?? false,
     pendingChoice: null,
   }
 }
 
-function continuePlayback(state: PlaybackState, eventIndex: Record<string, EventScript>, copy: EventStageCopy): PlaybackState {
+function continuePlayback(
+  state: PlaybackState,
+  eventIndex: Record<string, EventScript>,
+  copy: EventStageCopy,
+  playbackContext: PlaybackContext = {},
+): PlaybackState {
+  if (state.waitingMs != null) {
+    return state
+  }
+
   if (state.blockingMovement && Object.values(state.actors).some((actor) => actor.movement)) {
     return state
   }
@@ -497,6 +668,7 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
           currentEntry: { id: `${command.id}:pause`, tone: 'system', title: command.title, detail: command.detail },
           activeDialogue: null,
           waitingMs: Math.max(0, command.delayMs ?? 0),
+          waitingStartedAtMs: performance.now(),
           blockingMovement: false,
           ended: false,
           pendingChoice: null,
@@ -583,6 +755,7 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
           currentEntry: { id: `${command.id}:face`, tone: 'command', title: command.title, detail: command.detail },
           activeDialogue: null,
           waitingMs: command.args[3] === 'true' ? null : 500,
+          waitingStartedAtMs: command.args[3] === 'true' ? null : performance.now(),
           blockingMovement: false,
           ended: false,
           pendingChoice: null,
@@ -695,6 +868,34 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
           ended: false,
           pendingChoice: null,
         }
+      case 'farmerAnimation': {
+        const animationId = Number.parseInt(command.args[1] ?? '', 10)
+        return {
+          ...base,
+          actors: Number.isFinite(animationId) ? applyFarmerSingleAnimationCommand(nextState.actors, animationId) : nextState.actors,
+          pointer: nextState.pointer + 1,
+          currentEntry: { id: `${command.id}:farmerAnimation`, tone: 'command', title: command.title, detail: command.detail },
+          activeDialogue: null,
+          waitingMs: null,
+          blockingMovement: false,
+          ended: false,
+          pendingChoice: null,
+        }
+      }
+      case 'farmerEat': {
+        const detail = normalizeEventItemId(command.args[1]) ?? command.detail
+        return {
+          ...base,
+          actors: applyFarmerEatCommand(nextState.actors, command.args[1], playbackContext.objectDrinkIndex ?? {}),
+          pointer: nextState.pointer + 1,
+          currentEntry: { id: `${command.id}:farmerEat`, tone: 'command', title: command.title, detail },
+          activeDialogue: null,
+          waitingMs: null,
+          blockingMovement: false,
+          ended: false,
+          pendingChoice: null,
+        }
+      }
       case 'temporaryAnimatedSprite':
       case 'temporarySprite':
       case 'removeSprite':
@@ -833,26 +1034,66 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'ambient', entryDetail: ambientOverlayColor ?? command.detail })
       }
       case 'fade': {
-        const fadeOverlay = command.args[1] === 'unfade' ? null : { color: '#000000', alpha: 0.68 }
+        const nowMs = performance.now()
+        if (command.args[1] === 'unfade') {
+          const nextBase = {
+            ...base,
+            fadeOverlay: null,
+            notices: enqueuePlaybackNotice(base, {
+              title: command.title,
+              detail: copy.fadeCleared,
+              tone: 'visual',
+              durationMs: 2200,
+            }),
+          }
+          return advanceCommandPlayback(nextBase, command, {
+            entrySuffix: 'fade',
+            entryDetail: copy.clear,
+          })
+        }
+
+        const currentFadeAlpha = resolveFadeOverlayAlpha(base.fadeOverlay, nowMs)
+        const fadeDurationMs = getFadeDurationMsFromSpeed(0.02, currentFadeAlpha, 1)
+        const holdBlack = command.args.length > 1
         const nextBase = {
           ...base,
-          fadeOverlay,
+          fadeOverlay: createFadeOverlayState({
+            color: '#000000',
+            startAlpha: currentFadeAlpha,
+            targetAlpha: 1,
+            startedAtMs: nowMs,
+            durationMs: fadeDurationMs,
+            nextTargetAlpha: holdBlack ? null : 0,
+            nextDurationMs: holdBlack ? null : fadeDurationMs,
+          }),
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
-            detail: command.args[1] === 'unfade' ? copy.fadeCleared : copy.screenFadeToBlack,
+            detail: copy.screenFadeToBlack,
             tone: 'visual',
             durationMs: 2200,
           }),
         }
         return advanceCommandPlayback(nextBase, command, {
           entrySuffix: 'fade',
-          entryDetail: command.args[1] === 'unfade' ? copy.clear : command.detail,
+          entryDetail: command.detail || copy.screenFadeToBlack,
+          waitingMs: fadeDurationMs,
         })
       }
       case 'globalFade': {
+        const nowMs = performance.now()
+        const fadeSpeed = Math.max(0.0001, parseNumber(command.args[1]) ?? 0.007)
+        const continueEventDuringFade = parseBoolean(command.args[2], false)
+        const currentFadeAlpha = resolveFadeOverlayAlpha(base.fadeOverlay, nowMs)
+        const fadeDurationMs = getFadeDurationMsFromSpeed(fadeSpeed, currentFadeAlpha, 1)
         const nextBase = {
           ...base,
-          fadeOverlay: { color: '#000000', alpha: 0.92 },
+          fadeOverlay: createFadeOverlayState({
+            color: '#000000',
+            startAlpha: currentFadeAlpha,
+            targetAlpha: 1,
+            startedAtMs: nowMs,
+            durationMs: fadeDurationMs,
+          }),
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
             detail: command.detail || copy.globalFadeToBlack,
@@ -860,12 +1101,26 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
             durationMs: 2200,
           }),
         }
-        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'globalFade' })
+        return advanceCommandPlayback(nextBase, command, {
+          entrySuffix: 'globalFade',
+          waitingMs: continueEventDuringFade ? null : fadeDurationMs,
+        })
       }
       case 'globalFadeToClear': {
+        const nowMs = performance.now()
+        const fadeSpeed = Math.max(0.0001, parseNumber(command.args[1]) ?? 0.007)
+        const continueEventDuringFade = parseBoolean(command.args[2], false)
+        const currentFadeAlpha = resolveFadeOverlayAlpha(base.fadeOverlay, nowMs)
+        const fadeDurationMs = getFadeDurationMsFromSpeed(fadeSpeed, currentFadeAlpha, 0)
         const nextBase = {
           ...base,
-          fadeOverlay: null,
+          fadeOverlay: createFadeOverlayState({
+            color: '#000000',
+            startAlpha: currentFadeAlpha,
+            targetAlpha: 0,
+            startedAtMs: nowMs,
+            durationMs: fadeDurationMs,
+          }),
           notices: enqueuePlaybackNotice(base, {
             title: command.title,
             detail: copy.globalFadeCleared,
@@ -873,7 +1128,11 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
             durationMs: 2200,
           }),
         }
-        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'globalFadeClear', entryDetail: command.detail || copy.clear })
+        return advanceCommandPlayback(nextBase, command, {
+          entrySuffix: 'globalFadeClear',
+          entryDetail: command.detail || copy.clear,
+          waitingMs: continueEventDuringFade ? null : fadeDurationMs,
+        })
       }
       case 'screenFlash': {
         const flashAlpha = Math.max(0, Math.min(1, parseNumber(command.args[1]) ?? 1))
@@ -1065,6 +1324,7 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
             currentEntry: { id: `${command.id}:waitForAllStationary`, tone: 'system', title: command.title, detail: command.detail || 'waiting for movement' },
             activeDialogue: null,
             waitingMs: 80,
+            waitingStartedAtMs: performance.now(),
             blockingMovement: true,
             ended: false,
             pendingChoice: null,
@@ -1110,8 +1370,6 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
       case 'advancedMove':
       case 'speed':
       case 'stopAdvancedMoves':
-      case 'farmerAnimation':
-      case 'farmerEat':
       case 'tossConcession':
       case 'awardFestivalPrize':
       case 'action':
@@ -1245,7 +1503,13 @@ function continuePlayback(state: PlaybackState, eventIndex: Record<string, Event
   return nextState
 }
 
-function resolveChoice(state: PlaybackState, eventIndex: Record<string, EventScript>, choiceIndex: number, copy: EventStageCopy) {
+function resolveChoice(
+  state: PlaybackState,
+  eventIndex: Record<string, EventScript>,
+  choiceIndex: number,
+  copy: EventStageCopy,
+  playbackContext: PlaybackContext = {},
+) {
   const command = state.pendingChoice?.command ?? state.commands[state.pointer]
   if (!command || !state.pendingChoice) {
     return state
@@ -1274,10 +1538,12 @@ function resolveChoice(state: PlaybackState, eventIndex: Record<string, EventScr
       activeDialogue: null,
       pendingChoice: null,
       waitingMs: null,
+      waitingStartedAtMs: null,
       ended: false,
     },
     eventIndex,
     copy,
+    playbackContext,
   )
 }
 
@@ -1288,4 +1554,6 @@ export {
   resolveChoice,
   seekPlaybackToEntry,
 }
+
+export type { PlaybackContext }
 

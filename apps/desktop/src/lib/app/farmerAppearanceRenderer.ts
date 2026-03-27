@@ -50,6 +50,7 @@ export type FarmerSpriteLayerDescriptor = {
   opacity?: number
   backgroundColor?: string | null
   rotation?: number
+  transformOrigin?: string
 }
 
 export type FarmerHairMetadataEntry = {
@@ -77,6 +78,9 @@ export type FarmerRenderState = {
   usingTool?: boolean
   toolKind?: FarmerVisualToolKind
   fishingRodIsCasting?: boolean
+  armOffset?: number
+  slingshotAimRadians?: number
+  slingshotBackArmDistance?: number
   rotation?: number
 }
 
@@ -371,6 +375,174 @@ function shouldDrawFarmerAccessoryBelowHair(accessoryIndex: number) {
   return accessoryIndex < 8 || isFarmerAccessoryFacialHair(accessoryIndex)
 }
 
+function createFarmerLineLayerDescriptor(
+  key: string,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  color = '#ffffff',
+): FarmerSpriteLayerDescriptor {
+  const deltaX = endX - startX
+  const deltaY = endY - startY
+  return {
+    key,
+    url: null,
+    width: Math.max(0.75, Math.hypot(deltaX, deltaY)),
+    height: 0.75,
+    offsetX: startX,
+    offsetY: startY,
+    sourceX: 0,
+    sourceY: 0,
+    flip: false,
+    backgroundColor: color,
+    rotation: Math.atan2(deltaY, deltaX),
+    transformOrigin: '0 50%',
+  }
+}
+
+function buildFarmerSlingshotLayerDescriptors(
+  spriteUrl: string,
+  facingDirection: number,
+  renderState: FarmerRenderState,
+): FarmerSpriteLayerDescriptor[] {
+  const angle =
+    renderState.slingshotAimRadians ??
+    (facingDirection === 0 ? 1.25 : facingDirection === 1 ? 0.2 : facingDirection === 3 ? -0.2 : 1.1)
+  const backArmDistance = Math.max(0, renderState.slingshotBackArmDistance ?? 8)
+
+  switch (facingDirection) {
+    case 0:
+      return [
+        {
+          key: 'slingshot-up',
+          url: spriteUrl,
+          width: 9,
+          height: 14,
+          offsetX: 1 + angle * 2,
+          offsetY: -11,
+          sourceX: 173,
+          sourceY: 238,
+          flip: false,
+        },
+      ]
+    case 1: {
+      const startX = (52 - backArmDistance) / 4
+      const startY = -36 / 4
+      const num5 =
+        Math.cos(angle + Math.PI / 2) * (20 - backArmDistance - 8) -
+        Math.sin(angle + Math.PI / 2) * -68
+      const num6 =
+        Math.sin(angle + Math.PI / 2) * (20 - backArmDistance - 8) +
+        Math.cos(angle + Math.PI / 2) * -68
+      return [
+        {
+          key: 'slingshot-body-right',
+          url: spriteUrl,
+          width: 10,
+          height: 4,
+          offsetX: (52 - backArmDistance) / 4,
+          offsetY: -8,
+          sourceX: 147,
+          sourceY: 237,
+          flip: false,
+        },
+        {
+          key: 'slingshot-head-right',
+          url: spriteUrl,
+          width: 9,
+          height: 10,
+          offsetX: 9,
+          offsetY: -11,
+          sourceX: 156,
+          sourceY: 244,
+          flip: false,
+          rotation: angle,
+          transformOrigin: '0px 3px',
+        },
+        createFarmerLineLayerDescriptor('slingshot-line-right', startX, startY, 8 + num5 / 8, -11 + num6 / 8),
+      ]
+    }
+    case 3: {
+      const startX = (4 + backArmDistance) / 4
+      const startY = -40 / 4
+      const num5 =
+        Math.cos(angle + (Math.PI * 2) / 5) * (20 + backArmDistance - 8) -
+        Math.sin(angle + (Math.PI * 2) / 5) * -68
+      const num6 =
+        Math.sin(angle + (Math.PI * 2) / 5) * (20 + backArmDistance - 8) +
+        Math.cos(angle + (Math.PI * 2) / 5) * -68
+      return [
+        {
+          key: 'slingshot-body-left',
+          url: spriteUrl,
+          width: 10,
+          height: 4,
+          offsetX: (40 + backArmDistance) / 4,
+          offsetY: -8,
+          sourceX: 147,
+          sourceY: 237,
+          flip: true,
+        },
+        {
+          key: 'slingshot-head-left',
+          url: spriteUrl,
+          width: 9,
+          height: 10,
+          offsetX: 6,
+          offsetY: -10,
+          sourceX: 156,
+          sourceY: 244,
+          flip: true,
+          rotation: angle + Math.PI,
+          transformOrigin: '8px 3px',
+        },
+        createFarmerLineLayerDescriptor('slingshot-line-left', startX, startY, 6.5 + (num5 * 4) / 40, -10 + (num6 * 4) / 40),
+      ]
+    }
+    case 2:
+    default:
+      return [
+        {
+          key: 'slingshot-arm-down',
+          url: spriteUrl,
+          width: 4,
+          height: 4,
+          offsetX: 1,
+          offsetY: -8 - backArmDistance / 8,
+          sourceX: 148,
+          sourceY: 244,
+          flip: false,
+        },
+        createFarmerLineLayerDescriptor(
+          'slingshot-line-down-left',
+          4,
+          -7 - backArmDistance / 8,
+          11 - angle * 2.5,
+          -6,
+        ),
+        createFarmerLineLayerDescriptor(
+          'slingshot-line-down-right',
+          4,
+          -7 - backArmDistance / 8,
+          14 - angle * 2.5,
+          -6,
+        ),
+        {
+          key: 'slingshot-head-down',
+          url: spriteUrl,
+          width: 7,
+          height: 9,
+          offsetX: 9 - angle * 2.5,
+          offsetY: -4,
+          sourceX: 167,
+          sourceY: 235,
+          flip: false,
+        },
+      ]
+  }
+}
+
 export function getFarmerDirectionalFrame(direction: number): FarmerDirectionalFrameState {
   switch (direction) {
     case 0:
@@ -443,6 +615,7 @@ export function buildFarmerSpriteLayerDescriptors(
   const swimmingYOffset = swimming ? renderState.swimmingYOffset ?? 0 : 0
   const swimmingCropHeight = Math.max(1, Math.min(32, 16 - Math.trunc(swimmingYOffset / 4)))
   const verticalOffset = swimming ? 16 : 0
+  const armOffset = renderState.armOffset ?? 6
 
   const activeHairStyleIndex =
     !bathingClothes && farmerAppearance.hatHairDrawMode === 'cover' && farmerAppearance.obscuredHairStyleIndex != null
@@ -637,17 +810,23 @@ export function buildFarmerSpriteLayerDescriptors(
     }
   }
 
-  layers.push({
-    key: 'arms',
-    url: recoloredBaseUrl,
-    width: 16,
-    height: swimming ? swimmingCropHeight : 32,
-    offsetX: 0,
-    offsetY: verticalOffset,
-    sourceX: frameX + 96,
-    sourceY: frameY,
-    flip: bodyFlip,
-  })
+  if (armOffset > 0) {
+    layers.push({
+      key: 'arms',
+      url: recoloredBaseUrl,
+      width: 16,
+      height: swimming ? swimmingCropHeight : 32,
+      offsetX: 0,
+      offsetY: verticalOffset,
+      sourceX: frameX + armOffset * 16,
+      sourceY: frameY,
+      flip: bodyFlip,
+    })
+  }
+
+  if (renderState.usingTool && renderState.toolKind === 'slingshot') {
+    layers.push(...buildFarmerSlingshotLayerDescriptors(recoloredBaseUrl, effectiveFacingDirection, renderState))
+  }
 
   if (swimming) {
     layers.push({

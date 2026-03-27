@@ -62,6 +62,7 @@ export default function EventStageWorkspace({
     currentDialogueActorAsset,
     currentDialoguePortrait,
     effectAssets,
+    fadeOverlayOpacity,
     flashOverlayOpacity,
     focusWorldPoint,
     handleSelectChoice,
@@ -213,8 +214,14 @@ export default function EventStageWorkspace({
                             top: `${layer.offsetY}px`,
                             width: `${layer.width}px`,
                             height: `${layer.height}px`,
-                            transform: layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : undefined,
-                            transformOrigin: 'top left',
+                            transform:
+                              [
+                                layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : null,
+                                layer.rotation != null ? `rotate(${layer.rotation}rad)` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' ') || undefined,
+                            transformOrigin: layer.transformOrigin ?? 'top left',
                             backgroundImage: layer.url ? `url("${layer.url}")` : undefined,
                             backgroundColor: layer.backgroundColor ?? undefined,
                             backgroundPosition: `-${layer.sourceX}px -${layer.sourceY}px`,
@@ -304,7 +311,7 @@ export default function EventStageWorkspace({
       {playbackState.fadeOverlay ? (
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ backgroundColor: playbackState.fadeOverlay.color, opacity: playbackState.fadeOverlay.alpha }}
+          style={{ backgroundColor: playbackState.fadeOverlay.color, opacity: fadeOverlayOpacity }}
         />
       ) : null}
       {flashOverlayOpacity > 0 && playbackState.flashOverlay ? (
@@ -335,62 +342,6 @@ export default function EventStageWorkspace({
               </div>
             ) : null}
           </div>
-        </div>
-        <div className="flex justify-center">
-          {playbackState.pendingChoice ? (
-            <div className="pointer-events-auto w-full max-w-3xl rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.choose}</p>
-              <p className="mt-2 text-base font-semibold text-[var(--text-primary)]">{playbackState.pendingChoice.question}</p>
-              <div className="mt-4 grid gap-2 md:grid-cols-2">
-                {playbackState.pendingChoice.choices.map((choice, index) => (
-                  <button
-                    key={`${choice.id}:${index}`}
-                    type="button"
-                    className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-3 text-left text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
-                    onClick={() => handleSelectChoice(index)}
-                  >
-                    {choice.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : playbackState.currentEntry ? (
-            <div className="pointer-events-none flex w-full max-w-4xl items-end gap-4 rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
-              <div className="hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] sm:block">
-                {currentDialogueActorAsset?.portraitUrl ? (
-                  <div className="relative h-full w-full overflow-hidden">
-                    <div
-                      aria-label={currentDialogueActor?.actorName ?? playbackState.currentEntry.title}
-                      style={{
-                        width: `${currentDialoguePortrait.frameWidth}px`,
-                        height: `${currentDialoguePortrait.frameHeight}px`,
-                        transform: `scale(${96 / currentDialoguePortrait.frameWidth})`,
-                        transformOrigin: 'top left',
-                        backgroundImage: `url("${currentDialogueActorAsset.portraitUrl}")`,
-                        backgroundPosition: `-${currentDialoguePortrait.frameX}px -${currentDialoguePortrait.frameY}px`,
-                        backgroundRepeat: 'no-repeat',
-                        imageRendering: 'pixelated',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-full items-center justify-center text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                    {playbackState.currentEntry.title}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                  {playbackState.currentEntry.title}
-                </p>
-                <p className="mt-2 text-base leading-7 text-[var(--text-primary)]">{playbackState.currentEntry.detail}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-panel)]">
-              {labels.sceneIdle}
-            </div>
-          )}
         </div>
         <div className="flex justify-start">
           {playbackState.notices.length ? (
@@ -443,6 +394,62 @@ export default function EventStageWorkspace({
             <div />
           )}
         </div>
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center px-4">
+        {playbackState.pendingChoice ? (
+          <div className="pointer-events-auto w-full max-w-3xl rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.choose}</p>
+            <p className="mt-2 text-base font-semibold text-[var(--text-primary)]">{playbackState.pendingChoice.question}</p>
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              {playbackState.pendingChoice.choices.map((choice, index) => (
+                <button
+                  key={`${choice.id}:${index}`}
+                  type="button"
+                  className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-3 text-left text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+                  onClick={() => handleSelectChoice(index)}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : playbackState.currentEntry ? (
+          <div className="pointer-events-none flex w-full max-w-4xl items-end gap-4 rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
+            <div className="hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] sm:block">
+              {currentDialogueActorAsset?.portraitUrl ? (
+                <div className="relative h-full w-full overflow-hidden">
+                  <div
+                    aria-label={currentDialogueActor?.actorName ?? playbackState.currentEntry.title}
+                    style={{
+                      width: `${currentDialoguePortrait.frameWidth}px`,
+                      height: `${currentDialoguePortrait.frameHeight}px`,
+                      transform: `scale(${96 / currentDialoguePortrait.frameWidth})`,
+                      transformOrigin: 'top left',
+                      backgroundImage: `url("${currentDialogueActorAsset.portraitUrl}")`,
+                      backgroundPosition: `-${currentDialoguePortrait.frameX}px -${currentDialoguePortrait.frameY}px`,
+                      backgroundRepeat: 'no-repeat',
+                      imageRendering: 'pixelated',
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                  {playbackState.currentEntry.title}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+                {playbackState.currentEntry.title}
+              </p>
+              <p className="mt-2 text-base leading-7 text-[var(--text-primary)]">{playbackState.currentEntry.detail}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-panel)]">
+            {labels.sceneIdle}
+          </div>
+        )}
       </div>
     </div>
   )

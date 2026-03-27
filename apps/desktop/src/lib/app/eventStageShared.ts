@@ -52,12 +52,31 @@ type ScreenFlashState = {
   durationMs: number
 }
 
-type ActorAnimationState = {
-  frames: number[]
-  frameDurationMs: number
-  loop: boolean
-  flip: boolean
+type FadeOverlayState = {
+  color: string
+  alpha: number
+  startAlpha: number
+  targetAlpha: number
   startedAtMs: number
+  durationMs: number
+  nextTargetAlpha: number | null
+  nextDurationMs: number | null
+}
+
+type ActorAnimationFrameState = {
+  frame: number
+  durationMs: number
+  flip: boolean
+  positionOffset: number
+  xOffset: number
+  armOffset: number
+}
+
+type ActorAnimationState = {
+  frames: ActorAnimationFrameState[]
+  loop: boolean
+  startedAtMs: number
+  pauseForSingleAnimation: boolean
 }
 
 type ActorMovementState = {
@@ -145,10 +164,14 @@ type FarmerRenderState = {
   bathingClothes: boolean
   isInBed: boolean
   timeWentToBed: number
+  timeOfDay: number
   pauseForSingleAnimation: boolean
   usingTool: boolean
   toolKind: 'none' | 'fishingRod' | 'slingshot' | 'other'
   fishingRodIsCasting: boolean
+  armOffset: number
+  slingshotAimRadians: number | null
+  slingshotBackArmDistance: number
   lastMovementEndedAtMs: number
 }
 
@@ -173,11 +196,12 @@ type PlaybackState = {
   activeDialogue: ActiveDialogueState | null
   pendingChoice: PlaybackChoiceState | null
   waitingMs: number | null
+  waitingStartedAtMs: number | null
   blockingMovement: boolean
   focusTile: { tileX: number; tileY: number } | null
   notices: PlaybackNotice[]
   ambientOverlayColor: string | null
-  fadeOverlay: { color: string; alpha: number } | null
+  fadeOverlay: FadeOverlayState | null
   flashOverlay: ScreenFlashState | null
   activeMusicCue: string | null
   activeSoundCue: string | null
@@ -187,6 +211,10 @@ type PlaybackState = {
 type CharacterDataEntry = {
   TextureName?: string | null
   FormerCharacterNames?: string[] | null
+}
+
+type ObjectDataEntry = {
+  IsDrink?: boolean | null
 }
 
 type CharacterTextureIndex = Record<string, string>
@@ -269,6 +297,7 @@ const DEFAULT_FARMER_PANTS_SPRITE_INDEX = 0
 const EVENT_STAGE_INITIAL_ZOOM = 2.5
 type SpriteLayerDescriptor = FarmerSpriteLayerDescriptor
 const CHARACTER_DATA_PATH = 'Content (unpacked)\\Data\\Characters.json'
+const OBJECT_DATA_PATH = 'Content (unpacked)\\Data\\Objects.json'
 const HAIR_DATA_PATH = 'Content (unpacked)\\Data\\HairData.json'
 const HAT_DATA_PATH = 'Content (unpacked)\\Data\\hats.json'
 const EFFECT_VIEWPORT_BASE_WIDTH = 1280
@@ -350,6 +379,24 @@ function getInitialActorOffset() {
   return { offsetX: 0, offsetY: 0 }
 }
 
+function deriveEventTimeOfDay(event: EventScript | null) {
+  if (!event) {
+    return 1200
+  }
+
+  for (const precondition of event.preconditions.slice(1)) {
+    const match = /^t\s+(\d+)/iu.exec(precondition.trim())
+    if (match) {
+      const timeOfDay = Number.parseInt(match[1] ?? '', 10)
+      if (Number.isFinite(timeOfDay)) {
+        return timeOfDay
+      }
+    }
+  }
+
+  return 1200
+}
+
 function createFarmerRenderState(nowMs = performance.now()): FarmerRenderState {
   return {
     currentEyes: 0,
@@ -359,12 +406,125 @@ function createFarmerRenderState(nowMs = performance.now()): FarmerRenderState {
     bathingClothes: false,
     isInBed: false,
     timeWentToBed: 0,
+    timeOfDay: 1200,
     pauseForSingleAnimation: false,
     usingTool: false,
     toolKind: 'none',
     fishingRodIsCasting: true,
+    armOffset: 6,
+    slingshotAimRadians: null,
+    slingshotBackArmDistance: 8,
     lastMovementEndedAtMs: nowMs,
   }
+}
+
+function getFadeDurationMsFromSpeed(speed: number, startAlpha: number, targetAlpha: number) {
+  const alphaDelta = Math.abs(targetAlpha - startAlpha)
+  const normalizedSpeed = Math.max(0.0001, Math.abs(speed))
+  return Math.max(1, Math.round((alphaDelta / normalizedSpeed) * 16.6667))
+}
+
+function createFadeOverlayState({
+  color,
+  startAlpha,
+  targetAlpha,
+  startedAtMs = performance.now(),
+  durationMs,
+  nextTargetAlpha = null,
+  nextDurationMs = null,
+}: {
+  color: string
+  startAlpha: number
+  targetAlpha: number
+  startedAtMs?: number
+  durationMs: number
+  nextTargetAlpha?: number | null
+  nextDurationMs?: number | null
+}): FadeOverlayState {
+  const clampedStartAlpha = Math.max(0, Math.min(1, startAlpha))
+  const clampedTargetAlpha = Math.max(0, Math.min(1, targetAlpha))
+
+  return {
+    color,
+    alpha: clampedStartAlpha,
+    startAlpha: clampedStartAlpha,
+    targetAlpha: clampedTargetAlpha,
+    startedAtMs,
+    durationMs: Math.max(0, durationMs),
+    nextTargetAlpha,
+    nextDurationMs,
+  }
+}
+
+function resolveFadeOverlayAlpha(fadeOverlay: FadeOverlayState | null, nowMs: number) {
+  if (!fadeOverlay) {
+    return 0
+  }
+
+  if (fadeOverlay.durationMs <= 0) {
+    return fadeOverlay.targetAlpha
+  }
+
+  const progress = Math.max(0, Math.min(1, (nowMs - fadeOverlay.startedAtMs) / fadeOverlay.durationMs))
+  return fadeOverlay.startAlpha + (fadeOverlay.targetAlpha - fadeOverlay.startAlpha) * progress
+}
+
+function isFadeOverlayAnimating(fadeOverlay: FadeOverlayState | null, nowMs: number) {
+  return Boolean(fadeOverlay && fadeOverlay.durationMs > 0 && nowMs < fadeOverlay.startedAtMs + fadeOverlay.durationMs)
+}
+
+function advanceFadeOverlayState(fadeOverlay: FadeOverlayState | null, nowMs: number) {
+  if (!fadeOverlay) {
+    return fadeOverlay
+  }
+
+  if (fadeOverlay.durationMs > 0 && nowMs < fadeOverlay.startedAtMs + fadeOverlay.durationMs) {
+    return fadeOverlay
+  }
+
+  const settledAlpha = fadeOverlay.targetAlpha
+  if (fadeOverlay.nextTargetAlpha != null) {
+    return createFadeOverlayState({
+      color: fadeOverlay.color,
+      startAlpha: settledAlpha,
+      targetAlpha: fadeOverlay.nextTargetAlpha,
+      startedAtMs: nowMs,
+      durationMs: fadeOverlay.nextDurationMs ?? fadeOverlay.durationMs,
+    })
+  }
+
+  if (settledAlpha <= 0.001) {
+    return null
+  }
+
+  return {
+    ...fadeOverlay,
+    alpha: settledAlpha,
+    startAlpha: settledAlpha,
+    targetAlpha: settledAlpha,
+    startedAtMs: nowMs,
+    durationMs: 0,
+    nextTargetAlpha: null,
+    nextDurationMs: null,
+  }
+}
+
+function applyEventFarmerStateSeeds(event: EventScript, actors: Record<string, EventActorState>) {
+  const timeOfDay = deriveEventTimeOfDay(event)
+  return Object.fromEntries(
+    Object.entries(actors).map(([actorKey, actor]) => [
+      actorKey,
+      actor.farmerRenderState
+        ? {
+            ...actor,
+            farmerRenderState: {
+              ...actor.farmerRenderState,
+              timeOfDay,
+            },
+          }
+        : actor,
+    ]),
+  ) as Record<string, EventActorState>
 }
 
 function createActorState(actor: EventSceneActor): EventActorState {
@@ -800,6 +960,7 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
       activeDialogue: null,
       pendingChoice: null,
       waitingMs: null,
+      waitingStartedAtMs: null,
       blockingMovement: false,
       focusTile: null,
       notices: [],
@@ -812,7 +973,7 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
     }
   }
 
-  const actors = buildActorMap(event)
+  const actors = applyEventFarmerStateSeeds(event, buildActorMap(event))
   return {
     rootEventKey: event.key,
     activeEventKey: event.key,
@@ -827,6 +988,7 @@ function createInitialPlaybackState(event: EventScript | null, initialMapName: s
     activeDialogue: null,
     pendingChoice: null,
     waitingMs: null,
+    waitingStartedAtMs: null,
     blockingMovement: false,
     focusTile: resolveCameraFocus(event, actors),
     notices: [],
@@ -844,8 +1006,11 @@ export {
   EFFECT_VIEWPORT_BASE_HEIGHT,
   EFFECT_VIEWPORT_BASE_WIDTH,
   EVENT_STAGE_INITIAL_ZOOM,
+  OBJECT_DATA_PATH,
+  advanceFadeOverlayState,
   buildStageEffectId,
   clampColorChannel,
+  createFadeOverlayState,
   createActorState,
   buildActorMap,
   createInitialPlaybackState,
@@ -856,6 +1021,7 @@ export {
   createItemAtTileEffect,
   createItemAboveActorEffect,
   enqueuePlaybackNotice,
+  getFadeDurationMsFromSpeed,
   getActorByName,
   getActorDefaultFrameState,
   getActorWalkAnimationState,
@@ -874,10 +1040,14 @@ export {
   parseNumber,
   parsePoint,
   parseRgbColorFromArgs,
+  resolveFadeOverlayAlpha,
   parseSpringObjectIndexFromItemId,
   prunePlaybackNotices,
   resolveCameraFocus,
   resolveActorFocusTile,
+  isFadeOverlayAnimating,
+  deriveEventTimeOfDay,
+  applyEventFarmerStateSeeds,
   toActorKey,
   toLookupTokens,
   loadHatMetadataIndex,
@@ -888,6 +1058,7 @@ export {
 }
 
 export type {
+  ActorAnimationFrameState,
   ActorAnimationState,
   ActorAssetRequest,
   ActorAssetState,
@@ -897,9 +1068,11 @@ export type {
   CharacterDataEntry,
   EffectAssetState,
   EventActorState,
+  FadeOverlayState,
   FarmerRenderState,
   FarmerAppearanceAssetState,
   HatMetadataEntry,
+  ObjectDataEntry,
   PlaybackChoiceState,
   PlaybackLogEntry,
   PlaybackNotice,
