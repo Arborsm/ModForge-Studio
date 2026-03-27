@@ -5,6 +5,14 @@ export type WorkspaceStatus = {
   message: string
 }
 
+export type ResourcePreloadState = {
+  active: boolean
+  message: string
+  completed: number
+  total: number
+  currentLabel: string
+}
+
 export type WorldAtlasViewId = 'main' | 'remote'
 
 export type WorldAtlasView = {

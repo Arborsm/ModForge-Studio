@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { getStageMetadataCacheStats } from '../lib/app/eventStageShared'
+import { getDesktopCacheStats } from '../lib/desktop'
+import { getMapViewportCacheStats } from '../lib/mapViewportCache'
 import type { WorkspaceMode } from '../lib/editor-shell'
 
 type DevDebugOverlayProps = {
@@ -13,6 +16,12 @@ type MemoryStats = {
   usedJsHeapSize?: number
   totalJsHeapSize?: number
   jsHeapSizeLimit?: number
+}
+
+type CacheStats = {
+  desktop: ReturnType<typeof getDesktopCacheStats>
+  stage: ReturnType<typeof getStageMetadataCacheStats>
+  viewport: ReturnType<typeof getMapViewportCacheStats>
 }
 
 function formatBytes(value: number | undefined) {
@@ -65,6 +74,11 @@ export function DevDebugOverlay({
   const [collapsed, setCollapsed] = useState(false)
   const [position, setPosition] = useState({ x: 20, y: 84 })
   const [memoryStats, setMemoryStats] = useState<MemoryStats>({})
+  const [cacheStats, setCacheStats] = useState<CacheStats>({
+    desktop: getDesktopCacheStats(),
+    stage: getStageMetadataCacheStats(),
+    viewport: getMapViewportCacheStats(),
+  })
   const pointerOffsetRef = useRef({ x: 0, y: 0 })
   const dragPointerIdRef = useRef<number | null>(null)
   const { fps, frameTimeMs } = useFps()
@@ -73,6 +87,11 @@ export function DevDebugOverlay({
     const updateMemory = () => {
       const memory = (performance as Performance & { memory?: MemoryStats }).memory
       setMemoryStats(memory ?? {})
+      setCacheStats({
+        desktop: getDesktopCacheStats(),
+        stage: getStageMetadataCacheStats(),
+        viewport: getMapViewportCacheStats(),
+      })
     }
 
     updateMemory()
@@ -84,8 +103,15 @@ export function DevDebugOverlay({
     () => [
       ['FPS', fps ? String(fps) : '...'],
       ['Frame', `${frameTimeMs.toFixed(1)} ms`],
-      ['Heap', formatBytes(memoryStats.usedJsHeapSize)],
+      ['Heap Used', formatBytes(memoryStats.usedJsHeapSize)],
       ['Heap Total', formatBytes(memoryStats.totalJsHeapSize)],
+      ['Heap Limit', formatBytes(memoryStats.jsHeapSizeLimit)],
+      [
+        'Desktop Cache',
+        `${cacheStats.desktop.scanMaps + cacheStats.desktop.mapAsset + cacheStats.desktop.textAsset + cacheStats.desktop.imageDataUrl} entries`,
+      ],
+      ['Stage Cache', `${cacheStats.stage.hat + cacheStats.stage.hair} entries`],
+      ['Viewport Cache', `${cacheStats.viewport.images} loaded / ${cacheStats.viewport.pendingImages} pending`],
       ['DPR', window.devicePixelRatio.toFixed(2)],
       ['Viewport', `${window.innerWidth}x${window.innerHeight}`],
       ['Renderer', 'Canvas 2D'],
@@ -96,7 +122,26 @@ export function DevDebugOverlay({
       ['Actors', String(actorCount)],
       ['DOM', typeof document === 'undefined' ? 'n/a' : String(document.getElementsByTagName('*').length)],
     ],
-    [actorCount, currentEventCommandId, eventName, fps, frameTimeMs, mapName, memoryStats.totalJsHeapSize, memoryStats.usedJsHeapSize, workspaceMode],
+    [
+      actorCount,
+      cacheStats.desktop.imageDataUrl,
+      cacheStats.desktop.mapAsset,
+      cacheStats.desktop.scanMaps,
+      cacheStats.desktop.textAsset,
+      cacheStats.stage.hair,
+      cacheStats.stage.hat,
+      cacheStats.viewport.images,
+      cacheStats.viewport.pendingImages,
+      currentEventCommandId,
+      eventName,
+      fps,
+      frameTimeMs,
+      mapName,
+      memoryStats.jsHeapSizeLimit,
+      memoryStats.totalJsHeapSize,
+      memoryStats.usedJsHeapSize,
+      workspaceMode,
+    ],
   )
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {

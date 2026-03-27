@@ -16,12 +16,13 @@ import {
 import type { PlayerAppearanceProfile } from '../lib/app/playerAppearance'
 import { useEventStageWorkspace } from '../lib/app/useEventStageWorkspace'
 import { type GameDirectoryInfo } from '../lib/desktop'
-import type { EventStageCopy, ThemeMode, ViewportLabels } from '../lib/editor-shell'
+import type { EventStageCopy, LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
 import type { EventScript, ParsedEventAsset } from '../lib/events/types'
 import { cx } from '../lib/cx'
 import { MapViewport } from './MapViewport'
 
 type EventStageWorkspaceProps = {
+  locale: LocaleCode
   directoryInfo: GameDirectoryInfo | null
   viewportLabels: ViewportLabels
   copy: EventStageCopy
@@ -39,6 +40,7 @@ type EventStageWorkspaceProps = {
 }
 
 export default function EventStageWorkspace({
+  locale,
   directoryInfo,
   viewportLabels,
   copy,
@@ -84,6 +86,7 @@ export default function EventStageWorkspace({
     zoomLabel,
   } = useEventStageWorkspace({
     copy,
+    locale,
     directoryInfo,
     viewportLabels,
     parsedEventAsset,
@@ -526,6 +529,7 @@ export default function EventStageWorkspace({
               ? `${mapDocument.sourcePath}:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
               : `empty:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
           }
+          locale={locale}
           mapDocument={mapDocument}
           visibleLayerIds={visibleLayerIds}
           visibleObjectGroupIds={[]}

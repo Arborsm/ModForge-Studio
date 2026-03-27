@@ -1,4 +1,5 @@
 import { loadTextAsset } from '../desktop'
+import type { LocaleCode } from '../editor-shell'
 import {
   getFarmerDirectionalFrame,
   getFarmerWalkAnimation,
@@ -296,10 +297,10 @@ const DEFAULT_FARMER_SHIRT_SPRITE_INDEX = 0
 const DEFAULT_FARMER_PANTS_SPRITE_INDEX = 0
 const EVENT_STAGE_INITIAL_ZOOM = 2.5
 type SpriteLayerDescriptor = FarmerSpriteLayerDescriptor
-const CHARACTER_DATA_PATH = 'Content (unpacked)\\Data\\Characters.json'
-const OBJECT_DATA_PATH = 'Content (unpacked)\\Data\\Objects.json'
-const HAIR_DATA_PATH = 'Content (unpacked)\\Data\\HairData.json'
-const HAT_DATA_PATH = 'Content (unpacked)\\Data\\hats.json'
+const CHARACTER_DATA_PATH = 'Content\\Data\\Characters.xnb'
+const OBJECT_DATA_PATH = 'Content\\Data\\Objects.xnb'
+const HAIR_DATA_PATH = 'Content\\Data\\HairData.xnb'
+const HAT_DATA_PATH = 'Content\\Data\\hats.xnb'
 const EFFECT_VIEWPORT_BASE_WIDTH = 1280
 const EFFECT_VIEWPORT_BASE_HEIGHT = 720
 type HatMetadataEntry = {
@@ -326,6 +327,27 @@ const NAMED_EFFECT_COLORS: Record<string, string> = {
 }
 const hatMetadataCache = new Map<string, Promise<Record<string, HatMetadataEntry>>>()
 const hairMetadataCache = new Map<string, Promise<Record<string, FarmerHairMetadataEntry>>>()
+
+export function clearLocalizedStageMetadataCache(locale: LocaleCode) {
+  const suffix = `::${locale}`
+  for (const key of hatMetadataCache.keys()) {
+    if (key.endsWith(suffix)) {
+      hatMetadataCache.delete(key)
+    }
+  }
+  for (const key of hairMetadataCache.keys()) {
+    if (key.endsWith(suffix)) {
+      hairMetadataCache.delete(key)
+    }
+  }
+}
+
+export function getStageMetadataCacheStats() {
+  return {
+    hat: hatMetadataCache.size,
+    hair: hairMetadataCache.size,
+  }
+}
 
 function normalizeActorName(value: string) {
   return value.trim().replace(/\?$/u, '')
@@ -586,7 +608,7 @@ function normalizeStageMapName(mapName: string | null | undefined) {
     return null
   }
 
-  return trimmed.replace(/^Maps[\\/]/iu, '').replace(/\.tmx$/iu, '')
+  return trimmed.replace(/^Maps[\\/]/iu, '').replace(/\.xnb$/iu, '')
 }
 
 function isPathsLayerName(layerName: string) {
@@ -851,13 +873,18 @@ function createItemAboveActorEffect(
   })
 }
 
-async function loadHatMetadataIndex(rootPath: string) {
-  const cached = hatMetadataCache.get(rootPath)
+function getLocalizedMetadataCacheKey(rootPath: string, locale: LocaleCode) {
+  return `${rootPath}::${locale}`
+}
+
+async function loadHatMetadataIndex(rootPath: string, locale: LocaleCode) {
+  const cacheKey = getLocalizedMetadataCacheKey(rootPath, locale)
+  const cached = hatMetadataCache.get(cacheKey)
   if (cached) {
     return cached
   }
 
-  const pending = loadTextAsset(rootPath, HAT_DATA_PATH)
+  const pending = loadTextAsset(rootPath, HAT_DATA_PATH, locale)
     .then((asset: { content: string }) => {
       const parsed = JSON.parse(asset.content) as Record<string, string>
       return Object.fromEntries(
@@ -880,17 +907,18 @@ async function loadHatMetadataIndex(rootPath: string) {
     })
     .catch(() => ({} as Record<string, HatMetadataEntry>))
 
-  hatMetadataCache.set(rootPath, pending)
+  hatMetadataCache.set(cacheKey, pending)
   return pending
 }
 
-async function loadHairMetadataIndex(rootPath: string) {
-  const cached = hairMetadataCache.get(rootPath)
+async function loadHairMetadataIndex(rootPath: string, locale: LocaleCode) {
+  const cacheKey = getLocalizedMetadataCacheKey(rootPath, locale)
+  const cached = hairMetadataCache.get(cacheKey)
   if (cached) {
     return cached
   }
 
-  const pending = loadTextAsset(rootPath, HAIR_DATA_PATH)
+  const pending = loadTextAsset(rootPath, HAIR_DATA_PATH, locale)
     .then((asset: { content: string }) => {
       const parsed = JSON.parse(asset.content) as Record<string, string>
       return Object.fromEntries(
@@ -913,7 +941,7 @@ async function loadHairMetadataIndex(rootPath: string) {
     })
     .catch(() => ({} as Record<string, FarmerHairMetadataEntry>))
 
-  hairMetadataCache.set(rootPath, pending)
+  hairMetadataCache.set(cacheKey, pending)
   return pending
 }
 

@@ -215,7 +215,7 @@ export function EventTimelinePanel({
       headerAction={<span className="dock-chip">{selectedEvent?.commands.length ?? 0}</span>}
     >
       {entries.length ? (
-        <div className="h-full overflow-y-auto">
+        <div className="min-h-0">
           {entries.map((entry, index) => {
             const appearance = getEntryAppearance(entry)
             const Icon = appearance.icon

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ViewportWorldPoint } from '../../components/MapViewport'
 import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '../desktop'
-import { parseTmxMap } from '../maps/tmx'
 import type { MapDocument } from '../maps/types'
 import { EVENT_SETUP_ENTRY_ID } from '../events/timeline'
 import type { EventScript, ParsedEventAsset } from '../events/types'
-import type { EventStageCopy, ViewportLabels } from '../editor-shell'
+import type { EventStageCopy, LocaleCode, ViewportLabels } from '../editor-shell'
 import {
   CHARACTER_DATA_PATH,
   EVENT_STAGE_INITIAL_ZOOM,
@@ -45,6 +44,7 @@ import { playMusicCue, playSoundCue, resetAudioPreview, stopMusicPreview, stopSo
 
 type UseEventStageWorkspaceOptions = {
   copy: EventStageCopy
+  locale: LocaleCode
   directoryInfo: GameDirectoryInfo | null
   viewportLabels: ViewportLabels
   parsedEventAsset: ParsedEventAsset | null
@@ -58,6 +58,7 @@ type UseEventStageWorkspaceOptions = {
 
 export function useEventStageWorkspace({
   copy,
+  locale,
   directoryInfo,
   viewportLabels,
   parsedEventAsset,
@@ -104,7 +105,7 @@ export function useEventStageWorkspace({
 
     void (async () => {
       try {
-        const characterDataAsset = await loadTextAsset(directoryInfo.rootPath, CHARACTER_DATA_PATH)
+        const characterDataAsset = await loadTextAsset(directoryInfo.rootPath, CHARACTER_DATA_PATH, locale)
         if (!cancelled) {
           setCharacterTextureIndex(buildCharacterTextureIndex(characterDataAsset.content))
         }
@@ -118,7 +119,7 @@ export function useEventStageWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath])
+  }, [directoryInfo?.rootPath, locale])
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
@@ -130,7 +131,7 @@ export function useEventStageWorkspace({
 
     void (async () => {
       try {
-        const objectDataAsset = await loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_PATH)
+        const objectDataAsset = await loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_PATH, locale)
         const parsed = JSON.parse(objectDataAsset.content) as Record<string, ObjectDataEntry>
         if (!cancelled) {
           setEventObjectDrinkIndex(
@@ -147,7 +148,7 @@ export function useEventStageWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath])
+  }, [directoryInfo?.rootPath, locale])
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
@@ -155,7 +156,7 @@ export function useEventStageWorkspace({
       setMapMessage('')
       return
     }
-    if (!directoryInfo.unpackedMapsPath) {
+    if (!directoryInfo.mapsPath) {
       setMapDocument(null)
       setMapMessage(copy.stageMissing)
       return
@@ -167,21 +168,21 @@ export function useEventStageWorkspace({
       return
     }
 
-    const mapPath = `${directoryInfo.unpackedMapsPath}\\${playbackState.currentMapName}.tmx`
+    const mapPath = `${directoryInfo.mapsPath}\\${playbackState.currentMapName}.xnb`
     let cancelled = false
     setMapMessage(copy.stageWaiting)
 
     void (async () => {
       try {
-        const asset = await loadMapAsset(directoryInfo.rootPath, mapPath)
+        const asset = await loadMapAsset(directoryInfo.rootPath, mapPath, locale)
         if (cancelled) {
           return
         }
-        if (asset.format !== 'tmx') {
+        if (asset.format === 'xnb') {
+          setMapDocument(JSON.parse(asset.content) as MapDocument)
+        } else {
           throw new Error(copy.stageMapUnsupported)
         }
-
-        setMapDocument(parseTmxMap(asset.absolutePath, asset.relativePath, asset.content))
         setMapMessage(asset.relativePath)
       } catch (error) {
         if (!cancelled) {
@@ -196,11 +197,12 @@ export function useEventStageWorkspace({
     }
   }, [
     directoryInfo?.rootPath,
-    directoryInfo?.unpackedMapsPath,
+    directoryInfo?.mapsPath,
     copy.stageFailed,
     copy.stageMapUnsupported,
     copy.stageMissing,
     copy.stageWaiting,
+    locale,
     playbackState.currentMapName,
   ])
 
@@ -570,7 +572,7 @@ export function useEventStageWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingActorAssetRequests.map(async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath)] as const),
+        pendingActorAssetRequests.map(async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale)] as const),
       )
       if (cancelled) {
         return
@@ -585,7 +587,7 @@ export function useEventStageWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, pendingActorAssetRequests])
+  }, [directoryInfo?.rootPath, locale, pendingActorAssetRequests])
 
   const effectTextureRequests = useMemo(
     () =>

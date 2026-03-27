@@ -19,7 +19,6 @@ import {
   getFarmerFeatureYOffset,
   getFarmerHairYOffsetAdjustment,
 } from '../lib/app/farmerAppearanceRenderer'
-import { toAssetUrl } from '../lib/maps/assets'
 import { cx } from '../lib/cx'
 
 type PlayerAppearanceWindowProps = {
@@ -198,11 +197,11 @@ function buildCopy(locale: LocaleCode) {
 }
 
 function buildCharactersPath(rootPath: string, textureName: string) {
-  return `${rootPath}\\Content (unpacked)\\Characters\\${textureName}.png`
+  return `${rootPath}\\Content\\Characters\\${textureName}.xnb`
 }
 
 function buildContentImagePath(rootPath: string, textureName: string) {
-  return `${rootPath}\\Content (unpacked)\\${textureName.replaceAll('/', '\\')}.png`
+  return `${rootPath}\\Content\\${textureName.replaceAll('/', '\\')}.xnb`
 }
 
 function preloadImage(path: string) {
@@ -221,7 +220,7 @@ function preloadImage(path: string) {
       try {
         image.src = await loadImageDataUrl(path)
       } catch {
-        image.src = toAssetUrl(path)
+        resolve(null)
       }
     })()
   })

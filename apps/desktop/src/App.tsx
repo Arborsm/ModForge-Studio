@@ -7,6 +7,7 @@ import TopMenuBar from './components/TopMenuBar'
 import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
 import {
   canUseDesktopHost,
+  clearDesktopLocaleCache,
   closeCurrentWindow,
   minimizeCurrentWindow,
   toggleMaximizeCurrentWindow,
@@ -35,6 +36,8 @@ import {
   sanitizePlayerAppearanceProfile,
   type PlayerAppearanceProfile,
 } from './lib/app/playerAppearance'
+import { clearLocalizedStageMetadataCache } from './lib/app/eventStageShared'
+import { clearMapViewportLocaleCache } from './lib/mapViewportCache'
 import { useEventWorkspace } from './lib/app/useEventWorkspace'
 import { useMapWorkspace } from './lib/app/useMapWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
@@ -96,11 +99,13 @@ export default function App() {
     ).activeProfileId
   })
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
+  const previousLocaleRef = useRef<LocaleCode>(locale)
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
   const {
     workspaceStatus,
+    resourcePreloadState,
     gameDirectory,
     setGameDirectory,
     directoryInfo,
@@ -181,6 +186,18 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
+
+  useEffect(() => {
+    const previousLocale = previousLocaleRef.current
+    if (previousLocale === locale) {
+      return
+    }
+
+    clearDesktopLocaleCache(previousLocale)
+    clearLocalizedStageMetadataCache(previousLocale)
+    clearMapViewportLocaleCache(previousLocale)
+    previousLocaleRef.current = locale
+  }, [locale])
 
   useEffect(() => {
     if (workspaceMode !== 'events' || !currentEventCommandId) {
@@ -311,6 +328,7 @@ export default function App() {
     onFocusObject: focusObject,
     onHoverChange: setHoverInfo,
     workspaceStatus,
+    resourcePreloadState,
     moduleBlueprint,
     eventAssets,
     filteredEventAssets,

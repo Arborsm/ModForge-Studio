@@ -58,7 +58,7 @@ export function ProjectPanel({
           </div>
           <div className="metric-card compact-metric-card">
             <span className="metric-label">{copy.leftDock.preferredFormat}</span>
-            <strong className="metric-value">{directoryInfo?.preferredFormat.toUpperCase() ?? copy.common.none}</strong>
+            <strong className="metric-value">{directoryInfo ? 'XNB' : copy.common.none}</strong>
           </div>
           <div className="metric-card compact-metric-card">
             <span className="metric-label">{copy.leftDock.detectedMaps}</span>
@@ -79,7 +79,7 @@ export function ProjectPanel({
           </div>
           <div className="kv-row compact-kv-row">
             <span>{copy.leftDock.preferredMaps}</span>
-            <span>{directoryInfo?.preferredMapsPath ?? copy.common.none}</span>
+            <span>{directoryInfo?.mapsPath ?? copy.common.none}</span>
           </div>
         </div>
       </div>

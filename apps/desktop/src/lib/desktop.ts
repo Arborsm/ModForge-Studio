@@ -5,12 +5,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 export type GameDirectoryInfo = {
   rootPath: string
   executablePath: string
-  unpackedMapsPath: string | null
-  xnbMapsPath: string | null
-  preferredMapsPath: string | null
-  preferredFormat: 'tmx' | 'xnb'
-  hasUnpackedMaps: boolean
-  hasXnbMaps: boolean
+  mapsPath: string | null
   mapCount: number
 }
 
@@ -66,6 +61,107 @@ export type AudioAssetSummary = {
   relativePath: string
 }
 
+function normalizeCachePathSegment(value: string) {
+  return value.trim().replaceAll('/', '\\')
+}
+
+function createPromiseCache<T>() {
+  const cache = new Map<string, Promise<T>>()
+
+  return {
+    get(key: string) {
+      return cache.get(key)
+    },
+    set(key: string, promise: Promise<T>) {
+      cache.set(key, promise)
+    },
+    delete(key: string) {
+      cache.delete(key)
+    },
+    deleteWhere(predicate: (key: string) => boolean) {
+      for (const key of cache.keys()) {
+        if (predicate(key)) {
+          cache.delete(key)
+        }
+      }
+    },
+    clear() {
+      cache.clear()
+    },
+    size() {
+      return cache.size
+    },
+  }
+}
+
+function getRootedAssetCacheKey(rootPath: string, assetPath: string) {
+  return `${normalizeCachePathSegment(rootPath)}::${normalizeCachePathSegment(assetPath)}`
+}
+
+function getLocalizedRootedAssetCacheKey(rootPath: string, assetPath: string, locale?: string) {
+  return `${getRootedAssetCacheKey(rootPath, assetPath)}::${locale?.trim() || 'default'}`
+}
+
+async function readCached<T>(
+  cache: ReturnType<typeof createPromiseCache<T>>,
+  key: string,
+  loader: () => Promise<T>,
+) {
+  const cachedValue = cache.get(key)
+  if (cachedValue) {
+    return cachedValue
+  }
+
+  const pendingValue = loader().catch((error) => {
+    cache.delete(key)
+    throw error
+  })
+
+  cache.set(key, pendingValue)
+  return pendingValue
+}
+
+const validateDirectoryCache = createPromiseCache<GameDirectoryInfo>()
+const scanMapsCache = createPromiseCache<MapAssetSummary[]>()
+const scanEventsCache = createPromiseCache<EventAssetSummary[]>()
+const loadMapAssetCache = createPromiseCache<MapAssetContent>()
+const loadTextAssetCache = createPromiseCache<TextAssetContent>()
+const loadTextFileCache = createPromiseCache<LocalTextFileContent>()
+const loadImageDataUrlCache = createPromiseCache<string>()
+const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
+const loadAudioDataUrlCache = createPromiseCache<string>()
+const loadXactAudioDataUrlCache = createPromiseCache<string>()
+const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
+
+export function clearDesktopLocaleCache(locale: string) {
+  const normalizedLocale = locale.trim()
+  if (!normalizedLocale) {
+    return
+  }
+
+  const localizedSuffix = `::${normalizedLocale}`
+  scanMapsCache.deleteWhere((key) => key.endsWith(localizedSuffix))
+  loadMapAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
+  loadTextAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
+  loadImageDataUrlCache.deleteWhere((key) => key.endsWith(localizedSuffix))
+}
+
+export function getDesktopCacheStats() {
+  return {
+    validateDirectory: validateDirectoryCache.size(),
+    scanMaps: scanMapsCache.size(),
+    scanEvents: scanEventsCache.size(),
+    mapAsset: loadMapAssetCache.size(),
+    textAsset: loadTextAssetCache.size(),
+    textFile: loadTextFileCache.size(),
+    imageDataUrl: loadImageDataUrlCache.size(),
+    audioScan: scanAudioAssetsCache.size(),
+    audioDataUrl: loadAudioDataUrlCache.size(),
+    xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
+    saveSlots: scanDefaultSaveSlotsCache.size(),
+  }
+}
+
 function isDesktopHost() {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 }
@@ -115,47 +211,69 @@ export function detectDefaultGameDirectory() {
 }
 
 export function validateGameDirectory(path: string) {
-  return invokeDesktop<GameDirectoryInfo>('validate_game_directory', { path })
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(validateDirectoryCache, cacheKey, () =>
+    invokeDesktop<GameDirectoryInfo>('validate_game_directory', { path }),
+  )
 }
 
-export function scanMaps(path: string) {
-  return invokeDesktop<MapAssetSummary[]>('scan_maps', { path })
+export function scanMaps(path: string, locale?: string) {
+  const cacheKey = `${normalizeCachePathSegment(path)}::${locale?.trim() || 'default'}`
+  return readCached(scanMapsCache, cacheKey, () => invokeDesktop<MapAssetSummary[]>('scan_maps', { path, locale }))
 }
 
 export function scanEvents(path: string) {
-  return invokeDesktop<EventAssetSummary[]>('scan_events', { path })
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(scanEventsCache, cacheKey, () => invokeDesktop<EventAssetSummary[]>('scan_events', { path }))
 }
 
-export function loadMapAsset(rootPath: string, mapPath: string) {
-  return invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath })
+export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
+  const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
+  return readCached(loadMapAssetCache, cacheKey, () =>
+    invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath, locale }),
+  )
 }
 
-export function loadTextAsset(rootPath: string, assetPath: string) {
-  return invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath })
+export function loadTextAsset(rootPath: string, assetPath: string, locale?: string) {
+  const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, assetPath, locale)
+  return readCached(loadTextAssetCache, cacheKey, () =>
+    invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath, locale }),
+  )
 }
 
 export function loadTextFile(path: string) {
-  return invokeDesktop<LocalTextFileContent>('load_text_file', { path })
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(loadTextFileCache, cacheKey, () => invokeDesktop<LocalTextFileContent>('load_text_file', { path }))
 }
 
-export function loadImageDataUrl(path: string) {
-  return invokeDesktop<string>('load_image_data_url', { path })
+export function loadImageDataUrl(path: string, locale?: string) {
+  const cacheKey = `${normalizeCachePathSegment(path)}::${locale?.trim() || 'default'}`
+  return readCached(loadImageDataUrlCache, cacheKey, () => invokeDesktop<string>('load_image_data_url', { path, locale }))
 }
 
 export function scanAudioAssets(path: string) {
-  return invokeDesktop<AudioAssetSummary[]>('scan_audio_assets', { path })
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(scanAudioAssetsCache, cacheKey, () =>
+    invokeDesktop<AudioAssetSummary[]>('scan_audio_assets', { path }),
+  )
 }
 
 export function loadAudioDataUrl(path: string) {
-  return invokeDesktop<string>('load_audio_data_url', { path })
+  const cacheKey = normalizeCachePathSegment(path)
+  return readCached(loadAudioDataUrlCache, cacheKey, () => invokeDesktop<string>('load_audio_data_url', { path }))
 }
 
 export function loadXactAudioDataUrl(rootPath: string, cue: string) {
-  return invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue })
+  const cacheKey = `${normalizeCachePathSegment(rootPath)}::${cue.trim()}`
+  return readCached(loadXactAudioDataUrlCache, cacheKey, () =>
+    invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue }),
+  )
 }
 
 export function scanDefaultSaveSlots() {
-  return invokeDesktop<DefaultSaveSlotSummary[]>('scan_default_save_slots')
+  return readCached(scanDefaultSaveSlotsCache, 'default', () =>
+    invokeDesktop<DefaultSaveSlotSummary[]>('scan_default_save_slots'),
+  )
 }
 
 export async function minimizeCurrentWindow() {

@@ -19,7 +19,7 @@ export function resolveTilesetImagePath(mapDocument: MapDocument, tileset: MapTi
   const mapDirectory =
     separatorIndex >= 0 ? normalizedMapPath.slice(0, separatorIndex) : normalizedMapPath
   const sourceName = normalizePath(tileset.imageSource)
-  const fileName = /\.[A-Za-z0-9]+$/.test(sourceName) ? sourceName : `${sourceName}.png`
+  const fileName = /\.[A-Za-z0-9]+$/.test(sourceName) ? sourceName : `${sourceName}.xnb`
 
   return `${mapDirectory}\\${fileName}`
 }

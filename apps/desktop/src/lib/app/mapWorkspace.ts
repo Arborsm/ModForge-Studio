@@ -10,8 +10,8 @@ export function getMapWorkspaceTabId(assetId: string) {
 
 export function getPreferredScene(assets: MapAssetSummary[]) {
   return (
-    assets.find((asset) => asset.format === 'tmx' && /^town$/i.test(asset.name)) ??
-    assets.find((asset) => asset.format === 'tmx') ??
+    assets.find((asset) => asset.format === 'xnb' && /^town$/i.test(asset.name)) ??
+    assets.find((asset) => asset.format === 'xnb') ??
     null
   )
 }

@@ -15,7 +15,7 @@ function getLocalizedEventCandidates(asset: EventAssetSummary, locale: LocaleCod
     return [asset.relativePath]
   }
 
-  return [asset.relativePath.replace(/\.json$/iu, `.${locale}.json`), asset.relativePath]
+  return [asset.relativePath.replace(/\.xnb$/iu, `.${locale}.xnb`), asset.relativePath]
 }
 
 export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorkspaceOptions) {
@@ -70,7 +70,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         }
 
         setEventAssets(assets)
-        setEventStatusMessage(assets.length ? `${assets.length} event files ready.` : 'No unpacked event files found.')
+        setEventStatusMessage(assets.length ? `${assets.length} event files ready.` : 'No XNB event files found.')
         setActiveEventAssetId((current) => (current && assets.some((asset) => asset.id === current) ? current : assets[0]?.id ?? null))
       } catch (error) {
         if (!cancelled) {
@@ -110,7 +110,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
       for (const relativePath of candidates) {
         try {
-          const textAsset = await loadTextAsset(rootPath, relativePath)
+          const textAsset = await loadTextAsset(rootPath, relativePath, locale)
           if (cancelled) {
             return
           }

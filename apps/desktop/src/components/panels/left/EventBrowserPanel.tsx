@@ -38,15 +38,15 @@ export function EventBrowserPanel({
     locale === 'zh-CN'
       ? {
           title: '事件文件',
-          subtitle: 'Content (unpacked) / Data / Events',
+          subtitle: 'Content / Data / Events',
           placeholder: '按地点名或路径筛选事件文件',
-          empty: eventAssets.length ? '当前筛选没有匹配的事件文件。' : '当前目录没有可加载的事件文件。',
+          empty: eventAssets.length ? '当前筛选没有匹配的事件文件。' : '当前目录没有可加载的 XNB 事件文件。',
         }
       : {
           title: 'Event Files',
-          subtitle: 'Content (unpacked) / Data / Events',
+          subtitle: 'Content / Data / Events',
           placeholder: 'Filter event files by location or path',
-          empty: eventAssets.length ? 'No event files match the current filter.' : 'No loadable event files were found.',
+          empty: eventAssets.length ? 'No event files match the current filter.' : 'No loadable XNB event files were found.',
         }
 
   return (
@@ -87,7 +87,7 @@ export function EventBrowserPanel({
                       <p className="truncate text-xs text-[var(--text-secondary)]">{asset.relativePath}</p>
                     </div>
                     <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
-                      <p>JSON</p>
+                      <p>XNB</p>
                       <p>{formatBytes(asset.sizeBytes)}</p>
                     </div>
                   </div>

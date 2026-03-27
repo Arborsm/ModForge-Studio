@@ -1,6 +1,1 @@
-<Solution>
-  <Folder Name="/services/" />
-  <Folder Name="/services/sdv-bridge/">
-    <Project Path="services/sdv-bridge/ModForge.Studio.SdvBridge.csproj" />
-  </Folder>
-</Solution>
+<Solution />

@@ -5,12 +5,7 @@ use serde::Serialize;
 pub struct GameDirectoryInfo {
     pub root_path: String,
     pub executable_path: String,
-    pub unpacked_maps_path: Option<String>,
-    pub xnb_maps_path: Option<String>,
-    pub preferred_maps_path: Option<String>,
-    pub preferred_format: String,
-    pub has_unpacked_maps: bool,
-    pub has_xnb_maps: bool,
+    pub maps_path: Option<String>,
     pub map_count: usize,
 }
 

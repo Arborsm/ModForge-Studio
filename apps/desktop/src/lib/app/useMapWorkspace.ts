@@ -1,9 +1,10 @@
-import { startTransition, useDeferredValue, useEffect, useState } from 'react'
+import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '../../components/MapViewport'
 import {
   canUseDesktopHost,
   chooseGameDirectory,
   detectDefaultGameDirectory,
+  loadImageDataUrl,
   loadMapAsset,
   loadTextAsset,
   scanMaps,
@@ -12,7 +13,7 @@ import {
   type MapAssetSummary,
 } from '../desktop'
 import type { EditorCopy, LocaleCode, WorkspaceMode } from '../editor-shell'
-import { parseTmxMap } from '../maps/tmx'
+import { resolveTilesetImagePath } from '../maps/assets'
 import type { MapDocument } from '../maps/types'
 import {
   buildWorldAtlas,
@@ -33,7 +34,7 @@ import {
   pickWorldAtlasRootMapName,
   withWorldAtlasViewMetadata,
 } from './mapWorkspace'
-import type { MapWorkspaceTab, WorldAtlasView, WorkspaceStatus } from './types'
+import type { MapWorkspaceTab, ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from './types'
 
 type UseMapWorkspaceOptions = {
   copy: EditorCopy
@@ -41,6 +42,37 @@ type UseMapWorkspaceOptions = {
   desktopHost: boolean
   setWorkspaceMode: (mode: WorkspaceMode) => void
   getWorldAtlasViewLabel: (locale: LocaleCode, viewId: WorldAtlasView['id']) => string
+}
+
+const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
+  active: false,
+  message: '',
+  completed: 0,
+  total: 0,
+  currentLabel: '',
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+) {
+  let nextIndex = 0
+
+  async function consumeNext() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      await worker(items[currentIndex], currentIndex)
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, items.length))
+  await Promise.all(Array.from({ length: workerCount }, () => consumeNext()))
+}
+
+function formatPreloadError(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
 }
 
 export function useMapWorkspace({
@@ -51,6 +83,7 @@ export function useMapWorkspace({
   getWorldAtlasViewLabel,
 }: UseMapWorkspaceOptions) {
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
+  const [resourcePreloadState, setResourcePreloadState] = useState<ResourcePreloadState>(EMPTY_RESOURCE_PRELOAD_STATE)
   const [gameDirectory, setGameDirectory] = useState('')
   const [directoryInfo, setDirectoryInfo] = useState<GameDirectoryInfo | null>(null)
   const [mapAssets, setMapAssets] = useState<MapAssetSummary[]>([])
@@ -65,6 +98,8 @@ export function useMapWorkspace({
   const [visibleObjectGroupIds, setVisibleObjectGroupIds] = useState<number[]>([])
   const [focusedObjectTarget, setFocusedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
   const [assetFilter, setAssetFilter] = useState('')
+  const parsedMapCacheRef = useRef(new Map<string, MapDocument>())
+  const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
 
   const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
   const filteredAssets = mapAssets.filter((asset) => {
@@ -95,11 +130,14 @@ export function useMapWorkspace({
   }
 
   function resetLoadedMaps() {
+    parsedMapCacheRef.current.clear()
+    loadedResourceLocaleRef.current = null
     setMapAssets([])
     setMapTabs([])
     setActiveTabId(WORLD_ATLAS_TAB_ID)
     setWorldAtlasViews([])
     setActiveWorldAtlasViewId(null)
+    setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
     applyMapDocument(null, null)
   }
 
@@ -170,12 +208,85 @@ export function useMapWorkspace({
   }
 
   async function loadParsedMap(summary: MapAssetSummary, info: GameDirectoryInfo) {
-    const asset = await loadMapAsset(info.rootPath, summary.absolutePath)
-    if (asset.format !== 'tmx') {
+    const cachedDocument = parsedMapCacheRef.current.get(summary.absolutePath)
+    if (cachedDocument) {
+      return cachedDocument
+    }
+
+    const asset = await loadMapAsset(info.rootPath, summary.absolutePath, locale)
+    if (asset.format !== 'xnb') {
       throw new Error(copy.messages.onlyTmxSupported)
     }
 
-    return parseTmxMap(asset.absolutePath, asset.relativePath, asset.content)
+    const parsedDocument = JSON.parse(asset.content) as MapDocument
+    parsedMapCacheRef.current.set(summary.absolutePath, parsedDocument)
+    return parsedDocument
+  }
+
+  async function preloadResources(assets: MapAssetSummary[], info: GameDirectoryInfo) {
+    const xnbAssets = assets.filter((asset) => asset.format === 'xnb')
+    let completed = 0
+    let total = xnbAssets.length + 1
+
+    function updatePreloadState(message: string, currentLabel = '') {
+      setResourcePreloadState({
+        active: true,
+        message,
+        completed,
+        total,
+        currentLabel,
+      })
+    }
+
+    updatePreloadState(copy.messages.preloadingWorldData, 'Content\\Data\\WorldMap.xnb')
+    try {
+      await loadTextAsset(info.rootPath, 'Content\\Data\\WorldMap.xnb', locale)
+    } catch {
+      // WorldMap is optional; atlas construction already has its own fallback path.
+    }
+    completed += 1
+    updatePreloadState(copy.messages.preloadingMaps)
+
+    const tilesetImagePaths = new Set<string>()
+    await runWithConcurrency(xnbAssets, 4, async (asset) => {
+      updatePreloadState(copy.messages.preloadingMaps, asset.name)
+      try {
+        const document = await loadParsedMap(asset, info)
+        for (const tileset of document.tilesets) {
+          const resolvedPath = resolveTilesetImagePath(document, tileset)
+          if (resolvedPath) {
+            tilesetImagePaths.add(resolvedPath)
+          }
+        }
+      } catch (error) {
+        console.warn(`[resource-preload] skipped map preload for ${asset.absolutePath}: ${formatPreloadError(error)}`)
+      }
+      completed += 1
+      updatePreloadState(copy.messages.preloadingMaps, asset.name)
+    })
+
+    const imagePaths = Array.from(tilesetImagePaths)
+    total += imagePaths.length
+    updatePreloadState(copy.messages.preloadingTilesets)
+
+    await runWithConcurrency(imagePaths, 6, async (imagePath) => {
+      updatePreloadState(copy.messages.preloadingTilesets, imagePath)
+      try {
+        await loadImageDataUrl(imagePath, locale)
+      } catch (error) {
+        console.warn(`[resource-preload] skipped image preload for ${imagePath}: ${formatPreloadError(error)}`)
+      }
+      completed += 1
+      updatePreloadState(copy.messages.preloadingTilesets, imagePath)
+    })
+
+    setResourcePreloadState({
+      active: true,
+      message: copy.messages.loadingMap,
+      completed,
+      total,
+      currentLabel: '',
+    })
   }
 
   function findMapAssetByName(mapName: string) {
@@ -183,7 +294,7 @@ export function useMapWorkspace({
     return (
       mapAssets.find(
         (asset) =>
-          asset.format === 'tmx' && getWorldAtlasNameAliases(asset.name).some((alias) => normalizedAliases.has(alias)),
+          asset.format === 'xnb' && getWorldAtlasNameAliases(asset.name).some((alias) => normalizedAliases.has(alias)),
       ) ?? null
     )
   }
@@ -200,13 +311,14 @@ export function useMapWorkspace({
     summary: MapAssetSummary,
     knownDirectoryInfo?: GameDirectoryInfo | null,
     knownMapCount = mapAssets.length,
+    options?: { forceReload?: boolean },
   ) {
     const info = knownDirectoryInfo ?? directoryInfo ?? (await ensureValidatedDirectory(gameDirectory))
     if (!info) {
       return
     }
 
-    if (summary.format !== 'tmx') {
+    if (summary.format !== 'xnb') {
       setWorkspaceStatus({ tone: 'error', message: copy.messages.onlyTmxSupported })
       return
     }
@@ -215,8 +327,9 @@ export function useMapWorkspace({
     setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
 
     try {
+      const forceReload = options?.forceReload === true
       const existingTab = mapTabs.find((tab) => tab.assetId === summary.id)
-      if (existingTab) {
+      if (existingTab && !forceReload) {
         setActiveTabId(existingTab.id)
         applyMapDocument(existingTab.document, summary.id)
         setWorkspaceStatus({
@@ -237,7 +350,13 @@ export function useMapWorkspace({
         document: parsedDocument,
       }
 
-      setMapTabs((current) => [...current, nextTab])
+      setMapTabs((current) => {
+        if (!existingTab) {
+          return [...current, nextTab]
+        }
+
+        return current.map((tab) => (tab.id === existingTab.id ? nextTab : tab))
+      })
       setActiveTabId(nextTab.id)
       applyMapDocument(parsedDocument, summary.id)
 
@@ -260,17 +379,17 @@ export function useMapWorkspace({
   ) {
     let worldMapLayout
     try {
-      const worldMapAsset = await loadTextAsset(info.rootPath, 'Content (unpacked)\\Data\\WorldMap.json')
+      const worldMapAsset = await loadTextAsset(info.rootPath, 'Content\\Data\\WorldMap.xnb', locale)
       worldMapLayout = parseWorldMapLayout(worldMapAsset.content)
     } catch {
       worldMapLayout = undefined
     }
 
-    const tmxAssetsByAlias = new Map<string, MapAssetSummary>()
-    for (const asset of assets.filter((candidate) => candidate.format === 'tmx')) {
+    const xnbAssetsByAlias = new Map<string, MapAssetSummary>()
+    for (const asset of assets.filter((candidate) => candidate.format === 'xnb')) {
       for (const alias of getWorldAtlasNameAliases(asset.name)) {
-        if (!tmxAssetsByAlias.has(alias)) {
-          tmxAssetsByAlias.set(alias, asset)
+        if (!xnbAssetsByAlias.has(alias)) {
+          xnbAssetsByAlias.set(alias, asset)
         }
       }
     }
@@ -299,7 +418,7 @@ export function useMapWorkspace({
         continue
       }
 
-      const summary = tmxAssetsByAlias.get(normalizedName)
+      const summary = xnbAssetsByAlias.get(normalizedName)
       if (!summary) {
         resolvedNames.add(normalizedName)
         continue
@@ -318,7 +437,7 @@ export function useMapWorkspace({
 
       for (const targetName of getExteriorWarpTargetNames(document)) {
         const normalizedTargetName = targetName.trim().toLowerCase()
-        if (!resolvedNames.has(normalizedTargetName) && tmxAssetsByAlias.has(normalizedTargetName)) {
+        if (!resolvedNames.has(normalizedTargetName) && xnbAssetsByAlias.has(normalizedTargetName)) {
           pendingNames.push(targetName)
         }
       }
@@ -364,7 +483,7 @@ export function useMapWorkspace({
 
       setWorkspaceStatus({
         tone: 'ready',
-        message: copy.messages.loadedMapAssets(assets.length, info.preferredFormat),
+        message: copy.messages.loadedMapAssets(assets.length, 'xnb'),
       })
       return
     }
@@ -493,6 +612,89 @@ export function useMapWorkspace({
     void ensureValidatedDirectory(gameDirectory)
   }
 
+  const preloadResourcesRef = useRef(preloadResources)
+  const openWorldAtlasRef = useRef(openWorldAtlas)
+  const openMapRef = useRef(openMap)
+  preloadResourcesRef.current = preloadResources
+  openWorldAtlasRef.current = openWorldAtlas
+  openMapRef.current = openMap
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath || !mapAssets.length) {
+      return
+    }
+    const info = directoryInfo
+
+    if (loadedResourceLocaleRef.current === null || loadedResourceLocaleRef.current === locale) {
+      return
+    }
+
+    let cancelled = false
+    const previousLoadedLocale = loadedResourceLocaleRef.current
+    loadedResourceLocaleRef.current = locale
+
+    async function reloadLocalizedResources() {
+      setResourcePreloadState({
+        active: true,
+        message: copy.messages.preloadingResources,
+        completed: 0,
+        total: 0,
+        currentLabel: '',
+      })
+      setWorkspaceStatus({ tone: 'working', message: copy.messages.preloadingResources })
+
+      try {
+        const assets = await scanMaps(info.rootPath, locale)
+        if (cancelled) {
+          return
+        }
+
+        setMapAssets(assets)
+        parsedMapCacheRef.current.clear()
+        const nextAsset =
+          assets.find((asset) => asset.id === activeMapId) ??
+          assets.find((asset) => asset.name === mapDocument?.name) ??
+          assets[0] ??
+          null
+
+        await preloadResourcesRef.current(assets, info)
+        if (cancelled) {
+          return
+        }
+
+        if (activeTabId === WORLD_ATLAS_TAB_ID || worldAtlasViews.length) {
+          await openWorldAtlasRef.current(assets, info)
+          if (cancelled) {
+            return
+          }
+        }
+
+        if (activeTabId !== WORLD_ATLAS_TAB_ID && nextAsset) {
+          await openMapRef.current(nextAsset, info, assets.length, { forceReload: true })
+        }
+
+        if (!cancelled) {
+          setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          loadedResourceLocaleRef.current = previousLoadedLocale
+          setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+          setWorkspaceStatus({
+            tone: 'error',
+            message: `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`,
+          })
+        }
+      }
+    }
+
+    void reloadLocalizedResources()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeMapId, activeTabId, copy.messages.preloadingResources, copy.messages.resourcePreloadFailed, directoryInfo, locale, mapAssets.length, mapDocument?.name, worldAtlasViews.length])
+
   async function handleScanAndOpenTown() {
     const trimmedPath = gameDirectory.trim()
     if (!trimmedPath) {
@@ -500,20 +702,31 @@ export function useMapWorkspace({
       return
     }
 
+    setResourcePreloadState({
+      active: true,
+      message: copy.messages.validatingAndScanning,
+      completed: 0,
+      total: 0,
+      currentLabel: '',
+    })
     setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingAndScanning })
 
     try {
       const info = await validateGameDirectory(trimmedPath)
-      const assets = await scanMaps(trimmedPath)
+      const assets = await scanMaps(info.rootPath, locale)
       setDirectoryInfo(info)
       setGameDirectory(info.rootPath)
       setMapAssets(assets)
+      loadedResourceLocaleRef.current = locale
 
+      await preloadResources(assets, info)
       await openWorldAtlas(assets, info)
+      setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
     } catch (error) {
+      setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
       setWorkspaceStatus({
         tone: 'error',
-        message: `${copy.messages.mapScanFailed} ${error instanceof Error ? error.message : String(error)}`,
+        message: `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`,
       })
     }
   }
@@ -590,6 +803,7 @@ export function useMapWorkspace({
 
   return {
     workspaceStatus,
+    resourcePreloadState,
     gameDirectory,
     setGameDirectory,
     directoryInfo,

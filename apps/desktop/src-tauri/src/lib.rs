@@ -3,7 +3,9 @@ mod mime;
 mod models;
 mod pathing;
 mod saves;
+mod tbin;
 mod xact;
+mod xnb;
 
 use assets::{
     detect_default_game_directory, load_audio_data_url, load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets,

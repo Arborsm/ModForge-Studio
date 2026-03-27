@@ -12,8 +12,10 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from 'react'
-import { resolveTilesetImagePath, toAssetUrl } from '../lib/maps/assets'
-import type { ThemeMode, ViewportLabels } from '../lib/editor-shell'
+import { resolveTilesetImagePath } from '../lib/maps/assets'
+import { loadImageDataUrl } from '../lib/desktop'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
+import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '../lib/mapViewportCache'
 import type {
   MapAtlasPoint,
   MapAtlasPortal,
@@ -25,6 +27,7 @@ import type {
 } from '../lib/maps/types'
 
 type MapViewportProps = {
+  locale: LocaleCode
   mapDocument: MapDocument | null
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
@@ -115,9 +118,6 @@ type FocusWorldPoint = {
 }
 
 export type ViewportWorldPoint = FocusWorldPoint
-
-const imageCache = new Map<string, HTMLImageElement>()
-const imagePromiseCache = new Map<string, Promise<HTMLImageElement>>()
 
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
 const FLIPPED_VERTICALLY_FLAG = 0x40000000
@@ -239,13 +239,18 @@ function isForegroundTileLayer(layerName: string) {
   return normalized === 'front' || normalized === 'alwaysfront' || normalized.endsWith('front')
 }
 
-function loadImage(path: string, errorFactory: (path: string) => string) {
-  const cachedImage = imageCache.get(path)
+function getLocalizedImageCacheKey(path: string, locale: LocaleCode) {
+  return `${path}::${locale}`
+}
+
+function loadImage(path: string, locale: LocaleCode, errorFactory: (path: string) => string) {
+  const cacheKey = getLocalizedImageCacheKey(path, locale)
+  const cachedImage = imageCache.get(cacheKey)
   if (cachedImage) {
     return Promise.resolve(cachedImage)
   }
 
-  const pendingImage = imagePromiseCache.get(path)
+  const pendingImage = imagePromiseCache.get(cacheKey)
   if (pendingImage) {
     return pendingImage
   }
@@ -253,18 +258,25 @@ function loadImage(path: string, errorFactory: (path: string) => string) {
   const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
     image.onload = () => {
-      imageCache.set(path, image)
-      imagePromiseCache.delete(path)
+      imageCache.set(cacheKey, image)
+      imagePromiseCache.delete(cacheKey)
       resolve(image)
     }
     image.onerror = () => {
-      imagePromiseCache.delete(path)
+      imagePromiseCache.delete(cacheKey)
       reject(new Error(errorFactory(path)))
     }
-    image.src = toAssetUrl(path)
+    void loadImageDataUrl(path, locale)
+      .then((url) => {
+        image.src = url
+      })
+      .catch(() => {
+        imagePromiseCache.delete(cacheKey)
+        reject(new Error(errorFactory(path)))
+      })
   })
 
-  imagePromiseCache.set(path, promise)
+  imagePromiseCache.set(cacheKey, promise)
   return promise
 }
 
@@ -683,6 +695,7 @@ function rasterizeTileLayers(
 
 export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(function MapViewport(
   {
+    locale,
     mapDocument,
     visibleLayerIds,
     visibleObjectGroupIds,
@@ -773,7 +786,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
               return null
             }
 
-            const image = await loadImage(imagePath, labels.failedToLoadTilesetImage)
+            const image = await loadImage(imagePath, locale, labels.failedToLoadTilesetImage)
             return [tileset.firstGid, { image, tileset }] as const
           }),
         )
@@ -803,7 +816,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     return () => {
       disposed = true
     }
-  }, [labels.failedToLoadTilesetImage, mapDocument])
+  }, [labels.failedToLoadTilesetImage, locale, mapDocument])
 
   const tilesetImages = useMemo(
     () =>

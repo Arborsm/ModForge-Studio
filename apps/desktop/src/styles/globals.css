@@ -592,6 +592,7 @@
     position: absolute;
     border-radius: 999px;
     z-index: 18;
+    touch-action: none;
   }
 
   .workspace-dock-resizer::before {
@@ -631,6 +632,7 @@
     position: absolute;
     z-index: 18;
     border-radius: 999px;
+    touch-action: none;
   }
 
   .workspace-split-resizer::before {

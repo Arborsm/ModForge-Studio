@@ -879,6 +879,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
   const suppressRailClickRef = useRef<string | null>(null)
   const [rootSize, setRootSize] = useState<WorkspaceSize>({ width: 0, height: 0 })
   const [state, setState] = useState<WorkspaceStoredState>(() => readStoredState(storageKey, panels))
+  const stateRef = useRef(state)
   const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null)
   const [dragDockTarget, setDragDockTarget] = useState<DragDockTarget>(null)
   const [railSortTarget, setRailSortTarget] = useState<RailSortTarget>(null)
@@ -1028,22 +1029,46 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
 
     return () => resizeObserver.disconnect()
   }, [])
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  const persistState = useCallback(
+    (nextState: WorkspaceStoredState) => {
+      if (typeof window === 'undefined') {
+        return
+      }
+
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          version: STORAGE_VERSION,
+          panels: nextState.panels,
+          slots: nextState.slots,
+          chrome: nextState.chrome,
+          presets: nextState.presets,
+        }),
+      )
+    },
+    [storageKey],
+  )
+  useEffect(() => {
+    persistState(state)
+  }, [persistState, state])
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
 
-    window.localStorage.setItem(
-      storageKey,
-      JSON.stringify({
-        version: STORAGE_VERSION,
-        panels: state.panels,
-        slots: state.slots,
-        chrome: state.chrome,
-        presets: state.presets,
-      }),
-    )
-  }, [state, storageKey])
+    const handleBeforeUnload = () => {
+      persistState(stateRef.current)
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [persistState])
 
   useEffect(() => {
     onLayoutMetaChange?.({
@@ -1619,6 +1644,8 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       return
     }
 
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
     interactionRef.current = {
       kind: 'edge-resize',
       rail,
@@ -1634,6 +1661,8 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       return
     }
 
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
     interactionRef.current = {
       kind: 'split-resize',
       rail,
@@ -1646,6 +1675,8 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       return
     }
 
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
     bringToFront(panelId)
     interactionRef.current = {
       kind: 'float-resize',

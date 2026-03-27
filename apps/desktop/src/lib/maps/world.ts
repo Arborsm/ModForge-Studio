@@ -342,7 +342,7 @@ function isExteriorWarp(mapDocument: MapDocument, entry: WarpEntry) {
 }
 
 function canBePlacedInWorldAtlas(mapDocument: MapDocument) {
-  return mapDocument.format === 'tmx' && isTruthyProperty(mapDocument.properties.Outdoors)
+  return mapDocument.format !== 'atlas' && isTruthyProperty(mapDocument.properties.Outdoors)
 }
 
 function addOffsetSample(

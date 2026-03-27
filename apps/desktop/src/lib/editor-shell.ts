@@ -214,8 +214,7 @@ export type EditorCopy = {
     type: string
     bounds: string
     executable: string
-    unpackedMaps: string
-    xnbMaps: string
+    mapsPath: string
     visibleLayers: string
     visibleObjects: string
     objectLabel: (id: number) => string
@@ -234,6 +233,11 @@ export type EditorCopy = {
     mapScanFailed: string
     loadingMap: string
     loadingMapFailed: string
+    preloadingResources: string
+    preloadingWorldData: string
+    preloadingMaps: string
+    preloadingTilesets: string
+    resourcePreloadFailed: string
     onlyTmxSupported: string
     directorySelectionFailed: string
     loadedMapAssets: (count: number, format: string) => string

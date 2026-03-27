@@ -30,7 +30,6 @@ export default function StatusBar({
   pathLabel,
   hoverInfo,
 }: StatusBarProps) {
-  const tmxCount = mapAssets.filter((asset) => asset.format === 'tmx').length
   const xnbCount = mapAssets.filter((asset) => asset.format === 'xnb').length
   const hoverSummary = hoverInfo
     ? `${hoverInfo.tileX}, ${hoverInfo.tileY} | ${copy.common.layer}: ${hoverInfo.layerName ?? copy.common.none} | ${copy.common.gid}: ${hoverInfo.gid ?? copy.common.none}`
@@ -50,7 +49,7 @@ export default function StatusBar({
         <div className="flex items-center gap-1.5 truncate">
           <FolderSearch className="h-3.5 w-3.5" />
           <span className="truncate">
-            {copy.statusBar.scanned}: {tmxCount} TMX | {xnbCount} XNB
+            {copy.statusBar.scanned}: {xnbCount} XNB
           </span>
         </div>
 

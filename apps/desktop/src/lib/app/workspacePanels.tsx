@@ -12,7 +12,7 @@ import type { PlayerAppearanceProfile } from './playerAppearance'
 import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../editor-shell'
 import type { EventScript, ParsedEventAsset } from '../events/types'
 import type { MapDocument } from '../maps/types'
-import type { WorldAtlasView } from './types'
+import type { ResourcePreloadState, WorldAtlasView } from './types'
 
 type BuildWorkspacePanelsOptions = {
   copy: EditorCopy
@@ -66,6 +66,7 @@ type BuildWorkspacePanelsOptions = {
     tone: 'idle' | 'working' | 'ready' | 'error'
     message: string
   }
+  resourcePreloadState: ResourcePreloadState
   moduleBlueprint?: ModuleBlueprint
   eventAssets: EventAssetSummary[]
   filteredEventAssets: EventAssetSummary[]
@@ -133,6 +134,7 @@ export function buildWorkspacePanels({
   onFocusObject,
   onHoverChange,
   workspaceStatus,
+  resourcePreloadState,
   moduleBlueprint,
   eventAssets,
   filteredEventAssets,
@@ -164,7 +166,7 @@ export function buildWorkspacePanels({
       minWidth: 300,
       minHeight: 280,
       dockMinHeight: 220,
-      dockAutoHeight: true,
+      dockAutoHeight: false,
       defaultDock: 'left-top',
       defaultDockHeight: 280,
       content: (
@@ -226,6 +228,7 @@ export function buildWorkspacePanels({
       defaultDockHeight: 760,
       content: workspaceMode === 'events' ? (
         <EventStageWorkspace
+          locale={locale}
           directoryInfo={directoryInfo}
           viewportLabels={copy.viewportLabels}
           copy={copy.eventStage}
@@ -244,6 +247,7 @@ export function buildWorkspacePanels({
       ) : (
         <CentralWorkspace
           copy={copy}
+          locale={locale}
           workspaceMode={workspaceMode}
           tabs={workspaceTabs}
           activeTabId={activeTabId}
@@ -261,6 +265,7 @@ export function buildWorkspacePanels({
           visibleObjectGroupIds={visibleObjectGroupIds}
           focusedObjectTarget={focusedObjectTarget}
           onHoverChange={onHoverChange}
+          resourcePreloadState={resourcePreloadState}
           moduleBlueprint={moduleBlueprint}
         />
       ),
@@ -272,7 +277,7 @@ export function buildWorkspacePanels({
       minWidth: 320,
       minHeight: 260,
       dockMinHeight: 180,
-      dockAutoHeight: true,
+      dockAutoHeight: false,
       defaultDock: 'right-top',
       defaultDockHeight: workspaceMode === 'events' ? 280 : 220,
       content:
@@ -295,7 +300,7 @@ export function buildWorkspacePanels({
       minWidth: 320,
       minHeight: workspaceMode === 'events' ? 180 : 260,
       dockMinHeight: workspaceMode === 'events' ? 160 : 220,
-      dockAutoHeight: workspaceMode === 'events',
+      dockAutoHeight: false,
       defaultDock: 'right-bottom',
       defaultDockHeight: workspaceMode === 'events' ? 220 : 320,
       content:
@@ -349,7 +354,7 @@ export function buildWorkspacePanels({
       minWidth: 320,
       minHeight: 180,
       dockMinHeight: 140,
-      dockAutoHeight: true,
+      dockAutoHeight: false,
       defaultDock: workspaceMode === 'events' ? 'left-bottom' : 'bottom-right',
       defaultDockHeight: 190,
       content:

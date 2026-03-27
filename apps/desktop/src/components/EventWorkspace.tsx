@@ -1,11 +1,9 @@
 ﻿import { Grid2x2, Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { loadMapAsset, type GameDirectoryInfo } from '../lib/desktop'
+import { loadImageDataUrl, loadMapAsset, type GameDirectoryInfo } from '../lib/desktop'
 import type { ThemeMode, ViewportLabels } from '../lib/editor-shell'
 import { parseEventCommand } from '../lib/events/parser'
 import type { EventCommand, EventSceneActor, EventScript, ParsedEventAsset } from '../lib/events/types'
-import { toAssetUrl } from '../lib/maps/assets'
-import { parseTmxMap } from '../lib/maps/tmx'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
 import { MapViewport, type ViewportWorldPoint } from './MapViewport'
@@ -54,6 +52,8 @@ type EventActorState = {
   frame: number
   spritePath: string | null
   portraitPath: string | null
+  spriteUrl: string | null
+  portraitUrl: string | null
 }
 
 type PlaybackState = {
@@ -84,7 +84,7 @@ function buildLabels(locale: 'zh-CN' | 'en-US') {
         scene: '场景播放',
         sceneIdle: '选择事件后即可在地图中预览脚本演出。',
         stageWaiting: '正在载入对应地图...',
-        stageMissing: '没有可用的解包 TMX 地图，无法在中间舞台预览事件。',
+        stageMissing: '没有可用的 XNB 地图，无法在中间舞台预览事件。',
         stageFailed: '地图载入失败',
         timeline: '事件脚本时间轴',
         timelineHint: '线性脚本按顺序排布，点击任意命令查看细节。',
@@ -113,7 +113,7 @@ function buildLabels(locale: 'zh-CN' | 'en-US') {
         scene: 'Scene Stage',
         sceneIdle: 'Choose an event to preview it directly on the map.',
         stageWaiting: 'Loading the matching map stage...',
-        stageMissing: 'No unpacked TMX map was found for this event stage.',
+        stageMissing: 'No XNB map was found for this event stage.',
         stageFailed: 'Failed to load stage map',
         timeline: 'Script Timeline',
         timelineHint: 'Commands stay linear. Click any step to inspect it.',
@@ -183,8 +183,10 @@ function createActorState(actor: EventSceneActor, rootPath: string | null): Even
     tileY: actor.tileY,
     facingDirection: actor.facingDirection,
     frame: getDefaultFrame(actor.facingDirection),
-    spritePath: textureName && rootPath ? `${rootPath}\\Content (unpacked)\\Characters\\${textureName}.png` : null,
-    portraitPath: textureName && rootPath ? `${rootPath}\\Content (unpacked)\\Portraits\\${textureName}.png` : null,
+    spritePath: textureName && rootPath ? `${rootPath}\\Content\\Characters\\${textureName}.xnb` : null,
+    portraitPath: textureName && rootPath ? `${rootPath}\\Content\\Portraits\\${textureName}.xnb` : null,
+    spriteUrl: null,
+    portraitUrl: null,
   }
 }
 
@@ -855,6 +857,7 @@ export default function EventWorkspace({
   )
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapMessage, setMapMessage] = useState('')
+  const [actorAssetUrls, setActorAssetUrls] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
 
   useEffect(() => {
     if (!parsedEventAsset || !directoryInfo?.rootPath) {
@@ -863,29 +866,29 @@ export default function EventWorkspace({
       return
     }
 
-    if (!directoryInfo.unpackedMapsPath) {
+    if (!directoryInfo.mapsPath) {
       setMapDocument(null)
       setMapMessage(labels.stageMissing)
       return
     }
 
-    const mapPath = `${directoryInfo.unpackedMapsPath}\\${parsedEventAsset.asset.name}.tmx`
+    const mapPath = `${directoryInfo.mapsPath}\\${parsedEventAsset.asset.name}.xnb`
     let cancelled = false
 
     setMapMessage(labels.stageWaiting)
 
     void (async () => {
       try {
-        const asset = await loadMapAsset(directoryInfo.rootPath, mapPath)
+        const asset = await loadMapAsset(directoryInfo.rootPath, mapPath, locale)
         if (cancelled) {
           return
         }
 
-        if (asset.format !== 'tmx') {
-          throw new Error('Only TMX maps can be staged for events.')
+        if (asset.format === 'xnb') {
+          setMapDocument(JSON.parse(asset.content) as MapDocument)
+        } else {
+          throw new Error('Only XNB maps can be staged for events.')
         }
-
-        setMapDocument(parseTmxMap(asset.absolutePath, asset.relativePath, asset.content))
         setMapMessage(asset.relativePath)
       } catch (error) {
         if (!cancelled) {
@@ -898,7 +901,33 @@ export default function EventWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, directoryInfo?.unpackedMapsPath, labels.stageFailed, labels.stageMissing, labels.stageWaiting, parsedEventAsset])
+  }, [directoryInfo?.rootPath, directoryInfo?.mapsPath, labels.stageFailed, labels.stageMissing, labels.stageWaiting, locale, parsedEventAsset])
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath) {
+      setActorAssetUrls({})
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const entries = await Promise.all(
+        Object.entries(playbackState.actors).map(async ([key, actor]) => {
+          const spriteUrl = actor.spritePath ? await loadImageDataUrl(actor.spritePath).catch(() => null) : null
+          const portraitUrl = actor.portraitPath ? await loadImageDataUrl(actor.portraitPath).catch(() => null) : null
+          return [key, { spriteUrl, portraitUrl }] as const
+        }),
+      )
+      if (!cancelled) {
+        setActorAssetUrls(Object.fromEntries(entries))
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [directoryInfo?.rootPath, playbackState.actors])
 
   useEffect(() => {
     setAutoPlay(false)
@@ -1010,6 +1039,8 @@ export default function EventWorkspace({
             const actorHeight = mapDocument.tileHeight * 2
             const actorWidth = mapDocument.tileWidth
             const actorLabel = normalizeActorName(actor.actorName)
+            const actorKey = toActorKey(actor.actorName)
+            const spriteUrl = actorAssetUrls[actorKey]?.spriteUrl ?? null
 
             return (
               <div
@@ -1022,7 +1053,7 @@ export default function EventWorkspace({
                   zIndex: actor.tileY,
                 }}
               >
-                {actor.spritePath ? (
+                {spriteUrl ? (
                   <div
                     className="relative overflow-hidden"
                     style={{
@@ -1036,7 +1067,7 @@ export default function EventWorkspace({
                         height: '32px',
                         transform: `scale(${Math.max(1, actorWidth / 16)})`,
                         transformOrigin: 'top left',
-                        backgroundImage: `url(${toAssetUrl(actor.spritePath)})`,
+                        backgroundImage: `url(${spriteUrl})`,
                         backgroundPosition: `-${spriteFrameX}px -${spriteFrameY}px`,
                         backgroundRepeat: 'no-repeat',
                         imageRendering: 'pixelated',
@@ -1059,7 +1090,7 @@ export default function EventWorkspace({
           })}
       </div>
     )
-  }, [mapDocument, playbackState.actors])
+  }, [actorAssetUrls, mapDocument, playbackState.actors])
 
   const viewportOverlay = (
     <div className="absolute inset-0 flex flex-col justify-between p-4">
@@ -1099,9 +1130,9 @@ export default function EventWorkspace({
         ) : playbackState.currentEntry ? (
           <div className="pointer-events-none flex w-full max-w-4xl items-end gap-4 rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
             <div className="hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] sm:block">
-              {currentDialogueActor?.portraitPath ? (
+              {currentDialogueActor && actorAssetUrls[toActorKey(currentDialogueActor.actorName)]?.portraitUrl ? (
                 <img
-                  src={toAssetUrl(currentDialogueActor.portraitPath)}
+                  src={actorAssetUrls[toActorKey(currentDialogueActor.actorName)]?.portraitUrl ?? ''}
                   alt={currentDialogueActor.actorName}
                   className="h-full w-full object-cover"
                 />
@@ -1224,6 +1255,7 @@ export default function EventWorkspace({
             <div className="panel-body min-h-0 p-3">
               <MapViewport
                 key={mapDocument ? `${mapDocument.sourcePath}:${selectedEvent?.key ?? 'event'}` : `empty:${selectedEvent?.key ?? 'event'}`}
+                locale={locale}
                 mapDocument={mapDocument}
                 visibleLayerIds={mapDocument?.layers.map((layer) => layer.id) ?? []}
                 visibleObjectGroupIds={[]}

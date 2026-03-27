@@ -14,3 +14,5 @@ Checklist:
 - [x] Ensure stopSound without cue clears tracked sound and preview playback.
 - [x] Parse XSB/XWB banks to resolve cue -> wave data for packed XACT audio.
 - [x] Add XACT data URL loader and fallback when unpacked audio is missing.
+- [x] Support compact wave banks and compute entry sizes from alignment.
+- [x] Decode MS-ADPCM wave data to PCM for browser playback.

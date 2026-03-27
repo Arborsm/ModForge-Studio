@@ -102,7 +102,7 @@ export type MapAtlasData = {
 
 export type MapDocument = {
   name: string
-  format: 'tmx' | 'atlas'
+  format: 'tmx' | 'xnb' | 'atlas'
   sourcePath: string
   relativePath: string
   width: number

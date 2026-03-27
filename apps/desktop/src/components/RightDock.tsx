@@ -890,15 +890,7 @@ export default function RightDock({
                   </div>
                   <div className="kv-row">
                     <span>{copy.leftDock.preferredMaps}</span>
-                    <span>{directoryInfo.preferredMapsPath ?? copy.common.none}</span>
-                  </div>
-                  <div className="kv-row">
-                    <span>{copy.common.unpackedMaps}</span>
-                    <span>{directoryInfo.unpackedMapsPath ?? copy.common.none}</span>
-                  </div>
-                  <div className="kv-row">
-                    <span>{copy.common.xnbMaps}</span>
-                    <span>{directoryInfo.xnbMapsPath ?? copy.common.none}</span>
+                    <span>{directoryInfo.mapsPath ?? copy.common.none}</span>
                   </div>
                 </div>
               </>

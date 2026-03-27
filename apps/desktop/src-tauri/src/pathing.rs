@@ -28,22 +28,19 @@ pub fn collect_known_game_paths() -> Vec<PathBuf> {
     candidates
 }
 
-pub fn map_source_paths(root: &Path) -> (PathBuf, PathBuf) {
-    (
-        root.join("Content (unpacked)").join("Maps"),
-        root.join("Content").join("Maps"),
-    )
+pub fn map_source_path(root: &Path) -> PathBuf {
+    root.join("Content").join("Maps")
 }
 
 pub fn event_source_path(root: &Path) -> PathBuf {
-    root.join("Content (unpacked)").join("Data").join("Events")
+    root.join("Content").join("Data").join("Events")
 }
 
 pub fn audio_source_roots(root: &Path) -> Vec<PathBuf> {
     vec![
-        root.join("Content (unpacked)").join("Audio"),
-        root.join("Content (unpacked)").join("Music"),
-        root.join("Content (unpacked)").join("Sound"),
+        root.join("Content").join("Audio"),
+        root.join("Content").join("Music"),
+        root.join("Content").join("Sound"),
     ]
 }
 

@@ -45,15 +45,7 @@ export function DiagnosticsPanel({
               </div>
               <div className="kv-row compact-kv-row">
                 <span>{copy.leftDock.preferredMaps}</span>
-                <span>{directoryInfo.preferredMapsPath ?? copy.common.none}</span>
-              </div>
-              <div className="kv-row compact-kv-row">
-                <span>{copy.common.unpackedMaps}</span>
-                <span>{directoryInfo.unpackedMapsPath ?? copy.common.none}</span>
-              </div>
-              <div className="kv-row compact-kv-row">
-                <span>{copy.common.xnbMaps}</span>
-                <span>{directoryInfo.xnbMapsPath ?? copy.common.none}</span>
+                <span>{directoryInfo.mapsPath ?? copy.common.none}</span>
               </div>
             </div>
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3 text-xs text-[var(--text-secondary)]">
