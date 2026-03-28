@@ -74,3 +74,11 @@ pub struct AudioAssetSummary {
     pub absolute_path: String,
     pub relative_path: String,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileCacheStats {
+    pub root_path: String,
+    pub entry_count: usize,
+    pub total_size_bytes: u64,
+}

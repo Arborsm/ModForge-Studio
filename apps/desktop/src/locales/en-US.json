@@ -38,6 +38,12 @@
       "showAll": "Show all",
       "hideAll": "Hide all"
     },
+    "initialization": {
+      "recent": "Recent",
+      "detected": "Detected",
+      "clickToUse": "Click to use a directory",
+      "none": "No directories available"
+    },
     "leftDock": {
       "project": "Project Navigator",
       "projectSubtitle": "Game directory and workspace health",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { getStageMetadataCacheStats } from '../lib/app/eventStageShared'
-import { getDesktopCacheStats } from '../lib/desktop'
+import { canUseDesktopHost, clearFileCache, getDesktopCacheStats, getFileCacheStats, type FileCacheStats } from '../lib/desktop'
 import { getMapViewportCacheStats } from '../lib/mapViewportCache'
 import type { WorkspaceMode } from '../lib/editor-shell'
 
@@ -12,25 +12,28 @@ type DevDebugOverlayProps = {
   actorCount: number
 }
 
-type MemoryStats = {
-  usedJsHeapSize?: number
-  totalJsHeapSize?: number
-  jsHeapSizeLimit?: number
-}
-
 type CacheStats = {
   desktop: ReturnType<typeof getDesktopCacheStats>
   stage: ReturnType<typeof getStageMetadataCacheStats>
   viewport: ReturnType<typeof getMapViewportCacheStats>
 }
 
-function formatBytes(value: number | undefined) {
-  if (!value || !Number.isFinite(value)) {
-    return 'n/a'
+type MetricItem = [string, string]
+
+function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0 B'
   }
 
-  const mb = value / (1024 * 1024)
-  return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`
+  if (value >= 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(value >= 100 * 1024 * 1024 ? 0 : 1)} MB`
+  }
+
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(value >= 100 * 1024 ? 0 : 1)} KB`
+  }
+
+  return `${value} B`
 }
 
 function useFps() {
@@ -73,76 +76,108 @@ export function DevDebugOverlay({
 }: DevDebugOverlayProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [position, setPosition] = useState({ x: 20, y: 84 })
-  const [memoryStats, setMemoryStats] = useState<MemoryStats>({})
+  const [clearing, setClearing] = useState(false)
+  const [clearMessage, setClearMessage] = useState<string | null>(null)
   const [cacheStats, setCacheStats] = useState<CacheStats>({
     desktop: getDesktopCacheStats(),
     stage: getStageMetadataCacheStats(),
     viewport: getMapViewportCacheStats(),
   })
+  const [fileCacheStats, setFileCacheStats] = useState<FileCacheStats | null>(null)
   const pointerOffsetRef = useRef({ x: 0, y: 0 })
   const dragPointerIdRef = useRef<number | null>(null)
   const { fps, frameTimeMs } = useFps()
+  const desktopHost = canUseDesktopHost()
 
   useEffect(() => {
-    const updateMemory = () => {
-      const memory = (performance as Performance & { memory?: MemoryStats }).memory
-      setMemoryStats(memory ?? {})
+    let disposed = false
+
+    const updateStats = async () => {
       setCacheStats({
         desktop: getDesktopCacheStats(),
         stage: getStageMetadataCacheStats(),
         viewport: getMapViewportCacheStats(),
       })
+
+      if (!desktopHost) {
+        if (!disposed) {
+          setFileCacheStats(null)
+        }
+        return
+      }
+
+      try {
+        const nextStats = await getFileCacheStats()
+        if (!disposed) {
+          setFileCacheStats(nextStats)
+        }
+      } catch {
+        if (!disposed) {
+          setFileCacheStats(null)
+        }
+      }
     }
 
-    updateMemory()
-    const interval = window.setInterval(updateMemory, 1000)
-    return () => window.clearInterval(interval)
-  }, [])
+    void updateStats()
+    const interval = window.setInterval(() => {
+      void updateStats()
+    }, 1000)
 
-  const metrics = useMemo(
-    () => [
+    return () => {
+      disposed = true
+      window.clearInterval(interval)
+    }
+  }, [desktopHost])
+
+  const runtimeMetrics = useMemo(
+    (): MetricItem[] => [
       ['FPS', fps ? String(fps) : '...'],
       ['Frame', `${frameTimeMs.toFixed(1)} ms`],
-      ['Heap Used', formatBytes(memoryStats.usedJsHeapSize)],
-      ['Heap Total', formatBytes(memoryStats.totalJsHeapSize)],
-      ['Heap Limit', formatBytes(memoryStats.jsHeapSizeLimit)],
-      [
-        'Desktop Cache',
-        `${cacheStats.desktop.scanMaps + cacheStats.desktop.mapAsset + cacheStats.desktop.textAsset + cacheStats.desktop.imageDataUrl} entries`,
-      ],
-      ['Stage Cache', `${cacheStats.stage.hat + cacheStats.stage.hair} entries`],
-      ['Viewport Cache', `${cacheStats.viewport.images} loaded / ${cacheStats.viewport.pendingImages} pending`],
       ['DPR', window.devicePixelRatio.toFixed(2)],
       ['Viewport', `${window.innerWidth}x${window.innerHeight}`],
-      ['Renderer', 'Canvas 2D'],
       ['Mode', workspaceMode],
-      ['Map', mapName ?? 'n/a'],
-      ['Event', eventName ?? 'n/a'],
-      ['Command', currentEventCommandId ?? 'n/a'],
-      ['Actors', String(actorCount)],
-      ['DOM', typeof document === 'undefined' ? 'n/a' : String(document.getElementsByTagName('*').length)],
     ],
-    [
-      actorCount,
-      cacheStats.desktop.imageDataUrl,
-      cacheStats.desktop.mapAsset,
-      cacheStats.desktop.scanMaps,
-      cacheStats.desktop.textAsset,
-      cacheStats.stage.hair,
-      cacheStats.stage.hat,
-      cacheStats.viewport.images,
-      cacheStats.viewport.pendingImages,
-      currentEventCommandId,
-      eventName,
-      fps,
-      frameTimeMs,
-      mapName,
-      memoryStats.jsHeapSizeLimit,
-      memoryStats.totalJsHeapSize,
-      memoryStats.usedJsHeapSize,
-      workspaceMode,
-    ],
+    [fps, frameTimeMs, workspaceMode],
   )
+
+  const contextMetrics = useMemo(() => {
+    if (workspaceMode === 'map') {
+      return [
+        ['Map', mapName ?? 'n/a'],
+        ['Viewport Cache', `${cacheStats.viewport.images} loaded / ${cacheStats.viewport.pendingImages} pending`],
+        [
+          'Desktop Requests',
+          `${cacheStats.desktop.scanMaps + cacheStats.desktop.mapAsset + cacheStats.desktop.textAsset + cacheStats.desktop.imageDataUrl}`,
+        ],
+      ] as MetricItem[]
+    }
+
+    if (workspaceMode === 'events') {
+      return [
+        ['Event', eventName ?? 'n/a'],
+        ['Command', currentEventCommandId ?? 'n/a'],
+        ['Actors', String(actorCount)],
+        ['Stage Cache', `${cacheStats.stage.hat + cacheStats.stage.hair} entries`],
+        ['Viewport Cache', `${cacheStats.viewport.images} loaded / ${cacheStats.viewport.pendingImages} pending`],
+      ] as MetricItem[]
+    }
+
+    return [['Context', 'No workspace-specific stats']] as MetricItem[]
+  }, [
+    actorCount,
+    cacheStats.desktop.imageDataUrl,
+    cacheStats.desktop.mapAsset,
+    cacheStats.desktop.scanMaps,
+    cacheStats.desktop.textAsset,
+    cacheStats.stage.hair,
+    cacheStats.stage.hat,
+    cacheStats.viewport.images,
+    cacheStats.viewport.pendingImages,
+    currentEventCommandId,
+    eventName,
+    mapName,
+    workspaceMode,
+  ])
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragPointerIdRef.current = event.pointerId
@@ -175,9 +210,39 @@ export function DevDebugOverlay({
     }
   }
 
+  const handleClearFileCache = async () => {
+    if (!desktopHost || clearing) {
+      return
+    }
+
+    setClearing(true)
+    setClearMessage(null)
+    try {
+      await clearFileCache()
+      const nextStats = await getFileCacheStats()
+      setFileCacheStats(nextStats)
+      setClearMessage('File cache cleared')
+    } catch (error) {
+      setClearMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setClearing(false)
+    }
+  }
+
+  const renderMetricGrid = (items: MetricItem[]) => (
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+      {items.map(([label, value]) => (
+        <div key={label} className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-2.5 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{label}</p>
+          <p className="mt-1 truncate text-xs text-[var(--text-primary)]">{value}</p>
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <div
-      className="fixed z-[260] w-[280px] overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,transparent)] shadow-[var(--shadow-float)] backdrop-blur"
+      className="fixed z-[260] w-[300px] overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,transparent)] shadow-[var(--shadow-float)] backdrop-blur"
       style={{ left: `${position.x}px`, top: `${position.y}px` }}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
@@ -189,7 +254,7 @@ export function DevDebugOverlay({
       >
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Dev Debug</p>
-          <p className="text-xs text-[var(--text-tertiary)]">runtime diagnostics</p>
+          <p className="text-xs text-[var(--text-tertiary)]">workspace diagnostics</p>
         </div>
         <button
           type="button"
@@ -201,13 +266,39 @@ export function DevDebugOverlay({
       </div>
 
       {!collapsed ? (
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2 px-3 py-3">
-          {metrics.map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-2.5 py-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{label}</p>
-              <p className="mt-1 truncate text-xs text-[var(--text-primary)]">{value}</p>
+        <div className="space-y-3 px-3 py-3">
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Runtime</p>
+            {renderMetricGrid(runtimeMetrics)}
+          </div>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Workspace</p>
+            {renderMetricGrid(contextMetrics)}
+          </div>
+
+          {desktopHost ? (
+            <div className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">File Cache</p>
+                  <p className="mt-1 text-xs text-[var(--text-primary)]">
+                    {fileCacheStats ? `${fileCacheStats.entryCount} entries / ${formatBytes(fileCacheStats.totalSizeBytes)}` : 'Loading...'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => void handleClearFileCache()}
+                  disabled={clearing}
+                >
+                  {clearing ? 'Clearing...' : 'Clear'}
+                </button>
+              </div>
+              <p className="mt-2 break-all text-[11px] text-[var(--text-tertiary)]">{fileCacheStats?.rootPath ?? 'n/a'}</p>
+              {clearMessage ? <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{clearMessage}</p> : null}
             </div>
-          ))}
+          ) : null}
         </div>
       ) : null}
     </div>

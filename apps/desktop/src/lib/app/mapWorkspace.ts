@@ -8,6 +8,37 @@ export function getMapWorkspaceTabId(assetId: string) {
   return `map:${assetId}`
 }
 
+function getPathFileStem(path: string) {
+  const normalizedPath = path.trim().replaceAll('\\', '/')
+  const fileName = normalizedPath.split('/').pop() ?? ''
+  return fileName.replace(/\.[^.]+$/u, '')
+}
+
+export function getMapDocumentDisplayTitle(mapDocument: MapDocument | null | undefined) {
+  const documentName = mapDocument?.name?.trim()
+  if (documentName) {
+    return documentName
+  }
+
+  const relativePathName = mapDocument?.relativePath ? getPathFileStem(mapDocument.relativePath) : ''
+  if (relativePathName) {
+    return relativePathName
+  }
+
+  const sourcePathName = mapDocument?.sourcePath ? getPathFileStem(mapDocument.sourcePath) : ''
+  return sourcePathName || 'Untitled Map'
+}
+
+export function getMapDocumentPathLabel(mapDocument: MapDocument | null | undefined) {
+  const relativePath = mapDocument?.relativePath?.trim()
+  if (relativePath) {
+    return relativePath
+  }
+
+  const sourcePath = mapDocument?.sourcePath?.trim()
+  return sourcePath || getMapDocumentDisplayTitle(mapDocument)
+}
+
 export function getPreferredScene(assets: MapAssetSummary[]) {
   return (
     assets.find((asset) => asset.format === 'xnb' && /^town$/i.test(asset.name)) ??
@@ -82,15 +113,15 @@ export function buildWorkspaceTabs(worldAtlasDocument: MapDocument | null, mapTa
   return [
     {
       id: WORLD_ATLAS_TAB_ID,
-      title: worldAtlasDocument?.name ?? 'World Atlas',
-      pathLabel: worldAtlasDocument?.relativePath ?? 'World Atlas',
+      title: getMapDocumentDisplayTitle(worldAtlasDocument),
+      pathLabel: getMapDocumentPathLabel(worldAtlasDocument),
       closable: false,
       pinned: true,
     },
     ...mapTabs.map((tab) => ({
       id: tab.id,
-      title: tab.document.name,
-      pathLabel: tab.document.relativePath,
+      title: getMapDocumentDisplayTitle(tab.document),
+      pathLabel: getMapDocumentPathLabel(tab.document),
       closable: true,
       pinned: false,
     })),

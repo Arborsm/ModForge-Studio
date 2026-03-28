@@ -25,6 +25,8 @@ export type MapWorkspaceTab = {
   id: string
   assetId: string
   document: MapDocument
+  preview: boolean
+  dirty: boolean
 }
 
 export type AccentPreset = {

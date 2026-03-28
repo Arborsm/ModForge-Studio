@@ -131,6 +131,12 @@ export type EditorCopy = {
     showAll: string
     hideAll: string
   }
+  initialization: {
+    recent: string
+    detected: string
+    clickToUse: string
+    none: string
+  }
   leftDock: {
     project: string
     projectSubtitle: string

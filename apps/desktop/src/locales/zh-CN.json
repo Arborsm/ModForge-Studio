@@ -138,11 +138,11 @@
       "mapScanFailed": "地图扫描失败。",
       "loadingMap": "正在加载地图...",
       "loadingMapFailed": "地图加载失败。",
-      "preloadingResources": "\u6b63\u5728\u9884\u52a0\u8f7d\u6e38\u620f\u8d44\u6e90",
-      "preloadingWorldData": "\u6b63\u5728\u9884\u52a0\u8f7d\u4e16\u754c\u56fe\u8c31\u6570\u636e...",
-      "preloadingMaps": "\u6b63\u5728\u9884\u52a0\u8f7d\u5730\u56fe\u8d44\u6e90...",
-      "preloadingTilesets": "\u6b63\u5728\u9884\u52a0\u8f7d Tileset \u56fe\u50cf...",
-      "resourcePreloadFailed": "\u8d44\u6e90\u9884\u52a0\u8f7d\u5931\u8d25\u3002",
+      "preloadingResources": "正在预加载游戏资源",
+      "preloadingWorldData": "正在预加载世界图谱数据...",
+      "preloadingMaps": "正在预加载地图资源...",
+      "preloadingTilesets": "正在预加载 Tileset 图像...",
+      "resourcePreloadFailed": "资源预加载失败。",
       "onlyTmxSupported": "当前只支持 XNB 地图加载。",
       "directorySelectionFailed": "目录选择失败。",
       "detectedKnownPathTemplate": "检测到目录: {path}",
@@ -325,6 +325,12 @@
           }
         ]
       }
+    },
+    "initialization": {
+      "recent": "最近使用",
+      "detected": "自动检测",
+      "clickToUse": "点击即可填入目录",
+      "none": "暂无可用目录"
     }
   },
   "worldAtlasViews": {

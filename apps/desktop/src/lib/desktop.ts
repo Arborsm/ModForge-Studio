@@ -61,6 +61,12 @@ export type AudioAssetSummary = {
   relativePath: string
 }
 
+export type FileCacheStats = {
+  rootPath: string
+  entryCount: number
+  totalSizeBytes: number
+}
+
 function normalizeCachePathSegment(value: string) {
   return value.trim().replaceAll('/', '\\')
 }
@@ -121,7 +127,26 @@ async function readCached<T>(
   return pendingValue
 }
 
+async function readPending<T>(
+  cache: ReturnType<typeof createPromiseCache<T>>,
+  key: string,
+  loader: () => Promise<T>,
+) {
+  const cachedValue = cache.get(key)
+  if (cachedValue) {
+    return cachedValue
+  }
+
+  const pendingValue = loader().finally(() => {
+    cache.delete(key)
+  })
+
+  cache.set(key, pendingValue)
+  return pendingValue
+}
+
 const validateDirectoryCache = createPromiseCache<GameDirectoryInfo>()
+const listKnownGameDirectoriesCache = createPromiseCache<string[]>()
 const scanMapsCache = createPromiseCache<MapAssetSummary[]>()
 const scanEventsCache = createPromiseCache<EventAssetSummary[]>()
 const loadMapAssetCache = createPromiseCache<MapAssetContent>()
@@ -160,6 +185,14 @@ export function getDesktopCacheStats() {
     xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
   }
+}
+
+export function getFileCacheStats() {
+  return invokeDesktop<FileCacheStats>('get_file_cache_stats')
+}
+
+export function clearFileCache() {
+  return invokeDesktop<void>('clear_file_cache')
 }
 
 function isDesktopHost() {
@@ -210,6 +243,12 @@ export function detectDefaultGameDirectory() {
   return invokeDesktop<string | null>('detect_default_game_directory')
 }
 
+export function listKnownGameDirectories() {
+  return readCached(listKnownGameDirectoriesCache, 'default', () =>
+    invokeDesktop<string[]>('list_known_game_directories'),
+  )
+}
+
 export function validateGameDirectory(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readCached(validateDirectoryCache, cacheKey, () =>
@@ -229,14 +268,14 @@ export function scanEvents(path: string) {
 
 export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
-  return readCached(loadMapAssetCache, cacheKey, () =>
+  return readPending(loadMapAssetCache, cacheKey, () =>
     invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath, locale }),
   )
 }
 
 export function loadTextAsset(rootPath: string, assetPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, assetPath, locale)
-  return readCached(loadTextAssetCache, cacheKey, () =>
+  return readPending(loadTextAssetCache, cacheKey, () =>
     invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath, locale }),
   )
 }
@@ -248,7 +287,7 @@ export function loadTextFile(path: string) {
 
 export function loadImageDataUrl(path: string, locale?: string) {
   const cacheKey = `${normalizeCachePathSegment(path)}::${locale?.trim() || 'default'}`
-  return readCached(loadImageDataUrlCache, cacheKey, () => invokeDesktop<string>('load_image_data_url', { path, locale }))
+  return readPending(loadImageDataUrlCache, cacheKey, () => invokeDesktop<string>('load_image_data_url', { path, locale }))
 }
 
 export function scanAudioAssets(path: string) {
@@ -260,12 +299,12 @@ export function scanAudioAssets(path: string) {
 
 export function loadAudioDataUrl(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
-  return readCached(loadAudioDataUrlCache, cacheKey, () => invokeDesktop<string>('load_audio_data_url', { path }))
+  return readPending(loadAudioDataUrlCache, cacheKey, () => invokeDesktop<string>('load_audio_data_url', { path }))
 }
 
 export function loadXactAudioDataUrl(rootPath: string, cue: string) {
   const cacheKey = `${normalizeCachePathSegment(rootPath)}::${cue.trim()}`
-  return readCached(loadXactAudioDataUrlCache, cacheKey, () =>
+  return readPending(loadXactAudioDataUrlCache, cacheKey, () =>
     invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue }),
   )
 }

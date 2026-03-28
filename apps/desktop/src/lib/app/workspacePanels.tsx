@@ -1,6 +1,6 @@
 import CentralWorkspace from '../../components/CentralWorkspace'
 import EventStageWorkspace from '../../components/EventStageWorkspace'
-import { AssetBrowserPanel, EventBrowserPanel, ProjectPanel } from '../../components/LeftPanels'
+import { AssetBrowserPanel, EventBrowserPanel } from '../../components/LeftPanels'
 import { DiagnosticsPanel, InspectorPanel, LayersPanel, ObjectGroupsPanel } from '../../components/RightPanels'
 import { EventTimelinePanel } from '../../components/panels/bottom/EventTimelinePanel'
 import { EventCommandInspectorPanel } from '../../components/panels/right/EventCommandInspectorPanel'
@@ -12,19 +12,12 @@ import type { PlayerAppearanceProfile } from './playerAppearance'
 import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../editor-shell'
 import type { EventScript, ParsedEventAsset } from '../events/types'
 import type { MapDocument } from '../maps/types'
-import type { ResourcePreloadState, WorldAtlasView } from './types'
+import type { WorldAtlasView } from './types'
 
 type BuildWorkspacePanelsOptions = {
   copy: EditorCopy
   locale: LocaleCode
   workspaceMode: WorkspaceMode
-  desktopHost: boolean
-  gameDirectory: string
-  onGameDirectoryChange: (value: string) => void
-  onChooseDirectory: () => void
-  onUseKnownPath: () => void
-  onValidateOnly: () => void
-  onScanAndOpenTown: () => void
   directoryInfo: GameDirectoryInfo | null
   mapAssets: MapAssetSummary[]
   filteredAssets: MapAssetSummary[]
@@ -66,7 +59,6 @@ type BuildWorkspacePanelsOptions = {
     tone: 'idle' | 'working' | 'ready' | 'error'
     message: string
   }
-  resourcePreloadState: ResourcePreloadState
   moduleBlueprint?: ModuleBlueprint
   eventAssets: EventAssetSummary[]
   filteredEventAssets: EventAssetSummary[]
@@ -86,7 +78,6 @@ type BuildWorkspacePanelsOptions = {
   onActivateTimelineEntry: (entryId: string) => void
   onTimelineJumpHandled: () => void
   onPlaybackCommandChange: (commandId: string | null) => void
-  activeSceneLabel?: string
   activePlayerAppearanceProfile: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow: () => void
 }
@@ -95,18 +86,10 @@ export function buildWorkspacePanels({
   copy,
   locale,
   workspaceMode,
-  desktopHost,
-  gameDirectory,
-  onGameDirectoryChange,
-  onChooseDirectory,
-  onUseKnownPath,
-  onValidateOnly,
-  onScanAndOpenTown,
   directoryInfo,
   mapAssets,
   filteredAssets,
   activeMapId,
-  activeAssetName,
   assetFilter,
   onAssetFilterChange,
   onOpenAsset,
@@ -134,7 +117,6 @@ export function buildWorkspacePanels({
   onFocusObject,
   onHoverChange,
   workspaceStatus,
-  resourcePreloadState,
   moduleBlueprint,
   eventAssets,
   filteredEventAssets,
@@ -154,39 +136,10 @@ export function buildWorkspacePanels({
   onActivateTimelineEntry,
   onTimelineJumpHandled,
   onPlaybackCommandChange,
-  activeSceneLabel,
   activePlayerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
 }: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
   return [
-    {
-      id: 'project',
-      title: copy.leftDock.project,
-      subtitle: copy.leftDock.projectSubtitle,
-      minWidth: 300,
-      minHeight: 280,
-      dockMinHeight: 220,
-      dockAutoHeight: false,
-      defaultDock: 'left-top',
-      defaultDockHeight: 280,
-      content: (
-        <ProjectPanel
-          copy={copy}
-          workspaceMode={workspaceMode}
-          desktopHost={desktopHost}
-          gameDirectory={gameDirectory}
-          onGameDirectoryChange={onGameDirectoryChange}
-          onChooseDirectory={onChooseDirectory}
-          onUseKnownPath={onUseKnownPath}
-          onValidateOnly={onValidateOnly}
-          onScanAndOpenTown={onScanAndOpenTown}
-          directoryInfo={directoryInfo}
-          mapAssets={mapAssets}
-          activeMapId={activeMapId}
-          sceneLabel={workspaceMode === 'map' ? activeAssetName : activeSceneLabel}
-        />
-      ),
-    },
     {
       id: 'assets',
       title: copy.leftDock.contentBrowser,
@@ -194,8 +147,8 @@ export function buildWorkspacePanels({
       minWidth: 320,
       minHeight: 320,
       dockMinHeight: 240,
-      defaultDock: 'left-bottom',
-      defaultDockHeight: 520,
+      defaultDock: 'left-top',
+      defaultDockHeight: 760,
       content: workspaceMode === 'events' ? (
         <EventBrowserPanel
           locale={locale}
@@ -265,7 +218,6 @@ export function buildWorkspacePanels({
           visibleObjectGroupIds={visibleObjectGroupIds}
           focusedObjectTarget={focusedObjectTarget}
           onHoverChange={onHoverChange}
-          resourcePreloadState={resourcePreloadState}
           moduleBlueprint={moduleBlueprint}
         />
       ),

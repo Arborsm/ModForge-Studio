@@ -11,7 +11,6 @@ import {
   ZoomOut,
 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
-import type { ResourcePreloadState } from '../lib/app/types'
 import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../lib/editor-shell'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
@@ -43,7 +42,6 @@ type CentralWorkspaceProps = {
   visibleObjectGroupIds: number[]
   focusedObjectTarget: FocusedMapObjectTarget | null
   onHoverChange: (info: TileHoverInfo | null) => void
-  resourcePreloadState: ResourcePreloadState
   moduleBlueprint?: ModuleBlueprint
 }
 
@@ -69,7 +67,6 @@ export default function CentralWorkspace({
   visibleObjectGroupIds,
   focusedObjectTarget,
   onHoverChange,
-  resourcePreloadState,
   moduleBlueprint,
 }: CentralWorkspaceProps) {
   const [toolMode, setToolMode] = useState<ToolMode>('select')
@@ -256,7 +253,7 @@ export default function CentralWorkspace({
         {workspaceMode === 'map' ? (
           <div className="relative h-full">
             <MapViewport
-              key={mapDocument ? `${mapDocument.format}:${mapDocument.sourcePath}` : 'empty-map'}
+              key={mapDocument ? `${activeTabId}:${mapDocument.format}:${mapDocument.relativePath || mapDocument.sourcePath}` : 'empty-map'}
               locale={locale}
               ref={viewportRef}
               mapDocument={mapDocument}
@@ -271,34 +268,6 @@ export default function CentralWorkspace({
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
             />
 
-            {resourcePreloadState.active ? (
-              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-app)_72%,transparent)] backdrop-blur-sm">
-                <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-5 shadow-[var(--shadow-panel)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-tertiary)]">
-                    {copy.messages.preloadingResources}
-                  </p>
-                  <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{resourcePreloadState.message}</p>
-                  {resourcePreloadState.currentLabel ? (
-                    <p className="mt-2 truncate text-sm text-[var(--text-secondary)]">{resourcePreloadState.currentLabel}</p>
-                  ) : null}
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--bg-panel)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-150"
-                      style={{
-                        width:
-                          resourcePreloadState.total > 0
-                            ? `${Math.max(6, (resourcePreloadState.completed / resourcePreloadState.total) * 100)}%`
-                            : '24%',
-                      }}
-                    />
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-secondary)]">
-                    <span>{resourcePreloadState.total > 0 ? `${resourcePreloadState.completed}/${resourcePreloadState.total}` : '...'}</span>
-                    <span>{resourcePreloadState.total > 0 ? `${Math.round((resourcePreloadState.completed / resourcePreloadState.total) * 100)}%` : ''}</span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
         ) : moduleBlueprint ? (
           <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">

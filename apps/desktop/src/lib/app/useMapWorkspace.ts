@@ -22,12 +22,12 @@ import {
   getWorldAtlasSeedNames,
   parseWorldMapLayout,
 } from '../maps/world'
-import { REMOTE_WORLD_ROOT_CANDIDATES, WORLD_ATLAS_TAB_ID, WORLD_ROOT_MAP_NAME } from './constants'
+import { MAP_PREVIEW_TAB_ID, REMOTE_WORLD_ROOT_CANDIDATES, WORLD_ATLAS_TAB_ID, WORLD_ROOT_MAP_NAME } from './constants'
 import {
   buildWorkspaceTabs,
   getDefaultVisibleLayerIds,
+  getMapDocumentDisplayTitle,
   getDefaultVisibleObjectGroupIds,
-  getMapWorkspaceTabId,
   getPreferredScene,
   isRemoteWorldAtlasDocument,
   matchesWorldAtlasMapName,
@@ -73,6 +73,57 @@ async function runWithConcurrency<T>(
 
 function formatPreloadError(error: unknown) {
   return error instanceof Error ? error.message : String(error)
+}
+
+function getPathFileStem(path: string) {
+  const normalizedPath = path.trim().replaceAll('\\', '/')
+  const fileName = normalizedPath.split('/').pop() ?? ''
+  return fileName.replace(/\.[^.]+$/u, '')
+}
+
+function normalizeLoadedMapDocument(
+  parsedDocument: MapDocument,
+  asset: {
+    name: string
+    absolutePath: string
+    relativePath: string
+  },
+) {
+  const fallbackName = asset.name.trim() || getPathFileStem(asset.relativePath) || getMapDocumentDisplayTitle(parsedDocument)
+  const nextName = fallbackName || getMapDocumentDisplayTitle(parsedDocument)
+  const nextRelativePath = asset.relativePath.trim() || parsedDocument.relativePath
+  const nextSourcePath = asset.absolutePath.trim() || parsedDocument.sourcePath
+
+  if (
+    parsedDocument.name === nextName &&
+    parsedDocument.relativePath === nextRelativePath &&
+    parsedDocument.sourcePath === nextSourcePath
+  ) {
+    return parsedDocument
+  }
+
+  return {
+    ...parsedDocument,
+    name: nextName,
+    relativePath: nextRelativePath,
+    sourcePath: nextSourcePath,
+  }
+}
+
+function formatPreloadLabel(rootPath: string, assetPath: string) {
+  const normalizedRoot = rootPath.trim().replaceAll('/', '\\').replace(/\\+$/u, '')
+  const normalizedAssetPath = assetPath.trim().replaceAll('/', '\\')
+
+  if (!normalizedRoot) {
+    return normalizedAssetPath
+  }
+
+  const rootWithSeparator = `${normalizedRoot}\\`
+  if (normalizedAssetPath.toLowerCase().startsWith(rootWithSeparator.toLowerCase())) {
+    return normalizedAssetPath.slice(rootWithSeparator.length)
+  }
+
+  return normalizedAssetPath
 }
 
 export function useMapWorkspace({
@@ -218,7 +269,11 @@ export function useMapWorkspace({
       throw new Error(copy.messages.onlyTmxSupported)
     }
 
-    const parsedDocument = JSON.parse(asset.content) as MapDocument
+    const parsedDocument = normalizeLoadedMapDocument(JSON.parse(asset.content) as MapDocument, {
+      name: asset.name,
+      absolutePath: asset.absolutePath,
+      relativePath: asset.relativePath,
+    })
     parsedMapCacheRef.current.set(summary.absolutePath, parsedDocument)
     return parsedDocument
   }
@@ -249,7 +304,7 @@ export function useMapWorkspace({
 
     const tilesetImagePaths = new Set<string>()
     await runWithConcurrency(xnbAssets, 4, async (asset) => {
-      updatePreloadState(copy.messages.preloadingMaps, asset.name)
+      updatePreloadState(copy.messages.preloadingMaps, asset.relativePath)
       try {
         const document = await loadParsedMap(asset, info)
         for (const tileset of document.tilesets) {
@@ -262,7 +317,7 @@ export function useMapWorkspace({
         console.warn(`[resource-preload] skipped map preload for ${asset.absolutePath}: ${formatPreloadError(error)}`)
       }
       completed += 1
-      updatePreloadState(copy.messages.preloadingMaps, asset.name)
+      updatePreloadState(copy.messages.preloadingMaps, asset.relativePath)
     })
 
     const imagePaths = Array.from(tilesetImagePaths)
@@ -270,14 +325,14 @@ export function useMapWorkspace({
     updatePreloadState(copy.messages.preloadingTilesets)
 
     await runWithConcurrency(imagePaths, 6, async (imagePath) => {
-      updatePreloadState(copy.messages.preloadingTilesets, imagePath)
+      updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
       try {
         await loadImageDataUrl(imagePath, locale)
       } catch (error) {
         console.warn(`[resource-preload] skipped image preload for ${imagePath}: ${formatPreloadError(error)}`)
       }
       completed += 1
-      updatePreloadState(copy.messages.preloadingTilesets, imagePath)
+      updatePreloadState(copy.messages.preloadingTilesets, formatPreloadLabel(info.rootPath, imagePath))
     })
 
     setResourcePreloadState({
@@ -344,18 +399,23 @@ export function useMapWorkspace({
       }
 
       const parsedDocument = await loadParsedMap(summary, info)
+      const reusablePreviewTab =
+        existingTab ?? mapTabs.find((tab) => tab.preview && !tab.dirty) ?? null
       const nextTab = {
-        id: getMapWorkspaceTabId(summary.id),
+        id: reusablePreviewTab?.id ?? MAP_PREVIEW_TAB_ID,
         assetId: summary.id,
         document: parsedDocument,
+        preview: true,
+        dirty: false,
       }
 
       setMapTabs((current) => {
-        if (!existingTab) {
+        const reusableTabId = reusablePreviewTab?.id
+        if (!reusableTabId) {
           return [...current, nextTab]
         }
 
-        return current.map((tab) => (tab.id === existingTab.id ? nextTab : tab))
+        return current.map((tab) => (tab.id === reusableTabId ? nextTab : tab))
       })
       setActiveTabId(nextTab.id)
       applyMapDocument(parsedDocument, summary.id)
@@ -400,7 +460,7 @@ export function useMapWorkspace({
     const resolvedNames = new Set<string>()
 
     setWorkspaceMode('map')
-    setMapTabs([])
+    setMapTabs((current) => current.filter((tab) => tab.dirty))
     setActiveTabId(WORLD_ATLAS_TAB_ID)
     setWorldAtlasViews([])
     setActiveWorldAtlasViewId(null)

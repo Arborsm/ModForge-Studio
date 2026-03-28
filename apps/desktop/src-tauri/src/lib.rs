@@ -8,8 +8,9 @@ mod xact;
 mod xnb;
 
 use assets::{
-    detect_default_game_directory, load_audio_data_url, load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets,
-    scan_events, scan_maps, validate_game_directory,
+    clear_file_cache, detect_default_game_directory, get_file_cache_stats, list_known_game_directories, load_audio_data_url,
+    load_image_data_url, load_map_asset, load_text_asset, load_text_file, scan_audio_assets, scan_events, scan_maps,
+    validate_game_directory,
 };
 use saves::scan_default_save_slots;
 use xact::load_xact_audio_data_url;
@@ -21,6 +22,9 @@ pub fn run() {
         .plugin(tauri_plugin_log::Builder::default().level(log::LevelFilter::Info).build())
         .invoke_handler(tauri::generate_handler![
             detect_default_game_directory,
+            list_known_game_directories,
+            get_file_cache_stats,
+            clear_file_cache,
             validate_game_directory,
             scan_maps,
             scan_events,

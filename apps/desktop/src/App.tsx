@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DevDebugOverlay } from './components/DevDebugOverlay'
-import PlayerAppearanceWindow from './components/PlayerAppearanceWindow'
+import InitializationOverlay from './components/InitializationOverlay'
 import StatusBar from './components/StatusBar'
-import SettingsWindow from './components/SettingsWindow'
 import TopMenuBar from './components/TopMenuBar'
 import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
 import {
   canUseDesktopHost,
   clearDesktopLocaleCache,
   closeCurrentWindow,
+  listKnownGameDirectories,
   minimizeCurrentWindow,
   toggleMaximizeCurrentWindow,
 } from './lib/desktop'
@@ -27,6 +27,7 @@ import {
   ACCENT_STORAGE_KEY,
   PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY,
   PLAYER_APPEARANCE_PROFILES_STORAGE_KEY,
+  RECENT_GAME_DIRECTORIES_STORAGE_KEY,
   WORKSPACE_LAYOUT_VERSION,
 } from './lib/app/constants'
 import {
@@ -41,6 +42,9 @@ import { clearMapViewportLocaleCache } from './lib/mapViewportCache'
 import { useEventWorkspace } from './lib/app/useEventWorkspace'
 import { useMapWorkspace } from './lib/app/useMapWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
+
+const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
+const PlayerAppearanceWindow = lazy(() => import('./components/PlayerAppearanceWindow'))
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() =>
@@ -60,6 +64,19 @@ export default function App() {
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
+  const [storedRecentGameDirectories] = useState<string[]>(() => {
+    if (typeof window === 'undefined') {
+      return []
+    }
+
+    try {
+      const parsed = JSON.parse(window.localStorage.getItem(RECENT_GAME_DIRECTORIES_STORAGE_KEY) ?? '[]')
+      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : []
+    } catch {
+      return []
+    }
+  })
+  const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
   const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
   const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
@@ -155,7 +172,6 @@ export default function App() {
     eventAssetFilter,
     setEventAssetFilter,
     activeEventAssetId,
-    activeEventAsset,
     parsedEventAsset,
     selectedEventKey,
     selectedEvent,
@@ -178,9 +194,18 @@ export default function App() {
   const settingsMenuCopy = getSettingsMenuCopy(locale)
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
-  const activeSceneLabel = workspaceMode === 'events' ? activeEventAsset?.name : activeAssetName
   const activePlayerAppearanceProfile =
     playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
+  const needsInitialization = !directoryInfo
+  const interactionLocked = resourcePreloadState.active
+  const recentGameDirectories = useMemo(() => {
+    const currentRoot = directoryInfo?.rootPath
+    if (!currentRoot) {
+      return storedRecentGameDirectories
+    }
+
+    return [currentRoot, ...storedRecentGameDirectories.filter((path) => path !== currentRoot)].slice(0, 6)
+  }, [directoryInfo?.rootPath, storedRecentGameDirectories])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -215,6 +240,38 @@ export default function App() {
     root.style.setProperty('--bg-active', theme === 'dark' ? rgbaFromHex(accent, 0.22) : rgbaFromHex(accent, 0.12))
     window.localStorage.setItem(ACCENT_STORAGE_KEY, activeAccentPreset.id)
   }, [activeAccentPreset.color, activeAccentPreset.id, theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(RECENT_GAME_DIRECTORIES_STORAGE_KEY, JSON.stringify(recentGameDirectories))
+  }, [recentGameDirectories])
+
+  useEffect(() => {
+    if (!desktopHost) {
+      return
+    }
+
+    let disposed = false
+
+    void listKnownGameDirectories()
+      .then((paths) => {
+        if (!disposed) {
+          setKnownGameDirectories(paths)
+        }
+      })
+      .catch(() => {
+        if (!disposed) {
+          setKnownGameDirectories([])
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [desktopHost])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -287,13 +344,6 @@ export default function App() {
     copy,
     locale,
     workspaceMode,
-    desktopHost,
-    gameDirectory,
-    onGameDirectoryChange: setGameDirectory,
-    onChooseDirectory: () => void handleChooseDirectory(),
-    onUseKnownPath: () => void handleUseKnownPath(),
-    onValidateOnly: () => void handleValidateOnly(),
-    onScanAndOpenTown: () => void handleScanAndOpenTown(),
     directoryInfo,
     mapAssets,
     filteredAssets,
@@ -328,7 +378,6 @@ export default function App() {
     onFocusObject: focusObject,
     onHoverChange: setHoverInfo,
     workspaceStatus,
-    resourcePreloadState,
     moduleBlueprint,
     eventAssets,
     filteredEventAssets,
@@ -347,7 +396,6 @@ export default function App() {
     onSelectTimelineEntry: setSelectedTimelineEntryId,
     onActivateTimelineEntry: requestTimelineJump,
     onTimelineJumpHandled: clearTimelineJumpRequest,
-    activeSceneLabel,
     onPlaybackCommandChange: setCurrentEventCommandId,
     activePlayerAppearanceProfile,
     onOpenPlayerAppearanceWindow: openAppearanceWindow,
@@ -385,7 +433,10 @@ export default function App() {
   )
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]">
+    <div
+      className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]"
+      aria-busy={interactionLocked}
+    >
       <TopMenuBar
         copy={copy}
         workspaceMode={workspaceMode}
@@ -433,38 +484,46 @@ export default function App() {
         }}
       />
 
-      <SettingsWindow
-        open={settingsWindowOpen}
-        title={settingsMenuCopy.title}
-        categories={settingsMenuCopy.categories}
-        categoryDescriptions={settingsMenuCopy.categoryDescriptions}
-        accentLabel={settingsMenuCopy.accentLabel}
-        resetAccentLabel={settingsMenuCopy.resetAccentLabel}
-        accentDescription={settingsMenuCopy.accentDescription}
-        futureLabel={settingsMenuCopy.futureLabel}
-        futureDescription={settingsMenuCopy.futureDescription}
-        accentOptions={ACCENT_PRESETS}
-        activeAccentId={activeAccentPreset.id}
-        onSelectAccent={setAccentPresetId}
-        onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
-        onClose={() => setSettingsWindowOpen(false)}
-      />
+      {settingsWindowOpen ? (
+        <Suspense fallback={null}>
+          <SettingsWindow
+            open={settingsWindowOpen}
+            title={settingsMenuCopy.title}
+            categories={settingsMenuCopy.categories}
+            categoryDescriptions={settingsMenuCopy.categoryDescriptions}
+            accentLabel={settingsMenuCopy.accentLabel}
+            resetAccentLabel={settingsMenuCopy.resetAccentLabel}
+            accentDescription={settingsMenuCopy.accentDescription}
+            futureLabel={settingsMenuCopy.futureLabel}
+            futureDescription={settingsMenuCopy.futureDescription}
+            accentOptions={ACCENT_PRESETS}
+            activeAccentId={activeAccentPreset.id}
+            onSelectAccent={setAccentPresetId}
+            onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+            onClose={() => setSettingsWindowOpen(false)}
+          />
+        </Suspense>
+      ) : null}
 
-      <PlayerAppearanceWindow
-        key={`player-appearance:${playerAppearanceWindowNonce}`}
-        open={playerAppearanceWindowOpen}
-        locale={locale}
-        rootPath={directoryInfo?.rootPath ?? null}
-        profiles={playerAppearanceProfiles}
-        activeProfileId={activePlayerAppearanceProfileId}
-        onSelectProfile={setActivePlayerAppearanceProfileId}
-        onCreateProfile={handleCreatePlayerAppearanceProfile}
-        onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
-        onDeleteProfile={handleDeletePlayerAppearanceProfile}
-        onImportProfile={handleImportPlayerAppearanceProfile}
-        onChangeProfile={handleChangePlayerAppearanceProfile}
-        onClose={() => setPlayerAppearanceWindowOpen(false)}
-      />
+      {playerAppearanceWindowOpen ? (
+        <Suspense fallback={null}>
+          <PlayerAppearanceWindow
+            key={`player-appearance:${playerAppearanceWindowNonce}`}
+            open={playerAppearanceWindowOpen}
+            locale={locale}
+            rootPath={directoryInfo?.rootPath ?? null}
+            profiles={playerAppearanceProfiles}
+            activeProfileId={activePlayerAppearanceProfileId}
+            onSelectProfile={setActivePlayerAppearanceProfileId}
+            onCreateProfile={handleCreatePlayerAppearanceProfile}
+            onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
+            onDeleteProfile={handleDeletePlayerAppearanceProfile}
+            onImportProfile={handleImportPlayerAppearanceProfile}
+            onChangeProfile={handleChangePlayerAppearanceProfile}
+            onClose={() => setPlayerAppearanceWindowOpen(false)}
+          />
+        </Suspense>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <WorkspaceLayout
@@ -475,6 +534,22 @@ export default function App() {
           onLayoutMetaChange={handleLayoutMetaChange}
         />
       </div>
+
+      {needsInitialization && !interactionLocked ? (
+        <InitializationOverlay
+          copy={copy}
+          desktopHost={desktopHost}
+          gameDirectory={gameDirectory}
+          recentDirectories={recentGameDirectories}
+          detectedDirectories={knownGameDirectories}
+          onGameDirectoryChange={setGameDirectory}
+          onSelectDirectory={setGameDirectory}
+          onChooseDirectory={() => void handleChooseDirectory()}
+          onUseKnownPath={() => void handleUseKnownPath()}
+          onValidateOnly={() => void handleValidateOnly()}
+          onScanAndOpenTown={() => void handleScanAndOpenTown()}
+        />
+      ) : null}
 
       {import.meta.env.DEV ? (
         <DevDebugOverlay
@@ -497,6 +572,35 @@ export default function App() {
         pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
         hoverInfo={hoverInfo}
       />
+
+      {interactionLocked ? (
+        <div className="absolute inset-0 z-50 flex cursor-wait items-center justify-center bg-[color-mix(in_srgb,var(--bg-app)_64%,transparent)] backdrop-blur-[2px]">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-5 shadow-[var(--shadow-panel)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-tertiary)]">
+              {copy.messages.preloadingResources}
+            </p>
+            <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{resourcePreloadState.message}</p>
+            {resourcePreloadState.currentLabel ? (
+              <p className="mt-2 truncate text-sm text-[var(--text-secondary)]">{resourcePreloadState.currentLabel}</p>
+            ) : null}
+            <div className="mt-4 h-2 rounded-full bg-[var(--bg-panel-muted)]">
+              <div
+                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-200"
+                style={{
+                  width:
+                    resourcePreloadState.total > 0
+                      ? `${Math.max(6, (resourcePreloadState.completed / resourcePreloadState.total) * 100)}%`
+                      : '18%',
+                }}
+              />
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-secondary)]">
+              <span>{resourcePreloadState.total > 0 ? `${resourcePreloadState.completed}/${resourcePreloadState.total}` : '...'}</span>
+              <span>{resourcePreloadState.total > 0 ? `${Math.round((resourcePreloadState.completed / resourcePreloadState.total) * 100)}%` : ''}</span>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
