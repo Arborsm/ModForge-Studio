@@ -99,7 +99,7 @@ export default function LeftDock({
       <PanelFrame title={copy.leftDock.project} subtitle={copy.leftDock.projectSubtitle}>
         <div className="space-y-3 p-3">
           <div className="grid gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+            <label className="panel-section-title">
               {copy.leftDock.gameDirectory}
             </label>
             <input
@@ -149,7 +149,7 @@ export default function LeftDock({
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
+          <div className="panel-section-muted panel-section px-3 py-2">
             <div className="kv-row">
               <span>{copy.leftDock.installState}</span>
               <span>{directoryInfo ? copy.statusTone.ready : copy.statusTone.idle}</span>
@@ -215,7 +215,7 @@ export default function LeftDock({
                 return (
                   <section
                     key={group.label}
-                    className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                    className="panel-section-muted panel-section overflow-hidden"
                   >
                     <button
                       type="button"
@@ -269,7 +269,7 @@ export default function LeftDock({
                 )
               })
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+              <div className="panel-empty-state">
                 {mapAssets.length ? copy.leftDock.noFilteredMaps : copy.leftDock.noMapsFound}
               </div>
             )}

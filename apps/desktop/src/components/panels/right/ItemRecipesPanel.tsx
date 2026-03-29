@@ -1,6 +1,7 @@
 import type { ItemsPanelCopy } from '../../../lib/editor-shell'
 import type { ItemWorkspaceEntry } from '../../../lib/app/itemWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type ItemRecipesPanelProps = {
   copy: ItemsPanelCopy
@@ -12,17 +13,13 @@ export function ItemRecipesPanel({ copy, item }: ItemRecipesPanelProps) {
     <PanelFrame title={copy.recipesPanelTitle} subtitle={copy.recipesPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">
         {!item ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.recipesPanelEmpty}
-          </div>
+          <PanelEmptyState>{copy.recipesPanelEmpty}</PanelEmptyState>
         ) : (
           <>
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{copy.recipeOutputTitle}</p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.recipeOutputTitle} bodyClassName="space-y-2">
                 {item.recipesProduced.length ? (
                   item.recipesProduced.map((recipe) => (
-                    <div key={recipe.key} className="rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_92%,white_8%)] px-3 py-3">
+                    <div key={recipe.key} className="panel-list-card">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{recipe.displayName}</p>
@@ -35,15 +32,12 @@ export function ItemRecipesPanel({ copy, item }: ItemRecipesPanelProps) {
                 ) : (
                   <p className="text-sm text-[var(--text-secondary)]">{copy.noneLabel}</p>
                 )}
-              </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{copy.recipeInputTitle}</p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.recipeInputTitle} bodyClassName="space-y-2">
                 {item.recipesUsing.length ? (
                   item.recipesUsing.map((recipe) => (
-                    <div key={recipe.key} className="rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_92%,white_8%)] px-3 py-3">
+                    <div key={recipe.key} className="panel-list-card">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">{recipe.displayName}</p>
                       <div className="mt-2 flex items-center justify-between gap-3">
                         <p className="text-xs text-[var(--text-secondary)]">
@@ -56,8 +50,7 @@ export function ItemRecipesPanel({ copy, item }: ItemRecipesPanelProps) {
                 ) : (
                   <p className="text-sm text-[var(--text-secondary)]">{copy.noneLabel}</p>
                 )}
-              </div>
-            </section>
+            </PanelSection>
           </>
         )}
       </div>

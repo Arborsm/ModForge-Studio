@@ -1107,15 +1107,15 @@ export default function EventWorkspace({
 
       <div className="flex justify-center">
         {playbackState.pendingChoice ? (
-          <div className="pointer-events-auto w-full max-w-3xl rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.choose}</p>
+          <div className="panel-overlay-card pointer-events-auto w-full max-w-3xl">
+            <p className="panel-section-title">{labels.choose}</p>
             <p className="mt-2 text-base font-semibold text-[var(--text-primary)]">{playbackState.pendingChoice.question}</p>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {playbackState.pendingChoice.choices.map((choice, index) => (
                 <button
                   key={`${choice.id}:${index}`}
                   type="button"
-                  className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-3 text-left text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+                  className="panel-list-card panel-list-card-interactive px-4 py-3 text-left text-sm text-[var(--text-primary)]"
                   onClick={() =>
                     setPlaybackState((current) =>
                       resolveChoice(current, parsedEventAsset?.eventIndex ?? {}, directoryInfo?.rootPath ?? null, index),
@@ -1128,7 +1128,7 @@ export default function EventWorkspace({
             </div>
           </div>
         ) : playbackState.currentEntry ? (
-          <div className="pointer-events-none flex w-full max-w-4xl items-end gap-4 rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
+          <div className="panel-overlay-card pointer-events-none flex w-full max-w-4xl items-end gap-4">
             <div className="hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] sm:block">
               {currentDialogueActor && actorAssetUrls[toActorKey(currentDialogueActor.actorName)]?.portraitUrl ? (
                 <img
@@ -1144,7 +1144,7 @@ export default function EventWorkspace({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+              <p className="panel-section-title">
                 {playbackState.currentEntry.title}
               </p>
               <p className="mt-2 text-base leading-7 text-[var(--text-primary)]">{playbackState.currentEntry.detail}</p>
@@ -1297,7 +1297,7 @@ export default function EventWorkspace({
                         key={entry.id}
                         type="button"
                         className={cx(
-                          'group relative flex h-full min-w-[220px] flex-col justify-between rounded-3xl border bg-[var(--bg-panel)] p-4 text-left transition-all hover:-translate-y-0.5 hover:bg-[var(--bg-elevated)]',
+                          'panel-list-card panel-list-card-interactive group relative flex h-full min-w-[220px] flex-col justify-between p-4 text-left transition-all hover:-translate-y-0.5',
                           getToneClass(entry.kind),
                           isSelected && 'ring-2 ring-[var(--accent)]',
                         )}
@@ -1305,7 +1305,7 @@ export default function EventWorkspace({
                       >
                         <div>
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+                            <span className="panel-section-title">
                               {entry.id === SETUP_ENTRY_ID ? labels.setup : `${index}. ${entry.kind}`}
                             </span>
                             {isCurrent ? <span className="dock-chip">{labels.current}</span> : null}
@@ -1315,7 +1315,7 @@ export default function EventWorkspace({
                         </div>
 
                         {entry.command?.raw ? (
-                          <div className="mt-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
+                          <div className="panel-list-card mt-4 px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
                             {entry.command.raw}
                           </div>
                         ) : null}
@@ -1324,7 +1324,7 @@ export default function EventWorkspace({
                   })}
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+                <div className="panel-canvas-empty h-full">
                   {labels.noCommands}
                 </div>
               )}
@@ -1352,10 +1352,10 @@ export default function EventWorkspace({
                         key={event.key}
                         type="button"
                         className={cx(
-                          'w-full rounded-2xl border px-3 py-3 text-left transition-colors',
+                          'panel-list-card panel-list-card-interactive w-full px-3 py-3 text-left',
                           isActive
-                            ? 'border-[var(--accent)] bg-[var(--bg-active)]'
-                            : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-elevated)]',
+                            ? 'panel-list-card-active'
+                            : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
                         )}
                         onClick={() => onSelectEvent(event.key)}
                       >
@@ -1390,8 +1390,8 @@ export default function EventWorkspace({
               </div>
 
               <div className="panel-body min-h-0 space-y-3 overflow-auto p-3">
-                <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+                <div className="panel-section p-3">
+                  <p className="panel-section-title">
                     {selectedTimelineEntry?.id === SETUP_ENTRY_ID ? labels.setup : selectedTimelineEntry?.kind ?? labels.inspector}
                   </p>
                   <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">
@@ -1402,18 +1402,18 @@ export default function EventWorkspace({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.music}</p>
+                <div className="panel-section p-3">
+                  <p className="panel-section-title">{labels.music}</p>
                   <p className="mt-2 text-sm text-[var(--text-primary)]">{selectedEvent?.scene.musicCue ?? 'none'}</p>
-                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.camera}</p>
+                  <p className="panel-section-title mt-3">{labels.camera}</p>
                   <p className="mt-2 text-sm text-[var(--text-primary)]">{selectedEvent?.scene.cameraInstruction ?? 'follow'}</p>
-                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.actors}</p>
+                  <p className="panel-section-title mt-3">{labels.actors}</p>
                   <p className="mt-2 text-sm text-[var(--text-primary)]">{selectedEvent?.scene.actors.length ?? 0}</p>
                 </div>
 
                 {selectedCommand?.raw ? (
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.raw}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{labels.raw}</p>
                     <pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-[var(--text-primary)]">
                       {selectedCommand.raw}
                     </pre>
@@ -1437,7 +1437,7 @@ export default function EventWorkspace({
                       <div
                         key={entry.id}
                         className={cx(
-                          'rounded-2xl px-3 py-2 text-sm',
+                          'panel-list-card px-3 py-2 text-sm',
                           entry.tone === 'dialogue'
                             ? 'bg-[color-mix(in_srgb,var(--warning)_8%,var(--bg-panel))]'
                             : entry.tone === 'choice'
@@ -1452,7 +1452,7 @@ export default function EventWorkspace({
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+                    <div className="panel-empty-state">
                       {labels.sceneIdle}
                     </div>
                   )}

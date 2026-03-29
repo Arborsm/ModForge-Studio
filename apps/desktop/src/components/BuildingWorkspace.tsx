@@ -119,7 +119,7 @@ function MaterialChip({
   const sourceRect = objectIndex != null ? getSpringObjectsSourceRect(objectIndex) : null
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
+    <div className="panel-list-card flex items-center gap-2 px-3 py-2">
       <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
         {sourceRect && springObjectsState.url && springObjectsState.width && springObjectsState.height ? (
           <div
@@ -175,10 +175,10 @@ function StageCard({
     <button
       type="button"
       className={cx(
-        'w-[240px] shrink-0 rounded-[28px] border p-3 text-left transition-colors',
+        'panel-list-card panel-list-card-interactive w-[240px] shrink-0 p-3 text-left',
         isActive
-          ? 'border-[var(--accent)] bg-[var(--bg-active)]'
-          : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-elevated)]',
+          ? 'panel-list-card-active'
+          : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
       )}
       onClick={onSelect}
     >
@@ -190,7 +190,7 @@ function StageCard({
         <span className="dock-chip shrink-0">{getStageBadge(copy, stage, isActive ? stage.key : null)}</span>
       </div>
 
-      <div className="mt-3 flex min-h-[152px] items-center justify-center rounded-[24px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_38%),var(--bg-panel-muted)] px-3 py-4">
+      <div className="panel-canvas-soft mt-3 flex min-h-[152px] items-center justify-center px-3 py-4">
         {sourceRect && textureState?.url && textureState.width && textureState.height ? (
           <div
             style={{
@@ -229,7 +229,7 @@ function WorldEntranceCard({
   entrance: WorldBuildingEntrance
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
+    <div className="panel-list-card px-3 py-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{entrance.sourceMapName}</p>
@@ -287,7 +287,7 @@ export default function BuildingWorkspace({
   if (!building) {
     return (
       <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
-        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--text-secondary)]">
+        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
           {copy.inspectorEmpty}
         </div>
       </div>
@@ -347,7 +347,7 @@ export default function BuildingWorkspace({
             </div>
 
             <div className="panel-body flex min-h-0 flex-col gap-3 p-3">
-              <div className="flex min-h-[340px] flex-1 items-center justify-center overflow-hidden rounded-[32px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%),linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_84%,transparent),var(--bg-viewport))] p-6">
+              <div className="panel-canvas flex min-h-[340px] flex-1 items-center justify-center p-6">
                 {isConstructible ? (
                   sourceRect && activeTextureState?.url && activeTextureState.width && activeTextureState.height ? (
                     <div
@@ -366,7 +366,7 @@ export default function BuildingWorkspace({
                       }}
                     />
                   ) : (
-                    <div className="rounded-3xl border border-dashed border-[var(--border-color)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+                    <div className="panel-canvas-empty">
                       {copy.noTexture}
                     </div>
                   )
@@ -387,7 +387,7 @@ export default function BuildingWorkspace({
                     />
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-dashed border-[var(--border-color)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+                  <div className="panel-canvas-empty">
                     {activeExteriorMapMessage}
                   </div>
                 )}
@@ -395,39 +395,39 @@ export default function BuildingWorkspace({
 
               {isConstructible ? (
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.builderLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.builderLabel}</p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">{building.builder ?? copy.noneLabel}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.humanDoorLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.humanDoorLabel}</p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">{formatPoint(building.humanDoor, copy.noneLabel)}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.animalDoorLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.animalDoorLabel}</p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">{formatRect(building.animalDoor, copy.noneLabel)}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.occupantsLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.occupantsLabel}</p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">{building.maxOccupants}</p>
                   </div>
                 </div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.exteriorMapLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.exteriorMapLabel}</p>
                     <p className="mt-1 truncate text-sm text-[var(--text-primary)]">{building.exteriorMapName ?? copy.noneLabel}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.exteriorEntryLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.exteriorEntryLabel}</p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">{formatPoint(building.exteriorEntryTile, copy.noneLabel)}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.indoorMapLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.indoorMapLabel}</p>
                     <p className="mt-1 truncate text-sm text-[var(--text-primary)]">{activeIndoorMapPath ?? building.indoorMapPathLabel}</p>
                   </div>
-                  <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{copy.entranceCountLabel}</p>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.entranceCountLabel}</p>
                     <p className="mt-1 text-sm text-[var(--text-primary)]">{building.worldEntrances.length}</p>
                   </div>
                 </div>
@@ -460,7 +460,7 @@ export default function BuildingWorkspace({
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+                    <div className="panel-empty-state">
                       {copy.materialsEmpty}
                     </div>
                   )
@@ -471,7 +471,7 @@ export default function BuildingWorkspace({
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+                  <div className="panel-empty-state">
                     {copy.worldEntrancesEmpty}
                   </div>
                 )}
@@ -492,7 +492,7 @@ export default function BuildingWorkspace({
                   building.skins.length ? (
                     <div className="space-y-2">
                       {building.skins.map((skin) => (
-                        <div key={`${building.key}:${skin.id}`} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
+                        <div key={`${building.key}:${skin.id}`} className="panel-list-card px-3 py-2">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{skin.displayName}</p>
@@ -507,12 +507,12 @@ export default function BuildingWorkspace({
                       ))}
                     </div>
                   ) : (
-                    <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+                    <div className="panel-empty-state">
                       {copy.skinsEmpty}
                     </div>
                   )
                 ) : (
-                  <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
+                  <div className="panel-section p-3">
                     <div className="space-y-2 text-sm text-[var(--text-primary)]">
                       <p>{copy.sourceMapLabel}: {building.exteriorMapName ?? copy.noneLabel}</p>
                       <p>{copy.exteriorMapLabel}: {activeExteriorMapPath ?? building.exteriorMapPathLabel ?? copy.noneLabel}</p>
@@ -589,13 +589,13 @@ export default function BuildingWorkspace({
                 />
               </div>
             ) : (
-              <div className="flex min-h-[420px] flex-1 items-center justify-center rounded-[32px] border border-dashed border-[var(--border-color)] px-6 text-center text-sm text-[var(--text-secondary)]">
+              <div className="panel-canvas-empty min-h-[420px] flex-1 px-6">
                 {building.indoorMapAssetName || building.nonInstancedIndoorLocation ? activeIndoorMapMessage || copy.noIndoorMap : copy.noIndoorMap}
               </div>
             )}
 
-            <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+            <div className="panel-section p-3">
+              <p className="panel-section-title">
                 {isConstructible ? copy.indoorDataTitle : copy.exteriorDataTitle}
               </p>
               <div className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">

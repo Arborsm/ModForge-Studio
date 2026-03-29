@@ -377,13 +377,13 @@ function DirectionAnimationCard({
   const sourceY = Math.floor(currentFrame / spriteColumns) * frameHeight
 
   return (
-    <div className="rounded-[26px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
+    <div className="panel-section p-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{label}</p>
+        <p className="panel-section-title">{label}</p>
         <span className="dock-chip">{frames.length}</span>
       </div>
 
-      <div className="mt-2.5 flex min-h-[148px] items-center justify-center rounded-[24px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.1),transparent_40%),linear-gradient(180deg,color-mix(in_srgb,var(--bg-elevated)_70%,transparent),var(--bg-panel-muted))]">
+      <div className="panel-canvas-soft mt-2.5 flex min-h-[148px] items-center justify-center">
         <div
           style={buildSpriteStyle({
             url: spriteUrl,
@@ -435,12 +435,12 @@ function GiftTasteSection({
 
   return (
     <div
-      className={`relative w-fit max-w-full rounded-[26px] border p-3 ${toneStyle.sectionClassName}`}
+      className={`panel-section relative w-fit max-w-full p-3 ${toneStyle.sectionClassName}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className={cx('h-2.5 w-2.5 shrink-0 rounded-full', toneStyle.dotClassName)} />
-          <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{title}</p>
+          <p className="panel-section-title truncate">{title}</p>
         </div>
       </div>
 
@@ -493,7 +493,7 @@ function GiftTasteSection({
           </div>
         </>
       ) : (
-        <div className="mt-3 rounded-2xl border border-dashed border-[var(--border-color)] px-3 py-4 text-xs leading-5 text-[var(--text-secondary)]">
+        <div className="panel-empty-state mt-3 text-xs leading-5">
           {emptyLabel}
         </div>
       )}
@@ -817,7 +817,7 @@ export default function CharacterWorkspace({
   if (!character) {
     return (
       <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
-        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--text-secondary)]">
+        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
           {copy.inspectorEmpty}
         </div>
       </div>
@@ -940,7 +940,7 @@ export default function CharacterWorkspace({
                   ))}
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-[var(--border-color)] px-4 py-8 text-sm text-[var(--text-secondary)]">
+                <div className="panel-canvas-empty h-full">
                   {copy.spriteMissing}
                 </div>
               )}
@@ -956,7 +956,7 @@ export default function CharacterWorkspace({
             </div>
             <div className="panel-body flex h-full min-h-0 flex-col p-3">
               {spriteUrl && spriteSheetWidth && spriteSheetHeight ? (
-                <div className="relative flex min-h-[320px] flex-1 items-center justify-center overflow-hidden rounded-[32px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.09),transparent_36%),linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_84%,transparent),var(--bg-viewport))]">
+                <div className="panel-canvas relative flex min-h-[320px] flex-1 items-center justify-center">
                   <div
                     className="absolute inset-0 opacity-40"
                     style={{
@@ -1020,7 +1020,7 @@ export default function CharacterWorkspace({
                   </div>
                 </div>
               ) : (
-                <div className="flex min-h-[320px] flex-1 items-center justify-center rounded-[32px] border border-dashed border-[var(--border-color)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+                <div className="panel-canvas-empty min-h-[320px] flex-1">
                   {copy.spriteMissing}
                 </div>
               )}
@@ -1091,17 +1091,17 @@ export default function CharacterWorkspace({
                   return (
                     <div
                       key={`portrait:${index}`}
-                      className="rounded-[26px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-2.5"
+                      className="panel-section p-2.5"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+                        <p className="panel-section-title">
                           {copy.expressions} {index}
                         </p>
                         {character.shakePortraits.includes(index) ? <span className="dock-chip">{copy.shakeBadge}</span> : null}
                       </div>
                       <div className="mt-2.5 flex justify-center">
                         <div
-                          className="relative overflow-hidden rounded-[22px] border border-[var(--border-color)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.1),transparent_42%),var(--bg-panel-muted)]"
+                          className="panel-canvas-soft relative"
                           style={{
                             width: `${bounds.frameWidth * PORTRAIT_PREVIEW_SCALE}px`,
                             height: `${bounds.frameHeight * PORTRAIT_PREVIEW_SCALE}px`,
@@ -1130,7 +1130,7 @@ export default function CharacterWorkspace({
                 })}
               </div>
             ) : (
-              <div className="flex min-h-[240px] items-center justify-center rounded-3xl border border-dashed border-[var(--border-color)] px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
+              <div className="panel-canvas-empty min-h-[240px]">
                 {copy.portraitMissing}
               </div>
             )}

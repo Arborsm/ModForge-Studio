@@ -1,6 +1,7 @@
 import { PanelFrame } from '../../ui/PanelFrame'
 import { buildEventTimelineEntries, EVENT_SETUP_ENTRY_ID } from '../../../lib/events/timeline'
 import type { EventScript } from '../../../lib/events/types'
+import { PanelSection } from '../../ui/PanelSection'
 
 type EventCommandInspectorPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -67,14 +68,13 @@ export function EventCommandInspectorPanel({
   return (
     <PanelFrame title={labels.title} subtitle={selectedEvent?.eventId ?? labels.empty} bodyClassName="p-3">
       <div className="space-y-3">
-        <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.summary}</p>
+        <PanelSection title={labels.summary}>
           <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{selectedEntry?.title ?? labels.empty}</p>
           <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{selectedEntry?.detail ?? labels.empty}</p>
-        </section>
+        </PanelSection>
 
         {selectedEvent && isSetupEntry ? (
-          <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
+          <PanelSection>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.music}</p>
@@ -89,11 +89,11 @@ export function EventCommandInspectorPanel({
                 <p className="mt-1 text-sm text-[var(--text-primary)]">{selectedEvent.scene.actors.length}</p>
               </div>
             </div>
-          </section>
+          </PanelSection>
         ) : null}
 
         {!isSetupEntry && command ? (
-          <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
+          <PanelSection>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.command}</p>
@@ -138,37 +138,33 @@ export function EventCommandInspectorPanel({
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.choices}</p>
                 <div className="mt-2 space-y-2">
                   {command.choices.map((choice, index) => (
-                    <div key={choice.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                    <div key={choice.id} className="panel-list-card px-3 py-2 text-sm text-[var(--text-primary)]">
                       {index + 1}. {choice.label}
                     </div>
                   ))}
                 </div>
               </div>
             ) : null}
-          </section>
+          </PanelSection>
         ) : null}
 
         {!isSetupEntry && command ? (
-          <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.args}</p>
-            <div className="mt-2 space-y-2">
+          <PanelSection title={labels.args} bodyClassName="space-y-2">
               {command.args.map((arg, index) => (
-                <div key={`${command.id}:arg:${index}`} className="grid grid-cols-[56px_minmax(0,1fr)] gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
+                <div key={`${command.id}:arg:${index}`} className="panel-list-card grid grid-cols-[56px_minmax(0,1fr)] gap-3 px-3 py-2">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">arg {index}</span>
                   <span className="break-all text-sm text-[var(--text-primary)]">{arg || labels.none}</span>
                 </div>
               ))}
-            </div>
-          </section>
+          </PanelSection>
         ) : null}
 
         {!isSetupEntry && selectedEntry?.command?.raw ? (
-          <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.raw}</p>
+          <PanelSection title={labels.raw}>
             <pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-[var(--text-primary)]">
               {selectedEntry.command.raw}
             </pre>
-          </section>
+          </PanelSection>
         ) : null}
       </div>
     </PanelFrame>

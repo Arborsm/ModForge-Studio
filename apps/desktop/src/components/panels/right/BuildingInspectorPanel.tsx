@@ -1,6 +1,7 @@
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type BuildingInspectorPanelProps = {
   copy: BuildingsPanelCopy
@@ -42,16 +43,10 @@ export function BuildingInspectorPanel({
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">
         {!building ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.inspectorEmpty}
-          </div>
+          <PanelEmptyState>{copy.inspectorEmpty}</PanelEmptyState>
         ) : (
           <>
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.basics}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.basics} bodyClassName="space-y-2">
                 {renderKv(copy.displayNameLabel, building.displayName)}
                 {renderKv(copy.internalNameLabel, building.internalName)}
                 {renderKv(copy.sourceKindLabel, building.sourceKind === 'constructible' ? copy.sourceConstructibleLabel : copy.sourceWorldLabel)}
@@ -59,14 +54,9 @@ export function BuildingInspectorPanel({
                 {renderKv(copy.builderLabel, building.builder ?? copy.noneLabel)}
                 {renderKv(copy.typeLabel, building.buildingClassName ?? copy.noneLabel)}
                 {renderKv(copy.descriptionLabel, building.description ?? copy.noneLabel)}
-              </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.construction}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.construction} bodyClassName="space-y-2">
                 {renderKv(copy.buildDaysLabel, String(building.buildDays))}
                 {renderKv(copy.buildCostLabel, String(building.buildCost))}
                 {renderKv(copy.buildConditionLabel, building.buildCondition ?? copy.noneLabel)}
@@ -74,14 +64,9 @@ export function BuildingInspectorPanel({
                 {renderKv(copy.upgradeFromLabel, building.upgradeFromKey ?? copy.noneLabel)}
                 {renderKv(copy.upgradeToLabel, building.upgradeToKeys.join(', ') || copy.noneLabel)}
                 {renderKv(copy.entranceCountLabel, String(building.worldEntrances.length))}
-              </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.indoor}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.indoor} bodyClassName="space-y-2">
                 {renderKv(copy.sizeLabel, building.size ? `${building.size.X} x ${building.size.Y}` : copy.noneLabel)}
                 {renderKv(copy.humanDoorLabel, formatPoint(building.humanDoor, copy.noneLabel))}
                 {renderKv(copy.animalDoorLabel, formatRect(building.animalDoor, copy.noneLabel))}
@@ -90,14 +75,9 @@ export function BuildingInspectorPanel({
                 {renderKv(copy.indoorMapLabel, activeIndoorMapPath ?? building.indoorMapPathLabel)}
                 {renderKv(copy.indoorTypeLabel, building.indoorMapType ?? copy.noneLabel)}
                 {renderKv(copy.nonInstancedIndoorLabel, building.nonInstancedIndoorLocation ?? copy.noneLabel)}
-              </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.assets}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.assets} bodyClassName="space-y-2">
                 {renderKv(copy.textureLabel, building.texturePathLabel)}
                 {renderKv(
                   copy.textureSizeLabel,
@@ -106,8 +86,7 @@ export function BuildingInspectorPanel({
                 {renderKv(copy.sourceRectLabel, formatRect(building.sourceRect, copy.noneLabel))}
                 {renderKv(copy.drawOffsetLabel, formatPoint(building.drawOffset, copy.noneLabel))}
                 {renderKv(copy.mapPathLabel, activeIndoorMapPath ?? building.indoorMapPathLabel)}
-              </div>
-            </section>
+            </PanelSection>
           </>
         )}
       </div>

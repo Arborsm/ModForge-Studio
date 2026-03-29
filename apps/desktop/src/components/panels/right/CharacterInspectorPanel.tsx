@@ -5,6 +5,7 @@ import type {
   CharacterWorkspaceEntry,
 } from '../../../lib/app/characterWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type CharacterInspectorPanelProps = {
   copy: CharactersPanelCopy
@@ -38,16 +39,10 @@ export function CharacterInspectorPanel({
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">
         {!character ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.inspectorEmpty}
-          </div>
+          <PanelEmptyState>{copy.inspectorEmpty}</PanelEmptyState>
         ) : (
           <>
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.basics}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.basics} bodyClassName="space-y-2">
                 {renderKv(copy.displayNameLabel, character.displayName)}
                 {renderKv(copy.internalNameLabel, character.internalName)}
                 {renderKv(copy.textureLabel, character.textureName)}
@@ -55,14 +50,9 @@ export function CharacterInspectorPanel({
                 {renderKv(copy.homeRegionLabel, character.homeRegion ?? noneLabel)}
                 {renderKv(copy.romanceLabel, character.canBeRomanced ? yesLabel : noLabel)}
                 {renderKv(copy.loveInterestLabel, character.loveInterestDisplayName ?? character.loveInterest ?? noneLabel)}
-              </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.metadata}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.metadata} bodyClassName="space-y-2">
                 {renderKv(copy.languageLabel, character.language ?? noneLabel)}
                 {renderKv(copy.genderLabel, character.gender ?? noneLabel)}
                 {renderKv(copy.ageLabel, character.age ?? noneLabel)}
@@ -71,14 +61,9 @@ export function CharacterInspectorPanel({
                 {renderKv(copy.optimismLabel, character.optimism ?? noneLabel)}
                 {renderKv(copy.breatherLabel, character.breather ? yesLabel : noLabel)}
                 {renderKv(copy.receivesGiftsLabel, character.canReceiveGifts ? yesLabel : noLabel)}
-              </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.assets}
-              </p>
-              <div className="mt-3 space-y-2">
+            <PanelSection title={copy.assets} bodyClassName="space-y-2">
                 {renderKv(copy.variantLabel, activeVariant?.label ?? noneLabel)}
                 {renderKv(copy.portraitAssetLabel, activeVariant?.portraitPathLabel ?? noneLabel)}
                 {renderKv(copy.spriteAssetLabel, activeVariant?.spritePathLabel ?? noneLabel)}
@@ -94,7 +79,6 @@ export function CharacterInspectorPanel({
                     ? `${assetState.spriteSheetWidth}x${assetState.spriteSheetHeight}`
                     : noneLabel,
                 )}
-              </div>
               <div className="mt-4 border-t border-[var(--border-color)] pt-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                   {copy.assetSource}
@@ -118,7 +102,7 @@ export function CharacterInspectorPanel({
                   </div>
                 </div>
               </div>
-            </section>
+            </PanelSection>
           </>
         )}
       </div>

@@ -2,6 +2,7 @@ import { cx } from '../../../lib/cx'
 import type { CharactersPanelCopy } from '../../../lib/editor-shell'
 import type { CharacterAppearanceVariant, CharacterWorkspaceEntry } from '../../../lib/app/characterWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState } from '../../ui/PanelSection'
 
 type CharacterVariantsPanelProps = {
   copy: CharactersPanelCopy
@@ -26,9 +27,7 @@ export function CharacterVariantsPanel({
     <PanelFrame title={copy.variantsPanelTitle} subtitle={copy.variantsPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 overflow-auto p-3">
         {!character || character.variants.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.variantsPanelEmpty}
-          </div>
+          <PanelEmptyState>{copy.variantsPanelEmpty}</PanelEmptyState>
         ) : (
           character.variants.map((variant) => {
             const isActive = activeVariant?.key === variant.key
@@ -37,10 +36,10 @@ export function CharacterVariantsPanel({
                 key={variant.key}
                 type="button"
                 className={cx(
-                  'rounded-3xl border p-3 text-left transition-colors',
+                  'panel-list-card panel-list-card-interactive text-left',
                   isActive
-                    ? 'border-[var(--accent)] bg-[var(--bg-active)]'
-                    : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-elevated)]',
+                    ? 'panel-list-card-active'
+                    : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
                 )}
                 onClick={() => onSelectVariant(variant)}
               >

@@ -88,15 +88,16 @@ type ItemSpriteProps = {
   textureState: ItemTextureAssetState | null
   scale?: number
   className?: string
+  style?: CSSProperties
 }
 
-export function ItemSprite({ item, textureState, scale = 2, className = '' }: ItemSpriteProps) {
+export function ItemSprite({ item, textureState, scale = 2, className = '', style }: ItemSpriteProps) {
   const sourceRect = getItemSpriteSourceRect(item, textureState)
   const tintMaskRect = getItemSpriteTintMaskSourceRect(item, textureState)
   const tintColor = item.kind === 'shirt' || item.kind === 'pants' ? parseTintColor(item.apparelStats?.defaultColor) : null
 
   return (
-    <div className={`relative overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] ${className}`} style={{ isolation: 'isolate' }}>
+    <div className={`relative overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] ${className}`} style={{ isolation: 'isolate', ...style }}>
       {sourceRect && textureState?.url && textureState.width && textureState.height ? (
         <>
           <div

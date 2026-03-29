@@ -1,6 +1,7 @@
 import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
 import type { BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type BuildingDetailsPanelProps = {
   copy: BuildingsPanelCopy
@@ -34,17 +35,12 @@ export function BuildingDetailsPanel({ copy, building }: BuildingDetailsPanelPro
     <PanelFrame title={copy.detailsTitle} subtitle={copy.detailsSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 overflow-auto p-3">
         {!building ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.detailsEmpty}
-          </div>
+          <PanelEmptyState>{copy.detailsEmpty}</PanelEmptyState>
         ) : (
           <>
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {building.sourceKind === 'constructible' ? copy.placementTitle : copy.worldEntrancesTitle}
-              </p>
+            <PanelSection title={building.sourceKind === 'constructible' ? copy.placementTitle : copy.worldEntrancesTitle}>
               {building.sourceKind === 'constructible' ? (
-                <div className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
+                <div className="space-y-2 text-sm text-[var(--text-primary)]">
                   <p>{copy.additionalPlacementTilesLabel}: {building.additionalPlacementTiles.length}</p>
                   <p>{copy.collisionMapLabel}: {building.collisionMap ?? copy.noneLabel}</p>
                   <p>{copy.fadeWhenBehindLabel}: {building.fadeWhenBehind ? copy.yesLabel : copy.noLabel}</p>
@@ -52,9 +48,9 @@ export function BuildingDetailsPanel({ copy, building }: BuildingDetailsPanelPro
                   <p>{copy.additionalTileRadiusLabel}: {building.additionalTilePropertyRadius}</p>
                 </div>
               ) : building.worldEntrances.length ? (
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2">
                   {building.worldEntrances.map((entrance, index) => (
-                    <div key={`${building.key}:${index}`} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2 text-sm text-[var(--text-primary)]">
+                    <div key={`${building.key}:${index}`} className="panel-list-card px-3 py-2 text-sm text-[var(--text-primary)]">
                       <p className="font-semibold">{entrance.sourceMapName}</p>
                       <p className="mt-1 text-xs text-[var(--text-secondary)]">{copy.triggerLabel}: {entrance.trigger}</p>
                       <p className="mt-1 text-xs text-[var(--text-secondary)]">{copy.sourceTileLabel}: {formatPoint(entrance.sourceTile, copy.noneLabel)}</p>
@@ -63,15 +59,12 @@ export function BuildingDetailsPanel({ copy, building }: BuildingDetailsPanelPro
                   ))}
                 </div>
               ) : (
-                <div className="mt-3 text-sm text-[var(--text-secondary)]">{copy.worldEntrancesEmpty}</div>
+                <div className="text-sm text-[var(--text-secondary)]">{copy.worldEntrancesEmpty}</div>
               )}
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.runtimeDataTitle}
-              </p>
-              <div className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
+            <PanelSection title={copy.runtimeDataTitle}>
+              <div className="space-y-2 text-sm text-[var(--text-primary)]">
                 <p>{copy.chestsLabel}: {building.chests.length}</p>
                 <p>{copy.actionTilesLabel}: {building.actionTiles.length}</p>
                 <p>{copy.tilePropertiesLabel}: {building.tileProperties.length}</p>
@@ -81,13 +74,10 @@ export function BuildingDetailsPanel({ copy, building }: BuildingDetailsPanelPro
                 <p>{copy.indoorItemMovesLabel}: {building.indoorItemMoves.length}</p>
                 <p>{copy.addMailLabel}: {building.addMailOnBuild.join(', ') || copy.noneLabel}</p>
               </div>
-            </section>
+            </PanelSection>
 
-            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
-                {copy.metadataTitle}
-              </p>
-              <div className="mt-3 space-y-3">
+            <PanelSection title={copy.metadataTitle}>
+              <div className="space-y-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{copy.metadataLabel}</p>
                   <div className="mt-2">{renderDictionary(building.metadata, copy.noneLabel)}</div>
@@ -101,7 +91,7 @@ export function BuildingDetailsPanel({ copy, building }: BuildingDetailsPanelPro
                   <div className="mt-2">{renderDictionary(building.customFields, copy.noneLabel)}</div>
                 </div>
               </div>
-            </section>
+            </PanelSection>
           </>
         )}
       </div>

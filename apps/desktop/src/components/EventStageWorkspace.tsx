@@ -409,7 +409,7 @@ export default function EventStageWorkspace({
                           : 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
 
                   return (
-                    <div key={notice.id} className={`flex items-center gap-3 rounded-2xl border px-3 py-2 shadow-[var(--shadow-panel)] backdrop-blur ${toneClassName}`}>
+                    <div key={notice.id} className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-[var(--shadow-panel)] backdrop-blur ${toneClassName}`}>
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)]">
                         {notice.icon && iconAsset?.url ? (
                           <div
@@ -445,15 +445,15 @@ export default function EventStageWorkspace({
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center px-4">
         {playbackState.pendingChoice ? (
-          <div className="pointer-events-auto w-full max-w-3xl rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.choose}</p>
+          <div className="panel-overlay-card pointer-events-auto w-full max-w-3xl">
+            <p className="panel-section-title">{labels.choose}</p>
             <p className="mt-2 text-base font-semibold text-[var(--text-primary)]">{playbackState.pendingChoice.question}</p>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {playbackState.pendingChoice.choices.map((choice, index) => (
                 <button
                   key={`${choice.id}:${index}`}
                   type="button"
-                  className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-3 text-left text-sm text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-elevated)]"
+                  className="panel-list-card panel-list-card-interactive px-4 py-3 text-left text-sm text-[var(--text-primary)]"
                   onClick={() => handleSelectChoice(index)}
                 >
                   {choice.label}
@@ -462,7 +462,7 @@ export default function EventStageWorkspace({
             </div>
           </div>
         ) : playbackState.currentEntry ? (
-          <div className="pointer-events-none flex w-full max-w-4xl items-end gap-4 rounded-[28px] border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-4 shadow-[var(--shadow-panel)] backdrop-blur">
+          <div className="panel-overlay-card pointer-events-none flex w-full max-w-4xl items-end gap-4">
             <div className="hidden h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel)] sm:block">
               {currentDialogueActorAsset?.portraitUrl ? (
                 <div className="relative h-full w-full overflow-hidden">
@@ -487,7 +487,7 @@ export default function EventStageWorkspace({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+              <p className="panel-section-title">
                 {playbackState.currentEntry.title}
               </p>
               <p className="mt-2 text-base leading-7 text-[var(--text-primary)]">{playbackState.currentEntry.detail}</p>

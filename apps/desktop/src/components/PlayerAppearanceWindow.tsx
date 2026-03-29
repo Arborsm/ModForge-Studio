@@ -19,6 +19,12 @@ import {
   getFarmerFeatureYOffset,
   getFarmerHairYOffsetAdjustment,
 } from '../lib/app/farmerAppearanceRenderer'
+import {
+  getClothingPantsCount,
+  getClothingPantsVariantSourceRect,
+  getClothingShirtCount,
+  getClothingShirtMenuSourceRect,
+} from '../lib/app/clothingSprites'
 import { cx } from '../lib/cx'
 
 type PlayerAppearanceWindowProps = {
@@ -321,6 +327,7 @@ function buildPreviewLayers(profile: PlayerAppearanceProfile, assets: Appearance
   ]
 
   if (assets.pants) {
+    const pantsSourceRect = getClothingPantsVariantSourceRect(assets.pants.width, profile.pantsSpriteIndex, profile.isFemale)
     layers.push({
       key: 'pants',
       url: bakedPantsUrl ?? assets.pants.url,
@@ -328,12 +335,13 @@ function buildPreviewLayers(profile: PlayerAppearanceProfile, assets: Appearance
       height: 32,
       offsetX: 0,
       offsetY: 0,
-      sourceX: bakedPantsUrl ? 0 : (profile.pantsSpriteIndex % 10) * 192 + (profile.isFemale ? 96 : 0),
-      sourceY: bakedPantsUrl ? 0 : Math.floor(profile.pantsSpriteIndex / 10) * 688,
+      sourceX: bakedPantsUrl ? 0 : pantsSourceRect.x,
+      sourceY: bakedPantsUrl ? 0 : pantsSourceRect.y,
     })
   }
 
   if (assets.shirts) {
+    const shirtSourceRect = getClothingShirtMenuSourceRect(assets.shirts.width, profile.shirtSpriteIndex)
     layers.push({
       key: 'shirt',
       url: bakedShirtUrl ?? assets.shirts.url,
@@ -341,8 +349,8 @@ function buildPreviewLayers(profile: PlayerAppearanceProfile, assets: Appearance
       height: 8,
       offsetX: 4,
       offsetY: 14 + featureY,
-      sourceX: bakedShirtUrl ? 0 : (profile.shirtSpriteIndex * 8) % 128,
-      sourceY: bakedShirtUrl ? 0 : Math.floor((profile.shirtSpriteIndex * 8) / 128) * 32,
+      sourceX: bakedShirtUrl ? 0 : shirtSourceRect.x,
+      sourceY: bakedShirtUrl ? 0 : shirtSourceRect.y,
     })
   }
 
@@ -522,8 +530,8 @@ export default function PlayerAppearanceWindow({
   const counts = useMemo(() => {
     return {
       hair: Math.max(countFromAtlas(previewAssets.hair, 16, 96), (activeProfile?.hairStyleIndex ?? -1) + 1),
-      shirt: Math.max(countFromAtlas(previewAssets.shirts, 8, 32), (activeProfile?.shirtSpriteIndex ?? -1) + 1),
-      pants: Math.max(countFromAtlas(previewAssets.pants, 192, 688), (activeProfile?.pantsSpriteIndex ?? -1) + 1),
+      shirt: Math.max(previewAssets.shirts ? getClothingShirtCount(previewAssets.shirts.width, previewAssets.shirts.height) : 0, (activeProfile?.shirtSpriteIndex ?? -1) + 1),
+      pants: Math.max(previewAssets.pants ? getClothingPantsCount(previewAssets.pants.width, previewAssets.pants.height) : 0, (activeProfile?.pantsSpriteIndex ?? -1) + 1),
       accessory: Math.max(countFromAtlas(previewAssets.accessories, 16, 32), (activeProfile?.accessoryIndex ?? -1) + 1),
       hat: Math.max(countFromAtlas(previewAssets.hats, 20, 80), (activeProfile?.hatSpriteIndex ?? -1) + 1),
     }

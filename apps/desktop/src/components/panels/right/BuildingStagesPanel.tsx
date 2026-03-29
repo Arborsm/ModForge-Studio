@@ -2,6 +2,7 @@ import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
 import type { BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState } from '../../ui/PanelSection'
 
 type BuildingStagesPanelProps = {
   copy: BuildingsPanelCopy
@@ -36,9 +37,7 @@ export function BuildingStagesPanel({
     <PanelFrame title={copy.stagesPanelTitle} subtitle={copy.stagesPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 overflow-auto p-3">
         {!building || upgradeChain.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.stagesPanelEmpty}
-          </div>
+          <PanelEmptyState>{copy.stagesPanelEmpty}</PanelEmptyState>
         ) : (
           upgradeChain.map((stage) => {
             const isActive = stage.key === building.key
@@ -47,10 +46,10 @@ export function BuildingStagesPanel({
                 key={stage.key}
                 type="button"
                 className={cx(
-                  'rounded-3xl border p-3 text-left transition-colors',
+                  'panel-list-card panel-list-card-interactive text-left',
                   isActive
-                    ? 'border-[var(--accent)] bg-[var(--bg-active)]'
-                    : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-elevated)]',
+                    ? 'panel-list-card-active'
+                    : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
                 )}
                 onClick={() => onSelectStage(stage.key)}
               >

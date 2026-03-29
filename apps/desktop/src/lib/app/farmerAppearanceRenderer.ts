@@ -1,4 +1,10 @@
 import type { PlayerAppearanceColor, PlayerAppearanceProfile } from './playerAppearance'
+import {
+  getClothingPantsVariantSourceRect,
+  getClothingShirtMenuSourceRect,
+  getClothingShirtStripMaskSourceRect,
+  getClothingShirtStripSourceRect,
+} from './clothingSprites'
 
 export type FarmerAppearanceImageAsset = {
   image: HTMLImageElement
@@ -28,8 +34,10 @@ export type FarmerAppearanceCompositeAssets = {
   obscuredHairTextureWidth: number | null
   obscuredHairStyleMetadata: FarmerHairMetadataEntry | null
   shirtsTextureUrl: string | null
+  shirtsTextureWidth: number | null
   bakedShirtTextureUrl: string | null
   pantsTextureUrl: string | null
+  pantsTextureWidth: number | null
   rotation: null
   bakedPantsTextureUrl: string | null
   accessoriesTextureUrl: string | null
@@ -653,6 +661,7 @@ export function buildFarmerSpriteLayerDescriptors(
 
   if (farmerAppearance.pantsTextureUrl) {
     const pantsUrl = farmerAppearance.bakedPantsTextureUrl ?? farmerAppearance.pantsTextureUrl
+    const pantsSourceRect = getClothingPantsVariantSourceRect(farmerAppearance.pantsTextureWidth ?? 192, farmerAppearance.pantsSpriteIndex, farmerAppearance.isFemale)
     layers.push({
       key: 'pants',
       url: pantsUrl,
@@ -660,8 +669,8 @@ export function buildFarmerSpriteLayerDescriptors(
       height: swimming ? swimmingCropHeight : 32,
       offsetX: 0,
       offsetY: verticalOffset,
-      sourceX: farmerAppearance.bakedPantsTextureUrl ? frameX : frameX + (farmerAppearance.pantsSpriteIndex % 10) * 192 + (farmerAppearance.isFemale ? 96 : 0),
-      sourceY: farmerAppearance.bakedPantsTextureUrl ? frameY : frameY + Math.floor(farmerAppearance.pantsSpriteIndex / 10) * 688,
+      sourceX: farmerAppearance.bakedPantsTextureUrl ? frameX : frameX + pantsSourceRect.x,
+      sourceY: farmerAppearance.bakedPantsTextureUrl ? frameY : frameY + pantsSourceRect.y,
       flip: bodyFlip,
     })
   }
@@ -695,8 +704,7 @@ export function buildFarmerSpriteLayerDescriptors(
   }
 
   if (!bathingClothes && farmerAppearance.shirtsTextureUrl) {
-    const shirtBaseX = (farmerAppearance.shirtSpriteIndex * 8) % 128
-    const shirtBaseY = Math.floor((farmerAppearance.shirtSpriteIndex * 8) / 128) * 32
+    const shirtSourceRect = getClothingShirtMenuSourceRect(farmerAppearance.shirtsTextureWidth ?? 256, farmerAppearance.shirtSpriteIndex)
     const shirtRowOffset =
       effectiveFacingDirection === 0 ? 24 : effectiveFacingDirection === 1 ? 8 : effectiveFacingDirection === 3 ? 16 : 0
     const shirtOffsetX = effectiveFacingDirection === 3 ? 4 - featureX + rotationAdjustment.x : 4 + featureX + rotationAdjustment.x
@@ -707,8 +715,8 @@ export function buildFarmerSpriteLayerDescriptors(
       height: 8,
       offsetX: shirtOffsetX,
       offsetY: verticalOffset + 14 + featureY + rotationAdjustment.y,
-      sourceX: farmerAppearance.bakedShirtTextureUrl ? 0 : shirtBaseX,
-      sourceY: farmerAppearance.bakedShirtTextureUrl ? shirtRowOffset : shirtBaseY + shirtRowOffset,
+      sourceX: farmerAppearance.bakedShirtTextureUrl ? 0 : shirtSourceRect.x,
+      sourceY: farmerAppearance.bakedShirtTextureUrl ? shirtRowOffset : shirtSourceRect.y + shirtRowOffset,
       flip: false,
     })
   }
@@ -947,9 +955,10 @@ export function bakeFarmerBaseTexture(
       if (shirtContext) {
         shirtContext.drawImage(shirtsAsset.image, 0, 0)
         const shirtPixels = shirtContext.getImageData(0, 0, shirtCanvas.width, shirtCanvas.height).data
-        const shirtBaseIndex =
-          Math.floor((profile.shirtSpriteIndex * 8) / 128) * 32 * shirtCanvas.width + ((profile.shirtSpriteIndex * 8) % 128) + shirtCanvas.width * 4
-        const shirtDyeIndex = shirtBaseIndex + 128
+        const shirtBaseRect = getClothingShirtStripSourceRect(shirtsAsset.width, profile.shirtSpriteIndex)
+        const shirtMaskRect = getClothingShirtStripMaskSourceRect(shirtsAsset.width, profile.shirtSpriteIndex)
+        const shirtBaseIndex = (shirtBaseRect.y + 4) * shirtCanvas.width + shirtBaseRect.x
+        const shirtDyeIndex = (shirtMaskRect.y + 4) * shirtCanvas.width + shirtMaskRect.x
 
         let fallbackSkin: ReturnType<typeof getPixelAtXY>[] | null = null
         if (skinColorsAsset) {
@@ -1004,8 +1013,8 @@ export function bakeFarmerShirtTexture(profile: PlayerAppearanceProfile | null, 
   }
 
   return safeBakeTexture(null, () => {
-    const baseX = (profile.shirtSpriteIndex * 8) % 128
-    const baseY = Math.floor((profile.shirtSpriteIndex * 8) / 128) * 32
+    const shirtBaseRect = getClothingShirtStripSourceRect(shirtsAsset.width, profile.shirtSpriteIndex)
+    const shirtMaskRect = getClothingShirtStripMaskSourceRect(shirtsAsset.width, profile.shirtSpriteIndex)
     const canvas = document.createElement('canvas')
     canvas.width = 8
     canvas.height = 32
@@ -1015,7 +1024,7 @@ export function bakeFarmerShirtTexture(profile: PlayerAppearanceProfile | null, 
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(shirtsAsset.image, baseX, baseY, 8, 32, 0, 0, 8, 32)
+    context.drawImage(shirtsAsset.image, shirtBaseRect.x, shirtBaseRect.y, shirtBaseRect.width, shirtBaseRect.height, 0, 0, 8, 32)
     const baseImageData = context.getImageData(0, 0, canvas.width, canvas.height)
     const basePixels = baseImageData.data
 
@@ -1028,7 +1037,7 @@ export function bakeFarmerShirtTexture(profile: PlayerAppearanceProfile | null, 
     }
 
     overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
-    overlayContext.drawImage(shirtsAsset.image, baseX + 128, baseY, 8, 32, 0, 0, 8, 32)
+    overlayContext.drawImage(shirtsAsset.image, shirtMaskRect.x, shirtMaskRect.y, shirtMaskRect.width, shirtMaskRect.height, 0, 0, 8, 32)
     const overlayPixels = overlayContext.getImageData(0, 0, overlayCanvas.width, overlayCanvas.height).data
     const shirtColor = makeOpaque(profile.shirtColor)
 
@@ -1068,6 +1077,7 @@ export function bakeFarmerPantsTexture(profile: PlayerAppearanceProfile | null, 
   }
 
   return safeBakeTexture(null, () => {
+    const pantsSourceRect = getClothingPantsVariantSourceRect(pantsAsset.width, profile.pantsSpriteIndex, profile.isFemale)
     const canvas = document.createElement('canvas')
     canvas.width = 96
     canvas.height = 688
@@ -1076,10 +1086,18 @@ export function bakeFarmerPantsTexture(profile: PlayerAppearanceProfile | null, 
       return null
     }
 
-    const sourceX = (profile.pantsSpriteIndex % 10) * 192 + (profile.isFemale ? 96 : 0)
-    const sourceY = Math.floor(profile.pantsSpriteIndex / 10) * 688
     context.clearRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(pantsAsset.image, sourceX, sourceY, 96, 688, 0, 0, 96, 688)
+    context.drawImage(
+      pantsAsset.image,
+      pantsSourceRect.x,
+      pantsSourceRect.y,
+      pantsSourceRect.width,
+      pantsSourceRect.height,
+      0,
+      0,
+      96,
+      688,
+    )
 
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
     tintOpaquePixels(imageData.data, profile.pantsColor)

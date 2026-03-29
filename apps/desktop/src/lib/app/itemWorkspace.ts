@@ -1,3 +1,9 @@
+import {
+  getClothingPantsMenuSourceRect,
+  getClothingShirtMenuMaskSourceRect,
+  getClothingShirtMenuSourceRect,
+} from './clothingSprites'
+
 export const OBJECT_DATA_ASSET_PATH = 'Content\\Data\\Objects.xnb'
 export const BIG_CRAFTABLE_DATA_ASSET_PATH = 'Content\\Data\\BigCraftables.xnb'
 export const WEAPON_DATA_ASSET_PATH = 'Content\\Data\\Weapons.xnb'
@@ -1281,14 +1287,11 @@ export function getItemSpriteSourceRect(
 
   const metrics = getItemSpriteMetrics(entry)
   if (entry.kind === 'shirt') {
-    const shirtSheetWidth = textureState.width > 128 ? Math.floor(textureState.width / 2) : textureState.width
-    const pixelOffset = spriteIndex * metrics.width
-    return {
-      x: pixelOffset % shirtSheetWidth,
-      y: Math.floor(pixelOffset / shirtSheetWidth) * metrics.height,
-      width: metrics.width,
-      height: metrics.height,
-    }
+    return getClothingShirtMenuSourceRect(textureState.width, spriteIndex)
+  }
+
+  if (entry.kind === 'pants') {
+    return getClothingPantsMenuSourceRect(textureState.width, spriteIndex)
   }
 
   if (entry.kind === 'furniture') {
@@ -1315,17 +1318,14 @@ export function getItemSpriteTintMaskSourceRect(
   entry: Pick<ItemWorkspaceEntry, 'kind' | 'spriteIndex' | 'menuSpriteIndex' | 'spriteWidth' | 'spriteHeight'>,
   textureState: Pick<ItemTextureAssetState, 'width'> | null,
 ) {
+  const spriteIndex = entry.menuSpriteIndex ?? entry.spriteIndex
   const sourceRect = getItemSpriteSourceRect(entry, textureState)
-  if (!sourceRect || !textureState?.width) {
+  if (spriteIndex == null || !sourceRect || !textureState?.width) {
     return null
   }
 
   if (entry.kind === 'shirt') {
-    const shirtSheetWidth = textureState.width > 128 ? Math.floor(textureState.width / 2) : textureState.width
-    return {
-      ...sourceRect,
-      x: sourceRect.x + shirtSheetWidth,
-    }
+    return getClothingShirtMenuMaskSourceRect(textureState.width, spriteIndex)
   }
 
   if (entry.kind === 'pants') {
@@ -1341,6 +1341,27 @@ export function getContainedItemSpriteScale(
   preferredScale: number,
 ) {
   return Math.min(preferredScale, frameSize / Math.max(1, entry.spriteWidth, entry.spriteHeight))
+}
+
+export function getContainedItemSpriteFrame(
+  entry: Pick<ItemWorkspaceEntry, 'kind' | 'spriteWidth' | 'spriteHeight'>,
+  maxFrameSize: number,
+  preferredScale: number,
+  padding = 0,
+  minFrameSize = 0,
+) {
+  const metrics = getItemSpriteMetrics(entry)
+  const availableWidth = Math.max(1, maxFrameSize - padding * 2)
+  const availableHeight = Math.max(1, maxFrameSize - padding * 2)
+  const scale = Math.min(preferredScale, availableWidth / metrics.width, availableHeight / metrics.height)
+  const width = Math.min(maxFrameSize, Math.max(minFrameSize, Math.round(metrics.width * scale + padding * 2)))
+  const height = Math.min(maxFrameSize, Math.max(minFrameSize, Math.round(metrics.height * scale + padding * 2)))
+
+  return {
+    scale,
+    width,
+    height,
+  }
 }
 
 export function createItemEntryLookup(entries: ItemWorkspaceEntry[]) {

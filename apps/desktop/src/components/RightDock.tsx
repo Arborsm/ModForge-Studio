@@ -241,7 +241,7 @@ function GroupedVisibilityList({
               return (
                 <div
                   key={item.id}
-                  className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                  className="panel-section-muted panel-section overflow-hidden"
                 >
                   <VisibilityRow
                     name={item.name}
@@ -257,7 +257,7 @@ function GroupedVisibilityList({
             return (
               <section
                 key={group.groupLabel}
-                className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                className="panel-section-muted panel-section overflow-hidden"
               >
                 <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-3 py-2">
                   <button
@@ -310,7 +310,7 @@ function GroupedVisibilityList({
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+        <div className="panel-empty-state">
           {emptyMessage}
         </div>
       )}
@@ -330,7 +330,7 @@ function ObjectGroupCard({
   onFocusObject: (groupId: number, objectId: number) => void
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+    <div className="panel-section-muted panel-section overflow-hidden">
       <div className="flex items-start justify-between gap-3 px-3 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
@@ -360,10 +360,10 @@ function ObjectGroupCard({
                   key={object.id}
                   type="button"
                   className={cx(
-                    'w-full rounded-lg border px-3 py-2 text-left transition-colors',
+                    'panel-list-card panel-list-card-interactive w-full rounded-lg px-3 py-2 text-left',
                     isFocused
-                      ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-panel))]'
-                      : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-active)]',
+                      ? 'panel-list-card-active'
+                      : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
                   )}
                   onClick={() => onFocusObject(item.group.id, object.id)}
                 >
@@ -490,7 +490,7 @@ function GroupedObjectGroupList({
             return (
               <section
                 key={entry.groupLabel}
-                className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                className="panel-section-muted panel-section overflow-hidden"
               >
                 <button
                   type="button"
@@ -536,7 +536,7 @@ function GroupedObjectGroupList({
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+        <div className="panel-empty-state">
           {emptyMessage}
         </div>
       )}
@@ -627,7 +627,7 @@ export default function RightDock({
           <span className="dock-chip">{moduleBlueprint.state}</span>
         </div>
         <div className="panel-body space-y-4 p-3">
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
+          <div className="panel-section-muted panel-section p-3">
             <p className="text-sm font-semibold text-[var(--text-primary)]">{moduleBlueprint.title}</p>
             <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{moduleBlueprint.summary}</p>
           </div>
@@ -635,7 +635,7 @@ export default function RightDock({
             {moduleBlueprint.bullets.map((bullet) => (
               <div
                 key={bullet}
-                className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3 text-xs text-[var(--text-secondary)]"
+                className="panel-section-muted panel-section px-3 py-3 text-xs text-[var(--text-secondary)]"
               >
                 {bullet}
               </div>
@@ -690,7 +690,7 @@ export default function RightDock({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3">
+                <div className="panel-section-muted panel-section px-3">
                   <div className="kv-row">
                     <span>{copy.common.path}</span>
                     <span>{mapDocument.relativePath}</span>
@@ -710,7 +710,7 @@ export default function RightDock({
                 </div>
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+              <div className="panel-empty-state">
                 {copy.center.noSceneLoaded}
               </div>
             )}
@@ -738,7 +738,7 @@ export default function RightDock({
               emptyMessage={copy.center.noSceneLoaded}
             />
           ) : (
-            <div className="px-4 py-5 text-sm text-[var(--text-secondary)]">{copy.center.noSceneLoaded}</div>
+            <div className="panel-empty-state">{copy.center.noSceneLoaded}</div>
           )}
         </AccordionSection>
 
@@ -767,10 +767,10 @@ export default function RightDock({
                 onFocusObject={onFocusObject}
               />
             ) : (
-              <div className="px-4 py-5 text-sm text-[var(--text-secondary)]">{copy.rightDock.noObjectGroups}</div>
+              <div className="panel-empty-state">{copy.rightDock.noObjectGroups}</div>
             )
           ) : (
-            <div className="px-4 py-5 text-sm text-[var(--text-secondary)]">{copy.center.noSceneLoaded}</div>
+            <div className="panel-empty-state">{copy.center.noSceneLoaded}</div>
           )}
         </AccordionSection>
 
@@ -797,7 +797,7 @@ export default function RightDock({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3">
+                <div className="panel-section-muted panel-section px-3">
                   <div className="kv-row">
                     <span>{copy.common.layer}</span>
                     <span>{hoverInfo.layerName ?? copy.common.none}</span>
@@ -812,8 +812,8 @@ export default function RightDock({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                <div className="panel-section-muted panel-section p-3">
+                  <p className="panel-section-title tracking-[0.16em]">
                     {copy.common.tileProperties}
                   </p>
                   <div className="mt-2 space-y-2">
@@ -835,7 +835,7 @@ export default function RightDock({
                     hoverInfo.objectHits.map((object) => (
                       <div
                         key={`${object.groupName}:${object.id}`}
-                        className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3"
+                        className="panel-section-muted panel-section p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -854,14 +854,14 @@ export default function RightDock({
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-4 text-sm text-[var(--text-secondary)]">
+                    <div className="panel-empty-state py-4">
                       {copy.rightDock.noHoveredObjects}
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+              <div className="panel-empty-state">
                 {copy.viewportLabels.loadPrompt}
               </div>
             )}
@@ -883,7 +883,7 @@ export default function RightDock({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3">
+                <div className="panel-section-muted panel-section px-3">
                   <div className="kv-row">
                     <span>{copy.common.executable}</span>
                     <span>{directoryInfo.executablePath}</span>
@@ -895,13 +895,13 @@ export default function RightDock({
                 </div>
               </>
             ) : (
-              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+              <div className="panel-empty-state">
                 {copy.rightDock.diagnosticsPrompt}
               </div>
             )}
 
-            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+            <div className="panel-section-muted panel-section p-3">
+              <p className="panel-section-title tracking-[0.16em]">
                 {copy.rightDock.workspaceStatus}
               </p>
               <span className={`mt-2 inline-flex status-pill status-pill-${workspaceStatus.tone}`}>

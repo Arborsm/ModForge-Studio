@@ -17,6 +17,7 @@ import {
 import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { cx } from '../lib/cx'
 import {
+  getContainedItemSpriteFrame,
   getContainedItemSpriteScale,
   getItemBrowseCategories,
   type ItemBrowseCategory,
@@ -488,7 +489,7 @@ function HeroStatChip({ chip }: { chip: HeroChip }) {
   const Icon = chip.icon === 'coins' ? Coins : chip.icon === 'skull' ? Skull : chip.icon === 'heart' ? Heart : null
 
   return (
-    <div className={`border px-3 py-3 ${getToneClass(chip.tone ?? 'neutral')}`}>
+    <div className={`rounded-2xl border px-3 py-3 ${getToneClass(chip.tone ?? 'neutral')}`}>
       <p className="text-[10px] uppercase tracking-[0.16em] opacity-70">{chip.label}</p>
       <div className="mt-2 flex items-center gap-2">
         {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
@@ -500,8 +501,8 @@ function HeroStatChip({ chip }: { chip: HeroChip }) {
 
 function WorkbenchSignalCard({ card }: { card: SignalCard }) {
   return (
-    <article className="border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,white_6%)] px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{card.label}</p>
+    <article className="panel-section px-4 py-3">
+      <p className="panel-section-title text-[10px]">{card.label}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
         <p className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{card.value}</p>
         <p className="text-right text-[11px] text-[var(--text-tertiary)]">{card.detail}</p>
@@ -524,7 +525,7 @@ function TasteGroup({
   }
 
   return (
-    <div className="border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] p-4">
+    <div className="panel-section p-4">
       <div className="mb-3 flex items-center gap-2">
         <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full border ${getToneClass(tone)}`}>
           <Heart className="h-4 w-4" />
@@ -536,7 +537,7 @@ function TasteGroup({
       </div>
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         {entries.map((npc) => (
-          <div key={`${npc.taste}:${npc.internalName}`} className="flex items-center gap-3 border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2.5">
+          <div key={`${npc.taste}:${npc.internalName}`} className="panel-list-card flex items-center gap-3 px-3 py-2.5">
             <div className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border text-sm font-semibold uppercase ${getToneClass(tone)}`}>
               {npc.displayName.slice(0, 1)}
             </div>
@@ -568,7 +569,7 @@ function RelatedVisual({
   return relatedItem ? (
     <ItemSprite item={relatedItem} textureState={textureState} scale={getContainedItemSpriteScale(relatedItem, 56, 1.9)} className="h-14 w-14 shrink-0" />
   ) : (
-    <div className="flex h-14 w-14 shrink-0 items-center justify-center border border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-sm font-semibold text-[var(--text-secondary)]">
+    <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center text-sm font-semibold text-[var(--text-secondary)]">
       {fallback.slice(0, 1)}
     </div>
   )
@@ -586,10 +587,10 @@ function SourceGrid({
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
 }) {
   return (
-    <section className="border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4 sm:p-5">
+    <section className="panel-section p-4 sm:p-5">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{copy.sourceSectionTitle}</p>
+          <p className="panel-section-title">{copy.sourceSectionTitle}</p>
           <p className="mt-1 text-sm text-[var(--text-tertiary)]">{cards.length ? `${cards.length}` : copy.noneLabel}</p>
         </div>
       </div>
@@ -597,7 +598,7 @@ function SourceGrid({
       {cards.length ? (
         <div className="grid gap-3 md:grid-cols-2">
           {cards.map((card) => (
-            <article key={card.key} className="border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_96%,transparent)] p-4">
+            <article key={card.key} className="panel-section-muted panel-section p-4">
               <div className="flex items-start gap-3">
                 <RelatedVisual itemId={card.relatedQualifiedItemId} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} fallback={card.title} />
                 <div className="min-w-0 flex-1">
@@ -610,7 +611,7 @@ function SourceGrid({
                   {card.meta.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {card.meta.map((meta) => (
-                        <span key={meta} className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+                        <span key={meta} className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
                           {meta}
                         </span>
                       ))}
@@ -622,7 +623,7 @@ function SourceGrid({
           ))}
         </div>
       ) : (
-        <div className="border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+        <div className="panel-empty-state">
           {copy.sourceSectionEmpty}
         </div>
       )}
@@ -642,7 +643,7 @@ function FormulaChip({
   return (
     <div
       className={cx(
-        'flex items-center gap-2 border px-3 py-2',
+        'flex items-center gap-2 rounded-2xl border px-3 py-2',
         ingredient.isCurrent
           ? 'border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)]'
           : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
@@ -671,22 +672,22 @@ function UseGrid({
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
 }) {
   return (
-    <div className="space-y-3">
+    <section className="panel-section p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">{title}</p>
+          <p className="panel-section-title">{title}</p>
           <p className="text-xs text-[var(--text-secondary)]">{cards.length}</p>
         </div>
       </div>
 
       {cards.length ? (
-        <div className="grid gap-3">
+        <div className="mt-3 grid gap-3">
           {cards.map((card) => {
             const outputItem = card.outputQualifiedItemId ? (itemLookup.get(card.outputQualifiedItemId) ?? null) : null
             const outputTexture = outputItem?.textureAssetName ? (textureStatesByAssetName[outputItem.textureAssetName] ?? null) : null
 
             return (
-              <article key={card.key} className="border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,transparent)] p-4">
+              <article key={card.key} className="panel-section-muted panel-section p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <span className="dock-chip">{card.badge}</span>
@@ -716,7 +717,7 @@ function UseGrid({
                   {outputItem ? (
                     <>
                       <ArrowRight className="h-4 w-4 text-[var(--text-tertiary)]" />
-                      <div className="flex items-center gap-2 border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
+                      <div className="panel-list-card flex items-center gap-2 px-3 py-2">
                         <ItemSprite item={outputItem} textureState={outputTexture} scale={getContainedItemSpriteScale(outputItem, 40, 1.45)} className="h-10 w-10 shrink-0" />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{outputItem.displayName}</p>
@@ -731,11 +732,11 @@ function UseGrid({
           })}
         </div>
       ) : (
-        <div className="border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+        <div className="panel-empty-state mt-3">
           {copy.noneLabel}
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -751,7 +752,7 @@ function ItemTooltip({
   }
 
   return (
-    <div className="pointer-events-none absolute bottom-4 right-4 z-10 w-[260px] border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
+    <div className="pointer-events-none absolute bottom-4 right-4 z-10 w-[260px] rounded-2xl border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-center gap-2">
         <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
       </div>
@@ -827,6 +828,9 @@ function getWorkspaceText(copy: ItemWorkspaceProps['copy']) {
   const isEnglish = copy.statsAllLabel === 'All'
 
   return {
+    catalogTitle: isEnglish ? 'Catalog' : '目录',
+    detailTitle: isEnglish ? 'Inspector' : '检查器',
+    viewTitle: isEnglish ? 'View Controls' : '视图控制',
     railTitle: isEnglish ? 'Workspace Rail' : '工作区导航',
     filtersTitle: isEnglish ? 'Category Filters' : '分类过滤',
     selectionTitle: isEnglish ? 'Current Focus' : '当前焦点',
@@ -884,11 +888,7 @@ function getPillClass(isActive: boolean) {
 }
 
 function EmptyNotice({ message }: { message: string }) {
-  return (
-    <div className="border border-dashed border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_88%,transparent)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-      {message}
-    </div>
-  )
+  return <div className="panel-empty-state">{message}</div>
 }
 
 function DetailSectionCard({
@@ -901,12 +901,12 @@ function DetailSectionCard({
   children?: ReactNode
 }) {
   return (
-    <section className="border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{title}</p>
+    <section className="panel-section p-4">
+      <p className="panel-section-title">{title}</p>
       {rows?.length ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {rows.map((row) => (
-            <div key={`${title}:${row.label}`} className="border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-3">
+            <div key={`${title}:${row.label}`} className="panel-section px-3 py-3">
               {renderKv(row.label, row.value)}
             </div>
           ))}
@@ -943,14 +943,15 @@ function NavigationPane({
   totalVisibleCount: number
 }) {
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent p-4">
-      <section className="min-h-0 flex-1 overflow-auto">
-        <div className="mb-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{text.filtersTitle}</p>
-          <p className="mt-2 text-sm text-[var(--text-tertiary)]">{visibleCount} / {totalVisibleCount}</p>
+    <aside className="panel-surface h-full">
+      <div className="panel-header">
+        <div>
+          <p className="panel-title">{text.railTitle}</p>
+          <p className="panel-subtitle">{visibleCount} / {totalVisibleCount}</p>
         </div>
-
-        <div className="relative mb-3">
+      </div>
+      <div className="panel-body min-h-0 overflow-auto p-4">
+        <div className="relative mb-4">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             className="control-input pl-9"
@@ -968,7 +969,7 @@ function NavigationPane({
               <button
                 key={tab.id}
                 type="button"
-                className={cx('flex w-full items-center gap-3 border px-3 py-3 text-left transition-colors', getPillClass(isActive))}
+                className={cx('flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors', getPillClass(isActive))}
                 onClick={() => onBrowseTabChange(tab.id)}
               >
                 <span className={cx('inline-flex h-10 w-10 shrink-0 items-center justify-center border', isActive ? 'border-white/15 bg-white/10 text-white' : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]')}>
@@ -982,36 +983,32 @@ function NavigationPane({
             )
           })}
         </div>
-      </section>
 
-      <section className="mt-4 shrink-0 border-t border-[var(--border-color)] pt-4">
-        <div className="mb-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{text.selectionTitle}</p>
-          <p className="mt-2 text-sm text-[var(--text-tertiary)]">{item?.displayName ?? copy.workspaceEmpty}</p>
-        </div>
-
-        {item ? (
-          <div className="border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
-                <ItemSprite item={item} textureState={textureState} scale={getContainedItemSpriteScale(item, 40, 1.75)} className="h-10 w-10" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.displayName}</p>
-                <p className="truncate text-xs text-[var(--text-secondary)]">{item.qualifiedItemId}</p>
+        <section className="mt-4 border-t border-[var(--border-color)] pt-4">
+          {item ? (
+            <div className="panel-section p-3">
+              <div className="flex items-center gap-3">
+                <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center">
+                  <ItemSprite item={item} textureState={textureState} scale={getContainedItemSpriteScale(item, 40, 1.75)} className="h-10 w-10" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.displayName}</p>
+                  <p className="truncate text-xs text-[var(--text-secondary)]">{item.qualifiedItemId}</p>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <EmptyNotice message={copy.workspaceEmpty} />
-        )}
-      </section>
+          ) : (
+            <EmptyNotice message={copy.workspaceEmpty} />
+          )}
+        </section>
+      </div>
     </aside>
   )
 }
 
 function CatalogPane({
   copy,
+  text,
   items,
   activeItemId,
   textureStatesByAssetName,
@@ -1020,6 +1017,7 @@ function CatalogPane({
   onHoverItem,
 }: {
   copy: ItemWorkspaceProps['copy']
+  text: ReturnType<typeof getWorkspaceText>
   items: ItemWorkspaceEntry[]
   activeItemId: string | null
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
@@ -1030,8 +1028,14 @@ function CatalogPane({
   const hoveredItem = hoveredItemId ? (items.find((entry) => entry.key === hoveredItemId) ?? null) : null
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
-      <div className="min-h-0 flex-1 overflow-auto p-4">
+    <section className="panel-surface relative h-full">
+      <div className="panel-header">
+        <div>
+          <p className="panel-title">{text.catalogTitle}</p>
+          <p className="panel-subtitle">{items.length}</p>
+        </div>
+      </div>
+      <div className="panel-body min-h-0 flex-1 overflow-auto p-4">
         {items.length ? (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {items.map((entry) => {
@@ -1043,7 +1047,7 @@ function CatalogPane({
                   key={entry.key}
                   type="button"
                   className={cx(
-                    'group flex aspect-square flex-col items-center justify-center border p-2 text-center transition-all',
+                    'group flex aspect-square flex-col items-center justify-center rounded-2xl border p-2 text-center transition-all',
                     isActive
                       ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] shadow-[0_16px_32px_color-mix(in_srgb,var(--accent)_18%,transparent)]'
                       : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)]',
@@ -1120,8 +1124,16 @@ function DetailPane({
 
   if (!item) {
     return (
-      <section className="flex h-full min-h-0 items-center justify-center bg-transparent p-6 text-center">
-        <p className="max-w-md text-sm text-[var(--text-secondary)]">{copy.workspaceEmpty}</p>
+      <section className="panel-surface h-full">
+        <div className="panel-header">
+          <div>
+            <p className="panel-title">{text.detailTitle}</p>
+            <p className="panel-subtitle">{copy.workspaceEmpty}</p>
+          </div>
+        </div>
+        <div className="panel-body flex h-full min-h-0 items-center justify-center p-6 text-center">
+          <p className="max-w-md text-sm text-[var(--text-secondary)]">{copy.workspaceEmpty}</p>
+        </div>
       </section>
     )
   }
@@ -1129,13 +1141,27 @@ function DetailPane({
   const hasRelations = sourceCards.length > 0 || recipeUseCards.length > 0 || machineUseCards.length > 0 || recipeOutputCards.length > 0
   const giftCount = item.lovedBy.length + item.likedBy.length
   const customFields = Object.entries(item.customFields)
+  const heroSpriteFrame = getContainedItemSpriteFrame(item, 128, 6, 12, 80)
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden bg-transparent">
-      <div className="border-b border-[var(--border-color)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_94%,transparent),color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)))] px-5 py-5">
+    <section className="panel-surface h-full">
+      <div className="panel-header">
+        <div>
+          <p className="panel-title">{text.detailTitle}</p>
+          <p className="panel-subtitle">{item.displayName}</p>
+        </div>
+        <span className="dock-chip">{item.qualifiedItemId}</span>
+      </div>
+      <div className="mx-5 mb-5 overflow-hidden rounded-[24px] border border-[var(--border-color)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_94%,transparent),color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)))] px-5 py-5">
         <div className="grid gap-5 lg:grid-cols-[160px_minmax(0,1fr)]">
-          <div className="flex min-h-[160px] items-center justify-center border border-[var(--border-color)] bg-[radial-gradient(circle_at_30%_20%,color-mix(in_srgb,var(--accent)_26%,transparent),transparent_38%),radial-gradient(circle_at_70%_78%,rgba(255,255,255,0.08),transparent_34%),var(--bg-panel)] p-5">
-            <ItemSprite item={item} textureState={textureState} scale={Math.max(1, Math.min(6, getContainedItemSpriteScale(item, 128, 6)))} className="h-32 w-32 border-white/10 bg-transparent" />
+          <div className="panel-section flex min-h-[160px] items-center justify-center bg-[radial-gradient(circle_at_30%_20%,color-mix(in_srgb,var(--accent)_26%,transparent),transparent_38%),radial-gradient(circle_at_70%_78%,rgba(255,255,255,0.08),transparent_34%),var(--bg-panel)] p-5">
+            <ItemSprite
+              item={item}
+              textureState={textureState}
+              scale={heroSpriteFrame.scale}
+              className="border-white/10 bg-transparent"
+              style={{ width: `${heroSpriteFrame.width}px`, height: `${heroSpriteFrame.height}px` }}
+            />
           </div>
 
           <div className="min-w-0">
@@ -1162,83 +1188,85 @@ function DetailPane({
             </div>
           </div>
         </div>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {detailTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={cx('rounded-full border px-4 py-2 text-sm font-semibold transition-colors', getPillClass(tab.id === activeDetailTab))}
-              onClick={() => onDetailTabChange(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto px-5 py-5">
-        {activeDetailTab === 'info' ? (
-          <div className="space-y-4">
-            <DetailSectionCard title={copy.basicsTitle} rows={infoRows} />
-
-            <DetailSectionCard title={text.descriptionTitle}>
-              <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{item.description ?? copy.noDescription}</p>
-            </DetailSectionCard>
-
-            <DetailSectionCard title={copy.giftSectionTitle}>
-              <div className="mt-3 space-y-3">
-                {giftCount ? (
-                  <>
-                    <TasteGroup title={copy.giftLoveTitle} entries={item.lovedBy} tone="danger" />
-                    <TasteGroup title={copy.giftLikeTitle} entries={item.likedBy} tone="positive" />
-                  </>
-                ) : (
-                  <EmptyNotice message={text.giftsEmpty} />
-                )}
-              </div>
-            </DetailSectionCard>
-
-            {specificSections.map((section) => (
-              <DetailSectionCard key={section.key} title={section.title} rows={section.rows} />
+      <div className="panel-body min-h-0 flex-1 overflow-auto px-5 py-5">
+        <div className="flex flex-wrap gap-2">
+            {detailTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={cx('rounded-full border px-4 py-2 text-sm font-semibold transition-colors', getPillClass(tab.id === activeDetailTab))}
+                onClick={() => onDetailTabChange(tab.id)}
+              >
+                {tab.label}
+              </button>
             ))}
-          </div>
-        ) : null}
+        </div>
 
-        {activeDetailTab === 'relations' ? (
-          <div className="space-y-4">
-            {hasRelations ? (
-              <>
-                {sourceCards.length ? <SourceGrid cards={sourceCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                {recipeUseCards.length ? <UseGrid title={copy.recipeInputTitle} cards={recipeUseCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                {machineUseCards.length ? <UseGrid title={copy.machineSectionTitle} cards={machineUseCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                {recipeOutputCards.length ? <UseGrid title={copy.recipeOutputTitle} cards={recipeOutputCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-              </>
-            ) : (
-              <EmptyNotice message={text.relationsEmpty} />
-            )}
-          </div>
-        ) : null}
+        <div className="mt-5">
+          {activeDetailTab === 'info' ? (
+            <div className="space-y-4">
+              <DetailSectionCard title={copy.basicsTitle} rows={infoRows} />
 
-        {activeDetailTab === 'resources' ? (
-          <div className="space-y-4">
-            <DetailSectionCard title={copy.assetTitle} rows={resourceRows} />
+              <DetailSectionCard title={text.descriptionTitle}>
+                <p className="mt-3 text-sm leading-7 text-[var(--text-secondary)]">{item.description ?? copy.noDescription}</p>
+              </DetailSectionCard>
 
-            <DetailSectionCard title={text.customFieldsTitle}>
-              <div className="mt-3 space-y-2">
-                {customFields.length ? (
-                  customFields.map(([key, value]) => (
-                    <div key={key} className="border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-3">
-                      {renderKv(key, value)}
-                    </div>
-                  ))
-                ) : (
-                  <EmptyNotice message={text.customFieldsEmpty} />
-                )}
-              </div>
-            </DetailSectionCard>
-          </div>
-        ) : null}
+              <DetailSectionCard title={copy.giftSectionTitle}>
+                <div className="mt-3 space-y-3">
+                  {giftCount ? (
+                    <>
+                      <TasteGroup title={copy.giftLoveTitle} entries={item.lovedBy} tone="danger" />
+                      <TasteGroup title={copy.giftLikeTitle} entries={item.likedBy} tone="positive" />
+                    </>
+                  ) : (
+                    <EmptyNotice message={text.giftsEmpty} />
+                  )}
+                </div>
+              </DetailSectionCard>
+
+              {specificSections.map((section) => (
+                <DetailSectionCard key={section.key} title={section.title} rows={section.rows} />
+              ))}
+            </div>
+          ) : null}
+
+          {activeDetailTab === 'relations' ? (
+            <div className="space-y-4">
+              {hasRelations ? (
+                <>
+                  {sourceCards.length ? <SourceGrid cards={sourceCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {recipeUseCards.length ? <UseGrid title={copy.recipeInputTitle} cards={recipeUseCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {machineUseCards.length ? <UseGrid title={copy.machineSectionTitle} cards={machineUseCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {recipeOutputCards.length ? <UseGrid title={copy.recipeOutputTitle} cards={recipeOutputCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                </>
+              ) : (
+                <EmptyNotice message={text.relationsEmpty} />
+              )}
+            </div>
+          ) : null}
+
+          {activeDetailTab === 'resources' ? (
+            <div className="space-y-4">
+              <DetailSectionCard title={copy.assetTitle} rows={resourceRows} />
+
+              <DetailSectionCard title={text.customFieldsTitle}>
+                <div className="mt-3 space-y-2">
+                  {customFields.length ? (
+                    customFields.map(([key, value]) => (
+                      <div key={key} className="panel-section px-3 py-3">
+                        {renderKv(key, value)}
+                      </div>
+                    ))
+                  ) : (
+                    <EmptyNotice message={text.customFieldsEmpty} />
+                  )}
+                </div>
+              </DetailSectionCard>
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   )
@@ -1345,6 +1373,7 @@ export function ItemCatalogPanel(props: ItemWorkspaceProps) {
   return (
     <CatalogPane
       copy={view.copy}
+      text={view.text}
       items={view.matchingVisibleItems}
       activeItemId={view.activeItemId}
       textureStatesByAssetName={view.textureStatesByAssetName}
@@ -1446,6 +1475,7 @@ export default function ItemWorkspace({
 
           <CatalogPane
             copy={copy}
+            text={text}
             items={matchingVisibleItems}
             activeItemId={activeItemId}
             textureStatesByAssetName={textureStatesByAssetName}

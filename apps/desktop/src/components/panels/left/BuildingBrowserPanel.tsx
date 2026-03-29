@@ -3,6 +3,7 @@ import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../.
 import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 const FARM_FARMING_GROUP_KEYS = new Set([
   'Barn',
@@ -39,26 +40,6 @@ type BuildingBrowserPanelProps = {
   buildingFilter: string
   onBuildingFilterChange: (value: string) => void
   onSelectBuilding: (buildingKey: string) => void
-}
-
-function SectionTitle({
-  title,
-  subtitle,
-  count,
-}: {
-  title: string
-  subtitle: string
-  count: number
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-1">
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{title}</p>
-        <p className="truncate text-[11px] text-[var(--text-tertiary)]">{subtitle}</p>
-      </div>
-      <span className="dock-chip shrink-0">{count}</span>
-    </div>
-  )
 }
 
 function buildWorldBuildingSections(worldBuildings: BuildingWorkspaceEntry[]) {
@@ -190,7 +171,7 @@ function ConstructibleGroupButton({
 function SubsectionTitle({ title, count }: { title: string; count: number }) {
   return (
     <div className="flex items-center justify-between gap-3 px-1">
-      <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)]">{title}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{title}</p>
       <span className="dock-chip shrink-0">{count}</span>
     </div>
   )
@@ -241,8 +222,12 @@ export function BuildingBrowserPanel({
           {filteredCount ? (
             <>
               {merchantSection?.items.length ? (
-                <section className="space-y-2">
-                  <SectionTitle title={merchantSection.title} subtitle={copy.browserWorldSubtitle} count={merchantSection.items.length} />
+                <PanelSection
+                  title={merchantSection.title}
+                  subtitle={copy.browserWorldSubtitle}
+                  action={<span className="dock-chip shrink-0">{merchantSection.items.length}</span>}
+                  bodyClassName="space-y-2"
+                >
                   {merchantSection.items.map((building) => (
                     <WorldBuildingButton
                       key={building.key}
@@ -252,12 +237,16 @@ export function BuildingBrowserPanel({
                       badgeLabel={copy.browserWorldBadge}
                     />
                   ))}
-                </section>
+                </PanelSection>
               ) : null}
 
               {houseSection?.items.length ? (
-                <section className="space-y-2">
-                  <SectionTitle title={houseSection.title} subtitle={copy.browserWorldSubtitle} count={houseSection.items.length} />
+                <PanelSection
+                  title={houseSection.title}
+                  subtitle={copy.browserWorldSubtitle}
+                  action={<span className="dock-chip shrink-0">{houseSection.items.length}</span>}
+                  bodyClassName="space-y-2"
+                >
                   {houseSection.items.map((building) => (
                     <WorldBuildingButton
                       key={building.key}
@@ -267,20 +256,24 @@ export function BuildingBrowserPanel({
                       badgeLabel={copy.browserWorldBadge}
                     />
                   ))}
-                </section>
+                </PanelSection>
               ) : null}
 
               {constructibleSections.farming.length || constructibleSections.special.length || constructibleSections.other.length ? (
-                <section className="space-y-2">
-                  <SectionTitle
-                    title="Farm Buildings"
-                    subtitle={copy.browserConstructibleSubtitle}
-                    count={
-                      constructibleSections.farming.length +
-                      constructibleSections.special.length +
-                      constructibleSections.other.length
-                    }
-                  />
+                <PanelSection
+                  title="Farm Buildings"
+                  subtitle={copy.browserConstructibleSubtitle}
+                  action={
+                    <span className="dock-chip shrink-0">
+                      {
+                        constructibleSections.farming.length +
+                        constructibleSections.special.length +
+                        constructibleSections.other.length
+                      }
+                    </span>
+                  }
+                  bodyClassName="space-y-3"
+                >
                   {constructibleSections.farming.length ? (
                     <div className="space-y-2">
                       <SubsectionTitle title="Farming" count={constructibleSections.farming.length} />
@@ -323,12 +316,16 @@ export function BuildingBrowserPanel({
                       ))}
                     </div>
                   ) : null}
-                </section>
+                </PanelSection>
               ) : null}
 
               {otherSection?.items.length ? (
-                <section className="space-y-2">
-                  <SectionTitle title={otherSection.title} subtitle={copy.browserWorldSubtitle} count={otherSection.items.length} />
+                <PanelSection
+                  title={otherSection.title}
+                  subtitle={copy.browserWorldSubtitle}
+                  action={<span className="dock-chip shrink-0">{otherSection.items.length}</span>}
+                  bodyClassName="space-y-2"
+                >
                   {otherSection.items.map((building) => (
                     <WorldBuildingButton
                       key={building.key}
@@ -338,12 +335,17 @@ export function BuildingBrowserPanel({
                       badgeLabel={copy.browserWorldBadge}
                     />
                   ))}
-                </section>
+                </PanelSection>
               ) : null}
 
               {extraWorldSections.map((section) => (
-                <section key={section.key} className="space-y-2">
-                  <SectionTitle title={section.title} subtitle={copy.browserWorldSubtitle} count={section.items.length} />
+                <PanelSection
+                  key={section.key}
+                  title={section.title}
+                  subtitle={copy.browserWorldSubtitle}
+                  action={<span className="dock-chip shrink-0">{section.items.length}</span>}
+                  bodyClassName="space-y-2"
+                >
                   {section.items.map((building) => (
                     <WorldBuildingButton
                       key={building.key}
@@ -353,13 +355,13 @@ export function BuildingBrowserPanel({
                       badgeLabel={copy.browserWorldBadge}
                     />
                   ))}
-                </section>
+                </PanelSection>
               ))}
             </>
           ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+            <PanelEmptyState>
               {totalCount ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}
-            </div>
+            </PanelEmptyState>
           )}
         </div>
       </div>

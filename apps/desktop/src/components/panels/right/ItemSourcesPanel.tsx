@@ -1,6 +1,7 @@
 import type { ItemsPanelCopy } from '../../../lib/editor-shell'
 import type { ItemWorkspaceEntry } from '../../../lib/app/itemWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type ItemSourcesPanelProps = {
   copy: ItemsPanelCopy
@@ -17,20 +18,17 @@ function SourceSection({
   noneLabel: string
 }) {
   return (
-    <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-panel)] p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{title}</p>
-      <div className="mt-3 space-y-2">
+    <PanelSection title={title} bodyClassName="space-y-2">
         {entries.length ? (
           entries.map((entry) => (
-            <div key={entry} className="rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_92%,white_8%)] px-3 py-3 text-sm text-[var(--text-primary)]">
+            <div key={entry} className="panel-list-card text-sm text-[var(--text-primary)]">
               {entry}
             </div>
           ))
         ) : (
           <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
         )}
-      </div>
-    </section>
+    </PanelSection>
   )
 }
 
@@ -39,9 +37,7 @@ export function ItemSourcesPanel({ copy, item }: ItemSourcesPanelProps) {
     <PanelFrame title={copy.sourcesPanelTitle} subtitle={copy.sourcesPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">
         {!item ? (
-          <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-            {copy.sourcesPanelEmpty}
-          </div>
+          <PanelEmptyState>{copy.sourcesPanelEmpty}</PanelEmptyState>
         ) : (
           <>
             <SourceSection

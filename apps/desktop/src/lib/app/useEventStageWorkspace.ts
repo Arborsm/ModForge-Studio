@@ -76,6 +76,7 @@ export function useEventStageWorkspace({
   const [showMapPaths, setShowMapPaths] = useState(false)
   const [viewportZoom, setViewportZoom] = useState(EVENT_STAGE_INITIAL_ZOOM)
   const [zoomLabel, setZoomLabel] = useState(() => viewportLabels.zoomLabel(EVENT_STAGE_INITIAL_ZOOM))
+  const [musicSyncEnabled, setMusicSyncEnabled] = useState(false)
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() => createInitialPlaybackState(selectedEvent, initialMapName))
   const [animationNowMs, setAnimationNowMs] = useState(() => performance.now())
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
@@ -92,6 +93,18 @@ export function useEventStageWorkspace({
     const initialState = createInitialPlaybackState(event, mapName)
     const musicCue = event?.scene.musicCue && event.scene.musicCue !== 'none' ? event.scene.musicCue : null
     return musicCue === initialState.activeMusicCue ? initialState : { ...initialState, activeMusicCue: musicCue }
+  }
+
+  function preparePlaybackStep(state: PlaybackState) {
+    if (state.waitingMs == null) {
+      return state
+    }
+
+    return {
+      ...state,
+      waitingMs: null,
+      waitingStartedAtMs: null,
+    }
   }
 
   const visibleLayerIds = useMemo(
@@ -251,6 +264,7 @@ export function useEventStageWorkspace({
 
   useEffect(() => {
     setAutoPlay(false)
+    setMusicSyncEnabled(false)
     setPlaybackState(createStageReadyPlaybackState(selectedEvent, initialMapName))
     onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
     onPlaybackCommandChange(null)
@@ -260,6 +274,7 @@ export function useEventStageWorkspace({
     resetAudioPreview()
     lastAudioCommandIdRef.current = null
     lastSyncedMusicCueKeyRef.current = null
+    setMusicSyncEnabled(false)
   }, [directoryInfo?.rootPath])
 
   useEffect(() => {
@@ -268,6 +283,7 @@ export function useEventStageWorkspace({
     }
 
     setAutoPlay(false)
+    setMusicSyncEnabled(true)
     setPlaybackState(
       seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, timelineJumpRequestId, initialMapName, copy, {
         objectDrinkIndex: eventObjectDrinkIndex,
@@ -286,18 +302,20 @@ export function useEventStageWorkspace({
   useEffect(() => {
     const rootPath = directoryInfo?.rootPath
     const musicCue = playbackState.activeMusicCue
-    const syncKey = `${rootPath ?? ''}::${musicCue ?? 'none'}`
+    const syncKey = `${rootPath ?? ''}::${musicSyncEnabled ? musicCue ?? 'none' : '__disabled__'}`
     if (!rootPath || syncKey === lastSyncedMusicCueKeyRef.current) {
       return
     }
 
     lastSyncedMusicCueKeyRef.current = syncKey
-    if (musicCue) {
+    if (!musicSyncEnabled) {
+      stopMusicPreview()
+    } else if (musicCue) {
       void playMusicCue(rootPath, musicCue)
     } else {
       stopMusicPreview()
     }
-  }, [directoryInfo?.rootPath, playbackState.activeMusicCue])
+  }, [directoryInfo?.rootPath, musicSyncEnabled, playbackState.activeMusicCue])
 
   useEffect(() => {
     const rootPath = directoryInfo?.rootPath
@@ -795,9 +813,10 @@ export function useEventStageWorkspace({
 
   function playNextFrame() {
     setAutoPlay(false)
+    setMusicSyncEnabled(true)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createStageReadyPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended ? preparePlaybackStep(current) : createStageReadyPlaybackState(selectedEvent, initialMapName)
       return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
         objectDrinkIndex: eventObjectDrinkIndex,
       })
@@ -805,6 +824,7 @@ export function useEventStageWorkspace({
   }
 
   function toggleAutoPlayback() {
+    setMusicSyncEnabled(true)
     setAutoPlay((current) => !current)
     setPlaybackState((current) => {
       const nextState =
@@ -822,6 +842,7 @@ export function useEventStageWorkspace({
 
   function resetPlayback() {
     setAutoPlay(false)
+    setMusicSyncEnabled(false)
     setPlaybackState(createStageReadyPlaybackState(selectedEvent, initialMapName))
     onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
   }

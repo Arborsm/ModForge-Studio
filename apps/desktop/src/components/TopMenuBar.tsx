@@ -108,7 +108,7 @@ export default function TopMenuBar({
       <div className="flex h-12 items-center justify-between gap-3 px-3">
         <div className="flex min-w-0 items-center gap-4">
           <div className="flex min-w-0 items-center gap-3" data-tauri-drag-region>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-xs font-black tracking-[0.18em] text-white">
+            <div className="panel-section flex h-8 w-8 items-center justify-center border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent)] text-xs font-black tracking-[0.18em] text-white">
               MF
             </div>
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{copy.brand.name}</p>
@@ -237,11 +237,9 @@ export default function TopMenuBar({
           >
             <Globe className="h-4 w-4" />
           </button>
-          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-1 text-[11px] font-semibold text-[var(--text-secondary)]">
-            {copy.localeShort[locale]}
-          </div>
+          <div className="dock-chip">{copy.localeShort[locale]}</div>
           {desktopHost ? (
-            <div className="ml-1 flex items-center overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+            <div className="panel-section-muted panel-section ml-1 flex items-center overflow-hidden rounded-lg">
               <button
                 type="button"
                 className="window-control-button"

@@ -342,7 +342,7 @@ export default function CentralWorkspace({
                 </div>
                 <div className="panel-body space-y-2 p-3">
                   {moduleBlueprint.list.map((item) => (
-                    <div key={item} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
+                    <div key={item} className="panel-list-card px-3 py-2">
                       <p className="text-sm font-semibold text-[var(--text-primary)]">{item}</p>
                       <p className="mt-1 text-xs text-[var(--text-secondary)]">{moduleBlueprint.state}</p>
                     </div>
@@ -358,7 +358,7 @@ export default function CentralWorkspace({
                   </div>
                 </div>
                 <div className="panel-body p-3">
-                  <div className="relative h-full overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-viewport)]">
+                  <div className="panel-canvas relative h-full bg-[var(--bg-viewport)]">
                     <div
                       className="absolute inset-0"
                       style={{
@@ -381,7 +381,7 @@ export default function CentralWorkspace({
                         return (
                           <div
                             key={node.title}
-                            className={`absolute ${positions[index] ?? 'left-10 top-10'} rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-4 py-3 shadow-[var(--shadow-panel)]`}
+                            className={`panel-section absolute ${positions[index] ?? 'left-10 top-10'} px-4 py-3 shadow-[var(--shadow-panel)]`}
                           >
                             <p className="text-sm font-semibold text-[var(--text-primary)]">{node.title}</p>
                             <p className="mt-1 text-xs text-[var(--text-secondary)]">{node.detail}</p>
@@ -401,7 +401,7 @@ export default function CentralWorkspace({
                           {moduleBlueprint.lanes.map((lane) => (
                             <div
                               key={lane}
-                              className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-4 py-3 text-sm font-medium text-[var(--text-primary)]"
+                              className="panel-section px-4 py-3 text-sm font-medium text-[var(--text-primary)]"
                             >
                               {lane}
                             </div>
