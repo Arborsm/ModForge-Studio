@@ -56,6 +56,7 @@ export type EventSceneActor = {
   tileX: number
   tileY: number
   facingDirection: number
+  breather?: boolean | null
 }
 
 export type EventSceneSetup = {

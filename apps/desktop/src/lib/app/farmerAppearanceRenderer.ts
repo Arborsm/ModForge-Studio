@@ -51,6 +51,8 @@ export type FarmerSpriteLayerDescriptor = {
   opacity?: number
   backgroundColor?: string | null
   rotation?: number
+  scaleX?: number
+  scaleY?: number
   transformOrigin?: string
 }
 

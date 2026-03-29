@@ -48,6 +48,11 @@ type TopMenuBarProps = {
     title: string
     onOpen: () => void
   }
+  projectMenu: {
+    title: string
+    highlighted?: boolean
+    onOpen: () => void
+  }
 }
 
 const MODULE_ICONS = {
@@ -73,14 +78,16 @@ export default function TopMenuBar({
   onCloseWindow,
   viewMenu,
   settingsMenu,
+  projectMenu,
 }: TopMenuBarProps) {
-  const [viewMenuOpen, setViewMenuOpen] = useState(false)
+  const [activeMenu, setActiveMenu] = useState<'view' | null>(null)
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
   const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
   const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [mode, copy.nav[mode]] as const)
+  const viewMenuOpen = activeMenu === 'view'
 
   useEffect(() => {
-    if (!viewMenuOpen) {
+    if (!activeMenu) {
       return
     }
 
@@ -89,12 +96,13 @@ export default function TopMenuBar({
         return
       }
 
-      setViewMenuOpen(false)
+      setActiveMenu(null)
     }
 
     window.addEventListener('mousedown', handlePointerDown)
     return () => window.removeEventListener('mousedown', handlePointerDown)
-  }, [viewMenuOpen])
+  }, [activeMenu])
+
   return (
     <header className="relative z-[120] border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
       <div className="flex h-12 items-center justify-between gap-3 px-3">
@@ -108,12 +116,27 @@ export default function TopMenuBar({
 
           <nav className="hidden items-center gap-2 xl:flex">
             {copy.menus.map((label, index) =>
-              index === 2 ? (
+              index === 0 ? (
+                <button
+                  key={label}
+                  type="button"
+                  className={cx(
+                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
+                    projectMenu.highlighted ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                  )}
+                  onClick={projectMenu.onOpen}
+                >
+                  {projectMenu.title}
+                </button>
+              ) : index === 2 ? (
                 <div key={label} className="relative" ref={viewMenuRef}>
                   <button
                     type="button"
-                    className="rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
-                    onClick={() => setViewMenuOpen((current) => !current)}
+                    className={cx(
+                      'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
+                      viewMenuOpen ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                    )}
+                    onClick={() => setActiveMenu((current) => (current === 'view' ? null : 'view'))}
                   >
                     {viewMenu.title}
                   </button>
@@ -183,7 +206,7 @@ export default function TopMenuBar({
               type="button"
               className="rounded-md px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
               onClick={() => {
-                setViewMenuOpen(false)
+                setActiveMenu(null)
                 settingsMenu.onOpen()
               }}
             >

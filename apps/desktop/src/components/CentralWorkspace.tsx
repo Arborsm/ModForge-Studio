@@ -10,10 +10,13 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { EffectAssetState } from '../lib/app/eventStageShared'
+import type { StageWorldOverlaySprite } from '../lib/app/mapWorldStatePreview'
 import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../lib/editor-shell'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
+import MapWorldStatePreviewOverlay from './MapWorldStatePreviewOverlay'
 import { MapViewport, type FocusedMapObjectTarget, type MapViewportHandle, type TileHoverInfo } from './MapViewport'
 
 type CentralWorkspaceProps = {
@@ -41,6 +44,10 @@ type CentralWorkspaceProps = {
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]
   focusedObjectTarget: FocusedMapObjectTarget | null
+  showGameWorldAdditions: boolean
+  onToggleGameWorldAdditions: () => void
+  worldOverlaySprites: StageWorldOverlaySprite[]
+  worldOverlayTextureAssets: Record<string, EffectAssetState>
   onHoverChange: (info: TileHoverInfo | null) => void
   moduleBlueprint?: ModuleBlueprint
 }
@@ -66,6 +73,10 @@ export default function CentralWorkspace({
   visibleLayerIds,
   visibleObjectGroupIds,
   focusedObjectTarget,
+  showGameWorldAdditions,
+  onToggleGameWorldAdditions,
+  worldOverlaySprites,
+  worldOverlayTextureAssets,
   onHoverChange,
   moduleBlueprint,
 }: CentralWorkspaceProps) {
@@ -84,11 +95,29 @@ export default function CentralWorkspace({
     viewportRef.current?.focusObject(focusedObjectTarget)
   }, [focusedObjectTarget])
 
+  const mapOverlay = useMemo(() => {
+    if (!showGameWorldAdditions || !mapDocument) {
+      return null
+    }
+
+    return (
+      <MapWorldStatePreviewOverlay
+        mapDocument={mapDocument}
+        viewportZoom={1}
+        sprites={worldOverlaySprites}
+        textureAssets={worldOverlayTextureAssets}
+      />
+    )
+  }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
+  const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions ?? 'Preview Game Init'
+  const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions ?? 'Hide Game Init'
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-viewport)]">
       <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-2">
-        {workspaceMode === 'map'
-          ? tabs.map((tab) => {
+        <div className="flex min-w-0 flex-1 items-end gap-1">
+          {workspaceMode === 'map'
+            ? tabs.map((tab) => {
               const isActive = activeTabId === tab.id
               const isDragged = draggedTabId === tab.id
               const isDropTarget = dropTargetTabId === tab.id && draggedTabId !== tab.id
@@ -155,12 +184,13 @@ export default function CentralWorkspace({
                 </div>
               )
             })
-          : (
-            <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4 text-xs text-[var(--text-primary)]">
-              <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
-              <span className="font-semibold">{moduleBlueprint?.title ?? copy.center.viewport}</span>
-            </div>
-            )}
+            : (
+              <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4 text-xs text-[var(--text-primary)]">
+                <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
+                <span className="font-semibold">{moduleBlueprint?.title ?? copy.center.viewport}</span>
+              </div>
+              )}
+        </div>
       </div>
 
       <div className="flex h-11 items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-app)] px-3">
@@ -202,6 +232,27 @@ export default function CentralWorkspace({
         </div>
 
         <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+          {workspaceMode === 'map' ? (
+            <div className="group relative">
+              <button
+                type="button"
+                className={cx('tool-button', showGameWorldAdditions && 'tool-button-active')}
+                onClick={() => {
+                  if (mapDocument) {
+                    onToggleGameWorldAdditions()
+                  }
+                }}
+                aria-label={mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
+                aria-pressed={showGameWorldAdditions}
+                disabled={!mapDocument}
+              >
+                <MapIcon className="h-4 w-4" />
+              </button>
+              <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[var(--border-color)] bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-medium text-[var(--text-primary)] opacity-0 shadow-[var(--shadow-panel)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                {mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             className={cx('tool-button', showGrid && 'tool-button-active')}
@@ -265,6 +316,8 @@ export default function CentralWorkspace({
               theme={theme}
               accentColor={accentColor}
               showGrid={showGrid}
+              mapOverlay={mapOverlay}
+              scaleMapOverlayWithViewport
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
             />
 

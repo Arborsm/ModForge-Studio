@@ -40,6 +40,7 @@ type MapViewportProps = {
   onZoomChange?: (zoom: number, mode: 'fit' | 'manual') => void
   showStatsChips?: boolean
   mapOverlay?: ReactNode
+  scaleMapOverlayWithViewport?: boolean
   viewportOverlay?: ReactNode
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
@@ -708,6 +709,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     onZoomChange,
     showStatsChips = true,
     mapOverlay,
+    scaleMapOverlayWithViewport = false,
     viewportOverlay,
     focusWorldPoint,
     contextMenuEnabled = true,
@@ -1884,6 +1886,22 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             }}
           />
 
+          {scaleMapOverlayWithViewport && mapOverlay ? (
+            <div
+              className="pointer-events-none absolute z-[2]"
+              style={{
+                left: `${mapDisplayOffset.left}px`,
+                top: `${mapDisplayOffset.top}px`,
+                width: `${mapDocument.width * mapDocument.tileWidth}px`,
+                height: `${mapDocument.height * mapDocument.tileHeight}px`,
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              {mapOverlay}
+            </div>
+          ) : null}
+
           {viewportOverlay ? <div className="pointer-events-none absolute inset-0 z-[4]">{viewportOverlay}</div> : null}
 
           <div ref={frameRef} className="absolute inset-0">
@@ -1912,7 +1930,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                     height: `${canvasLogicalSize.height}px`,
                   }}
                 />
-                {mapOverlay ? (
+                {mapOverlay && !scaleMapOverlayWithViewport ? (
                   <div
                     className="pointer-events-none absolute z-[2]"
                     style={{

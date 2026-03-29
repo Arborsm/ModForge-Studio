@@ -505,6 +505,10 @@
     box-shadow: var(--shadow-panel);
   }
 
+  .workspace-panel-shell-flat {
+    border-radius: 10px;
+  }
+
   .workspace-panel-header {
     display: flex;
     align-items: center;

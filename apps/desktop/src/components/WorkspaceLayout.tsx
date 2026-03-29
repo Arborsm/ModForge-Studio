@@ -8,6 +8,7 @@ import {
   Layers3,
   Library,
   Map,
+  Package,
   PanelBottom,
   PanelLeft,
   PanelRight,
@@ -53,6 +54,9 @@ const PANEL_ICON_MAP: Record<string, LucideIcon> = {
   project: FolderOpen,
   assets: Files,
   viewport: Map,
+  'item-navigation': Files,
+  'item-catalog': Package,
+  'item-details': SlidersHorizontal,
   inspector: SlidersHorizontal,
   layers: Layers3,
   'object-groups': Boxes,
@@ -73,6 +77,8 @@ export type WorkspacePanelConfig = {
   title: string
   subtitle: string
   content: ReactNode
+  hideDockHeader?: boolean
+  shellClassName?: string
   minWidth: number
   minHeight: number
   dockMinHeight?: number
@@ -234,6 +240,10 @@ function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
 }
 
+function isItemsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
+  return panels?.some((panel) => panel.id === 'item-navigation') || panels?.some((panel) => panel.id === 'item-details') || false
+}
+
 function getForcedDockForPanel(): DockArea | null {
   return null
 }
@@ -292,10 +302,23 @@ function getDefaultSlots(
   ) as Record<SlotId, WorkspaceSlotState>
 }
 
-function getDefaultChrome(): WorkspaceChromeState {
+function getDefaultChrome(panels?: WorkspacePanelConfig[]): WorkspaceChromeState {
+  const isItemsWorkspace = isItemsWorkspacePanels(panels)
+
+  if (isItemsWorkspace) {
+    return {
+      leftWidth: 0.15,
+      rightWidth: 0.5,
+      bottomHeight: 220,
+      leftSplit: 0.44,
+      rightSplit: 0.34,
+      bottomSplit: 0.5,
+    }
+  }
+
   return {
-    leftWidth: 340,
-    rightWidth: 360,
+    leftWidth: 0.22,
+    rightWidth: 0.24,
     bottomHeight: 220,
     leftSplit: 0.44,
     rightSplit: 0.34,
@@ -326,15 +349,86 @@ function normalizeSlots(
   ) as Record<SlotId, WorkspaceSlotState>
 }
 
-function normalizeChrome(chrome: WorkspaceChromeState) {
+function normalizeChrome(chrome: WorkspaceChromeState, panels?: WorkspacePanelConfig[]) {
+  const isItemsWorkspace = isItemsWorkspacePanels(panels)
+
   return {
-    leftWidth: clamp(chrome.leftWidth, 280, 640),
-    rightWidth: clamp(chrome.rightWidth, 280, 640),
+    leftWidth: clamp(chrome.leftWidth, isItemsWorkspace ? 0.12 : 0.14, isItemsWorkspace ? 0.24 : 0.32),
+    rightWidth: clamp(chrome.rightWidth, isItemsWorkspace ? 0.38 : 0.16, isItemsWorkspace ? 0.62 : 0.36),
     bottomHeight: clamp(chrome.bottomHeight, 180, 280),
     leftSplit: clamp(chrome.leftSplit, 0.2, 0.8),
     rightSplit: clamp(chrome.rightSplit, 0.2, 0.8),
     bottomSplit: clamp(chrome.bottomSplit, 0.2, 0.8),
   } satisfies WorkspaceChromeState
+}
+
+function getHorizontalUsableWidth(
+  size: WorkspaceSize,
+  leftRailVisible: boolean,
+  rightRailVisible: boolean,
+  leftPanelVisible: boolean,
+  rightPanelVisible: boolean,
+) {
+  const leftRailUsed = leftRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
+  const rightRailUsed = rightRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
+  const horizontalGaps = (leftPanelVisible ? COLUMN_GAP : 0) + (rightPanelVisible ? COLUMN_GAP : 0)
+
+  return Math.max(160, size.width - ROOT_PADDING * 2 - leftRailUsed - rightRailUsed - horizontalGaps)
+}
+
+function getResolvedSidePanelWidths(
+  panels: WorkspacePanelConfig[],
+  chrome: WorkspaceChromeState,
+  size: WorkspaceSize,
+  leftRailVisible: boolean,
+  rightRailVisible: boolean,
+  leftPanelVisible: boolean,
+  rightPanelVisible: boolean,
+) {
+  const centerPanel = panels.find((panel) => panel.id === 'viewport' || panel.id === 'item-catalog')
+  const leftPanel =
+    panels.find((panel) => panel.id === 'assets' || panel.id === 'item-navigation') ?? null
+  const rightPanel =
+    panels.find((panel) => panel.id === 'inspector' || panel.id === 'item-details') ?? null
+
+  const centerMin = centerPanel?.minWidth ?? MIN_CENTER_WIDTH
+  const leftMin = leftPanelVisible ? (leftPanel?.minWidth ?? 0) : 0
+  const rightMin = rightPanelVisible ? (rightPanel?.minWidth ?? 0) : 0
+  const usable = getHorizontalUsableWidth(size, leftRailVisible, rightRailVisible, leftPanelVisible, rightPanelVisible)
+
+  if (leftPanelVisible && rightPanelVisible) {
+    let left = Math.round(usable * chrome.leftWidth)
+    let right = Math.round(usable * chrome.rightWidth)
+
+    left = clamp(left, leftMin, Math.max(leftMin, usable - centerMin - rightMin))
+    right = clamp(right, rightMin, Math.max(rightMin, usable - centerMin - left))
+
+    let center = usable - left - right
+    if (center < centerMin) {
+      const deficit = centerMin - center
+      const shrinkRight = Math.min(Math.max(0, right - rightMin), deficit)
+      right -= shrinkRight
+      const remainingDeficit = deficit - shrinkRight
+      if (remainingDeficit > 0) {
+        left -= Math.min(Math.max(0, left - leftMin), remainingDeficit)
+      }
+      center = usable - left - right
+    }
+
+    return { left, center, right }
+  }
+
+  if (leftPanelVisible) {
+    const left = clamp(Math.round(usable * chrome.leftWidth), leftMin, Math.max(leftMin, usable - centerMin))
+    return { left, center: usable - left, right: 0 }
+  }
+
+  if (rightPanelVisible) {
+    const right = clamp(Math.round(usable * chrome.rightWidth), rightMin, Math.max(rightMin, usable - centerMin))
+    return { left: 0, center: usable - right, right }
+  }
+
+  return { left: 0, center: usable, right: 0 }
 }
 
 function buildDefaultSnapshot(panels: WorkspacePanelConfig[]): WorkspaceSnapshot {
@@ -365,7 +459,7 @@ function buildDefaultSnapshot(panels: WorkspacePanelConfig[]): WorkspaceSnapshot
   return {
     panels: defaultPanels,
     slots: getDefaultSlots(panels, defaultPanels),
-    chrome: getDefaultChrome(),
+    chrome: getDefaultChrome(panels),
   }
 }
 
@@ -398,7 +492,7 @@ function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefined, pane
     chrome: normalizeChrome({
       ...defaults.chrome,
       ...(snapshot?.chrome ?? {}),
-    }),
+    }, panels),
   }
 }
 
@@ -442,26 +536,60 @@ function clampFloatRect(rect: PanelRect, size: WorkspaceSize, panel: WorkspacePa
   return { x, y, width, height }
 }
 
-function getRailEdgeSizeLimit(
+function getRailEdgeSizeBounds(
   rail: 'left' | 'right' | 'bottom',
   panels: WorkspacePanelConfig[],
+  panelMap: Record<string, WorkspacePanelConfig>,
   state: WorkspaceStoredState,
   size: WorkspaceSize,
 ) {
-  const leftRailUsed = getDockedPanelIdsForRail(panels, state.panels, 'left').length ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
-  const rightRailUsed = getDockedPanelIdsForRail(panels, state.panels, 'right').length ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
+  const leftRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'left').length > 0
+  const rightRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'right').length > 0
   const bottomRailUsed = getDockedPanelIdsForRail(panels, state.panels, 'bottom').length ? TOOL_WINDOW_RAIL_HEIGHT + TOOL_WINDOW_RAIL_GAP : 0
 
   if (rail === 'bottom') {
-    return Math.max(220, size.height - ROOT_PADDING * 2 - MIN_CENTER_HEIGHT - bottomRailUsed)
+    return {
+      min: 220,
+      max: Math.max(220, size.height - ROOT_PADDING * 2 - MIN_CENTER_HEIGHT - bottomRailUsed),
+    }
   }
 
-  const otherWidth =
-    rail === 'left'
-      ? state.chrome.rightWidth + rightRailUsed
-      : state.chrome.leftWidth + leftRailUsed
+  const leftPanelVisible = Boolean(
+    getActiveDockedPanel(panelMap, state, 'left-top') || getActiveDockedPanel(panelMap, state, 'left-bottom'),
+  )
+  const rightPanelVisible = Boolean(
+    getActiveDockedPanel(panelMap, state, 'right-top') || getActiveDockedPanel(panelMap, state, 'right-bottom'),
+  )
+  const centerPanel = panels.find((panel) => panel.id === 'viewport' || panel.id === 'item-catalog')
+  const leftPanel =
+    panels.find((panel) => panel.id === 'assets' || panel.id === 'item-navigation') ?? null
+  const rightPanel =
+    panels.find((panel) => panel.id === 'inspector' || panel.id === 'item-details') ?? null
+  const centerMin = centerPanel?.minWidth ?? MIN_CENTER_WIDTH
+  const usable = getHorizontalUsableWidth(size, leftRailVisible, rightRailVisible, leftPanelVisible, rightPanelVisible)
+  const resolvedWidths = getResolvedSidePanelWidths(
+    panels,
+    state.chrome,
+    size,
+    leftRailVisible,
+    rightRailVisible,
+    leftPanelVisible,
+    rightPanelVisible,
+  )
 
-  return Math.max(280, size.width - ROOT_PADDING * 2 - MIN_CENTER_WIDTH - otherWidth - leftRailUsed - rightRailUsed)
+  if (rail === 'left') {
+    const min = leftPanel?.minWidth ?? 220
+    return {
+      min,
+      max: Math.max(min, usable - centerMin - resolvedWidths.right),
+    }
+  }
+
+  const min = rightPanel?.minWidth ?? 260
+  return {
+    min,
+    max: Math.max(min, usable - centerMin - resolvedWidths.left),
+  }
 }
 
 function splitSpan(
@@ -514,7 +642,7 @@ function getWorkspaceGeometry(
   size: WorkspaceSize,
   measuredDockHeights: Record<string, number>,
 ): WorkspaceGeometry {
-  const defaultChrome = getDefaultChrome()
+  const defaultChrome = getDefaultChrome(panels)
   const leftRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'left').length > 0
   const rightRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'right').length > 0
   const leftRailUsed = leftRailVisible ? TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP : 0
@@ -531,9 +659,18 @@ function getWorkspaceGeometry(
   const leftPanelVisible = Boolean(leftTopPanel || leftBottomPanel)
   const rightPanelVisible = Boolean(rightTopPanel || rightBottomPanel)
   const bottomPanelVisible = Boolean(bottomLeftPanel || bottomRightPanel)
-
-  const leftPanelUsed = leftPanelVisible ? state.chrome.leftWidth + COLUMN_GAP : 0
-  const rightPanelUsed = rightPanelVisible ? state.chrome.rightWidth + COLUMN_GAP : 0
+  const resolvedWidths = getResolvedSidePanelWidths(
+    panels,
+    state.chrome,
+    size,
+    leftRailVisible,
+    rightRailVisible,
+    leftPanelVisible,
+    rightPanelVisible,
+  )
+  const leftPanelWidth = leftPanelVisible ? resolvedWidths.left : 0
+  const rightPanelWidth = rightPanelVisible ? resolvedWidths.right : 0
+  const leftPanelUsed = leftPanelVisible ? leftPanelWidth + COLUMN_GAP : 0
   const allowBottomAutoHeight = Math.abs(state.chrome.bottomHeight - defaultChrome.bottomHeight) < 0.5
   const bottomPreferredHeight = allowBottomAutoHeight
     ? [bottomLeftPanel, bottomRightPanel]
@@ -559,7 +696,7 @@ function getWorkspaceGeometry(
   const centerRect: PanelRect = {
     x: ROOT_PADDING + leftRailUsed + leftPanelUsed,
     y: ROOT_PADDING,
-    width: Math.max(160, size.width - ROOT_PADDING * 2 - leftRailUsed - leftPanelUsed - rightRailUsed - rightPanelUsed),
+    width: resolvedWidths.center,
     height: Math.max(180, size.height - ROOT_PADDING * 2 - bottomRailUsed - bottomPanelUsed),
   }
 
@@ -575,10 +712,10 @@ function getWorkspaceGeometry(
 
   const railContainers: Record<RailId, PanelRect | null> = {
     left: leftPanelVisible
-      ? { x: ROOT_PADDING + leftRailUsed, y: ROOT_PADDING, width: state.chrome.leftWidth, height: centerRect.height }
+      ? { x: ROOT_PADDING + leftRailUsed, y: ROOT_PADDING, width: leftPanelWidth, height: centerRect.height }
       : null,
     right: rightPanelVisible
-      ? { x: size.width - ROOT_PADDING - rightRailUsed - state.chrome.rightWidth, y: ROOT_PADDING, width: state.chrome.rightWidth, height: centerRect.height }
+      ? { x: size.width - ROOT_PADDING - rightRailUsed - rightPanelWidth, y: ROOT_PADDING, width: rightPanelWidth, height: centerRect.height }
       : null,
     bottom: bottomPanelVisible
       ? {
@@ -753,20 +890,21 @@ function getDockLabel(area: DockArea) {
   }
 }
 
-function getDockGuideRects(size: WorkspaceSize, geometry: WorkspaceGeometry) {
-  const defaults = getDefaultChrome()
+function getDockGuideRects(size: WorkspaceSize, geometry: WorkspaceGeometry, panels: WorkspacePanelConfig[]) {
+  const defaults = getDefaultChrome(panels)
+  const defaultSideWidths = getResolvedSidePanelWidths(panels, defaults, size, true, true, true, true)
   const leftContainer =
     geometry.railContainers.left ?? {
       x: ROOT_PADDING + TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP,
       y: ROOT_PADDING,
-      width: defaults.leftWidth,
+      width: defaultSideWidths.left,
       height: geometry.centerRect.height,
     }
   const rightContainer =
     geometry.railContainers.right ?? {
-      x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH - TOOL_WINDOW_RAIL_GAP - defaults.rightWidth,
+      x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH - TOOL_WINDOW_RAIL_GAP - defaultSideWidths.right,
       y: ROOT_PADDING,
-      width: defaults.rightWidth,
+      width: defaultSideWidths.right,
       height: geometry.centerRect.height,
     }
   const bottomContainer =
@@ -929,7 +1067,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     () => getWorkspaceGeometry(panels, panelMap, state, rootSize, measuredDockHeights),
     [measuredDockHeights, panelMap, panels, rootSize, state],
   )
-  const dockGuides = useMemo(() => getDockGuideRects(rootSize, geometry), [geometry, rootSize])
+  const dockGuides = useMemo(() => getDockGuideRects(rootSize, geometry, panels), [geometry, panels, rootSize])
 
   useImperativeHandle(
     ref,
@@ -1393,21 +1531,50 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       }
 
       if (interaction.kind === 'edge-resize') {
-        setState((current) => ({
-          ...current,
-          chrome: {
-            ...current.chrome,
-            [interaction.rail === 'left' ? 'leftWidth' : interaction.rail === 'right' ? 'rightWidth' : 'bottomHeight']: clamp(
-              interaction.rail === 'left'
-                ? interaction.startSize + (event.clientX - interaction.startX)
-                : interaction.rail === 'right'
-                  ? interaction.startSize - (event.clientX - interaction.startX)
-                  : interaction.startSize - (event.clientY - interaction.startY),
-              interaction.rail === 'bottom' ? 220 : 280,
-              getRailEdgeSizeLimit(interaction.rail, panels, current, rootSize),
+        setState((current) => {
+          const bounds = getRailEdgeSizeBounds(interaction.rail, panels, panelMap, current, rootSize)
+          const nextSize = clamp(
+            interaction.rail === 'left'
+              ? interaction.startSize + (event.clientX - interaction.startX)
+              : interaction.rail === 'right'
+                ? interaction.startSize - (event.clientX - interaction.startX)
+                : interaction.startSize - (event.clientY - interaction.startY),
+            bounds.min,
+            bounds.max,
+          )
+
+          if (interaction.rail === 'bottom') {
+            return {
+              ...current,
+              chrome: {
+                ...current.chrome,
+                bottomHeight: nextSize,
+              },
+            }
+          }
+
+          const leftRailVisible = getDockedPanelIdsForRail(panels, current.panels, 'left').length > 0
+          const rightRailVisible = getDockedPanelIdsForRail(panels, current.panels, 'right').length > 0
+          const leftPanelVisible = Boolean(
+            getActiveDockedPanel(panelMap, current, 'left-top') || getActiveDockedPanel(panelMap, current, 'left-bottom'),
+          )
+          const rightPanelVisible = Boolean(
+            getActiveDockedPanel(panelMap, current, 'right-top') || getActiveDockedPanel(panelMap, current, 'right-bottom'),
+          )
+          const usable = getHorizontalUsableWidth(rootSize, leftRailVisible, rightRailVisible, leftPanelVisible, rightPanelVisible)
+          const nextRatio = nextSize / Math.max(1, usable)
+
+          return {
+            ...current,
+            chrome: normalizeChrome(
+              {
+                ...current.chrome,
+                [interaction.rail === 'left' ? 'leftWidth' : 'rightWidth']: nextRatio,
+              },
+              panels,
             ),
-          },
-        }))
+          }
+        })
         return
       }
 
@@ -1652,7 +1819,10 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      startSize: rail === 'left' ? state.chrome.leftWidth : rail === 'right' ? state.chrome.rightWidth : state.chrome.bottomHeight,
+      startSize:
+        rail === 'bottom'
+          ? (geometry.railContainers.bottom?.height ?? state.chrome.bottomHeight)
+          : (geometry.railContainers[rail]?.width ?? 0),
     }
   }
 
@@ -1955,13 +2125,14 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
         }
 
         const hideDockHeader =
-          panelState.mode === 'docked' && (panelState.dock !== 'center' || panel.id === 'viewport')
+          panelState.mode === 'docked' && (panel.hideDockHeader || panelState.dock !== 'center' || panel.id === 'viewport')
 
         return (
           <section
             key={panel.id}
             className={cx(
               'workspace-panel-shell',
+              panel.shellClassName,
               panelState.mode === 'floating' ? 'workspace-panel-floating' : 'workspace-panel-docked',
             )}
             style={{

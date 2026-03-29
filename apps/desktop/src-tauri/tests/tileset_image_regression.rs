@@ -51,7 +51,7 @@ fn loads_farm_tileset_images_as_data_urls() {
             .unwrap_or_else(|| panic!("tileset was missing imagePath/imageSource: {tileset}"));
 
         let started = Instant::now();
-        let url = assets::load_image_data_url(image_path.to_string())
+        let url = assets::load_image_data_url(image_path.to_string(), None)
             .unwrap_or_else(|error| panic!("failed to load tileset image {image_path}: {error}"));
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
         total_image_ms += elapsed_ms;

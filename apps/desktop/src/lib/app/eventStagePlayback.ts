@@ -1292,6 +1292,7 @@ function continuePlayback(
         const tileX = parseNumber(command.args[4])
         const tileY = parseNumber(command.args[5])
         const facingDirection = Number.parseInt(command.args[6] ?? '', 10)
+        const breather = parseBoolean(command.args[7], true)
         const nextActors =
           actorName && tileX != null && tileY != null && Number.isFinite(facingDirection)
             ? {
@@ -1302,6 +1303,7 @@ function continuePlayback(
                   tileX,
                   tileY,
                   facingDirection,
+                  breather,
                 }),
               }
             : nextState.actors
@@ -1316,6 +1318,33 @@ function continuePlayback(
           }),
         }
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'tempActor' })
+      }
+      case 'shake': {
+        const actorName = command.args[1]
+        const durationMs = Number.parseInt(command.args[2] ?? '', 10)
+        const actor = actorName ? getActorByName(nextState.actors, actorName) : null
+        const nextActors =
+          actor && Number.isFinite(durationMs)
+            ? {
+                ...nextState.actors,
+                [toActorKey(actor.actorName)]: {
+                  ...actor,
+                  shakeStartedAtMs: performance.now(),
+                  shakeDurationMs: Math.max(0, durationMs),
+                },
+              }
+            : nextState.actors
+        const nextBase = {
+          ...base,
+          actors: nextActors,
+          notices: enqueuePlaybackNotice(base, {
+            title: command.title,
+            detail: actorName && Number.isFinite(durationMs) ? `${actorName} ${durationMs}ms` : command.detail || command.raw,
+            tone: 'visual',
+            durationMs: 1800,
+          }),
+        }
+        return advanceCommandPlayback(nextBase, command, { entrySuffix: 'shake' })
       }
       case 'waitForAllStationary':
         if (Object.values(nextState.actors).some((actor) => actor.movement)) {
@@ -1386,7 +1415,6 @@ function continuePlayback(
       case 'addLantern':
       case 'proceedPosition':
       case 'resetVariable':
-      case 'shake':
       case 'startJittering':
       case 'stopJittering':
       case 'hideShadow':

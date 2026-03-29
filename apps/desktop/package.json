@@ -12,6 +12,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.19",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@tailwindcss/postcss": "^4.2.2",
     "@tauri-apps/api": "^2.8.0",

@@ -41,6 +41,9 @@ import { clearLocalizedStageMetadataCache } from './lib/app/eventStageShared'
 import { clearMapViewportLocaleCache } from './lib/mapViewportCache'
 import { useEventWorkspace } from './lib/app/useEventWorkspace'
 import { useMapWorkspace } from './lib/app/useMapWorkspace'
+import { useCharacterWorkspace } from './lib/app/useCharacterWorkspace'
+import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
+import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
@@ -62,6 +65,7 @@ export default function App() {
   })
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const [storedRecentGameDirectories] = useState<string[]>(() => {
@@ -142,6 +146,10 @@ export default function App() {
     visibleLayerIds,
     visibleObjectGroupIds,
     focusedObjectTarget,
+    showGameWorldAdditions,
+    setShowGameWorldAdditions,
+    worldOverlaySprites,
+    worldOverlayTextureAssets,
     worldAtlasDocument,
     openMap,
     handleSelectWorldAtlasView,
@@ -149,10 +157,8 @@ export default function App() {
     handleCloseWorkspaceTab,
     handleReorderWorkspaceTabs,
     handleOpenAtlasTarget,
-    handleValidateOnly,
     handleScanAndOpenTown,
     handleChooseDirectory,
-    handleUseKnownPath,
     toggleLayer,
     toggleObjectGroup,
     setAllLayers,
@@ -188,6 +194,66 @@ export default function App() {
     locale,
     directoryInfo,
   })
+  const {
+    characters,
+    filteredCharacters,
+    characterFilter,
+    setCharacterFilter,
+    activeCharacterId,
+    activeCharacter,
+    activeVariant: activeCharacterVariant,
+    characterStatusMessage,
+    assetState: activeCharacterAssetState,
+    handleSelectCharacter,
+    handleSelectVariant: handleSelectCharacterVariant,
+  } = useCharacterWorkspace({
+    directoryInfo,
+    locale,
+    copy: copy.charactersPanel,
+  })
+  const {
+    constructibleGroups,
+    filteredConstructibleGroups,
+    worldBuildings,
+    filteredWorldBuildings,
+    buildingFilter,
+    setBuildingFilter,
+    activeBuildingId,
+    activeBuilding,
+    activeUpgradeChain,
+    buildingStatusMessage,
+    activeTextureState: activeBuildingTextureState,
+    activeChainTextureStates: activeBuildingChainTextureStates,
+    activeIndoorMapDocument: activeBuildingIndoorMapDocument,
+    activeIndoorMapPath: activeBuildingIndoorMapPath,
+    activeIndoorMapMessage: activeBuildingIndoorMapMessage,
+    activeExteriorMapDocument: activeBuildingExteriorMapDocument,
+    activeExteriorMapPath: activeBuildingExteriorMapPath,
+    activeExteriorMapMessage: activeBuildingExteriorMapMessage,
+    activeExteriorFocusPoint: activeBuildingExteriorFocusPoint,
+    springObjectsState: buildingSpringObjectsState,
+    handleSelectBuilding,
+  } = useBuildingWorkspace({
+    directoryInfo,
+    locale,
+    copy: copy.buildingsPanel,
+  })
+  const {
+    items,
+    filteredItems,
+    itemFilter,
+    setItemFilter,
+    activeItemId,
+    activeItem,
+    itemLookup,
+    itemStatusMessage,
+    textureStatesByAssetName: itemTextureStatesByAssetName,
+    handleSelectItem,
+  } = useItemWorkspace({
+    directoryInfo,
+    locale,
+    copy: copy.itemsPanel,
+  })
 
   const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' ? undefined : copy.moduleBlueprints[workspaceMode]
   const viewMenuCopy = getViewMenuCopy(locale)
@@ -198,6 +264,52 @@ export default function App() {
     playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
   const needsInitialization = !directoryInfo
   const interactionLocked = resourcePreloadState.active
+  const showProjectOverlay = (needsInitialization || projectOverlayOpen) && !interactionLocked
+  const currentWorkspaceStatus = useMemo(() => {
+    if (workspaceMode === 'events') {
+      return {
+        tone: directoryInfo ? (eventAssets.length ? 'ready' : eventStatusMessage ? 'error' : 'idle') : 'idle',
+        message: eventStatusMessage,
+      } as const
+    }
+
+    if (workspaceMode === 'characters') {
+      return {
+        tone: directoryInfo ? (characters.length ? 'ready' : characterStatusMessage ? 'error' : 'idle') : 'idle',
+        message: characterStatusMessage,
+      } as const
+    }
+
+    if (workspaceMode === 'buildings') {
+      const buildingBrowserCount = constructibleGroups.length + worldBuildings.length
+      return {
+        tone: directoryInfo ? (buildingBrowserCount ? 'ready' : buildingStatusMessage ? 'error' : 'idle') : 'idle',
+        message: buildingStatusMessage,
+      } as const
+    }
+
+    if (workspaceMode === 'items') {
+      return {
+        tone: directoryInfo ? (items.length ? 'ready' : itemStatusMessage ? 'error' : 'idle') : 'idle',
+        message: itemStatusMessage,
+      } as const
+    }
+
+    return workspaceStatus
+  }, [
+    buildingStatusMessage,
+    constructibleGroups.length,
+    characterStatusMessage,
+    characters.length,
+    directoryInfo,
+    eventAssets.length,
+    eventStatusMessage,
+    itemStatusMessage,
+    items.length,
+    worldBuildings.length,
+    workspaceMode,
+    workspaceStatus,
+  ])
   const recentGameDirectories = useMemo(() => {
     const currentRoot = directoryInfo?.rootPath
     if (!currentRoot) {
@@ -375,9 +487,13 @@ export default function App() {
     onShowAllObjectGroups: () => setAllObjectGroups(true),
     onHideAllObjectGroups: () => setAllObjectGroups(false),
     focusedObjectTarget,
+    showGameWorldAdditions,
+    onToggleGameWorldAdditions: () => setShowGameWorldAdditions((current) => !current),
+    worldOverlaySprites,
+    worldOverlayTextureAssets,
     onFocusObject: focusObject,
     onHoverChange: setHoverInfo,
-    workspaceStatus,
+    workspaceStatus: currentWorkspaceStatus,
     moduleBlueprint,
     eventAssets,
     filteredEventAssets,
@@ -399,6 +515,48 @@ export default function App() {
     onPlaybackCommandChange: setCurrentEventCommandId,
     activePlayerAppearanceProfile,
     onOpenPlayerAppearanceWindow: openAppearanceWindow,
+    characters,
+    filteredCharacters,
+    activeCharacterId,
+    activeCharacter,
+    activeCharacterVariant,
+    characterFilter,
+    characterStatusMessage,
+    activeCharacterAssetState,
+    onCharacterFilterChange: setCharacterFilter,
+    onSelectCharacter: handleSelectCharacter,
+    onSelectCharacterVariant: handleSelectCharacterVariant,
+    constructibleGroups,
+    filteredConstructibleGroups,
+    worldBuildings,
+    filteredWorldBuildings,
+    activeBuildingId,
+    activeBuilding,
+    activeUpgradeChain,
+    buildingFilter,
+    buildingStatusMessage,
+    activeBuildingTextureState,
+    activeBuildingChainTextureStates,
+    activeBuildingIndoorMapDocument,
+    activeBuildingIndoorMapPath,
+    activeBuildingIndoorMapMessage,
+    activeBuildingExteriorMapDocument,
+    activeBuildingExteriorMapPath,
+    activeBuildingExteriorMapMessage,
+    activeBuildingExteriorFocusPoint,
+    buildingSpringObjectsState,
+    onBuildingFilterChange: setBuildingFilter,
+    onSelectBuilding: handleSelectBuilding,
+    items,
+    filteredItems,
+    activeItemId,
+    activeItem,
+    itemLookup,
+    itemFilter,
+    itemStatusMessage,
+    itemTextureStatesByAssetName,
+    onItemFilterChange: setItemFilter,
+    onSelectItem: handleSelectItem,
   })
 
   const handleLayoutMetaChange = useCallback(
@@ -445,7 +603,7 @@ export default function App() {
         onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
         locale={locale}
         onToggleLocale={() => setLocale((current) => (current === 'zh-CN' ? 'en-US' : 'zh-CN'))}
-        statusTone={workspaceStatus.tone}
+        statusTone={currentWorkspaceStatus.tone}
         desktopHost={desktopHost}
         onMinimizeWindow={() => void minimizeCurrentWindow()}
         onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
@@ -481,6 +639,11 @@ export default function App() {
         settingsMenu={{
           title: settingsMenuCopy.title,
           onOpen: () => setSettingsWindowOpen(true),
+        }}
+        projectMenu={{
+          title: copy.leftDock.project,
+          highlighted: showProjectOverlay,
+          onOpen: () => setProjectOverlayOpen(true),
         }}
       />
 
@@ -535,19 +698,17 @@ export default function App() {
         />
       </div>
 
-      {needsInitialization && !interactionLocked ? (
+      {showProjectOverlay ? (
         <InitializationOverlay
           copy={copy}
           desktopHost={desktopHost}
           gameDirectory={gameDirectory}
-          recentDirectories={recentGameDirectories}
           detectedDirectories={knownGameDirectories}
           onGameDirectoryChange={setGameDirectory}
           onSelectDirectory={setGameDirectory}
           onChooseDirectory={() => void handleChooseDirectory()}
-          onUseKnownPath={() => void handleUseKnownPath()}
-          onValidateOnly={() => void handleValidateOnly()}
           onScanAndOpenTown={() => void handleScanAndOpenTown()}
+          onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
         />
       ) : null}
 
@@ -564,7 +725,7 @@ export default function App() {
       <StatusBar
         copy={copy}
         workspaceMode={workspaceMode}
-        workspaceStatus={workspaceStatus}
+        workspaceStatus={currentWorkspaceStatus}
         directoryInfo={directoryInfo}
         mapAssets={mapAssets}
         activeAsset={activeAsset}

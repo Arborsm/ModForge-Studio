@@ -7,12 +7,14 @@ import {
   toActorKey,
 } from '../lib/app/eventStageShared'
 import {
+  buildActorBreathingLayerDescriptor,
   buildSpriteLayerDescriptors,
   getActorRenderState,
   getActorSpriteFrameHeight,
   getStageEffectPlayback,
   getStageEffectSortValue,
 } from '../lib/app/eventStageAssets'
+import MapWorldStatePreviewOverlay from './MapWorldStatePreviewOverlay'
 import type { PlayerAppearanceProfile } from '../lib/app/playerAppearance'
 import { useEventStageWorkspace } from '../lib/app/useEventStageWorkspace'
 import { type GameDirectoryInfo } from '../lib/desktop'
@@ -82,7 +84,9 @@ export default function EventStageWorkspace({
     showMapPaths,
     toggleAutoPlayback,
     visibleLayerIds,
+    visibleObjectGroupIds,
     viewportZoom,
+    worldOverlaySprites,
     zoomLabel,
   } = useEventStageWorkspace({
     copy,
@@ -151,9 +155,14 @@ export default function EventStageWorkspace({
         )
       })
       .filter((item) => item !== null)
-
     return (
       <div className="absolute inset-0">
+        <MapWorldStatePreviewOverlay
+          mapDocument={mapDocument}
+          viewportZoom={viewportZoom}
+          sprites={worldOverlaySprites}
+          textureAssets={effectAssets}
+        />
         {worldEffects}
         {Object.values(playbackState.actors)
           .filter((actor) => actor.visible)
@@ -178,21 +187,36 @@ export default function EventStageWorkspace({
               renderState.farmerRenderState,
               renderState.bodyFlip,
             )
+            const breathingLayer = buildActorBreathingLayerDescriptor(
+              asset,
+              actor,
+              renderState.frame,
+              frameWidth,
+              frameHeight,
+              spriteColumns,
+              animationNowMs,
+              renderState.breathingScale,
+              renderState.farmerRenderState,
+            )
             const actorHeightTiles = frameHeight / 16
             const actorWidthTiles = frameWidth / 16
-            const pixelX = renderState.tileX * mapDocument.tileWidth * viewportZoom + renderState.offsetX * gamePixelScale * viewportZoom
+            const pixelX =
+              renderState.tileX * mapDocument.tileWidth * viewportZoom +
+              renderState.offsetX * gamePixelScale * viewportZoom +
+              renderState.shakeOffsetX * viewportZoom
             const actorHeight = mapDocument.tileHeight * actorHeightTiles * viewportZoom
             const actorWidth = mapDocument.tileWidth * actorWidthTiles * viewportZoom
             const pixelY =
               renderState.tileY * mapDocument.tileHeight * viewportZoom +
-              (renderState.offsetY + renderState.breathingOffsetY) * gamePixelScale * viewportZoom
+              (renderState.offsetY + renderState.breathingOffsetY) * gamePixelScale * viewportZoom +
+              renderState.shakeOffsetY * viewportZoom
             const spriteScale = Math.max(1, actorWidth / frameWidth)
             const spriteTransform =
               asset?.farmerAppearance
-                ? `scale(${spriteScale}, ${spriteScale * renderState.breathingScale})`
+                ? `scale(${spriteScale}, ${spriteScale})`
                 : renderState.flip
-                  ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale * renderState.breathingScale})`
-                  : `scale(${spriteScale}, ${spriteScale * renderState.breathingScale})`
+                  ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale})`
+                  : `scale(${spriteScale}, ${spriteScale})`
 
             return (
               <div
@@ -220,6 +244,9 @@ export default function EventStageWorkspace({
                             transform:
                               [
                                 layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : null,
+                                layer.scaleX != null || layer.scaleY != null
+                                  ? `scale(${layer.scaleX ?? 1}, ${layer.scaleY ?? 1})`
+                                  : null,
                                 layer.rotation != null ? `rotate(${layer.rotation}rad)` : null,
                               ]
                                 .filter(Boolean)
@@ -234,6 +261,24 @@ export default function EventStageWorkspace({
                           }}
                         />
                       ))}
+                      {breathingLayer ? (
+                        <div
+                          key={`${actor.id}:breathing`}
+                          className="absolute"
+                          style={{
+                            left: `${breathingLayer.offsetX}px`,
+                            top: `${breathingLayer.offsetY}px`,
+                            width: `${breathingLayer.width}px`,
+                            height: `${breathingLayer.height}px`,
+                            transform: `scale(${breathingLayer.scaleX ?? 1}, ${breathingLayer.scaleY ?? 1})`,
+                            transformOrigin: breathingLayer.transformOrigin ?? 'top left',
+                            backgroundImage: breathingLayer.url ? `url("${breathingLayer.url}")` : undefined,
+                            backgroundPosition: `-${breathingLayer.sourceX}px -${breathingLayer.sourceY}px`,
+                            backgroundRepeat: 'no-repeat',
+                            imageRendering: 'pixelated',
+                          }}
+                        />
+                      ) : null}
                     </div>
                   </div>
                 ) : (
@@ -244,7 +289,7 @@ export default function EventStageWorkspace({
           })}
       </div>
     )
-  }, [actorAssets, animationNowMs, effectAssets, mapDocument, playbackState.actors, playbackState.stageEffects, viewportZoom])
+  }, [actorAssets, animationNowMs, effectAssets, mapDocument, playbackState.actors, playbackState.stageEffects, viewportZoom, worldOverlaySprites])
 
   const screenEffectsOverlay = useMemo(() => {
     const effects = playbackState.stageEffects
@@ -504,16 +549,16 @@ export default function EventStageWorkspace({
             <UserRound className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
-            <button type="button" className="tool-button" onClick={playNextFrame} title={labels.play}>
-              <Play className="h-4 w-4" />
+            <button type="button" className="tool-button" onClick={playNextFrame} title={labels.step}>
+              <SkipForward className="h-4 w-4" />
             </button>
             <button
               type="button"
               className={cx('tool-button', autoPlay && 'tool-button-active')}
               onClick={toggleAutoPlayback}
-              title={autoPlay ? labels.pause : labels.step}
+              title={autoPlay ? labels.pause : labels.play}
             >
-              {autoPlay ? <Pause className="h-4 w-4" /> : <SkipForward className="h-4 w-4" />}
+              {autoPlay ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
             <button type="button" className="tool-button" onClick={resetPlayback} title={labels.reset}>
               <RotateCcw className="h-4 w-4" />
@@ -532,7 +577,7 @@ export default function EventStageWorkspace({
           locale={locale}
           mapDocument={mapDocument}
           visibleLayerIds={visibleLayerIds}
-          visibleObjectGroupIds={[]}
+          visibleObjectGroupIds={visibleObjectGroupIds}
           labels={viewportLabels}
           theme={theme}
           accentColor={accentColor}

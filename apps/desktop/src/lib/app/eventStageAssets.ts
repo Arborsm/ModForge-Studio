@@ -27,6 +27,7 @@ import {
   type ActorAssetState,
   type ActorMovementState,
   type CharacterDataEntry,
+  type CharacterVisualMetadata,
   type CharacterTextureIndex,
   type EffectAssetState,
   type EventActorState,
@@ -42,13 +43,20 @@ function buildCharacterTextureIndex(content: string) {
   const index: CharacterTextureIndex = {}
 
   for (const [characterName, entry] of Object.entries(parsed)) {
-    const textureName = entry.TextureName?.trim() || characterName
+    const metadata: CharacterVisualMetadata = {
+      textureName: entry.TextureName?.trim() || characterName,
+      breather: entry.Breather ?? true,
+      breathChestRect: entry.BreathChestRect ?? null,
+      breathChestPosition: entry.BreathChestPosition ?? null,
+      age: entry.Age?.trim() || null,
+      gender: entry.Gender?.trim() || null,
+    }
     for (const token of toLookupTokens(characterName)) {
-      index[token] = textureName
+      index[token] = metadata
     }
     for (const alias of entry.FormerCharacterNames ?? []) {
       for (const token of toLookupTokens(alias)) {
-        index[token] = textureName
+        index[token] = metadata
       }
     }
   }
@@ -72,9 +80,9 @@ function getTextureCandidates(actorName: string, textureIndex: CharacterTextureI
       candidates.push(alias)
     }
 
-    const textureName = textureIndex[token]
-    if (textureName) {
-      candidates.push(textureName)
+    const metadata = textureIndex[token]
+    if (metadata?.textureName) {
+      candidates.push(metadata.textureName)
     }
   }
 
@@ -167,6 +175,131 @@ function getActorBreathSeed(actorName: string) {
   return normalizeActorName(actorName)
     .split('')
     .reduce((sum: number, char: string) => sum + char.charCodeAt(0), 0)
+}
+
+function getActorBreathScale(actor: EventActorState, nowMs: number) {
+  const breathPhase = nowMs / 600 + getActorBreathSeed(actor.actorName)
+  return 1 + Math.max(0, Math.ceil(Math.sin(breathPhase)) / 16)
+}
+
+function isActorShakeActive(actor: EventActorState, nowMs: number) {
+  return actor.shakeStartedAtMs != null && nowMs - actor.shakeStartedAtMs < actor.shakeDurationMs
+}
+
+function getActorShakeOffset(actor: EventActorState, nowMs: number) {
+  if (!isActorShakeActive(actor, nowMs)) {
+    return { x: 0, y: 0 }
+  }
+
+  const seed = getActorBreathSeed(actor.actorName)
+  const step = Math.max(0, Math.floor(nowMs / 34))
+  return {
+    x: ((step + seed) % 3) - 1,
+    y: ((step * 2 + seed) % 3) - 1,
+  }
+}
+
+function getDefaultBreathingChestRect(frameWidth: number, frameHeight: number, isChild: boolean, isFemale: boolean) {
+  return {
+    x: Math.trunc(frameWidth / 4),
+    y: Math.trunc(frameHeight / 2 + frameHeight / 32) + (isChild ? Math.trunc(frameHeight / 6) + 1 : isFemale ? 1 : 0),
+    width: Math.trunc(frameHeight / 4),
+    height: Math.max(1, Math.trunc((frameWidth / 2) / (isChild || isFemale ? 2 : 1))),
+  }
+}
+
+function getDefaultBreathingChestAnchor(
+  frameWidth: number,
+  frameHeight: number,
+  isChild: boolean,
+  isFemale: boolean,
+  childAgeType: 0 | 1 | null,
+) {
+  let x = frameWidth * 2
+  let y = 8
+
+  if (isChild) {
+    y += Math.trunc((frameHeight / 8) * 4)
+    if (childAgeType === 0) {
+      x -= 12
+    } else if (childAgeType === 1) {
+      x -= 4
+    }
+  } else if (isFemale) {
+    y -= 4
+  }
+
+  return { x, y }
+}
+
+function buildActorBreathingLayerDescriptor(
+  asset: ActorAssetState | undefined,
+  actor: EventActorState,
+  frame: number,
+  frameWidth: number,
+  frameHeight: number,
+  spriteColumns: number,
+  nowMs: number,
+  breathingScale: number,
+  farmerRenderState: FarmerRenderState | null,
+): SpriteLayerDescriptor | null {
+  if (!asset?.spriteUrl || asset.farmerAppearance || farmerRenderState?.swimming) {
+    return null
+  }
+
+  const breatherEnabled = actor.breatherOverride ?? asset.characterMetadata?.breather ?? true
+  if (frameWidth > 16 || frameHeight > 32 || frame >= 16 || !breatherEnabled || actor.farmerPassesThrough || isActorShakeActive(actor, nowMs)) {
+    return null
+  }
+
+  const metadata = asset.characterMetadata ?? null
+  const isChild = metadata?.age === 'Child'
+  const isFemale = metadata?.gender === 'Female'
+  const frameX = (frame % spriteColumns) * frameWidth
+  const frameY = Math.floor(frame / spriteColumns) * frameHeight
+  const chestRectData = metadata?.breathChestRect ?? null
+  const chestAnchorData = metadata?.breathChestPosition ?? null
+  const childAgeType: 0 | 1 | null = null
+  const chestRect = chestRectData
+    ? {
+        x: chestRectData.X,
+        y: chestRectData.Y,
+        width: chestRectData.Width,
+        height: chestRectData.Height,
+      }
+    : getDefaultBreathingChestRect(frameWidth, frameHeight, isChild, isFemale)
+  const chestAnchor = chestAnchorData
+    ? {
+        x: chestAnchorData.X,
+        y: chestAnchorData.Y,
+      }
+    : getDefaultBreathingChestAnchor(frameWidth, frameHeight, isChild, isFemale, childAgeType)
+  const originX = chestRect.width / 2
+  const originY = chestRect.height / 2 + 1
+  const vanillaBoundingBoxHeight = 32
+  const baseSpriteTopLeftY = frameHeight * (3 / 4) - vanillaBoundingBoxHeight / 8
+
+  return {
+    key: 'breathing',
+    url: asset.spriteUrl,
+    width: chestRect.width,
+    height: chestRect.height,
+    offsetX: chestAnchor.x / 4 - originX,
+    // Vanilla draws the chest patch in world space at:
+    //   getLocalPosition + chestAnchor, origin = (w / 2, h / 2 + 1), scale = 4 + breath
+    // while the base sprite is drawn at:
+    //   getLocalPosition + (GetSpriteWidthForPositioning() * 2, GetBoundingBox().Height / 2),
+    //   origin = (frameWidth / 2, frameHeight * 3 / 4), scale = 4.
+    // Character.GetBoundingBox() is a fixed 32px tall box for NPCs, so convert the
+    // difference between those two screen-space top-lefts back into unscaled local pixels.
+    offsetY: chestAnchor.y / 4 + baseSpriteTopLeftY - originY,
+    sourceX: frameX + chestRect.x,
+    sourceY: frameY + chestRect.y,
+    flip: false,
+    scaleX: breathingScale,
+    scaleY: breathingScale,
+    transformOrigin: `${originX}px ${originY}px`,
+  }
 }
 
 function getAnimatedFrame(actor: EventActorState, nowMs: number) {
@@ -275,6 +408,8 @@ function buildFarmerVisualRenderState(
 }
 
 function getActorRenderState(actor: EventActorState, nowMs: number) {
+  const breathingScale = getActorBreathScale(actor, nowMs)
+  const shakeOffset = getActorShakeOffset(actor, nowMs)
   if (actor.animation) {
     const animatedFrame = getAnimatedFrame(actor, nowMs)
     const bodyFlip = isFarmerActor(actor.actorName) ? animatedFrame.flip : actor.directionalFlip
@@ -283,13 +418,15 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       tileY: actor.tileY,
       offsetX: actor.offsetX + animatedFrame.xOffset * 4,
       offsetY: actor.offsetY + animatedFrame.positionOffset * 4,
+      shakeOffsetX: shakeOffset.x,
+      shakeOffsetY: shakeOffset.y,
       frame: animatedFrame.frame,
       facingDirection: actor.facingDirection,
       flip: animatedFrame.flip,
       directionalFlip: actor.directionalFlip,
       bodyFlip,
       breathingOffsetY: 0,
-      breathingScale: 1,
+      breathingScale,
       moving: false,
       farmerRenderState: actor.farmerRenderState
         ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), animatedFrame.armOffset)
@@ -308,13 +445,15 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       tileY: actor.movement.fromTileY + (actor.movement.toTileY - actor.movement.fromTileY) * progress,
       offsetX: actor.movement.fromOffsetX + (actor.movement.toOffsetX - actor.movement.fromOffsetX) * progress,
       offsetY: actor.movement.fromOffsetY + (actor.movement.toOffsetY - actor.movement.fromOffsetY) * progress,
+      shakeOffsetX: shakeOffset.x,
+      shakeOffsetY: shakeOffset.y,
       frame: walkAnimation.frames[frameIndex] ?? actor.frame,
       facingDirection: movementFacingDirection,
       flip: false,
       directionalFlip: walkAnimation.directionalFlip,
       bodyFlip,
       breathingOffsetY: 0,
-      breathingScale: 1,
+      breathingScale,
       moving: progress < 1,
       farmerRenderState: actor.farmerRenderState
         ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), actor.farmerRenderState.armOffset)
@@ -322,20 +461,20 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
     }
   }
 
-  const breathSeed = getActorBreathSeed(actor.actorName)
-  const breathPhase = nowMs / 820 + breathSeed * 0.07
   return {
     tileX: actor.tileX,
     tileY: actor.tileY,
     offsetX: actor.offsetX,
     offsetY: actor.offsetY,
+    shakeOffsetX: shakeOffset.x,
+    shakeOffsetY: shakeOffset.y,
     frame: actor.frame,
     facingDirection: actor.facingDirection,
     flip: false,
     directionalFlip: actor.directionalFlip,
     bodyFlip: actor.directionalFlip,
-    breathingOffsetY: Math.sin(breathPhase) * 2.2,
-    breathingScale: 1 + Math.sin(breathPhase + 0.8) * 0.028,
+    breathingOffsetY: 0,
+    breathingScale,
     moving: false,
     farmerRenderState: actor.farmerRenderState
       ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), actor.farmerRenderState.armOffset)
@@ -654,6 +793,7 @@ async function resolveActorAssets(request: ActorAssetRequest, rootPath: string |
       portraitSheetWidth: null,
       portraitSheetHeight: null,
       farmerAppearance: null,
+      characterMetadata: request.characterMetadata,
     }
   }
 
@@ -687,6 +827,7 @@ async function resolveActorAssets(request: ActorAssetRequest, rootPath: string |
     portraitSheetWidth: portraitAsset?.width ?? null,
     portraitSheetHeight: portraitAsset?.height ?? null,
     farmerAppearance,
+    characterMetadata: request.characterMetadata,
   }
 }
 
@@ -704,6 +845,7 @@ function areAssetMapsEqual(left: Record<string, ActorAssetState>, right: Record<
 export {
   areAssetMapsEqual,
   buildCharacterTextureIndex,
+  buildActorBreathingLayerDescriptor,
   buildSpriteLayerDescriptors,
   getActorRenderState,
   getActorSpriteFrameHeight,

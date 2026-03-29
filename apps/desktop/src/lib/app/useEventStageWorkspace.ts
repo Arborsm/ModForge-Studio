@@ -39,6 +39,7 @@ import {
   resolveActorAssets,
   resolveEffectAsset,
 } from './eventStageAssets'
+import { buildBuildingDataIndex, buildStageWorldOverlaySprites, type StageWorldOverlaySprite } from './mapWorldStatePreview'
 import type { PlayerAppearanceProfile } from './playerAppearance'
 import { playMusicCue, playSoundCue, resetAudioPreview, stopMusicPreview, stopSoundPreview } from './audioPreview'
 
@@ -80,10 +81,18 @@ export function useEventStageWorkspace({
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapMessage, setMapMessage] = useState('')
   const [characterTextureIndex, setCharacterTextureIndex] = useState<CharacterTextureIndex>({})
+  const [buildingDataIndex, setBuildingDataIndex] = useState<Record<string, { Texture?: string | null; Size?: { X: number; Y: number } | null; SourceRect?: { X: number; Y: number; Width: number; Height: number } | null; DrawOffset?: { X: number; Y: number } | null; SortTileOffset?: number | null }>>({})
   const [eventObjectDrinkIndex, setEventObjectDrinkIndex] = useState<Record<string, boolean>>({})
   const [actorAssets, setActorAssets] = useState<Record<string, ActorAssetState>>({})
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
   const lastAudioCommandIdRef = useRef<string | null>(null)
+  const lastSyncedMusicCueKeyRef = useRef<string | null>(null)
+
+  function createStageReadyPlaybackState(event: EventScript | null, mapName: string | null) {
+    const initialState = createInitialPlaybackState(event, mapName)
+    const musicCue = event?.scene.musicCue && event.scene.musicCue !== 'none' ? event.scene.musicCue : null
+    return musicCue === initialState.activeMusicCue ? initialState : { ...initialState, activeMusicCue: musicCue }
+  }
 
   const visibleLayerIds = useMemo(
     () =>
@@ -93,6 +102,14 @@ export function useEventStageWorkspace({
             .map((layer) => layer.id)
         : [],
     [mapDocument, showMapPaths],
+  )
+  const visibleObjectGroupIds = useMemo(
+    () => (mapDocument ? mapDocument.objectGroups.filter((group) => group.visible).map((group) => group.id) : []),
+    [mapDocument],
+  )
+  const worldOverlaySprites = useMemo<StageWorldOverlaySprite[]>(
+    () => buildStageWorldOverlaySprites(mapDocument, buildingDataIndex),
+    [buildingDataIndex, mapDocument],
   )
 
   useEffect(() => {
@@ -141,6 +158,32 @@ export function useEventStageWorkspace({
       } catch {
         if (!cancelled) {
           setEventObjectDrinkIndex({})
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [directoryInfo?.rootPath, locale])
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath) {
+      setBuildingDataIndex({})
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const buildingsDataAsset = await loadTextAsset(directoryInfo.rootPath, 'Content\\Data\\Buildings.xnb', locale)
+        if (!cancelled) {
+          setBuildingDataIndex(buildBuildingDataIndex(buildingsDataAsset.content))
+        }
+      } catch {
+        if (!cancelled) {
+          setBuildingDataIndex({})
         }
       }
     })()
@@ -208,7 +251,7 @@ export function useEventStageWorkspace({
 
   useEffect(() => {
     setAutoPlay(false)
-    setPlaybackState(createInitialPlaybackState(selectedEvent, initialMapName))
+    setPlaybackState(createStageReadyPlaybackState(selectedEvent, initialMapName))
     onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
     onPlaybackCommandChange(null)
   }, [initialMapName, onPlaybackCommandChange, onSelectTimelineEntry, selectedEvent])
@@ -216,6 +259,7 @@ export function useEventStageWorkspace({
   useEffect(() => {
     resetAudioPreview()
     lastAudioCommandIdRef.current = null
+    lastSyncedMusicCueKeyRef.current = null
   }, [directoryInfo?.rootPath])
 
   useEffect(() => {
@@ -241,6 +285,22 @@ export function useEventStageWorkspace({
 
   useEffect(() => {
     const rootPath = directoryInfo?.rootPath
+    const musicCue = playbackState.activeMusicCue
+    const syncKey = `${rootPath ?? ''}::${musicCue ?? 'none'}`
+    if (!rootPath || syncKey === lastSyncedMusicCueKeyRef.current) {
+      return
+    }
+
+    lastSyncedMusicCueKeyRef.current = syncKey
+    if (musicCue) {
+      void playMusicCue(rootPath, musicCue)
+    } else {
+      stopMusicPreview()
+    }
+  }, [directoryInfo?.rootPath, playbackState.activeMusicCue])
+
+  useEffect(() => {
+    const rootPath = directoryInfo?.rootPath
     const commandId = playbackState.currentCommandId
     if (!rootPath || !commandId || commandId === lastAudioCommandIdRef.current) {
       return
@@ -253,18 +313,6 @@ export function useEventStageWorkspace({
     }
 
     switch (command.command) {
-      case 'playMusic': {
-        const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
-        if (cue) {
-          void playMusicCue(rootPath, cue)
-        } else {
-          stopMusicPreview()
-        }
-        break
-      }
-      case 'stopMusic':
-        stopMusicPreview()
-        break
       case 'playSound': {
         const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
         if (cue) {
@@ -283,7 +331,24 @@ export function useEventStageWorkspace({
   }, [directoryInfo?.rootPath, playbackState.commands, playbackState.currentCommandId])
 
   useEffect(() => {
-    const hasAnimatedActors = Object.values(playbackState.actors).some((actor) => actor.animation || actor.movement)
+    const nowMs = performance.now()
+    const hasAnimatedActors = Object.values(playbackState.actors).some((actor) => {
+      if (actor.animation || actor.movement) {
+        return true
+      }
+
+      if (actor.shakeStartedAtMs != null && nowMs - actor.shakeStartedAtMs < actor.shakeDurationMs) {
+        return true
+      }
+
+      if (actor.farmerRenderState?.swimming) {
+        return true
+      }
+
+      const asset = actorAssets[toActorKey(actor.actorName)]
+      const breatherEnabled = actor.breatherOverride ?? asset?.characterMetadata?.breather ?? false
+      return actor.visible && breatherEnabled && !actor.farmerPassesThrough
+    })
     const hasAnimatedEffects = playbackState.stageEffects.some(
       (effect) =>
         effect.animationLength > 1 ||
@@ -314,7 +379,7 @@ export function useEventStageWorkspace({
 
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
-  }, [playbackState.actors, playbackState.flashOverlay, playbackState.notices.length, playbackState.stageEffects])
+  }, [actorAssets, playbackState.actors, playbackState.flashOverlay, playbackState.notices.length, playbackState.stageEffects])
 
   useEffect(() => {
     if (playbackState.notices.length === 0 && playbackState.flashOverlay == null && playbackState.fadeOverlay == null) {
@@ -523,6 +588,7 @@ export function useEventStageWorkspace({
   const actorAssetRequests = useMemo<ActorAssetRequest[]>(
     () =>
       Object.values(playbackState.actors).map((actor) => {
+        const actorMetadata = characterTextureIndex[toActorKey(actor.actorName)] ?? null
         const textureCandidates = getTextureCandidates(actor.actorName, characterTextureIndex)
         const spriteTextureCandidates = actor.spriteOverrideSuffix
           ? [...textureCandidates.map((candidate) => `${candidate}_${actor.spriteOverrideSuffix}`), ...textureCandidates]
@@ -533,13 +599,16 @@ export function useEventStageWorkspace({
         return {
           actorKey: toActorKey(actor.actorName),
           actorName: actor.actorName,
-          requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify(
-            isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
-          )}`,
+          requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify({
+            farmerAppearanceProfile:
+              isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+            characterMetadata: actorMetadata,
+          })}`,
           spriteTextureCandidates,
           portraitTextureCandidates,
           farmerAppearanceProfile:
             isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+          characterMetadata: actorMetadata,
         }
       }),
     [characterTextureIndex, directoryInfo?.rootPath, playbackState.actors, playerAppearanceProfile],
@@ -596,10 +665,11 @@ export function useEventStageWorkspace({
           [
             ...playbackState.stageEffects.map((effect) => effect.textureName),
             ...playbackState.notices.map((notice) => notice.icon?.textureName ?? null),
+            ...worldOverlaySprites.map((sprite) => sprite.textureName),
           ].filter((value): value is string => Boolean(value)),
         ),
       ),
-    [playbackState.notices, playbackState.stageEffects],
+    [playbackState.notices, playbackState.stageEffects, worldOverlaySprites],
   )
 
   useEffect(() => {
@@ -727,7 +797,7 @@ export function useEventStageWorkspace({
     setAutoPlay(false)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createInitialPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createStageReadyPlaybackState(selectedEvent, initialMapName)
       return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
         objectDrinkIndex: eventObjectDrinkIndex,
       })
@@ -738,7 +808,7 @@ export function useEventStageWorkspace({
     setAutoPlay((current) => !current)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createInitialPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createStageReadyPlaybackState(selectedEvent, initialMapName)
       const shouldAdvanceImmediately =
         current.rootEventKey !== selectedEvent?.key || current.ended || (!current.currentEntry && !current.pendingChoice)
 
@@ -752,7 +822,7 @@ export function useEventStageWorkspace({
 
   function resetPlayback() {
     setAutoPlay(false)
-    setPlaybackState(createInitialPlaybackState(selectedEvent, initialMapName))
+    setPlaybackState(createStageReadyPlaybackState(selectedEvent, initialMapName))
     onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
   }
 
@@ -787,7 +857,9 @@ export function useEventStageWorkspace({
     showMapPaths,
     toggleAutoPlayback,
     visibleLayerIds,
+    visibleObjectGroupIds,
     viewportZoom,
+    worldOverlaySprites,
     zoomLabel,
   }
 }

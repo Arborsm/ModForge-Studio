@@ -154,6 +154,10 @@ type EventActorState = {
   spriteOverrideSuffix: string | null
   animation: ActorAnimationState | null
   movement: ActorMovementState | null
+  breatherOverride: boolean | null
+  shakeStartedAtMs: number | null
+  shakeDurationMs: number
+  farmerPassesThrough: boolean
   farmerRenderState: FarmerRenderState | null
 }
 
@@ -209,16 +213,42 @@ type PlaybackState = {
   ended: boolean
 }
 
+type StagePoint = {
+  X: number
+  Y: number
+}
+
+type StageRectangle = {
+  X: number
+  Y: number
+  Width: number
+  Height: number
+}
+
 type CharacterDataEntry = {
   TextureName?: string | null
   FormerCharacterNames?: string[] | null
+  Breather?: boolean | null
+  BreathChestRect?: StageRectangle | null
+  BreathChestPosition?: StagePoint | null
+  Age?: string | null
+  Gender?: string | null
 }
 
 type ObjectDataEntry = {
   IsDrink?: boolean | null
 }
 
-type CharacterTextureIndex = Record<string, string>
+type CharacterVisualMetadata = {
+  textureName: string
+  breather: boolean
+  breathChestRect: StageRectangle | null
+  breathChestPosition: StagePoint | null
+  age: string | null
+  gender: string | null
+}
+
+type CharacterTextureIndex = Record<string, CharacterVisualMetadata>
 
 type ActorAssetRequest = {
   actorKey: string
@@ -227,6 +257,7 @@ type ActorAssetRequest = {
   spriteTextureCandidates: string[]
   portraitTextureCandidates: string[]
   farmerAppearanceProfile: PlayerAppearanceProfile | null
+  characterMetadata: CharacterVisualMetadata | null
 }
 
 type ActorAssetState = {
@@ -243,6 +274,7 @@ type ActorAssetState = {
   portraitSheetWidth: number | null
   portraitSheetHeight: number | null
   farmerAppearance: FarmerAppearanceAssetState | null
+  characterMetadata: CharacterVisualMetadata | null
 }
 
 type FarmerAppearanceAssetState = FarmerAppearanceCompositeAssets
@@ -569,6 +601,10 @@ function createActorState(actor: EventSceneActor): EventActorState {
     spriteOverrideSuffix: null,
     animation: null,
     movement: null,
+    breatherOverride: actor.breather ?? null,
+    shakeStartedAtMs: null,
+    shakeDurationMs: 0,
+    farmerPassesThrough: false,
     farmerRenderState: isFarmerActor(actor.actorName) ? createFarmerRenderState(nowMs) : null,
   }
 }
@@ -1092,8 +1128,9 @@ export type {
   ActorAssetState,
   ActorMovementState,
   ActiveDialogueState,
-  CharacterTextureIndex,
   CharacterDataEntry,
+  CharacterTextureIndex,
+  CharacterVisualMetadata,
   EffectAssetState,
   EventActorState,
   FadeOverlayState,
@@ -1113,5 +1150,7 @@ export type {
   SpriteLayerDescriptor,
   StageEffectSpace,
   StageEffectState,
+  StagePoint,
+  StageRectangle,
 }
 

@@ -1,4 +1,4 @@
-import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react'
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '../../components/MapViewport'
 import {
   canUseDesktopHost,
@@ -23,6 +23,8 @@ import {
   parseWorldMapLayout,
 } from '../maps/world'
 import { MAP_PREVIEW_TAB_ID, REMOTE_WORLD_ROOT_CANDIDATES, WORLD_ATLAS_TAB_ID, WORLD_ROOT_MAP_NAME } from './constants'
+import { resolveEffectAsset } from './eventStageAssets'
+import type { EffectAssetState } from './eventStageShared'
 import {
   buildWorkspaceTabs,
   getDefaultVisibleLayerIds,
@@ -34,6 +36,12 @@ import {
   pickWorldAtlasRootMapName,
   withWorldAtlasViewMetadata,
 } from './mapWorkspace'
+import {
+  buildAtlasWorldOverlaySprites,
+  buildBuildingDataIndex,
+  buildStageWorldOverlaySprites,
+  type StageBuildingDataEntry,
+} from './mapWorldStatePreview'
 import type { MapWorkspaceTab, ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from './types'
 
 type UseMapWorkspaceOptions = {
@@ -148,6 +156,9 @@ export function useMapWorkspace({
   const [visibleLayerIds, setVisibleLayerIds] = useState<number[]>([])
   const [visibleObjectGroupIds, setVisibleObjectGroupIds] = useState<number[]>([])
   const [focusedObjectTarget, setFocusedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
+  const [showGameWorldAdditions, setShowGameWorldAdditions] = useState(false)
+  const [buildingDataIndex, setBuildingDataIndex] = useState<Record<string, StageBuildingDataEntry>>({})
+  const [worldOverlayTextureAssets, setWorldOverlayTextureAssets] = useState<Record<string, EffectAssetState>>({})
   const [assetFilter, setAssetFilter] = useState('')
   const parsedMapCacheRef = useRef(new Map<string, MapDocument>())
   const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
@@ -168,6 +179,24 @@ export function useMapWorkspace({
   const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
   const worldAtlasDocument = activeAtlasView?.document ?? null
   const workspaceTabs = buildWorkspaceTabs(worldAtlasDocument, mapTabs)
+  const worldOverlaySprites = useMemo(
+    () => {
+      if (!showGameWorldAdditions || !mapDocument) {
+        return []
+      }
+
+      if (mapDocument.format === 'atlas') {
+        return buildAtlasWorldOverlaySprites(
+          mapDocument,
+          (sourcePath) => parsedMapCacheRef.current.get(sourcePath) ?? null,
+          buildingDataIndex,
+        )
+      }
+
+      return buildStageWorldOverlaySprites(mapDocument, buildingDataIndex)
+    },
+    [buildingDataIndex, mapDocument, showGameWorldAdditions],
+  )
 
   function applyMapDocument(nextDocument: MapDocument | null, nextMapId: string | null) {
     setActiveMapId(nextMapId)
@@ -193,6 +222,32 @@ export function useMapWorkspace({
   }
 
   useEffect(() => {
+    if (!directoryInfo?.rootPath) {
+      setBuildingDataIndex({})
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const buildingsDataAsset = await loadTextAsset(directoryInfo.rootPath, 'Content\\Data\\Buildings.xnb', locale)
+        if (!cancelled) {
+          setBuildingDataIndex(buildBuildingDataIndex(buildingsDataAsset.content))
+        }
+      } catch {
+        if (!cancelled) {
+          setBuildingDataIndex({})
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [directoryInfo?.rootPath, locale])
+
+  useEffect(() => {
     if (!desktopHost) {
       setWorkspaceStatus({ tone: 'idle', message: copy.messages.browserHostPrompt })
       return
@@ -211,7 +266,13 @@ export function useMapWorkspace({
 
         if (detectedPath) {
           setGameDirectory(detectedPath)
-          setWorkspaceStatus({ tone: 'idle', message: copy.messages.detectedKnownPath(detectedPath) })
+          const validatedInfo = await validateGameDirectory(detectedPath)
+          if (cancelled) {
+            return
+          }
+
+          setGameDirectory(validatedInfo.rootPath)
+          setWorkspaceStatus({ tone: 'ready', message: copy.messages.validatedDirectory(validatedInfo.rootPath) })
         } else {
           setWorkspaceStatus({ tone: 'idle', message: copy.messages.automaticDetectionFailed })
         }
@@ -861,6 +922,58 @@ export function useMapWorkspace({
     }))
   }
 
+  const worldOverlayTextureRequests = useMemo(
+    () => Array.from(new Set(worldOverlaySprites.map((sprite) => sprite.textureName))),
+    [worldOverlaySprites],
+  )
+
+  useEffect(() => {
+    setWorldOverlayTextureAssets((current) =>
+      Object.fromEntries(
+        worldOverlayTextureRequests.flatMap((textureName) => {
+          const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
+          const asset = current[textureName]
+          return asset?.requestKey === requestKey ? [[textureName, asset] as const] : []
+        }),
+      ),
+    )
+  }, [directoryInfo?.rootPath, worldOverlayTextureRequests])
+
+  const pendingWorldOverlayTextureRequests = useMemo(
+    () =>
+      worldOverlayTextureRequests.filter((textureName) => {
+        const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
+        return worldOverlayTextureAssets[textureName]?.requestKey !== requestKey
+      }),
+    [directoryInfo?.rootPath, worldOverlayTextureAssets, worldOverlayTextureRequests],
+  )
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath || pendingWorldOverlayTextureRequests.length === 0) {
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const resolvedEntries = await Promise.all(
+        pendingWorldOverlayTextureRequests.map(async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const),
+      )
+      if (cancelled) {
+        return
+      }
+
+      setWorldOverlayTextureAssets((current) => ({
+        ...current,
+        ...Object.fromEntries(resolvedEntries),
+      }))
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [directoryInfo?.rootPath, pendingWorldOverlayTextureRequests])
+
   return {
     workspaceStatus,
     resourcePreloadState,
@@ -883,6 +996,10 @@ export function useMapWorkspace({
     visibleLayerIds,
     visibleObjectGroupIds,
     focusedObjectTarget,
+    showGameWorldAdditions,
+    setShowGameWorldAdditions,
+    worldOverlaySprites,
+    worldOverlayTextureAssets,
     worldAtlasDocument,
     openMap,
     handleSelectWorldAtlasView,
