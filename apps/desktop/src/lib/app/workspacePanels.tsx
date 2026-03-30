@@ -1,3 +1,4 @@
+﻿import { useEffect, useState, type ReactNode } from 'react'
 import CentralWorkspace from '../../components/CentralWorkspace'
 import BuildingWorkspace from '../../components/BuildingWorkspace'
 import CharacterWorkspace from '../../components/CharacterWorkspace'
@@ -28,8 +29,11 @@ import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode 
 import type { EventScript, ParsedEventAsset } from '../events/types'
 import type { MapDocument } from '../maps/types'
 import type { WorldAtlasView } from './types'
+import { buildModWorkspacePanels, type BuildModWorkspacePanelsOptions } from './modWorkspacePanels'
+import { PanelFrame } from '../../components/ui/PanelFrame'
+import { cx } from '../cx'
 
-type BuildWorkspacePanelsOptions = {
+type BuildWorkspacePanelsOptions = BuildModWorkspacePanelsOptions & {
   copy: EditorCopy
   locale: LocaleCode
   workspaceMode: WorkspaceMode
@@ -139,8 +143,132 @@ type BuildWorkspacePanelsOptions = {
   itemFilter: string
   itemStatusMessage: string
   itemTextureStatesByAssetName: Record<string, ItemTextureAssetState>
+  ensureItemTextureAssetStates: (assetNames: string[]) => void
   onItemFilterChange: (value: string) => void
   onSelectItem: (itemKey: string) => void
+  heavyWorkspaceReady: boolean
+}
+
+function DeferredWorkspacePlaceholder({
+  title,
+  subtitle,
+  lines = 3,
+}: {
+  title: string
+  subtitle: string
+  lines?: number
+}) {
+  return (
+    <PanelFrame title={title} subtitle={subtitle} className="h-full">
+      <div className="flex h-full flex-col gap-3 p-3">
+        <div className="panel-section panel-section-muted">
+          <div className="panel-section-body space-y-3">
+            <div className="h-4 w-40 rounded-full bg-[color-mix(in_srgb,var(--border-color)_80%,transparent)]" />
+            {Array.from({ length: lines }, (_, index) => (
+              <div
+                key={`${title}:${index}`}
+                className="h-10 rounded-2xl bg-[linear-gradient(90deg,color-mix(in_srgb,var(--bg-panel-muted)_92%,transparent),color-mix(in_srgb,var(--bg-elevated)_88%,transparent),color-mix(in_srgb,var(--bg-panel-muted)_92%,transparent))]"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </PanelFrame>
+  )
+}
+
+function DeferredWorkspaceReveal({ children }: { children: ReactNode }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      setVisible(true)
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [])
+
+  return (
+    <div
+      className={cx(
+        'h-full transform-gpu transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-1.5 opacity-0',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+const DEFERRED_WORKSPACE_CROSSFADE_MS = 220
+
+function DeferredWorkspaceCrossfade({
+  ready,
+  placeholder,
+  children,
+}: {
+  ready: boolean
+  placeholder: ReactNode
+  children: ReactNode
+}) {
+  const [renderPlaceholder, setRenderPlaceholder] = useState(!ready)
+  const [renderContent, setRenderContent] = useState(ready)
+  const [contentVisible, setContentVisible] = useState(ready)
+
+  useEffect(() => {
+    if (!ready) {
+      setRenderPlaceholder(true)
+      setRenderContent(false)
+      setContentVisible(false)
+      return
+    }
+
+    setRenderPlaceholder(true)
+    setRenderContent(true)
+
+    let frameId = 0
+    let timeoutId = 0
+
+    frameId = window.requestAnimationFrame(() => {
+      setContentVisible(true)
+      timeoutId = window.setTimeout(() => {
+        setRenderPlaceholder(false)
+      }, DEFERRED_WORKSPACE_CROSSFADE_MS)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      window.clearTimeout(timeoutId)
+    }
+  }, [ready])
+
+  return (
+    <div className="relative h-full">
+      {renderPlaceholder ? (
+        <div
+          className={cx(
+            'absolute inset-0 transition-opacity duration-200 ease-out',
+            ready ? 'pointer-events-none opacity-0' : 'opacity-100',
+          )}
+        >
+          {placeholder}
+        </div>
+      ) : null}
+
+      {renderContent ? (
+        <div className="absolute inset-0">
+          <div
+            className={cx(
+              'h-full transform-gpu transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+              contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-1.5 opacity-0',
+            )}
+          >
+            {children}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export function buildWorkspacePanels({
@@ -243,14 +371,87 @@ export function buildWorkspacePanels({
   itemFilter,
   itemStatusMessage,
   itemTextureStatesByAssetName,
+  ensureItemTextureAssetStates,
   onItemFilterChange,
   onSelectItem,
+  modWorkspaceCopy,
+  modPluginDefinition,
+  modProjects,
+  filteredModProjects,
+  activeProjectPath,
+  activeProject,
+  modFilter,
+  onModFilterChange,
+  onSelectModProject,
+  onImportModProject,
+  onRefreshModProjects,
+  activeModProjectDetail,
+  modManifestEditor,
+  modContentEditor,
+  modContentSummary,
+  modDiagnostics,
+  activeModPatchId,
+  onSelectModPatch,
+  activeModPatch,
+  modPatchWhenError,
+  modHasUnsavedChanges,
+  modCanPersist,
+  modStatusMessage,
+  modLastSaveResult,
+  onModManifestFieldChange,
+  onModManifestTextChange,
+  onModContentTextChange,
+  onAddModPatch,
+  onRemoveModPatch,
+  onModPatchFieldChange,
+  onModPatchWhenChange,
+  onSaveModProject,
+  onExportModProject,
+  heavyWorkspaceReady,
 }: BuildWorkspacePanelsOptions): WorkspacePanelConfig[] {
+  if (workspaceMode === 'mods') {
+    return buildModWorkspacePanels({
+      modWorkspaceCopy,
+      modPluginDefinition,
+      modProjects,
+      filteredModProjects,
+      activeProjectPath,
+      activeProject,
+      modFilter,
+      onModFilterChange,
+      onSelectModProject,
+      onImportModProject,
+      onRefreshModProjects,
+      activeModProjectDetail,
+      modManifestEditor,
+      modContentEditor,
+      modContentSummary,
+      modDiagnostics,
+      activeModPatchId,
+      onSelectModPatch,
+      activeModPatch,
+      modPatchWhenError,
+      modHasUnsavedChanges,
+      modCanPersist,
+      modStatusMessage,
+      modLastSaveResult,
+      onModManifestFieldChange,
+      onModManifestTextChange,
+      onModContentTextChange,
+      onAddModPatch,
+      onRemoveModPatch,
+      onModPatchFieldChange,
+      onModPatchWhenChange,
+      onSaveModProject,
+      onExportModProject,
+    })
+  }
+
   if (workspaceMode === 'items') {
     return [
       {
         id: 'item-navigation',
-        title: copy.itemsPanel.statsAllLabel === 'All' ? 'Category Filters' : '分类过滤',
+        title: copy.itemsPanel.statsAllLabel === 'All' ? 'Category Filters' : '鍒嗙被杩囨护',
         subtitle: activeItem?.displayName ?? itemStatusMessage,
         shellClassName: 'workspace-panel-shell-flat',
         minWidth: 220,
@@ -268,6 +469,7 @@ export function buildWorkspacePanels({
             itemFilter={itemFilter}
             itemLookup={itemLookup}
             textureStatesByAssetName={itemTextureStatesByAssetName}
+            ensureTextureAssetStates={ensureItemTextureAssetStates}
             onItemFilterChange={onItemFilterChange}
             onSelectItem={onSelectItem}
           />
@@ -293,6 +495,7 @@ export function buildWorkspacePanels({
             itemFilter={itemFilter}
             itemLookup={itemLookup}
             textureStatesByAssetName={itemTextureStatesByAssetName}
+            ensureTextureAssetStates={ensureItemTextureAssetStates}
             onItemFilterChange={onItemFilterChange}
             onSelectItem={onSelectItem}
           />
@@ -318,6 +521,7 @@ export function buildWorkspacePanels({
             itemFilter={itemFilter}
             itemLookup={itemLookup}
             textureStatesByAssetName={itemTextureStatesByAssetName}
+            ensureTextureAssetStates={ensureItemTextureAssetStates}
             onItemFilterChange={onItemFilterChange}
             onSelectItem={onSelectItem}
           />
@@ -409,12 +613,25 @@ export function buildWorkspacePanels({
           onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
         />
       ) : workspaceMode === 'characters' ? (
-        <CharacterWorkspace
-          copy={copy.charactersPanel}
-          character={activeCharacter}
-          activeVariant={activeCharacterVariant}
-          assetState={activeCharacterAssetState}
-        />
+        <DeferredWorkspaceCrossfade
+          ready={heavyWorkspaceReady}
+          placeholder={
+            <DeferredWorkspacePlaceholder
+              title={copy.charactersPanel.workspaceTitle}
+              subtitle={copy.charactersPanel.workspaceSubtitle}
+              lines={4}
+            />
+          }
+        >
+          <DeferredWorkspaceReveal>
+            <CharacterWorkspace
+              copy={copy.charactersPanel}
+              character={activeCharacter}
+              activeVariant={activeCharacterVariant}
+              assetState={activeCharacterAssetState}
+            />
+          </DeferredWorkspaceReveal>
+        </DeferredWorkspaceCrossfade>
       ) : workspaceMode === 'buildings' ? (
         <BuildingWorkspace
           locale={locale}
@@ -437,32 +654,70 @@ export function buildWorkspacePanels({
           onSelectBuildingStage={onSelectBuilding}
         />
       ) : (
-        <CentralWorkspace
-          copy={copy}
-          locale={locale}
-          workspaceMode={workspaceMode}
-          tabs={workspaceTabs}
-          activeTabId={activeTabId}
-          onSelectTab={onSelectWorkspaceTab}
-          onCloseTab={onCloseWorkspaceTab}
-          onReorderTabs={onReorderWorkspaceTabs}
-          mapDocument={mapDocument}
-          worldAtlasViews={worldAtlasViews}
-          activeWorldAtlasViewId={activeWorldAtlasViewId}
-          onSelectWorldAtlasView={onSelectWorldAtlasView}
-          onOpenAtlasTarget={onOpenAtlasTarget}
-          theme={theme}
-          accentColor={accentColor}
-          visibleLayerIds={visibleLayerIds}
-          visibleObjectGroupIds={visibleObjectGroupIds}
-          focusedObjectTarget={focusedObjectTarget}
-          showGameWorldAdditions={showGameWorldAdditions}
-          onToggleGameWorldAdditions={onToggleGameWorldAdditions}
-          worldOverlaySprites={worldOverlaySprites}
-          worldOverlayTextureAssets={worldOverlayTextureAssets}
-          onHoverChange={onHoverChange}
-          moduleBlueprint={moduleBlueprint}
-        />
+        workspaceMode === 'map' ? (
+          <DeferredWorkspaceCrossfade
+            ready={heavyWorkspaceReady}
+            placeholder={<DeferredWorkspacePlaceholder title={copy.center.viewport} subtitle={copy.center.activeScene} lines={5} />}
+          >
+            <DeferredWorkspaceReveal>
+              <CentralWorkspace
+                copy={copy}
+                locale={locale}
+                workspaceMode={workspaceMode}
+                tabs={workspaceTabs}
+                activeTabId={activeTabId}
+                onSelectTab={onSelectWorkspaceTab}
+                onCloseTab={onCloseWorkspaceTab}
+                onReorderTabs={onReorderWorkspaceTabs}
+                mapDocument={mapDocument}
+                worldAtlasViews={worldAtlasViews}
+                activeWorldAtlasViewId={activeWorldAtlasViewId}
+                onSelectWorldAtlasView={onSelectWorldAtlasView}
+                onOpenAtlasTarget={onOpenAtlasTarget}
+                theme={theme}
+                accentColor={accentColor}
+                visibleLayerIds={visibleLayerIds}
+                visibleObjectGroupIds={visibleObjectGroupIds}
+                focusedObjectTarget={focusedObjectTarget}
+                showGameWorldAdditions={showGameWorldAdditions}
+                onToggleGameWorldAdditions={onToggleGameWorldAdditions}
+                worldOverlaySprites={worldOverlaySprites}
+                worldOverlayTextureAssets={worldOverlayTextureAssets}
+                onHoverChange={onHoverChange}
+                moduleBlueprint={moduleBlueprint}
+              />
+            </DeferredWorkspaceReveal>
+          </DeferredWorkspaceCrossfade>
+        ) : (
+          <DeferredWorkspaceReveal>
+            <CentralWorkspace
+              copy={copy}
+              locale={locale}
+              workspaceMode={workspaceMode}
+              tabs={workspaceTabs}
+              activeTabId={activeTabId}
+              onSelectTab={onSelectWorkspaceTab}
+              onCloseTab={onCloseWorkspaceTab}
+              onReorderTabs={onReorderWorkspaceTabs}
+              mapDocument={mapDocument}
+              worldAtlasViews={worldAtlasViews}
+              activeWorldAtlasViewId={activeWorldAtlasViewId}
+              onSelectWorldAtlasView={onSelectWorldAtlasView}
+              onOpenAtlasTarget={onOpenAtlasTarget}
+              theme={theme}
+              accentColor={accentColor}
+              visibleLayerIds={visibleLayerIds}
+              visibleObjectGroupIds={visibleObjectGroupIds}
+              focusedObjectTarget={focusedObjectTarget}
+              showGameWorldAdditions={showGameWorldAdditions}
+              onToggleGameWorldAdditions={onToggleGameWorldAdditions}
+              worldOverlaySprites={worldOverlaySprites}
+              worldOverlayTextureAssets={worldOverlayTextureAssets}
+              onHoverChange={onHoverChange}
+              moduleBlueprint={moduleBlueprint}
+            />
+          </DeferredWorkspaceReveal>
+        )
       ),
     },
     {
@@ -499,15 +754,27 @@ export function buildWorkspacePanels({
             onSelectEvent={onSelectEvent}
           />
         ) : workspaceMode === 'characters' ? (
-          <CharacterInspectorPanel
-            copy={copy.charactersPanel}
-            yesLabel={copy.common.yes}
-            noLabel={copy.common.no}
-            noneLabel={copy.common.none}
-            character={activeCharacter}
-            activeVariant={activeCharacterVariant}
-            assetState={activeCharacterAssetState}
-          />
+          <DeferredWorkspaceCrossfade
+            ready={heavyWorkspaceReady}
+            placeholder={
+              <DeferredWorkspacePlaceholder
+                title={copy.charactersPanel.inspectorTitle}
+                subtitle={copy.charactersPanel.inspectorSubtitle}
+              />
+            }
+          >
+            <DeferredWorkspaceReveal>
+              <CharacterInspectorPanel
+                copy={copy.charactersPanel}
+                yesLabel={copy.common.yes}
+                noLabel={copy.common.no}
+                noneLabel={copy.common.none}
+                character={activeCharacter}
+                activeVariant={activeCharacterVariant}
+                assetState={activeCharacterAssetState}
+              />
+            </DeferredWorkspaceReveal>
+          </DeferredWorkspaceCrossfade>
         ) : workspaceMode === 'buildings' ? (
           <BuildingInspectorPanel
             copy={copy.buildingsPanel}
@@ -519,7 +786,20 @@ export function buildWorkspacePanels({
             activeExteriorMapPath={activeBuildingExteriorMapPath}
           />
         ) : (
-          <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />
+          workspaceMode === 'map' ? (
+            <DeferredWorkspaceCrossfade
+              ready={heavyWorkspaceReady}
+              placeholder={<DeferredWorkspacePlaceholder title={copy.rightDock.inspector} subtitle={copy.rightDock.sceneSummary} />}
+            >
+              <DeferredWorkspaceReveal>
+                <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />
+              </DeferredWorkspaceReveal>
+            </DeferredWorkspaceCrossfade>
+          ) : (
+            <DeferredWorkspaceReveal>
+              <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />
+            </DeferredWorkspaceReveal>
+          )
         ),
     },
     {
@@ -550,24 +830,56 @@ export function buildWorkspacePanels({
             selectedTimelineEntryId={selectedTimelineEntryId}
           />
         ) : workspaceMode === 'characters' ? (
-          <CharacterVariantsPanel
-            copy={copy.charactersPanel}
-            yesLabel={copy.common.yes}
-            noLabel={copy.common.no}
-            noneLabel={copy.common.none}
-            character={activeCharacter}
-            activeVariant={activeCharacterVariant}
-            onSelectVariant={onSelectCharacterVariant}
-          />
+          <DeferredWorkspaceCrossfade
+            ready={heavyWorkspaceReady}
+            placeholder={
+              <DeferredWorkspacePlaceholder
+                title={copy.charactersPanel.variantsPanelTitle}
+                subtitle={copy.charactersPanel.variantsPanelSubtitle}
+              />
+            }
+          >
+            <DeferredWorkspaceReveal>
+              <CharacterVariantsPanel
+                copy={copy.charactersPanel}
+                yesLabel={copy.common.yes}
+                noLabel={copy.common.no}
+                noneLabel={copy.common.none}
+                character={activeCharacter}
+                activeVariant={activeCharacterVariant}
+                onSelectVariant={onSelectCharacterVariant}
+              />
+            </DeferredWorkspaceReveal>
+          </DeferredWorkspaceCrossfade>
         ) : (
-          <LayersPanel
-            copy={copy}
-            mapDocument={mapDocument}
-            visibleLayerIds={visibleLayerIds}
-            onToggleLayer={onToggleLayer}
-            onShowAllLayers={onShowAllLayers}
-            onHideAllLayers={onHideAllLayers}
-          />
+          workspaceMode === 'map' ? (
+            <DeferredWorkspaceCrossfade
+              ready={heavyWorkspaceReady}
+              placeholder={<DeferredWorkspacePlaceholder title={copy.rightDock.layers} subtitle={copy.rightDock.subtitle} />}
+            >
+              <DeferredWorkspaceReveal>
+                <LayersPanel
+                  copy={copy}
+                  mapDocument={mapDocument}
+                  visibleLayerIds={visibleLayerIds}
+                  onToggleLayer={onToggleLayer}
+                  onShowAllLayers={onShowAllLayers}
+                  onHideAllLayers={onHideAllLayers}
+                />
+              </DeferredWorkspaceReveal>
+            </DeferredWorkspaceCrossfade>
+          ) : (
+            <DeferredWorkspaceReveal>
+              <LayersPanel
+                copy={copy}
+                mapDocument={mapDocument}
+                visibleLayerIds={visibleLayerIds}
+                onToggleLayer={onToggleLayer}
+                onShowAllLayers={onShowAllLayers}
+                onHideAllLayers={onHideAllLayers}
+              />
+            </DeferredWorkspaceReveal>
+          )
         ),
     },
     ...(workspaceMode === 'map'
@@ -582,16 +894,23 @@ export function buildWorkspacePanels({
             defaultDock: 'right-bottom',
             defaultDockHeight: 360,
             content: (
-              <ObjectGroupsPanel
-                copy={copy}
-                mapDocument={mapDocument}
-                visibleObjectGroupIds={visibleObjectGroupIds}
-                onToggleObjectGroup={onToggleObjectGroup}
-                onShowAllObjectGroups={onShowAllObjectGroups}
-                onHideAllObjectGroups={onHideAllObjectGroups}
-                focusedObjectTarget={focusedObjectTarget}
-                onFocusObject={onFocusObject}
-              />
+              <DeferredWorkspaceCrossfade
+                ready={heavyWorkspaceReady}
+                placeholder={<DeferredWorkspacePlaceholder title={copy.rightDock.objectGroups} subtitle={copy.rightDock.subtitle} />}
+              >
+                <DeferredWorkspaceReveal>
+                  <ObjectGroupsPanel
+                    copy={copy}
+                    mapDocument={mapDocument}
+                    visibleObjectGroupIds={visibleObjectGroupIds}
+                    onToggleObjectGroup={onToggleObjectGroup}
+                    onShowAllObjectGroups={onShowAllObjectGroups}
+                    onHideAllObjectGroups={onHideAllObjectGroups}
+                    focusedObjectTarget={focusedObjectTarget}
+                    onFocusObject={onFocusObject}
+                  />
+                </DeferredWorkspaceReveal>
+              </DeferredWorkspaceCrossfade>
             ),
           } satisfies WorkspacePanelConfig,
         ]
@@ -643,23 +962,60 @@ export function buildWorkspacePanels({
                   onActivateTimelineEntry={onActivateTimelineEntry}
                 />
               ) : workspaceMode === 'characters' ? (
-                <CharacterRelationsPanel
-                  copy={copy.charactersPanel}
-                  yesLabel={copy.common.yes}
-                  noLabel={copy.common.no}
-                  noneLabel={copy.common.none}
-                  character={activeCharacter}
-                />
+                <DeferredWorkspaceCrossfade
+                  ready={heavyWorkspaceReady}
+                  placeholder={
+                    <DeferredWorkspacePlaceholder
+                      title={copy.charactersPanel.detailsTitle}
+                      subtitle={copy.charactersPanel.detailsSubtitle}
+                    />
+                  }
+                >
+                  <DeferredWorkspaceReveal>
+                    <CharacterRelationsPanel
+                      copy={copy.charactersPanel}
+                      yesLabel={copy.common.yes}
+                      noLabel={copy.common.no}
+                      noneLabel={copy.common.none}
+                      character={activeCharacter}
+                    />
+                  </DeferredWorkspaceReveal>
+                </DeferredWorkspaceCrossfade>
               ) : (
-                <DiagnosticsPanel
-                  copy={copy}
-                  directoryInfo={directoryInfo}
-                  visibleLayerIds={visibleLayerIds}
-                  visibleObjectGroupIds={visibleObjectGroupIds}
-                  workspaceStatus={workspaceStatus}
-                />
+                workspaceMode === 'map' ? (
+                  <DeferredWorkspaceCrossfade
+                    ready={heavyWorkspaceReady}
+                    placeholder={<DeferredWorkspacePlaceholder title={copy.rightDock.diagnostics} subtitle={copy.rightDock.projectFacts} />}
+                  >
+                    <DeferredWorkspaceReveal>
+                      <DiagnosticsPanel
+                        copy={copy}
+                        directoryInfo={directoryInfo}
+                        visibleLayerIds={visibleLayerIds}
+                        visibleObjectGroupIds={visibleObjectGroupIds}
+                        workspaceStatus={workspaceStatus}
+                      />
+                    </DeferredWorkspaceReveal>
+                  </DeferredWorkspaceCrossfade>
+                ) : (
+                  <DeferredWorkspaceReveal>
+                    <DiagnosticsPanel
+                      copy={copy}
+                      directoryInfo={directoryInfo}
+                      visibleLayerIds={visibleLayerIds}
+                      visibleObjectGroupIds={visibleObjectGroupIds}
+                      workspaceStatus={workspaceStatus}
+                    />
+                  </DeferredWorkspaceReveal>
+                )
               ),
           } satisfies WorkspacePanelConfig,
         ]),
   ]
 }
+
+
+
+
+
+

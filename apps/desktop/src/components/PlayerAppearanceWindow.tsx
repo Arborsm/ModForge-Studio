@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { LocaleCode } from '../lib/editor-shell'
-import { loadImageDataUrl, loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '../lib/desktop'
+import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '../lib/desktop'
+import { loadImageResourceFromPath } from '../lib/imageMetrics'
 import {
   colorToHex,
   hexToColor,
@@ -211,25 +212,7 @@ function buildContentImagePath(rootPath: string, textureName: string) {
 }
 
 function preloadImage(path: string) {
-  return new Promise<LoadedImage | null>((resolve) => {
-    const image = new Image()
-    image.onload = () =>
-      resolve({
-        image,
-        url: image.src,
-        width: image.naturalWidth,
-        height: image.naturalHeight,
-      })
-    image.onerror = () => resolve(null)
-
-    void (async () => {
-      try {
-        image.src = await loadImageDataUrl(path)
-      } catch {
-        resolve(null)
-      }
-    })()
-  })
+  return loadImageResourceFromPath(path)
 }
 
 async function loadAppearanceAssets(rootPath: string): Promise<AppearanceAssets> {

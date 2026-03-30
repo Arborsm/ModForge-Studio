@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import {
   buildActorBreathingLayerDescriptor,
   getActorSpriteFrameHeight,
@@ -49,26 +49,27 @@ const GIFT_TONE_STYLES: Record<
 > = {
   love: {
     sectionClassName:
-      'border-[color-mix(in_srgb,var(--success)_30%,transparent)] bg-[color-mix(in_srgb,var(--success)_10%,var(--bg-panel))]',
+      'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--success)_12%,var(--bg-panel)),color-mix(in_srgb,var(--success)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--success)_18%,transparent)]',
     dotClassName: 'bg-[var(--success)]',
   },
   like: {
     sectionClassName:
-      'border-[color-mix(in_srgb,var(--accent)_26%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_84%,var(--bg-panel))]',
+      'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--accent)_12%,var(--bg-panel)),color-mix(in_srgb,var(--accent-soft)_92%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent)_18%,transparent)]',
     dotClassName: 'bg-[var(--accent)]',
   },
   neutral: {
-    sectionClassName: 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-elevated)_72%,var(--bg-panel))]',
+    sectionClassName:
+      'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--bg-elevated)_76%,var(--bg-panel)),color-mix(in_srgb,var(--bg-panel-muted)_92%,var(--bg-panel)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]',
     dotClassName: 'bg-[var(--text-tertiary)]',
   },
   dislike: {
     sectionClassName:
-      'border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]',
+      'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--warning)_12%,var(--bg-panel)),color-mix(in_srgb,var(--warning)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--warning)_18%,transparent)]',
     dotClassName: 'bg-[var(--warning)]',
   },
   hate: {
     sectionClassName:
-      'border-[color-mix(in_srgb,var(--danger)_30%,transparent)] bg-[color-mix(in_srgb,var(--danger)_10%,var(--bg-panel))]',
+      'bg-[linear-gradient(135deg,color-mix(in_srgb,var(--danger)_12%,var(--bg-panel)),color-mix(in_srgb,var(--danger)_6%,var(--bg-panel-muted)))] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--danger)_18%,transparent)]',
     dotClassName: 'bg-[var(--danger)]',
   },
 }
@@ -350,8 +351,7 @@ function createMockActor(character: CharacterWorkspaceEntry): EventActorState {
   }
 }
 
-function DirectionAnimationCard({
-  label,
+function WalkCyclePreviewTile({
   frameWidth,
   frameHeight,
   spriteColumns,
@@ -359,9 +359,7 @@ function DirectionAnimationCard({
   spriteSheetWidth,
   spriteSheetHeight,
   frames,
-  nowMs,
 }: {
-  label: string
   frameWidth: number
   frameHeight: number
   spriteColumns: number
@@ -369,21 +367,31 @@ function DirectionAnimationCard({
   spriteSheetWidth: number
   spriteSheetHeight: number
   frames: number[]
-  nowMs: number
 }) {
-  const frameIndex = Math.floor(nowMs / WALK_FRAME_DURATION_MS) % Math.max(1, frames.length)
+  const frameSequenceKey = frames.join(',')
+  const [frameIndex, setFrameIndex] = useState(0)
+
+  useEffect(() => {
+    setFrameIndex(0)
+
+    if (frames.length <= 1) {
+      return
+    }
+
+    const intervalId = window.setInterval(() => {
+      setFrameIndex((currentFrameIndex) => (currentFrameIndex + 1) % frames.length)
+    }, WALK_FRAME_DURATION_MS)
+
+    return () => window.clearInterval(intervalId)
+  }, [frameSequenceKey, frames.length])
+
   const currentFrame = frames[frameIndex] ?? frames[0] ?? 0
   const sourceX = (currentFrame % spriteColumns) * frameWidth
   const sourceY = Math.floor(currentFrame / spriteColumns) * frameHeight
 
   return (
-    <div className="panel-section p-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="panel-section-title">{label}</p>
-        <span className="dock-chip">{frames.length}</span>
-      </div>
-
-      <div className="panel-canvas-soft mt-2.5 flex min-h-[148px] items-center justify-center">
+    <div className="rounded-[24px] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] p-3 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_72%,transparent)]">
+      <div className="panel-canvas-soft flex min-h-[136px] items-center justify-center border-0 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-elevated)_82%,transparent),color-mix(in_srgb,var(--bg-panel-muted)_96%,var(--bg-panel)))]">
         <div
           style={buildSpriteStyle({
             url: spriteUrl,
@@ -400,7 +408,7 @@ function DirectionAnimationCard({
       <div className="mt-2.5 flex items-center justify-center gap-1.5">
         {frames.map((frame, index) => (
           <span
-            key={`${label}:${frame}:${index}`}
+            key={`${frame}:${index}`}
             className={cx(
               'h-1.5 w-5 rounded-full transition-colors',
               index === frameIndex ? 'bg-[var(--accent)]' : 'bg-[var(--border-color)]',
@@ -411,6 +419,164 @@ function DirectionAnimationCard({
     </div>
   )
 }
+
+const MemoizedWalkCyclePreviewTile = memo(WalkCyclePreviewTile)
+
+const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
+  copy,
+  character,
+  activeVariant,
+  assetState,
+  frameWidth,
+  frameHeight,
+  spriteColumns,
+}: {
+  copy: CharactersPanelCopy
+  character: CharacterWorkspaceEntry
+  activeVariant: CharacterAppearanceVariant | null
+  assetState: CharacterVisualAssetState
+  frameWidth: number
+  frameHeight: number
+  spriteColumns: number
+}) {
+  const spriteUrl = assetState.spriteUrl
+  const spriteSheetWidth = assetState.spriteSheetWidth
+  const spriteSheetHeight = assetState.spriteSheetHeight
+  const [nowMs, setNowMs] = useState(() => performance.now())
+
+  useEffect(() => {
+    if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
+      return
+    }
+
+    let frameId = 0
+
+    const tick = (nextNowMs: number) => {
+      setNowMs(nextNowMs)
+      frameId = window.requestAnimationFrame(tick)
+    }
+
+    frameId = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(frameId)
+  }, [spriteSheetHeight, spriteSheetWidth, spriteUrl])
+
+  const breathingLayer = useMemo(() => {
+    if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
+      return null
+    }
+
+    const breathSeed = character.internalName.split('').reduce((sum, part) => sum + part.charCodeAt(0), 0)
+    const breathingScale = 1 + Math.max(0, Math.ceil(Math.sin(nowMs / 600 + breathSeed)) / 16)
+
+    return buildActorBreathingLayerDescriptor(
+      {
+        requestKey: `${character.key}:${activeVariant?.key ?? 'default'}`,
+        textureName: character.textureName,
+        spriteTextureName: activeVariant?.spriteAssetName ?? character.spriteAssetName,
+        portraitTextureName: activeVariant?.portraitAssetName ?? character.portraitAssetName,
+        spritePath: assetState.spritePath,
+        spriteUrl,
+        spriteSheetWidth,
+        spriteSheetHeight,
+        portraitPath: assetState.portraitPath,
+        portraitUrl: assetState.portraitUrl,
+        portraitSheetWidth: assetState.portraitSheetWidth,
+        portraitSheetHeight: assetState.portraitSheetHeight,
+        farmerAppearance: null,
+        characterMetadata: {
+          textureName: character.textureName,
+          breather: character.breather,
+          breathChestRect: character.breathChestRect,
+          breathChestPosition: character.breathChestPosition,
+          age: character.age,
+          gender: character.gender,
+        },
+      },
+      createMockActor(character),
+      0,
+      frameWidth,
+      frameHeight,
+      spriteColumns,
+      nowMs,
+      breathingScale,
+      null,
+    )
+  }, [activeVariant?.key, assetState, character, frameHeight, frameWidth, nowMs, spriteColumns, spriteSheetHeight, spriteSheetWidth, spriteUrl])
+
+  if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
+    return (
+      <div className="panel-canvas-empty min-h-[360px] h-full">
+        {copy.spriteMissing}
+      </div>
+    )
+  }
+
+  return (
+    <div className="panel-canvas relative flex min-h-[360px] h-full items-center justify-center">
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            'linear-gradient(var(--grid-minor) 1px, transparent 1px), linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+      <div className="absolute inset-x-6 bottom-6 h-14 rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] blur-xl" />
+      <div
+        className="relative flex items-center justify-center"
+        style={{
+          width: `${frameWidth * (BREATHING_PREVIEW_SCALE + 8)}px`,
+          height: `${frameHeight * (BREATHING_PREVIEW_SCALE + 4)}px`,
+        }}
+      >
+        <div
+          className="absolute left-1/2 top-1/2"
+          style={{
+            width: `${frameWidth}px`,
+            height: `${frameHeight}px`,
+            marginLeft: `${-frameWidth / 2}px`,
+            marginTop: `${-frameHeight / 2}px`,
+            transform: `scale(${BREATHING_PREVIEW_SCALE})`,
+            transformOrigin: 'center center',
+          }}
+        >
+          <div
+            className="absolute left-0 top-0"
+            style={buildAbsoluteSpriteLayerStyle({
+              url: spriteUrl,
+              sheetWidth: spriteSheetWidth,
+              sheetHeight: spriteSheetHeight,
+              sourceX: 0,
+              sourceY: 0,
+              width: frameWidth,
+              height: frameHeight,
+            })}
+          />
+          {breathingLayer ? (
+            <div
+              className="absolute"
+              style={{
+                left: `${breathingLayer.offsetX}px`,
+                top: `${breathingLayer.offsetY}px`,
+                ...buildAbsoluteSpriteLayerStyle({
+                  url: spriteUrl,
+                  sheetWidth: spriteSheetWidth,
+                  sheetHeight: spriteSheetHeight,
+                  sourceX: breathingLayer.sourceX,
+                  sourceY: breathingLayer.sourceY,
+                  width: breathingLayer.width,
+                  height: breathingLayer.height,
+                }),
+                transform: `scale(${breathingLayer.scaleX ?? 1}, ${breathingLayer.scaleY ?? 1})`,
+                transformOrigin: breathingLayer.transformOrigin ?? 'top left',
+              }}
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+})
 
 function GiftTasteSection({
   title,
@@ -435,7 +601,7 @@ function GiftTasteSection({
 
   return (
     <div
-      className={`panel-section relative w-fit max-w-full p-3 ${toneStyle.sectionClassName}`}
+      className={`relative w-full max-w-full rounded-[26px] p-3 ${toneStyle.sectionClassName}`}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -746,23 +912,6 @@ export default function CharacterWorkspace({
   activeVariant,
   assetState,
 }: CharacterWorkspaceProps) {
-  const [nowMs, setNowMs] = useState(() => performance.now())
-
-  useEffect(() => {
-    if (!character || !assetState.spriteUrl) {
-      return
-    }
-
-    let frameId = 0
-    const tick = () => {
-      setNowMs(performance.now())
-      frameId = window.requestAnimationFrame(tick)
-    }
-
-    frameId = window.requestAnimationFrame(tick)
-    return () => window.cancelAnimationFrame(frameId)
-  }, [assetState.spriteUrl, character])
-
   const frameWidth = character?.spriteWidth ?? 16
   const frameHeight = character ? Math.max(character.spriteHeight, getActorSpriteFrameHeight(character.internalName)) : 32
   const spriteColumns =
@@ -770,49 +919,6 @@ export default function CharacterWorkspace({
       ? Math.max(1, Math.floor(assetState.spriteSheetWidth / frameWidth))
       : 4
   const portraitCount = getCharacterPortraitFrameCount(assetState.portraitSheetWidth, assetState.portraitSheetHeight)
-
-  const breathingLayer = useMemo(() => {
-    if (!character || !assetState.spriteUrl || !assetState.spriteSheetWidth || !assetState.spriteSheetHeight) {
-      return null
-    }
-
-    const breathSeed = character.internalName.split('').reduce((sum, part) => sum + part.charCodeAt(0), 0)
-    const breathingScale = 1 + Math.max(0, Math.ceil(Math.sin(nowMs / 600 + breathSeed)) / 16)
-
-    return buildActorBreathingLayerDescriptor(
-      {
-        requestKey: `${character.key}:${activeVariant?.key ?? 'default'}`,
-        textureName: character.textureName,
-        spriteTextureName: activeVariant?.spriteAssetName ?? character.spriteAssetName,
-        portraitTextureName: activeVariant?.portraitAssetName ?? character.portraitAssetName,
-        spritePath: assetState.spritePath,
-        spriteUrl: assetState.spriteUrl,
-        spriteSheetWidth: assetState.spriteSheetWidth,
-        spriteSheetHeight: assetState.spriteSheetHeight,
-        portraitPath: assetState.portraitPath,
-        portraitUrl: assetState.portraitUrl,
-        portraitSheetWidth: assetState.portraitSheetWidth,
-        portraitSheetHeight: assetState.portraitSheetHeight,
-        farmerAppearance: null,
-        characterMetadata: {
-          textureName: character.textureName,
-          breather: character.breather,
-          breathChestRect: character.breathChestRect,
-          breathChestPosition: character.breathChestPosition,
-          age: character.age,
-          gender: character.gender,
-        },
-      },
-      createMockActor(character),
-      0,
-      frameWidth,
-      frameHeight,
-      spriteColumns,
-      nowMs,
-      breathingScale,
-      null,
-    )
-  }, [activeVariant?.key, assetState, character, frameHeight, frameWidth, nowMs, spriteColumns])
 
   if (!character) {
     return (
@@ -902,132 +1008,71 @@ export default function CharacterWorkspace({
       <div className="panel-header">
         <div>
           <p className="panel-title">{copy.workspaceTitle}</p>
-          <p className="panel-subtitle">
-            {character.displayName} / {copy.workspaceSubtitle}
-          </p>
+          <p className="panel-subtitle">{character.displayName}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="dock-chip">{activeVariant?.label ?? copy.defaultVariant}</span>
-          <span className="dock-chip">{copy.defaultBadge}</span>
-        </div>
+        <span className="dock-chip">{activeVariant?.label ?? copy.defaultBadgeShort}</span>
       </div>
 
-      <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <section className="grid min-h-0 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)]">
+        <section className="grid min-h-0 gap-3">
           <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
-            <div className="panel-header">
-              <div>
-                <p className="panel-title">{copy.walkingTitle}</p>
-                <p className="panel-subtitle">{activeVariant?.spritePathLabel ?? character.spriteAssetName}</p>
-              </div>
-            </div>
-            <div className="panel-body min-h-0 overflow-auto p-3">
-              {spriteUrl && spriteSheetWidth && spriteSheetHeight ? (
-                <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-                  {WALK_DIRECTIONS.map(({ id, direction }) => (
-                    <DirectionAnimationCard
-                      key={id}
-                      label={copy.directionLabels[id]}
-                      frameWidth={frameWidth}
-                      frameHeight={frameHeight}
-                      spriteColumns={spriteColumns}
-                      spriteUrl={spriteUrl}
-                      spriteSheetWidth={spriteSheetWidth}
-                      spriteSheetHeight={spriteSheetHeight}
-                      frames={getActorWalkAnimationState(character.internalName, direction).frames}
-                      nowMs={nowMs}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="panel-canvas-empty h-full">
-                  {copy.spriteMissing}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
-            <div className="panel-header">
-              <div>
-                <p className="panel-title">{copy.breathingTitle}</p>
-                <p className="panel-subtitle">{copy.breathHint}</p>
-              </div>
-            </div>
-            <div className="panel-body flex h-full min-h-0 flex-col p-3">
-              {spriteUrl && spriteSheetWidth && spriteSheetHeight ? (
-                <div className="panel-canvas relative flex min-h-[320px] flex-1 items-center justify-center">
-                  <div
-                    className="absolute inset-0 opacity-40"
-                    style={{
-                      backgroundImage:
-                        'linear-gradient(var(--grid-minor) 1px, transparent 1px), linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px)',
-                      backgroundSize: '24px 24px',
-                    }}
-                  />
-                  <div className="absolute inset-x-6 bottom-6 h-14 rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] blur-xl" />
-                  <div
-                    className="relative flex items-center justify-center"
-                    style={{
-                      width: `${frameWidth * (BREATHING_PREVIEW_SCALE + 8)}px`,
-                      height: `${frameHeight * (BREATHING_PREVIEW_SCALE + 4)}px`,
-                    }}
-                  >
-                    <div
-                      className="absolute left-1/2 top-1/2"
-                      style={{
-                        width: `${frameWidth}px`,
-                        height: `${frameHeight}px`,
-                        marginLeft: `${-frameWidth / 2}px`,
-                        marginTop: `${-frameHeight / 2}px`,
-                        transform: `scale(${BREATHING_PREVIEW_SCALE})`,
-                        transformOrigin: 'center center',
-                      }}
-                    >
-                      <div
-                        className="absolute left-0 top-0"
-                        style={buildAbsoluteSpriteLayerStyle({
-                          url: spriteUrl,
-                          sheetWidth: spriteSheetWidth,
-                          sheetHeight: spriteSheetHeight,
-                          sourceX: 0,
-                          sourceY: 0,
-                          width: frameWidth,
-                          height: frameHeight,
-                        })}
-                      />
-                      {breathingLayer ? (
-                        <div
-                          className="absolute"
-                          style={{
-                            left: `${breathingLayer.offsetX}px`,
-                            top: `${breathingLayer.offsetY}px`,
-                            ...buildAbsoluteSpriteLayerStyle({
-                              url: spriteUrl,
-                              sheetWidth: spriteSheetWidth,
-                              sheetHeight: spriteSheetHeight,
-                              sourceX: breathingLayer.sourceX,
-                              sourceY: breathingLayer.sourceY,
-                              width: breathingLayer.width,
-                              height: breathingLayer.height,
-                            }),
-                            transform: `scale(${breathingLayer.scaleX ?? 1}, ${breathingLayer.scaleY ?? 1})`,
-                            transformOrigin: breathingLayer.transformOrigin ?? 'top left',
-                          }}
-                        />
-                      ) : null}
-                    </div>
+            <div className="grid min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)]">
+              <div className="flex min-h-0 flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="panel-title">{copy.breathingTitle}</p>
+                    <p className="panel-subtitle">{activeVariant?.spritePathLabel ?? character.spriteAssetName}</p>
                   </div>
+                  <span className="dock-chip">{`${frameWidth}x${frameHeight}`}</span>
                 </div>
-              ) : (
-                <div className="panel-canvas-empty min-h-[320px] flex-1">
-                  {copy.spriteMissing}
+                <div className="text-xs leading-5 text-[var(--text-secondary)]">
+                  {copy.breathHint}
                 </div>
-              )}
+                <div className="flex-1">
+                  <BreathingPreviewCanvas
+                    copy={copy}
+                    character={character}
+                    activeVariant={activeVariant}
+                    assetState={assetState}
+                    frameWidth={frameWidth}
+                    frameHeight={frameHeight}
+                    spriteColumns={spriteColumns}
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="panel-title">{copy.walkingTitle}</p>
+                  </div>
+                  <span className="dock-chip">{WALK_DIRECTIONS.length}</span>
+                </div>
+                {spriteUrl && spriteSheetWidth && spriteSheetHeight ? (
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {WALK_DIRECTIONS.map(({ id, direction }) => (
+                      <MemoizedWalkCyclePreviewTile
+                        key={id}
+                        frameWidth={frameWidth}
+                        frameHeight={frameHeight}
+                        spriteColumns={spriteColumns}
+                        spriteUrl={spriteUrl}
+                        spriteSheetWidth={spriteSheetWidth}
+                        spriteSheetHeight={spriteSheetHeight}
+                        frames={getActorWalkAnimationState(character.internalName, direction).frames}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="panel-canvas-empty min-h-[220px]">
+                    {copy.spriteMissing}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)] xl:col-span-2">
+          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{copy.giftTastesTitle}</p>
@@ -1035,7 +1080,7 @@ export default function CharacterWorkspace({
               </div>
             </div>
             <div className="panel-body min-h-0 overflow-auto p-3">
-              <div className="flex flex-col items-start gap-3">
+              <div className="flex flex-col items-stretch gap-3">
                 {giftSections.map((section) => (
                   <GiftTasteSection
                     key={section.tone}
@@ -1066,7 +1111,7 @@ export default function CharacterWorkspace({
           </div>
           <div className="panel-body min-h-0 overflow-auto p-3">
             {portraitUrl && portraitSheetWidth && portraitSheetHeight ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 {Array.from({ length: portraitCount }, (_, index) => {
                   const bounds = getPortraitFrameBounds(
                     {
@@ -1091,17 +1136,15 @@ export default function CharacterWorkspace({
                   return (
                     <div
                       key={`portrait:${index}`}
-                      className="panel-section p-2.5"
+                      className="rounded-[22px] bg-[color-mix(in_srgb,var(--bg-panel)_78%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_64%,transparent)]"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="panel-section-title">
-                          {copy.expressions} {index}
-                        </p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">#{index}</p>
                         {character.shakePortraits.includes(index) ? <span className="dock-chip">{copy.shakeBadge}</span> : null}
                       </div>
                       <div className="mt-2.5 flex justify-center">
                         <div
-                          className="panel-canvas-soft relative"
+                          className="panel-canvas-soft relative border-0"
                           style={{
                             width: `${bounds.frameWidth * PORTRAIT_PREVIEW_SCALE}px`,
                             height: `${bounds.frameHeight * PORTRAIT_PREVIEW_SCALE}px`,

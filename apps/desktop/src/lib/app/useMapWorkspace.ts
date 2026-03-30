@@ -52,6 +52,11 @@ type UseMapWorkspaceOptions = {
   getWorldAtlasViewLabel: (locale: LocaleCode, viewId: WorldAtlasView['id']) => string
 }
 
+type WorldAtlasCacheEntry = {
+  views: WorldAtlasView[]
+  sourceDocuments: MapDocument[]
+}
+
 const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
   active: false,
   message: '',
@@ -87,6 +92,21 @@ function getPathFileStem(path: string) {
   const normalizedPath = path.trim().replaceAll('\\', '/')
   const fileName = normalizedPath.split('/').pop() ?? ''
   return fileName.replace(/\.[^.]+$/u, '')
+}
+
+function getWorldAtlasCacheKey(
+  rootPath: string,
+  locale: LocaleCode,
+  assets: MapAssetSummary[],
+  worldRootName: string,
+) {
+  const signature = assets
+    .filter((asset) => asset.format === 'xnb')
+    .map((asset) => `${asset.absolutePath.replaceAll('/', '\\')}:${asset.sizeBytes}`)
+    .sort((left, right) => left.localeCompare(right))
+    .join('|')
+
+  return `${rootPath.replaceAll('/', '\\')}::${locale}::${worldRootName}::${signature}`
 }
 
 function normalizeLoadedMapDocument(
@@ -161,24 +181,29 @@ export function useMapWorkspace({
   const [worldOverlayTextureAssets, setWorldOverlayTextureAssets] = useState<Record<string, EffectAssetState>>({})
   const [assetFilter, setAssetFilter] = useState('')
   const parsedMapCacheRef = useRef(new Map<string, MapDocument>())
+  const worldAtlasCacheRef = useRef(new Map<string, WorldAtlasCacheEntry>())
   const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
 
   const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
-  const filteredAssets = mapAssets.filter((asset) => {
-    if (!deferredAssetFilter) {
-      return true
-    }
+  const filteredAssets = useMemo(
+    () =>
+      mapAssets.filter((asset) => {
+        if (!deferredAssetFilter) {
+          return true
+        }
 
-    const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
-    return haystack.includes(deferredAssetFilter)
-  })
+        const haystack = `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase()
+        return haystack.includes(deferredAssetFilter)
+      }),
+    [deferredAssetFilter, mapAssets],
+  )
   const activeAtlasView =
     (activeWorldAtlasViewId ? worldAtlasViews.find((view) => view.id === activeWorldAtlasViewId) : null) ??
     worldAtlasViews[0] ??
     null
   const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
   const worldAtlasDocument = activeAtlasView?.document ?? null
-  const workspaceTabs = buildWorkspaceTabs(worldAtlasDocument, mapTabs)
+  const workspaceTabs = useMemo(() => buildWorkspaceTabs(worldAtlasDocument, mapTabs), [worldAtlasDocument, mapTabs])
   const worldOverlaySprites = useMemo(
     () => {
       if (!showGameWorldAdditions || !mapDocument) {
@@ -211,6 +236,7 @@ export function useMapWorkspace({
 
   function resetLoadedMaps() {
     parsedMapCacheRef.current.clear()
+    worldAtlasCacheRef.current.clear()
     loadedResourceLocaleRef.current = null
     setMapAssets([])
     setMapTabs([])
@@ -498,6 +524,42 @@ export function useMapWorkspace({
     info: GameDirectoryInfo,
     worldRootName = WORLD_ROOT_MAP_NAME,
   ) {
+    const atlasCacheKey = getWorldAtlasCacheKey(info.rootPath, locale, assets, worldRootName)
+
+    setWorkspaceMode('map')
+    setMapTabs((current) => current.filter((tab) => tab.dirty))
+    setActiveTabId(WORLD_ATLAS_TAB_ID)
+    setWorldAtlasViews([])
+    setActiveWorldAtlasViewId(null)
+    applyMapDocument(null, null)
+    setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
+
+    const cachedAtlas = worldAtlasCacheRef.current.get(atlasCacheKey)
+    if (cachedAtlas) {
+      for (const document of cachedAtlas.sourceDocuments) {
+        parsedMapCacheRef.current.set(document.sourcePath, document)
+      }
+
+      const nextWorldAtlasView = cachedAtlas.views[0]
+      if (!nextWorldAtlasView) {
+        return
+      }
+
+      setWorldAtlasViews(cachedAtlas.views)
+      setActiveWorldAtlasViewId(nextWorldAtlasView.id)
+      setActiveTabId(WORLD_ATLAS_TAB_ID)
+      applyMapDocument(nextWorldAtlasView.document, null)
+      setWorkspaceStatus({
+        tone: 'ready',
+        message: copy.messages.loadedMapAssetsWithActiveMap(
+          assets.length,
+          nextWorldAtlasView.document.format,
+          nextWorldAtlasView.document.name,
+        ),
+      })
+      return
+    }
+
     let worldMapLayout
     try {
       const worldMapAsset = await loadTextAsset(info.rootPath, 'Content\\Data\\WorldMap.xnb', locale)
@@ -519,14 +581,6 @@ export function useMapWorkspace({
     )
     const loadedDocuments = new Map<string, MapDocument>()
     const resolvedNames = new Set<string>()
-
-    setWorkspaceMode('map')
-    setMapTabs((current) => current.filter((tab) => tab.dirty))
-    setActiveTabId(WORLD_ATLAS_TAB_ID)
-    setWorldAtlasViews([])
-    setActiveWorldAtlasViewId(null)
-    applyMapDocument(null, null)
-    setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
 
     while (pendingNames.length) {
       const currentName = pendingNames.shift()
@@ -610,6 +664,10 @@ export function useMapWorkspace({
     }
 
     const nextWorldAtlasView = nextWorldAtlasViews[0]
+    worldAtlasCacheRef.current.set(atlasCacheKey, {
+      views: nextWorldAtlasViews,
+      sourceDocuments,
+    })
     setWorldAtlasViews(nextWorldAtlasViews)
     setActiveWorldAtlasViewId(nextWorldAtlasView.id)
     setActiveTabId(WORLD_ATLAS_TAB_ID)
@@ -772,6 +830,7 @@ export function useMapWorkspace({
 
         setMapAssets(assets)
         parsedMapCacheRef.current.clear()
+        worldAtlasCacheRef.current.clear()
         const nextAsset =
           assets.find((asset) => asset.id === activeMapId) ??
           assets.find((asset) => asset.name === mapDocument?.name) ??

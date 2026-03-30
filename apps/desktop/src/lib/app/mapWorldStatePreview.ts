@@ -31,6 +31,8 @@ const TILE_ID_MASK =
   ) >>> 0
 
 const STANDARD_OBJECT_SHEET_COLUMNS = 24
+const stageOverlayCache = new WeakMap<Record<string, StageBuildingDataEntry>, WeakMap<MapDocument, StageWorldOverlaySprite[]>>()
+const atlasOverlayCache = new WeakMap<Record<string, StageBuildingDataEntry>, WeakMap<MapDocument, StageWorldOverlaySprite[]>>()
 
 function normalizeMapNameToken(value: string) {
   return value.trim().toLowerCase()
@@ -369,7 +371,20 @@ export function buildStageWorldOverlaySprites(
     return []
   }
 
-  return [...buildPathLayerWorldOverlaySprites(mapDocument), ...buildDefaultBuildingOverlaySprites(mapDocument, buildingDataIndex)]
+  const cachedByDocument = stageOverlayCache.get(buildingDataIndex)
+  const cachedSprites = cachedByDocument?.get(mapDocument)
+  if (cachedSprites) {
+    return cachedSprites
+  }
+
+  const nextSprites = [...buildPathLayerWorldOverlaySprites(mapDocument), ...buildDefaultBuildingOverlaySprites(mapDocument, buildingDataIndex)]
+  const nextCache = cachedByDocument ?? new WeakMap<MapDocument, StageWorldOverlaySprite[]>()
+  nextCache.set(mapDocument, nextSprites)
+  if (!cachedByDocument) {
+    stageOverlayCache.set(buildingDataIndex, nextCache)
+  }
+
+  return nextSprites
 }
 
 export function buildAtlasWorldOverlaySprites(
@@ -381,9 +396,17 @@ export function buildAtlasWorldOverlaySprites(
     return []
   }
 
-  return atlasDocument.atlas.placements.flatMap((placement) => {
+  const cachedByDocument = atlasOverlayCache.get(buildingDataIndex)
+  const cachedSprites = cachedByDocument?.get(atlasDocument)
+  if (cachedSprites) {
+    return cachedSprites
+  }
+
+  let canCache = true
+  const nextSprites = atlasDocument.atlas.placements.flatMap((placement) => {
     const sourceDocument = resolvePlacementDocument(placement.sourcePath)
     if (!sourceDocument) {
+      canCache = false
       return []
     }
 
@@ -402,6 +425,16 @@ export function buildAtlasWorldOverlaySprites(
       pixelY: sprite.pixelY + pixelOffsetY,
     }))
   })
+
+  if (canCache) {
+    const nextCache = cachedByDocument ?? new WeakMap<MapDocument, StageWorldOverlaySprite[]>()
+    nextCache.set(atlasDocument, nextSprites)
+    if (!cachedByDocument) {
+      atlasOverlayCache.set(buildingDataIndex, nextCache)
+    }
+  }
+
+  return nextSprites
 }
 
 export function buildBuildingDataIndex(content: string) {

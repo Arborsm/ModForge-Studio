@@ -102,17 +102,70 @@ export default function EventStageWorkspace({
     onPlaybackCommandChange,
   })
 
+  const worldStageEffects = useMemo(
+    () => playbackState.stageEffects.filter((effect) => effect.space === 'world'),
+    [playbackState.stageEffects],
+  )
+  const screenStageEffects = useMemo(
+    () => playbackState.stageEffects.filter((effect) => effect.space === 'screen'),
+    [playbackState.stageEffects],
+  )
+  const visibleSortedActors = useMemo(
+    () =>
+      Object.values(playbackState.actors)
+        .filter((actor) => actor.visible)
+        .sort((left, right) => left.tileY - right.tileY),
+    [playbackState.actors],
+  )
+  const worldEffectEntries = useMemo(
+    () =>
+      worldStageEffects.map((effect) => ({
+        effect,
+        asset: effectAssets[effect.textureName],
+      })),
+    [effectAssets, worldStageEffects],
+  )
+  const screenEffectEntries = useMemo(
+    () =>
+      screenStageEffects.map((effect) => ({
+        effect,
+        asset: effectAssets[effect.textureName],
+      })),
+    [effectAssets, screenStageEffects],
+  )
+  const actorRenderEntries = useMemo(
+    () =>
+      visibleSortedActors.map((actor) => {
+        const asset = actorAssets[toActorKey(actor.actorName)]
+        const frameWidth = 16
+        const frameHeight = getActorSpriteFrameHeight(actor.actorName)
+        const spriteColumns =
+          asset?.spriteSheetWidth && asset.spriteSheetWidth >= frameWidth
+            ? Math.max(1, Math.floor(asset.spriteSheetWidth / frameWidth))
+            : 4
+
+        return {
+          actor,
+          asset,
+          frameWidth,
+          frameHeight,
+          spriteColumns,
+          actorHeightTiles: frameHeight / 16,
+          actorWidthTiles: frameWidth / 16,
+        }
+      }),
+    [actorAssets, visibleSortedActors],
+  )
+
   const mapOverlay = useMemo(() => {
     if (!mapDocument) {
       return null
     }
 
     const gamePixelScale = mapDocument.tileWidth / 64
-    const worldEffects = playbackState.stageEffects
-      .filter((effect) => effect.space === 'world')
-      .map((effect) => {
+    const worldEffects = worldEffectEntries
+      .map(({ effect, asset }) => {
         const playback = getStageEffectPlayback(effect, animationNowMs)
-        const asset = effectAssets[effect.textureName]
         if (!playback.visible || !asset?.url) {
           return null
         }
@@ -164,18 +217,8 @@ export default function EventStageWorkspace({
           textureAssets={effectAssets}
         />
         {worldEffects}
-        {Object.values(playbackState.actors)
-          .filter((actor) => actor.visible)
-          .sort((left, right) => left.tileY - right.tileY)
-          .map((actor) => {
-            const asset = actorAssets[toActorKey(actor.actorName)]
-            const frameWidth = 16
-            const frameHeight = getActorSpriteFrameHeight(actor.actorName)
+        {actorRenderEntries.map(({ actor, asset, frameWidth, frameHeight, spriteColumns, actorHeightTiles, actorWidthTiles }) => {
             const renderState = getActorRenderState(actor, animationNowMs)
-            const spriteColumns =
-              asset?.spriteSheetWidth && asset.spriteSheetWidth >= frameWidth
-                ? Math.max(1, Math.floor(asset.spriteSheetWidth / frameWidth))
-                : 4
             const spriteLayers = buildSpriteLayerDescriptors(
               asset,
               renderState.frame,
@@ -198,8 +241,6 @@ export default function EventStageWorkspace({
               renderState.breathingScale,
               renderState.farmerRenderState,
             )
-            const actorHeightTiles = frameHeight / 16
-            const actorWidthTiles = frameWidth / 16
             const pixelX =
               renderState.tileX * mapDocument.tileWidth * viewportZoom +
               renderState.offsetX * gamePixelScale * viewportZoom +
@@ -289,14 +330,12 @@ export default function EventStageWorkspace({
           })}
       </div>
     )
-  }, [actorAssets, animationNowMs, effectAssets, mapDocument, playbackState.actors, playbackState.stageEffects, viewportZoom, worldOverlaySprites])
+  }, [actorRenderEntries, animationNowMs, effectAssets, mapDocument, viewportZoom, worldEffectEntries, worldOverlaySprites])
 
   const screenEffectsOverlay = useMemo(() => {
-    const effects = playbackState.stageEffects
-      .filter((effect) => effect.space === 'screen')
-      .map((effect) => {
+    const effects = screenEffectEntries
+      .map(({ effect, asset }) => {
         const playback = getStageEffectPlayback(effect, animationNowMs)
-        const asset = effectAssets[effect.textureName]
         if (!playback.visible || !asset?.url) {
           return null
         }
@@ -346,7 +385,7 @@ export default function EventStageWorkspace({
     }
 
     return <div className="pointer-events-none absolute inset-0 overflow-hidden">{effects}</div>
-  }, [animationNowMs, effectAssets, playbackState.stageEffects])
+  }, [animationNowMs, screenEffectEntries])
 
   const viewportOverlay = (
     <div className="absolute inset-0">

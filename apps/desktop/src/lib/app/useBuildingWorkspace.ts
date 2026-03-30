@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { loadImageDataUrl, loadTextAsset, loadMapAsset, scanMaps, type GameDirectoryInfo } from '../desktop'
+import { loadTextAsset, loadMapAsset, scanMaps, type GameDirectoryInfo } from '../desktop'
 import type { LocaleCode, BuildingsPanelCopy } from '../editor-shell'
+import { loadImageResourceFromPath } from '../imageMetrics'
 import type { ViewportWorldPoint } from '../../components/MapViewport'
 import type { MapDocument, MapPropertyValue, MapTileset } from '../maps/types'
 import { OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH } from './characterWorkspace'
@@ -140,15 +141,6 @@ function getLocalizedImagePathCandidates(path: string, locale: LocaleCode) {
   return [path.replace(/\.xnb$/iu, `.${locale}.xnb`), path]
 }
 
-function measureImage(url: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
-    image.onerror = () => reject(new Error('Failed to decode image asset.'))
-    image.src = url
-  })
-}
-
 async function loadImageState(path: string | null, locale: LocaleCode): Promise<BuildingTextureAssetState> {
   if (!path) {
     return {
@@ -161,19 +153,21 @@ async function loadImageState(path: string | null, locale: LocaleCode): Promise<
 
   let lastError: unknown = null
 
-  for (const candidatePath of getLocalizedImagePathCandidates(path, locale)) {
-    try {
-      const url = await loadImageDataUrl(candidatePath, locale)
-      const dimensions = await measureImage(url)
-      return {
-        path: candidatePath,
-        url,
-        width: dimensions.width,
-        height: dimensions.height,
+    for (const candidatePath of getLocalizedImagePathCandidates(path, locale)) {
+      try {
+        const resource = await loadImageResourceFromPath(candidatePath, locale)
+        if (!resource) {
+          continue
+        }
+        return {
+          path: candidatePath,
+          url: resource.url,
+          width: resource.width,
+          height: resource.height,
+        }
+      } catch (error) {
+        lastError = error
       }
-    } catch (error) {
-      lastError = error
-    }
   }
 
   throw lastError instanceof Error ? lastError : new Error(String(lastError))

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DevDebugOverlay } from './components/DevDebugOverlay'
 import InitializationOverlay from './components/InitializationOverlay'
 import StatusBar from './components/StatusBar'
@@ -38,16 +38,28 @@ import {
   type PlayerAppearanceProfile,
 } from './lib/app/playerAppearance'
 import { clearLocalizedStageMetadataCache } from './lib/app/eventStageShared'
+import { clearImageMetricsLocaleCache } from './lib/imageMetrics'
 import { clearMapViewportLocaleCache } from './lib/mapViewportCache'
 import { useEventWorkspace } from './lib/app/useEventWorkspace'
 import { useMapWorkspace } from './lib/app/useMapWorkspace'
 import { useCharacterWorkspace } from './lib/app/useCharacterWorkspace'
 import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
 import { useItemWorkspace } from './lib/app/useItemWorkspace'
+import { useModWorkspace } from './lib/app/useModWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
 const PlayerAppearanceWindow = lazy(() => import('./components/PlayerAppearanceWindow'))
+
+type IdleDeadlineLike = {
+  didTimeout: boolean
+  timeRemaining: () => number
+}
+
+type WindowWithIdleCallback = Window & {
+  requestIdleCallback?: (callback: (deadline: IdleDeadlineLike) => void, options?: { timeout?: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() =>
@@ -64,6 +76,7 @@ export default function App() {
     return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? ACCENT_PRESETS[0].id
   })
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
+  const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
@@ -96,6 +109,49 @@ export default function App() {
     document.addEventListener('contextmenu', handleContextMenu)
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu)
+    }
+  }, [workspaceMode])
+
+  useEffect(() => {
+    if (workspaceMode !== 'map' && workspaceMode !== 'characters') {
+      setDeferredHeavyWorkspaceMode(workspaceMode)
+      return
+    }
+
+    setDeferredHeavyWorkspaceMode(null)
+    let cancelled = false
+    let timeoutId = 0
+    let frameId = 0
+    let idleId = 0
+
+    const revealHeavyWorkspace = () => {
+      if (!cancelled) {
+        setDeferredHeavyWorkspaceMode(workspaceMode)
+      }
+    }
+
+    const windowWithIdleCallback = window as WindowWithIdleCallback
+
+    if (typeof windowWithIdleCallback.requestIdleCallback === 'function') {
+      idleId = windowWithIdleCallback.requestIdleCallback(
+        () => {
+          revealHeavyWorkspace()
+        },
+        { timeout: 300 },
+      )
+    } else {
+      frameId = window.requestAnimationFrame(() => {
+        timeoutId = window.setTimeout(revealHeavyWorkspace, 0)
+      })
+    }
+
+    return () => {
+      cancelled = true
+      if (idleId && typeof windowWithIdleCallback.cancelIdleCallback === 'function') {
+        windowWithIdleCallback.cancelIdleCallback(idleId)
+      }
+      window.cancelAnimationFrame(frameId)
+      window.clearTimeout(timeoutId)
     }
   }, [workspaceMode])
 
@@ -210,6 +266,7 @@ export default function App() {
     directoryInfo,
     locale,
     copy: copy.charactersPanel,
+    enableVisualAssets: workspaceMode === 'characters' && deferredHeavyWorkspaceMode === 'characters',
   })
   const {
     constructibleGroups,
@@ -248,14 +305,53 @@ export default function App() {
     itemLookup,
     itemStatusMessage,
     textureStatesByAssetName: itemTextureStatesByAssetName,
+    ensureTextureAssetStates: ensureItemTextureAssetStates,
     handleSelectItem,
   } = useItemWorkspace({
     directoryInfo,
     locale,
     copy: copy.itemsPanel,
   })
+  const {
+    copy: modWorkspaceCopy,
+    pluginDefinition: modPluginDefinition,
+    modProjects,
+    filteredModProjects,
+    modFilter,
+    setModFilter,
+    activeProjectPath,
+    activeProject,
+    projectDetail: activeModProjectDetail,
+    manifestEditor: modManifestEditor,
+    contentEditor: modContentEditor,
+    contentSummary: modContentSummary,
+    diagnostics: modDiagnostics,
+    selectedPatchId: activeModPatchId,
+    setSelectedPatchId: setActiveModPatchId,
+    selectedPatch: activeModPatch,
+    patchWhenError: modPatchWhenError,
+    statusMessage: modStatusMessage,
+    hasUnsavedChanges: modHasUnsavedChanges,
+    canPersist: modCanPersist,
+    lastSaveResult: modLastSaveResult,
+    handleSelectProject: handleSelectModProject,
+    handleImportProject: handleImportModProject,
+    handleRefreshProjects: handleRefreshModProjects,
+    handleManifestFieldChange: handleModManifestFieldChange,
+    handleManifestTextChange: handleModManifestTextChange,
+    handleContentTextChange: handleModContentTextChange,
+    handleAddPatch: handleAddModPatch,
+    handleRemoveSelectedPatch: handleRemoveModPatch,
+    handlePatchFieldChange: handleModPatchFieldChange,
+    handlePatchWhenChange: handleModPatchWhenChange,
+    handleSaveProject: handleSaveModProject,
+    handleExportProject: handleExportModProject,
+  } = useModWorkspace({
+    directoryInfo,
+    locale,
+  })
 
-  const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' ? undefined : copy.moduleBlueprints[workspaceMode]
+  const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
   const viewMenuCopy = getViewMenuCopy(locale)
   const settingsMenuCopy = getSettingsMenuCopy(locale)
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
@@ -295,6 +391,22 @@ export default function App() {
       } as const
     }
 
+    if (workspaceMode === 'mods') {
+      const hasModErrors = modDiagnostics.some((diagnostic) => diagnostic.severity === 'error')
+      return {
+        tone: directoryInfo
+          ? hasModErrors
+            ? 'error'
+            : modHasUnsavedChanges
+              ? 'working'
+              : modProjects.length || activeModProjectDetail
+                ? 'ready'
+                : 'idle'
+          : 'idle',
+        message: modStatusMessage,
+      } as const
+    }
+
     return workspaceStatus
   }, [
     buildingStatusMessage,
@@ -306,6 +418,11 @@ export default function App() {
     eventStatusMessage,
     itemStatusMessage,
     items.length,
+    modDiagnostics,
+    modHasUnsavedChanges,
+    modProjects.length,
+    modStatusMessage,
+    activeModProjectDetail,
     worldBuildings.length,
     workspaceMode,
     workspaceStatus,
@@ -332,6 +449,7 @@ export default function App() {
 
     clearDesktopLocaleCache(previousLocale)
     clearLocalizedStageMetadataCache(previousLocale)
+    clearImageMetricsLocaleCache(previousLocale)
     clearMapViewportLocaleCache(previousLocale)
     previousLocaleRef.current = locale
   }, [locale])
@@ -404,7 +522,7 @@ export default function App() {
   }, [])
 
   const handleCreatePlayerAppearanceProfile = useCallback(() => {
-    const nextProfile = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? `玩家 ${playerAppearanceProfiles.length + 1}` : `Player ${playerAppearanceProfiles.length + 1}`)
+    const nextProfile = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? `鐜╁ ${playerAppearanceProfiles.length + 1}` : `Player ${playerAppearanceProfiles.length + 1}`)
     setPlayerAppearanceProfiles((current) => [...current, nextProfile])
     setActivePlayerAppearanceProfileId(nextProfile.id)
     openAppearanceWindow()
@@ -427,7 +545,7 @@ export default function App() {
 
     const remainingProfiles = playerAppearanceProfiles.filter((profile) => profile.id !== activePlayerAppearanceProfile.id)
     if (remainingProfiles.length === 0) {
-      const fallback = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? '默认玩家' : 'Default Player')
+      const fallback = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? '榛樿鐜╁' : 'Default Player')
       setPlayerAppearanceProfiles([fallback])
       setActivePlayerAppearanceProfileId(fallback.id)
       return
@@ -555,8 +673,43 @@ export default function App() {
     itemFilter,
     itemStatusMessage,
     itemTextureStatesByAssetName,
+    ensureItemTextureAssetStates,
     onItemFilterChange: setItemFilter,
     onSelectItem: handleSelectItem,
+    modWorkspaceCopy,
+    modPluginDefinition,
+    modProjects,
+    filteredModProjects,
+    activeProjectPath,
+    activeProject: activeProject ?? null,
+    modFilter,
+    onModFilterChange: setModFilter,
+    onSelectModProject: handleSelectModProject,
+    onImportModProject: () => void handleImportModProject(),
+    onRefreshModProjects: () => void handleRefreshModProjects(),
+    activeModProjectDetail,
+    modManifestEditor,
+    modContentEditor,
+    modContentSummary,
+    modDiagnostics,
+    activeModPatchId,
+    onSelectModPatch: setActiveModPatchId,
+    activeModPatch: activeModPatch ?? null,
+    modPatchWhenError,
+    modHasUnsavedChanges,
+    modCanPersist,
+    modStatusMessage,
+    modLastSaveResult: modLastSaveResult ?? null,
+    onModManifestFieldChange: handleModManifestFieldChange,
+    onModManifestTextChange: handleModManifestTextChange,
+    onModContentTextChange: handleModContentTextChange,
+    onAddModPatch: handleAddModPatch,
+    onRemoveModPatch: handleRemoveModPatch,
+    onModPatchFieldChange: handleModPatchFieldChange,
+    onModPatchWhenChange: handleModPatchWhenChange,
+    onSaveModProject: () => void handleSaveModProject(),
+    onExportModProject: () => void handleExportModProject(),
+    heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
   })
 
   const handleLayoutMetaChange = useCallback(
@@ -690,7 +843,6 @@ export default function App() {
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <WorkspaceLayout
-          key={`${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
           ref={workspaceLayoutRef}
           storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
           panels={workspacePanels}
@@ -765,3 +917,12 @@ export default function App() {
     </div>
   )
 }
+
+
+
+
+
+
+
+
+

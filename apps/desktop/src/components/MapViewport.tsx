@@ -13,8 +13,8 @@ import {
   type PointerEvent,
 } from 'react'
 import { resolveTilesetImagePath } from '../lib/maps/assets'
-import { loadImageDataUrl } from '../lib/desktop'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
+import { loadImageResourceFromPath } from '../lib/imageMetrics'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '../lib/mapViewportCache'
 import type {
   MapAtlasPoint,
@@ -257,19 +257,16 @@ function loadImage(path: string, locale: LocaleCode, errorFactory: (path: string
   }
 
   const promise = new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => {
-      imageCache.set(cacheKey, image)
-      imagePromiseCache.delete(cacheKey)
-      resolve(image)
-    }
-    image.onerror = () => {
-      imagePromiseCache.delete(cacheKey)
-      reject(new Error(errorFactory(path)))
-    }
-    void loadImageDataUrl(path, locale)
-      .then((url) => {
-        image.src = url
+    void loadImageResourceFromPath(path, locale)
+      .then((resource) => {
+        if (!resource) {
+          imagePromiseCache.delete(cacheKey)
+          reject(new Error(errorFactory(path)))
+          return
+        }
+        imageCache.set(cacheKey, resource.image)
+        imagePromiseCache.delete(cacheKey)
+        resolve(resource.image)
       })
       .catch(() => {
         imagePromiseCache.delete(cacheKey)
@@ -492,7 +489,7 @@ function getObjectBounds(object: MapObject, minimumWorldSize: number) {
 
 function collectHoveredObjects(
   mapDocument: MapDocument,
-  visibleObjectGroupIds: number[],
+  visibleObjectGroupIds: ReadonlySet<number>,
   pixelX: number,
   pixelY: number,
 ) {
@@ -500,7 +497,7 @@ function collectHoveredObjects(
   const hits: HoverObjectInfo[] = []
 
   for (const group of mapDocument.objectGroups) {
-    if (!group.visible || !visibleObjectGroupIds.includes(group.id)) {
+    if (!group.visible || !visibleObjectGroupIds.has(group.id)) {
       continue
     }
 
@@ -541,8 +538,8 @@ function findTileset(tilesets: MapTileset[], gid: number) {
 
 function buildHoverInfo(
   mapDocument: MapDocument,
-  visibleLayerIds: number[],
-  visibleObjectGroupIds: number[],
+  visibleLayerIds: ReadonlySet<number>,
+  visibleObjectGroupIds: ReadonlySet<number>,
   pixelX: number,
   pixelY: number,
 ) {
@@ -554,7 +551,7 @@ function buildHoverInfo(
     return null
   }
 
-  const visibleLayers = mapDocument.layers.filter((layer) => layer.visible && visibleLayerIds.includes(layer.id))
+  const visibleLayers = mapDocument.layers.filter((layer) => layer.visible && visibleLayerIds.has(layer.id))
   const tileIndex = tileY * mapDocument.width + tileX
 
   for (let index = visibleLayers.length - 1; index >= 0; index -= 1) {
@@ -717,7 +714,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   },
   ref,
 ) {
-  const initialDefaultViewportState = getDefaultViewportState(mapDocument)
+  const initialDefaultViewportState = useMemo(() => getDefaultViewportState(mapDocument), [mapDocument])
   const resolvedInitialZoom = clampZoom(initialZoom ?? initialDefaultViewportState?.zoom ?? 1)
   const frameRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -834,12 +831,14 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
         : null,
     [mapDocument, tilesetImageState],
   )
+  const visibleLayerIdSet = useMemo(() => new Set(visibleLayerIds), [visibleLayerIds])
+  const visibleObjectGroupIdSet = useMemo(() => new Set(visibleObjectGroupIds), [visibleObjectGroupIds])
   const visibleLayers = useMemo(
     () =>
       mapDocument
-        ? mapDocument.layers.filter((layer) => layer.visible && visibleLayerIds.includes(layer.id))
+        ? mapDocument.layers.filter((layer) => layer.visible && visibleLayerIdSet.has(layer.id))
         : [],
-    [mapDocument, visibleLayerIds],
+    [mapDocument, visibleLayerIdSet],
   )
   const shouldSplitForegroundLayers = Boolean(mapOverlay)
   const backgroundLayers = useMemo(
@@ -854,10 +853,10 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     () =>
       mapDocument
         ? mapDocument.objectGroups.filter(
-            (group) => group.visible && visibleObjectGroupIds.includes(group.id),
+            (group) => group.visible && visibleObjectGroupIdSet.has(group.id),
           )
         : [],
-    [mapDocument, visibleObjectGroupIds],
+    [mapDocument, visibleObjectGroupIdSet],
   )
   const atlasPlacements = useMemo(() => mapDocument?.atlas?.placements ?? [], [mapDocument])
   const atlasWarpRoutes = useMemo(() => mapDocument?.atlas?.warpRoutes ?? [], [mapDocument])
@@ -1104,12 +1103,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   )
 
   useLayoutEffect(() => {
-    if (!mapDocument || !focusWorldPoint) {
-      return
-    }
-
-    centerViewportOnWorldPoint(focusWorldPoint.worldX, focusWorldPoint.worldY)
-  }, [centerViewportOnWorldPoint, focusWorldPoint, mapDocument])
+    pendingFocusWorldPointRef.current = focusWorldPoint
+      ? {
+          worldX: focusWorldPoint.worldX,
+          worldY: focusWorldPoint.worldY,
+        }
+      : initialDefaultViewportState
+        ? {
+            worldX: initialDefaultViewportState.worldX,
+            worldY: initialDefaultViewportState.worldY,
+          }
+        : null
+  }, [focusWorldPoint, initialDefaultViewportState])
 
   const setZoomAnchorFromClient = useCallback((clientX: number, clientY: number) => {
     const viewport = viewportRef.current
@@ -1220,20 +1225,24 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    if (pendingZoomAnchorRef.current || pendingFocusWorldPointRef.current) {
+    if (focusWorldPoint || pendingZoomAnchorRef.current || pendingFocusWorldPointRef.current) {
       return
     }
 
     centerViewport()
-  }, [centerViewport, mapDocument, zoomMode])
+  }, [centerViewport, focusWorldPoint, mapDocument, zoomMode])
 
   useLayoutEffect(() => {
     if (!mapDocument || zoomMode !== 'fit') {
       return
     }
 
+    if (focusWorldPoint || pendingFocusWorldPointRef.current) {
+      return
+    }
+
     centerViewport()
-  }, [centerViewport, mapDocument, zoom, zoomMode])
+  }, [centerViewport, focusWorldPoint, mapDocument, zoom, zoomMode])
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current
@@ -1267,9 +1276,13 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    centerViewportOnWorldPoint(pendingFocusWorldPoint.worldX, pendingFocusWorldPoint.worldY)
-    pendingFocusWorldPointRef.current = null
-  }, [centerViewportOnWorldPoint, mapDocument, viewportSize.height, viewportSize.width, zoom])
+    const frameId = window.requestAnimationFrame(() => {
+      centerViewportOnWorldPoint(pendingFocusWorldPoint.worldX, pendingFocusWorldPoint.worldY)
+      pendingFocusWorldPointRef.current = null
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [centerViewportOnWorldPoint, focusWorldPoint, initialDefaultViewportState, mapDocument, stageSize.height, stageSize.width, viewportSize.height, viewportSize.width, zoom])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -1697,7 +1710,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    onHoverChange?.(buildHoverInfo(mapDocument, visibleLayerIds, visibleObjectGroupIds, worldPoint.pixelX, worldPoint.pixelY))
+    onHoverChange?.(buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY))
   }
 
   function getCanvasWorldPoint(clientX: number, clientY: number) {

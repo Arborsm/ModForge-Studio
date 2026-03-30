@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+﻿import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
@@ -65,6 +65,80 @@ export type FileCacheStats = {
   rootPath: string
   entryCount: number
   totalSizeBytes: number
+}
+
+export type PluginKind = 'content-patcher' | 'unknown'
+export type PluginDiagnosticSeverity = 'info' | 'warning' | 'error'
+
+export type ModProjectSummary = {
+  id: string
+  name: string
+  author: string | null
+  version: string | null
+  description: string | null
+  uniqueId: string | null
+  contentPackFor: string | null
+  folderName: string
+  absolutePath: string
+  manifestPath: string
+  contentPath: string | null
+  pluginKind: PluginKind
+  status: 'ready' | 'unsupported'
+}
+
+export type ModProjectDiagnostic = {
+  severity: PluginDiagnosticSeverity
+  message: string
+  field: string | null
+}
+
+export type ContentPatcherPatchSummary = {
+  id: string
+  index: number
+  action: string
+  target: string
+  fromFile: string | null
+  logName: string
+  whenKeys: string[]
+  hasWhen: boolean
+  updateKeys: string[]
+}
+
+export type ContentPatcherProjectData = {
+  manifestPath: string
+  contentPath: string
+  manifestJson: string
+  contentJson: string
+  format: string | null
+  changeCount: number
+  includeCount: number
+  dynamicTokenCount: number
+  configKeys: string[]
+  hasI18n: boolean
+  patches: ContentPatcherPatchSummary[]
+}
+
+export type ModProjectDetail = {
+  pluginKind: PluginKind
+  capabilities: string[]
+  summary: ModProjectSummary
+  diagnostics: ModProjectDiagnostic[]
+  contentPatcher: ContentPatcherProjectData | null
+}
+
+export type SaveModProjectRequest = {
+  sourcePath: string
+  outputPath?: string | null
+  manifestJson: string
+  contentJson: string
+}
+
+export type SaveModProjectResult = {
+  pluginKind: PluginKind
+  targetPath: string
+  manifestPath: string
+  contentPath: string
+  diagnostics: ModProjectDiagnostic[]
 }
 
 function normalizeCachePathSegment(value: string) {
@@ -149,6 +223,7 @@ const validateDirectoryCache = createPromiseCache<GameDirectoryInfo>()
 const listKnownGameDirectoriesCache = createPromiseCache<string[]>()
 const scanMapsCache = createPromiseCache<MapAssetSummary[]>()
 const scanEventsCache = createPromiseCache<EventAssetSummary[]>()
+const scanModProjectsCache = createPromiseCache<ModProjectSummary[]>()
 const loadMapAssetCache = createPromiseCache<MapAssetContent>()
 const loadTextAssetCache = createPromiseCache<TextAssetContent>()
 const loadTextFileCache = createPromiseCache<LocalTextFileContent>()
@@ -156,6 +231,7 @@ const loadImageDataUrlCache = createPromiseCache<string>()
 const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
 const loadAudioDataUrlCache = createPromiseCache<string>()
 const loadXactAudioDataUrlCache = createPromiseCache<string>()
+const loadModProjectCache = createPromiseCache<ModProjectDetail>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
 
 export function clearDesktopLocaleCache(locale: string) {
@@ -176,6 +252,7 @@ export function getDesktopCacheStats() {
     validateDirectory: validateDirectoryCache.size(),
     scanMaps: scanMapsCache.size(),
     scanEvents: scanEventsCache.size(),
+    scanModProjects: scanModProjectsCache.size(),
     mapAsset: loadMapAssetCache.size(),
     textAsset: loadTextAssetCache.size(),
     textFile: loadTextFileCache.size(),
@@ -183,6 +260,7 @@ export function getDesktopCacheStats() {
     audioScan: scanAudioAssetsCache.size(),
     audioDataUrl: loadAudioDataUrlCache.size(),
     xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
+    modProject: loadModProjectCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
   }
 }
@@ -266,6 +344,13 @@ export function scanEvents(path: string) {
   return readCached(scanEventsCache, cacheKey, () => invokeDesktop<EventAssetSummary[]>('scan_events', { path }))
 }
 
+export function scanModProjects(rootPath: string) {
+  const cacheKey = normalizeCachePathSegment(rootPath)
+  return readCached(scanModProjectsCache, cacheKey, () =>
+    invokeDesktop<ModProjectSummary[]>('scan_mod_projects', { rootPath }),
+  )
+}
+
 export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
   return readPending(loadMapAssetCache, cacheKey, () =>
@@ -307,6 +392,21 @@ export function loadXactAudioDataUrl(rootPath: string, cue: string) {
   return readPending(loadXactAudioDataUrlCache, cacheKey, () =>
     invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue }),
   )
+}
+
+export function loadModProject(path: string) {
+  const cacheKey = normalizeCachePathSegment(path)
+  return readPending(loadModProjectCache, cacheKey, () => invokeDesktop<ModProjectDetail>('load_mod_project', { path }))
+}
+
+export async function saveModProject(request: SaveModProjectRequest) {
+  const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', request)
+  const normalizedSource = normalizeCachePathSegment(request.sourcePath)
+  const normalizedTarget = request.outputPath ? normalizeCachePathSegment(request.outputPath) : normalizedSource
+  loadModProjectCache.delete(normalizedSource)
+  loadModProjectCache.delete(normalizedTarget)
+  scanModProjectsCache.clear()
+  return result
 }
 
 export function scanDefaultSaveSlots() {

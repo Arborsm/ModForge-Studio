@@ -1,6 +1,6 @@
-import { ChevronDown, Search } from 'lucide-react'
+﻿import { ChevronDown, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { EditorCopy, WorkspaceMode } from '../lib/editor-shell'
+import { getWorkspaceModeLabel, type EditorCopy, type WorkspaceMode } from '../lib/editor-shell'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import { cx } from '../lib/cx'
 import { PanelFrame } from './ui/PanelFrame'
@@ -144,7 +144,7 @@ export default function LeftDock({
             <div className="metric-card">
               <span className="metric-label">{copy.leftDock.sceneFocus}</span>
               <strong className="metric-value">
-                {workspaceMode === 'map' ? activeAssetName : copy.nav[workspaceMode]}
+                {workspaceMode === 'map' ? activeAssetName : getWorkspaceModeLabel('en-US', copy, workspaceMode)}
               </strong>
             </div>
           </div>
@@ -279,3 +279,4 @@ export default function LeftDock({
     </div>
   )
 }
+

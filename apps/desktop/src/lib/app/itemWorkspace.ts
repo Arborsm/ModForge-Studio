@@ -389,6 +389,8 @@ export type ItemWorkspaceEntry = {
   canBeGivenAsGift: boolean
   canBeTrashed: boolean
   searchText: string
+  browseCategories: ItemBrowseCategory[]
+  categorySearchTokens: string[]
   contextTags: string[]
   customFields: Record<string, string>
   cropData: ItemCropEntry | null
@@ -918,6 +920,8 @@ function createBaseEntry(input: {
     canBeGivenAsGift: input.canBeGivenAsGift ?? false,
     canBeTrashed: input.canBeTrashed ?? true,
     searchText: normalizeSearchParts(input.searchParts),
+    browseCategories: ['all'],
+    categorySearchTokens: ['all'],
     contextTags: [...(input.contextTags ?? [])],
     customFields: input.customFields ?? {},
     cropData: null,
@@ -1369,6 +1373,10 @@ export function createItemEntryLookup(entries: ItemWorkspaceEntry[]) {
 }
 
 export function getItemBrowseCategories(entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>) {
+  if ('browseCategories' in entry && Array.isArray(entry.browseCategories) && entry.browseCategories.length > 0) {
+    return entry.browseCategories
+  }
+
   const categories = new Set<ItemBrowseCategory>(['all'])
   const rawType = (entry.rawType ?? '').toLowerCase()
   const tags = entry.contextTags.map((tag) => tag.toLowerCase())
@@ -1412,6 +1420,10 @@ export function getItemBrowseCategories(entry: Pick<ItemWorkspaceEntry, 'kind' |
 }
 
 export function getItemCategorySearchTokens(entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>) {
+  if ('categorySearchTokens' in entry && Array.isArray(entry.categorySearchTokens) && entry.categorySearchTokens.length > 0) {
+    return entry.categorySearchTokens
+  }
+
   const categories = getItemBrowseCategories(entry)
   const aliases = new Set<string>()
 
@@ -1463,7 +1475,36 @@ export function getItemCategorySearchTokens(entry: Pick<ItemWorkspaceEntry, 'kin
     aliases.add('制作')
   }
 
-  return Array.from(aliases)
+  return Array.from(aliases).map((token) => token.toLowerCase())
+}
+
+export function decorateItemBrowseMetadata(entries: ItemWorkspaceEntry[]) {
+  return entries.map((entry) => {
+    const browseCategories = getItemBrowseCategories({
+      kind: entry.kind,
+      rawType: entry.rawType,
+      cropData: entry.cropData,
+      cropHarvests: entry.cropHarvests,
+      fishData: entry.fishData,
+      recipesProduced: entry.recipesProduced,
+      contextTags: entry.contextTags,
+    })
+    const categorySearchTokens = getItemCategorySearchTokens({
+      kind: entry.kind,
+      rawType: entry.rawType,
+      cropData: entry.cropData,
+      cropHarvests: entry.cropHarvests,
+      fishData: entry.fishData,
+      recipesProduced: entry.recipesProduced,
+      contextTags: entry.contextTags,
+    })
+
+    return {
+      ...entry,
+      browseCategories,
+      categorySearchTokens,
+    }
+  })
 }
 
 export function itemMatchesFilter(entry: ItemWorkspaceEntry, rawFilter: string) {
@@ -1481,7 +1522,7 @@ export function itemMatchesFilter(entry: ItemWorkspaceEntry, rawFilter: string) 
 
     if (token.startsWith('#')) {
       const needle = token.slice(1)
-      return getItemCategorySearchTokens(entry).some((candidate) => candidate.toLowerCase().includes(needle))
+      return getItemCategorySearchTokens(entry).some((candidate) => candidate.includes(needle))
     }
 
     return entry.searchText.includes(token)

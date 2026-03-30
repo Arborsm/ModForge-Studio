@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import type { EffectAssetState } from '../lib/app/eventStageShared'
 import type { StageWorldOverlaySprite } from '../lib/app/mapWorldStatePreview'
 import type { MapDocument } from '../lib/maps/types'
@@ -9,7 +10,21 @@ type MapWorldStatePreviewOverlayProps = {
   textureAssets: Record<string, EffectAssetState>
 }
 
-export default function MapWorldStatePreviewOverlay({
+type RenderableOverlaySprite = {
+  id: string
+  sourceX: number
+  sourceY: number
+  sourceWidth: number
+  sourceHeight: number
+  pixelX: number
+  pixelY: number
+  width: number
+  height: number
+  zIndex: number
+  assetUrl: string
+}
+
+function MapWorldStatePreviewOverlay({
   mapDocument,
   viewportZoom,
   sprites,
@@ -20,15 +35,34 @@ export default function MapWorldStatePreviewOverlay({
   }
 
   const gamePixelScale = mapDocument.tileWidth / 64
+  const spriteEntries = useMemo(
+    () =>
+      sprites.flatMap((sprite) => {
+        const asset = textureAssets[sprite.textureName]
+        return asset?.url
+          ? [
+              {
+                id: sprite.id,
+                sourceX: sprite.sourceX,
+                sourceY: sprite.sourceY,
+                sourceWidth: sprite.sourceWidth,
+                sourceHeight: sprite.sourceHeight,
+                pixelX: sprite.pixelX,
+                pixelY: sprite.pixelY,
+                width: sprite.width,
+                height: sprite.height,
+                zIndex: sprite.zIndex,
+                assetUrl: asset.url,
+              } satisfies RenderableOverlaySprite,
+            ]
+          : []
+      }),
+    [sprites, textureAssets],
+  )
 
   return (
     <div className="absolute inset-0">
-      {sprites.map((sprite) => {
-        const asset = textureAssets[sprite.textureName]
-        if (!asset?.url) {
-          return null
-        }
-
+      {spriteEntries.map((sprite) => {
         const pixelX = sprite.pixelX * gamePixelScale * viewportZoom
         const pixelY = sprite.pixelY * gamePixelScale * viewportZoom
         const width = sprite.width * gamePixelScale * viewportZoom
@@ -51,7 +85,7 @@ export default function MapWorldStatePreviewOverlay({
                 height: `${sprite.sourceHeight}px`,
                 transform: `scale(${width / sprite.sourceWidth}, ${height / sprite.sourceHeight})`,
                 transformOrigin: 'top left',
-                backgroundImage: `url("${asset.url}")`,
+                backgroundImage: `url("${sprite.assetUrl}")`,
                 backgroundPosition: `-${sprite.sourceX}px -${sprite.sourceY}px`,
                 backgroundRepeat: 'no-repeat',
                 imageRendering: 'pixelated',
@@ -63,3 +97,5 @@ export default function MapWorldStatePreviewOverlay({
     </div>
   )
 }
+
+export default memo(MapWorldStatePreviewOverlay)

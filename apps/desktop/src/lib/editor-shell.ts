@@ -1,9 +1,10 @@
-import enUSLocale from '../locales/en-US.json'
+﻿import enUSLocale from '../locales/en-US.json'
 import zhCNLocale from '../locales/zh-CN.json'
 
 export type LocaleCode = 'zh-CN' | 'en-US'
 export type ThemeMode = 'dark' | 'light'
-export type WorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
+export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
+export type WorkspaceMode = CoreWorkspaceMode | 'mods'
 export type WorkspaceTone = 'idle' | 'working' | 'ready' | 'error'
 export type WorldAtlasViewId = 'main' | 'remote'
 
@@ -452,7 +453,7 @@ export type EditorCopy = {
     tagline: string
   }
   menus: string[]
-  nav: Record<WorkspaceMode, string>
+  nav: Record<CoreWorkspaceMode, string>
   localeShort: Record<LocaleCode, string>
   statusTone: Record<WorkspaceTone, string>
   controls: {
@@ -590,7 +591,7 @@ export type EditorCopy = {
   charactersPanel: CharactersPanelCopy
   buildingsPanel: BuildingsPanelCopy
   itemsPanel: ItemsPanelCopy
-  moduleBlueprints: Record<Exclude<WorkspaceMode, 'map'>, ModuleBlueprint>
+  moduleBlueprints: Record<Exclude<CoreWorkspaceMode, 'map'>, ModuleBlueprint>
 }
 
 type RawViewMenuCopy = Omit<ViewMenuCopy, 'deletePresetConfirm'> & {
@@ -710,7 +711,7 @@ function buildEditorCopy(raw: RawEditorCopy): EditorCopy {
   }
 }
 
-export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
+export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
   'zh-CN': buildEditorCopy(localeBundles['zh-CN'].editor),
@@ -732,3 +733,13 @@ export function getViewMenuCopy(locale: LocaleCode): ViewMenuCopy {
 export function getSettingsMenuCopy(locale: LocaleCode) {
   return localeBundles[locale].settingsMenu
 }
+
+
+export function getWorkspaceModeLabel(locale: LocaleCode, copy: Pick<EditorCopy, 'nav'>, mode: WorkspaceMode) {
+  if (mode === 'mods') {
+    return locale === 'zh-CN' ? '模组' : 'Mods'
+  }
+
+  return copy.nav[mode]
+}
+

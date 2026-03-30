@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { loadImageDataUrl, loadTextAsset, type GameDirectoryInfo } from '../desktop'
+import { loadTextAsset, type GameDirectoryInfo } from '../desktop'
 import type { CharactersPanelCopy, LocaleCode } from '../editor-shell'
+import { loadImageResourceFromPath } from '../imageMetrics'
 import {
   CHARACTER_DATA_ASSET_PATH,
   CHARACTER_GIFT_TASTES_ASSET_PATH,
@@ -22,9 +23,47 @@ type UseCharacterWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
   locale: LocaleCode
   copy: CharactersPanelCopy
+  enableVisualAssets?: boolean
 }
 
 const stringTableCache = new Map<string, Promise<Record<string, string>>>()
+const characterEntriesCache = new Map<string, Promise<CharacterWorkspaceEntry[]>>()
+const imageStateCache = new Map<
+  string,
+  Promise<{
+    path: string | null
+    url: string | null
+    width: number | null
+    height: number | null
+  }>
+>()
+
+function normalizeCachePathSegment(value: string) {
+  return value.trim().replaceAll('/', '\\')
+}
+
+function getRootLocaleCacheKey(rootPath: string, locale: LocaleCode) {
+  return `${normalizeCachePathSegment(rootPath)}::${locale}`
+}
+
+function getLocalizedPathCacheKey(path: string, locale: LocaleCode) {
+  return `${normalizeCachePathSegment(path)}::${locale}`
+}
+
+async function readCachedPromise<T>(cache: Map<string, Promise<T>>, key: string, loader: () => Promise<T>) {
+  const cached = cache.get(key)
+  if (cached) {
+    return cached
+  }
+
+  const pending = loader().catch((error) => {
+    cache.delete(key)
+    throw error
+  })
+
+  cache.set(key, pending)
+  return pending
+}
 
 type ObjectDataEntry = {
   DisplayName?: string | null
@@ -108,15 +147,6 @@ function getImagePathCandidates(path: string, locale: LocaleCode) {
   return getMonsterImagePathFallbacks(path).flatMap((candidatePath) => getLocalizedImagePathCandidates(candidatePath, locale))
 }
 
-function measureImage(url: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
-    image.onerror = () => reject(new Error('Failed to decode image asset.'))
-    image.src = url
-  })
-}
-
 async function loadImageState(path: string | null, locale: LocaleCode) {
   if (!path) {
     return {
@@ -127,24 +157,29 @@ async function loadImageState(path: string | null, locale: LocaleCode) {
     }
   }
 
-  let lastError: unknown = null
+  const cacheKey = getLocalizedPathCacheKey(path, locale)
+  return readCachedPromise(imageStateCache, cacheKey, async () => {
+    let lastError: unknown = null
 
-  for (const candidatePath of getImagePathCandidates(path, locale)) {
-    try {
-      const url = await loadImageDataUrl(candidatePath, locale)
-      const dimensions = await measureImage(url)
-      return {
-        path: candidatePath,
-        url,
-        width: dimensions.width,
-        height: dimensions.height,
+    for (const candidatePath of getImagePathCandidates(path, locale)) {
+      try {
+        const resource = await loadImageResourceFromPath(candidatePath, locale)
+        if (!resource) {
+          continue
+        }
+        return {
+          path: candidatePath,
+          url: resource.url,
+          width: resource.width,
+          height: resource.height,
+        }
+      } catch (error) {
+        lastError = error
       }
-    } catch (error) {
-      lastError = error
     }
-  }
 
-  throw lastError instanceof Error ? lastError : new Error(String(lastError))
+    throw lastError instanceof Error ? lastError : new Error(String(lastError))
+  })
 }
 
 function getStringTableCacheKey(rootPath: string, assetPath: string, locale: LocaleCode) {
@@ -823,7 +858,40 @@ async function attachGiftTasteEntries(
   })
 }
 
-export function useCharacterWorkspace({ directoryInfo, locale, copy }: UseCharacterWorkspaceOptions) {
+async function loadCharacterWorkspaceEntries(rootPath: string, locale: LocaleCode) {
+  const cacheKey = getRootLocaleCacheKey(rootPath, locale)
+  return readCachedPromise(characterEntriesCache, cacheKey, async () => {
+    const [asset, giftTastesAsset, objectDataAsset, monsterDataAsset] = await Promise.all([
+      loadTextAsset(rootPath, CHARACTER_DATA_ASSET_PATH, locale),
+      loadTextAsset(rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, MONSTER_DATA_ASSET_PATH, locale).catch(() => null),
+    ])
+
+    const nextCharacters = createCharacterEntryIndex(asset.content)
+    const localizedCharacters = await localizeCharacterEntries(
+      nextCharacters,
+      rootPath,
+      locale,
+      monsterDataAsset?.content ?? null,
+    )
+
+    return attachGiftTasteEntries(
+      localizedCharacters,
+      rootPath,
+      locale,
+      giftTastesAsset?.content ?? null,
+      objectDataAsset?.content ?? null,
+    )
+  })
+}
+
+export function useCharacterWorkspace({
+  directoryInfo,
+  locale,
+  copy,
+  enableVisualAssets = true,
+}: UseCharacterWorkspaceOptions) {
   const [characters, setCharacters] = useState<CharacterWorkspaceEntry[]>([])
   const [characterFilter, setCharacterFilter] = useState('')
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null)
@@ -883,30 +951,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy }: UseCharac
 
     void (async () => {
       try {
-        const [asset, giftTastesAsset, objectDataAsset, monsterDataAsset] = await Promise.all([
-          loadTextAsset(directoryInfo.rootPath, CHARACTER_DATA_ASSET_PATH, locale),
-          loadTextAsset(directoryInfo.rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, MONSTER_DATA_ASSET_PATH, locale).catch(() => null),
-        ])
-        if (cancelled) {
-          return
-        }
-
-        const nextCharacters = createCharacterEntryIndex(asset.content)
-        const localizedCharacters = await localizeCharacterEntries(
-          nextCharacters,
-          directoryInfo.rootPath,
-          locale,
-          monsterDataAsset?.content ?? null,
-        )
-        const hydratedCharacters = await attachGiftTasteEntries(
-          localizedCharacters,
-          directoryInfo.rootPath,
-          locale,
-          giftTastesAsset?.content ?? null,
-          objectDataAsset?.content ?? null,
-        )
+        const hydratedCharacters = await loadCharacterWorkspaceEntries(directoryInfo.rootPath, locale)
         if (cancelled) {
           return
         }
@@ -948,6 +993,26 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy }: UseCharac
   }, [activeCharacter])
 
   useEffect(() => {
+    if (!enableVisualAssets) {
+      const { spritePath, portraitPath } = resolveCharacterVariantPaths(directoryInfo?.rootPath ?? null, activeVariant)
+      const springObjectsPath = directoryInfo?.rootPath ? `${directoryInfo.rootPath}\\${SPRING_OBJECTS_ASSET_PATH}` : null
+      setAssetState({
+        spritePath,
+        portraitPath,
+        spriteUrl: null,
+        portraitUrl: null,
+        springObjectsPath,
+        springObjectsUrl: null,
+        spriteSheetWidth: null,
+        spriteSheetHeight: null,
+        portraitSheetWidth: null,
+        portraitSheetHeight: null,
+        springObjectsSheetWidth: null,
+        springObjectsSheetHeight: null,
+      })
+      return
+    }
+
     const { spritePath, portraitPath } = resolveCharacterVariantPaths(directoryInfo?.rootPath ?? null, activeVariant)
     const springObjectsPath = directoryInfo?.rootPath ? `${directoryInfo.rootPath}\\${SPRING_OBJECTS_ASSET_PATH}` : null
     if (!spritePath && !portraitPath && !springObjectsPath) {
@@ -1019,7 +1084,7 @@ export function useCharacterWorkspace({ directoryInfo, locale, copy }: UseCharac
     return () => {
       cancelled = true
     }
-  }, [activeVariant, directoryInfo?.rootPath, locale])
+  }, [activeVariant, directoryInfo?.rootPath, enableVisualAssets, locale])
 
   function handleSelectCharacter(characterKey: string) {
     setActiveCharacterId(characterKey)

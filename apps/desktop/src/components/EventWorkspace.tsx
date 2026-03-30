@@ -1,7 +1,8 @@
 ﻿import { Grid2x2, Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { loadImageDataUrl, loadMapAsset, type GameDirectoryInfo } from '../lib/desktop'
+import { loadMapAsset, type GameDirectoryInfo } from '../lib/desktop'
 import type { ThemeMode, ViewportLabels } from '../lib/editor-shell'
+import { loadImageUrlFromPath } from '../lib/imageMetrics'
 import { parseEventCommand } from '../lib/events/parser'
 import type { EventCommand, EventSceneActor, EventScript, ParsedEventAsset } from '../lib/events/types'
 import type { MapDocument } from '../lib/maps/types'
@@ -72,9 +73,21 @@ type PlaybackState = {
   ended: boolean
 }
 
+type ActorAssetUrlsState = {
+  requestKey: string
+  spriteUrl: string | null
+  portraitUrl: string | null
+}
+
+const parsedEventStageMapCache = new Map<string, MapDocument>()
+
 const SETUP_ENTRY_ID = 'setup'
 const FARMER_NAME_PATTERN = /^farmer\d*$/iu
 const EVENT_STAGE_INITIAL_ZOOM = 2.5
+
+function getParsedEventStageMapCacheKey(rootPath: string, mapPath: string, locale: EventWorkspaceProps['locale']) {
+  return `${rootPath.replaceAll('/', '\\')}::${mapPath.replaceAll('/', '\\')}::${locale}`
+}
 
 function buildLabels(locale: 'zh-CN' | 'en-US') {
   return locale === 'zh-CN'
@@ -857,7 +870,7 @@ export default function EventWorkspace({
   )
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapMessage, setMapMessage] = useState('')
-  const [actorAssetUrls, setActorAssetUrls] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
+  const [actorAssetUrls, setActorAssetUrls] = useState<Record<string, ActorAssetUrlsState>>({})
 
   useEffect(() => {
     if (!parsedEventAsset || !directoryInfo?.rootPath) {
@@ -885,7 +898,13 @@ export default function EventWorkspace({
         }
 
         if (asset.format === 'xnb') {
-          setMapDocument(JSON.parse(asset.content) as MapDocument)
+          const cacheKey = getParsedEventStageMapCacheKey(directoryInfo.rootPath, mapPath, locale)
+          const cachedDocument = parsedEventStageMapCache.get(cacheKey)
+          const nextDocument = cachedDocument ?? (JSON.parse(asset.content) as MapDocument)
+          if (!cachedDocument) {
+            parsedEventStageMapCache.set(cacheKey, nextDocument)
+          }
+          setMapDocument(nextDocument)
         } else {
           throw new Error('Only XNB maps can be staged for events.')
         }
@@ -903,9 +922,40 @@ export default function EventWorkspace({
     }
   }, [directoryInfo?.rootPath, directoryInfo?.mapsPath, labels.stageFailed, labels.stageMissing, labels.stageWaiting, locale, parsedEventAsset])
 
+  const actorAssetRequests = useMemo(
+    () =>
+      Object.entries(playbackState.actors).map(([key, actor]) => ({
+        key,
+        spritePath: actor.spritePath,
+        portraitPath: actor.portraitPath,
+        requestKey: `${actor.spritePath ?? ''}::${actor.portraitPath ?? ''}`,
+      })),
+    [playbackState.actors],
+  )
+
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
       setActorAssetUrls({})
+      return
+    }
+
+    setActorAssetUrls((current) =>
+      Object.fromEntries(
+        actorAssetRequests.flatMap((request) => {
+          const cached = current[request.key]
+          return cached?.requestKey === request.requestKey ? [[request.key, cached] as const] : []
+        }),
+      ),
+    )
+  }, [actorAssetRequests, directoryInfo?.rootPath])
+
+  const pendingActorAssetRequests = useMemo(
+    () => actorAssetRequests.filter((request) => actorAssetUrls[request.key]?.requestKey !== request.requestKey),
+    [actorAssetRequests, actorAssetUrls],
+  )
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath || pendingActorAssetRequests.length === 0) {
       return
     }
 
@@ -913,21 +963,32 @@ export default function EventWorkspace({
 
     void (async () => {
       const entries = await Promise.all(
-        Object.entries(playbackState.actors).map(async ([key, actor]) => {
-          const spriteUrl = actor.spritePath ? await loadImageDataUrl(actor.spritePath).catch(() => null) : null
-          const portraitUrl = actor.portraitPath ? await loadImageDataUrl(actor.portraitPath).catch(() => null) : null
-          return [key, { spriteUrl, portraitUrl }] as const
+        pendingActorAssetRequests.map(async (request) => {
+          const spriteUrl = request.spritePath ? await loadImageUrlFromPath(request.spritePath).catch(() => null) : null
+          const portraitUrl = request.portraitPath ? await loadImageUrlFromPath(request.portraitPath).catch(() => null) : null
+          return [
+            request.key,
+            {
+              requestKey: request.requestKey,
+              spriteUrl,
+              portraitUrl,
+            } satisfies ActorAssetUrlsState,
+          ] as const
         }),
       )
+
       if (!cancelled) {
-        setActorAssetUrls(Object.fromEntries(entries))
+        setActorAssetUrls((current) => ({
+          ...current,
+          ...Object.fromEntries(entries),
+        }))
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, playbackState.actors])
+  }, [directoryInfo?.rootPath, pendingActorAssetRequests])
 
   useEffect(() => {
     setAutoPlay(false)

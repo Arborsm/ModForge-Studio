@@ -1,6 +1,7 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { loadImageDataUrl, loadTextAsset, type GameDirectoryInfo } from '../desktop'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { loadTextAsset, type GameDirectoryInfo } from '../desktop'
 import type { ItemsPanelCopy, LocaleCode } from '../editor-shell'
+import { loadImageResourceFromPath } from '../imageMetrics'
 import { CHARACTER_DATA_ASSET_PATH, CHARACTER_GIFT_TASTES_ASSET_PATH } from './characterWorkspace'
 import {
   BIG_CRAFTABLE_DATA_ASSET_PATH,
@@ -12,6 +13,7 @@ import {
   CROP_DATA_ASSET_PATH,
   createBootsEntryIndex,
   createBigCraftableEntryIndex,
+  decorateItemBrowseMetadata,
   createFurnitureEntryIndex,
   createHatEntryIndex,
   createItemEntryLookup,
@@ -25,7 +27,6 @@ import {
   FISH_DATA_ASSET_PATH,
   FISH_POND_DATA_ASSET_PATH,
   FURNITURE_DATA_ASSET_PATH,
-  getAllTextureAssetNames,
   hydrateItemRelations,
   HAT_DATA_ASSET_PATH,
   itemMatchesFilter,
@@ -37,7 +38,9 @@ import {
   SHOP_DATA_ASSET_PATH,
   TOOL_DATA_ASSET_PATH,
   TRINKET_DATA_ASSET_PATH,
+  type ItemBrowseCategory,
   type ItemGiftTasteNpc,
+  type ItemKind,
   type ItemTextureAssetState,
   type ItemWorkspaceEntry,
   WEAPON_DATA_ASSET_PATH,
@@ -50,6 +53,35 @@ type UseItemWorkspaceOptions = {
 }
 
 const stringTableCache = new Map<string, Promise<Record<string, string>>>()
+const itemEntriesCache = new Map<string, Promise<ItemWorkspaceEntry[]>>()
+const imageStateCache = new Map<string, Promise<ItemTextureAssetState>>()
+
+function normalizeCachePathSegment(value: string) {
+  return value.trim().replaceAll('/', '\\')
+}
+
+function getRootLocaleCacheKey(rootPath: string, locale: LocaleCode) {
+  return `${normalizeCachePathSegment(rootPath)}::${locale}`
+}
+
+function getLocalizedPathCacheKey(path: string, locale: LocaleCode) {
+  return `${normalizeCachePathSegment(path)}::${locale}`
+}
+
+async function readCachedPromise<T>(cache: Map<string, Promise<T>>, key: string, loader: () => Promise<T>) {
+  const cached = cache.get(key)
+  if (cached) {
+    return cached
+  }
+
+  const pending = loader().catch((error) => {
+    cache.delete(key)
+    throw error
+  })
+
+  cache.set(key, pending)
+  return pending
+}
 
 function getLocalizedImagePathCandidates(path: string, locale: LocaleCode) {
   if (locale === 'en-US') {
@@ -57,21 +89,6 @@ function getLocalizedImagePathCandidates(path: string, locale: LocaleCode) {
   }
 
   return [path.replace(/\.xnb$/iu, `.${locale}.xnb`), path]
-}
-
-function measureImage(url: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight })
-    image.onerror = () => reject(new Error('Failed to decode image asset.'))
-    image.src = url
-  })
-}
-
-async function createObjectUrlFromDataUrl(dataUrl: string) {
-  const response = await fetch(dataUrl)
-  const blob = await response.blob()
-  return URL.createObjectURL(blob)
 }
 
 async function loadImageState(path: string | null, locale: LocaleCode): Promise<ItemTextureAssetState> {
@@ -84,24 +101,29 @@ async function loadImageState(path: string | null, locale: LocaleCode): Promise<
     }
   }
 
-  let lastError: unknown = null
+  const cacheKey = getLocalizedPathCacheKey(path, locale)
+  return readCachedPromise(imageStateCache, cacheKey, async () => {
+    let lastError: unknown = null
 
-  for (const candidatePath of getLocalizedImagePathCandidates(path, locale)) {
-    try {
-      const dataUrl = await loadImageDataUrl(candidatePath, locale)
-      const dimensions = await measureImage(dataUrl)
-      return {
-        path: candidatePath,
-        url: await createObjectUrlFromDataUrl(dataUrl),
-        width: dimensions.width,
-        height: dimensions.height,
+    for (const candidatePath of getLocalizedImagePathCandidates(path, locale)) {
+      try {
+        const resource = await loadImageResourceFromPath(candidatePath, locale)
+        if (!resource) {
+          continue
+        }
+        return {
+          path: candidatePath,
+          url: resource.url,
+          width: resource.width,
+          height: resource.height,
+        }
+      } catch (error) {
+        lastError = error
       }
-    } catch (error) {
-      lastError = error
     }
-  }
 
-  throw lastError instanceof Error ? lastError : new Error(String(lastError))
+    throw lastError instanceof Error ? lastError : new Error(String(lastError))
+  })
 }
 
 function getStringTableCacheKey(rootPath: string, assetPath: string, locale: LocaleCode) {
@@ -195,7 +217,75 @@ async function localizeItemEntries(entries: ItemWorkspaceEntry[], rootPath: stri
     }),
   )
 
-  return localized.sort((left, right) => left.displayName.localeCompare(right.displayName))
+  const collator = buildItemCollator(locale)
+  return localized.sort((left, right) => compareLocalizedItemEntries(left, right, collator))
+}
+
+const ITEM_SORT_CATEGORY_ORDER: ItemBrowseCategory[] = ['crop', 'fish', 'cooking', 'mineral', 'equipment', 'apparel', 'furniture', 'crafting']
+const ITEM_SORT_KIND_ORDER: ItemKind[] = ['object', 'tool', 'weapon', 'boots', 'trinket', 'shirt', 'pants', 'hat', 'big-craftable', 'furniture']
+
+function buildItemCollator(locale: LocaleCode) {
+  return new Intl.Collator(locale, {
+    numeric: true,
+    sensitivity: 'base',
+  })
+}
+
+function getItemPrimaryBrowseCategoryRank(entry: ItemWorkspaceEntry) {
+  const rank = ITEM_SORT_CATEGORY_ORDER.findIndex((category) => entry.browseCategories.includes(category))
+  return rank >= 0 ? rank : ITEM_SORT_CATEGORY_ORDER.length
+}
+
+function getItemKindRank(kind: ItemKind) {
+  const rank = ITEM_SORT_KIND_ORDER.indexOf(kind)
+  return rank >= 0 ? rank : ITEM_SORT_KIND_ORDER.length
+}
+
+function compareLocalizedItemEntries(left: ItemWorkspaceEntry, right: ItemWorkspaceEntry, collator: Intl.Collator) {
+  const displayCompare = collator.compare(left.displayName, right.displayName)
+  if (displayCompare !== 0) {
+    return displayCompare
+  }
+
+  const internalCompare = collator.compare(left.internalName, right.internalName)
+  if (internalCompare !== 0) {
+    return internalCompare
+  }
+
+  const itemIdCompare = collator.compare(left.itemId, right.itemId)
+  if (itemIdCompare !== 0) {
+    return itemIdCompare
+  }
+
+  return collator.compare(left.qualifiedItemId, right.qualifiedItemId)
+}
+
+function sortItemEntries(entries: ItemWorkspaceEntry[], locale: LocaleCode) {
+  const collator = buildItemCollator(locale)
+
+  return [...entries].sort((left, right) => {
+    const categoryRankDiff = getItemPrimaryBrowseCategoryRank(left) - getItemPrimaryBrowseCategoryRank(right)
+    if (categoryRankDiff !== 0) {
+      return categoryRankDiff
+    }
+
+    const kindRankDiff = getItemKindRank(left.kind) - getItemKindRank(right.kind)
+    if (kindRankDiff !== 0) {
+      return kindRankDiff
+    }
+
+    const displayCompare = collator.compare(left.displayName, right.displayName)
+    if (displayCompare !== 0) {
+      return displayCompare
+    }
+
+    const itemIdCompare = collator.compare(left.itemId, right.itemId)
+    if (itemIdCompare !== 0) {
+      return itemIdCompare
+    }
+
+    return collator.compare(left.qualifiedItemId, right.qualifiedItemId)
+  })
 }
 
 type GiftTasteBuckets = {
@@ -465,36 +555,92 @@ async function attachGiftTasteEntries(
   })
 }
 
-async function loadTextureAtlasStates(rootPath: string, locale: LocaleCode, entries: ItemWorkspaceEntry[]) {
-  const assetNames = getAllTextureAssetNames(entries)
-  const loadedStates = await Promise.all(
-    assetNames.map(async (assetName) => {
-      const texturePath = buildGameContentPath(rootPath, assetName)
-      try {
-        return [assetName, await loadImageState(texturePath, locale)] as const
-      } catch {
-        return [
-          assetName,
-          {
-            path: texturePath,
-            url: null,
-            width: null,
-            height: null,
-          } satisfies ItemTextureAssetState,
-        ] as const
-      }
-    }),
-  )
+async function loadItemWorkspaceEntries(rootPath: string, locale: LocaleCode) {
+  const cacheKey = getRootLocaleCacheKey(rootPath, locale)
+  return readCachedPromise(itemEntriesCache, cacheKey, async () => {
+    const [
+      objectsAsset,
+      bigCraftablesAsset,
+      weaponsAsset,
+      toolsAsset,
+      shirtsAsset,
+      pantsAsset,
+      trinketsAsset,
+      hatsAsset,
+      bootsAsset,
+      furnitureAsset,
+      cropsAsset,
+      fishAsset,
+      locationsAsset,
+      shopsAsset,
+      machinesAsset,
+      fishPondAsset,
+      craftingRecipesAsset,
+      cookingRecipesAsset,
+      charactersAsset,
+      giftTastesAsset,
+    ] = await Promise.all([
+      loadTextAsset(rootPath, OBJECT_DATA_ASSET_PATH, locale),
+      loadTextAsset(rootPath, BIG_CRAFTABLE_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, WEAPON_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, TOOL_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, SHIRT_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, PANTS_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, TRINKET_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, HAT_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, BOOTS_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, FURNITURE_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, CROP_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, FISH_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, LOCATION_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, SHOP_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, MACHINE_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, FISH_POND_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, CRAFTING_RECIPES_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, COOKING_RECIPES_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, CHARACTER_DATA_ASSET_PATH, locale).catch(() => null),
+      loadTextAsset(rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale).catch(() => null),
+    ])
 
-  return Object.fromEntries(loadedStates) as Record<string, ItemTextureAssetState>
-}
+    const baseEntries = [
+      ...createObjectEntryIndex(objectsAsset.content),
+      ...(bigCraftablesAsset ? createBigCraftableEntryIndex(bigCraftablesAsset.content) : []),
+      ...(weaponsAsset ? createWeaponEntryIndex(weaponsAsset.content) : []),
+      ...(toolsAsset ? createToolEntryIndex(toolsAsset.content) : []),
+      ...(shirtsAsset ? createShirtEntryIndex(shirtsAsset.content) : []),
+      ...(pantsAsset ? createPantsEntryIndex(pantsAsset.content) : []),
+      ...(trinketsAsset ? createTrinketEntryIndex(trinketsAsset.content) : []),
+      ...(hatsAsset ? createHatEntryIndex(hatsAsset.content) : []),
+      ...(bootsAsset ? createBootsEntryIndex(bootsAsset.content) : []),
+      ...(furnitureAsset ? createFurnitureEntryIndex(furnitureAsset.content) : []),
+    ]
 
-function revokeTextureAtlasUrls(states: Record<string, ItemTextureAssetState>) {
-  for (const state of Object.values(states)) {
-    if (state.url?.startsWith('blob:')) {
-      URL.revokeObjectURL(state.url)
-    }
-  }
+    const localizedEntries = await localizeItemEntries(baseEntries, rootPath, locale)
+    const recipes = [
+      ...(craftingRecipesAsset ? createRecipeEntryIndex(craftingRecipesAsset.content, 'crafting') : []),
+      ...(cookingRecipesAsset ? createRecipeEntryIndex(cookingRecipesAsset.content, 'cooking') : []),
+    ]
+    const hydratedEntries = hydrateItemRelations(
+      localizedEntries,
+      recipes,
+      cropsAsset?.content ?? null,
+      fishAsset?.content ?? null,
+      locationsAsset?.content ?? null,
+      shopsAsset?.content ?? null,
+      machinesAsset?.content ?? null,
+      fishPondAsset?.content ?? null,
+    )
+
+    const giftHydratedEntries = await attachGiftTasteEntries(
+      hydratedEntries,
+      rootPath,
+      locale,
+      charactersAsset?.content ?? null,
+      giftTastesAsset?.content ?? null,
+    )
+
+    return sortItemEntries(decorateItemBrowseMetadata(giftHydratedEntries), locale)
+  })
 }
 
 export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspaceOptions) {
@@ -503,7 +649,6 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [itemStatusMessage, setItemStatusMessage] = useState('')
   const [textureStatesByAssetName, setTextureStatesByAssetName] = useState<Record<string, ItemTextureAssetState>>({})
-  const textureStatesRef = useRef<Record<string, ItemTextureAssetState>>({})
 
   const deferredFilter = useDeferredValue(itemFilter.trim().toLowerCase())
   const filteredItems = useMemo(
@@ -514,123 +659,28 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const itemLookup = useMemo(() => createItemEntryLookup(items), [items])
 
   useEffect(() => {
-    textureStatesRef.current = textureStatesByAssetName
-  }, [textureStatesByAssetName])
-
-  useEffect(() => () => revokeTextureAtlasUrls(textureStatesRef.current), [])
-
-  useEffect(() => {
     if (!directoryInfo?.rootPath) {
       const timeout = window.setTimeout(() => {
         setItems([])
         setActiveItemId(null)
         setItemStatusMessage('')
-        setTextureStatesByAssetName((current) => {
-          revokeTextureAtlasUrls(current)
-          return {}
-        })
+        setTextureStatesByAssetName({})
       }, 0)
 
       return () => window.clearTimeout(timeout)
     }
 
     let cancelled = false
+    setTextureStatesByAssetName({})
 
     void (async () => {
       try {
-        const [
-          objectsAsset,
-          bigCraftablesAsset,
-          weaponsAsset,
-          toolsAsset,
-          shirtsAsset,
-          pantsAsset,
-          trinketsAsset,
-          hatsAsset,
-          bootsAsset,
-          furnitureAsset,
-          cropsAsset,
-          fishAsset,
-          locationsAsset,
-          shopsAsset,
-          machinesAsset,
-          fishPondAsset,
-          craftingRecipesAsset,
-          cookingRecipesAsset,
-          charactersAsset,
-          giftTastesAsset,
-        ] = await Promise.all([
-          loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_ASSET_PATH, locale),
-          loadTextAsset(directoryInfo.rootPath, BIG_CRAFTABLE_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, WEAPON_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, TOOL_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, SHIRT_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, PANTS_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, TRINKET_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, HAT_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, BOOTS_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, FURNITURE_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, CROP_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, FISH_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, LOCATION_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, SHOP_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, MACHINE_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, FISH_POND_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, CRAFTING_RECIPES_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, COOKING_RECIPES_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, CHARACTER_DATA_ASSET_PATH, locale).catch(() => null),
-          loadTextAsset(directoryInfo.rootPath, CHARACTER_GIFT_TASTES_ASSET_PATH, locale).catch(() => null),
-        ])
+        const giftHydratedEntries = await loadItemWorkspaceEntries(directoryInfo.rootPath, locale)
         if (cancelled) {
-          return
-        }
-
-        const baseEntries = [
-          ...createObjectEntryIndex(objectsAsset.content),
-          ...(bigCraftablesAsset ? createBigCraftableEntryIndex(bigCraftablesAsset.content) : []),
-          ...(weaponsAsset ? createWeaponEntryIndex(weaponsAsset.content) : []),
-          ...(toolsAsset ? createToolEntryIndex(toolsAsset.content) : []),
-          ...(shirtsAsset ? createShirtEntryIndex(shirtsAsset.content) : []),
-          ...(pantsAsset ? createPantsEntryIndex(pantsAsset.content) : []),
-          ...(trinketsAsset ? createTrinketEntryIndex(trinketsAsset.content) : []),
-          ...(hatsAsset ? createHatEntryIndex(hatsAsset.content) : []),
-          ...(bootsAsset ? createBootsEntryIndex(bootsAsset.content) : []),
-          ...(furnitureAsset ? createFurnitureEntryIndex(furnitureAsset.content) : []),
-        ]
-
-        const localizedEntries = await localizeItemEntries(baseEntries, directoryInfo.rootPath, locale)
-        const recipes = [
-          ...(craftingRecipesAsset ? createRecipeEntryIndex(craftingRecipesAsset.content, 'crafting') : []),
-          ...(cookingRecipesAsset ? createRecipeEntryIndex(cookingRecipesAsset.content, 'cooking') : []),
-        ]
-        const hydratedEntries = hydrateItemRelations(
-          localizedEntries,
-          recipes,
-          cropsAsset?.content ?? null,
-          fishAsset?.content ?? null,
-          locationsAsset?.content ?? null,
-          shopsAsset?.content ?? null,
-          machinesAsset?.content ?? null,
-          fishPondAsset?.content ?? null,
-        )
-        const giftHydratedEntries = await attachGiftTasteEntries(
-          hydratedEntries,
-          directoryInfo.rootPath,
-          locale,
-          charactersAsset?.content ?? null,
-          giftTastesAsset?.content ?? null,
-        )
-        const atlasStates = await loadTextureAtlasStates(directoryInfo.rootPath, locale, giftHydratedEntries)
-        if (cancelled) {
-          revokeTextureAtlasUrls(atlasStates)
           return
         }
 
         setItems(giftHydratedEntries)
-        setTextureStatesByAssetName((current) => {
-          revokeTextureAtlasUrls(current)
-          return atlasStates
-        })
         setActiveItemId((current) =>
           current && giftHydratedEntries.some((entry) => entry.key === current) ? current : giftHydratedEntries[0]?.key ?? null,
         )
@@ -643,10 +693,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
         if (!cancelled) {
           setItems([])
           setActiveItemId(null)
-          setTextureStatesByAssetName((current) => {
-            revokeTextureAtlasUrls(current)
-            return {}
-          })
+          setTextureStatesByAssetName({})
           setItemStatusMessage(error instanceof Error ? error.message : String(error))
         }
       }
@@ -656,6 +703,61 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
       cancelled = true
     }
   }, [copy.indexedStatusTemplate, copy.noEntriesStatus, directoryInfo?.rootPath, locale])
+
+  const ensureTextureAssetStates = useCallback(
+    (assetNames: string[]) => {
+      if (!directoryInfo?.rootPath) {
+        return
+      }
+
+      const normalizedAssetNames = Array.from(
+        new Set(
+          assetNames
+            .map((assetName) => assetName.trim())
+            .filter(Boolean),
+        ),
+      )
+      const pendingAssetNames = normalizedAssetNames.filter((assetName) => !(assetName in textureStatesByAssetName))
+      if (pendingAssetNames.length === 0) {
+        return
+      }
+
+      void (async () => {
+        const entries = await Promise.all(
+          pendingAssetNames.map(async (assetName) => {
+            const texturePath = buildGameContentPath(directoryInfo.rootPath, assetName)
+            try {
+              return [assetName, await loadImageState(texturePath, locale)] as const
+            } catch {
+              return [
+                assetName,
+                {
+                  path: texturePath,
+                  url: null,
+                  width: null,
+                  height: null,
+                } satisfies ItemTextureAssetState,
+              ] as const
+            }
+          }),
+        )
+
+        setTextureStatesByAssetName((current) => ({
+          ...current,
+          ...Object.fromEntries(entries.filter(([assetName]) => !(assetName in current))),
+        }))
+      })()
+    },
+    [directoryInfo?.rootPath, locale, textureStatesByAssetName],
+  )
+
+  useEffect(() => {
+    if (!activeItem?.textureAssetName) {
+      return
+    }
+
+    ensureTextureAssetStates([activeItem.textureAssetName])
+  }, [activeItem?.textureAssetName, ensureTextureAssetStates])
 
   function handleSelectItem(itemKey: string) {
     setActiveItemId(itemKey)
@@ -671,6 +773,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     itemLookup,
     itemStatusMessage,
     textureStatesByAssetName,
+    ensureTextureAssetStates,
     handleSelectItem,
   }
 }

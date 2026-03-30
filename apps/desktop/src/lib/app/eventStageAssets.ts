@@ -8,8 +8,8 @@ import {
   type FarmerHairMetadataEntry,
   type FarmerRenderState,
 } from './farmerAppearanceRenderer'
-import { loadImageDataUrl } from '../desktop'
 import type { LocaleCode } from '../editor-shell'
+import { loadImageResourceFromPath } from '../imageMetrics'
 import type { PlayerAppearanceProfile } from './playerAppearance'
 import {
   DEFAULT_FARMER_HAIR_STYLE_INDEX,
@@ -574,25 +574,7 @@ function buildContentImagePath(rootPath: string, textureName: string) {
 }
 
 function preloadImage(path: string) {
-  return new Promise<{ image: HTMLImageElement; url: string; width: number; height: number } | null>((resolve) => {
-    const image = new Image()
-
-    const loadWithUrl = (url: string) => {
-      image.onload = () =>
-        resolve({
-          image,
-          url,
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-        })
-      image.onerror = () => resolve(null)
-      image.src = url
-    }
-
-    loadImageDataUrl(path)
-      .then((dataUrl: string) => loadWithUrl(dataUrl))
-      .catch(() => resolve(null))
-  })
+  return loadImageResourceFromPath(path)
 }
 
 async function resolveContentImage(rootPath: string, textureName: string) {

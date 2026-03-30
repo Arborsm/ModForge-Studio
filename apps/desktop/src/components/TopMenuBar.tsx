@@ -1,7 +1,8 @@
-import {
+﻿import {
   Castle,
   GitMerge,
   Globe,
+  Library,
   Map,
   Minus,
   Moon,
@@ -12,7 +13,15 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { workspaceModes, type EditorCopy, type LocaleCode, type ThemeMode, type WorkspaceMode, type WorkspaceTone } from '../lib/editor-shell'
+import {
+  getWorkspaceModeLabel,
+  workspaceModes,
+  type EditorCopy,
+  type LocaleCode,
+  type ThemeMode,
+  type WorkspaceMode,
+  type WorkspaceTone,
+} from '../lib/editor-shell'
 import { cx } from '../lib/cx'
 import type { WorkspacePanelMeta } from './WorkspaceLayout'
 
@@ -61,6 +70,7 @@ const MODULE_ICONS = {
   buildings: Castle,
   items: Package,
   events: GitMerge,
+  mods: Library,
 } satisfies Record<WorkspaceMode, typeof Map>
 
 export default function TopMenuBar({
@@ -82,8 +92,11 @@ export default function TopMenuBar({
 }: TopMenuBarProps) {
   const [activeMenu, setActiveMenu] = useState<'view' | null>(null)
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
-  const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items']
-  const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [mode, copy.nav[mode]] as const)
+  const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
+  const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [
+    mode,
+    getWorkspaceModeLabel(locale, copy, mode),
+  ] as const)
   const viewMenuOpen = activeMenu === 'view'
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+﻿import { getWorkspaceModeLabel } from '../../../lib/editor-shell'
 import { PanelFrame } from '../../ui/PanelFrame'
 import type { ProjectPanelProps } from './shared'
 
@@ -67,7 +68,7 @@ export function ProjectPanel({
           <div className="metric-card compact-metric-card">
             <span className="metric-label">{copy.leftDock.sceneFocus}</span>
             <strong className="metric-value">
-              {workspaceMode === 'map' ? activeAssetName : copy.nav[workspaceMode]}
+              {workspaceMode === 'map' ? activeAssetName : getWorkspaceModeLabel('en-US', copy, workspaceMode)}
             </strong>
           </div>
         </div>
@@ -86,3 +87,7 @@ export function ProjectPanel({
     </PanelFrame>
   )
 }
+
+
+
+

@@ -1,4 +1,4 @@
-import * as ContextMenu from '@radix-ui/react-context-menu'
+﻿import * as ContextMenu from '@radix-ui/react-context-menu'
 import {
   Activity,
   Boxes,
@@ -23,6 +23,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -57,6 +58,10 @@ const PANEL_ICON_MAP: Record<string, LucideIcon> = {
   'item-navigation': Files,
   'item-catalog': Package,
   'item-details': SlidersHorizontal,
+  'mods-browser': Library,
+  'mods-workspace': Package,
+  'mods-inspector': SlidersHorizontal,
+  'mods-diagnostics': Activity,
   inspector: SlidersHorizontal,
   layers: Layers3,
   'object-groups': Boxes,
@@ -1023,6 +1028,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
   const [railSortTarget, setRailSortTarget] = useState<RailSortTarget>(null)
   const [dragPreview, setDragPreview] = useState<{ panelId: string; x: number; y: number } | null>(null)
   const [measuredDockHeights, setMeasuredDockHeights] = useState<Record<string, number>>({})
+  const panelSchemaKey = useMemo(() => panels.map((panel) => panel.id).join('|'), [panels])
 
   const panelMap = useMemo(
     () => Object.fromEntries(panels.map((panel) => [panel.id, panel])) as Record<string, WorkspacePanelConfig>,
@@ -1062,6 +1068,15 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
 
     return () => observer.disconnect()
   }, [panels, state.panels])
+
+  useLayoutEffect(() => {
+    setState(readStoredState(storageKey, panels))
+    setMeasuredDockHeights({})
+    setDraggedPanelId(null)
+    setDragDockTarget(null)
+    setRailSortTarget(null)
+    setDragPreview(null)
+  }, [panelSchemaKey, storageKey])
 
   const geometry = useMemo(
     () => getWorkspaceGeometry(panels, panelMap, state, rootSize, measuredDockHeights),
@@ -2233,3 +2248,4 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     </div>
   )
 })
+

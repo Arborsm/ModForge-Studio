@@ -2,6 +2,7 @@ mod buffer;
 mod readers;
 mod schema;
 mod values;
+mod lzx;
 
 use std::path::Path;
 

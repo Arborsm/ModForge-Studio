@@ -1,6 +1,8 @@
 import {
   Armchair,
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   ChefHat,
   Coins,
   Fish as FishIcon,
@@ -14,12 +16,11 @@ import {
   Sword,
   Wrench,
 } from 'lucide-react'
-import { useCallback, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type WheelEvent } from 'react'
 import { cx } from '../lib/cx'
 import {
   getContainedItemSpriteFrame,
   getContainedItemSpriteScale,
-  getItemBrowseCategories,
   type ItemBrowseCategory,
   type ItemGiftTasteNpc,
   type ItemMachineLink,
@@ -38,6 +39,7 @@ type ItemWorkspaceProps = {
   itemFilter: string
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
+  ensureTextureAssetStates: (assetNames: string[]) => void
   onItemFilterChange: (value: string) => void
   onSelectItem: (itemKey: string) => void
 }
@@ -352,10 +354,21 @@ function getTabDefinitions(copy: ItemWorkspaceProps['copy'], items: ItemWorkspac
     crafting: Wrench,
   }
 
+  const counts = Object.fromEntries(BROWSE_TAB_ORDER.map((id) => [id, 0])) as Record<ItemBrowseCategory, number>
+  counts.all = items.length
+
+  for (const entry of items) {
+    for (const category of entry.browseCategories) {
+      if (category !== 'all') {
+        counts[category] += 1
+      }
+    }
+  }
+
   return BROWSE_TAB_ORDER.map((id) => ({
     id,
     label: labels[id],
-    count: id === 'all' ? items.length : items.filter((entry) => getItemBrowseCategories(entry).includes(id)).length,
+    count: counts[id],
     Icon: icons[id],
   }))
 }
@@ -772,12 +785,16 @@ type ItemWorkspaceUiState = {
   activeBrowseTab: ItemBrowseCategory
   activeDetailTab: DetailTab
   hoveredItemId: string | null
+  currentPage: number
+  itemsPerPage: number
 }
 
 const DEFAULT_ITEM_WORKSPACE_UI_STATE: ItemWorkspaceUiState = {
   activeBrowseTab: 'all',
   activeDetailTab: 'info',
   hoveredItemId: null,
+  currentPage: 1,
+  itemsPerPage: 48,
 }
 
 let itemWorkspaceUiState = DEFAULT_ITEM_WORKSPACE_UI_STATE
@@ -805,7 +822,7 @@ function useItemWorkspaceUi() {
   const state = useSyncExternalStore(subscribeItemWorkspaceUi, getItemWorkspaceUiSnapshot)
 
   const setActiveBrowseTab = useCallback((tab: ItemBrowseCategory) => {
-    updateItemWorkspaceUiState({ activeBrowseTab: tab })
+    updateItemWorkspaceUiState({ activeBrowseTab: tab, currentPage: 1 })
   }, [])
 
   const setActiveDetailTab = useCallback((tab: DetailTab) => {
@@ -816,11 +833,264 @@ function useItemWorkspaceUi() {
     updateItemWorkspaceUiState({ hoveredItemId: itemKey })
   }, [])
 
+  const setCurrentPage = useCallback((page: number) => {
+    updateItemWorkspaceUiState({ currentPage: page })
+  }, [])
+
+  const setItemsPerPage = useCallback((itemsPerPage: number) => {
+    updateItemWorkspaceUiState({ itemsPerPage })
+  }, [])
+
   return {
     ...state,
     setActiveBrowseTab,
     setActiveDetailTab,
     setHoveredItemId,
+    setCurrentPage,
+    setItemsPerPage,
+  }
+}
+
+type PaginationToken =
+  | {
+      type: 'page'
+      value: number
+    }
+  | {
+      type: 'ellipsis'
+      key: string
+    }
+
+const CATALOG_GRID_GAP_PX = 8
+const CATALOG_CARD_MIN_HEIGHT_PX = 118
+const CATALOG_GRID_MIN_ROWS = 2
+
+function getPageCount(totalItems: number, itemsPerPage: number) {
+  return Math.max(1, Math.ceil(totalItems / itemsPerPage))
+}
+
+function clampPage(page: number, totalItems: number, itemsPerPage: number) {
+  return Math.min(getPageCount(totalItems, itemsPerPage), Math.max(1, page))
+}
+
+function paginateItems<T>(items: T[], currentPage: number, itemsPerPage: number) {
+  const safePage = clampPage(currentPage, items.length, itemsPerPage)
+  const startIndex = (safePage - 1) * itemsPerPage
+  return {
+    items: items.slice(startIndex, startIndex + itemsPerPage),
+    currentPage: safePage,
+    pageCount: getPageCount(items.length, itemsPerPage),
+    startIndex,
+  }
+}
+
+function getCatalogColumnCount(width: number) {
+  if (width >= 1536) {
+    return 6
+  }
+
+  if (width >= 1280) {
+    return 5
+  }
+
+  if (width >= 640) {
+    return 4
+  }
+
+  return 3
+}
+
+function computeCatalogGridMetrics(width: number, height: number) {
+  const columns = getCatalogColumnCount(width)
+  const rows = Math.max(CATALOG_GRID_MIN_ROWS, Math.floor((height + CATALOG_GRID_GAP_PX) / (CATALOG_CARD_MIN_HEIGHT_PX + CATALOG_GRID_GAP_PX)))
+
+  return {
+    columns,
+    rows,
+    itemsPerPage: Math.max(columns * rows, columns),
+  }
+}
+
+function buildPaginationTokens(currentPage: number, pageCount: number): PaginationToken[] {
+  if (pageCount <= 1) {
+    return [{ type: 'page', value: 1 }]
+  }
+
+  const pages = new Set<number>([1, pageCount, currentPage - 1, currentPage, currentPage + 1])
+  if (currentPage <= 3) {
+    pages.add(2)
+    pages.add(3)
+    pages.add(4)
+  }
+
+  if (currentPage >= pageCount - 2) {
+    pages.add(pageCount - 1)
+    pages.add(pageCount - 2)
+    pages.add(pageCount - 3)
+  }
+
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= pageCount)
+    .sort((left, right) => left - right)
+
+  const tokens: PaginationToken[] = []
+  sortedPages.forEach((page, index) => {
+    const previousPage = sortedPages[index - 1]
+    if (previousPage != null && page - previousPage > 1) {
+      tokens.push({ type: 'ellipsis', key: `ellipsis:${previousPage}-${page}` })
+    }
+
+    tokens.push({ type: 'page', value: page })
+  })
+
+  return tokens
+}
+
+function buildSearchPriorityScore(entry: ItemWorkspaceEntry, tokens: string[]) {
+  if (!tokens.length) {
+    return 0
+  }
+
+  const displayName = entry.displayName.toLowerCase()
+  const qualifiedItemId = entry.qualifiedItemId.toLowerCase()
+  const internalName = entry.internalName.toLowerCase()
+  const description = entry.description?.toLowerCase() ?? ''
+
+  return tokens.reduce((score, token) => {
+    if (token.startsWith('@')) {
+      const needle = token.slice(1)
+      if (!needle) {
+        return score
+      }
+      if (qualifiedItemId === needle || entry.itemId.toLowerCase() === needle) {
+        return score
+      }
+      if (qualifiedItemId.startsWith(needle) || entry.itemId.toLowerCase().startsWith(needle)) {
+        return score + 1
+      }
+      if (qualifiedItemId.includes(needle) || entry.itemId.toLowerCase().includes(needle)) {
+        return score + 2
+      }
+      return score + 4
+    }
+
+    if (displayName === token) {
+      return score
+    }
+    if (displayName.startsWith(token)) {
+      return score + 1
+    }
+    if (displayName.includes(token)) {
+      return score + 2
+    }
+    if (qualifiedItemId.includes(token)) {
+      return score + 3
+    }
+    if (internalName.includes(token)) {
+      return score + 4
+    }
+    if (description.includes(token)) {
+      return score + 5
+    }
+    return score + 6
+  }, 0)
+}
+
+function sortItemsBySearchPriority(items: ItemWorkspaceEntry[], rawFilter: string) {
+  const tokens = rawFilter
+    .trim()
+    .toLowerCase()
+    .split(/\s+/u)
+    .filter(Boolean)
+
+  if (!tokens.length) {
+    return items
+  }
+
+  return [...items].sort((left, right) => {
+    const scoreDiff = buildSearchPriorityScore(left, tokens) - buildSearchPriorityScore(right, tokens)
+    if (scoreDiff !== 0) {
+      return scoreDiff
+    }
+
+    const displayCompare = left.displayName.localeCompare(right.displayName, undefined, { numeric: true, sensitivity: 'base' })
+    if (displayCompare !== 0) {
+      return displayCompare
+    }
+
+    return left.qualifiedItemId.localeCompare(right.qualifiedItemId, undefined, { numeric: true, sensitivity: 'base' })
+  })
+}
+
+function useCatalogGridMetrics(itemsPerPage: number, onItemsPerPageChange: (itemsPerPage: number) => void) {
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const [metrics, setMetrics] = useState(() => ({
+    columns: 4,
+    rows: Math.max(CATALOG_GRID_MIN_ROWS, Math.ceil(itemsPerPage / 4)),
+  }))
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) {
+      return
+    }
+
+    let frameId = 0
+
+    const measure = () => {
+      frameId = 0
+      const nextMetrics = computeCatalogGridMetrics(viewport.clientWidth, viewport.clientHeight)
+
+      setMetrics((current) => {
+        if (current.columns === nextMetrics.columns && current.rows === nextMetrics.rows) {
+          return current
+        }
+
+        return {
+          columns: nextMetrics.columns,
+          rows: nextMetrics.rows,
+        }
+      })
+
+      if (nextMetrics.itemsPerPage !== itemsPerPage) {
+        onItemsPerPageChange(nextMetrics.itemsPerPage)
+      }
+    }
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        return
+      }
+
+      frameId = window.requestAnimationFrame(measure)
+    }
+
+    scheduleMeasure()
+
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
+      scheduleMeasure()
+    })
+    resizeObserver?.observe(viewport)
+
+    const handleWindowResize = () => {
+      scheduleMeasure()
+    }
+
+    window.addEventListener('resize', handleWindowResize)
+
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+      window.removeEventListener('resize', handleWindowResize)
+      resizeObserver?.disconnect()
+    }
+  }, [itemsPerPage, onItemsPerPageChange])
+
+  return {
+    viewportRef,
+    columns: metrics.columns,
+    rows: metrics.rows,
   }
 }
 
@@ -841,6 +1111,13 @@ function getWorkspaceText(copy: ItemWorkspaceProps['copy']) {
     relationsEmpty: isEnglish ? 'No related recipes or acquisition routes yet.' : '暂无相关配方/途径记录',
     giftsEmpty: isEnglish ? 'No villager preference records.' : '暂无村民喜好记录',
     spriteSizeLabel: isEnglish ? 'Sprite Size' : '贴图尺寸',
+    catalogItemsLabel: isEnglish ? 'items' : '物品',
+    catalogGridLabel: isEnglish ? 'grid' : '网格',
+    catalogPageLabel: isEnglish ? 'Page' : '页',
+    catalogItemsPerPageLabel: isEnglish ? 'per page' : '每页',
+    catalogWheelHint: isEnglish ? 'Wheel to flip pages' : '滚轮翻页',
+    previousPageLabel: isEnglish ? 'Prev' : '上一页',
+    nextPageLabel: isEnglish ? 'Next' : '下一页',
     customFieldsTitle: isEnglish ? 'Custom Fields' : '自定义字段',
     customFieldsEmpty: isEnglish ? 'No custom fields.' : '暂无自定义字段',
     moduleLabels: {
@@ -1010,68 +1287,210 @@ function CatalogPane({
   copy,
   text,
   items,
+  totalItems,
+  currentPage,
+  pageCount,
+  itemsPerPage,
   activeItemId,
   textureStatesByAssetName,
   onSelectItem,
   hoveredItemId,
   onHoverItem,
+  onPageChange,
+  onItemsPerPageChange,
 }: {
   copy: ItemWorkspaceProps['copy']
   text: ReturnType<typeof getWorkspaceText>
   items: ItemWorkspaceEntry[]
+  totalItems: number
+  currentPage: number
+  pageCount: number
+  itemsPerPage: number
   activeItemId: string | null
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
   onSelectItem: (itemKey: string, tab?: DetailTab) => void
   hoveredItemId: string | null
   onHoverItem: (itemKey: string | null) => void
+  onPageChange: (page: number) => void
+  onItemsPerPageChange: (itemsPerPage: number) => void
 }) {
   const hoveredItem = hoveredItemId ? (items.find((entry) => entry.key === hoveredItemId) ?? null) : null
+  const paginationTokens = useMemo(() => buildPaginationTokens(currentPage, pageCount), [currentPage, pageCount])
+  const { viewportRef, columns, rows } = useCatalogGridMetrics(itemsPerPage, onItemsPerPageChange)
+  const wheelAccumulatorRef = useRef(0)
+  const lastWheelFlipRef = useRef(0)
+  const rangeStart = totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0
+  const rangeEnd = totalItems > 0 ? Math.min(currentPage * itemsPerPage, totalItems) : 0
+  const emptySlotCount = Math.max(0, itemsPerPage - items.length)
+
+  const handleWheel = useCallback(
+    (event: WheelEvent<HTMLElement>) => {
+      if (pageCount <= 1 || event.ctrlKey || Math.abs(event.deltaY) < Math.abs(event.deltaX)) {
+        return
+      }
+
+      event.preventDefault()
+      const now = performance.now()
+      if (now - lastWheelFlipRef.current < 180) {
+        return
+      }
+
+      if (wheelAccumulatorRef.current !== 0 && Math.sign(wheelAccumulatorRef.current) !== Math.sign(event.deltaY)) {
+        wheelAccumulatorRef.current = 0
+      }
+
+      wheelAccumulatorRef.current += event.deltaY
+      if (Math.abs(wheelAccumulatorRef.current) < 56) {
+        return
+      }
+
+      const nextPage = Math.max(1, Math.min(pageCount, currentPage + (wheelAccumulatorRef.current > 0 ? 1 : -1)))
+      wheelAccumulatorRef.current = 0
+      if (nextPage !== currentPage) {
+        lastWheelFlipRef.current = now
+        onPageChange(nextPage)
+      }
+    },
+    [currentPage, onPageChange, pageCount],
+  )
 
   return (
-    <section className="panel-surface relative h-full">
+    <section className="panel-surface relative h-full" onWheel={handleWheel}>
       <div className="panel-header">
-        <div>
+        <div className="min-w-0">
           <p className="panel-title">{text.catalogTitle}</p>
-          <p className="panel-subtitle">{items.length}</p>
+          <p className="panel-subtitle">
+            {totalItems} {text.catalogItemsLabel} / {itemsPerPage} {text.catalogItemsPerPageLabel}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-panel))] px-3 py-1 text-[11px] font-semibold text-[var(--text-primary)]">
+            {columns} x {rows} {text.catalogGridLabel}
+          </span>
         </div>
       </div>
-      <div className="panel-body min-h-0 flex-1 overflow-auto p-4">
+      <div className="panel-body flex min-h-0 flex-1 flex-col overflow-hidden p-4">
         {items.length ? (
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {items.map((entry) => {
-              const textureState = entry.textureAssetName ? (textureStatesByAssetName[entry.textureAssetName] ?? null) : null
-              const isActive = entry.key === activeItemId
+          <div ref={viewportRef} className="min-h-0 flex-1 overflow-hidden">
+            <div
+              className="grid h-full"
+              style={{
+                gap: `${CATALOG_GRID_GAP_PX}px`,
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+              }}
+            >
+              {items.map((entry) => {
+                const textureState = entry.textureAssetName ? (textureStatesByAssetName[entry.textureAssetName] ?? null) : null
+                const isActive = entry.key === activeItemId
 
-              return (
-                <button
-                  key={entry.key}
-                  type="button"
-                  className={cx(
-                    'group flex aspect-square flex-col items-center justify-center rounded-2xl border p-2 text-center transition-all',
-                    isActive
-                      ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_20%,transparent)] shadow-[0_16px_32px_color-mix(in_srgb,var(--accent)_18%,transparent)]'
-                      : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)]',
-                  )}
-                  onClick={() => onSelectItem(entry.key, 'info')}
-                  onContextMenu={(event) => {
-                    event.preventDefault()
-                    onSelectItem(entry.key, 'relations')
-                  }}
-                  onMouseEnter={() => onHoverItem(entry.key)}
-                  onMouseLeave={() => onHoverItem(null)}
-                  onFocus={() => onHoverItem(entry.key)}
-                  onBlur={() => onHoverItem(null)}
-                  aria-label={`${entry.displayName} ${entry.qualifiedItemId}`}
-                >
-                  <ItemSprite item={entry} textureState={textureState} scale={getContainedItemSpriteScale(entry, 40, 1.55)} className="h-10 w-10" />
-                  <span className="mt-2 line-clamp-2 text-[10px] leading-4 text-[var(--text-secondary)]">{entry.displayName}</span>
-                </button>
-              )
-            })}
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    className={cx(
+                      'group flex h-full min-h-0 flex-col items-center justify-center rounded-[22px] border px-2 py-3 text-center transition-all duration-200',
+                      isActive
+                        ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_18%,transparent),color-mix(in_srgb,var(--accent)_10%,var(--bg-panel)))] shadow-[0_18px_36px_color-mix(in_srgb,var(--accent)_16%,transparent)]'
+                        : 'border-[var(--border-color)] bg-[linear-gradient(180deg,var(--bg-panel),color-mix(in_srgb,var(--bg-panel-muted)_68%,transparent))] hover:-translate-y-0.5 hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_14px_28px_rgba(15,23,42,0.10)]',
+                    )}
+                    onClick={() => onSelectItem(entry.key, 'info')}
+                    onContextMenu={(event) => {
+                      event.preventDefault()
+                      onSelectItem(entry.key, 'relations')
+                    }}
+                    onMouseEnter={() => onHoverItem(entry.key)}
+                    onMouseLeave={() => onHoverItem(null)}
+                    onFocus={() => onHoverItem(entry.key)}
+                    onBlur={() => onHoverItem(null)}
+                    aria-label={`${entry.displayName} ${entry.qualifiedItemId}`}
+                  >
+                    <span className="mb-2 inline-flex rounded-full border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      {copy.kindLabels[entry.kind]}
+                    </span>
+                    <ItemSprite item={entry} textureState={textureState} scale={getContainedItemSpriteScale(entry, 40, 1.55)} className="h-10 w-10 shrink-0" />
+                    <span className="mt-2 line-clamp-2 text-[11px] font-semibold leading-4 text-[var(--text-primary)]">{entry.displayName}</span>
+                    <span className="mt-1 line-clamp-1 text-[10px] leading-4 text-[var(--text-tertiary)]">{entry.qualifiedItemId}</span>
+                  </button>
+                )
+              })}
+
+              {Array.from({ length: emptySlotCount }, (_, index) => (
+                <div
+                  key={`empty-slot:${currentPage}:${index}`}
+                  aria-hidden="true"
+                  className="rounded-[22px] border border-dashed border-[color-mix(in_srgb,var(--border-color)_85%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel-muted)_55%,transparent),transparent)]"
+                />
+              ))}
+            </div>
           </div>
         ) : (
           <EmptyNotice message={copy.browserFilteredEmpty} />
         )}
+
+        {totalItems > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[var(--border-color)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_90%,transparent),color-mix(in_srgb,var(--bg-panel-muted)_82%,transparent))] px-3 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[var(--bg-app)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
+                {rangeStart}-{rangeEnd}
+              </span>
+              <span className="text-xs text-[var(--text-secondary)]">{text.catalogPageLabel} {currentPage} / {pageCount}</span>
+              <span className="text-[11px] text-[var(--text-tertiary)]">{text.catalogWheelHint}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-1 rounded-full border border-[var(--border-color)] bg-[var(--bg-app)] px-3 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage <= 1}
+                title={text.previousPageLabel}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">{text.previousPageLabel}</span>
+              </button>
+              <div className="flex items-center gap-1 rounded-full border border-[var(--border-color)] bg-[var(--bg-app)] p-1">
+                {paginationTokens.map((token) => {
+                  if (token.type === 'ellipsis') {
+                    return (
+                      <span
+                        key={token.key}
+                        className="inline-flex min-w-8 items-center justify-center px-1 text-xs font-semibold text-[var(--text-tertiary)]"
+                      >
+                        ...
+                      </span>
+                    )
+                  }
+
+                  return (
+                    <button
+                      key={`page:${token.value}`}
+                      type="button"
+                      className={cx(
+                        'min-w-9 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors',
+                        token.value === currentPage
+                          ? 'bg-[var(--accent)] text-white shadow-[0_10px_22px_color-mix(in_srgb,var(--accent)_24%,transparent)]'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)]',
+                      )}
+                      onClick={() => onPageChange(token.value)}
+                    >
+                      {token.value}
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-1 rounded-full border border-[var(--border-color)] bg-[var(--bg-app)] px-3 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
+                onClick={() => onPageChange(Math.min(pageCount, currentPage + 1))}
+                disabled={currentPage >= pageCount}
+                title={text.nextPageLabel}
+              >
+                <span className="hidden sm:inline">{text.nextPageLabel}</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <ItemTooltip copy={copy} item={hoveredItem} />
@@ -1281,6 +1700,7 @@ function useItemWorkspaceViewModel({
   itemFilter,
   itemLookup,
   textureStatesByAssetName,
+  ensureTextureAssetStates,
   onItemFilterChange,
   onSelectItem,
 }: ItemWorkspaceProps) {
@@ -1290,13 +1710,31 @@ function useItemWorkspaceViewModel({
   const matchedKeys = useMemo(() => new Set(filteredItems.map((entry) => entry.key)), [filteredItems])
 
   const visibleItems = useMemo(
-    () => items.filter((entry) => ui.activeBrowseTab === 'all' || getItemBrowseCategories(entry).includes(ui.activeBrowseTab)),
+    () => items.filter((entry) => ui.activeBrowseTab === 'all' || entry.browseCategories.includes(ui.activeBrowseTab)),
     [ui.activeBrowseTab, items],
   )
   const matchingVisibleItems = useMemo(
-    () => visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)),
+    () => sortItemsBySearchPriority(visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)), itemFilter),
     [itemFilter, matchedKeys, visibleItems],
   )
+  const pagination = useMemo(
+    () => paginateItems(matchingVisibleItems, ui.currentPage, ui.itemsPerPage),
+    [matchingVisibleItems, ui.currentPage, ui.itemsPerPage],
+  )
+  const paginatedItems = pagination.items
+  const currentPage = pagination.currentPage
+  const pageCount = pagination.pageCount
+
+  useEffect(() => {
+    if (currentPage !== ui.currentPage) {
+      ui.setCurrentPage(currentPage)
+    }
+  }, [currentPage, ui])
+
+  useEffect(() => {
+    const assetNames = paginatedItems.flatMap((entry) => (entry.textureAssetName ? [entry.textureAssetName] : []))
+    ensureTextureAssetStates(assetNames)
+  }, [ensureTextureAssetStates, paginatedItems])
 
   const activeTextureState = item?.textureAssetName ? (textureStatesByAssetName[item.textureAssetName] ?? null) : null
   const heroChips = item ? buildHeroChips(item, copy) : []
@@ -1314,6 +1752,14 @@ function useItemWorkspaceViewModel({
     onSelectItem(itemKey)
   }, [onSelectItem, ui])
 
+  const handleItemFilterChange = useCallback(
+    (value: string) => {
+      ui.setCurrentPage(1)
+      onItemFilterChange(value)
+    },
+    [onItemFilterChange, ui],
+  )
+
   return {
     copy,
     item,
@@ -1322,11 +1768,15 @@ function useItemWorkspaceViewModel({
     itemFilter,
     itemLookup,
     textureStatesByAssetName,
-    onItemFilterChange,
+    onItemFilterChange: handleItemFilterChange,
     text,
     tabs,
     visibleItems,
     matchingVisibleItems,
+    paginatedItems,
+    currentPage,
+    pageCount,
+    itemsPerPage: ui.itemsPerPage,
     activeTextureState,
     heroChips,
     sourceCards,
@@ -1339,6 +1789,8 @@ function useItemWorkspaceViewModel({
     specificSections,
     activeBrowseTab: ui.activeBrowseTab,
     setActiveBrowseTab: ui.setActiveBrowseTab,
+    setCurrentPage: ui.setCurrentPage,
+    setItemsPerPage: ui.setItemsPerPage,
     activeDetailTab: ui.activeDetailTab,
     setActiveDetailTab: ui.setActiveDetailTab,
     hoveredItemId: ui.hoveredItemId,
@@ -1374,12 +1826,18 @@ export function ItemCatalogPanel(props: ItemWorkspaceProps) {
     <CatalogPane
       copy={view.copy}
       text={view.text}
-      items={view.matchingVisibleItems}
+      items={view.paginatedItems}
+      totalItems={view.matchingVisibleItems.length}
+      currentPage={view.currentPage}
+      pageCount={view.pageCount}
+      itemsPerPage={view.itemsPerPage}
       activeItemId={view.activeItemId}
       textureStatesByAssetName={view.textureStatesByAssetName}
       onSelectItem={view.handleSelectItem}
       hoveredItemId={view.hoveredItemId}
       onHoverItem={view.setHoveredItemId}
+      onPageChange={view.setCurrentPage}
+      onItemsPerPageChange={view.setItemsPerPage}
     />
   )
 }
@@ -1411,97 +1869,63 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
 }
 
 export default function ItemWorkspace({
-  copy,
-  item,
-  items,
-  filteredItems,
-  activeItemId,
-  itemFilter,
-  itemLookup,
-  textureStatesByAssetName,
-  onItemFilterChange,
-  onSelectItem,
+  ...props
 }: ItemWorkspaceProps) {
-  const [activeBrowseTab, setActiveBrowseTab] = useState<ItemBrowseCategory>('all')
-  const [activeDetailTab, setActiveDetailTab] = useState<DetailTab>('info')
-  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
-
-  const text = useMemo(() => getWorkspaceText(copy), [copy])
-  const tabs = useMemo(() => getTabDefinitions(copy, items), [copy, items])
-  const matchedKeys = useMemo(() => new Set(filteredItems.map((entry) => entry.key)), [filteredItems])
-
-  const visibleItems = useMemo(
-    () => items.filter((entry) => activeBrowseTab === 'all' || getItemBrowseCategories(entry).includes(activeBrowseTab)),
-    [activeBrowseTab, items],
-  )
-  const matchingVisibleItems = useMemo(
-    () => visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)),
-    [itemFilter, matchedKeys, visibleItems],
-  )
-
-  const activeTextureState = item?.textureAssetName ? (textureStatesByAssetName[item.textureAssetName] ?? null) : null
-  const heroChips = item ? buildHeroChips(item, copy) : []
-  const sourceCards = item ? buildSourceCards(item, copy) : []
-  const recipeUseCards = item ? item.recipesUsing.map((recipe) => createRecipeUseCard(recipe, item, copy)) : []
-  const machineUseCards = item ? item.machineInputs.map((machine) => createMachineUseCard(machine, item, copy)) : []
-  const recipeOutputCards = item ? item.recipesProduced.map((recipe) => createRecipeUseCard(recipe, item, copy)) : []
-  const signalCards = item ? buildSignalCards(item, copy, sourceCards, recipeUseCards, machineUseCards, recipeOutputCards) : []
-  const infoRows = item ? buildInfoRows(item, copy) : []
-  const resourceRows = item ? buildResourceRows(item, activeTextureState, copy, text.spriteSizeLabel) : []
-  const specificSections = item ? buildSpecificSections(item, copy) : []
-
-  const handleSelectItem = useCallback((itemKey: string, tab: DetailTab = 'info') => {
-    setActiveDetailTab(tab)
-    onSelectItem(itemKey)
-  }, [onSelectItem])
+  const view = useItemWorkspaceViewModel(props)
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-app)]">
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 xl:px-5 xl:py-5">
         <div className="mx-auto grid w-full max-w-[1760px] gap-5 xl:grid-cols-[minmax(220px,0.72fr)_minmax(420px,1.18fr)_minmax(520px,1.6fr)]">
           <NavigationPane
-            copy={copy}
-            text={text}
-            tabs={tabs}
-            activeBrowseTab={activeBrowseTab}
-            onBrowseTabChange={setActiveBrowseTab}
-            itemFilter={itemFilter}
-            onItemFilterChange={onItemFilterChange}
-            item={item}
-            textureState={activeTextureState}
-            visibleCount={matchingVisibleItems.length}
-            totalVisibleCount={visibleItems.length}
+            copy={view.copy}
+            text={view.text}
+            tabs={view.tabs}
+            activeBrowseTab={view.activeBrowseTab}
+            onBrowseTabChange={view.setActiveBrowseTab}
+            itemFilter={view.itemFilter}
+            onItemFilterChange={view.onItemFilterChange}
+            item={view.item}
+            textureState={view.activeTextureState}
+            visibleCount={view.matchingVisibleItems.length}
+            totalVisibleCount={view.visibleItems.length}
           />
 
           <CatalogPane
-            copy={copy}
-            text={text}
-            items={matchingVisibleItems}
-            activeItemId={activeItemId}
-            textureStatesByAssetName={textureStatesByAssetName}
-            onSelectItem={handleSelectItem}
-            hoveredItemId={hoveredItemId}
-            onHoverItem={setHoveredItemId}
+            copy={view.copy}
+            text={view.text}
+            items={view.paginatedItems}
+            totalItems={view.matchingVisibleItems.length}
+            currentPage={view.currentPage}
+            pageCount={view.pageCount}
+            itemsPerPage={view.itemsPerPage}
+            activeItemId={view.activeItemId}
+            textureStatesByAssetName={view.textureStatesByAssetName}
+            onSelectItem={view.handleSelectItem}
+            hoveredItemId={view.hoveredItemId}
+            onHoverItem={view.setHoveredItemId}
+            onPageChange={view.setCurrentPage}
+            onItemsPerPageChange={view.setItemsPerPage}
           />
 
           <DetailPane
-            copy={copy}
-            text={text}
-            item={item}
-            textureState={activeTextureState}
-            heroChips={heroChips}
-            signalCards={signalCards}
-            infoRows={infoRows}
-            resourceRows={resourceRows}
-            sourceCards={sourceCards}
-            recipeUseCards={recipeUseCards}
-            machineUseCards={machineUseCards}
-            recipeOutputCards={recipeOutputCards}
-            specificSections={specificSections}
-            activeDetailTab={activeDetailTab}
-            onDetailTabChange={setActiveDetailTab}
-            itemLookup={itemLookup}
-            textureStatesByAssetName={textureStatesByAssetName}
+            copy={view.copy}
+            text={view.text}
+            item={view.item}
+            textureState={view.activeTextureState}
+            heroChips={view.heroChips}
+            signalCards={view.signalCards}
+            infoRows={view.infoRows}
+            resourceRows={view.resourceRows}
+            sourceCards={view.sourceCards}
+            recipeUseCards={view.recipeUseCards}
+            machineUseCards={view.machineUseCards}
+            recipeOutputCards={view.recipeOutputCards}
+            specificSections={view.specificSections}
+            activeDetailTab={view.activeDetailTab}
+            onDetailTabChange={view.setActiveDetailTab}
+            itemLookup={view.itemLookup}
+            textureStatesByAssetName={view.textureStatesByAssetName}
           />
         </div>
       </div>
