@@ -42,6 +42,7 @@ import {
   buildStageWorldOverlaySprites,
   type StageBuildingDataEntry,
 } from './mapWorldStatePreview'
+import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
 import type { MapWorkspaceTab, ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from './types'
 
 type UseMapWorkspaceOptions = {
@@ -180,9 +181,11 @@ export function useMapWorkspace({
   const [buildingDataIndex, setBuildingDataIndex] = useState<Record<string, StageBuildingDataEntry>>({})
   const [worldOverlayTextureAssets, setWorldOverlayTextureAssets] = useState<Record<string, EffectAssetState>>({})
   const [assetFilter, setAssetFilter] = useState('')
+  const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const parsedMapCacheRef = useRef(new Map<string, MapDocument>())
   const worldAtlasCacheRef = useRef(new Map<string, WorldAtlasCacheEntry>())
   const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
+  const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
   const filteredAssets = useMemo(
@@ -196,6 +199,28 @@ export function useMapWorkspace({
         return haystack.includes(deferredAssetFilter)
       }),
     [deferredAssetFilter, mapAssets],
+  )
+  const mapLookup = useMemo(() => buildModEntryLookup(mapAssets, (asset) => asset.id), [mapAssets])
+  const modMapGroups = useMemo(
+    () =>
+      buildModBrowserGroups({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.maps,
+        entryLookup: mapLookup,
+        filterText: assetFilter,
+        getSearchText: (asset) => `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase(),
+        getFallbackLabel: (asset) => asset.name,
+      }),
+    [assetFilter, mapLookup, modIndex.mods],
+  )
+  const activeMapModSources = useMemo(
+    () =>
+      findModSources({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.maps,
+        key: activeMapId,
+      }),
+    [activeMapId, modIndex.mods],
   )
   const activeAtlasView =
     (activeWorldAtlasViewId ? worldAtlasViews.find((view) => view.id === activeWorldAtlasViewId) : null) ??
@@ -1033,6 +1058,23 @@ export function useMapWorkspace({
     }
   }, [directoryInfo?.rootPath, pendingWorldOverlayTextureRequests])
 
+  useEffect(() => {
+    if (browserSourceMode !== 'mod') {
+      return
+    }
+
+    const nextAsset =
+      modMapGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.value.id === activeMapId)?.value ??
+      modMapGroups[0]?.items[0]?.value ??
+      null
+
+    if (nextAsset && nextAsset.id !== activeMapId) {
+      void openMap(nextAsset)
+    }
+  }, [activeMapId, browserSourceMode, modMapGroups])
+
   return {
     workspaceStatus,
     resourcePreloadState,
@@ -1041,6 +1083,10 @@ export function useMapWorkspace({
     directoryInfo,
     mapAssets,
     filteredAssets,
+    browserSourceMode,
+    setBrowserSourceMode,
+    modMapGroups,
+    activeMapModSources,
     activeMapId,
     activeAsset,
     assetFilter,

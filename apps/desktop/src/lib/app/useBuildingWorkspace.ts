@@ -25,6 +25,7 @@ import {
   type BuildingLocationSeedGroup,
 } from './buildingLocationSeeds'
 import { getWorldAtlasNameAliases } from '../maps/world'
+import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
 
 type UseBuildingWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -1001,6 +1002,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   const [worldBuildings, setWorldBuildings] = useState<BuildingWorkspaceEntry[]>([])
   const [mapDocuments, setMapDocuments] = useState<MapDocument[]>([])
   const [buildingFilter, setBuildingFilter] = useState('')
+  const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeBuildingId, setActiveBuildingId] = useState<string | null>(null)
   const [buildingStatusMessage, setBuildingStatusMessage] = useState('')
   const [activeChainTextureStates, setActiveChainTextureStates] = useState<Record<string, BuildingTextureAssetState>>({})
@@ -1010,6 +1012,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     width: null,
     height: null,
   })
+  const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(buildingFilter.trim().toLowerCase())
   const filteredConstructibleGroups = useMemo(
@@ -1019,6 +1022,28 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   const filteredWorldBuildings = useMemo(
     () => worldBuildings.filter((building) => !deferredFilter || building.searchText.includes(deferredFilter)),
     [deferredFilter, worldBuildings],
+  )
+  const buildingLookup = useMemo(() => buildModEntryLookup(buildingEntries, (building) => building.key), [buildingEntries])
+  const modBuildingGroups = useMemo(
+    () =>
+      buildModBrowserGroups({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.buildings,
+        entryLookup: buildingLookup,
+        filterText: buildingFilter,
+        getSearchText: (building) => building.searchText,
+        getFallbackLabel: (building) => building.displayName,
+      }),
+    [buildingFilter, buildingLookup, modIndex.mods],
+  )
+  const activeBuildingModSources = useMemo(
+    () =>
+      findModSources({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.buildings,
+        key: activeBuildingId,
+      }),
+    [activeBuildingId, modIndex.mods],
   )
   const activeBuilding =
     buildingEntries.find((building) => building.key === activeBuildingId) ??
@@ -1249,6 +1274,23 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     }
   }, [activeBuilding?.sourceKind, activeUpgradeChain, directoryInfo?.rootPath, locale])
 
+  useEffect(() => {
+    if (browserSourceMode !== 'mod') {
+      return
+    }
+
+    const nextBuilding =
+      modBuildingGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.value.key === activeBuildingId)?.value ??
+      modBuildingGroups[0]?.items[0]?.value ??
+      null
+
+    if (nextBuilding && nextBuilding.key !== activeBuildingId) {
+      setActiveBuildingId(nextBuilding.key)
+    }
+  }, [activeBuildingId, browserSourceMode, modBuildingGroups])
+
   function handleSelectBuilding(buildingKey: string) {
     setActiveBuildingId(buildingKey)
   }
@@ -1259,6 +1301,10 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     filteredConstructibleGroups,
     worldBuildings,
     filteredWorldBuildings,
+    browserSourceMode,
+    setBrowserSourceMode,
+    modBuildingGroups,
+    activeBuildingModSources,
     buildingFilter,
     setBuildingFilter,
     activeBuildingId: activeBuilding?.key ?? null,

@@ -1,8 +1,9 @@
 import { Settings2 } from 'lucide-react'
 import { PanelFrame } from '../../ui/PanelFrame'
 import type { InspectorPanelProps } from './shared'
+import { ModSourceList } from '../../ui/ModSourceList'
 
-export function InspectorPanel({ copy, mapDocument, moduleBlueprint }: InspectorPanelProps) {
+export function InspectorPanel({ copy, mapDocument, modSources = [], moduleBlueprint }: InspectorPanelProps) {
   if (moduleBlueprint) {
     return (
       <PanelFrame
@@ -87,6 +88,12 @@ export function InspectorPanel({ copy, mapDocument, moduleBlueprint }: Inspector
               <div className="kv-row compact-kv-row">
                 <span>{copy.common.format}</span>
                 <span>{mapDocument.format.toUpperCase()}</span>
+              </div>
+            </div>
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Mod Sources</p>
+              <div className="mt-3">
+                <ModSourceList sources={modSources} />
               </div>
             </div>
           </>

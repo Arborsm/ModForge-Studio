@@ -1,4 +1,5 @@
 import type { FocusedMapObjectTarget } from '../../MapViewport'
+import type { ModSourceEntry } from '../../../lib/app/modAssetIndex'
 import type { GameDirectoryInfo } from '../../../lib/desktop'
 import type { EditorCopy, ModuleBlueprint, WorkspaceTone } from '../../../lib/editor-shell'
 import type { MapDocument, MapObject, MapObjectGroup } from '../../../lib/maps/types'
@@ -30,6 +31,7 @@ export type ObjectGroupListItem = {
 export type InspectorPanelProps = {
   copy: EditorCopy
   mapDocument: MapDocument | null
+  modSources?: ModSourceEntry[]
   moduleBlueprint?: ModuleBlueprint
 }
 

@@ -1,9 +1,11 @@
 import { Search } from 'lucide-react'
 import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
+import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
 import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
+import { BrowserSourceSwitch } from '../../ui/BrowserSourceSwitch'
 
 const FARM_FARMING_GROUP_KEYS = new Set([
   'Barn',
@@ -35,6 +37,9 @@ type BuildingBrowserPanelProps = {
   filteredConstructibleGroups: ConstructibleBuildingGroup[]
   worldBuildings: BuildingWorkspaceEntry[]
   filteredWorldBuildings: BuildingWorkspaceEntry[]
+  browserSourceMode: BrowserSourceMode
+  onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modBuildingGroups: ModBrowserGroup<BuildingWorkspaceEntry>[]
   activeBuildingId: string | null
   activeBuildingGroupKey: string | null
   buildingFilter: string
@@ -183,6 +188,9 @@ export function BuildingBrowserPanel({
   filteredConstructibleGroups,
   worldBuildings,
   filteredWorldBuildings,
+  browserSourceMode,
+  onBrowserSourceModeChange,
+  modBuildingGroups,
   activeBuildingId,
   activeBuildingGroupKey,
   buildingFilter,
@@ -204,7 +212,13 @@ export function BuildingBrowserPanel({
       title={copy.browserTitle}
       subtitle={copy.browserSubtitle}
       className="h-full"
-      headerAction={<span className="dock-chip">{filteredCount}</span>}
+      headerAction={
+        <span className="dock-chip">
+          {browserSourceMode === 'mod'
+            ? modBuildingGroups.reduce((total, group) => total + group.items.length, 0)
+            : filteredCount}
+        </span>
+      }
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
@@ -218,8 +232,44 @@ export function BuildingBrowserPanel({
           />
         </div>
 
+        <BrowserSourceSwitch value={browserSourceMode} onChange={onBrowserSourceModeChange} />
+
         <div className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-          {filteredCount ? (
+          {browserSourceMode === 'mod' ? (
+            modBuildingGroups.length ? (
+              modBuildingGroups.map((group) => (
+                <PanelSection
+                  key={group.modPath}
+                  title={group.modName}
+                  subtitle="Modified building entries"
+                  action={<span className="dock-chip shrink-0">{group.items.length}</span>}
+                  bodyClassName="space-y-2"
+                >
+                  {group.items.map(({ value: building, targets }) => (
+                    <button
+                      key={`${group.modId}:${building.key}`}
+                      type="button"
+                      className={cx('asset-row w-full text-left', building.key === activeBuildingId && 'asset-row-active')}
+                      onClick={() => onSelectBuilding(building.key)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{building.displayName}</p>
+                          <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? building.internalName}</p>
+                        </div>
+                        <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                          <p>{building.sourceKind === 'constructible' ? copy.browserConstructibleBadge : copy.browserWorldBadge}</p>
+                          <p>{building.stageCount}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </PanelSection>
+              ))
+            ) : (
+              <PanelEmptyState>No modded buildings match the current filter.</PanelEmptyState>
+            )
+          ) : filteredCount ? (
             <>
               {merchantSection?.items.length ? (
                 <PanelSection

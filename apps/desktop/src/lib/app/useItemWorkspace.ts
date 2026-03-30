@@ -45,6 +45,7 @@ import {
   type ItemWorkspaceEntry,
   WEAPON_DATA_ASSET_PATH,
 } from './itemWorkspace'
+import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
 
 type UseItemWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -646,14 +647,38 @@ async function loadItemWorkspaceEntries(rootPath: string, locale: LocaleCode) {
 export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspaceOptions) {
   const [items, setItems] = useState<ItemWorkspaceEntry[]>([])
   const [itemFilter, setItemFilter] = useState('')
+  const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [itemStatusMessage, setItemStatusMessage] = useState('')
   const [textureStatesByAssetName, setTextureStatesByAssetName] = useState<Record<string, ItemTextureAssetState>>({})
+  const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(itemFilter.trim().toLowerCase())
   const filteredItems = useMemo(
     () => items.filter((item) => itemMatchesFilter(item, deferredFilter)),
     [deferredFilter, items],
+  )
+  const itemLookupByKey = useMemo(() => buildModEntryLookup(items, (item) => item.key), [items])
+  const modItemGroups = useMemo(
+    () =>
+      buildModBrowserGroups({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.items,
+        entryLookup: itemLookupByKey,
+        filterText: itemFilter,
+        getSearchText: (item) => item.searchText,
+        getFallbackLabel: (item) => item.displayName,
+      }),
+    [itemFilter, itemLookupByKey, modIndex.mods],
+  )
+  const activeItemModSources = useMemo(
+    () =>
+      findModSources({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.items,
+        key: activeItemId,
+      }),
+    [activeItemId, modIndex.mods],
   )
   const activeItem = items.find((item) => item.key === activeItemId) ?? filteredItems[0] ?? items[0] ?? null
   const itemLookup = useMemo(() => createItemEntryLookup(items), [items])
@@ -759,6 +784,23 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     ensureTextureAssetStates([activeItem.textureAssetName])
   }, [activeItem?.textureAssetName, ensureTextureAssetStates])
 
+  useEffect(() => {
+    if (browserSourceMode !== 'mod') {
+      return
+    }
+
+    const nextItem =
+      modItemGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.value.key === activeItemId)?.value ??
+      modItemGroups[0]?.items[0]?.value ??
+      null
+
+    if (nextItem && nextItem.key !== activeItemId) {
+      setActiveItemId(nextItem.key)
+    }
+  }, [activeItemId, browserSourceMode, modItemGroups])
+
   function handleSelectItem(itemKey: string) {
     setActiveItemId(itemKey)
   }
@@ -766,6 +808,10 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   return {
     items,
     filteredItems,
+    browserSourceMode,
+    setBrowserSourceMode,
+    modItemGroups,
+    activeItemModSources,
     itemFilter,
     setItemFilter,
     activeItemId: activeItem?.key ?? null,

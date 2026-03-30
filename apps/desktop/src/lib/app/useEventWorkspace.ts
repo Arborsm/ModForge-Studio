@@ -3,6 +3,7 @@ import { loadTextAsset, scanEvents, type EventAssetSummary, type GameDirectoryIn
 import type { EditorCopy, LocaleCode } from '../editor-shell'
 import { parseEventAssetContent } from '../events/parser'
 import { EVENT_SETUP_ENTRY_ID } from '../events/timeline'
+import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
 
 type UseEventWorkspaceOptions = {
   copy: EditorCopy
@@ -21,12 +22,14 @@ function getLocalizedEventCandidates(asset: EventAssetSummary, locale: LocaleCod
 export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorkspaceOptions) {
   const [eventAssets, setEventAssets] = useState<EventAssetSummary[]>([])
   const [eventAssetFilter, setEventAssetFilter] = useState('')
+  const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeEventAssetId, setActiveEventAssetId] = useState<string | null>(null)
   const [parsedEventAsset, setParsedEventAsset] = useState<ReturnType<typeof parseEventAssetContent> | null>(null)
   const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null)
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] = useState<string>(EVENT_SETUP_ENTRY_ID)
   const [timelineJumpRequestId, setTimelineJumpRequestId] = useState<string | null>(null)
   const [eventStatusMessage, setEventStatusMessage] = useState('')
+  const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(eventAssetFilter.trim().toLowerCase())
   const filteredEventAssets = useMemo(
@@ -43,6 +46,28 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
   const activeEventAsset = eventAssets.find((asset) => asset.id === activeEventAssetId) ?? null
   const selectedEvent = parsedEventAsset?.eventIndex[selectedEventKey ?? ''] ?? parsedEventAsset?.events[0] ?? null
+  const eventLookup = useMemo(() => buildModEntryLookup(eventAssets, (asset) => asset.id), [eventAssets])
+  const modEventGroups = useMemo(
+    () =>
+      buildModBrowserGroups({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.events,
+        entryLookup: eventLookup,
+        filterText: eventAssetFilter,
+        getSearchText: (asset) => `${asset.name} ${asset.fileName} ${asset.relativePath}`.toLowerCase(),
+        getFallbackLabel: (asset) => asset.name,
+      }),
+    [eventAssetFilter, eventLookup, modIndex.mods],
+  )
+  const activeEventModSources = useMemo(
+    () =>
+      findModSources({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.events,
+        key: activeEventAssetId,
+      }),
+    [activeEventAssetId, modIndex.mods],
+  )
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
@@ -149,6 +174,23 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
     }
   }, [activeEventAsset, directoryInfo?.rootPath, locale])
 
+  useEffect(() => {
+    if (browserSourceMode !== 'mod') {
+      return
+    }
+
+    const nextAsset =
+      modEventGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.value.id === activeEventAssetId)?.value ??
+      modEventGroups[0]?.items[0]?.value ??
+      null
+
+    if (nextAsset && nextAsset.id !== activeEventAssetId) {
+      setActiveEventAssetId(nextAsset.id)
+    }
+  }, [activeEventAssetId, browserSourceMode, modEventGroups])
+
   function handleOpenEventAsset(asset: EventAssetSummary) {
     setActiveEventAssetId(asset.id)
   }
@@ -171,6 +213,10 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   return {
     eventAssets,
     filteredEventAssets,
+    browserSourceMode,
+    setBrowserSourceMode,
+    modEventGroups,
+    activeEventModSources,
     eventAssetFilter,
     setEventAssetFilter,
     activeEventAssetId,

@@ -16,6 +16,7 @@ import {
   type CharacterVisualAssetState,
   type CharacterWorkspaceEntry,
 } from './characterWorkspace'
+import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
 
 const MONSTER_DATA_ASSET_PATH = 'Content\\Data\\Monsters.xnb'
 
@@ -894,6 +895,7 @@ export function useCharacterWorkspace({
 }: UseCharacterWorkspaceOptions) {
   const [characters, setCharacters] = useState<CharacterWorkspaceEntry[]>([])
   const [characterFilter, setCharacterFilter] = useState('')
+  const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null)
   const [activeVariantKey, setActiveVariantKey] = useState<string>('default')
   const [characterStatusMessage, setCharacterStatusMessage] = useState('')
@@ -911,11 +913,34 @@ export function useCharacterWorkspace({
     springObjectsSheetWidth: null,
     springObjectsSheetHeight: null,
   })
+  const { modIndex } = useModAssetIndex(directoryInfo)
 
   const deferredFilter = useDeferredValue(characterFilter.trim().toLowerCase())
   const filteredCharacters = useMemo(
     () => characters.filter((character) => !deferredFilter || character.searchText.includes(deferredFilter)),
     [characters, deferredFilter],
+  )
+  const characterLookup = useMemo(() => buildModEntryLookup(characters, (character) => character.key), [characters])
+  const modCharacterGroups = useMemo(
+    () =>
+      buildModBrowserGroups({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.characters,
+        entryLookup: characterLookup,
+        filterText: characterFilter,
+        getSearchText: (character) => character.searchText,
+        getFallbackLabel: (character) => character.displayName,
+      }),
+    [characterFilter, characterLookup, modIndex.mods],
+  )
+  const activeCharacterModSources = useMemo(
+    () =>
+      findModSources({
+        mods: modIndex.mods,
+        selectReferences: (group) => group.characters,
+        key: activeCharacterId,
+      }),
+    [activeCharacterId, modIndex.mods],
   )
   const activeCharacter = characters.find((character) => character.key === activeCharacterId) ?? filteredCharacters[0] ?? characters[0] ?? null
   const activeVariant =
@@ -991,6 +1016,23 @@ export function useCharacterWorkspace({
       activeCharacter.variants.some((variant) => variant.key === current) ? current : activeCharacter.variants[0]?.key ?? 'default',
     )
   }, [activeCharacter])
+
+  useEffect(() => {
+    if (browserSourceMode !== 'mod') {
+      return
+    }
+
+    const nextCharacter =
+      modCharacterGroups
+        .flatMap((group) => group.items)
+        .find((item) => item.value.key === activeCharacterId)?.value ??
+      modCharacterGroups[0]?.items[0]?.value ??
+      null
+
+    if (nextCharacter && nextCharacter.key !== activeCharacterId) {
+      setActiveCharacterId(nextCharacter.key)
+    }
+  }, [activeCharacterId, browserSourceMode, modCharacterGroups])
 
   useEffect(() => {
     if (!enableVisualAssets) {
@@ -1097,6 +1139,10 @@ export function useCharacterWorkspace({
   return {
     characters,
     filteredCharacters,
+    browserSourceMode,
+    setBrowserSourceMode,
+    modCharacterGroups,
+    activeCharacterModSources,
     characterFilter,
     setCharacterFilter,
     activeCharacterId: activeCharacter?.key ?? null,

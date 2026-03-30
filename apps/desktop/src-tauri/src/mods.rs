@@ -1,0 +1,1526 @@
+﻿use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::pathing::{clean_input_path, normalize_path};
+
+const CONTENT_PATCHER_UNIQUE_ID: &str = "Pathoschild.ContentPatcher";
+const SKIPPED_SCAN_DIRECTORIES: &[&str] = &[
+    ".git",
+    ".hg",
+    ".svn",
+    ".idea",
+    ".vs",
+    "__MACOSX",
+    "node_modules",
+    "target",
+    "bin",
+    "obj",
+];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModProjectSummary {
+    pub id: String,
+    pub name: String,
+    pub author: Option<String>,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub unique_id: Option<String>,
+    pub content_pack_for: Option<String>,
+    pub folder_name: String,
+    pub absolute_path: String,
+    pub manifest_path: String,
+    pub content_path: Option<String>,
+    pub plugin_kind: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModProjectDiagnostic {
+    pub severity: String,
+    pub message: String,
+    pub field: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherPatchSummary {
+    pub id: String,
+    pub index: usize,
+    pub action: String,
+    pub target: String,
+    pub from_file: Option<String>,
+    pub log_name: String,
+    pub when_keys: Vec<String>,
+    pub has_when: bool,
+    pub update_keys: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherProjectData {
+    pub manifest_path: String,
+    pub content_path: String,
+    pub manifest_json: String,
+    pub content_json: String,
+    pub format: Option<String>,
+    pub change_count: usize,
+    pub include_count: usize,
+    pub dynamic_token_count: usize,
+    pub config_keys: Vec<String>,
+    pub has_i18n: bool,
+    pub patches: Vec<ContentPatcherPatchSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModProjectDetail {
+    pub plugin_kind: String,
+    pub capabilities: Vec<String>,
+    pub summary: ModProjectSummary,
+    pub diagnostics: Vec<ModProjectDiagnostic>,
+    pub content_patcher: Option<ContentPatcherProjectData>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveModProjectRequest {
+    pub source_path: String,
+    pub output_path: Option<String>,
+    pub manifest_json: String,
+    pub content_json: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveModProjectResult {
+    pub plugin_kind: String,
+    pub target_path: String,
+    pub manifest_path: String,
+    pub content_path: String,
+    pub diagnostics: Vec<ModProjectDiagnostic>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModAssetReference {
+    pub key: String,
+    pub label: String,
+    pub targets: Vec<String>,
+    pub patch_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModAssetIndexGroup {
+    pub mod_id: String,
+    pub mod_name: String,
+    pub mod_path: String,
+    pub plugin_kind: String,
+    pub maps: Vec<ModAssetReference>,
+    pub events: Vec<ModAssetReference>,
+    pub characters: Vec<ModAssetReference>,
+    pub buildings: Vec<ModAssetReference>,
+    pub items: Vec<ModAssetReference>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ModAssetIndex {
+    pub mods: Vec<ModAssetIndexGroup>,
+}
+
+#[derive(Debug, Default)]
+struct ModAssetReferenceAccumulator {
+    label: String,
+    targets: BTreeSet<String>,
+    patch_ids: BTreeSet<String>,
+}
+
+#[derive(Debug, Default)]
+struct ModAssetGroupAccumulator {
+    maps: BTreeMap<String, ModAssetReferenceAccumulator>,
+    events: BTreeMap<String, ModAssetReferenceAccumulator>,
+    characters: BTreeMap<String, ModAssetReferenceAccumulator>,
+    buildings: BTreeMap<String, ModAssetReferenceAccumulator>,
+    items: BTreeMap<String, ModAssetReferenceAccumulator>,
+}
+
+fn string_field(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn string_array_field(value: &Value, key: &str) -> Vec<String> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn object_field<'a>(value: &'a Value, key: &str) -> Option<&'a Map<String, Value>> {
+    value.get(key).and_then(Value::as_object)
+}
+
+fn array_field<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
+    value.get(key).and_then(Value::as_array)
+}
+
+fn content_pack_for_unique_id(manifest: &Value) -> Option<String> {
+    object_field(manifest, "ContentPackFor")
+        .and_then(|pack| pack.get("UniqueID"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn is_content_patcher_manifest(manifest: &Value) -> bool {
+    content_pack_for_unique_id(manifest)
+        .is_some_and(|value| value.eq_ignore_ascii_case(CONTENT_PATCHER_UNIQUE_ID))
+}
+
+fn discover_mods_root(path: &Path) -> PathBuf {
+    let mods_root = path.join("Mods");
+    if mods_root.is_dir() {
+        mods_root
+    } else {
+        path.to_path_buf()
+    }
+}
+
+fn should_skip_scan_dir(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+        return false;
+    };
+
+    name.starts_with('.') || SKIPPED_SCAN_DIRECTORIES.iter().any(|candidate| name.eq_ignore_ascii_case(candidate))
+}
+
+fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String> {
+    let scan_root = discover_mods_root(path);
+    if !scan_root.exists() {
+        return Ok(Vec::new());
+    }
+
+    let mut pending = vec![scan_root.clone()];
+    let mut discovered = BTreeSet::new();
+
+    while let Some(current_dir) = pending.pop() {
+        if current_dir.join("manifest.json").is_file() {
+            discovered.insert(normalize_path(&current_dir));
+        }
+
+        let entries = fs::read_dir(&current_dir)
+            .map_err(|error| format!("Failed to read mods directory {}: {error}", normalize_path(&current_dir)))?;
+
+        for entry in entries {
+            let entry = entry.map_err(|error| format!("Failed to inspect mods directory entry: {error}"))?;
+            let entry_path = entry.path();
+            if !entry_path.is_dir() || should_skip_scan_dir(&entry_path) {
+                continue;
+            }
+
+            pending.push(entry_path);
+        }
+    }
+
+    Ok(discovered.into_iter().map(PathBuf::from).collect())
+}
+
+fn strip_json_comments(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut in_line_comment = false;
+    let mut in_block_comment = false;
+
+    while let Some(ch) = chars.next() {
+        if in_line_comment {
+            if ch == '\n' {
+                in_line_comment = false;
+                output.push(ch);
+            }
+            continue;
+        }
+
+        if in_block_comment {
+            if ch == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                in_block_comment = false;
+            }
+            continue;
+        }
+
+        if in_string {
+            output.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        if ch == '"' {
+            in_string = true;
+            output.push(ch);
+            continue;
+        }
+
+        if ch == '/' {
+            match chars.peek() {
+                Some('/') => {
+                    chars.next();
+                    in_line_comment = true;
+                    continue;
+                }
+                Some('*') => {
+                    chars.next();
+                    in_block_comment = true;
+                    continue;
+                }
+                _ => {}
+            }
+        }
+
+        output.push(ch);
+    }
+
+    output
+}
+
+fn strip_trailing_commas(input: &str) -> String {
+    let mut output = String::with_capacity(input.len());
+    let chars = input.chars().collect::<Vec<_>>();
+    let mut index = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    while index < chars.len() {
+        let ch = chars[index];
+
+        if in_string {
+            output.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            index += 1;
+            continue;
+        }
+
+        if ch == '"' {
+            in_string = true;
+            output.push(ch);
+            index += 1;
+            continue;
+        }
+
+        if ch == ',' {
+            let mut look_ahead = index + 1;
+            while look_ahead < chars.len() && chars[look_ahead].is_whitespace() {
+                look_ahead += 1;
+            }
+
+            if look_ahead < chars.len() && matches!(chars[look_ahead], '}' | ']') {
+                index += 1;
+                continue;
+            }
+        }
+
+        output.push(ch);
+        index += 1;
+    }
+
+    output
+}
+
+fn parse_json_relaxed(raw: &str, path: &Path) -> Result<Value, String> {
+    serde_json::from_str::<Value>(raw).or_else(|primary_error| {
+        let sanitized = strip_trailing_commas(&strip_json_comments(raw));
+        serde_json::from_str::<Value>(&sanitized).map_err(|secondary_error| {
+            format!(
+                "Failed to parse JSON file {}: {primary_error}; relaxed parse also failed: {secondary_error}",
+                normalize_path(path)
+            )
+        })
+    })
+}
+
+fn read_json_file(path: &Path) -> Result<(String, Value), String> {
+    let raw = fs::read_to_string(path)
+        .map_err(|error| format!("Failed to read JSON file {}: {error}", normalize_path(path)))?;
+    let value = parse_json_relaxed(&raw, path)?;
+    Ok((raw, value))
+}
+
+fn is_content_patcher_project(manifest: &Value, content: &Value) -> bool {
+    is_content_patcher_manifest(manifest) || array_field(content, "Changes").is_some()
+}
+
+fn build_patch_summary(index: usize, patch: &Map<String, Value>) -> ContentPatcherPatchSummary {
+    let action = patch
+        .get("Action")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Unknown")
+        .to_string();
+    let target = match patch.get("Target") {
+        Some(Value::String(value)) => value.trim().to_string(),
+        Some(Value::Array(values)) => values
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
+            .join(", "),
+        _ => String::new(),
+    };
+    let from_file = patch
+        .get("FromFile")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    let log_name = patch
+        .get("LogName")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| {
+            if target.is_empty() {
+                format!("{action} #{index}")
+            } else {
+                format!("{action} -> {target}")
+            }
+        });
+    let mut when_keys = object_field(&Value::Object(patch.clone()), "When")
+        .map(|when| when.keys().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    when_keys.sort();
+    let update_keys = string_array_field(&Value::Object(patch.clone()), "Update");
+
+    ContentPatcherPatchSummary {
+        id: format!("patch:{index}"),
+        index,
+        action,
+        target,
+        from_file,
+        log_name,
+        when_keys: when_keys.clone(),
+        has_when: !when_keys.is_empty(),
+        update_keys,
+    }
+}
+
+fn collect_patch_summaries(content: &Value) -> Vec<ContentPatcherPatchSummary> {
+    array_field(content, "Changes")
+        .map(|changes| {
+            changes
+                .iter()
+                .enumerate()
+                .filter_map(|(index, change)| change.as_object().map(|patch| build_patch_summary(index, patch)))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn build_diagnostics(manifest: &Value, content: &Value, is_cp: bool) -> Vec<ModProjectDiagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for field in ["Name", "Author", "Version", "UniqueID"] {
+        if string_field(manifest, field).is_none() {
+            diagnostics.push(ModProjectDiagnostic {
+                severity: "warning".to_string(),
+                message: format!("manifest.json is missing {field}."),
+                field: Some(format!("manifest.{field}")),
+            });
+        }
+    }
+
+    if !is_cp {
+        diagnostics.push(ModProjectDiagnostic {
+            severity: "error".to_string(),
+            message: "This project is not recognized as a Content Patcher content pack yet.".to_string(),
+            field: Some("manifest.ContentPackFor".to_string()),
+        });
+        return diagnostics;
+    }
+
+    if content_pack_for_unique_id(manifest).is_none() {
+        diagnostics.push(ModProjectDiagnostic {
+            severity: "warning".to_string(),
+            message: "manifest.json does not declare ContentPackFor.UniqueID. Detection fell back to content.json structure.".to_string(),
+            field: Some("manifest.ContentPackFor".to_string()),
+        });
+    }
+
+    if string_field(content, "Format").is_none() {
+        diagnostics.push(ModProjectDiagnostic {
+            severity: "warning".to_string(),
+            message: "content.json is missing Format.".to_string(),
+            field: Some("content.Format".to_string()),
+        });
+    }
+
+    let Some(changes) = array_field(content, "Changes") else {
+        diagnostics.push(ModProjectDiagnostic {
+            severity: "error".to_string(),
+            message: "content.json is missing a Changes array.".to_string(),
+            field: Some("content.Changes".to_string()),
+        });
+        return diagnostics;
+    };
+
+    if changes.is_empty() {
+        diagnostics.push(ModProjectDiagnostic {
+            severity: "warning".to_string(),
+            message: "content.json has an empty Changes array.".to_string(),
+            field: Some("content.Changes".to_string()),
+        });
+    }
+
+    for (index, change) in changes.iter().enumerate() {
+        let Some(patch) = change.as_object() else {
+            diagnostics.push(ModProjectDiagnostic {
+                severity: "warning".to_string(),
+                message: format!("Patch #{index} is not a JSON object."),
+                field: Some(format!("content.Changes[{index}]")),
+            });
+            continue;
+        };
+
+        if patch
+            .get("Action")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none()
+        {
+            diagnostics.push(ModProjectDiagnostic {
+                severity: "warning".to_string(),
+                message: format!("Patch #{index} is missing Action."),
+                field: Some(format!("content.Changes[{index}].Action")),
+            });
+        }
+
+        if patch.get("Target").is_none() {
+            diagnostics.push(ModProjectDiagnostic {
+                severity: "warning".to_string(),
+                message: format!("Patch #{index} is missing Target."),
+                field: Some(format!("content.Changes[{index}].Target")),
+            });
+        }
+    }
+
+    diagnostics
+}
+
+fn project_name_from_manifest(manifest: &Value, project_path: &Path) -> String {
+    string_field(manifest, "Name")
+        .or_else(|| project_path.file_name().and_then(|value| value.to_str()).map(ToOwned::to_owned))
+        .unwrap_or_else(|| "Unnamed Mod".to_string())
+}
+
+fn build_project_summary(project_path: &Path, manifest_path: &Path, manifest: &Value, content_path: Option<&Path>, content: Option<&Value>) -> ModProjectSummary {
+    let is_cp = is_content_patcher_manifest(manifest) || content.is_some_and(|content| is_content_patcher_project(manifest, content));
+    let folder_name = project_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_string();
+
+    ModProjectSummary {
+        id: normalize_path(project_path).replace('\\', "/"),
+        name: project_name_from_manifest(manifest, project_path),
+        author: string_field(manifest, "Author"),
+        version: string_field(manifest, "Version"),
+        description: string_field(manifest, "Description"),
+        unique_id: string_field(manifest, "UniqueID"),
+        content_pack_for: content_pack_for_unique_id(manifest),
+        folder_name,
+        absolute_path: normalize_path(project_path),
+        manifest_path: normalize_path(manifest_path),
+        content_path: content_path.map(normalize_path),
+        plugin_kind: if is_cp { "content-patcher" } else { "unknown" }.to_string(),
+        status: if is_cp { "ready" } else { "unsupported" }.to_string(),
+    }
+}
+
+fn build_content_patcher_data(manifest_path: &Path, content_path: &Path, manifest_json: String, content_json: String, content: &Value) -> ContentPatcherProjectData {
+    let config_keys = object_field(content, "ConfigSchema")
+        .map(|schema| {
+            let mut keys = schema.keys().cloned().collect::<Vec<_>>();
+            keys.sort();
+            keys
+        })
+        .unwrap_or_default();
+
+    ContentPatcherProjectData {
+        manifest_path: normalize_path(manifest_path),
+        content_path: normalize_path(content_path),
+        manifest_json,
+        content_json,
+        format: string_field(content, "Format"),
+        change_count: array_field(content, "Changes").map(Vec::len).unwrap_or_default(),
+        include_count: array_field(content, "Include").map(Vec::len).unwrap_or_default(),
+        dynamic_token_count: array_field(content, "DynamicTokens").map(Vec::len).unwrap_or_default(),
+        config_keys,
+        has_i18n: content_path.parent().is_some_and(|parent| parent.join("i18n").is_dir()),
+        patches: collect_patch_summaries(content),
+    }
+}
+
+fn target_values(patch: &Map<String, Value>) -> Vec<String> {
+    match patch.get("Target") {
+        Some(Value::String(value)) => value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+        Some(Value::Array(values)) => values
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn normalize_target_path(value: &str) -> String {
+    let normalized = value.trim().replace('\\', "/");
+    normalized.strip_prefix("Content/").unwrap_or(&normalized).to_string()
+}
+
+fn build_content_asset_key(target: &str) -> String {
+    format!("Content/{}.xnb", normalize_target_path(target))
+}
+
+fn target_leaf_name(target: &str) -> String {
+    let normalized = normalize_target_path(target);
+    normalized
+        .rsplit('/')
+        .next()
+        .filter(|value| !value.is_empty())
+        .unwrap_or(&normalized)
+        .to_string()
+}
+
+fn normalize_item_reference_key(raw_key: &str, prefix: &str) -> String {
+    let trimmed = raw_key.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    if trimmed.starts_with('(') {
+        trimmed.to_string()
+    } else {
+        format!("{prefix}{trimmed}")
+    }
+}
+
+fn add_mod_asset_reference(
+    collection: &mut BTreeMap<String, ModAssetReferenceAccumulator>,
+    key: String,
+    label: String,
+    target: &str,
+    patch_id: &str,
+) {
+    if key.trim().is_empty() {
+        return;
+    }
+
+    let entry = collection.entry(key).or_insert_with(|| ModAssetReferenceAccumulator {
+        label: label.clone(),
+        ..ModAssetReferenceAccumulator::default()
+    });
+    if entry.label.trim().is_empty() {
+        entry.label = label;
+    }
+    entry.targets.insert(normalize_target_path(target));
+    entry.patch_ids.insert(patch_id.to_string());
+}
+
+fn content_patcher_item_prefix(target: &str) -> Option<&'static str> {
+    let normalized = normalize_target_path(target).to_ascii_lowercase();
+    match normalized.as_str() {
+        "data/objects" | "data/crops" | "data/fish" => Some("(O)"),
+        "data/bigcraftables" => Some("(BC)"),
+        "data/weapons" => Some("(W)"),
+        "data/tools" => Some("(T)"),
+        "data/shirts" => Some("(S)"),
+        "data/pants" => Some("(P)"),
+        "data/trinkets" => Some("(TR)"),
+        "data/hats" => Some("(H)"),
+        "data/boots" => Some("(B)"),
+        "data/furniture" => Some("(F)"),
+        _ => None,
+    }
+}
+
+fn collect_content_patcher_target_references(
+    target: &str,
+    patch: &Map<String, Value>,
+    patch_id: &str,
+    accumulator: &mut ModAssetGroupAccumulator,
+) {
+    let normalized_target = normalize_target_path(target);
+    let normalized_target_lower = normalized_target.to_ascii_lowercase();
+
+    if normalized_target_lower.starts_with("maps/") {
+        let label = target_leaf_name(&normalized_target);
+        add_mod_asset_reference(
+            &mut accumulator.maps,
+            build_content_asset_key(&normalized_target),
+            label,
+            &normalized_target,
+            patch_id,
+        );
+        return;
+    }
+
+    if normalized_target_lower.starts_with("data/events/") {
+        let label = target_leaf_name(&normalized_target);
+        add_mod_asset_reference(
+            &mut accumulator.events,
+            build_content_asset_key(&normalized_target),
+            label,
+            &normalized_target,
+            patch_id,
+        );
+        return;
+    }
+
+    if normalized_target_lower == "data/characters" {
+        if let Some(entries) = object_field(&Value::Object(patch.clone()), "Entries") {
+            for key in entries.keys() {
+                let key = key.trim();
+                add_mod_asset_reference(
+                    &mut accumulator.characters,
+                    key.to_string(),
+                    key.to_string(),
+                    &normalized_target,
+                    patch_id,
+                );
+            }
+        }
+        return;
+    }
+
+    if normalized_target_lower.starts_with("characters/") || normalized_target_lower.starts_with("portraits/") {
+        let key = target_leaf_name(&normalized_target);
+        add_mod_asset_reference(
+            &mut accumulator.characters,
+            key.clone(),
+            key,
+            &normalized_target,
+            patch_id,
+        );
+        return;
+    }
+
+    if normalized_target_lower == "data/buildings" {
+        if let Some(entries) = object_field(&Value::Object(patch.clone()), "Entries") {
+            for key in entries.keys() {
+                let key = key.trim();
+                add_mod_asset_reference(
+                    &mut accumulator.buildings,
+                    key.to_string(),
+                    key.to_string(),
+                    &normalized_target,
+                    patch_id,
+                );
+            }
+        }
+        return;
+    }
+
+    if normalized_target_lower.starts_with("buildings/") {
+        let key = target_leaf_name(&normalized_target);
+        add_mod_asset_reference(
+            &mut accumulator.buildings,
+            key.clone(),
+            key,
+            &normalized_target,
+            patch_id,
+        );
+        return;
+    }
+
+    let Some(item_prefix) = content_patcher_item_prefix(&normalized_target) else {
+        return;
+    };
+
+    if let Some(entries) = object_field(&Value::Object(patch.clone()), "Entries") {
+        for key in entries.keys() {
+            let normalized_key = normalize_item_reference_key(key, item_prefix);
+            if normalized_key.is_empty() {
+                continue;
+            }
+
+            add_mod_asset_reference(
+                &mut accumulator.items,
+                normalized_key.clone(),
+                normalized_key,
+                &normalized_target,
+                patch_id,
+            );
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct FlattenedContentPatcherPatch {
+    id: String,
+    patch: Map<String, Value>,
+}
+
+fn merge_when_conditions(parent_when: Option<&Map<String, Value>>, patch: &mut Map<String, Value>) {
+    let Some(parent_when) = parent_when else {
+        return;
+    };
+    if parent_when.is_empty() {
+        return;
+    }
+
+    let mut merged_when = parent_when.clone();
+    if let Some(existing_when) = patch.get("When").and_then(Value::as_object) {
+        for (key, value) in existing_when {
+            merged_when.insert(key.clone(), value.clone());
+        }
+    }
+
+    patch.insert("When".to_string(), Value::Object(merged_when));
+}
+
+fn combine_when_conditions(
+    parent_when: Option<&Map<String, Value>>,
+    current_when: Option<&Map<String, Value>>,
+) -> Option<Map<String, Value>> {
+    match (parent_when, current_when) {
+        (None, None) => None,
+        (Some(parent), None) => Some(parent.clone()),
+        (None, Some(current)) => Some(current.clone()),
+        (Some(parent), Some(current)) => {
+            let mut combined = parent.clone();
+            for (key, value) in current {
+                combined.insert(key.clone(), value.clone());
+            }
+            Some(combined)
+        }
+    }
+}
+
+fn collect_flattened_content_patcher_patches(
+    content: &Value,
+    base_dir: &Path,
+    source_label: &str,
+    inherited_when: Option<Map<String, Value>>,
+    include_stack: &mut Vec<String>,
+) -> Vec<FlattenedContentPatcherPatch> {
+    let mut patches = Vec::new();
+
+    for (index, change) in array_field(content, "Changes")
+        .into_iter()
+        .flat_map(|changes| changes.iter().enumerate())
+    {
+        let Some(patch_object) = change.as_object() else {
+            continue;
+        };
+
+        let action = patch_object
+            .get("Action")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .unwrap_or_default();
+
+        if action.eq_ignore_ascii_case("Include") {
+            let Some(from_file) = patch_object
+                .get("FromFile")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
+                continue;
+            };
+
+            if from_file.contains("{{") {
+                continue;
+            }
+
+            let include_path = base_dir.join(from_file.replace('\\', "/"));
+            let include_key = normalize_path(&include_path).to_ascii_lowercase();
+            if include_stack.contains(&include_key) {
+                continue;
+            }
+
+            let included_content = match read_json_file(&include_path) {
+                Ok((_, included_content)) => included_content,
+                Err(error) => {
+                    log::warn!("{error}");
+                    continue;
+                }
+            };
+
+            let inherited = combine_when_conditions(
+                inherited_when.as_ref(),
+                patch_object.get("When").and_then(Value::as_object),
+            );
+            let next_source_label = format!("{source_label}->{from_file}");
+            include_stack.push(include_key);
+            patches.extend(collect_flattened_content_patcher_patches(
+                &included_content,
+                include_path.parent().unwrap_or(base_dir),
+                &next_source_label,
+                inherited,
+                include_stack,
+            ));
+            include_stack.pop();
+            continue;
+        }
+
+        let mut patch = patch_object.clone();
+        merge_when_conditions(inherited_when.as_ref(), &mut patch);
+        patches.push(FlattenedContentPatcherPatch {
+            id: format!("{source_label}:{index}"),
+            patch,
+        });
+    }
+
+    patches
+}
+
+fn finalize_mod_asset_references(collection: BTreeMap<String, ModAssetReferenceAccumulator>) -> Vec<ModAssetReference> {
+    collection
+        .into_iter()
+        .map(|(key, entry)| ModAssetReference {
+            key,
+            label: if entry.label.trim().is_empty() { String::new() } else { entry.label },
+            targets: entry.targets.into_iter().collect(),
+            patch_ids: entry.patch_ids.into_iter().collect(),
+        })
+        .collect()
+}
+
+fn build_mod_asset_index_group(project_path: &Path, manifest: &Value, content: &Value) -> Option<ModAssetIndexGroup> {
+    if !is_content_patcher_project(manifest, content) {
+        return None;
+    }
+
+    let mut accumulator = ModAssetGroupAccumulator::default();
+    let mut include_stack = Vec::new();
+    let flattened_patches =
+        collect_flattened_content_patcher_patches(content, project_path, "content.json", None, &mut include_stack);
+    for flattened_patch in flattened_patches {
+        for target in target_values(&flattened_patch.patch) {
+            collect_content_patcher_target_references(&target, &flattened_patch.patch, &flattened_patch.id, &mut accumulator);
+        }
+    }
+
+    Some(ModAssetIndexGroup {
+        mod_id: string_field(manifest, "UniqueID").unwrap_or_else(|| normalize_path(project_path).replace('\\', "/")),
+        mod_name: project_name_from_manifest(manifest, project_path),
+        mod_path: normalize_path(project_path),
+        plugin_kind: "content-patcher".to_string(),
+        maps: finalize_mod_asset_references(accumulator.maps),
+        events: finalize_mod_asset_references(accumulator.events),
+        characters: finalize_mod_asset_references(accumulator.characters),
+        buildings: finalize_mod_asset_references(accumulator.buildings),
+        items: finalize_mod_asset_references(accumulator.items),
+    })
+}
+
+fn content_patcher_capabilities() -> Vec<String> {
+    ["import", "edit", "save", "export", "validate"]
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn ensure_project_root(path: &Path) -> Result<PathBuf, String> {
+    if path.join("manifest.json").is_file() {
+        return Ok(path.to_path_buf());
+    }
+
+    Err(format!("No manifest.json was found in {}", normalize_path(path)))
+}
+
+fn remove_dir_contents(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(path)
+        .map_err(|error| format!("Failed to read target directory {}: {error}", normalize_path(path)))?
+    {
+        let entry = entry.map_err(|error| format!("Failed to inspect target directory entry: {error}"))?;
+        let entry_path = entry.path();
+        if entry_path.is_dir() {
+            fs::remove_dir_all(&entry_path)
+                .map_err(|error| format!("Failed to remove directory {}: {error}", normalize_path(&entry_path)))?;
+        } else {
+            fs::remove_file(&entry_path)
+                .map_err(|error| format!("Failed to remove file {}: {error}", normalize_path(&entry_path)))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
+    fs::create_dir_all(target)
+        .map_err(|error| format!("Failed to create directory {}: {error}", normalize_path(target)))?;
+
+    for entry in fs::read_dir(source)
+        .map_err(|error| format!("Failed to read source directory {}: {error}", normalize_path(source)))?
+    {
+        let entry = entry.map_err(|error| format!("Failed to inspect source directory entry: {error}"))?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_dir_recursive(&source_path, &target_path)?;
+        } else {
+            fs::copy(&source_path, &target_path).map_err(|error| {
+                format!(
+                    "Failed to copy {} to {}: {error}",
+                    normalize_path(&source_path),
+                    normalize_path(&target_path)
+                )
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, String> {
+    let root = clean_input_path(&root_path);
+    let project_roots = discover_project_roots(&root)?;
+    if project_roots.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut projects = Vec::new();
+    for project_path in project_roots {
+        let manifest_path = project_path.join("manifest.json");
+        let manifest = match read_json_file(&manifest_path) {
+            Ok((_, manifest)) => manifest,
+            Err(error) => {
+                log::warn!("{error}");
+                continue;
+            }
+        };
+        let content_path = project_path.join("content.json");
+        let content = if content_path.is_file() {
+            match read_json_file(&content_path) {
+                Ok((_, content)) => Some(content),
+                Err(error) => {
+                    log::warn!("{error}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        projects.push(build_project_summary(
+            &project_path,
+            &manifest_path,
+            &manifest,
+            content_path.is_file().then_some(content_path.as_path()),
+            content.as_ref(),
+        ));
+    }
+
+    projects.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.absolute_path.cmp(&right.absolute_path)));
+    Ok(projects)
+}
+
+#[tauri::command]
+pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> {
+    let root = clean_input_path(&root_path);
+    let project_roots = discover_project_roots(&root)?;
+    let mut mods = Vec::new();
+
+    for project_path in project_roots {
+        let manifest_path = project_path.join("manifest.json");
+        let content_path = project_path.join("content.json");
+        if !content_path.is_file() {
+            continue;
+        }
+
+        let manifest = match read_json_file(&manifest_path) {
+            Ok((_, manifest)) => manifest,
+            Err(error) => {
+                log::warn!("{error}");
+                continue;
+            }
+        };
+        let content = match read_json_file(&content_path) {
+            Ok((_, content)) => content,
+            Err(error) => {
+                log::warn!("{error}");
+                continue;
+            }
+        };
+
+        if let Some(group) = build_mod_asset_index_group(&project_path, &manifest, &content) {
+            let has_entries = !group.maps.is_empty()
+                || !group.events.is_empty()
+                || !group.characters.is_empty()
+                || !group.buildings.is_empty()
+                || !group.items.is_empty();
+            if has_entries {
+                mods.push(group);
+            }
+        }
+    }
+
+    mods.sort_by(|left, right| left.mod_name.cmp(&right.mod_name).then_with(|| left.mod_path.cmp(&right.mod_path)));
+    Ok(ModAssetIndex { mods })
+}
+
+#[tauri::command]
+pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
+    let project_path = ensure_project_root(&clean_input_path(&path))?;
+    let manifest_path = project_path.join("manifest.json");
+    let content_path = project_path.join("content.json");
+    if !content_path.is_file() {
+        return Err(format!("No content.json was found in {}", normalize_path(&project_path)));
+    }
+
+    let (_manifest_json, manifest) = read_json_file(&manifest_path)?;
+    let (_content_json, content) = read_json_file(&content_path)?;
+    let is_cp = is_content_patcher_project(&manifest, &content);
+    let diagnostics = build_diagnostics(&manifest, &content, is_cp);
+    if !is_cp {
+        return Ok(ModProjectDetail {
+            plugin_kind: "unknown".to_string(),
+            capabilities: Vec::new(),
+            summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), Some(&content)),
+            diagnostics,
+            content_patcher: None,
+        });
+    }
+
+    Ok(ModProjectDetail {
+        plugin_kind: "content-patcher".to_string(),
+        capabilities: content_patcher_capabilities(),
+        summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), Some(&content)),
+        diagnostics,
+        content_patcher: Some(build_content_patcher_data(
+            &manifest_path,
+            &content_path,
+            serde_json::to_string_pretty(&manifest).map_err(|error| format!("Failed to serialize manifest.json: {error}"))?,
+            serde_json::to_string_pretty(&content).map_err(|error| format!("Failed to serialize content.json: {error}"))?,
+            &content,
+        )),
+    })
+}
+
+#[tauri::command]
+pub fn save_mod_project(request: SaveModProjectRequest) -> Result<SaveModProjectResult, String> {
+    let source_path = ensure_project_root(&clean_input_path(&request.source_path))?;
+    let target_path = request
+        .output_path
+        .as_deref()
+        .map(clean_input_path)
+        .filter(|path| !normalize_path(path).trim().is_empty())
+        .unwrap_or_else(|| source_path.clone());
+
+    let manifest: Value = serde_json::from_str(&request.manifest_json)
+        .map_err(|error| format!("manifest.json is not valid JSON: {error}"))?;
+    let content: Value = serde_json::from_str(&request.content_json)
+        .map_err(|error| format!("content.json is not valid JSON: {error}"))?;
+    let is_cp = is_content_patcher_project(&manifest, &content);
+    let diagnostics = build_diagnostics(&manifest, &content, is_cp);
+    if !is_cp {
+        return Err("Only Content Patcher projects can be saved right now.".to_string());
+    }
+
+    let normalized_source = normalize_path(&source_path).to_ascii_lowercase();
+    let normalized_target = normalize_path(&target_path).to_ascii_lowercase();
+    let source_is_target = normalized_source == normalized_target;
+
+    if !source_is_target {
+        if normalized_target.starts_with(&(normalized_source.clone() + "\\")) || normalized_target.starts_with(&(normalized_source + "/")) {
+            return Err("Export target cannot be nested inside the source mod directory.".to_string());
+        }
+
+        fs::create_dir_all(&target_path)
+            .map_err(|error| format!("Failed to create export directory {}: {error}", normalize_path(&target_path)))?;
+        remove_dir_contents(&target_path)?;
+        copy_dir_recursive(&source_path, &target_path)?;
+    }
+
+    let manifest_path = target_path.join("manifest.json");
+    let content_path = target_path.join("content.json");
+    let manifest_pretty = serde_json::to_string_pretty(&manifest)
+        .map_err(|error| format!("Failed to format manifest.json: {error}"))?;
+    let content_pretty = serde_json::to_string_pretty(&content)
+        .map_err(|error| format!("Failed to format content.json: {error}"))?;
+
+    fs::write(&manifest_path, format!("{manifest_pretty}\n"))
+        .map_err(|error| format!("Failed to write {}: {error}", normalize_path(&manifest_path)))?;
+    fs::write(&content_path, format!("{content_pretty}\n"))
+        .map_err(|error| format!("Failed to write {}: {error}", normalize_path(&content_path)))?;
+
+    Ok(SaveModProjectResult {
+        plugin_kind: "content-patcher".to_string(),
+        target_path: normalize_path(&target_path),
+        manifest_path: normalize_path(&manifest_path),
+        content_path: normalize_path(&content_path),
+        diagnostics,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects, SaveModProjectRequest};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn create_temp_dir(name: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("modforge-mods-{name}-{unique}"));
+        fs::create_dir_all(&path).expect("create temp dir");
+        path
+    }
+
+    fn write_file(path: &PathBuf, content: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("create parent");
+        }
+        fs::write(path, content).expect("write file");
+    }
+
+    fn sample_manifest() -> &'static str {
+        r#"{
+  "Name": "Example Pack",
+  "Author": "ModForge",
+  "Version": "1.0.0",
+  "Description": "Test content pack",
+  "UniqueID": "ModForge.ExamplePack",
+  "ContentPackFor": {
+    "UniqueID": "Pathoschild.ContentPatcher",
+    "MinimumVersion": "2.0.0"
+  }
+}"#
+    }
+
+    fn sample_content() -> &'static str {
+        r#"{
+  "Format": "2.0.0",
+  "ConfigSchema": {
+    "EnableAltArt": {
+      "AllowValues": "true, false",
+      "Default": "false"
+    }
+  },
+  "DynamicTokens": [
+    {
+      "Name": "FestivalMode",
+      "Value": "false"
+    }
+  ],
+  "Changes": [
+    {
+      "LogName": "Portrait Swap",
+      "Action": "Load",
+      "Target": "Portraits/Abigail",
+      "FromFile": "assets/abigail.png",
+      "When": {
+        "Season": "spring"
+      }
+    },
+    {
+      "Action": "EditData",
+      "Target": "Data/Objects"
+    }
+  ]
+}"#
+    }
+
+    fn sample_index_content() -> &'static str {
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "EditMap",
+      "Target": "Maps/Town"
+    },
+    {
+      "Action": "EditData",
+      "Target": "Data/Events/Town"
+    },
+    {
+      "Action": "Load",
+      "Target": [ "Characters/Abigail", "Portraits/Abigail" ]
+    },
+    {
+      "Action": "EditData",
+      "Target": "Data/Buildings",
+      "Entries": {
+        "Coop": {}
+      }
+    },
+    {
+      "Action": "EditData",
+      "Target": "Data/Objects",
+      "Entries": {
+        "24": {}
+      }
+    }
+  ]
+}"#
+    }
+
+    fn sample_relaxed_content() -> &'static str {
+        r#"{
+  "Format": "2.0.0",
+  // this comment is valid in real CP packs
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Maps/Town",
+      "FromFile": "assets/town.tmx",
+    },
+  ],
+}"#
+    }
+
+    fn sample_include_root_content() -> &'static str {
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "assets/patches/items.json"
+    }
+  ]
+}"#
+    }
+
+    fn sample_include_child_content() -> &'static str {
+        r#"{
+  "Changes": [
+    {
+      "Action": "EditData",
+      "Target": "Data/Objects",
+      "Entries": {
+        "24": {}
+      }
+    }
+  ]
+}"#
+    }
+
+    #[test]
+    fn scan_mod_projects_detects_content_patcher_pack() {
+        let root = create_temp_dir("scan");
+        let mods_root = root.join("Mods");
+        let project = mods_root.join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_content());
+
+        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].plugin_kind, "content-patcher");
+        assert_eq!(projects[0].name, "Example Pack");
+        assert_eq!(projects[0].content_pack_for.as_deref(), Some("Pathoschild.ContentPatcher"));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_mod_projects_recurses_into_nested_directories() {
+        let root = create_temp_dir("nested-scan");
+        let project = root.join("Mods").join("Author").join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_content());
+
+        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].absolute_path, project.to_string_lossy());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_mod_projects_skips_invalid_projects_without_failing() {
+        let root = create_temp_dir("broken-scan");
+        let broken_manifest_project = root.join("Mods").join("BrokenManifest");
+        let broken_content_project = root.join("Mods").join("BrokenContent");
+        let valid_project = root.join("Mods").join("ValidPack");
+
+        write_file(&broken_manifest_project.join("manifest.json"), "{ invalid");
+        write_file(&broken_content_project.join("manifest.json"), sample_manifest());
+        write_file(&broken_content_project.join("content.json"), "{ invalid");
+        write_file(&valid_project.join("manifest.json"), sample_manifest());
+        write_file(&valid_project.join("content.json"), sample_content());
+
+        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
+        assert_eq!(projects.len(), 2);
+        assert!(projects.iter().any(|project| project.absolute_path == valid_project.to_string_lossy()));
+        assert!(projects.iter().any(|project| project.absolute_path == broken_content_project.to_string_lossy()));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_mod_projects_accepts_mods_directory_as_input() {
+        let root = create_temp_dir("mods-root-input");
+        let mods_root = root.join("Mods");
+        let project = mods_root.join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_content());
+
+        let projects = scan_mod_projects(mods_root.to_string_lossy().into_owned()).expect("scan mods");
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].absolute_path, project.to_string_lossy());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_mod_projects_accepts_relaxed_json_content() {
+        let root = create_temp_dir("relaxed-json");
+        let project = root.join("Mods").join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_relaxed_content());
+
+        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].plugin_kind, "content-patcher");
+
+        let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load relaxed mod project");
+        assert_eq!(detail.plugin_kind, "content-patcher");
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn load_mod_project_returns_patch_summary_and_diagnostics() {
+        let root = create_temp_dir("load");
+        let project = root.join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_content());
+
+        let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
+        assert_eq!(detail.plugin_kind, "content-patcher");
+        assert_eq!(detail.capabilities.len(), 5);
+        let cp = detail.content_patcher.expect("content patcher payload");
+        assert_eq!(cp.change_count, 2);
+        assert_eq!(cp.dynamic_token_count, 1);
+        assert_eq!(cp.config_keys, vec!["EnableAltArt"]);
+        assert_eq!(cp.patches[0].log_name, "Portrait Swap");
+        assert_eq!(cp.patches[0].action, "Load");
+        assert_eq!(cp.patches[1].target, "Data/Objects");
+        assert!(detail.diagnostics.is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn save_mod_project_exports_and_preserves_other_files() {
+        let root = create_temp_dir("save");
+        let source = root.join("SourcePack");
+        let export = root.join("ExportPack");
+        write_file(&source.join("manifest.json"), sample_manifest());
+        write_file(&source.join("content.json"), sample_content());
+        write_file(&source.join("assets").join("abigail.png"), "png-data");
+        write_file(&source.join("i18n").join("default.json"), "{}");
+
+        let request = SaveModProjectRequest {
+            source_path: source.to_string_lossy().into_owned(),
+            output_path: Some(export.to_string_lossy().into_owned()),
+            manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
+            content_json: sample_content().replace("spring", "summer"),
+        };
+
+        let result = save_mod_project(request).expect("save mod project");
+        assert_eq!(result.plugin_kind, "content-patcher");
+        assert!(export.join("assets").join("abigail.png").is_file());
+        assert!(export.join("i18n").join("default.json").is_file());
+        let exported_manifest = fs::read_to_string(export.join("manifest.json")).expect("read manifest");
+        let exported_content = fs::read_to_string(export.join("content.json")).expect("read content");
+        assert!(exported_manifest.contains("Exported Pack"));
+        assert!(exported_content.contains("summer"));
+        assert_eq!(result.target_path, export.to_string_lossy());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_mod_asset_index_collects_content_patcher_targets() {
+        let root = create_temp_dir("asset-index");
+        let project = root.join("Mods").join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_index_content());
+
+        let index = scan_mod_asset_index(root.to_string_lossy().into_owned()).expect("scan asset index");
+        assert_eq!(index.mods.len(), 1);
+        let mod_group = &index.mods[0];
+        assert_eq!(mod_group.maps[0].key, "Content/Maps/Town.xnb");
+        assert_eq!(mod_group.events[0].key, "Content/Data/Events/Town.xnb");
+        assert_eq!(mod_group.characters[0].key, "Abigail");
+        assert_eq!(mod_group.buildings[0].key, "Coop");
+        assert_eq!(mod_group.items[0].key, "(O)24");
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn scan_mod_asset_index_collects_targets_from_include_files() {
+        let root = create_temp_dir("asset-index-include");
+        let project = root.join("Mods").join("ExamplePack");
+        write_file(&project.join("manifest.json"), sample_manifest());
+        write_file(&project.join("content.json"), sample_include_root_content());
+        write_file(
+            &project.join("assets").join("patches").join("items.json"),
+            sample_include_child_content(),
+        );
+
+        let index = scan_mod_asset_index(root.to_string_lossy().into_owned()).expect("scan asset index");
+        assert_eq!(index.mods.len(), 1);
+        let mod_group = &index.mods[0];
+        assert_eq!(mod_group.items.len(), 1);
+        assert_eq!(mod_group.items[0].key, "(O)24");
+        assert_eq!(mod_group.items[0].patch_ids, vec!["content.json->assets/patches/items.json:0"]);
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+}

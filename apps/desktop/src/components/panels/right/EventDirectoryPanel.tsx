@@ -1,16 +1,19 @@
 import { PanelFrame } from '../../ui/PanelFrame'
 import { cx } from '../../../lib/cx'
+import type { ModSourceEntry } from '../../../lib/app/modAssetIndex'
 import type { EventScript } from '../../../lib/events/types'
+import { ModSourceList } from '../../ui/ModSourceList'
 
 type EventDirectoryPanelProps = {
   locale: 'zh-CN' | 'en-US'
   events: EventScript[]
   selectedEventKey: string | null
   subtitle: string
+  modSources?: ModSourceEntry[]
   onSelectEvent: (eventKey: string) => void
 }
 
-export function EventDirectoryPanel({ locale, events, selectedEventKey, subtitle, onSelectEvent }: EventDirectoryPanelProps) {
+export function EventDirectoryPanel({ locale, events, selectedEventKey, subtitle, modSources = [], onSelectEvent }: EventDirectoryPanelProps) {
   const labels =
     locale === 'zh-CN'
       ? {
@@ -24,7 +27,14 @@ export function EventDirectoryPanel({ locale, events, selectedEventKey, subtitle
 
   return (
     <PanelFrame title={labels.title} subtitle={subtitle} bodyClassName="p-3">
-      <div className="max-h-[42vh] overflow-auto">
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Mod Sources</p>
+          <div className="mt-3">
+            <ModSourceList sources={modSources} />
+          </div>
+        </div>
+        <div className="max-h-[42vh] overflow-auto">
         {events.length ? (
           <div className="space-y-2">
             {events.map((event) => {
@@ -60,6 +70,7 @@ export function EventDirectoryPanel({ locale, events, selectedEventKey, subtitle
             {labels.empty}
           </div>
         )}
+        </div>
       </div>
     </PanelFrame>
   )

@@ -1,7 +1,9 @@
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
+import type { ModSourceEntry } from '../../../lib/app/modAssetIndex'
 import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
+import { ModSourceList } from '../../ui/ModSourceList'
 
 type BuildingInspectorPanelProps = {
   copy: BuildingsPanelCopy
@@ -11,6 +13,7 @@ type BuildingInspectorPanelProps = {
   textureState: BuildingTextureAssetState | null
   activeIndoorMapPath: string | null
   activeExteriorMapPath: string | null
+  modSources?: ModSourceEntry[]
 }
 
 function renderKv(label: string, value: string) {
@@ -38,6 +41,7 @@ export function BuildingInspectorPanel({
   textureState,
   activeIndoorMapPath,
   activeExteriorMapPath,
+  modSources = [],
 }: BuildingInspectorPanelProps) {
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
@@ -86,6 +90,10 @@ export function BuildingInspectorPanel({
                 {renderKv(copy.sourceRectLabel, formatRect(building.sourceRect, copy.noneLabel))}
                 {renderKv(copy.drawOffsetLabel, formatPoint(building.drawOffset, copy.noneLabel))}
                 {renderKv(copy.mapPathLabel, activeIndoorMapPath ?? building.indoorMapPathLabel)}
+            </PanelSection>
+
+            <PanelSection title="Mod Sources">
+              <ModSourceList sources={modSources} />
             </PanelSection>
           </>
         )}

@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { resolveDevServerPorts } from './devServerPorts'
 
 const host = process.env.TAURI_DEV_HOST ?? '127.0.0.1'
+const { port, hmrPort } = resolveDevServerPorts()
 
 export default defineConfig({
   clearScreen: false,
@@ -57,13 +59,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4510,
+    port,
     strictPort: true,
     host,
     hmr: {
       protocol: 'ws',
       host,
-      port: 4511,
+      port: hmrPort,
     },
   },
 })

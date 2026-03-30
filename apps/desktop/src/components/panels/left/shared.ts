@@ -1,4 +1,5 @@
 import type { GameDirectoryInfo, MapAssetSummary } from '../../../lib/desktop'
+import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
 import type { EditorCopy, WorkspaceMode } from '../../../lib/editor-shell'
 
 export type ProjectPanelProps = {
@@ -21,6 +22,9 @@ export type AssetBrowserPanelProps = {
   copy: EditorCopy
   mapAssets: MapAssetSummary[]
   filteredAssets: MapAssetSummary[]
+  browserSourceMode: BrowserSourceMode
+  onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modMapGroups: ModBrowserGroup<MapAssetSummary>[]
   activeMapId: string | null
   assetFilter: string
   onAssetFilterChange: (value: string) => void

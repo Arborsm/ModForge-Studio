@@ -141,6 +141,29 @@ export type SaveModProjectResult = {
   diagnostics: ModProjectDiagnostic[]
 }
 
+export type ModAssetReference = {
+  key: string
+  label: string
+  targets: string[]
+  patchIds: string[]
+}
+
+export type ModAssetIndexGroup = {
+  modId: string
+  modName: string
+  modPath: string
+  pluginKind: PluginKind
+  maps: ModAssetReference[]
+  events: ModAssetReference[]
+  characters: ModAssetReference[]
+  buildings: ModAssetReference[]
+  items: ModAssetReference[]
+}
+
+export type ModAssetIndex = {
+  mods: ModAssetIndexGroup[]
+}
+
 function normalizeCachePathSegment(value: string) {
   return value.trim().replaceAll('/', '\\')
 }
@@ -224,6 +247,7 @@ const listKnownGameDirectoriesCache = createPromiseCache<string[]>()
 const scanMapsCache = createPromiseCache<MapAssetSummary[]>()
 const scanEventsCache = createPromiseCache<EventAssetSummary[]>()
 const scanModProjectsCache = createPromiseCache<ModProjectSummary[]>()
+const scanModAssetIndexCache = createPromiseCache<ModAssetIndex>()
 const loadMapAssetCache = createPromiseCache<MapAssetContent>()
 const loadTextAssetCache = createPromiseCache<TextAssetContent>()
 const loadTextFileCache = createPromiseCache<LocalTextFileContent>()
@@ -253,6 +277,7 @@ export function getDesktopCacheStats() {
     scanMaps: scanMapsCache.size(),
     scanEvents: scanEventsCache.size(),
     scanModProjects: scanModProjectsCache.size(),
+    scanModAssetIndex: scanModAssetIndexCache.size(),
     mapAsset: loadMapAssetCache.size(),
     textAsset: loadTextAssetCache.size(),
     textFile: loadTextFileCache.size(),
@@ -351,6 +376,13 @@ export function scanModProjects(rootPath: string) {
   )
 }
 
+export function scanModAssetIndex(rootPath: string) {
+  const cacheKey = normalizeCachePathSegment(rootPath)
+  return readCached(scanModAssetIndexCache, cacheKey, () =>
+    invokeDesktop<ModAssetIndex>('scan_mod_asset_index', { rootPath }),
+  )
+}
+
 export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
   return readPending(loadMapAssetCache, cacheKey, () =>
@@ -406,6 +438,7 @@ export async function saveModProject(request: SaveModProjectRequest) {
   loadModProjectCache.delete(normalizedSource)
   loadModProjectCache.delete(normalizedTarget)
   scanModProjectsCache.clear()
+  scanModAssetIndexCache.clear()
   return result
 }
 

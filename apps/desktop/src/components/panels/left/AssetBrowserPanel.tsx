@@ -2,12 +2,16 @@ import { ChevronDown, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { BrowserSourceSwitch } from '../../ui/BrowserSourceSwitch'
 import { formatBytes, getAssetGroupLabel, type AssetBrowserPanelProps } from './shared'
 
 export function AssetBrowserPanel({
   copy,
   mapAssets,
   filteredAssets,
+  browserSourceMode,
+  onBrowserSourceModeChange,
+  modMapGroups,
   activeMapId,
   assetFilter,
   onAssetFilterChange,
@@ -34,6 +38,13 @@ export function AssetBrowserPanel({
       }))
       .sort((left, right) => right.items.length - left.items.length || left.label.localeCompare(right.label))
   }, [filteredAssets])
+  const visibleCount = useMemo(
+    () =>
+      browserSourceMode === 'mod'
+        ? modMapGroups.reduce((total, group) => total + group.items.length, 0)
+        : filteredAssets.length,
+    [browserSourceMode, filteredAssets.length, modMapGroups],
+  )
 
   return (
     <PanelFrame
@@ -41,7 +52,7 @@ export function AssetBrowserPanel({
       title={copy.leftDock.contentBrowser}
       subtitle={copy.leftDock.contentSubtitle}
       className="h-full"
-      headerAction={<span className="dock-chip">{filteredAssets.length}</span>}
+      headerAction={<span className="dock-chip">{visibleCount}</span>}
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
@@ -55,8 +66,54 @@ export function AssetBrowserPanel({
           />
         </div>
 
+        <BrowserSourceSwitch value={browserSourceMode} onChange={onBrowserSourceModeChange} />
+
         <div className="min-h-0 flex-1 space-y-3 overflow-auto pr-1">
-          {groupedAssets.length ? (
+          {browserSourceMode === 'mod' ? (
+            modMapGroups.length ? (
+              modMapGroups.map((group) => (
+                <section
+                  key={group.modPath}
+                  className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                >
+                  <div className="border-b border-[var(--border-color)] px-3 py-2">
+                    <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
+                      {group.modName}
+                    </p>
+                    <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
+                  </div>
+                  <div className="space-y-2 p-2">
+                    {group.items.map(({ value: asset, targets }) => {
+                      const isActive = asset.id === activeMapId
+                      return (
+                        <button
+                          key={`${group.modId}:${asset.id}`}
+                          type="button"
+                          className={cx('asset-row', isActive && 'asset-row-active')}
+                          onClick={() => onOpenAsset(asset)}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
+                              <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? asset.relativePath}</p>
+                            </div>
+                            <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                              <p>{asset.format.toUpperCase()}</p>
+                              <p>{formatBytes(asset.sizeBytes)}</p>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+                No modded maps match the current filter.
+              </div>
+            )
+          ) : groupedAssets.length ? (
             groupedAssets.map((group) => {
               const isCollapsed = collapsedGroups[group.label] ?? true
 

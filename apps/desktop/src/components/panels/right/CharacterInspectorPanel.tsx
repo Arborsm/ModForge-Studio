@@ -4,8 +4,10 @@ import type {
   CharacterVisualAssetState,
   CharacterWorkspaceEntry,
 } from '../../../lib/app/characterWorkspace'
+import type { ModSourceEntry } from '../../../lib/app/modAssetIndex'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
+import { ModSourceList } from '../../ui/ModSourceList'
 
 type CharacterInspectorPanelProps = {
   copy: CharactersPanelCopy
@@ -15,6 +17,7 @@ type CharacterInspectorPanelProps = {
   character: CharacterWorkspaceEntry | null
   activeVariant: CharacterAppearanceVariant | null
   assetState: CharacterVisualAssetState
+  modSources?: ModSourceEntry[]
 }
 
 function renderKv(label: string, value: string) {
@@ -34,6 +37,7 @@ export function CharacterInspectorPanel({
   character,
   activeVariant,
   assetState,
+  modSources = [],
 }: CharacterInspectorPanelProps) {
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
@@ -102,6 +106,10 @@ export function CharacterInspectorPanel({
                   </div>
                 </div>
               </div>
+            </PanelSection>
+
+            <PanelSection title="Mod Sources">
+              <ModSourceList sources={modSources} />
             </PanelSection>
           </>
         )}

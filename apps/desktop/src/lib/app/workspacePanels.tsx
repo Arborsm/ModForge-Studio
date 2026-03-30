@@ -24,6 +24,7 @@ import type { CharacterAppearanceVariant, CharacterVisualAssetState, CharacterWo
 import type { EffectAssetState } from './eventStageShared'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from './itemWorkspace'
 import type { StageWorldOverlaySprite } from './mapWorldStatePreview'
+import type { BrowserSourceMode, ModBrowserGroup, ModSourceEntry } from './modAssetIndex'
 import type { PlayerAppearanceProfile } from './playerAppearance'
 import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../editor-shell'
 import type { EventScript, ParsedEventAsset } from '../events/types'
@@ -33,13 +34,17 @@ import { buildModWorkspacePanels, type BuildModWorkspacePanelsOptions } from './
 import { PanelFrame } from '../../components/ui/PanelFrame'
 import { cx } from '../cx'
 
-type BuildWorkspacePanelsOptions = BuildModWorkspacePanelsOptions & {
+type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, 'gameRootPath'> & {
   copy: EditorCopy
   locale: LocaleCode
   workspaceMode: WorkspaceMode
   directoryInfo: GameDirectoryInfo | null
   mapAssets: MapAssetSummary[]
   filteredAssets: MapAssetSummary[]
+  mapBrowserSourceMode: BrowserSourceMode
+  onMapBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modMapGroups: ModBrowserGroup<MapAssetSummary>[]
+  activeMapModSources: ModSourceEntry[]
   activeMapId: string | null
   activeAssetName?: string
   assetFilter: string
@@ -85,6 +90,10 @@ type BuildWorkspacePanelsOptions = BuildModWorkspacePanelsOptions & {
   moduleBlueprint?: ModuleBlueprint
   eventAssets: EventAssetSummary[]
   filteredEventAssets: EventAssetSummary[]
+  eventBrowserSourceMode: BrowserSourceMode
+  onEventBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modEventGroups: ModBrowserGroup<EventAssetSummary>[]
+  activeEventModSources: ModSourceEntry[]
   activeEventAssetId: string | null
   eventAssetFilter: string
   onEventAssetFilterChange: (value: string) => void
@@ -105,6 +114,10 @@ type BuildWorkspacePanelsOptions = BuildModWorkspacePanelsOptions & {
   onOpenPlayerAppearanceWindow: () => void
   characters: CharacterWorkspaceEntry[]
   filteredCharacters: CharacterWorkspaceEntry[]
+  characterBrowserSourceMode: BrowserSourceMode
+  onCharacterBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modCharacterGroups: ModBrowserGroup<CharacterWorkspaceEntry>[]
+  activeCharacterModSources: ModSourceEntry[]
   activeCharacterId: string | null
   activeCharacter: CharacterWorkspaceEntry | null
   activeCharacterVariant: CharacterAppearanceVariant | null
@@ -118,6 +131,10 @@ type BuildWorkspacePanelsOptions = BuildModWorkspacePanelsOptions & {
   filteredConstructibleGroups: ConstructibleBuildingGroup[]
   worldBuildings: BuildingWorkspaceEntry[]
   filteredWorldBuildings: BuildingWorkspaceEntry[]
+  buildingBrowserSourceMode: BrowserSourceMode
+  onBuildingBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modBuildingGroups: ModBrowserGroup<BuildingWorkspaceEntry>[]
+  activeBuildingModSources: ModSourceEntry[]
   activeBuildingId: string | null
   activeBuilding: BuildingWorkspaceEntry | null
   activeUpgradeChain: BuildingWorkspaceEntry[]
@@ -137,6 +154,10 @@ type BuildWorkspacePanelsOptions = BuildModWorkspacePanelsOptions & {
   onSelectBuilding: (buildingKey: string) => void
   items: ItemWorkspaceEntry[]
   filteredItems: ItemWorkspaceEntry[]
+  itemBrowserSourceMode: BrowserSourceMode
+  onItemBrowserSourceModeChange: (mode: BrowserSourceMode) => void
+  modItemGroups: ModBrowserGroup<ItemWorkspaceEntry>[]
+  activeItemModSources: ModSourceEntry[]
   activeItemId: string | null
   activeItem: ItemWorkspaceEntry | null
   itemLookup: Map<string, ItemWorkspaceEntry>
@@ -278,6 +299,10 @@ export function buildWorkspacePanels({
   directoryInfo,
   mapAssets,
   filteredAssets,
+  mapBrowserSourceMode,
+  onMapBrowserSourceModeChange,
+  modMapGroups,
+  activeMapModSources,
   activeMapId,
   assetFilter,
   onAssetFilterChange,
@@ -313,6 +338,10 @@ export function buildWorkspacePanels({
   moduleBlueprint,
   eventAssets,
   filteredEventAssets,
+  eventBrowserSourceMode,
+  onEventBrowserSourceModeChange,
+  modEventGroups,
+  activeEventModSources,
   activeEventAssetId,
   eventAssetFilter,
   onEventAssetFilterChange,
@@ -333,6 +362,10 @@ export function buildWorkspacePanels({
   onOpenPlayerAppearanceWindow,
   characters,
   filteredCharacters,
+  characterBrowserSourceMode,
+  onCharacterBrowserSourceModeChange,
+  modCharacterGroups,
+  activeCharacterModSources,
   activeCharacterId,
   activeCharacter,
   activeCharacterVariant,
@@ -346,6 +379,10 @@ export function buildWorkspacePanels({
   filteredConstructibleGroups,
   worldBuildings,
   filteredWorldBuildings,
+  buildingBrowserSourceMode,
+  onBuildingBrowserSourceModeChange,
+  modBuildingGroups,
+  activeBuildingModSources,
   activeBuildingId,
   activeBuilding,
   activeUpgradeChain,
@@ -365,6 +402,10 @@ export function buildWorkspacePanels({
   onSelectBuilding,
   items,
   filteredItems,
+  itemBrowserSourceMode,
+  onItemBrowserSourceModeChange,
+  modItemGroups,
+  activeItemModSources,
   activeItemId,
   activeItem,
   itemLookup,
@@ -413,6 +454,7 @@ export function buildWorkspacePanels({
     return buildModWorkspacePanels({
       modWorkspaceCopy,
       modPluginDefinition,
+      gameRootPath: directoryInfo?.rootPath ?? null,
       modProjects,
       filteredModProjects,
       activeProjectPath,
@@ -465,6 +507,10 @@ export function buildWorkspacePanels({
             item={activeItem}
             items={items}
             filteredItems={filteredItems}
+            browserSourceMode={itemBrowserSourceMode}
+            onBrowserSourceModeChange={onItemBrowserSourceModeChange}
+            modItemGroups={modItemGroups}
+            activeItemModSources={activeItemModSources}
             activeItemId={activeItemId}
             itemFilter={itemFilter}
             itemLookup={itemLookup}
@@ -491,6 +537,10 @@ export function buildWorkspacePanels({
             item={activeItem}
             items={items}
             filteredItems={filteredItems}
+            browserSourceMode={itemBrowserSourceMode}
+            onBrowserSourceModeChange={onItemBrowserSourceModeChange}
+            modItemGroups={modItemGroups}
+            activeItemModSources={activeItemModSources}
             activeItemId={activeItemId}
             itemFilter={itemFilter}
             itemLookup={itemLookup}
@@ -517,6 +567,10 @@ export function buildWorkspacePanels({
             item={activeItem}
             items={items}
             filteredItems={filteredItems}
+            browserSourceMode={itemBrowserSourceMode}
+            onBrowserSourceModeChange={onItemBrowserSourceModeChange}
+            modItemGroups={modItemGroups}
+            activeItemModSources={activeItemModSources}
             activeItemId={activeItemId}
             itemFilter={itemFilter}
             itemLookup={itemLookup}
@@ -545,6 +599,9 @@ export function buildWorkspacePanels({
           locale={locale}
           eventAssets={eventAssets}
           filteredEventAssets={filteredEventAssets}
+          browserSourceMode={eventBrowserSourceMode}
+          onBrowserSourceModeChange={onEventBrowserSourceModeChange}
+          modEventGroups={modEventGroups}
           activeEventAssetId={activeEventAssetId}
           assetFilter={eventAssetFilter}
           onAssetFilterChange={onEventAssetFilterChange}
@@ -556,6 +613,9 @@ export function buildWorkspacePanels({
           noneLabel={copy.common.none}
           characters={characters}
           filteredCharacters={filteredCharacters}
+          browserSourceMode={characterBrowserSourceMode}
+          onBrowserSourceModeChange={onCharacterBrowserSourceModeChange}
+          modCharacterGroups={modCharacterGroups}
           activeCharacterId={activeCharacterId}
           characterFilter={characterFilter}
           onCharacterFilterChange={onCharacterFilterChange}
@@ -568,6 +628,9 @@ export function buildWorkspacePanels({
           filteredConstructibleGroups={filteredConstructibleGroups}
           worldBuildings={worldBuildings}
           filteredWorldBuildings={filteredWorldBuildings}
+          browserSourceMode={buildingBrowserSourceMode}
+          onBrowserSourceModeChange={onBuildingBrowserSourceModeChange}
+          modBuildingGroups={modBuildingGroups}
           activeBuildingId={activeBuildingId}
           activeBuildingGroupKey={activeBuilding?.groupKey ?? null}
           buildingFilter={buildingFilter}
@@ -579,6 +642,9 @@ export function buildWorkspacePanels({
           copy={copy}
           mapAssets={mapAssets}
           filteredAssets={filteredAssets}
+          browserSourceMode={mapBrowserSourceMode}
+          onBrowserSourceModeChange={onMapBrowserSourceModeChange}
+          modMapGroups={modMapGroups}
           activeMapId={activeMapId}
           assetFilter={assetFilter}
           onAssetFilterChange={onAssetFilterChange}
@@ -751,6 +817,7 @@ export function buildWorkspacePanels({
             events={parsedEventAsset?.events ?? []}
             selectedEventKey={selectedEventKey}
             subtitle={eventStatusMessage}
+            modSources={activeEventModSources}
             onSelectEvent={onSelectEvent}
           />
         ) : workspaceMode === 'characters' ? (
@@ -772,6 +839,7 @@ export function buildWorkspacePanels({
                 character={activeCharacter}
                 activeVariant={activeCharacterVariant}
                 assetState={activeCharacterAssetState}
+                modSources={activeCharacterModSources}
               />
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
@@ -784,6 +852,7 @@ export function buildWorkspacePanels({
             textureState={activeBuildingTextureState}
             activeIndoorMapPath={activeBuildingIndoorMapPath}
             activeExteriorMapPath={activeBuildingExteriorMapPath}
+            modSources={activeBuildingModSources}
           />
         ) : (
           workspaceMode === 'map' ? (
@@ -792,12 +861,12 @@ export function buildWorkspacePanels({
               placeholder={<DeferredWorkspacePlaceholder title={copy.rightDock.inspector} subtitle={copy.rightDock.sceneSummary} />}
             >
               <DeferredWorkspaceReveal>
-                <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />
+                <InspectorPanel copy={copy} mapDocument={mapDocument} modSources={activeMapModSources} moduleBlueprint={moduleBlueprint} />
               </DeferredWorkspaceReveal>
             </DeferredWorkspaceCrossfade>
           ) : (
             <DeferredWorkspaceReveal>
-              <InspectorPanel copy={copy} mapDocument={mapDocument} moduleBlueprint={moduleBlueprint} />
+              <InspectorPanel copy={copy} mapDocument={mapDocument} modSources={activeMapModSources} moduleBlueprint={moduleBlueprint} />
             </DeferredWorkspaceReveal>
           )
         ),
