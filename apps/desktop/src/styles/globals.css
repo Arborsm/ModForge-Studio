@@ -29,6 +29,9 @@
       0 8px 18px rgba(15, 23, 42, 0.12);
     --grid-minor: rgba(92, 104, 124, 0.13);
     --grid-major: rgba(92, 104, 124, 0.19);
+    --cp-logic: #22c55e;
+    --cp-file: #3b82f6;
+    --cp-data: #f97316;
   }
 
   .dark {
@@ -55,6 +58,9 @@
       0 10px 24px rgba(0, 0, 0, 0.26);
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);
+    --cp-logic: #34d399;
+    --cp-file: #60a5fa;
+    --cp-data: #fb923c;
   }
 
   * {
@@ -1745,6 +1751,149 @@
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
     color: var(--text-primary);
+  }
+
+  .cp-canvas {
+    min-height: 460px;
+  }
+
+  .cp-reactflow .react-flow__pane {
+    background:
+      radial-gradient(circle at top, color-mix(in srgb, var(--bg-panel) 84%, transparent), transparent 42%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-muted) 60%, transparent), var(--bg-viewport));
+  }
+
+  .cp-node {
+    min-width: 200px;
+    max-width: 240px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--bg-panel) 86%, white 14%);
+    box-shadow: var(--shadow-panel);
+    color: var(--text-primary);
+  }
+
+  .cp-node-condition {
+    border-color: color-mix(in srgb, var(--cp-logic) 52%, var(--border-color));
+  }
+
+  .cp-node-asset {
+    border-color: color-mix(in srgb, var(--cp-file) 52%, var(--border-color));
+  }
+
+  .cp-node-action {
+    border-color: color-mix(in srgb, var(--accent) 52%, var(--border-color));
+  }
+
+  .cp-node-target {
+    border-color: color-mix(in srgb, var(--cp-data) 52%, var(--border-color));
+  }
+
+  .cp-node-disabled {
+    opacity: 0.45;
+    filter: grayscale(0.6);
+  }
+
+  .cp-node-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .cp-node-kind {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .cp-node-status {
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--bg-panel-muted) 70%, transparent);
+  }
+
+  .cp-node-status-off {
+    color: var(--warning);
+    border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+  }
+
+  .cp-node-title {
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .cp-node-meta {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    word-break: break-word;
+  }
+
+  .react-flow__handle.cp-handle {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 2px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  .cp-handle-logic {
+    border-color: var(--cp-logic);
+  }
+
+  .cp-handle-file {
+    border-color: var(--cp-file);
+  }
+
+  .cp-handle-data {
+    border-color: var(--cp-data);
+  }
+
+  .cp-handle-offset {
+    margin-top: 12px;
+  }
+
+  .cp-edge-logic .react-flow__edge-path {
+    stroke: var(--cp-logic);
+  }
+
+  .cp-edge-file .react-flow__edge-path {
+    stroke: var(--cp-file);
+  }
+
+  .cp-edge-data .react-flow__edge-path {
+    stroke: var(--cp-data);
+  }
+
+  .cp-edge-disabled .react-flow__edge-path {
+    opacity: 0.3;
+    stroke-dasharray: 6 6;
+  }
+
+  .cp-minimap {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  }
+
+  .cp-controls {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
   }
 
   .appearance-window-import-grid {

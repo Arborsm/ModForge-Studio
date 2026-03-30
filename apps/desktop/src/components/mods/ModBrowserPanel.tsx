@@ -1,4 +1,4 @@
-  import { FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
+import { FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '../../lib/desktop'
 import type { ModWorkspaceCopy } from '../../lib/plugins/copy'
 import { cx } from '../../lib/cx'
@@ -30,10 +30,10 @@ function ProjectRow({
     <button
       type="button"
       className={cx(
-        'w-full rounded-[24px] border p-4 text-left transition',
+        'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
         active
-          ? 'border-[color-mix(in_srgb,var(--accent)_34%,transparent)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent)_14%,var(--bg-panel)),color-mix(in_srgb,var(--bg-elevated)_94%,transparent))] shadow-[var(--shadow-panel)]'
-          : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_24%,transparent)] hover:bg-[var(--bg-elevated)]',
+          ? 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]'
+          : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_20%,transparent)] hover:bg-[var(--bg-elevated)]',
       )}
       onClick={onSelect}
     >
@@ -42,12 +42,14 @@ function ProjectRow({
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{project.name}</p>
           <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{project.uniqueId ?? project.folderName}</p>
         </div>
-        <span className={cx(
-          'inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold',
-          project.pluginKind === 'content-patcher'
-            ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100'
-            : 'border-amber-400/25 bg-amber-500/10 text-amber-100',
-        )}>
+        <span
+          className={cx(
+            'inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]',
+            project.pluginKind === 'content-patcher'
+              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+              : 'border-amber-500/25 bg-amber-500/10 text-amber-200',
+          )}
+        >
           {project.pluginKind}
         </span>
       </div>
@@ -77,22 +79,37 @@ export function ModBrowserPanel({
   onRefreshProjects,
 }: ModBrowserPanelProps) {
   return (
-    <div className="flex h-full flex-col gap-4 overflow-hidden bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_96%,transparent),color-mix(in_srgb,var(--bg-app)_94%,transparent))] p-4">
-      <section className="rounded-[28px] border border-[var(--border-color)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_95%,transparent),color-mix(in_srgb,var(--accent)_8%,var(--bg-panel)))] p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{copy.browserTitle}</p>
-        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-          Browse detected Content Patcher projects, narrow the list fast, and jump directly into a focused editing workspace.
-        </p>
+    <div className="flex h-full flex-col gap-4 overflow-hidden bg-[var(--bg-panel)] p-4">
+      <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{copy.browserTitle}</p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Get Started</h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+              Import a mod, refresh the scan, then pick one project to continue editing in the main workspace.
+            </p>
+          </div>
+          <div className="grid shrink-0 gap-2 sm:grid-cols-2">
+            <button type="button" className="control-button control-button-primary" onClick={onImportProject}>
+              <Upload className="h-4 w-4" />
+              <span>{copy.importProject}</span>
+            </button>
+            <button type="button" className="control-button" onClick={onRefreshProjects}>
+              <RefreshCw className="h-4 w-4" />
+              <span>{copy.refreshProjects}</span>
+            </button>
+          </div>
+        </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" className="control-button control-button-primary" onClick={onImportProject}>
-            <Upload className="h-4 w-4" />
-            <span>{copy.importProject}</span>
-          </button>
-          <button type="button" className="control-button" onClick={onRefreshProjects}>
-            <RefreshCw className="h-4 w-4" />
-            <span>{copy.refreshProjects}</span>
-          </button>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.projectsLabel}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{projects.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.filteredLabel}</p>
+            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{filteredProjects.length}</p>
+          </div>
         </div>
 
         <div className="relative mt-4">
@@ -105,24 +122,15 @@ export function ModBrowserPanel({
             spellCheck={false}
           />
         </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-[22px] border border-[color-mix(in_srgb,var(--accent)_24%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-app))] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.projectsLabel}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{projects.length}</p>
-          </div>
-          <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.filteredLabel}</p>
-            <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{filteredProjects.length}</p>
-          </div>
-        </div>
       </section>
 
-      <section className="min-h-0 flex-1 rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-        <div className="flex items-center justify-between gap-3">
+      <section className="min-h-0 flex-1 rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Project Library</p>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">{filteredProjects.length ? 'Choose one project to open it in the central studio.' : copy.browserEmpty}</p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              {filteredProjects.length ? 'Choose one project to open it in the workspace.' : 'Import a mod or refresh the scan to populate the workspace list.'}
+            </p>
           </div>
           {activeProjectPath ? <span className="dock-chip">Active</span> : null}
         </div>
@@ -139,7 +147,14 @@ export function ModBrowserPanel({
               />
             ))
           ) : (
-            <div className="panel-empty-state">{copy.browserEmpty}</div>
+            <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-app)] px-4 text-center">
+              <div>
+                <p className="text-base font-semibold text-[var(--text-primary)]">No projects yet</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                  Import a mod or refresh the scan to populate the workspace list.
+                </p>
+              </div>
+            </div>
           )}
         </div>
       </section>

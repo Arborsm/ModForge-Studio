@@ -1,19 +1,40 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, FolderTree, GitBranchPlus, Sparkles } from 'lucide-react'
 import {
-  AlertTriangle,
-  Boxes,
-  CheckCircle2,
-  FileImage,
-  FileJson2,
-  FolderTree,
-  GitBranchPlus,
-  Search,
-  Sparkles,
-} from 'lucide-react'
-import { loadImageDataUrl, type ModProjectDetail, type ModProjectDiagnostic, type SaveModProjectResult } from '../../lib/desktop'
-import { ensureJsonObject, stringifyPrettyJson } from '../../lib/plugins/contentPatcher'
+  Background,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  addEdge,
+  applyEdgeChanges,
+  useEdgesState,
+  useNodesState,
+  Handle,
+  Position,
+  type Edge,
+  type EdgeChange,
+  type Node,
+  type NodeProps,
+  type OnConnect,
+} from '@xyflow/react'
+import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '../../lib/desktop'
+import {
+  buildContentPatcherCanvas,
+  collectContentPatcherAssets,
+  collectContentPatcherTargets,
+  getContentPatcherConditionPresets,
+  getPatchPreviewJson,
+  validateContentPatcherConnection,
+} from '../../lib/plugins/contentPatcher'
+import type {
+  ContentPatcherCanvasNode,
+  ContentPatcherCanvasNodeKind,
+  ContentPatcherSimulationContext,
+} from '../../lib/plugins/contentPatcher'
 import type { ModWorkspaceCopy } from '../../lib/plugins/copy'
 import type { WorkspacePluginDefinition } from '../../lib/plugins/types'
+import { ModDiagnosticsPanel } from './ModDiagnosticsPanel'
+import { PatchInspectorPanel } from './PatchInspectorPanel'
 
 type PatchSummary = {
   id: string
@@ -69,430 +90,135 @@ type ContentPatcherWorkspaceProps = {
   onExportProject: () => void
 }
 
-type PreviewState = {
-  status: 'idle' | 'loading' | 'ready' | 'error'
-  dataUrl: string | null
-  resolvedPath: string | null
-  message: string
+type CanvasNodeData = ContentPatcherCanvasNode['data'] & {
+  kind: ContentPatcherCanvasNodeKind
 }
 
-type WorkspaceView = 'overview' | 'patches' | 'json' | 'diagnostics'
+type FlowNode = Node<CanvasNodeData>
+type FlowEdge = Edge<{ patchId?: string; edgeType?: 'logic' | 'file' | 'data' }>
 
-function readStringField(value: unknown, field: string) {
-  const record = ensureJsonObject(value)
-  return typeof record[field] === 'string' ? String(record[field]) : ''
+type DropPayload = {
+  kind: 'asset' | 'target' | 'condition'
+  value: string
 }
 
-function readPatchEntries(patch: Record<string, unknown> | null) {
-  return Object.keys(ensureJsonObject(patch?.Entries))
+type PatchUpdate =
+  | { type: 'field'; patchId: string; field: 'FromFile' | 'Target'; value: string }
+  | { type: 'when'; patchId: string; value: string }
+
+const edgeTone: Record<'logic' | 'file' | 'data', string> = {
+  logic: 'var(--cp-logic)',
+  file: 'var(--cp-file)',
+  data: 'var(--cp-data)',
 }
 
-function formatTargetTokens(target: string) {
-  return target
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function normalizeFsPath(value: string) {
-  return value.trim().replaceAll('/', '\\')
-}
-
-function isAbsoluteFsPath(value: string) {
-  return /^[a-z]:\\/i.test(value) || value.startsWith('\\\\')
-}
-
-function joinFsPath(basePath: string, childPath: string) {
-  const normalizedChild = normalizeFsPath(childPath)
-  if (isAbsoluteFsPath(normalizedChild)) {
-    return normalizedChild
+function parseDropPayload(dataTransfer: DataTransfer | null) {
+  if (!dataTransfer) {
+    return null
   }
-
-  const normalizedBase = normalizeFsPath(basePath).replace(/[\\]+$/, '')
-  const trimmedChild = normalizedChild.replace(/^[\\]+/, '')
-  return `${normalizedBase}\\${trimmedChild}`
-}
-
-function getPathExtension(value: string) {
-  const normalized = normalizeFsPath(value)
-  const segment = normalized.split('\\').pop() ?? normalized
-  const markerIndex = segment.lastIndexOf('.')
-  return markerIndex >= 0 ? segment.slice(markerIndex).toLowerCase() : ''
-}
-
-function uniqueStrings(values: string[]) {
-  return [...new Set(values.filter(Boolean))]
-}
-
-function buildPreviewCandidates(path: string) {
-  const normalized = normalizeFsPath(path)
-  const extension = getPathExtension(normalized)
-  if (extension === '.tmx' || extension === '.json') {
-    return [] as string[]
+  const raw = dataTransfer.getData('application/x-modforge-node')
+  if (!raw) {
+    return null
   }
-
-  if (!extension) {
-    return [`${normalized}.png`, `${normalized}.xnb`, `${normalized}.jpg`, `${normalized}.jpeg`, `${normalized}.webp`]
-  }
-
-  if (extension === '.png') {
-    return [normalized, normalized.slice(0, -4) + '.xnb']
-  }
-
-  if (extension === '.xnb') {
-    return [normalized, normalized.slice(0, -4) + '.png']
-  }
-
-  return [normalized]
-}
-
-function resolveGameAssetCandidates(target: string, gameRootPath: string | null) {
-  if (!target || !gameRootPath) {
-    return [] as string[]
-  }
-
-  return uniqueStrings(
-    formatTargetTokens(target).flatMap((token) => {
-      const normalizedTarget = normalizeFsPath(token)
-      const lowerTarget = normalizedTarget.toLowerCase()
-      if (!normalizedTarget) {
-        return []
-      }
-
-      if (lowerTarget.startsWith('data\\') || lowerTarget.startsWith('maps\\') || lowerTarget.startsWith('mods\\')) {
-        return []
-      }
-
-      const rootedTarget = lowerTarget.startsWith('content\\')
-        ? joinFsPath(gameRootPath, normalizedTarget)
-        : joinFsPath(joinFsPath(gameRootPath, 'Content'), normalizedTarget)
-
-      return buildPreviewCandidates(rootedTarget)
-    }),
-  )
-}
-
-function resolveModResultCandidates(summary: PatchSummary | null, projectDetail: ModProjectDetail | null) {
-  if (!summary?.fromFile || !projectDetail?.summary.absolutePath) {
-    return [] as string[]
-  }
-
-  return uniqueStrings(buildPreviewCandidates(joinFsPath(projectDetail.summary.absolutePath, summary.fromFile)))
-}
-
-async function loadFirstPreview(candidates: string[]) {
-  for (const candidate of candidates) {
-    try {
-      const dataUrl = await loadImageDataUrl(candidate)
-      return { dataUrl, resolvedPath: candidate }
-    } catch {
-      continue
+  try {
+    const parsed = JSON.parse(raw) as DropPayload
+    if (!parsed || typeof parsed.value !== 'string') {
+      return null
     }
-  }
-
-  return null
-}
-
-function usePreviewImage(candidates: string[], emptyMessage: string) {
-  const emptyState = useMemo<PreviewState>(() => ({
-    status: 'idle',
-    dataUrl: null,
-    resolvedPath: null,
-    message: emptyMessage,
-  }), [emptyMessage])
-  const [state, setState] = useState<(PreviewState & { key: string }) | null>(null)
-  const uniqueCandidates = useMemo(() => uniqueStrings(candidates), [candidates])
-  const requestKey = uniqueCandidates.join('|')
-
-  useEffect(() => {
-    let cancelled = false
-
-    if (!uniqueCandidates.length) {
-      return () => {
-        cancelled = true
-      }
+    if (parsed.kind !== 'asset' && parsed.kind !== 'target' && parsed.kind !== 'condition') {
+      return null
     }
+    return parsed
+  } catch {
+    return null
+  }
+}
 
-    void loadFirstPreview(uniqueCandidates)
-      .then((result) => {
-        if (cancelled) {
-          return
-        }
-
-        if (result) {
-          setState({
-            key: requestKey,
-            status: 'ready',
-            dataUrl: result.dataUrl,
-            resolvedPath: result.resolvedPath,
-            message: '',
-          })
-          return
-        }
-
-        setState({
-          key: requestKey,
-          status: 'error',
-          dataUrl: null,
-          resolvedPath: null,
-          message: emptyMessage,
-        })
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return
-        }
-
-        setState({
-          key: requestKey,
-          status: 'error',
-          dataUrl: null,
-          resolvedPath: null,
-          message: error instanceof Error ? error.message : emptyMessage,
-        })
-      })
-
-    return () => {
-      cancelled = true
+function resolveWhenValue(key: string, simulation: ContentPatcherSimulationContext) {
+  if (key === 'Season') {
+    return simulation.season || 'spring'
+  }
+  if (key === 'Weather') {
+    return simulation.weather || 'sunny'
+  }
+  if (key === 'Relationship') {
+    if (simulation.relationship !== undefined && simulation.relationship !== null && simulation.relationship !== '') {
+      const numeric = Number(simulation.relationship)
+      return Number.isNaN(numeric) ? simulation.relationship : numeric
     }
-  }, [emptyMessage, requestKey, uniqueCandidates])
-
-  if (!requestKey) {
-    return emptyState
+    return 0
   }
-
-  if (!state || state.key !== requestKey) {
-    return {
-      status: 'loading',
-      dataUrl: null,
-      resolvedPath: null,
-      message: 'Loading preview...',
-    } satisfies PreviewState
+  if (key === 'Config') {
+    if (simulation.config && Object.keys(simulation.config).length) {
+      return simulation.config
+    }
+    return { Enabled: true }
   }
-
-  return state
+  if (simulation.config && key in simulation.config) {
+    return simulation.config[key]
+  }
+  return true
 }
 
-function getActionToneClass(action: string) {
-  switch (action.toLowerCase()) {
-    case 'load':
-      return 'border-cyan-400/35 bg-cyan-500/10 text-cyan-100'
-    case 'editimage':
-      return 'border-sky-400/35 bg-sky-500/10 text-sky-100'
-    case 'editdata':
-      return 'border-emerald-400/35 bg-emerald-500/10 text-emerald-100'
-    case 'editmap':
-      return 'border-amber-400/35 bg-amber-500/10 text-amber-100'
-    case 'include':
-      return 'border-fuchsia-400/35 bg-fuchsia-500/10 text-fuchsia-100'
-    default:
-      return 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-primary)]'
+function buildWhenPayload(existingWhen: unknown, key: string, value: unknown) {
+  const base = isJsonObject(existingWhen) ? { ...existingWhen } : {}
+  if (key === 'Config' && isJsonObject(value)) {
+    base.Config = value
+  } else {
+    base[key] = value
   }
+  return JSON.stringify(base, null, 2)
 }
 
-function formatPatchOutput(summary: PatchSummary, patch: Record<string, unknown> | null, copy: ModWorkspaceCopy) {
-  const targets = formatTargetTokens(summary.target)
-  const entries = readPatchEntries(patch)
-
-  switch (summary.action.toLowerCase()) {
-    case 'load':
-      return {
-        title: targets[0] ? `Load into ${targets[0]}` : 'Load asset output',
-        detail: summary.fromFile ? `Import ${summary.fromFile}` : 'Inject an external asset into the target pipeline.',
-      }
-    case 'editimage':
-      return {
-        title: targets[0] ? `Composite ${targets[0]}` : 'Edit image output',
-        detail: summary.fromFile ? `Render pixels from ${summary.fromFile}` : 'Apply pixel-region edits to the selected texture asset.',
-      }
-    case 'editdata':
-      return {
-        title: targets[0] ? `Rewrite ${targets[0]}` : 'Edit data asset',
-        detail: entries.length
-          ? `Update ${entries.length} entries: ${entries.slice(0, 4).join(', ')}${entries.length > 4 ? '...' : ''}`
-          : 'Apply record or field mutations to the selected data asset.',
-      }
-    case 'editmap':
-      return {
-        title: targets[0] ? `Patch map ${targets[0]}` : 'Patch map output',
-        detail: summary.fromFile ? `Apply map instructions from ${summary.fromFile}` : 'Modify map layers, tiles, or warps for the target map.',
-      }
-    case 'include':
-      return {
-        title: 'Expand nested patch file',
-        detail: summary.fromFile ? `Pull additional patch nodes from ${summary.fromFile}` : 'Expand nested patch definitions.',
-      }
-    default:
-      return {
-        title: summary.target || copy.noTargetLabel,
-        detail: summary.fromFile ? `Source file: ${summary.fromFile}` : 'Apply this patch action to the selected target.',
-      }
+function removeWhenKey(existingWhen: unknown, key: string) {
+  if (!isJsonObject(existingWhen)) {
+    return ''
   }
+  const base = { ...existingWhen }
+  delete base[key]
+  if (!Object.keys(base).length) {
+    return ''
+  }
+  return JSON.stringify(base, null, 2)
 }
 
-function TabButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-        active
-          ? 'border-[color-mix(in_srgb,var(--accent)_36%,transparent)] bg-[color-mix(in_srgb,var(--accent)_14%,var(--bg-panel))] text-[var(--text-primary)]'
-          : 'border-[var(--border-color)] bg-[var(--bg-app)] text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--accent)_24%,transparent)] hover:text-[var(--text-primary)]'
-      }`}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string
-  value: string | number
-  tone?: 'default' | 'accent'
-}) {
-  const toneClass =
-    tone === 'accent'
-      ? 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-app))]'
-      : 'border-[var(--border-color)] bg-[var(--bg-app)]'
+function CanvasNode({ data }: NodeProps<FlowNode>) {
+  const isInactive = data.simulation?.isActive === false
+  const hasUnknown = data.simulation?.hasUnknownConditions
+  const status = isInactive ? 'Disabled' : hasUnknown ? 'Unknown' : 'Active'
 
   return (
-    <div className={`rounded-[22px] border px-4 py-3 ${toneClass}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{label}</p>
-      <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{value}</p>
-    </div>
-  )
-}
-
-function PreviewImageCard({
-  title,
-  subtitle,
-  preview,
-}: {
-  title: string
-  subtitle: string
-  preview: PreviewState
-}) {
-  return (
-    <div className="rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-app)] p-4">
-      <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-        <FileImage className="h-4 w-4" />
-        {title}
+    <div className={`cp-node cp-node-${data.kind}${isInactive ? ' cp-node-disabled' : ''}`}>
+      {data.kind === 'action' ? (
+        <>
+          <Handle type="target" position={Position.Left} id="logic" className="cp-handle cp-handle-logic" />
+          <Handle type="target" position={Position.Left} id="file" className="cp-handle cp-handle-file cp-handle-offset" />
+          <Handle type="source" position={Position.Right} id="data" className="cp-handle cp-handle-data" />
+        </>
+      ) : null}
+      {data.kind === 'condition' ? (
+        <Handle type="source" position={Position.Right} id="logic" className="cp-handle cp-handle-logic" />
+      ) : null}
+      {data.kind === 'asset' ? (
+        <Handle type="source" position={Position.Right} id="file" className="cp-handle cp-handle-file" />
+      ) : null}
+      {data.kind === 'target' ? (
+        <Handle type="target" position={Position.Left} id="data" className="cp-handle cp-handle-data" />
+      ) : null}
+      <div className="cp-node-header">
+        <span className="cp-node-kind">{data.kind}</span>
+        <span className={`cp-node-status${isInactive ? ' cp-node-status-off' : ''}`}>{status}</span>
       </div>
-      <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">{subtitle}</p>
-
-      {preview.status === 'ready' && preview.dataUrl ? (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_80%,transparent)]">
-          <img src={preview.dataUrl} alt={title} className="max-h-72 w-full object-contain" />
-        </div>
-      ) : (
-        <div className="mt-3 flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_80%,transparent)] px-4 text-center text-sm text-[var(--text-secondary)]">
-          {preview.message}
-        </div>
-      )}
-
-      <p className="mt-3 break-all text-[11px] leading-5 text-[var(--text-tertiary)]">
-        {preview.resolvedPath ?? 'No resolved preview file'}
-      </p>
+      <div className="cp-node-title">{data.label}</div>
+      {data.action ? <div className="cp-node-meta">Action: {data.action}</div> : null}
+      {data.target ? <div className="cp-node-meta">Target: {data.target}</div> : null}
+      {data.assetPath ? <div className="cp-node-meta">Asset: {data.assetPath}</div> : null}
+      {data.whenKey ? <div className="cp-node-meta">When: {data.whenKey}</div> : null}
     </div>
-  )
-}
-
-function DiagnosticList({
-  diagnostics,
-  emptyLabel,
-}: {
-  diagnostics: ModProjectDiagnostic[]
-  emptyLabel: string
-}) {
-  if (!diagnostics.length) {
-    return <div className="panel-empty-state">{emptyLabel}</div>
-  }
-
-  return (
-    <div className="space-y-2">
-      {diagnostics.map((diagnostic, index) => {
-        const tone =
-          diagnostic.severity === 'error'
-            ? 'border-red-400/25 bg-red-500/10 text-red-50'
-            : diagnostic.severity === 'warning'
-              ? 'border-amber-400/25 bg-amber-500/10 text-amber-50'
-              : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-50'
-
-        return (
-          <div key={`${diagnostic.field ?? 'global'}:${index}`} className="rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{diagnostic.message}</p>
-                {diagnostic.field ? <p className="mt-1 text-xs text-[var(--text-secondary)]">{diagnostic.field}</p> : null}
-              </div>
-              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize ${tone}`}>
-                {diagnostic.severity}
-              </span>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function PatchListItem({
-  patch,
-  active,
-  onClick,
-}: {
-  patch: PatchSummary
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      className={`w-full rounded-[24px] border p-4 text-left transition ${
-        active
-          ? 'border-[color-mix(in_srgb,var(--accent)_34%,transparent)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--accent)_14%,var(--bg-panel)),color-mix(in_srgb,var(--bg-elevated)_94%,transparent))] shadow-[var(--shadow-panel)]'
-          : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_24%,transparent)] hover:bg-[var(--bg-elevated)]'
-      }`}
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">
-            {patch.logName || patch.target || patch.id}
-          </p>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--text-secondary)]">
-            {patch.target || 'No target selected'}
-          </p>
-        </div>
-        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getActionToneClass(patch.action)}`}>
-          {patch.action}
-        </span>
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {patch.whenKeys.length ? (
-          <span className="dock-chip">{patch.whenKeys.slice(0, 2).join(', ')}{patch.whenKeys.length > 2 ? ` +${patch.whenKeys.length - 2}` : ''}</span>
-        ) : (
-          <span className="dock-chip">Always</span>
-        )}
-        {patch.fromFile ? <span className="dock-chip">{patch.fromFile}</span> : null}
-      </div>
-    </button>
   )
 }
 
@@ -503,8 +229,7 @@ export function ContentPatcherWorkspace({
   diagnostics,
   statusMessage,
   lastSaveResult,
-  gameRootPath,
-  manifestEditor,
+  manifestEditor: _manifestEditor,
   contentEditor,
   contentSummary,
   selectedPatchId,
@@ -513,460 +238,606 @@ export function ContentPatcherWorkspace({
   hasUnsavedChanges,
   canPersist,
   onSelectPatch,
-  onManifestFieldChange,
-  onManifestTextChange,
-  onContentTextChange,
   onPatchFieldChange,
   onPatchWhenChange,
   onAddPatch,
-  onRemoveSelectedPatch,
   onSaveProject,
   onExportProject,
 }: ContentPatcherWorkspaceProps) {
-  const [view, setView] = useState<WorkspaceView>('overview')
-  const [patchQuery, setPatchQuery] = useState('')
-  const deferredPatchQuery = useDeferredValue(patchQuery.trim().toLowerCase())
+  const [showDiagnostics, setShowDiagnostics] = useState(false)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [pendingDrop, setPendingDrop] = useState<DropPayload | null>(null)
+  const [pendingPatchUpdate, setPendingPatchUpdate] = useState<PatchUpdate | null>(null)
+  const [simulation, setSimulation] = useState<ContentPatcherSimulationContext>({
+    season: '',
+    weather: '',
+    relationship: '',
+  })
 
-  const manifest = ensureJsonObject(manifestEditor.value)
-  const contentPackFor = ensureJsonObject(manifest.ContentPackFor)
-  const selectedPatchSummary = contentSummary.patches.find((patch) => patch.id === selectedPatchId) ?? contentSummary.patches[0] ?? null
-  const selectedPatchEntries = readPatchEntries(selectedPatch)
-  const selectedPatchTargets = selectedPatchSummary ? formatTargetTokens(selectedPatchSummary.target) : []
-  const selectedPatchPreview = selectedPatchSummary ? formatPatchOutput(selectedPatchSummary, selectedPatch, copy) : null
-  const filteredPatches = useMemo(
+  const simulationContext = useMemo(
+    () => ({
+      season: simulation.season || undefined,
+      weather: simulation.weather || undefined,
+      relationship: simulation.relationship || undefined,
+      config: simulation.config,
+    }),
+    [simulation.config, simulation.relationship, simulation.season, simulation.weather],
+  )
+
+  const assets = useMemo(() => collectContentPatcherAssets(contentEditor.value), [contentEditor.value])
+  const targets = useMemo(() => collectContentPatcherTargets(contentEditor.value), [contentEditor.value])
+  const presets = useMemo(() => getContentPatcherConditionPresets(), [])
+
+  const canvas = useMemo(() => buildContentPatcherCanvas(contentEditor.value, { simulation: simulationContext }), [contentEditor.value, simulationContext])
+  const nodeMap = useMemo(() => new Map(canvas.nodes.map((node) => [node.id, node])), [canvas.nodes])
+  const patchActivity = useMemo(() => {
+    const map = new Map<string, boolean>()
+    canvas.nodes.forEach((node) => {
+      if (node.kind === 'action' && node.data.patchId && node.data.simulation) {
+        map.set(node.data.patchId, node.data.simulation.isActive)
+      }
+    })
+    return map
+  }, [canvas.nodes])
+
+  const flowNodes = useMemo<FlowNode[]>(
     () =>
-      contentSummary.patches.filter((patch) => {
-        if (!deferredPatchQuery) {
-          return true
+      canvas.nodes.map((node) => ({
+        id: node.id,
+        position: node.position,
+        type: 'canvasNode',
+        data: {
+          ...node.data,
+          kind: node.kind,
+        } satisfies CanvasNodeData,
+        className: `cp-node-shell cp-node-shell-${node.kind}${node.data.simulation?.isActive === false ? ' cp-node-shell-disabled' : ''}`,
+      })),
+    [canvas.nodes],
+  )
+
+  const flowEdges = useMemo<FlowEdge[]>(
+    () =>
+      canvas.edges.map((edge) => {
+        const tone = edgeTone[edge.type]
+        const isActive = edge.patchId ? patchActivity.get(edge.patchId) !== false : true
+        return {
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.type,
+          targetHandle: edge.type,
+          className: `cp-edge cp-edge-${edge.type}${!isActive ? ' cp-edge-disabled' : ''}`,
+          data: {
+            patchId: edge.patchId,
+            edgeType: edge.type,
+          },
+          style: {
+            stroke: tone,
+            strokeWidth: 2.2,
+            opacity: isActive ? 0.9 : 0.35,
+          },
         }
-
-        const haystack = [patch.logName, patch.target, patch.action, patch.fromFile ?? '', patch.whenKeys.join(' ')].join(' ').toLowerCase()
-        return haystack.includes(deferredPatchQuery)
       }),
-    [contentSummary.patches, deferredPatchQuery],
+    [canvas.edges, patchActivity],
   )
-  const selectedPatchVisible = selectedPatchSummary ? filteredPatches.some((patch) => patch.id === selectedPatchSummary.id) : false
 
-  const selectedSourcePreview = usePreviewImage(
-    selectedPatchSummary ? resolveGameAssetCandidates(selectedPatchSummary.target, gameRootPath) : [],
-    'The original asset cannot be rendered as an image preview.',
-  )
-  const selectedResultPreview = usePreviewImage(
-    resolveModResultCandidates(selectedPatchSummary, projectDetail),
-    'This patch does not expose a direct previewable result file.',
-  )
-  const manifestName = readStringField(manifest, 'Name')
-  const manifestAuthor = readStringField(manifest, 'Author')
-  const manifestVersion = readStringField(manifest, 'Version')
-  const manifestUniqueId = readStringField(manifest, 'UniqueID')
-  const manifestDescription = readStringField(manifest, 'Description')
-  const whenText = selectedPatch?.When ? stringifyPrettyJson(selectedPatch.When).trimEnd() : ''
-  const action = readStringField(selectedPatch, 'Action')
-  const target = readStringField(selectedPatch, 'Target')
-  const fromFile = readStringField(selectedPatch, 'FromFile')
-  const logName = readStringField(selectedPatch, 'LogName')
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(flowNodes)
+  const [edges, setEdges] = useEdgesState<FlowEdge>(flowEdges)
+
+  useEffect(() => {
+    setNodes(flowNodes)
+  }, [flowNodes, setNodes])
+
+  useEffect(() => {
+    setEdges(flowEdges)
+  }, [flowEdges, setEdges])
+
+  useEffect(() => {
+    if (!selectedPatchId) {
+      setSelectedNodeId(null)
+      return
+    }
+    const actionNode = canvas.nodes.find((node) => node.kind === 'action' && node.data.patchId === selectedPatchId)
+    if (actionNode) {
+      setSelectedNodeId(actionNode.id)
+    }
+  }, [canvas.nodes, selectedPatchId])
+
+  useEffect(() => {
+    if (!pendingDrop || !selectedPatchId) {
+      return
+    }
+    applyDropToPatch(pendingDrop, selectedPatchId)
+    setPendingDrop(null)
+  }, [pendingDrop, selectedPatchId])
+
+  useEffect(() => {
+    if (!pendingPatchUpdate) {
+      return
+    }
+    if (pendingPatchUpdate.patchId !== selectedPatchId) {
+      return
+    }
+    applyPatchUpdate(pendingPatchUpdate)
+    setPendingPatchUpdate(null)
+  }, [pendingPatchUpdate, selectedPatchId])
 
   if (!projectDetail?.contentPatcher) {
     return <div className="panel-empty-state h-full">{copy.noProject}</div>
   }
 
+  const selectedNode = selectedNodeId ? nodeMap.get(selectedNodeId) ?? null : null
+  const activePatchId = selectedNode?.data.patchId ?? selectedPatchId
+  const patchPreview = activePatchId ? getPatchPreviewJson(contentEditor.value, activePatchId) : ''
+
+  function applyPatchUpdate(update: PatchUpdate) {
+    if (update.type === 'field') {
+      onPatchFieldChange(update.field, update.value)
+      return
+    }
+    onPatchWhenChange(update.value)
+  }
+
+  function queuePatchUpdate(update: PatchUpdate) {
+    if (update.patchId !== selectedPatchId) {
+      setPendingPatchUpdate(update)
+      onSelectPatch(update.patchId)
+      return
+    }
+    applyPatchUpdate(update)
+  }
+
+  function getExistingWhen(patchId: string) {
+    if (selectedPatchId === patchId && selectedPatch && isJsonObject(selectedPatch.When)) {
+      return selectedPatch.When
+    }
+    const actionNode = canvas.nodes.find((node) => node.kind === 'action' && node.data.patchId === patchId)
+    return actionNode?.data.details?.when ?? null
+  }
+
+  function applyDropToPatch(payload: DropPayload, patchId: string) {
+    if (payload.kind === 'asset') {
+      queuePatchUpdate({ type: 'field', patchId, field: 'FromFile', value: payload.value })
+      return
+    }
+    if (payload.kind === 'target') {
+      queuePatchUpdate({ type: 'field', patchId, field: 'Target', value: payload.value })
+      return
+    }
+    const existingWhen = getExistingWhen(patchId)
+    const nextValue = resolveWhenValue(payload.value, simulationContext)
+    const nextWhen = buildWhenPayload(existingWhen, payload.value, nextValue)
+    queuePatchUpdate({ type: 'when', patchId, value: nextWhen })
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault()
+    const payload = parseDropPayload(event.dataTransfer)
+    if (!payload) {
+      return
+    }
+    if (!selectedPatchId) {
+      setPendingDrop(payload)
+      onAddPatch()
+      return
+    }
+    applyDropToPatch(payload, selectedPatchId)
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }
+
+  const onConnect: OnConnect = (connection) => {
+    if (!connection.source || !connection.target) {
+      return
+    }
+    const sourceNode = nodeMap.get(connection.source)
+    const targetNode = nodeMap.get(connection.target)
+    if (!sourceNode || !targetNode) {
+      return
+    }
+    const result = validateContentPatcherConnection({
+      sourceKind: sourceNode.kind,
+      targetKind: targetNode.kind,
+      action: sourceNode.data.action,
+      targetPath: targetNode.data.target,
+    })
+    if (!result.ok) {
+      setConnectionError(result.detail ?? result.reason)
+      return
+    }
+
+    setConnectionError(null)
+    const tone = edgeTone[result.edgeType]
+    const patchId =
+      result.edgeType === 'data'
+        ? sourceNode.data.patchId
+        : result.edgeType === 'logic'
+          ? targetNode.data.patchId
+          : targetNode.data.patchId
+
+    if (patchId) {
+      if (result.edgeType === 'file' && sourceNode.data.assetPath) {
+        queuePatchUpdate({ type: 'field', patchId, field: 'FromFile', value: sourceNode.data.assetPath })
+      }
+      if (result.edgeType === 'data' && targetNode.data.target) {
+        queuePatchUpdate({ type: 'field', patchId, field: 'Target', value: targetNode.data.target })
+      }
+      if (result.edgeType === 'logic' && sourceNode.data.whenKey) {
+        const existingWhen = getExistingWhen(patchId)
+        const nextValue = resolveWhenValue(sourceNode.data.whenKey, simulationContext)
+        const nextWhen = buildWhenPayload(existingWhen, sourceNode.data.whenKey, nextValue)
+        queuePatchUpdate({ type: 'when', patchId, value: nextWhen })
+      }
+    }
+
+    setEdges((current) =>
+      addEdge(
+        {
+          ...connection,
+          className: `cp-edge cp-edge-${result.edgeType}`,
+          style: { stroke: tone, strokeWidth: 2.2, opacity: 0.9 },
+          sourceHandle: result.edgeType,
+          targetHandle: result.edgeType,
+          data: { patchId, edgeType: result.edgeType },
+        },
+        current,
+      ) as FlowEdge[],
+    )
+  }
+
+  function handleEdgesChange(changes: EdgeChange[]) {
+    changes.forEach((change) => {
+      if (change.type !== 'remove') {
+        return
+      }
+      const edge = edges.find((entry) => entry.id === change.id)
+      if (!edge) {
+        return
+      }
+      const patchId = edge.data?.patchId as string | undefined
+      const edgeType = edge.data?.edgeType as 'logic' | 'file' | 'data' | undefined
+      if (!patchId || !edgeType) {
+        return
+      }
+      if (edgeType === 'file') {
+        queuePatchUpdate({ type: 'field', patchId, field: 'FromFile', value: '' })
+        return
+      }
+      if (edgeType === 'data') {
+        queuePatchUpdate({ type: 'field', patchId, field: 'Target', value: '' })
+        return
+      }
+      if (edgeType === 'logic') {
+        const sourceNode = nodeMap.get(edge.source)
+        if (!sourceNode?.data.whenKey) {
+          return
+        }
+        const existingWhen = getExistingWhen(patchId)
+        const nextWhen = removeWhenKey(existingWhen, sourceNode.data.whenKey)
+        queuePatchUpdate({ type: 'when', patchId, value: nextWhen })
+      }
+    })
+    setEdges((current) => applyEdgeChanges(changes, current) as FlowEdge[])
+  }
+
   return (
-    <div className="flex h-full flex-col gap-4 overflow-auto bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_94%,transparent),color-mix(in_srgb,var(--bg-app)_92%,transparent))] p-4">
-      <section className="rounded-[32px] border border-[var(--border-color)] bg-[linear-gradient(145deg,color-mix(in_srgb,var(--bg-elevated)_96%,transparent),color-mix(in_srgb,var(--accent)_10%,var(--bg-panel)))] p-5 shadow-[var(--shadow-panel)]">
+    <div className="flex h-full flex-col gap-4 overflow-auto bg-[var(--bg-panel)] p-4">
+      <header className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
+          <div className="max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex rounded-full border border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,var(--bg-app))] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
-                Mods Studio
-              </span>
+              <span className="dock-chip">Mods Workspace</span>
               <span className={`status-pill ${hasUnsavedChanges ? 'status-pill-working' : 'status-pill-ready'}`}>
                 {hasUnsavedChanges ? copy.dirtyLabel : copy.cleanLabel}
               </span>
               {diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? (
                 <span className="status-pill status-pill-error">Errors</span>
-              ) : null}
+              ) : (
+                <span className="status-pill status-pill-ready">Healthy</span>
+              )}
             </div>
             <h1 className="mt-4 text-2xl font-semibold text-[var(--text-primary)]">{projectDetail.summary.name}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-              {projectDetail.summary.description ?? pluginDefinition?.pluginKind ?? projectDetail.summary.pluginKind}
+            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+              Shape your patch logic on the canvas, then verify output in real time before exporting.
             </p>
-            <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
+            <div className="mt-4 flex flex-wrap gap-2">
               <span className="dock-chip">{projectDetail.summary.pluginKind}</span>
               {projectDetail.summary.author ? <span className="dock-chip">{projectDetail.summary.author}</span> : null}
               {projectDetail.summary.version ? <span className="dock-chip">{projectDetail.summary.version}</span> : null}
-              {manifestUniqueId ? <span className="dock-chip">{manifestUniqueId}</span> : null}
+              {projectDetail.summary.uniqueId ? <span className="dock-chip">{projectDetail.summary.uniqueId}</span> : null}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="control-button" disabled={!canPersist} onClick={onSaveProject}>
-              {copy.saveProject}
-            </button>
-            <button type="button" className="control-button control-button-primary" disabled={!canPersist} onClick={onExportProject}>
-              {copy.exportProject}
-            </button>
+          <div className="flex flex-col gap-3">
+            <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Simulation</p>
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                <label className="grid gap-1 text-[11px] text-[var(--text-tertiary)]">
+                  Season
+                  <select
+                    className="control-input h-9"
+                    aria-label="Simulation Season"
+                    value={simulation.season ?? ''}
+                    onChange={(event) => setSimulation((current) => ({ ...current, season: event.target.value }))}
+                  >
+                    <option value="">Any</option>
+                    <option value="spring">Spring</option>
+                    <option value="summer">Summer</option>
+                    <option value="fall">Fall</option>
+                    <option value="winter">Winter</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 text-[11px] text-[var(--text-tertiary)]">
+                  Weather
+                  <select
+                    className="control-input h-9"
+                    aria-label="Simulation Weather"
+                    value={simulation.weather ?? ''}
+                    onChange={(event) => setSimulation((current) => ({ ...current, weather: event.target.value }))}
+                  >
+                    <option value="">Any</option>
+                    <option value="sunny">Sunny</option>
+                    <option value="rain">Rain</option>
+                    <option value="storm">Storm</option>
+                    <option value="snow">Snow</option>
+                  </select>
+                </label>
+                <label className="grid gap-1 text-[11px] text-[var(--text-tertiary)]">
+                  Relationship
+                  <select
+                    className="control-input h-9"
+                    aria-label="Simulation Relationship"
+                    value={simulation.relationship ?? ''}
+                    onChange={(event) => setSimulation((current) => ({ ...current, relationship: event.target.value }))}
+                  >
+                    <option value="">Any</option>
+                    <option value="0">0</option>
+                    <option value="4">4+</option>
+                    <option value="8">8+</option>
+                    <option value="10">10+</option>
+                    <option value="12">12+</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" className="control-button" onClick={() => setShowDiagnostics((current) => !current)}>
+                {showDiagnostics ? 'Hide Diagnostics' : 'Show Diagnostics'}
+              </button>
+              <button type="button" className="control-button" disabled={!canPersist} onClick={onSaveProject}>
+                {copy.saveProject}
+              </button>
+              <button type="button" className="control-button control-button-primary" disabled={!canPersist} onClick={onExportProject}>
+                {copy.exportProject}
+              </button>
+            </div>
           </div>
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          <StatCard label={copy.patchesCountLabel} value={contentSummary.changeCount} tone="accent" />
-          <StatCard label={copy.includesLabel} value={contentSummary.includeCount} />
-          <StatCard label={copy.dynamicTokensLabel} value={contentSummary.dynamicTokenCount} />
-          <StatCard label={copy.configKeysLabel} value={contentSummary.configKeys.length} />
-          <StatCard label={copy.formatLabel} value={contentSummary.format ?? copy.unknownLabel} />
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] pt-4">
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Mods workspace sections">
-            <TabButton active={view === 'overview'} label="Overview" onClick={() => setView('overview')} />
-            <TabButton active={view === 'patches'} label="Patch Flow" onClick={() => setView('patches')} />
-            <TabButton active={view === 'json'} label={copy.rawJsonTitle} onClick={() => setView('json')} />
-            <TabButton active={view === 'diagnostics'} label="Diagnostics" onClick={() => setView('diagnostics')} />
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.patchesCountLabel}</p>
+            <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{contentSummary.changeCount}</p>
           </div>
-          <p className="text-sm text-[var(--text-secondary)]">{statusMessage || 'Review structure, patch flow, and raw sources in one workspace.'}</p>
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.includesLabel}</p>
+            <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{contentSummary.includeCount}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.dynamicTokensLabel}</p>
+            <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{contentSummary.dynamicTokenCount}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.configKeysLabel}</p>
+            <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{contentSummary.configKeys.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.formatLabel}</p>
+            <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{contentSummary.format ?? copy.unknownLabel}</p>
+          </div>
         </div>
-      </section>
 
-      {view === 'overview' ? (
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
-          <div className="space-y-4">
-            <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                <FolderTree className="h-4 w-4" />
-                Project Metadata
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <label className="grid gap-2">
-                  <span className="panel-section-title">{copy.manifestName}</span>
-                  <input className="control-input" value={manifestName} onChange={(event) => onManifestFieldChange('Name', event.target.value)} />
-                </label>
-                <label className="grid gap-2">
-                  <span className="panel-section-title">{copy.manifestAuthor}</span>
-                  <input className="control-input" value={manifestAuthor} onChange={(event) => onManifestFieldChange('Author', event.target.value)} />
-                </label>
-                <label className="grid gap-2">
-                  <span className="panel-section-title">{copy.manifestVersion}</span>
-                  <input className="control-input" value={manifestVersion} onChange={(event) => onManifestFieldChange('Version', event.target.value)} />
-                </label>
-                <label className="grid gap-2">
-                  <span className="panel-section-title">{copy.manifestUniqueId}</span>
-                  <input className="control-input" value={manifestUniqueId} onChange={(event) => onManifestFieldChange('UniqueID', event.target.value)} />
-                </label>
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="panel-section-title">{copy.manifestDescription}</span>
-                  <textarea
-                    className="control-input min-h-28 resize-y"
-                    value={manifestDescription}
-                    onChange={(event) => onManifestFieldChange('Description', event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-2 md:col-span-2">
-                  <span className="panel-section-title">{copy.manifestContentPackFor}</span>
-                  <input
-                    className="control-input"
-                    value={typeof contentPackFor.UniqueID === 'string' ? contentPackFor.UniqueID : ''}
-                    onChange={(event) => onManifestFieldChange('ContentPackFor', event.target.value)}
-                  />
-                </label>
-              </div>
-            </section>
+        <div className="mt-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+          {statusMessage || 'Simulation highlights which patches are active for the selected season, weather, and relationship.'}
+        </div>
+      </header>
 
-            <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(220px,0.8fr)_minmax(0,2fr)_minmax(300px,0.9fr)]">
+        <aside className="flex flex-col gap-4">
+          <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              <FolderTree className="h-4 w-4" />
+              Asset Library
+            </div>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              Drag assets or presets into the canvas to spawn nodes.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Assets</p>
+                <div className="mt-2 grid gap-2">
+                  {assets.length ? assets.map((asset) => (
+                    <div
+                      key={asset.path}
+                      className="asset-row"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData('application/x-modforge-node', JSON.stringify({ kind: 'asset', value: asset.path }))
+                        event.dataTransfer.effectAllowed = 'move'
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-primary)]">
+                        <span className="truncate">{asset.path}</span>
+                        <span className="dock-chip">{asset.kind}</span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="panel-empty-state text-xs">No local assets detected.</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Presets</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {presets.map((preset) => (
+                    <span
+                      key={preset.key}
+                      className="dock-chip"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData('application/x-modforge-node', JSON.stringify({ kind: 'condition', value: preset.key }))
+                        event.dataTransfer.effectAllowed = 'move'
+                      }}
+                    >
+                      {preset.key}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Game Targets</p>
+                <div className="mt-2 grid gap-2">
+                  {targets.length ? targets.map((target) => (
+                    <div
+                      key={target}
+                      className="asset-row"
+                      draggable
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData('application/x-modforge-node', JSON.stringify({ kind: 'target', value: target }))
+                        event.dataTransfer.effectAllowed = 'move'
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-primary)]">
+                        <span className="truncate">{target}</span>
+                        <span className="dock-chip">Target</span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="panel-empty-state text-xs">No targets detected.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section className="flex min-h-[520px] flex-col gap-3 rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                 <GitBranchPlus className="h-4 w-4" />
-                Patch Lane
+                Node Canvas
               </div>
-              <div className="mt-4 space-y-3">
-                {contentSummary.patches.length ? (
-                  contentSummary.patches.slice(0, 5).map((patch) => (
-                    <PatchListItem
-                      key={patch.id}
-                      patch={patch}
-                      active={patch.id === selectedPatchSummary?.id}
-                      onClick={() => {
-                        onSelectPatch(patch.id)
-                        setView('patches')
-                      }}
-                    />
-                  ))
-                ) : (
-                  <div className="panel-empty-state">{copy.noPatchesLabel}</div>
-                )}
-              </div>
-            </section>
-          </div>
-
-          <div className="space-y-4">
-            <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                {diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                Workspace Health
-              </div>
-              <div className="mt-4 grid gap-3">
-                <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-                  <p><span className="font-semibold text-[var(--text-primary)]">{copy.sourcePath}:</span> {projectDetail.summary.absolutePath}</p>
-                  <p className="mt-2"><span className="font-semibold text-[var(--text-primary)]">{copy.manifestPathLabel}:</span> {projectDetail.summary.manifestPath}</p>
-                  <p className="mt-2"><span className="font-semibold text-[var(--text-primary)]">{copy.contentPathLabel}:</span> {projectDetail.summary.contentPath ?? copy.unknownLabel}</p>
-                  {lastSaveResult ? (
-                    <p className="mt-2"><span className="font-semibold text-[var(--text-primary)]">{copy.outputPath}:</span> {lastSaveResult.targetPath}</p>
-                  ) : null}
-                </div>
-                <DiagnosticList diagnostics={diagnostics} emptyLabel={copy.noDiagnosticsLabel} />
-              </div>
-            </section>
-
-            <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                <Sparkles className="h-4 w-4" />
-                Structure Snapshot
-              </div>
-              <div className="mt-4 grid gap-3">
-                <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] p-4">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Config Keys</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {contentSummary.configKeys.length ? contentSummary.configKeys.map((key) => <span key={key} className="dock-chip">{key}</span>) : <span className="text-sm text-[var(--text-secondary)]">No config keys.</span>}
-                  </div>
-                </div>
-                <div className="rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] p-4">
-                  <p className="text-sm font-semibold text-[var(--text-primary)]">Plugin Scope</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="dock-chip">{pluginDefinition?.pluginKind ?? projectDetail.summary.pluginKind}</span>
-                    <span className="dock-chip">{pluginDefinition?.capabilities.length ?? 0} capabilities</span>
-                    <span className="dock-chip">{pluginDefinition?.futureScopes.length ?? 0} future scopes</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </section>
-      ) : null}
-
-      {view === 'patches' ? (
-        <section className="grid gap-4 xl:grid-cols-[minmax(320px,0.68fr)_minmax(0,1.32fr)]">
-          <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Patch Catalog</p>
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">Filter the change list, then drill into one patch without jumping between separate side panels.</p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" className="control-button" onClick={onAddPatch}>{copy.addPatch}</button>
-                <button type="button" className="control-button" disabled={!selectedPatchId} onClick={onRemoveSelectedPatch}>{copy.removePatch}</button>
-              </div>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Connect conditions, assets, and targets. Types are color-coded for quick scanning.
+              </p>
             </div>
-
-            <div className="relative mt-4">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
-              <input
-                className="control-input pl-9"
-                value={patchQuery}
-                onChange={(event) => setPatchQuery(event.target.value)}
-                placeholder="Filter patches by action, target, file, or When key"
-                aria-label="Filter patches"
-                spellCheck={false}
-              />
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {filteredPatches.length ? (
-                filteredPatches.map((patch) => (
-                  <PatchListItem
-                    key={patch.id}
-                    patch={patch}
-                    active={patch.id === selectedPatchSummary?.id}
-                    onClick={() => onSelectPatch(patch.id)}
-                  />
-                ))
-              ) : (
-                <div className="panel-empty-state">No patches match the current filter.</div>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            {selectedPatchSummary && selectedPatch && selectedPatchVisible ? (
-              <>
-                <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Selected Patch</p>
-                      <p className="mt-2 text-xl font-semibold text-[var(--text-primary)]">{logName || selectedPatchSummary.logName || copy.noPatch}</p>
-                      <p className="mt-2 text-sm text-[var(--text-secondary)]">{selectedPatchPreview?.detail}</p>
-                    </div>
-                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${getActionToneClass(action || selectedPatchSummary.action)}`}>
-                      {action || selectedPatchSummary.action}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-2">
-                    <label className="grid gap-2">
-                      <span className="panel-section-title">{copy.patchLogName}</span>
-                      <input className="control-input" value={logName} onChange={(event) => onPatchFieldChange('LogName', event.target.value)} />
-                    </label>
-                    <label className="grid gap-2">
-                      <span className="panel-section-title">{copy.patchAction}</span>
-                      <input className="control-input" value={action} onChange={(event) => onPatchFieldChange('Action', event.target.value)} />
-                    </label>
-                    <label className="grid gap-2 md:col-span-2">
-                      <span className="panel-section-title">{copy.patchTarget}</span>
-                      <input className="control-input" value={target} onChange={(event) => onPatchFieldChange('Target', event.target.value)} />
-                    </label>
-                    <label className="grid gap-2 md:col-span-2">
-                      <span className="panel-section-title">{copy.patchFromFile}</span>
-                      <input className="control-input" value={fromFile} onChange={(event) => onPatchFieldChange('FromFile', event.target.value)} />
-                    </label>
-                    <label className="grid gap-2 md:col-span-2">
-                      <span className="panel-section-title">{copy.patchWhenLabel}</span>
-                      <textarea
-                        className="control-input min-h-40 resize-y font-mono text-xs"
-                        value={whenText}
-                        onChange={(event) => onPatchWhenChange(event.target.value)}
-                        spellCheck={false}
-                      />
-                    </label>
-                  </div>
-                  {patchWhenError ? <p className="mt-3 text-sm text-[var(--danger)]">{patchWhenError}</p> : null}
-                </section>
-
-                <section className="grid gap-4 xl:grid-cols-2">
-                  <PreviewImageCard
-                    title="Original Asset"
-                    subtitle="Resolved from the base game target selected by this patch."
-                    preview={selectedSourcePreview}
-                  />
-                  <PreviewImageCard
-                    title="Patched Result"
-                    subtitle="Resolved from the mod file referenced by the patch."
-                    preview={selectedResultPreview}
-                  />
-                </section>
-
-                <section className="grid gap-4 xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
-                  <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                      <Boxes className="h-4 w-4" />
-                      Patch Context
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      <div className="panel-list-card px-3 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.patchTarget}</p>
-                        <p className="mt-2 break-all text-sm text-[var(--text-primary)]">{selectedPatchSummary.target || copy.noTargetLabel}</p>
-                      </div>
-                      <div className="panel-list-card px-3 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.whenLabel}</p>
-                        <p className="mt-2 text-sm text-[var(--text-primary)]">
-                          {selectedPatchSummary.whenKeys.length ? selectedPatchSummary.whenKeys.join(', ') : copy.alwaysLabel}
-                        </p>
-                      </div>
-                      <div className="panel-list-card px-3 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Entries</p>
-                        <p className="mt-2 text-sm text-[var(--text-primary)]">{selectedPatchEntries.length}</p>
-                      </div>
-                      {selectedPatchTargets.length ? (
-                        <div className="panel-list-card px-3 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Affected Targets</p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {selectedPatchTargets.map((item) => (
-                              <span key={item} className="dock-chip">{item}</span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      {selectedPatchSummary.updateKeys.length ? (
-                        <div className="panel-list-card px-3 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Update Triggers</p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {selectedPatchSummary.updateKeys.map((item) => (
-                              <span key={item} className="dock-chip">{item}</span>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                      <FileJson2 className="h-4 w-4" />
-                      Raw Patch JSON
-                    </div>
-                    <pre className="mt-4 overflow-auto whitespace-pre-wrap break-words rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] p-4 text-xs leading-6 text-[var(--text-secondary)]">
-                      {JSON.stringify(selectedPatch, null, 2)}
-                    </pre>
-                  </div>
-                </section>
-              </>
+            {connectionError ? (
+              <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 px-3 py-2 text-xs text-[var(--text-primary)]">
+                <strong className="mr-1 text-orange-600">Type mismatch:</strong>
+                {connectionError}
+              </div>
             ) : (
-              <div className="panel-empty-state min-h-[24rem] rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)]">
-                {filteredPatches.length ? 'Select a visible patch to continue editing.' : 'No patches match the current filter.'}
-              </div>
+              <span className="dock-chip">Logic • File • Data</span>
             )}
-          </section>
+          </div>
+
+          <div className="cp-canvas panel-canvas flex-1">
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={{ canvasNode: CanvasNode }}
+              onNodesChange={onNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={onConnect}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onNodeClick={(_, node) => {
+                setSelectedNodeId(node.id)
+                const nodeData = node.data as CanvasNodeData
+                if (nodeData.patchId && nodeData.patchId !== selectedPatchId) {
+                  onSelectPatch(nodeData.patchId)
+                }
+              }}
+              fitView
+              minZoom={0.4}
+              maxZoom={1.8}
+              className="cp-reactflow"
+              data-testid="reactflow"
+            >
+              <Background gap={20} size={1} />
+              <MiniMap zoomable pannable className="cp-minimap" />
+              <Controls showInteractive={false} className="cp-controls" />
+            </ReactFlow>
+          </div>
         </section>
-      ) : null}
 
-      {view === 'json' ? (
-        <section className="grid gap-4 xl:grid-cols-2">
-          <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              <FileJson2 className="h-4 w-4" />
-              manifest.json
-            </div>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">{manifestEditor.error ?? copy.rawJsonSubtitle}</p>
-            <textarea
-              className="control-input mt-4 min-h-[34rem] resize-y font-mono text-xs"
-              value={manifestEditor.text}
-              onChange={(event) => onManifestTextChange(event.target.value)}
-              aria-label="manifest.json editor"
-              spellCheck={false}
-            />
-          </section>
-
-          <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              <FileJson2 className="h-4 w-4" />
-              content.json
-            </div>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">{contentEditor.error ?? copy.rawJsonSubtitle}</p>
-            <textarea
-              className="control-input mt-4 min-h-[34rem] resize-y font-mono text-xs"
-              value={contentEditor.text}
-              onChange={(event) => onContentTextChange(event.target.value)}
-              aria-label="content.json editor"
-              spellCheck={false}
-            />
-          </section>
-        </section>
-      ) : null}
-
-      {view === 'diagnostics' ? (
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-              Diagnostics
-            </div>
-            <div className="mt-4 rounded-[22px] border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-              <p><span className="font-semibold text-[var(--text-primary)]">{copy.sourcePath}:</span> {projectDetail.summary.absolutePath}</p>
-              <p className="mt-2"><span className="font-semibold text-[var(--text-primary)]">{copy.manifestPathLabel}:</span> {projectDetail.summary.manifestPath}</p>
-              <p className="mt-2"><span className="font-semibold text-[var(--text-primary)]">{copy.contentPathLabel}:</span> {projectDetail.summary.contentPath ?? copy.unknownLabel}</p>
-              {lastSaveResult ? (
-                <p className="mt-2"><span className="font-semibold text-[var(--text-primary)]">{copy.outputPath}:</span> {lastSaveResult.targetPath}</p>
-              ) : null}
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+        <aside className="flex flex-col gap-4">
+          <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
               <Sparkles className="h-4 w-4" />
-              Validation Feed
-            </div>
-            <div className="mt-4">
-              <DiagnosticList diagnostics={diagnostics} emptyLabel={copy.noDiagnosticsLabel} />
+              Node Inspector
             </div>
           </section>
-        </section>
-      ) : null}
+          <PatchInspectorPanel
+            copy={copy}
+            selectedPatch={selectedPatch}
+            patchWhenError={patchWhenError}
+            onPatchFieldChange={onPatchFieldChange}
+            onPatchWhenChange={onPatchWhenChange}
+            selectedNode={selectedNode}
+            patchPreview={patchPreview}
+          />
+          {showDiagnostics ? (
+            <ModDiagnosticsPanel
+              copy={copy}
+              pluginDefinition={pluginDefinition}
+              activeProject={projectDetail}
+              diagnostics={diagnostics}
+              hasUnsavedChanges={hasUnsavedChanges}
+              lastSaveResult={lastSaveResult}
+              statusMessage={statusMessage}
+              contentSummary={contentSummary}
+            />
+          ) : (
+            <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                    Diagnostics
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                    Keep this collapsed until you need validation details, save output, or project paths.
+                  </p>
+                </div>
+                <button type="button" className="control-button" onClick={() => setShowDiagnostics(true)}>
+                  Open Diagnostics
+                </button>
+              </div>
+            </section>
+          )}
+        </aside>
+      </section>
+
+      <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+          <FolderTree className="h-4 w-4" />
+          content.json Preview
+        </div>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+          This preview updates as you adjust nodes and connections.
+        </p>
+        <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3 text-xs text-[var(--text-secondary)]" aria-label="content.json preview" aria-live="polite">
+          {patchPreview || contentEditor.text}
+        </pre>
+      </section>
     </div>
   )
 }

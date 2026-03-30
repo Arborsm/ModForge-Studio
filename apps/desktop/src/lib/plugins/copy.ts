@@ -3,6 +3,8 @@
 export type ModWorkspaceCopy = {
   workspaceLabel: string
   workspaceSubtitle: string
+  emptyStateTitle: string
+  emptyStateSubtitle: string
   browserTitle: string
   browserSubtitle: string
   browserFilterPlaceholder: string
@@ -23,12 +25,18 @@ export type ModWorkspaceCopy = {
   patchWhenLabel: string
   rawJsonTitle: string
   rawJsonSubtitle: string
+  openPatchFlow: string
   inspectorTitle: string
   inspectorSubtitle: string
   diagnosticsTitle: string
   diagnosticsSubtitle: string
+  diagnosticsFeedTitle: string
+  showDiagnostics: string
+  hideDiagnostics: string
   noProject: string
   noPatch: string
+  nextStepsTitle: string
+  quickPatchTitle: string
   projectFacts: string
   capabilities: string
   futureScopes: string
@@ -73,6 +81,8 @@ export type ModWorkspaceCopy = {
 const zhCN: ModWorkspaceCopy = {
   workspaceLabel: '模组',
   workspaceSubtitle: '内建插件工作区',
+  emptyStateTitle: '开始你的模组工作区',
+  emptyStateSubtitle: '先扫描 Mods 目录或导入一个现有 Content Patcher 项目，然后再进入编辑。',
   browserTitle: '模组浏览器',
   browserSubtitle: 'Mods 目录与手动导入',
   browserFilterPlaceholder: '按名称、作者、UniqueID 或路径筛选',
@@ -93,12 +103,18 @@ const zhCN: ModWorkspaceCopy = {
   patchWhenLabel: 'When JSON',
   rawJsonTitle: '原始 JSON',
   rawJsonSubtitle: '可直接编辑 manifest.json 与 content.json',
+  openPatchFlow: '打开 Patch 流程',
   inspectorTitle: 'Patch 检查器',
   inspectorSubtitle: '当前选中 Patch 的结构化字段',
   diagnosticsTitle: '诊断与导出',
   diagnosticsSubtitle: '结构检查、保存状态与路径信息',
+  diagnosticsFeedTitle: '诊断反馈',
+  showDiagnostics: '显示诊断',
+  hideDiagnostics: '隐藏诊断',
   noProject: '选择一个 Content Patcher 项目后在这里编辑。',
   noPatch: '当前没有选中的 Patch。',
+  nextStepsTitle: '下一步',
+  quickPatchTitle: '快速 Patch 编辑',
   projectFacts: '项目事实',
   capabilities: '能力',
   futureScopes: '未来扩展',
@@ -143,6 +159,8 @@ const zhCN: ModWorkspaceCopy = {
 const enUS: ModWorkspaceCopy = {
   workspaceLabel: 'Mods',
   workspaceSubtitle: 'Built-in plugin workspace',
+  emptyStateTitle: 'Start your mods workspace',
+  emptyStateSubtitle: 'Scan the Mods directory or import an existing Content Patcher project before editing.',
   browserTitle: 'Mod Browser',
   browserSubtitle: 'Mods directory plus manual import',
   browserFilterPlaceholder: 'Filter by name, author, UniqueID, or path',
@@ -163,12 +181,18 @@ const enUS: ModWorkspaceCopy = {
   patchWhenLabel: 'When JSON',
   rawJsonTitle: 'Raw JSON',
   rawJsonSubtitle: 'Direct editing for manifest.json and content.json',
+  openPatchFlow: 'Open Patch Flow',
   inspectorTitle: 'Patch Inspector',
   inspectorSubtitle: 'Structured fields for the selected patch',
   diagnosticsTitle: 'Diagnostics & Export',
   diagnosticsSubtitle: 'Validation, save status, and project paths',
+  diagnosticsFeedTitle: 'Diagnostics Feed',
+  showDiagnostics: 'Show Diagnostics',
+  hideDiagnostics: 'Hide Diagnostics',
   noProject: 'Select a Content Patcher project to edit it here.',
   noPatch: 'No patch is currently selected.',
+  nextStepsTitle: 'Next Steps',
+  quickPatchTitle: 'Quick Patch Editor',
   projectFacts: 'Project Facts',
   capabilities: 'Capabilities',
   futureScopes: 'Future Scopes',

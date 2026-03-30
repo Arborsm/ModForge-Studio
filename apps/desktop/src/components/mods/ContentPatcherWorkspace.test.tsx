@@ -1,15 +1,85 @@
 import type { ComponentProps } from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ContentPatcherWorkspace } from './ContentPatcherWorkspace'
 import { getModWorkspaceCopy } from '../../lib/plugins/copy'
 import type { WorkspacePluginCapability } from '../../lib/plugins/types'
 
-vi.mock('../../lib/desktop', () => ({
-  loadImageDataUrl: vi.fn(),
-}))
-
 const copy = getModWorkspaceCopy('en-US')
+
+let latestReactFlowProps: Record<string, unknown> | null = null
+
+vi.mock('@xyflow/react', async () => {
+  const React = await import('react')
+  return {
+    Background: () => null,
+    Controls: () => null,
+    MiniMap: () => null,
+    Handle: () => null,
+    Position: { Left: 'left', Right: 'right' },
+    ReactFlow: (props: Record<string, unknown>) => {
+      latestReactFlowProps = props
+      const onDrop = props.onDrop as (event: React.DragEvent) => void
+      const onDragOver = props.onDragOver as (event: React.DragEvent) => void
+      return (
+        <div data-testid="reactflow" onDrop={onDrop} onDragOver={onDragOver}>
+          {props.children as React.ReactNode}
+        </div>
+      )
+    },
+    addEdge: (edge: unknown, edges: unknown[]) => [...edges, edge],
+    applyEdgeChanges: (changes: Array<{ id: string; type: string }>, edges: Array<{ id: string }>) => {
+      const removed = new Set(changes.filter((change) => change.type === 'remove').map((change) => change.id))
+      return edges.filter((edge) => !removed.has(edge.id))
+    },
+    useNodesState: (initial: unknown[]) => {
+      const [nodes, setNodes] = React.useState(initial)
+      return [nodes, setNodes, vi.fn()]
+    },
+    useEdgesState: (initial: unknown[]) => {
+      const [edges, setEdges] = React.useState(initial)
+      return [edges, setEdges, vi.fn()]
+    },
+  }
+})
+
+function getReactFlowProps() {
+  if (!latestReactFlowProps) {
+    throw new Error('ReactFlow props not captured')
+  }
+  return latestReactFlowProps
+}
+
+function createDataTransfer() {
+  const store: Record<string, string> = {}
+  return {
+    setData: (type: string, value: string) => {
+      store[type] = value
+    },
+    getData: (type: string) => store[type] ?? '',
+    effectAllowed: 'move',
+    dropEffect: 'move',
+  } as unknown as DataTransfer
+}
+
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock)
+})
+
+afterAll(() => {
+  vi.unstubAllGlobals()
+})
+
+afterEach(() => {
+  cleanup()
+  latestReactFlowProps = null
+})
 
 function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
   return {
@@ -80,7 +150,15 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
       text: '{\n  "Changes": []\n}\n',
       value: {
         Format: '2.0.0',
-        Changes: [],
+        Changes: [
+          {
+            Action: 'EditImage',
+            Target: 'Maps/spring_town',
+            FromFile: 'assets/spring-town.png',
+            LogName: 'Spring town',
+            When: { Season: 'spring' },
+          },
+        ],
       },
       error: null,
     },
@@ -92,7 +170,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
       configKeys: ['Season', 'Festival'],
       patches: [
         {
-          id: 'spring',
+          id: 'patch:0',
           action: 'EditImage',
           target: 'Maps/spring_town',
           fromFile: 'assets/spring-town.png',
@@ -101,29 +179,9 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
           whenKeys: ['Season'],
           updateKeys: ['OnDayStarted'],
         },
-        {
-          id: 'summer',
-          action: 'EditData',
-          target: 'Data/Locations',
-          fromFile: 'data/locations.json',
-          logName: 'Summer locations',
-          hasWhen: false,
-          whenKeys: [],
-          updateKeys: [],
-        },
-        {
-          id: 'festival',
-          action: 'Load',
-          target: 'TileSheets/festival',
-          fromFile: 'assets/festival.png',
-          logName: 'Festival texture',
-          hasWhen: true,
-          whenKeys: ['Festival'],
-          updateKeys: ['OnWarped'],
-        },
       ],
     },
-    selectedPatchId: 'spring',
+    selectedPatchId: 'patch:0',
     selectedPatch: {
       Action: 'EditImage',
       Target: 'Maps/spring_town',
@@ -169,40 +227,82 @@ describe('ContentPatcherWorkspace', () => {
     const props = buildProps()
     render(<ContentPatcherWorkspace {...props} projectDetail={null} />)
 
-    expect(screen.getByText(copy.noProject)).toBeInTheDocument()
+    expect(screen.getByText(copy.noProject)).toBeTruthy()
   })
 
-  it('filters the patch queue and notifies when a patch is selected', () => {
-    const props = buildProps()
-    render(<ContentPatcherWorkspace {...props} />)
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Patch Flow' }))
-
-    fireEvent.change(screen.getByPlaceholderText('Filter patches by action, target, file, or When key'), {
-      target: { value: 'festival' },
-    })
-
-    expect(screen.getByText('Festival texture')).toBeInTheDocument()
-    expect(screen.queryByText('Spring town')).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByText('Festival texture'))
-
-    expect(props.onSelectPatch).toHaveBeenCalledWith('festival')
-  })
-
-  it('shows workspace health, raw json editors, and diagnostics inside the workspace', async () => {
+  it('renders the node workspace layout and simulation controls', () => {
     render(<ContentPatcherWorkspace {...buildProps()} />)
 
-    expect(screen.getByText('One patch uses a broad target.')).toBeInTheDocument()
-    expect(screen.getByText('E:\\Exports\\SeasonalGarden')).toBeInTheDocument()
+    expect(screen.getByText('Asset Library')).toBeTruthy()
+    expect(screen.getByText('Node Canvas')).toBeTruthy()
+    expect(screen.getByText('Node Inspector')).toBeTruthy()
+    expect(screen.getByText('content.json Preview')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Raw JSON' }))
-    const manifestEditor = await screen.findByLabelText('manifest.json editor')
-    const contentEditor = await screen.findByLabelText('content.json editor')
-    expect((manifestEditor as HTMLTextAreaElement).value).toContain('Seasonal Garden')
-    expect((contentEditor as HTMLTextAreaElement).value).toContain('"Changes"')
+    expect(screen.getByLabelText('Simulation Season')).toBeTruthy()
+    expect(screen.getByLabelText('Simulation Weather')).toBeTruthy()
+    expect(screen.getByLabelText('Simulation Relationship')).toBeTruthy()
+  })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Diagnostics' }))
-    expect(await screen.findByText('Validation Feed')).toBeInTheDocument()
+  it('lists assets, targets, and shows a live JSON preview', () => {
+    render(<ContentPatcherWorkspace {...buildProps()} />)
+
+    expect(screen.getAllByText('assets/spring-town.png').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Maps/spring_town').length).toBeGreaterThan(0)
+
+    const preview = screen.getByLabelText('content.json preview')
+    expect(preview.textContent).toContain('"Action": "EditImage"')
+  })
+
+  it('writes back asset drops to FromFile', () => {
+    const props = buildProps()
+    props.onPatchFieldChange = vi.fn()
+
+    render(<ContentPatcherWorkspace {...props} />)
+
+    const transfer = createDataTransfer()
+    transfer.setData('application/x-modforge-node', JSON.stringify({ kind: 'asset', value: 'assets/spring-town.png' }))
+    fireEvent.drop(screen.getByTestId('reactflow'), { dataTransfer: transfer })
+
+    expect(props.onPatchFieldChange).toHaveBeenCalledWith('FromFile', 'assets/spring-town.png')
+  })
+
+  it('writes back condition drops using simulation values', () => {
+    const props = buildProps()
+    props.onPatchWhenChange = vi.fn()
+
+    render(<ContentPatcherWorkspace {...props} />)
+
+    fireEvent.change(screen.getByLabelText('Simulation Season'), { target: { value: 'winter' } })
+
+    const transfer = createDataTransfer()
+    transfer.setData('application/x-modforge-node', JSON.stringify({ kind: 'condition', value: 'Season' }))
+    fireEvent.drop(screen.getByTestId('reactflow'), { dataTransfer: transfer })
+
+    expect(props.onPatchWhenChange).toHaveBeenCalled()
+    const payload = (props.onPatchWhenChange as ReturnType<typeof vi.fn>).mock.calls[0][0]
+    expect(String(payload)).toContain('"Season": "winter"')
+  })
+
+  it('writes back connections and removals to patch fields', () => {
+    const props = buildProps()
+    props.onPatchFieldChange = vi.fn()
+
+    render(<ContentPatcherWorkspace {...props} />)
+
+    const reactFlowProps = getReactFlowProps() as any
+    const nodes = reactFlowProps.nodes as Array<{ id: string; data: { kind: string; assetPath?: string; target?: string } }>
+    const edges = reactFlowProps.edges as Array<{ id: string; data?: { edgeType?: string } }>
+
+    const assetNode = nodes.find((node) => node.data.kind === 'asset')
+    const actionNode = nodes.find((node) => node.data.kind === 'action')
+    expect(assetNode && actionNode).toBeTruthy()
+
+    reactFlowProps.onConnect?.({ source: assetNode?.id, target: actionNode?.id })
+    expect(props.onPatchFieldChange).toHaveBeenCalledWith('FromFile', assetNode?.data.assetPath)
+
+    const dataEdge = edges.find((edge) => edge.data?.edgeType === 'data')
+    expect(dataEdge).toBeTruthy()
+    reactFlowProps.onEdgesChange?.([{ id: dataEdge?.id, type: 'remove' }])
+    expect(props.onPatchFieldChange).toHaveBeenCalledWith('Target', '')
   })
 })
