@@ -4,6 +4,7 @@ import type { EditorCopy, LocaleCode } from '../editor-shell'
 import { parseEventAssetContent } from '../events/parser'
 import { EVENT_SETUP_ENTRY_ID } from '../events/timeline'
 import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
+import { scheduleDeferred } from '../react/defer'
 
 type UseEventWorkspaceOptions = {
   copy: EditorCopy
@@ -71,7 +72,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const timeout = window.setTimeout(() => {
+      const cancel = scheduleDeferred(() => {
         setEventAssets([])
         setActiveEventAssetId(null)
         setParsedEventAsset(null)
@@ -79,9 +80,9 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
         setTimelineJumpRequestId(null)
         setEventStatusMessage('')
-      }, 0)
+      })
 
-      return () => window.clearTimeout(timeout)
+      return cancel
     }
     const rootPath = directoryInfo.rootPath
 
@@ -116,14 +117,14 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
   useEffect(() => {
     if (!directoryInfo?.rootPath || !activeEventAsset) {
-      const timeout = window.setTimeout(() => {
+      const cancel = scheduleDeferred(() => {
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
         setTimelineJumpRequestId(null)
-      }, 0)
+      })
 
-      return () => window.clearTimeout(timeout)
+      return cancel
     }
     const rootPath = directoryInfo.rootPath
 
@@ -186,9 +187,15 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
       modEventGroups[0]?.items[0]?.value ??
       null
 
-    if (nextAsset && nextAsset.id !== activeEventAssetId) {
-      setActiveEventAssetId(nextAsset.id)
+    if (!nextAsset || nextAsset.id === activeEventAssetId) {
+      return
     }
+
+    const cancel = scheduleDeferred(() => {
+      setActiveEventAssetId(nextAsset.id)
+    })
+
+    return cancel
   }, [activeEventAssetId, browserSourceMode, modEventGroups])
 
   function handleOpenEventAsset(asset: EventAssetSummary) {

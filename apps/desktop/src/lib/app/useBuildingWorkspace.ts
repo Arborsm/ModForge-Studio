@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { deferToTimeout } from '../react/deferred'
 import { loadTextAsset, loadMapAsset, scanMaps, type GameDirectoryInfo } from '../desktop'
 import type { LocaleCode, BuildingsPanelCopy } from '../editor-shell'
 import { loadImageResourceFromPath } from '../imageMetrics'
@@ -1069,18 +1070,12 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     () => new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const)),
     [mapDocuments],
   )
-  const activeIndoorMapDocument = useMemo(
-    () =>
-      activeBuilding?.indoorMapAssetName ? (mapDocumentsByAssetName.get(activeBuilding.indoorMapAssetName) ?? null) : null,
-    [activeBuilding?.indoorMapAssetName, mapDocumentsByAssetName],
-  )
-  const activeExteriorMapDocument = useMemo(
-    () =>
-      activeBuilding?.sourceKind === 'world' && activeBuilding.exteriorMapAssetName
-        ? (mapDocumentsByAssetName.get(activeBuilding.exteriorMapAssetName) ?? null)
-        : null,
-    [activeBuilding?.exteriorMapAssetName, activeBuilding?.sourceKind, mapDocumentsByAssetName],
-  )
+  const activeIndoorMapDocument =
+    activeBuilding?.indoorMapAssetName ? (mapDocumentsByAssetName.get(activeBuilding.indoorMapAssetName) ?? null) : null
+  const activeExteriorMapDocument =
+    activeBuilding?.sourceKind === 'world' && activeBuilding.exteriorMapAssetName
+      ? (mapDocumentsByAssetName.get(activeBuilding.exteriorMapAssetName) ?? null)
+      : null
   const activeIndoorMapPath = activeIndoorMapDocument?.relativePath ?? activeBuilding?.indoorMapPathLabel ?? null
   const activeIndoorMapMessage = activeIndoorMapDocument
     ? activeIndoorMapDocument.relativePath
@@ -1102,7 +1097,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const timeout = window.setTimeout(() => {
+      const cancel = deferToTimeout(() => {
         setBuildingEntries([])
         setConstructibleGroups([])
         setWorldBuildings([])
@@ -1116,9 +1111,9 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           width: null,
           height: null,
         })
-      }, 0)
+      })
 
-      return () => window.clearTimeout(timeout)
+      return cancel
     }
 
     let cancelled = false
@@ -1202,13 +1197,16 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      setSpringObjectsState({
-        path: null,
-        url: null,
-        width: null,
-        height: null,
+      const cancel = deferToTimeout(() => {
+        setSpringObjectsState({
+          path: null,
+          url: null,
+          width: null,
+          height: null,
+        })
       })
-      return
+
+      return cancel
     }
 
     let cancelled = false
@@ -1238,8 +1236,11 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
   useEffect(() => {
     if (!directoryInfo?.rootPath || activeUpgradeChain.length === 0 || activeBuilding?.sourceKind !== 'constructible') {
-      setActiveChainTextureStates({})
-      return
+      const cancel = deferToTimeout(() => {
+        setActiveChainTextureStates({})
+      })
+
+      return cancel
     }
 
     let cancelled = false
@@ -1287,7 +1288,10 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       null
 
     if (nextBuilding && nextBuilding.key !== activeBuildingId) {
-      setActiveBuildingId(nextBuilding.key)
+      const cancel = deferToTimeout(() => {
+        setActiveBuildingId(nextBuilding.key)
+      })
+      return cancel
     }
   }, [activeBuildingId, browserSourceMode, modBuildingGroups])
 

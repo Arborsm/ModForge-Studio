@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import {
   buildActorBreathingLayerDescriptor,
   getActorSpriteFrameHeight,
@@ -372,17 +372,27 @@ function WalkCyclePreviewTile({
   const [frameIndex, setFrameIndex] = useState(0)
 
   useEffect(() => {
-    setFrameIndex(0)
+    let frameId = 0
+    let intervalId: number | null = null
 
-    if (frames.length <= 1) {
-      return
+    frameId = window.requestAnimationFrame(() => {
+      setFrameIndex(0)
+
+      if (frames.length <= 1) {
+        return
+      }
+
+      intervalId = window.setInterval(() => {
+        setFrameIndex((currentFrameIndex) => (currentFrameIndex + 1) % frames.length)
+      }, WALK_FRAME_DURATION_MS)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      if (intervalId != null) {
+        window.clearInterval(intervalId)
+      }
     }
-
-    const intervalId = window.setInterval(() => {
-      setFrameIndex((currentFrameIndex) => (currentFrameIndex + 1) % frames.length)
-    }, WALK_FRAME_DURATION_MS)
-
-    return () => window.clearInterval(intervalId)
   }, [frameSequenceKey, frames.length])
 
   const currentFrame = frames[frameIndex] ?? frames[0] ?? 0
@@ -442,6 +452,14 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
   const spriteUrl = assetState.spriteUrl
   const spriteSheetWidth = assetState.spriteSheetWidth
   const spriteSheetHeight = assetState.spriteSheetHeight
+  const spritePath = assetState.spritePath
+  const portraitPath = assetState.portraitPath
+  const portraitUrl = assetState.portraitUrl
+  const portraitSheetWidth = assetState.portraitSheetWidth
+  const portraitSheetHeight = assetState.portraitSheetHeight
+  const activeVariantKey = activeVariant?.key ?? 'default'
+  const variantSpriteName = activeVariant?.spriteAssetName ?? character.spriteAssetName
+  const variantPortraitName = activeVariant?.portraitAssetName ?? character.portraitAssetName
   const [nowMs, setNowMs] = useState(() => performance.now())
 
   useEffect(() => {
@@ -460,7 +478,7 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
     return () => window.cancelAnimationFrame(frameId)
   }, [spriteSheetHeight, spriteSheetWidth, spriteUrl])
 
-  const breathingLayer = useMemo(() => {
+  const breathingLayer = (() => {
     if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
       return null
     }
@@ -470,18 +488,18 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
 
     return buildActorBreathingLayerDescriptor(
       {
-        requestKey: `${character.key}:${activeVariant?.key ?? 'default'}`,
+        requestKey: `${character.key}:${activeVariantKey}`,
         textureName: character.textureName,
-        spriteTextureName: activeVariant?.spriteAssetName ?? character.spriteAssetName,
-        portraitTextureName: activeVariant?.portraitAssetName ?? character.portraitAssetName,
-        spritePath: assetState.spritePath,
+        spriteTextureName: variantSpriteName,
+        portraitTextureName: variantPortraitName,
+        spritePath,
         spriteUrl,
         spriteSheetWidth,
         spriteSheetHeight,
-        portraitPath: assetState.portraitPath,
-        portraitUrl: assetState.portraitUrl,
-        portraitSheetWidth: assetState.portraitSheetWidth,
-        portraitSheetHeight: assetState.portraitSheetHeight,
+        portraitPath,
+        portraitUrl,
+        portraitSheetWidth,
+        portraitSheetHeight,
         farmerAppearance: null,
         characterMetadata: {
           textureName: character.textureName,
@@ -501,7 +519,7 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
       breathingScale,
       null,
     )
-  }, [activeVariant?.key, assetState, character, frameHeight, frameWidth, nowMs, spriteColumns, spriteSheetHeight, spriteSheetWidth, spriteUrl])
+  })()
 
   if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
     return (

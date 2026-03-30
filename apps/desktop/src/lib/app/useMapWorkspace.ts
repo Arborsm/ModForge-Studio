@@ -1071,7 +1071,7 @@ export function useMapWorkspace({
       null
 
     if (nextAsset && nextAsset.id !== activeMapId) {
-      void openMap(nextAsset)
+      void openMapRef.current(nextAsset)
     }
   }, [activeMapId, browserSourceMode, modMapGroups])
 

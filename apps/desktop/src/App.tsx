@@ -47,6 +47,7 @@ import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
 import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { useModWorkspace } from './lib/app/useModWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
+import { scheduleDeferred } from './lib/react/defer'
 
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
 const PlayerAppearanceWindow = lazy(() => import('./components/PlayerAppearanceWindow'))
@@ -113,21 +114,35 @@ export default function App() {
   }, [workspaceMode])
 
   useEffect(() => {
-    if (workspaceMode !== 'map' && workspaceMode !== 'characters') {
-      setDeferredHeavyWorkspaceMode(workspaceMode)
-      return
-    }
-
-    setDeferredHeavyWorkspaceMode(null)
     let cancelled = false
-    let timeoutId = 0
-    let frameId = 0
+    let cancelReset = () => {}
+    let cancelRevealFrame = () => {}
+    let cancelRevealTimeout = () => {}
     let idleId = 0
 
-    const revealHeavyWorkspace = () => {
-      if (!cancelled) {
-        setDeferredHeavyWorkspaceMode(workspaceMode)
+    const scheduleMode = (mode: WorkspaceMode | null) => {
+      cancelReset = scheduleDeferred(() => {
+        if (!cancelled) {
+          setDeferredHeavyWorkspaceMode(mode)
+        }
+      }, 'frame')
+    }
+
+    if (workspaceMode !== 'map' && workspaceMode !== 'characters') {
+      scheduleMode(workspaceMode)
+      return () => {
+        cancelled = true
+        cancelReset()
       }
+    }
+
+    scheduleMode(null)
+
+    const revealHeavyWorkspace = () => {
+      if (cancelled) {
+        return
+      }
+      setDeferredHeavyWorkspaceMode(workspaceMode)
     }
 
     const windowWithIdleCallback = window as WindowWithIdleCallback
@@ -140,9 +155,9 @@ export default function App() {
         { timeout: 300 },
       )
     } else {
-      frameId = window.requestAnimationFrame(() => {
-        timeoutId = window.setTimeout(revealHeavyWorkspace, 0)
-      })
+      cancelRevealFrame = scheduleDeferred(() => {
+        cancelRevealTimeout = scheduleDeferred(revealHeavyWorkspace, 'timeout')
+      }, 'frame')
     }
 
     return () => {
@@ -150,8 +165,9 @@ export default function App() {
       if (idleId && typeof windowWithIdleCallback.cancelIdleCallback === 'function') {
         windowWithIdleCallback.cancelIdleCallback(idleId)
       }
-      window.cancelAnimationFrame(frameId)
-      window.clearTimeout(timeoutId)
+      cancelReset()
+      cancelRevealFrame()
+      cancelRevealTimeout()
     }
   }, [workspaceMode])
 

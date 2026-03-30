@@ -35,36 +35,45 @@ function normalizeLookupKey(value: string) {
 }
 
 export function useModAssetIndex(directoryInfo: GameDirectoryInfo | null) {
-  const [modIndex, setModIndex] = useState<ModAssetIndex>({ mods: [] })
-  const [modIndexError, setModIndexError] = useState<string | null>(null)
+  const [modIndexState, setModIndexState] = useState<{
+    rootPath: string | null
+    index: ModAssetIndex
+    error: string | null
+  }>({ rootPath: null, index: { mods: [] }, error: null })
+  const rootPath = directoryInfo?.rootPath ?? null
 
   useEffect(() => {
-    if (!directoryInfo?.rootPath) {
-      setModIndex({ mods: [] })
-      setModIndexError(null)
-      return
-    }
-
     let cancelled = false
 
-    void scanModAssetIndex(directoryInfo.rootPath)
+    if (!rootPath) {
+      return () => {
+        cancelled = true
+      }
+    }
+
+    void scanModAssetIndex(rootPath)
       .then((nextIndex) => {
         if (!cancelled) {
-          setModIndex(nextIndex)
-          setModIndexError(null)
+          setModIndexState({ rootPath, index: nextIndex, error: null })
         }
       })
       .catch((error) => {
         if (!cancelled) {
-          setModIndex({ mods: [] })
-          setModIndexError(error instanceof Error ? error.message : String(error))
+          setModIndexState({
+            rootPath,
+            index: { mods: [] },
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
       })
 
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath])
+  }, [rootPath])
+
+  const modIndex = rootPath && modIndexState.rootPath === rootPath ? modIndexState.index : { mods: [] }
+  const modIndexError = rootPath && modIndexState.rootPath === rootPath ? modIndexState.error : null
 
   return {
     modIndex,

@@ -46,6 +46,7 @@ import {
   WEAPON_DATA_ASSET_PATH,
 } from './itemWorkspace'
 import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
+import { scheduleDeferred } from '../react/defer'
 
 type UseItemWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -652,6 +653,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const [itemStatusMessage, setItemStatusMessage] = useState('')
   const [textureStatesByAssetName, setTextureStatesByAssetName] = useState<Record<string, ItemTextureAssetState>>({})
   const { modIndex } = useModAssetIndex(directoryInfo)
+  const rootPath = directoryInfo?.rootPath ?? null
 
   const deferredFilter = useDeferredValue(itemFilter.trim().toLowerCase())
   const filteredItems = useMemo(
@@ -684,23 +686,23 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const itemLookup = useMemo(() => createItemEntryLookup(items), [items])
 
   useEffect(() => {
-    if (!directoryInfo?.rootPath) {
-      const timeout = window.setTimeout(() => {
+    if (!rootPath) {
+      const cancel = scheduleDeferred(() => {
         setItems([])
         setActiveItemId(null)
         setItemStatusMessage('')
         setTextureStatesByAssetName({})
-      }, 0)
+      })
 
-      return () => window.clearTimeout(timeout)
+      return cancel
     }
 
     let cancelled = false
-    setTextureStatesByAssetName({})
 
     void (async () => {
       try {
-        const giftHydratedEntries = await loadItemWorkspaceEntries(directoryInfo.rootPath, locale)
+        setTextureStatesByAssetName({})
+        const giftHydratedEntries = await loadItemWorkspaceEntries(rootPath, locale)
         if (cancelled) {
           return
         }
@@ -727,11 +729,11 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     return () => {
       cancelled = true
     }
-  }, [copy.indexedStatusTemplate, copy.noEntriesStatus, directoryInfo?.rootPath, locale])
+  }, [copy.indexedStatusTemplate, copy.noEntriesStatus, rootPath, locale])
 
   const ensureTextureAssetStates = useCallback(
     (assetNames: string[]) => {
-      if (!directoryInfo?.rootPath) {
+      if (!rootPath) {
         return
       }
 
@@ -750,7 +752,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
       void (async () => {
         const entries = await Promise.all(
           pendingAssetNames.map(async (assetName) => {
-            const texturePath = buildGameContentPath(directoryInfo.rootPath, assetName)
+            const texturePath = buildGameContentPath(rootPath, assetName)
             try {
               return [assetName, await loadImageState(texturePath, locale)] as const
             } catch {
@@ -773,7 +775,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
         }))
       })()
     },
-    [directoryInfo?.rootPath, locale, textureStatesByAssetName],
+    [locale, rootPath, textureStatesByAssetName],
   )
 
   useEffect(() => {
@@ -796,9 +798,15 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
       modItemGroups[0]?.items[0]?.value ??
       null
 
-    if (nextItem && nextItem.key !== activeItemId) {
-      setActiveItemId(nextItem.key)
+    if (!nextItem || nextItem.key === activeItemId) {
+      return
     }
+
+    const cancel = scheduleDeferred(() => {
+      setActiveItemId(nextItem.key)
+    })
+
+    return cancel
   }, [activeItemId, browserSourceMode, modItemGroups])
 
   function handleSelectItem(itemKey: string) {

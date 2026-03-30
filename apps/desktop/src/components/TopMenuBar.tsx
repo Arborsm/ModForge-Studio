@@ -12,7 +12,7 @@
   Users,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   getWorkspaceModeLabel,
   workspaceModes,
@@ -91,6 +91,7 @@ export default function TopMenuBar({
   projectMenu,
 }: TopMenuBarProps) {
   const [activeMenu, setActiveMenu] = useState<'view' | null>(null)
+  const viewMenuId = useId()
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
   const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
   const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [
@@ -117,9 +118,9 @@ export default function TopMenuBar({
   }, [activeMenu])
 
   return (
-    <header className="relative z-[120] border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
-      <div className="flex h-12 items-center justify-between gap-3 px-3">
-        <div className="flex min-w-0 items-center gap-4">
+    <header className="top-menu-bar relative z-[120] border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
+      <div className="top-menu-primary flex h-12 items-center justify-between gap-3 px-3">
+        <div className="top-menu-cluster flex min-w-0 items-center gap-4">
           <div className="flex min-w-0 items-center gap-3" data-tauri-drag-region>
             <div className="panel-section flex h-8 w-8 items-center justify-center border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent)] text-xs font-black tracking-[0.18em] text-white">
               MF
@@ -127,7 +128,7 @@ export default function TopMenuBar({
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{copy.brand.name}</p>
           </div>
 
-          <nav className="hidden items-center gap-2 xl:flex">
+          <nav className="top-menu-menus hidden items-center gap-2 xl:flex" aria-label="Main menus">
             {copy.menus.map((label, index) =>
               index === 0 ? (
                 <button
@@ -149,13 +150,16 @@ export default function TopMenuBar({
                       'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
                       viewMenuOpen ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
                     )}
+                    aria-haspopup="menu"
+                    aria-expanded={viewMenuOpen}
+                    aria-controls={viewMenuId}
                     onClick={() => setActiveMenu((current) => (current === 'view' ? null : 'view'))}
                   >
                     {viewMenu.title}
                   </button>
 
                   {viewMenuOpen ? (
-                    <div className="top-menu-dropdown">
+                    <div className="top-menu-dropdown" id={viewMenuId} role="menu" aria-label={viewMenu.title}>
                       <div className="top-menu-section">
                         <p className="top-menu-section-title">{viewMenu.panelsLabel}</p>
                         {viewMenu.panelItems.map((item) => (
@@ -163,6 +167,8 @@ export default function TopMenuBar({
                             key={item.id}
                             type="button"
                             className="top-menu-row"
+                            role="menuitemcheckbox"
+                            aria-checked={item.visible}
                             onClick={() => viewMenu.onTogglePanel(item.id, !item.visible)}
                           >
                             <span>{item.title}</span>
@@ -175,16 +181,21 @@ export default function TopMenuBar({
 
                       <div className="top-menu-section">
                         <p className="top-menu-section-title">{viewMenu.presetsLabel}</p>
-                        <button type="button" className="top-menu-row" onClick={viewMenu.onSavePreset}>
+                        <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onSavePreset}>
                           <span>{viewMenu.savePresetLabel}</span>
                         </button>
-                        <button type="button" className="top-menu-row" onClick={viewMenu.onResetLayout}>
+                        <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onResetLayout}>
                           <span>{viewMenu.resetLabel}</span>
                         </button>
                         {viewMenu.presetNames.length ? (
                           viewMenu.presetNames.map((name) => (
                             <div key={name} className="top-menu-row">
-                              <button type="button" className="min-w-0 flex-1 text-left" onClick={() => viewMenu.onLoadPreset(name)}>
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 text-left"
+                                role="menuitem"
+                                onClick={() => viewMenu.onLoadPreset(name)}
+                              >
                                 <span className="truncate">{name}</span>
                               </button>
                               <button
@@ -230,8 +241,8 @@ export default function TopMenuBar({
 
         <div className="h-full flex-1" data-tauri-drag-region />
 
-        <div className="flex items-center gap-2">
-          <span className={cx('status-pill', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
+        <div className="top-menu-cluster top-menu-controls flex items-center gap-2" role="group" aria-label="Shell controls">
+          <span className={cx('status-pill status-pill-compact', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
           <button
             type="button"
             className="icon-button"
@@ -285,29 +296,37 @@ export default function TopMenuBar({
         </div>
       </div>
 
-      <div className="flex h-12 items-center gap-2 overflow-x-auto border-t border-[color-mix(in_srgb,var(--border-color)_70%,transparent)] px-3">
-        {visibleNavEntries.map(([typedMode, label]) => {
-          const Icon = MODULE_ICONS[typedMode]
-          const active = workspaceMode === typedMode
+      <nav
+        className="top-menu-workspace flex h-12 items-center gap-2 border-t border-[color-mix(in_srgb,var(--border-color)_70%,transparent)] px-3"
+        aria-label={copy.center.moduleWorkspace}
+      >
+        <span className="top-menu-workspace-label">{copy.center.moduleWorkspace}</span>
+        <div className="top-menu-workspace-list">
+          {visibleNavEntries.map(([typedMode, label]) => {
+            const Icon = MODULE_ICONS[typedMode]
+            const active = workspaceMode === typedMode
 
-          return (
-            <button
-              key={typedMode}
-              type="button"
-              className={cx(
-                'inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
-                active
-                  ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-              )}
-              onClick={() => onWorkspaceChange(typedMode)}
-            >
-              <Icon className={cx('h-4 w-4', active && 'text-[var(--accent)]')} />
-              <span>{label}</span>
-            </button>
-          )
-        })}
-      </div>
+            return (
+              <button
+                key={typedMode}
+                type="button"
+                aria-current={active ? 'page' : undefined}
+                data-active={active}
+                className={cx(
+                  'top-menu-module-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
+                  active
+                    ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
+                )}
+                onClick={() => onWorkspaceChange(typedMode)}
+              >
+                <Icon className={cx('h-4 w-4', active && 'text-[var(--accent)]')} />
+                <span>{label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
     </header>
   )
 }

@@ -397,7 +397,14 @@ export function useEventStageWorkspace({
 
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
-  }, [actorAssets, playbackState.actors, playbackState.flashOverlay, playbackState.notices.length, playbackState.stageEffects])
+  }, [
+    actorAssets,
+    playbackState.actors,
+    playbackState.fadeOverlay,
+    playbackState.flashOverlay,
+    playbackState.notices.length,
+    playbackState.stageEffects,
+  ])
 
   useEffect(() => {
     if (playbackState.notices.length === 0 && playbackState.flashOverlay == null && playbackState.fadeOverlay == null) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Grid2x2 } from 'lucide-react'
 import { getSpringObjectsSourceRect } from '../lib/app/eventStageShared'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../lib/app/buildingWorkspace'
@@ -266,23 +266,6 @@ export default function BuildingWorkspace({
   onSelectBuildingStage,
 }: BuildingWorkspaceProps) {
   const [showGrid, setShowGrid] = useState(true)
-  const [zoomLabel, setZoomLabel] = useState(() => viewportLabels.zoomLabel(1))
-  const viewportRef = useRef<MapViewportHandle | null>(null)
-
-  useEffect(() => {
-    setZoomLabel(viewportLabels.zoomLabel(1))
-  }, [building?.key, viewportLabels])
-
-  const indoorVisibleLayerIds = useMemo(() => getVisibleLayerIds(activeIndoorMapDocument), [activeIndoorMapDocument])
-  const indoorVisibleObjectGroupIds = useMemo(
-    () => getVisibleObjectGroupIds(activeIndoorMapDocument),
-    [activeIndoorMapDocument],
-  )
-  const exteriorVisibleLayerIds = useMemo(() => getVisibleLayerIds(activeExteriorMapDocument), [activeExteriorMapDocument])
-  const exteriorVisibleObjectGroupIds = useMemo(
-    () => getVisibleObjectGroupIds(activeExteriorMapDocument),
-    [activeExteriorMapDocument],
-  )
 
   if (!building) {
     return (
@@ -293,6 +276,75 @@ export default function BuildingWorkspace({
       </div>
     )
   }
+
+  return (
+    <BuildingWorkspaceContent
+      key={building.key}
+      locale={locale}
+      copy={copy}
+      viewportLabels={viewportLabels}
+      theme={theme}
+      accentColor={accentColor}
+      building={building}
+      upgradeChain={upgradeChain}
+      activeTextureState={activeTextureState}
+      chainTextureStates={chainTextureStates}
+      activeIndoorMapDocument={activeIndoorMapDocument}
+      activeIndoorMapPath={activeIndoorMapPath}
+      activeIndoorMapMessage={activeIndoorMapMessage}
+      activeExteriorMapDocument={activeExteriorMapDocument}
+      activeExteriorMapPath={activeExteriorMapPath}
+      activeExteriorMapMessage={activeExteriorMapMessage}
+      activeExteriorFocusPoint={activeExteriorFocusPoint}
+      springObjectsState={springObjectsState}
+      onSelectBuildingStage={onSelectBuildingStage}
+      showGrid={showGrid}
+      onToggleGrid={() => setShowGrid((current) => !current)}
+    />
+  )
+}
+
+type BuildingWorkspaceContentProps = Omit<BuildingWorkspaceProps, 'building'> & {
+  building: BuildingWorkspaceEntry
+  showGrid: boolean
+  onToggleGrid: () => void
+}
+
+function BuildingWorkspaceContent({
+  locale,
+  copy,
+  viewportLabels,
+  theme,
+  accentColor,
+  building,
+  upgradeChain,
+  activeTextureState,
+  chainTextureStates,
+  activeIndoorMapDocument,
+  activeIndoorMapPath,
+  activeIndoorMapMessage,
+  activeExteriorMapDocument,
+  activeExteriorMapPath,
+  activeExteriorMapMessage,
+  activeExteriorFocusPoint,
+  springObjectsState,
+  onSelectBuildingStage,
+  showGrid,
+  onToggleGrid,
+}: BuildingWorkspaceContentProps) {
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const viewportRef = useRef<MapViewportHandle | null>(null)
+  const zoomLabel = viewportLabels.zoomLabel(zoomLevel)
+  const indoorVisibleLayerIds = useMemo(() => getVisibleLayerIds(activeIndoorMapDocument), [activeIndoorMapDocument])
+  const indoorVisibleObjectGroupIds = useMemo(
+    () => getVisibleObjectGroupIds(activeIndoorMapDocument),
+    [activeIndoorMapDocument],
+  )
+  const exteriorVisibleLayerIds = useMemo(() => getVisibleLayerIds(activeExteriorMapDocument), [activeExteriorMapDocument])
+  const exteriorVisibleObjectGroupIds = useMemo(
+    () => getVisibleObjectGroupIds(activeExteriorMapDocument),
+    [activeExteriorMapDocument],
+  )
 
   const isConstructible = building.sourceKind === 'constructible'
   const sourceRect = getResolvedSourceRect(building, activeTextureState)
@@ -561,7 +613,7 @@ export default function BuildingWorkspace({
               <button
                 type="button"
                 className={cx('tool-button', showGrid && 'tool-button-active')}
-                onClick={() => setShowGrid((current) => !current)}
+                onClick={onToggleGrid}
                 title={showGrid ? 'Hide grid' : 'Show grid'}
               >
                 <Grid2x2 className="h-4 w-4" />
@@ -585,7 +637,7 @@ export default function BuildingWorkspace({
                   accentColor={accentColor}
                   showGrid={showGrid}
                   showStatsChips
-                  onZoomChange={(nextZoom) => setZoomLabel(viewportLabels.zoomLabel(nextZoom))}
+                  onZoomChange={(nextZoom) => setZoomLevel(nextZoom)}
                 />
               </div>
             ) : (

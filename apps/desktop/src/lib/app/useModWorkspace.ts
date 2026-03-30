@@ -25,6 +25,7 @@ import {
 } from '../plugins/contentPatcher'
 import { getWorkspacePluginDefinition } from '../plugins/registry'
 import type { JsonEditorState } from '../plugins/types'
+import { scheduleDeferred } from '../react/defer'
 
 type UseModWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -121,16 +122,19 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      setModProjects([])
-      setActiveProjectPath(null)
-      setProjectDetail(null)
-      setManifestEditor({ text: '', value: null, error: null })
-      setContentEditor({ text: '', value: null, error: null })
-      setSelectedPatchId(null)
-      setPatchWhenError(null)
-      setStatusMessage('')
-      setLastSaveResult(null)
-      return
+      const cancel = scheduleDeferred(() => {
+        setModProjects([])
+        setActiveProjectPath(null)
+        setProjectDetail(null)
+        setManifestEditor({ text: '', value: null, error: null })
+        setContentEditor({ text: '', value: null, error: null })
+        setSelectedPatchId(null)
+        setPatchWhenError(null)
+        setStatusMessage('')
+        setLastSaveResult(null)
+      })
+
+      return cancel
     }
 
     let cancelled = false
@@ -159,12 +163,15 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (!activeProjectPath) {
-      setProjectDetail(null)
-      setManifestEditor({ text: '', value: null, error: null })
-      setContentEditor({ text: '', value: null, error: null })
-      setSelectedPatchId(null)
-      setPatchWhenError(null)
-      return
+      const cancel = scheduleDeferred(() => {
+        setProjectDetail(null)
+        setManifestEditor({ text: '', value: null, error: null })
+        setContentEditor({ text: '', value: null, error: null })
+        setSelectedPatchId(null)
+        setPatchWhenError(null)
+      })
+
+      return cancel
     }
 
     let cancelled = false
@@ -201,12 +208,18 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   }, [activeProjectPath])
 
   useEffect(() => {
-    if (!contentSummary.patches.length) {
-      setSelectedPatchId(null)
-      return
-    }
+    const cancel = scheduleDeferred(() => {
+      if (!contentSummary.patches.length) {
+        setSelectedPatchId(null)
+        return
+      }
 
-    setSelectedPatchId((current) => current && contentSummary.patches.some((patch) => patch.id === current) ? current : contentSummary.patches[0]?.id ?? null)
+      setSelectedPatchId((current) =>
+        current && contentSummary.patches.some((patch) => patch.id === current) ? current : contentSummary.patches[0]?.id ?? null,
+      )
+    })
+
+    return cancel
   }, [contentSummary.patches])
 
   function updateManifestValue(nextValue: unknown) {

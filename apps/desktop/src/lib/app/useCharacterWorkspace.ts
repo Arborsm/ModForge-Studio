@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { deferToAnimationFrame, deferToTimeout } from '../react/deferred'
 import { loadTextAsset, type GameDirectoryInfo } from '../desktop'
 import type { CharactersPanelCopy, LocaleCode } from '../editor-shell'
 import { loadImageResourceFromPath } from '../imageMetrics'
@@ -948,7 +949,7 @@ export function useCharacterWorkspace({
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const timeout = window.setTimeout(() => {
+      const cancel = deferToTimeout(() => {
         setCharacters([])
         setActiveCharacterId(null)
         setActiveVariantKey('default')
@@ -967,9 +968,9 @@ export function useCharacterWorkspace({
           springObjectsSheetWidth: null,
           springObjectsSheetHeight: null,
         })
-      }, 0)
+      })
 
-      return () => window.clearTimeout(timeout)
+      return cancel
     }
 
     let cancelled = false
@@ -1007,14 +1008,18 @@ export function useCharacterWorkspace({
   }, [copy.indexedStatusTemplate, copy.noEntriesStatus, directoryInfo?.rootPath, locale])
 
   useEffect(() => {
-    if (!activeCharacter) {
-      setActiveVariantKey('default')
-      return
-    }
+    const cancel = deferToAnimationFrame(() => {
+      if (!activeCharacter) {
+        setActiveVariantKey('default')
+        return
+      }
 
-    setActiveVariantKey((current) =>
-      activeCharacter.variants.some((variant) => variant.key === current) ? current : activeCharacter.variants[0]?.key ?? 'default',
-    )
+      setActiveVariantKey((current) =>
+        activeCharacter.variants.some((variant) => variant.key === current) ? current : activeCharacter.variants[0]?.key ?? 'default',
+      )
+    })
+
+    return cancel
   }, [activeCharacter])
 
   useEffect(() => {
@@ -1022,109 +1027,114 @@ export function useCharacterWorkspace({
       return
     }
 
-    const nextCharacter =
-      modCharacterGroups
-        .flatMap((group) => group.items)
-        .find((item) => item.value.key === activeCharacterId)?.value ??
-      modCharacterGroups[0]?.items[0]?.value ??
-      null
+    const cancel = deferToAnimationFrame(() => {
+      const nextCharacter =
+        modCharacterGroups
+          .flatMap((group) => group.items)
+          .find((item) => item.value.key === activeCharacterId)?.value ??
+        modCharacterGroups[0]?.items[0]?.value ??
+        null
 
-    if (nextCharacter && nextCharacter.key !== activeCharacterId) {
-      setActiveCharacterId(nextCharacter.key)
-    }
+      if (nextCharacter && nextCharacter.key !== activeCharacterId) {
+        setActiveCharacterId(nextCharacter.key)
+      }
+    })
+
+    return cancel
   }, [activeCharacterId, browserSourceMode, modCharacterGroups])
 
   useEffect(() => {
-    if (!enableVisualAssets) {
+    let cancelled = false
+    const cancel = deferToAnimationFrame(() => {
       const { spritePath, portraitPath } = resolveCharacterVariantPaths(directoryInfo?.rootPath ?? null, activeVariant)
       const springObjectsPath = directoryInfo?.rootPath ? `${directoryInfo.rootPath}\\${SPRING_OBJECTS_ASSET_PATH}` : null
-      setAssetState({
-        spritePath,
-        portraitPath,
-        spriteUrl: null,
-        portraitUrl: null,
-        springObjectsPath,
-        springObjectsUrl: null,
-        spriteSheetWidth: null,
-        spriteSheetHeight: null,
-        portraitSheetWidth: null,
-        portraitSheetHeight: null,
-        springObjectsSheetWidth: null,
-        springObjectsSheetHeight: null,
-      })
-      return
-    }
 
-    const { spritePath, portraitPath } = resolveCharacterVariantPaths(directoryInfo?.rootPath ?? null, activeVariant)
-    const springObjectsPath = directoryInfo?.rootPath ? `${directoryInfo.rootPath}\\${SPRING_OBJECTS_ASSET_PATH}` : null
-    if (!spritePath && !portraitPath && !springObjectsPath) {
-      setAssetState({
-        spritePath: null,
-        portraitPath: null,
-        spriteUrl: null,
-        portraitUrl: null,
-        springObjectsPath: null,
-        springObjectsUrl: null,
-        spriteSheetWidth: null,
-        spriteSheetHeight: null,
-        portraitSheetWidth: null,
-        portraitSheetHeight: null,
-        springObjectsSheetWidth: null,
-        springObjectsSheetHeight: null,
-      })
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const [sprite, portrait, springObjects] = await Promise.all([
-          loadImageState(spritePath, locale).catch(() => ({ path: spritePath, url: null, width: null, height: null })),
-          loadImageState(portraitPath, locale).catch(() => ({ path: portraitPath, url: null, width: null, height: null })),
-          loadImageState(springObjectsPath, locale).catch(() => ({ path: springObjectsPath, url: null, width: null, height: null })),
-        ])
-
-        if (cancelled) {
-          return
-        }
-
+      if (!enableVisualAssets) {
         setAssetState({
-          spritePath: sprite.path,
-          portraitPath: portrait.path,
-          spriteUrl: sprite.url,
-          portraitUrl: portrait.url,
-          springObjectsPath: springObjects.path,
-          springObjectsUrl: springObjects.url,
-          spriteSheetWidth: sprite.width,
-          spriteSheetHeight: sprite.height,
-          portraitSheetWidth: portrait.width,
-          portraitSheetHeight: portrait.height,
-          springObjectsSheetWidth: springObjects.width,
-          springObjectsSheetHeight: springObjects.height,
+          spritePath,
+          portraitPath,
+          spriteUrl: null,
+          portraitUrl: null,
+          springObjectsPath,
+          springObjectsUrl: null,
+          spriteSheetWidth: null,
+          spriteSheetHeight: null,
+          portraitSheetWidth: null,
+          portraitSheetHeight: null,
+          springObjectsSheetWidth: null,
+          springObjectsSheetHeight: null,
         })
-      } catch {
-        if (!cancelled) {
-          setAssetState({
-            spritePath,
-            portraitPath,
-            spriteUrl: null,
-            portraitUrl: null,
-            springObjectsPath,
-            springObjectsUrl: null,
-            spriteSheetWidth: null,
-            spriteSheetHeight: null,
-            portraitSheetWidth: null,
-            portraitSheetHeight: null,
-            springObjectsSheetWidth: null,
-            springObjectsSheetHeight: null,
-          })
-        }
+        return
       }
-    })()
+
+      if (!spritePath && !portraitPath && !springObjectsPath) {
+        setAssetState({
+          spritePath: null,
+          portraitPath: null,
+          spriteUrl: null,
+          portraitUrl: null,
+          springObjectsPath: null,
+          springObjectsUrl: null,
+          spriteSheetWidth: null,
+          spriteSheetHeight: null,
+          portraitSheetWidth: null,
+          portraitSheetHeight: null,
+          springObjectsSheetWidth: null,
+          springObjectsSheetHeight: null,
+        })
+        return
+      }
+
+      void (async () => {
+        try {
+          const [sprite, portrait, springObjects] = await Promise.all([
+            loadImageState(spritePath, locale).catch(() => ({ path: spritePath, url: null, width: null, height: null })),
+            loadImageState(portraitPath, locale).catch(() => ({ path: portraitPath, url: null, width: null, height: null })),
+            loadImageState(springObjectsPath, locale).catch(() => ({ path: springObjectsPath, url: null, width: null, height: null })),
+          ])
+
+          if (cancelled) {
+            return
+          }
+
+          setAssetState({
+            spritePath: sprite.path,
+            portraitPath: portrait.path,
+            spriteUrl: sprite.url,
+            portraitUrl: portrait.url,
+            springObjectsPath: springObjects.path,
+            springObjectsUrl: springObjects.url,
+            spriteSheetWidth: sprite.width,
+            spriteSheetHeight: sprite.height,
+            portraitSheetWidth: portrait.width,
+            portraitSheetHeight: portrait.height,
+            springObjectsSheetWidth: springObjects.width,
+            springObjectsSheetHeight: springObjects.height,
+          })
+        } catch {
+          if (!cancelled) {
+            setAssetState({
+              spritePath,
+              portraitPath,
+              spriteUrl: null,
+              portraitUrl: null,
+              springObjectsPath,
+              springObjectsUrl: null,
+              spriteSheetWidth: null,
+              spriteSheetHeight: null,
+              portraitSheetWidth: null,
+              portraitSheetHeight: null,
+              springObjectsSheetWidth: null,
+              springObjectsSheetHeight: null,
+            })
+          }
+        }
+      })()
+    })
 
     return () => {
       cancelled = true
+      cancel()
     }
   }, [activeVariant, directoryInfo?.rootPath, enableVisualAssets, locale])
 

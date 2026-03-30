@@ -30,11 +30,6 @@ function MapWorldStatePreviewOverlay({
   sprites,
   textureAssets,
 }: MapWorldStatePreviewOverlayProps) {
-  if (!mapDocument || sprites.length === 0) {
-    return null
-  }
-
-  const gamePixelScale = mapDocument.tileWidth / 64
   const spriteEntries = useMemo(
     () =>
       sprites.flatMap((sprite) => {
@@ -59,6 +54,12 @@ function MapWorldStatePreviewOverlay({
       }),
     [sprites, textureAssets],
   )
+
+  if (!mapDocument || sprites.length === 0) {
+    return null
+  }
+
+  const gamePixelScale = mapDocument.tileWidth / 64
 
   return (
     <div className="absolute inset-0">

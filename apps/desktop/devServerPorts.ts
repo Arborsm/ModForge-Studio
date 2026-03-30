@@ -1,3 +1,5 @@
+type EnvRecord = Record<string, string | undefined>
+
 type DevServerPorts = {
   port: number
   hmrPort: number
@@ -5,6 +7,14 @@ type DevServerPorts = {
 
 const DEFAULT_PORT = 5173
 const DEFAULT_HMR_PORT = 5174
+const DEFAULT_ENV: EnvRecord = (() => {
+  if (typeof globalThis === 'undefined') {
+    return {}
+  }
+
+  const runtime = globalThis as { process?: { env?: EnvRecord } }
+  return runtime.process?.env ?? {}
+})()
 
 function parsePort(value: string | undefined): number | null {
   if (!value) {
@@ -19,7 +29,7 @@ function parsePort(value: string | undefined): number | null {
   return parsed
 }
 
-export function resolveDevServerPorts(env: Record<string, string | undefined> = process.env): DevServerPorts {
+export function resolveDevServerPorts(env: EnvRecord = DEFAULT_ENV): DevServerPorts {
   const port =
     parsePort(env.MODFORGE_DEV_PORT) ??
     parsePort(env.TAURI_DEV_PORT) ??
