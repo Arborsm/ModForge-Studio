@@ -209,6 +209,16 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
       contentPath: 'E:\\Exports\\SeasonalGarden\\content.json',
       diagnostics: [],
     },
+    contentPatcherSnapshot: null,
+    contentPatcherSimulation: null,
+    simulationContext: {
+      season: '',
+      weather: '',
+      relationship: '',
+      config: {},
+      installedMods: [],
+      customTokens: {},
+    },
     onSelectPatch: vi.fn(),
     onManifestFieldChange: vi.fn(),
     onManifestTextChange: vi.fn(),
@@ -219,6 +229,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
     onRemoveSelectedPatch: vi.fn(),
     onSaveProject: vi.fn(),
     onExportProject: vi.fn(),
+    onSimulationContextChange: vi.fn(),
   } as unknown as ComponentProps<typeof ContentPatcherWorkspace>
 }
 
@@ -304,5 +315,59 @@ describe('ContentPatcherWorkspace', () => {
     expect(dataEdge).toBeTruthy()
     reactFlowProps.onEdgesChange?.([{ id: dataEdge?.id, type: 'remove' }])
     expect(props.onPatchFieldChange).toHaveBeenCalledWith('Target', '')
+  })
+
+  it('renders backend patch statuses and include tree entries', () => {
+    const props = buildProps() as any
+    props.contentPatcherSnapshot = {
+      summary: {
+        name: 'Seasonal Garden',
+        uniqueId: 'Aly.SeasonalGarden',
+        absolutePath: 'E:\\Mods\\SeasonalGarden',
+        manifestPath: 'E:\\Mods\\SeasonalGarden\\manifest.json',
+        contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
+      },
+      sources: [
+        { path: 'content.json', absolutePath: 'E:\\Mods\\SeasonalGarden\\content.json', rawJson: '{ "Changes": [] }' },
+        {
+          path: 'patches/spring.json',
+          absolutePath: 'E:\\Mods\\SeasonalGarden\\patches\\spring.json',
+          rawJson: '{ "Changes": [] }',
+        },
+      ],
+      includeTree: [
+        { sourcePath: 'content.json', includedPath: 'patches/spring.json' },
+      ],
+      diagnostics: [],
+    }
+    props.contentPatcherSimulation = {
+      plan: {
+        patches: [
+          {
+            id: 'content.json->patches/spring.json#include:0:0#target:0#from:0',
+            sourcePath: 'content.json->patches/spring.json',
+            logName: 'Spring patch',
+            action: 'EditData',
+            target: 'Data/Objects',
+            fromFile: null,
+            when: { Season: 'spring' },
+          },
+        ],
+      },
+      patchStatuses: [
+        {
+          patchId: 'content.json->patches/spring.json#include:0:0#target:0#from:0',
+          status: 'indeterminate',
+          reasons: ['Season is not available in the simulation context'],
+        },
+      ],
+      diagnostics: [],
+    }
+
+    render(<ContentPatcherWorkspace {...props} />)
+
+    expect(screen.getByText('patches/spring.json')).toBeTruthy()
+    expect(screen.getByText('indeterminate')).toBeTruthy()
+    expect(screen.getByText('Season is not available in the simulation context')).toBeTruthy()
   })
 })

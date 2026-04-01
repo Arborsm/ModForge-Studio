@@ -60,6 +60,7 @@ function createDefaultSimulationContext(): ContentPatcherBackendSimulationContex
   return {
     season: '',
     weather: '',
+    relationship: '',
     config: {},
     installedMods: [],
     customTokens: {},
@@ -464,6 +465,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     setSimulationContext({
       season: nextContext.season,
       weather: nextContext.weather,
+      relationship: nextContext.relationship,
       config: { ...nextContext.config },
       installedMods: [...nextContext.installedMods],
       customTokens: { ...nextContext.customTokens },

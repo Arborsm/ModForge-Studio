@@ -17,8 +17,15 @@ import {
   type NodeProps,
   type OnConnect,
 } from '@xyflow/react'
-import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '../../lib/desktop'
+import type {
+  ContentPatcherProjectSnapshot,
+  ContentPatcherSimulationResult,
+  ModProjectDetail,
+  ModProjectDiagnostic,
+  SaveModProjectResult,
+} from '../../lib/desktop'
 import {
+  buildContentPatcherCanvasFromPlan,
   buildContentPatcherCanvas,
   collectContentPatcherAssets,
   collectContentPatcherTargets,
@@ -27,6 +34,7 @@ import {
   validateContentPatcherConnection,
 } from '../../lib/plugins/contentPatcher'
 import type {
+  ContentPatcherBackendSimulationContext,
   ContentPatcherCanvasNode,
   ContentPatcherCanvasNodeKind,
   ContentPatcherSimulationContext,
@@ -78,6 +86,10 @@ type ContentPatcherWorkspaceProps = {
   patchWhenError: string | null
   hasUnsavedChanges: boolean
   canPersist: boolean
+  contentPatcherSnapshot: ContentPatcherProjectSnapshot | null
+  contentPatcherSimulation: ContentPatcherSimulationResult | null
+  simulationContext: ContentPatcherBackendSimulationContext
+  onSimulationContextChange: (next: ContentPatcherBackendSimulationContext) => void
   onSelectPatch: (patchId: string) => void
   onManifestFieldChange: (field: string, value: string) => void
   onManifestTextChange: (value: string) => void
@@ -237,6 +249,10 @@ export function ContentPatcherWorkspace({
   patchWhenError,
   hasUnsavedChanges,
   canPersist,
+  contentPatcherSnapshot,
+  contentPatcherSimulation,
+  simulationContext,
+  onSimulationContextChange,
   onSelectPatch,
   onPatchFieldChange,
   onPatchWhenChange,
@@ -249,33 +265,53 @@ export function ContentPatcherWorkspace({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [pendingDrop, setPendingDrop] = useState<DropPayload | null>(null)
   const [pendingPatchUpdate, setPendingPatchUpdate] = useState<PatchUpdate | null>(null)
-  const [simulation, setSimulation] = useState<ContentPatcherSimulationContext>({
-    season: '',
-    weather: '',
-    relationship: '',
-  })
-
-  const simulationContext = useMemo(
+  const [simulationDraft, setSimulationDraft] = useState<ContentPatcherBackendSimulationContext>(simulationContext)
+  const simulationPreviewContext = useMemo<ContentPatcherSimulationContext>(
     () => ({
-      season: simulation.season || undefined,
-      weather: simulation.weather || undefined,
-      relationship: simulation.relationship || undefined,
-      config: simulation.config,
+      season: simulationDraft.season || undefined,
+      weather: simulationDraft.weather || undefined,
+      relationship: simulationDraft.relationship || undefined,
+      config: simulationDraft.config,
     }),
-    [simulation.config, simulation.relationship, simulation.season, simulation.weather],
+    [simulationDraft.config, simulationDraft.relationship, simulationDraft.season, simulationDraft.weather],
   )
 
   const assets = useMemo(() => collectContentPatcherAssets(contentEditor.value), [contentEditor.value])
   const targets = useMemo(() => collectContentPatcherTargets(contentEditor.value), [contentEditor.value])
   const presets = useMemo(() => getContentPatcherConditionPresets(), [])
+  const patchStatusById = useMemo(
+    () =>
+      new Map(
+        (contentPatcherSimulation?.patchStatuses ?? [])
+          .filter(
+            (
+              entry,
+            ): entry is {
+              patchId: string
+              status: 'applied' | 'skipped' | 'indeterminate'
+              reasons: string[]
+            } => typeof entry.patchId === 'string' && entry.patchId.length > 0,
+          )
+          .map((entry) => [entry.patchId, entry]),
+      ),
+    [contentPatcherSimulation?.patchStatuses],
+  )
 
-  const canvas = useMemo(() => buildContentPatcherCanvas(contentEditor.value, { simulation: simulationContext }), [contentEditor.value, simulationContext])
+  const canvas = useMemo(
+    () =>
+      contentPatcherSimulation?.plan
+        ? buildContentPatcherCanvasFromPlan(contentPatcherSimulation.plan, patchStatusById)
+        : buildContentPatcherCanvas(contentEditor.value, { simulation: simulationPreviewContext }),
+    [contentEditor.value, contentPatcherSimulation?.plan, patchStatusById, simulationPreviewContext],
+  )
   const nodeMap = useMemo(() => new Map(canvas.nodes.map((node) => [node.id, node])), [canvas.nodes])
   const patchActivity = useMemo(() => {
     const map = new Map<string, boolean>()
     canvas.nodes.forEach((node) => {
-      if (node.kind === 'action' && node.data.patchId && node.data.simulation) {
-        map.set(node.data.patchId, node.data.simulation.isActive)
+      const backendPatchId =
+        typeof node.data.details?.backendPatchId === 'string' ? node.data.details.backendPatchId : node.data.patchId
+      if (node.kind === 'action' && backendPatchId && node.data.simulation) {
+        map.set(backendPatchId, node.data.simulation.isActive)
       }
     })
     return map
@@ -330,6 +366,10 @@ export function ContentPatcherWorkspace({
   }, [flowNodes, setNodes])
 
   useEffect(() => {
+    setSimulationDraft(simulationContext)
+  }, [simulationContext])
+
+  useEffect(() => {
     setEdges(flowEdges)
   }, [flowEdges, setEdges])
 
@@ -370,6 +410,19 @@ export function ContentPatcherWorkspace({
   const selectedNode = selectedNodeId ? nodeMap.get(selectedNodeId) ?? null : null
   const activePatchId = selectedNode?.data.patchId ?? selectedPatchId
   const patchPreview = activePatchId ? getPatchPreviewJson(contentEditor.value, activePatchId) : ''
+  const selectedPatchStatus = useMemo(() => {
+    const backendPatchId =
+      typeof selectedNode?.data.details?.backendPatchId === 'string'
+        ? selectedNode.data.details.backendPatchId
+        : selectedNode?.data.patchId
+    if (backendPatchId) {
+      return patchStatusById.get(backendPatchId) ?? null
+    }
+    if ((contentPatcherSimulation?.patchStatuses.length ?? 0) === 1) {
+      return contentPatcherSimulation?.patchStatuses[0] ?? null
+    }
+    return null
+  }, [contentPatcherSimulation?.patchStatuses, patchStatusById, selectedNode?.data.details, selectedNode?.data.patchId])
 
   function applyPatchUpdate(update: PatchUpdate) {
     if (update.type === 'field') {
@@ -406,7 +459,7 @@ export function ContentPatcherWorkspace({
       return
     }
     const existingWhen = getExistingWhen(patchId)
-    const nextValue = resolveWhenValue(payload.value, simulationContext)
+    const nextValue = resolveWhenValue(payload.value, simulationPreviewContext)
     const nextWhen = buildWhenPayload(existingWhen, payload.value, nextValue)
     queuePatchUpdate({ type: 'when', patchId, value: nextWhen })
   }
@@ -468,7 +521,7 @@ export function ContentPatcherWorkspace({
       }
       if (result.edgeType === 'logic' && sourceNode.data.whenKey) {
         const existingWhen = getExistingWhen(patchId)
-        const nextValue = resolveWhenValue(sourceNode.data.whenKey, simulationContext)
+        const nextValue = resolveWhenValue(sourceNode.data.whenKey, simulationPreviewContext)
         const nextWhen = buildWhenPayload(existingWhen, sourceNode.data.whenKey, nextValue)
         queuePatchUpdate({ type: 'when', patchId, value: nextWhen })
       }
@@ -524,6 +577,11 @@ export function ContentPatcherWorkspace({
     setEdges((current) => applyEdgeChanges(changes, current) as FlowEdge[])
   }
 
+  function updateSimulationDraft(nextContext: ContentPatcherBackendSimulationContext) {
+    setSimulationDraft(nextContext)
+    onSimulationContextChange(nextContext)
+  }
+
   return (
     <div className="flex h-full flex-col gap-4 overflow-auto bg-[var(--bg-panel)] p-4">
       <header className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-5">
@@ -561,8 +619,8 @@ export function ContentPatcherWorkspace({
                   <select
                     className="control-input h-9"
                     aria-label="Simulation Season"
-                    value={simulation.season ?? ''}
-                    onChange={(event) => setSimulation((current) => ({ ...current, season: event.target.value }))}
+                    value={simulationDraft.season ?? ''}
+                    onChange={(event) => updateSimulationDraft({ ...simulationDraft, season: event.target.value })}
                   >
                     <option value="">Any</option>
                     <option value="spring">Spring</option>
@@ -576,8 +634,8 @@ export function ContentPatcherWorkspace({
                   <select
                     className="control-input h-9"
                     aria-label="Simulation Weather"
-                    value={simulation.weather ?? ''}
-                    onChange={(event) => setSimulation((current) => ({ ...current, weather: event.target.value }))}
+                    value={simulationDraft.weather ?? ''}
+                    onChange={(event) => updateSimulationDraft({ ...simulationDraft, weather: event.target.value })}
                   >
                     <option value="">Any</option>
                     <option value="sunny">Sunny</option>
@@ -591,8 +649,8 @@ export function ContentPatcherWorkspace({
                   <select
                     className="control-input h-9"
                     aria-label="Simulation Relationship"
-                    value={simulation.relationship ?? ''}
-                    onChange={(event) => setSimulation((current) => ({ ...current, relationship: event.target.value }))}
+                    value={simulationDraft.relationship ?? ''}
+                    onChange={(event) => updateSimulationDraft({ ...simulationDraft, relationship: event.target.value })}
                   >
                     <option value="">Any</option>
                     <option value="0">0</option>
@@ -723,6 +781,22 @@ export function ContentPatcherWorkspace({
                   )}
                 </div>
               </div>
+
+              <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Include Tree</p>
+                <div className="mt-2 grid gap-2">
+                  {contentPatcherSnapshot?.includeTree.length ? contentPatcherSnapshot.includeTree.map((edge) => (
+                    <div key={`${edge.sourcePath}->${edge.includedPath}`} className="asset-row">
+                      <div className="flex flex-col gap-1 text-xs text-[var(--text-primary)]">
+                        <span className="truncate">{edge.includedPath}</span>
+                        <span className="text-[var(--text-secondary)]">{edge.sourcePath}</span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="panel-empty-state text-xs">No include files detected.</div>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
         </aside>
@@ -785,9 +859,38 @@ export function ContentPatcherWorkspace({
               Node Inspector
             </div>
           </section>
+          <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              <Sparkles className="h-4 w-4" />
+              Backend Plan
+            </div>
+            <div className="mt-3 grid gap-3">
+              {contentPatcherSimulation?.patchStatuses.length ? contentPatcherSimulation.patchStatuses.map((status) => {
+                const patch = status.patchId
+                  ? contentPatcherSimulation.plan.patches.find((entry) => entry.id === status.patchId)
+                  : null
+                return (
+                  <div key={status.patchId ?? status.status} className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-3">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-[var(--text-primary)]">{patch?.logName ?? status.patchId ?? 'Patch'}</span>
+                      <span className="dock-chip">{status.status}</span>
+                    </div>
+                    {status.reasons.map((reason) => (
+                      <p key={reason} className="mt-2 text-xs text-[var(--text-secondary)]">
+                        {reason}
+                      </p>
+                    ))}
+                  </div>
+                )
+              }) : (
+                <div className="panel-empty-state text-xs">No backend patch statuses yet.</div>
+              )}
+            </div>
+          </section>
           <PatchInspectorPanel
             copy={copy}
             selectedPatch={selectedPatch}
+            selectedPatchStatus={selectedPatchStatus}
             patchWhenError={patchWhenError}
             onPatchFieldChange={onPatchFieldChange}
             onPatchWhenChange={onPatchWhenChange}

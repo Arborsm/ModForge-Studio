@@ -9,6 +9,10 @@ type PatchFocusTarget = 'action' | 'target' | 'fromFile' | 'when'
 type PatchInspectorPanelProps = {
   copy: ModWorkspaceCopy
   selectedPatch: Record<string, unknown> | null
+  selectedPatchStatus?: {
+    status: 'applied' | 'skipped' | 'indeterminate'
+    reasons: string[]
+  } | null
   patchWhenError: string | null
   onPatchFieldChange: (field: string, value: string) => void
   onPatchWhenChange: (value: string) => void
@@ -53,6 +57,7 @@ function getActionToneClass(action: string) {
 export function PatchInspectorPanel({
   copy,
   selectedPatch,
+  selectedPatchStatus,
   patchWhenError,
   onPatchFieldChange,
   onPatchWhenChange,
@@ -148,6 +153,20 @@ export function PatchInspectorPanel({
                 : 'Simulation indicates this node is active.'}
           </p>
         </div>
+
+        {selectedPatchStatus ? (
+          <div className="mt-4 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-3 py-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+              Backend Status
+            </div>
+            <p className="mt-2 text-sm text-[var(--text-primary)]">{selectedPatchStatus.status}</p>
+            {selectedPatchStatus.reasons.map((reason) => (
+              <p key={reason} className="mt-1 text-xs text-[var(--text-secondary)]">
+                {reason}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       {selectedNode.kind === 'action' && selectedPatch ? (
