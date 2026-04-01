@@ -1,8 +1,9 @@
-use serde::Serialize;
+use super::context::SimulationContext;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherProjectSummary {
     pub name: Option<String>,
@@ -13,7 +14,7 @@ pub struct ContentPatcherProjectSummary {
     pub content_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherSourceFile {
     pub path: String,
@@ -21,14 +22,14 @@ pub struct ContentPatcherSourceFile {
     pub raw_json: String,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherIncludeEdge {
     pub source_path: String,
     pub included_path: String,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherProjectDiagnostic {
     pub severity: String,
@@ -36,7 +37,7 @@ pub struct ContentPatcherProjectDiagnostic {
     pub field: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherProjectSnapshot {
     pub summary: ContentPatcherProjectSummary,
@@ -45,7 +46,7 @@ pub struct ContentPatcherProjectSnapshot {
     pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherPlannedPatch {
     pub id: String,
@@ -57,8 +58,32 @@ pub struct ContentPatcherPlannedPatch {
     pub source_path: String,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherPatchPlan {
     pub patches: Vec<ContentPatcherPlannedPatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulateContentPatcherRequest {
+    pub path: Option<String>,
+    pub snapshot: Option<ContentPatcherProjectSnapshot>,
+    pub context: Option<SimulationContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherPatchStatus {
+    pub patch_id: Option<String>,
+    pub status: String,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulateContentPatcherResult {
+    pub plan: ContentPatcherPatchPlan,
+    pub patch_statuses: Vec<ContentPatcherPatchStatus>,
+    pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
 }

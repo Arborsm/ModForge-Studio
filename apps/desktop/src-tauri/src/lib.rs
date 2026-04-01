@@ -15,6 +15,7 @@ use assets::{
     validate_game_directory,
 };
 use content_patcher::project::load_content_patcher_project;
+use content_patcher::simulate_content_patcher;
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
 use xact::load_xact_audio_data_url;
@@ -37,6 +38,7 @@ pub fn run() {
             load_mod_project,
             save_mod_project,
             load_content_patcher_project,
+            simulate_content_patcher,
             load_map_asset,
             load_text_asset,
             load_text_file,
