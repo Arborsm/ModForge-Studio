@@ -106,9 +106,17 @@ function normalizeBackendSimulationContext(
 export function buildContentPatcherSimulationRequest(
   snapshot: ContentPatcherProjectSnapshot,
   context: ContentPatcherBackendSimulationContext,
+  options?: {
+    path?: string | null
+    manifestJson?: string | null
+    contentJson?: string | null
+  },
 ): SimulateContentPatcherRequest {
   return {
+    path: options?.path ?? null,
     snapshot,
+    manifestJson: options?.manifestJson ?? null,
+    contentJson: options?.contentJson ?? null,
     context: normalizeBackendSimulationContext(context),
   }
 }

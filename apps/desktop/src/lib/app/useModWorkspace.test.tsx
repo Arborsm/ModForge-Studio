@@ -1,5 +1,6 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { simulateContentPatcher } from '../desktop'
 import { useModWorkspace } from './useModWorkspace'
 
 vi.mock('../desktop', () => ({
@@ -110,6 +111,41 @@ describe('useModWorkspace', () => {
     await waitFor(() => {
       expect(result.current.contentPatcherSnapshot?.summary.uniqueId).toBe('ModForge.CPPack')
       expect(result.current.contentPatcherSimulation?.patchStatuses[0]?.status).toBe('applied')
+    })
+  })
+
+  it('sends unsaved manifest and content edits to backend simulation', async () => {
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.contentPatcherSnapshot?.summary.uniqueId).toBe('ModForge.CPPack')
+    })
+
+    act(() => {
+      result.current.handleManifestTextChange('{\n  "Name": "Edited Pack"\n}\n')
+      result.current.handleContentTextChange(
+        '{\n  "Format": "2.0.0",\n  "Changes": [\n    {\n      "Action": "EditData",\n      "Target": "Data/Objects"\n    }\n  ]\n}\n',
+      )
+    })
+
+    await waitFor(() => {
+      expect(vi.mocked(simulateContentPatcher)).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          manifestJson: '{\n  "Name": "Edited Pack"\n}\n',
+          contentJson:
+            '{\n  "Format": "2.0.0",\n  "Changes": [\n    {\n      "Action": "EditData",\n      "Target": "Data/Objects"\n    }\n  ]\n}\n',
+        }),
+      )
     })
   })
 })

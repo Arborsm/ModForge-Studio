@@ -286,9 +286,20 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
       return
     }
 
+    if (manifestEditor.error || contentEditor.error) {
+      setContentPatcherSimulation(null)
+      return
+    }
+
     let cancelled = false
 
-    void simulateContentPatcher(buildContentPatcherSimulationRequest(contentPatcherSnapshot, simulationContext))
+    void simulateContentPatcher(
+      buildContentPatcherSimulationRequest(contentPatcherSnapshot, simulationContext, {
+        path: projectDetail?.summary.absolutePath ?? null,
+        manifestJson: manifestEditor.text,
+        contentJson: contentEditor.text,
+      }),
+    )
       .then((result) => {
         if (!cancelled) {
           setContentPatcherSimulation(result)
@@ -304,7 +315,15 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     return () => {
       cancelled = true
     }
-  }, [contentPatcherSnapshot, simulationContext])
+  }, [
+    contentEditor.error,
+    contentEditor.text,
+    contentPatcherSnapshot,
+    manifestEditor.error,
+    manifestEditor.text,
+    projectDetail?.summary.absolutePath,
+    simulationContext,
+  ])
 
   useEffect(() => {
     const cancel = scheduleDeferred(() => {

@@ -178,6 +178,8 @@ export type ContentPatcherSimulationContext = {
 export type SimulateContentPatcherRequest = {
   path?: string | null
   snapshot?: ContentPatcherProjectSnapshot | null
+  manifestJson?: string | null
+  contentJson?: string | null
   context?: ContentPatcherSimulationContext | null
 }
 

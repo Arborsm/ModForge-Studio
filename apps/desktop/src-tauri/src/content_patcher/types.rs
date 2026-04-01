@@ -69,6 +69,8 @@ pub struct ContentPatcherPatchPlan {
 pub struct SimulateContentPatcherRequest {
     pub path: Option<String>,
     pub snapshot: Option<ContentPatcherProjectSnapshot>,
+    pub manifest_json: Option<String>,
+    pub content_json: Option<String>,
     pub context: Option<SimulationContext>,
 }
 
