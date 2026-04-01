@@ -10,7 +10,7 @@ use crate::pathing::{clean_input_path, normalize_path};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 const CONTENT_PATCHER_UNIQUE_ID: &str = "Pathoschild.ContentPatcher";
 
@@ -86,16 +86,30 @@ fn build_snapshot_diagnostics(manifest: &Value, content: &Value) -> Vec<ContentP
     diagnostics
 }
 
-fn ensure_include_within_root(root_canonical: &Path, include_absolute_path: &Path) -> Result<(), String> {
-    let include_canonical = canonicalize_path(include_absolute_path)?;
-    if !include_canonical.starts_with(root_canonical) {
-        return Err(include_outside_root_error(&normalize_path(include_absolute_path)));
+fn resolve_include_relative_path(source_rel_path: &Path, from_file: &str) -> Result<PathBuf, String> {
+    let source_parent = source_rel_path.parent().unwrap_or_else(|| Path::new(""));
+    let include_path = normalize_include_path(from_file);
+    let mut normalized = PathBuf::new();
+
+    for component in source_parent.components().chain(include_path.components()) {
+        match component {
+            Component::CurDir => {}
+            Component::Normal(segment) => normalized.push(segment),
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    return Err(include_outside_root_error(from_file));
+                }
+            }
+            Component::RootDir | Component::Prefix(_) => {
+                return Err(include_outside_root_error(from_file));
+            }
+        }
     }
-    Ok(())
+
+    Ok(normalized)
 }
 
 fn collect_include_edges(
-    root: &Path,
     root_canonical: &Path,
     source_rel_path: &Path,
     content: &Value,
@@ -123,18 +137,15 @@ fn collect_include_edges(
             continue;
         };
 
-        let source_parent = source_rel_path.parent().unwrap_or_else(|| Path::new(""));
-        let include_candidate_rel_path = source_parent.join(normalize_include_path(&from_file));
-        let include_candidate_abs_path = root.join(&include_candidate_rel_path);
+        let included_rel_path = resolve_include_relative_path(source_rel_path, &from_file)?;
+        let include_candidate_abs_path = root_canonical.join(&included_rel_path);
         if !include_candidate_abs_path.is_file() {
             return Err(missing_file_error(&normalize_path(&include_candidate_abs_path)));
         }
-        ensure_include_within_root(root_canonical, &include_candidate_abs_path)?;
         let include_canonical = canonicalize_path(&include_candidate_abs_path)?;
-        let included_rel_path = include_canonical
-            .strip_prefix(root_canonical)
-            .map_err(|_| include_outside_root_error(&normalize_path(&include_candidate_abs_path)))?
-            .to_path_buf();
+        if !include_canonical.starts_with(root_canonical) {
+            return Err(include_outside_root_error(&normalize_path(&include_candidate_abs_path)));
+        }
         let included_rel_string = normalize_relative_path(&included_rel_path);
 
         include_tree.push(ContentPatcherIncludeEdge {
@@ -151,13 +162,12 @@ fn collect_include_edges(
             included_rel_string.clone(),
             ContentPatcherSourceFile {
                 path: included_rel_string,
-                absolute_path: normalize_path(&include_candidate_abs_path),
+                absolute_path: normalize_path(&include_canonical),
                 raw_json: included_raw_json,
             },
         );
 
         collect_include_edges(
-            root,
             root_canonical,
             &included_rel_path,
             &included_json,
@@ -179,6 +189,8 @@ pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjec
     }
 
     let root_canonical = canonicalize_path(&root)?;
+    let manifest_canonical = canonicalize_path(&manifest_path)?;
+    let content_canonical = canonicalize_path(&content_path)?;
     let (_manifest_raw_json, manifest) = parse_json_file(&manifest_path)?;
     if !is_content_patcher_manifest(&manifest) {
         return Err(non_content_patcher_manifest_error(content_pack_for_unique_id(&manifest).as_deref()));
@@ -191,13 +203,12 @@ pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjec
         "content.json".to_string(),
         ContentPatcherSourceFile {
             path: "content.json".to_string(),
-            absolute_path: normalize_path(&content_path),
+            absolute_path: normalize_path(&content_canonical),
             raw_json: content_raw_json,
         },
     );
     let mut include_tree = Vec::new();
     collect_include_edges(
-        &root,
         &root_canonical,
         Path::new("content.json"),
         &content,
@@ -210,9 +221,9 @@ pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjec
             name: as_non_empty_string(manifest.get("Name")),
             unique_id: as_non_empty_string(manifest.get("UniqueID")),
             content_pack_for: content_pack_for_unique_id(&manifest),
-            absolute_path: Some(normalize_path(&root)),
-            manifest_path: Some(normalize_path(&manifest_path)),
-            content_path: Some(normalize_path(&content_path)),
+            absolute_path: Some(normalize_path(&root_canonical)),
+            manifest_path: Some(normalize_path(&manifest_canonical)),
+            content_path: Some(normalize_path(&content_canonical)),
         },
         sources: sources.into_values().collect(),
         include_tree,
@@ -226,6 +237,7 @@ mod tests {
     use crate::content_patcher::test_support::{create_temp_dir, write_file};
     use std::fs;
     use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn sample_cp_manifest() -> &'static str {
         r#"{
@@ -272,17 +284,20 @@ mod tests {
             snapshot.summary.content_pack_for.as_deref(),
             Some("Pathoschild.ContentPatcher")
         );
-        assert_eq!(
-            snapshot.summary.absolute_path.as_deref(),
-            Some(root.to_string_lossy().as_ref())
+        assert!(Path::new(snapshot.summary.absolute_path.as_deref().expect("absolute path")).is_absolute());
+        assert!(
+            Path::new(snapshot.summary.absolute_path.as_deref().expect("absolute path"))
+                .ends_with(root.file_name().expect("root name"))
         );
-        assert_eq!(
-            snapshot.summary.manifest_path.as_deref(),
-            Some(root.join("manifest.json").to_string_lossy().as_ref())
+        assert!(Path::new(snapshot.summary.manifest_path.as_deref().expect("manifest path")).is_absolute());
+        assert!(
+            Path::new(snapshot.summary.manifest_path.as_deref().expect("manifest path"))
+                .ends_with(Path::new("manifest.json"))
         );
-        assert_eq!(
-            snapshot.summary.content_path.as_deref(),
-            Some(root.join("content.json").to_string_lossy().as_ref())
+        assert!(Path::new(snapshot.summary.content_path.as_deref().expect("content path")).is_absolute());
+        assert!(
+            Path::new(snapshot.summary.content_path.as_deref().expect("content path"))
+                .ends_with(Path::new("content.json"))
         );
         assert_eq!(snapshot.sources.len(), 2);
         assert!(
@@ -388,6 +403,97 @@ mod tests {
         if outside_path.is_file() {
             fs::remove_file(&outside_path).expect("cleanup outside");
         }
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn load_content_patcher_project_rejects_missing_include_outside_project_root_before_probe() {
+        let root = create_temp_dir("cp-project-root-escape-missing");
+        write_file(&root.join("manifest.json"), sample_cp_manifest());
+        write_file(
+            &root.join("content.json"),
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "Include", "FromFile": "../missing.json" }
+  ]
+}"#,
+        );
+
+        let err = load_content_patcher_project(root.to_string_lossy().into_owned()).expect_err("include escape should fail");
+        assert!(err.contains("outside the project root"));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn load_content_patcher_project_normalizes_absolute_paths_from_relative_root_input() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let cwd = std::env::current_dir().expect("cwd");
+        let relative_dir_name = format!("tmp-cp-relative-{unique}");
+        let root = cwd.join(&relative_dir_name);
+        write_file(&root.join("manifest.json"), sample_cp_manifest());
+        write_file(
+            &root.join("content.json"),
+            r#"{
+  "Format": "2.0.0",
+  "Changes": []
+}"#,
+        );
+
+        let snapshot = load_content_patcher_project(format!(".\\{relative_dir_name}")).expect("snapshot");
+        assert!(
+            Path::new(snapshot.summary.absolute_path.as_deref().expect("absolute path")).is_absolute()
+        );
+        assert!(
+            Path::new(snapshot.summary.manifest_path.as_deref().expect("manifest path")).is_absolute()
+        );
+        assert!(
+            Path::new(snapshot.summary.content_path.as_deref().expect("content path")).is_absolute()
+        );
+        assert!(
+            snapshot
+                .sources
+                .iter()
+                .all(|source| Path::new(&source.absolute_path).is_absolute())
+        );
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn load_content_patcher_project_normalizes_dot_segment_include_within_root() {
+        let root = create_temp_dir("cp-project-dot-segment-include");
+        write_file(&root.join("manifest.json"), sample_cp_manifest());
+        write_file(
+            &root.join("content.json"),
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "Include", "FromFile": "patches/../patches/spring.json" }
+  ]
+}"#,
+        );
+        write_file(
+            &root.join("patches").join("spring.json"),
+            r#"{
+  "Changes": []
+}"#,
+        );
+
+        let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+        assert_eq!(snapshot.include_tree.len(), 1);
+        assert_eq!(snapshot.include_tree[0].included_path, "patches/spring.json");
+        assert!(
+            snapshot
+                .sources
+                .iter()
+                .any(|source| source.path == "patches/spring.json")
+        );
+
         fs::remove_dir_all(root).expect("cleanup");
     }
 }
