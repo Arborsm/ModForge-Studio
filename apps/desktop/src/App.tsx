@@ -370,6 +370,9 @@ export default function App() {
     hasUnsavedChanges: modHasUnsavedChanges,
     canPersist: modCanPersist,
     lastSaveResult: modLastSaveResult,
+    contentPatcherSnapshot,
+    contentPatcherSimulation,
+    simulationContext,
     handleSelectProject: handleSelectModProject,
     handleImportProject: handleImportModProject,
     handleRefreshProjects: handleRefreshModProjects,
@@ -382,6 +385,7 @@ export default function App() {
     handlePatchWhenChange: handleModPatchWhenChange,
     handleSaveProject: handleSaveModProject,
     handleExportProject: handleExportModProject,
+    handleSimulationContextChange,
   } = useModWorkspace({
     directoryInfo,
     locale,
@@ -756,6 +760,9 @@ export default function App() {
     modCanPersist,
     modStatusMessage,
     modLastSaveResult: modLastSaveResult ?? null,
+    contentPatcherSnapshot,
+    contentPatcherSimulation,
+    simulationContext,
     onModManifestFieldChange: handleModManifestFieldChange,
     onModManifestTextChange: handleModManifestTextChange,
     onModContentTextChange: handleModContentTextChange,
@@ -765,6 +772,7 @@ export default function App() {
     onModPatchWhenChange: handleModPatchWhenChange,
     onSaveModProject: () => void handleSaveModProject(),
     onExportModProject: () => void handleExportModProject(),
+    onSimulationContextChange: handleSimulationContextChange,
     heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
   })
 

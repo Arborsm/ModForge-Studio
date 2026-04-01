@@ -29,6 +29,9 @@ export function buildModsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     modCanPersist: options.modCanPersist,
     modStatusMessage: options.modStatusMessage,
     modLastSaveResult: options.modLastSaveResult,
+    contentPatcherSnapshot: options.contentPatcherSnapshot,
+    contentPatcherSimulation: options.contentPatcherSimulation,
+    simulationContext: options.simulationContext,
     onModManifestFieldChange: options.onModManifestFieldChange,
     onModManifestTextChange: options.onModManifestTextChange,
     onModContentTextChange: options.onModContentTextChange,
@@ -38,5 +41,6 @@ export function buildModsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     onModPatchWhenChange: options.onModPatchWhenChange,
     onSaveModProject: options.onSaveModProject,
     onExportModProject: options.onExportModProject,
+    onSimulationContextChange: options.onSimulationContextChange,
   })
 }

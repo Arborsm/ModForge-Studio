@@ -1,7 +1,14 @@
 ﻿import { ContentPatcherWorkspace } from '../../components/mods/ContentPatcherWorkspace'
 import { ModBrowserPanel } from '../../components/mods/ModBrowserPanel'
 import type { WorkspacePanelConfig } from '../../components/WorkspaceLayout'
-import type { ModProjectDetail, ModProjectSummary, SaveModProjectResult } from '../desktop'
+import type {
+  ContentPatcherProjectSnapshot,
+  ContentPatcherSimulationResult,
+  ModProjectDetail,
+  ModProjectSummary,
+  SaveModProjectResult,
+} from '../desktop'
+import type { ContentPatcherBackendSimulationContext } from '../plugins/contentPatcher'
 import type { ModWorkspaceCopy } from '../plugins/copy'
 import type { WorkspacePluginDefinition } from '../plugins/types'
 
@@ -59,6 +66,9 @@ type BuildModWorkspacePanelsOptions = {
   modCanPersist: boolean
   modStatusMessage: string
   modLastSaveResult: SaveModProjectResult | null
+  contentPatcherSnapshot: ContentPatcherProjectSnapshot | null
+  contentPatcherSimulation: ContentPatcherSimulationResult | null
+  simulationContext: ContentPatcherBackendSimulationContext
   onModManifestFieldChange: (field: string, value: string) => void
   onModManifestTextChange: (value: string) => void
   onModContentTextChange: (value: string) => void
@@ -68,6 +78,7 @@ type BuildModWorkspacePanelsOptions = {
   onModPatchWhenChange: (value: string) => void
   onSaveModProject: () => void
   onExportModProject: () => void
+  onSimulationContextChange: (next: ContentPatcherBackendSimulationContext) => void
 }
 
 export function buildModWorkspacePanels({
@@ -96,6 +107,9 @@ export function buildModWorkspacePanels({
   modCanPersist: _modCanPersist,
   modStatusMessage,
   modLastSaveResult,
+  contentPatcherSnapshot,
+  contentPatcherSimulation,
+  simulationContext,
   onModManifestFieldChange,
   onModManifestTextChange,
   onModContentTextChange,
@@ -105,6 +119,7 @@ export function buildModWorkspacePanels({
   onModPatchWhenChange,
   onSaveModProject,
   onExportModProject,
+  onSimulationContextChange,
 }: BuildModWorkspacePanelsOptions): WorkspacePanelConfig[] {
   return [
     {
@@ -157,6 +172,10 @@ export function buildModWorkspacePanels({
           patchWhenError={modPatchWhenError}
           hasUnsavedChanges={modHasUnsavedChanges}
           canPersist={_modCanPersist}
+          contentPatcherSnapshot={contentPatcherSnapshot}
+          contentPatcherSimulation={contentPatcherSimulation}
+          simulationContext={simulationContext}
+          onSimulationContextChange={onSimulationContextChange}
           onSelectPatch={(patchId) => onSelectModPatch(patchId)}
           onManifestFieldChange={onModManifestFieldChange}
           onManifestTextChange={onModManifestTextChange}

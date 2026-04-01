@@ -1,5 +1,13 @@
 ﻿import type { ContentPatcherPatchSummary } from '../desktop'
 
+import type {
+  ContentPatcherPatchPlan,
+  ContentPatcherPatchStatus,
+  ContentPatcherProjectSnapshot,
+  ContentPatcherSimulationContext as DesktopContentPatcherSimulationContext,
+  SimulateContentPatcherRequest,
+} from '../desktop'
+
 type JsonObject = Record<string, unknown>
 
 type ParsedJsonResult = {
@@ -28,6 +36,15 @@ export type ContentPatcherSimulationContext = {
   weather?: string
   relationship?: string | number
   config?: Record<string, string | number | boolean>
+}
+
+export type ContentPatcherBackendSimulationContext = {
+  season: string
+  weather: string
+  relationship: string | number
+  config: Record<string, string | number | boolean>
+  installedMods: string[]
+  customTokens: Record<string, unknown>
 }
 
 export type ContentPatcherCanvasNodeKind = 'condition' | 'action' | 'target' | 'asset'
@@ -70,6 +87,165 @@ export type ContentPatcherConnectionValidation =
   | { ok: true; edgeType: ContentPatcherCanvasEdgeType }
   | { ok: false; edgeType?: ContentPatcherCanvasEdgeType; reason: string; detail?: string }
 
+function normalizeBackendSimulationContext(
+  context: ContentPatcherBackendSimulationContext,
+): DesktopContentPatcherSimulationContext {
+  const season = context.season.trim()
+  const weather = context.weather.trim()
+  return {
+    season: season || undefined,
+    weather: weather || undefined,
+    config: context.config,
+    installedMods: context.installedMods
+      .map((value) => value.trim())
+      .filter(Boolean),
+    customTokens: context.customTokens,
+  }
+}
+
+export function buildContentPatcherSimulationRequest(
+  snapshot: ContentPatcherProjectSnapshot,
+  context: ContentPatcherBackendSimulationContext,
+  options?: {
+    path?: string | null
+    manifestJson?: string | null
+    contentJson?: string | null
+  },
+): SimulateContentPatcherRequest {
+  return {
+    path: options?.path ?? null,
+    snapshot,
+    manifestJson: options?.manifestJson ?? null,
+    contentJson: options?.contentJson ?? null,
+    context: normalizeBackendSimulationContext(context),
+  }
+}
+
+export function buildContentPatcherCanvasFromPlan(
+  plan: ContentPatcherPatchPlan | null,
+  patchStatusById: Map<string, ContentPatcherPatchStatus>,
+): ContentPatcherCanvasBuildResult {
+  if (!plan) {
+    return {
+      nodes: [],
+      edges: [],
+    }
+  }
+
+  const nodes = new Map<string, ContentPatcherCanvasNode>()
+  const edges: ContentPatcherCanvasEdge[] = []
+  const edgeIds = new Set<string>()
+  const layoutIndex: Record<ContentPatcherCanvasNodeKind, number> = {
+    condition: 0,
+    asset: 0,
+    action: 0,
+    target: 0,
+  }
+  const columns: Record<ContentPatcherCanvasNodeKind, number> = {
+    condition: 120,
+    asset: 120,
+    action: 420,
+    target: 760,
+  }
+
+  function createNode(id: string, kind: ContentPatcherCanvasNodeKind, data: ContentPatcherCanvasNode['data']) {
+    if (nodes.has(id)) {
+      return nodes.get(id) as ContentPatcherCanvasNode
+    }
+    const index = layoutIndex[kind]++
+    const node: ContentPatcherCanvasNode = {
+      id,
+      kind,
+      position: {
+        x: columns[kind],
+        y: index * 140,
+      },
+      data,
+    }
+    nodes.set(id, node)
+    return node
+  }
+
+  function pushEdge(source: string, target: string, type: ContentPatcherCanvasEdgeType, patchId?: string) {
+    const id = `edge:${source}:${target}:${type}`
+    if (edgeIds.has(id)) {
+      return
+    }
+    edgeIds.add(id)
+    edges.push({ id, source, target, type, patchId })
+  }
+
+  plan.patches.forEach((patch) => {
+    const status = patchStatusById.get(patch.id)
+    const editorPatchId = resolveEditorPatchIdFromPlanPatch(patch)
+    const actionNodeId = `action:${patch.id}`
+    createNode(actionNodeId, 'action', {
+      label: patch.logName,
+      patchId: editorPatchId ?? undefined,
+      action: patch.action,
+      target: patch.target,
+      assetPath: patch.fromFile ?? undefined,
+      simulation: {
+        isActive: status?.status !== 'skipped',
+        hasUnknownConditions: status?.status === 'indeterminate',
+      },
+      details: {
+        backendPatchId: patch.id,
+        sourcePath: patch.sourcePath,
+        when: patch.when,
+        reasons: status?.reasons ?? [],
+      },
+    })
+
+    Object.keys(patch.when).forEach((key) => {
+      const conditionId = `condition:${patch.id}:${toSafeId(key)}`
+      createNode(conditionId, 'condition', {
+        label: key,
+        patchId: editorPatchId ?? undefined,
+        whenKey: key,
+        simulation: {
+          isActive: status?.status !== 'skipped',
+          hasUnknownConditions: status?.status === 'indeterminate',
+        },
+      })
+      pushEdge(conditionId, actionNodeId, 'logic', patch.id)
+    })
+
+    if (patch.fromFile) {
+      const assetId = `asset:${toSafeId(patch.fromFile)}`
+      createNode(assetId, 'asset', {
+        label: patch.fromFile,
+        assetPath: patch.fromFile,
+        patchId: editorPatchId ?? undefined,
+        simulation: {
+          isActive: status?.status !== 'skipped',
+          hasUnknownConditions: status?.status === 'indeterminate',
+        },
+      })
+      pushEdge(assetId, actionNodeId, 'file', patch.id)
+    }
+
+    if (patch.target) {
+      const targetId = `target:${toSafeId(patch.target)}`
+      createNode(targetId, 'target', {
+        label: patch.target,
+        target: patch.target,
+        patchId: editorPatchId ?? undefined,
+        simulation: {
+          isActive: status?.status !== 'skipped',
+          hasUnknownConditions: status?.status === 'indeterminate',
+        },
+      })
+      pushEdge(actionNodeId, targetId, 'data', patch.id)
+    }
+  })
+
+  return {
+    nodes: Array.from(nodes.values()),
+    edges,
+  }
+}
+
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -96,6 +272,19 @@ function normalizeStringValue(value: unknown) {
     return String(value).toLowerCase()
   }
   return null
+}
+
+function resolveEditorPatchIdFromPlanPatch(patch: { id: string; sourcePath: string }) {
+  if (patch.sourcePath !== 'content.json') {
+    return null
+  }
+
+  const match = patch.id.match(/:(\d+)#target:\d+#from:\d+$/)
+  if (!match) {
+    return null
+  }
+
+  return `patch:${match[1]}`
 }
 
 function matchesConditionValue(expected: unknown, actual: unknown) {
