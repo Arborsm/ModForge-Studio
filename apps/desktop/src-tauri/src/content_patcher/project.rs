@@ -7,7 +7,7 @@ use super::types::{
     ContentPatcherSourceFile,
 };
 use crate::pathing::{clean_input_path, normalize_path};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -22,7 +22,7 @@ fn as_non_empty_string(value: Option<&Value>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn normalize_relative_path(path: &Path) -> String {
+pub(crate) fn normalize_relative_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
@@ -109,6 +109,18 @@ pub(crate) fn resolve_include_relative_path(source_rel_path: &Path, from_file: &
     Ok(normalized)
 }
 
+pub(crate) fn patch_action_is_include(patch: &Map<String, Value>) -> bool {
+    patch
+        .get("Action")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .is_some_and(|value| value.eq_ignore_ascii_case("Include"))
+}
+
+pub(crate) fn include_from_file(patch: &Map<String, Value>) -> Option<String> {
+    as_non_empty_string(patch.get("FromFile"))
+}
+
 fn collect_include_edges(
     root_canonical: &Path,
     source_rel_path: &Path,
@@ -124,16 +136,11 @@ fn collect_include_edges(
         let Some(patch) = change.as_object() else {
             continue;
         };
-        let is_include = patch
-            .get("Action")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .is_some_and(|value| value.eq_ignore_ascii_case("Include"));
-        if !is_include {
+        if !patch_action_is_include(patch) {
             continue;
         }
 
-        let Some(from_file) = as_non_empty_string(patch.get("FromFile")) else {
+        let Some(from_file) = include_from_file(patch) else {
             continue;
         };
 

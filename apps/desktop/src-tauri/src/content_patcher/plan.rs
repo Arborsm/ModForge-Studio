@@ -1,13 +1,11 @@
-use super::project::resolve_include_relative_path;
+use super::project::{
+    include_from_file, normalize_relative_path, patch_action_is_include, resolve_include_relative_path,
+};
 use super::schema::parse_json_str;
 use super::types::{ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-
-fn normalize_relative_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
-}
 
 fn normalize_action(patch: &Map<String, Value>) -> String {
     patch
@@ -129,21 +127,16 @@ fn collect_patches_from_source(
             continue;
         };
         let action = normalize_action(patch);
-        if action.eq_ignore_ascii_case("Include") {
-            let Some(from_file) = patch
-                .get("FromFile")
-                .and_then(Value::as_str)
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-            else {
+        if patch_action_is_include(patch) {
+            let Some(from_file) = include_from_file(patch) else {
                 continue;
             };
-            let include_rel_path = resolve_include_relative_path(Path::new(source_path), from_file)?;
+            let include_rel_path = resolve_include_relative_path(Path::new(source_path), &from_file)?;
             let include_rel = normalize_relative_path(&include_rel_path);
             let include_when = parse_when(patch);
             let merged_when = merge_when(inherited_when, &include_when);
             let mut include_lineage = lineage.to_vec();
-            include_lineage.push(include_rel.clone());
+            include_lineage.push(format!("{include_rel}#include:{source_index}"));
             collect_patches_from_source(
                 &include_rel,
                 source_values,
@@ -210,6 +203,7 @@ mod tests {
     use super::build_patch_plan;
     use crate::content_patcher::project::load_content_patcher_project;
     use crate::content_patcher::test_support::{create_temp_dir, write_file};
+    use std::collections::BTreeSet;
     use std::fs;
 
     #[test]
@@ -258,7 +252,10 @@ mod tests {
         assert_eq!(plan.patches[0].log_name, "Load -> Maps/Town");
         assert_eq!(plan.patches[1].log_name, "Load -> Maps/BusStop");
         assert_eq!(plan.patches[0].when.get("Season").and_then(|value| value.as_str()), Some("spring"));
-        assert_eq!(plan.patches[0].id, "content.json->patches/spring.json:0#target:0#from:0");
+        assert_eq!(
+            plan.patches[0].id,
+            "content.json->patches/spring.json#include:0:0#target:0#from:0"
+        );
 
         fs::remove_dir_all(root).expect("cleanup");
     }
@@ -305,5 +302,95 @@ mod tests {
 
         let plan = build_patch_plan(&snapshot).expect("plan");
         assert_eq!(plan.patches.len(), 2);
+    }
+
+    #[test]
+    fn build_patch_plan_distinguishes_ids_for_duplicate_include_sites() {
+        let root = create_temp_dir("cp-plan-duplicate-include-sites");
+        write_file(
+            &root.join("manifest.json"),
+            r#"{
+  "Name": "Planner Pack",
+  "UniqueID": "ModForge.PlannerPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+        );
+        write_file(
+            &root.join("content.json"),
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "Include", "FromFile": "patches/shared.json", "When": { "Season": "spring" } },
+    { "Action": "Include", "FromFile": "patches/shared.json", "When": { "Season": "summer" } }
+  ]
+}"#,
+        );
+        write_file(
+            &root.join("patches").join("shared.json"),
+            r#"{
+  "Changes": [
+    { "Action": "Load", "Target": "Maps/Town", "FromFile": "assets/town.png" }
+  ]
+}"#,
+        );
+
+        let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+        let plan = build_patch_plan(&snapshot).expect("plan");
+
+        assert_eq!(plan.patches.len(), 2);
+        let ids = plan.patches.iter().map(|patch| patch.id.clone()).collect::<BTreeSet<_>>();
+        assert_eq!(ids.len(), 2, "expected distinct ids per include site");
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn build_patch_plan_merges_parent_and_child_when_with_child_precedence() {
+        let root = create_temp_dir("cp-plan-when-merge");
+        write_file(
+            &root.join("manifest.json"),
+            r#"{
+  "Name": "Planner Pack",
+  "UniqueID": "ModForge.PlannerPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+        );
+        write_file(
+            &root.join("content.json"),
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "patches/shared.json",
+      "When": { "Weather": "rain", "Season": "spring", "LocationName": "Town" }
+    }
+  ]
+}"#,
+        );
+        write_file(
+            &root.join("patches").join("shared.json"),
+            r#"{
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Maps/Town",
+      "FromFile": "assets/town.png",
+      "When": { "Season": "summer", "Day": "15" }
+    }
+  ]
+}"#,
+        );
+
+        let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+        let plan = build_patch_plan(&snapshot).expect("plan");
+        let patch = plan.patches.first().expect("patch");
+
+        assert_eq!(patch.when.get("Weather").and_then(|value| value.as_str()), Some("rain"));
+        assert_eq!(patch.when.get("LocationName").and_then(|value| value.as_str()), Some("Town"));
+        assert_eq!(patch.when.get("Day").and_then(|value| value.as_str()), Some("15"));
+        assert_eq!(patch.when.get("Season").and_then(|value| value.as_str()), Some("summer"));
+
+        fs::remove_dir_all(root).expect("cleanup");
     }
 }
