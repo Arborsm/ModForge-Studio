@@ -1,9 +1,9 @@
 use super::project::resolve_include_relative_path;
-use super::schema::parse_json_file;
+use super::schema::parse_json_str;
 use super::types::{ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 fn normalize_relative_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
@@ -85,6 +85,22 @@ fn parse_from_files(patch: &Map<String, Value>) -> Vec<Option<String>> {
     }
 }
 
+fn parse_log_name(patch: &Map<String, Value>, action: &str, target: &str, source_index: usize) -> String {
+    patch
+        .get("LogName")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| {
+            if target.is_empty() {
+                format!("{action} #{source_index}")
+            } else {
+                format!("{action} -> {target}")
+            }
+        })
+}
+
 fn build_patch_id(lineage: &[String], source_index: usize, target_index: usize, from_index: usize) -> String {
     format!(
         "{}:{source_index}#target:{target_index}#from:{from_index}",
@@ -150,12 +166,10 @@ fn collect_patches_from_source(
                     id: build_patch_id(lineage, source_index, target_index, from_index),
                     action: action.clone(),
                     target: target.clone(),
+                    log_name: parse_log_name(patch, &action, target, source_index),
                     from_file: from_file.clone(),
                     when: merged_when.clone(),
                     source_path: source_path.to_string(),
-                    source_index,
-                    target_index,
-                    from_index,
                 });
             }
         }
@@ -168,8 +182,7 @@ fn collect_patches_from_source(
 pub fn build_patch_plan(snapshot: &ContentPatcherProjectSnapshot) -> Result<ContentPatcherPatchPlan, String> {
     let mut source_values = BTreeMap::new();
     for source in &snapshot.sources {
-        let path = PathBuf::from(&source.absolute_path);
-        let (_, parsed) = parse_json_file(&path)?;
+        let parsed = parse_json_str(&source.raw_json, &source.path)?;
         source_values.insert(source.path.clone(), parsed);
     }
 
@@ -242,9 +255,55 @@ mod tests {
         assert_eq!(plan.patches.len(), 2);
         assert_eq!(plan.patches[0].target, "Maps/Town");
         assert_eq!(plan.patches[1].target, "Maps/BusStop");
+        assert_eq!(plan.patches[0].log_name, "Load -> Maps/Town");
+        assert_eq!(plan.patches[1].log_name, "Load -> Maps/BusStop");
         assert_eq!(plan.patches[0].when.get("Season").and_then(|value| value.as_str()), Some("spring"));
         assert_eq!(plan.patches[0].id, "content.json->patches/spring.json:0#target:0#from:0");
 
         fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn build_patch_plan_uses_snapshot_raw_json_without_rereading_source_files() {
+        let root = create_temp_dir("cp-plan-raw-json");
+        write_file(
+            &root.join("manifest.json"),
+            r#"{
+  "Name": "Planner Pack",
+  "UniqueID": "ModForge.PlannerPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+        );
+        write_file(
+            &root.join("content.json"),
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "patches/spring.json",
+      "When": { "Season": "spring" }
+    }
+  ]
+}"#,
+        );
+        write_file(
+            &root.join("patches").join("spring.json"),
+            r#"{
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": [ "Maps/Town", "Maps/BusStop" ],
+      "FromFile": "assets/spring.png"
+    }
+  ]
+}"#,
+        );
+
+        let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+        fs::remove_dir_all(&root).expect("remove source files");
+
+        let plan = build_patch_plan(&snapshot).expect("plan");
+        assert_eq!(plan.patches.len(), 2);
     }
 }

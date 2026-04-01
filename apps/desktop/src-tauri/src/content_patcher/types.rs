@@ -51,12 +51,10 @@ pub struct ContentPatcherPlannedPatch {
     pub id: String,
     pub action: String,
     pub target: String,
+    pub log_name: String,
     pub from_file: Option<String>,
     pub when: BTreeMap<String, Value>,
     pub source_path: String,
-    pub source_index: usize,
-    pub target_index: usize,
-    pub from_index: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]

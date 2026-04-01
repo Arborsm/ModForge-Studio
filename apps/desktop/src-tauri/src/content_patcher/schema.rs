@@ -115,12 +115,17 @@ fn strip_trailing_commas(input: &str) -> String {
     output
 }
 
+pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> Result<Value, String> {
+    serde_json::from_str::<Value>(raw).or_else(|primary_error| {
+        let sanitized = strip_trailing_commas(&strip_json_comments(raw));
+        serde_json::from_str::<Value>(&sanitized).map_err(|secondary_error| {
+            format!("Failed to parse {source_label}: {primary_error}; relaxed parse also failed: {secondary_error}")
+        })
+    })
+}
+
 pub(crate) fn parse_json_file(path: &Path) -> Result<(String, Value), String> {
     let raw = std::fs::read_to_string(path).map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
-    let parsed = serde_json::from_str::<Value>(&raw).or_else(|primary_error| {
-        let sanitized = strip_trailing_commas(&strip_json_comments(&raw));
-        serde_json::from_str::<Value>(&sanitized)
-            .map_err(|secondary_error| format!("Failed to parse {}: {primary_error}; relaxed parse also failed: {secondary_error}", path.display()))
-    })?;
+    let parsed = parse_json_str(&raw, &path.display().to_string())?;
     Ok((raw, parsed))
 }
