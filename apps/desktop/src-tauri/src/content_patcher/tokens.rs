@@ -1,3 +1,5 @@
+pub const INVALID_WHEN_TOKEN: &str = "__modforgeInvalidWhen";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConditionToken {
     pub raw_key: String,

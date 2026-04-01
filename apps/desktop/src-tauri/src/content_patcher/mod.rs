@@ -56,3 +56,51 @@ pub fn simulate_content_patcher(request: SimulateContentPatcherRequest) -> Resul
         diagnostics: snapshot.diagnostics,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::simulate_content_patcher;
+    use crate::content_patcher::context::SimulationContext;
+    use crate::content_patcher::types::{
+        ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile, SimulateContentPatcherRequest,
+    };
+
+    #[test]
+    fn simulate_content_patcher_marks_malformed_when_as_indeterminate() {
+        let snapshot = ContentPatcherProjectSnapshot {
+            summary: ContentPatcherProjectSummary::default(),
+            sources: vec![ContentPatcherSourceFile {
+                path: "content.json".to_string(),
+                absolute_path: "content.json".to_string(),
+                raw_json: r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Maps/Town",
+      "When": "spring"
+    }
+  ]
+}"#
+                .to_string(),
+            }],
+            include_tree: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        let request = SimulateContentPatcherRequest {
+            path: None,
+            snapshot: Some(snapshot),
+            context: Some(SimulationContext {
+                season: Some("spring".to_string()),
+                ..SimulationContext::default()
+            }),
+        };
+
+        let result = simulate_content_patcher(request).expect("simulation");
+        let status = result.patch_statuses.first().expect("status");
+
+        assert_eq!(status.status, "indeterminate");
+        assert!(status.patch_id.is_some());
+        assert!(status.reasons.iter().any(|reason| reason.contains("When")));
+    }
+}

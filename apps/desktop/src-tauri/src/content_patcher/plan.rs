@@ -2,6 +2,7 @@ use super::project::{
     include_from_file, normalize_relative_path, patch_action_is_include, resolve_include_relative_path,
 };
 use super::schema::parse_json_str;
+use super::tokens::INVALID_WHEN_TOKEN;
 use super::types::{ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -18,11 +19,15 @@ fn normalize_action(patch: &Map<String, Value>) -> String {
 }
 
 fn parse_when(patch: &Map<String, Value>) -> BTreeMap<String, Value> {
-    patch
-        .get("When")
-        .and_then(Value::as_object)
-        .map(|when| when.iter().map(|(key, value)| (key.clone(), value.clone())).collect())
-        .unwrap_or_default()
+    match patch.get("When") {
+        Some(Value::Object(when)) => when.iter().map(|(key, value)| (key.clone(), value.clone())).collect(),
+        Some(value) => {
+            let mut unresolved = BTreeMap::new();
+            unresolved.insert(INVALID_WHEN_TOKEN.to_string(), value.clone());
+            unresolved
+        }
+        None => BTreeMap::new(),
+    }
 }
 
 fn merge_when(inherited: &BTreeMap<String, Value>, local: &BTreeMap<String, Value>) -> BTreeMap<String, Value> {

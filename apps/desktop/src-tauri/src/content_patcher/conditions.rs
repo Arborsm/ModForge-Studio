@@ -1,5 +1,5 @@
 use super::context::SimulationContext;
-use super::tokens::parse_condition_token;
+use super::tokens::{parse_condition_token, INVALID_WHEN_TOKEN};
 use super::types::ContentPatcherPatchStatus;
 use serde_json::Value;
 
@@ -41,6 +41,7 @@ fn evaluate_known_token(name: &str, expected: &Value, context: &SimulationContex
             };
             value_matches_string(expected, actual)
         }
+        INVALID_WHEN_TOKEN => Err("contains a malformed `When` value; expected an object".to_string()),
         _ => Err("is not supported in this simulation phase".to_string()),
     }
 }
@@ -79,6 +80,7 @@ pub fn evaluate_patch_status(when: &Value, context: &SimulationContext) -> Conte
     }
 
     if !mismatch_reasons.is_empty() {
+        mismatch_reasons.extend(indeterminate_reasons);
         return ContentPatcherPatchStatus {
             patch_id: None,
             status: "skipped".to_string(),
@@ -125,5 +127,29 @@ mod tests {
         assert_eq!(inactive.status, "skipped");
         assert_eq!(indeterminate.status, "indeterminate");
         assert!(!indeterminate.reasons.is_empty());
+    }
+
+    #[test]
+    fn evaluate_patch_status_preserves_unsupported_reasons_when_skipped() {
+        let spring_context = SimulationContext {
+            season: Some("spring".to_string()),
+            ..SimulationContext::default()
+        };
+        let status = evaluate_patch_status(
+            &json!({
+                "Season": "winter",
+                "HasMod |contains=FlashShifter.SVECode": true
+            }),
+            &spring_context,
+        );
+
+        assert_eq!(status.status, "skipped");
+        assert!(status.reasons.iter().any(|reason| reason.contains("Season")));
+        assert!(
+            status
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("not yet supported") || reason.contains("unsupported"))
+        );
     }
 }
