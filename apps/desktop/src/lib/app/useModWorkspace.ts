@@ -1,10 +1,14 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   chooseDirectory,
+  loadContentPatcherProject,
   loadModProject,
   saveModProject,
   scanModProjects,
+  simulateContentPatcher,
   type ContentPatcherPatchSummary,
+  type ContentPatcherProjectSnapshot,
+  type ContentPatcherSimulationResult,
   type ModProjectDetail,
   type ModProjectSummary,
   type SaveModProjectResult,
@@ -14,6 +18,8 @@ import type { LocaleCode } from '../editor-shell'
 import { getModWorkspaceCopy } from '../plugins/copy'
 import {
   addPatch,
+  buildContentPatcherSimulationRequest,
+  type ContentPatcherBackendSimulationContext,
   getPatchObject,
   parseJsonText,
   removePatch,
@@ -50,6 +56,16 @@ function upsertProject(projects: ModProjectSummary[], nextProject: ModProjectSum
   return projects.map((project, index) => (index === existingIndex ? nextProject : project))
 }
 
+function createDefaultSimulationContext(): ContentPatcherBackendSimulationContext {
+  return {
+    season: '',
+    weather: '',
+    config: {},
+    installedMods: [],
+    customTokens: {},
+  }
+}
+
 export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   const copy = getModWorkspaceCopy(locale)
   const pluginDefinition = getWorkspacePluginDefinition('content-patcher')
@@ -63,6 +79,11 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   const [patchWhenError, setPatchWhenError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [lastSaveResult, setLastSaveResult] = useState<SaveModProjectResult | null>(null)
+  const [contentPatcherSnapshot, setContentPatcherSnapshot] = useState<ContentPatcherProjectSnapshot | null>(null)
+  const [contentPatcherSimulation, setContentPatcherSimulation] = useState<ContentPatcherSimulationResult | null>(null)
+  const [simulationContext, setSimulationContext] = useState<ContentPatcherBackendSimulationContext>(
+    createDefaultSimulationContext,
+  )
   const deferredFilter = useDeferredValue(modFilter.trim().toLowerCase())
 
   const filteredModProjects = useMemo(
@@ -96,7 +117,11 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   }, [contentEditor.value, selectedPatchId])
   const activeProject = projectDetail?.summary ?? modProjects.find((project) => project.absolutePath === activeProjectPath) ?? null
   const diagnostics = useMemo(() => {
-    const messages = [...(projectDetail?.diagnostics ?? [])]
+    const messages = [
+      ...(projectDetail?.diagnostics ?? []),
+      ...(contentPatcherSnapshot?.diagnostics ?? []),
+      ...(contentPatcherSimulation?.diagnostics ?? []),
+    ]
     if (manifestEditor.error) {
       messages.push({ severity: 'error', message: `manifest.json: ${manifestEditor.error}`, field: 'manifest' })
     }
@@ -107,7 +132,14 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
       messages.push({ severity: 'error', message: `When: ${patchWhenError}`, field: 'patch.When' })
     }
     return messages
-  }, [contentEditor.error, manifestEditor.error, patchWhenError, projectDetail?.diagnostics])
+  }, [
+    contentEditor.error,
+    contentPatcherSimulation?.diagnostics,
+    contentPatcherSnapshot?.diagnostics,
+    manifestEditor.error,
+    patchWhenError,
+    projectDetail?.diagnostics,
+  ])
 
   const hasUnsavedChanges = useMemo(() => {
     const source = projectDetail?.contentPatcher
@@ -132,6 +164,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setPatchWhenError(null)
         setStatusMessage('')
         setLastSaveResult(null)
+        setContentPatcherSnapshot(null)
+        setContentPatcherSimulation(null)
+        setSimulationContext(createDefaultSimulationContext())
       })
 
       return cancel
@@ -169,6 +204,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setContentEditor({ text: '', value: null, error: null })
         setSelectedPatchId(null)
         setPatchWhenError(null)
+        setContentPatcherSnapshot(null)
+        setContentPatcherSimulation(null)
+        setSimulationContext(createDefaultSimulationContext())
       })
 
       return cancel
@@ -198,6 +236,8 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
           setContentEditor({ text: '', value: null, error: null })
           setSelectedPatchId(null)
           setPatchWhenError(null)
+          setContentPatcherSnapshot(null)
+          setContentPatcherSimulation(null)
           setStatusMessage(error instanceof Error ? error.message : String(error))
         }
       })
@@ -206,6 +246,64 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
       cancelled = true
     }
   }, [activeProjectPath])
+
+  useEffect(() => {
+    if (projectDetail?.pluginKind !== 'content-patcher' || !projectDetail.contentPatcher || !projectDetail.summary.absolutePath) {
+      setContentPatcherSnapshot(null)
+      setContentPatcherSimulation(null)
+      return
+    }
+
+    let cancelled = false
+
+    void loadContentPatcherProject(projectDetail.summary.absolutePath)
+      .then((snapshot) => {
+        if (!cancelled) {
+          setContentPatcherSnapshot(snapshot)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setContentPatcherSnapshot(null)
+          setContentPatcherSimulation(null)
+          setStatusMessage(error instanceof Error ? error.message : String(error))
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    projectDetail?.contentPatcher,
+    projectDetail?.pluginKind,
+    projectDetail?.summary.absolutePath,
+  ])
+
+  useEffect(() => {
+    if (!contentPatcherSnapshot) {
+      setContentPatcherSimulation(null)
+      return
+    }
+
+    let cancelled = false
+
+    void simulateContentPatcher(buildContentPatcherSimulationRequest(contentPatcherSnapshot, simulationContext))
+      .then((result) => {
+        if (!cancelled) {
+          setContentPatcherSimulation(result)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setContentPatcherSimulation(null)
+          setStatusMessage(error instanceof Error ? error.message : String(error))
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [contentPatcherSnapshot, simulationContext])
 
   useEffect(() => {
     const cancel = scheduleDeferred(() => {
@@ -233,6 +331,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   function handleSelectProject(path: string) {
     setActiveProjectPath(path)
     setLastSaveResult(null)
+    setContentPatcherSnapshot(null)
+    setContentPatcherSimulation(null)
+    setSimulationContext(createDefaultSimulationContext())
   }
 
   async function handleImportProject() {
@@ -359,6 +460,16 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     return persistProject(selected)
   }
 
+  function handleSimulationContextChange(nextContext: ContentPatcherBackendSimulationContext) {
+    setSimulationContext({
+      season: nextContext.season,
+      weather: nextContext.weather,
+      config: { ...nextContext.config },
+      installedMods: [...nextContext.installedMods],
+      customTokens: { ...nextContext.customTokens },
+    })
+  }
+
   return {
     copy,
     pluginDefinition,
@@ -381,6 +492,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     hasUnsavedChanges,
     canPersist,
     lastSaveResult,
+    contentPatcherSnapshot,
+    contentPatcherSimulation,
+    simulationContext,
     handleSelectProject,
     handleImportProject,
     handleRefreshProjects,
@@ -393,6 +507,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     handlePatchWhenChange,
     handleSaveProject,
     handleExportProject,
+    handleSimulationContextChange,
   }
 }
 

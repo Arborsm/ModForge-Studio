@@ -1,5 +1,11 @@
 ﻿import type { ContentPatcherPatchSummary } from '../desktop'
 
+import type {
+  ContentPatcherProjectSnapshot,
+  ContentPatcherSimulationContext as DesktopContentPatcherSimulationContext,
+  SimulateContentPatcherRequest,
+} from '../desktop'
+
 type JsonObject = Record<string, unknown>
 
 type ParsedJsonResult = {
@@ -28,6 +34,14 @@ export type ContentPatcherSimulationContext = {
   weather?: string
   relationship?: string | number
   config?: Record<string, string | number | boolean>
+}
+
+export type ContentPatcherBackendSimulationContext = {
+  season: string
+  weather: string
+  config: Record<string, string | number | boolean>
+  installedMods: string[]
+  customTokens: Record<string, unknown>
 }
 
 export type ContentPatcherCanvasNodeKind = 'condition' | 'action' | 'target' | 'asset'
@@ -69,6 +83,32 @@ export type ContentPatcherCanvasBuildResult = {
 export type ContentPatcherConnectionValidation =
   | { ok: true; edgeType: ContentPatcherCanvasEdgeType }
   | { ok: false; edgeType?: ContentPatcherCanvasEdgeType; reason: string; detail?: string }
+
+function normalizeBackendSimulationContext(
+  context: ContentPatcherBackendSimulationContext,
+): DesktopContentPatcherSimulationContext {
+  const season = context.season.trim()
+  const weather = context.weather.trim()
+  return {
+    season: season || undefined,
+    weather: weather || undefined,
+    config: context.config,
+    installedMods: context.installedMods
+      .map((value) => value.trim())
+      .filter(Boolean),
+    customTokens: context.customTokens,
+  }
+}
+
+export function buildContentPatcherSimulationRequest(
+  snapshot: ContentPatcherProjectSnapshot,
+  context: ContentPatcherBackendSimulationContext,
+): SimulateContentPatcherRequest {
+  return {
+    snapshot,
+    context: normalizeBackendSimulationContext(context),
+  }
+}
 
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)

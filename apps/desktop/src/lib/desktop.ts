@@ -126,6 +126,73 @@ export type ModProjectDetail = {
   contentPatcher: ContentPatcherProjectData | null
 }
 
+export type ContentPatcherProjectSummary = {
+  name: string | null
+  uniqueId: string | null
+  contentPackFor: string | null
+  absolutePath: string | null
+  manifestPath: string | null
+  contentPath: string | null
+}
+
+export type ContentPatcherSourceFile = {
+  path: string
+  absolutePath: string
+  rawJson: string
+}
+
+export type ContentPatcherIncludeEdge = {
+  sourcePath: string
+  includedPath: string
+}
+
+export type ContentPatcherProjectSnapshot = {
+  summary: ContentPatcherProjectSummary
+  sources: ContentPatcherSourceFile[]
+  includeTree: ContentPatcherIncludeEdge[]
+  diagnostics: ModProjectDiagnostic[]
+}
+
+export type ContentPatcherPlannedPatch = {
+  id: string
+  action: string
+  target: string
+  logName: string
+  fromFile: string | null
+  when: Record<string, unknown>
+  sourcePath: string
+}
+
+export type ContentPatcherPatchPlan = {
+  patches: ContentPatcherPlannedPatch[]
+}
+
+export type ContentPatcherSimulationContext = {
+  season?: string
+  weather?: string
+  config?: Record<string, unknown>
+  installedMods?: string[]
+  customTokens?: Record<string, unknown>
+}
+
+export type SimulateContentPatcherRequest = {
+  path?: string | null
+  snapshot?: ContentPatcherProjectSnapshot | null
+  context?: ContentPatcherSimulationContext | null
+}
+
+export type ContentPatcherPatchStatus = {
+  patchId: string | null
+  status: 'applied' | 'skipped' | 'indeterminate'
+  reasons: string[]
+}
+
+export type ContentPatcherSimulationResult = {
+  plan: ContentPatcherPatchPlan
+  patchStatuses: ContentPatcherPatchStatus[]
+  diagnostics: ModProjectDiagnostic[]
+}
+
 export type SaveModProjectRequest = {
   sourcePath: string
   outputPath?: string | null
@@ -256,6 +323,8 @@ const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
 const loadAudioDataUrlCache = createPromiseCache<string>()
 const loadXactAudioDataUrlCache = createPromiseCache<string>()
 const loadModProjectCache = createPromiseCache<ModProjectDetail>()
+const loadContentPatcherProjectCache = createPromiseCache<ContentPatcherProjectSnapshot>()
+const simulateContentPatcherCache = createPromiseCache<ContentPatcherSimulationResult>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
 
 export function clearDesktopLocaleCache(locale: string) {
@@ -286,6 +355,8 @@ export function getDesktopCacheStats() {
     audioDataUrl: loadAudioDataUrlCache.size(),
     xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
     modProject: loadModProjectCache.size(),
+    contentPatcherProject: loadContentPatcherProjectCache.size(),
+    contentPatcherSimulation: simulateContentPatcherCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
   }
 }
@@ -429,6 +500,20 @@ export function loadXactAudioDataUrl(rootPath: string, cue: string) {
 export function loadModProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadModProjectCache, cacheKey, () => invokeDesktop<ModProjectDetail>('load_mod_project', { path }))
+}
+
+export function loadContentPatcherProject(path: string) {
+  const cacheKey = normalizeCachePathSegment(path)
+  return readPending(loadContentPatcherProjectCache, cacheKey, () =>
+    invokeDesktop<ContentPatcherProjectSnapshot>('load_content_patcher_project', { path }),
+  )
+}
+
+export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
+  const cacheKey = JSON.stringify(request)
+  return readPending(simulateContentPatcherCache, cacheKey, () =>
+    invokeDesktop<ContentPatcherSimulationResult>('simulate_content_patcher', { request }),
+  )
 }
 
 export async function saveModProject(request: SaveModProjectRequest) {
