@@ -15,6 +15,7 @@ services/**/obj/
 .dotnet/
 .idea/
 .vscode/
+.worktrees/
 .codex/
 .uv-roaming/
 .tmp-pywinauto-stdout.txt
