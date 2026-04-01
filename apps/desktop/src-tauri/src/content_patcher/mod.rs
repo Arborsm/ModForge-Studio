@@ -1,4 +1,5 @@
 pub mod diagnostics;
+pub mod plan;
 pub mod project;
 pub mod schema;
 pub mod types;

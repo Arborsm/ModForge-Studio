@@ -86,7 +86,7 @@ fn build_snapshot_diagnostics(manifest: &Value, content: &Value) -> Vec<ContentP
     diagnostics
 }
 
-fn resolve_include_relative_path(source_rel_path: &Path, from_file: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve_include_relative_path(source_rel_path: &Path, from_file: &str) -> Result<PathBuf, String> {
     let source_parent = source_rel_path.parent().unwrap_or_else(|| Path::new(""));
     let include_path = normalize_include_path(from_file);
     let mut normalized = PathBuf::new();

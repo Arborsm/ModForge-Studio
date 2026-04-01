@@ -1,4 +1,6 @@
 use serde::Serialize;
+use serde_json::Value;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -41,4 +43,24 @@ pub struct ContentPatcherProjectSnapshot {
     pub sources: Vec<ContentPatcherSourceFile>,
     pub include_tree: Vec<ContentPatcherIncludeEdge>,
     pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherPlannedPatch {
+    pub id: String,
+    pub action: String,
+    pub target: String,
+    pub from_file: Option<String>,
+    pub when: BTreeMap<String, Value>,
+    pub source_path: String,
+    pub source_index: usize,
+    pub target_index: usize,
+    pub from_index: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherPatchPlan {
+    pub patches: Vec<ContentPatcherPlannedPatch>,
 }
