@@ -2,12 +2,14 @@
 import {
   chooseDirectory,
   loadContentPatcherProject,
+  loadContentPatcherResultAsset,
   loadModProject,
   saveModProject,
   scanModProjects,
   simulateContentPatcher,
   type ContentPatcherPatchSummary,
   type ContentPatcherProjectSnapshot,
+  type LoadContentPatcherResultAssetResult,
   type ContentPatcherSimulationResult,
   type ModProjectDetail,
   type ModProjectSummary,
@@ -56,6 +58,10 @@ function upsertProject(projects: ModProjectSummary[], nextProject: ModProjectSum
   return projects.map((project, index) => (index === existingIndex ? nextProject : project))
 }
 
+function getDefaultModProjectPath(projects: ModProjectSummary[]) {
+  return projects.find((project) => project.pluginKind === 'content-patcher')?.absolutePath ?? null
+}
+
 function createDefaultSimulationContext(): ContentPatcherBackendSimulationContext {
   return {
     season: '',
@@ -72,16 +78,22 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   const pluginDefinition = getWorkspacePluginDefinition('content-patcher')
   const [modProjects, setModProjects] = useState<ModProjectSummary[]>([])
   const [modFilter, setModFilter] = useState('')
+  const [contentPatcherOnly, setContentPatcherOnly] = useState(true)
   const [activeProjectPath, setActiveProjectPath] = useState<string | null>(null)
   const [projectDetail, setProjectDetail] = useState<ModProjectDetail | null>(null)
   const [manifestEditor, setManifestEditor] = useState<JsonEditorState>({ text: '', value: null, error: null })
   const [contentEditor, setContentEditor] = useState<JsonEditorState>({ text: '', value: null, error: null })
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null)
+  const [navigatorMode, setNavigatorMode] = useState<'patches' | 'targets'>('patches')
+  const [selectedTargetPath, setSelectedTargetPath] = useState<string | null>(null)
   const [patchWhenError, setPatchWhenError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [lastSaveResult, setLastSaveResult] = useState<SaveModProjectResult | null>(null)
   const [contentPatcherSnapshot, setContentPatcherSnapshot] = useState<ContentPatcherProjectSnapshot | null>(null)
   const [contentPatcherSimulation, setContentPatcherSimulation] = useState<ContentPatcherSimulationResult | null>(null)
+  const [contentPatcherResultAsset, setContentPatcherResultAsset] = useState<LoadContentPatcherResultAssetResult | null>(null)
+  const [contentPatcherResultLoading, setContentPatcherResultLoading] = useState(false)
+  const [contentPatcherResultError, setContentPatcherResultError] = useState<string | null>(null)
   const [simulationContext, setSimulationContext] = useState<ContentPatcherBackendSimulationContext>(
     createDefaultSimulationContext,
   )
@@ -90,6 +102,10 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   const filteredModProjects = useMemo(
     () =>
       modProjects.filter((project) => {
+        if (contentPatcherOnly && project.pluginKind !== 'content-patcher') {
+          return false
+        }
+
         if (!deferredFilter) {
           return true
         }
@@ -105,7 +121,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
           .toLowerCase()
         return haystack.includes(deferredFilter)
       }),
-    [deferredFilter, modProjects],
+    [contentPatcherOnly, deferredFilter, modProjects],
   )
 
   const contentSummary = useMemo(() => summarizeContentPatcherContent(contentEditor.value), [contentEditor.value])
@@ -122,6 +138,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
       ...(projectDetail?.diagnostics ?? []),
       ...(contentPatcherSnapshot?.diagnostics ?? []),
       ...(contentPatcherSimulation?.diagnostics ?? []),
+      ...(contentPatcherResultAsset?.diagnostics ?? []),
     ]
     if (manifestEditor.error) {
       messages.push({ severity: 'error', message: `manifest.json: ${manifestEditor.error}`, field: 'manifest' })
@@ -136,6 +153,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   }, [
     contentEditor.error,
     contentPatcherSimulation?.diagnostics,
+    contentPatcherResultAsset?.diagnostics,
     contentPatcherSnapshot?.diagnostics,
     manifestEditor.error,
     patchWhenError,
@@ -162,11 +180,16 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setManifestEditor({ text: '', value: null, error: null })
         setContentEditor({ text: '', value: null, error: null })
         setSelectedPatchId(null)
+        setNavigatorMode('patches')
+        setSelectedTargetPath(null)
         setPatchWhenError(null)
         setStatusMessage('')
         setLastSaveResult(null)
         setContentPatcherSnapshot(null)
         setContentPatcherSimulation(null)
+        setContentPatcherResultAsset(null)
+        setContentPatcherResultLoading(false)
+        setContentPatcherResultError(null)
         setSimulationContext(createDefaultSimulationContext())
       })
 
@@ -183,7 +206,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
         setModProjects(projects)
         setStatusMessage(copy.scanStatus(projects.length))
-        setActiveProjectPath((current) => current && projects.some((project) => project.absolutePath === current) ? current : projects[0]?.absolutePath ?? null)
+        setActiveProjectPath((current) =>
+          current && projects.some((project) => project.absolutePath === current) ? current : getDefaultModProjectPath(projects),
+        )
       })
       .catch((error) => {
         if (!cancelled) {
@@ -204,9 +229,14 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setManifestEditor({ text: '', value: null, error: null })
         setContentEditor({ text: '', value: null, error: null })
         setSelectedPatchId(null)
+        setNavigatorMode('patches')
+        setSelectedTargetPath(null)
         setPatchWhenError(null)
         setContentPatcherSnapshot(null)
         setContentPatcherSimulation(null)
+        setContentPatcherResultAsset(null)
+        setContentPatcherResultLoading(false)
+        setContentPatcherResultError(null)
         setSimulationContext(createDefaultSimulationContext())
       })
 
@@ -228,6 +258,8 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setManifestEditor(normalizeEditorState(manifestJson))
         setContentEditor(normalizeEditorState(contentJson))
         setPatchWhenError(null)
+        setNavigatorMode('patches')
+        setSelectedTargetPath(null)
         setSelectedPatchId(detail.contentPatcher?.patches[0]?.id ?? null)
       })
       .catch((error) => {
@@ -236,9 +268,14 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
           setManifestEditor({ text: '', value: null, error: null })
           setContentEditor({ text: '', value: null, error: null })
           setSelectedPatchId(null)
+          setNavigatorMode('patches')
+          setSelectedTargetPath(null)
           setPatchWhenError(null)
           setContentPatcherSnapshot(null)
           setContentPatcherSimulation(null)
+          setContentPatcherResultAsset(null)
+          setContentPatcherResultLoading(false)
+          setContentPatcherResultError(null)
           setStatusMessage(error instanceof Error ? error.message : String(error))
         }
       })
@@ -250,9 +287,12 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (projectDetail?.pluginKind !== 'content-patcher' || !projectDetail.contentPatcher || !projectDetail.summary.absolutePath) {
-      setContentPatcherSnapshot(null)
-      setContentPatcherSimulation(null)
-      return
+      const cancel = scheduleDeferred(() => {
+        setContentPatcherSnapshot(null)
+        setContentPatcherSimulation(null)
+      })
+
+      return cancel
     }
 
     let cancelled = false
@@ -282,13 +322,25 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (!contentPatcherSnapshot) {
-      setContentPatcherSimulation(null)
-      return
+      const cancel = scheduleDeferred(() => {
+        setContentPatcherSimulation(null)
+        setContentPatcherResultAsset(null)
+        setContentPatcherResultLoading(false)
+        setContentPatcherResultError(null)
+      })
+
+      return cancel
     }
 
     if (manifestEditor.error || contentEditor.error) {
-      setContentPatcherSimulation(null)
-      return
+      const cancel = scheduleDeferred(() => {
+        setContentPatcherSimulation(null)
+        setContentPatcherResultAsset(null)
+        setContentPatcherResultLoading(false)
+        setContentPatcherResultError(null)
+      })
+
+      return cancel
     }
 
     let cancelled = false
@@ -296,6 +348,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     void simulateContentPatcher(
       buildContentPatcherSimulationRequest(contentPatcherSnapshot, simulationContext, {
         path: projectDetail?.summary.absolutePath ?? null,
+        gameRootPath: directoryInfo?.rootPath ?? null,
         manifestJson: manifestEditor.text,
         contentJson: contentEditor.text,
       }),
@@ -308,6 +361,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
       .catch((error) => {
         if (!cancelled) {
           setContentPatcherSimulation(null)
+          setContentPatcherResultAsset(null)
+          setContentPatcherResultLoading(false)
+          setContentPatcherResultError(null)
           setStatusMessage(error instanceof Error ? error.message : String(error))
         }
       })
@@ -319,6 +375,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     contentEditor.error,
     contentEditor.text,
     contentPatcherSnapshot,
+    directoryInfo?.rootPath,
     manifestEditor.error,
     manifestEditor.text,
     projectDetail?.summary.absolutePath,
@@ -340,6 +397,78 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     return cancel
   }, [contentSummary.patches])
 
+  useEffect(() => {
+    const targets = contentPatcherSimulation?.targets ?? []
+
+    const cancel = scheduleDeferred(() => {
+      setSelectedTargetPath((current) =>
+        current && targets.some((target) => target.path === current) ? current : targets[0]?.path ?? null,
+      )
+    })
+
+    return cancel
+  }, [contentPatcherSimulation?.targets])
+
+  useEffect(() => {
+    if (!contentPatcherSnapshot || !selectedTargetPath || manifestEditor.error || contentEditor.error) {
+      const cancel = scheduleDeferred(() => {
+        setContentPatcherResultAsset(null)
+        setContentPatcherResultLoading(false)
+        setContentPatcherResultError(null)
+      })
+
+      return cancel
+    }
+
+    let cancelled = false
+    const cancelLoadingStart = scheduleDeferred(() => {
+      if (!cancelled) {
+        setContentPatcherResultLoading(true)
+        setContentPatcherResultError(null)
+      }
+    })
+
+    void loadContentPatcherResultAsset({
+      ...buildContentPatcherSimulationRequest(contentPatcherSnapshot, simulationContext, {
+        path: projectDetail?.summary.absolutePath ?? null,
+        gameRootPath: directoryInfo?.rootPath ?? null,
+        manifestJson: manifestEditor.text,
+        contentJson: contentEditor.text,
+      }),
+      target: selectedTargetPath,
+      })
+      .then((result) => {
+        if (!cancelled) {
+          cancelLoadingStart()
+          setContentPatcherResultAsset(result)
+          setContentPatcherResultLoading(false)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          cancelLoadingStart()
+          setContentPatcherResultAsset(null)
+          setContentPatcherResultLoading(false)
+          setContentPatcherResultError(error instanceof Error ? error.message : String(error))
+        }
+      })
+
+    return () => {
+      cancelled = true
+      cancelLoadingStart()
+    }
+  }, [
+    contentEditor.error,
+    contentEditor.text,
+    contentPatcherSnapshot,
+    manifestEditor.error,
+    manifestEditor.text,
+    projectDetail?.summary.absolutePath,
+    selectedTargetPath,
+    simulationContext,
+    directoryInfo?.rootPath,
+  ])
+
   function updateManifestValue(nextValue: unknown) {
     setManifestEditor(normalizeEditorState(stringifyPrettyJson(nextValue)))
   }
@@ -353,6 +482,11 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     setLastSaveResult(null)
     setContentPatcherSnapshot(null)
     setContentPatcherSimulation(null)
+    setContentPatcherResultAsset(null)
+    setContentPatcherResultLoading(false)
+    setContentPatcherResultError(null)
+    setNavigatorMode('patches')
+    setSelectedTargetPath(null)
     setSimulationContext(createDefaultSimulationContext())
   }
 
@@ -374,6 +508,9 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     const projects = await scanModProjects(directoryInfo.rootPath)
     setModProjects(projects)
     setStatusMessage(copy.scanStatus(projects.length))
+    setActiveProjectPath((current) =>
+      current && projects.some((project) => project.absolutePath === current) ? current : getDefaultModProjectPath(projects),
+    )
   }
 
   function handleManifestFieldChange(field: string, value: string) {
@@ -498,6 +635,8 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     filteredModProjects,
     modFilter,
     setModFilter,
+    contentPatcherOnly,
+    setContentPatcherOnly,
     activeProjectPath,
     activeProject,
     projectDetail,
@@ -515,7 +654,14 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     lastSaveResult,
     contentPatcherSnapshot,
     contentPatcherSimulation,
+    contentPatcherResultAsset,
+    contentPatcherResultLoading,
+    contentPatcherResultError,
     simulationContext,
+    navigatorMode,
+    setNavigatorMode,
+    selectedTargetPath,
+    setSelectedTargetPath,
     handleSelectProject,
     handleImportProject,
     handleRefreshProjects,

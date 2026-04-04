@@ -1,9 +1,14 @@
 ﻿import { ContentPatcherWorkspace } from '../../components/mods/ContentPatcherWorkspace'
+import { ContentPatcherDiagnosticsPanel } from '../../components/mods/content-patcher/ContentPatcherDiagnosticsPanel'
+import { ContentPatcherExportPanel } from '../../components/mods/content-patcher/ContentPatcherExportPanel'
+import { ContentPatcherNavigator } from '../../components/mods/content-patcher/ContentPatcherNavigator'
+import { ContentPatcherTracePanel } from '../../components/mods/content-patcher/ContentPatcherTracePanel'
 import { ModBrowserPanel } from '../../components/mods/ModBrowserPanel'
 import type { WorkspacePanelConfig } from '../../components/WorkspaceLayout'
 import type {
   ContentPatcherProjectSnapshot,
   ContentPatcherSimulationResult,
+  LoadContentPatcherResultAssetResult,
   ModProjectDetail,
   ModProjectSummary,
   SaveModProjectResult,
@@ -21,7 +26,9 @@ type BuildModWorkspacePanelsOptions = {
   activeProjectPath: string | null
   activeProject: ModProjectSummary | null
   modFilter: string
+  contentPatcherOnly: boolean
   onModFilterChange: (value: string) => void
+  onContentPatcherOnlyChange: (value: boolean) => void
   onSelectModProject: (path: string) => void
   onImportModProject: () => void
   onRefreshModProjects: () => void
@@ -42,6 +49,10 @@ type BuildModWorkspacePanelsOptions = {
     includeCount: number
     dynamicTokenCount: number
     configKeys: string[]
+    configEntries?: Array<{
+      key: string
+      defaultValue: unknown
+    }>
     patches: Array<{
       id: string
       action: string
@@ -68,7 +79,13 @@ type BuildModWorkspacePanelsOptions = {
   modLastSaveResult: SaveModProjectResult | null
   contentPatcherSnapshot: ContentPatcherProjectSnapshot | null
   contentPatcherSimulation: ContentPatcherSimulationResult | null
+  contentPatcherResultAsset: LoadContentPatcherResultAssetResult | null
+  contentPatcherResultLoading: boolean
+  contentPatcherResultError: string | null
   simulationContext: ContentPatcherBackendSimulationContext
+  navigatorMode: 'patches' | 'targets'
+  selectedTargetPath: string | null
+  onNavigatorModeChange: (mode: 'patches' | 'targets') => void
   onModManifestFieldChange: (field: string, value: string) => void
   onModManifestTextChange: (value: string) => void
   onModContentTextChange: (value: string) => void
@@ -79,6 +96,7 @@ type BuildModWorkspacePanelsOptions = {
   onSaveModProject: () => void
   onExportModProject: () => void
   onSimulationContextChange: (next: ContentPatcherBackendSimulationContext) => void
+  onSelectTarget: (targetPath: string) => void
 }
 
 export function buildModWorkspacePanels({
@@ -90,7 +108,9 @@ export function buildModWorkspacePanels({
   activeProjectPath,
   activeProject,
   modFilter,
+  contentPatcherOnly,
   onModFilterChange,
+  onContentPatcherOnlyChange,
   onSelectModProject,
   onImportModProject,
   onRefreshModProjects,
@@ -109,7 +129,13 @@ export function buildModWorkspacePanels({
   modLastSaveResult,
   contentPatcherSnapshot,
   contentPatcherSimulation,
+  contentPatcherResultAsset,
+  contentPatcherResultLoading,
+  contentPatcherResultError,
   simulationContext,
+  navigatorMode,
+  selectedTargetPath,
+  onNavigatorModeChange,
   onModManifestFieldChange,
   onModManifestTextChange,
   onModContentTextChange,
@@ -120,6 +146,7 @@ export function buildModWorkspacePanels({
   onSaveModProject,
   onExportModProject,
   onSimulationContextChange,
+  onSelectTarget,
 }: BuildModWorkspacePanelsOptions): WorkspacePanelConfig[] {
   return [
     {
@@ -138,10 +165,35 @@ export function buildModWorkspacePanels({
           filteredProjects={filteredModProjects}
           activeProjectPath={activeProjectPath}
           modFilter={modFilter}
+          contentPatcherOnly={contentPatcherOnly}
           onFilterChange={onModFilterChange}
+          onContentPatcherOnlyChange={onContentPatcherOnlyChange}
           onSelectProject={onSelectModProject}
           onImportProject={onImportModProject}
           onRefreshProjects={onRefreshModProjects}
+        />
+      ),
+    },
+    {
+      id: 'mods-navigator',
+      title: modCopy.patchesTitle,
+      subtitle: modCopy.patchesSubtitle,
+      minWidth: 300,
+      minHeight: 240,
+      dockMinHeight: 200,
+      defaultDock: 'left-bottom',
+      defaultDockHeight: 320,
+      content: (
+        <ContentPatcherNavigator
+          mode={navigatorMode}
+          onModeChange={onNavigatorModeChange}
+          patches={contentPatcherSimulation?.plan.patches ?? []}
+          patchStatuses={contentPatcherSimulation?.patchStatuses ?? []}
+          targets={contentPatcherSimulation?.targets ?? []}
+          selectedPatchId={activeModPatchId}
+          selectedTargetPath={selectedTargetPath}
+          onSelectPatch={(patchId) => onSelectModPatch(patchId)}
+          onSelectTarget={onSelectTarget}
         />
       ),
     },
@@ -174,9 +226,11 @@ export function buildModWorkspacePanels({
           canPersist={_modCanPersist}
           contentPatcherSnapshot={contentPatcherSnapshot}
           contentPatcherSimulation={contentPatcherSimulation}
+          contentPatcherResultAsset={contentPatcherResultAsset}
+          contentPatcherResultLoading={contentPatcherResultLoading}
+          contentPatcherResultError={contentPatcherResultError}
           simulationContext={simulationContext}
           onSimulationContextChange={onSimulationContextChange}
-          onSelectPatch={(patchId) => onSelectModPatch(patchId)}
           onManifestFieldChange={onModManifestFieldChange}
           onManifestTextChange={onModManifestTextChange}
           onContentTextChange={onModContentTextChange}
@@ -186,6 +240,51 @@ export function buildModWorkspacePanels({
           onRemoveSelectedPatch={onRemoveModPatch}
           onSaveProject={onSaveModProject}
           onExportProject={onExportModProject}
+        />
+      ),
+    },
+    {
+      id: 'mods-trace',
+      title: 'Patch Trace',
+      subtitle: 'Applied patch flow for the selected target',
+      minWidth: 300,
+      minHeight: 220,
+      dockMinHeight: 180,
+      defaultDock: 'right-top',
+      defaultDockHeight: 360,
+      content: <ContentPatcherTracePanel result={contentPatcherResultAsset} />,
+    },
+    {
+      id: 'mods-target-diagnostics',
+      title: 'Target Diagnostics',
+      subtitle: 'Simulation diagnostics for the selected result asset',
+      minWidth: 300,
+      minHeight: 220,
+      dockMinHeight: 180,
+      defaultDock: 'right-bottom',
+      defaultDockHeight: 300,
+      content: <ContentPatcherDiagnosticsPanel result={contentPatcherResultAsset} />,
+    },
+    {
+      id: 'mods-export',
+      title: 'Export Result',
+      subtitle: 'Write the simulated target output to disk',
+      minWidth: 300,
+      minHeight: 200,
+      dockMinHeight: 160,
+      defaultDock: 'right-bottom',
+      defaultDockHeight: 220,
+      content: (
+        <ContentPatcherExportPanel
+          copy={modCopy}
+          projectPath={activeModProjectDetail?.summary.absolutePath ?? null}
+          gameRootPath={gameRootPath}
+          snapshot={contentPatcherSnapshot}
+          manifestJson={modManifestEditor.text}
+          contentJson={modContentEditor.text}
+          simulationContext={simulationContext}
+          selectedTargetPath={selectedTargetPath}
+          result={contentPatcherResultAsset}
         />
       ),
     },

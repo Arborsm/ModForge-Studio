@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { simulateContentPatcher } from '../desktop'
+import { loadContentPatcherResultAsset, scanModProjects, simulateContentPatcher } from '../desktop'
 import { useModWorkspace } from './useModWorkspace'
 
 vi.mock('../desktop', () => ({
@@ -51,6 +51,26 @@ vi.mock('../desktop', () => ({
     includeTree: [],
     diagnostics: [],
   }),
+  loadContentPatcherResultAsset: vi.fn().mockResolvedValue({
+    target: {
+      path: 'Data/Objects',
+      assetKind: 'json',
+      touchedPatchCount: 1,
+      resultState: 'determinate',
+      patchIds: ['content.json:0#target:0#from:0'],
+    },
+    trace: [],
+    result: {
+      kind: 'json',
+      json: { 24: { Price: 35 } },
+      imageDataUrl: null,
+      originalImageDataUrl: null,
+      originalImageSource: null,
+      mapDebug: null,
+    },
+    diagnostics: [],
+    exportable: true,
+  }),
   saveModProject: vi.fn(),
   scanModProjects: vi.fn().mockResolvedValue([
     {
@@ -90,6 +110,15 @@ vi.mock('../desktop', () => ({
         reasons: [],
       },
     ],
+    targets: [
+      {
+        path: 'Data/Objects',
+        assetKind: 'json',
+        touchedPatchCount: 1,
+        resultState: 'determinate',
+        patchIds: ['content.json:0#target:0#from:0'],
+      },
+    ],
     diagnostics: [],
   }),
 }))
@@ -111,6 +140,7 @@ describe('useModWorkspace', () => {
     await waitFor(() => {
       expect(result.current.contentPatcherSnapshot?.summary.uniqueId).toBe('ModForge.CPPack')
       expect(result.current.contentPatcherSimulation?.patchStatuses[0]?.status).toBe('applied')
+      expect(result.current.contentPatcherResultAsset?.result.kind).toBe('json')
     })
   })
 
@@ -141,11 +171,85 @@ describe('useModWorkspace', () => {
     await waitFor(() => {
       expect(vi.mocked(simulateContentPatcher)).toHaveBeenLastCalledWith(
         expect.objectContaining({
+          gameRootPath: 'E:\\Games\\Stardew Valley',
           manifestJson: '{\n  "Name": "Edited Pack"\n}\n',
           contentJson:
             '{\n  "Format": "2.0.0",\n  "Changes": [\n    {\n      "Action": "EditData",\n      "Target": "Data/Objects"\n    }\n  ]\n}\n',
         }),
       )
+    })
+
+    await waitFor(() => {
+      expect(vi.mocked(loadContentPatcherResultAsset)).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          gameRootPath: 'E:\\Games\\Stardew Valley',
+          target: 'Data/Objects',
+          manifestJson: '{\n  "Name": "Edited Pack"\n}\n',
+        }),
+      )
+    })
+  })
+
+  it('defaults to Content Patcher projects when mixed mod types are scanned', async () => {
+    vi.mocked(scanModProjects).mockResolvedValueOnce([
+      {
+        id: 'archive-helper',
+        name: 'Archive Helper',
+        author: 'ModForge',
+        version: '0.4.0',
+        description: null,
+        uniqueId: 'ModForge.ArchiveHelper',
+        contentPackFor: null,
+        folderName: 'ArchiveHelper',
+        absolutePath: 'E:\\Mods\\ArchiveHelper',
+        manifestPath: 'E:\\Mods\\ArchiveHelper\\manifest.json',
+        contentPath: null,
+        pluginKind: 'unknown',
+        status: 'unsupported',
+      },
+      {
+        id: 'cp-pack',
+        name: 'CP Pack',
+        author: 'ModForge',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'ModForge.CPPack',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'CPPack',
+        absolutePath: 'E:\\Mods\\CPPack',
+        manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+        contentPath: 'E:\\Mods\\CPPack\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'ready',
+      },
+    ])
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.modProjects).toHaveLength(2)
+    })
+
+    expect(result.current.contentPatcherOnly).toBe(true)
+    expect(result.current.filteredModProjects.map((project) => project.pluginKind)).toEqual(['content-patcher'])
+    expect(result.current.activeProjectPath).toBe('E:\\Mods\\CPPack')
+
+    act(() => {
+      result.current.setContentPatcherOnly(false)
+    })
+
+    await waitFor(() => {
+      expect(result.current.filteredModProjects).toHaveLength(2)
     })
   })
 })

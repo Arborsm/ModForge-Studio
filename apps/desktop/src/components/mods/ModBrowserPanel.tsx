@@ -1,4 +1,4 @@
-import { FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
+import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '../../lib/desktop'
 import type { ModWorkspaceCopy } from '../../lib/plugins/copy'
 import { cx } from '../../lib/cx'
@@ -9,10 +9,28 @@ type ModBrowserPanelProps = {
   filteredProjects: ModProjectSummary[]
   activeProjectPath: string | null
   modFilter: string
+  contentPatcherOnly: boolean
   onFilterChange: (value: string) => void
+  onContentPatcherOnlyChange: (value: boolean) => void
   onSelectProject: (path: string) => void
   onImportProject: () => void
   onRefreshProjects: () => void
+}
+
+function getPluginKindBadge(project: ModProjectSummary) {
+  if (project.pluginKind === 'content-patcher') {
+    return {
+      label: 'Content Patcher',
+      className:
+        'border-[color-mix(in_srgb,#10b981_16%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[color-mix(in_srgb,var(--text-primary)_88%,#065f46)]',
+    }
+  }
+
+  return {
+    label: 'Unknown',
+    className:
+      'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[var(--text-primary)]',
+  }
 }
 
 function ProjectRow({
@@ -26,14 +44,16 @@ function ProjectRow({
   active: boolean
   onSelect: () => void
 }) {
+  const pluginKindBadge = getPluginKindBadge(project)
+
   return (
     <button
       type="button"
       className={cx(
-        'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
+        'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
         active
-          ? 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--bg-panel))]'
-          : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_20%,transparent)] hover:bg-[var(--bg-elevated)]',
+          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
+          : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
       )}
       onClick={onSelect}
     >
@@ -44,13 +64,11 @@ function ProjectRow({
         </div>
         <span
           className={cx(
-            'inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]',
-            project.pluginKind === 'content-patcher'
-              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
-              : 'border-amber-500/25 bg-amber-500/10 text-amber-200',
+            'inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap',
+            pluginKindBadge.className,
           )}
         >
-          {project.pluginKind}
+          {pluginKindBadge.label}
         </span>
       </div>
 
@@ -73,21 +91,20 @@ export function ModBrowserPanel({
   filteredProjects,
   activeProjectPath,
   modFilter,
+  contentPatcherOnly,
   onFilterChange,
+  onContentPatcherOnlyChange,
   onSelectProject,
   onImportProject,
   onRefreshProjects,
 }: ModBrowserPanelProps) {
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden bg-[var(--bg-panel)] p-4">
-      <section className="rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+      <section className="panel-surface p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{copy.browserTitle}</p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Get Started</h2>
-            <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              Import a mod, refresh the scan, then pick one project to continue editing in the main workspace.
-            </p>
           </div>
           <div className="grid shrink-0 gap-2 sm:grid-cols-2">
             <button type="button" className="control-button control-button-primary" onClick={onImportProject}>
@@ -102,29 +119,45 @@ export function ModBrowserPanel({
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.projectsLabel}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{projects.length}</p>
           </div>
-          <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] px-4 py-3">
+          <div className="rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.filteredLabel}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{filteredProjects.length}</p>
           </div>
         </div>
 
-        <div className="relative mt-4">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
-          <input
-            className="control-input pl-9"
-            value={modFilter}
-            onChange={(event) => onFilterChange(event.target.value)}
-            placeholder={copy.browserFilterPlaceholder}
-            spellCheck={false}
-          />
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              className="control-input pl-9"
+              value={modFilter}
+              onChange={(event) => onFilterChange(event.target.value)}
+              placeholder={copy.browserFilterPlaceholder}
+              spellCheck={false}
+            />
+          </div>
+          <button
+            type="button"
+            className={cx(
+              'control-button h-10 shrink-0 gap-2 px-4',
+              contentPatcherOnly
+                ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-[var(--text-primary)]'
+                : undefined,
+            )}
+            aria-pressed={contentPatcherOnly}
+            onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
+          >
+            <Filter className="h-4 w-4" />
+            <span>{copy.contentPatcherOnly}</span>
+          </button>
         </div>
       </section>
 
-      <section className="min-h-0 flex-1 rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
+      <section className="panel-surface min-h-0 flex-1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Project Library</p>
@@ -135,7 +168,7 @@ export function ModBrowserPanel({
           {activeProjectPath ? <span className="dock-chip">Active</span> : null}
         </div>
 
-        <div className="mt-4 min-h-0 space-y-3 overflow-auto pr-1">
+        <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
           {filteredProjects.length ? (
             filteredProjects.map((project) => (
               <ProjectRow
@@ -147,7 +180,7 @@ export function ModBrowserPanel({
               />
             ))
           ) : (
-            <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-app)] px-4 text-center">
+            <div className="panel-empty-state flex min-h-48 items-center justify-center text-center">
               <div>
                 <p className="text-base font-semibold text-[var(--text-primary)]">No projects yet</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">

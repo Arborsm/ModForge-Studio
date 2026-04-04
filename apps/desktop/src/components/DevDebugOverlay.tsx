@@ -86,6 +86,7 @@ export function DevDebugOverlay({
   const [fileCacheStats, setFileCacheStats] = useState<FileCacheStats | null>(null)
   const pointerOffsetRef = useRef({ x: 0, y: 0 })
   const dragPointerIdRef = useRef<number | null>(null)
+  const dragHandleRef = useRef<HTMLDivElement | null>(null)
   const { fps, frameTimeMs } = useFps()
   const desktopHost = canUseDesktopHost()
 
@@ -181,6 +182,7 @@ export function DevDebugOverlay({
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragPointerIdRef.current = event.pointerId
+    dragHandleRef.current = event.currentTarget
     pointerOffsetRef.current = {
       x: event.clientX - position.x,
       y: event.clientY - position.y,
@@ -205,9 +207,10 @@ export function DevDebugOverlay({
     }
 
     dragPointerIdRef.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
+    if (dragHandleRef.current?.hasPointerCapture(event.pointerId)) {
+      dragHandleRef.current.releasePointerCapture(event.pointerId)
     }
+    dragHandleRef.current = null
   }
 
   const handleClearFileCache = async () => {
@@ -249,16 +252,16 @@ export function DevDebugOverlay({
       onPointerCancel={endDrag}
     >
       <div
-        className="flex cursor-grab items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-2 active:cursor-grabbing"
-        onPointerDown={beginDrag}
+        className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-2"
       >
-        <div>
+        <div className="flex-1 cursor-grab select-none active:cursor-grabbing" onPointerDown={beginDrag}>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Dev Debug</p>
           <p className="text-xs text-[var(--text-tertiary)]">workspace diagnostics</p>
         </div>
         <button
           type="button"
           className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+          onPointerDown={(event) => event.stopPropagation()}
           onClick={() => setCollapsed((current) => !current)}
         >
           {collapsed ? 'Expand' : 'Collapse'}

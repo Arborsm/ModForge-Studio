@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::json_relaxed;
 use crate::pathing::{clean_input_path, normalize_path};
 
 const CONTENT_PATCHER_UNIQUE_ID: &str = "Pathoschild.ContentPatcher";
@@ -245,137 +246,12 @@ fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(discovered.into_iter().map(PathBuf::from).collect())
 }
 
-fn strip_json_comments(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let mut chars = input.chars().peekable();
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut in_line_comment = false;
-    let mut in_block_comment = false;
-
-    while let Some(ch) = chars.next() {
-        if in_line_comment {
-            if ch == '\n' {
-                in_line_comment = false;
-                output.push(ch);
-            }
-            continue;
-        }
-
-        if in_block_comment {
-            if ch == '*' && chars.peek() == Some(&'/') {
-                chars.next();
-                in_block_comment = false;
-            }
-            continue;
-        }
-
-        if in_string {
-            output.push(ch);
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = true;
-            output.push(ch);
-            continue;
-        }
-
-        if ch == '/' {
-            match chars.peek() {
-                Some('/') => {
-                    chars.next();
-                    in_line_comment = true;
-                    continue;
-                }
-                Some('*') => {
-                    chars.next();
-                    in_block_comment = true;
-                    continue;
-                }
-                _ => {}
-            }
-        }
-
-        output.push(ch);
-    }
-
-    output
-}
-
-fn strip_trailing_commas(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let chars = input.chars().collect::<Vec<_>>();
-    let mut index = 0;
-    let mut in_string = false;
-    let mut escaped = false;
-
-    while index < chars.len() {
-        let ch = chars[index];
-
-        if in_string {
-            output.push(ch);
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            index += 1;
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = true;
-            output.push(ch);
-            index += 1;
-            continue;
-        }
-
-        if ch == ',' {
-            let mut look_ahead = index + 1;
-            while look_ahead < chars.len() && chars[look_ahead].is_whitespace() {
-                look_ahead += 1;
-            }
-
-            if look_ahead < chars.len() && matches!(chars[look_ahead], '}' | ']') {
-                index += 1;
-                continue;
-            }
-        }
-
-        output.push(ch);
-        index += 1;
-    }
-
-    output
-}
-
-fn parse_json_relaxed(raw: &str, path: &Path) -> Result<Value, String> {
-    serde_json::from_str::<Value>(raw).or_else(|primary_error| {
-        let sanitized = strip_trailing_commas(&strip_json_comments(raw));
-        serde_json::from_str::<Value>(&sanitized).map_err(|secondary_error| {
-            format!(
-                "Failed to parse JSON file {}: {primary_error}; relaxed parse also failed: {secondary_error}",
-                normalize_path(path)
-            )
-        })
-    })
-}
-
 fn read_json_file(path: &Path) -> Result<(String, Value), String> {
-    let raw = fs::read_to_string(path)
-        .map_err(|error| format!("Failed to read JSON file {}: {error}", normalize_path(path)))?;
-    let value = parse_json_relaxed(&raw, path)?;
-    Ok((raw, value))
+    json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
+}
+
+fn log_scan_skip(error: &str) {
+    log::debug!("{error}");
 }
 
 fn is_content_patcher_project(manifest: &Value, content: &Value) -> bool {
@@ -886,7 +762,7 @@ fn collect_flattened_content_patcher_patches(
             let included_content = match read_json_file(&include_path) {
                 Ok((_, included_content)) => included_content,
                 Err(error) => {
-                    log::warn!("{error}");
+                    log_scan_skip(&error);
                     continue;
                 }
             };
@@ -1036,7 +912,7 @@ pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, St
         let manifest = match read_json_file(&manifest_path) {
             Ok((_, manifest)) => manifest,
             Err(error) => {
-                log::warn!("{error}");
+                log_scan_skip(&error);
                 continue;
             }
         };
@@ -1045,7 +921,7 @@ pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, St
             match read_json_file(&content_path) {
                 Ok((_, content)) => Some(content),
                 Err(error) => {
-                    log::warn!("{error}");
+                    log_scan_skip(&error);
                     None
                 }
             }
@@ -1081,14 +957,14 @@ pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> 
         let manifest = match read_json_file(&manifest_path) {
             Ok((_, manifest)) => manifest,
             Err(error) => {
-                log::warn!("{error}");
+                log_scan_skip(&error);
                 continue;
             }
         };
         let content = match read_json_file(&content_path) {
             Ok((_, content)) => content,
             Err(error) => {
-                log::warn!("{error}");
+                log_scan_skip(&error);
                 continue;
             }
         };
@@ -1428,6 +1304,43 @@ mod tests {
 
         let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load relaxed mod project");
         assert_eq!(detail.plugin_kind, "content-patcher");
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn load_mod_project_accepts_bom_nbsp_and_raw_newlines() {
+        let root = create_temp_dir("relaxed-edge-cases");
+        let project = root.join("ExamplePack");
+        let manifest = format!("\u{feff}{}", sample_manifest());
+        let nbsp = '\u{00A0}'.to_string();
+        let content = format!(
+            concat!(
+                "{{\n",
+                "\"Format\": \"2.0.0\",\n",
+                "\"Changes\": [\n",
+                "\t{{\n",
+                "{0} {0} {0}\"Action\": \"EditData\",\n",
+                "{0} {0} {0}\"Target\": \"Data/Events/Town\",\n",
+                "{0} {0} {0}\"Entries\": {{\n",
+                "{0} {0} {0}  \"MuseumBook\": \"Line 1\n",
+                "Line 2\"\n",
+                "{0} {0} {0}}}\n",
+                "\t}}\n",
+                "]\n",
+                "}}"
+            ),
+            nbsp
+        );
+
+        write_file(&project.join("manifest.json"), &manifest);
+        write_file(&project.join("content.json"), &content);
+
+        let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
+        assert_eq!(detail.plugin_kind, "content-patcher");
+        let cp = detail.content_patcher.expect("content patcher payload");
+        assert_eq!(cp.change_count, 1);
+        assert_eq!(cp.patches[0].target, "Data/Events/Town");
 
         fs::remove_dir_all(root).expect("cleanup");
     }

@@ -1,3 +1,4 @@
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '../editor-shell'
 import { getModWorkspaceCopy } from '../plugins/copy'
@@ -148,7 +149,9 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     activeProjectPath: null,
     activeProject: null,
     modFilter: '',
+    contentPatcherOnly: true,
     onModFilterChange: noop,
+    onContentPatcherOnlyChange: noop,
     onSelectModProject: noop,
     onImportModProject: noop,
     onRefreshModProjects: noop,
@@ -182,6 +185,9 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     modLastSaveResult: null,
     contentPatcherSnapshot: null,
     contentPatcherSimulation: null,
+    contentPatcherResultAsset: null,
+    contentPatcherResultLoading: false,
+    contentPatcherResultError: null,
     simulationContext: {
       season: '',
       weather: '',
@@ -200,6 +206,10 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     onSaveModProject: noop,
     onExportModProject: noop,
     onSimulationContextChange: noop,
+    navigatorMode: 'patches',
+    selectedTargetPath: null,
+    onNavigatorModeChange: noop,
+    onSelectTarget: noop,
     heavyWorkspaceReady: true,
     ...overrides,
   }
@@ -278,9 +288,13 @@ describe('workspacePanels mode builders', () => {
 
   it('builds mods panels via the mods builder', () => {
     const panels = buildModsWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
-    expectPanelLayout(panels, ['mods-browser', 'mods-workspace'], {
+    expectPanelLayout(panels, ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'], {
       'mods-browser': 'left-top',
+      'mods-navigator': 'left-bottom',
       'mods-workspace': 'center',
+      'mods-trace': 'right-top',
+      'mods-target-diagnostics': 'right-bottom',
+      'mods-export': 'right-bottom',
     })
   })
 })
@@ -348,9 +362,61 @@ describe('buildWorkspacePanels', () => {
   it('locks panel ids and docks for mods mode', () => {
     const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
 
-    expectPanelLayout(panels, ['mods-browser', 'mods-workspace'], {
+    expectPanelLayout(panels, ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'], {
       'mods-browser': 'left-top',
+      'mods-navigator': 'left-bottom',
       'mods-workspace': 'center',
+      'mods-trace': 'right-top',
+      'mods-target-diagnostics': 'right-bottom',
+      'mods-export': 'right-bottom',
     })
+  })
+
+  it('does not render canvas-era content patcher inspector text in mods mode', () => {
+    const panels = buildModsWorkspacePanels(
+      buildOptions({
+        workspaceMode: 'mods',
+        activeModProjectDetail: {
+          pluginKind: 'content-patcher',
+          capabilities: ['edit', 'save', 'export', 'validate'],
+          summary: {
+            id: 'cp-pack',
+            name: 'CP Pack',
+            author: null,
+            version: '1.0.0',
+            description: null,
+            uniqueId: 'ModForge.CPPack',
+            contentPackFor: 'Pathoschild.ContentPatcher',
+            folderName: 'CPPack',
+            absolutePath: 'E:\\Mods\\CPPack',
+            manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+            contentPath: 'E:\\Mods\\CPPack\\content.json',
+            pluginKind: 'content-patcher',
+            status: 'ready',
+          },
+          diagnostics: [],
+          contentPatcher: {
+            manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+            contentPath: 'E:\\Mods\\CPPack\\content.json',
+            manifestJson: '{\n  "Name": "CP Pack"\n}\n',
+            contentJson: '{\n  "Format": "2.0.0",\n  "Changes": []\n}\n',
+            format: '2.0.0',
+            changeCount: 0,
+            includeCount: 0,
+            dynamicTokenCount: 0,
+            configKeys: [],
+            hasI18n: false,
+            patches: [],
+          },
+        },
+      }),
+    )
+
+    render(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+
+    expect(screen.queryByText('Node Canvas')).toBeNull()
+    expect(screen.queryByText('Node Inspector')).toBeNull()
+    expect(screen.queryByText('Raw Patch JSON')).toBeNull()
+    expect(screen.queryByText('content.json Preview')).toBeNull()
   })
 })

@@ -16,6 +16,11 @@ import { resolveTilesetImagePath } from '../lib/maps/assets'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
 import { loadImageResourceFromPath } from '../lib/imageMetrics'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '../lib/mapViewportCache'
+import {
+  clampPanZoomZoom,
+  PAN_ZOOM_TOOLBAR_ZOOM_FACTOR,
+  PAN_ZOOM_WHEEL_INTENSITY,
+} from '../lib/viewports/usePanZoomViewport'
 import type {
   MapAtlasPoint,
   MapAtlasPortal,
@@ -130,18 +135,14 @@ const TILE_ID_MASK = ~(
   FLIPPED_DIAGONALLY_FLAG |
   ROTATED_HEXAGONAL_120_FLAG
 )
-const MIN_ZOOM = 0.08
-const MAX_ZOOM = 8
 const VIEWPORT_PADDING = 56
 const VIEWPORT_OVERPAN = 160
-const TOOLBAR_ZOOM_FACTOR = 1.12
-const WHEEL_ZOOM_INTENSITY = 0.0007
 const MAX_RENDER_CANVAS_DIMENSION = 4096
 const MAX_RENDER_CANVAS_AREA = 16_777_216
 const INTERACTIVE_OBJECT_PROPERTY_KEYS = ['Action', 'TouchAction', 'Warp', 'NPCWarp', 'LockedDoorWarp', 'MagicWarp']
 
 function clampZoom(value: number) {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value))
+  return clampPanZoomZoom(value)
 }
 
 function getNumericMapProperty(mapDocument: MapDocument, key: string) {
@@ -1165,11 +1166,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }, [onHoverChange])
 
   const zoomInStep = useCallback(() => {
-    applyManualZoom(zoom * TOOLBAR_ZOOM_FACTOR)
+    applyManualZoom(zoom * PAN_ZOOM_TOOLBAR_ZOOM_FACTOR)
   }, [applyManualZoom, zoom])
 
   const zoomOutStep = useCallback(() => {
-    applyManualZoom(zoom / TOOLBAR_ZOOM_FACTOR)
+    applyManualZoom(zoom / PAN_ZOOM_TOOLBAR_ZOOM_FACTOR)
   }, [applyManualZoom, zoom])
 
   const focusObjectTarget = useCallback(
@@ -1323,7 +1324,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           return
         }
 
-        applyManualZoom(zoomRef.current * Math.exp(-delta * WHEEL_ZOOM_INTENSITY), anchor)
+        applyManualZoom(zoomRef.current * Math.exp(-delta * PAN_ZOOM_WHEEL_INTENSITY), anchor)
       })
     }
 

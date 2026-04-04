@@ -8,8 +8,10 @@ import {
   canUseDesktopHost,
   clearDesktopLocaleCache,
   closeCurrentWindow,
+  isCurrentWindowFullscreen,
   listKnownGameDirectories,
   minimizeCurrentWindow,
+  toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
 } from './lib/desktop'
 import {
@@ -79,6 +81,7 @@ export default function App() {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
@@ -355,6 +358,8 @@ export default function App() {
     filteredModProjects,
     modFilter,
     setModFilter,
+    contentPatcherOnly,
+    setContentPatcherOnly,
     activeProjectPath,
     activeProject,
     projectDetail: activeModProjectDetail,
@@ -372,7 +377,14 @@ export default function App() {
     lastSaveResult: modLastSaveResult,
     contentPatcherSnapshot,
     contentPatcherSimulation,
+    contentPatcherResultAsset,
+    contentPatcherResultLoading,
+    contentPatcherResultError,
     simulationContext,
+    navigatorMode,
+    setNavigatorMode,
+    selectedTargetPath,
+    setSelectedTargetPath,
     handleSelectProject: handleSelectModProject,
     handleImportProject: handleImportModProject,
     handleRefreshProjects: handleRefreshModProjects,
@@ -544,6 +556,30 @@ export default function App() {
   }, [desktopHost])
 
   useEffect(() => {
+    if (!desktopHost) {
+      return
+    }
+
+    let disposed = false
+
+    void isCurrentWindowFullscreen()
+      .then((fullscreen) => {
+        if (!disposed) {
+          setWindowIsFullscreen(fullscreen)
+        }
+      })
+      .catch(() => {
+        if (!disposed) {
+          setWindowIsFullscreen(false)
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [desktopHost, settingsWindowOpen])
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
@@ -609,6 +645,11 @@ export default function App() {
     },
     [openAppearanceWindow],
   )
+
+  const handleToggleBorderlessFullscreen = useCallback(async () => {
+    const nextFullscreen = await toggleFullscreenCurrentWindow()
+    setWindowIsFullscreen(nextFullscreen)
+  }, [])
 
   const workspacePanels = buildWorkspacePanels({
     copy,
@@ -743,7 +784,9 @@ export default function App() {
     activeProjectPath,
     activeProject: activeProject ?? null,
     modFilter,
+    contentPatcherOnly,
     onModFilterChange: setModFilter,
+    onContentPatcherOnlyChange: setContentPatcherOnly,
     onSelectModProject: handleSelectModProject,
     onImportModProject: () => void handleImportModProject(),
     onRefreshModProjects: () => void handleRefreshModProjects(),
@@ -762,7 +805,13 @@ export default function App() {
     modLastSaveResult: modLastSaveResult ?? null,
     contentPatcherSnapshot,
     contentPatcherSimulation,
+    contentPatcherResultAsset,
+    contentPatcherResultLoading,
+    contentPatcherResultError,
     simulationContext,
+    navigatorMode,
+    selectedTargetPath,
+    onNavigatorModeChange: setNavigatorMode,
     onModManifestFieldChange: handleModManifestFieldChange,
     onModManifestTextChange: handleModManifestTextChange,
     onModContentTextChange: handleModContentTextChange,
@@ -773,6 +822,7 @@ export default function App() {
     onSaveModProject: () => void handleSaveModProject(),
     onExportModProject: () => void handleExportModProject(),
     onSimulationContextChange: handleSimulationContextChange,
+    onSelectTarget: setSelectedTargetPath,
     heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
   })
 
@@ -874,12 +924,19 @@ export default function App() {
             accentLabel={settingsMenuCopy.accentLabel}
             resetAccentLabel={settingsMenuCopy.resetAccentLabel}
             accentDescription={settingsMenuCopy.accentDescription}
+            windowModeLabel={settingsMenuCopy.windowModeLabel}
+            borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
+            borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
+            enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
+            disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
+            borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
             futureLabel={settingsMenuCopy.futureLabel}
             futureDescription={settingsMenuCopy.futureDescription}
             accentOptions={ACCENT_PRESETS}
             activeAccentId={activeAccentPreset.id}
             onSelectAccent={setAccentPresetId}
             onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+            onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
             onClose={() => setSettingsWindowOpen(false)}
           />
         </Suspense>

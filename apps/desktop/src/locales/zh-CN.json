@@ -700,6 +700,11 @@
     "accentLabel": "强调色",
     "resetAccentLabel": "恢复默认强调色",
     "accentDescription": "影响视口背景、入口点高亮，以及编辑器中的强调态元素。",
+    "windowModeLabel": "窗口模式",
+    "borderlessFullscreenLabel": "无边框全屏",
+    "borderlessFullscreenDescription": "将当前无装饰桌面窗口切换为沉浸式全屏工作区。",
+    "enableBorderlessFullscreenLabel": "进入无边框全屏",
+    "disableBorderlessFullscreenLabel": "退出无边框全屏",
     "futureLabel": "更多配置",
     "futureDescription": "后续的编辑器偏好、显示选项和行为设置都会放在这里。",
     "categoryDescriptions": {

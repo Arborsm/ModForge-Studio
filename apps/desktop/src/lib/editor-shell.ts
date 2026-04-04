@@ -30,6 +30,11 @@ export type SettingsMenuCopy = {
   accentLabel: string
   resetAccentLabel: string
   accentDescription: string
+  windowModeLabel: string
+  borderlessFullscreenLabel: string
+  borderlessFullscreenDescription: string
+  enableBorderlessFullscreenLabel: string
+  disableBorderlessFullscreenLabel: string
   futureLabel: string
   futureDescription: string
   categoryDescriptions: {

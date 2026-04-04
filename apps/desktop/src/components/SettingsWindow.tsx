@@ -1,4 +1,4 @@
-import { Palette, Settings2, X } from 'lucide-react'
+import { Maximize2, Palette, Settings2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cx } from '../lib/cx'
 
@@ -26,12 +26,19 @@ type SettingsWindowProps = {
   accentLabel: string
   resetAccentLabel: string
   accentDescription: string
+  windowModeLabel: string
+  borderlessFullscreenLabel: string
+  borderlessFullscreenDescription: string
+  enableBorderlessFullscreenLabel: string
+  disableBorderlessFullscreenLabel: string
+  borderlessFullscreenEnabled: boolean
   futureLabel: string
   futureDescription: string
   accentOptions: AccentOption[]
   activeAccentId: string
   onSelectAccent: (id: string) => void
   onResetAccent: () => void
+  onToggleBorderlessFullscreen: () => void
   onClose: () => void
 }
 
@@ -43,12 +50,19 @@ export default function SettingsWindow({
   accentLabel,
   resetAccentLabel,
   accentDescription,
+  windowModeLabel,
+  borderlessFullscreenLabel,
+  borderlessFullscreenDescription,
+  enableBorderlessFullscreenLabel,
+  disableBorderlessFullscreenLabel,
+  borderlessFullscreenEnabled,
   futureLabel,
   futureDescription,
   accentOptions,
   activeAccentId,
   onSelectAccent,
   onResetAccent,
+  onToggleBorderlessFullscreen,
   onClose,
 }: SettingsWindowProps) {
   const [activeCategory, setActiveCategory] = useState<'appearance' | 'view' | 'interaction' | 'advanced'>('appearance')
@@ -145,12 +159,39 @@ export default function SettingsWindow({
 
             {activeCategory !== 'appearance' ? (
               <section className="settings-window-section">
-                <p className="settings-window-section-title">{categories[activeCategory]}</p>
-                <p className="settings-window-section-copy mt-2">{categoryDescriptions[activeCategory]}</p>
-                <div className="settings-window-placeholder">
-                  <p className="settings-window-placeholder-title">{futureLabel}</p>
-                  <p className="settings-window-placeholder-copy">{futureDescription}</p>
-                </div>
+                {activeCategory === 'view' ? (
+                  <>
+                    <p className="settings-window-section-title">{windowModeLabel}</p>
+                    <p className="settings-window-section-copy mt-2">{categoryDescriptions[activeCategory]}</p>
+                    <div className="settings-window-control-card">
+                      <div className="settings-window-control-meta">
+                        <span className="settings-window-control-icon" aria-hidden="true">
+                          <Maximize2 className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="settings-window-section-title">{borderlessFullscreenLabel}</p>
+                          <p className="settings-window-section-copy mt-2">{borderlessFullscreenDescription}</p>
+                        </div>
+                      </div>
+                      <button type="button" className="control-button" onClick={onToggleBorderlessFullscreen}>
+                        {borderlessFullscreenEnabled ? disableBorderlessFullscreenLabel : enableBorderlessFullscreenLabel}
+                      </button>
+                    </div>
+                    <div className="settings-window-placeholder">
+                      <p className="settings-window-placeholder-title">{futureLabel}</p>
+                      <p className="settings-window-placeholder-copy">{futureDescription}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="settings-window-section-title">{categories[activeCategory]}</p>
+                    <p className="settings-window-section-copy mt-2">{categoryDescriptions[activeCategory]}</p>
+                    <div className="settings-window-placeholder">
+                      <p className="settings-window-placeholder-title">{futureLabel}</p>
+                      <p className="settings-window-placeholder-copy">{futureDescription}</p>
+                    </div>
+                  </>
+                )}
               </section>
             ) : (
               <section className="settings-window-section">

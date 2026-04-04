@@ -751,6 +751,11 @@
     background: color-mix(in srgb, var(--bg-panel-muted) 96%, transparent);
     color: var(--text-secondary);
     flex-shrink: 0;
+    cursor: grab;
+  }
+
+  .workspace-panel-grip:active {
+    cursor: grabbing;
   }
 
   .workspace-panel-action {
@@ -972,6 +977,14 @@
     gap: 14px;
   }
 
+  .top-menu-center {
+    min-width: 0;
+  }
+
+  .top-menu-drag-spacer {
+    min-width: 24px;
+  }
+
   .top-menu-menus {
     padding-left: 12px;
     border-left: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
@@ -979,9 +992,16 @@
 
   .top-menu-workspace {
     align-items: center;
-    background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
-    gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 16px;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg-panel-muted) 94%, transparent),
+        color-mix(in srgb, var(--bg-panel) 88%, transparent)
+      );
     overflow: hidden;
+    padding: 6px;
   }
 
   .top-menu-workspace-label {
@@ -1219,6 +1239,37 @@
     color: var(--text-secondary);
     font-size: 12px;
     line-height: 1.55;
+  }
+
+  .settings-window-control-card {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+    padding: 14px;
+  }
+
+  .settings-window-control-meta {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .settings-window-control-icon {
+    display: inline-flex;
+    height: 36px;
+    width: 36px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--accent);
   }
 
   .settings-accent-card {
@@ -1753,147 +1804,741 @@
     color: var(--text-primary);
   }
 
-  .cp-canvas {
-    min-height: 460px;
-  }
-
-  .cp-reactflow .react-flow__pane {
-    background:
-      radial-gradient(circle at top, color-mix(in srgb, var(--bg-panel) 84%, transparent), transparent 42%),
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-muted) 60%, transparent), var(--bg-viewport));
-  }
-
-  .cp-node {
-    min-width: 200px;
-    max-width: 240px;
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    padding: 10px 12px;
-    background: color-mix(in srgb, var(--bg-panel) 86%, white 14%);
-    box-shadow: var(--shadow-panel);
-    color: var(--text-primary);
-  }
-
-  .cp-node-condition {
-    border-color: color-mix(in srgb, var(--cp-logic) 52%, var(--border-color));
-  }
-
-  .cp-node-asset {
-    border-color: color-mix(in srgb, var(--cp-file) 52%, var(--border-color));
-  }
-
-  .cp-node-action {
-    border-color: color-mix(in srgb, var(--accent) 52%, var(--border-color));
-  }
-
-  .cp-node-target {
-    border-color: color-mix(in srgb, var(--cp-data) 52%, var(--border-color));
-  }
-
-  .cp-node-disabled {
-    opacity: 0.45;
-    filter: grayscale(0.6);
-  }
-
-  .cp-node-header {
+  .cp-debugger-shell {
     display: flex;
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    padding: 12px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, white 4%), var(--bg-panel)),
+      radial-gradient(circle at top right, color-mix(in srgb, var(--accent-soft) 56%, transparent), transparent 34%);
+  }
+
+  .cp-debugger-header {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 98%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+    box-shadow: var(--shadow-panel);
+    padding: 12px 14px;
   }
 
-  .cp-node-kind {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
+  .cp-debugger-title-group {
+    display: grid;
+    gap: 4px;
   }
 
-  .cp-node-status {
-    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
-    border-radius: 999px;
-    padding: 2px 6px;
-    font-size: 10px;
+  .cp-debugger-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
     font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    line-height: 1.05;
+  }
+
+  .cp-debugger-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .cp-debugger-body {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .cp-debugger-body > * {
+    min-height: 0;
+  }
+
+  .cp-debugger-nav,
+  .cp-debugger-preview {
+    min-height: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 20px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 98%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+    box-shadow: var(--shadow-panel);
+  }
+
+  .cp-debugger-nav {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .cp-debugger-preview {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 16px;
+  }
+
+  .cp-debugger-preview-title {
+    margin: 0 0 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .cp-debugger-image-stage {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 14px;
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 36%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-muted) 76%, transparent), color-mix(in srgb, var(--bg-app) 16%, transparent));
+    padding: 16px;
+  }
+
+  .cp-debugger-image-stage-with-toolbar {
+    padding-bottom: 92px;
+  }
+
+  .cp-debugger-image-stage-focused {
+    border-color: color-mix(in srgb, var(--accent) 36%, var(--border-color));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .cp-debugger-image-preview {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cp-debugger-image-meta {
+    margin: 0;
     color: var(--text-secondary);
-    background: color-mix(in srgb, var(--bg-panel-muted) 70%, transparent);
-  }
-
-  .cp-node-status-off {
-    color: var(--warning);
-    border-color: color-mix(in srgb, var(--warning) 40%, transparent);
-    background: color-mix(in srgb, var(--warning) 12%, transparent);
-  }
-
-  .cp-node-title {
-    margin-top: 8px;
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  .cp-node-meta {
-    margin-top: 6px;
     font-size: 11px;
-    color: var(--text-secondary);
+    line-height: 1.5;
     word-break: break-word;
   }
 
-  .react-flow__handle.cp-handle {
-    width: 10px;
-    height: 10px;
+  .cp-debugger-compare-single,
+  .cp-debugger-compare-overlay {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cp-debugger-compare-single {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cp-debugger-compare-split {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .cp-debugger-compare-pane {
+    display: grid;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel) 76%, transparent);
+    padding: 10px;
+  }
+
+  .cp-debugger-compare-pane-body {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cp-debugger-compare-label {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .cp-debugger-compare-overlay {
+    position: relative;
+  }
+
+  .cp-debugger-compare-overlay-centered {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cp-debugger-panzoom-viewport {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    cursor: grab;
+    outline: none;
+  }
+
+  .cp-debugger-panzoom-viewport:focus-visible {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 48%, transparent);
+  }
+
+  .cp-debugger-panzoom-viewport-dragging {
+    cursor: grabbing;
+  }
+
+  .cp-debugger-panzoom-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    will-change: transform;
+  }
+
+  .cp-debugger-image-overlay-base,
+  .cp-debugger-image-overlay-top {
+    position: absolute;
+    inset: 0;
+  }
+
+  .cp-debugger-image-frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .cp-debugger-image {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-position: center;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
+  .cp-debugger-patch-bounds {
+    position: absolute;
+    border: 2px dashed color-mix(in srgb, var(--accent) 84%, white 16%);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg-app) 70%, transparent);
+    pointer-events: none;
+  }
+
+  .cp-debugger-image-toolbar,
+  .workspace-viewport-toolbar {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    z-index: 12;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 96%, transparent), color-mix(in srgb, var(--bg-panel) 90%, transparent));
+    box-shadow: var(--shadow-float);
+    backdrop-filter: blur(12px);
+    padding: 10px 12px;
+  }
+
+  .cp-debugger-toolbar-group,
+  .workspace-viewport-toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cp-debugger-toolbar-group-push,
+  .workspace-viewport-toolbar-group-push {
+    position: relative;
+    margin-left: auto;
+  }
+
+  .cp-debugger-toolbar-button,
+  .workspace-viewport-toolbar-button {
+    min-height: 34px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 999px;
-    border: 2px solid var(--border-color);
-    background: var(--bg-panel);
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    color: var(--text-secondary);
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 700;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
   }
 
-  .cp-handle-logic {
-    border-color: var(--cp-logic);
+  .cp-debugger-toolbar-button:hover,
+  .workspace-viewport-toolbar-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
   }
 
-  .cp-handle-file {
-    border-color: var(--cp-file);
+  .cp-debugger-toolbar-button:disabled,
+  .workspace-viewport-toolbar-button:disabled,
+  .cp-debugger-toolbar-icon-button:disabled,
+  .workspace-viewport-toolbar-icon-button:disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
   }
 
-  .cp-handle-data {
-    border-color: var(--cp-data);
+  .cp-debugger-toolbar-button:disabled:hover,
+  .workspace-viewport-toolbar-button:disabled:hover,
+  .cp-debugger-toolbar-icon-button:disabled:hover,
+  .workspace-viewport-toolbar-icon-button:disabled:hover {
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    color: var(--text-secondary);
   }
 
-  .cp-handle-offset {
-    margin-top: 12px;
+  .cp-debugger-toolbar-button-active,
+  .workspace-viewport-toolbar-button-active {
+    border-color: color-mix(in srgb, var(--accent) 44%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
   }
 
-  .cp-edge-logic .react-flow__edge-path {
-    stroke: var(--cp-logic);
+  .cp-debugger-toolbar-icon-button,
+  .workspace-viewport-toolbar-icon-button {
+    display: inline-flex;
+    min-width: 34px;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    color: var(--text-secondary);
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
   }
 
-  .cp-edge-file .react-flow__edge-path {
-    stroke: var(--cp-file);
+  .cp-debugger-toolbar-icon-button:hover,
+  .workspace-viewport-toolbar-icon-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
   }
 
-  .cp-edge-data .react-flow__edge-path {
-    stroke: var(--cp-data);
+  .cp-debugger-toolbar-zoom,
+  .workspace-viewport-toolbar-zoom {
+    display: inline-flex;
+    min-width: 56px;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 76%, transparent);
+    color: var(--text-primary);
+    padding: 0 12px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
   }
 
-  .cp-edge-disabled .react-flow__edge-path {
-    opacity: 0.3;
-    stroke-dasharray: 6 6;
+  .cp-debugger-toolbar-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
   }
 
-  .cp-minimap {
-    border: 1px solid var(--border-color);
+  .cp-debugger-toolbar-slider {
+    display: flex;
+    min-width: min(240px, 100%);
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .cp-debugger-toolbar-slider input {
+    flex: 1;
+    accent-color: var(--accent);
+  }
+
+  .cp-debugger-toolbar-popup {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    z-index: 4;
+    width: min(360px, calc(100vw - 56px));
+  }
+
+  .cp-debugger-code {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-muted) 76%, transparent), color-mix(in srgb, var(--bg-app) 16%, transparent));
+    color: var(--text-primary);
+    padding: 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .cp-debugger-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px 14px 0;
+  }
+
+  .cp-debugger-tab {
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 12px;
-    overflow: hidden;
-    background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
   }
 
-  .cp-controls {
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+  .cp-debugger-tab:hover {
+    background: color-mix(in srgb, var(--bg-active) 78%, transparent);
+    color: var(--text-primary);
+  }
+
+  .cp-debugger-tab-active {
+    border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .cp-debugger-nav-scroll {
+    display: grid;
+    align-content: start;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .cp-debugger-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 14px;
+    list-style: none;
+  }
+
+  .cp-debugger-list-item {
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+    padding: 12px;
+    text-align: left;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .cp-debugger-list-item:hover {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--bg-active) 76%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .cp-debugger-list-item-active {
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .cp-debugger-list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .cp-debugger-list-title {
+    min-width: 0;
     overflow: hidden;
-    background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cp-debugger-list-meta {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .cp-debugger-target-groups {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .cp-debugger-target-group {
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
+  }
+
+  .cp-debugger-target-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, transparent);
+    padding: 12px 14px;
+  }
+
+  .cp-debugger-target-group-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .cp-debugger-target-group-meta {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  .cp-debugger-target-group-body {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .cp-debugger-pill {
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .cp-debugger-pill-ok {
+    border-color: color-mix(in srgb, var(--success) 36%, transparent);
+    background: color-mix(in srgb, var(--success) 14%, transparent);
+    color: var(--success);
+  }
+
+  .cp-debugger-pill-muted {
+    background: color-mix(in srgb, var(--bg-panel-muted) 86%, transparent);
+    color: var(--text-secondary);
+  }
+
+  .cp-debugger-pill-warn {
+    border-color: color-mix(in srgb, var(--warning) 36%, transparent);
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+    color: var(--warning);
+  }
+
+  .cp-debugger-pill-error {
+    border-color: color-mix(in srgb, var(--danger) 36%, transparent);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+  }
+
+  .cp-debugger-rail-scroll {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    align-items: stretch;
+    gap: 10px;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .cp-debugger-rail-top {
+    display: flex;
+    flex: 0 0 auto;
+    padding: 12px 12px 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+    background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
+  }
+
+  .cp-debugger-rail-top > * {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .cp-debugger-card {
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .cp-debugger-card-title {
+    margin: 0 0 8px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .cp-debugger-card-title-tight {
+    margin: 0;
+  }
+
+  .cp-debugger-context-card {
+    padding: 10px 12px;
+  }
+
+  .cp-debugger-form-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .cp-debugger-form-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+
+  .cp-debugger-field {
+    display: grid;
+    gap: 4px;
+  }
+
+  .cp-debugger-field span {
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .cp-debugger-field input,
+  .cp-debugger-field select {
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 80%, transparent);
+    color: var(--text-primary);
+    min-height: 34px;
+    padding: 0 10px;
+  }
+
+  .cp-debugger-trace-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .cp-debugger-trace-item {
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, transparent);
+    padding: 10px;
+  }
+
+  .cp-debugger-dock-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .cp-debugger-dock-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 12px;
+    text-align: left;
+  }
+
+  .cp-debugger-dock-toggle:hover {
+    background: color-mix(in srgb, var(--bg-active) 36%, transparent);
+  }
+
+  .cp-debugger-dock-toggle-meta {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cp-debugger-dock-chevron {
+    color: var(--text-secondary);
+    transition: transform 160ms ease;
+  }
+
+  .cp-debugger-dock-chevron-collapsed {
+    transform: rotate(-90deg);
+  }
+
+  .cp-debugger-dock-body {
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
   }
 
   .appearance-window-import-grid {
@@ -2061,6 +2706,18 @@
   }
 
   @media (max-width: 900px) {
+    .top-menu-primary {
+      gap: 10px;
+    }
+
+    .top-menu-center {
+      justify-content: flex-start;
+    }
+
+    .top-menu-workspace {
+      max-width: 100%;
+    }
+
     .settings-window-body {
       grid-template-columns: 1fr;
     }
@@ -2070,13 +2727,19 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .settings-window-control-card {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
     .appearance-window-body,
     .appearance-window-body-layout,
     .appearance-window-hero,
     .appearance-window-input-grid,
     .appearance-window-color-grid,
     .appearance-window-import-card,
-    .player-appearance-meta-grid {
+    .player-appearance-meta-grid,
+    .cp-debugger-body {
       grid-template-columns: 1fr;
     }
   }

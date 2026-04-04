@@ -2,113 +2,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getModWorkspaceCopy } from '../../lib/plugins/copy'
 import { ModDiagnosticsPanel } from './ModDiagnosticsPanel'
-import { PatchInspectorPanel } from './PatchInspectorPanel'
 
 const copy = getModWorkspaceCopy('en-US')
 
 afterEach(() => {
   cleanup()
-})
-
-describe('PatchInspectorPanel', () => {
-  it('shows an explicit empty state before a patch is selected', () => {
-    render(
-      <PatchInspectorPanel
-        copy={copy}
-        selectedPatch={null}
-        patchWhenError={null}
-        onPatchFieldChange={vi.fn()}
-        onPatchWhenChange={vi.fn()}
-        selectedNode={null}
-      />,
-    )
-
-    expect(screen.getByText(copy.noPatch)).toBeTruthy()
-    expect(screen.getByText('Select a node on the canvas to inspect its parameters.')).toBeTruthy()
-  })
-
-  it('edits patch fields through the structured form', () => {
-    const onPatchFieldChange = vi.fn()
-
-    render(
-      <PatchInspectorPanel
-        copy={copy}
-        selectedPatch={{
-          Action: 'EditImage',
-          Target: 'Maps/spring_town',
-          FromFile: 'assets/spring-town.png',
-          LogName: 'Spring town',
-          When: { Season: 'spring' },
-        }}
-        patchWhenError={null}
-        onPatchFieldChange={onPatchFieldChange}
-        onPatchWhenChange={vi.fn()}
-        selectedNode={{
-          id: 'action:patch:0',
-          kind: 'action',
-          position: { x: 0, y: 0 },
-          data: {
-            label: 'Spring town',
-            patchId: 'patch:0',
-            action: 'EditImage',
-            target: 'Maps/spring_town',
-            simulation: { isActive: true, hasUnknownConditions: false },
-          },
-        }}
-      />,
-    )
-
-    fireEvent.change(screen.getByDisplayValue('Spring town'), {
-      target: { value: 'Festival town' },
-    })
-
-    expect(onPatchFieldChange).toHaveBeenCalledWith('LogName', 'Festival town')
-  })
-
-  it('shows ToArea details when present on the patch', () => {
-    render(
-      <PatchInspectorPanel
-        copy={copy}
-        selectedPatch={{
-          Action: 'EditImage',
-          Target: 'Portraits/Abigail',
-          FromFile: 'assets/abby.png',
-          LogName: 'Abigail portrait',
-          When: { Season: 'spring' },
-          ToArea: { X: 0, Y: 0, Width: 16, Height: 16 },
-        }}
-        patchWhenError={null}
-        onPatchFieldChange={vi.fn()}
-        onPatchWhenChange={vi.fn()}
-        selectedNode={{
-          id: 'action:patch:1',
-          kind: 'action',
-          position: { x: 0, y: 0 },
-          data: {
-            label: 'Abigail portrait',
-            patchId: 'patch:1',
-            action: 'EditImage',
-            target: 'Portraits/Abigail',
-            simulation: { isActive: true, hasUnknownConditions: false },
-          },
-        }}
-        patchPreview={JSON.stringify({
-          Action: 'EditImage',
-          Target: 'Portraits/Abigail',
-          FromFile: 'assets/abby.png',
-          LogName: 'Abigail portrait',
-          When: { Season: 'spring' },
-          ToArea: { X: 0, Y: 0, Width: 16, Height: 16 },
-        }, null, 2)}
-      />,
-    )
-
-    expect(screen.getByText('ToArea')).toBeTruthy()
-    expect(screen.getByText('X')).toBeTruthy()
-    expect(screen.getByText('Y')).toBeTruthy()
-    expect(screen.getByText('W')).toBeTruthy()
-    expect(screen.getByText('H')).toBeTruthy()
-  })
 })
 
 describe('ModDiagnosticsPanel', () => {

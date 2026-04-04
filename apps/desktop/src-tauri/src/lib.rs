@@ -2,6 +2,7 @@
 mod mime;
 mod models;
 mod content_patcher;
+mod json_relaxed;
 mod mods;
 mod pathing;
 mod saves;
@@ -15,7 +16,7 @@ use assets::{
     validate_game_directory,
 };
 use content_patcher::project::load_content_patcher_project;
-use content_patcher::simulate_content_patcher;
+use content_patcher::{export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher};
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
 use xact::load_xact_audio_data_url;
@@ -39,6 +40,8 @@ pub fn run() {
             save_mod_project,
             load_content_patcher_project,
             simulate_content_patcher,
+            load_content_patcher_result_asset,
+            export_content_patcher_asset,
             load_map_asset,
             load_text_asset,
             load_text_file,

@@ -1,52 +1,191 @@
 use super::context::SimulationContext;
-use super::tokens::{parse_condition_token, INVALID_WHEN_TOKEN};
+use super::tokens::{parse_condition_token, ConditionModifier, INVALID_WHEN_TOKEN};
 use super::types::ContentPatcherPatchStatus;
 use serde_json::Value;
+use std::path::{Path, PathBuf};
 
 fn normalize_str(value: &str) -> &str {
     value.trim()
 }
 
-fn value_matches_string(expected: &Value, actual: &str) -> Result<bool, String> {
-    match expected {
-        Value::String(expected) => Ok(expected.eq_ignore_ascii_case(normalize_str(actual))),
+fn value_to_scalar_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(text) => Some(text.trim().to_string()),
+        Value::Number(number) => Some(number.to_string()),
+        Value::Bool(flag) => Some(flag.to_string()),
+        _ => None,
+    }
+}
+
+fn value_to_scalar_strings(value: &Value) -> Result<Vec<String>, String> {
+    match value {
         Value::Array(values) => {
-            let expected_values = values
+            let scalars = values
                 .iter()
-                .filter_map(Value::as_str)
-                .map(normalize_str)
-                .collect::<Vec<_>>();
-            if expected_values.is_empty() {
-                return Err("has an unsupported empty or non-string array value".to_string());
+                .map(|entry| {
+                    value_to_scalar_string(entry).ok_or_else(|| "has an unsupported non-scalar array value".to_string())
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if scalars.is_empty() {
+                return Err("has an unsupported empty array value".to_string());
             }
-            Ok(expected_values
-                .iter()
-                .any(|expected| expected.eq_ignore_ascii_case(normalize_str(actual))))
+            Ok(scalars)
         }
-        _ => Err("has an unsupported value type".to_string()),
+        _ => value_to_scalar_string(value)
+            .map(|scalar| vec![scalar])
+            .ok_or_else(|| "has an unsupported value type".to_string()),
     }
 }
 
-fn evaluate_known_token(name: &str, expected: &Value, context: &SimulationContext) -> Result<bool, String> {
-    match name {
-        "Season" => {
-            let Some(actual) = context.season.as_deref() else {
-                return Err("is missing from the simulation context".to_string());
-            };
-            value_matches_string(expected, actual)
+fn value_matches_expected(expected: &Value, actual: &Value) -> Result<bool, String> {
+    let expected_values = value_to_scalar_strings(expected)?;
+    let actual_values = value_to_scalar_strings(actual)?;
+
+    Ok(actual_values.iter().any(|actual| {
+        expected_values
+            .iter()
+            .any(|expected| expected.eq_ignore_ascii_case(normalize_str(actual)))
+    }))
+}
+
+fn value_to_bool(value: &Value) -> Result<bool, String> {
+    match value {
+        Value::Bool(flag) => Ok(*flag),
+        Value::String(text) => {
+            let normalized = text.trim();
+            if normalized.eq_ignore_ascii_case("true") {
+                Ok(true)
+            } else if normalized.eq_ignore_ascii_case("false") {
+                Ok(false)
+            } else {
+                Err("has an unsupported non-boolean string value".to_string())
+            }
         }
-        "Weather" => {
-            let Some(actual) = context.weather.as_deref() else {
-                return Err("is missing from the simulation context".to_string());
-            };
-            value_matches_string(expected, actual)
-        }
-        INVALID_WHEN_TOKEN => Err("contains a malformed `When` value; expected an object".to_string()),
-        _ => Err("is not supported in this simulation phase".to_string()),
+        _ => Err("has an unsupported non-boolean value".to_string()),
     }
 }
 
-pub fn evaluate_patch_status(when: &Value, context: &SimulationContext) -> ContentPatcherPatchStatus {
+fn path_from_relative(root: &str, relative: &str) -> PathBuf {
+    let mut path = PathBuf::from(root);
+    for segment in relative.split(['/', '\\']) {
+        let trimmed = segment.trim();
+        if !trimmed.is_empty() {
+            path.push(trimmed);
+        }
+    }
+    path
+}
+
+fn lookup_context_value<'a>(values: &'a std::collections::BTreeMap<String, Value>, token_name: &str) -> Option<&'a Value> {
+    values
+        .iter()
+        .find(|(candidate, _)| candidate.eq_ignore_ascii_case(token_name))
+        .map(|(_, value)| value)
+}
+
+fn strip_prefix_case_insensitive<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
+    value
+        .get(..prefix.len())
+        .filter(|candidate| candidate.eq_ignore_ascii_case(prefix))
+        .and_then(|_| value.get(prefix.len()..))
+}
+
+fn resolve_condition_value(
+    name: &str,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+) -> Result<Value, String> {
+    if name.eq_ignore_ascii_case("Season") {
+        let Some(actual) = context.season.as_deref() else {
+            return Err("is missing from the simulation context".to_string());
+        };
+        return Ok(Value::String(actual.to_string()));
+    }
+    if name.eq_ignore_ascii_case("Weather") {
+        let Some(actual) = context.weather.as_deref() else {
+            return Err("is missing from the simulation context".to_string());
+        };
+        return Ok(Value::String(actual.to_string()));
+    }
+    if name.eq_ignore_ascii_case("HasMod") {
+        let values = context
+            .installed_mods
+            .iter()
+            .map(|value| Value::String(value.clone()))
+            .collect::<Vec<_>>();
+        return Ok(Value::Array(values));
+    }
+    if let Some(relative_path) = strip_prefix_case_insensitive(name, "HasFile:") {
+        let root = project_root_path.ok_or_else(|| "requires a content pack root path".to_string())?;
+        let candidate = path_from_relative(root, relative_path);
+        return Ok(Value::Bool(candidate.exists() && Path::new(&candidate).is_file()));
+    }
+    if name == INVALID_WHEN_TOKEN {
+        return Err("contains a malformed `When` value; expected an object".to_string());
+    }
+    lookup_context_value(&context.custom_tokens, name)
+        .cloned()
+        .or_else(|| lookup_context_value(&context.config, name).cloned())
+        .ok_or_else(|| "is not supported in this simulation phase".to_string())
+}
+
+fn value_contains_term(value: &Value, expected_term: &str) -> Result<bool, String> {
+    let actual_values = value_to_scalar_strings(value)?;
+    let normalized_expected = normalize_str(expected_term);
+    Ok(actual_values.iter().any(|actual| {
+        let trimmed_actual = normalize_str(actual);
+        trimmed_actual.eq_ignore_ascii_case(normalized_expected)
+            || trimmed_actual
+                .split(',')
+                .map(normalize_str)
+                .any(|segment| segment.eq_ignore_ascii_case(normalized_expected))
+            || trimmed_actual
+                .split(';')
+                .map(normalize_str)
+                .any(|segment| segment.eq_ignore_ascii_case(normalized_expected))
+    }))
+}
+
+fn apply_modifier(modifier: &ConditionModifier, actual: &Value, expected: &Value) -> Result<bool, String> {
+    if modifier.name.eq_ignore_ascii_case("contains") {
+        let expected_contains = modifier
+            .value
+            .as_deref()
+            .ok_or_else(|| "uses a `contains` modifier without a value".to_string())?;
+        let should_contain = value_to_bool(expected)?;
+        let contains = value_contains_term(actual, expected_contains)?;
+        return Ok(contains == should_contain);
+    }
+
+    Err(format!(
+        "uses modifier `{}` that is not supported in this simulation phase",
+        modifier.name
+    ))
+}
+
+fn evaluate_token_condition(
+    token: &super::tokens::ConditionToken,
+    expected: &Value,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+) -> Result<bool, String> {
+    let actual = resolve_condition_value(&token.name, context, project_root_path)?;
+    if token.modifiers.is_empty() {
+        return value_matches_expected(expected, &actual);
+    }
+
+    let mut matches = true;
+    for modifier in &token.modifiers {
+        matches &= apply_modifier(modifier, &actual, expected)?;
+    }
+    if matches {
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+pub fn evaluate_patch_status(when: &Value, context: &SimulationContext, project_root_path: Option<&str>) -> ContentPatcherPatchStatus {
     let mut mismatch_reasons = Vec::new();
     let mut indeterminate_reasons = Vec::new();
 
@@ -64,17 +203,10 @@ pub fn evaluate_patch_status(when: &Value, context: &SimulationContext) -> Conte
             indeterminate_reasons.push(format!("Condition key `{}` is empty.", token.raw_key));
             continue;
         }
-        if token.has_modifiers {
-            indeterminate_reasons.push(format!(
-                "Condition `{}` uses modifiers that are not yet supported.",
-                token.raw_key
-            ));
-            continue;
-        }
 
-        match evaluate_known_token(&token.name, expected, context) {
+        match evaluate_token_condition(&token, expected, context, project_root_path) {
             Ok(true) => {}
-            Ok(false) => mismatch_reasons.push(format!("Condition `{}` did not match.", token.raw_key)),
+            Ok(false) => mismatch_reasons.push(format!("Condition `{}` did not match.", raw_key)),
             Err(reason) => indeterminate_reasons.push(format!("Condition `{}` {}.", token.raw_key, reason)),
         }
     }
@@ -107,6 +239,7 @@ pub fn evaluate_patch_status(when: &Value, context: &SimulationContext) -> Conte
 mod tests {
     use crate::content_patcher::conditions::evaluate_patch_status;
     use crate::content_patcher::context::SimulationContext;
+    use crate::content_patcher::test_support::{create_temp_dir, write_file};
     use serde_json::json;
 
     #[test]
@@ -116,11 +249,12 @@ mod tests {
             weather: Some("sunny".to_string()),
             ..SimulationContext::default()
         };
-        let active = evaluate_patch_status(&json!({ "Season": "spring" }), &spring_context);
-        let inactive = evaluate_patch_status(&json!({ "Season": "winter" }), &spring_context);
+        let active = evaluate_patch_status(&json!({ "Season": "spring" }), &spring_context, None);
+        let inactive = evaluate_patch_status(&json!({ "Season": "winter" }), &spring_context, None);
         let indeterminate = evaluate_patch_status(
             &json!({ "HasMod |contains=FlashShifter.SVECode": true }),
             &SimulationContext::default(),
+            None,
         );
 
         assert_eq!(active.status, "applied");
@@ -141,6 +275,7 @@ mod tests {
                 "HasMod |contains=FlashShifter.SVECode": true
             }),
             &spring_context,
+            None,
         );
 
         assert_eq!(status.status, "skipped");
@@ -151,5 +286,66 @@ mod tests {
                 .iter()
                 .any(|reason| reason.contains("not yet supported") || reason.contains("unsupported"))
         );
+    }
+
+    #[test]
+    fn evaluate_patch_status_supports_contains_modifier_for_config_tokens() {
+        let context = SimulationContext {
+            config: [
+                ("RegularCropsEnabled".to_string(), json!(true)),
+                ("RegularCrops".to_string(), json!(["Carrot", "Broccoli"])),
+            ]
+            .into_iter()
+            .collect(),
+            ..SimulationContext::default()
+        };
+
+        let status = evaluate_patch_status(
+            &json!({
+                "RegularCropsEnabled": "True",
+                "RegularCrops |contains= Carrot": true
+            }),
+            &context,
+            None,
+        );
+
+        assert_eq!(status.status, "applied");
+        assert!(status.reasons.is_empty());
+    }
+
+    #[test]
+    fn evaluate_patch_status_supports_has_mod_tokens() {
+        let context = SimulationContext {
+            installed_mods: vec!["FlashShifter.SVECode".to_string()],
+            ..SimulationContext::default()
+        };
+
+        let status = evaluate_patch_status(
+            &json!({
+                "HasMod": "FlashShifter.SVECode"
+            }),
+            &context,
+            None,
+        );
+
+        assert_eq!(status.status, "applied");
+        assert!(status.reasons.is_empty());
+    }
+
+    #[test]
+    fn evaluate_patch_status_supports_has_file_tokens() {
+        let root = create_temp_dir("cp-conditions-has-file");
+        write_file(&root.join("assets").join("mine.png"), "stub");
+
+        let status = evaluate_patch_status(
+            &json!({
+                "HasFile:assets/mine.png": "true"
+            }),
+            &SimulationContext::default(),
+            Some(root.to_string_lossy().as_ref()),
+        );
+
+        assert_eq!(status.status, "applied");
+        assert!(status.reasons.is_empty());
     }
 }

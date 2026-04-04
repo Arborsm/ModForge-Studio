@@ -68,6 +68,7 @@ pub struct ContentPatcherPatchPlan {
 #[serde(rename_all = "camelCase")]
 pub struct SimulateContentPatcherRequest {
     pub path: Option<String>,
+    pub game_root_path: Option<String>,
     pub snapshot: Option<ContentPatcherProjectSnapshot>,
     pub manifest_json: Option<String>,
     pub content_json: Option<String>,
@@ -84,8 +85,95 @@ pub struct ContentPatcherPatchStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ContentPatcherTargetSummary {
+    pub path: String,
+    pub asset_kind: String,
+    pub touched_patch_count: usize,
+    pub result_state: String,
+    pub patch_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherTraceEntry {
+    pub patch_id: String,
+    pub log_name: String,
+    pub action: String,
+    pub source_path: String,
+    pub status: String,
+    pub reason_summary: String,
+    pub change_summary: String,
+    pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherResultAsset {
+    pub kind: String,
+    pub json: Option<Value>,
+    pub image_data_url: Option<String>,
+    pub original_image_data_url: Option<String>,
+    pub original_image_source: Option<String>,
+    pub map_debug: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherMapDebugSummary {
+    pub layers: Vec<String>,
+    pub properties: Vec<String>,
+    pub warps: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadContentPatcherResultAssetRequest {
+    pub path: Option<String>,
+    pub game_root_path: Option<String>,
+    pub snapshot: Option<ContentPatcherProjectSnapshot>,
+    pub manifest_json: Option<String>,
+    pub content_json: Option<String>,
+    pub context: Option<SimulationContext>,
+    pub target: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadContentPatcherResultAssetResult {
+    pub target: ContentPatcherTargetSummary,
+    pub trace: Vec<ContentPatcherTraceEntry>,
+    pub result: ContentPatcherResultAsset,
+    pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
+    pub exportable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportContentPatcherAssetRequest {
+    pub path: Option<String>,
+    pub game_root_path: Option<String>,
+    pub snapshot: Option<ContentPatcherProjectSnapshot>,
+    pub manifest_json: Option<String>,
+    pub content_json: Option<String>,
+    pub context: Option<SimulationContext>,
+    pub target: String,
+    pub output_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportContentPatcherAssetResult {
+    pub target: String,
+    pub output_path: String,
+    pub format: String,
+    pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct SimulateContentPatcherResult {
     pub plan: ContentPatcherPatchPlan,
+    pub targets: Vec<ContentPatcherTargetSummary>,
     pub patch_statuses: Vec<ContentPatcherPatchStatus>,
     pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
 }

@@ -702,6 +702,11 @@
     "accentLabel": "Accent Color",
     "resetAccentLabel": "Reset Accent Color",
     "accentDescription": "Controls the viewport background, portal highlights, and accent-driven UI states.",
+    "windowModeLabel": "Window Mode",
+    "borderlessFullscreenLabel": "Borderless Fullscreen",
+    "borderlessFullscreenDescription": "Switch the undecorated desktop window into an immersive fullscreen workspace.",
+    "enableBorderlessFullscreenLabel": "Enter Borderless Fullscreen",
+    "disableBorderlessFullscreenLabel": "Exit Borderless Fullscreen",
     "futureLabel": "More Settings",
     "futureDescription": "Future editor preferences, display options, and behavior settings will live here.",
     "categoryDescriptions": {

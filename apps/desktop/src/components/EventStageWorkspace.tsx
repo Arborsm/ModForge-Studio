@@ -87,7 +87,6 @@ export default function EventStageWorkspace({
     visibleObjectGroupIds,
     viewportZoom,
     worldOverlaySprites,
-    zoomLabel,
   } = useEventStageWorkspace({
     copy,
     locale,
@@ -482,7 +481,7 @@ export default function EventStageWorkspace({
           )}
         </div>
       </div>
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center px-4">
+      <div className="pointer-events-none absolute inset-x-0 bottom-24 flex justify-center px-4">
         {playbackState.pendingChoice ? (
           <div className="panel-overlay-card pointer-events-auto w-full max-w-3xl">
             <p className="panel-section-title">{labels.choose}</p>
@@ -562,73 +561,101 @@ export default function EventStageWorkspace({
           <p className="panel-title">{labels.scene}</p>
           <p className="panel-subtitle">{mapMessage || eventStatusMessage}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className={cx('tool-button', showGrid && 'tool-button-active')}
-            title={labels.toggleGrid}
-            onClick={() => setShowGrid((current) => !current)}
-          >
-            <Grid2x2 className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className={cx('tool-button', showMapPaths && 'tool-button-active')}
-            title={labels.showPathsLayer}
-            onClick={() => setShowMapPaths((current) => !current)}
-          >
-            <Route className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="tool-button"
-            title={labels.configurePlayerAppearance}
-            onClick={onOpenPlayerAppearanceWindow}
-          >
-            <UserRound className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
-            <button type="button" className="tool-button" onClick={playNextFrame} title={labels.step}>
-              <SkipForward className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className={cx('tool-button', autoPlay && 'tool-button-active')}
-              onClick={toggleAutoPlayback}
-              title={autoPlay ? labels.pause : labels.play}
-            >
-              {autoPlay ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            </button>
-            <button type="button" className="tool-button" onClick={resetPlayback} title={labels.reset}>
-              <RotateCcw className="h-4 w-4" />
-            </button>
-          </div>
-          <span className="dock-chip">{zoomLabel}</span>
-        </div>
       </div>
       <div className="panel-body h-[calc(100%-58px)] min-h-0 p-3">
-        <MapViewport
-          key={
-            mapDocument
-              ? `${mapDocument.sourcePath}:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
-              : `empty:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
-          }
-          locale={locale}
-          mapDocument={mapDocument}
-          visibleLayerIds={visibleLayerIds}
-          visibleObjectGroupIds={visibleObjectGroupIds}
-          labels={viewportLabels}
-          theme={theme}
-          accentColor={accentColor}
-          showGrid={showGrid}
-          showStatsChips={false}
-          contextMenuEnabled={false}
-          initialZoom={EVENT_STAGE_INITIAL_ZOOM}
-          mapOverlay={mapOverlay}
-          viewportOverlay={viewportOverlay}
-          focusWorldPoint={focusWorldPoint}
-          onZoomChange={handleZoomChange}
-        />
+        <div className="relative h-full">
+          <MapViewport
+            key={
+              mapDocument
+                ? `${mapDocument.sourcePath}:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
+                : `empty:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
+            }
+            locale={locale}
+            mapDocument={mapDocument}
+            visibleLayerIds={visibleLayerIds}
+            visibleObjectGroupIds={visibleObjectGroupIds}
+            labels={viewportLabels}
+            theme={theme}
+            accentColor={accentColor}
+            showGrid={showGrid}
+            showStatsChips={false}
+            contextMenuEnabled={false}
+            initialZoom={EVENT_STAGE_INITIAL_ZOOM}
+            mapOverlay={mapOverlay}
+            viewportOverlay={viewportOverlay}
+            focusWorldPoint={focusWorldPoint}
+            onZoomChange={handleZoomChange}
+          />
+          <div className="workspace-viewport-toolbar" role="toolbar" aria-label={labels.scene}>
+            <div className="workspace-viewport-toolbar-group">
+              <button
+                type="button"
+                className="workspace-viewport-toolbar-icon-button"
+                onClick={playNextFrame}
+                title={labels.step}
+                aria-label={labels.step}
+                disabled={!selectedEvent}
+              >
+                <SkipForward className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cx('workspace-viewport-toolbar-icon-button', autoPlay && 'workspace-viewport-toolbar-button-active')}
+                onClick={toggleAutoPlayback}
+                title={autoPlay ? labels.pause : labels.play}
+                aria-label={autoPlay ? labels.pause : labels.play}
+                aria-pressed={autoPlay}
+                disabled={!selectedEvent}
+              >
+                {autoPlay ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                className="workspace-viewport-toolbar-icon-button"
+                onClick={resetPlayback}
+                title={labels.reset}
+                aria-label={labels.reset}
+                disabled={!selectedEvent}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="workspace-viewport-toolbar-group workspace-viewport-toolbar-group-push">
+              <button
+                type="button"
+                className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
+                title={labels.toggleGrid}
+                aria-label={labels.toggleGrid}
+                aria-pressed={showGrid}
+                disabled={!mapDocument}
+                onClick={() => setShowGrid((current) => !current)}
+              >
+                <Grid2x2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cx('workspace-viewport-toolbar-icon-button', showMapPaths && 'workspace-viewport-toolbar-button-active')}
+                title={labels.showPathsLayer}
+                aria-label={labels.showPathsLayer}
+                aria-pressed={showMapPaths}
+                disabled={!mapDocument}
+                onClick={() => setShowMapPaths((current) => !current)}
+              >
+                <Route className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="workspace-viewport-toolbar-icon-button"
+                title={labels.configurePlayerAppearance}
+                aria-label={labels.configurePlayerAppearance}
+                onClick={onOpenPlayerAppearanceWindow}
+              >
+                <UserRound className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

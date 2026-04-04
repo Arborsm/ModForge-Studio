@@ -1,131 +1,53 @@
+use crate::json_relaxed;
+use crate::pathing::normalize_path;
 use serde_json::Value;
 use std::path::Path;
 
-fn strip_json_comments(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let mut chars = input.chars().peekable();
-    let mut in_string = false;
-    let mut escaped = false;
-    let mut in_line_comment = false;
-    let mut in_block_comment = false;
-
-    while let Some(ch) = chars.next() {
-        if in_line_comment {
-            if ch == '\n' {
-                in_line_comment = false;
-                output.push(ch);
-            }
-            continue;
-        }
-
-        if in_block_comment {
-            if ch == '*' && chars.peek() == Some(&'/') {
-                chars.next();
-                in_block_comment = false;
-            }
-            continue;
-        }
-
-        if in_string {
-            output.push(ch);
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = true;
-            output.push(ch);
-            continue;
-        }
-
-        if ch == '/' {
-            match chars.peek() {
-                Some('/') => {
-                    chars.next();
-                    in_line_comment = true;
-                    continue;
-                }
-                Some('*') => {
-                    chars.next();
-                    in_block_comment = true;
-                    continue;
-                }
-                _ => {}
-            }
-        }
-
-        output.push(ch);
-    }
-
-    output
-}
-
-fn strip_trailing_commas(input: &str) -> String {
-    let mut output = String::with_capacity(input.len());
-    let chars = input.chars().collect::<Vec<_>>();
-    let mut index = 0;
-    let mut in_string = false;
-    let mut escaped = false;
-
-    while index < chars.len() {
-        let ch = chars[index];
-
-        if in_string {
-            output.push(ch);
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
-            index += 1;
-            continue;
-        }
-
-        if ch == '"' {
-            in_string = true;
-            output.push(ch);
-            index += 1;
-            continue;
-        }
-
-        if ch == ',' {
-            let mut look_ahead = index + 1;
-            while look_ahead < chars.len() && chars[look_ahead].is_whitespace() {
-                look_ahead += 1;
-            }
-
-            if look_ahead < chars.len() && matches!(chars[look_ahead], '}' | ']') {
-                index += 1;
-                continue;
-            }
-        }
-
-        output.push(ch);
-        index += 1;
-    }
-
-    output
-}
-
 pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> Result<Value, String> {
-    serde_json::from_str::<Value>(raw).or_else(|primary_error| {
-        let sanitized = strip_trailing_commas(&strip_json_comments(raw));
-        serde_json::from_str::<Value>(&sanitized).map_err(|secondary_error| {
-            format!("Failed to parse {source_label}: {primary_error}; relaxed parse also failed: {secondary_error}")
-        })
-    })
+    json_relaxed::parse_json_str(raw, source_label)
 }
 
 pub(crate) fn parse_json_file(path: &Path) -> Result<(String, Value), String> {
-    let raw = std::fs::read_to_string(path).map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
-    let parsed = parse_json_str(&raw, &path.display().to_string())?;
-    Ok((raw, parsed))
+    json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
+}
+
+pub(crate) fn coerce_number(value: &Value) -> Option<f64> {
+    match value {
+        Value::Number(number) => number.as_f64(),
+        Value::String(text) => text.trim().parse::<f64>().ok(),
+        _ => None,
+    }
+}
+
+pub(crate) fn coerce_u32(value: &Value) -> Option<u32> {
+    let numeric = coerce_number(value)?;
+    if !numeric.is_finite() || numeric < 0.0 || numeric.fract() != 0.0 || numeric > u32::MAX as f64 {
+        return None;
+    }
+
+    Some(numeric as u32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{coerce_number, coerce_u32};
+    use serde_json::json;
+
+    #[test]
+    fn coerce_u32_accepts_integer_like_numbers_and_strings() {
+        assert_eq!(coerce_u32(&json!(12)), Some(12));
+        assert_eq!(coerce_u32(&json!(12.0)), Some(12));
+        assert_eq!(coerce_u32(&json!("12")), Some(12));
+        assert_eq!(coerce_u32(&json!("12.0")), Some(12));
+        assert_eq!(coerce_u32(&json!(" 12 ")), Some(12));
+        assert_eq!(coerce_u32(&json!("12.5")), None);
+        assert_eq!(coerce_u32(&json!(-1)), None);
+    }
+
+    #[test]
+    fn coerce_number_accepts_numeric_strings() {
+        assert_eq!(coerce_number(&json!(3.5)), Some(3.5));
+        assert_eq!(coerce_number(&json!("3.5")), Some(3.5));
+        assert_eq!(coerce_number(&json!("bad")), None);
+    }
 }

@@ -1,144 +1,88 @@
 import { describe, expect, it } from 'vitest'
 import {
-  buildContentPatcherCanvas,
-  collectContentPatcherAssets,
-  collectContentPatcherTargets,
-  getContentPatcherConditionPresets,
-  getPatchPreviewJson,
-  validateContentPatcherConnection,
+  buildContentPatcherSimulationRequest,
+  getPatchObject,
+  parseJsonText,
+  summarizeContentPatcherContent,
+  updatePatchWhen,
 } from './contentPatcher'
 
-describe('contentPatcher data helpers', () => {
-  it('collects assets by kind and dedupes by path', () => {
-    const content = {
-      Changes: [
-        {
-          Action: 'EditImage',
-          FromFile: 'assets/abby.png',
-          Target: 'Portraits/Abigail',
-        },
-        {
-          Action: 'EditData',
-          FromFile: ['data/a.json', 'data/b.json', 'data/a.json'],
-          Target: 'Data/Locations',
-        },
-        {
-          Action: 'Load',
-          FromFile: 'other/legacy.tbin',
-          Target: 'Maps/Forest',
-        },
-      ],
-    }
-
-    expect(collectContentPatcherAssets(content)).toEqual([
-      { path: 'assets/abby.png', kind: 'image' },
-      { path: 'data/a.json', kind: 'json' },
-      { path: 'data/b.json', kind: 'json' },
-      { path: 'other/legacy.tbin', kind: 'other' },
-    ])
-  })
-
-  it('collects unique target paths from patches', () => {
-    const content = {
-      Changes: [
-        { Action: 'EditData', Target: 'Data/Locations' },
-        { Action: 'EditImage', Target: ['Maps/Town', ' Maps/Town', 'Maps/Forest'] },
-      ],
-    }
-
-    expect(collectContentPatcherTargets(content)).toEqual(['Data/Locations', 'Maps/Forest', 'Maps/Town'])
-  })
-
-  it('exposes standard condition presets', () => {
-    const presets = getContentPatcherConditionPresets()
-    const keys = presets.map((preset) => preset.key)
-    expect(keys).toEqual(expect.arrayContaining(['Season', 'Weather', 'Relationship', 'Config']))
-  })
-
-  it('builds canvas nodes/edges and applies simulation state', () => {
-    const content = {
-      Changes: [
-        {
-          Action: 'EditImage',
-          Target: 'Portraits/Abigail',
-          FromFile: 'assets/abby.png',
-          When: {
-            Season: 'spring',
-            Weather: ['sunny', 'clear'],
-          },
-        },
-        {
-          Action: 'EditData',
-          Target: 'Data/Locations',
-          FromFile: 'data/loc.json',
-          When: {
-            Relationship: 'Married',
-            ShowDresses: true,
-          },
-        },
-      ],
-    }
-
-    const result = buildContentPatcherCanvas(content, {
-      simulation: {
-        season: 'winter',
-        weather: 'sunny',
-        relationship: 'Married',
-        config: { ShowDresses: true },
+describe('contentPatcher helpers', () => {
+  it('builds simulation requests without canvas helpers', () => {
+    const snapshot = {
+      summary: {
+        name: 'Seasonal Garden',
+        uniqueId: 'Aly.SeasonalGarden',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        absolutePath: 'E:\\Mods\\SeasonalGarden',
+        manifestPath: 'E:\\Mods\\SeasonalGarden\\manifest.json',
+        contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
       },
-    })
-
-    const actionNodes = result.nodes.filter((node) => node.kind === 'action')
-    expect(actionNodes).toHaveLength(2)
-
-    const springNode = actionNodes.find((node) => node.data.patchId === 'patch:0')
-    const dataNode = actionNodes.find((node) => node.data.patchId === 'patch:1')
-
-    expect(springNode?.data.simulation?.isActive).toBe(false)
-    expect(dataNode?.data.simulation?.isActive).toBe(true)
-
-    const hasLogicEdge = result.edges.some((edge) => edge.type === 'logic')
-    const hasFileEdge = result.edges.some((edge) => edge.type === 'file')
-    const hasDataEdge = result.edges.some((edge) => edge.type === 'data')
-
-    expect(hasLogicEdge).toBe(true)
-    expect(hasFileEdge).toBe(true)
-    expect(hasDataEdge).toBe(true)
-  })
-
-  it('validates incompatible connections', () => {
-    const invalid = validateContentPatcherConnection({
-      sourceKind: 'action',
-      targetKind: 'target',
-      action: 'EditImage',
-      targetPath: 'Data/Locations',
-    })
-
-    expect(invalid.ok).toBe(false)
-    if (!invalid.ok) {
-      expect(invalid.reason).toBe('action-target-mismatch')
+      sources: [],
+      includeTree: [],
+      diagnostics: [],
+    }
+    const context = {
+      season: '',
+      weather: '',
+      relationship: '',
+      config: {},
+      installedMods: [],
+      customTokens: {},
     }
 
-    const valid = validateContentPatcherConnection({
-      sourceKind: 'condition',
-      targetKind: 'action',
+    const request = buildContentPatcherSimulationRequest(snapshot as never, context, {
+      path: 'E:\\Mods\\SeasonalGarden',
+      gameRootPath: 'E:\\Games\\Stardew Valley',
+      manifestJson: '{ "Name": "Seasonal Garden" }',
+      contentJson: '{ "Format": "2.0.0", "Changes": [] }',
     })
 
-    expect(valid.ok).toBe(true)
-    if (valid.ok) {
-      expect(valid.edgeType).toBe('logic')
-    }
+    expect(request.path).toBe('E:\\Mods\\SeasonalGarden')
+    expect(request.gameRootPath).toBe('E:\\Games\\Stardew Valley')
+    expect(request.context?.installedMods).toEqual([])
   })
 
-  it('builds preview json for a selected patch', () => {
-    const content = {
+  it('summarizes content.json into patch metadata', () => {
+    const summary = summarizeContentPatcherContent({
+      Format: '2.0.0',
       Changes: [
-        { Action: 'EditImage', Target: 'Portraits/Abigail', FromFile: 'assets/abby.png' },
+        { Action: 'EditData', Target: 'Data/Objects', LogName: 'Prices' },
+        { Action: 'Load', Target: 'Maps/Farm', FromFile: 'assets/farm.tbin' },
       ],
+      ConfigSchema: { Enable: { AllowValues: 'true,false' } },
+    })
+
+    expect(summary.format).toBe('2.0.0')
+    expect(summary.changeCount).toBe(2)
+    expect(summary.patches[0]?.id).toBe('patch:0')
+    expect(summary.configKeys).toEqual(['Enable'])
+  })
+
+  it('joins array targets in patch summaries', () => {
+    const summary = summarizeContentPatcherContent({
+      Format: '2.0.0',
+      Changes: [{ Action: 'Load', Target: ['Maps/Town', 'Maps/BusStop'] }],
+    })
+
+    expect(summary.patches[0]?.target).toBe('Maps/Town, Maps/BusStop')
+  })
+
+  it('reads and updates patch When blocks', () => {
+    const content = {
+      Changes: [{ Action: 'EditData', Target: 'Data/Objects', When: { Season: 'spring' } }],
     }
 
-    const preview = getPatchPreviewJson(content, 'patch:0')
-    expect(preview).toContain('"Action": "EditImage"')
-    expect(preview).toContain('"Target": "Portraits/Abigail"')
+    const patch = getPatchObject(content, 'patch:0')
+    expect(patch?.Action).toBe('EditData')
+
+    const updated = updatePatchWhen(content, 'patch:0', '{ "Season": "winter" }')
+    expect(updated.error).toBeNull()
+    expect(getPatchObject(updated.value, 'patch:0')?.When).toEqual({ Season: 'winter' })
+  })
+
+  it('returns parse errors for invalid JSON text', () => {
+    const parsed = parseJsonText('{ "Changes": [ }')
+    expect(parsed.error).toBeTruthy()
   })
 })

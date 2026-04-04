@@ -177,6 +177,7 @@ export type ContentPatcherSimulationContext = {
 
 export type SimulateContentPatcherRequest = {
   path?: string | null
+  gameRootPath?: string | null
   snapshot?: ContentPatcherProjectSnapshot | null
   manifestJson?: string | null
   contentJson?: string | null
@@ -189,8 +190,61 @@ export type ContentPatcherPatchStatus = {
   reasons: string[]
 }
 
+export type ContentPatcherTargetSummary = {
+  path: string
+  assetKind: 'json' | 'image' | 'map' | string
+  touchedPatchCount: number
+  resultState: 'determinate' | 'indeterminate' | 'error' | string
+  patchIds: string[]
+}
+
+export type ContentPatcherTraceEntry = {
+  patchId: string
+  logName: string
+  action: string
+  sourcePath: string
+  status: 'applied' | 'skipped' | 'indeterminate' | 'error' | string
+  reasonSummary: string
+  changeSummary: string
+  diagnostics: ModProjectDiagnostic[]
+}
+
+export type ContentPatcherResultAssetPayload = {
+  kind: 'json' | 'image' | 'map' | string
+  json: unknown | null
+  imageDataUrl: string | null
+  originalImageDataUrl: string | null
+  originalImageSource: string | null
+  mapDebug: Record<string, unknown> | null
+}
+
+export type LoadContentPatcherResultAssetRequest = SimulateContentPatcherRequest & {
+  target: string
+}
+
+export type LoadContentPatcherResultAssetResult = {
+  target: ContentPatcherTargetSummary
+  trace: ContentPatcherTraceEntry[]
+  result: ContentPatcherResultAssetPayload
+  diagnostics: ModProjectDiagnostic[]
+  exportable: boolean
+}
+
+export type ExportContentPatcherAssetRequest = SimulateContentPatcherRequest & {
+  target: string
+  outputPath: string
+}
+
+export type ExportContentPatcherAssetResult = {
+  target: string
+  outputPath: string
+  format: 'json' | 'png' | string
+  diagnostics: ModProjectDiagnostic[]
+}
+
 export type ContentPatcherSimulationResult = {
   plan: ContentPatcherPatchPlan
+  targets: ContentPatcherTargetSummary[]
   patchStatuses: ContentPatcherPatchStatus[]
   diagnostics: ModProjectDiagnostic[]
 }
@@ -327,6 +381,7 @@ const loadXactAudioDataUrlCache = createPromiseCache<string>()
 const loadModProjectCache = createPromiseCache<ModProjectDetail>()
 const loadContentPatcherProjectCache = createPromiseCache<ContentPatcherProjectSnapshot>()
 const simulateContentPatcherCache = createPromiseCache<ContentPatcherSimulationResult>()
+const loadContentPatcherResultAssetCache = createPromiseCache<LoadContentPatcherResultAssetResult>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
 
 export function clearDesktopLocaleCache(locale: string) {
@@ -359,6 +414,7 @@ export function getDesktopCacheStats() {
     modProject: loadModProjectCache.size(),
     contentPatcherProject: loadContentPatcherProjectCache.size(),
     contentPatcherSimulation: simulateContentPatcherCache.size(),
+    contentPatcherResultAsset: loadContentPatcherResultAssetCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
   }
 }
@@ -518,6 +574,17 @@ export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
   )
 }
 
+export function loadContentPatcherResultAsset(request: LoadContentPatcherResultAssetRequest) {
+  const cacheKey = JSON.stringify(request)
+  return readPending(loadContentPatcherResultAssetCache, cacheKey, () =>
+    invokeDesktop<LoadContentPatcherResultAssetResult>('load_content_patcher_result_asset', { request }),
+  )
+}
+
+export function exportContentPatcherAsset(request: ExportContentPatcherAssetRequest) {
+  return invokeDesktop<ExportContentPatcherAssetResult>('export_content_patcher_asset', { request })
+}
+
 export async function saveModProject(request: SaveModProjectRequest) {
   const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', request)
   const normalizedSource = normalizeCachePathSegment(request.sourcePath)
@@ -549,6 +616,34 @@ export async function toggleMaximizeCurrentWindow() {
   }
 
   await getCurrentWindow().toggleMaximize()
+}
+
+export async function isCurrentWindowFullscreen() {
+  if (!isDesktopHost()) {
+    return false
+  }
+
+  return getCurrentWindow().isFullscreen()
+}
+
+export async function setFullscreenCurrentWindow(fullscreen: boolean) {
+  if (!isDesktopHost()) {
+    return
+  }
+
+  await getCurrentWindow().setFullscreen(fullscreen)
+}
+
+export async function toggleFullscreenCurrentWindow() {
+  if (!isDesktopHost()) {
+    return false
+  }
+
+  const currentWindow = getCurrentWindow()
+  const fullscreen = await currentWindow.isFullscreen()
+  const nextFullscreen = !fullscreen
+  await currentWindow.setFullscreen(nextFullscreen)
+  return nextFullscreen
 }
 
 export async function closeCurrentWindow() {

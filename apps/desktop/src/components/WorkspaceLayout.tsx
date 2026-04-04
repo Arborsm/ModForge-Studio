@@ -89,7 +89,11 @@ const PANEL_ICON_MAP: Record<string, LucideIcon> = {
   'item-catalog': Package,
   'item-details': SlidersHorizontal,
   'mods-browser': Library,
+  'mods-navigator': Files,
   'mods-workspace': Package,
+  'mods-trace': Activity,
+  'mods-target-diagnostics': Activity,
+  'mods-export': Files,
   'mods-inspector': SlidersHorizontal,
   'mods-diagnostics': Activity,
   inspector: SlidersHorizontal,
@@ -1004,7 +1008,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     }
 
     const target = event.target as HTMLElement
-    if (target.closest('button')) {
+    if (target.closest('button, [data-panel-no-drag="true"]')) {
       return
     }
 
@@ -1101,6 +1105,10 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       startY: event.clientY,
       dragging: false,
     }
+  }
+
+  function stopHeaderDrag(event: ReactPointerEvent<HTMLElement>) {
+    event.stopPropagation()
   }
 
   function handleRailButtonClick(slot: SlotId, panelId: string, event: ReactMouseEvent<HTMLButtonElement>) {
@@ -1388,9 +1396,9 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
             {!hideDockHeader ? (
               <ToolWindowMenu onFloat={() => undock(panel.id)} onHide={() => hide(panel.id)} onDock={(area) => dock(panel.id, area)}>
                 <header className="workspace-panel-header" onPointerDown={(event) => beginMove(panel.id, event)}>
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="workspace-panel-header-main flex min-w-0 items-center gap-2">
                     <div
-                      className="workspace-panel-grip"
+                      className="workspace-panel-grip cursor-grab active:cursor-grabbing"
                       onPointerDown={panelState.mode === 'floating' ? (event) => {
                         event.stopPropagation()
                         beginRailDrag(panel.id, event, 'floating')
@@ -1398,32 +1406,67 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
                     >
                       <Grip className="h-3.5 w-3.5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="workspace-panel-labels min-w-0">
                       <p className="workspace-panel-title">{panel.title}</p>
                       <p className="workspace-panel-subtitle">{panel.subtitle}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" data-panel-no-drag="true" onPointerDown={stopHeaderDrag}>
                       {panelState.mode !== 'floating' ? (
                         <>
                           <span className="workspace-panel-mode-pill" title={getDockLabel(panelState.dock)}>
                             {getDockLabel(panelState.dock)}
                           </span>
-                          <button type="button" className="workspace-panel-action" onClick={() => dock(panel.id, 'left-top')} title="Dock left">
+                          <button
+                            type="button"
+                            className="workspace-panel-action"
+                            data-panel-no-drag="true"
+                            onPointerDown={stopHeaderDrag}
+                            onClick={() => dock(panel.id, 'left-top')}
+                            title="Dock left"
+                          >
                             <PanelLeft className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" className="workspace-panel-action" onClick={() => dock(panel.id, 'right-top')} title="Dock right">
+                          <button
+                            type="button"
+                            className="workspace-panel-action"
+                            data-panel-no-drag="true"
+                            onPointerDown={stopHeaderDrag}
+                            onClick={() => dock(panel.id, 'right-top')}
+                            title="Dock right"
+                          >
                             <PanelRight className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" className="workspace-panel-action" onClick={() => dock(panel.id, 'bottom-left')} title="Dock bottom">
+                          <button
+                            type="button"
+                            className="workspace-panel-action"
+                            data-panel-no-drag="true"
+                            onPointerDown={stopHeaderDrag}
+                            onClick={() => dock(panel.id, 'bottom-left')}
+                            title="Dock bottom"
+                          >
                             <PanelBottom className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" className="workspace-panel-action" onClick={() => dock(panel.id, 'center')} title="Dock center">
+                          <button
+                            type="button"
+                            className="workspace-panel-action"
+                            data-panel-no-drag="true"
+                            onPointerDown={stopHeaderDrag}
+                            onClick={() => dock(panel.id, 'center')}
+                            title="Dock center"
+                          >
                             <Pin className="h-3.5 w-3.5" />
                           </button>
-                          <button type="button" className="workspace-panel-action" onClick={() => undock(panel.id)} title="Float window">
+                          <button
+                            type="button"
+                            className="workspace-panel-action"
+                            data-panel-no-drag="true"
+                            onPointerDown={stopHeaderDrag}
+                            onClick={() => undock(panel.id)}
+                            title="Float window"
+                          >
                             <SquareDashedMousePointer className="h-3.5 w-3.5" />
                           </button>
                         </>
@@ -1431,6 +1474,8 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
                       <button
                         type="button"
                         className="workspace-panel-action"
+                        data-panel-no-drag="true"
+                        onPointerDown={stopHeaderDrag}
                         onClick={() => (panelState.mode === 'floating' ? restoreToSidebar(panel.id) : panelState.dock !== 'center' ? collapseDockedPanel(panel.id) : hide(panel.id))}
                         title={panelState.mode === 'floating' ? 'Restore to sidebar' : panelState.dock !== 'center' ? 'Collapse to sidebar' : 'Hide'}
                       >

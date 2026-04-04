@@ -9,6 +9,7 @@ export type ModWorkspaceCopy = {
   browserSubtitle: string
   browserFilterPlaceholder: string
   browserEmpty: string
+  contentPatcherOnly: string
   projectsLabel: string
   filteredLabel: string
   unknownLabel: string
@@ -87,6 +88,7 @@ const zhCN: ModWorkspaceCopy = {
   browserSubtitle: 'Mods 目录与手动导入',
   browserFilterPlaceholder: '按名称、作者、UniqueID 或路径筛选',
   browserEmpty: '当前没有可用的 Content Patcher 项目。',
+  contentPatcherOnly: '仅 CP 模组',
   projectsLabel: '项目数',
   filteredLabel: '筛选后',
   unknownLabel: '未知',
@@ -165,6 +167,7 @@ const enUS: ModWorkspaceCopy = {
   browserSubtitle: 'Mods directory plus manual import',
   browserFilterPlaceholder: 'Filter by name, author, UniqueID, or path',
   browserEmpty: 'No Content Patcher projects are currently available.',
+  contentPatcherOnly: 'Content Patcher Only',
   projectsLabel: 'Projects',
   filteredLabel: 'Filtered',
   unknownLabel: 'Unknown',

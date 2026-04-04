@@ -365,6 +365,40 @@ mod tests {
     }
 
     #[test]
+    fn load_content_patcher_project_accepts_bom_nbsp_and_raw_newlines() {
+        let root = create_temp_dir("cp-project-relaxed-edge");
+        let manifest = format!("\u{feff}{}", sample_cp_manifest());
+        let nbsp = '\u{00A0}'.to_string();
+        let content = format!(
+            concat!(
+                "{{\n",
+                "\"Format\": \"2.0.0\",\n",
+                "\"Changes\": [\n",
+                "\t{{\n",
+                "{0} {0} {0}\"Action\": \"EditData\",\n",
+                "{0} {0} {0}\"Target\": \"Data/Events/Town\",\n",
+                "{0} {0} {0}\"Entries\": {{\n",
+                "{0} {0} {0}  \"MuseumBook\": \"Line 1\n",
+                "Line 2\"\n",
+                "{0} {0} {0}}}\n",
+                "\t}}\n",
+                "]\n",
+                "}}"
+            ),
+            nbsp
+        );
+
+        write_file(&root.join("manifest.json"), &manifest);
+        write_file(&root.join("content.json"), &content);
+
+        let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+        assert_eq!(snapshot.sources.len(), 1);
+        assert!(snapshot.sources[0].raw_json.contains("MuseumBook"));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
     fn load_content_patcher_project_rejects_non_content_patcher_manifest() {
         let root = create_temp_dir("cp-project-non-cp");
         write_file(&root.join("manifest.json"), sample_non_cp_manifest());

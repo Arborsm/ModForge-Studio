@@ -193,112 +193,79 @@ export default function CentralWorkspace({
         </div>
       </div>
 
-      <div className="flex h-11 items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-app)] px-3">
-        <div className="flex items-center gap-2">
+      {workspaceMode !== 'map' ? (
+        <div className="flex h-11 items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-app)] px-3">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+              <button
+                type="button"
+                className={cx('tool-button', toolMode === 'select' && 'tool-button-active')}
+                onClick={() => setToolMode('select')}
+                title={copy.center.selectTool}
+              >
+                <MousePointer2 className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cx('tool-button', toolMode === 'pan' && 'tool-button-active')}
+                onClick={() => setToolMode('pan')}
+                title={copy.center.panTool}
+              >
+                <Move className="h-4 w-4" />
+              </button>
+            </div>
+            <span className="dock-chip">{copy.center.canvas}</span>
+            <span className="dock-chip">{copy.center.rightClick}</span>
+          </div>
+
           <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
             <button
               type="button"
-              className={cx('tool-button', toolMode === 'select' && 'tool-button-active')}
-              onClick={() => setToolMode('select')}
-              title={copy.center.selectTool}
+              className={cx('tool-button', showGrid && 'tool-button-active')}
+              onClick={() => setShowGrid((current) => !current)}
+              title={showGrid ? 'Hide grid' : 'Show grid'}
+              aria-pressed={showGrid}
             >
-              <MousePointer2 className="h-4 w-4" />
+              <Grid2x2 className="h-4 w-4" />
+            </button>
+            <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
+            <button
+              type="button"
+              className="tool-button"
+              onClick={() => viewportRef.current?.zoomOut()}
+              title={copy.viewportLabels.zoomOut}
+            >
+              <ZoomOut className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className={cx('tool-button', toolMode === 'pan' && 'tool-button-active')}
-              onClick={() => setToolMode('pan')}
-              title={copy.center.panTool}
+              className="tool-button"
+              onClick={() => viewportRef.current?.setOneToOne()}
+              title={copy.viewportLabels.oneToOne}
             >
-              <Move className="h-4 w-4" />
+              <Grip className="h-4 w-4" />
+            </button>
+            <div className="min-w-14 px-2 text-center font-mono text-xs text-[var(--text-secondary)]">{zoomLabel}</div>
+            <button
+              type="button"
+              className="tool-button"
+              onClick={() => viewportRef.current?.zoomIn()}
+              title={copy.viewportLabels.zoomIn}
+            >
+              <ZoomIn className="h-4 w-4" />
+            </button>
+            <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
+            <button
+              type="button"
+              className="tool-button"
+              onClick={() => viewportRef.current?.fitToScreen()}
+              title={copy.viewportLabels.fit}
+            >
+              <Maximize className="h-4 w-4" />
             </button>
           </div>
-          <span className="dock-chip">{copy.center.canvas}</span>
-          <span className="dock-chip">{copy.center.rightClick}</span>
-          {workspaceMode === 'map' && mapDocument?.format === 'atlas' && worldAtlasViews.length > 1 ? (
-            <div className="ml-2 flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
-              {worldAtlasViews.map((view) => (
-                <button
-                  key={view.id}
-                  type="button"
-                  className={cx('tool-button px-2 text-xs', activeWorldAtlasViewId === view.id && 'tool-button-active')}
-                  onClick={() => onSelectWorldAtlasView(view.id)}
-                >
-                  {view.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
-
-        <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
-          {workspaceMode === 'map' ? (
-            <div className="group relative">
-              <button
-                type="button"
-                className={cx('tool-button', showGameWorldAdditions && 'tool-button-active')}
-                onClick={() => {
-                  if (mapDocument) {
-                    onToggleGameWorldAdditions()
-                  }
-                }}
-                aria-label={mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
-                aria-pressed={showGameWorldAdditions}
-                disabled={!mapDocument}
-              >
-                <MapIcon className="h-4 w-4" />
-              </button>
-              <div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-[var(--border-color)] bg-[var(--bg-elevated)] px-2 py-1 text-[11px] font-medium text-[var(--text-primary)] opacity-0 shadow-[var(--shadow-panel)] transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                {mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
-              </div>
-            </div>
-          ) : null}
-          <button
-            type="button"
-            className={cx('tool-button', showGrid && 'tool-button-active')}
-            onClick={() => setShowGrid((current) => !current)}
-            title={showGrid ? 'Hide grid' : 'Show grid'}
-            aria-pressed={showGrid}
-          >
-            <Grid2x2 className="h-4 w-4" />
-          </button>
-          <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
-          <button
-            type="button"
-            className="tool-button"
-            onClick={() => viewportRef.current?.zoomOut()}
-            title={copy.viewportLabels.zoomOut}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="tool-button"
-            onClick={() => viewportRef.current?.setOneToOne()}
-            title={copy.viewportLabels.oneToOne}
-          >
-            <Grip className="h-4 w-4" />
-          </button>
-          <div className="min-w-14 px-2 text-center font-mono text-xs text-[var(--text-secondary)]">{zoomLabel}</div>
-          <button
-            type="button"
-            className="tool-button"
-            onClick={() => viewportRef.current?.zoomIn()}
-            title={copy.viewportLabels.zoomIn}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </button>
-          <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
-          <button
-            type="button"
-            className="tool-button"
-            onClick={() => viewportRef.current?.fitToScreen()}
-            title={copy.viewportLabels.fit}
-          >
-            <Maximize className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 p-3">
         {workspaceMode === 'map' ? (
@@ -320,6 +287,128 @@ export default function CentralWorkspace({
               scaleMapOverlayWithViewport
               onZoomChange={(nextZoom) => setZoomLabel(copy.viewportLabels.zoomLabel(nextZoom))}
             />
+            <div className="workspace-viewport-toolbar" role="toolbar" aria-label={copy.center.canvas}>
+              <div className="workspace-viewport-toolbar-group">
+                <button
+                  type="button"
+                  className={cx('workspace-viewport-toolbar-icon-button', toolMode === 'select' && 'workspace-viewport-toolbar-button-active')}
+                  onClick={() => setToolMode('select')}
+                  title={copy.center.selectTool}
+                  aria-label={copy.center.selectTool}
+                  aria-pressed={toolMode === 'select'}
+                >
+                  <MousePointer2 className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className={cx('workspace-viewport-toolbar-icon-button', toolMode === 'pan' && 'workspace-viewport-toolbar-button-active')}
+                  onClick={() => setToolMode('pan')}
+                  title={copy.center.panTool}
+                  aria-label={copy.center.panTool}
+                  aria-pressed={toolMode === 'pan'}
+                >
+                  <Move className="h-4 w-4" />
+                </button>
+              </div>
+
+              {mapDocument?.format === 'atlas' && worldAtlasViews.length > 1 ? (
+                <div className="workspace-viewport-toolbar-group">
+                  {worldAtlasViews.map((view) => (
+                    <button
+                      key={view.id}
+                      type="button"
+                      className={cx('workspace-viewport-toolbar-button', activeWorldAtlasViewId === view.id && 'workspace-viewport-toolbar-button-active')}
+                      onClick={() => onSelectWorldAtlasView(view.id)}
+                      aria-pressed={activeWorldAtlasViewId === view.id}
+                    >
+                      {view.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="workspace-viewport-toolbar-group">
+                <button
+                  type="button"
+                  className={cx('workspace-viewport-toolbar-icon-button', showGameWorldAdditions && 'workspace-viewport-toolbar-button-active')}
+                  onClick={() => {
+                    if (mapDocument) {
+                      onToggleGameWorldAdditions()
+                    }
+                  }}
+                  title={mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
+                  aria-label={mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
+                  aria-pressed={showGameWorldAdditions}
+                  disabled={!mapDocument}
+                >
+                  <MapIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
+                  onClick={() => setShowGrid((current) => !current)}
+                  title={showGrid ? 'Hide grid' : 'Show grid'}
+                  aria-label={showGrid ? 'Hide grid' : 'Show grid'}
+                  aria-pressed={showGrid}
+                >
+                  <Grid2x2 className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="workspace-viewport-toolbar-group workspace-viewport-toolbar-group-push">
+                <button
+                  type="button"
+                  className="workspace-viewport-toolbar-icon-button"
+                  onClick={() => viewportRef.current?.zoomOut()}
+                  title={copy.viewportLabels.zoomOut}
+                  aria-label={copy.viewportLabels.zoomOut}
+                  disabled={!mapDocument}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="workspace-viewport-toolbar-icon-button"
+                  onClick={() => viewportRef.current?.setOneToOne()}
+                  title={copy.viewportLabels.oneToOne}
+                  aria-label={copy.viewportLabels.oneToOne}
+                  disabled={!mapDocument}
+                >
+                  <Grip className="h-4 w-4" />
+                </button>
+                <span className="workspace-viewport-toolbar-zoom">{zoomLabel}</span>
+                <button
+                  type="button"
+                  className="workspace-viewport-toolbar-icon-button"
+                  onClick={() => viewportRef.current?.zoomIn()}
+                  title={copy.viewportLabels.zoomIn}
+                  aria-label={copy.viewportLabels.zoomIn}
+                  disabled={!mapDocument}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="workspace-viewport-toolbar-icon-button"
+                  onClick={() => viewportRef.current?.fitToScreen()}
+                  title={copy.viewportLabels.fit}
+                  aria-label={copy.viewportLabels.fit}
+                  disabled={!mapDocument}
+                >
+                  <Maximize className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="workspace-viewport-toolbar-icon-button"
+                  onClick={() => viewportRef.current?.centerView()}
+                  title={copy.viewportLabels.centerView}
+                  aria-label={copy.viewportLabels.centerView}
+                  disabled={!mapDocument}
+                >
+                  <Move className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
 
           </div>
         ) : moduleBlueprint ? (

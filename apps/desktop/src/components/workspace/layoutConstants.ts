@@ -5,7 +5,7 @@ export const LEFT_SLOTS = ['left-top', 'left-bottom'] as const satisfies readonl
 export const RIGHT_SLOTS = ['right-top', 'right-bottom'] as const satisfies readonly SlotId[]
 export const BOTTOM_SLOTS = ['bottom-left', 'bottom-right'] as const satisfies readonly SlotId[]
 
-export const STORAGE_VERSION = 9
+export const STORAGE_VERSION = 11
 export const ROOT_PADDING = 12
 export const COLUMN_GAP = 12
 export const TOOL_WINDOW_RAIL_WIDTH = 42

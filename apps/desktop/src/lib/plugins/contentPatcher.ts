@@ -1,8 +1,5 @@
-﻿import type { ContentPatcherPatchSummary } from '../desktop'
-
+import type { ContentPatcherPatchSummary } from '../desktop'
 import type {
-  ContentPatcherPatchPlan,
-  ContentPatcherPatchStatus,
   ContentPatcherProjectSnapshot,
   ContentPatcherSimulationContext as DesktopContentPatcherSimulationContext,
   SimulateContentPatcherRequest,
@@ -15,29 +12,6 @@ type ParsedJsonResult = {
   error: string | null
 }
 
-export type ContentPatcherAssetKind = 'image' | 'json' | 'other'
-
-export type ContentPatcherAsset = {
-  path: string
-  kind: ContentPatcherAssetKind
-}
-
-export type ContentPatcherTarget = {
-  path: string
-}
-
-export type ContentPatcherConditionPreset = {
-  key: 'Season' | 'Weather' | 'Relationship' | 'Config'
-  values?: string[]
-}
-
-export type ContentPatcherSimulationContext = {
-  season?: string
-  weather?: string
-  relationship?: string | number
-  config?: Record<string, string | number | boolean>
-}
-
 export type ContentPatcherBackendSimulationContext = {
   season: string
   weather: string
@@ -47,336 +21,12 @@ export type ContentPatcherBackendSimulationContext = {
   customTokens: Record<string, unknown>
 }
 
-export type ContentPatcherCanvasNodeKind = 'condition' | 'action' | 'target' | 'asset'
-
-export type ContentPatcherCanvasEdgeType = 'logic' | 'file' | 'data'
-
-export type ContentPatcherCanvasNode = {
-  id: string
-  kind: ContentPatcherCanvasNodeKind
-  position: { x: number; y: number }
-  data: {
-    label: string
-    patchId?: string
-    action?: string
-    target?: string
-    assetPath?: string
-    whenKey?: string
-    simulation?: {
-      isActive: boolean
-      hasUnknownConditions: boolean
-    }
-    details?: Record<string, unknown>
-  }
-}
-
-export type ContentPatcherCanvasEdge = {
-  id: string
-  source: string
-  target: string
-  type: ContentPatcherCanvasEdgeType
-  patchId?: string
-}
-
-export type ContentPatcherCanvasBuildResult = {
-  nodes: ContentPatcherCanvasNode[]
-  edges: ContentPatcherCanvasEdge[]
-}
-
-export type ContentPatcherConnectionValidation =
-  | { ok: true; edgeType: ContentPatcherCanvasEdgeType }
-  | { ok: false; edgeType?: ContentPatcherCanvasEdgeType; reason: string; detail?: string }
-
-function normalizeBackendSimulationContext(
-  context: ContentPatcherBackendSimulationContext,
-): DesktopContentPatcherSimulationContext {
-  const season = context.season.trim()
-  const weather = context.weather.trim()
-  return {
-    season: season || undefined,
-    weather: weather || undefined,
-    config: context.config,
-    installedMods: context.installedMods
-      .map((value) => value.trim())
-      .filter(Boolean),
-    customTokens: context.customTokens,
-  }
-}
-
-export function buildContentPatcherSimulationRequest(
-  snapshot: ContentPatcherProjectSnapshot,
-  context: ContentPatcherBackendSimulationContext,
-  options?: {
-    path?: string | null
-    manifestJson?: string | null
-    contentJson?: string | null
-  },
-): SimulateContentPatcherRequest {
-  return {
-    path: options?.path ?? null,
-    snapshot,
-    manifestJson: options?.manifestJson ?? null,
-    contentJson: options?.contentJson ?? null,
-    context: normalizeBackendSimulationContext(context),
-  }
-}
-
-export function buildContentPatcherCanvasFromPlan(
-  plan: ContentPatcherPatchPlan | null,
-  patchStatusById: Map<string, ContentPatcherPatchStatus>,
-): ContentPatcherCanvasBuildResult {
-  if (!plan) {
-    return {
-      nodes: [],
-      edges: [],
-    }
-  }
-
-  const nodes = new Map<string, ContentPatcherCanvasNode>()
-  const edges: ContentPatcherCanvasEdge[] = []
-  const edgeIds = new Set<string>()
-  const layoutIndex: Record<ContentPatcherCanvasNodeKind, number> = {
-    condition: 0,
-    asset: 0,
-    action: 0,
-    target: 0,
-  }
-  const columns: Record<ContentPatcherCanvasNodeKind, number> = {
-    condition: 120,
-    asset: 120,
-    action: 420,
-    target: 760,
-  }
-
-  function createNode(id: string, kind: ContentPatcherCanvasNodeKind, data: ContentPatcherCanvasNode['data']) {
-    if (nodes.has(id)) {
-      return nodes.get(id) as ContentPatcherCanvasNode
-    }
-    const index = layoutIndex[kind]++
-    const node: ContentPatcherCanvasNode = {
-      id,
-      kind,
-      position: {
-        x: columns[kind],
-        y: index * 140,
-      },
-      data,
-    }
-    nodes.set(id, node)
-    return node
-  }
-
-  function pushEdge(source: string, target: string, type: ContentPatcherCanvasEdgeType, patchId?: string) {
-    const id = `edge:${source}:${target}:${type}`
-    if (edgeIds.has(id)) {
-      return
-    }
-    edgeIds.add(id)
-    edges.push({ id, source, target, type, patchId })
-  }
-
-  plan.patches.forEach((patch) => {
-    const status = patchStatusById.get(patch.id)
-    const editorPatchId = resolveEditorPatchIdFromPlanPatch(patch)
-    const actionNodeId = `action:${patch.id}`
-    createNode(actionNodeId, 'action', {
-      label: patch.logName,
-      patchId: editorPatchId ?? undefined,
-      action: patch.action,
-      target: patch.target,
-      assetPath: patch.fromFile ?? undefined,
-      simulation: {
-        isActive: status?.status !== 'skipped',
-        hasUnknownConditions: status?.status === 'indeterminate',
-      },
-      details: {
-        backendPatchId: patch.id,
-        sourcePath: patch.sourcePath,
-        when: patch.when,
-        reasons: status?.reasons ?? [],
-      },
-    })
-
-    Object.keys(patch.when).forEach((key) => {
-      const conditionId = `condition:${patch.id}:${toSafeId(key)}`
-      createNode(conditionId, 'condition', {
-        label: key,
-        patchId: editorPatchId ?? undefined,
-        whenKey: key,
-        simulation: {
-          isActive: status?.status !== 'skipped',
-          hasUnknownConditions: status?.status === 'indeterminate',
-        },
-      })
-      pushEdge(conditionId, actionNodeId, 'logic', patch.id)
-    })
-
-    if (patch.fromFile) {
-      const assetId = `asset:${toSafeId(patch.fromFile)}`
-      createNode(assetId, 'asset', {
-        label: patch.fromFile,
-        assetPath: patch.fromFile,
-        patchId: editorPatchId ?? undefined,
-        simulation: {
-          isActive: status?.status !== 'skipped',
-          hasUnknownConditions: status?.status === 'indeterminate',
-        },
-      })
-      pushEdge(assetId, actionNodeId, 'file', patch.id)
-    }
-
-    if (patch.target) {
-      const targetId = `target:${toSafeId(patch.target)}`
-      createNode(targetId, 'target', {
-        label: patch.target,
-        target: patch.target,
-        patchId: editorPatchId ?? undefined,
-        simulation: {
-          isActive: status?.status !== 'skipped',
-          hasUnknownConditions: status?.status === 'indeterminate',
-        },
-      })
-      pushEdge(actionNodeId, targetId, 'data', patch.id)
-    }
-  })
-
-  return {
-    nodes: Array.from(nodes.values()),
-    edges,
-  }
-}
-
 function isJsonObject(value: unknown): value is JsonObject {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
 function asTrimmedString(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function toSafeId(value: string) {
-  return encodeURIComponent(value).replace(/%/g, '_')
-}
-
-function getPatchEntries(value: unknown) {
-  const content = ensureJsonObject(value)
-  return Array.isArray(content.Changes) ? content.Changes : []
-}
-
-function normalizeStringValue(value: unknown) {
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed ? trimmed.toLowerCase() : null
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value).toLowerCase()
-  }
-  return null
-}
-
-function resolveEditorPatchIdFromPlanPatch(patch: { id: string; sourcePath: string }) {
-  if (patch.sourcePath !== 'content.json') {
-    return null
-  }
-
-  const match = patch.id.match(/:(\d+)#target:\d+#from:\d+$/)
-  if (!match) {
-    return null
-  }
-
-  return `patch:${match[1]}`
-}
-
-function matchesConditionValue(expected: unknown, actual: unknown) {
-  const actualNormalized = normalizeStringValue(actual)
-  if (!actualNormalized) {
-    return false
-  }
-
-  if (Array.isArray(expected)) {
-    return expected.some((entry) => {
-      const entryNormalized = normalizeStringValue(entry)
-      return entryNormalized ? entryNormalized === actualNormalized : false
-    })
-  }
-
-  const expectedNormalized = normalizeStringValue(expected)
-  return expectedNormalized ? expectedNormalized === actualNormalized : false
-}
-
-function evaluateWhenConditions(
-  when: JsonObject | null,
-  simulation: ContentPatcherSimulationContext | undefined,
-) {
-  if (!when || !Object.keys(when).length) {
-    return { isActive: true, hasUnknownConditions: false }
-  }
-
-  let hasUnknownConditions = false
-  const season = simulation?.season
-  const weather = simulation?.weather
-  const relationship = simulation?.relationship
-  const config = simulation?.config
-
-  for (const [key, value] of Object.entries(when)) {
-    if (key === 'Season') {
-      if (!season) {
-        hasUnknownConditions = true
-        continue
-      }
-      if (!matchesConditionValue(value, season)) {
-        return { isActive: false, hasUnknownConditions }
-      }
-      continue
-    }
-
-    if (key === 'Weather') {
-      if (!weather) {
-        hasUnknownConditions = true
-        continue
-      }
-      if (!matchesConditionValue(value, weather)) {
-        return { isActive: false, hasUnknownConditions }
-      }
-      continue
-    }
-
-    if (key === 'Relationship') {
-      if (relationship === undefined || relationship === null) {
-        hasUnknownConditions = true
-        continue
-      }
-      if (!matchesConditionValue(value, relationship)) {
-        return { isActive: false, hasUnknownConditions }
-      }
-      continue
-    }
-
-    if (key === 'Config' && isJsonObject(value)) {
-      const configObject = value
-      for (const [configKey, configValue] of Object.entries(configObject)) {
-        if (!config || !(configKey in config)) {
-          hasUnknownConditions = true
-          continue
-        }
-        if (!matchesConditionValue(configValue, config[configKey])) {
-          return { isActive: false, hasUnknownConditions }
-        }
-      }
-      continue
-    }
-
-    if (!config || !(key in config)) {
-      hasUnknownConditions = true
-      continue
-    }
-
-    if (!matchesConditionValue(value, config[key])) {
-      return { isActive: false, hasUnknownConditions }
-    }
-  }
-
-  return { isActive: true, hasUnknownConditions }
 }
 
 function normalizePatchTarget(value: unknown) {
@@ -395,52 +45,38 @@ function normalizePatchTarget(value: unknown) {
   return ''
 }
 
-function readPatchFromFiles(patch: JsonObject) {
-  const fromFile = patch.FromFile
-  if (typeof fromFile === 'string') {
-    const trimmed = fromFile.trim()
-    return trimmed ? [trimmed] : []
+function normalizeBackendSimulationContext(
+  context: ContentPatcherBackendSimulationContext,
+): DesktopContentPatcherSimulationContext {
+  const season = context.season.trim()
+  const weather = context.weather.trim()
+  return {
+    season: season || undefined,
+    weather: weather || undefined,
+    config: context.config,
+    installedMods: context.installedMods.map((value) => value.trim()).filter(Boolean),
+    customTokens: context.customTokens,
   }
-  if (Array.isArray(fromFile)) {
-    return fromFile
-      .filter((entry): entry is string => typeof entry === 'string')
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-  }
-  return []
 }
 
-function readPatchTargets(patch: JsonObject) {
-  const target = patch.Target
-  if (typeof target === 'string') {
-    const trimmed = target.trim()
-    return trimmed ? [trimmed] : []
+export function buildContentPatcherSimulationRequest(
+  snapshot: ContentPatcherProjectSnapshot,
+  context: ContentPatcherBackendSimulationContext,
+  options?: {
+    path?: string | null
+    gameRootPath?: string | null
+    manifestJson?: string | null
+    contentJson?: string | null
+  },
+): SimulateContentPatcherRequest {
+  return {
+    path: options?.path ?? null,
+    gameRootPath: options?.gameRootPath ?? null,
+    snapshot,
+    manifestJson: options?.manifestJson ?? null,
+    contentJson: options?.contentJson ?? null,
+    context: normalizeBackendSimulationContext(context),
   }
-  if (Array.isArray(target)) {
-    return target
-      .filter((entry): entry is string => typeof entry === 'string')
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-  }
-  return []
-}
-
-function getAssetKind(path: string): ContentPatcherAssetKind {
-  const lower = path.toLowerCase()
-  if (lower.endsWith('.json')) {
-    return 'json'
-  }
-  if (
-    lower.endsWith('.png') ||
-    lower.endsWith('.jpg') ||
-    lower.endsWith('.jpeg') ||
-    lower.endsWith('.gif') ||
-    lower.endsWith('.bmp') ||
-    lower.endsWith('.webp')
-  ) {
-    return 'image'
-  }
-  return 'other'
 }
 
 function buildPatchSummary(index: number, patch: JsonObject): ContentPatcherPatchSummary {
@@ -502,9 +138,15 @@ export function summarizeContentPatcherContent(value: unknown) {
   const patches = rawChanges
     .map((entry, index) => (isJsonObject(entry) ? buildPatchSummary(index, entry) : null))
     .filter((entry): entry is ContentPatcherPatchSummary => Boolean(entry))
-  const configKeys = isJsonObject(content.ConfigSchema)
-    ? Object.keys(content.ConfigSchema).sort((left, right) => left.localeCompare(right))
+  const configEntries = isJsonObject(content.ConfigSchema)
+    ? Object.entries(content.ConfigSchema)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, definition]) => ({
+          key,
+          defaultValue: isJsonObject(definition) ? definition.Default ?? null : null,
+        }))
     : []
+  const configKeys = configEntries.map((entry) => entry.key)
 
   return {
     format: typeof content.Format === 'string' ? content.Format : null,
@@ -512,6 +154,7 @@ export function summarizeContentPatcherContent(value: unknown) {
     includeCount: Array.isArray(content.Include) ? content.Include.length : 0,
     dynamicTokenCount: Array.isArray(content.DynamicTokens) ? content.DynamicTokens.length : 0,
     configKeys,
+    configEntries,
     patches,
   }
 }
@@ -563,16 +206,14 @@ export function removePatch(value: unknown, patchId: string) {
   if (!patch) {
     return ensureJsonObject(value)
   }
-
   return withChanges(value, (changes) => changes.filter((_, index) => index !== patch.index))
 }
 
-export function replacePatch(value: unknown, patchId: string, nextPatch: JsonObject) {
+function replacePatch(value: unknown, patchId: string, nextPatch: JsonObject) {
   const patch = summarizeContentPatcherContent(value).patches.find((entry) => entry.id === patchId)
   if (!patch) {
     return ensureJsonObject(value)
   }
-
   return withChanges(value, (changes) => changes.map((entry, index) => (index === patch.index ? nextPatch : entry)))
 }
 
@@ -630,207 +271,4 @@ export function updatePatchWhen(value: unknown, patchId: string, nextValue: stri
     value: replacePatch(value, patchId, currentPatch),
     error: null,
   }
-}
-
-export function collectContentPatcherAssets(value: unknown): ContentPatcherAsset[] {
-  const assets = new Map<string, ContentPatcherAssetKind>()
-  const changes = getPatchEntries(value)
-  changes.forEach((entry) => {
-    if (!isJsonObject(entry)) {
-      return
-    }
-    readPatchFromFiles(entry).forEach((path) => {
-      if (!assets.has(path)) {
-        assets.set(path, getAssetKind(path))
-      }
-    })
-  })
-
-  return Array.from(assets.entries())
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([path, kind]) => ({ path, kind }))
-}
-
-export function collectContentPatcherTargets(value: unknown): string[] {
-  const targets = new Set<string>()
-  const changes = getPatchEntries(value)
-  changes.forEach((entry) => {
-    if (!isJsonObject(entry)) {
-      return
-    }
-    readPatchTargets(entry).forEach((path) => {
-      targets.add(path)
-    })
-  })
-
-  return Array.from(targets.values()).sort((left, right) => left.localeCompare(right))
-}
-
-export function getContentPatcherConditionPresets(): ContentPatcherConditionPreset[] {
-  return [
-    { key: 'Season', values: ['spring', 'summer', 'fall', 'winter'] },
-    { key: 'Weather' },
-    { key: 'Relationship' },
-    { key: 'Config' },
-  ]
-}
-
-export function buildContentPatcherCanvas(
-  value: unknown,
-  options?: { simulation?: ContentPatcherSimulationContext },
-): ContentPatcherCanvasBuildResult {
-  const summary = summarizeContentPatcherContent(value)
-  const changes = getPatchEntries(value)
-  const nodes = new Map<string, ContentPatcherCanvasNode>()
-  const edges: ContentPatcherCanvasEdge[] = []
-  const edgeIds = new Set<string>()
-  const layoutIndex: Record<ContentPatcherCanvasNodeKind, number> = {
-    condition: 0,
-    asset: 0,
-    action: 0,
-    target: 0,
-  }
-  const columns: Record<ContentPatcherCanvasNodeKind, number> = {
-    condition: 120,
-    asset: 120,
-    action: 420,
-    target: 760,
-  }
-
-  function createNode(id: string, kind: ContentPatcherCanvasNodeKind, data: ContentPatcherCanvasNode['data']) {
-    if (nodes.has(id)) {
-      return nodes.get(id) as ContentPatcherCanvasNode
-    }
-    const index = layoutIndex[kind]++
-    const node: ContentPatcherCanvasNode = {
-      id,
-      kind,
-      position: {
-        x: columns[kind],
-        y: index * 140,
-      },
-      data,
-    }
-    nodes.set(id, node)
-    return node
-  }
-
-  function pushEdge(source: string, target: string, type: ContentPatcherCanvasEdgeType, patchId?: string) {
-    const id = `edge:${source}:${target}:${type}`
-    if (edgeIds.has(id)) {
-      return
-    }
-    edgeIds.add(id)
-    edges.push({ id, source, target, type, patchId })
-  }
-
-  summary.patches.forEach((patch) => {
-    const rawPatch = changes[patch.index]
-    if (!isJsonObject(rawPatch)) {
-      return
-    }
-
-    const whenObject = isJsonObject(rawPatch.When) ? rawPatch.When : null
-    const simulation = evaluateWhenConditions(whenObject, options?.simulation)
-
-    const actionNodeId = `action:${patch.id}`
-    createNode(actionNodeId, 'action', {
-      label: patch.logName,
-      patchId: patch.id,
-      action: patch.action,
-      target: patch.target,
-      assetPath: patch.fromFile ?? undefined,
-      simulation,
-      details: {
-        when: whenObject ?? undefined,
-      },
-    })
-
-    if (whenObject) {
-      Object.keys(whenObject).forEach((key) => {
-        const conditionId = `condition:${patch.id}:${toSafeId(key)}`
-        createNode(conditionId, 'condition', {
-          label: key,
-          patchId: patch.id,
-          whenKey: key,
-        })
-        pushEdge(conditionId, actionNodeId, 'logic', patch.id)
-      })
-    }
-
-    readPatchFromFiles(rawPatch).forEach((path) => {
-      const assetId = `asset:${toSafeId(path)}`
-      createNode(assetId, 'asset', {
-        label: path,
-        assetPath: path,
-      })
-      pushEdge(assetId, actionNodeId, 'file', patch.id)
-    })
-
-    readPatchTargets(rawPatch).forEach((target) => {
-      const targetId = `target:${toSafeId(target)}`
-      createNode(targetId, 'target', {
-        label: target,
-        target,
-      })
-      pushEdge(actionNodeId, targetId, 'data', patch.id)
-    })
-  })
-
-  return {
-    nodes: Array.from(nodes.values()),
-    edges,
-  }
-}
-
-export function validateContentPatcherConnection(input: {
-  sourceKind: ContentPatcherCanvasNodeKind
-  targetKind: ContentPatcherCanvasNodeKind
-  action?: string
-  targetPath?: string
-}): ContentPatcherConnectionValidation {
-  if (input.sourceKind === 'condition' && input.targetKind === 'action') {
-    return { ok: true, edgeType: 'logic' }
-  }
-
-  if (input.sourceKind === 'asset' && input.targetKind === 'action') {
-    return { ok: true, edgeType: 'file' }
-  }
-
-  if (input.sourceKind === 'action' && input.targetKind === 'target') {
-    const action = input.action?.trim().toLowerCase()
-    const targetPath = input.targetPath?.trim().toLowerCase()
-    if (action && targetPath) {
-      if (action === 'editimage' && targetPath.startsWith('data/')) {
-        return {
-          ok: false,
-          edgeType: 'data',
-          reason: 'action-target-mismatch',
-          detail: 'EditImage cannot target Data/* assets.',
-        }
-      }
-      if (action === 'editdata' && !targetPath.startsWith('data/')) {
-        return {
-          ok: false,
-          edgeType: 'data',
-          reason: 'action-target-mismatch',
-          detail: 'EditData expects a Data/* target.',
-        }
-      }
-    }
-    return { ok: true, edgeType: 'data' }
-  }
-
-  return {
-    ok: false,
-    reason: 'unsupported-connection',
-  }
-}
-
-export function getPatchPreviewJson(value: unknown, patchId: string) {
-  const patch = getPatchObject(value, patchId)
-  if (!patch) {
-    return ''
-  }
-  return stringifyPrettyJson(patch)
 }
