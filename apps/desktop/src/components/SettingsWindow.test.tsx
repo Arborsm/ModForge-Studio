@@ -120,7 +120,7 @@ describe('SettingsWindow', () => {
 
   it('supports reverse-direction arrow keys with wraparound navigation', () => {
     const onSelectLocale = vi.fn()
-    renderWindow({ onSelectLocale, activeLocale: 'zh-CN' })
+    const { rerender, props } = renderWindow({ onSelectLocale, activeLocale: 'zh-CN' })
 
     const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
     const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
@@ -131,10 +131,18 @@ describe('SettingsWindow', () => {
     expect(onSelectLocale).toHaveBeenCalledWith('en-US')
     expect(englishOption).toHaveFocus()
 
-    fireEvent.keyDown(chineseOption, { key: 'ArrowUp' })
+    rerender(<SettingsWindow {...props} activeLocale="en-US" />)
+
+    const englishOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    expect(englishOptionUpdated).toHaveFocus()
+
+    fireEvent.keyDown(englishOptionUpdated, { key: 'ArrowUp' })
 
     expect(onSelectLocale).toHaveBeenCalledTimes(2)
-    expect(onSelectLocale).toHaveBeenNthCalledWith(2, 'en-US')
+    expect(onSelectLocale).toHaveBeenNthCalledWith(2, 'zh-CN')
+    expect(chineseOptionUpdated).toHaveFocus()
   })
 
   it('updates aria-checked and roving tabindex after parent activeLocale rerender', () => {

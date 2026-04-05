@@ -425,6 +425,16 @@ export default function App() {
   const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
   const viewMenuCopy = getViewMenuCopy(locale)
   const settingsMenuCopy = getSettingsMenuCopy(locale)
+  const localeOptions =
+    locale === 'en-US'
+      ? [
+          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
+          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
+        ]
+      : [
+          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
+          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
+        ]
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const activePlayerAppearanceProfile =
@@ -956,10 +966,7 @@ export default function App() {
             accentDescription={settingsMenuCopy.accentDescription}
             languageLabel={settingsMenuCopy.languageLabel}
             languageDescription={settingsMenuCopy.languageDescription}
-            localeOptions={[
-              { id: 'zh-CN', label: settingsMenuCopy.localeLabels['zh-CN'] },
-              { id: 'en-US', label: settingsMenuCopy.localeLabels['en-US'] },
-            ]}
+            localeOptions={localeOptions}
             activeLocale={locale}
             windowModeLabel={settingsMenuCopy.windowModeLabel}
             borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
