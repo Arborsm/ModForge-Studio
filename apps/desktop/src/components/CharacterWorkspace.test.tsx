@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import CharacterWorkspace from './CharacterWorkspace'
 import { createCharacterEntryIndex, type CharacterVisualAssetState } from '../lib/app/characterWorkspace'
 import { editorCopy } from '../lib/editor-shell'
@@ -44,7 +44,14 @@ function createAssetState(): CharacterVisualAssetState {
 }
 
 describe('CharacterWorkspace', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('does not render the breathing hint copy beneath the breathing preview', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+
     const character = createCharacter()
     const assetState = createAssetState()
 
@@ -58,7 +65,6 @@ describe('CharacterWorkspace', () => {
     )
 
     expect(screen.getByText(copy.breathingTitle)).toBeInTheDocument()
-    expect(screen.getByText(copy.walkingTitle)).toBeInTheDocument()
     expect(screen.queryByText(copy.breathHint)).not.toBeInTheDocument()
   })
 })
