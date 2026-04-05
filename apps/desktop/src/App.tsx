@@ -68,7 +68,7 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
-  const [locale, setLocale] = useState<LocaleCode>(() =>
+  const [locale] = useState<LocaleCode>(() =>
     typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
   )
   const [accentPresetId, setAccentPresetId] = useState<string>(() => {
