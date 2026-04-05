@@ -1,11 +1,17 @@
 import { Maximize2, Palette, Settings2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cx } from '../lib/cx'
+import type { LocaleCode } from '../lib/editor-shell'
 
 type AccentOption = {
   id: string
   label: string
   color: string
+}
+
+type LocaleOption = {
+  id: LocaleCode
+  label: string
 }
 
 type SettingsWindowProps = {
@@ -26,6 +32,10 @@ type SettingsWindowProps = {
   accentLabel: string
   resetAccentLabel: string
   accentDescription: string
+  languageLabel: string
+  languageDescription: string
+  localeOptions: LocaleOption[]
+  activeLocale: LocaleCode
   windowModeLabel: string
   borderlessFullscreenLabel: string
   borderlessFullscreenDescription: string
@@ -38,6 +48,7 @@ type SettingsWindowProps = {
   activeAccentId: string
   onSelectAccent: (id: string) => void
   onResetAccent: () => void
+  onSelectLocale: (locale: LocaleCode) => void
   onToggleBorderlessFullscreen: () => void
   onClose: () => void
 }
@@ -50,6 +61,10 @@ export default function SettingsWindow({
   accentLabel,
   resetAccentLabel,
   accentDescription,
+  languageLabel,
+  languageDescription,
+  localeOptions,
+  activeLocale,
   windowModeLabel,
   borderlessFullscreenLabel,
   borderlessFullscreenDescription,
@@ -62,6 +77,7 @@ export default function SettingsWindow({
   activeAccentId,
   onSelectAccent,
   onResetAccent,
+  onSelectLocale,
   onToggleBorderlessFullscreen,
   onClose,
 }: SettingsWindowProps) {
@@ -153,6 +169,32 @@ export default function SettingsWindow({
                       </button>
                     )
                   })}
+                </div>
+
+                <div className="settings-window-language">
+                  <p className="settings-window-section-title">{languageLabel}</p>
+                  <p className="settings-window-section-copy">{languageDescription}</p>
+                  <div className="settings-locale-list">
+                    {localeOptions.map((option) => {
+                      const active = option.id === activeLocale
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={cx('settings-locale-option', active && 'settings-locale-option-active')}
+                          aria-pressed={active}
+                          onClick={() => {
+                            if (!active) {
+                              onSelectLocale(option.id)
+                            }
+                          }}
+                        >
+                          <span className="settings-locale-label">{option.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </section>
             ) : null}

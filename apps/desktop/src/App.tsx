@@ -68,7 +68,7 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
-  const [locale] = useState<LocaleCode>(() =>
+  const [locale, setLocale] = useState<LocaleCode>(() =>
     typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
   )
   const [accentPresetId, setAccentPresetId] = useState<string>(() => {
@@ -923,6 +923,13 @@ export default function App() {
             accentLabel={settingsMenuCopy.accentLabel}
             resetAccentLabel={settingsMenuCopy.resetAccentLabel}
             accentDescription={settingsMenuCopy.accentDescription}
+            languageLabel={settingsMenuCopy.languageLabel}
+            languageDescription={settingsMenuCopy.languageDescription}
+            localeOptions={[
+              { id: 'zh-CN', label: settingsMenuCopy.localeLabels['zh-CN'] },
+              { id: 'en-US', label: settingsMenuCopy.localeLabels['en-US'] },
+            ]}
+            activeLocale={locale}
             windowModeLabel={settingsMenuCopy.windowModeLabel}
             borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
             borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
@@ -935,6 +942,7 @@ export default function App() {
             activeAccentId={activeAccentPreset.id}
             onSelectAccent={setAccentPresetId}
             onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+            onSelectLocale={setLocale}
             onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
             onClose={() => setSettingsWindowOpen(false)}
           />

@@ -702,6 +702,12 @@
     "accentLabel": "Accent Color",
     "resetAccentLabel": "Reset Accent Color",
     "accentDescription": "Controls the viewport background, portal highlights, and accent-driven UI states.",
+    "languageLabel": "Language",
+    "languageDescription": "Choose how the editor labels and menus are displayed.",
+    "localeLabels": {
+      "zh-CN": "简体中文",
+      "en-US": "English"
+    },
     "windowModeLabel": "Window Mode",
     "borderlessFullscreenLabel": "Borderless Fullscreen",
     "borderlessFullscreenDescription": "Switch the undecorated desktop window into an immersive fullscreen workspace.",
