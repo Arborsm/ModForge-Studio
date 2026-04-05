@@ -1,4 +1,6 @@
-{
+﻿import type { LocaleBundle } from './schema'
+
+const localeBundle: LocaleBundle = {
   "editor": {
     "brand": {
       "name": "ModForge Studio",
@@ -70,6 +72,10 @@
       "rightClick": "右键菜单已启用",
       "selectTool": "选择",
       "panTool": "平移",
+      "previewGameWorldAdditions": "预览游戏初始化",
+      "hideGameWorldAdditions": "隐藏游戏初始化",
+      "showGrid": "显示网格",
+      "hideGrid": "隐藏网格",
       "moduleWorkspace": "模块工作区",
       "moduleCanvas": "主编辑面",
       "moduleInspector": "模块侧栏"
@@ -91,7 +97,10 @@
       "noHoveredObjects": "当前悬停位置没有命中对象。",
       "diagnosticsPrompt": "先验证游戏目录以填充诊断信息。",
       "layerTiles": "Tile",
-      "objectCount": "对象"
+      "objectCount": "对象",
+      "objectGroupSummary": (objectCount, interactionCount, pointCount) => `${objectCount} 个对象 / ${interactionCount} 个交互 / ${pointCount} 个点位`,
+      "objectGroupCollectionSummary": (groupCount, objectCount, interactionCount, pointCount) =>
+        `${groupCount} 组 / ${objectCount} 个对象 / ${interactionCount} 个交互 / ${pointCount} 个点位`
     },
     "statusBar": {
       "pathValid": "SDV 路径有效",
@@ -124,7 +133,7 @@
       "mapsPath": "地图目录",
       "visibleLayers": "可见图层",
       "visibleObjects": "可见对象",
-      "objectLabelTemplate": "对象 {id}"
+      "objectLabel": (id) => `对象 ${id}`
     },
     "messages": {
       "browserHostPrompt": "请在 Tauri 桌面宿主中运行，以访问本地 Stardew Valley 目录。",
@@ -145,10 +154,11 @@
       "resourcePreloadFailed": "资源预加载失败。",
       "onlyTmxSupported": "当前只支持 XNB 地图加载。",
       "directorySelectionFailed": "目录选择失败。",
-      "detectedKnownPathTemplate": "检测到目录: {path}",
-      "validatedDirectoryTemplate": "目录验证通过: {path}",
-      "loadedMapAssetsTemplate": "已加载 {count} 个 {FORMAT} 地图资产。",
-      "loadedMapAssetsWithActiveMapTemplate": "已加载 {count} 个 {FORMAT} 地图资产，当前打开 {mapName}。"
+      "detectedKnownPath": (path) => `检测到目录: ${path}`,
+      "validatedDirectory": (path) => `目录验证通过: ${path}`,
+      "loadedMapAssets": (count, format) => `已加载 ${count} 个 ${format.toUpperCase()} 地图资产。`,
+      "loadedMapAssetsWithActiveMap": (count, format, mapName) =>
+        `已加载 ${count} 个 ${format.toUpperCase()} 地图资产，当前打开 ${mapName}。`
     },
     "viewportLabels": {
       "loadPrompt": "加载 XNB 地图后，这里会变成可平移、可缩放、可右键的主视口。",
@@ -164,11 +174,11 @@
       "inspectHover": "查看悬停信息",
       "unavailable": "暂不可用",
       "tilesLabel": "格",
-      "tilesetsLoadedLabelTemplate": "Tileset {loaded}/{total}",
-      "layersVisibleLabelTemplate": "图层 {visible}/{total}",
-      "objectGroupsVisibleLabelTemplate": "对象组 {visible}/{total}",
-      "zoomLabelTemplate": "?? {percent}%",
-      "failedToLoadTilesetImageTemplate": "无法加载 Tileset 图像: {path}"
+      "tilesetsLoadedLabel": (loaded, total) => `Tileset ${loaded}/${total}`,
+      "layersVisibleLabel": (visible, total) => `图层 ${visible}/${total}`,
+      "objectGroupsVisibleLabel": (visible, total) => `对象组 ${visible}/${total}`,
+      "zoomLabel": (zoom) => `缩放 ${Math.round(zoom * 100)}%`,
+      "failedToLoadTilesetImage": (path) => `无法加载 Tileset 图像: ${path}`
     },
     "eventStage": {
       "empty": "请先选择事件文件。",
@@ -199,9 +209,9 @@
       "globalFadeToBlack": "全局淡出至黑色",
       "globalFadeCleared": "全局淡出已清除",
       "clear": "清除",
-      "cueLabelTemplate": "Cue: {cue}",
-      "stopCueLabelTemplate": "停止: {cue}",
-      "flashAlphaLabelTemplate": "透明度 {alpha}"
+      "cueLabel": (cue) => `Cue: ${cue}`,
+      "stopCueLabel": (cue) => `停止: ${cue}`,
+      "flashAlphaLabel": (alpha) => `透明度 ${alpha}`
     },
     "charactersPanel": {
       "browserTitle": "角色目录",
@@ -476,6 +486,7 @@
       "statsCookingLabel": "料理",
       "statsFishLabel": "鱼",
       "statsCropLabel": "作物",
+      "filtersTitle": "分类过滤",
       "workspaceTitle": "物品工作区",
       "workspaceSubtitle": "头图主卡、获取途径、用途合成与村民赠礼偏好",
       "workspaceEmpty": "选择一个物品后，在这里查看它的核心卡片、来源、用途与赠礼偏好。",
@@ -675,6 +686,88 @@
       "none": "暂无可用目录"
     }
   },
+  "mods": {
+    "workspaceLabel": "模组",
+    "workspaceSubtitle": "内建插件工作区",
+    "emptyStateTitle": "开始你的模组工作区",
+    "emptyStateSubtitle": "先扫描 Mods 目录或导入一个现有 Content Patcher 项目，然后再进入编辑。",
+    "browserTitle": "模组浏览器",
+    "browserSubtitle": "Mods 目录与手动导入",
+    "browserFilterPlaceholder": "按名称、作者、UniqueID 或路径筛选",
+    "browserEmpty": "当前没有可用的 Content Patcher 项目。",
+    "contentPatcherOnly": "仅 CP 模组",
+    "projectsLabel": "项目数",
+    "filteredLabel": "筛选后",
+    "unknownLabel": "未知",
+    "noVersionLabel": "无版本",
+    "importProject": "导入模组",
+    "refreshProjects": "刷新扫描",
+    "openFolder": "打开目录",
+    "saveProject": "保存",
+    "exportProject": "导出",
+    "manifestTitle": "Manifest",
+    "manifestSubtitle": "基础元数据与 Content Pack 绑定",
+    "patchesTitle": "Patches",
+    "patchesSubtitle": "Changes 列表与 Patch 摘要",
+    "patchWhenLabel": "When JSON",
+    "rawJsonTitle": "原始 JSON",
+    "rawJsonSubtitle": "可直接编辑 manifest.json 与 content.json",
+    "openPatchFlow": "打开 Patch 流程",
+    "inspectorTitle": "Patch 检查器",
+    "inspectorSubtitle": "当前选中 Patch 的结构化字段",
+    "diagnosticsTitle": "诊断与导出",
+    "diagnosticsSubtitle": "结构检查、保存状态与路径信息",
+    "diagnosticsFeedTitle": "诊断反馈",
+    "showDiagnostics": "显示诊断",
+    "hideDiagnostics": "隐藏诊断",
+    "targetDiagnosticsTitle": "目标诊断",
+    "targetDiagnosticsSubtitle": "所选结果资源的模拟诊断信息",
+    "exportResultTitle": "导出结果",
+    "exportResultSubtitle": "将模拟得到的目标输出写入磁盘",
+    "noProject": "选择一个 Content Patcher 项目后在这里编辑。",
+    "noPatch": "当前没有选中的 Patch。",
+    "nextStepsTitle": "下一步",
+    "quickPatchTitle": "快速 Patch 编辑",
+    "projectFacts": "项目事实",
+    "capabilities": "能力",
+    "futureScopes": "未来扩展",
+    "dirtyLabel": "未保存",
+    "cleanLabel": "已同步",
+    "sourcePath": "源目录",
+    "outputPath": "导出目录",
+    "patchAction": "Action",
+    "patchTarget": "Target",
+    "patchFromFile": "FromFile",
+    "patchLogName": "LogName",
+    "formatLabel": "Format",
+    "patchesCountLabel": "Patches",
+    "configKeysLabel": "Config 键",
+    "dynamicTokensLabel": "动态 Token",
+    "includesLabel": "Include",
+    "hasI18nLabel": "i18n",
+    "addPatch": "新增 Patch",
+    "removePatch": "删除 Patch",
+    "noTargetLabel": "无 Target",
+    "whenLabel": "When",
+    "alwaysLabel": "总是",
+    "noPatchesLabel": "还没有 Patch。",
+    "diagnosticsListTitle": "诊断",
+    "noDiagnosticsLabel": "暂无诊断信息。",
+    "manifestPathLabel": "Manifest",
+    "contentPathLabel": "Content",
+    "manifestName": "名称",
+    "manifestAuthor": "作者",
+    "manifestVersion": "版本",
+    "manifestUniqueId": "UniqueID",
+    "manifestDescription": "描述",
+    "manifestContentPackFor": "ContentPackFor",
+    "selectExportFolder": "选择导出目录",
+    "selectProjectFolder": "选择模组目录",
+    "importedFrom": (path) => `已导入: ${path}`,
+    "saveSuccess": (path) => `已保存到 ${path}`,
+    "exportSuccess": (path) => `已导出到 ${path}`,
+    "scanStatus": (count) => `已识别 ${count} 个模组项目。`
+  },
   "worldAtlasViews": {
     "main": "主世界",
     "remote": "远程区域"
@@ -684,10 +777,13 @@
     "resetLabel": "重置默认布局",
     "savePresetLabel": "保存当前布局",
     "panelsLabel": "窗口",
+    "panelVisibleLabel": "显示",
+    "panelHiddenLabel": "隐藏",
     "presetsLabel": "工作区预设",
     "emptyPresetsLabel": "还没有保存的预设",
     "presetNamePrompt": "输入预设名称",
-    "deletePresetConfirmTemplate": "删除预设“{name}”？"
+    "deletePresetLabel": "删除预设",
+    "deletePresetConfirm": (name) => `删除预设“${name}”？`
   },
   "settingsMenu": {
     "title": "设置",
@@ -721,4 +817,6 @@
     }
   }
 }
+
+export default localeBundle
 

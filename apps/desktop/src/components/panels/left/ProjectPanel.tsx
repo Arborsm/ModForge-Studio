@@ -1,9 +1,10 @@
-﻿import { getWorkspaceModeLabel } from '../../../lib/editor-shell'
+import { useEditorCopy } from '../../../lib/app/localeContext'
+import { getWorkspaceModeLabel } from '../../../lib/editor-shell'
 import { PanelFrame } from '../../ui/PanelFrame'
 import type { ProjectPanelProps } from './shared'
 
 export function ProjectPanel({
-  copy,
+  locale,
   workspaceMode,
   desktopHost,
   gameDirectory,
@@ -17,6 +18,7 @@ export function ProjectPanel({
   activeMapId,
   sceneLabel,
 }: ProjectPanelProps) {
+  const copy = useEditorCopy()
   const activeAssetName = sceneLabel ?? mapAssets.find((item) => item.id === activeMapId)?.name ?? copy.common.none
 
   return (
@@ -68,7 +70,7 @@ export function ProjectPanel({
           <div className="metric-card compact-metric-card">
             <span className="metric-label">{copy.leftDock.sceneFocus}</span>
             <strong className="metric-value">
-              {workspaceMode === 'map' ? activeAssetName : getWorkspaceModeLabel('en-US', copy, workspaceMode)}
+              {workspaceMode === 'map' ? activeAssetName : getWorkspaceModeLabel(locale, copy, workspaceMode)}
             </strong>
           </div>
         </div>
@@ -87,7 +89,3 @@ export function ProjectPanel({
     </PanelFrame>
   )
 }
-
-
-
-

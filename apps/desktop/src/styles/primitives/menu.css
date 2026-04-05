@@ -1,0 +1,27 @@
+@layer components {
+  .context-menu-content {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-elevated) 100%, transparent);
+    box-shadow: var(--shadow-float);
+    @apply z-50 min-w-[190px] rounded-xl p-1 backdrop-blur-xl;
+  }
+
+  .context-menu-item {
+    color: var(--text-primary);
+    @apply flex h-8 items-center rounded-lg px-3 text-xs outline-none transition-colors;
+  }
+
+  .context-menu-item[data-highlighted] {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .context-menu-item[data-disabled] {
+    color: var(--text-tertiary);
+    @apply cursor-not-allowed;
+  }
+
+  .context-menu-separator {
+    background: color-mix(in srgb, var(--border-color) 80%, transparent);
+    @apply my-1 h-px;
+  }
+}

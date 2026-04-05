@@ -1,9 +1,8 @@
 import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '../../lib/desktop'
-import type { ModWorkspaceCopy } from '../../lib/plugins/copy'
+import { useModWorkspaceCopy } from '../../lib/app/localeContext'
 import type { WorkspacePluginDefinition } from '../../lib/plugins/types'
 
 type ModDiagnosticsPanelProps = {
-  copy: ModWorkspaceCopy
   pluginDefinition: WorkspacePluginDefinition | null
   activeProject: ModProjectDetail | null
   diagnostics: ModProjectDiagnostic[]
@@ -63,7 +62,6 @@ function isSelectableDiagnosticField(field?: string | null) {
 }
 
 export function ModDiagnosticsPanel({
-  copy,
   pluginDefinition,
   activeProject,
   diagnostics,
@@ -73,6 +71,7 @@ export function ModDiagnosticsPanel({
   contentSummary,
   onSelectDiagnostic,
 }: ModDiagnosticsPanelProps) {
+  const copy = useModWorkspaceCopy()
   return (
     <div className="flex h-full flex-col gap-4 rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
       <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-4">

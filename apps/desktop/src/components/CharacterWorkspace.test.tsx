@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import CharacterWorkspace from './CharacterWorkspace'
 import { createCharacterEntryIndex, type CharacterVisualAssetState } from '../lib/app/characterWorkspace'
 import { editorCopy } from '../lib/editor-shell'
+import { renderWithLocale } from '../test/renderWithLocale'
 
 const copy = editorCopy['en-US'].charactersPanel
 
@@ -55,9 +56,8 @@ describe('CharacterWorkspace', () => {
     const character = createCharacter()
     const assetState = createAssetState()
 
-    render(
+    renderWithLocale(
       <CharacterWorkspace
-        copy={copy}
         character={character}
         activeVariant={character.variants[0] ?? null}
         assetState={assetState}

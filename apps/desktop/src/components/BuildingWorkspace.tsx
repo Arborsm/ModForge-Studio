@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Grid2x2 } from 'lucide-react'
 import { getSpringObjectsSourceRect } from '../lib/app/eventStageShared'
+import { useBuildingsCopy } from '../lib/app/localeContext'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../lib/app/buildingWorkspace'
 import type { LocaleCode, ThemeMode, ViewportLabels, BuildingsPanelCopy } from '../lib/editor-shell'
 import type { MapDocument } from '../lib/maps/types'
@@ -9,7 +10,6 @@ import { MapViewport, type MapViewportHandle, type ViewportWorldPoint } from './
 
 type BuildingWorkspaceProps = {
   locale: LocaleCode
-  copy: BuildingsPanelCopy
   viewportLabels: ViewportLabels
   theme: ThemeMode
   accentColor: string
@@ -153,18 +153,17 @@ function MaterialChip({
 }
 
 function StageCard({
-  copy,
   stage,
   textureState,
   isActive,
   onSelect,
 }: {
-  copy: BuildingsPanelCopy
   stage: BuildingWorkspaceEntry
   textureState: BuildingTextureAssetState | null
   isActive: boolean
   onSelect: () => void
 }) {
+  const copy = useBuildingsCopy()
   const sourceRect = getResolvedSourceRect(stage, textureState)
   const previewScale =
     sourceRect && sourceRect.Width > 0 && sourceRect.Height > 0
@@ -222,12 +221,11 @@ function StageCard({
 }
 
 function WorldEntranceCard({
-  copy,
   entrance,
 }: {
-  copy: BuildingsPanelCopy
   entrance: WorldBuildingEntrance
 }) {
+  const copy = useBuildingsCopy()
   return (
     <div className="panel-list-card px-3 py-2">
       <div className="flex items-start justify-between gap-3">
@@ -247,7 +245,6 @@ function WorldEntranceCard({
 
 export default function BuildingWorkspace({
   locale,
-  copy,
   viewportLabels,
   theme,
   accentColor,
@@ -265,11 +262,12 @@ export default function BuildingWorkspace({
   springObjectsState,
   onSelectBuildingStage,
 }: BuildingWorkspaceProps) {
+  const copy = useBuildingsCopy()
   const [showGrid, setShowGrid] = useState(true)
 
   if (!building) {
     return (
-      <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
+      <div className="panel-surface panel-surface-flat h-full">
         <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
           {copy.inspectorEmpty}
         </div>
@@ -281,7 +279,6 @@ export default function BuildingWorkspace({
     <BuildingWorkspaceContent
       key={building.key}
       locale={locale}
-      copy={copy}
       viewportLabels={viewportLabels}
       theme={theme}
       accentColor={accentColor}
@@ -312,7 +309,6 @@ type BuildingWorkspaceContentProps = Omit<BuildingWorkspaceProps, 'building'> & 
 
 function BuildingWorkspaceContent({
   locale,
-  copy,
   viewportLabels,
   theme,
   accentColor,
@@ -332,6 +328,7 @@ function BuildingWorkspaceContent({
   showGrid,
   onToggleGrid,
 }: BuildingWorkspaceContentProps) {
+  const copy = useBuildingsCopy()
   const [zoomLevel, setZoomLevel] = useState(1)
   const viewportRef = useRef<MapViewportHandle | null>(null)
   const zoomLabel = viewportLabels.zoomLabel(zoomLevel)
@@ -354,7 +351,7 @@ function BuildingWorkspaceContent({
       : 1
 
   return (
-    <div className="panel-surface h-full border-[var(--border-color)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_96%,transparent),var(--bg-panel))]">
+    <div className="panel-surface h-full">
       <div className="panel-header">
         <div>
           <p className="panel-title">{copy.workspaceTitle}</p>
@@ -375,7 +372,7 @@ function BuildingWorkspaceContent({
 
       <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
         <section className="grid min-h-0 gap-3">
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+          <div className="panel-surface panel-surface-muted min-h-0">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{isConstructible ? copy.bodyTitle : copy.exteriorTitle}</p>
@@ -488,7 +485,7 @@ function BuildingWorkspaceContent({
           </div>
 
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-            <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+            <div className="panel-surface panel-surface-muted min-h-0">
               <div className="panel-header">
                 <div>
                   <p className="panel-title">{isConstructible ? copy.materialsTitle : copy.worldEntrancesTitle}</p>
@@ -517,9 +514,9 @@ function BuildingWorkspaceContent({
                     </div>
                   )
                 ) : building.worldEntrances.length ? (
-                  <div className="space-y-2">
-                    {building.worldEntrances.map((entrance, index) => (
-                      <WorldEntranceCard key={`${building.key}:${index}`} copy={copy} entrance={entrance} />
+                    <div className="space-y-2">
+                      {building.worldEntrances.map((entrance, index) => (
+                      <WorldEntranceCard key={`${building.key}:${index}`} entrance={entrance} />
                     ))}
                   </div>
                 ) : (
@@ -530,7 +527,7 @@ function BuildingWorkspaceContent({
               </div>
             </div>
 
-            <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+            <div className="panel-surface panel-surface-muted min-h-0">
               <div className="panel-header">
                 <div>
                   <p className="panel-title">{isConstructible ? copy.skinsTitle : copy.exteriorDataTitle}</p>
@@ -578,7 +575,7 @@ function BuildingWorkspaceContent({
           </div>
 
           {isConstructible ? (
-            <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+            <div className="panel-surface panel-surface-muted min-h-0">
               <div className="panel-header">
                 <div>
                   <p className="panel-title">{copy.upgradeTitle}</p>
@@ -590,7 +587,6 @@ function BuildingWorkspaceContent({
                   {upgradeChain.map((stage) => (
                     <StageCard
                       key={stage.key}
-                      copy={copy}
                       stage={stage}
                       textureState={chainTextureStates[stage.key] ?? null}
                       isActive={stage.key === building.key}
@@ -603,7 +599,7 @@ function BuildingWorkspaceContent({
           ) : null}
         </section>
 
-        <aside className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+        <aside className="panel-surface panel-surface-muted min-h-0">
           <div className="panel-header">
             <div>
               <p className="panel-title">{copy.interiorTitle}</p>

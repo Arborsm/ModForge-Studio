@@ -1,0 +1,51 @@
+@layer components {
+  .dock-chip {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
+    color: var(--text-secondary);
+    @apply inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold;
+  }
+
+  .status-pill-compact {
+    padding: 2px 8px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .status-pill-idle {
+    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
+    color: var(--text-secondary);
+  }
+
+  .status-pill-working {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .status-pill-ready {
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: var(--success);
+  }
+
+  .status-pill-error {
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    color: var(--danger);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status-pill,
+    .status-pill-compact {
+      transition: none;
+    }
+  }
+}

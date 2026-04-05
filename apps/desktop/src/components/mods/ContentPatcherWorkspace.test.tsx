@@ -1,8 +1,9 @@
 import type { ComponentProps } from 'react'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getModWorkspaceCopy } from '../../lib/plugins/copy'
+import { getModWorkspaceCopy } from '../../lib/editor-shell'
 import type { WorkspacePluginCapability } from '../../lib/plugins/types'
+import { renderWithLocale } from '../../test/renderWithLocale'
 import { ContentPatcherWorkspace } from './ContentPatcherWorkspace'
 
 const copy = getModWorkspaceCopy('en-US')
@@ -13,7 +14,6 @@ afterEach(() => {
 
 function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
   return {
-    copy,
     pluginDefinition: {
       id: 'content-patcher' as const,
       pluginKind: 'content-patcher' as const,
@@ -172,12 +172,13 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
 describe('ContentPatcherWorkspace', () => {
   it('shows an empty state when no project detail is available', () => {
     const props = buildProps()
-    render(<ContentPatcherWorkspace {...props} projectDetail={null} />)
+    renderWithLocale(<ContentPatcherWorkspace {...props} projectDetail={null} />)
     expect(screen.getByText(copy.noProject)).toBeTruthy()
   })
 
   it('renders debugger layout and removes old canvas UI', async () => {
-    const { container } = render(<ContentPatcherWorkspace {...buildProps()} />)
+    const { container } = renderWithLocale(<ContentPatcherWorkspace {...buildProps()} />)
+    const workspaceShell = container.querySelector('.cp-debugger-shell')
 
     expect(screen.queryByText('Patches')).toBeNull()
     expect(screen.queryByText('Targets')).toBeNull()
@@ -185,11 +186,15 @@ describe('ContentPatcherWorkspace', () => {
     expect(screen.queryByText('Node Inspector')).toBeNull()
     expect(screen.queryByText('content.json Preview')).toBeNull()
     expect(screen.queryByText('Raw Patch JSON')).toBeNull()
-    expect(container.querySelector('.cp-debugger-shell')?.className).toContain('h-full')
+    expect(workspaceShell).toBeTruthy()
+    expect(workspaceShell?.className).toContain('h-full')
+    expect(workspaceShell?.querySelector('.cp-debugger-header')).toBeTruthy()
+    expect(workspaceShell?.querySelector('.cp-debugger-body')).toBeTruthy()
 
     await waitFor(() => {
       expect(screen.getByText('Target: Data/Objects')).toBeTruthy()
     })
+    expect(workspaceShell?.querySelector('.cp-debugger-preview')).toBeTruthy()
     expect(screen.queryByText('Simulation Context')).toBeNull()
   })
 
@@ -223,7 +228,7 @@ describe('ContentPatcherWorkspace', () => {
       ],
     }
 
-    render(<ContentPatcherWorkspace {...props} />)
+    renderWithLocale(<ContentPatcherWorkspace {...props} />)
 
     expect(screen.queryByText('JSON Targets')).toBeNull()
     expect(screen.queryByText('Image Targets')).toBeNull()
@@ -262,7 +267,7 @@ describe('ContentPatcherWorkspace', () => {
       exportable: true,
     }
 
-    render(<ContentPatcherWorkspace {...props} />)
+    renderWithLocale(<ContentPatcherWorkspace {...props} />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Simulation Context' }))
     const input = await screen.findByLabelText('Config Variant')
@@ -277,7 +282,7 @@ describe('ContentPatcherWorkspace', () => {
   })
 
   it('keeps simulation controls in the center workspace and removes the old right rail', async () => {
-    const { container } = render(<ContentPatcherWorkspace {...buildProps()} />)
+    const { container } = renderWithLocale(<ContentPatcherWorkspace {...buildProps()} />)
 
     await waitFor(() => {
       expect(container.querySelector('.cp-debugger-preview')).toBeTruthy()
@@ -287,7 +292,7 @@ describe('ContentPatcherWorkspace', () => {
   })
 
   it('renders a dedicated scroll wrapper for the navigator list', async () => {
-    const { container } = render(<ContentPatcherWorkspace {...buildProps()} />)
+    const { container } = renderWithLocale(<ContentPatcherWorkspace {...buildProps()} />)
 
     await waitFor(() => {
       expect(container.querySelector('.cp-debugger-nav')).toBeNull()

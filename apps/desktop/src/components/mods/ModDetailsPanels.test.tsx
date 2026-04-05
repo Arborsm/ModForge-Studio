@@ -1,9 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getModWorkspaceCopy } from '../../lib/plugins/copy'
+import { renderWithLocale } from '../../test/renderWithLocale'
 import { ModDiagnosticsPanel } from './ModDiagnosticsPanel'
-
-const copy = getModWorkspaceCopy('en-US')
 
 afterEach(() => {
   cleanup()
@@ -11,9 +9,8 @@ afterEach(() => {
 
 describe('ModDiagnosticsPanel', () => {
   it('shows a concise status summary and actionable diagnostics', () => {
-    render(
+    renderWithLocale(
       <ModDiagnosticsPanel
-        copy={copy}
         pluginDefinition={{
           id: 'content-patcher',
           pluginKind: 'content-patcher',
@@ -75,9 +72,8 @@ describe('ModDiagnosticsPanel', () => {
   it('renders selectable manifest diagnostics as buttons', () => {
     const onSelectDiagnostic = vi.fn()
 
-    render(
+    renderWithLocale(
       <ModDiagnosticsPanel
-        copy={copy}
         pluginDefinition={null}
         activeProject={null}
         diagnostics={[

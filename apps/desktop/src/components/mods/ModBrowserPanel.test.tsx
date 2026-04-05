@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ModBrowserPanel } from './ModBrowserPanel'
-import { getModWorkspaceCopy } from '../../lib/plugins/copy'
+import { getModWorkspaceCopy } from '../../lib/editor-shell'
+import { renderWithLocale } from '../../test/renderWithLocale'
 
 const copy = getModWorkspaceCopy('en-US')
 
@@ -36,9 +37,8 @@ describe('ModBrowserPanel', () => {
     const onRefreshProjects = vi.fn()
     const projects = [buildProject(), buildProject({ id: 'festival-pack', name: 'Festival Pack', absolutePath: 'E:\\Mods\\FestivalPack' })]
 
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={projects}
         filteredProjects={projects}
         activeProjectPath={projects[0].absolutePath}
@@ -71,9 +71,8 @@ describe('ModBrowserPanel', () => {
   it('shows a default-enabled CP-only toggle and notifies when it changes', () => {
     const onContentPatcherOnlyChange = vi.fn()
 
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={[buildProject()]}
         filteredProjects={[buildProject()]}
         activeProjectPath={null}
@@ -95,9 +94,8 @@ describe('ModBrowserPanel', () => {
   })
 
   it('uses the shared light browser shell and card treatment', () => {
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={[buildProject()]}
         filteredProjects={[buildProject()]}
         activeProjectPath={null}
@@ -126,9 +124,8 @@ describe('ModBrowserPanel', () => {
     const activeProject = buildProject()
     const inactiveProject = buildProject({ id: 'festival-pack', name: 'Festival Pack', absolutePath: 'E:\\Mods\\FestivalPack' })
 
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={[activeProject, inactiveProject]}
         filteredProjects={[activeProject, inactiveProject]}
         activeProjectPath={activeProject.absolutePath}
@@ -158,9 +155,8 @@ describe('ModBrowserPanel', () => {
   })
 
   it('shows a guided empty state when there are no projects', () => {
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={[]}
         filteredProjects={[]}
         activeProjectPath={null}
@@ -181,9 +177,8 @@ describe('ModBrowserPanel', () => {
   })
 
   it('uses a higher-contrast badge treatment for non-CP projects', () => {
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={[buildProject({ id: 'archive-helper', name: 'Archive Helper', pluginKind: 'unknown', status: 'unsupported' })]}
         filteredProjects={[buildProject({ id: 'archive-helper', name: 'Archive Helper', pluginKind: 'unknown', status: 'unsupported' })]}
         activeProjectPath={null}
@@ -205,9 +200,8 @@ describe('ModBrowserPanel', () => {
   })
 
   it('uses a higher-contrast badge treatment for CP projects on light cards', () => {
-    render(
+    renderWithLocale(
       <ModBrowserPanel
-        copy={copy}
         projects={[buildProject()]}
         filteredProjects={[buildProject()]}
         activeProjectPath={null}

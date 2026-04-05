@@ -1,14 +1,16 @@
 import { Activity } from 'lucide-react'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import { PanelFrame } from '../../ui/PanelFrame'
 import type { DiagnosticsPanelProps } from './shared'
 
 export function DiagnosticsPanel({
-  copy,
   directoryInfo,
   visibleLayerIds,
   visibleObjectGroupIds,
   workspaceStatus,
 }: DiagnosticsPanelProps) {
+  const copy = useEditorCopy()
+
   return (
     <PanelFrame
       hideHeader

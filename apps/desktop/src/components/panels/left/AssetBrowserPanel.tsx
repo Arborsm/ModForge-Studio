@@ -1,12 +1,12 @@
 import { ChevronDown, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { BrowserSourceSwitch } from '../../ui/BrowserSourceSwitch'
 import { formatBytes, getAssetGroupLabel, type AssetBrowserPanelProps } from './shared'
 
 export function AssetBrowserPanel({
-  copy,
   mapAssets,
   filteredAssets,
   browserSourceMode,
@@ -17,6 +17,7 @@ export function AssetBrowserPanel({
   onAssetFilterChange,
   onOpenAsset,
 }: AssetBrowserPanelProps) {
+  const copy = useEditorCopy()
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const groupedAssets = useMemo(() => {
     const groups = new Map<string, typeof filteredAssets>()

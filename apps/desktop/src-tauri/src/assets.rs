@@ -2,6 +2,7 @@ use base64::Engine;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -184,6 +185,14 @@ fn file_modified_time_ms(metadata: &fs::Metadata) -> Result<u128, String> {
     Ok(duration.as_millis())
 }
 
+fn encode_hex(bytes: &[u8]) -> String {
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}").expect("write hex to string");
+    }
+    encoded
+}
+
 fn cache_file_path(kind: &str, source_path: &Path, locale: Option<&str>) -> PathBuf {
     let normalized_source_path = normalize_path(source_path);
     let locale_key = cache_locale_key(locale);
@@ -193,7 +202,7 @@ fn cache_file_path(kind: &str, source_path: &Path, locale: Option<&str>) -> Path
     digest.update(normalized_source_path.as_bytes());
     digest.update(b"\0");
     digest.update(locale_key.as_bytes());
-    let hash = format!("{:x}", digest.finalize());
+    let hash = encode_hex(&digest.finalize());
     cache_root_dir()
         .join(format!("assets-v{FILE_CACHE_VERSION}"))
         .join(kind)
@@ -890,7 +899,10 @@ pub fn load_audio_data_url(path: String) -> Result<String, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{localized_variant_path, logicalized_asset_path, preferred_existing_xnb_path, split_localized_stem};
+    use super::{
+        cache_file_path, encode_hex, localized_variant_path, logicalized_asset_path, preferred_existing_xnb_path,
+        split_localized_stem,
+    };
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -936,5 +948,23 @@ mod tests {
         assert_eq!(resolved, localized);
 
         fs::remove_dir_all(root).expect("cleanup test directory");
+    }
+
+    #[test]
+    fn encodes_bytes_as_lower_hex() {
+        assert_eq!(encode_hex(&[0x00, 0x0f, 0xa4, 0xff]), "000fa4ff");
+    }
+
+    #[test]
+    fn cache_file_path_uses_lower_hex_sha256_file_names() {
+        let cache_path = cache_file_path("image", Path::new(r"C:\Game\Content\Maps\Town.xnb"), Some("zh-CN"));
+        let file_name = cache_path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .expect("cache file name");
+        let hash = file_name.strip_suffix(".json").expect("json cache file");
+
+        assert_eq!(hash.len(), 64);
+        assert!(hash.chars().all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()));
     }
 }

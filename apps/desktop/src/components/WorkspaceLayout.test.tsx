@@ -8,9 +8,9 @@ import { WorkspaceLayout, type WorkspacePanelConfig } from './WorkspaceLayout'
 import { STORAGE_VERSION } from './workspace/layoutConstants'
 import { buildDefaultSnapshot } from './workspace/layoutState'
 
-const stylesPath = existsSync(resolve(process.cwd(), 'src/styles/globals.css'))
-  ? resolve(process.cwd(), 'src/styles/globals.css')
-  : resolve(process.cwd(), 'apps/desktop/src/styles/globals.css')
+const stylesPath = existsSync(resolve(process.cwd(), 'src/styles/workspace/layout.css'))
+  ? resolve(process.cwd(), 'src/styles/workspace/layout.css')
+  : resolve(process.cwd(), 'apps/desktop/src/styles/workspace/layout.css')
 
 const styles = readFileSync(stylesPath, 'utf8')
 
@@ -117,10 +117,14 @@ describe('WorkspaceLayout floating panel chrome', () => {
     const grip = title.closest('header')?.querySelector('.workspace-panel-grip') as HTMLElement | null
     const headerMain = title.closest('.workspace-panel-header-main') as HTMLElement | null
 
+    expect(grip?.className).toContain('workspace-panel-grip')
     expect(grip?.className).toContain('cursor-grab')
     expect(grip?.className).toContain('active:cursor-grabbing')
     expect(headerMain?.className).not.toContain('cursor-grab')
+    expect(headerMain?.className).not.toContain('active:cursor-grabbing')
     expect(title.className).not.toContain('cursor-grab')
+    expect(title.className).not.toContain('active:cursor-grabbing')
     expect(subtitle.className).not.toContain('cursor-grab')
+    expect(subtitle.className).not.toContain('active:cursor-grabbing')
   })
 })

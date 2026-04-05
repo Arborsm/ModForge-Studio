@@ -1,17 +1,16 @@
-import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
+import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import type { BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState } from '../../ui/PanelSection'
 
 type BuildingStagesPanelProps = {
-  copy: BuildingsPanelCopy
   building: BuildingWorkspaceEntry | null
   upgradeChain: BuildingWorkspaceEntry[]
   onSelectStage: (buildingKey: string) => void
 }
 
-function getStageBadge(copy: BuildingsPanelCopy, stage: BuildingWorkspaceEntry, currentKey: string | null) {
+function getStageBadge(copy: ReturnType<typeof useBuildingsCopy>, stage: BuildingWorkspaceEntry, currentKey: string | null) {
   if (stage.key === currentKey) {
     return copy.currentBadge
   }
@@ -28,11 +27,12 @@ function getStageBadge(copy: BuildingsPanelCopy, stage: BuildingWorkspaceEntry, 
 }
 
 export function BuildingStagesPanel({
-  copy,
   building,
   upgradeChain,
   onSelectStage,
 }: BuildingStagesPanelProps) {
+  const copy = useBuildingsCopy()
+
   return (
     <PanelFrame title={copy.stagesPanelTitle} subtitle={copy.stagesPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 overflow-auto p-3">

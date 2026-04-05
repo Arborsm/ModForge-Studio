@@ -1,14 +1,11 @@
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import type { ModSourceEntry } from '../../../lib/app/modAssetIndex'
-import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
+import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 import { ModSourceList } from '../../ui/ModSourceList'
 
 type BuildingInspectorPanelProps = {
-  copy: BuildingsPanelCopy
-  yesLabel: string
-  noLabel: string
   building: BuildingWorkspaceEntry | null
   textureState: BuildingTextureAssetState | null
   activeIndoorMapPath: string | null
@@ -34,15 +31,15 @@ function formatRect(value: { X: number; Y: number; Width: number; Height: number
 }
 
 export function BuildingInspectorPanel({
-  copy,
-  yesLabel,
-  noLabel,
   building,
   textureState,
   activeIndoorMapPath,
   activeExteriorMapPath,
   modSources = [],
 }: BuildingInspectorPanelProps) {
+  const copy = useBuildingsCopy()
+  const { yesLabel, noLabel } = copy
+
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

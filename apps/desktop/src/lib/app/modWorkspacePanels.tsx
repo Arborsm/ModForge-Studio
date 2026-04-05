@@ -14,7 +14,7 @@ import type {
   SaveModProjectResult,
 } from '../desktop'
 import type { ContentPatcherBackendSimulationContext } from '../plugins/contentPatcher'
-import type { ModWorkspaceCopy } from '../plugins/copy'
+import type { ModWorkspaceCopy } from '../editor-shell'
 import type { WorkspacePluginDefinition } from '../plugins/types'
 
 type BuildModWorkspacePanelsOptions = {
@@ -160,7 +160,6 @@ export function buildModWorkspacePanels({
       defaultDockHeight: 760,
       content: (
         <ModBrowserPanel
-          copy={modCopy}
           projects={modProjects}
           filteredProjects={filteredModProjects}
           activeProjectPath={activeProjectPath}
@@ -209,7 +208,6 @@ export function buildModWorkspacePanels({
       defaultDockHeight: 760,
       content: (
         <ContentPatcherWorkspace
-          copy={modCopy}
           pluginDefinition={modPluginDefinition}
           projectDetail={activeModProjectDetail}
           diagnostics={modDiagnostics}
@@ -256,8 +254,8 @@ export function buildModWorkspacePanels({
     },
     {
       id: 'mods-target-diagnostics',
-      title: 'Target Diagnostics',
-      subtitle: 'Simulation diagnostics for the selected result asset',
+      title: modCopy.targetDiagnosticsTitle,
+      subtitle: modCopy.targetDiagnosticsSubtitle,
       minWidth: 300,
       minHeight: 220,
       dockMinHeight: 180,
@@ -267,8 +265,8 @@ export function buildModWorkspacePanels({
     },
     {
       id: 'mods-export',
-      title: 'Export Result',
-      subtitle: 'Write the simulated target output to disk',
+      title: modCopy.exportResultTitle,
+      subtitle: modCopy.exportResultSubtitle,
       minWidth: 300,
       minHeight: 200,
       dockMinHeight: 160,
@@ -276,7 +274,6 @@ export function buildModWorkspacePanels({
       defaultDockHeight: 220,
       content: (
         <ContentPatcherExportPanel
-          copy={modCopy}
           projectPath={activeModProjectDetail?.summary.absolutePath ?? null}
           gameRootPath={gameRootPath}
           snapshot={contentPatcherSnapshot}

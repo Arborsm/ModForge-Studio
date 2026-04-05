@@ -1,10 +1,9 @@
-import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
+import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import type { BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type BuildingDetailsPanelProps = {
-  copy: BuildingsPanelCopy
   building: BuildingWorkspaceEntry | null
 }
 
@@ -30,7 +29,9 @@ function formatPoint(value: { X: number; Y: number } | null, fallback: string) {
   return value ? `${value.X}, ${value.Y}` : fallback
 }
 
-export function BuildingDetailsPanel({ copy, building }: BuildingDetailsPanelProps) {
+export function BuildingDetailsPanel({ building }: BuildingDetailsPanelProps) {
+  const copy = useBuildingsCopy()
+
   return (
     <PanelFrame title={copy.detailsTitle} subtitle={copy.detailsSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 overflow-auto p-3">

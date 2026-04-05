@@ -16,11 +16,11 @@ import {
   type CharacterWorkspaceEntry,
 } from '../lib/app/characterWorkspace'
 import type { CharactersPanelCopy } from '../lib/editor-shell'
+import { useCharactersCopy } from '../lib/app/localeContext'
 import { cx } from '../lib/cx'
 import { ItemGroupPopover } from './ItemGroupPopover'
 
 type CharacterWorkspaceProps = {
-  copy: CharactersPanelCopy
   character: CharacterWorkspaceEntry | null
   activeVariant: CharacterAppearanceVariant | null
   assetState: CharacterVisualAssetState
@@ -433,7 +433,6 @@ function WalkCyclePreviewTile({
 const MemoizedWalkCyclePreviewTile = memo(WalkCyclePreviewTile)
 
 const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
-  copy,
   character,
   activeVariant,
   assetState,
@@ -441,7 +440,6 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
   frameHeight,
   spriteColumns,
 }: {
-  copy: CharactersPanelCopy
   character: CharacterWorkspaceEntry
   activeVariant: CharacterAppearanceVariant | null
   assetState: CharacterVisualAssetState
@@ -449,6 +447,7 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
   frameHeight: number
   spriteColumns: number
 }) {
+  const copy = useCharactersCopy()
   const spriteUrl = assetState.spriteUrl
   const spriteSheetWidth = assetState.spriteSheetWidth
   const spriteSheetHeight = assetState.spriteSheetHeight
@@ -599,8 +598,6 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
 function GiftTasteSection({
   title,
   groups,
-  copy,
-  emptyLabel,
   springObjectsUrl,
   springObjectsSheetWidth,
   springObjectsSheetHeight,
@@ -608,13 +605,12 @@ function GiftTasteSection({
 }: {
   title: string
   groups: CharacterGiftGroup[]
-  copy: CharactersPanelCopy
-  emptyLabel: string
   springObjectsUrl: string | null
   springObjectsSheetWidth: number | null
   springObjectsSheetHeight: number | null
   tone: GiftTone
 }) {
+  const copy = useCharactersCopy()
   const toneStyle = GIFT_TONE_STYLES[tone]
 
   return (
@@ -637,7 +633,6 @@ function GiftTasteSection({
                 return (
                   <GiftGroupCard
                     key={`${title}:${group.key}`}
-                    copy={copy}
                     group={group}
                     isActive={false}
                     springObjectsUrl={springObjectsUrl}
@@ -652,7 +647,6 @@ function GiftTasteSection({
                   key={`${title}:${group.key}`}
                   groupIcon={(isOpen) => (
                     <GiftGroupCard
-                      copy={copy}
                       group={group}
                       isActive={isOpen}
                       springObjectsUrl={springObjectsUrl}
@@ -678,7 +672,7 @@ function GiftTasteSection({
         </>
       ) : (
         <div className="panel-empty-state mt-3 text-xs leading-5">
-          {emptyLabel}
+          {copy.giftTastesEmpty}
         </div>
       )}
     </div>
@@ -842,20 +836,19 @@ function GiftItemTile({
 }
 
 function GiftGroupCard({
-  copy,
   group,
   isActive,
   springObjectsUrl,
   springObjectsSheetWidth,
   springObjectsSheetHeight,
 }: {
-  copy: CharactersPanelCopy
   group: CharacterGiftGroup
   isActive: boolean
   springObjectsUrl: string
   springObjectsSheetWidth: number
   springObjectsSheetHeight: number
 }) {
+  const copy = useCharactersCopy()
   const kindStyle = GIFT_GROUP_KIND_STYLES[group.kind]
   const previewItem = group.items[0] ?? null
   const previewRect = previewItem?.objectIndex != null ? getSpringObjectsSourceRect(previewItem.objectIndex) : null
@@ -925,11 +918,11 @@ function GiftGroupCard({
 }
 
 export default function CharacterWorkspace({
-  copy,
   character,
   activeVariant,
   assetState,
 }: CharacterWorkspaceProps) {
+  const copy = useCharactersCopy()
   const frameWidth = character?.spriteWidth ?? 16
   const frameHeight = character ? Math.max(character.spriteHeight, getActorSpriteFrameHeight(character.internalName)) : 32
   const spriteColumns =
@@ -940,7 +933,7 @@ export default function CharacterWorkspace({
 
   if (!character) {
     return (
-      <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
+      <div className="panel-surface panel-surface-flat h-full">
         <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
           {copy.inspectorEmpty}
         </div>
@@ -965,7 +958,7 @@ export default function CharacterWorkspace({
     { title: copy.hatedItemsTitle, groups: character.hatedGiftGroups, tone: 'hate' },
   ]
   return (
-    <div className="panel-surface h-full border-[var(--border-color)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_96%,transparent),var(--bg-panel))]">
+    <div className="panel-surface h-full">
       <style>{`
         @keyframes gift-bubble-pop {
           0% {
@@ -1033,7 +1026,7 @@ export default function CharacterWorkspace({
 
       <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)]">
         <section className="grid min-h-0 gap-3">
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+          <div className="panel-surface panel-surface-muted min-h-0">
             <div className="grid min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)]">
               <div className="flex min-h-0 flex-col gap-3">
                 <div className="flex items-start justify-between gap-3">
@@ -1045,7 +1038,6 @@ export default function CharacterWorkspace({
                 </div>
                 <div className="flex-1">
                   <BreathingPreviewCanvas
-                    copy={copy}
                     character={character}
                     activeVariant={activeVariant}
                     assetState={assetState}
@@ -1087,7 +1079,7 @@ export default function CharacterWorkspace({
             </div>
           </div>
 
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+          <div className="panel-surface panel-surface-muted min-h-0">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{copy.giftTastesTitle}</p>
@@ -1101,8 +1093,6 @@ export default function CharacterWorkspace({
                     key={section.tone}
                     title={section.title}
                     groups={section.groups}
-                    copy={copy}
-                    emptyLabel={copy.giftTastesEmpty}
                     springObjectsUrl={springObjectsUrl}
                     springObjectsSheetWidth={springObjectsSheetWidth}
                     springObjectsSheetHeight={springObjectsSheetHeight}
@@ -1114,7 +1104,7 @@ export default function CharacterWorkspace({
           </div>
         </section>
 
-        <aside className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+        <aside className="panel-surface panel-surface-muted min-h-0">
           <div className="panel-header">
             <div>
               <p className="panel-title">{copy.portraitTitle}</p>

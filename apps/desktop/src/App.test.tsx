@@ -4,6 +4,10 @@ import App from './App'
 import { editorCopy, getSettingsMenuCopy } from './lib/editor-shell'
 
 const LOCALE_STORAGE_KEY = 'modforge:locale'
+const mapWorkspaceState = {
+  workspaceStatus: { tone: 'ready', message: '' },
+  resourcePreloadState: { active: false, message: '', currentLabel: null as string | null, completed: 0, total: 0 },
+}
 
 vi.mock('./components/DevDebugOverlay', () => ({
   DevDebugOverlay: () => null,
@@ -45,8 +49,8 @@ vi.mock('./lib/app/workspacePanels', () => ({
 
 vi.mock('./lib/app/useMapWorkspace', () => ({
   useMapWorkspace: () => ({
-    workspaceStatus: { tone: 'ready', message: '' },
-    resourcePreloadState: { active: false, message: '', currentLabel: null, completed: 0, total: 0 },
+    workspaceStatus: mapWorkspaceState.workspaceStatus,
+    resourcePreloadState: mapWorkspaceState.resourcePreloadState,
     gameDirectory: '',
     setGameDirectory: vi.fn(),
     directoryInfo: { rootPath: 'C:/StardewValley' },
@@ -103,6 +107,8 @@ vi.mock('./lib/app/useModWorkspace', () => ({
 describe('App locale ownership', () => {
   beforeEach(() => {
     window.localStorage.clear()
+    mapWorkspaceState.workspaceStatus = { tone: 'ready', message: '' }
+    mapWorkspaceState.resourcePreloadState = { active: false, message: '', currentLabel: null, completed: 0, total: 0 }
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockImplementation((query: string) => ({
@@ -177,5 +183,23 @@ describe('App locale ownership', () => {
       expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeInTheDocument()
     })
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('zh-CN')
+  })
+
+  it('renders the preload overlay shell classes and keeps progress width logic intact', () => {
+    mapWorkspaceState.resourcePreloadState = {
+      active: true,
+      message: 'Loading maps',
+      currentLabel: 'Maps/Town.tmx',
+      completed: 4,
+      total: 10,
+    }
+
+    const { container } = render(<App />)
+
+    expect(container.querySelector('.initialization-preload-backdrop')).toBeInTheDocument()
+    expect(container.querySelector('.initialization-preload-panel')).toBeInTheDocument()
+    expect(screen.getByText('Loading maps')).toBeInTheDocument()
+    expect(screen.getByText('Maps/Town.tmx')).toBeInTheDocument()
+    expect(container.querySelector('.initialization-preload-progress-fill')).toHaveAttribute('style', expect.stringContaining('width: 40%'))
   })
 })

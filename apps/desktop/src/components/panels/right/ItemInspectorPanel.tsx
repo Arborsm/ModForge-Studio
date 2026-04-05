@@ -1,11 +1,10 @@
-import type { ItemsPanelCopy } from '../../../lib/editor-shell'
+import { useItemsCopy } from '../../../lib/app/localeContext'
 import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../lib/app/itemWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { ItemSprite } from '../../ItemSprite'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type ItemInspectorPanelProps = {
-  copy: ItemsPanelCopy
   noneLabel: string
   item: ItemWorkspaceEntry | null
   textureState: ItemTextureAssetState | null
@@ -20,7 +19,8 @@ function renderKv(label: string, value: string) {
   )
 }
 
-export function ItemInspectorPanel({ copy, noneLabel, item, textureState }: ItemInspectorPanelProps) {
+export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspectorPanelProps) {
+  const copy = useItemsCopy()
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

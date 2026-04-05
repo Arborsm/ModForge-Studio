@@ -1,10 +1,9 @@
-import type { ItemsPanelCopy } from '../../../lib/editor-shell'
+import { useItemsCopy } from '../../../lib/app/localeContext'
 import type { ItemWorkspaceEntry } from '../../../lib/app/itemWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type ItemSourcesPanelProps = {
-  copy: ItemsPanelCopy
   item: ItemWorkspaceEntry | null
 }
 
@@ -32,7 +31,8 @@ function SourceSection({
   )
 }
 
-export function ItemSourcesPanel({ copy, item }: ItemSourcesPanelProps) {
+export function ItemSourcesPanel({ item }: ItemSourcesPanelProps) {
+  const copy = useItemsCopy()
   return (
     <PanelFrame title={copy.sourcesPanelTitle} subtitle={copy.sourcesPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

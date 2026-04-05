@@ -1,33 +1,32 @@
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { ComponentProps } from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import TopMenuBar from './TopMenuBar'
 import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from '../lib/editor-shell'
+import { renderWithLocale } from '../test/renderWithLocale'
 
 const copy = editorCopy['en-US']
 const viewMenuCopy = getViewMenuCopy('en-US')
 const settingsMenuCopy = getSettingsMenuCopy('en-US')
+const topMenuStylesPath = existsSync(resolve(process.cwd(), 'src/styles/workspace/top-menu.css'))
+  ? resolve(process.cwd(), 'src/styles/workspace/top-menu.css')
+  : resolve(process.cwd(), 'apps/desktop/src/styles/workspace/top-menu.css')
+const topMenuStyles = readFileSync(topMenuStylesPath, 'utf8')
 
 function buildProps(): ComponentProps<typeof TopMenuBar> {
   return {
-    copy,
     workspaceMode: 'map',
     onWorkspaceChange: vi.fn(),
     theme: 'dark',
     onToggleTheme: vi.fn(),
-    locale: 'en-US',
     statusTone: 'ready',
     desktopHost: false,
     onMinimizeWindow: vi.fn(),
     onToggleMaximizeWindow: vi.fn(),
     onCloseWindow: vi.fn(),
     viewMenu: {
-      title: viewMenuCopy.title,
-      resetLabel: viewMenuCopy.resetLabel,
-      savePresetLabel: viewMenuCopy.savePresetLabel,
-      panelsLabel: viewMenuCopy.panelsLabel,
-      presetsLabel: viewMenuCopy.presetsLabel,
-      emptyPresetsLabel: viewMenuCopy.emptyPresetsLabel,
       panelItems: [
         {
           id: 'viewport',
@@ -45,11 +44,9 @@ function buildProps(): ComponentProps<typeof TopMenuBar> {
       onDeletePreset: vi.fn(),
     },
     settingsMenu: {
-      title: settingsMenuCopy.title,
       onOpen: vi.fn(),
     },
     projectMenu: {
-      title: copy.leftDock.project,
       onOpen: vi.fn(),
     },
   }
@@ -57,7 +54,7 @@ function buildProps(): ComponentProps<typeof TopMenuBar> {
 
 describe('TopMenuBar', () => {
   it('labels the workspace module navigation and marks the active module', () => {
-    render(<TopMenuBar {...buildProps()} />)
+    renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
 
@@ -70,7 +67,7 @@ describe('TopMenuBar', () => {
 
   it('opens the view menu with expanded state and a labeled menu', () => {
     const props = buildProps()
-    render(<TopMenuBar {...props} />)
+    renderWithLocale(<TopMenuBar {...props} />)
 
     const viewButton = screen.getByRole('button', { name: viewMenuCopy.title })
 
@@ -86,7 +83,7 @@ describe('TopMenuBar', () => {
   })
 
   it('keeps settings in the shell controls instead of the left menu group', () => {
-    render(<TopMenuBar {...buildProps()} />)
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     const shellControls = screen.getByRole('group', { name: 'Shell controls' })
     const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
@@ -94,11 +91,13 @@ describe('TopMenuBar', () => {
     expect(within(shellControls).getByRole('button', { name: settingsMenuCopy.title })).toBeInTheDocument()
     expect(within(shellControls).queryByRole('button', { name: copy.controls.toggleLocale })).not.toBeInTheDocument()
     expect(within(shellControls).queryByText(copy.localeShort['en-US'])).not.toBeInTheDocument()
+    expect(within(shellControls).getAllByRole('button')).toHaveLength(2)
+    expect(container.querySelector('.dock-chip')).not.toBeInTheDocument()
     expect(within(mainMenus).queryByRole('button', { name: settingsMenuCopy.title })).not.toBeInTheDocument()
   })
 
   it('keeps only project and view menus in the title bar', () => {
-    render(<TopMenuBar {...buildProps()} />)
+    renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
 
@@ -110,15 +109,30 @@ describe('TopMenuBar', () => {
   })
 
   it('uses a centered title-bar grid with a dedicated drag layer while preserving desktop window controls', () => {
-    const { container } = render(<TopMenuBar {...buildProps()} desktopHost />)
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} desktopHost />)
 
     const titleBar = container.querySelector('.top-menu-primary')
     const dragLayer = container.querySelector('.top-menu-drag-layer[data-tauri-drag-region]')
+    const topMenuPrimaryRule = topMenuStyles.match(/\.top-menu-primary\s*\{([\s\S]*?)\n {2}\}/)?.[1] ?? ''
 
-    expect(titleBar?.className).toContain('grid')
+    expect(titleBar).toBeInTheDocument()
+    expect(topMenuPrimaryRule).toBeTruthy()
+    expect(topMenuPrimaryRule).toMatch(/pointer-events-none|pointer-events:\s*none/)
+    expect(topMenuPrimaryRule).toMatch(/display:\s*grid|@apply[\s\S]*\bgrid\b/)
+    expect(topMenuPrimaryRule).toMatch(
+      /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(0,\s*1fr\)|@apply[\s\S]*grid-cols-\[minmax\(0,1fr\)_auto_minmax\(0,1fr\)\]/,
+    )
     expect(dragLayer).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Minimize window' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Maximize window' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Close window' })).toBeInTheDocument()
+  })
+
+  it('renders the top menu shell classes', () => {
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
+
+    expect(container.querySelector('.top-menu-bar')).toBeTruthy()
+    expect(container.querySelector('.top-menu-primary')).toBeTruthy()
+    expect(container.querySelector('.top-menu-workspace')).toBeTruthy()
   })
 })

@@ -4,15 +4,29 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-function readSource(pathFromRoot: string) {
-  return readFileSync(resolve(process.cwd(), pathFromRoot), 'utf8')
+function resolveRepoPath(pathFromRoot: string) {
+  const normalizedPath = pathFromRoot.replace(/^apps\/desktop\//, '')
+  const desktopPath = normalizedPath.startsWith('src/') ? `apps/desktop/${normalizedPath}` : normalizedPath
+  const candidates = [
+    resolve(process.cwd(), pathFromRoot),
+    resolve(process.cwd(), normalizedPath),
+    resolve(process.cwd(), desktopPath),
+    resolve(process.cwd(), '..', '..', pathFromRoot),
+    resolve(process.cwd(), '..', '..', desktopPath),
+  ]
+
+  return candidates.find(existsSync) ?? candidates[0]
 }
 
-const stylesPath = existsSync(resolve(process.cwd(), 'src/styles/globals.css'))
-  ? resolve(process.cwd(), 'src/styles/globals.css')
-  : resolve(process.cwd(), 'apps/desktop/src/styles/globals.css')
+function readSource(pathFromRoot: string) {
+  return readFileSync(resolveRepoPath(pathFromRoot), 'utf8')
+}
 
-const styles = readFileSync(stylesPath, 'utf8')
+function resolveStylesPath(pathFromRoot: string) {
+  return resolveRepoPath(pathFromRoot)
+}
+
+const styles = readFileSync(resolveStylesPath('src/styles/workspace/layout.css'), 'utf8')
 const centralWorkspace = readSource('apps/desktop/src/components/CentralWorkspace.tsx')
 const eventWorkspace = readSource('apps/desktop/src/components/EventWorkspace.tsx')
 const eventStageWorkspace = readSource('apps/desktop/src/components/EventStageWorkspace.tsx')

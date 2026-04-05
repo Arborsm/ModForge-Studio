@@ -1,14 +1,12 @@
 import { Search } from 'lucide-react'
 import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
-import type { CharactersPanelCopy } from '../../../lib/editor-shell'
+import { useCharactersCopy, useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import type { CharacterWorkspaceEntry } from '../../../lib/app/characterWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { BrowserSourceSwitch } from '../../ui/BrowserSourceSwitch'
 
 type CharacterBrowserPanelProps = {
-  copy: CharactersPanelCopy
-  noneLabel: string
   characters: CharacterWorkspaceEntry[]
   filteredCharacters: CharacterWorkspaceEntry[]
   browserSourceMode: BrowserSourceMode
@@ -21,8 +19,6 @@ type CharacterBrowserPanelProps = {
 }
 
 export function CharacterBrowserPanel({
-  copy,
-  noneLabel,
   characters,
   filteredCharacters,
   browserSourceMode,
@@ -33,6 +29,9 @@ export function CharacterBrowserPanel({
   onCharacterFilterChange,
   onSelectCharacter,
 }: CharacterBrowserPanelProps) {
+  const copy = useCharactersCopy()
+  const noneLabel = useEditorCopy().common.none
+
   return (
     <PanelFrame
       hideHeader

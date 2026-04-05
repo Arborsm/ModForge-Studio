@@ -1,4 +1,4 @@
-import {
+﻿import {
   Armchair,
   ArrowRight,
   ChevronLeft,
@@ -17,6 +17,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type WheelEvent } from 'react'
+import { useItemsCopy } from '../lib/app/localeContext'
 import { cx } from '../lib/cx'
 import type { BrowserSourceMode, ModBrowserGroup, ModSourceEntry } from '../lib/app/modAssetIndex'
 import {
@@ -33,8 +34,9 @@ import { ItemSprite } from './ItemSprite'
 import { BrowserSourceSwitch } from './ui/BrowserSourceSwitch'
 import { ModSourceList } from './ui/ModSourceList'
 
+type ItemsCopy = import('../lib/editor-shell').ItemsPanelCopy
+
 type ItemWorkspaceProps = {
-  copy: import('../lib/editor-shell').ItemsPanelCopy
   item: ItemWorkspaceEntry | null
   items: ItemWorkspaceEntry[]
   filteredItems: ItemWorkspaceEntry[]
@@ -124,11 +126,11 @@ function formatTimeSpans(timeSpans: Array<{ start: number; end: number }>) {
   return timeSpans.map((span) => `${formatTime(span.start)}-${formatTime(span.end)}`).join(' / ')
 }
 
-function formatPrice(value: number | null | undefined, copy: ItemWorkspaceProps['copy']) {
+function formatPrice(value: number | null | undefined, copy: ItemsCopy) {
   return value != null ? `${value}G` : copy.noneLabel
 }
 
-function formatEdibility(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']) {
+function formatEdibility(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   if (item.edibility == null) {
     return copy.noneLabel
   }
@@ -171,7 +173,7 @@ function renderKv(label: string, value: string) {
   )
 }
 
-function buildHeroChips(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']) {
+function buildHeroChips(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   const chips: HeroChip[] = [
     { key: 'price', label: copy.priceLabel, value: formatPrice(item.price ?? item.salePrice, copy), tone: 'accent', icon: 'coins' },
     { key: 'type', label: copy.typeLabel, value: item.kindMetaLabel ?? copy.kindLabels[item.kind] },
@@ -215,7 +217,7 @@ function buildHeroChips(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy
   return chips.slice(0, 6)
 }
 
-function buildSourceCards(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']) {
+function buildSourceCards(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   const cards: SourceCard[] = []
 
   for (const crop of item.cropHarvests) {
@@ -299,7 +301,7 @@ function buildSourceCards(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['co
   return cards
 }
 
-function createRecipeUseCard(recipe: ItemRecipeEntry, item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']): UseCard {
+function createRecipeUseCard(recipe: ItemRecipeEntry, item: ItemWorkspaceEntry, copy: ItemsCopy): UseCard {
   return {
     key: recipe.key,
     badge: recipe.kind === 'crafting' ? copy.craftingRecipeLabel : copy.cookingRecipeLabel,
@@ -317,7 +319,7 @@ function createRecipeUseCard(recipe: ItemRecipeEntry, item: ItemWorkspaceEntry, 
   }
 }
 
-function createMachineUseCard(machine: ItemMachineLink, item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']): UseCard {
+function createMachineUseCard(machine: ItemMachineLink, item: ItemWorkspaceEntry, copy: ItemsCopy): UseCard {
   const ingredients = machine.requiredItemQualifiedId
     ? [{ key: machine.requiredItemQualifiedId, label: item.displayName, amount: machine.requiredItemCount, qualifiedItemId: machine.requiredItemQualifiedId, isCurrent: machine.requiredItemQualifiedId === item.qualifiedItemId }]
     : [{ key: `${machine.machineDisplayName}:${machine.machineRuleId ?? 'trigger'}`, label: machine.triggerLabel, amount: machine.requiredItemCount, qualifiedItemId: null, isCurrent: true }]
@@ -335,7 +337,7 @@ function createMachineUseCard(machine: ItemMachineLink, item: ItemWorkspaceEntry
   }
 }
 
-function getTabDefinitions(copy: ItemWorkspaceProps['copy'], items: ItemWorkspaceEntry[]): BrowseTab[] {
+function getTabDefinitions(copy: ItemsCopy, items: ItemWorkspaceEntry[]): BrowseTab[] {
   const isZh = copy.statsAllLabel !== 'All'
   const labels: Record<ItemBrowseCategory, string> = {
     all: copy.statsAllLabel,
@@ -382,7 +384,7 @@ function getTabDefinitions(copy: ItemWorkspaceProps['copy'], items: ItemWorkspac
 
 function buildSignalCards(
   item: ItemWorkspaceEntry,
-  copy: ItemWorkspaceProps['copy'],
+  copy: ItemsCopy,
   sourceCards: SourceCard[],
   recipeUseCards: UseCard[],
   machineUseCards: UseCard[],
@@ -416,7 +418,7 @@ function buildSignalCards(
   ]
 }
 
-function buildSpecificSections(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']): AsideSection[] {
+function buildSpecificSections(item: ItemWorkspaceEntry, copy: ItemsCopy): AsideSection[] {
   const sections: AsideSection[] = []
 
   if (item.cropData) {
@@ -597,15 +599,14 @@ function RelatedVisual({
 
 function SourceGrid({
   cards,
-  copy,
   itemLookup,
   textureStatesByAssetName,
 }: {
   cards: SourceCard[]
-  copy: ItemWorkspaceProps['copy']
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
 }) {
+  const copy = useItemsCopy()
   return (
     <section className="panel-section p-4 sm:p-5">
       <div className="mb-4 flex items-end justify-between gap-3">
@@ -681,16 +682,15 @@ function FormulaChip({
 function UseGrid({
   title,
   cards,
-  copy,
   itemLookup,
   textureStatesByAssetName,
 }: {
   title: string
   cards: UseCard[]
-  copy: ItemWorkspaceProps['copy']
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
 }) {
+  const copy = useItemsCopy()
   return (
     <section className="panel-section p-4">
       <div className="flex items-center justify-between gap-3">
@@ -761,12 +761,11 @@ function UseGrid({
 }
 
 function ItemTooltip({
-  copy,
   item,
 }: {
-  copy: ItemWorkspaceProps['copy']
   item: ItemWorkspaceEntry | null
 }) {
+  const copy = useItemsCopy()
   if (!item) {
     return null
   }
@@ -1101,7 +1100,7 @@ function useCatalogGridMetrics(itemsPerPage: number, onItemsPerPageChange: (item
   }
 }
 
-function getWorkspaceText(copy: ItemWorkspaceProps['copy']) {
+function getWorkspaceText(copy: ItemsCopy) {
   const isEnglish = copy.statsAllLabel === 'All'
 
   return {
@@ -1109,7 +1108,7 @@ function getWorkspaceText(copy: ItemWorkspaceProps['copy']) {
     detailTitle: isEnglish ? 'Inspector' : '检查器',
     viewTitle: isEnglish ? 'View Controls' : '视图控制',
     railTitle: isEnglish ? 'Workspace Rail' : '工作区导航',
-    filtersTitle: isEnglish ? 'Category Filters' : '分类过滤',
+    filtersTitle: copy.filtersTitle,
     selectionTitle: isEnglish ? 'Current Focus' : '当前焦点',
     infoTab: isEnglish ? 'Info' : '基础信息',
     relationsTab: isEnglish ? 'Relations / Recipes' : '关联 / 配方',
@@ -1137,7 +1136,7 @@ function getWorkspaceText(copy: ItemWorkspaceProps['copy']) {
   }
 }
 
-function buildInfoRows(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy']) {
+function buildInfoRows(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   return [
     { label: copy.qualifiedIdLabel, value: item.qualifiedItemId },
     { label: copy.kindLabel, value: copy.kindLabels[item.kind] },
@@ -1151,7 +1150,7 @@ function buildInfoRows(item: ItemWorkspaceEntry, copy: ItemWorkspaceProps['copy'
 function buildResourceRows(
   item: ItemWorkspaceEntry,
   textureState: ItemTextureAssetState | null,
-  copy: ItemWorkspaceProps['copy'],
+  copy: ItemsCopy,
   spriteSizeLabel: string,
 ) {
   return [
@@ -1202,7 +1201,6 @@ function DetailSectionCard({
 }
 
 function NavigationPane({
-  copy,
   text,
   browserSourceMode,
   onBrowserSourceModeChange,
@@ -1216,7 +1214,6 @@ function NavigationPane({
   visibleCount,
   totalVisibleCount,
 }: {
-  copy: ItemWorkspaceProps['copy']
   text: ReturnType<typeof getWorkspaceText>
   browserSourceMode: BrowserSourceMode
   onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
@@ -1230,6 +1227,7 @@ function NavigationPane({
   visibleCount: number
   totalVisibleCount: number
 }) {
+  const copy = useItemsCopy()
   return (
     <aside className="panel-surface h-full">
       <div className="panel-header">
@@ -1303,7 +1301,6 @@ function NavigationPane({
 }
 
 function CatalogPane({
-  copy,
   text,
   browserSourceMode,
   modItemGroups,
@@ -1320,7 +1317,6 @@ function CatalogPane({
   onPageChange,
   onItemsPerPageChange,
 }: {
-  copy: ItemWorkspaceProps['copy']
   text: ReturnType<typeof getWorkspaceText>
   browserSourceMode: BrowserSourceMode
   modItemGroups: ModBrowserGroup<ItemWorkspaceEntry>[]
@@ -1337,6 +1333,7 @@ function CatalogPane({
   onPageChange: (page: number) => void
   onItemsPerPageChange: (itemsPerPage: number) => void
 }) {
+  const copy = useItemsCopy()
   const hoveredItem = hoveredItemId ? (items.find((entry) => entry.key === hoveredItemId) ?? null) : null
   const paginationTokens = useMemo(() => buildPaginationTokens(currentPage, pageCount), [currentPage, pageCount])
   const { viewportRef, columns, rows } = useCatalogGridMetrics(itemsPerPage, onItemsPerPageChange)
@@ -1401,7 +1398,7 @@ function CatalogPane({
           modItemGroups.length ? (
             <div className="min-h-0 flex-1 space-y-4 overflow-auto">
               {modItemGroups.map((group) => (
-                <section key={group.modPath} className="rounded-[24px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+                <section key={group.modPath} className="panel-section rounded-[24px] p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{group.modName}</p>
@@ -1566,13 +1563,12 @@ function CatalogPane({
         ) : null}
       </div>
 
-      {browserSourceMode === 'original' ? <ItemTooltip copy={copy} item={hoveredItem} /> : null}
+      {browserSourceMode === 'original' ? <ItemTooltip item={hoveredItem} /> : null}
     </section>
   )
 }
 
 function DetailPane({
-  copy,
   text,
   item,
   textureState,
@@ -1591,7 +1587,6 @@ function DetailPane({
   itemLookup,
   textureStatesByAssetName,
 }: {
-  copy: ItemWorkspaceProps['copy']
   text: ReturnType<typeof getWorkspaceText>
   item: ItemWorkspaceEntry | null
   textureState: ItemTextureAssetState | null
@@ -1610,6 +1605,7 @@ function DetailPane({
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
 }) {
+  const copy = useItemsCopy()
   const detailTabs: Array<{ id: DetailTab; label: string }> = [
     { id: 'info', label: text.infoTab },
     { id: 'relations', label: text.relationsTab },
@@ -1730,10 +1726,10 @@ function DetailPane({
             <div className="space-y-4">
               {hasRelations ? (
                 <>
-                  {sourceCards.length ? <SourceGrid cards={sourceCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                  {recipeUseCards.length ? <UseGrid title={copy.recipeInputTitle} cards={recipeUseCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                  {machineUseCards.length ? <UseGrid title={copy.machineSectionTitle} cards={machineUseCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                  {recipeOutputCards.length ? <UseGrid title={copy.recipeOutputTitle} cards={recipeOutputCards} copy={copy} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {sourceCards.length ? <SourceGrid cards={sourceCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {recipeUseCards.length ? <UseGrid title={copy.recipeInputTitle} cards={recipeUseCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {machineUseCards.length ? <UseGrid title={copy.machineSectionTitle} cards={machineUseCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {recipeOutputCards.length ? <UseGrid title={copy.recipeOutputTitle} cards={recipeOutputCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
                 </>
               ) : (
                 <EmptyNotice message={text.relationsEmpty} />
@@ -1773,7 +1769,6 @@ function DetailPane({
 }
 
 function useItemWorkspaceViewModel({
-  copy,
   item,
   items,
   filteredItems,
@@ -1789,6 +1784,7 @@ function useItemWorkspaceViewModel({
   onItemFilterChange,
   onSelectItem,
 }: ItemWorkspaceProps) {
+  const copy = useItemsCopy()
   const ui = useItemWorkspaceUi()
   const text = useMemo(() => getWorkspaceText(copy), [copy])
   const tabs = useMemo(() => getTabDefinitions(copy, items), [copy, items])
@@ -1849,7 +1845,6 @@ function useItemWorkspaceViewModel({
   )
 
   return {
-    copy,
     item,
     items,
     browserSourceMode,
@@ -1905,7 +1900,6 @@ export function ItemNavigationPanel(props: ItemWorkspaceProps) {
 
   return (
     <NavigationPane
-      copy={view.copy}
       text={view.text}
       browserSourceMode={view.browserSourceMode}
       onBrowserSourceModeChange={view.onBrowserSourceModeChange}
@@ -1927,7 +1921,6 @@ export function ItemCatalogPanel(props: ItemWorkspaceProps) {
 
   return (
     <CatalogPane
-      copy={view.copy}
       text={view.text}
       browserSourceMode={view.browserSourceMode}
       modItemGroups={view.modItemGroups}
@@ -1952,7 +1945,6 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
 
   return (
     <DetailPane
-      copy={view.copy}
       text={view.text}
       item={view.item}
       textureState={view.activeTextureState}
@@ -1984,7 +1976,6 @@ export default function ItemWorkspace({
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 xl:px-5 xl:py-5">
         <div className="mx-auto grid w-full max-w-[1760px] gap-5 xl:grid-cols-[minmax(220px,0.72fr)_minmax(420px,1.18fr)_minmax(520px,1.6fr)]">
             <NavigationPane
-              copy={view.copy}
               text={view.text}
               browserSourceMode={view.browserSourceMode}
               onBrowserSourceModeChange={view.onBrowserSourceModeChange}
@@ -2000,7 +1991,6 @@ export default function ItemWorkspace({
             />
 
             <CatalogPane
-              copy={view.copy}
               text={view.text}
               browserSourceMode={view.browserSourceMode}
               modItemGroups={view.modItemGroups}
@@ -2019,7 +2009,6 @@ export default function ItemWorkspace({
           />
 
           <DetailPane
-            copy={view.copy}
             text={view.text}
             item={view.item}
             textureState={view.activeTextureState}
@@ -2043,3 +2032,4 @@ export default function ItemWorkspace({
     </div>
   )
 }
+

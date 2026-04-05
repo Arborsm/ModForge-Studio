@@ -16,8 +16,7 @@ import {
   type SaveModProjectResult,
   type GameDirectoryInfo,
 } from '../desktop'
-import type { LocaleCode } from '../editor-shell'
-import { getModWorkspaceCopy } from '../plugins/copy'
+import { getModWorkspaceCopy, type LocaleCode } from '../editor-shell'
 import {
   addPatch,
   buildContentPatcherSimulationRequest,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveDevServerPorts } from '../../devServerPorts'
+import { resolveDevServerPorts } from '../../../devServerPorts'
 
 describe('resolveDevServerPorts', () => {
   it('uses safe defaults when no overrides are provided', () => {

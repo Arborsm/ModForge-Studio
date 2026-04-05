@@ -16,9 +16,10 @@ import {
 } from '../lib/app/eventStageAssets'
 import MapWorldStatePreviewOverlay from './MapWorldStatePreviewOverlay'
 import type { PlayerAppearanceProfile } from '../lib/app/playerAppearance'
+import { useEventStageCopy } from '../lib/app/localeContext'
 import { useEventStageWorkspace } from '../lib/app/useEventStageWorkspace'
 import { type GameDirectoryInfo } from '../lib/desktop'
-import type { EventStageCopy, LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
 import type { EventScript, ParsedEventAsset } from '../lib/events/types'
 import { cx } from '../lib/cx'
 import { MapViewport } from './MapViewport'
@@ -27,7 +28,6 @@ type EventStageWorkspaceProps = {
   locale: LocaleCode
   directoryInfo: GameDirectoryInfo | null
   viewportLabels: ViewportLabels
-  copy: EventStageCopy
   theme: ThemeMode
   accentColor: string
   parsedEventAsset: ParsedEventAsset | null
@@ -45,7 +45,6 @@ export default function EventStageWorkspace({
   locale,
   directoryInfo,
   viewportLabels,
-  copy,
   theme,
   accentColor,
   parsedEventAsset,
@@ -58,6 +57,7 @@ export default function EventStageWorkspace({
   onPlaybackCommandChange,
   onOpenPlayerAppearanceWindow,
 }: EventStageWorkspaceProps) {
+  const copy = useEventStageCopy()
   const {
     actorAssets,
     animationNowMs,
@@ -543,7 +543,7 @@ export default function EventStageWorkspace({
 
   if (!parsedEventAsset) {
     return (
-      <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
+      <div className="panel-surface panel-surface-flat h-full">
         <div className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--text-secondary)]">
           <div className="space-y-3">
             <p className="text-base font-semibold text-[var(--text-primary)]">{labels.empty}</p>
@@ -555,7 +555,7 @@ export default function EventStageWorkspace({
   }
 
   return (
-    <div className="panel-surface h-full border-[var(--border-color)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_96%,transparent),var(--bg-panel))]">
+    <div className="panel-surface h-full">
       <div className="panel-header">
         <div>
           <p className="panel-title">{labels.scene}</p>

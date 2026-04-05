@@ -1,0 +1,85 @@
+@layer base {
+  :root {
+    --font-sans:
+      "Segoe UI Variable Text", "SF Pro Text", "PingFang SC", "Microsoft YaHei UI", system-ui,
+      sans-serif;
+    --font-mono: "IBM Plex Mono", "Cascadia Mono", "JetBrains Mono", monospace;
+
+    --color-accent: #4f46e5;
+    --color-success: #16a34a;
+    --color-warning: #d97706;
+    --color-danger: #dc2626;
+
+    --surface-app: #e9edf2;
+    --surface-panel: #f4f7fb;
+    --surface-panel-muted: #e9eef4;
+    --surface-viewport: #d6dce6;
+    --surface-active: #d7e2ff;
+    --surface-elevated: rgba(255, 255, 255, 0.92);
+
+    --text-primary: #18212f;
+    --text-secondary: #4f5968;
+    --text-tertiary: #7d8798;
+
+    --border-subtle: rgba(91, 104, 126, 0.32);
+    --shadow-panel:
+      0 1px 1px rgba(15, 23, 42, 0.05),
+      0 8px 16px rgba(15, 23, 42, 0.08);
+    --shadow-float:
+      0 18px 30px rgba(15, 23, 42, 0.18),
+      0 8px 18px rgba(15, 23, 42, 0.12);
+
+    --grid-minor: rgba(92, 104, 124, 0.13);
+    --grid-major: rgba(92, 104, 124, 0.19);
+    --cp-logic: #22c55e;
+    --cp-file: #3b82f6;
+    --cp-data: #f97316;
+
+    --accent: var(--color-accent);
+    --accent-soft: rgba(79, 70, 229, 0.14);
+    --bg-app: var(--surface-app);
+    --bg-panel: var(--surface-panel);
+    --bg-panel-muted: var(--surface-panel-muted);
+    --bg-viewport: var(--surface-viewport);
+    --bg-active: var(--surface-active);
+    --bg-elevated: var(--surface-elevated);
+    --border-color: var(--border-subtle);
+    --success: var(--color-success);
+    --warning: var(--color-warning);
+    --danger: var(--color-danger);
+  }
+
+  .dark {
+    --color-accent: #6366f1;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-danger: #f87171;
+
+    --surface-app: #12151c;
+    --surface-panel: #1a1f27;
+    --surface-panel-muted: #151a21;
+    --surface-viewport: #0a0d12;
+    --surface-active: #2a3242;
+    --surface-elevated: rgba(24, 28, 36, 0.95);
+
+    --text-primary: #f3f6fb;
+    --text-secondary: #b4bdcb;
+    --text-tertiary: #7d8798;
+
+    --border-subtle: rgba(166, 176, 192, 0.2);
+    --shadow-panel:
+      0 1px 1px rgba(0, 0, 0, 0.28),
+      0 16px 28px rgba(0, 0, 0, 0.22);
+    --shadow-float:
+      0 24px 44px rgba(0, 0, 0, 0.38),
+      0 10px 24px rgba(0, 0, 0, 0.26);
+
+    --grid-minor: rgba(255, 255, 255, 0.05);
+    --grid-major: rgba(255, 255, 255, 0.08);
+    --cp-logic: #34d399;
+    --cp-file: #60a5fa;
+    --cp-data: #fb923c;
+
+    --accent-soft: rgba(99, 102, 241, 0.18);
+  }
+}

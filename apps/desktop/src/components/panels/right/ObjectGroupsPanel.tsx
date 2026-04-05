@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { GroupedObjectGroupList } from './ObjectGroupList'
 import {
@@ -11,7 +12,6 @@ import {
 } from './shared'
 
 export function ObjectGroupsPanel({
-  copy,
   mapDocument,
   visibleObjectGroupIds,
   onToggleObjectGroup,
@@ -20,6 +20,7 @@ export function ObjectGroupsPanel({
   focusedObjectTarget,
   onFocusObject,
 }: ObjectGroupsPanelProps) {
+  const copy = useEditorCopy()
   const objectGroupItems = useMemo<ObjectGroupListItem[]>(() => {
     if (!mapDocument) {
       return []
@@ -74,7 +75,6 @@ export function ObjectGroupsPanel({
             items={objectGroupItems}
             filterPlaceholder={copy.leftDock.filterPlaceholder}
             emptyMessage={copy.rightDock.noObjectGroups}
-            copy={copy}
             focusedObjectTarget={focusedObjectTarget}
             onFocusObject={onFocusObject}
           />

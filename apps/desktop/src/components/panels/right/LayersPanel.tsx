@@ -1,16 +1,17 @@
 import { useMemo } from 'react'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { GroupedVisibilityList } from './VisibilityList'
 import { getVisibilityGroupLabel, type LayersPanelProps, type VisibilityListItem } from './shared'
 
 export function LayersPanel({
-  copy,
   mapDocument,
   visibleLayerIds,
   onToggleLayer,
   onShowAllLayers,
   onHideAllLayers,
 }: LayersPanelProps) {
+  const copy = useEditorCopy()
   const layerItems = useMemo<VisibilityListItem[]>(() => {
     if (!mapDocument) {
       return []

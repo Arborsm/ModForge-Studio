@@ -1,4 +1,4 @@
-import type { CharactersPanelCopy } from '../../../lib/editor-shell'
+import { useCharactersCopy, useEditorCopy } from '../../../lib/app/localeContext'
 import type {
   CharacterAppearanceVariant,
   CharacterVisualAssetState,
@@ -10,10 +10,6 @@ import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 import { ModSourceList } from '../../ui/ModSourceList'
 
 type CharacterInspectorPanelProps = {
-  copy: CharactersPanelCopy
-  yesLabel: string
-  noLabel: string
-  noneLabel: string
   character: CharacterWorkspaceEntry | null
   activeVariant: CharacterAppearanceVariant | null
   assetState: CharacterVisualAssetState
@@ -30,15 +26,14 @@ function renderKv(label: string, value: string) {
 }
 
 export function CharacterInspectorPanel({
-  copy,
-  yesLabel,
-  noLabel,
-  noneLabel,
   character,
   activeVariant,
   assetState,
   modSources = [],
 }: CharacterInspectorPanelProps) {
+  const copy = useCharactersCopy()
+  const { yes: yesLabel, no: noLabel, none: noneLabel } = useEditorCopy().common
+
   return (
     <PanelFrame title={copy.inspectorTitle} subtitle={copy.inspectorSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

@@ -1,28 +1,27 @@
 import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { FocusedMapObjectTarget } from '../../MapViewport'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
-import type { EditorCopy } from '../../../lib/editor-shell'
 import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag, type ObjectGroupListItem } from './shared'
 
 function ObjectGroupCard({
   item,
-  copy,
   focusedObjectTarget,
   onFocusObject,
 }: {
   item: ObjectGroupListItem
-  copy: EditorCopy
   focusedObjectTarget: FocusedMapObjectTarget | null
   onFocusObject: (groupId: number, objectId: number) => void
 }) {
+  const copy = useEditorCopy()
   return (
     <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
       <div className="flex items-start justify-between gap-3 px-3 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
           <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-            {item.objectCount} {copy.rightDock.objectCount} / {item.interactionCount} Action / {item.pointCount} Point
+            {copy.rightDock.objectGroupSummary(item.objectCount, item.interactionCount, item.pointCount)}
           </p>
           {item.propertyKeys.length ? (
             <p className="mt-1 truncate text-[11px] text-[var(--text-tertiary)]">{item.propertyKeys.join(' / ')}</p>
@@ -83,17 +82,16 @@ export function GroupedObjectGroupList({
   items,
   filterPlaceholder,
   emptyMessage,
-  copy,
   focusedObjectTarget,
   onFocusObject,
 }: {
   items: ObjectGroupListItem[]
   filterPlaceholder: string
   emptyMessage: string
-  copy: EditorCopy
   focusedObjectTarget: FocusedMapObjectTarget | null
   onFocusObject: (groupId: number, objectId: number) => void
 }) {
+  const copy = useEditorCopy()
   const [filterValue, setFilterValue] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const normalizedFilter = filterValue.trim().toLowerCase()
@@ -159,7 +157,6 @@ export function GroupedObjectGroupList({
                 <ObjectGroupCard
                   key={entry.items[0].id}
                   item={entry.items[0]}
-                  copy={copy}
                   focusedObjectTarget={focusedObjectTarget}
                   onFocusObject={onFocusObject}
                 />
@@ -186,7 +183,12 @@ export function GroupedObjectGroupList({
                       {entry.groupLabel}
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)]">
-                      {entry.items.length} / {entry.objectCount} {copy.rightDock.objectCount} / {entry.interactionCount} Action / {entry.pointCount} Point
+                      {copy.rightDock.objectGroupCollectionSummary(
+                        entry.items.length,
+                        entry.objectCount,
+                        entry.interactionCount,
+                        entry.pointCount,
+                      )}
                     </p>
                   </div>
                   <ChevronDown
@@ -203,7 +205,6 @@ export function GroupedObjectGroupList({
                       <ObjectGroupCard
                         key={item.id}
                         item={item}
-                        copy={copy}
                         focusedObjectTarget={focusedObjectTarget}
                         onFocusObject={onFocusObject}
                       />

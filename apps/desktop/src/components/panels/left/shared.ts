@@ -1,9 +1,9 @@
 import type { GameDirectoryInfo, MapAssetSummary } from '../../../lib/desktop'
 import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
-import type { EditorCopy, WorkspaceMode } from '../../../lib/editor-shell'
+import type { LocaleCode, WorkspaceMode } from '../../../lib/editor-shell'
 
 export type ProjectPanelProps = {
-  copy: EditorCopy
+  locale: LocaleCode
   workspaceMode: WorkspaceMode
   desktopHost: boolean
   gameDirectory: string
@@ -19,7 +19,6 @@ export type ProjectPanelProps = {
 }
 
 export type AssetBrowserPanelProps = {
-  copy: EditorCopy
   mapAssets: MapAssetSummary[]
   filteredAssets: MapAssetSummary[]
   browserSourceMode: BrowserSourceMode

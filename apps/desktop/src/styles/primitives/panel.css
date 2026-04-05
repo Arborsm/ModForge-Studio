@@ -1,0 +1,176 @@
+@layer components {
+  .panel-surface {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, white 4%), var(--bg-panel));
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-panel);
+    @apply flex min-h-0 flex-col overflow-hidden rounded-xl;
+  }
+
+  .panel-surface-flat {
+    background: var(--bg-panel);
+  }
+
+  .panel-surface-muted {
+    background: color-mix(in srgb, var(--bg-panel-muted) 92%, white 8%);
+  }
+
+  .panel-header {
+    background: transparent;
+    @apply flex items-center justify-between gap-3 px-3 pb-1 pt-3;
+  }
+
+  .panel-title {
+    color: var(--text-secondary);
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+  }
+
+  .panel-subtitle {
+    color: var(--text-primary);
+    @apply text-xs font-medium;
+  }
+
+  .panel-body {
+    @apply min-h-0 flex-1 overflow-auto;
+  }
+
+  .panel-section {
+    border: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    @apply overflow-hidden rounded-2xl;
+  }
+
+  .panel-section-muted {
+    background: color-mix(in srgb, var(--bg-panel-muted) 90%, white 10%);
+  }
+
+  .panel-section-accent {
+    background:
+      linear-gradient(
+        155deg,
+        color-mix(in srgb, var(--bg-panel) 96%, transparent),
+        color-mix(in srgb, var(--accent) 10%, var(--bg-panel-muted))
+      );
+  }
+
+  .panel-section-header {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    @apply flex items-start justify-between gap-3 px-3 py-2.5;
+  }
+
+  .panel-section-title {
+    color: var(--text-secondary);
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+  }
+
+  .panel-section-subtitle {
+    color: var(--text-tertiary);
+    @apply mt-1 text-[11px] leading-4;
+  }
+
+  .panel-section-body {
+    @apply p-3;
+  }
+
+  .panel-empty-state {
+    border: 1px dashed color-mix(in srgb, var(--border-color) 92%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 52%, transparent);
+    color: var(--text-secondary);
+    @apply rounded-2xl px-4 py-5 text-sm;
+  }
+
+  .panel-list-card {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 90%, white 10%);
+    @apply rounded-2xl px-3 py-3 transition-colors;
+  }
+
+  .panel-list-card-interactive:hover {
+    background: color-mix(in srgb, var(--bg-active) 66%, transparent);
+  }
+
+  .panel-list-card-active {
+    border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .asset-row {
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    @apply w-full rounded-lg px-3 py-2 text-left transition-colors;
+  }
+
+  .asset-row:hover {
+    border-color: var(--border-color);
+    background: color-mix(in srgb, var(--bg-active) 68%, transparent);
+  }
+
+  .asset-row-active {
+    border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .metric-card {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 92%, transparent);
+    @apply rounded-lg px-3 py-2;
+  }
+
+  .compact-metric-card {
+    padding: 8px 10px;
+  }
+
+  .metric-label {
+    color: var(--text-secondary);
+    @apply text-[11px] uppercase tracking-[0.16em];
+  }
+
+  .metric-value {
+    color: var(--text-primary);
+    @apply mt-1 block text-sm font-semibold;
+  }
+
+  .compact-metric-card .metric-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .compact-metric-card .metric-value {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .kv-row {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 65%, transparent);
+    @apply flex items-start justify-between gap-3 py-2 text-xs last:border-b-0;
+  }
+
+  .compact-kv-row {
+    gap: 10px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .kv-row span:first-child {
+    color: var(--text-secondary);
+  }
+
+  .kv-row span:last-child {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    @apply text-right;
+  }
+
+  .compact-kv-row span:first-child {
+    flex: 0 0 88px;
+    font-size: 11px;
+  }
+
+  .compact-kv-row span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+}

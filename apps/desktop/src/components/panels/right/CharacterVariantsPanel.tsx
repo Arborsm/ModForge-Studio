@@ -1,28 +1,23 @@
 import { cx } from '../../../lib/cx'
-import type { CharactersPanelCopy } from '../../../lib/editor-shell'
+import { useCharactersCopy, useEditorCopy } from '../../../lib/app/localeContext'
 import type { CharacterAppearanceVariant, CharacterWorkspaceEntry } from '../../../lib/app/characterWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState } from '../../ui/PanelSection'
 
 type CharacterVariantsPanelProps = {
-  copy: CharactersPanelCopy
-  yesLabel: string
-  noLabel: string
-  noneLabel: string
   character: CharacterWorkspaceEntry | null
   activeVariant: CharacterAppearanceVariant | null
   onSelectVariant: (variant: CharacterAppearanceVariant) => void
 }
 
 export function CharacterVariantsPanel({
-  copy,
-  yesLabel,
-  noLabel,
-  noneLabel,
   character,
   activeVariant,
   onSelectVariant,
 }: CharacterVariantsPanelProps) {
+  const copy = useCharactersCopy()
+  const { yes: yesLabel, no: noLabel, none: noneLabel } = useEditorCopy().common
+
   return (
     <PanelFrame title={copy.variantsPanelTitle} subtitle={copy.variantsPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 overflow-auto p-3">

@@ -47,7 +47,11 @@ describe('SettingsWindow', () => {
   }
 
   it('shows a borderless fullscreen toggle in the view category', () => {
-    renderWindow()
+    const { container } = renderWindow()
+
+    expect(container.querySelector('.settings-window-backdrop')).toBeInTheDocument()
+    expect(container.querySelector('.settings-window-panel')).toBeInTheDocument()
+    expect(container.querySelector('.settings-window-sidebar')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${copy.categories.view}`) }))
 

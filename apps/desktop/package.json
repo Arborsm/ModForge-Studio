@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "node ./scripts/run-tauri-cli.cjs"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.19",

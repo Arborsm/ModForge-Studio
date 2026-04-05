@@ -14,7 +14,6 @@ import {
   useInteractions,
   useRole,
 } from '@floating-ui/react'
-import './ItemGroup.css'
 
 type ItemGroupPopoverProps<T> = {
   groupIcon: ReactNode | ((isOpen: boolean) => ReactNode)

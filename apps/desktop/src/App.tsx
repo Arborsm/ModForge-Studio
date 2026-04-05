@@ -17,7 +17,6 @@ import {
 import {
   editorCopy,
   getSettingsMenuCopy,
-  getViewMenuCopy,
   getWorldAtlasViewLabel,
   type LocaleCode,
   type ThemeMode,
@@ -47,6 +46,7 @@ import { useMapWorkspace } from './lib/app/useMapWorkspace'
 import { useCharacterWorkspace } from './lib/app/useCharacterWorkspace'
 import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
 import { useItemWorkspace } from './lib/app/useItemWorkspace'
+import { LocaleProvider } from './lib/app/localeContext'
 import { useModWorkspace } from './lib/app/useModWorkspace'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 import { scheduleDeferred } from './lib/react/defer'
@@ -423,7 +423,6 @@ export default function App() {
   })
 
   const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
-  const viewMenuCopy = getViewMenuCopy(locale)
   const settingsMenuCopy = getSettingsMenuCopy(locale)
   const localeOptions =
     locale === 'en-US'
@@ -558,9 +557,14 @@ export default function App() {
   useEffect(() => {
     const root = document.documentElement
     const accent = activeAccentPreset.color
+    const accentSoft = rgbaFromHex(accent, theme === 'dark' ? 0.18 : 0.14)
+    const activeSurface = theme === 'dark' ? rgbaFromHex(accent, 0.22) : rgbaFromHex(accent, 0.12)
+
+    root.style.setProperty('--color-accent', accent)
     root.style.setProperty('--accent', accent)
-    root.style.setProperty('--accent-soft', rgbaFromHex(accent, theme === 'dark' ? 0.18 : 0.14))
-    root.style.setProperty('--bg-active', theme === 'dark' ? rgbaFromHex(accent, 0.22) : rgbaFromHex(accent, 0.12))
+    root.style.setProperty('--accent-soft', accentSoft)
+    root.style.setProperty('--surface-active', activeSurface)
+    root.style.setProperty('--bg-active', activeSurface)
     window.localStorage.setItem(ACCENT_STORAGE_KEY, activeAccentPreset.id)
   }, [activeAccentPreset.color, activeAccentPreset.id, theme])
 
@@ -899,188 +903,165 @@ export default function App() {
   )
 
   return (
-    <div
-      className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]"
-      aria-busy={interactionLocked}
-    >
-      <TopMenuBar
-        copy={copy}
-        workspaceMode={workspaceMode}
-        onWorkspaceChange={setWorkspaceMode}
-        theme={theme}
-        onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-        locale={locale}
-        statusTone={currentWorkspaceStatus.tone}
-        desktopHost={desktopHost}
-        onMinimizeWindow={() => void minimizeCurrentWindow()}
-        onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
-        onCloseWindow={() => void closeCurrentWindow()}
-        viewMenu={{
-          title: viewMenuCopy.title,
-          resetLabel: viewMenuCopy.resetLabel,
-          savePresetLabel: viewMenuCopy.savePresetLabel,
-          panelsLabel: viewMenuCopy.panelsLabel,
-          presetsLabel: viewMenuCopy.presetsLabel,
-          emptyPresetsLabel: viewMenuCopy.emptyPresetsLabel,
-          panelItems: viewMenuPanelItems,
-          presetNames: viewMenuPresetNames,
-          onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
-          onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
-          onSavePreset: () => {
-            const presetName = window.prompt(viewMenuCopy.presetNamePrompt)
-            if (!presetName?.trim()) {
-              return
-            }
-
-            workspaceLayoutRef.current?.savePreset(presetName.trim())
-          },
-          onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
-          onDeletePreset: (name) => {
-            if (!window.confirm(viewMenuCopy.deletePresetConfirm(name))) {
-              return
-            }
-
-            workspaceLayoutRef.current?.deletePreset(name)
-          },
-        }}
-        settingsMenu={{
-          title: settingsMenuCopy.title,
-          onOpen: () => setSettingsWindowOpen(true),
-        }}
-        projectMenu={{
-          title: copy.leftDock.project,
-          highlighted: showProjectOverlay,
-          onOpen: () => setProjectOverlayOpen(true),
-        }}
-      />
-
-      {settingsWindowOpen ? (
-        <Suspense fallback={null}>
-          <SettingsWindow
-            open={settingsWindowOpen}
-            title={settingsMenuCopy.title}
-            categories={settingsMenuCopy.categories}
-            categoryDescriptions={settingsMenuCopy.categoryDescriptions}
-            accentLabel={settingsMenuCopy.accentLabel}
-            resetAccentLabel={settingsMenuCopy.resetAccentLabel}
-            accentDescription={settingsMenuCopy.accentDescription}
-            languageLabel={settingsMenuCopy.languageLabel}
-            languageDescription={settingsMenuCopy.languageDescription}
-            localeOptions={localeOptions}
-            activeLocale={locale}
-            windowModeLabel={settingsMenuCopy.windowModeLabel}
-            borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
-            borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
-            enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
-            disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
-            borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
-            futureLabel={settingsMenuCopy.futureLabel}
-            futureDescription={settingsMenuCopy.futureDescription}
-            accentOptions={ACCENT_PRESETS}
-            activeAccentId={activeAccentPreset.id}
-            onSelectAccent={setAccentPresetId}
-            onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
-            onSelectLocale={setLocale}
-            onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
-            onClose={() => setSettingsWindowOpen(false)}
-          />
-        </Suspense>
-      ) : null}
-
-      {playerAppearanceWindowOpen ? (
-        <Suspense fallback={null}>
-          <PlayerAppearanceWindow
-            key={`player-appearance:${playerAppearanceWindowNonce}`}
-            open={playerAppearanceWindowOpen}
-            locale={locale}
-            rootPath={directoryInfo?.rootPath ?? null}
-            profiles={playerAppearanceProfiles}
-            activeProfileId={activePlayerAppearanceProfileId}
-            onSelectProfile={setActivePlayerAppearanceProfileId}
-            onCreateProfile={handleCreatePlayerAppearanceProfile}
-            onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
-            onDeleteProfile={handleDeletePlayerAppearanceProfile}
-            onImportProfile={handleImportPlayerAppearanceProfile}
-            onChangeProfile={handleChangePlayerAppearanceProfile}
-            onClose={() => setPlayerAppearanceWindowOpen(false)}
-          />
-        </Suspense>
-      ) : null}
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <WorkspaceLayout
-          ref={workspaceLayoutRef}
-          storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
-          panels={workspacePanels}
-          onLayoutMetaChange={handleLayoutMetaChange}
-        />
-      </div>
-
-      {showProjectOverlay ? (
-        <InitializationOverlay
-          copy={copy}
-          desktopHost={desktopHost}
-          gameDirectory={gameDirectory}
-          detectedDirectories={knownGameDirectories}
-          onGameDirectoryChange={setGameDirectory}
-          onSelectDirectory={setGameDirectory}
-          onChooseDirectory={() => void handleChooseDirectory()}
-          onScanAndOpenTown={() => void handleScanAndOpenTown()}
-          onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
-        />
-      ) : null}
-
-      {import.meta.env.DEV ? (
-        <DevDebugOverlay
+    <LocaleProvider locale={locale}>
+      <div
+        className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]"
+        aria-busy={interactionLocked}
+      >
+        <TopMenuBar
           workspaceMode={workspaceMode}
-          mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
-          eventName={selectedEvent?.eventId ?? null}
-          currentEventCommandId={currentEventCommandId}
-          actorCount={selectedEvent?.scene.actors.length ?? 0}
+          onWorkspaceChange={setWorkspaceMode}
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+          statusTone={currentWorkspaceStatus.tone}
+          desktopHost={desktopHost}
+          onMinimizeWindow={() => void minimizeCurrentWindow()}
+          onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+          onCloseWindow={() => void closeCurrentWindow()}
+          viewMenu={{
+            panelItems: viewMenuPanelItems,
+            presetNames: viewMenuPresetNames,
+            onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
+            onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
+            onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
+            onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
+            onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
+          }}
+          settingsMenu={{
+            onOpen: () => setSettingsWindowOpen(true),
+          }}
+          projectMenu={{
+            highlighted: showProjectOverlay,
+            onOpen: () => setProjectOverlayOpen(true),
+          }}
         />
-      ) : null}
 
-      <StatusBar
-        copy={copy}
-        workspaceMode={workspaceMode}
-        workspaceStatus={currentWorkspaceStatus}
-        directoryInfo={directoryInfo}
-        mapAssets={mapAssets}
-        activeAsset={activeAsset}
-        mapDocument={mapDocument}
-        pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
-        hoverInfo={hoverInfo}
-      />
+        {settingsWindowOpen ? (
+          <Suspense fallback={null}>
+            <SettingsWindow
+              open={settingsWindowOpen}
+              title={settingsMenuCopy.title}
+              categories={settingsMenuCopy.categories}
+              categoryDescriptions={settingsMenuCopy.categoryDescriptions}
+              accentLabel={settingsMenuCopy.accentLabel}
+              resetAccentLabel={settingsMenuCopy.resetAccentLabel}
+              accentDescription={settingsMenuCopy.accentDescription}
+              languageLabel={settingsMenuCopy.languageLabel}
+              languageDescription={settingsMenuCopy.languageDescription}
+              localeOptions={localeOptions}
+              activeLocale={locale}
+              windowModeLabel={settingsMenuCopy.windowModeLabel}
+              borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
+              borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
+              enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
+              disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
+              borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
+              futureLabel={settingsMenuCopy.futureLabel}
+              futureDescription={settingsMenuCopy.futureDescription}
+              accentOptions={ACCENT_PRESETS}
+              activeAccentId={activeAccentPreset.id}
+              onSelectAccent={setAccentPresetId}
+              onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+              onSelectLocale={setLocale}
+              onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
+              onClose={() => setSettingsWindowOpen(false)}
+            />
+          </Suspense>
+        ) : null}
 
-      {interactionLocked ? (
-        <div className="absolute inset-0 z-50 flex cursor-wait items-center justify-center bg-[color-mix(in_srgb,var(--bg-app)_64%,transparent)] backdrop-blur-[2px]">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-5 shadow-[var(--shadow-panel)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-tertiary)]">
-              {copy.messages.preloadingResources}
-            </p>
-            <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{resourcePreloadState.message}</p>
-            {resourcePreloadState.currentLabel ? (
-              <p className="mt-2 truncate text-sm text-[var(--text-secondary)]">{resourcePreloadState.currentLabel}</p>
-            ) : null}
-            <div className="mt-4 h-2 rounded-full bg-[var(--bg-panel-muted)]">
-              <div
-                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-200"
-                style={{
-                  width:
-                    resourcePreloadState.total > 0
-                      ? `${Math.max(6, (resourcePreloadState.completed / resourcePreloadState.total) * 100)}%`
-                      : '18%',
-                }}
-              />
-            </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-secondary)]">
-              <span>{resourcePreloadState.total > 0 ? `${resourcePreloadState.completed}/${resourcePreloadState.total}` : '...'}</span>
-              <span>{resourcePreloadState.total > 0 ? `${Math.round((resourcePreloadState.completed / resourcePreloadState.total) * 100)}%` : ''}</span>
+        {playerAppearanceWindowOpen ? (
+          <Suspense fallback={null}>
+            <PlayerAppearanceWindow
+              key={`player-appearance:${playerAppearanceWindowNonce}`}
+              open={playerAppearanceWindowOpen}
+              locale={locale}
+              rootPath={directoryInfo?.rootPath ?? null}
+              profiles={playerAppearanceProfiles}
+              activeProfileId={activePlayerAppearanceProfileId}
+              onSelectProfile={setActivePlayerAppearanceProfileId}
+              onCreateProfile={handleCreatePlayerAppearanceProfile}
+              onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
+              onDeleteProfile={handleDeletePlayerAppearanceProfile}
+              onImportProfile={handleImportPlayerAppearanceProfile}
+              onChangeProfile={handleChangePlayerAppearanceProfile}
+              onClose={() => setPlayerAppearanceWindowOpen(false)}
+            />
+          </Suspense>
+        ) : null}
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <WorkspaceLayout
+            ref={workspaceLayoutRef}
+            storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
+            panels={workspacePanels}
+            onLayoutMetaChange={handleLayoutMetaChange}
+          />
+        </div>
+
+        {showProjectOverlay ? (
+          <InitializationOverlay
+            desktopHost={desktopHost}
+            gameDirectory={gameDirectory}
+            detectedDirectories={knownGameDirectories}
+            onGameDirectoryChange={setGameDirectory}
+            onSelectDirectory={setGameDirectory}
+            onChooseDirectory={() => void handleChooseDirectory()}
+            onScanAndOpenTown={() => void handleScanAndOpenTown()}
+            onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
+          />
+        ) : null}
+
+        {import.meta.env.DEV ? (
+          <DevDebugOverlay
+            workspaceMode={workspaceMode}
+            mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
+            eventName={selectedEvent?.eventId ?? null}
+            currentEventCommandId={currentEventCommandId}
+            actorCount={selectedEvent?.scene.actors.length ?? 0}
+          />
+        ) : null}
+
+        <StatusBar
+          workspaceMode={workspaceMode}
+          workspaceStatus={currentWorkspaceStatus}
+          directoryInfo={directoryInfo}
+          mapAssets={mapAssets}
+          activeAsset={activeAsset}
+          mapDocument={mapDocument}
+          pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
+          hoverInfo={hoverInfo}
+        />
+
+        {interactionLocked ? (
+          <div className="initialization-preload-backdrop">
+            <div className="initialization-preload-panel">
+              <p className="initialization-preload-eyebrow">
+                {copy.messages.preloadingResources}
+              </p>
+              <p className="initialization-preload-title">{resourcePreloadState.message}</p>
+              {resourcePreloadState.currentLabel ? (
+                <p className="initialization-preload-current-label">{resourcePreloadState.currentLabel}</p>
+              ) : null}
+              <div className="initialization-preload-progress-track">
+                <div
+                  className="initialization-preload-progress-fill"
+                  style={{
+                    width:
+                      resourcePreloadState.total > 0
+                        ? `${Math.max(6, (resourcePreloadState.completed / resourcePreloadState.total) * 100)}%`
+                        : '18%',
+                  }}
+                />
+              </div>
+              <div className="initialization-preload-meta">
+                <span>{resourcePreloadState.total > 0 ? `${resourcePreloadState.completed}/${resourcePreloadState.total}` : '...'}</span>
+                <span>{resourcePreloadState.total > 0 ? `${Math.round((resourcePreloadState.completed / resourcePreloadState.total) * 100)}%` : ''}</span>
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+    </LocaleProvider>
   )
 }
 

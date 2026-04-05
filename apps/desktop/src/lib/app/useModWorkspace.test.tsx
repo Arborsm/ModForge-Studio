@@ -3,6 +3,19 @@ import { describe, expect, it, vi } from 'vitest'
 import { loadContentPatcherResultAsset, scanModProjects, simulateContentPatcher } from '../desktop'
 import { useModWorkspace } from './useModWorkspace'
 
+vi.mock('../editor-shell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../editor-shell')>()
+  const enUSCopy = {
+    ...actual.getModWorkspaceCopy('en-US'),
+    scanStatus: () => 'TASK2-SCAN-1',
+  }
+
+  return {
+    ...actual,
+    getModWorkspaceCopy: vi.fn((locale: 'en-US' | 'zh-CN') => (locale === 'en-US' ? enUSCopy : actual.getModWorkspaceCopy(locale))),
+  }
+})
+
 vi.mock('../desktop', () => ({
   chooseDirectory: vi.fn(),
   loadModProject: vi.fn().mockResolvedValue({
@@ -124,6 +137,24 @@ vi.mock('../desktop', () => ({
 }))
 
 describe('useModWorkspace', () => {
+  it('reads scan status copy from editor-shell during initial project scan', async () => {
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.statusMessage).toBe('TASK2-SCAN-1')
+    })
+  })
+
   it('loads backend snapshot and simulation state for content patcher projects', async () => {
     const { result } = renderHook(() =>
       useModWorkspace({

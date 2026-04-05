@@ -1,12 +1,12 @@
 import { CheckCircle2, FolderSearch, TriangleAlert } from 'lucide-react'
 import type { TileHoverInfo } from './MapViewport'
-import type { EditorCopy, WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
+import type { WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
+import { useEditorCopy } from '../lib/app/localeContext'
 
 type StatusBarProps = {
-  copy: EditorCopy
   workspaceMode: WorkspaceMode
   workspaceStatus: {
     tone: WorkspaceTone
@@ -21,7 +21,6 @@ type StatusBarProps = {
 }
 
 export default function StatusBar({
-  copy,
   workspaceMode,
   workspaceStatus,
   directoryInfo,
@@ -31,6 +30,7 @@ export default function StatusBar({
   pathLabel,
   hoverInfo,
 }: StatusBarProps) {
+  const copy = useEditorCopy()
   const xnbCount = mapAssets.filter((asset) => asset.format === 'xnb').length
   const statusMessage = workspaceStatus.message || copy.statusTone[workspaceStatus.tone]
   const hoverSummary = hoverInfo

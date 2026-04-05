@@ -1,10 +1,9 @@
 import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '../../lib/desktop'
-import type { ModWorkspaceCopy } from '../../lib/plugins/copy'
+import { useModWorkspaceCopy } from '../../lib/app/localeContext'
 import { cx } from '../../lib/cx'
 
 type ModBrowserPanelProps = {
-  copy: ModWorkspaceCopy
   projects: ModProjectSummary[]
   filteredProjects: ModProjectSummary[]
   activeProjectPath: string | null
@@ -34,16 +33,15 @@ function getPluginKindBadge(project: ModProjectSummary) {
 }
 
 function ProjectRow({
-  copy,
   project,
   active,
   onSelect,
 }: {
-  copy: ModWorkspaceCopy
   project: ModProjectSummary
   active: boolean
   onSelect: () => void
 }) {
+  const copy = useModWorkspaceCopy()
   const pluginKindBadge = getPluginKindBadge(project)
 
   return (
@@ -86,7 +84,6 @@ function ProjectRow({
 }
 
 export function ModBrowserPanel({
-  copy,
   projects,
   filteredProjects,
   activeProjectPath,
@@ -98,6 +95,7 @@ export function ModBrowserPanel({
   onImportProject,
   onRefreshProjects,
 }: ModBrowserPanelProps) {
+  const copy = useModWorkspaceCopy()
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden bg-[var(--bg-panel)] p-4">
       <section className="panel-surface p-4">
@@ -173,7 +171,6 @@ export function ModBrowserPanel({
             filteredProjects.map((project) => (
               <ProjectRow
                 key={project.absolutePath}
-                copy={copy}
                 project={project}
                 active={activeProjectPath === project.absolutePath}
                 onSelect={() => onSelectProject(project.absolutePath)}

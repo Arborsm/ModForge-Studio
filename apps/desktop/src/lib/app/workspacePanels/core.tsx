@@ -163,8 +163,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
         />
       ) : workspaceMode === 'characters' ? (
         <CharacterBrowserPanel
-          copy={copy.charactersPanel}
-          noneLabel={copy.common.none}
           characters={characters}
           filteredCharacters={filteredCharacters}
           browserSourceMode={characterBrowserSourceMode}
@@ -177,7 +175,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
         />
       ) : workspaceMode === 'buildings' ? (
         <BuildingBrowserPanel
-          copy={copy.buildingsPanel}
           constructibleGroups={constructibleGroups}
           filteredConstructibleGroups={filteredConstructibleGroups}
           worldBuildings={worldBuildings}
@@ -193,7 +190,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
         />
       ) : (
         <AssetBrowserPanel
-          copy={copy}
           mapAssets={mapAssets}
           filteredAssets={filteredAssets}
           browserSourceMode={mapBrowserSourceMode}
@@ -219,7 +215,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           locale={locale}
           directoryInfo={directoryInfo}
           viewportLabels={copy.viewportLabels}
-          copy={copy.eventStage}
           theme={theme}
           accentColor={accentColor}
           parsedEventAsset={parsedEventAsset}
@@ -245,7 +240,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
         >
           <DeferredWorkspaceReveal>
             <CharacterWorkspace
-              copy={copy.charactersPanel}
               character={activeCharacter}
               activeVariant={activeCharacterVariant}
               assetState={activeCharacterAssetState}
@@ -255,7 +249,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       ) : workspaceMode === 'buildings' ? (
         <BuildingWorkspace
           locale={locale}
-          copy={copy.buildingsPanel}
           viewportLabels={copy.viewportLabels}
           theme={theme}
           accentColor={accentColor}
@@ -280,8 +273,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
         >
           <DeferredWorkspaceReveal>
             <CentralWorkspace
-              copy={copy}
-              locale={locale}
               workspaceMode={workspaceMode}
               tabs={workspaceTabs}
               activeTabId={activeTabId}
@@ -310,8 +301,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       ) : (
         <DeferredWorkspaceReveal>
           <CentralWorkspace
-            copy={copy}
-            locale={locale}
             workspaceMode={workspaceMode}
             tabs={workspaceTabs}
             activeTabId={activeTabId}
@@ -384,10 +373,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           >
             <DeferredWorkspaceReveal>
               <CharacterInspectorPanel
-                copy={copy.charactersPanel}
-                yesLabel={copy.common.yes}
-                noLabel={copy.common.no}
-                noneLabel={copy.common.none}
                 character={activeCharacter}
                 activeVariant={activeCharacterVariant}
                 assetState={activeCharacterAssetState}
@@ -397,9 +382,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           </DeferredWorkspaceCrossfade>
         ) : workspaceMode === 'buildings' ? (
           <BuildingInspectorPanel
-            copy={copy.buildingsPanel}
-            yesLabel={copy.common.yes}
-            noLabel={copy.common.no}
             building={activeBuilding}
             textureState={activeBuildingTextureState}
             activeIndoorMapPath={activeBuildingIndoorMapPath}
@@ -412,12 +394,12 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
             placeholder={<DeferredWorkspacePlaceholder title={copy.rightDock.inspector} subtitle={copy.rightDock.sceneSummary} />}
           >
             <DeferredWorkspaceReveal>
-              <InspectorPanel copy={copy} mapDocument={mapDocument} modSources={activeMapModSources} moduleBlueprint={moduleBlueprint} />
+              <InspectorPanel mapDocument={mapDocument} modSources={activeMapModSources} moduleBlueprint={moduleBlueprint} />
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
         ) : (
           <DeferredWorkspaceReveal>
-            <InspectorPanel copy={copy} mapDocument={mapDocument} modSources={activeMapModSources} moduleBlueprint={moduleBlueprint} />
+            <InspectorPanel mapDocument={mapDocument} modSources={activeMapModSources} moduleBlueprint={moduleBlueprint} />
           </DeferredWorkspaceReveal>
         ),
     },
@@ -460,10 +442,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           >
             <DeferredWorkspaceReveal>
               <CharacterVariantsPanel
-                copy={copy.charactersPanel}
-                yesLabel={copy.common.yes}
-                noLabel={copy.common.no}
-                noneLabel={copy.common.none}
                 character={activeCharacter}
                 activeVariant={activeCharacterVariant}
                 onSelectVariant={onSelectCharacterVariant}
@@ -477,7 +455,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           >
             <DeferredWorkspaceReveal>
               <LayersPanel
-                copy={copy}
                 mapDocument={mapDocument}
                 visibleLayerIds={visibleLayerIds}
                 onToggleLayer={onToggleLayer}
@@ -489,7 +466,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
         ) : (
           <DeferredWorkspaceReveal>
             <LayersPanel
-              copy={copy}
               mapDocument={mapDocument}
               visibleLayerIds={visibleLayerIds}
               onToggleLayer={onToggleLayer}
@@ -517,7 +493,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               >
                 <DeferredWorkspaceReveal>
                   <ObjectGroupsPanel
-                    copy={copy}
                     mapDocument={mapDocument}
                     visibleObjectGroupIds={visibleObjectGroupIds}
                     onToggleObjectGroup={onToggleObjectGroup}
@@ -544,7 +519,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
             dockAutoHeight: false,
             defaultDock: 'right-bottom',
             defaultDockHeight: 340,
-            content: <BuildingDetailsPanel copy={copy.buildingsPanel} building={activeBuilding} />,
+            content: <BuildingDetailsPanel building={activeBuilding} />,
           } satisfies WorkspacePanelConfig,
         ]
       : [
@@ -590,10 +565,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                 >
                   <DeferredWorkspaceReveal>
                     <CharacterRelationsPanel
-                      copy={copy.charactersPanel}
-                      yesLabel={copy.common.yes}
-                      noLabel={copy.common.no}
-                      noneLabel={copy.common.none}
                       character={activeCharacter}
                     />
                   </DeferredWorkspaceReveal>
@@ -605,7 +576,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                 >
                   <DeferredWorkspaceReveal>
                     <DiagnosticsPanel
-                      copy={copy}
                       directoryInfo={directoryInfo}
                       visibleLayerIds={visibleLayerIds}
                       visibleObjectGroupIds={visibleObjectGroupIds}
@@ -616,7 +586,6 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               ) : (
                 <DeferredWorkspaceReveal>
                   <DiagnosticsPanel
-                    copy={copy}
                     directoryInfo={directoryInfo}
                     visibleLayerIds={visibleLayerIds}
                     visibleObjectGroupIds={visibleObjectGroupIds}

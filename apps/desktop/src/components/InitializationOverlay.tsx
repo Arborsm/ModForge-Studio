@@ -1,9 +1,8 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
-import type { EditorCopy } from '../lib/editor-shell'
+import { useEditorCopy } from '../lib/app/localeContext'
 
 type InitializationOverlayProps = {
-  copy: EditorCopy
   desktopHost: boolean
   gameDirectory: string
   detectedDirectories: string[]
@@ -15,7 +14,6 @@ type InitializationOverlayProps = {
 }
 
 export default function InitializationOverlay({
-  copy,
   desktopHost,
   gameDirectory,
   detectedDirectories,
@@ -25,6 +23,8 @@ export default function InitializationOverlay({
   onScanAndOpenTown,
   onClose,
 }: InitializationOverlayProps) {
+  const copy = useEditorCopy()
+
   useEffect(() => {
     if (!onClose) {
       return
@@ -42,18 +42,18 @@ export default function InitializationOverlay({
 
   return (
     <div
-      className="absolute inset-0 z-40 flex items-center justify-center bg-[color-mix(in_srgb,var(--bg-app)_72%,transparent)] px-6 backdrop-blur-[3px]"
+      className="initialization-overlay-backdrop"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose?.()
         }
       }}
     >
-      <div className="relative w-full max-w-2xl rounded-[28px] border border-[var(--border-color)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_96%,transparent),color-mix(in_srgb,var(--bg-elevated)_96%,transparent))] p-6 shadow-[var(--shadow-panel)]">
+      <div className="initialization-overlay-panel">
         {onClose ? (
           <button
             type="button"
-            className="absolute right-4 top-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
+            className="initialization-overlay-close"
             onClick={onClose}
             aria-label="Close project overlay"
             title="Close"
@@ -61,16 +61,16 @@ export default function InitializationOverlay({
             <X className="h-4 w-4" />
           </button>
         ) : null}
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-tertiary)]">
+        <div className="initialization-overlay-header">
+          <p className="initialization-overlay-eyebrow">
             {copy.leftDock.project}
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{copy.leftDock.gameDirectory}</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">{copy.leftDock.projectSubtitle}</p>
+          <h2 className="initialization-overlay-title">{copy.leftDock.gameDirectory}</h2>
+          <p className="initialization-overlay-subtitle">{copy.leftDock.projectSubtitle}</p>
         </div>
 
-        <div className="mt-6 grid gap-2">
-          <label className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
+        <div className="initialization-overlay-directory-field">
+          <label className="initialization-overlay-directory-label">
             {copy.leftDock.gameDirectory}
           </label>
           <input
@@ -82,7 +82,7 @@ export default function InitializationOverlay({
           />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="initialization-overlay-actions">
           <button type="button" className="control-button h-10" onClick={onChooseDirectory}>
             {copy.controls.browse}
           </button>
@@ -91,37 +91,37 @@ export default function InitializationOverlay({
           </button>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+        <div className="initialization-overlay-host">
+          <p className="initialization-overlay-host-label">
             {copy.leftDock.hostMode}
           </p>
-          <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
+          <p className="initialization-overlay-host-value">
             {desktopHost ? copy.leftDock.desktopHost : copy.leftDock.browserHost}
           </p>
         </div>
 
-        <section className="mt-5 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+        <section className="initialization-overlay-detected">
+          <div className="initialization-overlay-detected-header">
+            <p className="initialization-overlay-detected-label">
               {copy.initialization.detected}
             </p>
-            <span className="text-[11px] text-[var(--text-tertiary)]">{copy.initialization.clickToUse}</span>
+            <span className="initialization-overlay-detected-hint">{copy.initialization.clickToUse}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="initialization-overlay-detected-list">
             {detectedDirectories.length ? (
               detectedDirectories.map((path) => (
                 <button
                   key={`detected:${path}`}
                   type="button"
-                  className="max-w-full rounded-full border border-[var(--border-color)] bg-[var(--bg-elevated)] px-3 py-1.5 text-left text-xs text-[var(--text-primary)] hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                  className="initialization-overlay-detected-chip"
                   title={path}
                   onClick={() => onSelectDirectory(path)}
                 >
-                  <span className="block truncate">{path}</span>
+                  <span className="initialization-overlay-detected-chip-text">{path}</span>
                 </button>
               ))
             ) : (
-              <p className="text-sm text-[var(--text-secondary)]">{copy.initialization.none}</p>
+              <p className="initialization-overlay-empty">{copy.initialization.none}</p>
             )}
           </div>
         </section>

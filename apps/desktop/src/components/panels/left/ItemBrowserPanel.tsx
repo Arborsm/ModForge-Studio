@@ -1,12 +1,11 @@
 import { Search } from 'lucide-react'
-import type { ItemsPanelCopy } from '../../../lib/editor-shell'
+import { useItemsCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../lib/app/itemWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { ItemSprite } from '../../ItemSprite'
 
 type ItemBrowserPanelProps = {
-  copy: ItemsPanelCopy
   items: ItemWorkspaceEntry[]
   filteredItems: ItemWorkspaceEntry[]
   activeItemId: string | null
@@ -21,7 +20,6 @@ function getCountByKind(items: ItemWorkspaceEntry[], kind: ItemWorkspaceEntry['k
 }
 
 export function ItemBrowserPanel({
-  copy,
   items,
   filteredItems,
   activeItemId,
@@ -30,6 +28,7 @@ export function ItemBrowserPanel({
   onItemFilterChange,
   onSelectItem,
 }: ItemBrowserPanelProps) {
+  const copy = useItemsCopy()
   const matchedKeys = new Set(filteredItems.map((item) => item.key))
   const stats = [
     { label: copy.statsAllLabel, value: items.length },

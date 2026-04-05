@@ -1,0 +1,97 @@
+@layer components {
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 32px;
+    padding: 0 12px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-app);
+    color: var(--text-secondary);
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+  }
+
+  .status-bar-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .status-bar-group-primary {
+    flex: 0 0 auto;
+  }
+
+  .status-bar-group-context,
+  .status-bar-group-hover {
+    flex: 1 1 auto;
+  }
+
+  .status-bar-divider {
+    width: 1px;
+    align-self: stretch;
+    background: color-mix(in srgb, var(--border-color) 70%, transparent);
+    opacity: 0.7;
+  }
+
+  .status-bar-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, transparent);
+    font-weight: 600;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .status-bar-indicator-ready {
+    border-color: color-mix(in srgb, var(--success) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--success) 10%, transparent);
+  }
+
+  .status-bar-indicator-warning {
+    border-color: color-mix(in srgb, var(--warning) 30%, var(--border-color));
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+  }
+
+  .status-bar-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .status-bar-item-wide {
+    flex: 1 1 auto;
+  }
+
+  .status-bar-label {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .status-bar-value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status-bar-indicator {
+      transition: none;
+    }
+  }
+}

@@ -1,14 +1,14 @@
-import type { ItemsPanelCopy } from '../../../lib/editor-shell'
+import { useItemsCopy } from '../../../lib/app/localeContext'
 import type { ItemWorkspaceEntry } from '../../../lib/app/itemWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type ItemRecipesPanelProps = {
-  copy: ItemsPanelCopy
   item: ItemWorkspaceEntry | null
 }
 
-export function ItemRecipesPanel({ copy, item }: ItemRecipesPanelProps) {
+export function ItemRecipesPanel({ item }: ItemRecipesPanelProps) {
+  const copy = useItemsCopy()
   return (
     <PanelFrame title={copy.recipesPanelTitle} subtitle={copy.recipesPanelSubtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

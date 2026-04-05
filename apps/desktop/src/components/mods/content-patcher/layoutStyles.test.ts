@@ -4,32 +4,85 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const stylesPath = existsSync(resolve(process.cwd(), 'src/styles/globals.css'))
-  ? resolve(process.cwd(), 'src/styles/globals.css')
-  : resolve(process.cwd(), 'apps/desktop/src/styles/globals.css')
+function resolveRepoPath(pathFromRoot: string) {
+  const normalizedPath = pathFromRoot.replace(/^apps\/desktop\//, '')
+  const desktopPath = normalizedPath.startsWith('src/') ? `apps/desktop/${normalizedPath}` : normalizedPath
+  const candidates = [
+    resolve(process.cwd(), pathFromRoot),
+    resolve(process.cwd(), normalizedPath),
+    resolve(process.cwd(), desktopPath),
+    resolve(process.cwd(), '..', '..', pathFromRoot),
+    resolve(process.cwd(), '..', '..', desktopPath),
+  ]
 
-const styles = readFileSync(stylesPath, 'utf8')
+  return candidates.find(existsSync) ?? candidates[0]
+}
+
+function resolveStylesPath(pathFromRoot: string) {
+  return resolveRepoPath(pathFromRoot)
+}
+
+function escapeSelector(selector: string) {
+  return selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function getRuleBody(source: string, selector: string) {
+  const matches = [...source.matchAll(new RegExp(`${escapeSelector(selector)}\\s*\\{([\\s\\S]*?)\\}`, 'gm'))]
+  const match = matches.at(-1)
+
+  expect(match?.[1]).toBeTruthy()
+  return match?.[1] ?? ''
+}
+
+const contentPatcherStyles = readFileSync(resolveStylesPath('src/styles/features/content-patcher.css'), 'utf8')
+const workspaceStyles = readFileSync(resolveStylesPath('src/styles/workspace/layout.css'), 'utf8')
 
 describe('content patcher layout styles', () => {
   it('keeps debugger panes shrinkable so internal regions can scroll', () => {
-    expect(styles).toMatch(/\.cp-debugger-shell\s*\{[^}]*height:\s*100%;/s)
-    expect(styles).toMatch(/\.cp-debugger-body > \*\s*\{[^}]*min-height:\s*0;/s)
-    expect(styles).toMatch(/\.cp-debugger-body\s*\{[^}]*overflow:\s*hidden;/s)
-    expect(styles).toMatch(/\.cp-debugger-preview\s*\{[^}]*flex:\s*1;/s)
-    expect(styles).toMatch(/\.cp-debugger-header\s*\{[^}]*padding:\s*12px 14px;/s)
-    expect(styles).toMatch(/\.cp-debugger-title\s*\{[^}]*font-size:\s*18px;/s)
-    expect(styles).toMatch(/\.cp-debugger-image-stage\s*\{[^}]*flex:\s*1;[^}]*min-height:\s*0;/s)
-    expect(styles).toMatch(/\.cp-debugger-image\s*\{[^}]*width:\s*100%;[^}]*height:\s*100%;/s)
-    expect(styles).toMatch(/\.cp-debugger-image-frame\s*\{[^}]*position:\s*relative;/s)
-    expect(styles).toMatch(/\.cp-debugger-patch-bounds\s*\{[^}]*border:\s*2px dashed/s)
-    expect(styles).toMatch(/\.cp-debugger-nav-scroll\s*\{[^}]*flex:\s*1 1 auto;[^}]*min-height:\s*0;[^}]*overflow:\s*auto;/s)
-    expect(styles).toMatch(/\.cp-debugger-card\s*\{[^}]*min-height:\s*0;/s)
-    expect(styles).toMatch(/\.cp-debugger-form-grid-compact\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(140px,\s*1fr\)\);/s)
-    expect(styles).toMatch(
-      /\.cp-debugger-image-toolbar\s*,\s*\.workspace-viewport-toolbar\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*16px;[^}]*display:\s*flex;/s,
-    )
-    expect(styles).toMatch(/\.cp-debugger-toolbar-popup\s*\{[^}]*position:\s*absolute;/s)
-    expect(styles).toMatch(/\.cp-debugger-compare-split\s*\{[^}]*display:\s*grid;/s)
-    expect(styles).toMatch(/\.cp-debugger-compare-overlay\s*\{[^}]*position:\s*relative;/s)
+    const shellRule = getRuleBody(contentPatcherStyles, '.cp-debugger-shell')
+    const bodyChildrenRule = getRuleBody(contentPatcherStyles, '.cp-debugger-body > *')
+    const bodyRule = getRuleBody(contentPatcherStyles, '.cp-debugger-body')
+    const previewRule = getRuleBody(contentPatcherStyles, '.cp-debugger-preview')
+    const headerRule = getRuleBody(contentPatcherStyles, '.cp-debugger-header')
+    const titleRule = getRuleBody(contentPatcherStyles, '.cp-debugger-title')
+    const imageStageRule = getRuleBody(contentPatcherStyles, '.cp-debugger-image-stage')
+    const imageRule = getRuleBody(contentPatcherStyles, '.cp-debugger-image')
+    const imageFrameRule = getRuleBody(contentPatcherStyles, '.cp-debugger-image-frame')
+    const patchBoundsRule = getRuleBody(contentPatcherStyles, '.cp-debugger-patch-bounds')
+    const navScrollRule = getRuleBody(contentPatcherStyles, '.cp-debugger-nav-scroll')
+    const cardRule = getRuleBody(contentPatcherStyles, '.cp-debugger-card')
+    const formGridCompactRule = getRuleBody(contentPatcherStyles, '.cp-debugger-form-grid-compact')
+    const imageToolbarRule = getRuleBody(contentPatcherStyles, '.cp-debugger-image-toolbar')
+    const workspaceToolbarRule = getRuleBody(workspaceStyles, '.workspace-viewport-toolbar')
+    const toolbarPopupRule = getRuleBody(contentPatcherStyles, '.cp-debugger-toolbar-popup')
+    const compareSplitRule = getRuleBody(contentPatcherStyles, '.cp-debugger-compare-split')
+    const compareOverlayRule = getRuleBody(contentPatcherStyles, '.cp-debugger-compare-overlay')
+
+    expect(shellRule).toMatch(/height:\s*100%/)
+    expect(bodyChildrenRule).toMatch(/min-height:\s*0/)
+    expect(bodyRule).toMatch(/overflow:\s*hidden/)
+    expect(previewRule).toMatch(/flex:\s*1/)
+    expect(headerRule).toMatch(/padding:\s*12px 14px/)
+    expect(titleRule).toMatch(/font-size:\s*18px/)
+    expect(imageStageRule).toMatch(/flex:\s*1/)
+    expect(imageStageRule).toMatch(/min-height:\s*0/)
+    expect(imageRule).toMatch(/width:\s*100%/)
+    expect(imageRule).toMatch(/height:\s*100%/)
+    expect(imageFrameRule).toMatch(/position:\s*relative/)
+    expect(patchBoundsRule).toMatch(/border:\s*2px dashed/)
+    expect(navScrollRule).toMatch(/flex:\s*1 1 auto/)
+    expect(navScrollRule).toMatch(/min-height:\s*0/)
+    expect(navScrollRule).toMatch(/overflow:\s*auto/)
+    expect(cardRule).toMatch(/min-height:\s*0/)
+    expect(formGridCompactRule).toMatch(/grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(140px,\s*1fr\)\)/)
+    expect(imageToolbarRule).toMatch(/position:\s*absolute/)
+    expect(imageToolbarRule).toMatch(/bottom:\s*16px/)
+    expect(imageToolbarRule).toMatch(/display:\s*flex/)
+    expect(workspaceToolbarRule).toMatch(/position:\s*absolute/)
+    expect(workspaceToolbarRule).toMatch(/bottom:\s*16px/)
+    expect(workspaceToolbarRule).toMatch(/display:\s*flex/)
+    expect(toolbarPopupRule).toMatch(/position:\s*absolute/)
+    expect(compareSplitRule).toMatch(/display:\s*grid/)
+    expect(compareOverlayRule).toMatch(/position:\s*relative/)
   })
 })

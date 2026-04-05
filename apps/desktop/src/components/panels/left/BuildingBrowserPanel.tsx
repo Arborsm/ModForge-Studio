@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react'
 import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
-import type { BuildingsPanelCopy } from '../../../lib/editor-shell'
+import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
@@ -32,7 +32,6 @@ const FARM_SPECIAL_GROUP_KEYS = new Set([
 ])
 
 type BuildingBrowserPanelProps = {
-  copy: BuildingsPanelCopy
   constructibleGroups: ConstructibleBuildingGroup[]
   filteredConstructibleGroups: ConstructibleBuildingGroup[]
   worldBuildings: BuildingWorkspaceEntry[]
@@ -141,16 +140,15 @@ function WorldBuildingButton({
 }
 
 function ConstructibleGroupButton({
-  copy,
   group,
   isActive,
   onSelect,
 }: {
-  copy: BuildingsPanelCopy
   group: ConstructibleBuildingGroup
   isActive: boolean
   onSelect: () => void
 }) {
+  const copy = useBuildingsCopy()
   return (
     <button
       type="button"
@@ -183,7 +181,6 @@ function SubsectionTitle({ title, count }: { title: string; count: number }) {
 }
 
 export function BuildingBrowserPanel({
-  copy,
   constructibleGroups,
   filteredConstructibleGroups,
   worldBuildings,
@@ -197,6 +194,7 @@ export function BuildingBrowserPanel({
   onBuildingFilterChange,
   onSelectBuilding,
 }: BuildingBrowserPanelProps) {
+  const copy = useBuildingsCopy()
   const filteredCount = filteredConstructibleGroups.length + filteredWorldBuildings.length
   const totalCount = constructibleGroups.length + worldBuildings.length
   const worldSections = buildWorldBuildingSections(filteredWorldBuildings)
@@ -328,9 +326,8 @@ export function BuildingBrowserPanel({
                     <div className="space-y-2">
                       <SubsectionTitle title="Farming" count={constructibleSections.farming.length} />
                       {constructibleSections.farming.map((group) => (
-                        <ConstructibleGroupButton
+                      <ConstructibleGroupButton
                           key={group.key}
-                          copy={copy}
                           group={group}
                           isActive={group.key === activeBuildingGroupKey}
                           onSelect={() => onSelectBuilding(group.rootEntry.key)}
@@ -342,9 +339,8 @@ export function BuildingBrowserPanel({
                     <div className="space-y-2">
                       <SubsectionTitle title="Special" count={constructibleSections.special.length} />
                       {constructibleSections.special.map((group) => (
-                        <ConstructibleGroupButton
+                      <ConstructibleGroupButton
                           key={group.key}
-                          copy={copy}
                           group={group}
                           isActive={group.key === activeBuildingGroupKey}
                           onSelect={() => onSelectBuilding(group.rootEntry.key)}
@@ -356,9 +352,8 @@ export function BuildingBrowserPanel({
                     <div className="space-y-2">
                       <SubsectionTitle title="Additional" count={constructibleSections.other.length} />
                       {constructibleSections.other.map((group) => (
-                        <ConstructibleGroupButton
+                      <ConstructibleGroupButton
                           key={group.key}
-                          copy={copy}
                           group={group}
                           isActive={group.key === activeBuildingGroupKey}
                           onSelect={() => onSelectBuilding(group.rootEntry.key)}

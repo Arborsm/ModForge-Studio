@@ -1,0 +1,35 @@
+@layer components {
+  .panel-overlay-card {
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 94%, transparent),
+      color-mix(in srgb, var(--bg-elevated) 96%, transparent)
+    );
+    box-shadow: var(--shadow-panel);
+    @apply rounded-2xl p-4 backdrop-blur;
+  }
+
+  .panel-canvas {
+    border: 1px solid var(--border-color);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 36%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 84%, transparent), var(--bg-viewport));
+    @apply overflow-hidden rounded-2xl;
+  }
+
+  .panel-canvas-soft {
+    border: 1px solid var(--border-color);
+    background:
+      radial-gradient(circle at top, rgba(255, 255, 255, 0.1), transparent 40%),
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 70%, transparent), var(--bg-panel-muted));
+    @apply overflow-hidden rounded-2xl;
+  }
+
+  .panel-canvas-empty {
+    border: 1px dashed color-mix(in srgb, var(--border-color) 92%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 44%, transparent);
+    color: var(--text-secondary);
+    @apply flex items-center justify-center rounded-2xl px-4 py-6 text-center text-sm;
+  }
+}

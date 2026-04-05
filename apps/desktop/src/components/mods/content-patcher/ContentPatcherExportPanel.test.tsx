@@ -1,15 +1,13 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { chooseDirectory, exportContentPatcherAsset, type LoadContentPatcherResultAssetResult } from '../../../lib/desktop'
-import { getModWorkspaceCopy } from '../../../lib/plugins/copy'
+import { renderWithLocale } from '../../../test/renderWithLocale'
 import { ContentPatcherExportPanel } from './ContentPatcherExportPanel'
 
 vi.mock('../../../lib/desktop', () => ({
   chooseDirectory: vi.fn(),
   exportContentPatcherAsset: vi.fn(),
 }))
-
-const copy = getModWorkspaceCopy('en-US')
 
 afterEach(() => {
   cleanup()
@@ -49,9 +47,8 @@ describe('ContentPatcherExportPanel', () => {
       diagnostics: [],
     } as never)
 
-    render(
+    renderWithLocale(
       <ContentPatcherExportPanel
-        copy={copy}
         projectPath="E:\\Mods\\SeasonalGarden"
         gameRootPath="E:\\Games\\Stardew Valley"
         snapshot={{

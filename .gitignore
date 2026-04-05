@@ -24,3 +24,5 @@ pywinauto-mcp.log
 .tools/
 *tmp*
 /obj/
+.devDocs
+.superpowers

@@ -16,48 +16,37 @@ import { useEffect, useId, useRef, useState } from 'react'
 import {
   getWorkspaceModeLabel,
   workspaceModes,
-  type EditorCopy,
-  type LocaleCode,
   type ThemeMode,
   type WorkspaceMode,
   type WorkspaceTone,
 } from '../lib/editor-shell'
+import { useEditorCopy, useLocale, useSettingsMenuCopy, useViewMenuCopy } from '../lib/app/localeContext'
 import { cx } from '../lib/cx'
 import type { WorkspacePanelMeta } from './WorkspaceLayout'
 
 type TopMenuBarProps = {
-  copy: EditorCopy
   workspaceMode: WorkspaceMode
   onWorkspaceChange: (mode: WorkspaceMode) => void
   theme: ThemeMode
   onToggleTheme: () => void
-  locale: LocaleCode
   statusTone: WorkspaceTone
   desktopHost: boolean
   onMinimizeWindow: () => void
   onToggleMaximizeWindow: () => void
   onCloseWindow: () => void
   viewMenu: {
-    title: string
-    resetLabel: string
-    savePresetLabel: string
-    panelsLabel: string
-    presetsLabel: string
-    emptyPresetsLabel: string
     panelItems: WorkspacePanelMeta[]
     presetNames: string[]
     onTogglePanel: (id: string, visible: boolean) => void
     onResetLayout: () => void
-    onSavePreset: () => void
+    onSavePreset: (name: string) => void
     onLoadPreset: (name: string) => void
     onDeletePreset: (name: string) => void
   }
   settingsMenu: {
-    title: string
     onOpen: () => void
   }
   projectMenu: {
-    title: string
     highlighted?: boolean
     onOpen: () => void
   }
@@ -73,12 +62,10 @@ const MODULE_ICONS = {
 } satisfies Record<WorkspaceMode, typeof Map>
 
 export default function TopMenuBar({
-  copy,
   workspaceMode,
   onWorkspaceChange,
   theme,
   onToggleTheme,
-  locale,
   statusTone,
   desktopHost,
   onMinimizeWindow,
@@ -88,6 +75,10 @@ export default function TopMenuBar({
   settingsMenu,
   projectMenu,
 }: TopMenuBarProps) {
+  const copy = useEditorCopy()
+  const locale = useLocale()
+  const viewMenuCopy = useViewMenuCopy()
+  const settingsMenuCopy = useSettingsMenuCopy()
   const [activeMenu, setActiveMenu] = useState<'view' | null>(null)
   const viewMenuId = useId()
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
@@ -116,9 +107,9 @@ export default function TopMenuBar({
   }, [activeMenu])
 
   return (
-    <header className="top-menu-bar relative z-[120] border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)] backdrop-blur-xl">
+    <header className="top-menu-bar relative z-[120]">
       <div className="top-menu-drag-layer absolute inset-0" data-tauri-drag-region aria-hidden="true" />
-      <div className="top-menu-primary pointer-events-none relative grid h-14 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-3">
+      <div className="top-menu-primary">
         <div className="top-menu-cluster top-menu-cluster-start flex min-w-0 items-center gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="panel-section flex h-8 w-8 items-center justify-center border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent)] text-xs font-black tracking-[0.18em] text-white">
@@ -136,7 +127,7 @@ export default function TopMenuBar({
               )}
               onClick={projectMenu.onOpen}
             >
-              {projectMenu.title}
+              {copy.leftDock.project}
             </button>
 
             <div className="relative" ref={viewMenuRef}>
@@ -151,13 +142,13 @@ export default function TopMenuBar({
                 aria-controls={viewMenuId}
                 onClick={() => setActiveMenu((current) => (current === 'view' ? null : 'view'))}
               >
-                {viewMenu.title}
+                {viewMenuCopy.title}
               </button>
 
               {viewMenuOpen ? (
-                <div className="top-menu-dropdown" id={viewMenuId} role="menu" aria-label={viewMenu.title}>
+                <div className="top-menu-dropdown" id={viewMenuId} role="menu" aria-label={viewMenuCopy.title}>
                   <div className="top-menu-section">
-                    <p className="top-menu-section-title">{viewMenu.panelsLabel}</p>
+                    <p className="top-menu-section-title">{viewMenuCopy.panelsLabel}</p>
                     {viewMenu.panelItems.map((item) => (
                       <button
                         key={item.id}
@@ -169,19 +160,31 @@ export default function TopMenuBar({
                       >
                         <span>{item.title}</span>
                         <span className={cx('status-pill', item.visible ? 'status-pill-ready' : 'status-pill-idle')}>
-                          {item.visible ? 'On' : 'Off'}
+                          {item.visible ? viewMenuCopy.panelVisibleLabel : viewMenuCopy.panelHiddenLabel}
                         </span>
                       </button>
                     ))}
                   </div>
 
                   <div className="top-menu-section">
-                    <p className="top-menu-section-title">{viewMenu.presetsLabel}</p>
-                    <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onSavePreset}>
-                      <span>{viewMenu.savePresetLabel}</span>
+                    <p className="top-menu-section-title">{viewMenuCopy.presetsLabel}</p>
+                    <button
+                      type="button"
+                      className="top-menu-row"
+                      role="menuitem"
+                      onClick={() => {
+                        const presetName = window.prompt(viewMenuCopy.presetNamePrompt)
+                        if (!presetName?.trim()) {
+                          return
+                        }
+
+                        viewMenu.onSavePreset(presetName.trim())
+                      }}
+                    >
+                      <span>{viewMenuCopy.savePresetLabel}</span>
                     </button>
                     <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onResetLayout}>
-                      <span>{viewMenu.resetLabel}</span>
+                      <span>{viewMenuCopy.resetLabel}</span>
                     </button>
                     {viewMenu.presetNames.length ? (
                       viewMenu.presetNames.map((name) => (
@@ -197,15 +200,21 @@ export default function TopMenuBar({
                           <button
                             type="button"
                             className="workspace-panel-action h-7 w-7"
-                            onClick={() => viewMenu.onDeletePreset(name)}
-                            title="Delete preset"
+                            onClick={() => {
+                              if (!window.confirm(viewMenuCopy.deletePresetConfirm(name))) {
+                                return
+                              }
+
+                              viewMenu.onDeletePreset(name)
+                            }}
+                            title={viewMenuCopy.deletePresetLabel}
                           >
                             <X className="h-3 w-3" />
                           </button>
                         </div>
                       ))
                     ) : (
-                      <div className="top-menu-empty">{viewMenu.emptyPresetsLabel}</div>
+                      <div className="top-menu-empty">{viewMenuCopy.emptyPresetsLabel}</div>
                     )}
                   </div>
                 </div>
@@ -262,8 +271,8 @@ export default function TopMenuBar({
               setActiveMenu(null)
               settingsMenu.onOpen()
             }}
-            aria-label={settingsMenu.title}
-            title={settingsMenu.title}
+            aria-label={settingsMenuCopy.title}
+            title={settingsMenuCopy.title}
           >
             <Settings2 className="h-4 w-4" />
           </button>

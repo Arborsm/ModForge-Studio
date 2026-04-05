@@ -1251,7 +1251,7 @@ export default function EventWorkspace({
 
   if (!parsedEventAsset) {
     return (
-      <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
+      <div className="panel-surface panel-surface-flat h-full">
         <div className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--text-secondary)]">
           <div className="space-y-3">
             <p className="text-base font-semibold text-[var(--text-primary)]">{labels.empty}</p>
@@ -1263,7 +1263,7 @@ export default function EventWorkspace({
   }
 
   return (
-    <div className="panel-surface h-full border-[var(--border-color)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--bg-panel)_96%,transparent),var(--bg-panel))]">
+    <div className="panel-surface h-full">
       <div className="panel-header">
         <div>
           <p className="panel-title">{labels.workspace}</p>
@@ -1277,7 +1277,7 @@ export default function EventWorkspace({
 
       <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="grid min-h-0 gap-3 xl:grid-rows-[minmax(0,1fr)_240px]">
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+          <div className="panel-surface panel-surface-muted min-h-0">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{labels.scene}</p>
@@ -1357,7 +1357,7 @@ export default function EventWorkspace({
             </div>
           </div>
 
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+          <div className="panel-surface panel-surface-muted min-h-0">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{labels.timeline}</p>
@@ -1416,7 +1416,7 @@ export default function EventWorkspace({
         </section>
 
         <aside className="grid min-h-0 gap-3 xl:grid-rows-[minmax(260px,0.52fr)_minmax(260px,0.48fr)]">
-          <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+          <div className="panel-surface panel-surface-muted min-h-0">
             <div className="panel-header">
               <div>
                 <p className="panel-title">{labels.eventList}</p>
@@ -1456,7 +1456,7 @@ export default function EventWorkspace({
                   })}
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+                <div className="panel-empty-state">
                   {labels.noEvents}
                 </div>
               )}
@@ -1464,7 +1464,7 @@ export default function EventWorkspace({
           </div>
 
           <div className="grid min-h-0 gap-3 xl:grid-rows-[minmax(0,0.58fr)_minmax(0,0.42fr)]">
-            <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+            <div className="panel-surface panel-surface-muted min-h-0">
               <div className="panel-header">
                 <div>
                   <p className="panel-title">{labels.inspector}</p>
@@ -1505,7 +1505,7 @@ export default function EventWorkspace({
               </div>
             </div>
 
-            <div className="panel-surface min-h-0 border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+            <div className="panel-surface panel-surface-muted min-h-0">
               <div className="panel-header">
                 <div>
                   <p className="panel-title">{labels.transcript}</p>

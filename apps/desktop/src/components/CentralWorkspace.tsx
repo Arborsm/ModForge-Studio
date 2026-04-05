@@ -12,16 +12,15 @@ import {
 } from 'lucide-react'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectAssetState } from '../lib/app/eventStageShared'
+import { useEditorCopy, useLocale } from '../lib/app/localeContext'
 import type { StageWorldOverlaySprite } from '../lib/app/mapWorldStatePreview'
-import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../lib/editor-shell'
+import type { ModuleBlueprint, ThemeMode, WorkspaceMode } from '../lib/editor-shell'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
 import MapWorldStatePreviewOverlay from './MapWorldStatePreviewOverlay'
 import { MapViewport, type FocusedMapObjectTarget, type MapViewportHandle, type TileHoverInfo } from './MapViewport'
 
 type CentralWorkspaceProps = {
-  copy: EditorCopy
-  locale: LocaleCode
   workspaceMode: WorkspaceMode
   tabs: Array<{
     id: string
@@ -55,8 +54,6 @@ type CentralWorkspaceProps = {
 type ToolMode = 'select' | 'pan'
 
 export default function CentralWorkspace({
-  copy,
-  locale,
   workspaceMode,
   tabs,
   activeTabId,
@@ -80,6 +77,8 @@ export default function CentralWorkspace({
   onHoverChange,
   moduleBlueprint,
 }: CentralWorkspaceProps) {
+  const locale = useLocale()
+  const copy = useEditorCopy()
   const [toolMode, setToolMode] = useState<ToolMode>('select')
   const [showGrid, setShowGrid] = useState(true)
   const [zoomLabel, setZoomLabel] = useState('100%')
@@ -109,8 +108,9 @@ export default function CentralWorkspace({
       />
     )
   }, [mapDocument, showGameWorldAdditions, worldOverlaySprites, worldOverlayTextureAssets])
-  const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions ?? 'Preview Game Init'
-  const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions ?? 'Hide Game Init'
+  const previewGameWorldAdditionsLabel = copy.center.previewGameWorldAdditions
+  const hideGameWorldAdditionsLabel = copy.center.hideGameWorldAdditions
+  const gridToggleLabel = showGrid ? copy.center.hideGrid : copy.center.showGrid
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-viewport)]">
@@ -223,7 +223,7 @@ export default function CentralWorkspace({
               type="button"
               className={cx('tool-button', showGrid && 'tool-button-active')}
               onClick={() => setShowGrid((current) => !current)}
-              title={showGrid ? 'Hide grid' : 'Show grid'}
+              title={gridToggleLabel}
               aria-pressed={showGrid}
             >
               <Grid2x2 className="h-4 w-4" />
@@ -347,8 +347,8 @@ export default function CentralWorkspace({
                   type="button"
                   className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
                   onClick={() => setShowGrid((current) => !current)}
-                  title={showGrid ? 'Hide grid' : 'Show grid'}
-                  aria-label={showGrid ? 'Hide grid' : 'Show grid'}
+                  title={gridToggleLabel}
+                  aria-label={gridToggleLabel}
                   aria-pressed={showGrid}
                 >
                   <Grid2x2 className="h-4 w-4" />

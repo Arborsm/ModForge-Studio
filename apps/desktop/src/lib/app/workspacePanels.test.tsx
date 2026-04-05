@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '../editor-shell'
-import { getModWorkspaceCopy } from '../plugins/copy'
+import { getModWorkspaceCopy } from '../editor-shell'
+import { renderWithLocale } from '../../test/renderWithLocale'
 import type { BuildingTextureAssetState } from './buildingWorkspace'
 import type { CharacterVisualAssetState } from './characterWorkspace'
 import { buildWorkspacePanels } from './workspacePanels'
@@ -286,6 +287,13 @@ describe('workspacePanels mode builders', () => {
     })
   })
 
+  it('uses the locale bundle title for the items navigation panel', () => {
+    const zhCopy = editorCopy['zh-CN']
+    const panels = buildItemsWorkspacePanels(buildOptions({ workspaceMode: 'items', copy: zhCopy, locale: 'zh-CN' }))
+
+    expect(panels[0]?.title).toBe((zhCopy.itemsPanel as Record<string, unknown>).filtersTitle)
+  })
+
   it('builds mods panels via the mods builder', () => {
     const panels = buildModsWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
     expectPanelLayout(panels, ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'], {
@@ -412,7 +420,7 @@ describe('buildWorkspacePanels', () => {
       }),
     )
 
-    render(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
 
     expect(screen.queryByText('Node Canvas')).toBeNull()
     expect(screen.queryByText('Node Inspector')).toBeNull()

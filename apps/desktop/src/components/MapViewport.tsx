@@ -1826,7 +1826,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
 
   if (!mapDocument) {
     return (
-      <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)]" style={viewportBackdropStyle}>
+      <div className="panel-canvas relative h-full" style={viewportBackdropStyle}>
         <div
           className="absolute inset-0"
           style={{
@@ -1837,7 +1837,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           }}
         />
         <div className="relative flex h-full items-center justify-center p-10">
-          <div className="max-w-md rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-6 py-5 text-center shadow-[var(--shadow-panel)]">
+          <div className="panel-overlay-card max-w-md px-6 py-5 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--text-tertiary)]">{labels.fitMap}</p>
             <p className="mt-3 text-base font-semibold text-[var(--text-primary)]">{labels.loadPrompt}</p>
           </div>
@@ -1847,7 +1847,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   const viewportContent = (
-    <div className="relative h-full overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-viewport)] shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
+    <div className="panel-canvas relative h-full shadow-[var(--shadow-panel)]" style={viewportBackdropStyle}>
           <div
             className="pointer-events-none absolute inset-0"
             style={{

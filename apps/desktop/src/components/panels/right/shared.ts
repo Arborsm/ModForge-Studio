@@ -29,14 +29,12 @@ export type ObjectGroupListItem = {
 }
 
 export type InspectorPanelProps = {
-  copy: EditorCopy
   mapDocument: MapDocument | null
   modSources?: ModSourceEntry[]
   moduleBlueprint?: ModuleBlueprint
 }
 
 export type LayersPanelProps = {
-  copy: EditorCopy
   mapDocument: MapDocument | null
   visibleLayerIds: number[]
   onToggleLayer: (id: number) => void
@@ -45,7 +43,6 @@ export type LayersPanelProps = {
 }
 
 export type ObjectGroupsPanelProps = {
-  copy: EditorCopy
   mapDocument: MapDocument | null
   visibleObjectGroupIds: number[]
   onToggleObjectGroup: (id: number) => void
@@ -56,7 +53,6 @@ export type ObjectGroupsPanelProps = {
 }
 
 export type DiagnosticsPanelProps = {
-  copy: EditorCopy
   directoryInfo: GameDirectoryInfo | null
   visibleLayerIds: number[]
   visibleObjectGroupIds: number[]

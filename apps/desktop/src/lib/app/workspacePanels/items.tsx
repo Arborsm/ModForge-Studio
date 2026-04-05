@@ -1,4 +1,4 @@
-import { ItemCatalogPanel, ItemDetailPanel, ItemNavigationPanel } from '../../../components/ItemWorkspace'
+﻿import { ItemCatalogPanel, ItemDetailPanel, ItemNavigationPanel } from '../../../components/ItemWorkspace'
 import type { WorkspacePanelConfig } from '../../../components/WorkspaceLayout'
 import type { BuildWorkspacePanelsOptions } from './types'
 
@@ -25,7 +25,7 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
   return [
     {
       id: 'item-navigation',
-      title: copy.itemsPanel.statsAllLabel === 'All' ? 'Category Filters' : '鍒嗙被杩囨护',
+      title: copy.itemsPanel.filtersTitle,
       subtitle: activeItem?.displayName ?? itemStatusMessage,
       shellClassName: 'workspace-panel-shell-flat',
       minWidth: 220,
@@ -35,7 +35,6 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       defaultDockHeight: 760,
       content: (
         <ItemNavigationPanel
-          copy={copy.itemsPanel}
           item={activeItem}
           items={items}
           filteredItems={filteredItems}
@@ -65,7 +64,6 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       defaultDockHeight: 760,
       content: (
         <ItemCatalogPanel
-          copy={copy.itemsPanel}
           item={activeItem}
           items={items}
           filteredItems={filteredItems}
@@ -95,7 +93,6 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       defaultDockHeight: 760,
       content: (
         <ItemDetailPanel
-          copy={copy.itemsPanel}
           item={activeItem}
           items={items}
           filteredItems={filteredItems}
@@ -115,3 +112,4 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
     },
   ]
 }
+

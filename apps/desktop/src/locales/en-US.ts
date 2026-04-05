@@ -1,4 +1,6 @@
-{
+import type { LocaleBundle } from './schema'
+
+const localeBundle: LocaleBundle = {
   "editor": {
     "brand": {
       "name": "ModForge Studio",
@@ -78,6 +80,8 @@
       "panTool": "Pan",
       "previewGameWorldAdditions": "Preview Game Init",
       "hideGameWorldAdditions": "Hide Game Init",
+      "showGrid": "Show grid",
+      "hideGrid": "Hide grid",
       "moduleWorkspace": "Module Workspace",
       "moduleCanvas": "Main Editing Surface",
       "moduleInspector": "Module Sidebar"
@@ -99,7 +103,10 @@
       "noHoveredObjects": "No objects are hit at the current hover point.",
       "diagnosticsPrompt": "Validate a game directory to populate diagnostics.",
       "layerTiles": "tiles",
-      "objectCount": "objects"
+      "objectCount": "objects",
+      "objectGroupSummary": (objectCount, interactionCount, pointCount) => `${objectCount} objects / ${interactionCount} interactions / ${pointCount} points`,
+      "objectGroupCollectionSummary": (groupCount, objectCount, interactionCount, pointCount) =>
+        `${groupCount} groups / ${objectCount} objects / ${interactionCount} interactions / ${pointCount} points`
     },
     "statusBar": {
       "pathValid": "SDV path valid",
@@ -132,7 +139,7 @@
       "mapsPath": "Maps path",
       "visibleLayers": "Visible layers",
       "visibleObjects": "Visible objects",
-      "objectLabelTemplate": "Object {id}"
+      "objectLabel": (id) => `Object ${id}`
     },
     "messages": {
       "browserHostPrompt": "Run this screen inside the Tauri desktop host to access the local Stardew Valley directory.",
@@ -153,10 +160,11 @@
       "resourcePreloadFailed": "Resource preload failed.",
       "onlyTmxSupported": "Only XNB map loading is supported right now.",
       "directorySelectionFailed": "Directory selection failed.",
-      "detectedKnownPathTemplate": "Detected directory: {path}",
-      "validatedDirectoryTemplate": "Validated directory: {path}",
-      "loadedMapAssetsTemplate": "Loaded {count} {FORMAT} map assets.",
-      "loadedMapAssetsWithActiveMapTemplate": "Loaded {count} {FORMAT} map assets. {mapName} is active."
+      "detectedKnownPath": (path) => `Detected directory: ${path}`,
+      "validatedDirectory": (path) => `Validated directory: ${path}`,
+      "loadedMapAssets": (count, format) => `Loaded ${count} ${format.toUpperCase()} map assets.`,
+      "loadedMapAssetsWithActiveMap": (count, format, mapName) =>
+        `Loaded ${count} ${format.toUpperCase()} map assets. ${mapName} is active.`
     },
     "viewportLabels": {
       "loadPrompt": "Load an XNB map and this becomes the pan-able, zoomable main viewport.",
@@ -172,11 +180,11 @@
       "inspectHover": "Inspect hover data",
       "unavailable": "Unavailable",
       "tilesLabel": "tiles",
-      "tilesetsLoadedLabelTemplate": "Tilesets {loaded}/{total}",
-      "layersVisibleLabelTemplate": "Layers {visible}/{total}",
-      "objectGroupsVisibleLabelTemplate": "Object groups {visible}/{total}",
-      "zoomLabelTemplate": "Zoom {percent}%",
-      "failedToLoadTilesetImageTemplate": "Failed to load tileset image: {path}"
+      "tilesetsLoadedLabel": (loaded, total) => `Tilesets ${loaded}/${total}`,
+      "layersVisibleLabel": (visible, total) => `Layers ${visible}/${total}`,
+      "objectGroupsVisibleLabel": (visible, total) => `Object groups ${visible}/${total}`,
+      "zoomLabel": (zoom) => `Zoom ${Math.round(zoom * 100)}%`,
+      "failedToLoadTilesetImage": (path) => `Failed to load tileset image: ${path}`
     },
     "eventStage": {
       "empty": "Select an event file first.",
@@ -207,9 +215,9 @@
       "globalFadeToBlack": "Global fade to black",
       "globalFadeCleared": "Global fade cleared",
       "clear": "clear",
-      "cueLabelTemplate": "Cue: {cue}",
-      "stopCueLabelTemplate": "Stop: {cue}",
-      "flashAlphaLabelTemplate": "Alpha {alpha}"
+      "cueLabel": (cue) => `Cue: ${cue}`,
+      "stopCueLabel": (cue) => `Stop: ${cue}`,
+      "flashAlphaLabel": (alpha) => `Alpha ${alpha}`
     },
     "charactersPanel": {
       "browserTitle": "Character Directory",
@@ -484,6 +492,7 @@
       "statsCookingLabel": "Cook",
       "statsFishLabel": "Fish",
       "statsCropLabel": "Crop",
+      "filtersTitle": "Category Filters",
       "workspaceTitle": "Item Workspace",
       "workspaceSubtitle": "Hero view, acquisition routes, crafting uses, and villager gift context",
       "workspaceEmpty": "Select an item to inspect its core view, sources, uses, and gift preferences.",
@@ -677,6 +686,88 @@
       }
     }
   },
+  "mods": {
+    "workspaceLabel": "Mods",
+    "workspaceSubtitle": "Built-in plugin workspace",
+    "emptyStateTitle": "Start your mods workspace",
+    "emptyStateSubtitle": "Scan the Mods directory or import an existing Content Patcher project before editing.",
+    "browserTitle": "Mod Browser",
+    "browserSubtitle": "Mods directory plus manual import",
+    "browserFilterPlaceholder": "Filter by name, author, UniqueID, or path",
+    "browserEmpty": "No Content Patcher projects are currently available.",
+    "contentPatcherOnly": "Content Patcher Only",
+    "projectsLabel": "Projects",
+    "filteredLabel": "Filtered",
+    "unknownLabel": "Unknown",
+    "noVersionLabel": "No Version",
+    "importProject": "Import Mod",
+    "refreshProjects": "Refresh",
+    "openFolder": "Open Folder",
+    "saveProject": "Save",
+    "exportProject": "Export",
+    "manifestTitle": "Manifest",
+    "manifestSubtitle": "Core metadata and Content Pack linkage",
+    "patchesTitle": "Patches",
+    "patchesSubtitle": "Changes list and patch summaries",
+    "patchWhenLabel": "When JSON",
+    "rawJsonTitle": "Raw JSON",
+    "rawJsonSubtitle": "Direct editing for manifest.json and content.json",
+    "openPatchFlow": "Open Patch Flow",
+    "inspectorTitle": "Patch Inspector",
+    "inspectorSubtitle": "Structured fields for the selected patch",
+    "diagnosticsTitle": "Diagnostics & Export",
+    "diagnosticsSubtitle": "Validation, save status, and project paths",
+    "diagnosticsFeedTitle": "Diagnostics Feed",
+    "showDiagnostics": "Show Diagnostics",
+    "hideDiagnostics": "Hide Diagnostics",
+    "targetDiagnosticsTitle": "Target Diagnostics",
+    "targetDiagnosticsSubtitle": "Simulation diagnostics for the selected result asset",
+    "exportResultTitle": "Export Result",
+    "exportResultSubtitle": "Write the simulated target output to disk",
+    "noProject": "Select a Content Patcher project to edit it here.",
+    "noPatch": "No patch is currently selected.",
+    "nextStepsTitle": "Next Steps",
+    "quickPatchTitle": "Quick Patch Editor",
+    "projectFacts": "Project Facts",
+    "capabilities": "Capabilities",
+    "futureScopes": "Future Scopes",
+    "dirtyLabel": "Unsaved",
+    "cleanLabel": "Synced",
+    "sourcePath": "Source",
+    "outputPath": "Export",
+    "patchAction": "Action",
+    "patchTarget": "Target",
+    "patchFromFile": "FromFile",
+    "patchLogName": "LogName",
+    "formatLabel": "Format",
+    "patchesCountLabel": "Patches",
+    "configKeysLabel": "Config Keys",
+    "dynamicTokensLabel": "Dynamic Tokens",
+    "includesLabel": "Includes",
+    "hasI18nLabel": "i18n",
+    "addPatch": "Add Patch",
+    "removePatch": "Remove Patch",
+    "noTargetLabel": "No Target",
+    "whenLabel": "When",
+    "alwaysLabel": "Always",
+    "noPatchesLabel": "No patches yet.",
+    "diagnosticsListTitle": "Diagnostics",
+    "noDiagnosticsLabel": "No diagnostics.",
+    "manifestPathLabel": "Manifest",
+    "contentPathLabel": "Content",
+    "manifestName": "Name",
+    "manifestAuthor": "Author",
+    "manifestVersion": "Version",
+    "manifestUniqueId": "UniqueID",
+    "manifestDescription": "Description",
+    "manifestContentPackFor": "ContentPackFor",
+    "selectExportFolder": "Select export folder",
+    "selectProjectFolder": "Select mod folder",
+    "importedFrom": (path) => `Imported: ${path}`,
+    "saveSuccess": (path) => `Saved to ${path}`,
+    "exportSuccess": (path) => `Exported to ${path}`,
+    "scanStatus": (count) => `${count} mod projects detected.`
+  },
   "worldAtlasViews": {
     "main": "Main World",
     "remote": "Remote Regions"
@@ -686,10 +777,13 @@
     "resetLabel": "Reset Default Layout",
     "savePresetLabel": "Save Current Layout",
     "panelsLabel": "Windows",
+    "panelVisibleLabel": "Visible",
+    "panelHiddenLabel": "Hidden",
     "presetsLabel": "Workspace Presets",
     "emptyPresetsLabel": "No saved presets yet",
     "presetNamePrompt": "Preset name",
-    "deletePresetConfirmTemplate": "Delete preset \"{name}\"?"
+    "deletePresetLabel": "Delete preset",
+    "deletePresetConfirm": (name) => `Delete preset "${name}"?`
   },
   "settingsMenu": {
     "title": "Settings",
@@ -723,3 +817,5 @@
     }
   }
 }
+
+export default localeBundle

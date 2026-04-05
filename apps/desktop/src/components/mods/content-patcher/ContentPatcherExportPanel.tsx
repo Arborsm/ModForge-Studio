@@ -5,13 +5,12 @@ import {
   type ContentPatcherProjectSnapshot,
   type LoadContentPatcherResultAssetResult,
 } from '../../../lib/desktop'
+import { useModWorkspaceCopy } from '../../../lib/app/localeContext'
 import { buildContentPatcherSimulationRequest, type ContentPatcherBackendSimulationContext } from '../../../lib/plugins/contentPatcher'
-import type { ModWorkspaceCopy } from '../../../lib/plugins/copy'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 
 type ContentPatcherExportPanelProps = {
-  copy: ModWorkspaceCopy
   projectPath: string | null
   gameRootPath: string | null
   snapshot: ContentPatcherProjectSnapshot | null
@@ -36,7 +35,6 @@ function toExportFilename(target: string, extension: string) {
 }
 
 export function ContentPatcherExportPanel({
-  copy,
   projectPath,
   gameRootPath,
   snapshot,
@@ -46,6 +44,7 @@ export function ContentPatcherExportPanel({
   selectedTargetPath,
   result,
 }: ContentPatcherExportPanelProps) {
+  const copy = useModWorkspaceCopy()
   const [exportStatus, setExportStatus] = useState('')
 
   const simulationRequest = useMemo(() => {

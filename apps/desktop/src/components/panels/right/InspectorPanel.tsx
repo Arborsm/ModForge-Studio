@@ -1,9 +1,12 @@
 import { Settings2 } from 'lucide-react'
 import { PanelFrame } from '../../ui/PanelFrame'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import type { InspectorPanelProps } from './shared'
 import { ModSourceList } from '../../ui/ModSourceList'
 
-export function InspectorPanel({ copy, mapDocument, modSources = [], moduleBlueprint }: InspectorPanelProps) {
+export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }: InspectorPanelProps) {
+  const copy = useEditorCopy()
+
   if (moduleBlueprint) {
     return (
       <PanelFrame

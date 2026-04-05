@@ -1,0 +1,74 @@
+@layer components {
+  .control-input {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+    color: var(--text-primary);
+    @apply h-10 w-full rounded-lg px-3 text-sm outline-none transition-colors;
+  }
+
+  .control-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .control-input:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .control-button {
+    border: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
+    color: var(--text-primary);
+    @apply inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium transition-colors;
+  }
+
+  .control-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 80%, transparent);
+  }
+
+  .control-button-primary {
+    border-color: color-mix(in srgb, var(--accent) 52%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, white 14%), var(--accent));
+    color: white;
+  }
+
+  .icon-button {
+    color: var(--text-secondary);
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors;
+  }
+
+  .icon-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .window-control-button {
+    color: var(--text-secondary);
+    @apply inline-flex h-8 w-8 items-center justify-center transition-colors;
+  }
+
+  .window-control-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .window-control-close:hover {
+    background: color-mix(in srgb, var(--danger) 82%, transparent);
+    color: white;
+  }
+
+  .tool-button {
+    color: var(--text-secondary);
+    @apply inline-flex h-8 items-center justify-center rounded-md px-2 transition-colors;
+  }
+
+  .tool-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .tool-button-active {
+    background: var(--accent);
+    color: white;
+  }
+}

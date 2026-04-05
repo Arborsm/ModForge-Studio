@@ -1,12 +1,12 @@
 ﻿import { ChevronDown, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { getWorkspaceModeLabel, type EditorCopy, type WorkspaceMode } from '../lib/editor-shell'
+import { getWorkspaceModeLabel, type WorkspaceMode } from '../lib/editor-shell'
+import { useEditorCopy, useLocale } from '../lib/app/localeContext'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import { cx } from '../lib/cx'
 import { PanelFrame } from './ui/PanelFrame'
 
 type LeftDockProps = {
-  copy: EditorCopy
   workspaceMode: WorkspaceMode
   desktopHost: boolean
   gameDirectory: string
@@ -49,7 +49,6 @@ function getAssetGroupLabel(asset: MapAssetSummary) {
 }
 
 export default function LeftDock({
-  copy,
   workspaceMode,
   desktopHost,
   gameDirectory,
@@ -67,6 +66,8 @@ export default function LeftDock({
   onAssetFilterChange,
   onOpenAsset,
 }: LeftDockProps) {
+  const copy = useEditorCopy()
+  const locale = useLocale()
   const activeAssetName = sceneLabel ?? mapAssets.find((item) => item.id === activeMapId)?.name ?? copy.common.none
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   const groupedAssets = useMemo(() => {
@@ -144,7 +145,7 @@ export default function LeftDock({
             <div className="metric-card">
               <span className="metric-label">{copy.leftDock.sceneFocus}</span>
               <strong className="metric-value">
-                {workspaceMode === 'map' ? activeAssetName : getWorkspaceModeLabel('en-US', copy, workspaceMode)}
+                {workspaceMode === 'map' ? activeAssetName : getWorkspaceModeLabel(locale, copy, workspaceMode)}
               </strong>
             </div>
           </div>

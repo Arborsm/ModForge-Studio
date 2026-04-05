@@ -7,7 +7,7 @@ import type {
   SaveModProjectResult,
 } from '../../lib/desktop'
 import type { ContentPatcherBackendSimulationContext } from '../../lib/plugins/contentPatcher'
-import type { ModWorkspaceCopy } from '../../lib/plugins/copy'
+import { useModWorkspaceCopy } from '../../lib/app/localeContext'
 import type { WorkspacePluginDefinition } from '../../lib/plugins/types'
 import { ContentPatcherResultPreview } from './content-patcher/ContentPatcherResultPreview'
 
@@ -23,7 +23,6 @@ type PatchSummary = {
 }
 
 type ContentPatcherWorkspaceProps = {
-  copy: ModWorkspaceCopy
   pluginDefinition: WorkspacePluginDefinition | null
   projectDetail: ModProjectDetail | null
   diagnostics: ModProjectDiagnostic[]
@@ -76,7 +75,6 @@ type ContentPatcherWorkspaceProps = {
 }
 
 export function ContentPatcherWorkspace({
-  copy,
   projectDetail,
   contentSummary,
   hasUnsavedChanges,
@@ -90,6 +88,7 @@ export function ContentPatcherWorkspace({
   onSaveProject,
   onExportProject,
 }: ContentPatcherWorkspaceProps) {
+  const copy = useModWorkspaceCopy()
   if (!projectDetail?.contentPatcher) {
     return <div className="panel-empty-state h-full">{copy.noProject}</div>
   }
