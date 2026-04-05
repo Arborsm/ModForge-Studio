@@ -75,4 +75,21 @@ describe('SettingsWindow', () => {
     fireEvent.click(chineseOption)
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
   })
+
+  it('supports arrow-key locale navigation with roving focus semantics', () => {
+    const onSelectLocale = vi.fn()
+    renderWindow({ onSelectLocale })
+
+    const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    expect(englishOption).toHaveAttribute('tabindex', '0')
+    expect(chineseOption).toHaveAttribute('tabindex', '-1')
+
+    ;(englishOption as HTMLElement).focus()
+    fireEvent.keyDown(englishOption, { key: 'ArrowRight' })
+
+    expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
+    expect(chineseOption).toHaveFocus()
+  })
 })

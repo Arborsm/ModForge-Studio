@@ -68,9 +68,13 @@ const LOCALE_STORAGE_KEY = 'modforge:locale'
 
 function getInitialLocale(): LocaleCode {
   if (typeof window !== 'undefined') {
-    const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
-    if (storedLocale === 'zh-CN' || storedLocale === 'en-US') {
-      return storedLocale
+    try {
+      const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+      if (storedLocale === 'zh-CN' || storedLocale === 'en-US') {
+        return storedLocale
+      }
+    } catch {
+      // Ignore blocked localStorage access and fall back to navigator heuristics.
     }
   }
 
@@ -513,7 +517,11 @@ export default function App() {
       return
     }
 
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    } catch {
+      // Ignore blocked localStorage writes to keep locale changes functional in-memory.
+    }
   }, [locale])
 
   useEffect(() => {
