@@ -42,8 +42,8 @@ describe('SettingsWindow', () => {
       ...overrides,
     }
 
-    render(<SettingsWindow {...props} />)
-    return props
+    const view = render(<SettingsWindow {...props} />)
+    return { props, ...view }
   }
 
   it('shows a borderless fullscreen toggle in the view category', () => {
@@ -91,5 +91,72 @@ describe('SettingsWindow', () => {
 
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
     expect(chineseOption).toHaveFocus()
+  })
+
+  it('supports Home and End locale navigation keys', () => {
+    const onSelectLocale = vi.fn()
+    const { rerender, props } = renderWindow({ onSelectLocale, activeLocale: 'en-US' })
+
+    const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    ;(englishOption as HTMLElement).focus()
+    fireEvent.keyDown(englishOption, { key: 'Home' })
+
+    expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
+    expect(chineseOption).toHaveFocus()
+
+    rerender(<SettingsWindow {...props} activeLocale="zh-CN" />)
+
+    const chineseOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+    const englishOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+
+    ;(chineseOptionUpdated as HTMLElement).focus()
+    fireEvent.keyDown(chineseOptionUpdated, { key: 'End' })
+
+    expect(onSelectLocale).toHaveBeenNthCalledWith(2, 'en-US')
+    expect(englishOptionUpdated).toHaveFocus()
+  })
+
+  it('supports reverse-direction arrow keys with wraparound navigation', () => {
+    const onSelectLocale = vi.fn()
+    renderWindow({ onSelectLocale, activeLocale: 'zh-CN' })
+
+    const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    ;(chineseOption as HTMLElement).focus()
+    fireEvent.keyDown(chineseOption, { key: 'ArrowLeft' })
+
+    expect(onSelectLocale).toHaveBeenCalledWith('en-US')
+    expect(englishOption).toHaveFocus()
+
+    fireEvent.keyDown(chineseOption, { key: 'ArrowUp' })
+
+    expect(onSelectLocale).toHaveBeenCalledTimes(2)
+    expect(onSelectLocale).toHaveBeenNthCalledWith(2, 'en-US')
+  })
+
+  it('updates aria-checked and roving tabindex after parent activeLocale rerender', () => {
+    const onSelectLocale = vi.fn()
+    const { rerender, props } = renderWindow({ onSelectLocale, activeLocale: 'en-US' })
+
+    const englishOptionInitial = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOptionInitial = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    expect(englishOptionInitial).toHaveAttribute('aria-checked', 'true')
+    expect(chineseOptionInitial).toHaveAttribute('aria-checked', 'false')
+    expect(englishOptionInitial).toHaveAttribute('tabindex', '0')
+    expect(chineseOptionInitial).toHaveAttribute('tabindex', '-1')
+
+    rerender(<SettingsWindow {...props} activeLocale="zh-CN" />)
+
+    const englishOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    expect(englishOptionUpdated).toHaveAttribute('aria-checked', 'false')
+    expect(chineseOptionUpdated).toHaveAttribute('aria-checked', 'true')
+    expect(englishOptionUpdated).toHaveAttribute('tabindex', '-1')
+    expect(chineseOptionUpdated).toHaveAttribute('tabindex', '0')
   })
 })
