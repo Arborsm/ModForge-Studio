@@ -1342,6 +1342,13 @@
     color: var(--text-primary);
   }
 
+  .settings-locale-option:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
   .settings-locale-option-active {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);

@@ -60,11 +60,19 @@ describe('SettingsWindow', () => {
 
     expect(screen.getByText(copy.languageLabel)).toBeInTheDocument()
     expect(screen.getByText(copy.languageDescription)).toBeInTheDocument()
+    const localeGroup = screen.getByRole('radiogroup', { name: copy.languageLabel })
+    expect(localeGroup).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: copy.localeLabels['en-US'] }))
+    const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
+    const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
+
+    expect(englishOption).toHaveAttribute('aria-checked', 'true')
+    expect(chineseOption).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(englishOption)
     expect(onSelectLocale).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: copy.localeLabels['zh-CN'] }))
+    fireEvent.click(chineseOption)
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
   })
 })

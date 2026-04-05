@@ -64,13 +64,28 @@ type WindowWithIdleCallback = Window & {
   cancelIdleCallback?: (handle: number) => void
 }
 
+const LOCALE_STORAGE_KEY = 'modforge:locale'
+
+function getInitialLocale(): LocaleCode {
+  if (typeof window !== 'undefined') {
+    const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+    if (storedLocale === 'zh-CN' || storedLocale === 'en-US') {
+      return storedLocale
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
+    return 'zh-CN'
+  }
+
+  return 'en-US'
+}
+
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
-  const [locale, setLocale] = useState<LocaleCode>(() =>
-    typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
-  )
+  const [locale, setLocale] = useState<LocaleCode>(() => getInitialLocale())
   const [accentPresetId, setAccentPresetId] = useState<string>(() => {
     if (typeof window === 'undefined') {
       return ACCENT_PRESETS[0].id
@@ -492,6 +507,14 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+  }, [locale])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current

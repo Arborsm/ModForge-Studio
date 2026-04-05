@@ -1,5 +1,5 @@
 import { Maximize2, Palette, Settings2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { cx } from '../lib/cx'
 import type { LocaleCode } from '../lib/editor-shell'
 
@@ -82,6 +82,8 @@ export default function SettingsWindow({
   onClose,
 }: SettingsWindowProps) {
   const [activeCategory, setActiveCategory] = useState<'appearance' | 'view' | 'interaction' | 'advanced'>('appearance')
+  const languageTitleId = useId()
+  const languageDescriptionId = useId()
 
   useEffect(() => {
     if (!open) {
@@ -172,9 +174,18 @@ export default function SettingsWindow({
                 </div>
 
                 <div className="settings-window-language">
-                  <p className="settings-window-section-title">{languageLabel}</p>
-                  <p className="settings-window-section-copy">{languageDescription}</p>
-                  <div className="settings-locale-list">
+                  <p id={languageTitleId} className="settings-window-section-title">
+                    {languageLabel}
+                  </p>
+                  <p id={languageDescriptionId} className="settings-window-section-copy">
+                    {languageDescription}
+                  </p>
+                  <div
+                    className="settings-locale-list"
+                    role="radiogroup"
+                    aria-labelledby={languageTitleId}
+                    aria-describedby={languageDescriptionId}
+                  >
                     {localeOptions.map((option) => {
                       const active = option.id === activeLocale
 
@@ -183,7 +194,8 @@ export default function SettingsWindow({
                           key={option.id}
                           type="button"
                           className={cx('settings-locale-option', active && 'settings-locale-option-active')}
-                          aria-pressed={active}
+                          role="radio"
+                          aria-checked={active}
                           onClick={() => {
                             if (!active) {
                               onSelectLocale(option.id)
