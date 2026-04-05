@@ -869,7 +869,6 @@ export default function App() {
         theme={theme}
         onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
         locale={locale}
-        onToggleLocale={() => setLocale((current) => (current === 'zh-CN' ? 'en-US' : 'zh-CN'))}
         statusTone={currentWorkspaceStatus.tone}
         desktopHost={desktopHost}
         onMinimizeWindow={() => void minimizeCurrentWindow()}

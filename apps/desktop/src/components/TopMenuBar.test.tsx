@@ -16,7 +16,6 @@ function buildProps(): ComponentProps<typeof TopMenuBar> {
     theme: 'dark',
     onToggleTheme: vi.fn(),
     locale: 'en-US',
-    onToggleLocale: vi.fn(),
     statusTone: 'ready',
     desktopHost: false,
     onMinimizeWindow: vi.fn(),
@@ -87,12 +86,14 @@ describe('TopMenuBar', () => {
   })
 
   it('keeps settings in the shell controls instead of the left menu group', () => {
-    render(<TopMenuBar {...buildProps()} />)
+    const { container } = render(<TopMenuBar {...buildProps()} />)
 
     const shellControls = screen.getByRole('group', { name: 'Shell controls' })
     const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
 
     expect(within(shellControls).getByRole('button', { name: settingsMenuCopy.title })).toBeInTheDocument()
+    expect(within(shellControls).queryByRole('button', { name: copy.controls.toggleLocale })).not.toBeInTheDocument()
+    expect(container.querySelector('.dock-chip')).not.toBeInTheDocument()
     expect(within(mainMenus).queryByRole('button', { name: settingsMenuCopy.title })).not.toBeInTheDocument()
   })
 
