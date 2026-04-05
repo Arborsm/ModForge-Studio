@@ -1,11 +1,18 @@
 import { Maximize2, Palette, Settings2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { cx } from '../lib/cx'
+import type { LocaleCode } from '../lib/editor-shell'
 
 type AccentOption = {
   id: string
   label: string
   color: string
+}
+
+type LocaleOption = {
+  id: LocaleCode
+  label: string
 }
 
 type SettingsWindowProps = {
@@ -26,6 +33,10 @@ type SettingsWindowProps = {
   accentLabel: string
   resetAccentLabel: string
   accentDescription: string
+  languageLabel: string
+  languageDescription: string
+  localeOptions: LocaleOption[]
+  activeLocale: LocaleCode
   windowModeLabel: string
   borderlessFullscreenLabel: string
   borderlessFullscreenDescription: string
@@ -38,6 +49,7 @@ type SettingsWindowProps = {
   activeAccentId: string
   onSelectAccent: (id: string) => void
   onResetAccent: () => void
+  onSelectLocale: (locale: LocaleCode) => void
   onToggleBorderlessFullscreen: () => void
   onClose: () => void
 }
@@ -50,6 +62,10 @@ export default function SettingsWindow({
   accentLabel,
   resetAccentLabel,
   accentDescription,
+  languageLabel,
+  languageDescription,
+  localeOptions,
+  activeLocale,
   windowModeLabel,
   borderlessFullscreenLabel,
   borderlessFullscreenDescription,
@@ -62,10 +78,56 @@ export default function SettingsWindow({
   activeAccentId,
   onSelectAccent,
   onResetAccent,
+  onSelectLocale,
   onToggleBorderlessFullscreen,
   onClose,
 }: SettingsWindowProps) {
   const [activeCategory, setActiveCategory] = useState<'appearance' | 'view' | 'interaction' | 'advanced'>('appearance')
+  const languageTitleId = useId()
+  const languageDescriptionId = useId()
+  const localeOptionRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const activeLocaleIndex = localeOptions.findIndex((option) => option.id === activeLocale)
+  const focusableLocaleIndex = activeLocaleIndex === -1 ? 0 : activeLocaleIndex
+
+  const handleLocaleKeyDown = (index: number, event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (!localeOptions.length) {
+      return
+    }
+
+    let nextIndex = index
+
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowRight':
+        nextIndex = (index + 1) % localeOptions.length
+        break
+      case 'ArrowUp':
+      case 'ArrowLeft':
+        nextIndex = (index - 1 + localeOptions.length) % localeOptions.length
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = localeOptions.length - 1
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+
+    const nextOption = localeOptions[nextIndex]
+    if (!nextOption) {
+      return
+    }
+
+    if (nextOption.id !== activeLocale) {
+      onSelectLocale(nextOption.id)
+    }
+
+    localeOptionRefs.current[nextIndex]?.focus()
+  }
 
   useEffect(() => {
     if (!open) {
@@ -153,6 +215,47 @@ export default function SettingsWindow({
                       </button>
                     )
                   })}
+                </div>
+
+                <div className="settings-window-language">
+                  <p id={languageTitleId} className="settings-window-section-title">
+                    {languageLabel}
+                  </p>
+                  <p id={languageDescriptionId} className="settings-window-section-copy">
+                    {languageDescription}
+                  </p>
+                  <div
+                    className="settings-locale-list"
+                    role="radiogroup"
+                    aria-labelledby={languageTitleId}
+                    aria-describedby={languageDescriptionId}
+                  >
+                    {localeOptions.map((option, index) => {
+                      const active = option.id === activeLocale
+
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          ref={(node) => {
+                            localeOptionRefs.current[index] = node
+                          }}
+                          className={cx('settings-locale-option', active && 'settings-locale-option-active')}
+                          role="radio"
+                          aria-checked={active}
+                          tabIndex={index === focusableLocaleIndex ? 0 : -1}
+                          onKeyDown={(event) => handleLocaleKeyDown(index, event)}
+                          onClick={() => {
+                            if (!active) {
+                              onSelectLocale(option.id)
+                            }
+                          }}
+                        >
+                          <span className="settings-locale-label">{option.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </section>
             ) : null}

@@ -1309,6 +1309,57 @@
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-color) 85%, transparent);
   }
 
+  .settings-window-language {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  }
+
+  .settings-locale-list {
+    margin-top: 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .settings-locale-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
+    color: var(--text-secondary);
+    padding: 12px;
+    text-align: left;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .settings-locale-option:hover {
+    background: color-mix(in srgb, var(--bg-active) 80%, transparent);
+    color: var(--text-primary);
+  }
+
+  .settings-locale-option:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .settings-locale-option-active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .settings-locale-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
   .settings-window-placeholder {
     margin-top: 16px;
     border: 1px dashed color-mix(in srgb, var(--border-color) 84%, transparent);

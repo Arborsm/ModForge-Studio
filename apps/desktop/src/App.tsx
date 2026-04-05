@@ -64,13 +64,32 @@ type WindowWithIdleCallback = Window & {
   cancelIdleCallback?: (handle: number) => void
 }
 
+const LOCALE_STORAGE_KEY = 'modforge:locale'
+
+function getInitialLocale(): LocaleCode {
+  if (typeof window !== 'undefined') {
+    try {
+      const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+      if (storedLocale === 'zh-CN' || storedLocale === 'en-US') {
+        return storedLocale
+      }
+    } catch {
+      // Ignore blocked localStorage access and fall back to navigator heuristics.
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
+    return 'zh-CN'
+  }
+
+  return 'en-US'
+}
+
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
-  const [locale, setLocale] = useState<LocaleCode>(() =>
-    typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en-US',
-  )
+  const [locale, setLocale] = useState<LocaleCode>(() => getInitialLocale())
   const [accentPresetId, setAccentPresetId] = useState<string>(() => {
     if (typeof window === 'undefined') {
       return ACCENT_PRESETS[0].id
@@ -406,6 +425,16 @@ export default function App() {
   const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
   const viewMenuCopy = getViewMenuCopy(locale)
   const settingsMenuCopy = getSettingsMenuCopy(locale)
+  const localeOptions =
+    locale === 'en-US'
+      ? [
+          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
+          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
+        ]
+      : [
+          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
+          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
+        ]
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const activePlayerAppearanceProfile =
@@ -492,6 +521,18 @@ export default function App() {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    try {
+      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
+    } catch {
+      // Ignore blocked localStorage writes to keep locale changes functional in-memory.
+    }
+  }, [locale])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current
@@ -869,7 +910,6 @@ export default function App() {
         theme={theme}
         onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
         locale={locale}
-        onToggleLocale={() => setLocale((current) => (current === 'zh-CN' ? 'en-US' : 'zh-CN'))}
         statusTone={currentWorkspaceStatus.tone}
         desktopHost={desktopHost}
         onMinimizeWindow={() => void minimizeCurrentWindow()}
@@ -924,6 +964,10 @@ export default function App() {
             accentLabel={settingsMenuCopy.accentLabel}
             resetAccentLabel={settingsMenuCopy.resetAccentLabel}
             accentDescription={settingsMenuCopy.accentDescription}
+            languageLabel={settingsMenuCopy.languageLabel}
+            languageDescription={settingsMenuCopy.languageDescription}
+            localeOptions={localeOptions}
+            activeLocale={locale}
             windowModeLabel={settingsMenuCopy.windowModeLabel}
             borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
             borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
@@ -936,6 +980,7 @@ export default function App() {
             activeAccentId={activeAccentPreset.id}
             onSelectAccent={setAccentPresetId}
             onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+            onSelectLocale={setLocale}
             onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
             onClose={() => setSettingsWindowOpen(false)}
           />

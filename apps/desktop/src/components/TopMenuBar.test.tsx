@@ -16,7 +16,6 @@ function buildProps(): ComponentProps<typeof TopMenuBar> {
     theme: 'dark',
     onToggleTheme: vi.fn(),
     locale: 'en-US',
-    onToggleLocale: vi.fn(),
     statusTone: 'ready',
     desktopHost: false,
     onMinimizeWindow: vi.fn(),
@@ -93,6 +92,8 @@ describe('TopMenuBar', () => {
     const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
 
     expect(within(shellControls).getByRole('button', { name: settingsMenuCopy.title })).toBeInTheDocument()
+    expect(within(shellControls).queryByRole('button', { name: copy.controls.toggleLocale })).not.toBeInTheDocument()
+    expect(within(shellControls).queryByText(copy.localeShort['en-US'])).not.toBeInTheDocument()
     expect(within(mainMenus).queryByRole('button', { name: settingsMenuCopy.title })).not.toBeInTheDocument()
   })
 

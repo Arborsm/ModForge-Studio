@@ -700,6 +700,12 @@
     "accentLabel": "强调色",
     "resetAccentLabel": "恢复默认强调色",
     "accentDescription": "影响视口背景、入口点高亮，以及编辑器中的强调态元素。",
+    "languageLabel": "语言",
+    "languageDescription": "选择编辑器标签和菜单的显示语言。",
+    "localeLabels": {
+      "zh-CN": "简体中文",
+      "en-US": "English"
+    },
     "windowModeLabel": "窗口模式",
     "borderlessFullscreenLabel": "无边框全屏",
     "borderlessFullscreenDescription": "将当前无装饰桌面窗口切换为沉浸式全屏工作区。",

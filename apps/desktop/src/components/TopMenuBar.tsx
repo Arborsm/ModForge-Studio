@@ -1,7 +1,6 @@
 ﻿import {
   Castle,
   GitMerge,
-  Globe,
   Library,
   Map,
   Minus,
@@ -33,7 +32,6 @@ type TopMenuBarProps = {
   theme: ThemeMode
   onToggleTheme: () => void
   locale: LocaleCode
-  onToggleLocale: () => void
   statusTone: WorkspaceTone
   desktopHost: boolean
   onMinimizeWindow: () => void
@@ -81,7 +79,6 @@ export default function TopMenuBar({
   theme,
   onToggleTheme,
   locale,
-  onToggleLocale,
   statusTone,
   desktopHost,
   onMinimizeWindow,
@@ -258,16 +255,6 @@ export default function TopMenuBar({
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <button
-            type="button"
-            className="icon-button pointer-events-auto"
-            onClick={onToggleLocale}
-            aria-label={copy.controls.toggleLocale}
-            title={copy.controls.toggleLocale}
-          >
-            <Globe className="h-4 w-4" />
-          </button>
-          <div className="dock-chip">{copy.localeShort[locale]}</div>
           <button
             type="button"
             className="icon-button pointer-events-auto"

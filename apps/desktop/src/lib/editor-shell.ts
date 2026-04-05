@@ -30,6 +30,9 @@ export type SettingsMenuCopy = {
   accentLabel: string
   resetAccentLabel: string
   accentDescription: string
+  languageLabel: string
+  languageDescription: string
+  localeLabels: Record<LocaleCode, string>
   windowModeLabel: string
   borderlessFullscreenLabel: string
   borderlessFullscreenDescription: string

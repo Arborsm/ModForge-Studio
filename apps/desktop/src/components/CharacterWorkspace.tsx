@@ -1043,9 +1043,6 @@ export default function CharacterWorkspace({
                   </div>
                   <span className="dock-chip">{`${frameWidth}x${frameHeight}`}</span>
                 </div>
-                <div className="text-xs leading-5 text-[var(--text-secondary)]">
-                  {copy.breathHint}
-                </div>
                 <div className="flex-1">
                   <BreathingPreviewCanvas
                     copy={copy}
