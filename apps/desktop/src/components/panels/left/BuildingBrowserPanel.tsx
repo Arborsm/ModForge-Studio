@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import type { ConstructibleBuildingGroup, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
-import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
+import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
 import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
@@ -39,11 +39,13 @@ type BuildingBrowserPanelProps = {
   browserSourceMode: BrowserSourceMode
   onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modBuildingGroups: ModBrowserGroup<BuildingWorkspaceEntry>[]
+  activeModBuildingSelectionId: string | null
   activeBuildingId: string | null
   activeBuildingGroupKey: string | null
   buildingFilter: string
   onBuildingFilterChange: (value: string) => void
   onSelectBuilding: (buildingKey: string) => void
+  onSelectModBuilding: (entry: ModBrowserEntry<BuildingWorkspaceEntry>) => void
 }
 
 function buildWorldBuildingSections(worldBuildings: BuildingWorkspaceEntry[]) {
@@ -188,11 +190,13 @@ export function BuildingBrowserPanel({
   browserSourceMode,
   onBrowserSourceModeChange,
   modBuildingGroups,
+  activeModBuildingSelectionId,
   activeBuildingId,
   activeBuildingGroupKey,
   buildingFilter,
   onBuildingFilterChange,
   onSelectBuilding,
+  onSelectModBuilding,
 }: BuildingBrowserPanelProps) {
   const copy = useBuildingsCopy()
   const filteredCount = filteredConstructibleGroups.length + filteredWorldBuildings.length
@@ -243,12 +247,14 @@ export function BuildingBrowserPanel({
                   action={<span className="dock-chip shrink-0">{group.items.length}</span>}
                   bodyClassName="space-y-2"
                 >
-                  {group.items.map(({ value: building, targets }) => (
+                  {group.items.map((entry) => {
+                    const { value: building, targets } = entry
+                    return (
                     <button
                       key={`${group.modId}:${building.key}`}
                       type="button"
-                      className={cx('asset-row w-full text-left', building.key === activeBuildingId && 'asset-row-active')}
-                      onClick={() => onSelectBuilding(building.key)}
+                      className={cx('asset-row w-full text-left', entry.selectionId === activeModBuildingSelectionId && 'asset-row-active')}
+                      onClick={() => onSelectModBuilding(entry)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -261,7 +267,8 @@ export function BuildingBrowserPanel({
                         </div>
                       </div>
                     </button>
-                  ))}
+                    )
+                  })}
                 </PanelSection>
               ))
             ) : (

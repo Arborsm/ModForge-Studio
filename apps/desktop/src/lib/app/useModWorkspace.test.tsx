@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { loadContentPatcherResultAsset, scanModProjects, simulateContentPatcher } from '../desktop'
-import { useModWorkspace } from './useModWorkspace'
+import useModWorkspace from './useModWorkspace'
 
 vi.mock('../editor-shell', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../editor-shell')>()
@@ -35,6 +35,7 @@ vi.mock('../desktop', () => ({
       contentPath: 'E:\\Mods\\CPPack\\content.json',
       pluginKind: 'content-patcher',
       status: 'ready',
+      missingRequiredDependencies: [],
     },
     diagnostics: [],
     contentPatcher: {
@@ -100,6 +101,7 @@ vi.mock('../desktop', () => ({
       contentPath: 'E:\\Mods\\CPPack\\content.json',
       pluginKind: 'content-patcher',
       status: 'ready',
+      missingRequiredDependencies: [],
     },
   ]),
   simulateContentPatcher: vi.fn().mockResolvedValue({
@@ -237,6 +239,7 @@ describe('useModWorkspace', () => {
         contentPath: null,
         pluginKind: 'unknown',
         status: 'unsupported',
+        missingRequiredDependencies: [],
       },
       {
         id: 'cp-pack',
@@ -252,6 +255,7 @@ describe('useModWorkspace', () => {
         contentPath: 'E:\\Mods\\CPPack\\content.json',
         pluginKind: 'content-patcher',
         status: 'ready',
+        missingRequiredDependencies: [],
       },
     ])
 
@@ -281,6 +285,87 @@ describe('useModWorkspace', () => {
 
     await waitFor(() => {
       expect(result.current.filteredModProjects).toHaveLength(2)
+    })
+  })
+
+  it('hides incompatible content packs by default and reveals them when compatible-only is disabled', async () => {
+    vi.mocked(scanModProjects).mockResolvedValueOnce([
+      {
+        id: 'needs-scaleup',
+        name: 'Needs ScaleUp',
+        author: 'Aly',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'Aly.NeedsScaleUp',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'NeedsScaleUp',
+        absolutePath: 'E:\\Mods\\NeedsScaleUp',
+        manifestPath: 'E:\\Mods\\NeedsScaleUp\\manifest.json',
+        contentPath: 'E:\\Mods\\NeedsScaleUp\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'incompatible',
+        missingRequiredDependencies: ['Platonymous.ScaleUp'],
+      },
+      {
+        id: 'cp-pack',
+        name: 'CP Pack',
+        author: 'ModForge',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'ModForge.CPPack',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'CPPack',
+        absolutePath: 'E:\\Mods\\CPPack',
+        manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+        contentPath: 'E:\\Mods\\CPPack\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'ready',
+        missingRequiredDependencies: [],
+      },
+      {
+        id: 'archive-helper',
+        name: 'Archive Helper',
+        author: 'ModForge',
+        version: '0.4.0',
+        description: null,
+        uniqueId: 'ModForge.ArchiveHelper',
+        contentPackFor: null,
+        folderName: 'ArchiveHelper',
+        absolutePath: 'E:\\Mods\\ArchiveHelper',
+        manifestPath: 'E:\\Mods\\ArchiveHelper\\manifest.json',
+        contentPath: null,
+        pluginKind: 'unknown',
+        status: 'unsupported',
+        missingRequiredDependencies: [],
+      },
+    ])
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.modProjects).toHaveLength(3)
+    })
+
+    expect(result.current.compatibleOnly).toBe(true)
+    expect(result.current.filteredModProjects.map((project) => project.id)).toEqual(['cp-pack'])
+    expect(result.current.activeProjectPath).toBe('E:\\Mods\\CPPack')
+
+    act(() => {
+      result.current.setCompatibleOnly(false)
+    })
+
+    await waitFor(() => {
+      expect(result.current.filteredModProjects.map((project) => project.id)).toEqual(['needs-scaleup', 'cp-pack'])
     })
   })
 })

@@ -17,6 +17,7 @@ pub(crate) struct WaveBankInfo {
     pub flags: u32,
     pub entry_count: u32,
     pub entry_meta_size: u32,
+    #[allow(dead_code)]
     pub entry_name_size: u32,
     pub alignment: u32,
     pub compact_format: MiniWaveFormat,
@@ -27,8 +28,11 @@ pub(crate) struct WaveBankEntry {
     pub format: MiniWaveFormat,
     pub play_offset: u32,
     pub play_length: u32,
+    #[allow(dead_code)]
     pub loop_start: u32,
+    #[allow(dead_code)]
     pub loop_length: u32,
+    #[allow(dead_code)]
     pub duration: u32,
 }
 

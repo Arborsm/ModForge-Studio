@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
+import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
 import { useCharactersCopy, useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import type { CharacterWorkspaceEntry } from '../../../lib/app/characterWorkspace'
@@ -12,10 +12,12 @@ type CharacterBrowserPanelProps = {
   browserSourceMode: BrowserSourceMode
   onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modCharacterGroups: ModBrowserGroup<CharacterWorkspaceEntry>[]
+  activeModCharacterSelectionId: string | null
   activeCharacterId: string | null
   characterFilter: string
   onCharacterFilterChange: (value: string) => void
   onSelectCharacter: (characterKey: string) => void
+  onSelectModCharacter: (entry: ModBrowserEntry<CharacterWorkspaceEntry>) => void
 }
 
 export function CharacterBrowserPanel({
@@ -24,10 +26,12 @@ export function CharacterBrowserPanel({
   browserSourceMode,
   onBrowserSourceModeChange,
   modCharacterGroups,
+  activeModCharacterSelectionId,
   activeCharacterId,
   characterFilter,
   onCharacterFilterChange,
   onSelectCharacter,
+  onSelectModCharacter,
 }: CharacterBrowserPanelProps) {
   const copy = useCharactersCopy()
   const noneLabel = useEditorCopy().common.none
@@ -75,14 +79,15 @@ export function CharacterBrowserPanel({
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
-                    {group.items.map(({ value: character, targets }) => {
-                      const isActive = character.key === activeCharacterId
+                    {group.items.map((entry) => {
+                      const { value: character, targets } = entry
+                      const isActive = entry.selectionId === activeModCharacterSelectionId
                       return (
                         <button
                           key={`${group.modId}:${character.key}`}
                           type="button"
                           className={cx('asset-row text-left', isActive && 'asset-row-active')}
-                          onClick={() => onSelectCharacter(character.key)}
+                          onClick={() => onSelectModCharacter(entry)}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">

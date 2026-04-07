@@ -1,22 +1,22 @@
-﻿import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+﻿import {useDeferredValue, useEffect, useMemo, useState} from 'react'
 import {
   chooseDirectory,
-  loadContentPatcherProject,
-  loadContentPatcherResultAsset,
-  loadModProject,
-  saveModProject,
-  scanModProjects,
-  simulateContentPatcher,
   type ContentPatcherPatchSummary,
   type ContentPatcherProjectSnapshot,
-  type LoadContentPatcherResultAssetResult,
   type ContentPatcherSimulationResult,
+  type GameDirectoryInfo,
+  loadContentPatcherProject,
+  loadContentPatcherResultAsset,
+  type LoadContentPatcherResultAssetResult,
+  loadModProject,
   type ModProjectDetail,
   type ModProjectSummary,
+  saveModProject,
   type SaveModProjectResult,
-  type GameDirectoryInfo,
+  scanModProjects,
+  simulateContentPatcher,
 } from '../desktop'
-import { getModWorkspaceCopy, type LocaleCode } from '../editor-shell'
+import {getModWorkspaceCopy, type LocaleCode} from '../editor-shell'
 import {
   addPatch,
   buildContentPatcherSimulationRequest,
@@ -30,9 +30,9 @@ import {
   updatePatchField,
   updatePatchWhen,
 } from '../plugins/contentPatcher'
-import { getWorkspacePluginDefinition } from '../plugins/registry'
-import type { JsonEditorState } from '../plugins/types'
-import { scheduleDeferred } from '../react/defer'
+import {getWorkspacePluginDefinition} from '../plugins/registry'
+import type {JsonEditorState} from '../plugins/types'
+import {scheduleDeferred} from '../react/defer'
 
 type UseModWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -57,8 +57,25 @@ function upsertProject(projects: ModProjectSummary[], nextProject: ModProjectSum
   return projects.map((project, index) => (index === existingIndex ? nextProject : project))
 }
 
+function isIncompatibleProject(project: ModProjectSummary) {
+  return project.status === 'incompatible'
+}
+
 function getDefaultModProjectPath(projects: ModProjectSummary[]) {
-  return projects.find((project) => project.pluginKind === 'content-patcher')?.absolutePath ?? null
+  return projects.find((project) => project.pluginKind === 'content-patcher' && !isIncompatibleProject(project))?.absolutePath ?? null
+}
+
+function getNextActiveProjectPath(projects: ModProjectSummary[], currentPath: string | null) {
+  if (!currentPath) {
+    return getDefaultModProjectPath(projects)
+  }
+
+  const currentProject = projects.find((project) => project.absolutePath === currentPath)
+  if (currentProject && !isIncompatibleProject(currentProject)) {
+    return currentPath
+  }
+
+  return getDefaultModProjectPath(projects)
 }
 
 function createDefaultSimulationContext(): ContentPatcherBackendSimulationContext {
@@ -72,12 +89,13 @@ function createDefaultSimulationContext(): ContentPatcherBackendSimulationContex
   }
 }
 
-export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
+function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   const copy = getModWorkspaceCopy(locale)
   const pluginDefinition = getWorkspacePluginDefinition('content-patcher')
   const [modProjects, setModProjects] = useState<ModProjectSummary[]>([])
   const [modFilter, setModFilter] = useState('')
   const [contentPatcherOnly, setContentPatcherOnly] = useState(true)
+  const [compatibleOnly, setCompatibleOnly] = useState(true)
   const [activeProjectPath, setActiveProjectPath] = useState<string | null>(null)
   const [projectDetail, setProjectDetail] = useState<ModProjectDetail | null>(null)
   const [manifestEditor, setManifestEditor] = useState<JsonEditorState>({ text: '', value: null, error: null })
@@ -105,6 +123,10 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
           return false
         }
 
+        if (compatibleOnly && isIncompatibleProject(project)) {
+          return false
+        }
+
         if (!deferredFilter) {
           return true
         }
@@ -120,7 +142,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
           .toLowerCase()
         return haystack.includes(deferredFilter)
       }),
-    [contentPatcherOnly, deferredFilter, modProjects],
+    [compatibleOnly, contentPatcherOnly, deferredFilter, modProjects],
   )
 
   const contentSummary = useMemo(() => summarizeContentPatcherContent(contentEditor.value), [contentEditor.value])
@@ -172,12 +194,12 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setModProjects([])
         setActiveProjectPath(null)
         setProjectDetail(null)
-        setManifestEditor({ text: '', value: null, error: null })
-        setContentEditor({ text: '', value: null, error: null })
+        setManifestEditor({text: '', value: null, error: null})
+        setContentEditor({text: '', value: null, error: null})
         setSelectedPatchId(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
@@ -191,8 +213,6 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setContentPatcherResultError(null)
         setSimulationContext(createDefaultSimulationContext())
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -205,9 +225,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
         setModProjects(projects)
         setStatusMessage(copy.scanStatus(projects.length))
-        setActiveProjectPath((current) =>
-          current && projects.some((project) => project.absolutePath === current) ? current : getDefaultModProjectPath(projects),
-        )
+        setActiveProjectPath((current) => getNextActiveProjectPath(projects, current))
       })
       .catch((error) => {
         if (!cancelled) {
@@ -223,10 +241,10 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (!activeProjectPath) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setProjectDetail(null)
-        setManifestEditor({ text: '', value: null, error: null })
-        setContentEditor({ text: '', value: null, error: null })
+        setManifestEditor({text: '', value: null, error: null})
+        setContentEditor({text: '', value: null, error: null})
         setSelectedPatchId(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
@@ -238,8 +256,6 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
         setContentPatcherResultError(null)
         setSimulationContext(createDefaultSimulationContext())
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -286,12 +302,10 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (projectDetail?.pluginKind !== 'content-patcher' || !projectDetail.contentPatcher || !projectDetail.summary.absolutePath) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setContentPatcherSnapshot(null)
         setContentPatcherSimulation(null)
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -321,25 +335,21 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
 
   useEffect(() => {
     if (!contentPatcherSnapshot) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setContentPatcherSimulation(null)
         setContentPatcherResultAsset(null)
         setContentPatcherResultLoading(false)
         setContentPatcherResultError(null)
       })
-
-      return cancel
     }
 
     if (manifestEditor.error || contentEditor.error) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setContentPatcherSimulation(null)
         setContentPatcherResultAsset(null)
         setContentPatcherResultLoading(false)
         setContentPatcherResultError(null)
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -382,41 +392,35 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   ])
 
   useEffect(() => {
-    const cancel = scheduleDeferred(() => {
+    return scheduleDeferred(() => {
       if (!contentSummary.patches.length) {
         setSelectedPatchId(null)
         return
       }
 
       setSelectedPatchId((current) =>
-        current && contentSummary.patches.some((patch) => patch.id === current) ? current : contentSummary.patches[0]?.id ?? null,
+          current && contentSummary.patches.some((patch) => patch.id === current) ? current : contentSummary.patches[0]?.id ?? null,
       )
     })
-
-    return cancel
   }, [contentSummary.patches])
 
   useEffect(() => {
     const targets = contentPatcherSimulation?.targets ?? []
 
-    const cancel = scheduleDeferred(() => {
+    return scheduleDeferred(() => {
       setSelectedTargetPath((current) =>
-        current && targets.some((target) => target.path === current) ? current : targets[0]?.path ?? null,
+          current && targets.some((target) => target.path === current) ? current : targets[0]?.path ?? null,
       )
     })
-
-    return cancel
   }, [contentPatcherSimulation?.targets])
 
   useEffect(() => {
     if (!contentPatcherSnapshot || !selectedTargetPath || manifestEditor.error || contentEditor.error) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setContentPatcherResultAsset(null)
         setContentPatcherResultLoading(false)
         setContentPatcherResultError(null)
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -477,6 +481,11 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
   }
 
   function handleSelectProject(path: string) {
+    const selectedProject = modProjects.find((project) => project.absolutePath === path)
+    if (selectedProject && isIncompatibleProject(selectedProject)) {
+      return
+    }
+
     setActiveProjectPath(path)
     setLastSaveResult(null)
     setContentPatcherSnapshot(null)
@@ -507,9 +516,7 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     const projects = await scanModProjects(directoryInfo.rootPath)
     setModProjects(projects)
     setStatusMessage(copy.scanStatus(projects.length))
-    setActiveProjectPath((current) =>
-      current && projects.some((project) => project.absolutePath === current) ? current : getDefaultModProjectPath(projects),
-    )
+    setActiveProjectPath((current) => getNextActiveProjectPath(projects, current))
   }
 
   function handleManifestFieldChange(field: string, value: string) {
@@ -636,6 +643,8 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     setModFilter,
     contentPatcherOnly,
     setContentPatcherOnly,
+    compatibleOnly,
+    setCompatibleOnly,
     activeProjectPath,
     activeProject,
     projectDetail,
@@ -676,6 +685,8 @@ export function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOption
     handleSimulationContextChange,
   }
 }
+
+export default useModWorkspace
 
 export type ModWorkspaceState = ReturnType<typeof useModWorkspace>
 export type SelectedPatchSummary = ContentPatcherPatchSummary

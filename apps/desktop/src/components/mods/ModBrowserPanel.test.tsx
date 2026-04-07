@@ -25,6 +25,7 @@ function buildProject(overrides: Partial<Parameters<typeof ModBrowserPanel>[0]['
     manifestPath: 'E:\\Mods\\SeasonalGarden\\manifest.json',
     contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
     status: 'ready' as const,
+    missingRequiredDependencies: [],
     ...overrides,
   }
 }
@@ -44,8 +45,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={projects[0].absolutePath}
         modFilter=""
         contentPatcherOnly
+        compatibleOnly
         onFilterChange={onFilterChange}
         onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={onSelectProject}
         onImportProject={onImportProject}
         onRefreshProjects={onRefreshProjects}
@@ -78,8 +81,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={null}
         modFilter=""
         contentPatcherOnly
+        compatibleOnly
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={onContentPatcherOnlyChange}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={vi.fn()}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
@@ -93,6 +98,33 @@ describe('ModBrowserPanel', () => {
     expect(onContentPatcherOnlyChange).toHaveBeenCalledWith(false)
   })
 
+  it('shows a default-enabled compatibility toggle and notifies when it changes', () => {
+    const onCompatibleOnlyChange = vi.fn()
+
+    renderWithLocale(
+      <ModBrowserPanel
+        projects={[buildProject()]}
+        filteredProjects={[buildProject()]}
+        activeProjectPath={null}
+        modFilter=""
+        contentPatcherOnly
+        compatibleOnly
+        onFilterChange={vi.fn()}
+        onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={onCompatibleOnlyChange}
+        onSelectProject={vi.fn()}
+        onImportProject={vi.fn()}
+        onRefreshProjects={vi.fn()}
+      />,
+    )
+
+    const toggle = screen.getByRole('button', { name: copy.compatibleOnly })
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(toggle)
+    expect(onCompatibleOnlyChange).toHaveBeenCalledWith(false)
+  })
+
   it('uses the shared light browser shell and card treatment', () => {
     renderWithLocale(
       <ModBrowserPanel
@@ -101,8 +133,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={null}
         modFilter=""
         contentPatcherOnly
+        compatibleOnly
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={vi.fn()}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
@@ -131,8 +165,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={activeProject.absolutePath}
         modFilter=""
         contentPatcherOnly
+        compatibleOnly
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={vi.fn()}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
@@ -162,8 +198,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={null}
         modFilter=""
         contentPatcherOnly
+        compatibleOnly
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={vi.fn()}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
@@ -184,8 +222,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={null}
         modFilter=""
         contentPatcherOnly={false}
+        compatibleOnly={false}
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={vi.fn()}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
@@ -207,8 +247,10 @@ describe('ModBrowserPanel', () => {
         activeProjectPath={null}
         modFilter=""
         contentPatcherOnly
+        compatibleOnly
         onFilterChange={vi.fn()}
         onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
         onSelectProject={vi.fn()}
         onImportProject={vi.fn()}
         onRefreshProjects={vi.fn()}
@@ -221,5 +263,42 @@ describe('ModBrowserPanel', () => {
     expect(badge.className).toContain('bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)]')
     expect(badge.className).toContain('text-[color-mix(in_srgb,var(--text-primary)_88%,#065f46)]')
     expect(badge.className).not.toContain('text-emerald-200')
+  })
+
+  it('shows missing required dependency details and blocks selecting incompatible projects', () => {
+    const onSelectProject = vi.fn()
+    const incompatibleProject = buildProject({
+      id: 'needs-scaleup',
+      name: 'Needs ScaleUp',
+      absolutePath: 'E:\\Mods\\NeedsScaleUp',
+      status: 'incompatible',
+      missingRequiredDependencies: ['Platonymous.ScaleUp'],
+    })
+
+    renderWithLocale(
+      <ModBrowserPanel
+        projects={[incompatibleProject]}
+        filteredProjects={[incompatibleProject]}
+        activeProjectPath={null}
+        modFilter=""
+        contentPatcherOnly
+        compatibleOnly={false}
+        onFilterChange={vi.fn()}
+        onContentPatcherOnlyChange={vi.fn()}
+        onCompatibleOnlyChange={vi.fn()}
+        onSelectProject={onSelectProject}
+        onImportProject={vi.fn()}
+        onRefreshProjects={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(copy.incompatibleProject)).toBeTruthy()
+    expect(screen.getByText(copy.missingRequiredDependencies('Platonymous.ScaleUp'))).toBeTruthy()
+
+    const card = screen.getByRole('button', { name: /Needs ScaleUp/i })
+    expect(card.getAttribute('disabled')).not.toBeNull()
+
+    fireEvent.click(card)
+    expect(onSelectProject).not.toHaveBeenCalled()
   })
 })

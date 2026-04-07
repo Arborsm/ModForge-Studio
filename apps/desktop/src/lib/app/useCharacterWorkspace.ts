@@ -1,23 +1,32 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { deferToAnimationFrame, deferToTimeout } from '../react/deferred'
-import { loadTextAsset, type GameDirectoryInfo } from '../desktop'
-import type { CharactersPanelCopy, LocaleCode } from '../editor-shell'
-import { loadImageResourceFromPath } from '../imageMetrics'
+import {useDeferredValue, useEffect, useMemo, useState} from 'react'
+import {deferToAnimationFrame, deferToTimeout} from '../react/deferred'
+import {type GameDirectoryInfo, loadTextAsset} from '../desktop'
+import type {CharactersPanelCopy, LocaleCode} from '../../locales'
+import {loadImageResourceFromPath} from '../imageMetrics'
 import {
   CHARACTER_DATA_ASSET_PATH,
   CHARACTER_GIFT_TASTES_ASSET_PATH,
-  OBJECT_DATA_ASSET_PATH,
-  SPRING_OBJECTS_ASSET_PATH,
-  createCharacterEntryIndex,
-  resolveCharacterVariantPaths,
   type CharacterAppearanceVariant,
   type CharacterGiftGroup,
   type CharacterGiftGroupKind,
   type CharacterGiftItem,
   type CharacterVisualAssetState,
   type CharacterWorkspaceEntry,
+  createCharacterEntryIndex,
+  OBJECT_DATA_ASSET_PATH,
+  resolveCharacterVariantPaths,
+  SPRING_OBJECTS_ASSET_PATH,
 } from './characterWorkspace'
-import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+  useModAssetIndex,
+} from './modAssetIndex'
+import {loadModResultImageState} from './modResultAssets'
 
 const MONSTER_DATA_ASSET_PATH = 'Content\\Data\\Monsters.xnb'
 
@@ -898,6 +907,7 @@ export function useCharacterWorkspace({
   const [characterFilter, setCharacterFilter] = useState('')
   const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null)
+  const [activeModCharacterSelectionId, setActiveModCharacterSelectionId] = useState<string | null>(null)
   const [activeVariantKey, setActiveVariantKey] = useState<string>('default')
   const [characterStatusMessage, setCharacterStatusMessage] = useState('')
   const [assetState, setAssetState] = useState<CharacterVisualAssetState>({
@@ -943,13 +953,17 @@ export function useCharacterWorkspace({
       }),
     [activeCharacterId, modIndex.mods],
   )
+  const activeModCharacterEntry = useMemo(
+    () => findModBrowserEntry(modCharacterGroups, activeModCharacterSelectionId),
+    [activeModCharacterSelectionId, modCharacterGroups],
+  )
   const activeCharacter = characters.find((character) => character.key === activeCharacterId) ?? filteredCharacters[0] ?? characters[0] ?? null
   const activeVariant =
     activeCharacter?.variants.find((variant) => variant.key === activeVariantKey) ?? activeCharacter?.variants[0] ?? null
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const cancel = deferToTimeout(() => {
+      return deferToTimeout(() => {
         setCharacters([])
         setActiveCharacterId(null)
         setActiveVariantKey('default')
@@ -969,8 +983,6 @@ export function useCharacterWorkspace({
           springObjectsSheetHeight: null,
         })
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -1008,18 +1020,16 @@ export function useCharacterWorkspace({
   }, [copy.indexedStatusTemplate, copy.noEntriesStatus, directoryInfo?.rootPath, locale])
 
   useEffect(() => {
-    const cancel = deferToAnimationFrame(() => {
+    return deferToAnimationFrame(() => {
       if (!activeCharacter) {
         setActiveVariantKey('default')
         return
       }
 
       setActiveVariantKey((current) =>
-        activeCharacter.variants.some((variant) => variant.key === current) ? current : activeCharacter.variants[0]?.key ?? 'default',
+          activeCharacter.variants.some((variant) => variant.key === current) ? current : activeCharacter.variants[0]?.key ?? 'default',
       )
     })
-
-    return cancel
   }, [activeCharacter])
 
   useEffect(() => {
@@ -1027,21 +1037,25 @@ export function useCharacterWorkspace({
       return
     }
 
-    const cancel = deferToAnimationFrame(() => {
-      const nextCharacter =
-        modCharacterGroups
-          .flatMap((group) => group.items)
-          .find((item) => item.value.key === activeCharacterId)?.value ??
-        modCharacterGroups[0]?.items[0]?.value ??
-        null
+    return deferToAnimationFrame(() => {
+      const nextEntry =
+          activeModCharacterEntry ??
+          modCharacterGroups
+              .flatMap((group) => group.items)
+              .find((item) => item.value.key === activeCharacterId) ??
+          modCharacterGroups[0]?.items[0] ??
+          null
 
-      if (nextCharacter && nextCharacter.key !== activeCharacterId) {
-        setActiveCharacterId(nextCharacter.key)
+      if (!nextEntry) {
+        return
+      }
+
+      setActiveModCharacterSelectionId(nextEntry.selectionId)
+      if (nextEntry.value.key !== activeCharacterId) {
+        setActiveCharacterId(nextEntry.value.key)
       }
     })
-
-    return cancel
-  }, [activeCharacterId, browserSourceMode, modCharacterGroups])
+  }, [activeCharacterId, activeModCharacterEntry, browserSourceMode, modCharacterGroups])
 
   useEffect(() => {
     let cancelled = false
@@ -1088,8 +1102,26 @@ export function useCharacterWorkspace({
       void (async () => {
         try {
           const [sprite, portrait, springObjects] = await Promise.all([
-            loadImageState(spritePath, locale).catch(() => ({ path: spritePath, url: null, width: null, height: null })),
-            loadImageState(portraitPath, locale).catch(() => ({ path: portraitPath, url: null, width: null, height: null })),
+            browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
+              ? loadModResultImageState({
+                  rootPath: directoryInfo.rootPath,
+                  entry: activeModCharacterEntry,
+                  preferredTargets: [activeVariant?.spriteAssetName ?? activeCharacter?.spriteAssetName ?? ''],
+                  fallbackPathLabel: activeVariant?.spritePathLabel ?? activeCharacter?.internalName ?? 'Characters\\Unknown',
+                })
+                  .then((result) => result ?? loadImageState(spritePath, locale))
+                  .catch(() => ({ path: spritePath, url: null, width: null, height: null }))
+              : loadImageState(spritePath, locale).catch(() => ({ path: spritePath, url: null, width: null, height: null })),
+            browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
+              ? loadModResultImageState({
+                  rootPath: directoryInfo.rootPath,
+                  entry: activeModCharacterEntry,
+                  preferredTargets: [activeVariant?.portraitAssetName ?? activeCharacter?.portraitAssetName ?? ''],
+                  fallbackPathLabel: activeVariant?.portraitPathLabel ?? activeCharacter?.internalName ?? 'Portraits\\Unknown',
+                })
+                  .then((result) => result ?? loadImageState(portraitPath, locale))
+                  .catch(() => ({ path: portraitPath, url: null, width: null, height: null }))
+              : loadImageState(portraitPath, locale).catch(() => ({ path: portraitPath, url: null, width: null, height: null })),
             loadImageState(springObjectsPath, locale).catch(() => ({ path: springObjectsPath, url: null, width: null, height: null })),
           ])
 
@@ -1136,10 +1168,32 @@ export function useCharacterWorkspace({
       cancelled = true
       cancel()
     }
-  }, [activeVariant, directoryInfo?.rootPath, enableVisualAssets, locale])
+  }, [
+    activeCharacter?.internalName,
+    activeCharacter?.portraitAssetName,
+    activeCharacter?.spriteAssetName,
+    activeModCharacterEntry,
+    activeVariant,
+    browserSourceMode,
+    directoryInfo?.rootPath,
+    enableVisualAssets,
+    locale,
+  ])
+
+  function handleSetBrowserSourceMode(mode: BrowserSourceMode) {
+    setBrowserSourceMode(mode)
+    if (mode !== 'mod') {
+      setActiveModCharacterSelectionId(null)
+    }
+  }
 
   function handleSelectCharacter(characterKey: string) {
     setActiveCharacterId(characterKey)
+  }
+
+  function handleSelectModCharacter(entry: ModBrowserEntry<CharacterWorkspaceEntry>) {
+    setActiveModCharacterSelectionId(entry.selectionId)
+    setActiveCharacterId(entry.value.key)
   }
 
   function handleSelectVariant(variant: CharacterAppearanceVariant) {
@@ -1150,8 +1204,9 @@ export function useCharacterWorkspace({
     characters,
     filteredCharacters,
     browserSourceMode,
-    setBrowserSourceMode,
+    setBrowserSourceMode: handleSetBrowserSourceMode,
     modCharacterGroups,
+    activeModCharacterSelectionId,
     activeCharacterModSources,
     characterFilter,
     setCharacterFilter,
@@ -1161,6 +1216,7 @@ export function useCharacterWorkspace({
     characterStatusMessage,
     assetState,
     handleSelectCharacter,
+    handleSelectModCharacter,
     handleSelectVariant,
   }
 }

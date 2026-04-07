@@ -4,6 +4,11 @@ import { scanModAssetIndex, type GameDirectoryInfo, type ModAssetIndex, type Mod
 export type BrowserSourceMode = 'original' | 'mod'
 
 export type ModBrowserEntry<T> = {
+  selectionId: string
+  modId: string
+  modName: string
+  modPath: string
+  pluginKind: string
   key: string
   label: string
   value: T
@@ -32,6 +37,10 @@ export type ModSourceEntry = {
 
 function normalizeLookupKey(value: string) {
   return value.trim().toLowerCase()
+}
+
+export function getModBrowserSelectionId(modId: string, key: string) {
+  return `${normalizeLookupKey(modId)}::${normalizeLookupKey(key)}`
 }
 
 export function useModAssetIndex(directoryInfo: GameDirectoryInfo | null) {
@@ -118,6 +127,11 @@ export function buildModBrowserGroups<T>({
 
           return [
             {
+              selectionId: getModBrowserSelectionId(group.modId, reference.key),
+              modId: group.modId,
+              modName: group.modName,
+              modPath: group.modPath,
+              pluginKind: group.pluginKind,
               key: reference.key,
               label,
               value,
@@ -175,4 +189,20 @@ export function findModSources({
           }) satisfies ModSourceEntry,
       ),
   )
+}
+
+export function findModBrowserEntry<T>(groups: ModBrowserGroup<T>[], selectionId: string | null | undefined) {
+  const normalizedSelectionId = selectionId?.trim().toLowerCase() ?? ''
+  if (!normalizedSelectionId) {
+    return null
+  }
+
+  for (const group of groups) {
+    const entry = group.items.find((item) => item.selectionId === normalizedSelectionId)
+    if (entry) {
+      return entry
+    }
+  }
+
+  return null
 }

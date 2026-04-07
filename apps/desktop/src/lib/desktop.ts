@@ -83,7 +83,8 @@ export type ModProjectSummary = {
   manifestPath: string
   contentPath: string | null
   pluginKind: PluginKind
-  status: 'ready' | 'unsupported'
+  status: 'ready' | 'incompatible' | 'unsupported'
+  missingRequiredDependencies: string[]
 }
 
 export type ModProjectDiagnostic = {

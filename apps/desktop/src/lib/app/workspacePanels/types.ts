@@ -5,9 +5,9 @@ import type { CharacterAppearanceVariant, CharacterVisualAssetState, CharacterWo
 import type { EffectAssetState } from '../eventStageShared'
 import type { ItemTextureAssetState, ItemWorkspaceEntry } from '../itemWorkspace'
 import type { StageWorldOverlaySprite } from '../mapWorldStatePreview'
-import type { BrowserSourceMode, ModBrowserGroup, ModSourceEntry } from '../modAssetIndex'
+import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '../modAssetIndex'
 import type { PlayerAppearanceProfile } from '../playerAppearance'
-import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../../editor-shell'
+import type { EditorCopy, LocaleCode, ModuleBlueprint, ThemeMode, WorkspaceMode } from '../../../locales'
 import type { EventScript, ParsedEventAsset } from '../../events/types'
 import type { MapDocument } from '../../maps/types'
 import type { WorldAtlasView } from '../types'
@@ -23,12 +23,14 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   mapBrowserSourceMode: BrowserSourceMode
   onMapBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modMapGroups: ModBrowserGroup<MapAssetSummary>[]
+  activeModMapSelectionId: string | null
   activeMapModSources: ModSourceEntry[]
   activeMapId: string | null
   activeAssetName?: string
   assetFilter: string
   onAssetFilterChange: (value: string) => void
   onOpenAsset: (asset: MapAssetSummary) => void
+  onOpenModAsset: (entry: ModBrowserEntry<MapAssetSummary>) => void
   workspaceTabs: Array<{
     id: string
     title: string
@@ -72,11 +74,13 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   eventBrowserSourceMode: BrowserSourceMode
   onEventBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modEventGroups: ModBrowserGroup<EventAssetSummary>[]
+  activeModEventSelectionId: string | null
   activeEventModSources: ModSourceEntry[]
   activeEventAssetId: string | null
   eventAssetFilter: string
   onEventAssetFilterChange: (value: string) => void
   onOpenEventAsset: (asset: EventAssetSummary) => void
+  onOpenModEventAsset: (entry: ModBrowserEntry<EventAssetSummary>) => void
   parsedEventAsset: ParsedEventAsset | null
   selectedEventKey: string | null
   selectedEvent: EventScript | null
@@ -96,6 +100,7 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   characterBrowserSourceMode: BrowserSourceMode
   onCharacterBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modCharacterGroups: ModBrowserGroup<CharacterWorkspaceEntry>[]
+  activeModCharacterSelectionId: string | null
   activeCharacterModSources: ModSourceEntry[]
   activeCharacterId: string | null
   activeCharacter: CharacterWorkspaceEntry | null
@@ -105,6 +110,7 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   activeCharacterAssetState: CharacterVisualAssetState
   onCharacterFilterChange: (value: string) => void
   onSelectCharacter: (characterKey: string) => void
+  onSelectModCharacter: (entry: ModBrowserEntry<CharacterWorkspaceEntry>) => void
   onSelectCharacterVariant: (variant: CharacterAppearanceVariant) => void
   constructibleGroups: ConstructibleBuildingGroup[]
   filteredConstructibleGroups: ConstructibleBuildingGroup[]
@@ -113,6 +119,7 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   buildingBrowserSourceMode: BrowserSourceMode
   onBuildingBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modBuildingGroups: ModBrowserGroup<BuildingWorkspaceEntry>[]
+  activeModBuildingSelectionId: string | null
   activeBuildingModSources: ModSourceEntry[]
   activeBuildingId: string | null
   activeBuilding: BuildingWorkspaceEntry | null
@@ -131,11 +138,13 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   buildingSpringObjectsState: BuildingTextureAssetState
   onBuildingFilterChange: (value: string) => void
   onSelectBuilding: (buildingKey: string) => void
+  onSelectModBuilding: (entry: ModBrowserEntry<BuildingWorkspaceEntry>) => void
   items: ItemWorkspaceEntry[]
   filteredItems: ItemWorkspaceEntry[]
   itemBrowserSourceMode: BrowserSourceMode
   onItemBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modItemGroups: ModBrowserGroup<ItemWorkspaceEntry>[]
+  activeModItemSelectionId: string | null
   activeItemModSources: ModSourceEntry[]
   activeItemId: string | null
   activeItem: ItemWorkspaceEntry | null
@@ -146,5 +155,6 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   ensureItemTextureAssetStates: (assetNames: string[]) => void
   onItemFilterChange: (value: string) => void
   onSelectItem: (itemKey: string) => void
+  onSelectModItem: (entry: ModBrowserEntry<ItemWorkspaceEntry>) => void
   heavyWorkspaceReady: boolean
 }

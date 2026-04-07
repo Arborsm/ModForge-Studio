@@ -101,6 +101,8 @@ vi.mock('./lib/app/useModWorkspace', () => ({
     modHasUnsavedChanges: false,
     modProjects: [],
     modStatusMessage: '',
+    compatibleOnly: true,
+    setCompatibleOnly: vi.fn(),
   }),
 }))
 
@@ -112,7 +114,7 @@ describe('App locale ownership', () => {
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockImplementation((query: string) => ({
-        matches: query.includes('light') ? false : true,
+        matches: !query.includes('light'),
         media: query,
         onchange: null,
         addListener: vi.fn(),

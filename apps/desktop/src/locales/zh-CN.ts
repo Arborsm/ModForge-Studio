@@ -696,6 +696,8 @@ const localeBundle: LocaleBundle = {
     "browserFilterPlaceholder": "按名称、作者、UniqueID 或路径筛选",
     "browserEmpty": "当前没有可用的 Content Patcher 项目。",
     "contentPatcherOnly": "仅 CP 模组",
+    "compatibleOnly": "仅显示兼容项",
+    "incompatibleProject": "不兼容",
     "projectsLabel": "项目数",
     "filteredLabel": "筛选后",
     "unknownLabel": "未知",
@@ -764,6 +766,7 @@ const localeBundle: LocaleBundle = {
     "selectExportFolder": "选择导出目录",
     "selectProjectFolder": "选择模组目录",
     "importedFrom": (path) => `已导入: ${path}`,
+    "missingRequiredDependencies": (dependencies) => `缺少必需依赖：${dependencies}`,
     "saveSuccess": (path) => `已保存到 ${path}`,
     "exportSuccess": (path) => `已导出到 ${path}`,
     "scanStatus": (count) => `已识别 ${count} 个模组项目。`

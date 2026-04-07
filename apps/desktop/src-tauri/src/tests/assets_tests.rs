@@ -1,0 +1,58 @@
+use super::{
+    cache_file_path, encode_hex, localized_variant_path, logicalized_asset_path, preferred_existing_xnb_path,
+    split_localized_stem,
+};
+use crate::test_support::create_temp_dir;
+use std::fs;
+use std::path::Path;
+
+#[test]
+fn strips_locale_suffix_from_asset_stems() {
+    assert_eq!(split_localized_stem("Town"), ("Town", None));
+    assert_eq!(split_localized_stem("Town.zh-CN"), ("Town", Some("zh-CN")));
+    assert_eq!(split_localized_stem("Strings.es-ES"), ("Strings", Some("es-ES")));
+}
+
+#[test]
+fn builds_logical_asset_path_without_locale_suffix() {
+    let logical = logicalized_asset_path(Path::new(r"Content\Maps\Town.zh-CN.xnb"));
+    assert_eq!(logical, Path::new(r"Content\Maps\Town.xnb"));
+}
+
+#[test]
+fn builds_localized_variant_path_from_base_asset() {
+    let localized = localized_variant_path(Path::new(r"Content\Maps\Town.xnb"), "zh-CN").unwrap();
+    assert_eq!(localized, Path::new(r"Content\Maps\Town.zh-CN.xnb"));
+}
+
+#[test]
+fn prefers_localized_existing_xnb_variant() {
+    let root = create_temp_dir("assets-localized-xnb");
+    let base = root.join("bathhouse_tiles.xnb");
+    let localized = root.join("bathhouse_tiles.zh-CN.xnb");
+    fs::write(&base, b"base").expect("write base xnb");
+    fs::write(&localized, b"localized").expect("write localized xnb");
+
+    let resolved = preferred_existing_xnb_path(&base, Some("zh-CN"));
+    assert_eq!(resolved, localized);
+
+    fs::remove_dir_all(root).expect("cleanup test directory");
+}
+
+#[test]
+fn encodes_bytes_as_lower_hex() {
+    assert_eq!(encode_hex(&[0x00, 0x0f, 0xa4, 0xff]), "000fa4ff");
+}
+
+#[test]
+fn cache_file_path_uses_lower_hex_sha256_file_names() {
+    let cache_path = cache_file_path("image", Path::new(r"C:\Game\Content\Maps\Town.xnb"), Some("zh-CN"));
+    let file_name = cache_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .expect("cache file name");
+    let hash = file_name.strip_suffix(".json").expect("json cache file");
+
+    assert_eq!(hash.len(), 64);
+    assert!(hash.chars().all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()));
+}

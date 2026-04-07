@@ -25,10 +25,11 @@ base64 = "0.22"
 tauri = { version = "2.10.3", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
-lz4_flex = "0.11"
+lz4_flex = "0.13.0"
 lzxd = "0.2.6"
 image = { version = "0.25", default-features = false, features = ["png"] }
-sha2 = "0.10"
+sha2 = "0.11.0"
+libloading = "0.9.0"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.52"
+winreg = "0.56.0"

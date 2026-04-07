@@ -1,14 +1,16 @@
 use super::project::{normalize_relative_path, resolve_include_relative_path};
 use super::schema::{parse_json_file, parse_json_str};
 use super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
+use crate::attached_api::AttachedApiRegistry;
 use crate::pathing::{clean_input_path, normalize_path};
+use crate::tbin::MapDocument;
+use crate::tbin::parse_tbin_map;
 use crate::xnb::read_xnb_from_path;
 use base64::Engine;
 use image::codecs::png::PngEncoder;
 use image::{ColorType, GenericImageView, ImageEncoder, RgbaImage};
 use serde_json::{Map, Value};
 use std::path::{Path, PathBuf};
-use crate::tbin::parse_tbin_map;
 
 fn target_looks_like_map(target: &str) -> bool {
     target.starts_with("Maps/")
@@ -28,7 +30,15 @@ fn from_file_looks_like_image(from_file: &str) -> bool {
         .is_some_and(|value| matches!(value.to_ascii_lowercase().as_str(), "png"))
 }
 
-pub fn infer_target_asset_kind(target: &str, actions: &[String], from_files: &[Option<String>]) -> String {
+pub fn infer_target_asset_kind(
+    target: &str,
+    actions: &[String],
+    from_files: &[Option<String>],
+    attached_api_registry: &AttachedApiRegistry,
+) -> String {
+    if let Some(asset_kind) = attached_api_registry.infer_asset_kind(target) {
+        return asset_kind.to_string();
+    }
     if actions.iter().any(|action| action.eq_ignore_ascii_case("EditImage"))
         || from_files
             .iter()
@@ -61,7 +71,40 @@ fn resolve_from_file_path(
     Ok((normalized_from, Path::new(root).join(&relative_from)))
 }
 
-pub fn load_base_json_asset(_target: &str) -> Value {
+pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value {
+    if let Some(root) = game_root_path {
+        if let Some(base_path) = build_target_asset_base_path(root, target) {
+            for candidate in [base_path.with_extension("xnb"), base_path.with_extension("json"), base_path.clone()] {
+                if !candidate.exists() {
+                    continue;
+                }
+
+                let extension = candidate
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default();
+                if extension.eq_ignore_ascii_case("xnb") {
+                    match read_xnb_from_path(&candidate) {
+                        Ok(xnb) => {
+                            return xnb.content.to_json();
+                        }
+                        Err(error) => {
+                            log::warn!("Failed to load base JSON asset {}: {error}", candidate.display());
+                        }
+                    }
+                    continue;
+                }
+
+                match parse_json_file(&candidate) {
+                    Ok((_, parsed)) => return parsed,
+                    Err(error) => {
+                        log::warn!("Failed to load base JSON asset {}: {error}", candidate.display());
+                    }
+                }
+            }
+        }
+    }
+
     Value::Object(Map::new())
 }
 
@@ -155,11 +198,81 @@ pub fn load_base_image_asset(target: &str, game_root_path: Option<&str>) -> Load
     }
 }
 
-pub fn load_base_map_debug_asset(_target: &str) -> ContentPatcherMapDebugSummary {
+fn build_map_debug_summary(document: &MapDocument) -> ContentPatcherMapDebugSummary {
     ContentPatcherMapDebugSummary {
-        layers: vec!["Back".to_string()],
-        properties: Vec::new(),
-        warps: Vec::new(),
+        layers: document.layers.iter().map(|layer| layer.name.clone()).collect(),
+        properties: document.properties.keys().cloned().collect(),
+        warps: if document.properties.contains_key("Warp") {
+            vec!["Warp".to_string()]
+        } else {
+            Vec::new()
+        },
+    }
+}
+
+#[derive(Debug)]
+pub struct LoadedMapAsset {
+    pub document: MapDocument,
+    pub debug: ContentPatcherMapDebugSummary,
+}
+
+fn create_empty_map_document(target: &str) -> MapDocument {
+    MapDocument {
+        name: target
+            .split('/')
+            .last()
+            .filter(|value| !value.is_empty())
+            .unwrap_or(target)
+            .to_string(),
+        format: "xnb".to_string(),
+        source_path: format!("Content/{target}.xnb"),
+        relative_path: format!("Content/{target}.xnb"),
+        width: 0,
+        height: 0,
+        tile_width: 16,
+        tile_height: 16,
+        orientation: "orthogonal".to_string(),
+        render_order: "right-down".to_string(),
+        properties: std::collections::HashMap::new(),
+        tilesets: Vec::new(),
+        layers: Vec::new(),
+        object_groups: Vec::new(),
+    }
+}
+
+pub fn load_base_map_asset(target: &str, game_root_path: Option<&str>) -> LoadedMapAsset {
+    if let Some(root) = game_root_path {
+        if let Some(base_path) = build_target_asset_base_path(root, target) {
+            let candidate = base_path.with_extension("xnb");
+            if candidate.exists() {
+                match read_xnb_from_path(&candidate)
+                    .and_then(|xnb| {
+                        let bytes = xnb
+                            .content
+                            .as_bytes()
+                            .ok_or_else(|| format!("Map XNB did not contain TBin data: {}", candidate.display()))?;
+                        parse_tbin_map(
+                            bytes,
+                            &candidate,
+                            &normalize_path(&Path::new("Content").join(format!("{target}.xnb"))),
+                        )
+                    }) {
+                    Ok(document) => {
+                        let debug = build_map_debug_summary(&document);
+                        return LoadedMapAsset { document, debug };
+                    }
+                    Err(error) => {
+                        log::warn!("Failed to load base map asset {}: {error}", candidate.display());
+                    }
+                }
+            }
+        }
+    }
+
+    let document = create_empty_map_document(target);
+    LoadedMapAsset {
+        debug: build_map_debug_summary(&document),
+        document,
     }
 }
 
@@ -193,22 +306,16 @@ pub fn load_map_patch_asset(
     snapshot: &ContentPatcherProjectSnapshot,
     source_path: &str,
     from_file: &str,
-) -> Result<ContentPatcherMapDebugSummary, String> {
+) -> Result<LoadedMapAsset, String> {
     let (_, absolute_from) = resolve_from_file_path(snapshot, source_path, from_file)?;
     let bytes = std::fs::read(&absolute_from)
         .map_err(|err| format!("Failed to read map patch asset {}: {err}", absolute_from.display()))?;
     let document = parse_tbin_map(&bytes, &absolute_from, from_file)?;
-    let properties = document.properties.keys().cloned().collect::<Vec<_>>();
-    let warps = document
-        .properties
-        .get("Warp")
-        .map(|_| vec!["Warp".to_string()])
-        .unwrap_or_default();
+    let debug = build_map_debug_summary(&document);
 
-    Ok(ContentPatcherMapDebugSummary {
-        layers: document.layers.into_iter().map(|layer| layer.name).collect(),
-        properties,
-        warps,
+    Ok(LoadedMapAsset {
+        document,
+        debug,
     })
 }
 
@@ -263,28 +370,5 @@ pub fn crop_image_area(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::infer_target_asset_kind;
-
-    #[test]
-    fn infer_target_asset_kind_prefers_image_for_maps_target_when_action_is_edit_image() {
-        let kind = infer_target_asset_kind(
-            "Maps/TestTilesheet",
-            &["EditImage".to_string()],
-            &[Some("assets/test.png".to_string())],
-        );
-
-        assert_eq!(kind, "image");
-    }
-
-    #[test]
-    fn infer_target_asset_kind_prefers_image_for_maps_target_when_loading_png() {
-        let kind = infer_target_asset_kind(
-            "Maps/TestTilesheet",
-            &["Load".to_string()],
-            &[Some("assets/test.png".to_string())],
-        );
-
-        assert_eq!(kind, "image");
-    }
-}
+#[path = "tests/assets_tests.rs"]
+mod tests;

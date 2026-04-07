@@ -1,0 +1,153 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { loadContentPatcherResultAsset } from '../desktop'
+import { loadImageResource } from '../imageMetrics'
+import type { MapDocument } from '../maps/types'
+import { loadModResultImageState, loadModResultMapDocument } from './modResultAssets'
+import type { ModBrowserEntry } from './modAssetIndex'
+
+vi.mock('../desktop', () => ({
+  loadContentPatcherResultAsset: vi.fn(),
+}))
+
+vi.mock('../imageMetrics', () => ({
+  loadImageResource: vi.fn(),
+}))
+
+function createModEntry<T>(overrides: Partial<ModBrowserEntry<T>> = {}): ModBrowserEntry<T> {
+  return {
+    selectionId: 'Example.Pack::town',
+    modId: 'Example.Pack',
+    modName: 'Example Pack',
+    modPath: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack',
+    pluginKind: 'content-patcher',
+    key: 'Town',
+    label: 'Town',
+    value: {} as T,
+    targets: ['Maps/Town'],
+    patchIds: ['content.json:0#target:0#from:0'],
+    ...overrides,
+  }
+}
+
+describe('modResultAssets', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('loads a modded image state from the selected mod entry target', async () => {
+    vi.mocked(loadContentPatcherResultAsset).mockResolvedValue({
+      target: {
+        path: 'Characters/Abigail',
+        assetKind: 'image',
+        touchedPatchCount: 1,
+        resultState: 'determinate',
+        patchIds: ['content.json:0#target:0#from:0'],
+      },
+      trace: [],
+      result: {
+        kind: 'image',
+        json: null,
+        imageDataUrl: 'data:image/png;base64,modded',
+        originalImageDataUrl: null,
+        originalImageSource: null,
+        mapDebug: null,
+      },
+      diagnostics: [],
+      exportable: true,
+    })
+    vi.mocked(loadImageResource).mockResolvedValue({
+      image: {} as HTMLImageElement,
+      url: 'data:image/png;base64,modded',
+      width: 32,
+      height: 64,
+    })
+
+    const state = await loadModResultImageState({
+      rootPath: 'E:\\Games\\Stardew Valley',
+      entry: createModEntry({
+        key: 'Abigail',
+        label: 'Abigail',
+        targets: ['Characters/Abigail', 'Portraits/Abigail'],
+      }),
+      preferredTargets: ['Characters/Abigail'],
+      fallbackPathLabel: 'Characters\\Abigail',
+    })
+
+    expect(loadContentPatcherResultAsset).toHaveBeenCalledWith({
+      path: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack',
+      gameRootPath: 'E:\\Games\\Stardew Valley',
+      target: 'Characters/Abigail',
+    })
+    expect(state).toEqual({
+      path: 'Characters\\Abigail',
+      url: 'data:image/png;base64,modded',
+      width: 32,
+      height: 64,
+      target: 'Characters/Abigail',
+    })
+  })
+
+  it('loads a modded map document from the selected mod entry target', async () => {
+    const mapDocument: MapDocument = {
+      name: 'Town',
+      format: 'xnb',
+      sourcePath: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack\\assets\\Town.tbin',
+      relativePath: 'Maps\\Town',
+      width: 10,
+      height: 10,
+      tileWidth: 16,
+      tileHeight: 16,
+      orientation: 'orthogonal',
+      renderOrder: 'right-down',
+      properties: {},
+      tilesets: [],
+      layers: [],
+      objectGroups: [],
+    }
+
+    vi.mocked(loadContentPatcherResultAsset).mockResolvedValue({
+      target: {
+        path: 'Maps/Town',
+        assetKind: 'map',
+        touchedPatchCount: 1,
+        resultState: 'determinate',
+        patchIds: ['content.json:0#target:0#from:0'],
+      },
+      trace: [],
+      result: {
+        kind: 'map',
+        json: mapDocument,
+        imageDataUrl: null,
+        originalImageDataUrl: null,
+        originalImageSource: null,
+        mapDebug: { layers: ['Back'], properties: [], warps: [] },
+      },
+      diagnostics: [],
+      exportable: true,
+    })
+
+    const document = await loadModResultMapDocument({
+      rootPath: 'E:\\Games\\Stardew Valley',
+      entry: createModEntry({
+        key: 'Content/Maps/Town.xnb',
+        label: 'Town',
+        targets: ['Maps/Town'],
+      }),
+      preferredTargets: ['Maps/Town'],
+      fallbackName: 'Town',
+      fallbackRelativePath: 'Content\\Maps\\Town.xnb',
+      fallbackSourcePath: 'E:\\Games\\Stardew Valley\\Content\\Maps\\Town.xnb',
+    })
+
+    expect(loadContentPatcherResultAsset).toHaveBeenCalledWith({
+      path: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack',
+      gameRootPath: 'E:\\Games\\Stardew Valley',
+      target: 'Maps/Town',
+    })
+    expect(document).toMatchObject({
+      name: 'Town',
+      relativePath: 'Maps\\Town',
+      sourcePath: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack\\assets\\Town.tbin',
+    })
+  })
+})

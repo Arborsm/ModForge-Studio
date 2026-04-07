@@ -1,6 +1,6 @@
 import type { GameDirectoryInfo, MapAssetSummary } from '../../../lib/desktop'
-import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
-import type { LocaleCode, WorkspaceMode } from '../../../lib/editor-shell'
+import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
+import type { LocaleCode, WorkspaceMode } from '../../../locales'
 
 export type ProjectPanelProps = {
   locale: LocaleCode
@@ -24,10 +24,12 @@ export type AssetBrowserPanelProps = {
   browserSourceMode: BrowserSourceMode
   onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modMapGroups: ModBrowserGroup<MapAssetSummary>[]
+  activeModMapSelectionId: string | null
   activeMapId: string | null
   assetFilter: string
   onAssetFilterChange: (value: string) => void
   onOpenAsset: (asset: MapAssetSummary) => void
+  onOpenModAsset: (entry: ModBrowserEntry<MapAssetSummary>) => void
 }
 
 export function formatBytes(bytes: number) {

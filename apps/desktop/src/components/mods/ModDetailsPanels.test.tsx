@@ -36,6 +36,7 @@ describe('ModDiagnosticsPanel', () => {
             manifestPath: 'E:\\Mods\\SeasonalGarden\\manifest.json',
             contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
             status: 'ready',
+            missingRequiredDependencies: [],
           },
           diagnostics: [],
           contentPatcher: null,

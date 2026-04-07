@@ -12,6 +12,7 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
     modItemGroups,
     activeItemModSources,
     activeItemId,
+    activeModItemSelectionId,
     activeItem,
     itemFilter,
     itemLookup,
@@ -19,6 +20,7 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
     ensureItemTextureAssetStates,
     onItemFilterChange,
     onSelectItem,
+    onSelectModItem,
     itemStatusMessage,
   } = options
 
@@ -43,12 +45,14 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
           modItemGroups={modItemGroups}
           activeItemModSources={activeItemModSources}
           activeItemId={activeItemId}
+          activeModItemSelectionId={activeModItemSelectionId}
           itemFilter={itemFilter}
           itemLookup={itemLookup}
           textureStatesByAssetName={itemTextureStatesByAssetName}
           ensureTextureAssetStates={ensureItemTextureAssetStates}
           onItemFilterChange={onItemFilterChange}
           onSelectItem={onSelectItem}
+          onSelectModItem={onSelectModItem}
         />
       ),
     },
@@ -72,12 +76,14 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
           modItemGroups={modItemGroups}
           activeItemModSources={activeItemModSources}
           activeItemId={activeItemId}
+          activeModItemSelectionId={activeModItemSelectionId}
           itemFilter={itemFilter}
           itemLookup={itemLookup}
           textureStatesByAssetName={itemTextureStatesByAssetName}
           ensureTextureAssetStates={ensureItemTextureAssetStates}
           onItemFilterChange={onItemFilterChange}
           onSelectItem={onSelectItem}
+          onSelectModItem={onSelectModItem}
         />
       ),
     },
@@ -101,12 +107,14 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
           modItemGroups={modItemGroups}
           activeItemModSources={activeItemModSources}
           activeItemId={activeItemId}
+          activeModItemSelectionId={activeModItemSelectionId}
           itemFilter={itemFilter}
           itemLookup={itemLookup}
           textureStatesByAssetName={itemTextureStatesByAssetName}
           ensureTextureAssetStates={ensureItemTextureAssetStates}
           onItemFilterChange={onItemFilterChange}
           onSelectItem={onSelectItem}
+          onSelectModItem={onSelectModItem}
         />
       ),
     },

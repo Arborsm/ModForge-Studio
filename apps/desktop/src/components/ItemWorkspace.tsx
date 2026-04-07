@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type WheelEvent } from 'react'
 import { useItemsCopy } from '../lib/app/localeContext'
 import { cx } from '../lib/cx'
-import type { BrowserSourceMode, ModBrowserGroup, ModSourceEntry } from '../lib/app/modAssetIndex'
+import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '../lib/app/modAssetIndex'
 import {
   getContainedItemSpriteFrame,
   getContainedItemSpriteScale,
@@ -45,12 +45,14 @@ type ItemWorkspaceProps = {
   modItemGroups: ModBrowserGroup<ItemWorkspaceEntry>[]
   activeItemModSources: ModSourceEntry[]
   activeItemId: string | null
+  activeModItemSelectionId: string | null
   itemFilter: string
   itemLookup: Map<string, ItemWorkspaceEntry>
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
   ensureTextureAssetStates: (assetNames: string[]) => void
   onItemFilterChange: (value: string) => void
   onSelectItem: (itemKey: string) => void
+  onSelectModItem: (entry: ModBrowserEntry<ItemWorkspaceEntry>) => void
 }
 
 type Tone = 'neutral' | 'positive' | 'danger' | 'accent'
@@ -1310,8 +1312,10 @@ function CatalogPane({
   pageCount,
   itemsPerPage,
   activeItemId,
+  activeModItemSelectionId,
   textureStatesByAssetName,
   onSelectItem,
+  onSelectModItem,
   hoveredItemId,
   onHoverItem,
   onPageChange,
@@ -1326,8 +1330,10 @@ function CatalogPane({
   pageCount: number
   itemsPerPage: number
   activeItemId: string | null
+  activeModItemSelectionId: string | null
   textureStatesByAssetName: Record<string, ItemTextureAssetState>
   onSelectItem: (itemKey: string, tab?: DetailTab) => void
+  onSelectModItem: (entry: ModBrowserEntry<ItemWorkspaceEntry>, tab?: DetailTab) => void
   hoveredItemId: string | null
   onHoverItem: (itemKey: string | null) => void
   onPageChange: (page: number) => void
@@ -1407,19 +1413,21 @@ function CatalogPane({
                     <span className="dock-chip shrink-0">{group.items.length}</span>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {group.items.map(({ value: entry, targets }) => {
+                    {group.items.map((modEntry) => {
+                      const { value: entry, targets } = modEntry
                       const textureState = entry.textureAssetName ? (textureStatesByAssetName[entry.textureAssetName] ?? null) : null
-                      const isActive = entry.key === activeItemId
+                      const isActive = modEntry.selectionId === activeModItemSelectionId
 
                       return (
                         <button
                           key={`${group.modId}:${entry.key}`}
                           type="button"
+                          aria-pressed={isActive}
                           className={cx(
                             'panel-list-card flex items-center gap-3 px-3 py-3 text-left transition-colors',
                             isActive && 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))] bg-[var(--bg-active)]',
                           )}
-                          onClick={() => onSelectItem(entry.key)}
+                          onClick={() => onSelectModItem(modEntry)}
                           onMouseEnter={() => onHoverItem(entry.key)}
                           onMouseLeave={() => onHoverItem(null)}
                         >
@@ -1458,6 +1466,7 @@ function CatalogPane({
                   <button
                     key={entry.key}
                     type="button"
+                    aria-pressed={isActive}
                     className={cx(
                       'group flex h-full min-h-0 flex-col items-center justify-center rounded-[22px] border px-2 py-3 text-center transition-all duration-200',
                       isActive
@@ -1777,12 +1786,14 @@ function useItemWorkspaceViewModel({
   modItemGroups,
   activeItemModSources,
   activeItemId,
+  activeModItemSelectionId,
   itemFilter,
   itemLookup,
   textureStatesByAssetName,
   ensureTextureAssetStates,
   onItemFilterChange,
   onSelectItem,
+  onSelectModItem,
 }: ItemWorkspaceProps) {
   const copy = useItemsCopy()
   const ui = useItemWorkspaceUi()
@@ -1835,6 +1846,10 @@ function useItemWorkspaceViewModel({
     ui.setActiveDetailTab(tab)
     onSelectItem(itemKey)
   }, [onSelectItem, ui])
+  const handleSelectModItem = useCallback((entry: ModBrowserEntry<ItemWorkspaceEntry>, tab: DetailTab = 'info') => {
+    ui.setActiveDetailTab(tab)
+    onSelectModItem(entry)
+  }, [onSelectModItem, ui])
 
   const handleItemFilterChange = useCallback(
     (value: string) => {
@@ -1852,6 +1867,7 @@ function useItemWorkspaceViewModel({
     modItemGroups,
     activeItemModSources,
     activeItemId,
+    activeModItemSelectionId,
     itemFilter,
     itemLookup,
     textureStatesByAssetName,
@@ -1892,6 +1908,7 @@ function useItemWorkspaceViewModel({
     hoveredItemId: ui.hoveredItemId,
     setHoveredItemId: ui.setHoveredItemId,
     handleSelectItem,
+    handleSelectModItem,
   }
 }
 
@@ -1930,8 +1947,10 @@ export function ItemCatalogPanel(props: ItemWorkspaceProps) {
       pageCount={view.pageCount}
       itemsPerPage={view.itemsPerPage}
       activeItemId={view.activeItemId}
+      activeModItemSelectionId={view.activeModItemSelectionId}
       textureStatesByAssetName={view.textureStatesByAssetName}
       onSelectItem={view.handleSelectItem}
+      onSelectModItem={view.handleSelectModItem}
       hoveredItemId={view.hoveredItemId}
       onHoverItem={view.setHoveredItemId}
       onPageChange={view.setCurrentPage}
@@ -2000,8 +2019,10 @@ export default function ItemWorkspace({
             pageCount={view.pageCount}
             itemsPerPage={view.itemsPerPage}
             activeItemId={view.activeItemId}
+            activeModItemSelectionId={view.activeModItemSelectionId}
             textureStatesByAssetName={view.textureStatesByAssetName}
             onSelectItem={view.handleSelectItem}
+            onSelectModItem={view.handleSelectModItem}
             hoveredItemId={view.hoveredItemId}
             onHoverItem={view.setHoveredItemId}
             onPageChange={view.setCurrentPage}

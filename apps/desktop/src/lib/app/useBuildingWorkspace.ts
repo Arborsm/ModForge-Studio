@@ -1,32 +1,41 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { deferToTimeout } from '../react/deferred'
-import { loadTextAsset, loadMapAsset, scanMaps, type GameDirectoryInfo } from '../desktop'
-import type { LocaleCode, BuildingsPanelCopy } from '../editor-shell'
-import { loadImageResourceFromPath } from '../imageMetrics'
-import type { ViewportWorldPoint } from '../../components/MapViewport'
-import type { MapDocument, MapPropertyValue, MapTileset } from '../maps/types'
-import { OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH } from './characterWorkspace'
+import {useDeferredValue, useEffect, useMemo, useState} from 'react'
+import {deferToTimeout} from '../react/deferred'
+import {type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps} from '../desktop'
+import type {BuildingsPanelCopy, LocaleCode} from '../../locales'
+import {loadImageResourceFromPath} from '../imageMetrics'
+import type {ViewportWorldPoint} from '../../components/MapViewport'
+import type {MapDocument, MapPropertyValue, MapTileset} from '../maps/types'
+import {OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH} from './characterWorkspace'
 import {
-  BUILDINGS_DATA_ASSET_PATH,
   buildGameContentPath,
+  type BuildingMaterialEntry,
+  BUILDINGS_DATA_ASSET_PATH,
+  type BuildingTextureAssetState,
+  type BuildingWorkspaceEntry,
   buildMapPathLabel,
+  type ConstructibleBuildingGroup,
   createBuildingEntryIndex,
   createConstructibleBuildingGroups,
   getBuildingTexturePath,
-  type BuildingMaterialEntry,
-  type BuildingTextureAssetState,
-  type BuildingWorkspaceEntry,
-  type ConstructibleBuildingGroup,
   type WorldBuildingEntrance,
 } from './buildingWorkspace'
 import {
-  BUILDING_LOCATION_SEEDS,
-  BUILDING_LOCATION_SEED_GROUP_ORDER,
   BUILDING_LOCATION_SEED_GROUP_LABELS,
+  BUILDING_LOCATION_SEED_GROUP_ORDER,
+  BUILDING_LOCATION_SEEDS,
   type BuildingLocationSeedGroup,
 } from './buildingLocationSeeds'
-import { getWorldAtlasNameAliases } from '../maps/world'
-import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
+import {getWorldAtlasNameAliases} from '../maps/world'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+  useModAssetIndex,
+} from './modAssetIndex'
+import {loadModResultImageState} from './modResultAssets'
 
 type UseBuildingWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -1005,8 +1014,10 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   const [buildingFilter, setBuildingFilter] = useState('')
   const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeBuildingId, setActiveBuildingId] = useState<string | null>(null)
+  const [activeModBuildingSelectionId, setActiveModBuildingSelectionId] = useState<string | null>(null)
   const [buildingStatusMessage, setBuildingStatusMessage] = useState('')
   const [activeChainTextureStates, setActiveChainTextureStates] = useState<Record<string, BuildingTextureAssetState>>({})
+  const [activeModTextureState, setActiveModTextureState] = useState<BuildingTextureAssetState | null>(null)
   const [springObjectsState, setSpringObjectsState] = useState<BuildingTextureAssetState>({
     path: null,
     url: null,
@@ -1046,6 +1057,10 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       }),
     [activeBuildingId, modIndex.mods],
   )
+  const activeModBuildingEntry = useMemo(
+    () => findModBrowserEntry(modBuildingGroups, activeModBuildingSelectionId),
+    [activeModBuildingSelectionId, modBuildingGroups],
+  )
   const activeBuilding =
     buildingEntries.find((building) => building.key === activeBuildingId) ??
     filteredConstructibleGroups[0]?.rootEntry ??
@@ -1066,6 +1081,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   )
   const activeTextureState =
     activeBuilding?.sourceKind === 'constructible' ? (activeChainTextureStates[activeBuilding.key] ?? null) : null
+  const effectiveActiveTextureState = browserSourceMode === 'mod' ? (activeModTextureState ?? activeTextureState) : activeTextureState
   const mapDocumentsByAssetName = useMemo(
     () => new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const)),
     [mapDocuments],
@@ -1097,7 +1113,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const cancel = deferToTimeout(() => {
+      return deferToTimeout(() => {
         setBuildingEntries([])
         setConstructibleGroups([])
         setWorldBuildings([])
@@ -1105,6 +1121,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
         setActiveBuildingId(null)
         setBuildingStatusMessage('')
         setActiveChainTextureStates({})
+        setActiveModTextureState(null)
         setSpringObjectsState({
           path: null,
           url: null,
@@ -1112,8 +1129,6 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           height: null,
         })
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -1186,6 +1201,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           setMapDocuments([])
           setActiveBuildingId(null)
           setBuildingStatusMessage(error instanceof Error ? error.message : String(error))
+          setActiveModTextureState(null)
         }
       }
     })()
@@ -1197,7 +1213,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const cancel = deferToTimeout(() => {
+      return deferToTimeout(() => {
         setSpringObjectsState({
           path: null,
           url: null,
@@ -1205,8 +1221,6 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           height: null,
         })
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -1236,11 +1250,10 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
   useEffect(() => {
     if (!directoryInfo?.rootPath || activeUpgradeChain.length === 0 || activeBuilding?.sourceKind !== 'constructible') {
-      const cancel = deferToTimeout(() => {
+      return deferToTimeout(() => {
         setActiveChainTextureStates({})
+        setActiveModTextureState(null)
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -1280,23 +1293,81 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
       return
     }
 
-    const nextBuilding =
+    const nextEntry =
+      activeModBuildingEntry ??
       modBuildingGroups
         .flatMap((group) => group.items)
-        .find((item) => item.value.key === activeBuildingId)?.value ??
-      modBuildingGroups[0]?.items[0]?.value ??
+        .find((item) => item.value.key === activeBuildingId) ??
+      modBuildingGroups[0]?.items[0] ??
       null
 
-    if (nextBuilding && nextBuilding.key !== activeBuildingId) {
-      const cancel = deferToTimeout(() => {
-        setActiveBuildingId(nextBuilding.key)
+    if (nextEntry) {
+      return deferToTimeout(() => {
+        setActiveModBuildingSelectionId(nextEntry.selectionId)
+        if (nextEntry.value.key !== activeBuildingId) {
+          setActiveBuildingId(nextEntry.value.key)
+        }
       })
-      return cancel
     }
-  }, [activeBuildingId, browserSourceMode, modBuildingGroups])
+  }, [activeBuildingId, activeModBuildingEntry, browserSourceMode, modBuildingGroups])
+
+  useEffect(() => {
+    if (
+      browserSourceMode !== 'mod' ||
+      !directoryInfo?.rootPath ||
+      !activeBuilding?.textureAssetName ||
+      !activeModBuildingEntry
+    ) {
+      return deferToTimeout(() => {
+        setActiveModTextureState(null)
+      })
+    }
+
+    let cancelled = false
+    void loadModResultImageState({
+      rootPath: directoryInfo.rootPath,
+      entry: activeModBuildingEntry,
+      preferredTargets: [activeBuilding.textureAssetName],
+      fallbackPathLabel: activeBuilding.texturePathLabel,
+    })
+      .then((result) => {
+        if (!result || cancelled) {
+          return
+        }
+
+        setActiveModTextureState({
+          path: result.path,
+          url: result.url,
+          width: result.width,
+          height: result.height,
+        })
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActiveModTextureState(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeBuilding?.textureAssetName, activeBuilding?.texturePathLabel, activeModBuildingEntry, browserSourceMode, directoryInfo?.rootPath])
+
+  function handleSetBrowserSourceMode(mode: BrowserSourceMode) {
+    setBrowserSourceMode(mode)
+    if (mode !== 'mod') {
+      setActiveModBuildingSelectionId(null)
+      setActiveModTextureState(null)
+    }
+  }
 
   function handleSelectBuilding(buildingKey: string) {
     setActiveBuildingId(buildingKey)
+  }
+
+  function handleSelectModBuilding(entry: ModBrowserEntry<BuildingWorkspaceEntry>) {
+    setActiveModBuildingSelectionId(entry.selectionId)
+    setActiveBuildingId(entry.value.key)
   }
 
   return {
@@ -1306,8 +1377,9 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     worldBuildings,
     filteredWorldBuildings,
     browserSourceMode,
-    setBrowserSourceMode,
+    setBrowserSourceMode: handleSetBrowserSourceMode,
     modBuildingGroups,
+    activeModBuildingSelectionId,
     activeBuildingModSources,
     buildingFilter,
     setBuildingFilter,
@@ -1315,7 +1387,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     activeBuilding,
     activeUpgradeChain,
     buildingStatusMessage,
-    activeTextureState,
+    activeTextureState: effectiveActiveTextureState,
     activeChainTextureStates,
     activeIndoorMapDocument,
     activeIndoorMapPath,
@@ -1326,5 +1398,6 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     activeExteriorFocusPoint,
     springObjectsState,
     handleSelectBuilding,
+    handleSelectModBuilding,
   }
 }

@@ -4,16 +4,11 @@ use std::str;
 pub struct CursorReader {
     data: Vec<u8>,
     pos: usize,
-    bit_offset: u32,
 }
 
 impl CursorReader {
     pub fn new(data: Vec<u8>) -> Self {
-        Self {
-            data,
-            pos: 0,
-            bit_offset: 0,
-        }
+        Self { data, pos: 0 }
     }
 
     pub fn with_position(mut self, pos: usize) -> Self {
@@ -25,10 +20,6 @@ impl CursorReader {
         self.pos
     }
 
-    pub fn bit_offset(&self) -> u32 {
-        self.bit_offset
-    }
-
     pub fn set_position(&mut self, pos: usize) -> Result<(), String> {
         if pos > self.data.len() {
             return Err("Seek out of bounds.".to_string());
@@ -37,16 +28,8 @@ impl CursorReader {
         Ok(())
     }
 
-    pub fn data(&self) -> &[u8] {
-        &self.data
-    }
-
     pub fn len(&self) -> usize {
         self.data.len()
-    }
-
-    pub fn remaining(&self) -> usize {
-        self.data.len().saturating_sub(self.pos)
     }
 
     pub fn read_bytes(&mut self, count: usize) -> Result<Vec<u8>, String> {
@@ -127,71 +110,9 @@ impl CursorReader {
         self.read_string_exact(length)
     }
 
-    pub fn read_lzx_bits(&mut self, bits: u32) -> Result<u32, String> {
-        let mut bits_left = bits as i32;
-        let mut read: u32 = 0;
-
-        while bits_left > 0 {
-            let peek = self.peek_u16_le()?;
-            let bits_in_frame = std::cmp::min(bits_left, 16 - self.bit_offset as i32);
-            let offset = 16 - self.bit_offset as i32 - bits_in_frame;
-            let mask = ((1u32 << bits_in_frame) - 1) << offset;
-            let value = ((peek as u32) & mask) >> offset;
-
-            bits_left -= bits_in_frame;
-            self.set_bit_position(self.bit_offset as i32 + bits_in_frame)?;
-            read |= value << bits_left;
-        }
-
-        Ok(read)
-    }
-
-    pub fn peek_lzx_bits(&mut self, bits: u32) -> Result<u32, String> {
-        let bit_pos = self.bit_offset;
-        let byte_pos = self.pos;
-        let read = self.read_lzx_bits(bits)?;
-        self.bit_offset = bit_pos;
-        self.pos = byte_pos;
-        Ok(read)
-    }
-
     pub fn read_lzx_int16(&mut self) -> Result<u16, String> {
         let ls_b = self.read_u8()? as u16;
         let ms_b = self.read_u8()? as u16;
         Ok((ls_b << 8) | ms_b)
-    }
-
-    pub fn align_lzx(&mut self) -> Result<(), String> {
-        if self.bit_offset > 0 {
-            self.set_bit_position(self.bit_offset as i32 + (16 - self.bit_offset as i32))?;
-        }
-        Ok(())
-    }
-
-    fn peek_u16_le(&mut self) -> Result<u16, String> {
-        if self.pos + 2 > self.data.len() {
-            return Err("Unexpected end of buffer.".to_string());
-        }
-        Ok(u16::from_le_bytes([self.data[self.pos], self.data[self.pos + 1]]))
-    }
-
-    pub fn set_bit_position(&mut self, offset: i32) -> Result<(), String> {
-        let mut adjusted = offset;
-        if adjusted < 0 {
-            adjusted = 16 - adjusted;
-        }
-        self.bit_offset = (adjusted as u32) % 16;
-        let byte_seek = ((adjusted - (adjusted.abs() % 16)) / 16) * 2;
-        if byte_seek != 0 {
-            let new_pos = (self.pos as i32 + byte_seek) as i64;
-            if new_pos < 0 {
-                return Err("Seek out of bounds.".to_string());
-            }
-            self.pos = new_pos as usize;
-            if self.pos > self.data.len() {
-                return Err("Seek out of bounds.".to_string());
-            }
-        }
-        Ok(())
     }
 }

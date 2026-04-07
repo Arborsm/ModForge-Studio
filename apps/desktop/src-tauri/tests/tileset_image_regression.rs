@@ -6,6 +6,8 @@ mod mime;
 mod models;
 #[path = "../src/pathing.rs"]
 mod pathing;
+#[path = "../src/test_support.rs"]
+mod test_support;
 #[path = "../src/tbin.rs"]
 mod tbin;
 #[path = "../src/xnb/mod.rs"]

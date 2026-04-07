@@ -12,10 +12,12 @@ export function AssetBrowserPanel({
   browserSourceMode,
   onBrowserSourceModeChange,
   modMapGroups,
+  activeModMapSelectionId,
   activeMapId,
   assetFilter,
   onAssetFilterChange,
   onOpenAsset,
+  onOpenModAsset,
 }: AssetBrowserPanelProps) {
   const copy = useEditorCopy()
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
@@ -84,14 +86,15 @@ export function AssetBrowserPanel({
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
-                    {group.items.map(({ value: asset, targets }) => {
-                      const isActive = asset.id === activeMapId
+                    {group.items.map((entry) => {
+                      const { value: asset, targets } = entry
+                      const isActive = entry.selectionId === activeModMapSelectionId
                       return (
                         <button
                           key={`${group.modId}:${asset.id}`}
                           type="button"
                           className={cx('asset-row', isActive && 'asset-row-active')}
-                          onClick={() => onOpenAsset(asset)}
+                          onClick={() => onOpenModAsset(entry)}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">

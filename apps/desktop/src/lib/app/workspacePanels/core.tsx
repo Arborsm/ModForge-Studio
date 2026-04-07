@@ -37,11 +37,13 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     mapBrowserSourceMode,
     onMapBrowserSourceModeChange,
     modMapGroups,
+    activeModMapSelectionId,
     activeMapModSources,
     activeMapId,
     assetFilter,
     onAssetFilterChange,
     onOpenAsset,
+    onOpenModAsset,
     workspaceTabs,
     activeTabId,
     onSelectWorkspaceTab,
@@ -76,11 +78,13 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     eventBrowserSourceMode,
     onEventBrowserSourceModeChange,
     modEventGroups,
+    activeModEventSelectionId,
     activeEventModSources,
     activeEventAssetId,
     eventAssetFilter,
     onEventAssetFilterChange,
     onOpenEventAsset,
+    onOpenModEventAsset,
     parsedEventAsset,
     selectedEventKey,
     selectedEvent,
@@ -100,6 +104,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     characterBrowserSourceMode,
     onCharacterBrowserSourceModeChange,
     modCharacterGroups,
+    activeModCharacterSelectionId,
     activeCharacterModSources,
     activeCharacterId,
     activeCharacter,
@@ -109,6 +114,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     activeCharacterAssetState,
     onCharacterFilterChange,
     onSelectCharacter,
+    onSelectModCharacter,
     onSelectCharacterVariant,
     constructibleGroups,
     filteredConstructibleGroups,
@@ -117,6 +123,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     buildingBrowserSourceMode,
     onBuildingBrowserSourceModeChange,
     modBuildingGroups,
+    activeModBuildingSelectionId,
     activeBuildingModSources,
     activeBuildingId,
     activeBuilding,
@@ -135,6 +142,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     buildingSpringObjectsState,
     onBuildingFilterChange,
     onSelectBuilding,
+    onSelectModBuilding,
     heavyWorkspaceReady,
   } = options
 
@@ -156,10 +164,12 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           browserSourceMode={eventBrowserSourceMode}
           onBrowserSourceModeChange={onEventBrowserSourceModeChange}
           modEventGroups={modEventGroups}
+          activeModEventSelectionId={activeModEventSelectionId}
           activeEventAssetId={activeEventAssetId}
           assetFilter={eventAssetFilter}
           onAssetFilterChange={onEventAssetFilterChange}
           onOpenAsset={onOpenEventAsset}
+          onOpenModAsset={onOpenModEventAsset}
         />
       ) : workspaceMode === 'characters' ? (
         <CharacterBrowserPanel
@@ -168,10 +178,12 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           browserSourceMode={characterBrowserSourceMode}
           onBrowserSourceModeChange={onCharacterBrowserSourceModeChange}
           modCharacterGroups={modCharacterGroups}
+          activeModCharacterSelectionId={activeModCharacterSelectionId}
           activeCharacterId={activeCharacterId}
           characterFilter={characterFilter}
           onCharacterFilterChange={onCharacterFilterChange}
           onSelectCharacter={onSelectCharacter}
+          onSelectModCharacter={onSelectModCharacter}
         />
       ) : workspaceMode === 'buildings' ? (
         <BuildingBrowserPanel
@@ -182,11 +194,13 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           browserSourceMode={buildingBrowserSourceMode}
           onBrowserSourceModeChange={onBuildingBrowserSourceModeChange}
           modBuildingGroups={modBuildingGroups}
+          activeModBuildingSelectionId={activeModBuildingSelectionId}
           activeBuildingId={activeBuildingId}
           activeBuildingGroupKey={activeBuilding?.groupKey ?? null}
           buildingFilter={buildingFilter}
           onBuildingFilterChange={onBuildingFilterChange}
           onSelectBuilding={onSelectBuilding}
+          onSelectModBuilding={onSelectModBuilding}
         />
       ) : (
         <AssetBrowserPanel
@@ -195,10 +209,12 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           browserSourceMode={mapBrowserSourceMode}
           onBrowserSourceModeChange={onMapBrowserSourceModeChange}
           modMapGroups={modMapGroups}
+          activeModMapSelectionId={activeModMapSelectionId}
           activeMapId={activeMapId}
           assetFilter={assetFilter}
           onAssetFilterChange={onAssetFilterChange}
           onOpenAsset={onOpenAsset}
+          onOpenModAsset={onOpenModAsset}
         />
       ),
     },

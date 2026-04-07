@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::attached_api::{load_attached_api_registry, AttachedApiRegistry};
 use crate::json_relaxed;
 use crate::pathing::{clean_input_path, normalize_path};
 
@@ -37,6 +38,7 @@ pub struct ModProjectSummary {
     pub content_path: Option<String>,
     pub plugin_kind: String,
     pub status: String,
+    pub missing_required_dependencies: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -151,6 +153,22 @@ struct ModAssetGroupAccumulator {
     items: BTreeMap<String, ModAssetReferenceAccumulator>,
 }
 
+#[derive(Debug)]
+struct ScannedProject {
+    project_path: PathBuf,
+    manifest_path: PathBuf,
+    manifest: Value,
+    content_path: Option<PathBuf>,
+    content: Option<Value>,
+}
+
+#[derive(Debug, Clone)]
+struct ProjectCompatibility {
+    is_content_patcher: bool,
+    status: String,
+    missing_required_dependencies: Vec<String>,
+}
+
 fn string_field(value: &Value, key: &str) -> Option<String> {
     value
         .get(key)
@@ -158,6 +176,10 @@ fn string_field(value: &Value, key: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn bool_field(value: &Value, key: &str) -> Option<bool> {
+    value.get(key).and_then(Value::as_bool)
 }
 
 fn string_array_field(value: &Value, key: &str) -> Vec<String> {
@@ -191,6 +213,37 @@ fn content_pack_for_unique_id(manifest: &Value) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+fn normalize_unique_id(value: &str) -> String {
+    value.trim().to_ascii_lowercase()
+}
+
+fn required_dependency_ids(manifest: &Value) -> Vec<String> {
+    let mut dependencies = Vec::new();
+    let mut seen = BTreeSet::new();
+
+    for dependency in array_field(manifest, "Dependencies").into_iter().flatten() {
+        let Some(object) = dependency.as_object() else {
+            continue;
+        };
+        if bool_field(&Value::Object(object.clone()), "IsRequired") != Some(true) {
+            continue;
+        }
+        let Some(unique_id) = object
+            .get("UniqueID")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        if seen.insert(normalize_unique_id(unique_id)) {
+            dependencies.push(unique_id.to_string());
+        }
+    }
+
+    dependencies
 }
 
 fn is_content_patcher_manifest(manifest: &Value) -> bool {
@@ -256,6 +309,96 @@ fn log_scan_skip(error: &str) {
 
 fn is_content_patcher_project(manifest: &Value, content: &Value) -> bool {
     is_content_patcher_manifest(manifest) || array_field(content, "Changes").is_some()
+}
+
+fn collect_scanned_projects(project_roots: Vec<PathBuf>) -> Vec<ScannedProject> {
+    let mut projects = Vec::new();
+
+    for project_path in project_roots {
+        let manifest_path = project_path.join("manifest.json");
+        let manifest = match read_json_file(&manifest_path) {
+            Ok((_, manifest)) => manifest,
+            Err(error) => {
+                log_scan_skip(&error);
+                continue;
+            }
+        };
+        let content_path = project_path.join("content.json");
+        let content = if content_path.is_file() {
+            match read_json_file(&content_path) {
+                Ok((_, content)) => Some(content),
+                Err(error) => {
+                    log_scan_skip(&error);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        projects.push(ScannedProject {
+            project_path,
+            manifest_path,
+            manifest,
+            content_path: content_path.is_file().then_some(content_path),
+            content,
+        });
+    }
+
+    projects
+}
+
+fn collect_available_mod_ids(
+    projects: &[ScannedProject],
+    attached_api_registry: &AttachedApiRegistry,
+) -> BTreeSet<String> {
+    let mut available = BTreeSet::new();
+
+    for project in projects {
+        let Some(unique_id) = string_field(&project.manifest, "UniqueID") else {
+            continue;
+        };
+        available.insert(normalize_unique_id(&unique_id));
+        for provided in attached_api_registry.provided_unique_ids_for(&unique_id) {
+            available.insert(normalize_unique_id(&provided));
+        }
+    }
+
+    available
+}
+
+fn evaluate_project_compatibility(
+    manifest: &Value,
+    content: Option<&Value>,
+    available_mod_ids: &BTreeSet<String>,
+) -> ProjectCompatibility {
+    let is_content_patcher = is_content_patcher_manifest(manifest)
+        || content.is_some_and(|content| is_content_patcher_project(manifest, content));
+
+    if !is_content_patcher {
+        return ProjectCompatibility {
+            is_content_patcher: false,
+            status: "unsupported".to_string(),
+            missing_required_dependencies: Vec::new(),
+        };
+    }
+
+    let missing_required_dependencies = required_dependency_ids(manifest)
+        .into_iter()
+        .filter(|dependency| !available_mod_ids.contains(&normalize_unique_id(dependency)))
+        .collect::<Vec<_>>();
+
+    let status = if missing_required_dependencies.is_empty() {
+        "ready".to_string()
+    } else {
+        "incompatible".to_string()
+    };
+
+    ProjectCompatibility {
+        is_content_patcher: true,
+        status,
+        missing_required_dependencies,
+    }
 }
 
 fn build_patch_summary(index: usize, patch: &Map<String, Value>) -> ContentPatcherPatchSummary {
@@ -424,8 +567,13 @@ fn project_name_from_manifest(manifest: &Value, project_path: &Path) -> String {
         .unwrap_or_else(|| "Unnamed Mod".to_string())
 }
 
-fn build_project_summary(project_path: &Path, manifest_path: &Path, manifest: &Value, content_path: Option<&Path>, content: Option<&Value>) -> ModProjectSummary {
-    let is_cp = is_content_patcher_manifest(manifest) || content.is_some_and(|content| is_content_patcher_project(manifest, content));
+fn build_project_summary(
+    project_path: &Path,
+    manifest_path: &Path,
+    manifest: &Value,
+    content_path: Option<&Path>,
+    compatibility: &ProjectCompatibility,
+) -> ModProjectSummary {
     let folder_name = project_path
         .file_name()
         .and_then(|value| value.to_str())
@@ -444,8 +592,14 @@ fn build_project_summary(project_path: &Path, manifest_path: &Path, manifest: &V
         absolute_path: normalize_path(project_path),
         manifest_path: normalize_path(manifest_path),
         content_path: content_path.map(normalize_path),
-        plugin_kind: if is_cp { "content-patcher" } else { "unknown" }.to_string(),
-        status: if is_cp { "ready" } else { "unsupported" }.to_string(),
+        plugin_kind: if compatibility.is_content_patcher {
+            "content-patcher"
+        } else {
+            "unknown"
+        }
+        .to_string(),
+        status: compatibility.status.clone(),
+        missing_required_dependencies: compatibility.missing_required_dependencies.clone(),
     }
 }
 
@@ -807,8 +961,13 @@ fn finalize_mod_asset_references(collection: BTreeMap<String, ModAssetReferenceA
         .collect()
 }
 
-fn build_mod_asset_index_group(project_path: &Path, manifest: &Value, content: &Value) -> Option<ModAssetIndexGroup> {
-    if !is_content_patcher_project(manifest, content) {
+fn build_mod_asset_index_group(
+    project_path: &Path,
+    manifest: &Value,
+    content: &Value,
+    compatibility: &ProjectCompatibility,
+) -> Option<ModAssetIndexGroup> {
+    if !compatibility.is_content_patcher || compatibility.status != "ready" {
         return None;
     }
 
@@ -848,6 +1007,23 @@ fn ensure_project_root(path: &Path) -> Result<PathBuf, String> {
     }
 
     Err(format!("No manifest.json was found in {}", normalize_path(path)))
+}
+
+fn infer_mods_scan_root(project_path: &Path) -> PathBuf {
+    for ancestor in project_path.ancestors() {
+        if ancestor
+            .file_name()
+            .and_then(|value| value.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("Mods"))
+        {
+            return ancestor.to_path_buf();
+        }
+    }
+
+    project_path
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| project_path.to_path_buf())
 }
 
 fn remove_dir_contents(path: &Path) -> Result<(), String> {
@@ -906,34 +1082,19 @@ pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, St
         return Ok(Vec::new());
     }
 
+    let scanned_projects = collect_scanned_projects(project_roots);
+    let attached_api_registry = load_attached_api_registry(None);
+    let available_mod_ids = collect_available_mod_ids(&scanned_projects, &attached_api_registry);
     let mut projects = Vec::new();
-    for project_path in project_roots {
-        let manifest_path = project_path.join("manifest.json");
-        let manifest = match read_json_file(&manifest_path) {
-            Ok((_, manifest)) => manifest,
-            Err(error) => {
-                log_scan_skip(&error);
-                continue;
-            }
-        };
-        let content_path = project_path.join("content.json");
-        let content = if content_path.is_file() {
-            match read_json_file(&content_path) {
-                Ok((_, content)) => Some(content),
-                Err(error) => {
-                    log_scan_skip(&error);
-                    None
-                }
-            }
-        } else {
-            None
-        };
+    for project in &scanned_projects {
+        let compatibility =
+            evaluate_project_compatibility(&project.manifest, project.content.as_ref(), &available_mod_ids);
         projects.push(build_project_summary(
-            &project_path,
-            &manifest_path,
-            &manifest,
-            content_path.is_file().then_some(content_path.as_path()),
-            content.as_ref(),
+            &project.project_path,
+            &project.manifest_path,
+            &project.manifest,
+            project.content_path.as_deref(),
+            &compatibility,
         ));
     }
 
@@ -945,31 +1106,18 @@ pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, St
 pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> {
     let root = clean_input_path(&root_path);
     let project_roots = discover_project_roots(&root)?;
+    let scanned_projects = collect_scanned_projects(project_roots);
+    let attached_api_registry = load_attached_api_registry(None);
+    let available_mod_ids = collect_available_mod_ids(&scanned_projects, &attached_api_registry);
     let mut mods = Vec::new();
 
-    for project_path in project_roots {
-        let manifest_path = project_path.join("manifest.json");
-        let content_path = project_path.join("content.json");
-        if !content_path.is_file() {
+    for project in &scanned_projects {
+        let Some(content) = project.content.as_ref() else {
             continue;
-        }
-
-        let manifest = match read_json_file(&manifest_path) {
-            Ok((_, manifest)) => manifest,
-            Err(error) => {
-                log_scan_skip(&error);
-                continue;
-            }
         };
-        let content = match read_json_file(&content_path) {
-            Ok((_, content)) => content,
-            Err(error) => {
-                log_scan_skip(&error);
-                continue;
-            }
-        };
-
-        if let Some(group) = build_mod_asset_index_group(&project_path, &manifest, &content) {
+        let compatibility =
+            evaluate_project_compatibility(&project.manifest, Some(content), &available_mod_ids);
+        if let Some(group) = build_mod_asset_index_group(&project.project_path, &project.manifest, content, &compatibility) {
             let has_entries = !group.maps.is_empty()
                 || !group.events.is_empty()
                 || !group.characters.is_empty()
@@ -996,22 +1144,34 @@ pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
 
     let (_manifest_json, manifest) = read_json_file(&manifest_path)?;
     let (_content_json, content) = read_json_file(&content_path)?;
-    let is_cp = is_content_patcher_project(&manifest, &content);
+    let scan_root = infer_mods_scan_root(&project_path);
+    let discovered_projects = collect_scanned_projects(discover_project_roots(&scan_root)?);
+    let attached_api_registry = load_attached_api_registry(None);
+    let available_mod_ids = collect_available_mod_ids(&discovered_projects, &attached_api_registry);
+    let compatibility = evaluate_project_compatibility(&manifest, Some(&content), &available_mod_ids);
+    let is_cp = compatibility.is_content_patcher;
     let diagnostics = build_diagnostics(&manifest, &content, is_cp);
     if !is_cp {
         return Ok(ModProjectDetail {
             plugin_kind: "unknown".to_string(),
             capabilities: Vec::new(),
-            summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), Some(&content)),
+            summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), &compatibility),
             diagnostics,
             content_patcher: None,
         });
     }
 
+    if compatibility.status == "incompatible" {
+        return Err(format!(
+            "This content pack is missing required dependencies: {}",
+            compatibility.missing_required_dependencies.join(", ")
+        ));
+    }
+
     Ok(ModProjectDetail {
         plugin_kind: "content-patcher".to_string(),
         capabilities: content_patcher_capabilities(),
-        summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), Some(&content)),
+        summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), &compatibility),
         diagnostics,
         content_patcher: Some(build_content_patcher_data(
             &manifest_path,
@@ -1080,360 +1240,5 @@ pub fn save_mod_project(request: SaveModProjectRequest) -> Result<SaveModProject
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects, SaveModProjectRequest};
-    use std::fs;
-    use std::path::PathBuf;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn create_temp_dir(name: &str) -> PathBuf {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time")
-            .as_nanos();
-        let path = std::env::temp_dir().join(format!("modforge-mods-{name}-{unique}"));
-        fs::create_dir_all(&path).expect("create temp dir");
-        path
-    }
-
-    fn write_file(path: &PathBuf, content: &str) {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).expect("create parent");
-        }
-        fs::write(path, content).expect("write file");
-    }
-
-    fn sample_manifest() -> &'static str {
-        r#"{
-  "Name": "Example Pack",
-  "Author": "ModForge",
-  "Version": "1.0.0",
-  "Description": "Test content pack",
-  "UniqueID": "ModForge.ExamplePack",
-  "ContentPackFor": {
-    "UniqueID": "Pathoschild.ContentPatcher",
-    "MinimumVersion": "2.0.0"
-  }
-}"#
-    }
-
-    fn sample_content() -> &'static str {
-        r#"{
-  "Format": "2.0.0",
-  "ConfigSchema": {
-    "EnableAltArt": {
-      "AllowValues": "true, false",
-      "Default": "false"
-    }
-  },
-  "DynamicTokens": [
-    {
-      "Name": "FestivalMode",
-      "Value": "false"
-    }
-  ],
-  "Changes": [
-    {
-      "LogName": "Portrait Swap",
-      "Action": "Load",
-      "Target": "Portraits/Abigail",
-      "FromFile": "assets/abigail.png",
-      "When": {
-        "Season": "spring"
-      }
-    },
-    {
-      "Action": "EditData",
-      "Target": "Data/Objects"
-    }
-  ]
-}"#
-    }
-
-    fn sample_index_content() -> &'static str {
-        r#"{
-  "Format": "2.0.0",
-  "Changes": [
-    {
-      "Action": "EditMap",
-      "Target": "Maps/Town"
-    },
-    {
-      "Action": "EditData",
-      "Target": "Data/Events/Town"
-    },
-    {
-      "Action": "Load",
-      "Target": [ "Characters/Abigail", "Portraits/Abigail" ]
-    },
-    {
-      "Action": "EditData",
-      "Target": "Data/Buildings",
-      "Entries": {
-        "Coop": {}
-      }
-    },
-    {
-      "Action": "EditData",
-      "Target": "Data/Objects",
-      "Entries": {
-        "24": {}
-      }
-    }
-  ]
-}"#
-    }
-
-    fn sample_relaxed_content() -> &'static str {
-        r#"{
-  "Format": "2.0.0",
-  // this comment is valid in real CP packs
-  "Changes": [
-    {
-      "Action": "Load",
-      "Target": "Maps/Town",
-      "FromFile": "assets/town.tmx",
-    },
-  ],
-}"#
-    }
-
-    fn sample_include_root_content() -> &'static str {
-        r#"{
-  "Format": "2.0.0",
-  "Changes": [
-    {
-      "Action": "Include",
-      "FromFile": "assets/patches/items.json"
-    }
-  ]
-}"#
-    }
-
-    fn sample_include_child_content() -> &'static str {
-        r#"{
-  "Changes": [
-    {
-      "Action": "EditData",
-      "Target": "Data/Objects",
-      "Entries": {
-        "24": {}
-      }
-    }
-  ]
-}"#
-    }
-
-    #[test]
-    fn scan_mod_projects_detects_content_patcher_pack() {
-        let root = create_temp_dir("scan");
-        let mods_root = root.join("Mods");
-        let project = mods_root.join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_content());
-
-        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
-        assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].plugin_kind, "content-patcher");
-        assert_eq!(projects[0].name, "Example Pack");
-        assert_eq!(projects[0].content_pack_for.as_deref(), Some("Pathoschild.ContentPatcher"));
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn scan_mod_projects_recurses_into_nested_directories() {
-        let root = create_temp_dir("nested-scan");
-        let project = root.join("Mods").join("Author").join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_content());
-
-        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
-        assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].absolute_path, project.to_string_lossy());
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn scan_mod_projects_skips_invalid_projects_without_failing() {
-        let root = create_temp_dir("broken-scan");
-        let broken_manifest_project = root.join("Mods").join("BrokenManifest");
-        let broken_content_project = root.join("Mods").join("BrokenContent");
-        let valid_project = root.join("Mods").join("ValidPack");
-
-        write_file(&broken_manifest_project.join("manifest.json"), "{ invalid");
-        write_file(&broken_content_project.join("manifest.json"), sample_manifest());
-        write_file(&broken_content_project.join("content.json"), "{ invalid");
-        write_file(&valid_project.join("manifest.json"), sample_manifest());
-        write_file(&valid_project.join("content.json"), sample_content());
-
-        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
-        assert_eq!(projects.len(), 2);
-        assert!(projects.iter().any(|project| project.absolute_path == valid_project.to_string_lossy()));
-        assert!(projects.iter().any(|project| project.absolute_path == broken_content_project.to_string_lossy()));
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn scan_mod_projects_accepts_mods_directory_as_input() {
-        let root = create_temp_dir("mods-root-input");
-        let mods_root = root.join("Mods");
-        let project = mods_root.join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_content());
-
-        let projects = scan_mod_projects(mods_root.to_string_lossy().into_owned()).expect("scan mods");
-        assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].absolute_path, project.to_string_lossy());
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn scan_mod_projects_accepts_relaxed_json_content() {
-        let root = create_temp_dir("relaxed-json");
-        let project = root.join("Mods").join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_relaxed_content());
-
-        let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
-        assert_eq!(projects.len(), 1);
-        assert_eq!(projects[0].plugin_kind, "content-patcher");
-
-        let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load relaxed mod project");
-        assert_eq!(detail.plugin_kind, "content-patcher");
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn load_mod_project_accepts_bom_nbsp_and_raw_newlines() {
-        let root = create_temp_dir("relaxed-edge-cases");
-        let project = root.join("ExamplePack");
-        let manifest = format!("\u{feff}{}", sample_manifest());
-        let nbsp = '\u{00A0}'.to_string();
-        let content = format!(
-            concat!(
-                "{{\n",
-                "\"Format\": \"2.0.0\",\n",
-                "\"Changes\": [\n",
-                "\t{{\n",
-                "{0} {0} {0}\"Action\": \"EditData\",\n",
-                "{0} {0} {0}\"Target\": \"Data/Events/Town\",\n",
-                "{0} {0} {0}\"Entries\": {{\n",
-                "{0} {0} {0}  \"MuseumBook\": \"Line 1\n",
-                "Line 2\"\n",
-                "{0} {0} {0}}}\n",
-                "\t}}\n",
-                "]\n",
-                "}}"
-            ),
-            nbsp
-        );
-
-        write_file(&project.join("manifest.json"), &manifest);
-        write_file(&project.join("content.json"), &content);
-
-        let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
-        assert_eq!(detail.plugin_kind, "content-patcher");
-        let cp = detail.content_patcher.expect("content patcher payload");
-        assert_eq!(cp.change_count, 1);
-        assert_eq!(cp.patches[0].target, "Data/Events/Town");
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn load_mod_project_returns_patch_summary_and_diagnostics() {
-        let root = create_temp_dir("load");
-        let project = root.join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_content());
-
-        let detail = load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
-        assert_eq!(detail.plugin_kind, "content-patcher");
-        assert_eq!(detail.capabilities.len(), 5);
-        let cp = detail.content_patcher.expect("content patcher payload");
-        assert_eq!(cp.change_count, 2);
-        assert_eq!(cp.dynamic_token_count, 1);
-        assert_eq!(cp.config_keys, vec!["EnableAltArt"]);
-        assert_eq!(cp.patches[0].log_name, "Portrait Swap");
-        assert_eq!(cp.patches[0].action, "Load");
-        assert_eq!(cp.patches[1].target, "Data/Objects");
-        assert!(detail.diagnostics.is_empty());
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn save_mod_project_exports_and_preserves_other_files() {
-        let root = create_temp_dir("save");
-        let source = root.join("SourcePack");
-        let export = root.join("ExportPack");
-        write_file(&source.join("manifest.json"), sample_manifest());
-        write_file(&source.join("content.json"), sample_content());
-        write_file(&source.join("assets").join("abigail.png"), "png-data");
-        write_file(&source.join("i18n").join("default.json"), "{}");
-
-        let request = SaveModProjectRequest {
-            source_path: source.to_string_lossy().into_owned(),
-            output_path: Some(export.to_string_lossy().into_owned()),
-            manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
-            content_json: sample_content().replace("spring", "summer"),
-        };
-
-        let result = save_mod_project(request).expect("save mod project");
-        assert_eq!(result.plugin_kind, "content-patcher");
-        assert!(export.join("assets").join("abigail.png").is_file());
-        assert!(export.join("i18n").join("default.json").is_file());
-        let exported_manifest = fs::read_to_string(export.join("manifest.json")).expect("read manifest");
-        let exported_content = fs::read_to_string(export.join("content.json")).expect("read content");
-        assert!(exported_manifest.contains("Exported Pack"));
-        assert!(exported_content.contains("summer"));
-        assert_eq!(result.target_path, export.to_string_lossy());
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn scan_mod_asset_index_collects_content_patcher_targets() {
-        let root = create_temp_dir("asset-index");
-        let project = root.join("Mods").join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_index_content());
-
-        let index = scan_mod_asset_index(root.to_string_lossy().into_owned()).expect("scan asset index");
-        assert_eq!(index.mods.len(), 1);
-        let mod_group = &index.mods[0];
-        assert_eq!(mod_group.maps[0].key, "Content/Maps/Town.xnb");
-        assert_eq!(mod_group.events[0].key, "Content/Data/Events/Town.xnb");
-        assert_eq!(mod_group.characters[0].key, "Abigail");
-        assert_eq!(mod_group.buildings[0].key, "Coop");
-        assert_eq!(mod_group.items[0].key, "(O)24");
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-
-    #[test]
-    fn scan_mod_asset_index_collects_targets_from_include_files() {
-        let root = create_temp_dir("asset-index-include");
-        let project = root.join("Mods").join("ExamplePack");
-        write_file(&project.join("manifest.json"), sample_manifest());
-        write_file(&project.join("content.json"), sample_include_root_content());
-        write_file(
-            &project.join("assets").join("patches").join("items.json"),
-            sample_include_child_content(),
-        );
-
-        let index = scan_mod_asset_index(root.to_string_lossy().into_owned()).expect("scan asset index");
-        assert_eq!(index.mods.len(), 1);
-        let mod_group = &index.mods[0];
-        assert_eq!(mod_group.items.len(), 1);
-        assert_eq!(mod_group.items[0].key, "(O)24");
-        assert_eq!(mod_group.items[0].patch_ids, vec!["content.json->assets/patches/items.json:0"]);
-
-        fs::remove_dir_all(root).expect("cleanup");
-    }
-}
+#[path = "tests/mods_tests.rs"]
+mod tests;

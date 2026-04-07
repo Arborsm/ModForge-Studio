@@ -9,8 +9,10 @@ type ModBrowserPanelProps = {
   activeProjectPath: string | null
   modFilter: string
   contentPatcherOnly: boolean
+  compatibleOnly: boolean
   onFilterChange: (value: string) => void
   onContentPatcherOnlyChange: (value: boolean) => void
+  onCompatibleOnlyChange: (value: boolean) => void
   onSelectProject: (path: string) => void
   onImportProject: () => void
   onRefreshProjects: () => void
@@ -32,6 +34,18 @@ function getPluginKindBadge(project: ModProjectSummary) {
   }
 }
 
+function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<typeof useModWorkspaceCopy>) {
+  if (project.status === 'incompatible') {
+    return {
+      label: copy.incompatibleProject,
+      className:
+        'border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_84%,var(--bg-panel))] text-[color-mix(in_srgb,#9a3412_90%,var(--text-primary))]',
+    }
+  }
+
+  return null
+}
+
 function ProjectRow({
   project,
   active,
@@ -43,13 +57,18 @@ function ProjectRow({
 }) {
   const copy = useModWorkspaceCopy()
   const pluginKindBadge = getPluginKindBadge(project)
+  const statusBadge = getProjectStatusBadge(project, copy)
+  const isIncompatible = project.status === 'incompatible'
 
   return (
     <button
       type="button"
+      disabled={isIncompatible}
       className={cx(
         'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
-        active
+        isIncompatible
+          ? 'cursor-not-allowed border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_58%,var(--bg-panel))] opacity-90'
+          : active
           ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
           : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
       )}
@@ -60,20 +79,38 @@ function ProjectRow({
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{project.name}</p>
           <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{project.uniqueId ?? project.folderName}</p>
         </div>
-        <span
-          className={cx(
-            'inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap',
-            pluginKindBadge.className,
-          )}
-        >
-          {pluginKindBadge.label}
-        </span>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <span
+            className={cx(
+              'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap',
+              pluginKindBadge.className,
+            )}
+          >
+            {pluginKindBadge.label}
+          </span>
+          {statusBadge ? (
+            <span
+              className={cx(
+                'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap',
+                statusBadge.className,
+              )}
+            >
+              {statusBadge.label}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
         <span className="dock-chip">{project.author ?? copy.unknownLabel}</span>
         <span className="dock-chip">{project.version ?? copy.noVersionLabel}</span>
       </div>
+
+      {isIncompatible ? (
+        <p className="mt-3 text-xs leading-5 text-[color-mix(in_srgb,#9a3412_88%,var(--text-primary))]">
+          {copy.missingRequiredDependencies(project.missingRequiredDependencies.join(', '))}
+        </p>
+      ) : null}
 
       <div className="mt-3 flex items-start gap-2 text-[11px] leading-5 text-[var(--text-tertiary)]">
         <FolderOpen className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -89,8 +126,10 @@ export function ModBrowserPanel({
   activeProjectPath,
   modFilter,
   contentPatcherOnly,
+  compatibleOnly,
   onFilterChange,
   onContentPatcherOnlyChange,
+  onCompatibleOnlyChange,
   onSelectProject,
   onImportProject,
   onRefreshProjects,
@@ -138,20 +177,36 @@ export function ModBrowserPanel({
               spellCheck={false}
             />
           </div>
-          <button
-            type="button"
-            className={cx(
-              'control-button h-10 shrink-0 gap-2 px-4',
-              contentPatcherOnly
-                ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-[var(--text-primary)]'
-                : undefined,
-            )}
-            aria-pressed={contentPatcherOnly}
-            onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
-          >
-            <Filter className="h-4 w-4" />
-            <span>{copy.contentPatcherOnly}</span>
-          </button>
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <button
+              type="button"
+              className={cx(
+                'control-button h-10 gap-2 px-4',
+                contentPatcherOnly
+                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-[var(--text-primary)]'
+                  : undefined,
+              )}
+              aria-pressed={contentPatcherOnly}
+              onClick={() => onContentPatcherOnlyChange(!contentPatcherOnly)}
+            >
+              <Filter className="h-4 w-4" />
+              <span>{copy.contentPatcherOnly}</span>
+            </button>
+            <button
+              type="button"
+              className={cx(
+                'control-button h-10 gap-2 px-4',
+                compatibleOnly
+                  ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_100%,transparent)] text-[var(--text-primary)]'
+                  : undefined,
+              )}
+              aria-pressed={compatibleOnly}
+              onClick={() => onCompatibleOnlyChange(!compatibleOnly)}
+            >
+              <Filter className="h-4 w-4" />
+              <span>{copy.compatibleOnly}</span>
+            </button>
+          </div>
         </div>
       </section>
 

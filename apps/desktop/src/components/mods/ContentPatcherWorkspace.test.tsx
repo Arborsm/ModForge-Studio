@@ -39,6 +39,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
         manifestPath: 'E:\\Mods\\SeasonalGarden\\manifest.json',
         contentPath: 'E:\\Mods\\SeasonalGarden\\content.json',
         status: 'ready' as const,
+        missingRequiredDependencies: [],
       },
       diagnostics: [],
       contentPatcher: {

@@ -9,6 +9,9 @@
 
 ## Project Structure & Module Organization
 `apps/desktop` is the active product workspace. Put React UI in `apps/desktop/src/components`, shared domain logic in `apps/desktop/src/lib`, typed locale bundles in `apps/desktop/src/locales`, and global styles/assets under `src/styles` and `src/assets`. Keep the layered style system intact: `apps/desktop/src/styles/index.css` is the only stylesheet entrypoint, with styles organized under `primitives`, `workspace`, and `features`. Keep component tests next to source files, put architecture tests under `apps/desktop/src/test/architecture`, cross-module regression tests under `apps/desktop/src/test/regressions`, and shared test helpers under `apps/desktop/src/test`. Tauri backend code lives in `apps/desktop/src-tauri/src`, with parser modules grouped by feature (`xnb`, `xact`, `mods`, `saves`). Rust regression and report tests live in `apps/desktop/src-tauri/tests`. Treat `docs/` as reference material and avoid editing generated output in `dist/`, `target/`, `bin/`, or `obj/`.
+Keep Rust unit tests out of implementation-heavy `.rs` files when they grow beyond a tiny smoke check: prefer sibling `tests/*.rs` files next to the module they cover, such as `apps/desktop/src-tauri/src/tests/*.rs` and `apps/desktop/src-tauri/src/content_patcher/tests/*.rs`.
+Put Rust shared test filesystem helpers in `apps/desktop/src-tauri/src/test_support.rs`; keep feature-specific Rust test helpers in a nearby `test_support.rs` only when they are genuinely domain-specific.
+Avoid adding new large inline `#[cfg(test)] mod tests { ... }` blocks to Tauri source files; move them into the sibling test modules instead.
 
 ## Build, Test, and Development Commands
 Run commands from the repository root unless noted otherwise.
@@ -26,6 +29,7 @@ Follow `.editorconfig`: UTF-8, LF, spaces everywhere, `indent_size = 2`, except 
 
 ## Testing Guidelines
 Rust coverage is centered on regression-style tests such as `character_data_regression.rs` and `xact_regression.rs`; add or extend these when changing asset decoding, parsing, or fallback behavior. Frontend tests use Vitest. Keep component and module tests colocated with the code they exercise, keep architecture assertions in `src/test/architecture`, and keep cross-module regression coverage in `src/test/regressions`. The minimum verification for frontend work is `npm run lint`, `npm run build`, and `npm run test -w @modforge/desktop`.
+For Rust backend changes, prefer extracting duplicate test setup before adding more cases. Do not introduce new large inline `#[cfg(test)] mod tests` blocks into Tauri source files when the same coverage can live in a sibling `tests/*.rs` file.
 
 ## Commit & Pull Request Guidelines
 Recent history follows Conventional Commits with scopes, for example `feat(workspace): ...`, `refactor(ui): ...`, `fix(i18n): ...`, and `chore(test): ...`. Keep subjects imperative and scoped to the area you changed. Pull requests should describe the user-visible impact, list validation commands, and include screenshots or short clips for UI/layout changes. Link the related issue or task when one exists.

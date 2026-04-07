@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import type { EventAssetSummary } from '../../../lib/desktop'
-import type { BrowserSourceMode, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
+import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '../../../lib/app/modAssetIndex'
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { BrowserSourceSwitch } from '../../ui/BrowserSourceSwitch'
@@ -12,10 +12,12 @@ type EventBrowserPanelProps = {
   browserSourceMode: BrowserSourceMode
   onBrowserSourceModeChange: (mode: BrowserSourceMode) => void
   modEventGroups: ModBrowserGroup<EventAssetSummary>[]
+  activeModEventSelectionId: string | null
   activeEventAssetId: string | null
   assetFilter: string
   onAssetFilterChange: (value: string) => void
   onOpenAsset: (asset: EventAssetSummary) => void
+  onOpenModAsset: (entry: ModBrowserEntry<EventAssetSummary>) => void
 }
 
 function formatBytes(bytes: number) {
@@ -37,10 +39,12 @@ export function EventBrowserPanel({
   browserSourceMode,
   onBrowserSourceModeChange,
   modEventGroups,
+  activeModEventSelectionId,
   activeEventAssetId,
   assetFilter,
   onAssetFilterChange,
   onOpenAsset,
+  onOpenModAsset,
 }: EventBrowserPanelProps) {
   const labels =
     locale === 'zh-CN'
@@ -100,14 +104,15 @@ export function EventBrowserPanel({
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
-                    {group.items.map(({ value: asset, targets }) => {
-                      const isActive = asset.id === activeEventAssetId
+                    {group.items.map((entry) => {
+                      const { value: asset, targets } = entry
+                      const isActive = entry.selectionId === activeModEventSelectionId
                       return (
                         <button
                           key={`${group.modId}:${asset.id}`}
                           type="button"
                           className={cx('asset-row text-left', isActive && 'asset-row-active')}
-                          onClick={() => onOpenAsset(asset)}
+                          onClick={() => onOpenModAsset(entry)}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">

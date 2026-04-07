@@ -1,4 +1,5 @@
 ﻿mod assets;
+mod attached_api;
 mod mime;
 mod models;
 mod content_patcher;
@@ -7,6 +8,8 @@ mod mods;
 mod pathing;
 mod saves;
 mod tbin;
+#[cfg(test)]
+mod test_support;
 mod xact;
 mod xnb;
 

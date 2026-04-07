@@ -1,19 +1,17 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { loadTextAsset, type GameDirectoryInfo } from '../desktop'
-import type { ItemsPanelCopy, LocaleCode } from '../editor-shell'
-import { loadImageResourceFromPath } from '../imageMetrics'
-import { CHARACTER_DATA_ASSET_PATH, CHARACTER_GIFT_TASTES_ASSET_PATH } from './characterWorkspace'
+import {useCallback, useDeferredValue, useEffect, useMemo, useState} from 'react'
+import {type GameDirectoryInfo, loadTextAsset} from '../desktop'
+import type {ItemsPanelCopy, LocaleCode} from '../../locales'
+import {loadImageResourceFromPath} from '../imageMetrics'
+import {CHARACTER_DATA_ASSET_PATH, CHARACTER_GIFT_TASTES_ASSET_PATH} from './characterWorkspace'
 import {
   BIG_CRAFTABLE_DATA_ASSET_PATH,
   BOOTS_DATA_ASSET_PATH,
-  buildItemSearchAliases,
   buildGameContentPath,
-  CRAFTING_RECIPES_ASSET_PATH,
+  buildItemSearchAliases,
   COOKING_RECIPES_ASSET_PATH,
-  CROP_DATA_ASSET_PATH,
-  createBootsEntryIndex,
+  CRAFTING_RECIPES_ASSET_PATH,
   createBigCraftableEntryIndex,
-  decorateItemBrowseMetadata,
+  createBootsEntryIndex,
   createFurnitureEntryIndex,
   createHatEntryIndex,
   createItemEntryLookup,
@@ -24,12 +22,19 @@ import {
   createToolEntryIndex,
   createTrinketEntryIndex,
   createWeaponEntryIndex,
+  CROP_DATA_ASSET_PATH,
+  decorateItemBrowseMetadata,
   FISH_DATA_ASSET_PATH,
   FISH_POND_DATA_ASSET_PATH,
   FURNITURE_DATA_ASSET_PATH,
-  hydrateItemRelations,
   HAT_DATA_ASSET_PATH,
+  hydrateItemRelations,
+  type ItemBrowseCategory,
+  type ItemGiftTasteNpc,
+  type ItemKind,
   itemMatchesFilter,
+  type ItemTextureAssetState,
+  type ItemWorkspaceEntry,
   LOCATION_DATA_ASSET_PATH,
   MACHINE_DATA_ASSET_PATH,
   OBJECT_DATA_ASSET_PATH,
@@ -38,15 +43,19 @@ import {
   SHOP_DATA_ASSET_PATH,
   TOOL_DATA_ASSET_PATH,
   TRINKET_DATA_ASSET_PATH,
-  type ItemBrowseCategory,
-  type ItemGiftTasteNpc,
-  type ItemKind,
-  type ItemTextureAssetState,
-  type ItemWorkspaceEntry,
   WEAPON_DATA_ASSET_PATH,
 } from './itemWorkspace'
-import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
-import { scheduleDeferred } from '../react/defer'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+  useModAssetIndex,
+} from './modAssetIndex'
+import {loadModResultImageState} from './modResultAssets'
+import {scheduleDeferred} from '../react/defer'
 
 type UseItemWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -652,6 +661,8 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const [activeItemId, setActiveItemId] = useState<string | null>(null)
   const [itemStatusMessage, setItemStatusMessage] = useState('')
   const [textureStatesByAssetName, setTextureStatesByAssetName] = useState<Record<string, ItemTextureAssetState>>({})
+  const [modTextureStatesByAssetName, setModTextureStatesByAssetName] = useState<Record<string, ItemTextureAssetState>>({})
+  const [activeModItemSelectionId, setActiveModItemSelectionId] = useState<string | null>(null)
   const { modIndex } = useModAssetIndex(directoryInfo)
   const rootPath = directoryInfo?.rootPath ?? null
 
@@ -682,19 +693,26 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
       }),
     [activeItemId, modIndex.mods],
   )
+  const activeModItemEntry = useMemo(
+    () => findModBrowserEntry(modItemGroups, activeModItemSelectionId),
+    [activeModItemSelectionId, modItemGroups],
+  )
   const activeItem = items.find((item) => item.key === activeItemId) ?? filteredItems[0] ?? items[0] ?? null
   const itemLookup = useMemo(() => createItemEntryLookup(items), [items])
+  const effectiveTextureStatesByAssetName = useMemo(
+    () => (browserSourceMode === 'mod' ? { ...textureStatesByAssetName, ...modTextureStatesByAssetName } : textureStatesByAssetName),
+    [browserSourceMode, modTextureStatesByAssetName, textureStatesByAssetName],
+  )
 
   useEffect(() => {
     if (!rootPath) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setItems([])
         setActiveItemId(null)
         setItemStatusMessage('')
         setTextureStatesByAssetName({})
+        setModTextureStatesByAssetName({})
       })
-
-      return cancel
     }
 
     let cancelled = false
@@ -702,6 +720,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     void (async () => {
       try {
         setTextureStatesByAssetName({})
+        setModTextureStatesByAssetName({})
         const giftHydratedEntries = await loadItemWorkspaceEntries(rootPath, locale)
         if (cancelled) {
           return
@@ -721,6 +740,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
           setItems([])
           setActiveItemId(null)
           setTextureStatesByAssetName({})
+          setModTextureStatesByAssetName({})
           setItemStatusMessage(error instanceof Error ? error.message : String(error))
         }
       }
@@ -787,38 +807,88 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   }, [activeItem?.textureAssetName, ensureTextureAssetStates])
 
   useEffect(() => {
+    if (browserSourceMode !== 'mod' || !rootPath || !activeItem?.textureAssetName || !activeModItemEntry) {
+      return
+    }
+
+    let cancelled = false
+    void loadModResultImageState({
+      rootPath,
+      entry: activeModItemEntry,
+      preferredTargets: [activeItem.textureAssetName],
+      fallbackPathLabel: activeItem.texturePathLabel,
+    })
+      .then((result) => {
+        if (!result || cancelled) {
+          return
+        }
+
+        setModTextureStatesByAssetName((current) => ({
+          ...current,
+          [activeItem.textureAssetName as string]: {
+            path: result.path,
+            url: result.url,
+            width: result.width,
+            height: result.height,
+          },
+        }))
+      })
+      .catch(() => {})
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeItem?.textureAssetName, activeItem?.texturePathLabel, activeModItemEntry, browserSourceMode, rootPath])
+
+  useEffect(() => {
     if (browserSourceMode !== 'mod') {
       return
     }
 
-    const nextItem =
+    const nextEntry =
+      activeModItemEntry ??
       modItemGroups
         .flatMap((group) => group.items)
-        .find((item) => item.value.key === activeItemId)?.value ??
-      modItemGroups[0]?.items[0]?.value ??
+        .find((item) => item.value.key === activeItemId) ??
+      modItemGroups[0]?.items[0] ??
       null
 
-    if (!nextItem || nextItem.key === activeItemId) {
+    if (!nextEntry) {
       return
     }
 
-    const cancel = scheduleDeferred(() => {
-      setActiveItemId(nextItem.key)
+    return scheduleDeferred(() => {
+      setActiveModItemSelectionId(nextEntry.selectionId)
+      if (nextEntry.value.key !== activeItemId) {
+        setActiveItemId(nextEntry.value.key)
+      }
     })
+  }, [activeItemId, activeModItemEntry, browserSourceMode, modItemGroups])
 
-    return cancel
-  }, [activeItemId, browserSourceMode, modItemGroups])
+  function handleSetBrowserSourceMode(mode: BrowserSourceMode) {
+    setBrowserSourceMode(mode)
+    if (mode !== 'mod') {
+      setActiveModItemSelectionId(null)
+      setModTextureStatesByAssetName({})
+    }
+  }
 
   function handleSelectItem(itemKey: string) {
     setActiveItemId(itemKey)
+  }
+
+  function handleSelectModItem(entry: ModBrowserEntry<ItemWorkspaceEntry>) {
+    setActiveModItemSelectionId(entry.selectionId)
+    setActiveItemId(entry.value.key)
   }
 
   return {
     items,
     filteredItems,
     browserSourceMode,
-    setBrowserSourceMode,
+    setBrowserSourceMode: handleSetBrowserSourceMode,
     modItemGroups,
+    activeModItemSelectionId,
     activeItemModSources,
     itemFilter,
     setItemFilter,
@@ -826,8 +896,9 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     activeItem,
     itemLookup,
     itemStatusMessage,
-    textureStatesByAssetName,
+    textureStatesByAssetName: effectiveTextureStatesByAssetName,
     ensureTextureAssetStates,
     handleSelectItem,
+    handleSelectModItem,
   }
 }

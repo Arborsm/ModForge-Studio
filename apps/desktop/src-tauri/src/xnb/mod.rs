@@ -2,7 +2,6 @@ mod buffer;
 mod readers;
 mod schema;
 mod values;
-mod lzx;
 
 use std::path::Path;
 
@@ -17,6 +16,7 @@ const XNB_MAGIC: &str = "XNB";
 const XNB_COMPRESSED_PROLOGUE_SIZE: usize = 14;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct XnbHeader {
     pub target: char,
     pub format_version: u8,
@@ -33,12 +33,14 @@ pub enum CompressionKind {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TypeReaderInfo {
     pub name: String,
     pub version: i32,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct XnbFile {
     pub header: XnbHeader,
     pub readers: Vec<TypeReaderInfo>,

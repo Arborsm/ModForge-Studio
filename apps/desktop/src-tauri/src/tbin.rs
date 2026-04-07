@@ -98,12 +98,9 @@ fn read_properties(cursor: &mut Cursor<'_>) -> Result<HashMap<String, PropertyVa
 #[derive(Debug, Clone)]
 struct TileSheet {
     id: String,
-    desc: String,
     image: String,
     sheet_size: Vector2i,
     tile_size: Vector2i,
-    margin: Vector2i,
-    spacing: Vector2i,
     properties: HashMap<String, PropertyValue>,
 }
 
@@ -111,7 +108,6 @@ struct TileSheet {
 struct Tile {
     tilesheet: String,
     tile_index: i32,
-    blend_mode: u8,
     properties: HashMap<String, PropertyValue>,
     animation_interval: i32,
     animation_frames: Vec<Tile>,
@@ -122,7 +118,6 @@ impl Tile {
         Self {
             tilesheet: String::new(),
             tile_index: -1,
-            blend_mode: 0,
             properties: HashMap::new(),
             animation_interval: 0,
             animation_frames: Vec::new(),
@@ -138,7 +133,6 @@ impl Tile {
 struct Layer {
     id: String,
     visible: bool,
-    desc: String,
     layer_size: Vector2i,
     tile_size: Vector2i,
     properties: HashMap<String, PropertyValue>,
@@ -148,31 +142,39 @@ struct Layer {
 #[derive(Debug, Clone)]
 struct Map {
     id: String,
-    desc: String,
     properties: HashMap<String, PropertyValue>,
     tilesheets: Vec<TileSheet>,
     layers: Vec<Layer>,
 }
 
 fn read_tile_sheet(cursor: &mut Cursor<'_>) -> Result<TileSheet, String> {
+    let id = cursor.read_string()?;
+    let _desc = cursor.read_string()?;
+    let image = cursor.read_string()?;
+    let sheet_size = Vector2i::read(cursor)?;
+    let tile_size = Vector2i::read(cursor)?;
+    let _margin = Vector2i::read(cursor)?;
+    let _spacing = Vector2i::read(cursor)?;
+    let properties = read_properties(cursor)?;
+
     Ok(TileSheet {
-        id: cursor.read_string()?,
-        desc: cursor.read_string()?,
-        image: cursor.read_string()?,
-        sheet_size: Vector2i::read(cursor)?,
-        tile_size: Vector2i::read(cursor)?,
-        margin: Vector2i::read(cursor)?,
-        spacing: Vector2i::read(cursor)?,
-        properties: read_properties(cursor)?,
+        id,
+        image,
+        sheet_size,
+        tile_size,
+        properties,
     })
 }
 
 fn read_static_tile(cursor: &mut Cursor<'_>, current_tilesheet: &str) -> Result<Tile, String> {
+    let tile_index = cursor.read_i32()?;
+    let _blend_mode = cursor.read_u8()?;
+    let properties = read_properties(cursor)?;
+
     Ok(Tile {
         tilesheet: current_tilesheet.to_string(),
-        tile_index: cursor.read_i32()?,
-        blend_mode: cursor.read_u8()?,
-        properties: read_properties(cursor)?,
+        tile_index,
+        properties,
         animation_interval: 0,
         animation_frames: Vec::new(),
     })
@@ -202,7 +204,6 @@ fn read_animated_tile(cursor: &mut Cursor<'_>) -> Result<Tile, String> {
     Ok(Tile {
         tilesheet: String::new(),
         tile_index: -1,
-        blend_mode: 0,
         properties: read_properties(cursor)?,
         animation_interval: interval,
         animation_frames: frames,
@@ -212,7 +213,7 @@ fn read_animated_tile(cursor: &mut Cursor<'_>) -> Result<Tile, String> {
 fn read_layer(cursor: &mut Cursor<'_>) -> Result<Layer, String> {
     let id = cursor.read_string()?;
     let visible = cursor.read_u8()? > 0;
-    let desc = cursor.read_string()?;
+    let _desc = cursor.read_string()?;
     let layer_size = Vector2i::read(cursor)?;
     let tile_size = Vector2i::read(cursor)?;
     let properties = read_properties(cursor)?;
@@ -251,7 +252,6 @@ fn read_layer(cursor: &mut Cursor<'_>) -> Result<Layer, String> {
     Ok(Layer {
         id,
         visible,
-        desc,
         layer_size,
         tile_size,
         properties,
@@ -274,7 +274,7 @@ fn read_map(cursor: &mut Cursor<'_>) -> Result<Map, String> {
     }
 
     let id = cursor.read_string()?;
-    let desc = cursor.read_string()?;
+    let _desc = cursor.read_string()?;
     let properties = read_properties(cursor)?;
     let tilesheet_count = cursor.read_i32()? as usize;
     let mut tilesheets = Vec::with_capacity(tilesheet_count);
@@ -290,7 +290,6 @@ fn read_map(cursor: &mut Cursor<'_>) -> Result<Map, String> {
 
     Ok(Map {
         id,
-        desc,
         properties,
         tilesheets,
         layers,

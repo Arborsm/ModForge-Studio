@@ -1,10 +1,19 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { loadTextAsset, scanEvents, type EventAssetSummary, type GameDirectoryInfo } from '../desktop'
-import type { EditorCopy, LocaleCode } from '../editor-shell'
-import { parseEventAssetContent } from '../events/parser'
-import { EVENT_SETUP_ENTRY_ID } from '../events/timeline'
-import { buildModBrowserGroups, buildModEntryLookup, findModSources, useModAssetIndex, type BrowserSourceMode } from './modAssetIndex'
-import { scheduleDeferred } from '../react/defer'
+import {useDeferredValue, useEffect, useMemo, useState} from 'react'
+import {type EventAssetSummary, type GameDirectoryInfo, loadTextAsset, scanEvents} from '../desktop'
+import type {EditorCopy, LocaleCode} from '../../locales'
+import {parseEventAssetContent} from '../events/parser'
+import {EVENT_SETUP_ENTRY_ID} from '../events/timeline'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+  useModAssetIndex,
+} from './modAssetIndex'
+import {loadModResultJsonValue} from './modResultAssets'
+import {scheduleDeferred} from '../react/defer'
 
 type UseEventWorkspaceOptions = {
   copy: EditorCopy
@@ -25,6 +34,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   const [eventAssetFilter, setEventAssetFilter] = useState('')
   const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeEventAssetId, setActiveEventAssetId] = useState<string | null>(null)
+  const [activeModEventSelectionId, setActiveModEventSelectionId] = useState<string | null>(null)
   const [parsedEventAsset, setParsedEventAsset] = useState<ReturnType<typeof parseEventAssetContent> | null>(null)
   const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null)
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] = useState<string>(EVENT_SETUP_ENTRY_ID)
@@ -69,10 +79,14 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
       }),
     [activeEventAssetId, modIndex.mods],
   )
+  const activeModEventEntry = useMemo(
+    () => findModBrowserEntry(modEventGroups, activeModEventSelectionId),
+    [activeModEventSelectionId, modEventGroups],
+  )
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setEventAssets([])
         setActiveEventAssetId(null)
         setParsedEventAsset(null)
@@ -81,8 +95,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setTimelineJumpRequestId(null)
         setEventStatusMessage('')
       })
-
-      return cancel
     }
     const rootPath = directoryInfo.rootPath
 
@@ -117,20 +129,50 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
   useEffect(() => {
     if (!directoryInfo?.rootPath || !activeEventAsset) {
-      const cancel = scheduleDeferred(() => {
+      return scheduleDeferred(() => {
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
         setTimelineJumpRequestId(null)
       })
-
-      return cancel
     }
     const rootPath = directoryInfo.rootPath
 
     let cancelled = false
 
     async function openEventAsset(asset: EventAssetSummary) {
+      const modEntry = browserSourceMode === 'mod' ? activeModEventEntry : null
+      if (modEntry) {
+        try {
+          const preferredTarget = asset.relativePath.replace(/^Content[\\/]/iu, '').replace(/\\/g, '/').replace(/\.xnb$/iu, '')
+          const modContent = await loadModResultJsonValue({
+            rootPath,
+            entry: modEntry,
+            preferredTargets: [preferredTarget],
+          })
+          if (cancelled) {
+            return
+          }
+          if (modContent && typeof modContent === 'object' && !Array.isArray(modContent)) {
+            const parsed = parseEventAssetContent(
+              JSON.stringify(modContent),
+              asset,
+              null,
+              asset.relativePath,
+            )
+
+            setParsedEventAsset(parsed)
+            setSelectedEventKey(parsed.events[0]?.key ?? null)
+            setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
+            setTimelineJumpRequestId(null)
+            setEventStatusMessage(`${asset.name} loaded from ${modEntry.modName}.`)
+            return
+          }
+        } catch {
+          // Fall back to the original game asset when the selected mod entry does not expose a renderable JSON result.
+        }
+      }
+
       const candidates = getLocalizedEventCandidates(asset, locale)
       let lastError: unknown = null
 
@@ -173,33 +215,47 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
     return () => {
       cancelled = true
     }
-  }, [activeEventAsset, directoryInfo?.rootPath, locale])
+  }, [activeEventAsset, activeModEventEntry, browserSourceMode, directoryInfo?.rootPath, locale])
 
   useEffect(() => {
     if (browserSourceMode !== 'mod') {
       return
     }
 
-    const nextAsset =
+    const nextEntry =
+      activeModEventEntry ??
       modEventGroups
         .flatMap((group) => group.items)
-        .find((item) => item.value.id === activeEventAssetId)?.value ??
-      modEventGroups[0]?.items[0]?.value ??
+        .find((item) => item.value.id === activeEventAssetId) ??
+      modEventGroups[0]?.items[0] ??
       null
 
-    if (!nextAsset || nextAsset.id === activeEventAssetId) {
+    if (!nextEntry) {
       return
     }
 
-    const cancel = scheduleDeferred(() => {
-      setActiveEventAssetId(nextAsset.id)
+    return scheduleDeferred(() => {
+      setActiveModEventSelectionId(nextEntry.selectionId)
+      if (nextEntry.value.id !== activeEventAssetId) {
+        setActiveEventAssetId(nextEntry.value.id)
+      }
     })
+  }, [activeEventAssetId, activeModEventEntry, browserSourceMode, modEventGroups])
 
-    return cancel
-  }, [activeEventAssetId, browserSourceMode, modEventGroups])
+  function handleSetBrowserSourceMode(mode: BrowserSourceMode) {
+    setBrowserSourceMode(mode)
+    if (mode !== 'mod') {
+      setActiveModEventSelectionId(null)
+    }
+  }
 
   function handleOpenEventAsset(asset: EventAssetSummary) {
     setActiveEventAssetId(asset.id)
+  }
+
+  function handleOpenModEventAsset(entry: ModBrowserEntry<EventAssetSummary>) {
+    setActiveModEventSelectionId(entry.selectionId)
+    setActiveEventAssetId(entry.value.id)
   }
 
   function handleSelectEvent(eventKey: string) {
@@ -221,8 +277,9 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
     eventAssets,
     filteredEventAssets,
     browserSourceMode,
-    setBrowserSourceMode,
+    setBrowserSourceMode: handleSetBrowserSourceMode,
     modEventGroups,
+    activeModEventSelectionId,
     activeEventModSources,
     eventAssetFilter,
     setEventAssetFilter,
@@ -238,6 +295,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
     clearTimelineJumpRequest,
     eventStatusMessage,
     handleOpenEventAsset,
+    handleOpenModEventAsset,
     handleSelectEvent,
   }
 }

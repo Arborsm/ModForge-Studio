@@ -40,10 +40,12 @@ describe('panel locale hooks regressions', () => {
           browserSourceMode="original"
           onBrowserSourceModeChange={vi.fn()}
           modMapGroups={[]}
+          activeModMapSelectionId={null}
           activeMapId={null}
           assetFilter=""
           onAssetFilterChange={vi.fn()}
           onOpenAsset={vi.fn()}
+          onOpenModAsset={vi.fn()}
         />
         <ItemBrowserPanel
           items={[]}
@@ -79,11 +81,13 @@ describe('panel locale hooks regressions', () => {
         browserSourceMode="original"
         onBrowserSourceModeChange={vi.fn()}
         modBuildingGroups={[]}
+        activeModBuildingSelectionId={null}
         activeBuildingId={null}
         activeBuildingGroupKey={null}
         buildingFilter=""
         onBuildingFilterChange={vi.fn()}
         onSelectBuilding={vi.fn()}
+        onSelectModBuilding={vi.fn()}
       />,
     )
 

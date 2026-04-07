@@ -696,6 +696,8 @@ const localeBundle: LocaleBundle = {
     "browserFilterPlaceholder": "Filter by name, author, UniqueID, or path",
     "browserEmpty": "No Content Patcher projects are currently available.",
     "contentPatcherOnly": "Content Patcher Only",
+    "compatibleOnly": "Compatible Only",
+    "incompatibleProject": "Incompatible",
     "projectsLabel": "Projects",
     "filteredLabel": "Filtered",
     "unknownLabel": "Unknown",
@@ -764,6 +766,7 @@ const localeBundle: LocaleBundle = {
     "selectExportFolder": "Select export folder",
     "selectProjectFolder": "Select mod folder",
     "importedFrom": (path) => `Imported: ${path}`,
+    "missingRequiredDependencies": (dependencies) => `Missing required: ${dependencies}`,
     "saveSuccess": (path) => `Saved to ${path}`,
     "exportSuccess": (path) => `Exported to ${path}`,
     "scanStatus": (count) => `${count} mod projects detected.`

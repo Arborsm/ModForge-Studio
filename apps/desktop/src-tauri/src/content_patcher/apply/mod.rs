@@ -1,6 +1,8 @@
 use super::assets::{
-    image_to_data_url, infer_target_asset_kind, load_base_image_asset, load_base_json_asset, load_base_map_debug_asset,
+    image_to_data_url, infer_target_asset_kind, load_base_image_asset, load_base_json_asset, load_base_map_asset,
+    LoadedBaseImageAsset, LoadedMapAsset,
 };
+use super::common::when_to_value;
 use super::conditions::evaluate_patch_status;
 use super::context::SimulationContext;
 use super::patch_fields::{parse_from_file_values, parse_target_values};
@@ -9,16 +11,14 @@ use super::types::{
     ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectDiagnostic, ContentPatcherProjectSnapshot,
     ContentPatcherResultAsset, ContentPatcherTargetSummary, ContentPatcherTraceEntry, LoadContentPatcherResultAssetResult,
 };
+use crate::attached_api::AttachedApiRegistry;
+use image::RgbaImage;
 use serde_json::{Map, Value};
 
 pub mod edit_data;
 pub mod edit_image;
 pub mod edit_map;
 pub mod load;
-
-fn btree_when_to_value(when: &std::collections::BTreeMap<String, Value>) -> Value {
-    Value::Object(Map::from_iter(when.iter().map(|(key, value)| (key.clone(), value.clone()))))
-}
 
 fn parse_patch_indices(patch_id: &str) -> Result<(usize, usize, usize), String> {
     let (source_and_lineage, target_part) = patch_id
@@ -96,10 +96,67 @@ fn reason_summary(status: &str, reasons: &[String]) -> String {
     }
 }
 
+enum LoadedTargetBase {
+    Json {
+        result_json: Value,
+    },
+    Image {
+        result_image: RgbaImage,
+        original_image: RgbaImage,
+        original_image_source: String,
+    },
+    Map {
+        result_map: LoadedMapAsset,
+    },
+}
+
+fn load_target_base_with<FJson, FImage, FMap>(
+    asset_kind: &str,
+    target: &str,
+    game_root_path: Option<&str>,
+    load_json: FJson,
+    load_image: FImage,
+    load_map: FMap,
+) -> LoadedTargetBase
+where
+    FJson: FnOnce(&str, Option<&str>) -> Value,
+    FImage: FnOnce(&str, Option<&str>) -> LoadedBaseImageAsset,
+    FMap: FnOnce(&str, Option<&str>) -> LoadedMapAsset,
+{
+    match asset_kind {
+        "image" => {
+            let base_image = load_image(target, game_root_path);
+            LoadedTargetBase::Image {
+                result_image: base_image.image.clone(),
+                original_image: base_image.image,
+                original_image_source: base_image.source,
+            }
+        }
+        "map" => LoadedTargetBase::Map {
+            result_map: load_map(target, game_root_path),
+        },
+        _ => LoadedTargetBase::Json {
+            result_json: load_json(target, game_root_path),
+        },
+    }
+}
+
+fn load_target_base(asset_kind: &str, target: &str, game_root_path: Option<&str>) -> LoadedTargetBase {
+    load_target_base_with(
+        asset_kind,
+        target,
+        game_root_path,
+        load_base_json_asset,
+        load_base_image_asset,
+        load_base_map_asset,
+    )
+}
+
 pub fn load_target_result(
     snapshot: &ContentPatcherProjectSnapshot,
     plan: &ContentPatcherPatchPlan,
     target: &str,
+    attached_api_registry: &AttachedApiRegistry,
     context: &SimulationContext,
     game_root_path: Option<&str>,
 ) -> Result<LoadContentPatcherResultAssetResult, String> {
@@ -115,20 +172,16 @@ pub fn load_target_result(
 
     let actions = target_patches.iter().map(|patch| patch.action.clone()).collect::<Vec<_>>();
     let from_files = target_patches.iter().map(|patch| patch.from_file.clone()).collect::<Vec<_>>();
-    let asset_kind = infer_target_asset_kind(target, &actions, &from_files);
+    let asset_kind = infer_target_asset_kind(target, &actions, &from_files, attached_api_registry);
     let mut trace = Vec::new();
     let mut diagnostics = snapshot.diagnostics.clone();
     let mut has_apply_error = false;
     let mut has_indeterminate = false;
-    let mut result_json = load_base_json_asset(target);
-    let base_image = load_base_image_asset(target, game_root_path);
-    let mut result_image = base_image.image.clone();
-    let original_image = base_image.image;
-    let mut result_map = load_base_map_debug_asset(target);
+    let mut loaded_target = load_target_base(&asset_kind, target, game_root_path);
     let project_root_path = snapshot.summary.absolute_path.as_deref();
 
     for patch in &target_patches {
-        let when = btree_when_to_value(&patch.when);
+        let when = when_to_value(&patch.when);
         let mut status = evaluate_patch_status(&when, context, project_root_path);
         status.patch_id = Some(patch.id.clone());
 
@@ -143,15 +196,15 @@ pub fn load_target_result(
 
         if status.status == "applied" {
             let parsed_patch = parse_patch_map(snapshot, patch)?;
-            let apply_result = match asset_kind.as_str() {
-                "json" => {
+            let apply_result = match (&mut loaded_target, asset_kind.as_str()) {
+                (LoadedTargetBase::Json { result_json }, "json") => {
                     if patch.action.eq_ignore_ascii_case("EditData") {
-                        edit_data::apply_edit_data_patch(&mut result_json, &parsed_patch)
+                        edit_data::apply_edit_data_patch(result_json, &parsed_patch)
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        load::apply_load_patch(snapshot, &mut result_json, &patch.source_path, from_file)
+                        load::apply_load_patch(snapshot, result_json, &patch.source_path, from_file)
                     } else {
                         Err(format!(
                             "Action `{}` is not supported for JSON target loading in this phase.",
@@ -159,15 +212,15 @@ pub fn load_target_result(
                         ))
                     }
                 }
-                "image" => {
+                (LoadedTargetBase::Image { result_image, .. }, "image") => {
                     if patch.action.eq_ignore_ascii_case("EditImage") {
-                        edit_image::apply_edit_image_patch(snapshot, &mut result_image, &parsed_patch, &patch.source_path)
+                        edit_image::apply_edit_image_patch(snapshot, result_image, &parsed_patch, &patch.source_path)
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
                         let loaded = super::assets::load_image_patch_asset(snapshot, &patch.source_path, from_file)?;
-                        result_image = loaded;
+                        *result_image = loaded;
                         Ok(format!("replaced target with `{from_file}`"))
                     } else {
                         Err(format!(
@@ -176,14 +229,14 @@ pub fn load_target_result(
                         ))
                     }
                 }
-                "map" => {
+                (LoadedTargetBase::Map { result_map }, "map") => {
                     if patch.action.eq_ignore_ascii_case("EditMap") {
-                        edit_map::apply_edit_map_patch(&mut result_map, &parsed_patch)
+                        edit_map::apply_edit_map_patch(&mut result_map.debug, &parsed_patch)
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        result_map = super::assets::load_map_patch_asset(snapshot, &patch.source_path, from_file)?;
+                        *result_map = super::assets::load_map_patch_asset(snapshot, &patch.source_path, from_file)?;
                         Ok(format!("replaced target with `{from_file}`"))
                     } else {
                         Err(format!(
@@ -192,7 +245,7 @@ pub fn load_target_result(
                         ))
                     }
                 }
-                unsupported => Err(format!(
+                (_, unsupported) => Err(format!(
                     "Target `{target}` resolved to unsupported asset kind `{unsupported}`."
                 )),
             };
@@ -229,7 +282,6 @@ pub fn load_target_result(
         });
     }
 
-    let result_kind = asset_kind.clone();
     let result_state = if has_apply_error {
         "error".to_string()
     } else if has_indeterminate {
@@ -248,38 +300,47 @@ pub fn load_target_result(
             patch_ids: target_patches.iter().map(|patch| patch.id.clone()).collect(),
         },
         trace,
-        result: if result_kind == "image" {
-            ContentPatcherResultAsset {
+        result: match loaded_target {
+            LoadedTargetBase::Image {
+                result_image,
+                original_image,
+                original_image_source,
+            } => ContentPatcherResultAsset {
                 kind: "image".to_string(),
                 json: None,
                 image_data_url: Some(image_to_data_url(&result_image)?),
                 original_image_data_url: Some(image_to_data_url(&original_image)?),
-                original_image_source: Some(base_image.source),
+                original_image_source: Some(original_image_source),
                 map_debug: None,
-            }
-        } else if result_kind == "map" {
-            ContentPatcherResultAsset {
+            },
+            LoadedTargetBase::Map { result_map } => ContentPatcherResultAsset {
                 kind: "map".to_string(),
-                json: None,
+                json: Some(
+                    serde_json::to_value(&result_map.document)
+                        .map_err(|err| format!("Failed to serialize map result: {err}"))?,
+                ),
                 image_data_url: None,
                 original_image_data_url: None,
                 original_image_source: None,
                 map_debug: Some(
-                    serde_json::to_value(&result_map)
+                    serde_json::to_value(&result_map.debug)
                         .map_err(|err| format!("Failed to serialize map debug summary: {err}"))?,
                 ),
-            }
-        } else {
-            ContentPatcherResultAsset {
+            },
+            LoadedTargetBase::Json { result_json } => ContentPatcherResultAsset {
                 kind: "json".to_string(),
                 json: Some(result_json),
                 image_data_url: None,
                 original_image_data_url: None,
                 original_image_source: None,
                 map_debug: None,
-            }
+            },
         },
         diagnostics,
         exportable,
     })
 }
+
+#[cfg(test)]
+#[path = "tests/mod_tests.rs"]
+mod tests;

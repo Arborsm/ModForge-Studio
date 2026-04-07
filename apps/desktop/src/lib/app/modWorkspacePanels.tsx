@@ -14,7 +14,7 @@ import type {
   SaveModProjectResult,
 } from '../desktop'
 import type { ContentPatcherBackendSimulationContext } from '../plugins/contentPatcher'
-import type { ModWorkspaceCopy } from '../editor-shell'
+import type { ModWorkspaceCopy } from '../../locales'
 import type { WorkspacePluginDefinition } from '../plugins/types'
 
 type BuildModWorkspacePanelsOptions = {
@@ -27,8 +27,10 @@ type BuildModWorkspacePanelsOptions = {
   activeProject: ModProjectSummary | null
   modFilter: string
   contentPatcherOnly: boolean
+  compatibleOnly: boolean
   onModFilterChange: (value: string) => void
   onContentPatcherOnlyChange: (value: boolean) => void
+  onCompatibleOnlyChange: (value: boolean) => void
   onSelectModProject: (path: string) => void
   onImportModProject: () => void
   onRefreshModProjects: () => void
@@ -109,8 +111,10 @@ export function buildModWorkspacePanels({
   activeProject,
   modFilter,
   contentPatcherOnly,
+  compatibleOnly,
   onModFilterChange,
   onContentPatcherOnlyChange,
+  onCompatibleOnlyChange,
   onSelectModProject,
   onImportModProject,
   onRefreshModProjects,
@@ -165,8 +169,10 @@ export function buildModWorkspacePanels({
           activeProjectPath={activeProjectPath}
           modFilter={modFilter}
           contentPatcherOnly={contentPatcherOnly}
+          compatibleOnly={compatibleOnly}
           onFilterChange={onModFilterChange}
           onContentPatcherOnlyChange={onContentPatcherOnlyChange}
+          onCompatibleOnlyChange={onCompatibleOnlyChange}
           onSelectProject={onSelectModProject}
           onImportProject={onImportModProject}
           onRefreshProjects={onRefreshModProjects}

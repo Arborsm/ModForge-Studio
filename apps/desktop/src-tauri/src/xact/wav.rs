@@ -58,32 +58,6 @@ impl MiniWaveFormat {
         }
     }
 
-    pub fn avg_bytes_per_sec(&self) -> u32 {
-        match self.format_tag {
-            Self::TAG_PCM => self.samples_per_sec * self.block_align_raw,
-            Self::TAG_XMA => self.samples_per_sec * self.block_align() as u32,
-            Self::TAG_ADPCM => {
-                let block_align = self.block_align() as u32;
-                let samples_per_block = self.adpcm_samples_per_block() as u32;
-                if samples_per_block == 0 {
-                    0
-                } else {
-                    block_align * self.samples_per_sec / samples_per_block
-                }
-            }
-            Self::TAG_WMA => {
-                const WMA_AVG_BYTES: [u32; 7] = [12000, 24000, 4000, 6000, 8000, 20000, 2500];
-                let index = (self.block_align_raw >> 5) as usize;
-                if index < WMA_AVG_BYTES.len() {
-                    WMA_AVG_BYTES[index]
-                } else {
-                    0
-                }
-            }
-            _ => 0,
-        }
-    }
-
     pub fn adpcm_samples_per_block(&self) -> u16 {
         let block_align = (self.block_align_raw + Self::ADPCM_BLOCKALIGN_CONVERSION_OFFSET) * self.channels;
         if self.channels == 0 {

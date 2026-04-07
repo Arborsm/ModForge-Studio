@@ -617,6 +617,8 @@ export type ModWorkspaceCopy = {
   browserFilterPlaceholder: string
   browserEmpty: string
   contentPatcherOnly: string
+  compatibleOnly: string
+  incompatibleProject: string
   projectsLabel: string
   filteredLabel: string
   unknownLabel: string
@@ -685,6 +687,7 @@ export type ModWorkspaceCopy = {
   selectExportFolder: string
   selectProjectFolder: string
   importedFrom: (path: string) => string
+  missingRequiredDependencies: (dependencies: string) => string
   saveSuccess: (path: string) => string
   exportSuccess: (path: string) => string
   scanStatus: (count: number) => string
