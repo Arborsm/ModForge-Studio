@@ -27,9 +27,11 @@ fn infer_target_asset_kind_prefers_image_for_maps_target_when_loading_png() {
 
 #[test]
 fn infer_target_asset_kind_prefers_sidecar_registry_for_custom_targets() {
-    let registry = AttachedApiRegistry::from_test_descriptors(
-        &[("Arborsm.ScaleUpUnofficial", &["Arborsm.ScaleUpUnofficial"], &[("PreviewTexture", "image")])],
-    );
+    let registry = AttachedApiRegistry::from_test_descriptors(&[(
+        "Arborsm.ScaleUpUnofficial",
+        &["Arborsm.ScaleUpUnofficial"],
+        &[("PreviewTexture", "image")],
+    )]);
     let kind = infer_target_asset_kind(
         "Arborsm.ScaleUpUnofficial/PreviewTexture",
         &["EditData".to_string()],

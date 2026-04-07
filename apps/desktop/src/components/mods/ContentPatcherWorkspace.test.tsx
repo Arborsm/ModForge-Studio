@@ -152,6 +152,9 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
       installedMods: [],
       customTokens: {},
     },
+    scaleUpEditor: null,
+    onScaleUpContentChange: vi.fn(),
+    onCloseScaleUpEditor: vi.fn(),
     navigatorMode: 'targets',
     selectedTargetPath: 'Data/Objects',
     onNavigatorModeChange: vi.fn(),
@@ -299,5 +302,39 @@ describe('ContentPatcherWorkspace', () => {
       expect(container.querySelector('.cp-debugger-nav')).toBeNull()
       expect(container.querySelector('.cp-debugger-nav-scroll')).toBeNull()
     })
+  })
+
+  it('renders the built-in ScaleUp panel for the active image target', async () => {
+    const props = buildProps()
+    props.selectedTargetPath = 'Characters/Lewis'
+    props.scaleUpEditor = {
+      targetPath: 'Characters/Lewis',
+      focusSection: 'preview',
+    }
+    props.contentPatcherResultAsset = {
+      target: {
+        path: 'Characters/Lewis',
+        assetKind: 'image',
+        touchedPatchCount: 1,
+        resultState: 'determinate',
+        patchIds: ['content.json:0#target:0#from:0'],
+      },
+      trace: [],
+      result: {
+        kind: 'image',
+        json: null,
+        imageDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAANSURBVBhXY/jPwPAfAAUAAf+mXJtdAAAAAElFTkSuQmCC',
+        originalImageDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEElEQVR4AQEFAPr/AAAAAAAABQABZHiVOAAAAABJRU5ErkJggg==',
+        originalImageSource: 'Game content -> Content/Characters/Lewis.png',
+        mapDebug: null,
+      },
+      diagnostics: [],
+      exportable: true,
+    }
+
+    renderWithLocale(<ContentPatcherWorkspace {...props} />)
+
+    expect(await screen.findByText('ScaleUp')).toBeTruthy()
+    expect(screen.getByText('Headshot Preview')).toBeTruthy()
   })
 })

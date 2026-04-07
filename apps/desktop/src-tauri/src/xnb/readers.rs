@@ -90,7 +90,11 @@ impl ReaderResolver {
 }
 
 impl TypeReader {
-    pub fn read(&self, reader: &mut CursorReader, resolver: &ReaderResolver) -> Result<XnbValue, String> {
+    pub fn read(
+        &self,
+        reader: &mut CursorReader,
+        resolver: &ReaderResolver,
+    ) -> Result<XnbValue, String> {
         match self {
             TypeReader::Boolean => Ok(XnbValue::Bool(reader.read_u8()? != 0)),
             TypeReader::Char => Ok(XnbValue::String(read_utf8_char(reader)?)),
@@ -192,7 +196,8 @@ impl TypeReader {
                 let vertical_line_spacing = XnbValue::Int(reader.read_i32_le()?);
                 let horizontal_spacing = XnbValue::Float(reader.read_f32_le()?);
                 let kerning = resolver.read(reader)?;
-                let default_character = TypeReader::Nullable(Box::new(TypeReader::Char)).read(reader, resolver)?;
+                let default_character =
+                    TypeReader::Nullable(Box::new(TypeReader::Char)).read(reader, resolver)?;
 
                 Ok(XnbValue::Object(vec![
                     ("Texture".to_string(), texture),
@@ -240,10 +245,17 @@ impl TypeReader {
 }
 
 pub fn build_readers(type_names: &[String]) -> Result<Vec<TypeReader>, String> {
-    type_names.iter().map(|name| build_reader_from_type_name(name)).collect()
+    type_names
+        .iter()
+        .map(|name| build_reader_from_type_name(name))
+        .collect()
 }
 
-fn read_member_value(reader_type: &TypeReader, reader: &mut CursorReader, resolver: &ReaderResolver) -> Result<XnbValue, String> {
+fn read_member_value(
+    reader_type: &TypeReader,
+    reader: &mut CursorReader,
+    resolver: &ReaderResolver,
+) -> Result<XnbValue, String> {
     if reader_type.is_value_type() {
         reader_type.read(reader, resolver)
     } else {
@@ -251,7 +263,11 @@ fn read_member_value(reader_type: &TypeReader, reader: &mut CursorReader, resolv
     }
 }
 
-fn read_custom_type(type_name: &str, reader: &mut CursorReader, resolver: &ReaderResolver) -> Result<XnbValue, String> {
+fn read_custom_type(
+    type_name: &str,
+    reader: &mut CursorReader,
+    resolver: &ReaderResolver,
+) -> Result<XnbValue, String> {
     match compiled_custom_type(type_name)? {
         CompiledCustomType::Object(schema) => {
             let mut values = Vec::with_capacity(schema.members.len());
@@ -293,13 +309,17 @@ fn coerce_member_value(type_name: &str, member_name: &str, value: XnbValue) -> X
         }
         (
             "StardewValley.GameData.FarmAnimals.FarmAnimalData",
-            "UpDownPetHitboxTileSize" | "LeftRightPetHitboxTileSize" | "BabyUpDownPetHitboxTileSize"
+            "UpDownPetHitboxTileSize"
+            | "LeftRightPetHitboxTileSize"
+            | "BabyUpDownPetHitboxTileSize"
             | "BabyLeftRightPetHitboxTileSize",
             XnbValue::Vector2 { x, y },
         ) => XnbValue::String(format!("{}, {}", compact_f32(x), compact_f32(y))),
-        ("StardewValley.GameData.Fences.FenceData", "HeldObjectDrawOffset", XnbValue::Vector2 { x, y }) => {
-            XnbValue::String(format!("{}, {}", compact_f32(x), compact_f32(y)))
-        }
+        (
+            "StardewValley.GameData.Fences.FenceData",
+            "HeldObjectDrawOffset",
+            XnbValue::Vector2 { x, y },
+        ) => XnbValue::String(format!("{}, {}", compact_f32(x), compact_f32(y))),
         (
             "StardewValley.GameData.Pets.PetSummitPerfectionEventData",
             "Motion",
@@ -373,23 +393,29 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
     }
 
     let compiled = match schema_registry().get(type_name) {
-        Some(CustomTypeSchema::Object(schema)) => CompiledCustomType::Object(CompiledObjectSchema {
-            members: schema
-                .members
-                .iter()
-                .map(|member| {
-                    Ok(CompiledSchemaMember {
-                        name: member.name.clone(),
-                        reader: build_reader_from_type_name(&member.type_name)?,
+        Some(CustomTypeSchema::Object(schema)) => {
+            CompiledCustomType::Object(CompiledObjectSchema {
+                members: schema
+                    .members
+                    .iter()
+                    .map(|member| {
+                        Ok(CompiledSchemaMember {
+                            name: member.name.clone(),
+                            reader: build_reader_from_type_name(&member.type_name)?,
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>, String>>()?,
-        }),
+                    .collect::<Result<Vec<_>, String>>()?,
+            })
+        }
         Some(CustomTypeSchema::Enum(schema)) => CompiledCustomType::Enum(CompiledEnumSchema {
             underlying: parse_enum_underlying(&schema.underlying_type)?,
             values: schema.values.clone(),
         }),
-        None => return Err(format!("Unsupported XNB reader type: {type_name} ({type_name})")),
+        None => {
+            return Err(format!(
+                "Unsupported XNB reader type: {type_name} ({type_name})"
+            ))
+        }
     };
 
     cache
@@ -416,11 +442,15 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
     let normalized_custom = normalize_custom_type_name(leading_type_name(full));
     if normalized_custom.ends_with("[]") {
         let inner = &normalized_custom[..normalized_custom.len() - 2];
-        return Ok(TypeReader::Array(Box::new(build_reader_from_type_name(inner)?)));
+        return Ok(TypeReader::Array(Box::new(build_reader_from_type_name(
+            inner,
+        )?)));
     }
 
     match normalized_custom.as_str() {
-        "Microsoft.Xna.Framework.Content.BooleanReader" | "System.Boolean" => Ok(TypeReader::Boolean),
+        "Microsoft.Xna.Framework.Content.BooleanReader" | "System.Boolean" => {
+            Ok(TypeReader::Boolean)
+        }
         "Microsoft.Xna.Framework.Content.CharReader" | "System.Char" => Ok(TypeReader::Char),
         "Microsoft.Xna.Framework.Content.Int32Reader" | "System.Int32" => Ok(TypeReader::Int32),
         "Microsoft.Xna.Framework.Content.UInt32Reader" | "System.UInt32" => Ok(TypeReader::UInt32),
@@ -428,16 +458,30 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
         "Microsoft.Xna.Framework.Content.DoubleReader" | "System.Double" => Ok(TypeReader::Double),
         "Microsoft.Xna.Framework.Content.StringReader" | "System.String" => Ok(TypeReader::String),
         "System.Object" => Ok(TypeReader::Object),
-        "Microsoft.Xna.Framework.Content.Vector2Reader" | "Microsoft.Xna.Framework.Vector2" => Ok(TypeReader::Vector2),
-        "Microsoft.Xna.Framework.Content.Vector3Reader" | "Microsoft.Xna.Framework.Vector3" => Ok(TypeReader::Vector3),
-        "Microsoft.Xna.Framework.Content.Vector4Reader" | "Microsoft.Xna.Framework.Vector4" => Ok(TypeReader::Vector4),
-        "Microsoft.Xna.Framework.Content.RectangleReader" | "Microsoft.Xna.Framework.Rectangle" => Ok(TypeReader::Rectangle),
-        "Microsoft.Xna.Framework.Content.ColorReader" | "Microsoft.Xna.Framework.Color" => Ok(TypeReader::Color),
-        "Microsoft.Xna.Framework.Content.PointReader" | "Microsoft.Xna.Framework.Point" => Ok(TypeReader::Point),
+        "Microsoft.Xna.Framework.Content.Vector2Reader" | "Microsoft.Xna.Framework.Vector2" => {
+            Ok(TypeReader::Vector2)
+        }
+        "Microsoft.Xna.Framework.Content.Vector3Reader" | "Microsoft.Xna.Framework.Vector3" => {
+            Ok(TypeReader::Vector3)
+        }
+        "Microsoft.Xna.Framework.Content.Vector4Reader" | "Microsoft.Xna.Framework.Vector4" => {
+            Ok(TypeReader::Vector4)
+        }
+        "Microsoft.Xna.Framework.Content.RectangleReader" | "Microsoft.Xna.Framework.Rectangle" => {
+            Ok(TypeReader::Rectangle)
+        }
+        "Microsoft.Xna.Framework.Content.ColorReader" | "Microsoft.Xna.Framework.Color" => {
+            Ok(TypeReader::Color)
+        }
+        "Microsoft.Xna.Framework.Content.PointReader" | "Microsoft.Xna.Framework.Point" => {
+            Ok(TypeReader::Point)
+        }
         "Microsoft.Xna.Framework.Content.Texture2DReader" => Ok(TypeReader::Texture2D),
         "Microsoft.Xna.Framework.Content.SpriteFontReader" => Ok(TypeReader::SpriteFont),
         "BmFont.XmlSourceReader" => Ok(TypeReader::BmFont),
-        "xTile.Pipeline.TideReader" | "xTile.Pipeline.TbinReader" | "xTile.Pipeline.TBinReader" => Ok(TypeReader::TBin),
+        "xTile.Pipeline.TideReader" | "xTile.Pipeline.TbinReader" | "xTile.Pipeline.TBinReader" => {
+            Ok(TypeReader::TBin)
+        }
         "Microsoft.Xna.Framework.Content.ReflectiveReader" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
@@ -457,23 +501,30 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
             if subtypes.len() != 1 {
                 return Err(format!("Nullable type is missing subtype: {full}"));
             }
-            Ok(TypeReader::Nullable(Box::new(build_reader_from_type_name(&subtypes[0])?)))
+            Ok(TypeReader::Nullable(Box::new(build_reader_from_type_name(
+                &subtypes[0],
+            )?)))
         }
         "Microsoft.Xna.Framework.Content.ListReader" | "System.Collections.Generic.List" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
                 return Err(format!("List type is missing subtype: {full}"));
             }
-            Ok(TypeReader::List(Box::new(build_reader_from_type_name(&subtypes[0])?)))
+            Ok(TypeReader::List(Box::new(build_reader_from_type_name(
+                &subtypes[0],
+            )?)))
         }
         "Microsoft.Xna.Framework.Content.ArrayReader" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 1 {
                 return Err(format!("Array type is missing subtype: {full}"));
             }
-            Ok(TypeReader::Array(Box::new(build_reader_from_type_name(&subtypes[0])?)))
+            Ok(TypeReader::Array(Box::new(build_reader_from_type_name(
+                &subtypes[0],
+            )?)))
         }
-        "Microsoft.Xna.Framework.Content.DictionaryReader" | "System.Collections.Generic.Dictionary" => {
+        "Microsoft.Xna.Framework.Content.DictionaryReader"
+        | "System.Collections.Generic.Dictionary" => {
             let subtypes = parse_generic_args(full)?;
             if subtypes.len() != 2 {
                 return Err(format!("Dictionary type is missing subtypes: {full}"));
@@ -483,8 +534,13 @@ fn build_reader_from_type_name(type_name: &str) -> Result<TypeReader, String> {
                 Box::new(build_reader_from_type_name(&subtypes[1])?),
             ))
         }
-        _ if schema_registry().contains(&normalized_custom) => Ok(TypeReader::Custom(normalized_custom)),
-        _ => Err(format!("Unsupported XNB reader type: {} ({full})", leading_type_name(full))),
+        _ if schema_registry().contains(&normalized_custom) => {
+            Ok(TypeReader::Custom(normalized_custom))
+        }
+        _ => Err(format!(
+            "Unsupported XNB reader type: {} ({full})",
+            leading_type_name(full)
+        )),
     }
 }
 
@@ -607,7 +663,10 @@ fn parse_single_bracket_subtypes(full: &str) -> Vec<String> {
         Some(index) if index > start => index,
         _ => return Vec::new(),
     };
-    let inner = full[start + 1..end].trim().trim_matches(&['[', ']'][..]).trim();
+    let inner = full[start + 1..end]
+        .trim()
+        .trim_matches(&['[', ']'][..])
+        .trim();
     if inner.is_empty() {
         return Vec::new();
     }
@@ -657,7 +716,10 @@ fn parse_suffix_subtypes(full: &str) -> Option<Vec<String>> {
         return None;
     }
 
-    Some(vec![suffix.trim_matches(&['[', ']'][..]).trim().to_string()])
+    Some(vec![suffix
+        .trim_matches(&['[', ']'][..])
+        .trim()
+        .to_string()])
 }
 
 fn generic_arity(full: &str) -> Option<usize> {
@@ -681,7 +743,8 @@ fn read_utf8_char(reader: &mut CursorReader) -> Result<String, String> {
     if width > 1 {
         bytes.extend_from_slice(&reader.read_bytes(width - 1)?);
     }
-    String::from_utf8(bytes).map_err(|error| format!("Invalid UTF-8 character in XNB stream: {error}"))
+    String::from_utf8(bytes)
+        .map_err(|error| format!("Invalid UTF-8 character in XNB stream: {error}"))
 }
 
 fn utf8_char_width(first: u8) -> usize {
@@ -694,7 +757,12 @@ fn utf8_char_width(first: u8) -> usize {
     }
 }
 
-fn decode_texture_data(format: i32, width: usize, height: usize, data: &[u8]) -> Result<Vec<u8>, String> {
+fn decode_texture_data(
+    format: i32,
+    width: usize,
+    height: usize,
+    data: &[u8],
+) -> Result<Vec<u8>, String> {
     let mut rgba = match format {
         0 => data.to_vec(),
         4 => decode_dxt1(data, width, height)?,
@@ -742,7 +810,12 @@ enum DxtFormat {
     Dxt5,
 }
 
-fn decode_dxt(data: &[u8], width: usize, height: usize, format: DxtFormat) -> Result<Vec<u8>, String> {
+fn decode_dxt(
+    data: &[u8],
+    width: usize,
+    height: usize,
+    format: DxtFormat,
+) -> Result<Vec<u8>, String> {
     let block_bytes = match format {
         DxtFormat::Dxt1 => 8,
         DxtFormat::Dxt3 | DxtFormat::Dxt5 => 16,
@@ -771,7 +844,10 @@ fn decode_dxt(data: &[u8], width: usize, height: usize, format: DxtFormat) -> Re
                 }
             };
 
-            let colors = decode_dxt_colors(&data[color_offset..color_offset + 8], matches!(format, DxtFormat::Dxt1));
+            let colors = decode_dxt_colors(
+                &data[color_offset..color_offset + 8],
+                matches!(format, DxtFormat::Dxt1),
+            );
             let indices = u32::from_le_bytes([
                 data[color_offset + 4],
                 data[color_offset + 5],
@@ -876,11 +952,13 @@ fn decode_dxt5_alpha(data: &[u8]) -> [u8; 16] {
     codes[1] = alpha1;
     if alpha0 > alpha1 {
         for i in 2..8 {
-            codes[i] = (((8 - i) as u16 * alpha0 as u16 + (i - 1) as u16 * alpha1 as u16) / 7) as u8;
+            codes[i] =
+                (((8 - i) as u16 * alpha0 as u16 + (i - 1) as u16 * alpha1 as u16) / 7) as u8;
         }
     } else {
         for i in 2..6 {
-            codes[i] = (((6 - i) as u16 * alpha0 as u16 + (i - 1) as u16 * alpha1 as u16) / 5) as u8;
+            codes[i] =
+                (((6 - i) as u16 * alpha0 as u16 + (i - 1) as u16 * alpha1 as u16) / 5) as u8;
         }
         codes[6] = 0;
         codes[7] = 255;

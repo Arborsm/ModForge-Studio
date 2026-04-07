@@ -12,10 +12,13 @@ use image::{ColorType, ImageEncoder};
 
 use crate::mime::{infer_audio_mime, infer_image_mime};
 use crate::models::{
-    AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent, MapAssetContent, MapAssetSummary,
-    TextAssetContent,
+    AudioAssetSummary, EventAssetSummary, FileCacheStats, GameDirectoryInfo, LocalTextFileContent,
+    MapAssetContent, MapAssetSummary, TextAssetContent,
 };
-use crate::pathing::{audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path, map_source_path, normalize_path};
+use crate::pathing::{
+    audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
+    map_source_path, normalize_path,
+};
 use crate::tbin::parse_tbin_map;
 use crate::xnb::read_xnb_from_path;
 
@@ -103,7 +106,10 @@ fn is_map_xnb(path: &Path) -> bool {
         .is_some()
 }
 
-fn build_map_summary(logical_relative_path: &Path, absolute_path: &Path) -> Result<MapAssetSummary, String> {
+fn build_map_summary(
+    logical_relative_path: &Path,
+    absolute_path: &Path,
+) -> Result<MapAssetSummary, String> {
     let metadata = absolute_path
         .metadata()
         .map_err(|error| format!("Failed to read file metadata: {error}"))?;
@@ -209,7 +215,11 @@ fn cache_file_path(kind: &str, source_path: &Path, locale: Option<&str>) -> Path
         .join(format!("{hash}.json"))
 }
 
-fn read_cached_string_asset(kind: &str, source_path: &Path, locale: Option<&str>) -> Result<Option<String>, String> {
+fn read_cached_string_asset(
+    kind: &str,
+    source_path: &Path,
+    locale: Option<&str>,
+) -> Result<Option<String>, String> {
     let metadata = source_path
         .metadata()
         .map_err(|error| format!("Failed to read file metadata: {error}"))?;
@@ -221,7 +231,11 @@ fn read_cached_string_asset(kind: &str, source_path: &Path, locale: Option<&str>
     let bytes = match fs::read(&cache_path) {
         Ok(bytes) => bytes,
         Err(error) => {
-            log::warn!("Failed to read cache file {}: {}", normalize_path(&cache_path), error);
+            log::warn!(
+                "Failed to read cache file {}: {}",
+                normalize_path(&cache_path),
+                error
+            );
             return Ok(None);
         }
     };
@@ -268,8 +282,12 @@ fn write_cached_string_asset(
     let cache_dir = cache_path
         .parent()
         .ok_or_else(|| format!("Invalid cache path: {}", normalize_path(&cache_path)))?;
-    fs::create_dir_all(cache_dir)
-        .map_err(|error| format!("Failed to create cache directory {}: {error}", normalize_path(cache_dir)))?;
+    fs::create_dir_all(cache_dir).map_err(|error| {
+        format!(
+            "Failed to create cache directory {}: {error}",
+            normalize_path(cache_dir)
+        )
+    })?;
 
     let cached = CachedStringAsset {
         version: FILE_CACHE_VERSION,
@@ -279,14 +297,26 @@ fn write_cached_string_asset(
         locale: cache_locale_key(locale),
         payload: payload.to_string(),
     };
-    let bytes = serde_json::to_vec(&cached).map_err(|error| format!("Failed to serialize cache entry: {error}"))?;
+    let bytes = serde_json::to_vec(&cached)
+        .map_err(|error| format!("Failed to serialize cache entry: {error}"))?;
     let temp_path = cache_path.with_extension("tmp");
-    fs::write(&temp_path, bytes)
-        .map_err(|error| format!("Failed to write cache file {}: {error}", normalize_path(&temp_path)))?;
-    fs::rename(&temp_path, &cache_path).or_else(|rename_error| {
-        let _ = fs::remove_file(&cache_path);
-        fs::rename(&temp_path, &cache_path).map_err(|_| rename_error)
-    }).map_err(|error| format!("Failed to move cache file into place {}: {error}", normalize_path(&cache_path)))?;
+    fs::write(&temp_path, bytes).map_err(|error| {
+        format!(
+            "Failed to write cache file {}: {error}",
+            normalize_path(&temp_path)
+        )
+    })?;
+    fs::rename(&temp_path, &cache_path)
+        .or_else(|rename_error| {
+            let _ = fs::remove_file(&cache_path);
+            fs::rename(&temp_path, &cache_path).map_err(|_| rename_error)
+        })
+        .map_err(|error| {
+            format!(
+                "Failed to move cache file into place {}: {error}",
+                normalize_path(&cache_path)
+            )
+        })?;
     Ok(())
 }
 
@@ -300,15 +330,22 @@ fn collect_directory_size(path: &Path) -> Result<(usize, u64), String> {
     let mut pending = vec![path.to_path_buf()];
 
     while let Some(current) = pending.pop() {
-        let entries = fs::read_dir(&current)
-            .map_err(|error| format!("Failed to read cache directory {}: {error}", normalize_path(&current)))?;
+        let entries = fs::read_dir(&current).map_err(|error| {
+            format!(
+                "Failed to read cache directory {}: {error}",
+                normalize_path(&current)
+            )
+        })?;
 
         for entry in entries {
             let entry = entry.map_err(|error| format!("Failed to inspect cache entry: {error}"))?;
             let entry_path = entry.path();
-            let metadata = entry
-                .metadata()
-                .map_err(|error| format!("Failed to read cache metadata {}: {error}", normalize_path(&entry_path)))?;
+            let metadata = entry.metadata().map_err(|error| {
+                format!(
+                    "Failed to read cache metadata {}: {error}",
+                    normalize_path(&entry_path)
+                )
+            })?;
 
             if metadata.is_dir() {
                 pending.push(entry_path);
@@ -361,7 +398,10 @@ fn read_unpacked_text_asset(root: &Path, relative_path: &Path) -> Result<Option<
 
 pub fn read_directory_info(root: &Path) -> Result<GameDirectoryInfo, String> {
     if !root.exists() {
-        return Err(format!("Directory does not exist: {}", normalize_path(root)));
+        return Err(format!(
+            "Directory does not exist: {}",
+            normalize_path(root)
+        ));
     }
 
     let executable_path = root.join("Stardew Valley.exe");
@@ -429,7 +469,11 @@ fn encode_texture_png(texture: &crate::xnb::TextureData) -> Result<Vec<u8>, Stri
     Ok(buffer)
 }
 
-fn collect_audio_assets(base_root: &Path, root: &Path, results: &mut Vec<AudioAssetSummary>) -> Result<(), String> {
+fn collect_audio_assets(
+    base_root: &Path,
+    root: &Path,
+    results: &mut Vec<AudioAssetSummary>,
+) -> Result<(), String> {
     if !root.exists() {
         return Ok(());
     }
@@ -510,8 +554,12 @@ pub fn clear_file_cache() -> Result<(), String> {
         return Ok(());
     }
 
-    fs::remove_dir_all(&root)
-        .map_err(|error| format!("Failed to clear file cache {}: {error}", normalize_path(&root)))?;
+    fs::remove_dir_all(&root).map_err(|error| {
+        format!(
+            "Failed to clear file cache {}: {error}",
+            normalize_path(&root)
+        )
+    })?;
     Ok(())
 }
 
@@ -525,11 +573,9 @@ pub fn scan_maps(path: String, locale: Option<String>) -> Result<Vec<MapAssetSum
     let root = clean_input_path(&path);
     let info = read_directory_info(&root)?;
     let requested_locale = normalize_requested_locale(locale.as_deref());
-    let maps_path = info
-        .maps_path
-        .as_ref()
-        .map(PathBuf::from)
-        .ok_or_else(|| "No map source path is available for the selected game directory.".to_string())?;
+    let maps_path = info.maps_path.as_ref().map(PathBuf::from).ok_or_else(|| {
+        "No map source path is available for the selected game directory.".to_string()
+    })?;
 
     let entries = fs::read_dir(&maps_path)
         .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&maps_path)))?;
@@ -556,7 +602,10 @@ pub fn scan_maps(path: String, locale: Option<String>) -> Result<Vec<MapAssetSum
             .map_err(|error| format!("Failed to derive relative path: {error}"))?;
         let logical_relative_path = logicalized_asset_path(relative_path);
         let logical_key = normalize_path(&logical_relative_path);
-        let stem = absolute_path.file_stem().and_then(|value| value.to_str()).unwrap_or_default();
+        let stem = absolute_path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
         let (_, suffix) = split_localized_stem(stem);
         let variants = grouped_variants.entry(logical_key).or_default();
 
@@ -581,7 +630,10 @@ pub fn scan_maps(path: String, locale: Option<String>) -> Result<Vec<MapAssetSum
             continue;
         }
 
-        maps.push(build_map_summary(Path::new(&logical_relative_path), selected_path)?);
+        maps.push(build_map_summary(
+            Path::new(&logical_relative_path),
+            selected_path,
+        )?);
     }
 
     maps.sort_by(|left, right| left.name.cmp(&right.name));
@@ -657,13 +709,20 @@ pub fn scan_events(path: String) -> Result<Vec<EventAssetSummary>, String> {
 }
 
 #[tauri::command]
-pub fn load_map_asset(root_path: String, map_path: String, locale: Option<String>) -> Result<MapAssetContent, String> {
+pub fn load_map_asset(
+    root_path: String,
+    map_path: String,
+    locale: Option<String>,
+) -> Result<MapAssetContent, String> {
     let root = clean_input_path(&root_path);
     let requested_locale = locale.as_deref();
     let absolute_path = preferred_existing_xnb_path(&clean_input_path(&map_path), requested_locale);
 
     if !absolute_path.exists() {
-        return Err(format!("Map file does not exist: {}", normalize_path(&absolute_path)));
+        return Err(format!(
+            "Map file does not exist: {}",
+            normalize_path(&absolute_path)
+        ));
     }
 
     let relative_path = absolute_path
@@ -679,7 +738,9 @@ pub fn load_map_asset(root_path: String, map_path: String, locale: Option<String
 
     let content = match format.as_str() {
         "xnb" => {
-            if let Some(content) = read_cached_string_asset("map", &absolute_path, requested_locale)? {
+            if let Some(content) =
+                read_cached_string_asset("map", &absolute_path, requested_locale)?
+            {
                 content
             } else {
                 let xnb = read_xnb_from_path(&absolute_path)?;
@@ -687,11 +748,21 @@ pub fn load_map_asset(root_path: String, map_path: String, locale: Option<String
                     .content
                     .as_bytes()
                     .ok_or_else(|| "Map XNB did not contain TBin data.".to_string())?;
-                let map = parse_tbin_map(bytes, &absolute_path, &normalize_path(&logical_relative_path))?;
-                let content =
-                    serde_json::to_string(&map).map_err(|error| format!("Failed to serialize map: {error}"))?;
-                if let Err(error) = write_cached_string_asset("map", &absolute_path, requested_locale, &content) {
-                    log::warn!("Failed to cache parsed map {}: {}", normalize_path(&absolute_path), error);
+                let map = parse_tbin_map(
+                    bytes,
+                    &absolute_path,
+                    &normalize_path(&logical_relative_path),
+                )?;
+                let content = serde_json::to_string(&map)
+                    .map_err(|error| format!("Failed to serialize map: {error}"))?;
+                if let Err(error) =
+                    write_cached_string_asset("map", &absolute_path, requested_locale, &content)
+                {
+                    log::warn!(
+                        "Failed to cache parsed map {}: {}",
+                        normalize_path(&absolute_path),
+                        error
+                    );
                 }
                 content
             }
@@ -724,37 +795,49 @@ pub fn load_map_asset(root_path: String, map_path: String, locale: Option<String
 }
 
 #[tauri::command]
-pub fn load_text_asset(root_path: String, asset_path: String, locale: Option<String>) -> Result<TextAssetContent, String> {
+pub fn load_text_asset(
+    root_path: String,
+    asset_path: String,
+    locale: Option<String>,
+) -> Result<TextAssetContent, String> {
     let root = clean_input_path(&root_path);
     let requested_path = root.join(clean_input_path(&asset_path));
     let requested_locale = locale.as_deref();
     let absolute_path = preferred_existing_xnb_path(&requested_path, requested_locale);
 
     if !absolute_path.exists() {
-        return Err(format!("Text asset does not exist: {}", normalize_path(&absolute_path)));
+        return Err(format!(
+            "Text asset does not exist: {}",
+            normalize_path(&absolute_path)
+        ));
     }
 
-    let relative_path = absolute_path
-        .strip_prefix(&root)
-        .map_err(|error| format!("Text asset path is outside the selected game directory: {error}"))?;
+    let relative_path = absolute_path.strip_prefix(&root).map_err(|error| {
+        format!("Text asset path is outside the selected game directory: {error}")
+    })?;
     let logical_relative_path = logicalized_asset_path(relative_path);
 
     let content = match absolute_path.extension().and_then(|value| value.to_str()) {
         Some(ext) if ext.eq_ignore_ascii_case("xnb") => {
-            if let Some(content) = read_cached_string_asset("text", &absolute_path, requested_locale)? {
+            if let Some(content) =
+                read_cached_string_asset("text", &absolute_path, requested_locale)?
+            {
                 content
             } else {
                 let (content, cacheable_source_path) = match read_xnb_from_path(&absolute_path) {
                     Ok(xnb) => {
                         let json = xnb.content.to_json();
                         (
-                            serde_json::to_string(&json)
-                                .map_err(|error| format!("Failed to serialize XNB data: {error}"))?,
+                            serde_json::to_string(&json).map_err(|error| {
+                                format!("Failed to serialize XNB data: {error}")
+                            })?,
                             Some(absolute_path.as_path()),
                         )
                     }
                     Err(xnb_error) => {
-                        if let Some(content) = read_unpacked_text_asset(&root, &logical_relative_path)? {
+                        if let Some(content) =
+                            read_unpacked_text_asset(&root, &logical_relative_path)?
+                        {
                             log::warn!(
                                 "Falling back to unpacked JSON for {} after XNB parse failure: {}",
                                 normalize_path(&absolute_path),
@@ -762,9 +845,15 @@ pub fn load_text_asset(root_path: String, asset_path: String, locale: Option<Str
                             );
                             (content, None)
                         } else {
-                            let fallback_hint = unpacked_text_asset_path(&root, &logical_relative_path)
-                                .map(|path| format!(" Checked unpacked fallback at {}.", normalize_path(&path)))
-                                .unwrap_or_default();
+                            let fallback_hint =
+                                unpacked_text_asset_path(&root, &logical_relative_path)
+                                    .map(|path| {
+                                        format!(
+                                            " Checked unpacked fallback at {}.",
+                                            normalize_path(&path)
+                                        )
+                                    })
+                                    .unwrap_or_default();
                             return Err(format!(
                                 "Failed to parse XNB text asset {}: {}.{}",
                                 normalize_path(&absolute_path),
@@ -775,25 +864,45 @@ pub fn load_text_asset(root_path: String, asset_path: String, locale: Option<Str
                     }
                 };
                 if let Some(cacheable_source_path) = cacheable_source_path {
-                    if let Err(error) =
-                        write_cached_string_asset("text", cacheable_source_path, requested_locale, &content)
-                    {
-                        log::warn!("Failed to cache text asset {}: {}", normalize_path(&absolute_path), error);
+                    if let Err(error) = write_cached_string_asset(
+                        "text",
+                        cacheable_source_path,
+                        requested_locale,
+                        &content,
+                    ) {
+                        log::warn!(
+                            "Failed to cache text asset {}: {}",
+                            normalize_path(&absolute_path),
+                            error
+                        );
                     }
                 }
                 content
             }
         }
         _ => {
-            if let Some(content) = read_cached_string_asset("text-file", &absolute_path, requested_locale)? {
+            if let Some(content) =
+                read_cached_string_asset("text-file", &absolute_path, requested_locale)?
+            {
                 content
             } else {
-                let content = fs::read_to_string(&absolute_path)
-                    .map_err(|error| format!("Failed to read text asset {}: {error}", normalize_path(&absolute_path)))?;
-                if let Err(error) =
-                    write_cached_string_asset("text-file", &absolute_path, requested_locale, &content)
-                {
-                    log::warn!("Failed to cache text file {}: {}", normalize_path(&absolute_path), error);
+                let content = fs::read_to_string(&absolute_path).map_err(|error| {
+                    format!(
+                        "Failed to read text asset {}: {error}",
+                        normalize_path(&absolute_path)
+                    )
+                })?;
+                if let Err(error) = write_cached_string_asset(
+                    "text-file",
+                    &absolute_path,
+                    requested_locale,
+                    &content,
+                ) {
+                    log::warn!(
+                        "Failed to cache text file {}: {}",
+                        normalize_path(&absolute_path),
+                        error
+                    );
                 }
                 content
             }
@@ -812,11 +921,18 @@ pub fn load_text_file(path: String) -> Result<LocalTextFileContent, String> {
     let absolute_path = clean_input_path(&path);
 
     if !absolute_path.exists() {
-        return Err(format!("Text file does not exist: {}", normalize_path(&absolute_path)));
+        return Err(format!(
+            "Text file does not exist: {}",
+            normalize_path(&absolute_path)
+        ));
     }
 
-    let content = fs::read_to_string(&absolute_path)
-        .map_err(|error| format!("Failed to read text file {}: {error}", normalize_path(&absolute_path)))?;
+    let content = fs::read_to_string(&absolute_path).map_err(|error| {
+        format!(
+            "Failed to read text file {}: {error}",
+            normalize_path(&absolute_path)
+        )
+    })?;
 
     Ok(LocalTextFileContent {
         absolute_path: normalize_path(&absolute_path),
@@ -830,7 +946,10 @@ pub fn load_image_data_url(path: String, locale: Option<String>) -> Result<Strin
     let absolute_path = preferred_existing_xnb_path(&clean_input_path(&path), requested_locale);
 
     if !absolute_path.exists() {
-        return Err(format!("Image file does not exist: {}", normalize_path(&absolute_path)));
+        return Err(format!(
+            "Image file does not exist: {}",
+            normalize_path(&absolute_path)
+        ));
     }
 
     if let Some(content) = read_cached_string_asset("image", &absolute_path, requested_locale)? {
@@ -851,19 +970,35 @@ pub fn load_image_data_url(path: String, locale: Option<String>) -> Result<Strin
         let png_bytes = encode_texture_png(texture)?;
         let encoded = base64::engine::general_purpose::STANDARD.encode(png_bytes);
         let payload = format!("data:image/png;base64,{encoded}");
-        if let Err(error) = write_cached_string_asset("image", &absolute_path, requested_locale, &payload) {
-            log::warn!("Failed to cache image asset {}: {}", normalize_path(&absolute_path), error);
+        if let Err(error) =
+            write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
+        {
+            log::warn!(
+                "Failed to cache image asset {}: {}",
+                normalize_path(&absolute_path),
+                error
+            );
         }
         return Ok(payload);
     }
 
-    let bytes = fs::read(&absolute_path)
-        .map_err(|error| format!("Failed to read image file {}: {error}", normalize_path(&absolute_path)))?;
+    let bytes = fs::read(&absolute_path).map_err(|error| {
+        format!(
+            "Failed to read image file {}: {error}",
+            normalize_path(&absolute_path)
+        )
+    })?;
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     let mime = infer_image_mime(&absolute_path);
     let payload = format!("data:{mime};base64,{encoded}");
-    if let Err(error) = write_cached_string_asset("image", &absolute_path, requested_locale, &payload) {
-        log::warn!("Failed to cache image asset {}: {}", normalize_path(&absolute_path), error);
+    if let Err(error) =
+        write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
+    {
+        log::warn!(
+            "Failed to cache image asset {}: {}",
+            normalize_path(&absolute_path),
+            error
+        );
     }
     Ok(payload)
 }
@@ -878,7 +1013,11 @@ pub fn scan_audio_assets(path: String) -> Result<Vec<AudioAssetSummary>, String>
         collect_audio_assets(&root, &candidate, &mut assets)?;
     }
 
-    assets.sort_by(|left, right| left.cue.cmp(&right.cue).then_with(|| left.kind.cmp(&right.kind)));
+    assets.sort_by(|left, right| {
+        left.cue
+            .cmp(&right.cue)
+            .then_with(|| left.kind.cmp(&right.kind))
+    });
     Ok(assets)
 }
 
@@ -887,11 +1026,18 @@ pub fn load_audio_data_url(path: String) -> Result<String, String> {
     let absolute_path = clean_input_path(&path);
 
     if !absolute_path.exists() {
-        return Err(format!("Audio file does not exist: {}", normalize_path(&absolute_path)));
+        return Err(format!(
+            "Audio file does not exist: {}",
+            normalize_path(&absolute_path)
+        ));
     }
 
-    let bytes = fs::read(&absolute_path)
-        .map_err(|error| format!("Failed to read audio file {}: {error}", normalize_path(&absolute_path)))?;
+    let bytes = fs::read(&absolute_path).map_err(|error| {
+        format!(
+            "Failed to read audio file {}: {error}",
+            normalize_path(&absolute_path)
+        )
+    })?;
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
     let mime = infer_audio_mime(&absolute_path);
     Ok(format!("data:{mime};base64,{encoded}"))

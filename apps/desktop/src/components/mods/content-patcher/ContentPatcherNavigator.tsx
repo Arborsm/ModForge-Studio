@@ -1,3 +1,4 @@
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '../../../lib/desktop'
 import { contentPatcherStatusClass } from './presentation'
 
@@ -11,6 +12,7 @@ type ContentPatcherNavigatorProps = {
   selectedTargetPath: string | null
   onSelectPatch: (patchId: string) => void
   onSelectTarget: (path: string) => void
+  onOpenScaleUp?: (targetPath: string, focusSection: 'preview' | 'settings') => void
 }
 
 type TargetGroup = {
@@ -60,6 +62,7 @@ export function ContentPatcherNavigator({
   selectedTargetPath,
   onSelectPatch,
   onSelectTarget,
+  onOpenScaleUp,
 }: ContentPatcherNavigatorProps) {
   const statusByPatchId = new Map(
     patchStatuses
@@ -67,6 +70,68 @@ export function ContentPatcherNavigator({
       .map((entry) => [entry.patchId, entry]),
   )
   const targetGroups = groupTargets(targets)
+
+  function renderTargetButton(target: ContentPatcherTargetSummary) {
+    const button = (
+      <button
+        type="button"
+        className={
+          selectedTargetPath === target.path
+            ? 'cp-debugger-list-item cp-debugger-list-item-active'
+            : 'cp-debugger-list-item'
+        }
+        onClick={() => onSelectTarget(target.path)}
+      >
+        <div className="cp-debugger-list-row">
+          <span className="cp-debugger-list-title">{target.path}</span>
+          <span className={contentPatcherStatusClass(target.resultState)}>{target.resultState}</span>
+        </div>
+        <p className="cp-debugger-list-meta">{`${target.touchedPatchCount} patches`}</p>
+      </button>
+    )
+
+    if (target.assetKind !== 'image' || !onOpenScaleUp) {
+      return button
+    }
+
+    return (
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>{button}</ContextMenu.Trigger>
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="context-menu-content" collisionPadding={12} forceMount>
+            <ContextMenu.Sub>
+              <ContextMenu.SubTrigger className="context-menu-item context-menu-subtrigger">
+                ScaleUp
+                <span className="context-menu-subhint">Open</span>
+              </ContextMenu.SubTrigger>
+              <ContextMenu.Portal>
+                <ContextMenu.SubContent className="context-menu-content context-menu-subcontent" collisionPadding={12} forceMount sideOffset={6}>
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => {
+                      onSelectTarget(target.path)
+                      onOpenScaleUp(target.path, 'preview')
+                    }}
+                  >
+                    Render Preview
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => {
+                      onSelectTarget(target.path)
+                      onOpenScaleUp(target.path, 'settings')
+                    }}
+                  >
+                    Parameter Settings
+                  </ContextMenu.Item>
+                </ContextMenu.SubContent>
+              </ContextMenu.Portal>
+            </ContextMenu.Sub>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
+    )
+  }
 
   return (
     <section className="cp-debugger-nav">
@@ -124,22 +189,7 @@ export function ContentPatcherNavigator({
 
                   <div className="cp-debugger-target-group-body">
                     {group.targets.map((target) => (
-                      <button
-                        key={target.path}
-                        type="button"
-                        className={
-                          selectedTargetPath === target.path
-                            ? 'cp-debugger-list-item cp-debugger-list-item-active'
-                            : 'cp-debugger-list-item'
-                        }
-                        onClick={() => onSelectTarget(target.path)}
-                      >
-                        <div className="cp-debugger-list-row">
-                          <span className="cp-debugger-list-title">{target.path}</span>
-                          <span className={contentPatcherStatusClass(target.resultState)}>{target.resultState}</span>
-                        </div>
-                        <p className="cp-debugger-list-meta">{`${target.touchedPatchCount} patches`}</p>
-                      </button>
+                      <div key={target.path}>{renderTargetButton(target)}</div>
                     ))}
                   </div>
                 </section>

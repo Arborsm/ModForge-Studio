@@ -416,6 +416,7 @@ export default function App() {
     setNavigatorMode,
     selectedTargetPath,
     setSelectedTargetPath,
+    scaleUpEditor,
     handleSelectProject: handleSelectModProject,
     handleImportProject: handleImportModProject,
     handleRefreshProjects: handleRefreshModProjects,
@@ -429,6 +430,9 @@ export default function App() {
     handleSaveProject: handleSaveModProject,
     handleExportProject: handleExportModProject,
     handleSimulationContextChange,
+    handleOpenScaleUpEditor,
+    handleCloseScaleUpEditor,
+    handleScaleUpContentChange,
   } = useModWorkspace({
     directoryInfo,
     locale,
@@ -881,6 +885,7 @@ export default function App() {
     navigatorMode,
     selectedTargetPath,
     onNavigatorModeChange: setNavigatorMode,
+    scaleUpEditor,
     onModManifestFieldChange: handleModManifestFieldChange,
     onModManifestTextChange: handleModManifestTextChange,
     onModContentTextChange: handleModContentTextChange,
@@ -892,6 +897,9 @@ export default function App() {
     onExportModProject: () => void handleExportModProject(),
     onSimulationContextChange: handleSimulationContextChange,
     onSelectTarget: setSelectedTargetPath,
+    onOpenScaleUp: handleOpenScaleUpEditor,
+    onScaleUpContentChange: handleScaleUpContentChange,
+    onCloseScaleUpEditor: handleCloseScaleUpEditor,
     heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
   })
 

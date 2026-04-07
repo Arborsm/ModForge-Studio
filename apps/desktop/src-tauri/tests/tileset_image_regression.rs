@@ -6,10 +6,10 @@ mod mime;
 mod models;
 #[path = "../src/pathing.rs"]
 mod pathing;
-#[path = "../src/test_support.rs"]
-mod test_support;
 #[path = "../src/tbin.rs"]
 mod tbin;
+#[path = "../src/test_support.rs"]
+mod test_support;
 #[path = "../src/xnb/mod.rs"]
 mod xnb;
 
@@ -34,13 +34,16 @@ fn loads_farm_tileset_images_as_data_urls() {
     .unwrap_or_else(|error| panic!("failed to load map asset: {error}"));
     let map_load_ms = map_started.elapsed().as_secs_f64() * 1000.0;
 
-    let document: Value =
-        serde_json::from_str(&map_asset.content).unwrap_or_else(|error| panic!("failed to parse map json: {error}"));
+    let document: Value = serde_json::from_str(&map_asset.content)
+        .unwrap_or_else(|error| panic!("failed to parse map json: {error}"));
     let tilesets = document["tilesets"]
         .as_array()
         .unwrap_or_else(|| panic!("map json did not contain a tilesets array"));
 
-    assert!(!tilesets.is_empty(), "expected Farm.xnb to contain tilesets");
+    assert!(
+        !tilesets.is_empty(),
+        "expected Farm.xnb to contain tilesets"
+    );
 
     let mut lines = Vec::new();
     let mut total_image_ms = 0.0f64;
@@ -62,9 +65,7 @@ fn loads_farm_tileset_images_as_data_urls() {
             "expected image data url for {image_path}, got {url}"
         );
 
-        lines.push(format!(
-            "{tileset_name}\t{image_path}\t{elapsed_ms:.3} ms"
-        ));
+        lines.push(format!("{tileset_name}\t{image_path}\t{elapsed_ms:.3} ms"));
     }
 
     let report = format!(

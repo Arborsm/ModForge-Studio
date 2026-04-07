@@ -1,10 +1,12 @@
 use super::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id};
 use super::diagnostics::{
-    include_outside_root_error, missing_file_error, non_content_patcher_manifest_error, unsupported_project_error,
+    include_outside_root_error, missing_file_error, non_content_patcher_manifest_error,
+    unsupported_project_error,
 };
 use super::schema::parse_json_file;
 use super::types::{
-    ContentPatcherIncludeEdge, ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile,
+    ContentPatcherIncludeEdge, ContentPatcherProjectSnapshot, ContentPatcherProjectSummary,
+    ContentPatcherSourceFile,
 };
 use crate::pathing::{clean_input_path, normalize_path};
 use serde_json::{Map, Value};
@@ -23,14 +25,19 @@ fn normalize_include_path(from_file: &str) -> PathBuf {
 }
 
 fn is_content_patcher_manifest(manifest: &Value) -> bool {
-    content_pack_for_unique_id(manifest).is_some_and(|value| value.eq_ignore_ascii_case(CONTENT_PATCHER_UNIQUE_ID))
+    content_pack_for_unique_id(manifest)
+        .is_some_and(|value| value.eq_ignore_ascii_case(CONTENT_PATCHER_UNIQUE_ID))
 }
 
 fn canonicalize_path(path: &Path) -> Result<PathBuf, String> {
-    fs::canonicalize(path).map_err(|error| format!("Failed to resolve path {}: {error}", normalize_path(path)))
+    fs::canonicalize(path)
+        .map_err(|error| format!("Failed to resolve path {}: {error}", normalize_path(path)))
 }
 
-pub(crate) fn resolve_include_relative_path(source_rel_path: &Path, from_file: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve_include_relative_path(
+    source_rel_path: &Path,
+    from_file: &str,
+) -> Result<PathBuf, String> {
     let source_parent = source_rel_path.parent().unwrap_or_else(|| Path::new(""));
     let include_path = normalize_include_path(from_file);
     let mut normalized = PathBuf::new();
@@ -91,11 +98,15 @@ fn collect_include_edges(
         let included_rel_path = resolve_include_relative_path(source_rel_path, &from_file)?;
         let include_candidate_abs_path = root_canonical.join(&included_rel_path);
         if !include_candidate_abs_path.is_file() {
-            return Err(missing_file_error(&normalize_path(&include_candidate_abs_path)));
+            return Err(missing_file_error(&normalize_path(
+                &include_candidate_abs_path,
+            )));
         }
         let include_canonical = canonicalize_path(&include_candidate_abs_path)?;
         if !include_canonical.starts_with(root_canonical) {
-            return Err(include_outside_root_error(&normalize_path(&include_candidate_abs_path)));
+            return Err(include_outside_root_error(&normalize_path(
+                &include_candidate_abs_path,
+            )));
         }
         let included_rel_string = normalize_relative_path(&included_rel_path);
 
@@ -144,7 +155,9 @@ pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjec
     let content_canonical = canonicalize_path(&content_path)?;
     let (_manifest_raw_json, manifest) = parse_json_file(&manifest_path)?;
     if !is_content_patcher_manifest(&manifest) {
-        return Err(non_content_patcher_manifest_error(content_pack_for_unique_id(&manifest).as_deref()));
+        return Err(non_content_patcher_manifest_error(
+            content_pack_for_unique_id(&manifest).as_deref(),
+        ));
     }
     let (content_raw_json, content) = parse_json_file(&content_path)?;
     let diagnostics = build_snapshot_diagnostics(&manifest, &content);

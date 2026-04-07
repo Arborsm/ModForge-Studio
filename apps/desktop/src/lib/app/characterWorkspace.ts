@@ -164,6 +164,8 @@ export type CharacterVisualAssetState = {
   spriteSheetHeight: number | null
   portraitSheetWidth: number | null
   portraitSheetHeight: number | null
+  portraitOriginalWidth?: number | null
+  portraitOriginalHeight?: number | null
   springObjectsSheetWidth: number | null
   springObjectsSheetHeight: number | null
 }

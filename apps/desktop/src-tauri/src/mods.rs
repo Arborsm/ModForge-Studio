@@ -1,10 +1,11 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::attached_api::{load_attached_api_registry, AttachedApiRegistry};
+use crate::attached_api::AttachedApiRegistry;
+use crate::content_patcher::attached::load_attached_api_registry;
 use crate::json_relaxed;
 use crate::pathing::{clean_input_path, normalize_path};
 
@@ -265,7 +266,10 @@ fn should_skip_scan_dir(path: &Path) -> bool {
         return false;
     };
 
-    name.starts_with('.') || SKIPPED_SCAN_DIRECTORIES.iter().any(|candidate| name.eq_ignore_ascii_case(candidate))
+    name.starts_with('.')
+        || SKIPPED_SCAN_DIRECTORIES
+            .iter()
+            .any(|candidate| name.eq_ignore_ascii_case(candidate))
 }
 
 fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String> {
@@ -282,11 +286,16 @@ fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String> {
             discovered.insert(normalize_path(&current_dir));
         }
 
-        let entries = fs::read_dir(&current_dir)
-            .map_err(|error| format!("Failed to read mods directory {}: {error}", normalize_path(&current_dir)))?;
+        let entries = fs::read_dir(&current_dir).map_err(|error| {
+            format!(
+                "Failed to read mods directory {}: {error}",
+                normalize_path(&current_dir)
+            )
+        })?;
 
         for entry in entries {
-            let entry = entry.map_err(|error| format!("Failed to inspect mods directory entry: {error}"))?;
+            let entry = entry
+                .map_err(|error| format!("Failed to inspect mods directory entry: {error}"))?;
             let entry_path = entry.path();
             if !entry_path.is_dir() || should_skip_scan_dir(&entry_path) {
                 continue;
@@ -464,7 +473,11 @@ fn collect_patch_summaries(content: &Value) -> Vec<ContentPatcherPatchSummary> {
             changes
                 .iter()
                 .enumerate()
-                .filter_map(|(index, change)| change.as_object().map(|patch| build_patch_summary(index, patch)))
+                .filter_map(|(index, change)| {
+                    change
+                        .as_object()
+                        .map(|patch| build_patch_summary(index, patch))
+                })
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default()
@@ -486,7 +499,8 @@ fn build_diagnostics(manifest: &Value, content: &Value, is_cp: bool) -> Vec<ModP
     if !is_cp {
         diagnostics.push(ModProjectDiagnostic {
             severity: "error".to_string(),
-            message: "This project is not recognized as a Content Patcher content pack yet.".to_string(),
+            message: "This project is not recognized as a Content Patcher content pack yet."
+                .to_string(),
             field: Some("manifest.ContentPackFor".to_string()),
         });
         return diagnostics;
@@ -563,7 +577,12 @@ fn build_diagnostics(manifest: &Value, content: &Value, is_cp: bool) -> Vec<ModP
 
 fn project_name_from_manifest(manifest: &Value, project_path: &Path) -> String {
     string_field(manifest, "Name")
-        .or_else(|| project_path.file_name().and_then(|value| value.to_str()).map(ToOwned::to_owned))
+        .or_else(|| {
+            project_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .map(ToOwned::to_owned)
+        })
         .unwrap_or_else(|| "Unnamed Mod".to_string())
 }
 
@@ -603,7 +622,13 @@ fn build_project_summary(
     }
 }
 
-fn build_content_patcher_data(manifest_path: &Path, content_path: &Path, manifest_json: String, content_json: String, content: &Value) -> ContentPatcherProjectData {
+fn build_content_patcher_data(
+    manifest_path: &Path,
+    content_path: &Path,
+    manifest_json: String,
+    content_json: String,
+    content: &Value,
+) -> ContentPatcherProjectData {
     let config_keys = object_field(content, "ConfigSchema")
         .map(|schema| {
             let mut keys = schema.keys().cloned().collect::<Vec<_>>();
@@ -618,11 +643,19 @@ fn build_content_patcher_data(manifest_path: &Path, content_path: &Path, manifes
         manifest_json,
         content_json,
         format: string_field(content, "Format"),
-        change_count: array_field(content, "Changes").map(Vec::len).unwrap_or_default(),
-        include_count: array_field(content, "Include").map(Vec::len).unwrap_or_default(),
-        dynamic_token_count: array_field(content, "DynamicTokens").map(Vec::len).unwrap_or_default(),
+        change_count: array_field(content, "Changes")
+            .map(Vec::len)
+            .unwrap_or_default(),
+        include_count: array_field(content, "Include")
+            .map(Vec::len)
+            .unwrap_or_default(),
+        dynamic_token_count: array_field(content, "DynamicTokens")
+            .map(Vec::len)
+            .unwrap_or_default(),
         config_keys,
-        has_i18n: content_path.parent().is_some_and(|parent| parent.join("i18n").is_dir()),
+        has_i18n: content_path
+            .parent()
+            .is_some_and(|parent| parent.join("i18n").is_dir()),
         patches: collect_patch_summaries(content),
     }
 }
@@ -648,7 +681,10 @@ fn target_values(patch: &Map<String, Value>) -> Vec<String> {
 
 fn normalize_target_path(value: &str) -> String {
     let normalized = value.trim().replace('\\', "/");
-    normalized.strip_prefix("Content/").unwrap_or(&normalized).to_string()
+    normalized
+        .strip_prefix("Content/")
+        .unwrap_or(&normalized)
+        .to_string()
 }
 
 fn build_content_asset_key(target: &str) -> String {
@@ -689,10 +725,12 @@ fn add_mod_asset_reference(
         return;
     }
 
-    let entry = collection.entry(key).or_insert_with(|| ModAssetReferenceAccumulator {
-        label: label.clone(),
-        ..ModAssetReferenceAccumulator::default()
-    });
+    let entry = collection
+        .entry(key)
+        .or_insert_with(|| ModAssetReferenceAccumulator {
+            label: label.clone(),
+            ..ModAssetReferenceAccumulator::default()
+        });
     if entry.label.trim().is_empty() {
         entry.label = label;
     }
@@ -717,10 +755,100 @@ fn content_patcher_item_prefix(target: &str) -> Option<&'static str> {
     }
 }
 
+fn content_patcher_target_field_first_key(patch: &Map<String, Value>) -> Option<String> {
+    match patch.get("TargetField") {
+        Some(Value::String(value)) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+        Some(Value::Array(segments)) => segments.first().and_then(Value::as_str).map(str::trim).and_then(
+            |value| {
+                if value.is_empty() {
+                    None
+                } else {
+                    Some(value.to_string())
+                }
+            },
+        ),
+        _ => None,
+    }
+}
+
+fn strip_xnb_extension(value: &str) -> &str {
+    value.strip_suffix(".xnb")
+        .or_else(|| value.strip_suffix(".XNB"))
+        .unwrap_or(value)
+}
+
+fn collect_known_character_keys(patches: &[FlattenedContentPatcherPatch]) -> BTreeSet<String> {
+    let mut keys = BTreeSet::new();
+
+    for flattened_patch in patches {
+        for target in target_values(&flattened_patch.patch) {
+            let normalized_target = normalize_target_path(&target);
+            if !normalized_target.eq_ignore_ascii_case("Data/Characters") {
+                continue;
+            }
+
+            if let Some(character_key) = content_patcher_target_field_first_key(&flattened_patch.patch) {
+                keys.insert(character_key);
+                continue;
+            }
+
+            if let Some(entries) = object_field(&Value::Object(flattened_patch.patch.clone()), "Entries") {
+                for key in entries.keys() {
+                    let trimmed = key.trim();
+                    if !trimmed.is_empty() {
+                        keys.insert(trimmed.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    keys
+}
+
+fn resolve_character_reference_key(target: &str, known_character_keys: &BTreeSet<String>) -> String {
+    let leaf = target_leaf_name(target);
+    let normalized_leaf = strip_xnb_extension(leaf.trim());
+    if normalized_leaf.is_empty() {
+        return String::new();
+    }
+
+    let normalized_leaf_lower = normalized_leaf.to_ascii_lowercase();
+    let mut best_match: Option<(usize, &String)> = None;
+    for key in known_character_keys {
+        let trimmed = key.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let normalized_key_lower = trimmed.to_ascii_lowercase();
+        if normalized_leaf_lower == normalized_key_lower
+            || normalized_leaf_lower.starts_with(&format!("{normalized_key_lower}_"))
+        {
+            let candidate = (trimmed.len(), key);
+            if best_match.is_none_or(|current| candidate.0 > current.0) {
+                best_match = Some(candidate);
+            }
+        }
+    }
+
+    best_match
+        .map(|(_, key)| key.clone())
+        .unwrap_or_else(|| normalized_leaf.to_string())
+}
+
 fn collect_content_patcher_target_references(
     target: &str,
     patch: &Map<String, Value>,
     patch_id: &str,
+    known_character_keys: &BTreeSet<String>,
     accumulator: &mut ModAssetGroupAccumulator,
 ) {
     let normalized_target = normalize_target_path(target);
@@ -751,6 +879,17 @@ fn collect_content_patcher_target_references(
     }
 
     if normalized_target_lower == "data/characters" {
+        if let Some(character_key) = content_patcher_target_field_first_key(patch) {
+            add_mod_asset_reference(
+                &mut accumulator.characters,
+                character_key.clone(),
+                character_key,
+                &normalized_target,
+                patch_id,
+            );
+            return;
+        }
+
         if let Some(entries) = object_field(&Value::Object(patch.clone()), "Entries") {
             for key in entries.keys() {
                 let key = key.trim();
@@ -766,8 +905,10 @@ fn collect_content_patcher_target_references(
         return;
     }
 
-    if normalized_target_lower.starts_with("characters/") || normalized_target_lower.starts_with("portraits/") {
-        let key = target_leaf_name(&normalized_target);
+    if normalized_target_lower.starts_with("characters/")
+        || normalized_target_lower.starts_with("portraits/")
+    {
+        let key = resolve_character_reference_key(&normalized_target, known_character_keys);
         add_mod_asset_reference(
             &mut accumulator.characters,
             key.clone(),
@@ -949,12 +1090,18 @@ fn collect_flattened_content_patcher_patches(
     patches
 }
 
-fn finalize_mod_asset_references(collection: BTreeMap<String, ModAssetReferenceAccumulator>) -> Vec<ModAssetReference> {
+fn finalize_mod_asset_references(
+    collection: BTreeMap<String, ModAssetReferenceAccumulator>,
+) -> Vec<ModAssetReference> {
     collection
         .into_iter()
         .map(|(key, entry)| ModAssetReference {
             key,
-            label: if entry.label.trim().is_empty() { String::new() } else { entry.label },
+            label: if entry.label.trim().is_empty() {
+                String::new()
+            } else {
+                entry.label
+            },
             targets: entry.targets.into_iter().collect(),
             patch_ids: entry.patch_ids.into_iter().collect(),
         })
@@ -973,16 +1120,29 @@ fn build_mod_asset_index_group(
 
     let mut accumulator = ModAssetGroupAccumulator::default();
     let mut include_stack = Vec::new();
-    let flattened_patches =
-        collect_flattened_content_patcher_patches(content, project_path, "content.json", None, &mut include_stack);
+    let flattened_patches = collect_flattened_content_patcher_patches(
+        content,
+        project_path,
+        "content.json",
+        None,
+        &mut include_stack,
+    );
+    let known_character_keys = collect_known_character_keys(&flattened_patches);
     for flattened_patch in flattened_patches {
         for target in target_values(&flattened_patch.patch) {
-            collect_content_patcher_target_references(&target, &flattened_patch.patch, &flattened_patch.id, &mut accumulator);
+            collect_content_patcher_target_references(
+                &target,
+                &flattened_patch.patch,
+                &flattened_patch.id,
+                &known_character_keys,
+                &mut accumulator,
+            );
         }
     }
 
     Some(ModAssetIndexGroup {
-        mod_id: string_field(manifest, "UniqueID").unwrap_or_else(|| normalize_path(project_path).replace('\\', "/")),
+        mod_id: string_field(manifest, "UniqueID")
+            .unwrap_or_else(|| normalize_path(project_path).replace('\\', "/")),
         mod_name: project_name_from_manifest(manifest, project_path),
         mod_path: normalize_path(project_path),
         plugin_kind: "content-patcher".to_string(),
@@ -1006,7 +1166,10 @@ fn ensure_project_root(path: &Path) -> Result<PathBuf, String> {
         return Ok(path.to_path_buf());
     }
 
-    Err(format!("No manifest.json was found in {}", normalize_path(path)))
+    Err(format!(
+        "No manifest.json was found in {}",
+        normalize_path(path)
+    ))
 }
 
 fn infer_mods_scan_root(project_path: &Path) -> PathBuf {
@@ -1031,17 +1194,29 @@ fn remove_dir_contents(path: &Path) -> Result<(), String> {
         return Ok(());
     }
 
-    for entry in fs::read_dir(path)
-        .map_err(|error| format!("Failed to read target directory {}: {error}", normalize_path(path)))?
-    {
-        let entry = entry.map_err(|error| format!("Failed to inspect target directory entry: {error}"))?;
+    for entry in fs::read_dir(path).map_err(|error| {
+        format!(
+            "Failed to read target directory {}: {error}",
+            normalize_path(path)
+        )
+    })? {
+        let entry =
+            entry.map_err(|error| format!("Failed to inspect target directory entry: {error}"))?;
         let entry_path = entry.path();
         if entry_path.is_dir() {
-            fs::remove_dir_all(&entry_path)
-                .map_err(|error| format!("Failed to remove directory {}: {error}", normalize_path(&entry_path)))?;
+            fs::remove_dir_all(&entry_path).map_err(|error| {
+                format!(
+                    "Failed to remove directory {}: {error}",
+                    normalize_path(&entry_path)
+                )
+            })?;
         } else {
-            fs::remove_file(&entry_path)
-                .map_err(|error| format!("Failed to remove file {}: {error}", normalize_path(&entry_path)))?;
+            fs::remove_file(&entry_path).map_err(|error| {
+                format!(
+                    "Failed to remove file {}: {error}",
+                    normalize_path(&entry_path)
+                )
+            })?;
         }
     }
 
@@ -1049,13 +1224,21 @@ fn remove_dir_contents(path: &Path) -> Result<(), String> {
 }
 
 fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
-    fs::create_dir_all(target)
-        .map_err(|error| format!("Failed to create directory {}: {error}", normalize_path(target)))?;
+    fs::create_dir_all(target).map_err(|error| {
+        format!(
+            "Failed to create directory {}: {error}",
+            normalize_path(target)
+        )
+    })?;
 
-    for entry in fs::read_dir(source)
-        .map_err(|error| format!("Failed to read source directory {}: {error}", normalize_path(source)))?
-    {
-        let entry = entry.map_err(|error| format!("Failed to inspect source directory entry: {error}"))?;
+    for entry in fs::read_dir(source).map_err(|error| {
+        format!(
+            "Failed to read source directory {}: {error}",
+            normalize_path(source)
+        )
+    })? {
+        let entry =
+            entry.map_err(|error| format!("Failed to inspect source directory entry: {error}"))?;
         let source_path = entry.path();
         let target_path = target.join(entry.file_name());
         if source_path.is_dir() {
@@ -1087,8 +1270,11 @@ pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, St
     let available_mod_ids = collect_available_mod_ids(&scanned_projects, &attached_api_registry);
     let mut projects = Vec::new();
     for project in &scanned_projects {
-        let compatibility =
-            evaluate_project_compatibility(&project.manifest, project.content.as_ref(), &available_mod_ids);
+        let compatibility = evaluate_project_compatibility(
+            &project.manifest,
+            project.content.as_ref(),
+            &available_mod_ids,
+        );
         projects.push(build_project_summary(
             &project.project_path,
             &project.manifest_path,
@@ -1098,7 +1284,11 @@ pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, St
         ));
     }
 
-    projects.sort_by(|left, right| left.name.cmp(&right.name).then_with(|| left.absolute_path.cmp(&right.absolute_path)));
+    projects.sort_by(|left, right| {
+        left.name
+            .cmp(&right.name)
+            .then_with(|| left.absolute_path.cmp(&right.absolute_path))
+    });
     Ok(projects)
 }
 
@@ -1117,7 +1307,12 @@ pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> 
         };
         let compatibility =
             evaluate_project_compatibility(&project.manifest, Some(content), &available_mod_ids);
-        if let Some(group) = build_mod_asset_index_group(&project.project_path, &project.manifest, content, &compatibility) {
+        if let Some(group) = build_mod_asset_index_group(
+            &project.project_path,
+            &project.manifest,
+            content,
+            &compatibility,
+        ) {
             let has_entries = !group.maps.is_empty()
                 || !group.events.is_empty()
                 || !group.characters.is_empty()
@@ -1129,7 +1324,11 @@ pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> 
         }
     }
 
-    mods.sort_by(|left, right| left.mod_name.cmp(&right.mod_name).then_with(|| left.mod_path.cmp(&right.mod_path)));
+    mods.sort_by(|left, right| {
+        left.mod_name
+            .cmp(&right.mod_name)
+            .then_with(|| left.mod_path.cmp(&right.mod_path))
+    });
     Ok(ModAssetIndex { mods })
 }
 
@@ -1139,7 +1338,10 @@ pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
     let manifest_path = project_path.join("manifest.json");
     let content_path = project_path.join("content.json");
     if !content_path.is_file() {
-        return Err(format!("No content.json was found in {}", normalize_path(&project_path)));
+        return Err(format!(
+            "No content.json was found in {}",
+            normalize_path(&project_path)
+        ));
     }
 
     let (_manifest_json, manifest) = read_json_file(&manifest_path)?;
@@ -1148,14 +1350,21 @@ pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
     let discovered_projects = collect_scanned_projects(discover_project_roots(&scan_root)?);
     let attached_api_registry = load_attached_api_registry(None);
     let available_mod_ids = collect_available_mod_ids(&discovered_projects, &attached_api_registry);
-    let compatibility = evaluate_project_compatibility(&manifest, Some(&content), &available_mod_ids);
+    let compatibility =
+        evaluate_project_compatibility(&manifest, Some(&content), &available_mod_ids);
     let is_cp = compatibility.is_content_patcher;
     let diagnostics = build_diagnostics(&manifest, &content, is_cp);
     if !is_cp {
         return Ok(ModProjectDetail {
             plugin_kind: "unknown".to_string(),
             capabilities: Vec::new(),
-            summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), &compatibility),
+            summary: build_project_summary(
+                &project_path,
+                &manifest_path,
+                &manifest,
+                Some(&content_path),
+                &compatibility,
+            ),
             diagnostics,
             content_patcher: None,
         });
@@ -1171,13 +1380,21 @@ pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
     Ok(ModProjectDetail {
         plugin_kind: "content-patcher".to_string(),
         capabilities: content_patcher_capabilities(),
-        summary: build_project_summary(&project_path, &manifest_path, &manifest, Some(&content_path), &compatibility),
+        summary: build_project_summary(
+            &project_path,
+            &manifest_path,
+            &manifest,
+            Some(&content_path),
+            &compatibility,
+        ),
         diagnostics,
         content_patcher: Some(build_content_patcher_data(
             &manifest_path,
             &content_path,
-            serde_json::to_string_pretty(&manifest).map_err(|error| format!("Failed to serialize manifest.json: {error}"))?,
-            serde_json::to_string_pretty(&content).map_err(|error| format!("Failed to serialize content.json: {error}"))?,
+            serde_json::to_string_pretty(&manifest)
+                .map_err(|error| format!("Failed to serialize manifest.json: {error}"))?,
+            serde_json::to_string_pretty(&content)
+                .map_err(|error| format!("Failed to serialize content.json: {error}"))?,
             &content,
         )),
     })
@@ -1208,12 +1425,20 @@ pub fn save_mod_project(request: SaveModProjectRequest) -> Result<SaveModProject
     let source_is_target = normalized_source == normalized_target;
 
     if !source_is_target {
-        if normalized_target.starts_with(&(normalized_source.clone() + "\\")) || normalized_target.starts_with(&(normalized_source + "/")) {
-            return Err("Export target cannot be nested inside the source mod directory.".to_string());
+        if normalized_target.starts_with(&(normalized_source.clone() + "\\"))
+            || normalized_target.starts_with(&(normalized_source + "/"))
+        {
+            return Err(
+                "Export target cannot be nested inside the source mod directory.".to_string(),
+            );
         }
 
-        fs::create_dir_all(&target_path)
-            .map_err(|error| format!("Failed to create export directory {}: {error}", normalize_path(&target_path)))?;
+        fs::create_dir_all(&target_path).map_err(|error| {
+            format!(
+                "Failed to create export directory {}: {error}",
+                normalize_path(&target_path)
+            )
+        })?;
         remove_dir_contents(&target_path)?;
         copy_dir_recursive(&source_path, &target_path)?;
     }
@@ -1225,8 +1450,12 @@ pub fn save_mod_project(request: SaveModProjectRequest) -> Result<SaveModProject
     let content_pretty = serde_json::to_string_pretty(&content)
         .map_err(|error| format!("Failed to format content.json: {error}"))?;
 
-    fs::write(&manifest_path, format!("{manifest_pretty}\n"))
-        .map_err(|error| format!("Failed to write {}: {error}", normalize_path(&manifest_path)))?;
+    fs::write(&manifest_path, format!("{manifest_pretty}\n")).map_err(|error| {
+        format!(
+            "Failed to write {}: {error}",
+            normalize_path(&manifest_path)
+        )
+    })?;
     fs::write(&content_path, format!("{content_pretty}\n"))
         .map_err(|error| format!("Failed to write {}: {error}", normalize_path(&content_path)))?;
 

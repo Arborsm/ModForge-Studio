@@ -7,8 +7,10 @@ use serde_json::json;
 
 #[test]
 fn parses_character_list_of_int_arrays_without_stream_desync() {
-    let file = Path::new(r"E:\SteamLibrary\steamapps\common\Stardew Valley\Content\Data\Characters.xnb");
-    let parsed = xnb::read_xnb_from_path(file).unwrap_or_else(|error| panic!("{}: {error}", file.display()));
+    let file =
+        Path::new(r"E:\SteamLibrary\steamapps\common\Stardew Valley\Content\Data\Characters.xnb");
+    let parsed =
+        xnb::read_xnb_from_path(file).unwrap_or_else(|error| panic!("{}: {error}", file.display()));
     let json = parsed.content.to_json();
 
     let abigail = json
@@ -25,6 +27,9 @@ fn parses_character_list_of_int_arrays_without_stream_desync() {
             "SpriteAnimationPixelOffset": { "X": 0, "Y": 0 }
         }))
     );
-    assert_eq!(abigail.get("Size").cloned(), Some(json!({ "X": 16, "Y": 32 })));
+    assert_eq!(
+        abigail.get("Size").cloned(),
+        Some(json!({ "X": 16, "Y": 32 }))
+    );
     assert_eq!(abigail.get("ShakePortraits").cloned(), Some(json!([7])));
 }

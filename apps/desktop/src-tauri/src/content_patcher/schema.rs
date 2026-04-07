@@ -21,7 +21,8 @@ pub(crate) fn coerce_number(value: &Value) -> Option<f64> {
 
 pub(crate) fn coerce_u32(value: &Value) -> Option<u32> {
     let numeric = coerce_number(value)?;
-    if !numeric.is_finite() || numeric < 0.0 || numeric.fract() != 0.0 || numeric > u32::MAX as f64 {
+    if !numeric.is_finite() || numeric < 0.0 || numeric.fract() != 0.0 || numeric > u32::MAX as f64
+    {
         return None;
     }
 

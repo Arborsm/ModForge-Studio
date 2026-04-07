@@ -219,7 +219,8 @@ pub(crate) fn parse_json_str(raw: &str, source_label: &str) -> Result<Value, Str
 }
 
 pub(crate) fn read_json_file(path: &Path, source_label: &str) -> Result<(String, Value), String> {
-    let bytes = std::fs::read(path).map_err(|error| format!("Failed to read {source_label}: {error}"))?;
+    let bytes =
+        std::fs::read(path).map_err(|error| format!("Failed to read {source_label}: {error}"))?;
     let raw = decode_json_bytes(&bytes, source_label)?;
     let parsed = parse_json_str(&raw, source_label)?;
     Ok((raw, parsed))

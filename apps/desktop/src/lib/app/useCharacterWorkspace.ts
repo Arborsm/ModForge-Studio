@@ -26,7 +26,7 @@ import {
   type ModBrowserEntry,
   useModAssetIndex,
 } from './modAssetIndex'
-import {loadModResultImageState} from './modResultAssets'
+import {loadModResultImageState, loadModResultJsonValue} from './modResultAssets'
 
 const MONSTER_DATA_ASSET_PATH = 'Content\\Data\\Monsters.xnb'
 
@@ -46,6 +46,8 @@ const imageStateCache = new Map<
     url: string | null
     width: number | null
     height: number | null
+    originalWidth: number | null
+    originalHeight: number | null
   }>
 >()
 
@@ -165,6 +167,8 @@ async function loadImageState(path: string | null, locale: LocaleCode) {
       url: null,
       width: null,
       height: null,
+      originalWidth: null,
+      originalHeight: null,
     }
   }
 
@@ -183,6 +187,8 @@ async function loadImageState(path: string | null, locale: LocaleCode) {
           url: resource.url,
           width: resource.width,
           height: resource.height,
+          originalWidth: null,
+          originalHeight: null,
         }
       } catch (error) {
         lastError = error
@@ -897,6 +903,23 @@ async function loadCharacterWorkspaceEntries(rootPath: string, locale: LocaleCod
   })
 }
 
+function mergeCharacterAppearanceOverride(baseCharacter: CharacterWorkspaceEntry, overrideCharacter: CharacterWorkspaceEntry) {
+  return {
+    ...baseCharacter,
+    textureName: overrideCharacter.textureName,
+    spriteAssetName: overrideCharacter.spriteAssetName,
+    portraitAssetName: overrideCharacter.portraitAssetName,
+    spriteWidth: overrideCharacter.spriteWidth,
+    spriteHeight: overrideCharacter.spriteHeight,
+    breather: overrideCharacter.breather,
+    breathChestRect: overrideCharacter.breathChestRect,
+    breathChestPosition: overrideCharacter.breathChestPosition,
+    mugShotSourceRect: overrideCharacter.mugShotSourceRect,
+    shakePortraits: overrideCharacter.shakePortraits,
+    variants: overrideCharacter.variants,
+  } satisfies CharacterWorkspaceEntry
+}
+
 export function useCharacterWorkspace({
   directoryInfo,
   locale,
@@ -904,6 +927,7 @@ export function useCharacterWorkspace({
   enableVisualAssets = true,
 }: UseCharacterWorkspaceOptions) {
   const [characters, setCharacters] = useState<CharacterWorkspaceEntry[]>([])
+  const [modCharacterOverride, setModCharacterOverride] = useState<CharacterWorkspaceEntry | null>(null)
   const [characterFilter, setCharacterFilter] = useState('')
   const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null)
@@ -921,6 +945,8 @@ export function useCharacterWorkspace({
     spriteSheetHeight: null,
     portraitSheetWidth: null,
     portraitSheetHeight: null,
+    portraitOriginalWidth: null,
+    portraitOriginalHeight: null,
     springObjectsSheetWidth: null,
     springObjectsSheetHeight: null,
   })
@@ -957,7 +983,9 @@ export function useCharacterWorkspace({
     () => findModBrowserEntry(modCharacterGroups, activeModCharacterSelectionId),
     [activeModCharacterSelectionId, modCharacterGroups],
   )
-  const activeCharacter = characters.find((character) => character.key === activeCharacterId) ?? filteredCharacters[0] ?? characters[0] ?? null
+  const baseActiveCharacter = characters.find((character) => character.key === activeCharacterId) ?? filteredCharacters[0] ?? characters[0] ?? null
+  const activeCharacter =
+    modCharacterOverride?.key === baseActiveCharacter?.key ? modCharacterOverride : baseActiveCharacter
   const activeVariant =
     activeCharacter?.variants.find((variant) => variant.key === activeVariantKey) ?? activeCharacter?.variants[0] ?? null
 
@@ -965,6 +993,7 @@ export function useCharacterWorkspace({
     if (!directoryInfo?.rootPath) {
       return deferToTimeout(() => {
         setCharacters([])
+        setModCharacterOverride(null)
         setActiveCharacterId(null)
         setActiveVariantKey('default')
         setCharacterStatusMessage('')
@@ -979,6 +1008,8 @@ export function useCharacterWorkspace({
           spriteSheetHeight: null,
           portraitSheetWidth: null,
           portraitSheetHeight: null,
+          portraitOriginalWidth: null,
+          portraitOriginalHeight: null,
           springObjectsSheetWidth: null,
           springObjectsSheetHeight: null,
         })
@@ -1008,6 +1039,7 @@ export function useCharacterWorkspace({
       } catch (error) {
         if (!cancelled) {
           setCharacters([])
+          setModCharacterOverride(null)
           setActiveCharacterId(null)
           setCharacterStatusMessage(error instanceof Error ? error.message : String(error))
         }
@@ -1018,6 +1050,52 @@ export function useCharacterWorkspace({
       cancelled = true
     }
   }, [copy.indexedStatusTemplate, copy.noEntriesStatus, directoryInfo?.rootPath, locale])
+
+  useEffect(() => {
+    if (browserSourceMode !== 'mod' || !directoryInfo?.rootPath || !activeModCharacterEntry || !baseActiveCharacter) {
+      return deferToAnimationFrame(() => {
+        setModCharacterOverride(null)
+      })
+    }
+
+    let cancelled = false
+
+    const cancel = deferToAnimationFrame(() => {
+      void (async () => {
+        try {
+          const modContent = await loadModResultJsonValue({
+            rootPath: directoryInfo.rootPath,
+            entry: activeModCharacterEntry,
+            preferredTargets: ['Data/Characters'],
+          })
+
+          if (cancelled) {
+            return
+          }
+
+          if (!modContent || typeof modContent !== 'object' || Array.isArray(modContent)) {
+            setModCharacterOverride(null)
+            return
+          }
+
+          const overrideCharacter =
+            createCharacterEntryIndex(JSON.stringify(modContent)).find((character) => character.key === baseActiveCharacter.key) ?? null
+          setModCharacterOverride(
+            overrideCharacter ? mergeCharacterAppearanceOverride(baseActiveCharacter, overrideCharacter) : null,
+          )
+        } catch {
+          if (!cancelled) {
+            setModCharacterOverride(null)
+          }
+        }
+      })()
+    })
+
+    return () => {
+      cancelled = true
+      cancel()
+    }
+  }, [activeModCharacterEntry, baseActiveCharacter, browserSourceMode, directoryInfo?.rootPath])
 
   useEffect(() => {
     return deferToAnimationFrame(() => {
@@ -1075,6 +1153,8 @@ export function useCharacterWorkspace({
           spriteSheetHeight: null,
           portraitSheetWidth: null,
           portraitSheetHeight: null,
+          portraitOriginalWidth: null,
+          portraitOriginalHeight: null,
           springObjectsSheetWidth: null,
           springObjectsSheetHeight: null,
         })
@@ -1093,6 +1173,8 @@ export function useCharacterWorkspace({
           spriteSheetHeight: null,
           portraitSheetWidth: null,
           portraitSheetHeight: null,
+          portraitOriginalWidth: null,
+          portraitOriginalHeight: null,
           springObjectsSheetWidth: null,
           springObjectsSheetHeight: null,
         })
@@ -1110,8 +1192,10 @@ export function useCharacterWorkspace({
                   fallbackPathLabel: activeVariant?.spritePathLabel ?? activeCharacter?.internalName ?? 'Characters\\Unknown',
                 })
                   .then((result) => result ?? loadImageState(spritePath, locale))
-                  .catch(() => ({ path: spritePath, url: null, width: null, height: null }))
-              : loadImageState(spritePath, locale).catch(() => ({ path: spritePath, url: null, width: null, height: null })),
+                  .catch(() => ({ path: spritePath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }))
+              : loadImageState(spritePath, locale).catch(
+                  () => ({ path: spritePath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }),
+                ),
             browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
               ? loadModResultImageState({
                   rootPath: directoryInfo.rootPath,
@@ -1120,9 +1204,13 @@ export function useCharacterWorkspace({
                   fallbackPathLabel: activeVariant?.portraitPathLabel ?? activeCharacter?.internalName ?? 'Portraits\\Unknown',
                 })
                   .then((result) => result ?? loadImageState(portraitPath, locale))
-                  .catch(() => ({ path: portraitPath, url: null, width: null, height: null }))
-              : loadImageState(portraitPath, locale).catch(() => ({ path: portraitPath, url: null, width: null, height: null })),
-            loadImageState(springObjectsPath, locale).catch(() => ({ path: springObjectsPath, url: null, width: null, height: null })),
+                  .catch(() => ({ path: portraitPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }))
+              : loadImageState(portraitPath, locale).catch(
+                  () => ({ path: portraitPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }),
+                ),
+            loadImageState(springObjectsPath, locale).catch(
+              () => ({ path: springObjectsPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }),
+            ),
           ])
 
           if (cancelled) {
@@ -1140,6 +1228,8 @@ export function useCharacterWorkspace({
             spriteSheetHeight: sprite.height,
             portraitSheetWidth: portrait.width,
             portraitSheetHeight: portrait.height,
+            portraitOriginalWidth: portrait.originalWidth ?? null,
+            portraitOriginalHeight: portrait.originalHeight ?? null,
             springObjectsSheetWidth: springObjects.width,
             springObjectsSheetHeight: springObjects.height,
           })
@@ -1156,6 +1246,8 @@ export function useCharacterWorkspace({
               spriteSheetHeight: null,
               portraitSheetWidth: null,
               portraitSheetHeight: null,
+              portraitOriginalWidth: null,
+              portraitOriginalHeight: null,
               springObjectsSheetWidth: null,
               springObjectsSheetHeight: null,
             })

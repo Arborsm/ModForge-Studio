@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import CharacterWorkspace from './CharacterWorkspace'
@@ -66,5 +68,73 @@ describe('CharacterWorkspace', () => {
 
     expect(screen.getByText(copy.breathingTitle)).toBeInTheDocument()
     expect(screen.queryByText(copy.breathHint)).not.toBeInTheDocument()
+  })
+
+  it('uses the original portrait sheet dimensions when a ScaleUp result sheet is larger than vanilla', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+
+    const character = createCharacter()
+    const assetState = {
+      ...createAssetState(),
+      portraitPath: 'Portraits\\Abigail',
+      portraitUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAIAAAAt/+nTAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAABhJREFUeNrswQEBAAAAgiD/r25IQAEAAAAAAAA8Bh4AAX1DMy8AAAAASUVORK5CYII=',
+      portraitSheetWidth: 512,
+      portraitSheetHeight: 256,
+      portraitOriginalWidth: 128,
+      portraitOriginalHeight: 64,
+    } as CharacterVisualAssetState & {
+      portraitOriginalWidth: number
+      portraitOriginalHeight: number
+    }
+
+    renderWithLocale(
+      <CharacterWorkspace
+        character={character}
+        activeVariant={character.variants[0] ?? null}
+        assetState={assetState}
+      />,
+    )
+
+    expect(screen.getByText(`${copy.expressions}: 2`)).toBeInTheDocument()
+    expect(screen.queryByText(`${copy.expressions}: 32`)).not.toBeInTheDocument()
+  })
+
+  it('scales oversized ScaleUp portrait previews down to the standard preview size', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
+
+    const character = createCharacter()
+    const assetState = {
+      ...createAssetState(),
+      portraitPath: 'Portraits\\Abigail',
+      portraitUrl:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAgCAIAAAAt/+nTAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAABhJREFUeNrswQEBAAAAgiD/r25IQAEAAAAAAAA8Bh4AAX1DMy8AAAAASUVORK5CYII=',
+      portraitSheetWidth: 512,
+      portraitSheetHeight: 256,
+      portraitOriginalWidth: 128,
+      portraitOriginalHeight: 64,
+    } as CharacterVisualAssetState & {
+      portraitOriginalWidth: number
+      portraitOriginalHeight: number
+    }
+
+    renderWithLocale(
+      <CharacterWorkspace
+        character={character}
+        activeVariant={character.variants[0] ?? null}
+        assetState={assetState}
+      />,
+    )
+
+    const header = screen.getByText('#0').parentElement
+    const previewFrame = header?.nextElementSibling?.firstElementChild as HTMLElement | null
+    const previewLayer = previewFrame?.firstElementChild as HTMLElement | null
+
+    expect(previewFrame?.style.width).toBe('128px')
+    expect(previewFrame?.style.height).toBe('128px')
+    expect(previewLayer?.style.transform).toBe('')
+    expect(previewLayer?.style.backgroundSize).toBe('256px 128px')
   })
 })

@@ -22,7 +22,10 @@ struct ComplexCueEntry {
     payload_offset: usize,
 }
 
-fn validate_sound_match(sound_match: SoundOffsetMatch, wave_bank_counts: &[u32]) -> Option<SoundOffsetMatch> {
+fn validate_sound_match(
+    sound_match: SoundOffsetMatch,
+    wave_bank_counts: &[u32],
+) -> Option<SoundOffsetMatch> {
     let bank_index = sound_match.wave_bank_index as usize;
     if bank_index >= wave_bank_counts.len() {
         return None;
@@ -270,7 +273,10 @@ pub(crate) fn read_xsb_cue_names(bytes: &[u8], header: &XsbHeader) -> Result<Vec
     Ok(names)
 }
 
-pub(crate) fn read_xsb_wave_bank_names(bytes: &[u8], header: &XsbHeader) -> Result<Vec<String>, String> {
+pub(crate) fn read_xsb_wave_bank_names(
+    bytes: &[u8],
+    header: &XsbHeader,
+) -> Result<Vec<String>, String> {
     let offset = header.wave_bank_name_table_offset as usize;
     let entry_size = 64usize;
     let total = header.num_wave_banks as usize;
@@ -292,7 +298,10 @@ pub(crate) fn read_xsb_wave_bank_names(bytes: &[u8], header: &XsbHeader) -> Resu
     Ok(names)
 }
 
-pub(crate) fn read_sound_entries(bytes: &[u8], header: &XsbHeader) -> Result<Vec<SoundEntry>, String> {
+pub(crate) fn read_sound_entries(
+    bytes: &[u8],
+    header: &XsbHeader,
+) -> Result<Vec<SoundEntry>, String> {
     let mut entries = Vec::with_capacity(header.num_sounds as usize);
     let mut offset = header.sounds_offset as usize;
     let base = offset;
@@ -346,14 +355,21 @@ fn find_sound_entry_by_offset(sound_entries: &[SoundEntry], target: u32) -> Opti
     }
 }
 
-fn find_sound_entry_by_absolute_offset(sound_entries: &[SoundEntry], target: usize) -> Option<&SoundEntry> {
+fn find_sound_entry_by_absolute_offset(
+    sound_entries: &[SoundEntry],
+    target: usize,
+) -> Option<&SoundEntry> {
     sound_entries
         .binary_search_by_key(&target, |entry| entry.absolute_offset)
         .ok()
         .and_then(|index| sound_entries.get(index))
 }
 
-fn parse_complex_cue_entry(bytes: &[u8], header: &XsbHeader, cue_index: usize) -> Result<ComplexCueEntry, String> {
+fn parse_complex_cue_entry(
+    bytes: &[u8],
+    header: &XsbHeader,
+    cue_index: usize,
+) -> Result<ComplexCueEntry, String> {
     let complex_index = cue_index
         .checked_sub(header.num_simple_cues as usize)
         .ok_or_else(|| "Cue index is not within the complex cue range.".to_string())?;
@@ -405,8 +421,12 @@ fn parse_complex_variation_table(
             1 => {
                 let sound_offset = read_u32_le(bytes, cursor).ok()? as usize;
                 cursor += 6;
-                if let Some(sound_entry) = find_sound_entry_by_absolute_offset(sound_entries, sound_offset) {
-                    if let Some(sound_match) = parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets) {
+                if let Some(sound_entry) =
+                    find_sound_entry_by_absolute_offset(sound_entries, sound_offset)
+                {
+                    if let Some(sound_match) =
+                        parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets)
+                    {
                         return Some(sound_match);
                     }
                 }
@@ -414,8 +434,12 @@ fn parse_complex_variation_table(
             3 => {
                 let sound_offset = read_u32_le(bytes, cursor).ok()? as usize;
                 cursor += 16;
-                if let Some(sound_entry) = find_sound_entry_by_absolute_offset(sound_entries, sound_offset) {
-                    if let Some(sound_match) = parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets) {
+                if let Some(sound_entry) =
+                    find_sound_entry_by_absolute_offset(sound_entries, sound_offset)
+                {
+                    if let Some(sound_match) =
+                        parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets)
+                    {
                         return Some(sound_match);
                     }
                 }
@@ -510,28 +534,40 @@ pub(crate) fn find_sound_match_for_cue(
 ) -> Result<SoundOffsetMatch, String> {
     if cue_index < header.num_simple_cues as usize {
         let sound_entry = find_sound_entry_for_simple_cue(bytes, header, sound_entries, cue_index)?;
-        return parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets).ok_or_else(|| {
-            format!(
-                "Cue did not resolve to a playable wave entry (sound index {}).",
-                sound_entry.index
-            )
-        });
+        return parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets)
+            .ok_or_else(|| {
+                format!(
+                    "Cue did not resolve to a playable wave entry (sound index {}).",
+                    sound_entry.index
+                )
+            });
     }
 
     let entry = parse_complex_cue_entry(bytes, header, cue_index)?;
     if entry.direct_sound {
         let sound_entry = find_sound_entry_by_absolute_offset(sound_entries, entry.payload_offset)
-            .ok_or_else(|| "Complex cue sound entry offset did not match a sound entry.".to_string())?;
-        return parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets).ok_or_else(|| {
-            format!(
-                "Complex cue did not resolve to a playable wave entry (sound index {}).",
-                sound_entry.index
-            )
-        });
+            .ok_or_else(|| {
+                "Complex cue sound entry offset did not match a sound entry.".to_string()
+            })?;
+        return parse_sound_entry_wave(bytes, sound_entry, wave_bank_counts, best_offsets)
+            .ok_or_else(|| {
+                format!(
+                    "Complex cue did not resolve to a playable wave entry (sound index {}).",
+                    sound_entry.index
+                )
+            });
     }
 
-    parse_complex_variation_table(bytes, entry.payload_offset, sound_entries, wave_bank_counts, best_offsets)
-        .ok_or_else(|| "Complex cue variation table did not resolve to a playable wave entry.".to_string())
+    parse_complex_variation_table(
+        bytes,
+        entry.payload_offset,
+        sound_entries,
+        wave_bank_counts,
+        best_offsets,
+    )
+    .ok_or_else(|| {
+        "Complex cue variation table did not resolve to a playable wave entry.".to_string()
+    })
 }
 
 pub(crate) fn parse_sound_entry_wave(
@@ -560,10 +596,13 @@ pub(crate) fn parse_sound_entry_wave(
     }
     let wave_index = u16::from_le_bytes([xsb[absolute], xsb[absolute + 1]]);
     let wave_bank_index = u16::from_le_bytes([xsb[absolute + 2], xsb[absolute + 3]]);
-    validate_sound_match(SoundOffsetMatch {
-        wave_index,
-        wave_bank_index,
-    }, wave_bank_counts)
+    validate_sound_match(
+        SoundOffsetMatch {
+            wave_index,
+            wave_bank_index,
+        },
+        wave_bank_counts,
+    )
 }
 
 pub(crate) fn build_best_sound_offsets(

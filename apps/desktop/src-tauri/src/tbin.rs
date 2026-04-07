@@ -266,7 +266,9 @@ fn read_map(cursor: &mut Cursor<'_>) -> Result<Map, String> {
         }
         let raw = &cursor.data[cursor.pos..cursor.pos + 6];
         cursor.pos += 6;
-        std::str::from_utf8(raw).map_err(|_| "Invalid TBin header.".to_string())?.to_string()
+        std::str::from_utf8(raw)
+            .map_err(|_| "Invalid TBin header.".to_string())?
+            .to_string()
     };
 
     if magic != "tBIN10" {
@@ -402,7 +404,9 @@ fn property_to_value(value: &PropertyValue) -> MapPropertyValue {
     }
 }
 
-fn convert_properties(values: &HashMap<String, PropertyValue>) -> HashMap<String, MapPropertyValue> {
+fn convert_properties(
+    values: &HashMap<String, PropertyValue>,
+) -> HashMap<String, MapPropertyValue> {
     values
         .iter()
         .map(|(key, value)| (key.clone(), property_to_value(value)))
@@ -448,7 +452,11 @@ pub fn parse_tbin_map(
             .checked_mul(sheet.tile_size.y)
             .map(|value| value.max(0) as u32);
 
-        let image_source = if sheet.image.is_empty() { None } else { Some(sheet.image.clone()) };
+        let image_source = if sheet.image.is_empty() {
+            None
+        } else {
+            Some(sheet.image.clone())
+        };
         let image_path = image_source
             .as_ref()
             .and_then(|source| resolve_tilesheet_path(map_path, &content_root, source));
@@ -492,14 +500,18 @@ pub fn parse_tbin_map(
             }
 
             if tile.animation_frames.is_empty() {
-                if let Some(gid) = resolve_gid(&tilesheet_gid, &tilesets_by_name, &mut tilesets, tile) {
+                if let Some(gid) =
+                    resolve_gid(&tilesheet_gid, &tilesets_by_name, &mut tilesets, tile)
+                {
                     gids[index] = gid;
                     if gid != 0 {
                         non_empty_tiles += 1;
                     }
                 }
             } else {
-                if let Some(gid) = resolve_animated_gid(&tilesheet_gid, &tilesets_by_name, &mut tilesets, tile) {
+                if let Some(gid) =
+                    resolve_animated_gid(&tilesheet_gid, &tilesets_by_name, &mut tilesets, tile)
+                {
                     gids[index] = gid;
                     if gid != 0 {
                         non_empty_tiles += 1;
@@ -620,7 +632,10 @@ fn resolve_animated_gid(
 fn resolve_content_root(map_path: &Path) -> PathBuf {
     let mut current = map_path;
     while let Some(parent) = current.parent() {
-        if parent.file_name().is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("Content")) {
+        if parent
+            .file_name()
+            .is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("Content"))
+        {
             return parent.to_path_buf();
         }
         current = parent;
@@ -656,7 +671,11 @@ fn resolve_tilesheet_path(map_path: &Path, content_root: &Path, source: &str) ->
         candidate_with_extensions(map_directory.join(&source_path))
             .into_iter()
             .next()
-            .or_else(|| candidate_with_extensions(content_root.join(&source_path)).into_iter().next())
+            .or_else(|| {
+                candidate_with_extensions(content_root.join(&source_path))
+                    .into_iter()
+                    .next()
+            })
     }?;
 
     Some(normalize_path(&fallback))

@@ -5,7 +5,8 @@ use crate::pathing::{default_save_root_path, normalize_path, resolve_save_file_p
 
 #[tauri::command]
 pub fn scan_default_save_slots() -> Result<Vec<DefaultSaveSlotSummary>, String> {
-    let save_root = default_save_root_path().ok_or_else(|| "APPDATA is not available on this system.".to_string())?;
+    let save_root = default_save_root_path()
+        .ok_or_else(|| "APPDATA is not available on this system.".to_string())?;
     if !save_root.exists() {
         return Ok(Vec::new());
     }
@@ -25,8 +26,12 @@ pub fn scan_default_save_slots() -> Result<Vec<DefaultSaveSlotSummary>, String> 
             continue;
         };
 
-        let metadata = fs::metadata(&file_path)
-            .map_err(|error| format!("Failed to read save file metadata {}: {error}", normalize_path(&file_path)))?;
+        let metadata = fs::metadata(&file_path).map_err(|error| {
+            format!(
+                "Failed to read save file metadata {}: {error}",
+                normalize_path(&file_path)
+            )
+        })?;
         let modified_time_ms = metadata
             .modified()
             .ok()
@@ -47,6 +52,11 @@ pub fn scan_default_save_slots() -> Result<Vec<DefaultSaveSlotSummary>, String> 
         });
     }
 
-    slots.sort_by(|left, right| right.modified_time_ms.cmp(&left.modified_time_ms).then_with(|| left.slot_name.cmp(&right.slot_name)));
+    slots.sort_by(|left, right| {
+        right
+            .modified_time_ms
+            .cmp(&left.modified_time_ms)
+            .then_with(|| left.slot_name.cmp(&right.slot_name))
+    });
     Ok(slots)
 }

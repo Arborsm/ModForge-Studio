@@ -3,8 +3,8 @@ use super::schema::{parse_json_file, parse_json_str};
 use super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
 use crate::attached_api::AttachedApiRegistry;
 use crate::pathing::{clean_input_path, normalize_path};
-use crate::tbin::MapDocument;
 use crate::tbin::parse_tbin_map;
+use crate::tbin::MapDocument;
 use crate::xnb::read_xnb_from_path;
 use base64::Engine;
 use image::codecs::png::PngEncoder;
@@ -39,7 +39,9 @@ pub fn infer_target_asset_kind(
     if let Some(asset_kind) = attached_api_registry.infer_asset_kind(target) {
         return asset_kind.to_string();
     }
-    if actions.iter().any(|action| action.eq_ignore_ascii_case("EditImage"))
+    if actions
+        .iter()
+        .any(|action| action.eq_ignore_ascii_case("EditImage"))
         || from_files
             .iter()
             .flatten()
@@ -47,7 +49,11 @@ pub fn infer_target_asset_kind(
     {
         return "image".to_string();
     }
-    if actions.iter().any(|action| action.eq_ignore_ascii_case("EditMap")) || target_looks_like_map(target) {
+    if actions
+        .iter()
+        .any(|action| action.eq_ignore_ascii_case("EditMap"))
+        || target_looks_like_map(target)
+    {
         return "map".to_string();
     }
     if target_looks_like_image(target) {
@@ -63,18 +69,20 @@ fn resolve_from_file_path(
 ) -> Result<(String, PathBuf), String> {
     let relative_from = resolve_include_relative_path(Path::new(source_path), from_file)?;
     let normalized_from = normalize_relative_path(&relative_from);
-    let root = snapshot
-        .summary
-        .absolute_path
-        .as_ref()
-        .ok_or_else(|| format!("Unable to resolve FromFile `{from_file}` without project root path."))?;
+    let root = snapshot.summary.absolute_path.as_ref().ok_or_else(|| {
+        format!("Unable to resolve FromFile `{from_file}` without project root path.")
+    })?;
     Ok((normalized_from, Path::new(root).join(&relative_from)))
 }
 
 pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
-            for candidate in [base_path.with_extension("xnb"), base_path.with_extension("json"), base_path.clone()] {
+            for candidate in [
+                base_path.with_extension("xnb"),
+                base_path.with_extension("json"),
+                base_path.clone(),
+            ] {
                 if !candidate.exists() {
                     continue;
                 }
@@ -89,7 +97,10 @@ pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value
                             return xnb.content.to_json();
                         }
                         Err(error) => {
-                            log::warn!("Failed to load base JSON asset {}: {error}", candidate.display());
+                            log::warn!(
+                                "Failed to load base JSON asset {}: {error}",
+                                candidate.display()
+                            );
                         }
                     }
                     continue;
@@ -98,7 +109,10 @@ pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value
                 match parse_json_file(&candidate) {
                     Ok((_, parsed)) => return parsed,
                     Err(error) => {
-                        log::warn!("Failed to load base JSON asset {}: {error}", candidate.display());
+                        log::warn!(
+                            "Failed to load base JSON asset {}: {error}",
+                            candidate.display()
+                        );
                     }
                 }
             }
@@ -127,25 +141,35 @@ fn build_target_asset_base_path(game_root_path: &str, target: &str) -> Option<Pa
         return None;
     }
 
-    Some(clean_input_path(game_root_path).join("Content").join(relative_path))
+    Some(
+        clean_input_path(game_root_path)
+            .join("Content")
+            .join(relative_path),
+    )
 }
 
 fn load_image_from_asset_path(path: &Path) -> Result<RgbaImage, String> {
-    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or_default();
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
     if extension.eq_ignore_ascii_case("xnb") {
         let xnb = read_xnb_from_path(path)?;
-        let texture = xnb
-            .content
-            .as_texture()
-            .ok_or_else(|| format!("XNB image asset {} did not contain a Texture2D payload.", path.display()))?;
-        return RgbaImage::from_vec(texture.width, texture.height, texture.rgba.clone()).ok_or_else(|| {
+        let texture = xnb.content.as_texture().ok_or_else(|| {
             format!(
-                "Texture payload for {} did not match {}x{} RGBA dimensions.",
-                path.display(),
-                texture.width,
-                texture.height
+                "XNB image asset {} did not contain a Texture2D payload.",
+                path.display()
             )
-        });
+        })?;
+        return RgbaImage::from_vec(texture.width, texture.height, texture.rgba.clone())
+            .ok_or_else(|| {
+                format!(
+                    "Texture payload for {} did not match {}x{} RGBA dimensions.",
+                    path.display(),
+                    texture.width,
+                    texture.height
+                )
+            });
     }
 
     image::open(path)
@@ -172,7 +196,11 @@ fn describe_base_image_source(game_root_path: &str, candidate: &Path) -> String 
 pub fn load_base_image_asset(target: &str, game_root_path: Option<&str>) -> LoadedBaseImageAsset {
     if let Some(root) = game_root_path {
         if let Some(base_path) = build_target_asset_base_path(root, target) {
-            for candidate in [base_path.with_extension("xnb"), base_path.with_extension("png"), base_path.clone()] {
+            for candidate in [
+                base_path.with_extension("xnb"),
+                base_path.with_extension("png"),
+                base_path.clone(),
+            ] {
                 if !candidate.exists() {
                     continue;
                 }
@@ -200,7 +228,11 @@ pub fn load_base_image_asset(target: &str, game_root_path: Option<&str>) -> Load
 
 fn build_map_debug_summary(document: &MapDocument) -> ContentPatcherMapDebugSummary {
     ContentPatcherMapDebugSummary {
-        layers: document.layers.iter().map(|layer| layer.name.clone()).collect(),
+        layers: document
+            .layers
+            .iter()
+            .map(|layer| layer.name.clone())
+            .collect(),
         properties: document.properties.keys().cloned().collect(),
         warps: if document.properties.contains_key("Warp") {
             vec!["Warp".to_string()]
@@ -245,24 +277,25 @@ pub fn load_base_map_asset(target: &str, game_root_path: Option<&str>) -> Loaded
         if let Some(base_path) = build_target_asset_base_path(root, target) {
             let candidate = base_path.with_extension("xnb");
             if candidate.exists() {
-                match read_xnb_from_path(&candidate)
-                    .and_then(|xnb| {
-                        let bytes = xnb
-                            .content
-                            .as_bytes()
-                            .ok_or_else(|| format!("Map XNB did not contain TBin data: {}", candidate.display()))?;
-                        parse_tbin_map(
-                            bytes,
-                            &candidate,
-                            &normalize_path(&Path::new("Content").join(format!("{target}.xnb"))),
-                        )
-                    }) {
+                match read_xnb_from_path(&candidate).and_then(|xnb| {
+                    let bytes = xnb.content.as_bytes().ok_or_else(|| {
+                        format!("Map XNB did not contain TBin data: {}", candidate.display())
+                    })?;
+                    parse_tbin_map(
+                        bytes,
+                        &candidate,
+                        &normalize_path(&Path::new("Content").join(format!("{target}.xnb"))),
+                    )
+                }) {
                     Ok(document) => {
                         let debug = build_map_debug_summary(&document);
                         return LoadedMapAsset { document, debug };
                     }
                     Err(error) => {
-                        log::warn!("Failed to load base map asset {}: {error}", candidate.display());
+                        log::warn!(
+                            "Failed to load base map asset {}: {error}",
+                            candidate.display()
+                        );
                     }
                 }
             }
@@ -281,9 +314,14 @@ pub fn load_json_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<Value, String> {
-    let (normalized_from, absolute_from) = resolve_from_file_path(snapshot, source_path, from_file)?;
+    let (normalized_from, absolute_from) =
+        resolve_from_file_path(snapshot, source_path, from_file)?;
 
-    if let Some(source) = snapshot.sources.iter().find(|source| source.path == normalized_from) {
+    if let Some(source) = snapshot
+        .sources
+        .iter()
+        .find(|source| source.path == normalized_from)
+    {
         return parse_json_str(&source.raw_json, &source.path);
     }
 
@@ -297,8 +335,12 @@ pub fn load_image_patch_asset(
     from_file: &str,
 ) -> Result<RgbaImage, String> {
     let (_, absolute_from) = resolve_from_file_path(snapshot, source_path, from_file)?;
-    let image = image::open(&absolute_from)
-        .map_err(|err| format!("Failed to load image patch asset {}: {err}", absolute_from.display()))?;
+    let image = image::open(&absolute_from).map_err(|err| {
+        format!(
+            "Failed to load image patch asset {}: {err}",
+            absolute_from.display()
+        )
+    })?;
     Ok(image.to_rgba8())
 }
 
@@ -308,22 +350,28 @@ pub fn load_map_patch_asset(
     from_file: &str,
 ) -> Result<LoadedMapAsset, String> {
     let (_, absolute_from) = resolve_from_file_path(snapshot, source_path, from_file)?;
-    let bytes = std::fs::read(&absolute_from)
-        .map_err(|err| format!("Failed to read map patch asset {}: {err}", absolute_from.display()))?;
+    let bytes = std::fs::read(&absolute_from).map_err(|err| {
+        format!(
+            "Failed to read map patch asset {}: {err}",
+            absolute_from.display()
+        )
+    })?;
     let document = parse_tbin_map(&bytes, &absolute_from, from_file)?;
     let debug = build_map_debug_summary(&document);
 
-    Ok(LoadedMapAsset {
-        document,
-        debug,
-    })
+    Ok(LoadedMapAsset { document, debug })
 }
 
 pub fn encode_image_png(image: &RgbaImage) -> Result<Vec<u8>, String> {
     let mut buffer = Vec::new();
     let encoder = PngEncoder::new(&mut buffer);
     encoder
-        .write_image(image.as_raw(), image.width(), image.height(), ColorType::Rgba8.into())
+        .write_image(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+            ColorType::Rgba8.into(),
+        )
         .map_err(|err| format!("Failed to encode image result: {err}"))?;
     Ok(buffer)
 }

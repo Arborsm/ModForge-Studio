@@ -48,8 +48,12 @@ pub struct XnbFile {
 }
 
 pub fn read_xnb_from_path(path: &Path) -> Result<XnbFile, String> {
-    let bytes = std::fs::read(path)
-        .map_err(|error| format!("Failed to read XNB file {}: {error}", path.to_string_lossy()))?;
+    let bytes = std::fs::read(path).map_err(|error| {
+        format!(
+            "Failed to read XNB file {}: {error}",
+            path.to_string_lossy()
+        )
+    })?;
     read_xnb_from_bytes(bytes)
 }
 
@@ -152,7 +156,9 @@ pub fn read_xnb_from_bytes(bytes: Vec<u8>) -> Result<XnbFile, String> {
 
     let shared_resources = reader.read_7bit_int()?;
     if shared_resources != 0 {
-        return Err(format!("Unexpected shared resource count: {shared_resources}"));
+        return Err(format!(
+            "Unexpected shared resource count: {shared_resources}"
+        ));
     }
 
     let readers = build_readers(&reader_names)?;

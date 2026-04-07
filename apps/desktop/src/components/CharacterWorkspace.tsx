@@ -3,11 +3,9 @@ import { memo, useEffect, useState } from 'react'
 import {
   buildActorBreathingLayerDescriptor,
   getActorSpriteFrameHeight,
-  getPortraitFrameBounds,
 } from '../lib/app/eventStageAssets'
 import { getActorWalkAnimationState, getSpringObjectsSourceRect, type EventActorState } from '../lib/app/eventStageShared'
 import {
-  getCharacterPortraitFrameCount,
   type CharacterAppearanceVariant,
   type CharacterGiftGroup,
   type CharacterGiftGroupKind,
@@ -18,6 +16,10 @@ import {
 import type { CharactersPanelCopy } from '../lib/editor-shell'
 import { useCharactersCopy } from '../lib/app/localeContext'
 import { cx } from '../lib/cx'
+import {
+  getScaleUpFrameCount,
+  getScaleUpFramePreviewMetrics,
+} from './mods/content-patcher/attached/scaleup/scaleup'
 import { ItemGroupPopover } from './ItemGroupPopover'
 
 type CharacterWorkspaceProps = {
@@ -929,7 +931,24 @@ export default function CharacterWorkspace({
     assetState.spriteSheetWidth && assetState.spriteSheetWidth >= frameWidth
       ? Math.max(1, Math.floor(assetState.spriteSheetWidth / frameWidth))
       : 4
-  const portraitCount = getCharacterPortraitFrameCount(assetState.portraitSheetWidth, assetState.portraitSheetHeight)
+  const portraitFrameImages = {
+    resultImage: assetState.portraitSheetWidth && assetState.portraitSheetHeight
+      ? {
+          width: assetState.portraitSheetWidth,
+          height: assetState.portraitSheetHeight,
+        }
+      : null,
+    originalImage: assetState.portraitOriginalWidth && assetState.portraitOriginalHeight
+      ? {
+          width: assetState.portraitOriginalWidth,
+          height: assetState.portraitOriginalHeight,
+        }
+      : null,
+  }
+  const portraitCount = getScaleUpFrameCount(portraitFrameImages, {
+    frameWidth: 64,
+    frameHeight: 64,
+  })
 
   if (!character) {
     return (
@@ -1118,25 +1137,11 @@ export default function CharacterWorkspace({
             {portraitUrl && portraitSheetWidth && portraitSheetHeight ? (
               <div className="grid gap-2.5 sm:grid-cols-2">
                 {Array.from({ length: portraitCount }, (_, index) => {
-                  const bounds = getPortraitFrameBounds(
-                    {
-                      requestKey: `${character.key}:${activeVariant?.key ?? 'default'}:portrait`,
-                      textureName: character.textureName,
-                      spriteTextureName: null,
-                      portraitTextureName: activeVariant?.portraitAssetName ?? character.portraitAssetName,
-                      spritePath: null,
-                      spriteUrl: null,
-                      spriteSheetWidth: null,
-                      spriteSheetHeight: null,
-                      portraitPath: assetState.portraitPath,
-                      portraitUrl,
-                      portraitSheetWidth,
-                      portraitSheetHeight,
-                      farmerAppearance: null,
-                      characterMetadata: null,
-                    },
-                    index,
-                  )
+                  const previewMetrics = getScaleUpFramePreviewMetrics(portraitFrameImages, index, {
+                    frameWidth: 64,
+                    frameHeight: 64,
+                    previewScale: PORTRAIT_PREVIEW_SCALE,
+                  })
 
                   return (
                     <div
@@ -1151,8 +1156,8 @@ export default function CharacterWorkspace({
                         <div
                           className="panel-canvas-soft relative border-0"
                           style={{
-                            width: `${bounds.frameWidth * PORTRAIT_PREVIEW_SCALE}px`,
-                            height: `${bounds.frameHeight * PORTRAIT_PREVIEW_SCALE}px`,
+                            width: `${previewMetrics.frameWidth}px`,
+                            height: `${previewMetrics.frameHeight}px`,
                           }}
                         >
                           <div
@@ -1160,15 +1165,13 @@ export default function CharacterWorkspace({
                             style={{
                               ...buildAbsoluteSpriteLayerStyle({
                                 url: portraitUrl,
-                                sheetWidth: portraitSheetWidth,
-                                sheetHeight: portraitSheetHeight,
-                                sourceX: bounds.frameX,
-                                sourceY: bounds.frameY,
-                                width: bounds.frameWidth,
-                                height: bounds.frameHeight,
+                                sheetWidth: previewMetrics.sheetWidth,
+                                sheetHeight: previewMetrics.sheetHeight,
+                                sourceX: previewMetrics.frameX,
+                                sourceY: previewMetrics.frameY,
+                                width: previewMetrics.frameWidth,
+                                height: previewMetrics.frameHeight,
                               }),
-                              transform: `scale(${PORTRAIT_PREVIEW_SCALE})`,
-                              transformOrigin: 'top left',
                             }}
                           />
                         </div>

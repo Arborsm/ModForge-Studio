@@ -1,6 +1,6 @@
 use super::assets::{
-    image_to_data_url, infer_target_asset_kind, load_base_image_asset, load_base_json_asset, load_base_map_asset,
-    LoadedBaseImageAsset, LoadedMapAsset,
+    image_to_data_url, infer_target_asset_kind, load_base_image_asset, load_base_json_asset,
+    load_base_map_asset, LoadedBaseImageAsset, LoadedMapAsset,
 };
 use super::common::when_to_value;
 use super::conditions::evaluate_patch_status;
@@ -8,8 +8,9 @@ use super::context::SimulationContext;
 use super::patch_fields::{parse_from_file_values, parse_target_values};
 use super::schema::parse_json_str;
 use super::types::{
-    ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectDiagnostic, ContentPatcherProjectSnapshot,
-    ContentPatcherResultAsset, ContentPatcherTargetSummary, ContentPatcherTraceEntry, LoadContentPatcherResultAssetResult,
+    ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectDiagnostic,
+    ContentPatcherProjectSnapshot, ContentPatcherResultAsset, ContentPatcherTargetSummary,
+    ContentPatcherTraceEntry, LoadContentPatcherResultAssetResult,
 };
 use crate::attached_api::AttachedApiRegistry;
 use image::RgbaImage;
@@ -44,12 +45,20 @@ fn parse_patch_indices(patch_id: &str) -> Result<(usize, usize, usize), String> 
     Ok((source_index, target_index, from_index))
 }
 
-fn parse_patch_map(snapshot: &ContentPatcherProjectSnapshot, patch: &ContentPatcherPlannedPatch) -> Result<Map<String, Value>, String> {
+fn parse_patch_map(
+    snapshot: &ContentPatcherProjectSnapshot,
+    patch: &ContentPatcherPlannedPatch,
+) -> Result<Map<String, Value>, String> {
     let source = snapshot
         .sources
         .iter()
         .find(|source| source.path == patch.source_path)
-        .ok_or_else(|| format!("Patch source `{}` is missing from snapshot.", patch.source_path))?;
+        .ok_or_else(|| {
+            format!(
+                "Patch source `{}` is missing from snapshot.",
+                patch.source_path
+            )
+        })?;
     let source_json = parse_json_str(&source.raw_json, &source.path)?;
     let changes = source_json
         .get("Changes")
@@ -59,13 +68,24 @@ fn parse_patch_map(snapshot: &ContentPatcherProjectSnapshot, patch: &ContentPatc
     let raw_patch = changes
         .get(source_index)
         .and_then(Value::as_object)
-        .ok_or_else(|| format!("Patch `{}` could not be resolved from source index.", patch.id))?;
+        .ok_or_else(|| {
+            format!(
+                "Patch `{}` could not be resolved from source index.",
+                patch.id
+            )
+        })?;
 
     if target_index >= parse_target_values(raw_patch).len() {
-        return Err(format!("Patch `{}` target index is out of bounds.", patch.id));
+        return Err(format!(
+            "Patch `{}` target index is out of bounds.",
+            patch.id
+        ));
     }
     if from_index >= parse_from_file_values(raw_patch).len() {
-        return Err(format!("Patch `{}` from-file index is out of bounds.", patch.id));
+        return Err(format!(
+            "Patch `{}` from-file index is out of bounds.",
+            patch.id
+        ));
     }
 
     let mut resolved_patch = raw_patch.clone();
@@ -141,7 +161,11 @@ where
     }
 }
 
-fn load_target_base(asset_kind: &str, target: &str, game_root_path: Option<&str>) -> LoadedTargetBase {
+fn load_target_base(
+    asset_kind: &str,
+    target: &str,
+    game_root_path: Option<&str>,
+) -> LoadedTargetBase {
     load_target_base_with(
         asset_kind,
         target,
@@ -167,11 +191,19 @@ pub fn load_target_result(
         .cloned()
         .collect::<Vec<_>>();
     if target_patches.is_empty() {
-        return Err(format!("Target `{target}` was not found in the simulation plan."));
+        return Err(format!(
+            "Target `{target}` was not found in the simulation plan."
+        ));
     }
 
-    let actions = target_patches.iter().map(|patch| patch.action.clone()).collect::<Vec<_>>();
-    let from_files = target_patches.iter().map(|patch| patch.from_file.clone()).collect::<Vec<_>>();
+    let actions = target_patches
+        .iter()
+        .map(|patch| patch.action.clone())
+        .collect::<Vec<_>>();
+    let from_files = target_patches
+        .iter()
+        .map(|patch| patch.from_file.clone())
+        .collect::<Vec<_>>();
     let asset_kind = infer_target_asset_kind(target, &actions, &from_files, attached_api_registry);
     let mut trace = Vec::new();
     let mut diagnostics = snapshot.diagnostics.clone();
@@ -214,12 +246,21 @@ pub fn load_target_result(
                 }
                 (LoadedTargetBase::Image { result_image, .. }, "image") => {
                     if patch.action.eq_ignore_ascii_case("EditImage") {
-                        edit_image::apply_edit_image_patch(snapshot, result_image, &parsed_patch, &patch.source_path)
+                        edit_image::apply_edit_image_patch(
+                            snapshot,
+                            result_image,
+                            &parsed_patch,
+                            &patch.source_path,
+                        )
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        let loaded = super::assets::load_image_patch_asset(snapshot, &patch.source_path, from_file)?;
+                        let loaded = super::assets::load_image_patch_asset(
+                            snapshot,
+                            &patch.source_path,
+                            from_file,
+                        )?;
                         *result_image = loaded;
                         Ok(format!("replaced target with `{from_file}`"))
                     } else {
@@ -236,7 +277,11 @@ pub fn load_target_result(
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
                         })?;
-                        *result_map = super::assets::load_map_patch_asset(snapshot, &patch.source_path, from_file)?;
+                        *result_map = super::assets::load_map_patch_asset(
+                            snapshot,
+                            &patch.source_path,
+                            from_file,
+                        )?;
                         Ok(format!("replaced target with `{from_file}`"))
                     } else {
                         Err(format!(
@@ -297,7 +342,10 @@ pub fn load_target_result(
             asset_kind,
             touched_patch_count: target_patches.len(),
             result_state,
-            patch_ids: target_patches.iter().map(|patch| patch.id.clone()).collect(),
+            patch_ids: target_patches
+                .iter()
+                .map(|patch| patch.id.clone())
+                .collect(),
         },
         trace,
         result: match loaded_target {

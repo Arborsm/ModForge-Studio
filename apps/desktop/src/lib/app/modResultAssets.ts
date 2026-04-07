@@ -14,6 +14,8 @@ export type ModResultImageState = {
   url: string
   width: number
   height: number
+  originalWidth: number | null
+  originalHeight: number | null
   target: string
 }
 
@@ -33,11 +35,54 @@ function normalizeTargetPath(value: string) {
   return value.trim().replaceAll('\\', '/').replace(/^Content\//iu, '').toLowerCase()
 }
 
+function stripTargetExtension(value: string) {
+  return value.replace(/\.xnb$/iu, '')
+}
+
+function buildTargetFamilyPrefix(value: string) {
+  const normalized = stripTargetExtension(normalizeTargetPath(value))
+  const slashIndex = normalized.lastIndexOf('/')
+  if (slashIndex < 0) {
+    return null
+  }
+
+  const folder = normalized.slice(0, slashIndex)
+  const leaf = normalized.slice(slashIndex + 1)
+  if (!folder || !leaf) {
+    return null
+  }
+
+  const baseName = leaf.split('_')[0]?.trim()
+  if (!baseName) {
+    return null
+  }
+
+  return `${folder}/${baseName}`
+}
+
 export function findPreferredModTarget<T>(entry: ModBrowserEntry<T>, preferredTargets: string[]) {
   const normalizedPreferred = preferredTargets.map(normalizeTargetPath)
   for (const target of entry.targets) {
     const normalizedTarget = normalizeTargetPath(target)
     if (normalizedPreferred.includes(normalizedTarget)) {
+      return target
+    }
+  }
+
+  const extensionAgnosticPreferred = preferredTargets.map((target) => stripTargetExtension(normalizeTargetPath(target)))
+  for (const target of entry.targets) {
+    const normalizedTarget = stripTargetExtension(normalizeTargetPath(target))
+    if (extensionAgnosticPreferred.includes(normalizedTarget)) {
+      return target
+    }
+  }
+
+  const familyPrefixes = preferredTargets
+    .map(buildTargetFamilyPrefix)
+    .filter((value): value is string => Boolean(value))
+  for (const target of entry.targets) {
+    const normalizedTarget = stripTargetExtension(normalizeTargetPath(target))
+    if (familyPrefixes.some((prefix) => normalizedTarget === prefix || normalizedTarget.startsWith(`${prefix}_`))) {
       return target
     }
   }
@@ -67,11 +112,16 @@ export async function loadModResultImageState<T>({
   }
 
   const resource = await loadImageResource(result.result.imageDataUrl)
+  const originalResource = result.result.originalImageDataUrl
+    ? await loadImageResource(result.result.originalImageDataUrl).catch(() => null)
+    : null
   return {
     path: fallbackPathLabel,
     url: resource.url,
     width: resource.width,
     height: resource.height,
+    originalWidth: originalResource?.width ?? null,
+    originalHeight: originalResource?.height ?? null,
     target,
   }
 }

@@ -23,7 +23,8 @@ fn value_to_scalar_strings(value: &Value) -> Result<Vec<String>, String> {
             let scalars = values
                 .iter()
                 .map(|entry| {
-                    value_to_scalar_string(entry).ok_or_else(|| "has an unsupported non-scalar array value".to_string())
+                    value_to_scalar_string(entry)
+                        .ok_or_else(|| "has an unsupported non-scalar array value".to_string())
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             if scalars.is_empty() {
@@ -76,7 +77,10 @@ fn path_from_relative(root: &str, relative: &str) -> PathBuf {
     path
 }
 
-fn lookup_context_value<'a>(values: &'a std::collections::BTreeMap<String, Value>, token_name: &str) -> Option<&'a Value> {
+fn lookup_context_value<'a>(
+    values: &'a std::collections::BTreeMap<String, Value>,
+    token_name: &str,
+) -> Option<&'a Value> {
     values
         .iter()
         .find(|(candidate, _)| candidate.eq_ignore_ascii_case(token_name))
@@ -116,9 +120,12 @@ fn resolve_condition_value(
         return Ok(Value::Array(values));
     }
     if let Some(relative_path) = strip_prefix_case_insensitive(name, "HasFile:") {
-        let root = project_root_path.ok_or_else(|| "requires a content pack root path".to_string())?;
+        let root =
+            project_root_path.ok_or_else(|| "requires a content pack root path".to_string())?;
         let candidate = path_from_relative(root, relative_path);
-        return Ok(Value::Bool(candidate.exists() && Path::new(&candidate).is_file()));
+        return Ok(Value::Bool(
+            candidate.exists() && Path::new(&candidate).is_file(),
+        ));
     }
     if name == INVALID_WHEN_TOKEN {
         return Err("contains a malformed `When` value; expected an object".to_string());
@@ -146,7 +153,11 @@ fn value_contains_term(value: &Value, expected_term: &str) -> Result<bool, Strin
     }))
 }
 
-fn apply_modifier(modifier: &ConditionModifier, actual: &Value, expected: &Value) -> Result<bool, String> {
+fn apply_modifier(
+    modifier: &ConditionModifier,
+    actual: &Value,
+    expected: &Value,
+) -> Result<bool, String> {
     if modifier.name.eq_ignore_ascii_case("contains") {
         let expected_contains = modifier
             .value
@@ -185,7 +196,11 @@ fn evaluate_token_condition(
     }
 }
 
-pub fn evaluate_patch_status(when: &Value, context: &SimulationContext, project_root_path: Option<&str>) -> ContentPatcherPatchStatus {
+pub fn evaluate_patch_status(
+    when: &Value,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+) -> ContentPatcherPatchStatus {
     let mut mismatch_reasons = Vec::new();
     let mut indeterminate_reasons = Vec::new();
 
@@ -207,7 +222,9 @@ pub fn evaluate_patch_status(when: &Value, context: &SimulationContext, project_
         match evaluate_token_condition(&token, expected, context, project_root_path) {
             Ok(true) => {}
             Ok(false) => mismatch_reasons.push(format!("Condition `{}` did not match.", raw_key)),
-            Err(reason) => indeterminate_reasons.push(format!("Condition `{}` {}.", token.raw_key, reason)),
+            Err(reason) => {
+                indeterminate_reasons.push(format!("Condition `{}` {}.", token.raw_key, reason))
+            }
         }
     }
 

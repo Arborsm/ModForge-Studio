@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  modforge_studio_desktop_lib::run();
+    modforge_studio_desktop_lib::run();
 }

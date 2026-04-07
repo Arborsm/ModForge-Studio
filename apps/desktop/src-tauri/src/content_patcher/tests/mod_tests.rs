@@ -1,12 +1,28 @@
-use super::{export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher};
-use crate::attached_api::test_support::{install_scaleup_attached_api_plugin, with_attached_api_root};
+use super::{
+    export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher,
+};
 use crate::content_patcher::context::SimulationContext;
 use crate::content_patcher::types::{
-    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile, ExportContentPatcherAssetRequest,
-    LoadContentPatcherResultAssetRequest, SimulateContentPatcherRequest,
+    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile,
+    ExportContentPatcherAssetRequest, LoadContentPatcherResultAssetRequest,
+    SimulateContentPatcherRequest,
 };
 use base64::Engine;
 use image::RgbaImage;
+use serde_json::Value;
+use std::path::PathBuf;
+
+fn scaleup_assets_target() -> &'static str {
+    "{{Arborsm.ScaleUpUnofficial/Assets}}"
+}
+
+fn real_skimpy_scaleup_pack_path() -> PathBuf {
+    std::env::var_os("MODFORGE_REAL_SCALEUP_PACK_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\mods\[CP] [DDF] Skimpy VN Portraits")
+        })
+}
 
 #[test]
 fn simulate_content_patcher_marks_malformed_when_as_indeterminate() {
@@ -120,17 +136,19 @@ fn simulate_content_patcher_preserves_target_order_from_plan() {
     };
 
     let result = simulate_content_patcher(request).expect("simulate");
-    let targets = result.targets.iter().map(|target| target.path.as_str()).collect::<Vec<_>>();
+    let targets = result
+        .targets
+        .iter()
+        .map(|target| target.path.as_str())
+        .collect::<Vec<_>>();
     assert_eq!(targets, vec!["Data/Z", "Data/A"]);
 }
 
 #[test]
-fn simulate_content_patcher_loads_attached_api_plugins_from_app_data_directory() {
+fn simulate_content_patcher_uses_built_in_scaleup_asset_kinds() {
     let temp_dir = std::env::temp_dir().join("modforge-cp-appdata-attached-api");
-    let attached_api_root = temp_dir.join("attached-api");
     let pack_root = temp_dir.join("pack");
     std::fs::create_dir_all(&pack_root).expect("pack dir");
-    install_scaleup_attached_api_plugin(&attached_api_root);
 
     std::fs::write(
         pack_root.join("manifest.json"),
@@ -156,22 +174,232 @@ fn simulate_content_patcher_loads_attached_api_plugins_from_app_data_directory()
     )
     .expect("content");
 
-    let result = with_attached_api_root(&attached_api_root, || {
-        simulate_content_patcher(SimulateContentPatcherRequest {
-            path: Some(pack_root.to_string_lossy().into_owned()),
-            game_root_path: None,
-            snapshot: None,
-            manifest_json: None,
-            content_json: None,
-            context: Some(SimulationContext::default()),
-        })
-        .expect("simulate")
+    let result = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
     });
+    let result = result.expect("simulate");
 
-    assert_eq!(result.targets[0].path, "Arborsm.ScaleUpUnofficial/PreviewTexture");
+    assert_eq!(
+        result.targets[0].path,
+        "Arborsm.ScaleUpUnofficial/PreviewTexture"
+    );
     assert_eq!(result.targets[0].asset_kind, "image");
 
     std::fs::remove_dir_all(temp_dir).expect("cleanup");
+}
+
+#[test]
+fn load_content_patcher_result_asset_loads_scaleup_entries_from_included_file() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-scaleup-attached-assets-pack");
+    let pack_root = temp_dir.join("pack");
+    let scaleup_dir = pack_root.join("assets").join("Characters").join("ScaleUp");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&scaleup_dir).expect("scaleup dir");
+
+    std::fs::write(
+        pack_root.join("manifest.json"),
+        r#"{
+  "Name": "Skimpy Portraits Test",
+  "UniqueID": "Mud.SkimpyPortraits",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    )
+    .expect("manifest");
+    std::fs::write(
+        pack_root.join("content.json"),
+        r#"{
+  "Format": "2.4.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "assets/Characters/ScaleUp/sprites.json"
+    }
+  ]
+}"#,
+    )
+    .expect("content");
+    std::fs::write(
+        scaleup_dir.join("sprites.json"),
+        r#"{
+  "Changes": [
+    {
+      "Action": "EditData",
+      "Target": "{{Arborsm.ScaleUpUnofficial/Assets}}",
+      "Entries": {
+        "BB1ScaleUp": [
+          {
+            "Asset": "bonus/Painting I reg",
+            "Scale": 4
+          },
+          {
+            "Target": "Characters",
+            "Assets": "Emily, Emily_Beach, Emily_Swims, Emily_Winter",
+            "Sprite": {
+              "BreathType": "None",
+              "HeadShotX": 16,
+              "HeadShotY": 62
+            }
+          }
+        ]
+      }
+    }
+  ]
+}"#,
+    )
+    .expect("scaleup content");
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+    })
+    .expect("simulate");
+    let target = simulation
+        .targets
+        .iter()
+        .find(|target| target.path == scaleup_assets_target())
+        .expect("scaleup assets target");
+    assert_eq!(target.asset_kind, "json");
+    assert_eq!(target.result_state, "determinate");
+    assert_eq!(target.touched_patch_count, 1);
+
+    let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        target: scaleup_assets_target().to_string(),
+    })
+    .expect("scaleup json result");
+
+    assert_eq!(result.target.path, scaleup_assets_target());
+    assert_eq!(result.target.asset_kind, "json");
+    assert_eq!(result.result.kind, "json");
+    assert_eq!(result.trace.len(), 1);
+    assert_eq!(result.trace[0].status, "applied");
+    assert_eq!(
+        result.trace[0].source_path,
+        "assets/Characters/ScaleUp/sprites.json"
+    );
+
+    let entries = result
+        .result
+        .json
+        .as_ref()
+        .and_then(|json| json.get("BB1ScaleUp"))
+        .and_then(Value::as_array)
+        .expect("BB1ScaleUp array");
+    assert_eq!(entries.len(), 2);
+    assert_eq!(
+        entries[0].get("Asset").and_then(Value::as_str),
+        Some("bonus/Painting I reg")
+    );
+    assert_eq!(entries[0].get("Scale").and_then(Value::as_i64), Some(4));
+    assert_eq!(
+        entries[1].get("Target").and_then(Value::as_str),
+        Some("Characters")
+    );
+    assert_eq!(
+        entries[1].get("Assets").and_then(Value::as_str),
+        Some("Emily, Emily_Beach, Emily_Swims, Emily_Winter")
+    );
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
+}
+
+#[test]
+#[ignore = "requires local Skimpy VN Portraits install"]
+fn load_content_patcher_result_asset_reads_scaleup_entries_from_real_skimpy_pack() {
+    let pack_root = real_skimpy_scaleup_pack_path();
+    assert!(
+        pack_root.join("manifest.json").is_file(),
+        "missing manifest.json for real pack: {}",
+        pack_root.display()
+    );
+    assert!(
+        pack_root
+            .join("assets")
+            .join("Characters")
+            .join("ScaleUp")
+            .join("sprites.json")
+            .is_file(),
+        "missing scaleup sprites.json for real pack: {}",
+        pack_root.display()
+    );
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+    })
+    .expect("simulate real pack");
+    let target = simulation
+        .targets
+        .iter()
+        .find(|target| target.path == scaleup_assets_target())
+        .expect("real scaleup assets target");
+    assert_eq!(target.asset_kind, "json");
+    assert_eq!(target.result_state, "determinate");
+
+    let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        target: scaleup_assets_target().to_string(),
+    })
+    .expect("real scaleup json result");
+
+    assert_eq!(result.target.path, scaleup_assets_target());
+    assert_eq!(result.target.asset_kind, "json");
+    assert_eq!(result.result.kind, "json");
+    assert_eq!(result.trace.len(), 1);
+    assert_eq!(result.trace[0].status, "applied");
+    assert_eq!(
+        result.trace[0].source_path,
+        "assets/Characters/ScaleUp/sprites.json"
+    );
+
+    let entries = result
+        .result
+        .json
+        .as_ref()
+        .and_then(|json| json.get("BB1ScaleUp"))
+        .and_then(Value::as_array)
+        .expect("real BB1ScaleUp array");
+    assert_eq!(entries.len(), 8);
+    assert!(
+        entries.iter().any(|entry| {
+            entry.get("Asset").and_then(Value::as_str) == Some("bonus/Painting I reg")
+                && entry.get("Scale").and_then(Value::as_i64) == Some(4)
+        }),
+        "expected painting scaleup asset entry"
+    );
+    assert!(
+        entries.iter().any(|entry| {
+            entry.get("Target").and_then(Value::as_str) == Some("Characters")
+                && entry
+                    .get("Assets")
+                    .and_then(Value::as_str)
+                    .is_some_and(|assets| assets.contains("Emily"))
+        }),
+        "expected character scaleup sprite entry"
+    );
 }
 
 #[test]
@@ -260,7 +488,13 @@ fn load_content_patcher_result_asset_applies_load_for_json_target() {
 
     let result = load_content_patcher_result_asset(request).expect("json load result");
     let loaded = result.result.json.expect("json payload");
-    assert_eq!(loaded.get("24").and_then(|value| value.get("Price")).and_then(|value| value.as_i64()), Some(35));
+    assert_eq!(
+        loaded
+            .get("24")
+            .and_then(|value| value.get("Price"))
+            .and_then(|value| value.as_i64()),
+        Some(35)
+    );
 }
 
 #[test]
@@ -314,9 +548,115 @@ fn load_content_patcher_result_asset_uses_game_content_json_as_base() {
     .expect("json result");
 
     let loaded = result.result.json.expect("json payload");
-    assert_eq!(loaded.get("24").and_then(|value| value.get("Name")).and_then(|value| value.as_str()), Some("Parsnip"));
-    assert_eq!(loaded.get("24").and_then(|value| value.get("Price")).and_then(|value| value.as_i64()), Some(35));
-    assert_eq!(loaded.get("24").and_then(|value| value.get("Category")).and_then(|value| value.as_i64()), Some(-80));
+    assert_eq!(
+        loaded
+            .get("24")
+            .and_then(|value| value.get("Name"))
+            .and_then(|value| value.as_str()),
+        Some("Parsnip")
+    );
+    assert_eq!(
+        loaded
+            .get("24")
+            .and_then(|value| value.get("Price"))
+            .and_then(|value| value.as_i64()),
+        Some(35)
+    );
+    assert_eq!(
+        loaded
+            .get("24")
+            .and_then(|value| value.get("Category"))
+            .and_then(|value| value.as_i64()),
+        Some(-80)
+    );
+}
+
+#[test]
+fn load_content_patcher_result_asset_applies_target_field_entries_to_character_appearance() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-characters-target-field-pack");
+    let game_root = temp_dir.join("game");
+    let pack_root = temp_dir.join("pack");
+    std::fs::create_dir_all(game_root.join("Content").join("Data")).expect("game data dir");
+    std::fs::create_dir_all(&pack_root).expect("pack dir");
+
+    std::fs::write(
+        game_root.join("Content").join("Data").join("Characters.json"),
+        r#"{
+  "Emily": {
+    "DisplayName": "Emily",
+    "TextureName": "Emily",
+    "Appearance": [
+      {
+        "Id": "Vanilla.EmilyWinter",
+        "Condition": "SEASON winter",
+        "Sprite": "Characters/Emily",
+        "Portrait": "Portraits/Emily_Winter",
+        "Precedence": -100
+      }
+    ]
+  }
+}"#,
+    )
+    .expect("write base characters json");
+    std::fs::write(
+        pack_root.join("manifest.json"),
+        r#"{
+  "Name": "Character TargetField Pack",
+  "UniqueID": "ModForge.CharacterTargetFieldPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    )
+    .expect("manifest");
+    std::fs::write(
+        pack_root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "EditData",
+      "Target": "Data/Characters",
+      "TargetField": ["Emily", "Appearance"],
+      "Entries": {
+        "ModForge.EmilySpring": {
+          "Id": "ModForge.EmilySpring",
+          "Condition": "SEASON spring",
+          "Sprite": "Characters/Emily",
+          "Portrait": "Portraits/Emily_Spring",
+          "Precedence": -1200
+        }
+      }
+    }
+  ]
+}"#,
+    )
+    .expect("content");
+
+    let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        target: "Data/Characters".to_string(),
+    })
+    .expect("characters result");
+
+    let loaded = result.result.json.expect("json payload");
+    let appearance = loaded
+        .get("Emily")
+        .and_then(|value| value.get("Appearance"))
+        .and_then(Value::as_array)
+        .expect("appearance array");
+
+    assert_eq!(appearance.len(), 2);
+    assert!(appearance.iter().any(|entry| {
+        entry.get("Id").and_then(Value::as_str) == Some("Vanilla.EmilyWinter")
+    }));
+    assert!(appearance.iter().any(|entry| {
+        entry.get("Id").and_then(Value::as_str) == Some("ModForge.EmilySpring")
+            && entry.get("Portrait").and_then(Value::as_str) == Some("Portraits/Emily_Spring")
+    }));
 }
 
 #[test]
@@ -347,12 +687,17 @@ fn export_content_patcher_asset_writes_json_result() {
         ),
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
-        output_path: temp_dir.join("Data-Objects.json").to_string_lossy().into_owned(),
+        output_path: temp_dir
+            .join("Data-Objects.json")
+            .to_string_lossy()
+            .into_owned(),
     };
 
     let result = export_content_patcher_asset(request).expect("json export");
     assert_eq!(result.format, "json");
-    assert!(std::fs::read_to_string(&result.output_path).unwrap().contains("\"24\""));
+    assert!(std::fs::read_to_string(&result.output_path)
+        .unwrap()
+        .contains("\"24\""));
 }
 
 #[test]
@@ -385,7 +730,10 @@ fn export_content_patcher_asset_rejects_indeterminate_target() {
         ),
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
-        output_path: std::env::temp_dir().join("blocked.json").to_string_lossy().into_owned(),
+        output_path: std::env::temp_dir()
+            .join("blocked.json")
+            .to_string_lossy()
+            .into_owned(),
     };
 
     let error = export_content_patcher_asset(request).expect_err("blocked export");
@@ -435,13 +783,11 @@ fn load_content_patcher_result_asset_returns_image_data_url() {
     .expect("image result");
 
     assert_eq!(result.result.kind, "image");
-    assert!(
-        result
-            .result
-            .image_data_url
-            .as_deref()
-            .is_some_and(|value| value.starts_with("data:image/png;base64,"))
-    );
+    assert!(result
+        .result
+        .image_data_url
+        .as_deref()
+        .is_some_and(|value| value.starts_with("data:image/png;base64,")));
     assert!(result.exportable);
 }
 
@@ -450,10 +796,14 @@ fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
     let temp_dir = std::env::temp_dir().join("modforge-cp-image-base-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
-    std::fs::create_dir_all(game_root.join("Content").join("TileSheets")).expect("game content dir");
+    std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
+        .expect("game content dir");
     std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
 
-    let base_path = game_root.join("Content").join("TileSheets").join("crops.png");
+    let base_path = game_root
+        .join("Content")
+        .join("TileSheets")
+        .join("crops.png");
     let overlay_path = pack_root.join("assets").join("overlay.png");
 
     let mut base = RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 255, 255]));
@@ -510,7 +860,9 @@ fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .expect("decode png");
-    let image = image::load_from_memory(&decoded).expect("load png").to_rgba8();
+    let image = image::load_from_memory(&decoded)
+        .expect("load png")
+        .to_rgba8();
 
     assert_eq!(image.width(), 4);
     assert_eq!(image.height(), 4);
@@ -550,10 +902,14 @@ fn load_content_patcher_result_asset_accepts_object_areas_without_explicit_x() {
     let temp_dir = std::env::temp_dir().join("modforge-cp-image-area-object-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
-    std::fs::create_dir_all(game_root.join("Content").join("TileSheets")).expect("game content dir");
+    std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
+        .expect("game content dir");
     std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
 
-    let base_path = game_root.join("Content").join("TileSheets").join("Objects_2.png");
+    let base_path = game_root
+        .join("Content")
+        .join("TileSheets")
+        .join("Objects_2.png");
     let overlay_path = pack_root.join("assets").join("artifact.png");
 
     let base = RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 255, 255]));
@@ -611,7 +967,9 @@ fn load_content_patcher_result_asset_accepts_object_areas_without_explicit_x() {
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .expect("decode png");
-    let image = image::load_from_memory(&decoded).expect("load png").to_rgba8();
+    let image = image::load_from_memory(&decoded)
+        .expect("load png")
+        .to_rgba8();
 
     assert_eq!(result.trace[0].status, "applied");
     assert_eq!(image.get_pixel(0, 1).0, [255, 0, 0, 255]);
@@ -622,10 +980,14 @@ fn load_content_patcher_result_asset_accepts_stringified_object_area_numbers() {
     let temp_dir = std::env::temp_dir().join("modforge-cp-image-area-string-object-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
-    std::fs::create_dir_all(game_root.join("Content").join("TileSheets")).expect("game content dir");
+    std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
+        .expect("game content dir");
     std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
 
-    let base_path = game_root.join("Content").join("TileSheets").join("Objects_2.png");
+    let base_path = game_root
+        .join("Content")
+        .join("TileSheets")
+        .join("Objects_2.png");
     let overlay_path = pack_root.join("assets").join("artifact.png");
 
     let base = RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 255, 255]));
@@ -681,7 +1043,9 @@ fn load_content_patcher_result_asset_accepts_stringified_object_area_numbers() {
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .expect("decode png");
-    let image = image::load_from_memory(&decoded).expect("load png").to_rgba8();
+    let image = image::load_from_memory(&decoded)
+        .expect("load png")
+        .to_rgba8();
 
     assert_eq!(result.trace[0].status, "applied");
     assert_eq!(image.get_pixel(1, 2).0, [255, 0, 0, 255]);
@@ -692,10 +1056,14 @@ fn load_content_patcher_result_asset_uses_config_schema_defaults_for_when_condit
     let temp_dir = std::env::temp_dir().join("modforge-cp-config-default-when-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
-    std::fs::create_dir_all(game_root.join("Content").join("TileSheets")).expect("game content dir");
+    std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
+        .expect("game content dir");
     std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
 
-    let base_path = game_root.join("Content").join("TileSheets").join("Objects_2.png");
+    let base_path = game_root
+        .join("Content")
+        .join("TileSheets")
+        .join("Objects_2.png");
     let overlay_path = pack_root.join("assets").join("wine.png");
 
     let base = RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 255, 255]));
@@ -755,7 +1123,9 @@ fn load_content_patcher_result_asset_uses_config_schema_defaults_for_when_condit
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .expect("decode png");
-    let image = image::load_from_memory(&decoded).expect("load png").to_rgba8();
+    let image = image::load_from_memory(&decoded)
+        .expect("load png")
+        .to_rgba8();
 
     assert_eq!(result.trace[0].status, "applied");
     assert_eq!(image.get_pixel(0, 0).0, [255, 0, 0, 255]);
@@ -766,10 +1136,14 @@ fn load_content_patcher_result_asset_applies_image_patch_when_has_file_condition
     let temp_dir = std::env::temp_dir().join("modforge-cp-has-file-when-pack");
     let game_root = temp_dir.join("game");
     let pack_root = temp_dir.join("pack");
-    std::fs::create_dir_all(game_root.join("Content").join("TileSheets")).expect("game content dir");
+    std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
+        .expect("game content dir");
     std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
 
-    let base_path = game_root.join("Content").join("TileSheets").join("Objects_2.png");
+    let base_path = game_root
+        .join("Content")
+        .join("TileSheets")
+        .join("Objects_2.png");
     let overlay_path = pack_root.join("assets").join("node.png");
 
     let base = RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 255, 255]));
@@ -826,7 +1200,9 @@ fn load_content_patcher_result_asset_applies_image_patch_when_has_file_condition
     let decoded = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .expect("decode png");
-    let image = image::load_from_memory(&decoded).expect("load png").to_rgba8();
+    let image = image::load_from_memory(&decoded)
+        .expect("load png")
+        .to_rgba8();
 
     assert_eq!(result.trace[0].status, "applied");
     assert_eq!(image.get_pixel(1, 0).0, [255, 0, 0, 255]);
@@ -947,13 +1323,11 @@ fn simulate_and_load_result_resolve_target_and_from_file_tokens_for_image_target
     .expect("image result");
 
     assert_eq!(result.result.kind, "image");
-    assert!(
-        result
-            .result
-            .image_data_url
-            .as_deref()
-            .is_some_and(|value| value.starts_with("data:image/png;base64,"))
-    );
+    assert!(result
+        .result
+        .image_data_url
+        .as_deref()
+        .is_some_and(|value| value.starts_with("data:image/png;base64,")));
 }
 
 #[test]
@@ -995,7 +1369,10 @@ fn export_content_patcher_asset_writes_png_result() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "TileSheets/crops".to_string(),
-        output_path: temp_dir.join("TileSheets-crops.png").to_string_lossy().into_owned(),
+        output_path: temp_dir
+            .join("TileSheets-crops.png")
+            .to_string_lossy()
+            .into_owned(),
     })
     .expect("png export");
 
@@ -1080,10 +1457,15 @@ fn export_content_patcher_asset_writes_map_debug_json_snapshot() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "Maps/Town".to_string(),
-        output_path: temp_dir.join("Maps-Town.debug.json").to_string_lossy().into_owned(),
+        output_path: temp_dir
+            .join("Maps-Town.debug.json")
+            .to_string_lossy()
+            .into_owned(),
     })
     .expect("map export");
 
     assert_eq!(result.format, "map-debug-json");
-    assert!(std::fs::read_to_string(&result.output_path).unwrap().contains("\"layers\""));
+    assert!(std::fs::read_to_string(&result.output_path)
+        .unwrap()
+        .contains("\"layers\""));
 }

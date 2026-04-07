@@ -34,13 +34,20 @@ fn loads_reference_xact_cues_as_wav_data_urls() {
         let url = xact::load_xact_audio_data_url(game_root.display().to_string(), cue.to_string())
             .unwrap_or_else(|error| panic!("{cue}: {error}"));
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
-        assert!(url.starts_with("data:audio/wav;base64,"), "{cue}: expected wav data url");
+        assert!(
+            url.starts_with("data:audio/wav;base64,"),
+            "{cue}: expected wav data url"
+        );
         assert!(url.len() > 64, "{cue}: data url was unexpectedly short");
         timings.push((cue, elapsed_ms));
     }
 
     let total_ms = suite_started.elapsed().as_secs_f64() * 1000.0;
-    let avg_ms = timings.iter().map(|(_, elapsed_ms)| *elapsed_ms).sum::<f64>() / timings.len() as f64;
+    let avg_ms = timings
+        .iter()
+        .map(|(_, elapsed_ms)| *elapsed_ms)
+        .sum::<f64>()
+        / timings.len() as f64;
     let slowest = timings
         .iter()
         .max_by(|left, right| left.1.total_cmp(&right.1))

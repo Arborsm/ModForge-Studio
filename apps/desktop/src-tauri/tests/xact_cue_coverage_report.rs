@@ -11,14 +11,25 @@ use std::time::Instant;
 fn report_xact_simple_cue_coverage() {
     let game_root = resolve_game_root();
     let xsb_path = game_root.join(r"Content\XACT\Sound Bank.xsb");
-    assert!(xsb_path.exists(), "missing XACT sound bank: {}", xsb_path.display());
+    assert!(
+        xsb_path.exists(),
+        "missing XACT sound bank: {}",
+        xsb_path.display()
+    );
 
     let xsb = fs::read(&xsb_path).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
-    let header = parse_xsb_header(&xsb).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
-    let cue_names = read_xsb_cue_names(&xsb, &header).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
+    let header =
+        parse_xsb_header(&xsb).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
+    let cue_names = read_xsb_cue_names(&xsb, &header)
+        .unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
 
-    let (passed, total, failures, timings) =
-        collect_cue_results(&game_root, cue_names.iter().take(header.num_simple_cues as usize).cloned());
+    let (passed, total, failures, timings) = collect_cue_results(
+        &game_root,
+        cue_names
+            .iter()
+            .take(header.num_simple_cues as usize)
+            .cloned(),
+    );
 
     let timing_summary = summarize_timings(&timings);
     let report = format!(
@@ -47,13 +58,20 @@ fn report_xact_simple_cue_coverage() {
 fn report_xact_total_cue_coverage() {
     let game_root = resolve_game_root();
     let xsb_path = game_root.join(r"Content\XACT\Sound Bank.xsb");
-    assert!(xsb_path.exists(), "missing XACT sound bank: {}", xsb_path.display());
+    assert!(
+        xsb_path.exists(),
+        "missing XACT sound bank: {}",
+        xsb_path.display()
+    );
 
     let xsb = fs::read(&xsb_path).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
-    let header = parse_xsb_header(&xsb).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
-    let cue_names = read_xsb_cue_names(&xsb, &header).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
+    let header =
+        parse_xsb_header(&xsb).unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
+    let cue_names = read_xsb_cue_names(&xsb, &header)
+        .unwrap_or_else(|error| panic!("{}: {error}", xsb_path.display()));
 
-    let (passed, total, failures, timings) = collect_cue_results(&game_root, cue_names.iter().cloned());
+    let (passed, total, failures, timings) =
+        collect_cue_results(&game_root, cue_names.iter().cloned());
     let simple_total = header.num_simple_cues as usize;
     let complex_total = header.num_complex_cues as usize;
     let simple_passed = timings
@@ -109,7 +127,10 @@ fn percentage(passed: usize, total: usize) -> f64 {
     }
 }
 
-fn collect_cue_results<I>(game_root: &std::path::Path, cues: I) -> (usize, usize, Vec<String>, Vec<CueTiming>)
+fn collect_cue_results<I>(
+    game_root: &std::path::Path,
+    cues: I,
+) -> (usize, usize, Vec<String>, Vec<CueTiming>)
 where
     I: IntoIterator<Item = String>,
 {
@@ -152,20 +173,34 @@ fn load_as_wav(game_root: &std::path::Path, cue: &str) -> Result<(), String> {
     }
 }
 
-fn write_report(report_name: &str, failures_name: &str, report: &str, failures: &[String], timings: &[CueTiming]) {
-    let report_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target").join(report_name);
+fn write_report(
+    report_name: &str,
+    failures_name: &str,
+    report: &str,
+    failures: &[String],
+    timings: &[CueTiming],
+) {
+    let report_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join(report_name);
     fs::write(&report_path, report)
         .unwrap_or_else(|error| panic!("failed to write {}: {error}", report_path.display()));
 
-    let failures_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target").join(failures_name);
+    let failures_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("target")
+        .join(failures_name);
     fs::write(&failures_path, failures.join("\n"))
         .unwrap_or_else(|error| panic!("failed to write {}: {error}", failures_path.display()));
 
-    let timing_path = report_path.with_file_name(report_name.replace("-report.txt", "-timings.txt"));
+    let timing_path =
+        report_path.with_file_name(report_name.replace("-report.txt", "-timings.txt"));
     let timing_content = timings
         .iter()
         .map(|timing| match &timing.error {
-            Some(error) => format!("{}\t{:.3} ms\tERROR\t{}", timing.cue, timing.elapsed_ms, error),
+            Some(error) => format!(
+                "{}\t{:.3} ms\tERROR\t{}",
+                timing.cue, timing.elapsed_ms, error
+            ),
             None => format!("{}\t{:.3} ms\tOK", timing.cue, timing.elapsed_ms),
         })
         .collect::<Vec<_>>()
@@ -213,7 +248,10 @@ fn summarize_timings(timings: &[CueTiming]) -> TimingSummary {
 
     let total_ms = timings.iter().map(|timing| timing.elapsed_ms).sum::<f64>();
     let avg_ms = total_ms / timings.len() as f64;
-    let mut sorted = timings.iter().map(|timing| timing.elapsed_ms).collect::<Vec<_>>();
+    let mut sorted = timings
+        .iter()
+        .map(|timing| timing.elapsed_ms)
+        .collect::<Vec<_>>();
     sorted.sort_by(|left, right| left.total_cmp(right));
     let p95_index = ((sorted.len() - 1) as f64 * 0.95).round() as usize;
     let slowest = timings

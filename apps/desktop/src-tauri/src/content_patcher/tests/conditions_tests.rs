@@ -40,13 +40,14 @@ fn evaluate_patch_status_preserves_unsupported_reasons_when_skipped() {
     );
 
     assert_eq!(status.status, "skipped");
-    assert!(status.reasons.iter().any(|reason| reason.contains("Season")));
-    assert!(
-        status
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("not yet supported") || reason.contains("unsupported"))
-    );
+    assert!(status
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("Season")));
+    assert!(status
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("not yet supported") || reason.contains("unsupported")));
 }
 
 #[test]

@@ -10,6 +10,7 @@ import type { ContentPatcherBackendSimulationContext } from '../../lib/plugins/c
 import { useModWorkspaceCopy } from '../../lib/app/localeContext'
 import type { WorkspacePluginDefinition } from '../../lib/plugins/types'
 import { ContentPatcherResultPreview } from './content-patcher/ContentPatcherResultPreview'
+import { ContentPatcherScaleUpPanel } from './content-patcher/attached/scaleup/ContentPatcherScaleUpPanel'
 
 type PatchSummary = {
   id: string
@@ -72,10 +73,18 @@ type ContentPatcherWorkspaceProps = {
   onRemoveSelectedPatch: () => void
   onSaveProject: () => void
   onExportProject: () => void
+  selectedTargetPath?: string | null
+  scaleUpEditor?: {
+    targetPath: string
+    focusSection: 'preview' | 'settings'
+  } | null
+  onScaleUpContentChange?: (nextContent: unknown) => void
+  onCloseScaleUpEditor?: () => void
 }
 
 export function ContentPatcherWorkspace({
   projectDetail,
+  contentEditor,
   contentSummary,
   hasUnsavedChanges,
   canPersist,
@@ -84,14 +93,30 @@ export function ContentPatcherWorkspace({
   contentPatcherResultLoading,
   contentPatcherResultError,
   simulationContext,
+  selectedTargetPath,
+  scaleUpEditor,
   onSimulationContextChange,
   onSaveProject,
   onExportProject,
+  onScaleUpContentChange,
+  onCloseScaleUpEditor,
 }: ContentPatcherWorkspaceProps) {
   const copy = useModWorkspaceCopy()
   if (!projectDetail?.contentPatcher) {
     return <div className="panel-empty-state h-full">{copy.noProject}</div>
   }
+
+  const activeScaleUpPanel = scaleUpEditor
+    && selectedTargetPath === scaleUpEditor.targetPath
+    && contentPatcherResultAsset?.target.path === scaleUpEditor.targetPath
+    && contentPatcherResultAsset.result.kind === 'image'
+    && contentPatcherResultAsset.result.imageDataUrl
+      ? {
+          focusSection: scaleUpEditor.focusSection,
+          imageDataUrl: contentPatcherResultAsset.result.imageDataUrl,
+          result: contentPatcherResultAsset,
+        }
+      : null
 
   return (
     <div className="cp-debugger-shell h-full">
@@ -123,6 +148,17 @@ export function ContentPatcherWorkspace({
           simulationConfigEntries={contentSummary.configEntries ?? contentSummary.configKeys.map((key) => ({ key, defaultValue: null }))}
           onSimulationContextChange={onSimulationContextChange}
         />
+        {activeScaleUpPanel && onScaleUpContentChange && onCloseScaleUpEditor ? (
+          <ContentPatcherScaleUpPanel
+            targetPath={activeScaleUpPanel.result.target.path}
+            focusSection={activeScaleUpPanel.focusSection}
+            content={contentEditor.value}
+            resultImageDataUrl={activeScaleUpPanel.imageDataUrl}
+            originalImageDataUrl={activeScaleUpPanel.result.result.originalImageDataUrl}
+            onContentChange={onScaleUpContentChange}
+            onClose={onCloseScaleUpEditor}
+          />
+        ) : null}
       </section>
     </div>
   )

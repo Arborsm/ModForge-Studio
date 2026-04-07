@@ -17,12 +17,37 @@ pub enum XnbValue {
     Float(f32),
     Double(f64),
     String(String),
-    Vector2 { x: f32, y: f32 },
-    Vector3 { x: f32, y: f32, z: f32 },
-    Vector4 { x: f32, y: f32, z: f32, w: f32 },
-    Rectangle { x: i32, y: i32, width: i32, height: i32 },
-    Color { r: u8, g: u8, b: u8, a: u8 },
-    Point { x: i32, y: i32 },
+    Vector2 {
+        x: f32,
+        y: f32,
+    },
+    Vector3 {
+        x: f32,
+        y: f32,
+        z: f32,
+    },
+    Vector4 {
+        x: f32,
+        y: f32,
+        z: f32,
+        w: f32,
+    },
+    Rectangle {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    },
+    Color {
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+    },
+    Point {
+        x: i32,
+        y: i32,
+    },
     List(Vec<XnbValue>),
     Array(Vec<XnbValue>),
     Dictionary(Vec<(XnbValue, XnbValue)>),
@@ -55,10 +80,21 @@ impl XnbValue {
             XnbValue::Float(value) => compact_f32_value(*value),
             XnbValue::Double(value) => compact_f64_value(*value),
             XnbValue::String(value) => Value::String(value.clone()),
-            XnbValue::Vector2 { x, y } => json!({ "X": compact_f32_value(*x), "Y": compact_f32_value(*y) }),
-            XnbValue::Vector3 { x, y, z } => json!({ "X": compact_f32_value(*x), "Y": compact_f32_value(*y), "Z": compact_f32_value(*z) }),
-            XnbValue::Vector4 { x, y, z, w } => json!({ "X": compact_f32_value(*x), "Y": compact_f32_value(*y), "Z": compact_f32_value(*z), "W": compact_f32_value(*w) }),
-            XnbValue::Rectangle { x, y, width, height } => json!({ "X": x, "Y": y, "Width": width, "Height": height }),
+            XnbValue::Vector2 { x, y } => {
+                json!({ "X": compact_f32_value(*x), "Y": compact_f32_value(*y) })
+            }
+            XnbValue::Vector3 { x, y, z } => {
+                json!({ "X": compact_f32_value(*x), "Y": compact_f32_value(*y), "Z": compact_f32_value(*z) })
+            }
+            XnbValue::Vector4 { x, y, z, w } => {
+                json!({ "X": compact_f32_value(*x), "Y": compact_f32_value(*y), "Z": compact_f32_value(*z), "W": compact_f32_value(*w) })
+            }
+            XnbValue::Rectangle {
+                x,
+                y,
+                width,
+                height,
+            } => json!({ "X": x, "Y": y, "Width": width, "Height": height }),
             XnbValue::Color { r, g, b, a } => json!({ "R": r, "G": g, "B": b, "A": a }),
             XnbValue::Point { x, y } => json!({ "X": x, "Y": y }),
             XnbValue::List(values) | XnbValue::Array(values) => {

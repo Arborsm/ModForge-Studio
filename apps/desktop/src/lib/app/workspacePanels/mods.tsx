@@ -42,6 +42,7 @@ export function buildModsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     navigatorMode: options.navigatorMode,
     selectedTargetPath: options.selectedTargetPath,
     onNavigatorModeChange: options.onNavigatorModeChange,
+    scaleUpEditor: options.scaleUpEditor,
     onModManifestFieldChange: options.onModManifestFieldChange,
     onModManifestTextChange: options.onModManifestTextChange,
     onModContentTextChange: options.onModContentTextChange,
@@ -53,5 +54,8 @@ export function buildModsWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     onExportModProject: options.onExportModProject,
     onSimulationContextChange: options.onSimulationContextChange,
     onSelectTarget: options.onSelectTarget,
+    onOpenScaleUp: options.onOpenScaleUp,
+    onScaleUpContentChange: options.onScaleUpContentChange,
+    onCloseScaleUpEditor: options.onCloseScaleUpEditor,
   })
 }

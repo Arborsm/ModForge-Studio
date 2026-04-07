@@ -47,7 +47,8 @@ pub fn write_result_asset(
                 .map_debug
                 .as_ref()
                 .ok_or_else(|| "missing map debug result".to_string())?;
-            let formatted = serde_json::to_string_pretty(map_debug).map_err(|err| err.to_string())?;
+            let formatted =
+                serde_json::to_string_pretty(map_debug).map_err(|err| err.to_string())?;
             fs::write(output_path, formatted).map_err(|err| err.to_string())?;
             Ok(ExportContentPatcherAssetResult {
                 target: target.to_string(),

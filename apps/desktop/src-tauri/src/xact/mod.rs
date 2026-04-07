@@ -1,7 +1,7 @@
 mod io;
 mod wav;
-mod xwb;
 mod xsb;
+mod xwb;
 
 use base64::Engine;
 use std::fs;
@@ -9,11 +9,11 @@ use std::fs;
 use crate::pathing::{clean_input_path, normalize_path};
 use io::read_exact_at;
 use wav::build_wav_bytes;
-use xwb::{parse_wave_bank_header, read_wave_bank_entries, read_wave_bank_entry_count};
 use xsb::{
     build_best_sound_offsets, find_sound_match_for_cue, parse_xsb_header, read_sound_entries,
     read_xsb_cue_names, read_xsb_wave_bank_names,
 };
+use xwb::{parse_wave_bank_header, read_wave_bank_entries, read_wave_bank_entry_count};
 
 #[tauri::command]
 pub fn load_xact_audio_data_url(root_path: String, cue: String) -> Result<String, String> {
@@ -32,8 +32,12 @@ pub fn load_xact_audio_data_url(root_path: String, cue: String) -> Result<String
         ));
     }
 
-    let xsb = fs::read(&xsb_path)
-        .map_err(|error| format!("Failed to read sound bank {}: {error}", normalize_path(&xsb_path)))?;
+    let xsb = fs::read(&xsb_path).map_err(|error| {
+        format!(
+            "Failed to read sound bank {}: {error}",
+            normalize_path(&xsb_path)
+        )
+    })?;
     let header = parse_xsb_header(&xsb)?;
     let cue_names = read_xsb_cue_names(&xsb, &header)?;
 
@@ -52,7 +56,10 @@ pub fn load_xact_audio_data_url(root_path: String, cue: String) -> Result<String
     for name in &wave_bank_names {
         let path = xact_root.join(format!("{name}.xwb"));
         if !path.exists() {
-            return Err(format!("Wave bank file does not exist: {}", normalize_path(&path)));
+            return Err(format!(
+                "Wave bank file does not exist: {}",
+                normalize_path(&path)
+            ));
         }
         let entry_count = read_wave_bank_entry_count(&path)?;
         wave_bank_paths.push(path);
@@ -61,8 +68,15 @@ pub fn load_xact_audio_data_url(root_path: String, cue: String) -> Result<String
 
     let sound_entries = read_sound_entries(&xsb, &header)?;
     let best_offsets = build_best_sound_offsets(&xsb, &sound_entries, &wave_bank_counts);
-    let sound_match = find_sound_match_for_cue(&xsb, &header, &sound_entries, cue_index, &wave_bank_counts, &best_offsets)
-        .map_err(|error| format!("Cue {cue_name} did not resolve to a playable wave entry: {error}"))?;
+    let sound_match = find_sound_match_for_cue(
+        &xsb,
+        &header,
+        &sound_entries,
+        cue_index,
+        &wave_bank_counts,
+        &best_offsets,
+    )
+    .map_err(|error| format!("Cue {cue_name} did not resolve to a playable wave entry: {error}"))?;
 
     let bank_index = sound_match.wave_bank_index as usize;
     let wave_index = sound_match.wave_index as u32;
@@ -70,8 +84,12 @@ pub fn load_xact_audio_data_url(root_path: String, cue: String) -> Result<String
         .get(bank_index)
         .ok_or_else(|| "Wave bank index is out of range.".to_string())?;
 
-    let mut wave_file = fs::File::open(wave_path)
-        .map_err(|error| format!("Failed to open wave bank {}: {error}", normalize_path(wave_path)))?;
+    let mut wave_file = fs::File::open(wave_path).map_err(|error| {
+        format!(
+            "Failed to open wave bank {}: {error}",
+            normalize_path(wave_path)
+        )
+    })?;
     let (segments, bank_info) = parse_wave_bank_header(&mut wave_file)?;
     let entries = read_wave_bank_entries(&mut wave_file, &segments, &bank_info)?;
     let entry = entries

@@ -36,7 +36,9 @@ pub(crate) struct WaveBankEntry {
     pub duration: u32,
 }
 
-pub(crate) fn parse_wave_bank_header(file: &mut fs::File) -> Result<(Vec<WaveBankSegment>, WaveBankInfo), String> {
+pub(crate) fn parse_wave_bank_header(
+    file: &mut fs::File,
+) -> Result<(Vec<WaveBankSegment>, WaveBankInfo), String> {
     let header = read_exact_at(file, 0, 12)?;
     let magic = std::str::from_utf8(&header[0..4]).unwrap_or_default();
     if magic != "WBND" {
@@ -129,7 +131,10 @@ pub(crate) fn read_wave_bank_entries(
         let mut entries = Vec::with_capacity(entry_count);
         for index in 0..entry_count {
             let play_offset = offsets[index];
-            let next_offset = offsets.get(index + 1).copied().unwrap_or(wave_data_segment.length);
+            let next_offset = offsets
+                .get(index + 1)
+                .copied()
+                .unwrap_or(wave_data_segment.length);
             let play_length = next_offset
                 .saturating_sub(play_offset)
                 .saturating_sub(deviations[index]);

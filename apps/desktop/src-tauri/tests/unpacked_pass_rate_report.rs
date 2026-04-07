@@ -1,7 +1,7 @@
-#[path = "../src/tbin.rs"]
-mod tbin;
 #[path = "../src/pathing.rs"]
 mod pathing;
+#[path = "../src/tbin.rs"]
+mod tbin;
 #[path = "../src/xnb/mod.rs"]
 mod xnb;
 
@@ -81,7 +81,11 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
     let content_root = game_root.join("Content");
     let unpacked_root = game_root.join("Content (unpacked)");
 
-    assert!(content_root.exists(), "missing Content directory: {}", content_root.display());
+    assert!(
+        content_root.exists(),
+        "missing Content directory: {}",
+        content_root.display()
+    );
     assert!(
         unpacked_root.exists(),
         "missing Content (unpacked) directory: {}",
@@ -91,7 +95,10 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
     let mut cases = Vec::new();
     collect_xnb_cases(&content_root, &unpacked_root, &content_root, &mut cases)
         .unwrap_or_else(|error| panic!("failed to scan game content: {error}"));
-    assert!(!cases.is_empty(), "no XNB files with unpacked counterparts were found");
+    assert!(
+        !cases.is_empty(),
+        "no XNB files with unpacked counterparts were found"
+    );
 
     let mut per_kind: BTreeMap<AssetKind, Stats> = BTreeMap::new();
     let mut failure_breakdown: BTreeMap<(AssetKind, FailureKind), usize> = BTreeMap::new();
@@ -104,7 +111,9 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
             AssetKind::TextJson => compare_text_json(case),
             AssetKind::TexturePng => compare_texture_png(case),
             AssetKind::MapTmx => compare_map_tmx(case),
-            AssetKind::SpriteFont | AssetKind::BmFont | AssetKind::Unknown => compare_parse_only(case),
+            AssetKind::SpriteFont | AssetKind::BmFont | AssetKind::Unknown => {
+                compare_parse_only(case)
+            }
         };
 
         let stats = per_kind.entry(case.kind).or_default();
@@ -118,7 +127,9 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
             }
             Err(error) => {
                 let failure_kind = classify_failure(&error);
-                *failure_breakdown.entry((case.kind, failure_kind.clone())).or_default() += 1;
+                *failure_breakdown
+                    .entry((case.kind, failure_kind.clone()))
+                    .or_default() += 1;
                 failures.push(FailureRecord {
                     failure_kind: failure_kind.clone(),
                     error: error.clone(),
@@ -242,12 +253,16 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
     let failure_report_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("target")
         .join("rust-unpack-pass-rate-failures.txt");
-    fs::write(&failure_report_path, &failure_report)
-        .unwrap_or_else(|error| panic!("failed to write {}: {error}", failure_report_path.display()));
+    fs::write(&failure_report_path, &failure_report).unwrap_or_else(|error| {
+        panic!("failed to write {}: {error}", failure_report_path.display())
+    });
 
     eprintln!("{report}");
     eprintln!("Report written to {}", report_path.display());
-    eprintln!("Failure details written to {}", failure_report_path.display());
+    eprintln!(
+        "Failure details written to {}",
+        failure_report_path.display()
+    );
 }
 
 fn resolve_game_root() -> PathBuf {
@@ -284,7 +299,12 @@ fn collect_xnb_cases(
 
         let relative_path = path
             .strip_prefix(root)
-            .map_err(|error| format!("failed to strip content prefix from {}: {error}", path.display()))?
+            .map_err(|error| {
+                format!(
+                    "failed to strip content prefix from {}: {error}",
+                    path.display()
+                )
+            })?
             .to_path_buf();
         let unpacked_base = unpacked_root.join(&relative_path);
         let kind = classify_unpacked_asset(&unpacked_base);
@@ -347,7 +367,8 @@ fn compare_texture_png(case: &AssetCase) -> Result<(), String> {
         .map_err(|error| format!("failed to decode {}: {error}", expected_path.display()))?
         .into_rgba8();
 
-    let parsed = xnb::read_xnb_from_path(&case.xnb_path).map_err(|error| format!("xnb parse failed: {error}"))?;
+    let parsed = xnb::read_xnb_from_path(&case.xnb_path)
+        .map_err(|error| format!("xnb parse failed: {error}"))?;
     let texture = parsed
         .content
         .as_texture()
@@ -364,7 +385,10 @@ fn compare_texture_png(case: &AssetCase) -> Result<(), String> {
     }
 
     if texture.rgba != expected.into_raw() {
-        return Err(format!("pixel mismatch against {}", expected_path.display()));
+        return Err(format!(
+            "pixel mismatch against {}",
+            expected_path.display()
+        ));
     }
 
     Ok(())
@@ -374,7 +398,8 @@ fn compare_map_tmx(case: &AssetCase) -> Result<(), String> {
     let expected_path = unpacked_variant(&case.unpacked_base, "tmx");
     let expected = parse_tmx_header(&expected_path)?;
 
-    let parsed = xnb::read_xnb_from_path(&case.xnb_path).map_err(|error| format!("xnb parse failed: {error}"))?;
+    let parsed = xnb::read_xnb_from_path(&case.xnb_path)
+        .map_err(|error| format!("xnb parse failed: {error}"))?;
     let bytes = parsed
         .content
         .as_bytes()
@@ -410,8 +435,10 @@ fn compare_parse_only(case: &AssetCase) -> Result<(), String> {
 }
 
 fn parse_json_file(path: &Path) -> Result<serde_json::Value, String> {
-    let text = fs::read_to_string(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
-    serde_json::from_str(&text).map_err(|error| format!("failed to parse {}: {error}", path.display()))
+    let text = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    serde_json::from_str(&text)
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))
 }
 
 fn unpacked_variant(unpacked_base: &Path, ext: &str) -> PathBuf {
@@ -432,7 +459,8 @@ struct TmxHeader {
 }
 
 fn parse_tmx_header(path: &Path) -> Result<TmxHeader, String> {
-    let text = fs::read_to_string(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let text = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let map_tag = text
         .find("<map ")
         .and_then(|start| text[start..].find('>').map(|end| &text[start..start + end]))
@@ -470,7 +498,9 @@ fn percentage(passed: usize, total: usize) -> f64 {
 }
 
 fn classify_failure(error: &str) -> FailureKind {
-    if error.contains("Unsupported XNB reader type") || error.contains("Unsupported simplified reader type") {
+    if error.contains("Unsupported XNB reader type")
+        || error.contains("Unsupported simplified reader type")
+    {
         FailureKind::UnsupportedReader
     } else if error.contains("json mismatch") {
         FailureKind::JsonMismatch

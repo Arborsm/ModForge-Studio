@@ -1,6 +1,8 @@
 use self::apply::load_target_result;
 use self::assets::infer_target_asset_kind;
-use self::common::{as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value};
+use self::common::{
+    as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value,
+};
 use self::conditions::evaluate_patch_status;
 use self::context::SimulationContext;
 use self::export::write_result_asset;
@@ -8,20 +10,23 @@ use self::plan::{build_effective_context, build_patch_plan_with_context};
 use self::project::load_content_patcher_project;
 use self::schema::parse_json_str;
 use self::types::{
-    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile, ContentPatcherTargetSummary,
-    ExportContentPatcherAssetRequest, ExportContentPatcherAssetResult, LoadContentPatcherResultAssetRequest,
-    LoadContentPatcherResultAssetResult, SimulateContentPatcherRequest, SimulateContentPatcherResult,
+    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile,
+    ContentPatcherTargetSummary, ExportContentPatcherAssetRequest, ExportContentPatcherAssetResult,
+    LoadContentPatcherResultAssetRequest, LoadContentPatcherResultAssetResult,
+    SimulateContentPatcherRequest, SimulateContentPatcherResult,
 };
-use crate::attached_api::{load_attached_api_registry, AttachedApiRegistry};
+use crate::attached_api::AttachedApiRegistry;
+use crate::content_patcher::attached::load_attached_api_registry;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
 pub mod apply;
 pub mod assets;
+pub(crate) mod attached;
 pub(crate) mod common;
-pub mod diagnostics;
 pub mod conditions;
 pub mod context;
+pub mod diagnostics;
 pub mod export;
 pub(crate) mod patch_fields;
 pub mod plan;
@@ -34,7 +39,10 @@ pub mod types;
 pub mod test_support;
 
 fn content_source_index(snapshot: &ContentPatcherProjectSnapshot) -> Option<usize> {
-    snapshot.sources.iter().position(|source| source.path == "content.json")
+    snapshot
+        .sources
+        .iter()
+        .position(|source| source.path == "content.json")
 }
 
 fn snapshot_content_path(snapshot: &ContentPatcherProjectSnapshot) -> String {
@@ -42,11 +50,17 @@ fn snapshot_content_path(snapshot: &ContentPatcherProjectSnapshot) -> String {
         .summary
         .content_path
         .clone()
-        .or_else(|| content_source_index(snapshot).map(|index| snapshot.sources[index].absolute_path.clone()))
+        .or_else(|| {
+            content_source_index(snapshot)
+                .map(|index| snapshot.sources[index].absolute_path.clone())
+        })
         .unwrap_or_else(|| "content.json".to_string())
 }
 
-fn apply_inline_manifest(snapshot: &mut ContentPatcherProjectSnapshot, manifest_json: &str) -> Result<Value, String> {
+fn apply_inline_manifest(
+    snapshot: &mut ContentPatcherProjectSnapshot,
+    manifest_json: &str,
+) -> Result<Value, String> {
     let manifest = parse_json_str(manifest_json, "manifest.json")?;
     snapshot.summary.name = as_non_empty_string(manifest.get("Name"));
     snapshot.summary.unique_id = as_non_empty_string(manifest.get("UniqueID"));
@@ -69,7 +83,9 @@ fn apply_inline_content(snapshot: &mut ContentPatcherProjectSnapshot, content_js
     }
 }
 
-fn build_inline_snapshot(request: &SimulateContentPatcherRequest) -> Result<ContentPatcherProjectSnapshot, String> {
+fn build_inline_snapshot(
+    request: &SimulateContentPatcherRequest,
+) -> Result<ContentPatcherProjectSnapshot, String> {
     let manifest_json = request.manifest_json.as_deref().unwrap_or("{}");
     let content_json = request
         .content_json
@@ -97,10 +113,17 @@ fn build_inline_snapshot(request: &SimulateContentPatcherRequest) -> Result<Cont
     })
 }
 
-fn resolve_simulation_snapshot(request: &SimulateContentPatcherRequest) -> Result<ContentPatcherProjectSnapshot, String> {
+fn resolve_simulation_snapshot(
+    request: &SimulateContentPatcherRequest,
+) -> Result<ContentPatcherProjectSnapshot, String> {
     let mut snapshot = if let Some(snapshot) = request.snapshot.clone() {
         snapshot
-    } else if let Some(path) = request.path.as_deref().map(str::trim).filter(|path| !path.is_empty()) {
+    } else if let Some(path) = request
+        .path
+        .as_deref()
+        .map(str::trim)
+        .filter(|path| !path.is_empty())
+    {
         load_content_patcher_project(path.to_string())?
     } else {
         return build_inline_snapshot(request);
@@ -140,18 +163,38 @@ fn resolve_simulation_snapshot(request: &SimulateContentPatcherRequest) -> Resul
             snapshot.diagnostics = build_snapshot_diagnostics(manifest_value, content_value);
         } else if request.content_json.is_some() {
             snapshot.diagnostics.retain(|diag| {
-                !matches!(diag.field.as_deref(), Some("content.Format") | Some("content.Changes"))
+                !matches!(
+                    diag.field.as_deref(),
+                    Some("content.Format") | Some("content.Changes")
+                )
             });
-            snapshot.diagnostics.extend(build_snapshot_diagnostics(&Value::Null, content_value).into_iter().filter(|diag| {
-                matches!(diag.field.as_deref(), Some("content.Format") | Some("content.Changes"))
-            }));
+            snapshot.diagnostics.extend(
+                build_snapshot_diagnostics(&Value::Null, content_value)
+                    .into_iter()
+                    .filter(|diag| {
+                        matches!(
+                            diag.field.as_deref(),
+                            Some("content.Format") | Some("content.Changes")
+                        )
+                    }),
+            );
         } else if request.manifest_json.is_some() {
             snapshot.diagnostics.retain(|diag| {
-                !matches!(diag.field.as_deref(), Some("manifest.Name") | Some("manifest.UniqueID"))
+                !matches!(
+                    diag.field.as_deref(),
+                    Some("manifest.Name") | Some("manifest.UniqueID")
+                )
             });
-            snapshot.diagnostics.extend(build_snapshot_diagnostics(manifest_value, &Value::Null).into_iter().filter(|diag| {
-                matches!(diag.field.as_deref(), Some("manifest.Name") | Some("manifest.UniqueID"))
-            }));
+            snapshot.diagnostics.extend(
+                build_snapshot_diagnostics(manifest_value, &Value::Null)
+                    .into_iter()
+                    .filter(|diag| {
+                        matches!(
+                            diag.field.as_deref(),
+                            Some("manifest.Name") | Some("manifest.UniqueID")
+                        )
+                    }),
+            );
         }
     }
 
@@ -176,14 +219,21 @@ fn build_target_summaries(
             .get(index)
             .map(|status| status.status.clone())
             .unwrap_or_else(|| "indeterminate".to_string());
-        grouped.entry(patch.target.clone()).or_default().push((patch.id.clone(), patch.action.clone(), status));
+        grouped.entry(patch.target.clone()).or_default().push((
+            patch.id.clone(),
+            patch.action.clone(),
+            status,
+        ));
     }
 
     target_order
         .into_iter()
         .map(|target| {
             let patch_rows = grouped.remove(&target).unwrap_or_default();
-            let actions = patch_rows.iter().map(|row| row.1.clone()).collect::<Vec<_>>();
+            let actions = patch_rows
+                .iter()
+                .map(|row| row.1.clone())
+                .collect::<Vec<_>>();
             let from_files = plan
                 .patches
                 .iter()
@@ -199,7 +249,12 @@ fn build_target_summaries(
             };
             ContentPatcherTargetSummary {
                 path: target.clone(),
-                asset_kind: infer_target_asset_kind(&target, &actions, &from_files, attached_api_registry),
+                asset_kind: infer_target_asset_kind(
+                    &target,
+                    &actions,
+                    &from_files,
+                    attached_api_registry,
+                ),
                 touched_patch_count: patch_rows.len(),
                 result_state,
                 patch_ids: patch_rows.into_iter().map(|row| row.0).collect(),
@@ -209,7 +264,9 @@ fn build_target_summaries(
 }
 
 #[tauri::command]
-pub fn simulate_content_patcher(request: SimulateContentPatcherRequest) -> Result<SimulateContentPatcherResult, String> {
+pub fn simulate_content_patcher(
+    request: SimulateContentPatcherRequest,
+) -> Result<SimulateContentPatcherResult, String> {
     let snapshot = resolve_simulation_snapshot(&request)?;
     let context = request.context.unwrap_or_else(SimulationContext::default);
     let effective_context = build_effective_context(&snapshot, &context)?;

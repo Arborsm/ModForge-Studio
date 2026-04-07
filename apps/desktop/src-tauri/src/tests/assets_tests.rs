@@ -1,6 +1,6 @@
 use super::{
-    cache_file_path, encode_hex, localized_variant_path, logicalized_asset_path, preferred_existing_xnb_path,
-    split_localized_stem,
+    cache_file_path, encode_hex, localized_variant_path, logicalized_asset_path,
+    preferred_existing_xnb_path, split_localized_stem,
 };
 use crate::test_support::create_temp_dir;
 use std::fs;
@@ -10,7 +10,10 @@ use std::path::Path;
 fn strips_locale_suffix_from_asset_stems() {
     assert_eq!(split_localized_stem("Town"), ("Town", None));
     assert_eq!(split_localized_stem("Town.zh-CN"), ("Town", Some("zh-CN")));
-    assert_eq!(split_localized_stem("Strings.es-ES"), ("Strings", Some("es-ES")));
+    assert_eq!(
+        split_localized_stem("Strings.es-ES"),
+        ("Strings", Some("es-ES"))
+    );
 }
 
 #[test]
@@ -46,7 +49,11 @@ fn encodes_bytes_as_lower_hex() {
 
 #[test]
 fn cache_file_path_uses_lower_hex_sha256_file_names() {
-    let cache_path = cache_file_path("image", Path::new(r"C:\Game\Content\Maps\Town.xnb"), Some("zh-CN"));
+    let cache_path = cache_file_path(
+        "image",
+        Path::new(r"C:\Game\Content\Maps\Town.xnb"),
+        Some("zh-CN"),
+    );
     let file_name = cache_path
         .file_name()
         .and_then(|value| value.to_str())
@@ -54,5 +61,7 @@ fn cache_file_path_uses_lower_hex_sha256_file_names() {
     let hash = file_name.strip_suffix(".json").expect("json cache file");
 
     assert_eq!(hash.len(), 64);
-    assert!(hash.chars().all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()));
+    assert!(hash
+        .chars()
+        .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()));
 }

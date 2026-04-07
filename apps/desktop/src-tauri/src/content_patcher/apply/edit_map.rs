@@ -40,10 +40,20 @@ pub fn apply_edit_map_patch(
         }
     }
 
-    if let Some(from_layer) = patch.get("FromLayer").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(from_layer) = patch
+        .get("FromLayer")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         push_unique(&mut base.layers, from_layer.to_string());
     }
-    if let Some(to_layer) = patch.get("ToLayer").and_then(Value::as_str).map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(to_layer) = patch
+        .get("ToLayer")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         push_unique(&mut base.layers, to_layer.to_string());
     }
 

@@ -42,10 +42,14 @@ impl MiniWaveFormat {
         match self.format_tag {
             Self::TAG_PCM => self.block_align_raw as u16,
             Self::TAG_XMA => ((self.channels * 16) / 8) as u16,
-            Self::TAG_ADPCM => ((self.block_align_raw + Self::ADPCM_BLOCKALIGN_CONVERSION_OFFSET) * self.channels) as u16,
+            Self::TAG_ADPCM => {
+                ((self.block_align_raw + Self::ADPCM_BLOCKALIGN_CONVERSION_OFFSET) * self.channels)
+                    as u16
+            }
             Self::TAG_WMA => {
                 const WMA_BLOCK_ALIGN: [u32; 17] = [
-                    929, 1487, 1280, 2230, 8917, 8192, 4459, 5945, 2304, 1536, 1485, 1008, 2731, 4096, 6827, 5462, 1280,
+                    929, 1487, 1280, 2230, 8917, 8192, 4459, 5945, 2304, 1536, 1485, 1008, 2731,
+                    4096, 6827, 5462, 1280,
                 ];
                 let index = (self.block_align_raw & 0x1f) as usize;
                 if index < WMA_BLOCK_ALIGN.len() {
@@ -59,7 +63,8 @@ impl MiniWaveFormat {
     }
 
     pub fn adpcm_samples_per_block(&self) -> u16 {
-        let block_align = (self.block_align_raw + Self::ADPCM_BLOCKALIGN_CONVERSION_OFFSET) * self.channels;
+        let block_align =
+            (self.block_align_raw + Self::ADPCM_BLOCKALIGN_CONVERSION_OFFSET) * self.channels;
         if self.channels == 0 {
             return 0;
         }
@@ -72,7 +77,12 @@ impl MiniWaveFormat {
     }
 }
 
-fn build_pcm_wav_bytes(channels: u16, sample_rate: u32, bits_per_sample: u16, data: &[u8]) -> Vec<u8> {
+fn build_pcm_wav_bytes(
+    channels: u16,
+    sample_rate: u32,
+    bits_per_sample: u16,
+    data: &[u8],
+) -> Vec<u8> {
     let block_align = channels.saturating_mul(bits_per_sample / 8);
     let avg_bytes_per_sec = sample_rate.saturating_mul(block_align as u32);
 
@@ -127,7 +137,9 @@ fn decode_ms_adpcm(
         (460, -208),
         (392, -232),
     ];
-    const ADAPTATION: [i16; 16] = [230, 230, 230, 230, 307, 409, 512, 614, 768, 614, 512, 409, 307, 230, 230, 230];
+    const ADAPTATION: [i16; 16] = [
+        230, 230, 230, 230, 307, 409, 512, 614, 768, 614, 512, 409, 307, 230, 230, 230,
+    ];
 
     #[derive(Clone, Copy)]
     struct ChannelState {
@@ -209,7 +221,11 @@ fn decode_ms_adpcm(
                     return Ok(output);
                 }
                 let byte = block[byte_index];
-                let nibble = if nibble_index == 0 { byte >> 4 } else { byte & 0x0f };
+                let nibble = if nibble_index == 0 {
+                    byte >> 4
+                } else {
+                    byte & 0x0f
+                };
                 nibble_index ^= 1;
                 if nibble_index == 0 {
                     byte_index += 1;
@@ -249,7 +265,12 @@ pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec
             let channels = format.channels as u16;
             let sample_rate = format.samples_per_sec as u32;
             let bits_per_sample = format.bits_per_sample();
-            Ok(build_pcm_wav_bytes(channels, sample_rate, bits_per_sample, data))
+            Ok(build_pcm_wav_bytes(
+                channels,
+                sample_rate,
+                bits_per_sample,
+                data,
+            ))
         }
         MiniWaveFormat::TAG_ADPCM => {
             let channels = format.channels as usize;
@@ -264,7 +285,12 @@ pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec
             for sample in decoded {
                 pcm_bytes.extend_from_slice(&sample.to_le_bytes());
             }
-            Ok(build_pcm_wav_bytes(channels as u16, sample_rate, 16, &pcm_bytes))
+            Ok(build_pcm_wav_bytes(
+                channels as u16,
+                sample_rate,
+                16,
+                &pcm_bytes,
+            ))
         }
         MiniWaveFormat::TAG_WMA => Err("WMA audio is not supported for preview.".to_string()),
         MiniWaveFormat::TAG_XMA => Err("XMA audio is not supported for preview.".to_string()),

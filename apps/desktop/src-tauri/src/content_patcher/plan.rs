@@ -1,11 +1,14 @@
 use super::context::SimulationContext;
 use super::patch_fields::{parse_from_file_values, parse_target_values};
 use super::project::{
-    include_from_file, normalize_relative_path, patch_action_is_include, resolve_include_relative_path,
+    include_from_file, normalize_relative_path, patch_action_is_include,
+    resolve_include_relative_path,
 };
 use super::schema::parse_json_str;
 use super::tokens::INVALID_WHEN_TOKEN;
-use super::types::{ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot};
+use super::types::{
+    ContentPatcherPatchPlan, ContentPatcherPlannedPatch, ContentPatcherProjectSnapshot,
+};
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -28,7 +31,10 @@ fn normalize_action(patch: &Map<String, Value>) -> String {
 
 fn parse_when(patch: &Map<String, Value>) -> BTreeMap<String, Value> {
     match patch.get("When") {
-        Some(Value::Object(when)) => when.iter().map(|(key, value)| (key.clone(), value.clone())).collect(),
+        Some(Value::Object(when)) => when
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
         Some(value) => {
             let mut unresolved = BTreeMap::new();
             unresolved.insert(INVALID_WHEN_TOKEN.to_string(), value.clone());
@@ -38,7 +44,10 @@ fn parse_when(patch: &Map<String, Value>) -> BTreeMap<String, Value> {
     }
 }
 
-fn merge_when(inherited: &BTreeMap<String, Value>, local: &BTreeMap<String, Value>) -> BTreeMap<String, Value> {
+fn merge_when(
+    inherited: &BTreeMap<String, Value>,
+    local: &BTreeMap<String, Value>,
+) -> BTreeMap<String, Value> {
     let mut merged = inherited.clone();
     for (key, value) in local {
         merged.insert(key.clone(), value.clone());
@@ -91,7 +100,12 @@ pub fn build_effective_context(
     Ok(with_config_defaults(context, &parsed_root))
 }
 
-fn parse_log_name(patch: &Map<String, Value>, action: &str, target: &str, source_index: usize) -> String {
+fn parse_log_name(
+    patch: &Map<String, Value>,
+    action: &str,
+    target: &str,
+    source_index: usize,
+) -> String {
     patch
         .get("LogName")
         .and_then(Value::as_str)
@@ -107,7 +121,12 @@ fn parse_log_name(patch: &Map<String, Value>, action: &str, target: &str, source
         })
 }
 
-fn build_patch_id(lineage: &[String], source_index: usize, target_index: usize, from_index: usize) -> String {
+fn build_patch_id(
+    lineage: &[String],
+    source_index: usize,
+    target_index: usize,
+    from_index: usize,
+) -> String {
     format!(
         "{}:{source_index}#target:{target_index}#from:{from_index}",
         lineage.join("->")
@@ -296,16 +315,21 @@ fn resolve_patch_paths(
     context: &SimulationContext,
 ) -> (String, Option<String>) {
     let base_target = resolve_target_string(raw_target, snapshot, context, None);
-    let base_from_file = raw_from_file.map(|value| resolve_from_file_string(value, snapshot, context, None));
+    let base_from_file =
+        raw_from_file.map(|value| resolve_from_file_string(value, snapshot, context, None));
 
     let final_from_file = if template_references_token(raw_target, "FromFile") {
-        let first_target = resolve_target_string(&base_target, snapshot, context, base_from_file.as_deref());
-        base_from_file.map(|value| resolve_from_file_string(&value, snapshot, context, Some(&first_target)))
+        let first_target =
+            resolve_target_string(&base_target, snapshot, context, base_from_file.as_deref());
+        base_from_file
+            .map(|value| resolve_from_file_string(&value, snapshot, context, Some(&first_target)))
     } else {
-        base_from_file.map(|value| resolve_from_file_string(&value, snapshot, context, Some(&base_target)))
+        base_from_file
+            .map(|value| resolve_from_file_string(&value, snapshot, context, Some(&base_target)))
     };
 
-    let final_target = resolve_target_string(&base_target, snapshot, context, final_from_file.as_deref());
+    let final_target =
+        resolve_target_string(&base_target, snapshot, context, final_from_file.as_deref());
     (final_target, final_from_file)
 }
 
@@ -326,7 +350,11 @@ fn collect_patches_from_source(
     let source = source_values
         .get(source_path)
         .ok_or_else(|| format!("Included file not found in snapshot sources: {source_path}"))?;
-    let changes = source.get("Changes").and_then(Value::as_array).cloned().unwrap_or_default();
+    let changes = source
+        .get("Changes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     for (source_index, change) in changes.iter().enumerate() {
         let Some(patch) = change.as_object() else {
             continue;
@@ -336,7 +364,8 @@ fn collect_patches_from_source(
             let Some(from_file) = include_from_file(patch) else {
                 continue;
             };
-            let include_rel_path = resolve_include_relative_path(Path::new(source_path), &from_file)?;
+            let include_rel_path =
+                resolve_include_relative_path(Path::new(source_path), &from_file)?;
             let include_rel = normalize_relative_path(&include_rel_path);
             let include_when = parse_when(patch);
             let merged_when = merge_when(inherited_when, &include_when);
@@ -382,7 +411,9 @@ fn collect_patches_from_source(
 }
 
 #[allow(dead_code)]
-pub fn build_patch_plan(snapshot: &ContentPatcherProjectSnapshot) -> Result<ContentPatcherPatchPlan, String> {
+pub fn build_patch_plan(
+    snapshot: &ContentPatcherProjectSnapshot,
+) -> Result<ContentPatcherPatchPlan, String> {
     build_patch_plan_with_context(snapshot, &SimulationContext::default())
 }
 

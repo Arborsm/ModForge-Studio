@@ -88,6 +88,10 @@ type BuildModWorkspacePanelsOptions = {
   navigatorMode: 'patches' | 'targets'
   selectedTargetPath: string | null
   onNavigatorModeChange: (mode: 'patches' | 'targets') => void
+  scaleUpEditor?: {
+    targetPath: string
+    focusSection: 'preview' | 'settings'
+  } | null
   onModManifestFieldChange: (field: string, value: string) => void
   onModManifestTextChange: (value: string) => void
   onModContentTextChange: (value: string) => void
@@ -99,6 +103,9 @@ type BuildModWorkspacePanelsOptions = {
   onExportModProject: () => void
   onSimulationContextChange: (next: ContentPatcherBackendSimulationContext) => void
   onSelectTarget: (targetPath: string) => void
+  onOpenScaleUp?: (targetPath: string, focusSection: 'preview' | 'settings') => void
+  onScaleUpContentChange?: (nextContent: unknown) => void
+  onCloseScaleUpEditor?: () => void
 }
 
 export function buildModWorkspacePanels({
@@ -140,6 +147,7 @@ export function buildModWorkspacePanels({
   navigatorMode,
   selectedTargetPath,
   onNavigatorModeChange,
+  scaleUpEditor,
   onModManifestFieldChange,
   onModManifestTextChange,
   onModContentTextChange,
@@ -151,6 +159,9 @@ export function buildModWorkspacePanels({
   onExportModProject,
   onSimulationContextChange,
   onSelectTarget,
+  onOpenScaleUp,
+  onScaleUpContentChange,
+  onCloseScaleUpEditor,
 }: BuildModWorkspacePanelsOptions): WorkspacePanelConfig[] {
   return [
     {
@@ -199,6 +210,7 @@ export function buildModWorkspacePanels({
           selectedTargetPath={selectedTargetPath}
           onSelectPatch={(patchId) => onSelectModPatch(patchId)}
           onSelectTarget={onSelectTarget}
+          onOpenScaleUp={onOpenScaleUp}
         />
       ),
     },
@@ -244,6 +256,10 @@ export function buildModWorkspacePanels({
           onRemoveSelectedPatch={onRemoveModPatch}
           onSaveProject={onSaveModProject}
           onExportProject={onExportModProject}
+          selectedTargetPath={selectedTargetPath}
+          scaleUpEditor={scaleUpEditor}
+          onScaleUpContentChange={onScaleUpContentChange}
+          onCloseScaleUpEditor={onCloseScaleUpEditor}
         />
       ),
     },

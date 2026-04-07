@@ -58,6 +58,9 @@ fn formats_flags_enum_combinations() {
         format_flags_enum(&values, 14),
         Some("OutputCollected, MachinePutDown, DayUpdate".to_string())
     );
-    assert_eq!(format_flags_enum(&values, 3), Some("ItemPlacedInMachine, OutputCollected".to_string()));
+    assert_eq!(
+        format_flags_enum(&values, 3),
+        Some("ItemPlacedInMachine, OutputCollected".to_string())
+    );
     assert_eq!(format_flags_enum(&values, 16), None);
 }

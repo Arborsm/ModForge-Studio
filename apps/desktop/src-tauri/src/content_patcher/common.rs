@@ -62,7 +62,9 @@ pub(crate) fn build_snapshot_diagnostics(
 }
 
 pub(crate) fn when_to_value(when: &BTreeMap<String, Value>) -> Value {
-    Value::Object(Map::from_iter(when.iter().map(|(key, value)| (key.clone(), value.clone()))))
+    Value::Object(Map::from_iter(
+        when.iter().map(|(key, value)| (key.clone(), value.clone())),
+    ))
 }
 
 #[cfg(test)]

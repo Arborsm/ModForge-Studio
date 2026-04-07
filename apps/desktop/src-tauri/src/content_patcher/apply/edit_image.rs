@@ -32,12 +32,14 @@ impl AreaDefaults {
     }
 }
 
-fn parse_object_area(values: &serde_json::Map<String, Value>, defaults: AreaDefaults) -> Result<(u32, u32, u32, u32), String> {
+fn parse_object_area(
+    values: &serde_json::Map<String, Value>,
+    defaults: AreaDefaults,
+) -> Result<(u32, u32, u32, u32), String> {
     let read = |key: &str, default: Option<u32>| -> Result<u32, String> {
         match values.get(key) {
-            Some(value) => {
-                coerce_u32(value).ok_or_else(|| format!("Image area `{key}` must be an unsigned integer."))
-            }
+            Some(value) => coerce_u32(value)
+                .ok_or_else(|| format!("Image area `{key}` must be an unsigned integer.")),
             None => default.ok_or_else(|| format!("Image area object is missing `{key}`.")),
         }
     };
@@ -50,7 +52,10 @@ fn parse_object_area(values: &serde_json::Map<String, Value>, defaults: AreaDefa
     ))
 }
 
-fn parse_area_value(value: Option<&Value>, defaults: AreaDefaults) -> Result<Option<(u32, u32, u32, u32)>, String> {
+fn parse_area_value(
+    value: Option<&Value>,
+    defaults: AreaDefaults,
+) -> Result<Option<(u32, u32, u32, u32)>, String> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -60,7 +65,9 @@ fn parse_area_value(value: Option<&Value>, defaults: AreaDefaults) -> Result<Opt
             let numbers = values
                 .iter()
                 .map(|entry| {
-                    coerce_u32(entry).ok_or_else(|| "Image area array values must be unsigned integers.".to_string())
+                    coerce_u32(entry).ok_or_else(|| {
+                        "Image area array values must be unsigned integers.".to_string()
+                    })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Some((numbers[0], numbers[1], numbers[2], numbers[3])))
@@ -70,10 +77,15 @@ fn parse_area_value(value: Option<&Value>, defaults: AreaDefaults) -> Result<Opt
                 .split(',')
                 .map(str::trim)
                 .filter(|part| !part.is_empty())
-                .map(|part| part.parse::<u32>().map_err(|err| format!("Invalid image area segment `{part}`: {err}")))
+                .map(|part| {
+                    part.parse::<u32>()
+                        .map_err(|err| format!("Invalid image area segment `{part}`: {err}"))
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             if parts.len() != 4 {
-                return Err("Image area string must contain four comma-separated integers.".to_string());
+                return Err(
+                    "Image area string must contain four comma-separated integers.".to_string(),
+                );
             }
             Ok(Some((parts[0], parts[1], parts[2], parts[3])))
         }
@@ -102,13 +114,17 @@ pub fn apply_edit_image_patch(
         .ok_or_else(|| "EditImage patch is missing a FromFile value.".to_string())?;
 
     let mut source = load_image_patch_asset(snapshot, source_path, from_file)?;
-    if let Some((x, y, width, height)) = parse_area_value(patch.get("FromArea"), AreaDefaults::source())? {
+    if let Some((x, y, width, height)) =
+        parse_area_value(patch.get("FromArea"), AreaDefaults::source())?
+    {
         source = crop_image_area(&source, x, y, width, height)?;
     }
 
-    let (to_x, to_y, _, _) =
-        parse_area_value(patch.get("ToArea"), AreaDefaults::destination(source.width(), source.height()))?
-            .unwrap_or((0, 0, source.width(), source.height()));
+    let (to_x, to_y, _, _) = parse_area_value(
+        patch.get("ToArea"),
+        AreaDefaults::destination(source.width(), source.height()),
+    )?
+    .unwrap_or((0, 0, source.width(), source.height()));
     let required_width = to_x
         .checked_add(source.width())
         .ok_or_else(|| "Image destination width overflowed.".to_string())?;

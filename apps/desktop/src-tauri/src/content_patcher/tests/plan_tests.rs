@@ -43,7 +43,8 @@ fn build_patch_plan_flattens_includes_merges_when_and_splits_targets() {
 }"#,
     );
 
-    let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
     let plan = build_patch_plan(&snapshot).expect("plan");
 
     assert_eq!(plan.patches.len(), 2);
@@ -51,7 +52,13 @@ fn build_patch_plan_flattens_includes_merges_when_and_splits_targets() {
     assert_eq!(plan.patches[1].target, "Maps/BusStop");
     assert_eq!(plan.patches[0].log_name, "Load -> Maps/Town");
     assert_eq!(plan.patches[1].log_name, "Load -> Maps/BusStop");
-    assert_eq!(plan.patches[0].when.get("Season").and_then(|value| value.as_str()), Some("spring"));
+    assert_eq!(
+        plan.patches[0]
+            .when
+            .get("Season")
+            .and_then(|value| value.as_str()),
+        Some("spring")
+    );
     assert_eq!(
         plan.patches[0].id,
         "content.json->patches/spring.json#include:0:0#target:0#from:0"
@@ -97,7 +104,8 @@ fn build_patch_plan_uses_snapshot_raw_json_without_rereading_source_files() {
 }"#,
     );
 
-    let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
     fs::remove_dir_all(&root).expect("remove source files");
 
     let plan = build_patch_plan(&snapshot).expect("plan");
@@ -134,11 +142,16 @@ fn build_patch_plan_distinguishes_ids_for_duplicate_include_sites() {
 }"#,
     );
 
-    let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
     let plan = build_patch_plan(&snapshot).expect("plan");
 
     assert_eq!(plan.patches.len(), 2);
-    let ids = plan.patches.iter().map(|patch| patch.id.clone()).collect::<BTreeSet<_>>();
+    let ids = plan
+        .patches
+        .iter()
+        .map(|patch| patch.id.clone())
+        .collect::<BTreeSet<_>>();
     assert_eq!(ids.len(), 2, "expected distinct ids per include site");
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -182,14 +195,30 @@ fn build_patch_plan_merges_parent_and_child_when_with_child_precedence() {
 }"#,
     );
 
-    let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
     let plan = build_patch_plan(&snapshot).expect("plan");
     let patch = plan.patches.first().expect("patch");
 
-    assert_eq!(patch.when.get("Weather").and_then(|value| value.as_str()), Some("rain"));
-    assert_eq!(patch.when.get("LocationName").and_then(|value| value.as_str()), Some("Town"));
-    assert_eq!(patch.when.get("Day").and_then(|value| value.as_str()), Some("15"));
-    assert_eq!(patch.when.get("Season").and_then(|value| value.as_str()), Some("summer"));
+    assert_eq!(
+        patch.when.get("Weather").and_then(|value| value.as_str()),
+        Some("rain")
+    );
+    assert_eq!(
+        patch
+            .when
+            .get("LocationName")
+            .and_then(|value| value.as_str()),
+        Some("Town")
+    );
+    assert_eq!(
+        patch.when.get("Day").and_then(|value| value.as_str()),
+        Some("15")
+    );
+    assert_eq!(
+        patch.when.get("Season").and_then(|value| value.as_str()),
+        Some("summer")
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -225,8 +254,10 @@ fn build_patch_plan_uses_config_schema_defaults_in_tokenized_targets() {
 }"#,
     );
 
-    let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
-    let plan = build_patch_plan_with_context(&snapshot, &SimulationContext::default()).expect("plan");
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let plan =
+        build_patch_plan_with_context(&snapshot, &SimulationContext::default()).expect("plan");
 
     assert_eq!(plan.patches[0].target, "TileSheets/festive_crops");
 
@@ -264,11 +295,14 @@ fn build_patch_plan_prefers_explicit_config_values_over_schema_defaults() {
 }"#,
     );
 
-    let snapshot = load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
+    let snapshot =
+        load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
     let plan = build_patch_plan_with_context(
         &snapshot,
         &SimulationContext {
-            config: [("Variant".to_string(), json!("base"))].into_iter().collect(),
+            config: [("Variant".to_string(), json!("base"))]
+                .into_iter()
+                .collect(),
             ..SimulationContext::default()
         },
     )

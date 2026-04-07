@@ -24,4 +24,17 @@
     background: color-mix(in srgb, var(--border-color) 80%, transparent);
     @apply my-1 h-px;
   }
+
+  .context-menu-subtrigger {
+    @apply justify-between gap-4;
+  }
+
+  .context-menu-subcontent {
+    @apply min-w-[170px];
+  }
+
+  .context-menu-subhint {
+    color: var(--text-tertiary);
+    @apply text-[11px];
+  }
 }

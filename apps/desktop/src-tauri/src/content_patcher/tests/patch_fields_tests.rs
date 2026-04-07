@@ -8,7 +8,9 @@ fn patch(fields: Value) -> Map<String, Value> {
 #[test]
 fn parse_target_values_splits_strings_and_preserves_empty_fallback() {
     assert_eq!(
-        parse_target_values(&patch(json!({ "Target": "Data/Objects, TileSheets/crops" }))),
+        parse_target_values(&patch(
+            json!({ "Target": "Data/Objects, TileSheets/crops" })
+        )),
         vec!["Data/Objects".to_string(), "TileSheets/crops".to_string()]
     );
     assert_eq!(parse_target_values(&patch(json!({}))), vec![String::new()]);
@@ -29,5 +31,8 @@ fn parse_from_file_values_normalizes_empty_and_array_inputs() {
             Some("assets/two.png".to_string())
         ]
     );
-    assert_eq!(parse_from_file_values(&patch(json!({ "FromFile": "" }))), vec![None]);
+    assert_eq!(
+        parse_from_file_values(&patch(json!({ "FromFile": "" }))),
+        vec![None]
+    );
 }

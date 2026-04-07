@@ -103,6 +103,10 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null)
   const [navigatorMode, setNavigatorMode] = useState<'patches' | 'targets'>('patches')
   const [selectedTargetPath, setSelectedTargetPath] = useState<string | null>(null)
+  const [scaleUpEditor, setScaleUpEditor] = useState<{
+    targetPath: string
+    focusSection: 'preview' | 'settings'
+  } | null>(null)
   const [patchWhenError, setPatchWhenError] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState('')
   const [lastSaveResult, setLastSaveResult] = useState<SaveModProjectResult | null>(null)
@@ -203,6 +207,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setSelectedPatchId(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
+        setScaleUpEditor(null)
         setPatchWhenError(null)
         setStatusMessage('')
         setLastSaveResult(null)
@@ -248,6 +253,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setSelectedPatchId(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
+        setScaleUpEditor(null)
         setPatchWhenError(null)
         setContentPatcherSnapshot(null)
         setContentPatcherSimulation(null)
@@ -275,6 +281,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setPatchWhenError(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
+        setScaleUpEditor(null)
         setSelectedPatchId(detail.contentPatcher?.patches[0]?.id ?? null)
       })
       .catch((error) => {
@@ -285,6 +292,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
           setSelectedPatchId(null)
           setNavigatorMode('patches')
           setSelectedTargetPath(null)
+          setScaleUpEditor(null)
           setPatchWhenError(null)
           setContentPatcherSnapshot(null)
           setContentPatcherSimulation(null)
@@ -415,6 +423,14 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   }, [contentPatcherSimulation?.targets])
 
   useEffect(() => {
+    if (!scaleUpEditor || !selectedTargetPath || selectedTargetPath === scaleUpEditor.targetPath) {
+      return
+    }
+
+    setScaleUpEditor(null)
+  }, [scaleUpEditor, selectedTargetPath])
+
+  useEffect(() => {
     if (!contentPatcherSnapshot || !selectedTargetPath || manifestEditor.error || contentEditor.error) {
       return scheduleDeferred(() => {
         setContentPatcherResultAsset(null)
@@ -495,6 +511,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     setContentPatcherResultError(null)
     setNavigatorMode('patches')
     setSelectedTargetPath(null)
+    setScaleUpEditor(null)
     setSimulationContext(createDefaultSimulationContext())
   }
 
@@ -543,6 +560,11 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
 
   function handleContentTextChange(value: string) {
     setContentEditor(normalizeEditorState(value))
+    setPatchWhenError(null)
+  }
+
+  function handleScaleUpContentChange(nextContent: unknown) {
+    updateContentValue(nextContent)
     setPatchWhenError(null)
   }
 
@@ -634,6 +656,19 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     })
   }
 
+  function handleOpenScaleUpEditor(targetPath: string, focusSection: 'preview' | 'settings') {
+    setNavigatorMode('targets')
+    setSelectedTargetPath(targetPath)
+    setScaleUpEditor({
+      targetPath,
+      focusSection,
+    })
+  }
+
+  function handleCloseScaleUpEditor() {
+    setScaleUpEditor(null)
+  }
+
   return {
     copy,
     pluginDefinition,
@@ -670,6 +705,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     setNavigatorMode,
     selectedTargetPath,
     setSelectedTargetPath,
+    scaleUpEditor,
     handleSelectProject,
     handleImportProject,
     handleRefreshProjects,
@@ -683,6 +719,9 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     handleSaveProject,
     handleExportProject,
     handleSimulationContextChange,
+    handleOpenScaleUpEditor,
+    handleCloseScaleUpEditor,
+    handleScaleUpContentChange,
   }
 }
 

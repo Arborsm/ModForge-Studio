@@ -121,7 +121,12 @@ fn collect_linux_install_paths() -> Vec<PathBuf> {
         return Vec::new();
     };
 
-    let primary_steam = home.join(".steam").join("steam").join("steamapps").join("common").join("Stardew Valley");
+    let primary_steam = home
+        .join(".steam")
+        .join("steam")
+        .join("steamapps")
+        .join("common")
+        .join("Stardew Valley");
     let fallback_steam = home
         .join(".local")
         .join("share")
@@ -132,7 +137,11 @@ fn collect_linux_install_paths() -> Vec<PathBuf> {
 
     vec![
         home.join("GOG Games").join("Stardew Valley").join("game"),
-        if primary_steam.exists() { primary_steam } else { fallback_steam },
+        if primary_steam.exists() {
+            primary_steam
+        } else {
+            fallback_steam
+        },
         home.join(".var")
             .join("app")
             .join("com.valvesoftware.Steam")
@@ -147,7 +156,9 @@ fn collect_linux_install_paths() -> Vec<PathBuf> {
 #[cfg(target_os = "macos")]
 fn collect_macos_install_paths() -> Vec<PathBuf> {
     let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
-        return vec![PathBuf::from("/Applications/Stardew Valley.app/Contents/MacOS")];
+        return vec![PathBuf::from(
+            "/Applications/Stardew Valley.app/Contents/MacOS",
+        )];
     };
 
     vec![
@@ -175,11 +186,9 @@ fn collect_windows_install_paths() -> Vec<PathBuf> {
         ),
         (r"SOFTWARE\WOW6432Node\GOG.com\Games\1453375253", "PATH"),
     ] {
-        if let Some(value) = read_windows_registry_value(
-            winreg::enums::HKEY_LOCAL_MACHINE,
-            key,
-            value_name,
-        ) {
+        if let Some(value) =
+            read_windows_registry_value(winreg::enums::HKEY_LOCAL_MACHINE, key, value_name)
+        {
             candidates.push(PathBuf::from(value));
         }
     }
@@ -204,16 +213,25 @@ fn collect_windows_install_paths() -> Vec<PathBuf> {
 
     for program_files in ["C:\\Program Files", "C:\\Program Files (x86)"] {
         let root = PathBuf::from(program_files);
-        candidates.push(root.join("GalaxyClient").join("Games").join("Stardew Valley"));
+        candidates.push(
+            root.join("GalaxyClient")
+                .join("Games")
+                .join("Stardew Valley"),
+        );
         candidates.push(root.join("GOG Galaxy").join("Games").join("Stardew Valley"));
         candidates.push(root.join("GOG Games").join("Stardew Valley"));
-        candidates.push(root.join("Steam").join("steamapps").join("common").join("Stardew Valley"));
+        candidates.push(
+            root.join("Steam")
+                .join("steamapps")
+                .join("common")
+                .join("Stardew Valley"),
+        );
     }
 
     for drive_letter in 'C'..='H' {
-        candidates.push(
-            PathBuf::from(format!("{drive_letter}:\\Program Files\\ModifiableWindowsApps\\Stardew Valley")),
-        );
+        candidates.push(PathBuf::from(format!(
+            "{drive_letter}:\\Program Files\\ModifiableWindowsApps\\Stardew Valley"
+        )));
     }
 
     candidates

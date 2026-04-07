@@ -48,18 +48,29 @@ describe('modResultAssets', () => {
         kind: 'image',
         json: null,
         imageDataUrl: 'data:image/png;base64,modded',
-        originalImageDataUrl: null,
+        originalImageDataUrl: 'data:image/png;base64,original',
         originalImageSource: null,
         mapDebug: null,
       },
       diagnostics: [],
       exportable: true,
     })
-    vi.mocked(loadImageResource).mockResolvedValue({
-      image: {} as HTMLImageElement,
-      url: 'data:image/png;base64,modded',
-      width: 32,
-      height: 64,
+    vi.mocked(loadImageResource).mockImplementation(async (dataUrl) => {
+      if (dataUrl === 'data:image/png;base64,original') {
+        return {
+          image: {} as HTMLImageElement,
+          url: 'data:image/png;base64,original',
+          width: 8,
+          height: 16,
+        }
+      }
+
+      return {
+        image: {} as HTMLImageElement,
+        url: 'data:image/png;base64,modded',
+        width: 32,
+        height: 64,
+      }
     })
 
     const state = await loadModResultImageState({
@@ -83,6 +94,8 @@ describe('modResultAssets', () => {
       url: 'data:image/png;base64,modded',
       width: 32,
       height: 64,
+      originalWidth: 8,
+      originalHeight: 16,
       target: 'Characters/Abigail',
     })
   })
@@ -148,6 +161,61 @@ describe('modResultAssets', () => {
       name: 'Town',
       relativePath: 'Maps\\Town',
       sourcePath: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack\\assets\\Town.tbin',
+    })
+  })
+
+  it('loads a related portrait target when the mod only patches portrait variants', async () => {
+    vi.mocked(loadContentPatcherResultAsset).mockResolvedValue({
+      target: {
+        path: 'Portraits/Haley_Spring_Indoor',
+        assetKind: 'image',
+        touchedPatchCount: 1,
+        resultState: 'determinate',
+        patchIds: ['content.json:0#target:0#from:0'],
+      },
+      trace: [],
+      result: {
+        kind: 'image',
+        json: null,
+        imageDataUrl: 'data:image/png;base64,seasonal',
+        originalImageDataUrl: null,
+        originalImageSource: null,
+        mapDebug: null,
+      },
+      diagnostics: [],
+      exportable: true,
+    })
+    vi.mocked(loadImageResource).mockResolvedValue({
+      image: {} as HTMLImageElement,
+      url: 'data:image/png;base64,seasonal',
+      width: 128,
+      height: 256,
+    })
+
+    const state = await loadModResultImageState({
+      rootPath: 'E:\\Games\\Stardew Valley',
+      entry: createModEntry({
+        key: 'Haley',
+        label: 'Haley',
+        targets: ['Data/Characters', 'Portraits/Haley_Spring_Indoor', 'Portraits/Haley_Winter'],
+      }),
+      preferredTargets: ['Portraits/Haley'],
+      fallbackPathLabel: 'Portraits\\Haley',
+    })
+
+    expect(loadContentPatcherResultAsset).toHaveBeenCalledWith({
+      path: 'E:\\Games\\Stardew Valley\\Mods\\Example.Pack',
+      gameRootPath: 'E:\\Games\\Stardew Valley',
+      target: 'Portraits/Haley_Spring_Indoor',
+    })
+    expect(state).toEqual({
+      path: 'Portraits\\Haley',
+      url: 'data:image/png;base64,seasonal',
+      width: 128,
+      height: 256,
+      originalWidth: null,
+      originalHeight: null,
+      target: 'Portraits/Haley_Spring_Indoor',
     })
   })
 })

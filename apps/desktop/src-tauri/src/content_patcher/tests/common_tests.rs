@@ -6,8 +6,14 @@ use std::collections::BTreeMap;
 
 #[test]
 fn as_non_empty_string_trims_and_rejects_blank_values() {
-    assert_eq!(as_non_empty_string(Some(&Value::String("  Example  ".to_string()))), Some("Example".to_string()));
-    assert_eq!(as_non_empty_string(Some(&Value::String("   ".to_string()))), None);
+    assert_eq!(
+        as_non_empty_string(Some(&Value::String("  Example  ".to_string()))),
+        Some("Example".to_string())
+    );
+    assert_eq!(
+        as_non_empty_string(Some(&Value::String("   ".to_string()))),
+        None
+    );
     assert_eq!(as_non_empty_string(Some(&Value::Bool(true))), None);
 }
 
@@ -30,9 +36,15 @@ fn build_snapshot_diagnostics_reports_missing_required_fields() {
     let diagnostics = build_snapshot_diagnostics(&json!({ "Name": "Pack" }), &json!({}));
 
     assert_eq!(diagnostics.len(), 3);
-    assert!(diagnostics.iter().any(|diag| diag.field.as_deref() == Some("manifest.UniqueID")));
-    assert!(diagnostics.iter().any(|diag| diag.field.as_deref() == Some("content.Format")));
-    assert!(diagnostics.iter().any(|diag| diag.field.as_deref() == Some("content.Changes")));
+    assert!(diagnostics
+        .iter()
+        .any(|diag| diag.field.as_deref() == Some("manifest.UniqueID")));
+    assert!(diagnostics
+        .iter()
+        .any(|diag| diag.field.as_deref() == Some("content.Format")));
+    assert!(diagnostics
+        .iter()
+        .any(|diag| diag.field.as_deref() == Some("content.Changes")));
 }
 
 #[test]
