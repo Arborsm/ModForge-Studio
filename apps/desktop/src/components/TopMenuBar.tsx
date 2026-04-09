@@ -1,21 +1,26 @@
-﻿import {
+import {
   Castle,
+  Download,
   GitMerge,
+  LayoutDashboard,
   Library,
   Map,
   Minus,
   Moon,
   Package,
-  Square,
+  Rocket,
   Settings2,
+  Square,
   Sun,
   Users,
   X,
 } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {
   getWorkspaceModeLabel,
-  workspaceModes,
+  launcherPages,
+  type AppMode,
+  type LauncherPage,
   type ThemeMode,
   type WorkspaceMode,
   type WorkspaceTone,
@@ -25,6 +30,8 @@ import { cx } from '../lib/cx'
 import type { WorkspacePanelMeta } from './WorkspaceLayout'
 
 type TopMenuBarProps = {
+  appMode: AppMode
+  onAppModeChange: (mode: AppMode) => void
   workspaceMode: WorkspaceMode
   onWorkspaceChange: (mode: WorkspaceMode) => void
   theme: ThemeMode
@@ -50,6 +57,15 @@ type TopMenuBarProps = {
     highlighted?: boolean
     onOpen: () => void
   }
+  launcherChrome?: {
+    page: LauncherPage
+    onPageChange: (page: LauncherPage) => void
+    downloadsBadgeCount: number
+    downloadsHasFailure: boolean
+    settingsWarning: boolean
+    settingsWarningLabel: string
+    downloadsPopover: ReactNode
+  }
 }
 
 const MODULE_ICONS = {
@@ -62,6 +78,8 @@ const MODULE_ICONS = {
 } satisfies Record<WorkspaceMode, typeof Map>
 
 export default function TopMenuBar({
+  appMode,
+  onAppModeChange,
   workspaceMode,
   onWorkspaceChange,
   theme,
@@ -74,20 +92,30 @@ export default function TopMenuBar({
   viewMenu,
   settingsMenu,
   projectMenu,
+  launcherChrome,
 }: TopMenuBarProps) {
   const copy = useEditorCopy()
   const locale = useLocale()
   const viewMenuCopy = useViewMenuCopy()
   const settingsMenuCopy = useSettingsMenuCopy()
-  const [activeMenu, setActiveMenu] = useState<'view' | null>(null)
+  const [activeMenu, setActiveMenu] = useState<'view' | 'downloads' | null>(null)
   const viewMenuId = useId()
+  const downloadsMenuId = useId()
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
+  const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
+  const downloadsFloatRef = useRef<HTMLElement | null>(null)
   const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
   const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [
     mode,
     getWorkspaceModeLabel(locale, copy, mode),
   ] as const)
+  const launcherModeActive = appMode === 'launcher'
+  const launcherNav = launcherModeActive ? launcherChrome : undefined
   const viewMenuOpen = activeMenu === 'view'
+  const downloadsMenuOpen = activeMenu === 'downloads' && Boolean(launcherNav)
+  const switchTargetMode: AppMode = launcherModeActive ? 'workbench' : 'launcher'
+  const switchTargetLabel = launcherModeActive ? copy.shell.workbench : copy.shell.launcher
+  const SwitchTargetIcon = launcherModeActive ? LayoutDashboard : Rocket
 
   useEffect(() => {
     if (!activeMenu) {
@@ -95,7 +123,12 @@ export default function TopMenuBar({
     }
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (viewMenuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (
+        viewMenuRef.current?.contains(target) ||
+        downloadsMenuRef.current?.contains(target) ||
+        downloadsFloatRef.current?.contains(target)
+      ) {
         return
       }
 
@@ -104,6 +137,21 @@ export default function TopMenuBar({
 
     window.addEventListener('mousedown', handlePointerDown)
     return () => window.removeEventListener('mousedown', handlePointerDown)
+  }, [activeMenu])
+
+  useEffect(() => {
+    if (!activeMenu) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveMenu(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeMenu])
 
   return (
@@ -224,37 +272,106 @@ export default function TopMenuBar({
         </div>
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
-          <nav className="top-menu-workspace pointer-events-auto" aria-label={copy.center.moduleWorkspace}>
+          <div className="top-menu-workspace pointer-events-auto">
             <div className="top-menu-workspace-list">
-              {visibleNavEntries.map(([typedMode, label]) => {
-                const Icon = MODULE_ICONS[typedMode]
-                const active = workspaceMode === typedMode
+              {!launcherNav ? (
+                <nav className="contents" aria-label={copy.center.moduleWorkspace}>
+                  {visibleNavEntries.map(([typedMode, label]) => {
+                    const Icon = MODULE_ICONS[typedMode]
+                    const active = workspaceMode === typedMode
 
-                return (
-                  <button
-                    key={typedMode}
-                    type="button"
-                    aria-current={active ? 'page' : undefined}
-                    data-active={active}
-                    className={cx(
-                      'top-menu-module-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                    )}
-                    onClick={() => onWorkspaceChange(typedMode)}
-                  >
-                    <Icon className={cx('h-4 w-4', active && 'text-[var(--accent)]')} />
-                    <span>{label}</span>
-                  </button>
-                )
-              })}
+                    return (
+                      <button
+                        key={typedMode}
+                        type="button"
+                        aria-current={active ? 'page' : undefined}
+                        data-active={active}
+                        className={cx(
+                          'top-menu-module-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
+                          active
+                            ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
+                        )}
+                        onClick={() => onWorkspaceChange(typedMode)}
+                      >
+                        <Icon className={cx('h-4 w-4', active && 'text-[var(--accent)]')} />
+                        <span>{label}</span>
+                      </button>
+                    )
+                  })}
+                </nav>
+              ) : (
+                <>
+                  <nav className="contents" aria-label={copy.launcher.navigation}>
+                    {launcherPages.map((page) => {
+                      const active = launcherNav.page === page
+                      const warning = page === 'settings' && launcherNav.settingsWarning
+
+                      return (
+                        <button
+                          key={page}
+                          type="button"
+                          aria-current={active ? 'page' : undefined}
+                          data-active={active}
+                          title={warning ? launcherNav.settingsWarningLabel : copy.launcher.descriptions[page]}
+                          className={cx(
+                            'top-menu-module-button top-menu-launcher-nav-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
+                            active
+                              ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
+                          )}
+                          onClick={() => launcherNav.onPageChange(page)}
+                        >
+                          <span>{copy.launcher.pages[page]}</span>
+                          {warning ? (
+                            <span
+                              className="top-menu-warning-dot"
+                              aria-hidden="true"
+                              title={launcherNav.settingsWarningLabel}
+                            />
+                          ) : null}
+                        </button>
+                      )
+                    })}
+                  </nav>
+
+                </>
+              )}
             </div>
-          </nav>
+          </div>
         </div>
 
         <div className="top-menu-cluster top-menu-controls flex min-w-0 items-center justify-self-end gap-2" role="group" aria-label="Shell controls">
           <span className={cx('status-pill status-pill-compact', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
+          {launcherNav ? (
+            <div className="top-menu-launcher-tools" ref={downloadsMenuRef}>
+              <button
+                type="button"
+                className={cx(
+                  'top-menu-icon-action',
+                  downloadsMenuOpen && 'top-menu-icon-action-active',
+                  launcherNav.downloadsHasFailure && 'top-menu-icon-action-failure',
+                )}
+                aria-label={copy.launcher.downloads.title}
+                aria-haspopup="dialog"
+                aria-expanded={downloadsMenuOpen}
+                aria-controls={downloadsMenuId}
+                onClick={() => setActiveMenu((current) => (current === 'downloads' ? null : 'downloads'))}
+              >
+                <Download className="h-4 w-4" />
+                {launcherNav.downloadsBadgeCount > 0 ? (
+                  <span
+                    className={cx(
+                      'top-menu-icon-badge',
+                      launcherNav.downloadsHasFailure && 'top-menu-icon-badge-failure',
+                    )}
+                  >
+                    {launcherNav.downloadsBadgeCount}
+                  </span>
+                ) : null}
+              </button>
+            </div>
+          ) : null}
           <button
             type="button"
             className="icon-button pointer-events-auto"
@@ -267,11 +384,20 @@ export default function TopMenuBar({
           <button
             type="button"
             className="icon-button pointer-events-auto"
+            onClick={() => onAppModeChange(switchTargetMode)}
+            aria-label={switchTargetLabel}
+            title={switchTargetLabel}
+          >
+            <SwitchTargetIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="icon-button pointer-events-auto"
             onClick={() => {
               setActiveMenu(null)
               settingsMenu.onOpen()
             }}
-            aria-label={settingsMenuCopy.title}
+            aria-label={launcherNav ? `${settingsMenuCopy.title} Dialog` : settingsMenuCopy.title}
             title={settingsMenuCopy.title}
           >
             <Settings2 className="h-4 w-4" />
@@ -309,6 +435,33 @@ export default function TopMenuBar({
           ) : null}
         </div>
       </div>
+
+      {downloadsMenuOpen ? (
+        <div className="top-menu-float-backdrop" role="presentation" onClick={() => setActiveMenu(null)}>
+          <section
+            className="top-menu-float-panel launcher-downloads-float panel-surface panel-surface-muted"
+            id={downloadsMenuId}
+            role="dialog"
+            aria-modal="true"
+            aria-label={copy.launcher.downloads.title}
+            ref={downloadsFloatRef}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="icon-button top-menu-float-close"
+              onClick={() => setActiveMenu(null)}
+              aria-label={copy.launcher.actions.closeDialog}
+              title={copy.launcher.actions.closeDialog}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {launcherNav?.downloadsPopover}
+          </section>
+        </div>
+      ) : null}
     </header>
   )
 }
+
+const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']

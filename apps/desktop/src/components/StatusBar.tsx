@@ -1,12 +1,14 @@
 import { CheckCircle2, FolderSearch, TriangleAlert } from 'lucide-react'
 import type { TileHoverInfo } from './MapViewport'
-import type { WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
+import type { AppMode, LauncherPage, WorkspaceMode, WorkspaceTone } from '../lib/editor-shell'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
 import { useEditorCopy } from '../lib/app/localeContext'
 
 type StatusBarProps = {
+  appMode: AppMode
+  launcherPage: LauncherPage
   workspaceMode: WorkspaceMode
   workspaceStatus: {
     tone: WorkspaceTone
@@ -21,6 +23,8 @@ type StatusBarProps = {
 }
 
 export default function StatusBar({
+  appMode,
+  launcherPage,
   workspaceMode,
   workspaceStatus,
   directoryInfo,
@@ -39,6 +43,20 @@ export default function StatusBar({
   const hoverDetails = hoverInfo
     ? `${copy.common.tilesets}: ${hoverInfo.tilesetName ?? copy.common.none} | ${copy.rightDock.objectCount}: ${hoverInfo.objectHits.length}`
     : ''
+
+  if (appMode === 'launcher') {
+    return (
+      <footer className="status-bar" role="contentinfo">
+        <div className="status-bar-group status-bar-group-primary" role="group" aria-label={copy.shell.modeLabel}>
+          <span className="status-pill status-pill-compact status-pill-ready">{copy.shell.launcher}</span>
+          <div className="status-bar-item">
+            <span className="status-bar-label">{copy.launcher.navigation}</span>
+            <span className="status-bar-value">{copy.launcher.pages[launcherPage]}</span>
+          </div>
+        </div>
+      </footer>
+    )
+  }
 
   return (
     <footer className="status-bar" role="contentinfo">

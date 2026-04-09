@@ -3,12 +3,15 @@ import { DevDebugOverlay } from './components/DevDebugOverlay'
 import InitializationOverlay from './components/InitializationOverlay'
 import StatusBar from './components/StatusBar'
 import TopMenuBar from './components/TopMenuBar'
+import LauncherShell from './components/launcher/LauncherShell'
+import { LauncherDownloadsPopover } from './components/launcher/shared/LauncherDownloadsPopover'
 import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
 import {
   canUseDesktopHost,
   clearDesktopLocaleCache,
   closeCurrentWindow,
   isCurrentWindowFullscreen,
+  launchLauncherGame,
   listKnownGameDirectories,
   minimizeCurrentWindow,
   toggleFullscreenCurrentWindow,
@@ -18,10 +21,13 @@ import {
   editorCopy,
   getSettingsMenuCopy,
   getWorldAtlasViewLabel,
+  type AppMode,
+  type LauncherPage,
   type LocaleCode,
   type ThemeMode,
   type WorkspaceMode,
 } from './lib/editor-shell'
+import { persistAppShellState, readStoredAppShellState } from './lib/app/appShell'
 import { rgbaFromHex } from './lib/app/color'
 import {
   ACCENT_PRESETS,
@@ -48,6 +54,7 @@ import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
 import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { LocaleProvider } from './lib/app/localeContext'
 import useModWorkspace from './lib/app/useModWorkspace'
+import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 import { scheduleDeferred } from './lib/react/defer'
 
@@ -97,6 +104,8 @@ export default function App() {
 
     return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? ACCENT_PRESETS[0].id
   })
+  const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppShellState().appMode)
+  const [launcherPage, setLauncherPage] = useState<LauncherPage>(() => readStoredAppShellState().launcherPage)
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
@@ -104,6 +113,7 @@ export default function App() {
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
+  const [launcherLaunchBusy, setLauncherLaunchBusy] = useState(false)
   const [storedRecentGameDirectories] = useState<string[]>(() => {
     if (typeof window === 'undefined') {
       return []
@@ -271,6 +281,7 @@ export default function App() {
     setWorkspaceMode,
     getWorldAtlasViewLabel,
   })
+  const launcherRuntime = useLauncherRuntime()
 
   const {
     eventAssets,
@@ -452,6 +463,7 @@ export default function App() {
         ]
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
+  const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
   const activePlayerAppearanceProfile =
     playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
   const needsInitialization = !directoryInfo
@@ -548,6 +560,13 @@ export default function App() {
       // Ignore blocked localStorage writes to keep locale changes functional in-memory.
     }
   }, [locale])
+
+  useEffect(() => {
+    persistAppShellState({
+      appMode,
+      launcherPage,
+    })
+  }, [appMode, launcherPage])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current
@@ -934,6 +953,41 @@ export default function App() {
     [],
   )
 
+  const handleAppModeChange = useCallback((nextMode: AppMode) => {
+    setAppMode(nextMode)
+
+    if (nextMode === 'launcher') {
+      setProjectOverlayOpen(false)
+    }
+  }, [])
+
+  const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
+    setLauncherPage(nextPage)
+  }, [])
+
+  const handleLaunchGame = useCallback(async () => {
+    if (!desktopHost || launcherLaunchBusy) {
+      return
+    }
+
+    if (!launcherRuntime.settingsState.settings.gamePath?.trim()) {
+      setAppMode('launcher')
+      setLauncherPage('settings')
+      return
+    }
+
+    setLauncherLaunchBusy(true)
+
+    try {
+      await launchLauncherGame()
+    } catch {
+      setAppMode('launcher')
+      setLauncherPage('settings')
+    } finally {
+      setLauncherLaunchBusy(false)
+    }
+  }, [desktopHost, launcherLaunchBusy, launcherRuntime.settingsState.settings.gamePath])
+
   return (
     <LocaleProvider locale={locale}>
       <div
@@ -941,6 +995,8 @@ export default function App() {
         aria-busy={interactionLocked}
       >
         <TopMenuBar
+          appMode={appMode}
+          onAppModeChange={handleAppModeChange}
           workspaceMode={workspaceMode}
           onWorkspaceChange={setWorkspaceMode}
           theme={theme}
@@ -963,8 +1019,20 @@ export default function App() {
             onOpen: () => setSettingsWindowOpen(true),
           }}
           projectMenu={{
-            highlighted: showProjectOverlay,
-            onOpen: () => setProjectOverlayOpen(true),
+            highlighted: appMode === 'workbench' && showProjectOverlay,
+            onOpen: () => {
+              setAppMode('workbench')
+              setProjectOverlayOpen(true)
+            },
+          }}
+          launcherChrome={{
+            page: launcherPage,
+            onPageChange: handleLauncherPageChange,
+            downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
+            downloadsHasFailure: launcherRuntime.downloadsHasFailure,
+            settingsWarning: launcherRuntime.settingsWarning,
+            settingsWarningLabel: launcherSettingsWarningLabel,
+            downloadsPopover: <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />,
           }}
         />
 
@@ -1022,15 +1090,28 @@ export default function App() {
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-hidden">
-          <WorkspaceLayout
-            ref={workspaceLayoutRef}
-            storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
-            panels={workspacePanels}
-            onLayoutMetaChange={handleLayoutMetaChange}
-          />
+          {appMode === 'workbench' ? (
+            <WorkspaceLayout
+              ref={workspaceLayoutRef}
+              storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
+              panels={workspacePanels}
+              onLayoutMetaChange={handleLayoutMetaChange}
+            />
+          ) : (
+            <LauncherShell
+              page={launcherPage}
+              settingsState={launcherRuntime.settingsState}
+              downloads={launcherRuntime.downloads}
+              onNavigateToSettings={() => setLauncherPage('settings')}
+              launchGameLabel={copy.launcher.actions.launchGame}
+              launchGameDisabled={!desktopHost || launcherLaunchBusy}
+              launchGameBusy={launcherLaunchBusy}
+              onLaunchGame={() => void handleLaunchGame()}
+            />
+          )}
         </div>
 
-        {showProjectOverlay ? (
+        {appMode === 'workbench' && showProjectOverlay ? (
           <InitializationOverlay
             desktopHost={desktopHost}
             gameDirectory={gameDirectory}
@@ -1043,7 +1124,7 @@ export default function App() {
           />
         ) : null}
 
-        {import.meta.env.DEV ? (
+        {appMode === 'workbench' && import.meta.env.DEV ? (
           <DevDebugOverlay
             workspaceMode={workspaceMode}
             mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
@@ -1054,6 +1135,8 @@ export default function App() {
         ) : null}
 
         <StatusBar
+          appMode={appMode}
+          launcherPage={launcherPage}
           workspaceMode={workspaceMode}
           workspaceStatus={currentWorkspaceStatus}
           directoryInfo={directoryInfo}
