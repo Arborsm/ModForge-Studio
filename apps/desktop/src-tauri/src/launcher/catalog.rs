@@ -4,7 +4,8 @@ use super::paths::{current_timestamp_ms, launcher_settings_path};
 use super::settings::{load_or_create_settings_at_path, normalize_optional_text};
 use super::types::{
     CheckLauncherUpdatesRequest, LauncherCatalogPageResult, LauncherCatalogResult,
-    LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult, SearchLauncherCatalogRequest,
+    LauncherSettings, LauncherUpdateProgressPayload, LauncherUpdateSummary,
+    LauncherUpdatesResult, SearchLauncherCatalogRequest,
 };
 use crate::pathing::clean_input_path;
 use regex::Regex;
@@ -12,8 +13,14 @@ use reqwest::blocking::Client;
 use reqwest::header::USER_AGENT;
 use semver::Version;
 use serde_json::Value;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{mpsc, Arc};
+use std::thread;
+use tauri::Emitter;
 
 const DEFAULT_PAGE_SIZE: usize = 20;
+const LAUNCHER_UPDATE_PROGRESS_EVENT: &str = "launcher://update-check-progress";
+const UPDATE_CHECK_CONCURRENCY: usize = 6;
 
 #[derive(Debug, Clone)]
 struct RemoteModDetail {
@@ -21,6 +28,20 @@ struct RemoteModDetail {
     version: Option<String>,
     mod_url: String,
     image_url: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct UpdateCheckCandidate {
+    mod_id: i64,
+    name: String,
+    current_version: String,
+    absolute_path: String,
+}
+
+#[derive(Debug)]
+struct UpdateCheckResult {
+    current_mod_name: String,
+    update: Option<LauncherUpdateSummary>,
 }
 
 fn launcher_catalog_url(
@@ -136,6 +157,25 @@ fn build_mod_page_url(mod_id: i64) -> String {
     format!("https://www.nexusmods.com/stardewvalley/mods/{mod_id}")
 }
 
+fn emit_update_check_progress(
+    app: &tauri::AppHandle,
+    mods_path: &str,
+    checked: usize,
+    total: usize,
+    current_mod_name: Option<&str>,
+) -> Result<(), String> {
+    app.emit(
+        LAUNCHER_UPDATE_PROGRESS_EVENT,
+        LauncherUpdateProgressPayload {
+            mods_path: mods_path.to_string(),
+            checked,
+            total,
+            current_mod_name: current_mod_name.map(str::to_string),
+        },
+    )
+    .map_err(|error| format!("Failed to emit launcher update progress: {error}"))
+}
+
 #[tauri::command]
 pub fn search_launcher_catalog(
     request: SearchLauncherCatalogRequest,
@@ -163,9 +203,18 @@ pub fn search_launcher_catalog(
 }
 
 #[tauri::command]
-pub fn check_launcher_updates(
+pub async fn check_launcher_updates(
     app: tauri::AppHandle,
     request: CheckLauncherUpdatesRequest,
+) -> Result<LauncherUpdatesResult, String> {
+    tauri::async_runtime::spawn_blocking(move || check_launcher_updates_blocking(&app, &request))
+        .await
+        .map_err(|error| format!("Failed to join launcher update check task: {error}"))?
+}
+
+fn check_launcher_updates_blocking(
+    app: &tauri::AppHandle,
+    request: &CheckLauncherUpdatesRequest,
 ) -> Result<LauncherUpdatesResult, String> {
     let mods_path = request.mods_path.trim();
     if mods_path.is_empty() {
@@ -175,40 +224,98 @@ pub fn check_launcher_updates(
     let settings_path = launcher_settings_path(&app)?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     let scan = scan_library_at_path(&clean_input_path(mods_path))?;
+    let candidates = scan
+        .mods
+        .iter()
+        .filter_map(|item| {
+            Some(UpdateCheckCandidate {
+                mod_id: item.nexus_mod_id?,
+                name: item.name.clone(),
+                current_version: item.version.clone()?,
+                absolute_path: item.absolute_path.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let total = candidates.len();
+    emit_update_check_progress(app, mods_path, 0, total, None)?;
+
     let mut updates = Vec::new();
+    if total > 0 {
+        let worker_count = UPDATE_CHECK_CONCURRENCY.min(total).max(1);
+        let next_index = Arc::new(AtomicUsize::new(0));
+        let candidates = Arc::new(candidates);
+        let settings = Arc::new(settings);
+        let (sender, receiver) = mpsc::channel();
 
-    for item in &scan.mods {
-        let Some(mod_id) = item.nexus_mod_id else {
-            continue;
-        };
-        let Some(current_version) = item.version.as_deref() else {
-            continue;
-        };
+        for _ in 0..worker_count {
+            let sender = sender.clone();
+            let candidates = Arc::clone(&candidates);
+            let settings = Arc::clone(&settings);
+            let next_index = Arc::clone(&next_index);
 
-        let remote = match load_remote_mod_detail(&settings, mod_id) {
-            Ok(detail) => detail,
-            Err(error) => {
-                log::debug!("launcher update lookup skipped for {mod_id}: {error}");
-                continue;
-            }
-        };
+            thread::spawn(move || {
+                loop {
+                    let index = next_index.fetch_add(1, Ordering::Relaxed);
+                    if index >= candidates.len() {
+                        break;
+                    }
 
-        let Some(latest_version) = remote.version else {
-            continue;
-        };
-        if !version_is_newer(current_version, &latest_version) {
-            continue;
+                    let candidate = &candidates[index];
+                    let update = match load_remote_mod_detail(&settings, candidate.mod_id) {
+                        Ok(remote) => remote
+                            .version
+                            .filter(|latest_version| {
+                                version_is_newer(&candidate.current_version, latest_version)
+                            })
+                            .map(|latest_version| LauncherUpdateSummary {
+                                mod_id: candidate.mod_id,
+                                name: remote.name.unwrap_or_else(|| candidate.name.clone()),
+                                current_version: Some(candidate.current_version.clone()),
+                                latest_version,
+                                absolute_path: candidate.absolute_path.clone(),
+                                mod_url: remote.mod_url,
+                                image_url: remote.image_url,
+                            }),
+                        Err(error) => {
+                            log::debug!(
+                                "launcher update lookup skipped for {}: {}",
+                                candidate.mod_id,
+                                error
+                            );
+                            None
+                        }
+                    };
+
+                    if sender
+                        .send(UpdateCheckResult {
+                            current_mod_name: candidate.name.clone(),
+                            update,
+                        })
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+            });
         }
 
-        updates.push(LauncherUpdateSummary {
-            mod_id,
-            name: remote.name.unwrap_or_else(|| item.name.clone()),
-            current_version: item.version.clone(),
-            latest_version,
-            absolute_path: item.absolute_path.clone(),
-            mod_url: remote.mod_url,
-            image_url: remote.image_url,
-        });
+        drop(sender);
+
+        let mut checked = 0;
+        for result in receiver {
+            checked += 1;
+            if let Some(update) = result.update {
+                updates.push(update);
+            }
+
+            emit_update_check_progress(
+                app,
+                mods_path,
+                checked,
+                total,
+                Some(&result.current_mod_name),
+            )?;
+        }
     }
 
     updates.sort_by(|left, right| left.name.cmp(&right.name));

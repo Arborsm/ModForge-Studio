@@ -17,6 +17,7 @@ import {
   simulateContentPatcher,
 } from '../desktop'
 import {getModWorkspaceCopy, type LocaleCode} from '../editor-shell'
+import { reportAppEvent } from './observability'
 import {
   addPatch,
   buildContentPatcherSimulationRequest,
@@ -612,26 +613,73 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       return null
     }
 
-    const result = await saveModProject({
-      sourcePath,
-      outputPath,
-      manifestJson: manifestEditor.text,
-      contentJson: contentEditor.text,
+    reportAppEvent({
+      level: 'debug',
+      title: outputPath ? 'Exporting mod project' : 'Saving mod project',
+      notify: false,
+      keyValues: {
+        source: 'mod-workspace',
+        operation: outputPath ? 'export' : 'save',
+        source_path: sourcePath,
+        output_path: outputPath ?? undefined,
+      },
     })
-    setLastSaveResult(result)
 
-    if (!outputPath) {
-      const refreshed = await loadModProject(sourcePath)
-      setProjectDetail(refreshed)
-      setModProjects((current) => upsertProject(current, refreshed.summary))
-      setManifestEditor(normalizeEditorState(refreshed.contentPatcher?.manifestJson ?? '{}\n'))
-      setContentEditor(normalizeEditorState(refreshed.contentPatcher?.contentJson ?? '{\n  "Changes": []\n}\n'))
-      setStatusMessage(copy.saveSuccess(result.targetPath))
-    } else {
-      setStatusMessage(copy.exportSuccess(result.targetPath))
+    try {
+      const result = await saveModProject({
+        sourcePath,
+        outputPath,
+        manifestJson: manifestEditor.text,
+        contentJson: contentEditor.text,
+      })
+      setLastSaveResult(result)
+
+      if (!outputPath) {
+        const refreshed = await loadModProject(sourcePath)
+        setProjectDetail(refreshed)
+        setModProjects((current) => upsertProject(current, refreshed.summary))
+        setManifestEditor(normalizeEditorState(refreshed.contentPatcher?.manifestJson ?? '{}\n'))
+        setContentEditor(normalizeEditorState(refreshed.contentPatcher?.contentJson ?? '{\n  "Changes": []\n}\n'))
+        setStatusMessage(copy.saveSuccess(result.targetPath))
+        reportAppEvent({
+          level: 'success',
+          title: copy.saveSuccess(result.targetPath),
+          keyValues: {
+            source: 'mod-workspace',
+            operation: 'save',
+            target_path: result.targetPath,
+          },
+        })
+      } else {
+        setStatusMessage(copy.exportSuccess(result.targetPath))
+        reportAppEvent({
+          level: 'success',
+          title: copy.exportSuccess(result.targetPath),
+          keyValues: {
+            source: 'mod-workspace',
+            operation: 'export',
+            target_path: result.targetPath,
+          },
+        })
+      }
+
+      return result
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setStatusMessage(message)
+      reportAppEvent({
+        level: 'error',
+        title: outputPath ? copy.exportFailed : copy.saveFailed,
+        description: message,
+        keyValues: {
+          source: 'mod-workspace',
+          operation: outputPath ? 'export' : 'save',
+          source_path: sourcePath,
+          output_path: outputPath ?? undefined,
+        },
+      })
+      throw error
     }
-
-    return result
   }
 
   async function handleSaveProject() {

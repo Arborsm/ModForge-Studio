@@ -26,8 +26,8 @@ export type SettingsMenuCopy = {
   categories: {
     appearance: string
     view: string
-    interaction: string
-    advanced: string
+    launcher: string
+    debug: string
   }
   accentLabel: string
   resetAccentLabel: string
@@ -40,13 +40,17 @@ export type SettingsMenuCopy = {
   borderlessFullscreenDescription: string
   enableBorderlessFullscreenLabel: string
   disableBorderlessFullscreenLabel: string
+  debugModeLabel: string
+  debugModeDescription: string
+  enableDebugModeLabel: string
+  disableDebugModeLabel: string
   futureLabel: string
   futureDescription: string
   categoryDescriptions: {
     appearance: string
     view: string
-    interaction: string
-    advanced: string
+    launcher: string
+    debug: string
   }
 }
 
@@ -592,6 +596,8 @@ export type LauncherCopy = {
     subtitle: string
     empty: string
     selectionSummary: (selected: number, total: number) => string
+    checkingProgressTitle: string
+    checkingProgressDetail: (checked: number, total: number, currentModName: string | null) => string
   }
   downloads: {
     title: string
@@ -604,8 +610,21 @@ export type LauncherCopy = {
     pathsHint: string
     autoInstallHint: string
     keepArchivesHint: string
+    loadFailed: string
     saved: string
     saveFailed: string
+  }
+  debug: {
+    title: string
+    subtitle: string
+    debugOnlyTitle: string
+    debugOnlyDescription: string
+    notificationsTitle: string
+    notificationsSubtitle: string
+    logsTitle: string
+    logsSubtitle: string
+    notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
+    logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>
   }
   sortOptions: Record<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name', string>
   states: {
@@ -861,6 +880,8 @@ export type ModWorkspaceCopy = {
   selectProjectFolder: string
   importedFrom: (path: string) => string
   missingRequiredDependencies: (dependencies: string) => string
+  saveFailed: string
+  exportFailed: string
   saveSuccess: (path: string) => string
   exportSuccess: (path: string) => string
   scanStatus: (count: number) => string
@@ -870,7 +891,7 @@ export type NotificationCopy = {
   viewportLabel: string
   dismissLabel: string
   actionHint: string
-  levels: Record<'info' | 'success' | 'warning' | 'error', string>
+  levels: Record<'success' | 'info' | 'debug' | 'warning' | 'error', string>
 }
 
 export type LocaleBundle = {

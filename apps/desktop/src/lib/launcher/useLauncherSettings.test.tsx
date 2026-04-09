@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   chooseDirectory,
@@ -7,6 +7,7 @@ import {
   saveLauncherSettings,
   type LauncherSettings,
 } from '../desktop'
+import { reportAppEvent } from '../app/observability'
 import { useLauncherSettings } from './useLauncherSettings'
 
 vi.mock('../desktop', async () => {
@@ -20,10 +21,15 @@ vi.mock('../desktop', async () => {
   }
 })
 
+vi.mock('../app/observability', () => ({
+  reportAppEvent: vi.fn(),
+}))
+
 const loadLauncherSettingsMock = vi.mocked(loadLauncherSettings)
 const detectDefaultGameDirectoryMock = vi.mocked(detectDefaultGameDirectory)
-void vi.mocked(saveLauncherSettings)
+const saveLauncherSettingsMock = vi.mocked(saveLauncherSettings)
 void vi.mocked(chooseDirectory)
+const reportAppEventMock = vi.mocked(reportAppEvent)
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -54,6 +60,8 @@ describe('useLauncherSettings', () => {
       expect(result.current.settings.gamePath).toBe('E:\\Games\\Stardew Valley')
       expect(result.current.settings.modsPath).toBe('E:\\Games\\Stardew Valley\\Mods')
     })
+
+    expect(reportAppEventMock).not.toHaveBeenCalled()
   })
 
   it('keeps persisted launcher paths when they are already configured', async () => {
@@ -72,5 +80,67 @@ describe('useLauncherSettings', () => {
       expect(result.current.settings.gamePath).toBe('D:\\Portable\\Stardew Valley')
       expect(result.current.settings.modsPath).toBe('D:\\Portable\\Stardew Valley\\Mods')
     })
+  })
+
+  it('publishes an error notification when launcher settings fail to load', async () => {
+    loadLauncherSettingsMock.mockRejectedValue(new Error('Settings file not found'))
+    detectDefaultGameDirectoryMock.mockResolvedValue(null)
+
+    const { result } = renderHook(() => useLauncherSettings())
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('error')
+    })
+
+    expect(reportAppEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'error',
+      }),
+    )
+  })
+
+  it('publishes a success notification after launcher settings are saved', async () => {
+    loadLauncherSettingsMock.mockResolvedValue(createSettings())
+    detectDefaultGameDirectoryMock.mockResolvedValue(null)
+    saveLauncherSettingsMock.mockResolvedValue(
+      createSettings({
+        gamePath: 'E:\\Games\\Stardew Valley',
+      }),
+    )
+
+    const { result } = renderHook(() => useLauncherSettings())
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+    })
+
+    await act(async () => {
+      await result.current.save()
+    })
+
+    expect(reportAppEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'success',
+      }),
+    )
+  })
+
+  it('publishes an error notification when launcher settings save fails', async () => {
+    loadLauncherSettingsMock.mockResolvedValue(createSettings())
+    detectDefaultGameDirectoryMock.mockResolvedValue(null)
+    saveLauncherSettingsMock.mockRejectedValue(new Error('Write denied'))
+
+    const { result } = renderHook(() => useLauncherSettings())
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+    })
+
+    await expect(result.current.save()).rejects.toThrow('Write denied')
+    expect(reportAppEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'error',
+      }),
+    )
   })
 })

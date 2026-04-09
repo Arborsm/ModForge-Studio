@@ -1,5 +1,5 @@
-import { screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '../../test/renderWithLocale'
 
@@ -65,10 +65,15 @@ const downloads = {
 }
 
 describe('LauncherShell', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('routes the library page without rendering an in-page launcher navigation rail', () => {
     const { container } = renderWithLocale(
       <LauncherShell
         page="library"
+        debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
         onNavigateToSettings={vi.fn()}
@@ -87,6 +92,7 @@ describe('LauncherShell', () => {
     renderWithLocale(
       <LauncherShell
         page="discover"
+        debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
         onNavigateToSettings={vi.fn()}
@@ -104,6 +110,7 @@ describe('LauncherShell', () => {
     renderWithLocale(
       <LauncherShell
         page="updates"
+        debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
         onNavigateToSettings={vi.fn()}
@@ -121,6 +128,7 @@ describe('LauncherShell', () => {
     renderWithLocale(
       <LauncherShell
         page="settings"
+        debugEnabled={true}
         settingsState={settingsState as never}
         downloads={downloads as never}
         onNavigateToSettings={vi.fn()}
@@ -134,10 +142,30 @@ describe('LauncherShell', () => {
     expect(screen.getByText('settings-page')).toBeTruthy()
   })
 
+  it('falls back to the library page when the debug page is requested while debug mode is disabled', () => {
+    renderWithLocale(
+      <LauncherShell
+        page="settings"
+        debugEnabled={false}
+        settingsState={settingsState as never}
+        downloads={downloads as never}
+        onNavigateToSettings={vi.fn()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText('settings-page')).toBeNull()
+    expect(screen.getByText('library-page:Launch Game')).toBeTruthy()
+  })
+
   it('does not render a downloads page entry inside the shell', () => {
     renderWithLocale(
       <LauncherShell
         page="library"
+        debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
         onNavigateToSettings={vi.fn()}

@@ -1,9 +1,13 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '../../../lib/desktop'
 import { checkLauncherUpdates } from '../../../lib/desktop'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { LocaleProvider } from '../../../lib/app/localeContext'
+import { NotificationProvider, clearNotifications } from '../../../lib/app/notifications'
 import { LauncherUpdatesPage } from './LauncherUpdatesPage'
+
+const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
 
 vi.mock('../../../lib/desktop', async () => {
   const actual = await vi.importActual<typeof import('../../../lib/desktop')>('../../../lib/desktop')
@@ -12,6 +16,15 @@ vi.mock('../../../lib/desktop', async () => {
     checkLauncherUpdates: vi.fn(),
   }
 })
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(async (eventName: string, callback: (event: { payload: unknown }) => void) => {
+    eventListeners.set(eventName, callback)
+    return () => {
+      eventListeners.delete(eventName)
+    }
+  }),
+}))
 
 vi.mock('../../../lib/launcher/imageLoader', () => ({
   useLauncherImage: () => ({
@@ -22,6 +35,14 @@ vi.mock('../../../lib/launcher/imageLoader', () => ({
 }))
 
 const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
+
+function renderWithProviders(ui: ReactElement) {
+  return render(
+    <LocaleProvider locale="zh-CN">
+      <NotificationProvider>{ui}</NotificationProvider>
+    </LocaleProvider>,
+  )
+}
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -60,6 +81,8 @@ function createResult(updates: LauncherUpdateSummary[]): LauncherUpdatesResult {
 describe('LauncherUpdatesPage', () => {
   afterEach(() => {
     cleanup()
+    clearNotifications()
+    eventListeners.clear()
     vi.clearAllMocks()
   })
 
@@ -77,7 +100,7 @@ describe('LauncherUpdatesPage', () => {
     checkLauncherUpdatesMock.mockResolvedValue(createResult(updates))
     const onQueueDownload = vi.fn()
 
-    renderWithLocale(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} />, 'zh-CN')
+    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} />)
 
     const firstCheckbox = await screen.findByRole('checkbox', { name: 'NPC Adventures' })
     const secondCheckbox = await screen.findByRole('checkbox', { name: 'Horse Overhaul' })
@@ -114,7 +137,7 @@ describe('LauncherUpdatesPage', () => {
       ]),
     )
 
-    renderWithLocale(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
     const firstCheckbox = await screen.findByRole('checkbox', { name: 'NPC Adventures' })
     const secondCheckbox = await screen.findByRole('checkbox', { name: 'Horse Overhaul' })
@@ -131,5 +154,28 @@ describe('LauncherUpdatesPage', () => {
     expect(firstCheckbox).toHaveProperty('checked', true)
     expect(secondCheckbox).toHaveProperty('checked', true)
     expect(bulkQueueButton).toHaveProperty('disabled', false)
+  })
+
+  it('shows update-check progress in the global notification viewport', async () => {
+    checkLauncherUpdatesMock.mockImplementation(() => new Promise(() => {}))
+
+    const { container } = renderWithProviders(
+      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
+    )
+
+    await act(async () => {
+      eventListeners.get('launcher://update-check-progress')?.({
+        payload: {
+          modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+          checked: 2,
+          total: 4,
+          currentModName: 'Horse Overhaul',
+        },
+      })
+    })
+
+    expect(screen.getByText('检查模组更新')).toBeTruthy()
+    expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
+    expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 50%')
   })
 })

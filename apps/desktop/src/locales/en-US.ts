@@ -19,13 +19,13 @@ const localeBundle: LocaleBundle = {
         "library": "Library",
         "discover": "Discover",
         "updates": "Updates",
-        "settings": "Settings"
+        "settings": "Debug"
       },
       "descriptions": {
         "library": "Your installed and pinned mods will appear here.",
         "discover": "Browse recommended packs and community highlights.",
         "updates": "Review pending updates before applying changes.",
-        "settings": "Launcher preferences and defaults live here."
+        "settings": "Debug-only tools for validating notifications and persistent logs."
       },
       "overview": {
         "installedMods": "Installed Mods",
@@ -154,7 +154,14 @@ const localeBundle: LocaleBundle = {
         "title": "Updates",
         "subtitle": "Compare installed mods against Nexus pages derived from UpdateKeys.",
         "empty": "No updates are currently available for installed mods with supported Nexus UpdateKeys.",
-        "selectionSummary": (selected, total) => `${selected} of ${total} updates selected`
+        "selectionSummary": (selected, total) => `${selected} of ${total} updates selected`,
+        "checkingProgressTitle": "Checking mod updates",
+        "checkingProgressDetail": (checked, total, currentModName) =>
+          currentModName
+            ? `Checking ${currentModName} (${checked}/${total || '?'})`
+            : total > 0
+              ? `Checked ${checked}/${total} mods`
+              : 'Preparing installed mods'
       },
       "downloads": {
         "title": "Downloads",
@@ -167,8 +174,32 @@ const localeBundle: LocaleBundle = {
         "pathsHint": "Game, Mods, and Download paths all stay inside ModForge's existing persistence model.",
         "autoInstallHint": "Install the archive immediately after a successful download finishes.",
         "keepArchivesHint": "Preserve downloaded zip files after install for rollback or manual reuse.",
+        "loadFailed": "Failed to load launcher settings.",
         "saved": "Launcher settings saved.",
         "saveFailed": "Failed to save launcher settings."
+      },
+      "debug": {
+        "title": "Launcher Debug",
+        "subtitle": "Debug-only launcher tools for testing notifications and persistent logging.",
+        "debugOnlyTitle": "Debug Mode Required",
+        "debugOnlyDescription": "This page only appears when global debug mode is enabled. Use it to validate the cross-module message and log pipeline.",
+        "notificationsTitle": "Notification Tests",
+        "notificationsSubtitle": "Emit visible test messages through the global notification system.",
+        "logsTitle": "Log Tests",
+        "logsSubtitle": "Write persistent log records without showing a toast.",
+        "notificationButtons": {
+          "debug": "Debug Notification",
+          "info": "Info Notification",
+          "success": "Success Notification",
+          "warning": "Warning Notification",
+          "error": "Error Notification"
+        },
+        "logButtons": {
+          "debug": "Debug Log",
+          "info": "Info Log",
+          "warning": "Warning Log",
+          "error": "Error Log"
+        }
       },
       "sortOptions": {
         "newest": "Newest",
@@ -953,6 +984,8 @@ const localeBundle: LocaleBundle = {
     "selectProjectFolder": "Select mod folder",
     "importedFrom": (path) => `Imported: ${path}`,
     "missingRequiredDependencies": (dependencies) => `Missing required: ${dependencies}`,
+    "saveFailed": "Failed to save mod project.",
+    "exportFailed": "Failed to export mod project.",
     "saveSuccess": (path) => `Saved to ${path}`,
     "exportSuccess": (path) => `Exported to ${path}`,
     "scanStatus": (count) => `${count} mod projects detected.`
@@ -962,8 +995,9 @@ const localeBundle: LocaleBundle = {
     "dismissLabel": "Dismiss notification",
     "actionHint": "Press Enter to run action",
     "levels": {
-      "info": "Info",
       "success": "Success",
+      "info": "Info",
+      "debug": "Debug",
       "warning": "Warning",
       "error": "Error"
     }
@@ -990,8 +1024,8 @@ const localeBundle: LocaleBundle = {
     "categories": {
       "appearance": "Appearance",
       "view": "View",
-      "interaction": "Interaction",
-      "advanced": "Advanced"
+      "launcher": "Launcher",
+      "debug": "Debug"
     },
     "accentLabel": "Accent Color",
     "resetAccentLabel": "Reset Accent Color",
@@ -1007,13 +1041,17 @@ const localeBundle: LocaleBundle = {
     "borderlessFullscreenDescription": "Switch the undecorated desktop window into an immersive fullscreen workspace.",
     "enableBorderlessFullscreenLabel": "Enter Borderless Fullscreen",
     "disableBorderlessFullscreenLabel": "Exit Borderless Fullscreen",
+    "debugModeLabel": "Debug Tools",
+    "debugModeDescription": "Show diagnostics overlays, allow debug notifications, and persist debug logs.",
+    "enableDebugModeLabel": "Enable debug tools",
+    "disableDebugModeLabel": "Disable debug tools",
     "futureLabel": "More Settings",
     "futureDescription": "Future editor preferences, display options, and behavior settings will live here.",
     "categoryDescriptions": {
       "appearance": "Theme, accent color, and overall visual style.",
       "view": "Map display, canvas, and information presentation.",
-      "interaction": "Input, navigation, and editing behavior.",
-      "advanced": "Experimental options, diagnostics, and advanced controls."
+      "launcher": "Game paths, download defaults, and Nexus credentials.",
+      "debug": "Diagnostics, overlays, notifications, and persistent logging."
     }
   }
 }

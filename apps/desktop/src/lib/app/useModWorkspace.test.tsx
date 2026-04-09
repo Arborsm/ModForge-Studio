@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { loadContentPatcherResultAsset, scanModProjects, simulateContentPatcher } from '../desktop'
+import { chooseDirectory, loadContentPatcherResultAsset, saveModProject, scanModProjects, simulateContentPatcher } from '../desktop'
+import { reportAppEvent } from './observability'
 import useModWorkspace from './useModWorkspace'
 
 vi.mock('../editor-shell', async (importOriginal) => {
@@ -136,6 +137,10 @@ vi.mock('../desktop', () => ({
     ],
     diagnostics: [],
   }),
+}))
+
+vi.mock('./observability', () => ({
+  reportAppEvent: vi.fn(),
 }))
 
 describe('useModWorkspace', () => {
@@ -367,5 +372,106 @@ describe('useModWorkspace', () => {
     await waitFor(() => {
       expect(result.current.filteredModProjects.map((project) => project.id)).toEqual(['needs-scaleup', 'cp-pack'])
     })
+  })
+
+  it('publishes a success notification after saving the active project', async () => {
+    vi.mocked(saveModProject).mockResolvedValueOnce({
+      pluginKind: 'content-patcher',
+      targetPath: 'E:\\Mods\\CPPack',
+      manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+      contentPath: 'E:\\Mods\\CPPack\\content.json',
+      diagnostics: [],
+    })
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    await act(async () => {
+      await result.current.handleSaveProject()
+    })
+
+    expect(vi.mocked(reportAppEvent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'success',
+      }),
+    )
+  })
+
+  it('publishes an error notification when project save fails', async () => {
+    vi.mocked(saveModProject).mockRejectedValueOnce(new Error('Disk full'))
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    await expect(result.current.handleSaveProject()).rejects.toThrow('Disk full')
+
+    expect(vi.mocked(reportAppEvent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'error',
+      }),
+    )
+  })
+
+  it('publishes a success notification after exporting the active project', async () => {
+    vi.mocked(chooseDirectory).mockResolvedValueOnce('E:\\Exports')
+    vi.mocked(saveModProject).mockResolvedValueOnce({
+      pluginKind: 'content-patcher',
+      targetPath: 'E:\\Exports\\CPPack',
+      manifestPath: 'E:\\Exports\\CPPack\\manifest.json',
+      contentPath: 'E:\\Exports\\CPPack\\content.json',
+      diagnostics: [],
+    })
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    await act(async () => {
+      await result.current.handleExportProject()
+    })
+
+    expect(vi.mocked(reportAppEvent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'success',
+      }),
+    )
   })
 })

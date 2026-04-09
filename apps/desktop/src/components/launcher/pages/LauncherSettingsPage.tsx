@@ -1,198 +1,132 @@
-import { FolderOpen, KeyRound, Save } from 'lucide-react'
+import { Bug, MessageSquare, ScrollText } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
-import { openLauncherPath } from '../../../lib/desktop'
-import { useLauncherSettings } from '../../../lib/launcher/useLauncherSettings'
+import { reportAppEvent, type AppEventLevel } from '../../../lib/app/observability'
 import { LauncherControlBar } from '../shared/LauncherControlBar'
 import { LauncherPageScaffold } from '../shared/LauncherPageScaffold'
-import { LauncherSplitLayout } from '../shared/LauncherSplitLayout'
-import { LauncherStateBlock } from '../shared/LauncherStateBlock'
 
-type LauncherSettingsPageProps = {
-  settingsState: ReturnType<typeof useLauncherSettings>
-}
+type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
+type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>
 
-function SettingPathField({
-  label,
-  value,
-  onChange,
-  onBrowse,
-  onOpen,
-  openLabel,
-  browseLabel,
-}: {
-  label: string
-  value: string | null
-  onChange: (value: string | null) => void
-  onBrowse: () => void
-  onOpen: () => void
-  openLabel: string
-  browseLabel: string
-}) {
+function NotificationTestButtons({ labels }: { labels: DebugButtonGroup }) {
+  const notify = (level: AppEventLevel, title: string) => {
+    reportAppEvent({
+      level,
+      title,
+      description: `Launcher debug notification test: ${level}`,
+      keyValues: {
+        source: 'launcher-debug-page',
+        kind: 'notification-test',
+        level,
+      },
+    })
+  }
+
   return (
-    <label className="launcher-form-field">
-      <span>{label}</span>
-      <div className="launcher-form-input-group">
-        <input
-          className="control-input"
-          value={value ?? ''}
-          onChange={(event) => onChange(event.target.value || null)}
-          spellCheck={false}
-        />
-        <button type="button" className="control-button" aria-label={browseLabel} title={browseLabel} onClick={onBrowse}>
-          <FolderOpen className="h-4 w-4" />
-        </button>
-        {value ? (
-          <button type="button" className="control-button" onClick={onOpen}>
-            <span>{openLabel}</span>
-          </button>
-        ) : null}
-      </div>
-    </label>
+    <div className="launcher-toolbar">
+      <button type="button" className="control-button" onClick={() => notify('debug', labels.debug)}>
+        {labels.debug}
+      </button>
+      <button type="button" className="control-button" onClick={() => notify('info', labels.info)}>
+        {labels.info}
+      </button>
+      <button type="button" className="control-button" onClick={() => notify('success', labels.success)}>
+        {labels.success}
+      </button>
+      <button type="button" className="control-button" onClick={() => notify('warning', labels.warning)}>
+        {labels.warning}
+      </button>
+      <button type="button" className="control-button control-button-primary" onClick={() => notify('error', labels.error)}>
+        {labels.error}
+      </button>
+    </div>
   )
 }
 
-export function LauncherSettingsPage({ settingsState }: LauncherSettingsPageProps) {
-  const rootCopy = useEditorCopy()
-  const copy = rootCopy.launcher
-  const { settings, updateField, pickDirectory, save, error } = settingsState
+function LogTestButtons({ labels }: { labels: DebugLogButtonGroup }) {
+  const logOnly = (level: Extract<AppEventLevel, 'debug' | 'info' | 'warning' | 'error'>, title: string) => {
+    reportAppEvent({
+      level,
+      title,
+      description: `Launcher debug log test: ${level}`,
+      notify: false,
+      keyValues: {
+        source: 'launcher-debug-page',
+        kind: 'log-test',
+        level,
+      },
+    })
+  }
 
-  const index = (
-    <div className="space-y-4">
-      <LauncherControlBar title={copy.settings.title} subtitle={copy.settings.subtitle}>
-        <div className="launcher-settings-index">
-          <button type="button" className="launcher-settings-index-item">
-            01. {copy.fields.gamePath}
-          </button>
-          <button type="button" className="launcher-settings-index-item">
-            02. {copy.fields.modsPath}
-          </button>
-          <button type="button" className="launcher-settings-index-item">
-            03. {copy.fields.downloadPath}
-          </button>
-          <button type="button" className="launcher-settings-index-item">
-            04. {copy.fields.nexusApiKey}
-          </button>
-          <button type="button" className="launcher-settings-index-item">
-            05. {copy.fields.nexusCookie}
-          </button>
-        </div>
-      </LauncherControlBar>
-
-      <LauncherStateBlock title={copy.settings.pathsHint} detail={copy.settings.keepArchivesHint} />
+  return (
+    <div className="launcher-toolbar">
+      <button type="button" className="control-button" onClick={() => logOnly('debug', labels.debug)}>
+        {labels.debug}
+      </button>
+      <button type="button" className="control-button" onClick={() => logOnly('info', labels.info)}>
+        {labels.info}
+      </button>
+      <button type="button" className="control-button" onClick={() => logOnly('warning', labels.warning)}>
+        {labels.warning}
+      </button>
+      <button type="button" className="control-button control-button-primary" onClick={() => logOnly('error', labels.error)}>
+        {labels.error}
+      </button>
     </div>
   )
+}
 
-  const forms = (
-    <div className="space-y-4">
-      {error ? <LauncherStateBlock title={copy.settings.saveFailed} detail={error} tone="warning" /> : null}
-
-      <LauncherControlBar title={copy.settings.title} subtitle={copy.settings.pathsHint}>
-        <div className="launcher-form-grid">
-          <SettingPathField
-            label={copy.fields.gamePath}
-            value={settings.gamePath}
-            onChange={(value) => updateField('gamePath', value)}
-            onBrowse={() => void pickDirectory('gamePath', copy.fields.gamePath)}
-            onOpen={() => void openLauncherPath({ path: settings.gamePath! })}
-            openLabel={copy.actions.openFolder}
-            browseLabel={rootCopy.controls.browse}
-          />
-          <SettingPathField
-            label={copy.fields.modsPath}
-            value={settings.modsPath}
-            onChange={(value) => updateField('modsPath', value)}
-            onBrowse={() => void pickDirectory('modsPath', copy.fields.modsPath)}
-            onOpen={() => void openLauncherPath({ path: settings.modsPath! })}
-            openLabel={copy.actions.openFolder}
-            browseLabel={rootCopy.controls.browse}
-          />
-          <SettingPathField
-            label={copy.fields.downloadPath}
-            value={settings.downloadPath}
-            onChange={(value) => updateField('downloadPath', value)}
-            onBrowse={() => void pickDirectory('downloadPath', copy.fields.downloadPath)}
-            onOpen={() => void openLauncherPath({ path: settings.downloadPath! })}
-            openLabel={copy.actions.openFolder}
-            browseLabel={rootCopy.controls.browse}
-          />
-        </div>
-      </LauncherControlBar>
-
-      <LauncherControlBar title="Nexus" subtitle={copy.discover.credentialsHint}>
-        <div className="launcher-form-grid">
-          <label className="launcher-form-field">
-            <span>{copy.fields.nexusApiKey}</span>
-            <div className="launcher-form-input-group">
-              <input
-                type="password"
-                className="control-input"
-                value={settings.nexusApiKey ?? ''}
-                onChange={(event) => updateField('nexusApiKey', event.target.value || null)}
-                spellCheck={false}
-              />
-              <span className="dock-chip">
-                <KeyRound className="h-3 w-3" />
-                <span>API</span>
-              </span>
-            </div>
-          </label>
-
-          <label className="launcher-form-field">
-            <span>{copy.fields.nexusCookie}</span>
-            <input
-              type="password"
-              className="control-input"
-              value={settings.nexusCookie ?? ''}
-              onChange={(event) => updateField('nexusCookie', event.target.value || null)}
-              spellCheck={false}
-            />
-          </label>
-        </div>
-      </LauncherControlBar>
-
-      <LauncherControlBar title={copy.pages.settings} subtitle={copy.settings.autoInstallHint}>
-        <div className="launcher-toggle-grid">
-          <label className="launcher-toggle-card panel-list-card">
-            <input
-              type="checkbox"
-              checked={settings.autoInstallDownloads}
-              onChange={(event) => updateField('autoInstallDownloads', event.target.checked)}
-            />
-            <div>
-              <p>{copy.toggles.autoInstallDownloads}</p>
-              <p>{copy.settings.autoInstallHint}</p>
-            </div>
-          </label>
-
-          <label className="launcher-toggle-card panel-list-card">
-            <input
-              type="checkbox"
-              checked={settings.keepDownloadedArchives}
-              onChange={(event) => updateField('keepDownloadedArchives', event.target.checked)}
-            />
-            <div>
-              <p>{copy.toggles.keepDownloadedArchives}</p>
-              <p>{copy.settings.keepArchivesHint}</p>
-            </div>
-          </label>
-        </div>
-      </LauncherControlBar>
-    </div>
-  )
+export function LauncherSettingsPage() {
+  const copy = useEditorCopy().launcher
 
   return (
     <LauncherPageScaffold
       eyebrow={copy.pages.settings}
-      title={copy.settings.title}
-      subtitle={copy.settings.subtitle}
-      actions={
-        <button type="button" className="control-button control-button-primary" onClick={() => void save()}>
-          <Save className="h-4 w-4" />
-          <span>{copy.actions.saveSettings}</span>
-        </button>
+      title={copy.debug.title}
+      subtitle={copy.debug.subtitle}
+      stats={
+        <div className="launcher-page-stats-grid">
+          <div className="metric-card">
+            <span className="metric-label">{copy.debug.notificationsTitle}</span>
+            <strong className="metric-value">5</strong>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">{copy.debug.logsTitle}</span>
+            <strong className="metric-value">4</strong>
+          </div>
+        </div>
       }
     >
-      <LauncherSplitLayout primary={index} secondary={forms} />
+      <div className="space-y-4">
+        <LauncherControlBar title={copy.debug.title} subtitle={copy.debug.subtitle}>
+          <div className="settings-window-control-card">
+            <div className="settings-window-control-meta">
+              <span className="settings-window-control-icon" aria-hidden="true">
+                <Bug className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="settings-window-section-title">{copy.debug.debugOnlyTitle}</p>
+                <p className="settings-window-section-copy mt-2">{copy.debug.debugOnlyDescription}</p>
+              </div>
+            </div>
+          </div>
+        </LauncherControlBar>
+
+        <LauncherControlBar
+          title={copy.debug.notificationsTitle}
+          subtitle={copy.debug.notificationsSubtitle}
+          action={<MessageSquare className="h-4 w-4 text-[var(--accent)]" />}
+        >
+          <NotificationTestButtons labels={copy.debug.notificationButtons} />
+        </LauncherControlBar>
+
+        <LauncherControlBar
+          title={copy.debug.logsTitle}
+          subtitle={copy.debug.logsSubtitle}
+          action={<ScrollText className="h-4 w-4 text-[var(--accent)]" />}
+        >
+          <LogTestButtons labels={copy.debug.logButtons} />
+        </LauncherControlBar>
+      </div>
     </LauncherPageScaffold>
   )
 }

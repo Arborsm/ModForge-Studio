@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import SettingsWindow from './SettingsWindow'
 import { ACCENT_PRESETS } from '../lib/app/constants'
 import { getSettingsMenuCopy } from '../lib/editor-shell'
@@ -8,12 +10,26 @@ import { getSettingsMenuCopy } from '../lib/editor-shell'
 const copy = getSettingsMenuCopy('en-US')
 
 describe('SettingsWindow', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   function renderWindow(overrides?: Partial<ComponentProps<typeof SettingsWindow>>) {
     const props: ComponentProps<typeof SettingsWindow> = {
       open: true,
       title: copy.title,
-      categories: copy.categories,
-      categoryDescriptions: copy.categoryDescriptions,
+      categories: {
+        appearance: 'Appearance',
+        view: 'View',
+        launcher: 'Launcher',
+        debug: 'Debug',
+      },
+      categoryDescriptions: {
+        appearance: 'Theme, accent color, and overall visual style.',
+        view: 'Map display, canvas, and information presentation.',
+        launcher: 'Game paths, downloads, and Nexus integration.',
+        debug: 'Diagnostics, overlays, notifications, and logs.',
+      },
       accentLabel: copy.accentLabel,
       resetAccentLabel: copy.resetAccentLabel,
       accentDescription: copy.accentDescription,
@@ -34,10 +50,22 @@ describe('SettingsWindow', () => {
       enableBorderlessFullscreenLabel: 'Enter borderless fullscreen',
       disableBorderlessFullscreenLabel: 'Exit borderless fullscreen',
       borderlessFullscreenEnabled: false,
+      debugModeLabel: 'Debug tools',
+      debugModeDescription: 'Show developer diagnostics and emit debug logs.',
+      enableDebugModeLabel: 'Enable debug tools',
+      disableDebugModeLabel: 'Disable debug tools',
+      debugModeEnabled: false,
+      launcherContent: (
+        <div>
+          <span>Game Path</span>
+          <button type="button">Save Launcher Settings</button>
+        </div>
+      ),
       onSelectAccent: vi.fn(),
       onResetAccent: vi.fn(),
       onSelectLocale: vi.fn(),
       onToggleBorderlessFullscreen: vi.fn(),
+      onToggleDebugMode: vi.fn(),
       onClose: vi.fn(),
       ...overrides,
     }
@@ -49,29 +77,55 @@ describe('SettingsWindow', () => {
   it('shows a borderless fullscreen toggle in the view category', () => {
     const { container } = renderWindow()
 
-    expect(container.querySelector('.settings-window-backdrop')).toBeInTheDocument()
-    expect(container.querySelector('.settings-window-panel')).toBeInTheDocument()
-    expect(container.querySelector('.settings-window-sidebar')).toBeInTheDocument()
+    expect(container.querySelector('.settings-window-backdrop')).toBeTruthy()
+    expect(container.querySelector('.settings-window-panel')).toBeTruthy()
+    expect(container.querySelector('.settings-window-sidebar')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${copy.categories.view}`) }))
 
-    expect(screen.getByRole('button', { name: 'Enter borderless fullscreen' })).toBeInTheDocument()
+    const toggle = screen.getByRole('switch', { name: 'Borderless fullscreen' })
+
+    expect(toggle).toBeTruthy()
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('shows the debug toggle in the advanced category and calls the toggle handler', () => {
+    const onToggleDebugMode = vi.fn()
+    renderWindow({ onToggleDebugMode })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Debug/ }))
+
+    const toggle = screen.getByRole('switch', { name: 'Debug tools' })
+    expect(toggle).toBeTruthy()
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+
+    fireEvent.click(toggle)
+    expect(onToggleDebugMode).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders launcher settings content in the launcher category', () => {
+    renderWindow()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Launcher/ }))
+
+    expect(screen.getByText('Game Path')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Save Launcher Settings' })).toBeTruthy()
   })
 
   it('shows locale options in appearance and only selects a non-active locale', () => {
     const onSelectLocale = vi.fn()
     renderWindow({ onSelectLocale })
 
-    expect(screen.getByText(copy.languageLabel)).toBeInTheDocument()
-    expect(screen.getByText(copy.languageDescription)).toBeInTheDocument()
+    expect(screen.getByText(copy.languageLabel)).toBeTruthy()
+    expect(screen.getByText(copy.languageDescription)).toBeTruthy()
     const localeGroup = screen.getByRole('radiogroup', { name: copy.languageLabel })
-    expect(localeGroup).toBeInTheDocument()
+    expect(localeGroup).toBeTruthy()
 
     const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
     const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
 
-    expect(englishOption).toHaveAttribute('aria-checked', 'true')
-    expect(chineseOption).toHaveAttribute('aria-checked', 'false')
+    expect(englishOption.getAttribute('aria-checked')).toBe('true')
+    expect(chineseOption.getAttribute('aria-checked')).toBe('false')
 
     fireEvent.click(englishOption)
     expect(onSelectLocale).not.toHaveBeenCalled()
@@ -87,14 +141,14 @@ describe('SettingsWindow', () => {
     const englishOption = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
     const chineseOption = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
 
-    expect(englishOption).toHaveAttribute('tabindex', '0')
-    expect(chineseOption).toHaveAttribute('tabindex', '-1')
+    expect(englishOption.getAttribute('tabindex')).toBe('0')
+    expect(chineseOption.getAttribute('tabindex')).toBe('-1')
 
     ;(englishOption as HTMLElement).focus()
     fireEvent.keyDown(englishOption, { key: 'ArrowRight' })
 
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
-    expect(chineseOption).toHaveFocus()
+    expect(document.activeElement).toBe(chineseOption)
   })
 
   it('supports Home and End locale navigation keys', () => {
@@ -108,7 +162,7 @@ describe('SettingsWindow', () => {
     fireEvent.keyDown(englishOption, { key: 'Home' })
 
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
-    expect(chineseOption).toHaveFocus()
+    expect(document.activeElement).toBe(chineseOption)
 
     rerender(<SettingsWindow {...props} activeLocale="zh-CN" />)
 
@@ -119,7 +173,7 @@ describe('SettingsWindow', () => {
     fireEvent.keyDown(chineseOptionUpdated, { key: 'End' })
 
     expect(onSelectLocale).toHaveBeenNthCalledWith(2, 'en-US')
-    expect(englishOptionUpdated).toHaveFocus()
+    expect(document.activeElement).toBe(englishOptionUpdated)
   })
 
   it('supports reverse-direction arrow keys with wraparound navigation', () => {
@@ -133,20 +187,20 @@ describe('SettingsWindow', () => {
     fireEvent.keyDown(chineseOption, { key: 'ArrowLeft' })
 
     expect(onSelectLocale).toHaveBeenCalledWith('en-US')
-    expect(englishOption).toHaveFocus()
+    expect(document.activeElement).toBe(englishOption)
 
     rerender(<SettingsWindow {...props} activeLocale="en-US" />)
 
     const englishOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
     const chineseOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
 
-    expect(englishOptionUpdated).toHaveFocus()
+    expect(document.activeElement).toBe(englishOptionUpdated)
 
     fireEvent.keyDown(englishOptionUpdated, { key: 'ArrowUp' })
 
     expect(onSelectLocale).toHaveBeenCalledTimes(2)
     expect(onSelectLocale).toHaveBeenNthCalledWith(2, 'zh-CN')
-    expect(chineseOptionUpdated).toHaveFocus()
+    expect(document.activeElement).toBe(chineseOptionUpdated)
   })
 
   it('updates aria-checked and roving tabindex after parent activeLocale rerender', () => {
@@ -156,19 +210,26 @@ describe('SettingsWindow', () => {
     const englishOptionInitial = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
     const chineseOptionInitial = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
 
-    expect(englishOptionInitial).toHaveAttribute('aria-checked', 'true')
-    expect(chineseOptionInitial).toHaveAttribute('aria-checked', 'false')
-    expect(englishOptionInitial).toHaveAttribute('tabindex', '0')
-    expect(chineseOptionInitial).toHaveAttribute('tabindex', '-1')
+    expect(englishOptionInitial.getAttribute('aria-checked')).toBe('true')
+    expect(chineseOptionInitial.getAttribute('aria-checked')).toBe('false')
+    expect(englishOptionInitial.getAttribute('tabindex')).toBe('0')
+    expect(chineseOptionInitial.getAttribute('tabindex')).toBe('-1')
 
     rerender(<SettingsWindow {...props} activeLocale="zh-CN" />)
 
     const englishOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['en-US'] })
     const chineseOptionUpdated = screen.getByRole('radio', { name: copy.localeLabels['zh-CN'] })
 
-    expect(englishOptionUpdated).toHaveAttribute('aria-checked', 'false')
-    expect(chineseOptionUpdated).toHaveAttribute('aria-checked', 'true')
-    expect(englishOptionUpdated).toHaveAttribute('tabindex', '-1')
-    expect(chineseOptionUpdated).toHaveAttribute('tabindex', '0')
+    expect(englishOptionUpdated.getAttribute('aria-checked')).toBe('false')
+    expect(chineseOptionUpdated.getAttribute('aria-checked')).toBe('true')
+    expect(englishOptionUpdated.getAttribute('tabindex')).toBe('-1')
+    expect(chineseOptionUpdated.getAttribute('tabindex')).toBe('0')
+  })
+
+  it('uses a larger settings dialog layout', () => {
+    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
+
+    expect(stylesheet).toContain('width: min(920px, calc(100vw - 56px));')
+    expect(stylesheet).toContain('max-height: min(820px, calc(100vh - 56px));')
   })
 })

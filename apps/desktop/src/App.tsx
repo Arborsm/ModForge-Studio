@@ -4,6 +4,7 @@ import InitializationOverlay from './components/InitializationOverlay'
 import StatusBar from './components/StatusBar'
 import TopMenuBar from './components/TopMenuBar'
 import LauncherShell from './components/launcher/LauncherShell'
+import { LauncherSettingsForm } from './components/launcher/shared/LauncherSettingsForm'
 import { LauncherDownloadsPopover } from './components/launcher/shared/LauncherDownloadsPopover'
 import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
 import {
@@ -21,6 +22,7 @@ import {
   editorCopy,
   getSettingsMenuCopy,
   getWorldAtlasViewLabel,
+  launcherPages,
   type AppMode,
   type LauncherPage,
   type LocaleCode,
@@ -53,10 +55,14 @@ import { useCharacterWorkspace } from './lib/app/useCharacterWorkspace'
 import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
 import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { LocaleProvider } from './lib/app/localeContext'
+import { dismissNotification, NotificationProvider, publishNotification } from './lib/app/notifications'
+import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
 import useModWorkspace from './lib/app/useModWorkspace'
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 import { scheduleDeferred } from './lib/react/defer'
+import type { SettingsWindowCategory } from './components/SettingsWindow'
+import type { ResourcePreloadState } from './lib/app/types'
 
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
 const PlayerAppearanceWindow = lazy(() => import('./components/PlayerAppearanceWindow'))
@@ -72,6 +78,15 @@ type WindowWithIdleCallback = Window & {
 }
 
 const LOCALE_STORAGE_KEY = 'modforge:locale'
+const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
+
+function getResourcePreloadProgress(state: ResourcePreloadState) {
+  if (state.total <= 0) {
+    return 18
+  }
+
+  return Math.max(0, Math.min(100, (state.completed / state.total) * 100))
+}
 
 function getInitialLocale(): LocaleCode {
   if (typeof window !== 'undefined') {
@@ -106,9 +121,11 @@ export default function App() {
   })
   const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppShellState().appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(() => readStoredAppShellState().launcherPage)
+  const [debugEnabled, setDebugEnabled] = useState(() => readStoredAppShellState().debugEnabled)
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
+  const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
@@ -281,7 +298,7 @@ export default function App() {
     setWorkspaceMode,
     getWorldAtlasViewLabel,
   })
-  const launcherRuntime = useLauncherRuntime()
+  const launcherRuntime = useLauncherRuntime(locale)
 
   const {
     eventAssets,
@@ -464,6 +481,10 @@ export default function App() {
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
+  const availableLauncherPages: LauncherPage[] = debugEnabled
+    ? launcherPages
+    : launcherPages.filter((page): page is Exclude<LauncherPage, 'settings'> => page !== 'settings')
+  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'settings' ? 'library' : launcherPage
   const activePlayerAppearanceProfile =
     playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
   const needsInitialization = !directoryInfo
@@ -535,6 +556,28 @@ export default function App() {
     workspaceMode,
     workspaceStatus,
   ])
+
+  useEffect(() => {
+    if (!resourcePreloadState.active) {
+      dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID)
+      return
+    }
+
+    publishNotification({
+      id: RESOURCE_PRELOAD_NOTIFICATION_ID,
+      level: 'info',
+      title: resourcePreloadState.message || copy.messages.preloadingResources,
+      description: resourcePreloadState.currentLabel || null,
+      autoDismissMs: null,
+      progress: getResourcePreloadProgress(resourcePreloadState),
+    })
+  }, [
+    copy.messages.preloadingResources,
+    resourcePreloadState,
+  ])
+
+  useEffect(() => () => dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID), [])
+
   const recentGameDirectories = useMemo(() => {
     const currentRoot = directoryInfo?.rootPath
     if (!currentRoot) {
@@ -565,8 +608,19 @@ export default function App() {
     persistAppShellState({
       appMode,
       launcherPage,
+      debugEnabled,
     })
-  }, [appMode, launcherPage])
+  }, [appMode, debugEnabled, launcherPage])
+
+  useEffect(() => {
+    if (!debugEnabled && launcherPage === 'settings') {
+      setLauncherPage('library')
+    }
+  }, [debugEnabled, launcherPage])
+
+  useEffect(() => {
+    void syncDebugDiagnosticsEnabled(debugEnabled)
+  }, [debugEnabled])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current
@@ -962,7 +1016,16 @@ export default function App() {
   }, [])
 
   const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
+    if (nextPage === 'settings' && !debugEnabled) {
+      return
+    }
+
     setLauncherPage(nextPage)
+  }, [debugEnabled])
+
+  const openSettingsWindow = useCallback((category: SettingsWindowCategory = 'appearance') => {
+    setSettingsWindowCategory(category)
+    setSettingsWindowOpen(true)
   }, [])
 
   const handleLaunchGame = useCallback(async () => {
@@ -972,7 +1035,7 @@ export default function App() {
 
     if (!launcherRuntime.settingsState.settings.gamePath?.trim()) {
       setAppMode('launcher')
-      setLauncherPage('settings')
+      openSettingsWindow('launcher')
       return
     }
 
@@ -982,200 +1045,185 @@ export default function App() {
       await launchLauncherGame()
     } catch {
       setAppMode('launcher')
-      setLauncherPage('settings')
+      openSettingsWindow('launcher')
     } finally {
       setLauncherLaunchBusy(false)
     }
-  }, [desktopHost, launcherLaunchBusy, launcherRuntime.settingsState.settings.gamePath])
+  }, [desktopHost, launcherLaunchBusy, launcherRuntime.settingsState.settings.gamePath, openSettingsWindow])
 
   return (
     <LocaleProvider locale={locale}>
-      <div
-        className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]"
-        aria-busy={interactionLocked}
-      >
-        <TopMenuBar
-          appMode={appMode}
-          onAppModeChange={handleAppModeChange}
-          workspaceMode={workspaceMode}
-          onWorkspaceChange={setWorkspaceMode}
-          theme={theme}
-          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-          statusTone={currentWorkspaceStatus.tone}
-          desktopHost={desktopHost}
-          onMinimizeWindow={() => void minimizeCurrentWindow()}
-          onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
-          onCloseWindow={() => void closeCurrentWindow()}
-          viewMenu={{
-            panelItems: viewMenuPanelItems,
-            presetNames: viewMenuPresetNames,
-            onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
-            onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
-            onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
-            onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
-            onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
-          }}
-          settingsMenu={{
-            onOpen: () => setSettingsWindowOpen(true),
-          }}
-          projectMenu={{
-            highlighted: appMode === 'workbench' && showProjectOverlay,
-            onOpen: () => {
-              setAppMode('workbench')
-              setProjectOverlayOpen(true)
-            },
-          }}
-          launcherChrome={{
-            page: launcherPage,
-            onPageChange: handleLauncherPageChange,
-            downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
-            downloadsHasFailure: launcherRuntime.downloadsHasFailure,
-            settingsWarning: launcherRuntime.settingsWarning,
-            settingsWarningLabel: launcherSettingsWarningLabel,
-            downloadsPopover: <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />,
-          }}
-        />
-
-        {settingsWindowOpen ? (
-          <Suspense fallback={null}>
-            <SettingsWindow
-              open={settingsWindowOpen}
-              title={settingsMenuCopy.title}
-              categories={settingsMenuCopy.categories}
-              categoryDescriptions={settingsMenuCopy.categoryDescriptions}
-              accentLabel={settingsMenuCopy.accentLabel}
-              resetAccentLabel={settingsMenuCopy.resetAccentLabel}
-              accentDescription={settingsMenuCopy.accentDescription}
-              languageLabel={settingsMenuCopy.languageLabel}
-              languageDescription={settingsMenuCopy.languageDescription}
-              localeOptions={localeOptions}
-              activeLocale={locale}
-              windowModeLabel={settingsMenuCopy.windowModeLabel}
-              borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
-              borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
-              enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
-              disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
-              borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
-              futureLabel={settingsMenuCopy.futureLabel}
-              futureDescription={settingsMenuCopy.futureDescription}
-              accentOptions={ACCENT_PRESETS}
-              activeAccentId={activeAccentPreset.id}
-              onSelectAccent={setAccentPresetId}
-              onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
-              onSelectLocale={setLocale}
-              onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
-              onClose={() => setSettingsWindowOpen(false)}
-            />
-          </Suspense>
-        ) : null}
-
-        {playerAppearanceWindowOpen ? (
-          <Suspense fallback={null}>
-            <PlayerAppearanceWindow
-              key={`player-appearance:${playerAppearanceWindowNonce}`}
-              open={playerAppearanceWindowOpen}
-              locale={locale}
-              rootPath={directoryInfo?.rootPath ?? null}
-              profiles={playerAppearanceProfiles}
-              activeProfileId={activePlayerAppearanceProfileId}
-              onSelectProfile={setActivePlayerAppearanceProfileId}
-              onCreateProfile={handleCreatePlayerAppearanceProfile}
-              onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
-              onDeleteProfile={handleDeletePlayerAppearanceProfile}
-              onImportProfile={handleImportPlayerAppearanceProfile}
-              onChangeProfile={handleChangePlayerAppearanceProfile}
-              onClose={() => setPlayerAppearanceWindowOpen(false)}
-            />
-          </Suspense>
-        ) : null}
-
-        <div className="min-h-0 flex-1 overflow-hidden">
-          {appMode === 'workbench' ? (
-            <WorkspaceLayout
-              ref={workspaceLayoutRef}
-              storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
-              panels={workspacePanels}
-              onLayoutMetaChange={handleLayoutMetaChange}
-            />
-          ) : (
-            <LauncherShell
-              page={launcherPage}
-              settingsState={launcherRuntime.settingsState}
-              downloads={launcherRuntime.downloads}
-              onNavigateToSettings={() => setLauncherPage('settings')}
-              launchGameLabel={copy.launcher.actions.launchGame}
-              launchGameDisabled={!desktopHost || launcherLaunchBusy}
-              launchGameBusy={launcherLaunchBusy}
-              onLaunchGame={() => void handleLaunchGame()}
-            />
-          )}
-        </div>
-
-        {appMode === 'workbench' && showProjectOverlay ? (
-          <InitializationOverlay
-            desktopHost={desktopHost}
-            gameDirectory={gameDirectory}
-            detectedDirectories={knownGameDirectories}
-            onGameDirectoryChange={setGameDirectory}
-            onSelectDirectory={setGameDirectory}
-            onChooseDirectory={() => void handleChooseDirectory()}
-            onScanAndOpenTown={() => void handleScanAndOpenTown()}
-            onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
-          />
-        ) : null}
-
-        {appMode === 'workbench' && import.meta.env.DEV ? (
-          <DevDebugOverlay
+      <NotificationProvider>
+        <div
+          className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]"
+          aria-busy={interactionLocked}
+        >
+          <TopMenuBar
+            appMode={appMode}
+            onAppModeChange={handleAppModeChange}
             workspaceMode={workspaceMode}
-            mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
-            eventName={selectedEvent?.eventId ?? null}
-            currentEventCommandId={currentEventCommandId}
-            actorCount={selectedEvent?.scene.actors.length ?? 0}
+            onWorkspaceChange={setWorkspaceMode}
+            theme={theme}
+            onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            statusTone={currentWorkspaceStatus.tone}
+            desktopHost={desktopHost}
+            onMinimizeWindow={() => void minimizeCurrentWindow()}
+            onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+            onCloseWindow={() => void closeCurrentWindow()}
+            viewMenu={{
+              panelItems: viewMenuPanelItems,
+              presetNames: viewMenuPresetNames,
+              onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
+              onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
+              onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
+              onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
+              onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
+            }}
+            settingsMenu={{
+              onOpen: () => openSettingsWindow('appearance'),
+            }}
+            projectMenu={{
+              highlighted: appMode === 'workbench' && showProjectOverlay,
+              onOpen: () => {
+                setAppMode('workbench')
+                setProjectOverlayOpen(true)
+              },
+            }}
+            launcherChrome={{
+              page: activeLauncherPage,
+              visiblePages: availableLauncherPages,
+              onPageChange: handleLauncherPageChange,
+              downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
+              downloadsHasFailure: launcherRuntime.downloadsHasFailure,
+              settingsWarning: launcherRuntime.settingsWarning,
+              settingsWarningLabel: launcherSettingsWarningLabel,
+              downloadsPopover: <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />,
+            }}
           />
-        ) : null}
 
-        <StatusBar
-          appMode={appMode}
-          launcherPage={launcherPage}
-          workspaceMode={workspaceMode}
-          workspaceStatus={currentWorkspaceStatus}
-          directoryInfo={directoryInfo}
-          mapAssets={mapAssets}
-          activeAsset={activeAsset}
-          mapDocument={mapDocument}
-          pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
-          hoverInfo={hoverInfo}
-        />
+          {settingsWindowOpen ? (
+            <Suspense fallback={null}>
+              <SettingsWindow
+                open={settingsWindowOpen}
+                title={settingsMenuCopy.title}
+                categories={settingsMenuCopy.categories}
+                categoryDescriptions={settingsMenuCopy.categoryDescriptions}
+                accentLabel={settingsMenuCopy.accentLabel}
+                resetAccentLabel={settingsMenuCopy.resetAccentLabel}
+                accentDescription={settingsMenuCopy.accentDescription}
+                languageLabel={settingsMenuCopy.languageLabel}
+                languageDescription={settingsMenuCopy.languageDescription}
+                localeOptions={localeOptions}
+                activeLocale={locale}
+                windowModeLabel={settingsMenuCopy.windowModeLabel}
+                borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
+                borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
+                enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
+                disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
+                borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
+                debugModeLabel={settingsMenuCopy.debugModeLabel}
+                debugModeDescription={settingsMenuCopy.debugModeDescription}
+                enableDebugModeLabel={settingsMenuCopy.enableDebugModeLabel}
+                disableDebugModeLabel={settingsMenuCopy.disableDebugModeLabel}
+                debugModeEnabled={debugEnabled}
+                launcherContent={<LauncherSettingsForm settingsState={launcherRuntime.settingsState} />}
+                activeCategory={settingsWindowCategory}
+                futureLabel={settingsMenuCopy.futureLabel}
+                futureDescription={settingsMenuCopy.futureDescription}
+                accentOptions={ACCENT_PRESETS}
+                activeAccentId={activeAccentPreset.id}
+                onSelectAccent={setAccentPresetId}
+                onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+                onSelectLocale={setLocale}
+                onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
+                onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                onActiveCategoryChange={setSettingsWindowCategory}
+                onClose={() => setSettingsWindowOpen(false)}
+              />
+            </Suspense>
+          ) : null}
 
-        {interactionLocked ? (
-          <div className="initialization-preload-backdrop">
-            <div className="initialization-preload-panel">
-              <p className="initialization-preload-eyebrow">
-                {copy.messages.preloadingResources}
-              </p>
-              <p className="initialization-preload-title">{resourcePreloadState.message}</p>
-              {resourcePreloadState.currentLabel ? (
-                <p className="initialization-preload-current-label">{resourcePreloadState.currentLabel}</p>
-              ) : null}
-              <div className="initialization-preload-progress-track">
-                <div
-                  className="initialization-preload-progress-fill"
-                  style={{
-                    width:
-                      resourcePreloadState.total > 0
-                        ? `${Math.max(6, (resourcePreloadState.completed / resourcePreloadState.total) * 100)}%`
-                        : '18%',
-                  }}
-                />
-              </div>
-              <div className="initialization-preload-meta">
-                <span>{resourcePreloadState.total > 0 ? `${resourcePreloadState.completed}/${resourcePreloadState.total}` : '...'}</span>
-                <span>{resourcePreloadState.total > 0 ? `${Math.round((resourcePreloadState.completed / resourcePreloadState.total) * 100)}%` : ''}</span>
-              </div>
-            </div>
+          {playerAppearanceWindowOpen ? (
+            <Suspense fallback={null}>
+              <PlayerAppearanceWindow
+                key={`player-appearance:${playerAppearanceWindowNonce}`}
+                open={playerAppearanceWindowOpen}
+                locale={locale}
+                rootPath={directoryInfo?.rootPath ?? null}
+                profiles={playerAppearanceProfiles}
+                activeProfileId={activePlayerAppearanceProfileId}
+                onSelectProfile={setActivePlayerAppearanceProfileId}
+                onCreateProfile={handleCreatePlayerAppearanceProfile}
+                onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
+                onDeleteProfile={handleDeletePlayerAppearanceProfile}
+                onImportProfile={handleImportPlayerAppearanceProfile}
+                onChangeProfile={handleChangePlayerAppearanceProfile}
+                onClose={() => setPlayerAppearanceWindowOpen(false)}
+              />
+            </Suspense>
+          ) : null}
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {appMode === 'workbench' ? (
+              <WorkspaceLayout
+                ref={workspaceLayoutRef}
+                storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
+                panels={workspacePanels}
+                onLayoutMetaChange={handleLayoutMetaChange}
+              />
+            ) : (
+              <LauncherShell
+                page={activeLauncherPage}
+                debugEnabled={debugEnabled}
+                settingsState={launcherRuntime.settingsState}
+                downloads={launcherRuntime.downloads}
+                onNavigateToSettings={() => openSettingsWindow('launcher')}
+                launchGameLabel={copy.launcher.actions.launchGame}
+                launchGameDisabled={!desktopHost || launcherLaunchBusy}
+                launchGameBusy={launcherLaunchBusy}
+                onLaunchGame={() => void handleLaunchGame()}
+              />
+            )}
           </div>
-        ) : null}
-      </div>
+
+          {appMode === 'workbench' && showProjectOverlay ? (
+            <InitializationOverlay
+              desktopHost={desktopHost}
+              gameDirectory={gameDirectory}
+              detectedDirectories={knownGameDirectories}
+              onGameDirectoryChange={setGameDirectory}
+              onSelectDirectory={setGameDirectory}
+              onChooseDirectory={() => void handleChooseDirectory()}
+              onScanAndOpenTown={() => void handleScanAndOpenTown()}
+              onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
+            />
+          ) : null}
+
+          {appMode === 'workbench' && debugEnabled ? (
+            <DevDebugOverlay
+              workspaceMode={workspaceMode}
+              mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
+              eventName={selectedEvent?.eventId ?? null}
+              currentEventCommandId={currentEventCommandId}
+              actorCount={selectedEvent?.scene.actors.length ?? 0}
+            />
+          ) : null}
+
+            <StatusBar
+            appMode={appMode}
+            launcherPage={activeLauncherPage}
+            workspaceMode={workspaceMode}
+            workspaceStatus={currentWorkspaceStatus}
+            directoryInfo={directoryInfo}
+            mapAssets={mapAssets}
+            activeAsset={activeAsset}
+            mapDocument={mapDocument}
+            pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
+            hoverInfo={hoverInfo}
+          />
+
+        </div>
+      </NotificationProvider>
     </LocaleProvider>
   )
 }

@@ -1,5 +1,6 @@
 ﻿import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 export type GameDirectoryInfo = {
@@ -65,6 +66,16 @@ export type FileCacheStats = {
   rootPath: string
   entryCount: number
   totalSizeBytes: number
+}
+
+export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'
+
+export type FrontendLogRequest = {
+  level: FrontendLogLevel
+  message: string
+  file?: string
+  line?: number
+  keyValues?: Record<string, string | undefined>
 }
 
 export type PluginKind = 'content-patcher' | 'unknown'
@@ -433,6 +444,13 @@ export type LauncherUpdatesResult = {
   updates: LauncherUpdateSummary[]
 }
 
+export type LauncherUpdateProgressPayload = {
+  modsPath: string
+  checked: number
+  total: number
+  currentModName: string | null
+}
+
 export type DownloadLauncherModRequest = {
   modId: number
   fileId?: number | null
@@ -618,6 +636,7 @@ const loadLauncherDownloadQueueCache = createPromiseCache<LauncherDownloadQueueS
 const scanLauncherLibraryCache = createPromiseCache<LauncherLibraryScanResult>()
 const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>()
 const checkLauncherUpdatesCache = createPromiseCache<LauncherUpdatesResult>()
+const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 
 export function clearDesktopLocaleCache(locale: string) {
   const normalizedLocale = locale.trim()
@@ -676,8 +695,77 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
   return invoke<T>(command, args)
 }
 
+function toDesktopLogLevel(level: FrontendLogLevel) {
+  switch (level) {
+    case 'debug':
+      return 2
+    case 'info':
+      return 3
+    case 'warning':
+      return 4
+    case 'error':
+      return 5
+  }
+}
+
+function toConsoleLogMethod(level: FrontendLogLevel) {
+  switch (level) {
+    case 'debug':
+      return console.debug
+    case 'info':
+      return console.info
+    case 'warning':
+      return console.warn
+    case 'error':
+      return console.error
+  }
+}
+
+function mirrorFrontendLogToConsole(request: FrontendLogRequest) {
+  const metadata: Record<string, string | number | undefined> = {
+    ...request.keyValues,
+    file: request.file,
+    line: request.line,
+  }
+
+  const entries = Object.entries(metadata).filter(([, value]) => value !== undefined)
+  const logMethod = toConsoleLogMethod(request.level)
+
+  if (!entries.length) {
+    logMethod(request.message)
+    return
+  }
+
+  logMethod(request.message, Object.fromEntries(entries))
+}
+
 export function canUseDesktopHost() {
   return isDesktopHost()
+}
+
+export async function writeFrontendLog(request: FrontendLogRequest) {
+  mirrorFrontendLogToConsole(request)
+
+  if (!isDesktopHost()) {
+    return
+  }
+
+  await invoke<void>('plugin:log|log', {
+    level: toDesktopLogLevel(request.level),
+    message: request.message,
+    location: undefined,
+    file: request.file,
+    line: request.line,
+    keyValues: request.keyValues,
+  })
+}
+
+export async function setDesktopDebugLoggingEnabled(enabled: boolean) {
+  if (!isDesktopHost()) {
+    return
+  }
+
+  await invokeDesktop<void>('set_debug_logging_enabled', { enabled })
 }
 
 export async function chooseGameDirectory() {
@@ -971,6 +1059,14 @@ export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
   return readPending(checkLauncherUpdatesCache, cacheKey, () =>
     invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', { request }),
   )
+}
+
+export function listenToLauncherUpdateProgress(
+  listener: (payload: LauncherUpdateProgressPayload) => void,
+): Promise<UnlistenFn> {
+  return listen<LauncherUpdateProgressPayload>(LAUNCHER_UPDATE_PROGRESS_EVENT, (event) => {
+    listener(event.payload)
+  })
 }
 
 export function downloadLauncherMod(request: DownloadLauncherModRequest) {

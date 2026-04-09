@@ -105,4 +105,46 @@ describe('launcher bridge helpers', () => {
     await expect(launchLauncherGame()).resolves.toEqual(launched)
     expect(invoke).toHaveBeenCalledWith('launch_launcher_game', undefined)
   })
+
+  it('toggles backend debug logging through the desktop bridge', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined)
+    const { setDesktopDebugLoggingEnabled } = await import('./desktop')
+
+    await expect(setDesktopDebugLoggingEnabled(true)).resolves.toBeUndefined()
+    expect(invoke).toHaveBeenCalledWith('set_debug_logging_enabled', {
+      enabled: true,
+    })
+  })
+
+  it('writes frontend log records through the existing Tauri log plugin command', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined)
+    const { writeFrontendLog } = await import('./desktop')
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    await expect(
+      writeFrontendLog({
+        level: 'warning',
+        message: 'Launcher settings save failed',
+        keyValues: {
+          source: 'launcher-settings',
+        },
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(invoke).toHaveBeenCalledWith('plugin:log|log', {
+      level: 4,
+      message: 'Launcher settings save failed',
+      file: undefined,
+      keyValues: {
+        source: 'launcher-settings',
+      },
+      line: undefined,
+      location: undefined,
+    })
+    expect(warnSpy).toHaveBeenCalledWith('Launcher settings save failed', {
+      source: 'launcher-settings',
+    })
+
+    warnSpy.mockRestore()
+  })
 })

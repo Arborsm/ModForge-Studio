@@ -15,4 +15,5 @@
 @import "./features/content-patcher.css";
 @import "./features/item-group.css";
 @import "./features/initialization-overlay.css";
+@import "./features/notifications.css";
 @import "./features/launcher.css";

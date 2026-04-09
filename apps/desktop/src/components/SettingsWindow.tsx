@@ -1,6 +1,6 @@
-import { Maximize2, Palette, Settings2, X } from 'lucide-react'
+import { Bug, Maximize2, Palette, Settings2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { cx } from '../lib/cx'
 import type { LocaleCode } from '../lib/editor-shell'
 
@@ -15,20 +15,22 @@ type LocaleOption = {
   label: string
 }
 
+export type SettingsWindowCategory = 'appearance' | 'view' | 'launcher' | 'debug'
+
 type SettingsWindowProps = {
   open: boolean
   title: string
   categories: {
     appearance: string
     view: string
-    interaction: string
-    advanced: string
+    launcher: string
+    debug: string
   }
   categoryDescriptions: {
     appearance: string
     view: string
-    interaction: string
-    advanced: string
+    launcher: string
+    debug: string
   }
   accentLabel: string
   resetAccentLabel: string
@@ -43,6 +45,13 @@ type SettingsWindowProps = {
   enableBorderlessFullscreenLabel: string
   disableBorderlessFullscreenLabel: string
   borderlessFullscreenEnabled: boolean
+  debugModeLabel: string
+  debugModeDescription: string
+  enableDebugModeLabel: string
+  disableDebugModeLabel: string
+  debugModeEnabled: boolean
+  launcherContent?: ReactNode
+  activeCategory?: SettingsWindowCategory
   futureLabel: string
   futureDescription: string
   accentOptions: AccentOption[]
@@ -51,7 +60,64 @@ type SettingsWindowProps = {
   onResetAccent: () => void
   onSelectLocale: (locale: LocaleCode) => void
   onToggleBorderlessFullscreen: () => void
+  onToggleDebugMode: () => void
+  onActiveCategoryChange?: (category: SettingsWindowCategory) => void
   onClose: () => void
+}
+
+function SettingsBooleanSwitch({
+  icon,
+  label,
+  description,
+  checked,
+  enabledLabel,
+  disabledLabel,
+  onToggle,
+}: {
+  icon: ReactNode
+  label: string
+  description: string
+  checked: boolean
+  enabledLabel: string
+  disabledLabel: string
+  onToggle: () => void
+}) {
+  const titleId = useId()
+  const descriptionId = useId()
+
+  return (
+    <div className="settings-window-control-card">
+      <div className="settings-window-control-meta">
+        <span className="settings-window-control-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <div>
+          <p id={titleId} className="settings-window-section-title">
+            {label}
+          </p>
+          <p id={descriptionId} className="settings-window-section-copy mt-2">
+            {description}
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        className={cx('settings-switch', checked && 'settings-switch-active')}
+        role="switch"
+        aria-checked={checked}
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        title={checked ? disabledLabel : enabledLabel}
+        onClick={onToggle}
+      >
+        <span className="settings-switch-copy">{checked ? disabledLabel : enabledLabel}</span>
+        <span className="settings-switch-track" aria-hidden="true">
+          <span className="settings-switch-thumb" />
+        </span>
+      </button>
+    </div>
+  )
 }
 
 export default function SettingsWindow({
@@ -72,6 +138,13 @@ export default function SettingsWindow({
   enableBorderlessFullscreenLabel,
   disableBorderlessFullscreenLabel,
   borderlessFullscreenEnabled,
+  debugModeLabel,
+  debugModeDescription,
+  enableDebugModeLabel,
+  disableDebugModeLabel,
+  debugModeEnabled,
+  launcherContent,
+  activeCategory: controlledActiveCategory,
   futureLabel,
   futureDescription,
   accentOptions,
@@ -80,14 +153,25 @@ export default function SettingsWindow({
   onResetAccent,
   onSelectLocale,
   onToggleBorderlessFullscreen,
+  onToggleDebugMode,
+  onActiveCategoryChange,
   onClose,
 }: SettingsWindowProps) {
-  const [activeCategory, setActiveCategory] = useState<'appearance' | 'view' | 'interaction' | 'advanced'>('appearance')
+  const [uncontrolledActiveCategory, setUncontrolledActiveCategory] = useState<SettingsWindowCategory>('appearance')
   const languageTitleId = useId()
   const languageDescriptionId = useId()
   const localeOptionRefs = useRef<Array<HTMLButtonElement | null>>([])
   const activeLocaleIndex = localeOptions.findIndex((option) => option.id === activeLocale)
   const focusableLocaleIndex = activeLocaleIndex === -1 ? 0 : activeLocaleIndex
+  const activeCategory = controlledActiveCategory ?? uncontrolledActiveCategory
+
+  const handleCategoryChange = (category: SettingsWindowCategory) => {
+    if (controlledActiveCategory === undefined) {
+      setUncontrolledActiveCategory(category)
+    }
+
+    onActiveCategoryChange?.(category)
+  }
 
   const handleLocaleKeyDown = (index: number, event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (!localeOptions.length) {
@@ -167,7 +251,7 @@ export default function SettingsWindow({
 
         <div className="settings-window-body">
           <aside className="settings-window-sidebar">
-            {(['appearance', 'view', 'interaction', 'advanced'] as const).map((categoryId) => (
+            {(['appearance', 'view', 'launcher', 'debug'] as const).map((categoryId) => (
               <button
                 key={categoryId}
                 type="button"
@@ -175,7 +259,7 @@ export default function SettingsWindow({
                   'settings-window-nav-item',
                   activeCategory === categoryId && 'settings-window-nav-item-active',
                 )}
-                onClick={() => setActiveCategory(categoryId)}
+                onClick={() => handleCategoryChange(categoryId)}
               >
                 <span className="settings-window-nav-title">{categories[categoryId]}</span>
                 <span className="settings-window-nav-copy">{categoryDescriptions[categoryId]}</span>
@@ -260,48 +344,58 @@ export default function SettingsWindow({
               </section>
             ) : null}
 
-            {activeCategory !== 'appearance' ? (
+            {activeCategory === 'view' ? (
               <section className="settings-window-section">
-                {activeCategory === 'view' ? (
-                  <>
-                    <p className="settings-window-section-title">{windowModeLabel}</p>
-                    <p className="settings-window-section-copy mt-2">{categoryDescriptions[activeCategory]}</p>
-                    <div className="settings-window-control-card">
-                      <div className="settings-window-control-meta">
-                        <span className="settings-window-control-icon" aria-hidden="true">
-                          <Maximize2 className="h-4 w-4" />
-                        </span>
-                        <div>
-                          <p className="settings-window-section-title">{borderlessFullscreenLabel}</p>
-                          <p className="settings-window-section-copy mt-2">{borderlessFullscreenDescription}</p>
-                        </div>
-                      </div>
-                      <button type="button" className="control-button" onClick={onToggleBorderlessFullscreen}>
-                        {borderlessFullscreenEnabled ? disableBorderlessFullscreenLabel : enableBorderlessFullscreenLabel}
-                      </button>
-                    </div>
-                    <div className="settings-window-placeholder">
-                      <p className="settings-window-placeholder-title">{futureLabel}</p>
-                      <p className="settings-window-placeholder-copy">{futureDescription}</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="settings-window-section-title">{categories[activeCategory]}</p>
-                    <p className="settings-window-section-copy mt-2">{categoryDescriptions[activeCategory]}</p>
-                    <div className="settings-window-placeholder">
-                      <p className="settings-window-placeholder-title">{futureLabel}</p>
-                      <p className="settings-window-placeholder-copy">{futureDescription}</p>
-                    </div>
-                  </>
-                )}
+                <p className="settings-window-section-title">{windowModeLabel}</p>
+                <p className="settings-window-section-copy mt-2">{categoryDescriptions.view}</p>
+                <SettingsBooleanSwitch
+                  icon={<Maximize2 className="h-4 w-4" />}
+                  label={borderlessFullscreenLabel}
+                  description={borderlessFullscreenDescription}
+                  checked={borderlessFullscreenEnabled}
+                  enabledLabel={enableBorderlessFullscreenLabel}
+                  disabledLabel={disableBorderlessFullscreenLabel}
+                  onToggle={onToggleBorderlessFullscreen}
+                />
+                <div className="settings-window-placeholder">
+                  <p className="settings-window-placeholder-title">{futureLabel}</p>
+                  <p className="settings-window-placeholder-copy">{futureDescription}</p>
+                </div>
               </section>
-            ) : (
+            ) : null}
+
+            {activeCategory === 'launcher' ? (
+              <section className="settings-window-section">
+                <p className="settings-window-section-title">{categories.launcher}</p>
+                <p className="settings-window-section-copy mt-2">{categoryDescriptions.launcher}</p>
+                <div className="mt-4">{launcherContent}</div>
+              </section>
+            ) : null}
+
+            {activeCategory === 'debug' ? (
+              <section className="settings-window-section">
+                <p className="settings-window-section-title">{categories.debug}</p>
+                <p className="settings-window-section-copy mt-2">{categoryDescriptions.debug}</p>
+                <div className="mt-4">
+                  <SettingsBooleanSwitch
+                    icon={<Bug className="h-4 w-4" />}
+                    label={debugModeLabel}
+                    description={debugModeDescription}
+                    checked={debugModeEnabled}
+                    enabledLabel={enableDebugModeLabel}
+                    disabledLabel={disableDebugModeLabel}
+                    onToggle={onToggleDebugMode}
+                  />
+                </div>
+              </section>
+            ) : null}
+
+            {activeCategory === 'appearance' ? (
               <section className="settings-window-section">
                 <p className="settings-window-section-title">{futureLabel}</p>
                 <p className="settings-window-section-copy mt-2">{futureDescription}</p>
               </section>
-            )}
+            ) : null}
           </div>
         </div>
       </section>

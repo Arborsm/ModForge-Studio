@@ -1,4 +1,5 @@
 import type { LauncherSettings } from '../desktop'
+import type { LocaleCode } from '../editor-shell'
 import { useLauncherDownloads } from './useLauncherDownloads'
 import { useLauncherSettings } from './useLauncherSettings'
 
@@ -22,8 +23,8 @@ export function getLauncherWarningState(settings: LauncherSettings): LauncherWar
   }
 }
 
-export function useLauncherRuntime() {
-  const settingsState = useLauncherSettings()
+export function useLauncherRuntime(locale: LocaleCode) {
+  const settingsState = useLauncherSettings({ locale })
   const downloads = useLauncherDownloads(settingsState.settings)
   const warningState = getLauncherWarningState(settingsState.settings)
   const downloadsBadgeCount =

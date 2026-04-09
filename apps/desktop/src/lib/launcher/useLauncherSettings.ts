@@ -6,6 +6,8 @@ import {
   saveLauncherSettings,
   type LauncherSettings,
 } from '../desktop'
+import { getLauncherCopy, type LocaleCode } from '../editor-shell'
+import { reportAppEvent } from '../app/observability'
 import type { LauncherViewState } from './types'
 
 const DEFAULT_SETTINGS: LauncherSettings = {
@@ -28,7 +30,12 @@ function deriveModsPath(gamePath: string) {
   return `${trimmedPath}${separator}Mods`
 }
 
-export function useLauncherSettings() {
+type UseLauncherSettingsOptions = {
+  locale?: LocaleCode
+}
+
+export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOptions = {}) {
+  const launcherCopy = getLauncherCopy(locale)
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -56,10 +63,20 @@ export function useLauncherSettings() {
       setSettings(nextSettings)
       setState('ready')
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher settings.')
+      const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.loadFailed
+      setError(message)
       setState('error')
+      reportAppEvent({
+        level: 'error',
+        title: launcherCopy.settings.loadFailed,
+        description: message,
+        keyValues: {
+          source: 'launcher-settings',
+          operation: 'load',
+        },
+      })
     }
-  }, [])
+  }, [launcherCopy.settings.loadFailed])
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -97,21 +114,48 @@ export function useLauncherSettings() {
   const save = useCallback(async () => {
     setError(null)
     setSaveMessage(null)
+    reportAppEvent({
+      level: 'debug',
+      title: 'Saving launcher settings',
+      notify: false,
+      keyValues: {
+        source: 'launcher-settings',
+        operation: 'save',
+      },
+    })
 
     try {
       const persisted = await saveLauncherSettings(resolvedSettings)
       setSettings(persisted)
       setSaveMessage('saved')
       setState('ready')
+      reportAppEvent({
+        level: 'success',
+        title: launcherCopy.settings.saved,
+        keyValues: {
+          source: 'launcher-settings',
+          operation: 'save',
+          game_path: persisted.gamePath ?? undefined,
+        },
+      })
       return persisted
     } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : 'Failed to save launcher settings.'
+      const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.saveFailed
       setError(message)
       setSaveMessage('error')
       setState('error')
+      reportAppEvent({
+        level: 'error',
+        title: launcherCopy.settings.saveFailed,
+        description: message,
+        keyValues: {
+          source: 'launcher-settings',
+          operation: 'save',
+        },
+      })
       throw nextError
     }
-  }, [resolvedSettings])
+  }, [launcherCopy.settings.saveFailed, launcherCopy.settings.saved, resolvedSettings])
 
   const pickDirectory = useCallback(
     async (field: 'gamePath' | 'modsPath' | 'downloadPath', title: string) => {

@@ -1,6 +1,6 @@
 import { Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useEditorCopy } from '../../../lib/app/localeContext'
+import { useEditorCopy, useSettingsMenuCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { useLauncherUpdates } from '../../../lib/launcher/useLauncherUpdates'
@@ -99,6 +99,7 @@ export function LauncherUpdatesPage({
   onNavigateToSettings,
 }: LauncherUpdatesPageProps) {
   const copy = useEditorCopy().launcher
+  const settingsMenuCopy = useSettingsMenuCopy()
   const updates = useLauncherUpdates(settings)
   const [selectedUpdateKey, setSelectedUpdateKey] = useState<string | null>(null)
   const queueItem = (item: (typeof updates.items)[number]) =>
@@ -162,7 +163,7 @@ export function LauncherUpdatesPage({
           action={
             onNavigateToSettings ? (
               <button type="button" className="control-button control-button-primary" onClick={onNavigateToSettings}>
-                {copy.pages.settings}
+                {settingsMenuCopy.title}
               </button>
             ) : null
           }

@@ -53,6 +53,7 @@ function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}):
     },
     launcherChrome: {
       page: 'library',
+      visiblePages: ['library', 'discover', 'updates', 'settings'],
       onPageChange: vi.fn(),
       downloadsBadgeCount: 0,
       downloadsHasFailure: false,
@@ -177,6 +178,23 @@ describe('TopMenuBar', () => {
     expect(screen.getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.launcher.pages.settings })).toBeTruthy()
     expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
+  })
+
+  it('hides the launcher debug page tab when debug mode is disabled', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          appMode: 'launcher',
+          launcherChrome: {
+            ...launcherChrome,
+            visiblePages: ['library', 'discover', 'updates'],
+          },
+        })}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: copy.launcher.pages.settings })).toBeNull()
   })
 
   it('opens the downloads popup from the shell controls as a floating dialog', () => {

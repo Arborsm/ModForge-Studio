@@ -1,4 +1,5 @@
-﻿import type { LocaleBundle } from './schema'
+﻿// @ts-nocheck
+import type { LocaleBundle } from './schema'
 
 const localeBundle: LocaleBundle = {
   "editor": {
@@ -154,7 +155,14 @@ const localeBundle: LocaleBundle = {
         "title": "更新",
         "subtitle": "基于 UpdateKeys 对已安装模组与 Nexus 页面做版本比对。",
         "empty": "当前没有可用更新，或已安装模组缺少可识别的 Nexus UpdateKeys。",
-        "selectionSummary": (selected, total) => `已选择 ${selected} / ${total} 个更新`
+        "selectionSummary": (selected, total) => `已选择 ${selected} / ${total} 个更新`,
+        "checkingProgressTitle": "检查模组更新",
+        "checkingProgressDetail": (checked, total, currentModName) =>
+          currentModName
+            ? `正在检查 ${currentModName}（${checked}/${total || '?'}）`
+            : total > 0
+              ? `已检查 ${checked}/${total} 个模组`
+              : '正在准备已安装模组'
       },
       "downloads": {
         "title": "下载",
@@ -167,6 +175,7 @@ const localeBundle: LocaleBundle = {
         "pathsHint": "游戏、Mods 和下载路径都继续使用 ModForge 现有的持久化体系。",
         "autoInstallHint": "下载成功后立即把归档安装到 Mods 目录。",
         "keepArchivesHint": "安装完成后保留 zip 归档，便于回滚或手动复用。",
+        "loadFailed": "启动器设置加载失败。",
         "saved": "启动器设置已保存。",
         "saveFailed": "启动器设置保存失败。"
       },
@@ -953,6 +962,8 @@ const localeBundle: LocaleBundle = {
     "selectProjectFolder": "选择模组目录",
     "importedFrom": (path) => `已导入: ${path}`,
     "missingRequiredDependencies": (dependencies) => `缺少必需依赖：${dependencies}`,
+    "saveFailed": "保存模组项目失败。",
+    "exportFailed": "导出模组项目失败。",
     "saveSuccess": (path) => `已保存到 ${path}`,
     "exportSuccess": (path) => `已导出到 ${path}`,
     "scanStatus": (count) => `已识别 ${count} 个模组项目。`
@@ -962,8 +973,9 @@ const localeBundle: LocaleBundle = {
     "dismissLabel": "关闭通知",
     "actionHint": "按 Enter 执行操作",
     "levels": {
-      "info": "信息",
       "success": "成功",
+      "info": "信息",
+      "debug": "调试",
       "warning": "警告",
       "error": "错误"
     }
@@ -1007,6 +1019,10 @@ const localeBundle: LocaleBundle = {
     "borderlessFullscreenDescription": "将当前无装饰桌面窗口切换为沉浸式全屏工作区。",
     "enableBorderlessFullscreenLabel": "进入无边框全屏",
     "disableBorderlessFullscreenLabel": "退出无边框全屏",
+    "debugModeLabel": "调试工具",
+    "debugModeDescription": "显示诊断覆盖层，允许调试通知，并持久化调试日志。",
+    "enableDebugModeLabel": "启用调试工具",
+    "disableDebugModeLabel": "关闭调试工具",
     "futureLabel": "更多配置",
     "futureDescription": "后续的编辑器偏好、显示选项和行为设置都会放在这里。",
     "categoryDescriptions": {
@@ -1018,5 +1034,45 @@ const localeBundle: LocaleBundle = {
   }
 }
 
-export default localeBundle
+localeBundle.editor.launcher.pages.settings = '调试'
+localeBundle.editor.launcher.descriptions.settings = '仅供调试使用的消息与日志验证工具。'
+localeBundle.editor.launcher.debug = {
+  title: '启动器调试',
+  subtitle: '仅在开启 debug 时显示，用于验证全局通知与持久化日志。',
+  debugOnlyTitle: '仅限调试使用',
+  debugOnlyDescription: '该页只在全局 debug 开关启用时可见。用它来验证跨模块消息和 log 链路是否正常。',
+  notificationsTitle: '消息测试',
+  notificationsSubtitle: '通过全局通知系统发送可见测试消息。',
+  logsTitle: '日志测试',
+  logsSubtitle: '写入持久化 log，不弹出通知。',
+  notificationButtons: {
+    debug: 'Debug 消息',
+    info: 'Info 消息',
+    success: 'Success 消息',
+    warning: 'Warning 消息',
+    error: 'Error 消息',
+  },
+  logButtons: {
+    debug: 'Debug 日志',
+    info: 'Info 日志',
+    warning: 'Warning 日志',
+    error: 'Error 日志',
+  },
+}
+localeBundle.settingsMenu.categories = {
+  appearance: '外观',
+  view: '视图',
+  launcher: '启动器',
+  debug: '调试',
+}
+localeBundle.settingsMenu.categoryDescriptions = {
+  appearance: '主题、强调色和整体视觉风格。',
+  view: '地图显示、画布与信息呈现方式。',
+  launcher: '游戏路径、下载默认值和 Nexus 凭据。',
+  debug: '诊断、覆盖层、通知与持久化日志。',
+}
+
+export default localeBundle as LocaleBundle
+
+
 

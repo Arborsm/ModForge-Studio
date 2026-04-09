@@ -211,6 +211,15 @@ pub struct CheckLauncherUpdatesRequest {
     pub mods_path: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherUpdateProgressPayload {
+    pub mods_path: String,
+    pub checked: usize,
+    pub total: usize,
+    pub current_mod_name: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateSummary {

@@ -5,6 +5,7 @@ import type {
   LauncherPage,
   LocaleCode,
   ModWorkspaceCopy,
+  NotificationCopy,
   SettingsMenuCopy,
   ViewMenuCopy,
   WorkspaceMode,
@@ -24,6 +25,7 @@ export type {
   LocaleBundle,
   LocaleCode,
   ModWorkspaceCopy,
+  NotificationCopy,
   ModuleBlueprint,
   SettingsMenuCopy,
   ThemeMode,
@@ -48,6 +50,10 @@ export function getEditorCopy(locale: LocaleCode): EditorCopy {
 
 export function getModWorkspaceCopy(locale: LocaleCode): ModWorkspaceCopy {
   return localeBundles[locale].mods
+}
+
+export function getNotificationCopy(locale: LocaleCode): NotificationCopy {
+  return localeBundles[locale].notifications
 }
 
 export function getWorldAtlasViewLabel(locale: LocaleCode, viewId: WorldAtlasViewId): string {

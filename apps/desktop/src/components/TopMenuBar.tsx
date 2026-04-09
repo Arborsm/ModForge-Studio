@@ -18,7 +18,6 @@ import {
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {
   getWorkspaceModeLabel,
-  launcherPages,
   type AppMode,
   type LauncherPage,
   type ThemeMode,
@@ -59,6 +58,7 @@ type TopMenuBarProps = {
   }
   launcherChrome?: {
     page: LauncherPage
+    visiblePages: LauncherPage[]
     onPageChange: (page: LauncherPage) => void
     downloadsBadgeCount: number
     downloadsHasFailure: boolean
@@ -302,8 +302,8 @@ export default function TopMenuBar({
                 </nav>
               ) : (
                 <>
-                  <nav className="contents" aria-label={copy.launcher.navigation}>
-                    {launcherPages.map((page) => {
+                <nav className="contents" aria-label={copy.launcher.navigation}>
+                    {launcherNav.visiblePages.map((page) => {
                       const active = launcherNav.page === page
                       const warning = page === 'settings' && launcherNav.settingsWarning
 

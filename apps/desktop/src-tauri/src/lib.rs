@@ -3,6 +3,7 @@ mod attached_api;
 mod content_patcher;
 mod json_relaxed;
 mod launcher;
+mod logging;
 mod mime;
 mod models;
 mod mods;
@@ -32,19 +33,25 @@ use launcher::{
     save_launcher_library_state, save_launcher_settings, scan_launcher_library,
     search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
 };
+use logging::{build_logging_plugin, set_debug_logging_enabled, DebugLoggingState};
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
 use xact::load_xact_audio_data_url;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let debug_logging_state = DebugLoggingState::new();
+    debug_logging_state.set_enabled(false);
+
     tauri::Builder::default()
+        .manage(debug_logging_state.clone())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(
-            tauri_plugin_log::Builder::default()
-                .level(log::LevelFilter::Info)
-                .build(),
-        )
+        .plugin(build_logging_plugin(debug_logging_state))
+        .setup(|app| {
+            app.state::<DebugLoggingState>().set_enabled(false);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             detect_default_game_directory,
             list_known_game_directories,
@@ -87,7 +94,8 @@ pub fn run() {
             check_launcher_updates,
             download_launcher_mod,
             inspect_launcher_archive,
-            install_launcher_archive
+            install_launcher_archive,
+            set_debug_logging_enabled
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

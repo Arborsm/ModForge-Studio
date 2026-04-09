@@ -1,6 +1,6 @@
 import { Download, ExternalLink, RefreshCw, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useEditorCopy } from '../../../lib/app/localeContext'
+import { useEditorCopy, useSettingsMenuCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import type { LauncherSettings } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
@@ -76,6 +76,7 @@ export function LauncherDiscoverPage({
   onNavigateToSettings,
 }: LauncherDiscoverPageProps) {
   const copy = useEditorCopy().launcher
+  const settingsMenuCopy = useSettingsMenuCopy()
   const discover = useLauncherDiscover()
   const [selectedModId, setSelectedModId] = useState<number | null>(null)
   const credentialsReady = Boolean(settings.nexusApiKey?.trim() || settings.nexusCookie?.trim())
@@ -147,7 +148,7 @@ export function LauncherDiscoverPage({
           action={
             onNavigateToSettings ? (
               <button type="button" className="control-button control-button-primary" onClick={onNavigateToSettings}>
-                {copy.pages.settings}
+                {settingsMenuCopy.title}
               </button>
             ) : null
           }

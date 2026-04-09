@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   APP_MODE_STORAGE_KEY,
+  DEBUG_ENABLED_STORAGE_KEY,
   LAUNCHER_PAGE_STORAGE_KEY,
   persistAppShellState,
   readStoredAppShellState,
@@ -15,37 +16,44 @@ describe('appShell', () => {
     expect(readStoredAppShellState()).toEqual({
       appMode: 'launcher',
       launcherPage: 'library',
+      debugEnabled: false,
     })
   })
 
-  it('reads valid persisted app mode and launcher page', () => {
+  it('reads valid persisted app mode, launcher page, and debug mode', () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
     window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'settings')
+    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
 
     expect(readStoredAppShellState()).toEqual({
       appMode: 'launcher',
       launcherPage: 'settings',
+      debugEnabled: true,
     })
   })
 
   it('falls back to defaults for unsupported persisted values', () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'invalid')
     window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'downloads')
+    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'verbose')
 
     expect(readStoredAppShellState()).toEqual({
       appMode: 'launcher',
       launcherPage: 'library',
+      debugEnabled: false,
     })
   })
 
-  it('persists mode and page independently', () => {
+  it('persists mode, page, and debug mode independently', () => {
     persistAppShellState({
       appMode: 'launcher',
       launcherPage: 'discover',
+      debugEnabled: true,
     })
 
     expect(window.localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('launcher')
     expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('discover')
+    expect(window.localStorage.getItem(DEBUG_ENABLED_STORAGE_KEY)).toBe('true')
   })
 
   it('keeps running when localStorage throws', () => {
@@ -59,11 +67,13 @@ describe('appShell', () => {
     expect(readStoredAppShellState()).toEqual({
       appMode: 'launcher',
       launcherPage: 'library',
+      debugEnabled: false,
     })
     expect(() =>
       persistAppShellState({
         appMode: 'launcher',
         launcherPage: 'library',
+        debugEnabled: false,
       }),
     ).not.toThrow()
 
