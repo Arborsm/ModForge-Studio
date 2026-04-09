@@ -580,6 +580,36 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     [libraryState, packPresets, persistLibraryState],
   )
 
+  const replacePackMods = useCallback(
+    async (packId: string, modIds: string[]) => {
+      const normalizedPackId = packId.trim()
+      if (!normalizedPackId) {
+        return
+      }
+
+      const uniqueModIds = Array.from(new Set(modIds.map((value) => value.trim()).filter(Boolean)))
+      const replacementKeys = uniqueModIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+        .map((value) => value.trim())
+        .filter(Boolean)
+
+      await persistLibraryState({
+        ...libraryState,
+        packPresets: packPresets.map((pack) =>
+          normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId)
+            ? {
+                ...pack,
+                modKeys: replacementKeys,
+              }
+            : pack,
+        ),
+      })
+    },
+    [libraryState, mods, packPresets, persistLibraryState],
+  )
+
   const setScopeMode = useCallback(
     async (nextScopeMode: LauncherLibraryScopeMode) => {
       await persistLibraryState({
@@ -691,6 +721,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     createPackPreset,
     renamePackPreset,
     deletePackPreset,
+    replacePackMods,
     setCurrentPackId,
     setScopeMode,
     applyCurrentPack,

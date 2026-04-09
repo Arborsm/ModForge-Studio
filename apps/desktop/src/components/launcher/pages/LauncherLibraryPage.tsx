@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
-import { FolderArchive, FolderOpen, Play, RefreshCw, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, FolderArchive, FolderOpen, Play, RefreshCw, Search, Settings2 } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import {
   chooseArchiveFile,
   chooseImageFile,
-  getLauncherBackupDirectory,
   inspectLauncherArchive,
   openLauncherPath,
   setLauncherLibraryCover,
@@ -25,11 +24,13 @@ type LauncherLibraryPageProps = {
   launchGameBusy: boolean
   onLaunchGame: () => void
 }
+
 type ArchivePreviewState = 'idle' | 'loading' | 'ready' | 'error'
 type LibrarySortMode = 'name' | 'enabled-first' | 'pack'
 
 const normalizeLookupKey = (value: string) => value.trim().toLowerCase()
 const getModKey = (mod: LauncherLibraryItem) => (mod.uniqueId || mod.labelKey || mod.id).trim()
+
 const shortenLibraryPath = (value: string | null | undefined) => {
   if (!value) {
     return null
@@ -91,6 +92,41 @@ function sortLibraryMods(
   })
 }
 
+function includesLibraryFilter(item: LauncherLibraryItem, filterText: string) {
+  const normalizedFilter = filterText.trim().toLowerCase()
+  if (!normalizedFilter) {
+    return true
+  }
+
+  return [item.name, item.author, item.uniqueId, item.version]
+    .filter(Boolean)
+    .some((value) => value?.toLowerCase().includes(normalizedFilter))
+}
+
+function buildLibraryCardMeta(mod: LauncherLibraryItem, noneLabel: string) {
+  const author = mod.author?.trim()
+  const version = mod.version?.trim()
+  if (author && version) {
+    return `${author} · v${version}`
+  }
+  if (author) {
+    return author
+  }
+  if (version) {
+    return `v${version}`
+  }
+  return noneLabel
+}
+
+function getPackModIds(pack: LauncherPackPreset | null, mods: LauncherLibraryItem[]) {
+  if (!pack) {
+    return []
+  }
+
+  const wantedKeys = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
+  return mods.filter((item) => wantedKeys.has(normalizeLookupKey(getModKey(item)))).map((item) => item.id)
+}
+
 export function LauncherLibraryPage({
   settings,
   launchGameLabel,
@@ -98,18 +134,25 @@ export function LauncherLibraryPage({
   launchGameBusy,
   onLaunchGame,
 }: LauncherLibraryPageProps) {
-  const copy = useEditorCopy().launcher
+  const editorCopy = useEditorCopy()
+  const copy = editorCopy.launcher
   const library = useLauncherLibrary(settings)
   const { refresh } = library
+
   const [archivePreviewState, setArchivePreviewState] = useState<ArchivePreviewState>('idle')
   const [archivePreview, setArchivePreview] = useState<InspectLauncherArchiveResult | null>(null)
   const [archivePreviewError, setArchivePreviewError] = useState<string | null>(null)
   const [installingArchive, setInstallingArchive] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [sortMode, setSortMode] = useState<LibrarySortMode>('name')
-  const [packActionId, setPackActionId] = useState('')
-  const [dragSelectionIds, setDragSelectionIds] = useState<string[]>([])
   const [detailModId, setDetailModId] = useState<string | null>(null)
+  const [packMenuOpen, setPackMenuOpen] = useState(false)
+  const [packSettingsOpen, setPackSettingsOpen] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [editingSelectionIds, setEditingSelectionIds] = useState<string[]>([])
+
+  const packMenuRef = useRef<HTMLDivElement | null>(null)
+  const packSettingsRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     void refresh()
@@ -122,26 +165,51 @@ export function LauncherLibraryPage({
   )
 
   useEffect(() => {
-    if (detailModId && !detailMod) {
-      setDetailModId(null)
+    if (!detailModId || detailMod) {
+      return
     }
+    setDetailModId(null)
   }, [detailMod, detailModId])
 
   useEffect(() => {
-    if (library.currentPackId && library.currentPackId !== packActionId) {
-      setPackActionId(library.currentPackId)
+    if (!editMode) {
       return
     }
 
-    if (!packActionId && library.packPresets[0]?.id) {
-      setPackActionId(library.packPresets[0].id)
-    }
-  }, [library.currentPackId, library.packPresets, packActionId])
+    setEditingSelectionIds(getPackModIds(library.currentPack, library.mods))
+  }, [editMode, library.currentPack, library.mods])
 
-  const sortedMods = useMemo(
-    () => sortLibraryMods(library.filteredMods, sortMode, packLookup, library.currentPackId),
-    [library.currentPackId, library.filteredMods, packLookup, sortMode],
-  )
+  useEffect(() => {
+    if (!packMenuOpen && !packSettingsOpen) {
+      return
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (packMenuRef.current?.contains(target) || packSettingsRef.current?.contains(target)) {
+        return
+      }
+      setPackMenuOpen(false)
+      setPackSettingsOpen(false)
+    }
+
+    window.addEventListener('mousedown', handlePointerDown)
+    return () => window.removeEventListener('mousedown', handlePointerDown)
+  }, [packMenuOpen, packSettingsOpen])
+
+  const visibleMods = useMemo(() => {
+    const source = library.mods.filter((item) => includesLibraryFilter(item, library.filterText))
+    const enabledFiltered = library.enabledOnly ? source.filter((item) => item.enabled) : source
+    const browseScoped =
+      editMode || !library.currentPack
+        ? enabledFiltered
+        : enabledFiltered.filter((item) =>
+            library.currentPack?.modKeys.some((value) => normalizeLookupKey(value) === normalizeLookupKey(getModKey(item))),
+          )
+
+    return sortLibraryMods(browseScoped, sortMode, packLookup, library.currentPackId)
+  }, [editMode, library.currentPack, library.currentPackId, library.enabledOnly, library.filterText, library.mods, packLookup, sortMode])
+
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
 
   const closeArchivePreview = () => {
@@ -149,6 +217,15 @@ export function LauncherLibraryPage({
     setArchivePreview(null)
     setArchivePreviewError(null)
     setInstallingArchive(false)
+  }
+
+  const runLibraryAction = async (action: () => Promise<void>) => {
+    setActionError(null)
+    try {
+      await action()
+    } catch (nextError) {
+      setActionError(nextError instanceof Error ? nextError.message : copy.library.empty)
+    }
   }
 
   const inspectArchive = async () => {
@@ -188,15 +265,6 @@ export function LauncherLibraryPage({
     }
   }
 
-  const runLibraryAction = async (action: () => Promise<void>) => {
-    setActionError(null)
-    try {
-      await action()
-    } catch (nextError) {
-      setActionError(nextError instanceof Error ? nextError.message : copy.library.empty)
-    }
-  }
-
   const openLibraryRoot = () =>
     runLibraryAction(async () => {
       if (!settings.modsPath) {
@@ -205,273 +273,371 @@ export function LauncherLibraryPage({
       await openLauncherPath({ path: settings.modsPath })
     })
 
-  const openBackupFolder = () =>
+  const openModFolder = (mod: LauncherLibraryItem) =>
     runLibraryAction(async () => {
-      await openLauncherPath({ path: await getLauncherBackupDirectory() })
+      await openLauncherPath({ path: mod.absolutePath })
     })
 
-  const openSelectedModFolder = () =>
+  const setModCover = (mod: LauncherLibraryItem) =>
     runLibraryAction(async () => {
-      if (!detailMod) {
-        return
-      }
-      await openLauncherPath({ path: detailMod.absolutePath })
-    })
-
-  const setSelectedModCover = () =>
-    runLibraryAction(async () => {
-      if (!detailMod) {
-        return
-      }
       const imagePath = await chooseImageFile(copy.actions.setCover)
       if (!imagePath) {
         return
       }
-      await setLauncherLibraryCover({ labelKey: detailMod.labelKey, imagePath })
+      await setLauncherLibraryCover({ labelKey: mod.labelKey, imagePath })
       await library.refresh()
     })
 
-  const clearSelectedModCover = () =>
+  const clearModCover = (mod: LauncherLibraryItem) =>
     runLibraryAction(async () => {
-      if (!detailMod) {
-        return
-      }
-      await setLauncherLibraryCover({ labelKey: detailMod.labelKey, imagePath: null })
+      await setLauncherLibraryCover({ labelKey: mod.labelKey, imagePath: null })
       await library.refresh()
     })
-
-  const addSelectionToPack = (packId: string) =>
-    runLibraryAction(async () => {
-      if (!packId) {
-        return
-      }
-      await library.addSelectionToPack(packId)
-      await library.setCurrentPackId(packId)
-    })
-
-  const prepareDragSelection = (modId: string) => {
-    library.setSelectedModId(modId)
-    library.setSelectedModIds([modId])
-    setDragSelectionIds([modId])
-  }
-
-  const focusModCard = (modId: string) => {
-    library.setSelectedModId(modId)
-  }
 
   const openModDetails = (modId: string) => {
     library.setSelectedModId(modId)
     setDetailModId(modId)
   }
 
-  const closeModDetails = () => {
-    setDetailModId(null)
+  const toggleEditSelection = (modId: string) => {
+    setEditingSelectionIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
   }
 
-  const resolvePackName = (mod: LauncherLibraryItem) => {
-    const modPacks = packLookup.get(normalizeLookupKey(getModKey(mod))) ?? []
-    if (!modPacks.length) {
-      return null
+  const startEditMode = () => {
+    if (!library.currentPack) {
+      return
     }
-    return (
-      modPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? ''))?.name ??
-      modPacks[0]?.name ??
-      null
-    )
+    setEditingSelectionIds(getPackModIds(library.currentPack, library.mods))
+    setEditMode(true)
+    setPackMenuOpen(false)
+    setPackSettingsOpen(false)
   }
+
+  const cancelEditMode = () => {
+    setEditingSelectionIds([])
+    setEditMode(false)
+  }
+
+  const saveEditMode = () =>
+    runLibraryAction(async () => {
+      if (!library.currentPack) {
+        return
+      }
+      await library.replacePackMods(library.currentPack.id, editingSelectionIds)
+      setEditMode(false)
+    })
+
+  const renameCurrentPack = async () => {
+    if (!library.currentPack) {
+      return
+    }
+
+    const nextName = window.prompt(copy.library.renameCurrentPackPrompt(library.currentPack.name), library.currentPack.name)
+    if (!nextName?.trim()) {
+      return
+    }
+
+    await runLibraryAction(async () => {
+      await library.renamePackPreset(library.currentPack!.id, nextName.trim())
+    })
+    setPackSettingsOpen(false)
+  }
+
+  const createPack = async () => {
+    const nextName = window.prompt(copy.actions.createPack)
+    if (!nextName?.trim()) {
+      return
+    }
+
+    await runLibraryAction(async () => {
+      await library.createPackPreset(nextName.trim())
+    })
+    setPackSettingsOpen(false)
+  }
+
+  const deleteCurrentPack = async () => {
+    if (!library.currentPack) {
+      return
+    }
+
+    const confirmed = window.confirm(copy.library.deleteCurrentPackConfirm(library.currentPack.name))
+    if (!confirmed) {
+      return
+    }
+
+    await runLibraryAction(async () => {
+      await library.deletePackPreset(library.currentPack!.id)
+    })
+    setPackSettingsOpen(false)
+    setEditMode(false)
+  }
+
+  const directActionsForMod = (mod: LauncherLibraryItem) => [
+    { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
+    { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
+    { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void library.toggleEnabled(mod) },
+    { label: copy.actions.setCover, onSelect: () => void setModCover(mod) },
+    { label: copy.actions.clearCover, onSelect: () => void clearModCover(mod) },
+  ]
+
+  const editCount = editingSelectionIds.length
+  const currentPackLabel = library.currentPack ? `${library.currentPack.name} (${library.currentPack.modKeys.length})` : copy.library.allPacks
 
   return (
     <>
       <section className="launcher-library-page">
-        <div className="launcher-library-topbar panel-section panel-section-muted">
-          <div className="launcher-library-topbar-header">
-            <div className="launcher-library-header-copy">
-              <p className="launcher-page-shell-eyebrow">{copy.pages.library}</p>
-              <div className="launcher-library-header-line">
-                <h1 className="launcher-library-header-title">{copy.library.title}</h1>
-                {shortModsPath ? (
-                  <p className="launcher-library-header-subtitle" title={settings.modsPath ?? undefined}>
-                    {shortModsPath}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+        <div className="launcher-library-canvas">
+          {!editMode ? (
+            <section className="launcher-library-console">
+              <div className="launcher-library-console-top">
+                <div className="launcher-library-console-copy">
+                  <h1 className="launcher-library-console-title">{copy.library.title}</h1>
+                  {shortModsPath ? (
+                    <p className="launcher-library-console-subtitle" title={settings.modsPath ?? undefined}>
+                      {shortModsPath}
+                    </p>
+                  ) : null}
+                </div>
 
-            <div className="launcher-library-header-actions-shell">
-              <div className="launcher-library-header-actions-group">
-                <button type="button" className="control-button launcher-library-header-action" onClick={() => void library.refresh()}>
-                  <RefreshCw className="h-4 w-4" />
-                  <span>{copy.actions.refresh}</span>
-                </button>
-                <button type="button" className="control-button launcher-library-header-action" onClick={() => void openLibraryRoot()}>
-                  <FolderOpen className="h-4 w-4" />
-                  <span>{copy.actions.openStorageFolder}</span>
-                </button>
-                <button type="button" className="control-button launcher-library-header-action" onClick={() => void openBackupFolder()}>
-                  <span>{copy.actions.openBackupFolder}</span>
-                </button>
-              </div>
-
-              <button type="button" className="control-button launcher-library-header-action launcher-library-header-action-primary" onClick={() => void inspectArchive()}>
-                <FolderArchive className="h-4 w-4" />
-                <span>{copy.actions.installArchive}</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="launcher-library-controls-row">
-            <div className="launcher-library-tabs">
-              <button type="button" className={cx('launcher-library-tab', !library.currentPack && 'launcher-library-tab-active')} onClick={() => void library.setCurrentPackId(null)}>
-                <span>{copy.library.allPacks}</span>
-              </button>
-              {library.packPresets.map((pack) => (
-                <button
-                  key={pack.id}
-                  type="button"
-                  aria-label={`${copy.library.packButtonLabel} ${pack.name}`}
-                  className={cx(
-                    'launcher-library-tab',
-                    normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') && 'launcher-library-tab-active',
-                    dragSelectionIds.length > 0 && 'launcher-drop-target',
-                  )}
-                  onClick={() => void library.setCurrentPackId(pack.id)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault()
-                    void addSelectionToPack(pack.id)
-                    setDragSelectionIds([])
-                  }}
-                >
-                  <span>{pack.name}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="launcher-library-toolbar-panel">
-              <label className="control-input launcher-toolbar-input launcher-library-search launcher-library-toolbar-control">
-                <Search className="h-4 w-4 text-[var(--text-tertiary)]" />
-                <input value={library.filterText} onChange={(event) => library.setFilterText(event.target.value)} placeholder={copy.fields.filterLibrary} spellCheck={false} />
-              </label>
-
-              <div className="launcher-scope-switch" role="group" aria-label={copy.library.scopeTitle}>
-                <button type="button" className={cx('control-button launcher-library-toolbar-button', library.scopeMode === 'all' && 'control-button-primary')} onClick={() => void library.setScopeMode('all')}>
-                  {copy.library.scopeAll}
-                </button>
-                <button
-                  type="button"
-                  className={cx('control-button launcher-library-toolbar-button', library.scopeMode === 'current-pack' && 'control-button-primary')}
-                  onClick={() => void library.setScopeMode('current-pack')}
-                >
-                  {copy.library.scopeCurrentPack}
-                </button>
+                <div className="launcher-library-console-actions">
+                  <button type="button" className="launcher-library-icon-button" onClick={() => void library.refresh()} aria-label={copy.actions.refresh} title={copy.actions.refresh}>
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                  <button type="button" className="launcher-library-icon-button" onClick={() => void openLibraryRoot()} aria-label={copy.actions.openStorageFolder} title={copy.actions.openStorageFolder}>
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                  <button type="button" className="control-button launcher-library-secondary-action" onClick={() => void inspectArchive()}>
+                    <FolderArchive className="h-4 w-4" />
+                    <span>{copy.actions.installArchive}</span>
+                  </button>
+                  <button type="button" className="control-button control-button-primary launcher-library-primary-action" disabled={launchGameDisabled} onClick={onLaunchGame}>
+                    <Play className="h-4 w-4" />
+                    <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
+                  </button>
+                </div>
               </div>
 
-              <select className="control-input launcher-select launcher-library-toolbar-control" aria-label={copy.library.sortLabel} value={sortMode} onChange={(event) => setSortMode(event.target.value as LibrarySortMode)}>
-                <option value="name">{copy.library.sortByName}</option>
-                <option value="enabled-first">{copy.library.sortByEnabled}</option>
-                <option value="pack">{copy.library.sortByPack}</option>
-              </select>
+              <div className="launcher-library-console-divider" />
 
-              <button type="button" className={cx('control-button launcher-library-toolbar-button', library.enabledOnly && 'control-button-primary')} onClick={() => library.setEnabledOnly(!library.enabledOnly)}>
-                <span>{copy.toggles.enabledOnly}</span>
-              </button>
+              <div className="launcher-library-console-bottom">
+                <div className="launcher-library-console-left">
+                  <label className="launcher-library-search">
+                    <Search className="h-4 w-4" />
+                    <input value={library.filterText} onChange={(event) => library.setFilterText(event.target.value)} placeholder={copy.fields.filterLibrary} spellCheck={false} />
+                  </label>
 
-              <div className="launcher-library-toolbar-nav" role="group" aria-label={copy.fields.filterLibrary}>
-                <button type="button" className="control-button launcher-library-toolbar-button launcher-toolbar-quiet" onClick={library.selectPreviousSearchMatch}>
-                  <span>{copy.actions.searchPrevious}</span>
+                  <div className="launcher-library-popover-shell" ref={packMenuRef}>
+                    <button
+                      type="button"
+                      className="launcher-library-pack-trigger"
+                      aria-label={`${copy.library.packButtonLabel} ${library.currentPack?.name ?? copy.library.allPacks}`}
+                      onClick={() => {
+                        setPackMenuOpen((current) => !current)
+                        setPackSettingsOpen(false)
+                      }}
+                    >
+                      <span>{currentPackLabel}</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+
+                    {packMenuOpen ? (
+                      <div className="launcher-library-pack-menu">
+                        <button
+                          type="button"
+                          className={cx('launcher-library-pack-option', !library.currentPackId && 'launcher-library-pack-option-active')}
+                          onClick={() => {
+                            void library.setCurrentPackId(null)
+                            setPackMenuOpen(false)
+                          }}
+                        >
+                          <span>{copy.library.allPacks}</span>
+                        </button>
+
+                        {library.packPresets.map((pack) => (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            className={cx(
+                              'launcher-library-pack-option',
+                              normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') && 'launcher-library-pack-option-active',
+                            )}
+                            aria-label={`${copy.library.packButtonLabel} ${pack.name}`}
+                            onClick={() => {
+                              void library.setCurrentPackId(pack.id)
+                              setPackMenuOpen(false)
+                            }}
+                          >
+                            <span>{pack.name}</span>
+                            <span>{pack.modKeys.length}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="launcher-library-popover-shell" ref={packSettingsRef}>
+                    <button
+                      type="button"
+                      className="launcher-library-icon-button"
+                      aria-label={copy.library.manageCurrentPack}
+                      title={copy.library.manageCurrentPack}
+                      onClick={() => {
+                        setPackSettingsOpen((current) => !current)
+                        setPackMenuOpen(false)
+                      }}
+                    >
+                      <Settings2 className="h-4 w-4" />
+                    </button>
+
+                    {packSettingsOpen ? (
+                      <div className="launcher-library-settings-menu">
+                        <button type="button" className="launcher-library-settings-option" onClick={() => void createPack()}>
+                          {copy.actions.createPack}
+                        </button>
+                        <button type="button" className="launcher-library-settings-option" onClick={() => void startEditMode()}>
+                          {copy.library.editCurrentPack}
+                        </button>
+                        <button type="button" className="launcher-library-settings-option" onClick={() => void renameCurrentPack()}>
+                          {copy.library.renameCurrentPack}
+                        </button>
+                        <button type="button" className="launcher-library-settings-option" onClick={() => void deleteCurrentPack()}>
+                          {copy.library.deleteCurrentPack}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                </div>
+
+                <div className="launcher-library-console-right">
+                  <button
+                    type="button"
+                    className={cx('launcher-library-switch-button', library.enabledOnly && 'launcher-library-switch-button-active')}
+                    aria-pressed={library.enabledOnly}
+                    onClick={() => library.setEnabledOnly(!library.enabledOnly)}
+                  >
+                    <span className="launcher-library-switch-track" aria-hidden="true" />
+                    <span>{copy.toggles.enabledOnly}</span>
+                  </button>
+
+                  <label className="launcher-library-sort-field">
+                    <span className="sr-only">{copy.library.sortLabel}</span>
+                    <select aria-label={copy.library.sortLabel} value={sortMode} onChange={(event) => setSortMode(event.target.value as LibrarySortMode)}>
+                      <option value="name">{copy.library.sortByName}</option>
+                      <option value="enabled-first">{copy.library.sortByEnabled}</option>
+                      <option value="pack">{copy.library.sortByPack}</option>
+                    </select>
+                    <ChevronDown className="h-4 w-4" />
+                  </label>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="launcher-library-edit-bar">
+              <div className="launcher-library-edit-bar-left">
+                <span className="launcher-library-edit-label">
+                  {copy.library.editingPackLabel} <strong>{library.currentPack?.name ?? copy.library.allPacks}</strong>
+                </span>
+              </div>
+              <div className="launcher-library-edit-bar-center">
+                <span className="launcher-library-edit-label">{copy.library.includedModsCount(editCount)}</span>
+              </div>
+              <div className="launcher-library-edit-bar-right">
+                <button type="button" className="control-button launcher-library-secondary-action" onClick={cancelEditMode}>
+                  {copy.library.cancelEdit}
                 </button>
-                <button type="button" className="control-button launcher-library-toolbar-button launcher-toolbar-quiet" onClick={library.selectNextSearchMatch}>
-                  <span>{copy.actions.searchNext}</span>
+                <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={() => void saveEditMode()}>
+                  {copy.library.saveChanges}
                 </button>
               </div>
+            </section>
+          )}
 
-              <button type="button" className="control-button launcher-library-toolbar-button launcher-library-toolbar-apply" disabled={!library.currentPack} onClick={() => void runLibraryAction(library.applyCurrentPack)}>
-                <span>{copy.actions.applyCurrentPack}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className={cx('launcher-library-browser', detailMod && 'launcher-library-browser-detail-open')}>
-          <div className="launcher-library-browser-main">
+          <div className="launcher-library-browser">
             {actionError ? <LauncherStateBlock title={copy.library.title} detail={actionError} tone="warning" /> : null}
             {library.state === 'error' ? <LauncherStateBlock title={copy.library.title} detail={library.error ?? copy.library.empty} tone="warning" /> : null}
-            {library.state !== 'error' && !sortedMods.length ? (
+            {library.state !== 'error' && !visibleMods.length ? (
               <LauncherStateBlock title={settings.modsPath ? copy.library.filteredEmpty : copy.states.missingModsPath} detail={copy.library.subtitle} />
             ) : (
-              <div className="launcher-library-grid">
-                {sortedMods.map((item) => (
+              <div className={cx('launcher-library-grid', editMode && 'launcher-library-grid-editing')}>
+                {visibleMods.map((item) => (
                   <LauncherModCard
                     key={item.id}
                     title={item.name}
-                    author={item.author}
+                    titleTooltip={item.name}
+                    meta={buildLibraryCardMeta(item, editorCopy.common.none)}
                     imageUrl={item.imageUrl}
                     enabled={item.enabled}
-                    packName={resolvePackName(item)}
-                    draggable
-                    onSelect={() => focusModCard(item.id)}
-                    onViewDetails={() => openModDetails(item.id)}
-                    viewDetailsLabel={copy.actions.viewDetails}
-                    onDragStart={() => prepareDragSelection(item.id)}
-                    onDragEnd={() => setDragSelectionIds([])}
+                    selectionMode={editMode}
+                    selected={editingSelectionIds.includes(item.id)}
+                    onSelect={() => {
+                      if (editMode) {
+                        toggleEditSelection(item.id)
+                        return
+                      }
+                      library.setSelectedModId(item.id)
+                    }}
+                    contextActions={editMode ? undefined : directActionsForMod(item)}
                   />
                 ))}
               </div>
             )}
           </div>
-
-          <LauncherModDetailPanel
-            open={Boolean(detailMod)}
-            onClose={closeModDetails}
-            closeLabel={copy.actions.closeDialog}
-            title={copy.library.detailsTitle}
-            subtitle={copy.library.detailsSubtitle}
-            empty={copy.library.selectionEmpty}
-            mod={detailMod}
-            labels={{
-              currentVersion: copy.fields.currentVersion,
-              uniqueId: copy.fields.uniqueId,
-              path: copy.fields.path,
-              dependencies: copy.fields.dependencies,
-              updateKeys: copy.fields.updateKeys,
-              pack: copy.library.packLabel,
-            }}
-            noSummary={copy.states.noSummary}
-            onToggleEnabled={() => {
-              if (detailMod) {
-                void library.toggleEnabled(detailMod)
-              }
-            }}
-            enableLabel={copy.actions.enable}
-            disableLabel={copy.actions.disable}
-            enabledStateLabel={copy.overview.enabledMods}
-            disabledStateLabel={copy.overview.disabledMods}
-            openFolderLabel={copy.actions.openFolder}
-            setCoverLabel={copy.actions.setCover}
-            clearCoverLabel={copy.actions.clearCover}
-            openModPageLabel={copy.actions.openModPage}
-            onOpenFolder={() => {
-              void openSelectedModFolder()
-            }}
-            onSetCover={() => {
-              void setSelectedModCover()
-            }}
-            onClearCover={() => {
-              void clearSelectedModCover()
-            }}
-            packName={detailMod ? resolvePackName(detailMod) : null}
-          />
         </div>
 
-        <button
-          type="button"
-          className="control-button control-button-primary launcher-library-launch-fab"
-          disabled={launchGameDisabled}
-          onClick={onLaunchGame}
-        >
-          <Play className="h-4 w-4" />
-          <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
-        </button>
+        <LauncherModDetailPanel
+          open={Boolean(detailMod)}
+          onClose={() => setDetailModId(null)}
+          closeLabel={copy.actions.closeDialog}
+          title={copy.library.detailsTitle}
+          subtitle={copy.library.detailsSubtitle}
+          empty={copy.library.selectionEmpty}
+          mod={detailMod}
+          labels={{
+            currentVersion: copy.fields.currentVersion,
+            uniqueId: copy.fields.uniqueId,
+            path: copy.fields.path,
+            dependencies: copy.fields.dependencies,
+            updateKeys: copy.fields.updateKeys,
+            pack: copy.library.packLabel,
+          }}
+          noSummary={copy.states.noSummary}
+          onToggleEnabled={() => {
+            if (detailMod) {
+              void library.toggleEnabled(detailMod)
+            }
+          }}
+          enableLabel={copy.actions.enable}
+          disableLabel={copy.actions.disable}
+          enabledStateLabel={copy.overview.enabledMods}
+          disabledStateLabel={copy.overview.disabledMods}
+          openFolderLabel={copy.actions.openFolder}
+          setCoverLabel={copy.actions.setCover}
+          clearCoverLabel={copy.actions.clearCover}
+          openModPageLabel={copy.actions.openModPage}
+          onOpenFolder={() => {
+            if (detailMod) {
+              void openModFolder(detailMod)
+            }
+          }}
+          onSetCover={() => {
+            if (detailMod) {
+              void setModCover(detailMod)
+            }
+          }}
+          onClearCover={() => {
+            if (detailMod) {
+              void clearModCover(detailMod)
+            }
+          }}
+          packName={
+            detailMod
+              ? packLookup.get(normalizeLookupKey(getModKey(detailMod)))?.find(
+                  (pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? ''),
+                )?.name ?? null
+              : null
+          }
+        />
       </section>
 
       <LauncherArchiveInstallDialog
