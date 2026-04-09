@@ -40,13 +40,13 @@ describe('ContentPatcherScaleUpPanel', () => {
       />,
     )
 
-    expect(await screen.findByRole('button', { name: 'Parameter Settings' })).toHaveAttribute('aria-pressed', 'true')
+    expect((await screen.findByRole('button', { name: 'Parameter Settings' })).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText('Headshot Preview')).toBeTruthy()
     expect(screen.getByText('Minimap Preview')).toBeTruthy()
 
     const scaleInput = await screen.findByLabelText('Scale')
     await waitFor(() => {
-      expect(scaleInput).toHaveValue(4)
+      expect((scaleInput as HTMLInputElement).value).toBe('4')
     })
 
     fireEvent.change(scaleInput, { target: { value: '5' } })
@@ -108,12 +108,12 @@ describe('ContentPatcherScaleUpPanel', () => {
       />,
     )
 
-    expect(await screen.findByLabelText('Scale')).toHaveValue(4)
+    expect((await screen.findByLabelText('Scale') as HTMLInputElement).value).toBe('4')
 
     fireEvent.change(screen.getByLabelText('Breath Type'), { target: { value: 'Female' } })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Chest Source Y')).toHaveValue(100)
+      expect((screen.getByLabelText('Chest Source Y') as HTMLInputElement).value).toBe('100')
     })
 
     expect(onContentChange).toHaveBeenLastCalledWith(
