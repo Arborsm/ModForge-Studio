@@ -1,8 +1,9 @@
 use super::archive::inspect_archive_at_path;
 use super::catalog::{
-    build_catalog_graphql_payload, build_update_batch_graphql_payload,
-    can_use_nexus_graphql, parse_catalog_graphql_response,
-    parse_update_batch_graphql_response,
+    build_catalog_graphql_payload, build_public_catalog_graphql_payload,
+    build_update_batch_graphql_payload, parse_public_mod_detail_graphql_response,
+    can_use_nexus_graphql, parse_catalog_graphql_response, parse_catalog_results,
+    parse_remote_mod_detail_html, parse_update_batch_graphql_response,
 };
 use super::downloads::{load_or_create_download_queue_at_path, save_download_queue_at_path};
 use super::launch::launch_game_with_runner;
@@ -372,6 +373,29 @@ fn build_catalog_graphql_payload_maps_query_sort_and_page() {
 }
 
 #[test]
+fn build_public_catalog_graphql_payload_matches_browser_mod_listing_shape() {
+    let payload = build_public_catalog_graphql_payload(Some("tractor"), 2, "updated", false)
+        .expect("build public catalog graphql payload");
+
+    assert_eq!(payload["operationName"], "ModsListing");
+    assert_eq!(payload["variables"]["count"], 20);
+    assert_eq!(payload["variables"]["offset"], 20);
+    assert_eq!(payload["variables"]["facets"]["categoryName"], json!([]));
+    assert_eq!(payload["variables"]["facets"]["languageName"], json!([]));
+    assert_eq!(payload["variables"]["facets"]["tag"], json!([]));
+    assert_eq!(payload["variables"]["filter"]["adultContent"][0]["op"], "EQUALS");
+    assert_eq!(payload["variables"]["filter"]["adultContent"][0]["value"], false);
+    assert_eq!(payload["variables"]["filter"]["gameDomainName"][0]["value"], "stardewvalley");
+    assert_eq!(payload["variables"]["filter"]["name"][0]["value"], "tractor");
+    assert_eq!(payload["variables"]["sort"][0]["updatedAt"]["direction"], "DESC");
+
+    let query = payload["query"].as_str().expect("public graphql query string");
+    assert!(query.contains("query ModsListing"));
+    assert!(query.contains("fragment ModTileFragment"));
+    assert!(query.contains("thumbnailUrl"));
+}
+
+#[test]
 fn parse_catalog_graphql_response_builds_catalog_page_result() {
     let payload = json!({
         "data": {
@@ -412,6 +436,139 @@ fn parse_catalog_graphql_response_builds_catalog_page_result() {
         "https://www.nexusmods.com/stardewvalley/mods/101"
     );
     assert_eq!(page.results[1].author, None);
+}
+
+#[test]
+fn parse_catalog_graphql_response_falls_back_to_public_thumbnail_url() {
+    let payload = json!({
+        "data": {
+            "mods": {
+                "nodes": [
+                    {
+                        "modId": 101,
+                        "name": "Tractor Mod",
+                        "summary": "Drive around Pelican Town.",
+                        "thumbnailUrl": "https://staticdelivery.nexusmods.com/tractor.png",
+                        "uploader": {
+                            "name": "Pathoschild"
+                        }
+                    }
+                ],
+                "totalCount": 1
+            }
+        }
+    });
+
+    let page = parse_catalog_graphql_response(&payload, 1).expect("parse public catalog graphql response");
+
+    assert_eq!(page.results.len(), 1);
+    assert_eq!(
+        page.results[0].image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/tractor.png")
+    );
+}
+
+#[test]
+fn parse_catalog_results_extracts_public_widget_cards_without_credentials() {
+    let html = r#"
+<div class="mod-tile">
+  <div class="tile-name">
+    <a href="/stardewvalley/mods/101">Tractor Mod</a>
+  </div>
+  <img class="fore" src="https://static.nexusmods.com/tractor.png" />
+  <div class="tile-description">Drive around <strong>Pelican Town</strong>.</div>
+  <span>Created by Pathoschild</span>
+</div>
+"#;
+
+    let results = parse_catalog_results(html);
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].mod_id, 101);
+    assert_eq!(results[0].title, "Tractor Mod");
+    assert_eq!(results[0].summary.as_deref(), Some("Drive around Pelican Town"));
+    assert_eq!(results[0].author.as_deref(), Some("Pathoschild"));
+    assert_eq!(
+        results[0].mod_url,
+        "https://www.nexusmods.com/stardewvalley/mods/101"
+    );
+    assert_eq!(
+        results[0].image_url.as_deref(),
+        Some("https://static.nexusmods.com/tractor.png")
+    );
+}
+
+#[test]
+fn parse_remote_mod_detail_html_extracts_summary_version_and_gallery() {
+    let html = r#"
+<meta property="og:title" content="Joja Civic Center" />
+<meta property="og:description" content="Welcome to the Joja Civic Center." />
+<meta property="og:image" content="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png" />
+<meta property="twitter:label1" content="Version" />
+<meta property="twitter:data1" content="1.0.0" />
+<div id="sidebargallery" class="clearfix modimages">
+  <ul class="thumbgallery gallery clearfix">
+    <li class="thumb"
+      data-src="https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-a.png"
+      data-exthumbimage="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-a.png">
+    </li>
+    <li class="thumb"
+      data-src="https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-b.png"
+      data-exthumbimage="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-b.png">
+    </li>
+  </ul>
+</div>
+"#;
+
+    let detail = parse_remote_mod_detail_html(html, 44722).expect("parse remote mod detail html");
+
+    assert_eq!(detail.mod_id, 44722);
+    assert_eq!(detail.name.as_deref(), Some("Joja Civic Center"));
+    assert_eq!(detail.summary.as_deref(), Some("Welcome to the Joja Civic Center."));
+    assert_eq!(detail.version.as_deref(), Some("1.0.0"));
+    assert_eq!(
+        detail.image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png")
+    );
+    assert_eq!(detail.gallery_images.len(), 2);
+    assert_eq!(
+        detail.gallery_images[0],
+        "https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-a.png"
+    );
+}
+
+#[test]
+fn parse_public_mod_detail_graphql_response_extracts_author_version_and_description() {
+    let payload = json!({
+        "data": {
+            "mod": {
+                "modId": 44722,
+                "name": "Joja Civic Center",
+                "summary": "Short summary.",
+                "description": "<p>Full <strong>description</strong> for the mod.</p>",
+                "version": "1.0.0",
+                "pictureUrl": "https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-cover.png",
+                "thumbnailUrl": "https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png",
+                "author": "blue704",
+                "uploader": {
+                    "name": "blue704"
+                }
+            }
+        }
+    });
+
+    let detail =
+        parse_public_mod_detail_graphql_response(&payload, 44722).expect("parse public mod detail graphql");
+
+    assert_eq!(detail.mod_id, 44722);
+    assert_eq!(detail.name.as_deref(), Some("Joja Civic Center"));
+    assert_eq!(detail.author.as_deref(), Some("blue704"));
+    assert_eq!(detail.summary.as_deref(), Some("Full description for the mod."));
+    assert_eq!(detail.version.as_deref(), Some("1.0.0"));
+    assert_eq!(
+        detail.image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-cover.png")
+    );
 }
 
 #[test]

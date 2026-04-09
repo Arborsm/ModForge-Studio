@@ -398,6 +398,10 @@ export type SearchLauncherCatalogRequest = {
   ascending?: boolean
 }
 
+export type LoadLauncherRemoteModDetailRequest = {
+  modId: number
+}
+
 export type LauncherCatalogResult = {
   modId: number
   title: string
@@ -411,6 +415,17 @@ export type LauncherCatalogPageResult = {
   page: number
   hasMore: boolean
   results: LauncherCatalogResult[]
+}
+
+export type LauncherRemoteModDetail = {
+  modId: number
+  title: string
+  summary: string | null
+  author: string | null
+  version: string | null
+  modUrl: string
+  imageUrl: string | null
+  galleryImages: string[]
 }
 
 export type ResolveLauncherImageRequest = {
@@ -638,6 +653,7 @@ const loadLauncherLibraryCoversCache = createPromiseCache<LauncherLibraryCoversS
 const loadLauncherDownloadQueueCache = createPromiseCache<LauncherDownloadQueueState>()
 const scanLauncherLibraryCache = createPromiseCache<LauncherLibraryScanResult>()
 const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>()
+const loadLauncherRemoteModDetailCache = createPromiseCache<LauncherRemoteModDetail>()
 const checkLauncherUpdatesCache = createPromiseCache<LauncherUpdatesResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 
@@ -1022,6 +1038,13 @@ export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
   })
   return readPending(searchLauncherCatalogCache, cacheKey, () =>
     invokeDesktop<LauncherCatalogPageResult>('search_launcher_catalog', { request }),
+  )
+}
+
+export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetailRequest) {
+  const cacheKey = String(request.modId)
+  return readPending(loadLauncherRemoteModDetailCache, cacheKey, () =>
+    invokeDesktop<LauncherRemoteModDetail>('load_launcher_remote_mod_detail', { request }),
   )
 }
 

@@ -1,10 +1,11 @@
 import { Download, ExternalLink, RefreshCw, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useEditorCopy, useSettingsMenuCopy } from '../../../lib/app/localeContext'
+import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import type { LauncherSettings } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
+import { useLauncherRemoteModDetail } from '../../../lib/launcher/useLauncherRemoteModDetail'
 import type { QueueLauncherDownloadInput } from '../../../lib/launcher/types'
 import { LauncherControlBar } from '../shared/LauncherControlBar'
 import { LauncherPageScaffold } from '../shared/LauncherPageScaffold'
@@ -71,15 +72,11 @@ function DiscoverCard({
 }
 
 export function LauncherDiscoverPage({
-  settings,
   onQueueDownload,
-  onNavigateToSettings,
 }: LauncherDiscoverPageProps) {
   const copy = useEditorCopy().launcher
-  const settingsMenuCopy = useSettingsMenuCopy()
   const discover = useLauncherDiscover()
   const [selectedModId, setSelectedModId] = useState<number | null>(null)
-  const credentialsReady = Boolean(settings.nexusApiKey?.trim() || settings.nexusCookie?.trim())
   const activeSelectedModId = discover.items.some((item) => item.modId === selectedModId)
     ? selectedModId
     : discover.items[0]?.modId ?? null
@@ -88,7 +85,40 @@ export function LauncherDiscoverPage({
     () => discover.items.find((item) => item.modId === activeSelectedModId) ?? null,
     [activeSelectedModId, discover.items],
   )
-  const selectedImage = useLauncherImage(selectedItem?.imageUrl ?? null)
+  const remoteDetail =
+    useLauncherRemoteModDetail(activeSelectedModId) ?? {
+      detail: null,
+      state: 'idle' as const,
+      error: null,
+    }
+  const selectedDetail = useMemo(() => {
+    if (!selectedItem) {
+      return null
+    }
+
+    if (!remoteDetail.detail || remoteDetail.detail.modId !== selectedItem.modId) {
+      return {
+        modId: selectedItem.modId,
+        title: selectedItem.title,
+        summary: selectedItem.summary,
+        author: selectedItem.author,
+        version: null,
+        modUrl: selectedItem.modUrl,
+        imageUrl: selectedItem.imageUrl,
+        galleryImages: [],
+      }
+    }
+
+    return {
+      ...remoteDetail.detail,
+      title: remoteDetail.detail.title || selectedItem.title,
+      summary: remoteDetail.detail.summary ?? selectedItem.summary,
+      author: remoteDetail.detail.author ?? selectedItem.author,
+      modUrl: remoteDetail.detail.modUrl || selectedItem.modUrl,
+      imageUrl: remoteDetail.detail.imageUrl ?? selectedItem.imageUrl,
+    }
+  }, [remoteDetail.detail, selectedItem])
+  const selectedImage = useLauncherImage(selectedDetail?.imageUrl ?? null)
 
   const results = (
     <div className="space-y-4">
@@ -96,7 +126,7 @@ export function LauncherDiscoverPage({
         title={copy.fields.searchDiscover}
         subtitle={copy.descriptions.discover}
         action={
-          <button type="button" className="control-button" onClick={discover.refresh} disabled={!credentialsReady}>
+          <button type="button" className="control-button" onClick={discover.refresh}>
             <RefreshCw className="h-4 w-4" />
             <span>{copy.actions.refresh}</span>
           </button>
@@ -110,7 +140,6 @@ export function LauncherDiscoverPage({
               onChange={(event) => discover.setQuery(event.target.value)}
               placeholder={copy.fields.searchDiscover}
               spellCheck={false}
-              disabled={!credentialsReady}
             />
           </label>
 
@@ -118,7 +147,6 @@ export function LauncherDiscoverPage({
             className="control-input launcher-select"
             value={discover.sort}
             onChange={(event) => discover.setSort(event.target.value as never)}
-            disabled={!credentialsReady}
           >
             <option value="newest">{copy.sortOptions.newest}</option>
             <option value="updated">{copy.sortOptions.updated}</option>
@@ -133,37 +161,21 @@ export function LauncherDiscoverPage({
             className={`control-button ${discover.ascending ? 'control-button-primary' : ''}`}
             aria-pressed={discover.ascending}
             onClick={() => discover.setAscending(!discover.ascending)}
-            disabled={!credentialsReady}
           >
             <span>{copy.toggles.ascending}</span>
           </button>
         </div>
       </LauncherControlBar>
 
-      {!credentialsReady ? (
-        <LauncherStateBlock
-          title={copy.states.credentialsRequired}
-          detail={copy.discover.credentialsHint}
-          tone="warning"
-          action={
-            onNavigateToSettings ? (
-              <button type="button" className="control-button control-button-primary" onClick={onNavigateToSettings}>
-                {settingsMenuCopy.title}
-              </button>
-            ) : null
-          }
-        />
-      ) : null}
-
-      {credentialsReady && discover.state === 'error' ? (
+      {discover.state === 'error' ? (
         <LauncherStateBlock title={copy.discover.title} detail={discover.error ?? copy.discover.empty} tone="warning" />
       ) : null}
 
-      {credentialsReady && discover.state !== 'error' && !discover.items.length ? (
+      {discover.state !== 'error' && !discover.items.length ? (
         <LauncherStateBlock title={copy.discover.empty} detail={copy.discover.subtitle} />
       ) : null}
 
-      {credentialsReady && discover.items.length ? (
+      {discover.items.length ? (
         <>
           <div className="launcher-discover-grid">
             {discover.items.map((item) => (
@@ -198,30 +210,42 @@ export function LauncherDiscoverPage({
     </div>
   )
 
-  const details = selectedItem ? (
+  const details = selectedDetail ? (
     <section className="panel-surface h-full">
       <header className="panel-header">
         <div className="min-w-0">
-          <p className="panel-title">{selectedItem.title}</p>
-          <p className="panel-subtitle">{selectedItem.author ?? `Nexus #${selectedItem.modId}`}</p>
+          <p className="panel-title">{selectedDetail.title}</p>
+          <p className="panel-subtitle">{selectedDetail.author ?? `Nexus #${selectedDetail.modId}`}</p>
         </div>
       </header>
       <div className="panel-body space-y-4">
         <div className="launcher-detail-hero">
           <div className="launcher-detail-cover launcher-mod-card-cover">
             {selectedImage.imageUrl ? <img src={selectedImage.imageUrl} alt="" className="launcher-mod-card-cover-image" /> : null}
-            {!selectedImage.imageUrl ? <span className="launcher-mod-card-cover-fallback">{selectedItem.title.slice(0, 2).toUpperCase()}</span> : null}
+            {!selectedImage.imageUrl ? <span className="launcher-mod-card-cover-fallback">{selectedDetail.title.slice(0, 2).toUpperCase()}</span> : null}
           </div>
           <div>
-            <p className="launcher-detail-title">{selectedItem.title}</p>
-            <p className="launcher-detail-summary">{selectedItem.summary ?? copy.states.noSummary}</p>
+            <p className="launcher-detail-title">{selectedDetail.title}</p>
+            <p className="launcher-detail-summary">
+              {selectedDetail.summary ?? (remoteDetail.state === 'loading' ? copy.states.loading : copy.states.noSummary)}
+            </p>
           </div>
         </div>
 
         <div className="launcher-page-stats-grid launcher-page-stats-grid-compact">
           <div className="metric-card">
             <span className="metric-label">Nexus</span>
-            <strong className="metric-value">#{selectedItem.modId}</strong>
+            <strong className="metric-value">#{selectedDetail.modId}</strong>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">{copy.fields.currentVersion}</span>
+            <strong className="metric-value">
+              {selectedDetail.version ?? (remoteDetail.state === 'loading' ? copy.states.loading : copy.states.noSummary)}
+            </strong>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">{copy.fields.galleryImages}</span>
+            <strong className="metric-value">{selectedDetail.galleryImages.length}</strong>
           </div>
           <div className="metric-card">
             <span className="metric-label">{copy.pages.discover}</span>
@@ -229,8 +253,12 @@ export function LauncherDiscoverPage({
           </div>
         </div>
 
+        {remoteDetail.state === 'error' && remoteDetail.error ? (
+          <LauncherStateBlock title={copy.discover.title} detail={remoteDetail.error} tone="warning" />
+        ) : null}
+
         <div className="launcher-toolbar">
-          <a href={selectedItem.modUrl} target="_blank" rel="noreferrer" className="control-button">
+          <a href={selectedDetail.modUrl} target="_blank" rel="noreferrer" className="control-button">
             <ExternalLink className="h-4 w-4" />
             <span>{copy.actions.openModPage}</span>
           </a>
@@ -239,9 +267,10 @@ export function LauncherDiscoverPage({
             className="control-button control-button-primary"
             onClick={() =>
               onQueueDownload({
-                modId: selectedItem.modId,
-                title: selectedItem.title,
-                imageUrl: selectedItem.imageUrl,
+                modId: selectedDetail.modId,
+                title: selectedDetail.title,
+                imageUrl: selectedDetail.imageUrl,
+                version: selectedDetail.version,
                 source: 'discover',
               })
             }

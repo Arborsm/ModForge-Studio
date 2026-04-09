@@ -60,4 +60,26 @@ describe('useLauncherImage', () => {
       expect(result.current.imageUrl).toBe('asset:b.png')
     })
   })
+
+  it('returns a cached launcher image immediately on remount without re-entering loading', async () => {
+    resolveLauncherImageMock.mockResolvedValue({
+      sourceUrl: 'https://example.com/cached-cover.png',
+      localPath: 'cached-cover.png',
+      mimeType: 'image/png',
+    })
+
+    const first = renderHook(() => useLauncherImage('https://example.com/cached-cover.png'))
+
+    await waitFor(() => {
+      expect(first.result.current.imageUrl).toBe('asset:cached-cover.png')
+    })
+
+    first.unmount()
+
+    const second = renderHook(() => useLauncherImage('https://example.com/cached-cover.png'))
+
+    expect(second.result.current.imageUrl).toBe('asset:cached-cover.png')
+    expect(second.result.current.loading).toBe(false)
+    expect(resolveLauncherImageMock).toHaveBeenCalledTimes(1)
+  })
 })

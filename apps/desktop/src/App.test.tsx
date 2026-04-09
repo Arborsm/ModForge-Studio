@@ -353,6 +353,15 @@ describe('App locale ownership', () => {
     expect(screen.getByTestId('dev-debug-overlay')).toBeTruthy()
   })
 
+  it('shows the debug overlay in launcher mode when debug mode is enabled', () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
+
+    render(<App />)
+
+    expect(screen.getByTestId('dev-debug-overlay')).toBeTruthy()
+  })
+
   it('toggles debug mode from Settings and persists the flag', async () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
     const englishSettingsCopy = getSettingsMenuCopy('en-US')

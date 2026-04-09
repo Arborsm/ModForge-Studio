@@ -406,4 +406,72 @@ describe('useLauncherLibrary', () => {
       scopeMode: 'all',
     })
   })
+
+  it('addModsToPack appends dragged mods into the target pack without duplicates', async () => {
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+          },
+          {
+            id: 'social',
+            name: 'Social',
+            modKeys: ['ModForge.B'],
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-a',
+          labelKey: 'ModForge.A',
+          uniqueId: 'ModForge.A',
+        }),
+        createMod({
+          id: 'mod-b',
+          labelKey: 'ModForge.B',
+          uniqueId: 'ModForge.B',
+        }),
+      ],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.addModsToPack('social', ['mod-a', 'mod-b'])
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith({
+      storageFolders: [
+        {
+          id: 'unsorted',
+          name: 'Unsorted',
+          modKeys: [],
+        },
+      ],
+      packPresets: [
+        {
+          id: 'farm',
+          name: 'Farm',
+          modKeys: ['ModForge.A'],
+        },
+        {
+          id: 'social',
+          name: 'Social',
+          modKeys: ['ModForge.B', 'ModForge.A'],
+        },
+      ],
+      currentPackId: null,
+      scopeMode: 'all',
+    })
+  })
 })

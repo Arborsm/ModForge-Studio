@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, DragEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Check } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
@@ -20,7 +20,7 @@ type LauncherModCardProps = {
   onSelect?: () => void
   contextActions?: LauncherModCardAction[]
   draggable?: boolean
-  onDragStart?: () => void
+  onDragStart?: (event: DragEvent<HTMLElement>) => void
   onDragEnd?: () => void
   selectionMode?: boolean
   selected?: boolean

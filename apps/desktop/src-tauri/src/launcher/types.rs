@@ -171,6 +171,12 @@ pub struct SearchLauncherCatalogRequest {
     pub ascending: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadLauncherRemoteModDetailRequest {
+    pub mod_id: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogResult {
@@ -188,6 +194,19 @@ pub struct LauncherCatalogPageResult {
     pub page: usize,
     pub has_more: bool,
     pub results: Vec<LauncherCatalogResult>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRemoteModDetail {
+    pub mod_id: i64,
+    pub title: String,
+    pub summary: Option<String>,
+    pub author: Option<String>,
+    pub version: Option<String>,
+    pub mod_url: String,
+    pub image_url: Option<String>,
+    pub gallery_images: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

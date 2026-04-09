@@ -1,0 +1,59 @@
+import { useEffect } from 'react'
+import { dismissNotification, publishNotification } from '../app/notifications'
+import { listenToLauncherUpdateProgress, type LauncherUpdateProgressPayload } from '../desktop'
+import { getLauncherCopy, type LocaleCode } from '../editor-shell'
+
+export const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID = 'launcher-updates-progress'
+
+type LauncherUpdatesCopy = ReturnType<typeof getLauncherCopy>['updates']
+
+export function getLauncherUpdateNotificationProgress(payload: LauncherUpdateProgressPayload) {
+  if (payload.total <= 0) {
+    return 18
+  }
+
+  return Math.max(0, Math.min(100, (payload.checked / payload.total) * 100))
+}
+
+export function publishLauncherUpdateProgressNotification(
+  copy: LauncherUpdatesCopy,
+  payload: LauncherUpdateProgressPayload,
+) {
+  publishNotification({
+    id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
+    level: 'info',
+    title: copy.checkingProgressTitle,
+    description: copy.checkingProgressDetail(payload.checked, payload.total, payload.currentModName),
+    autoDismissMs: null,
+    progress: getLauncherUpdateNotificationProgress(payload),
+  })
+}
+
+export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
+  useEffect(() => {
+    const copy = getLauncherCopy(locale).updates
+    let active = true
+    let unlisten: (() => void) | null = null
+
+    void listenToLauncherUpdateProgress((payload) => {
+      if (!active) {
+        return
+      }
+
+      publishLauncherUpdateProgressNotification(copy, payload)
+    }).then((dispose) => {
+      if (!active) {
+        dispose()
+        return
+      }
+
+      unlisten = dispose
+    })
+
+    return () => {
+      active = false
+      unlisten?.()
+      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+    }
+  }, [locale])
+}

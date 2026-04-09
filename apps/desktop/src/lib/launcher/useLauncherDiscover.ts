@@ -10,6 +10,8 @@ export function useLauncherDiscover() {
   const [sort, setSort] = useState<NonNullable<SearchLauncherCatalogRequest['sort']>>(DEFAULT_SORT)
   const [ascending, setAscending] = useState(false)
   const [page, setPage] = useState(1)
+  const [refreshToken, setRefreshToken] = useState(0)
+  const [requestDelayMs, setRequestDelayMs] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -45,12 +47,12 @@ export function useLauncherDiscover() {
           setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher discover results.')
           setState('error')
         })
-    }, 320)
+    }, requestDelayMs)
 
     return () => {
       window.clearTimeout(handle)
     }
-  }, [ascending, page, query, sort])
+  }, [ascending, page, query, refreshToken, requestDelayMs, sort])
 
   const resetToFirstPage = () => {
     setPage(1)
@@ -66,14 +68,17 @@ export function useLauncherDiscover() {
     state,
     error,
     setQuery: (value: string) => {
+      setRequestDelayMs(320)
       setQuery(value)
       setPage(1)
     },
     setSort: (value: NonNullable<SearchLauncherCatalogRequest['sort']>) => {
+      setRequestDelayMs(320)
       setSort(value)
       resetToFirstPage()
     },
     setAscending: (value: boolean) => {
+      setRequestDelayMs(320)
       setAscending(value)
       resetToFirstPage()
     },
@@ -81,12 +86,15 @@ export function useLauncherDiscover() {
       if (!hasMore || state === 'loading') {
         return
       }
+      setRequestDelayMs(0)
       setPage((current) => current + 1)
     },
     refresh: () => {
       requestIdRef.current += 1
+      setRequestDelayMs(0)
       resetToFirstPage()
       setItems([])
+      setRefreshToken((current) => current + 1)
     },
   }
 }

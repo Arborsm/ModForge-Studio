@@ -1,6 +1,7 @@
 import type {
   DownloadLauncherModResult,
   LauncherCatalogResult,
+  LauncherRemoteModDetail,
   LauncherLibraryModSummary,
   LauncherLibraryPackPreset,
   LauncherLibraryScopeMode,
@@ -53,4 +54,5 @@ export type LauncherLibraryScope = LauncherLibraryScopeMode
 export type PersistedLauncherLibraryState = LauncherLibraryState
 export type LauncherUpdateItem = LauncherUpdateSummary
 export type LauncherDiscoverItem = LauncherCatalogResult
+export type LauncherDiscoverDetail = LauncherRemoteModDetail
 export type CompletedLauncherDownload = DownloadLauncherModResult

@@ -519,6 +519,7 @@ export type LauncherCopy = {
     filterLibrary: string
     searchDiscover: string
     currentVersion: string
+    galleryImages: string
     latestVersion: string
     uniqueId: string
     path: string

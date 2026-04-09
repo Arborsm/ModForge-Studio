@@ -215,6 +215,7 @@ function createLibraryState(): MockLibraryState {
     renameStorageFolder: vi.fn(async () => {}),
     deleteStorageFolder: vi.fn(async () => {}),
     addSelectionToPack: vi.fn(async () => {}),
+    addModsToPack: vi.fn(async () => {}),
     createPackPreset: vi.fn(async () => {}),
     renamePackPreset: vi.fn(async () => {}),
     deletePackPreset: vi.fn(async () => {}),
@@ -225,6 +226,33 @@ function createLibraryState(): MockLibraryState {
     selectNextSearchMatch: vi.fn(),
     selectPreviousSearchMatch: vi.fn(),
   } as unknown as MockLibraryState
+}
+
+function createLargeLibraryState(count = 80): MockLibraryState {
+  const library = createLibraryState()
+  const mods = Array.from({ length: count }, (_, index) =>
+    createLibraryMod({
+      id: `mod-${index + 1}`,
+      labelKey: `ModForge.Mod${index + 1}`,
+      name: `Large Library Mod ${index + 1}`,
+      author: `Author ${index + 1}`,
+      version: `1.${index}.0`,
+      uniqueId: `ModForge.Mod${index + 1}`,
+      absolutePath: `E:\\Games\\Stardew Valley\\Mods\\Large Library Mod ${index + 1}`,
+      enabled: index % 3 !== 0,
+    }),
+  )
+
+  return {
+    ...library,
+    mods,
+    filteredMods: mods,
+    selectedMod: mods[0],
+    selectedModId: mods[0]?.id ?? null,
+    currentPack: null,
+    currentPackId: null,
+    packPresets: [],
+  } as MockLibraryState
 }
 
 function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryPage>[0]> = {}) {
@@ -259,63 +287,102 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    expect(screen.getByRole('heading', { name: 'Installed Library' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Pack Management' })).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Story Pack' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Refresh' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Open Storage Folder' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Install Archive' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).not.toBeNull()
-    expect(screen.queryByRole('button', { name: 'Current Pack' })).toBeNull()
-    expect(screen.getByRole('button', { name: /story pack/i })).not.toBeNull()
-    expect(screen.queryByRole('button', { name: /edit pack contents/i })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Apply Pack' })).toBeNull()
   })
 
-  it('switches packs from the compact pack menu', async () => {
+  it('uses a custom enabled-only switch and custom sort menu', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /story pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'All Packs' }))
-    fireEvent.click(screen.getByRole('button', { name: /story pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /pack preset challenge pack/i }))
+    const enabledSwitch = screen.getByRole('switch', { name: 'Enabled Only' })
+    fireEvent.click(enabledSwitch)
+    expect(library.setEnabledOnly).toHaveBeenCalledWith(true)
 
+    const sortTrigger = screen.getByRole('button', { name: 'Quick Sort' })
+    fireEvent.click(sortTrigger)
+    expect(screen.queryByRole('combobox', { name: 'Quick Sort' })).toBeNull()
+    expect(screen.getByRole('menu', { name: 'Quick Sort' })).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Pack' }))
+    expect(screen.getByRole('button', { name: 'Quick Sort' })).toHaveTextContent('Pack')
+  })
+
+  it('opens the left drawer and switches packs from the pack list', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'All Installed Mods' }))
     await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith(null)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Challenge Pack' }))
+
+    await waitFor(() => {
       expect(library.setCurrentPackId).toHaveBeenCalledWith('challenge-pack')
     })
   })
 
-  it('shows create, edit, rename and delete actions for the current pack in the settings bubble', async () => {
+  it('uses the title popup for quick switching when the drawer is hidden', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
-    const promptSpy = vi.spyOn(window, 'prompt')
-    promptSpy.mockReturnValueOnce('New Pack')
-    promptSpy.mockReturnValueOnce('Renamed Pack')
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /manage current pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /create pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /manage current pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /edit pack contents/i }))
-    expect(screen.getByText(/editing pack/i)).not.toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    fireEvent.click(screen.getByRole('button', { name: /manage current pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /rename current pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /manage current pack/i }))
-    fireEvent.click(screen.getByRole('button', { name: /delete current pack/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Story Pack' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'All Installed Mods' }))
+    await waitFor(() => {
+      expect(library.setCurrentPackId).toHaveBeenCalledWith(null)
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Story Pack' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Challenge Pack' }))
 
     await waitFor(() => {
+      expect(library.setCurrentPackId).toHaveBeenCalledWith('challenge-pack')
+    })
+  })
+
+  it('shows create, edit, rename and delete actions in the drawer pack menu', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    fireEvent.click(screen.getByRole('button', { name: /create pack/i }))
+    const createDialog = await screen.findByRole('dialog', { name: 'Create Pack' })
+    fireEvent.change(within(createDialog).getByRole('textbox'), { target: { value: 'New Pack' } })
+    fireEvent.click(within(createDialog).getByRole('button', { name: 'Create Pack' }))
+    await waitFor(() => {
       expect(library.createPackPreset).toHaveBeenCalledWith('New Pack')
-      expect(library.renamePackPreset).toHaveBeenCalledWith('story-pack', 'Renamed Pack')
-      expect(library.deletePackPreset).toHaveBeenCalledWith('story-pack')
     })
 
-    promptSpy.mockRestore()
-    confirmSpy.mockRestore()
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Current Pack Story Pack' }))
+    fireEvent.click(await screen.findByRole('button', { name: /rename current pack/i }))
+    const renameDialog = await screen.findByRole('dialog', { name: 'Rename Current Pack' })
+    fireEvent.change(within(renameDialog).getByRole('textbox'), { target: { value: 'Renamed Pack' } })
+    fireEvent.click(within(renameDialog).getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => {
+      expect(library.renamePackPreset).toHaveBeenCalledWith('story-pack', 'Renamed Pack')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Current Pack Story Pack' }))
+    fireEvent.click(await screen.findByRole('button', { name: /delete current pack/i }))
+    const deleteDialog = await screen.findByRole('dialog', { name: 'Delete Current Pack' })
+    fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete Current Pack' }))
+    await waitFor(() => {
+      expect(library.deletePackPreset).toHaveBeenCalledWith('story-pack')
+    })
   })
 
   it('enters inline edit mode and saves the selected cards back into the current pack', async () => {
@@ -324,7 +391,8 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /manage current pack/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Current Pack Story Pack' }))
     fireEvent.click(screen.getByRole('button', { name: /edit pack contents/i }))
     expect(screen.getByText(/editing pack/i)).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Save Changes' })).not.toBeNull()
@@ -334,6 +402,31 @@ describe('LauncherLibraryPage', () => {
 
     await waitFor(() => {
       expect(library.replacePackMods).toHaveBeenCalledWith('story-pack', ['mod-1', 'mod-2'])
+    })
+  })
+
+  it('drops a dragged card onto a drawer pack row to add it to that pack', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+
+    const dataTransfer = {
+      effectAllowed: 'all',
+      dropEffect: 'move',
+      setData: vi.fn(),
+      getData: vi.fn(),
+      clearData: vi.fn(),
+    }
+
+    fireEvent.dragStart(screen.getByRole('article', { name: /npc adventures/i }), { dataTransfer })
+    fireEvent.dragOver(screen.getByRole('button', { name: 'Challenge Pack' }), { dataTransfer })
+    fireEvent.drop(screen.getByRole('button', { name: 'Challenge Pack' }), { dataTransfer })
+
+    await waitFor(() => {
+      expect(library.addModsToPack).toHaveBeenCalledWith('challenge-pack', ['mod-1'])
     })
   })
 
@@ -390,5 +483,19 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
     expect(library.installArchive).toHaveBeenCalledWith('E:\\Downloads\\preview.zip')
+  })
+
+  it('renders the full large-library grid directly without virtualization', async () => {
+    const library = createLargeLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(screen.getByRole('article', { name: /^large library mod 1$/i })).not.toBeNull()
+    expect(screen.getByRole('article', { name: /^large library mod 80$/i })).not.toBeNull()
+    expect(screen.getAllByRole('article')).toHaveLength(library.mods.length)
+
+    fireEvent.contextMenu(screen.getByRole('article', { name: /^large library mod 1$/i }))
+    expect((await screen.findAllByRole('menuitem', { name: 'View Details' })).length).toBeGreaterThan(0)
   })
 })
