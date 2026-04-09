@@ -4,6 +4,7 @@
 - MUST read any superpowers docs from `.devDocs/superpowers/`.
 - MUST use `uv` for package management and running commands.
 - MUST NOT commit any superpowers-generated docs to git.
+- MUST update repo-root `README.md` when adding new top-level areas, important feature directories, or new files/folders that change how developers should navigate the codebase.
 
 # Repository Guidelines
 
