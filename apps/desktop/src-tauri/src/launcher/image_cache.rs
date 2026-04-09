@@ -95,77 +95,79 @@ pub fn resolve_launcher_image(
     app: tauri::AppHandle,
     request: ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
-    let url = request.url.trim();
-    if url.is_empty() {
-        return Err("url is required.".to_string());
-    }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("resolve_launcher_image", (|| {
+        let url = request.url.trim();
+        if url.is_empty() {
+            return Err("url is required.".to_string());
+        }
 
-    let local_source = Path::new(url);
-    if local_source.is_file() {
-        return Ok(ResolveLauncherImageResult {
-            source_url: normalize_path(local_source),
-            mime_type: mime_type_from_path(local_source),
-            local_path: normalize_path(local_source),
-        });
-    }
-
-    let cache_dir = launcher_image_cache_dir(&app)?;
-    fs::create_dir_all(&cache_dir).map_err(|error| {
-        format!(
-            "Failed to create launcher image cache directory {}: {error}",
-            normalize_path(&cache_dir)
-        )
-    })?;
-
-    let cache_key = hash_string(url);
-    if !request.refresh.unwrap_or(false) {
-        if let Some(existing_path) = find_cached_image_path(&cache_dir, &cache_key)? {
+        let local_source = Path::new(url);
+        if local_source.is_file() {
             return Ok(ResolveLauncherImageResult {
-                source_url: url.to_string(),
-                mime_type: mime_type_from_path(&existing_path),
-                local_path: normalize_path(&existing_path),
+                source_url: normalize_path(local_source),
+                mime_type: mime_type_from_path(local_source),
+                local_path: normalize_path(local_source),
             });
         }
-    }
 
-    let client = launcher_http_client()?;
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|error| format!("Failed to fetch launcher image: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Failed to fetch launcher image {}: HTTP {}",
-            url,
-            response.status()
-        ));
-    }
+        let cache_dir = launcher_image_cache_dir(&app)?;
+        fs::create_dir_all(&cache_dir).map_err(|error| {
+            format!(
+                "Failed to create launcher image cache directory {}: {error}",
+                normalize_path(&cache_dir)
+            )
+        })?;
 
-    let content_type = response
-        .headers()
-        .get(CONTENT_TYPE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or("image/jpeg")
-        .to_string();
-    let extension = image_extension_from_content_type(&content_type)
-        .or_else(|| extension_from_url(url))
-        .unwrap_or_else(|| "jpg".to_string());
-    let target_path = cache_dir.join(format!("{cache_key}.{extension}"));
-    let bytes = response
-        .bytes()
-        .map_err(|error| format!("Failed to read launcher image bytes: {error}"))?;
+        let cache_key = hash_string(url);
+        if !request.refresh.unwrap_or(false) {
+            if let Some(existing_path) = find_cached_image_path(&cache_dir, &cache_key)? {
+                return Ok(ResolveLauncherImageResult {
+                    source_url: url.to_string(),
+                    mime_type: mime_type_from_path(&existing_path),
+                    local_path: normalize_path(&existing_path),
+                });
+            }
+        }
 
-    clear_cached_files_for_key(&cache_dir, &cache_key)?;
-    fs::write(&target_path, &bytes).map_err(|error| {
-        format!(
-            "Failed to write launcher image cache {}: {error}",
-            normalize_path(&target_path)
-        )
-    })?;
+        let client = launcher_http_client()?;
+        let response = client
+            .get(url)
+            .send()
+            .map_err(|error| format!("Failed to fetch launcher image: {error}"))?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "Failed to fetch launcher image {}: HTTP {}",
+                url,
+                response.status()
+            ));
+        }
 
-    Ok(ResolveLauncherImageResult {
-        source_url: url.to_string(),
-        mime_type: content_type,
-        local_path: normalize_path(&target_path),
-    })
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("image/jpeg")
+            .to_string();
+        let extension = image_extension_from_content_type(&content_type)
+            .or_else(|| extension_from_url(url))
+            .unwrap_or_else(|| "jpg".to_string());
+        let target_path = cache_dir.join(format!("{cache_key}.{extension}"));
+        let bytes = response
+            .bytes()
+            .map_err(|error| format!("Failed to read launcher image bytes: {error}"))?;
+
+        clear_cached_files_for_key(&cache_dir, &cache_key)?;
+        fs::write(&target_path, &bytes).map_err(|error| {
+            format!(
+                "Failed to write launcher image cache {}: {error}",
+                normalize_path(&target_path)
+            )
+        })?;
+
+        Ok(ResolveLauncherImageResult {
+            source_url: url.to_string(),
+            mime_type: content_type,
+            local_path: normalize_path(&target_path),
+        })
+    })())
 }

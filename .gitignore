@@ -21,7 +21,7 @@ services/**/obj/
 .uv-roaming/
 .tmp-pywinauto-stdout.txt
 .tmp-pywinauto-stderr.txt
-pywinauto-mcp.log
+.tmp/
 .tools/
 *tmp*
 /obj/

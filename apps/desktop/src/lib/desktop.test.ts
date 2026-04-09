@@ -116,7 +116,7 @@ describe('launcher bridge helpers', () => {
     })
   })
 
-  it('writes frontend log records through the existing Tauri log plugin command', async () => {
+  it('writes frontend log records through the desktop backend logging bridge', async () => {
     vi.mocked(invoke).mockResolvedValueOnce(undefined)
     const { writeFrontendLog } = await import('./desktop')
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
@@ -131,15 +131,16 @@ describe('launcher bridge helpers', () => {
       }),
     ).resolves.toBeUndefined()
 
-    expect(invoke).toHaveBeenCalledWith('plugin:log|log', {
-      level: 4,
-      message: 'Launcher settings save failed',
-      file: undefined,
-      keyValues: {
-        source: 'launcher-settings',
+    expect(invoke).toHaveBeenCalledWith('write_frontend_log', {
+      request: {
+        level: 'warning',
+        message: 'Launcher settings save failed',
+        file: undefined,
+        keyValues: {
+          source: 'launcher-settings',
+        },
+        line: undefined,
       },
-      line: undefined,
-      location: undefined,
     })
     expect(warnSpy).toHaveBeenCalledWith('Launcher settings save failed', {
       source: 'launcher-settings',

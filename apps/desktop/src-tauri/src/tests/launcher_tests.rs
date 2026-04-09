@@ -1,4 +1,9 @@
 use super::archive::inspect_archive_at_path;
+use super::catalog::{
+    build_catalog_graphql_payload, build_update_batch_graphql_payload,
+    can_use_nexus_graphql, parse_catalog_graphql_response,
+    parse_update_batch_graphql_response,
+};
 use super::downloads::{load_or_create_download_queue_at_path, save_download_queue_at_path};
 use super::launch::launch_game_with_runner;
 use super::library::{
@@ -7,6 +12,7 @@ use super::library::{
     set_launcher_mod_enabled,
 };
 use super::settings::{load_or_create_settings_at_path, save_settings_at_path};
+use super::trace::format_launcher_trace_message;
 use super::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
@@ -15,6 +21,7 @@ use super::types::{
     SetLauncherModEnabledRequest,
 };
 use crate::test_support::{create_temp_dir, write_file};
+use serde_json::json;
 use std::fs;
 #[cfg(target_os = "windows")]
 use std::path::Path;
@@ -59,6 +66,40 @@ fn sample_manifest_with_required_dependency(unique_id: &str, dependency_unique_i
   ]
 }}"#
     )
+}
+
+#[test]
+fn launcher_trace_message_prefixes_action_and_quotes_values() {
+    let message = format_launcher_trace_message(
+        "install.start",
+        &[
+            ("archivePath", r"E:\Downloads\Example Pack.zip".to_string()),
+            ("modsPath", r"E:\Games\Stardew Valley\Mods".to_string()),
+            ("hasBackupRoot", "true".to_string()),
+        ],
+    );
+
+    assert_eq!(
+        message,
+        r#"launcher.install.start archivePath="E:\\Downloads\\Example Pack.zip" modsPath="E:\\Games\\Stardew Valley\\Mods" hasBackupRoot="true""#
+    );
+}
+
+#[test]
+fn launcher_trace_message_skips_blank_values() {
+    let message = format_launcher_trace_message(
+        "toggle.complete",
+        &[
+            ("modPath", r"E:\Games\Mods\ExamplePack".to_string()),
+            ("reason", "   ".to_string()),
+            ("enabled", "false".to_string()),
+        ],
+    );
+
+    assert_eq!(
+        message,
+        r#"launcher.toggle.complete modPath="E:\\Games\\Mods\\ExamplePack" enabled="false""#
+    );
 }
 
 #[test]
@@ -309,6 +350,135 @@ fn scan_library_extracts_nexus_update_keys() {
     assert_eq!(scan.mods[0].update_keys, vec!["Nexus:12345".to_string()]);
 
     fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn build_catalog_graphql_payload_maps_query_sort_and_page() {
+    let payload = build_catalog_graphql_payload(Some("tractor"), 2, "updated", false)
+        .expect("build catalog graphql payload");
+
+    assert_eq!(payload["operationName"], "CatalogMods");
+    assert_eq!(payload["variables"]["offset"], 20);
+    assert_eq!(payload["variables"]["count"], 20);
+    assert_eq!(payload["variables"]["filter"]["gameDomainName"][0]["value"], "stardewvalley");
+    assert_eq!(payload["variables"]["filter"]["gameDomainName"][0]["op"], "EQUALS");
+    assert_eq!(payload["variables"]["filter"]["name"][0]["value"], "tractor");
+    assert_eq!(payload["variables"]["filter"]["name"][0]["op"], "WILDCARD");
+    assert_eq!(payload["variables"]["sort"][0]["updatedAt"]["direction"], "DESC");
+
+    let query = payload["query"].as_str().expect("graphql query string");
+    assert!(query.contains("query CatalogMods"));
+    assert!(query.contains("mods(filter: $filter, sort: $sort, offset: $offset, count: $count)"));
+}
+
+#[test]
+fn parse_catalog_graphql_response_builds_catalog_page_result() {
+    let payload = json!({
+        "data": {
+            "mods": {
+                "nodes": [
+                    {
+                        "modId": 101,
+                        "name": "Tractor Mod",
+                        "summary": "Drive around Pelican Town.",
+                        "pictureUrl": "https://static.nexusmods.com/tractor.png",
+                        "uploader": {
+                            "name": "Pathoschild"
+                        }
+                    },
+                    {
+                        "modId": 202,
+                        "name": "Lookup Anything",
+                        "summary": null,
+                        "pictureUrl": null,
+                        "uploader": null
+                    }
+                ],
+                "totalCount": 45
+            }
+        }
+    });
+
+    let page = parse_catalog_graphql_response(&payload, 2).expect("parse catalog graphql response");
+
+    assert_eq!(page.page, 2);
+    assert!(page.has_more);
+    assert_eq!(page.results.len(), 2);
+    assert_eq!(page.results[0].mod_id, 101);
+    assert_eq!(page.results[0].title, "Tractor Mod");
+    assert_eq!(page.results[0].author.as_deref(), Some("Pathoschild"));
+    assert_eq!(
+        page.results[0].mod_url,
+        "https://www.nexusmods.com/stardewvalley/mods/101"
+    );
+    assert_eq!(page.results[1].author, None);
+}
+
+#[test]
+fn build_update_batch_graphql_payload_uses_legacy_mods_by_domain() {
+    let payload =
+        build_update_batch_graphql_payload(&[101, 202]).expect("build update batch graphql payload");
+
+    assert_eq!(payload["operationName"], "LauncherUpdateBatch");
+    assert_eq!(payload["variables"]["ids"][0]["gameDomain"], "stardewvalley");
+    assert_eq!(payload["variables"]["ids"][0]["modId"], 101);
+    assert_eq!(payload["variables"]["ids"][1]["modId"], 202);
+
+    let query = payload["query"].as_str().expect("graphql query string");
+    assert!(query.contains("query LauncherUpdateBatch"));
+    assert!(query.contains("legacyModsByDomain"));
+}
+
+#[test]
+fn parse_update_batch_graphql_response_extracts_versions_by_mod_id() {
+    let payload = json!({
+        "data": {
+            "legacyModsByDomain": {
+                "nodes": [
+                    {
+                        "modId": 101,
+                        "name": "Tractor Mod",
+                        "version": "4.0.1",
+                        "pictureUrl": "https://static.nexusmods.com/tractor.png"
+                    },
+                    {
+                        "modId": 202,
+                        "name": "Lookup Anything",
+                        "version": "1.43.0",
+                        "pictureUrl": null
+                    }
+                ]
+            }
+        }
+    });
+
+    let details =
+        parse_update_batch_graphql_response(&payload).expect("parse launcher update batch payload");
+
+    assert_eq!(details.len(), 2);
+    assert_eq!(details[0].mod_id, 101);
+    assert_eq!(details[0].name.as_deref(), Some("Tractor Mod"));
+    assert_eq!(details[0].version.as_deref(), Some("4.0.1"));
+    assert_eq!(
+        details[0].mod_url,
+        "https://www.nexusmods.com/stardewvalley/mods/101"
+    );
+    assert_eq!(details[1].image_url, None);
+}
+
+#[test]
+fn can_use_nexus_graphql_requires_api_key_or_cookie() {
+    assert!(!can_use_nexus_graphql(&LauncherSettings::default()));
+
+    assert!(can_use_nexus_graphql(&LauncherSettings {
+        nexus_api_key: Some("nexus-key".to_string()),
+        ..LauncherSettings::default()
+    }));
+
+    assert!(can_use_nexus_graphql(&LauncherSettings {
+        nexus_cookie: Some("session=value".to_string()),
+        ..LauncherSettings::default()
+    }));
 }
 
 #[test]

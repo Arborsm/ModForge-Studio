@@ -695,19 +695,6 @@ async function invokeDesktop<T>(command: string, args?: Record<string, unknown>)
   return invoke<T>(command, args)
 }
 
-function toDesktopLogLevel(level: FrontendLogLevel) {
-  switch (level) {
-    case 'debug':
-      return 2
-    case 'info':
-      return 3
-    case 'warning':
-      return 4
-    case 'error':
-      return 5
-  }
-}
-
 function toConsoleLogMethod(level: FrontendLogLevel) {
   switch (level) {
     case 'debug':
@@ -750,14 +737,7 @@ export async function writeFrontendLog(request: FrontendLogRequest) {
     return
   }
 
-  await invoke<void>('plugin:log|log', {
-    level: toDesktopLogLevel(request.level),
-    message: request.message,
-    location: undefined,
-    file: request.file,
-    line: request.line,
-    keyValues: request.keyValues,
-  })
+  await invokeDesktop<void>('write_frontend_log', { request })
 }
 
 export async function setDesktopDebugLoggingEnabled(enabled: boolean) {

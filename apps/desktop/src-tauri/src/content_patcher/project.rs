@@ -143,56 +143,58 @@ fn collect_include_edges(
 
 #[tauri::command]
 pub fn load_content_patcher_project(path: String) -> Result<ContentPatcherProjectSnapshot, String> {
-    let root = clean_input_path(&path);
-    let manifest_path = root.join("manifest.json");
-    let content_path = root.join("content.json");
-    if !manifest_path.is_file() || !content_path.is_file() {
-        return Err(unsupported_project_error(&root.to_string_lossy()));
-    }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_content_patcher_project", (|| {
+        let root = clean_input_path(&path);
+        let manifest_path = root.join("manifest.json");
+        let content_path = root.join("content.json");
+        if !manifest_path.is_file() || !content_path.is_file() {
+            return Err(unsupported_project_error(&root.to_string_lossy()));
+        }
 
-    let root_canonical = canonicalize_path(&root)?;
-    let manifest_canonical = canonicalize_path(&manifest_path)?;
-    let content_canonical = canonicalize_path(&content_path)?;
-    let (_manifest_raw_json, manifest) = parse_json_file(&manifest_path)?;
-    if !is_content_patcher_manifest(&manifest) {
-        return Err(non_content_patcher_manifest_error(
-            content_pack_for_unique_id(&manifest).as_deref(),
-        ));
-    }
-    let (content_raw_json, content) = parse_json_file(&content_path)?;
-    let diagnostics = build_snapshot_diagnostics(&manifest, &content);
+        let root_canonical = canonicalize_path(&root)?;
+        let manifest_canonical = canonicalize_path(&manifest_path)?;
+        let content_canonical = canonicalize_path(&content_path)?;
+        let (_manifest_raw_json, manifest) = parse_json_file(&manifest_path)?;
+        if !is_content_patcher_manifest(&manifest) {
+            return Err(non_content_patcher_manifest_error(
+                content_pack_for_unique_id(&manifest).as_deref(),
+            ));
+        }
+        let (content_raw_json, content) = parse_json_file(&content_path)?;
+        let diagnostics = build_snapshot_diagnostics(&manifest, &content);
 
-    let mut sources = BTreeMap::new();
-    sources.insert(
-        "content.json".to_string(),
-        ContentPatcherSourceFile {
-            path: "content.json".to_string(),
-            absolute_path: normalize_path(&content_canonical),
-            raw_json: content_raw_json,
-        },
-    );
-    let mut include_tree = Vec::new();
-    collect_include_edges(
-        &root_canonical,
-        Path::new("content.json"),
-        &content,
-        &mut sources,
-        &mut include_tree,
-    )?;
+        let mut sources = BTreeMap::new();
+        sources.insert(
+            "content.json".to_string(),
+            ContentPatcherSourceFile {
+                path: "content.json".to_string(),
+                absolute_path: normalize_path(&content_canonical),
+                raw_json: content_raw_json,
+            },
+        );
+        let mut include_tree = Vec::new();
+        collect_include_edges(
+            &root_canonical,
+            Path::new("content.json"),
+            &content,
+            &mut sources,
+            &mut include_tree,
+        )?;
 
-    Ok(ContentPatcherProjectSnapshot {
-        summary: ContentPatcherProjectSummary {
-            name: as_non_empty_string(manifest.get("Name")),
-            unique_id: as_non_empty_string(manifest.get("UniqueID")),
-            content_pack_for: content_pack_for_unique_id(&manifest),
-            absolute_path: Some(normalize_path(&root_canonical)),
-            manifest_path: Some(normalize_path(&manifest_canonical)),
-            content_path: Some(normalize_path(&content_canonical)),
-        },
-        sources: sources.into_values().collect(),
-        include_tree,
-        diagnostics,
-    })
+        Ok(ContentPatcherProjectSnapshot {
+            summary: ContentPatcherProjectSummary {
+                name: as_non_empty_string(manifest.get("Name")),
+                unique_id: as_non_empty_string(manifest.get("UniqueID")),
+                content_pack_for: content_pack_for_unique_id(&manifest),
+                absolute_path: Some(normalize_path(&root_canonical)),
+                manifest_path: Some(normalize_path(&manifest_canonical)),
+                content_path: Some(normalize_path(&content_canonical)),
+            },
+            sources: sources.into_values().collect(),
+            include_tree,
+            diagnostics,
+        })
+    })())
 }
 
 #[cfg(test)]
