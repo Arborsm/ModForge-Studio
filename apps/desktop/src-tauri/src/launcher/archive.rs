@@ -5,6 +5,7 @@ use super::fs::{
 use super::library::{normalize_unique_id, scan_library_at_path};
 use super::paths::{launcher_backup_dir, launcher_settings_path};
 use super::settings::load_or_create_settings_at_path;
+use super::trace::log_launcher_trace;
 use super::types::{
     InstallLauncherArchiveRequest, InstallLauncherArchiveResult, InspectLauncherArchiveRequest,
     InspectLauncherArchiveResult, LauncherArchiveTreeNode,
@@ -28,6 +29,10 @@ struct ArchiveInspectionState {
 pub(crate) fn inspect_archive_at_path(
     archive_path: &Path,
 ) -> Result<InspectLauncherArchiveResult, String> {
+    log_launcher_trace(
+        "inspect.start",
+        &[("archivePath", normalize_path(archive_path))],
+    );
     if !archive_path.is_file() {
         return Err(format!(
             "Launcher archive {} does not exist.",
@@ -50,7 +55,7 @@ pub(crate) fn inspect_archive_at_path(
         expand_archive_to_path(archive_path, &temp_root)?;
         let mut state = ArchiveInspectionState::default();
         let tree = build_archive_tree(&temp_root, &temp_root, &mut state)?;
-        Ok(InspectLauncherArchiveResult {
+        let result = InspectLauncherArchiveResult {
             archive_path: normalize_path(archive_path),
             archive_file_name: archive_path
                 .file_name()
@@ -61,7 +66,16 @@ pub(crate) fn inspect_archive_at_path(
             total_files: state.total_files,
             mod_roots: state.mod_roots.into_iter().collect(),
             tree,
-        })
+        };
+        log_launcher_trace(
+            "inspect.complete",
+            &[
+                ("archivePath", result.archive_path.clone()),
+                ("modRootCount", result.mod_roots.len().to_string()),
+                ("totalFiles", result.total_files.to_string()),
+            ],
+        );
+        Ok(result)
     })();
 
     let _ = fs::remove_dir_all(&temp_root);
@@ -170,6 +184,17 @@ pub(crate) fn install_archive_at_path(
     let mods_path = mods_path
         .map(clean_input_path)
         .ok_or_else(|| "modsPath is required to install launcher archives.".to_string())?;
+    log_launcher_trace(
+        "install.start",
+        &[
+            ("archivePath", normalize_path(archive_path)),
+            ("modsPath", normalize_path(&mods_path)),
+            (
+                "hasBackupRoot",
+                backup_root.map(Path::to_path_buf).is_some().to_string(),
+            ),
+        ],
+    );
     fs::create_dir_all(&mods_path).map_err(|error| {
         format!(
             "Failed to create launcher mods directory {}: {error}",
@@ -201,6 +226,13 @@ pub(crate) fn install_archive_at_path(
         }
 
         let extracted_root = &project_roots[0];
+        log_launcher_trace(
+            "install.extracted",
+            &[
+                ("archivePath", normalize_path(archive_path)),
+                ("extractedRoot", normalize_path(extracted_root)),
+            ],
+        );
         let manifest = read_json_file(&extracted_root.join("manifest.json"))?;
         let mod_name = project_name_from_manifest(&manifest, extracted_root);
         let unique_id = string_field(&manifest, "UniqueID");
@@ -215,6 +247,16 @@ pub(crate) fn install_archive_at_path(
         let preserved_i18n_files = backup_existing_i18n(existing_mod_path.as_deref(), &backup_root)?;
 
         if let Some(existing_path) = existing_mod_path.as_deref() {
+            log_launcher_trace(
+                "install.replace-existing",
+                &[
+                    ("existingPath", normalize_path(existing_path)),
+                    (
+                        "uniqueId",
+                        unique_id.clone().unwrap_or_else(|| "unknown".to_string()),
+                    ),
+                ],
+            );
             fs::remove_dir_all(existing_path).map_err(|error| {
                 format!(
                     "Failed to remove existing launcher mod {}: {error}",
@@ -241,14 +283,30 @@ pub(crate) fn install_archive_at_path(
         restore_backed_up_config(&backup_root, &target_path)?;
         let restored_i18n_files = restore_backed_up_i18n(&backup_root, &target_path)?;
 
-        Ok(InstallLauncherArchiveResult {
+        let result = InstallLauncherArchiveResult {
             mod_name,
             unique_id,
             version,
             target_path: normalize_path(&target_path),
             preserved_config,
             preserved_i18n_files: preserved_i18n_files.max(restored_i18n_files),
-        })
+        };
+        log_launcher_trace(
+            "install.complete",
+            &[
+                ("targetPath", result.target_path.clone()),
+                ("modName", result.mod_name.clone()),
+                (
+                    "uniqueId",
+                    result.unique_id.clone().unwrap_or_else(|| "unknown".to_string()),
+                ),
+                (
+                    "version",
+                    result.version.clone().unwrap_or_else(|| "unknown".to_string()),
+                ),
+            ],
+        );
+        Ok(result)
     })();
 
     let _ = fs::remove_dir_all(&temp_root);
@@ -492,27 +550,31 @@ pub fn install_launcher_archive(
     app: tauri::AppHandle,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
-    let settings_path = launcher_settings_path(&app)?;
-    let settings = load_or_create_settings_at_path(&settings_path)?;
-    install_archive_at_path(
-        &clean_input_path(request.archive_path.trim()),
-        request
-            .mods_path
-            .as_deref()
-            .filter(|value| !value.trim().is_empty())
-            .or(settings.mods_path.as_deref()),
-        Some(launcher_backup_dir(&app)?.as_path()),
-    )
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("install_launcher_archive", (|| {
+        let settings_path = launcher_settings_path(&app)?;
+        let settings = load_or_create_settings_at_path(&settings_path)?;
+        install_archive_at_path(
+            &clean_input_path(request.archive_path.trim()),
+            request
+                .mods_path
+                .as_deref()
+                .filter(|value| !value.trim().is_empty())
+                .or(settings.mods_path.as_deref()),
+            Some(launcher_backup_dir(&app)?.as_path()),
+        )
+    })())
 }
 
 #[tauri::command]
 pub fn inspect_launcher_archive(
     request: InspectLauncherArchiveRequest,
 ) -> Result<InspectLauncherArchiveResult, String> {
-    let archive_path = request.archive_path.trim();
-    if archive_path.is_empty() {
-        return Err("archivePath is required.".to_string());
-    }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("inspect_launcher_archive", (|| {
+        let archive_path = request.archive_path.trim();
+        if archive_path.is_empty() {
+            return Err("archivePath is required.".to_string());
+        }
 
-    inspect_archive_at_path(&clean_input_path(archive_path))
+        inspect_archive_at_path(&clean_input_path(archive_path))
+    })())
 }

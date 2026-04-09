@@ -1,5 +1,6 @@
 use super::paths::{launcher_backup_dir, launcher_settings_path};
 use super::settings::load_or_create_settings_at_path;
+use super::trace::log_launcher_trace;
 use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
     LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest,
@@ -34,6 +35,10 @@ fn resolve_game_launch_target(
             )
         })?;
     let game_root = clean_input_path(game_path);
+    log_launcher_trace(
+        "launch.resolve",
+        &[("gamePath", normalize_path(&game_root))],
+    );
     let smapi_path = game_root.join("StardewModdingAPI.exe");
     if smapi_path.is_file() {
         return Ok((smapi_path, LauncherGameLaunchTarget::Smapi));
@@ -62,6 +67,13 @@ where
     F: FnMut(&Path) -> Result<(), String>,
 {
     let (executable_path, target) = resolve_game_launch_target(settings)?;
+    log_launcher_trace(
+        "launch.start",
+        &[
+            ("target", format!("{target:?}")),
+            ("executablePath", normalize_path(&executable_path)),
+        ],
+    );
     runner(&executable_path).map_err(|message| {
         launcher_launch_error(
             LauncherGameLaunchErrorCode::LaunchFailed,
@@ -71,6 +83,13 @@ where
             ),
         )
     })?;
+    log_launcher_trace(
+        "launch.complete",
+        &[
+            ("target", format!("{target:?}")),
+            ("executablePath", normalize_path(&executable_path)),
+        ],
+    );
     Ok(LauncherGameLaunchResult {
         executable_path: normalize_path(&executable_path),
         target,
@@ -88,41 +107,53 @@ fn spawn_launcher_process(path: &Path) -> Result<(), String> {
 pub fn launch_launcher_game(
     app: tauri::AppHandle,
 ) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
-    let settings_path = launcher_settings_path(&app)
-        .map_err(|message| launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message))?;
-    let settings = load_or_create_settings_at_path(&settings_path)
-        .map_err(|message| launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message))?;
-    launch_game_with_runner(&settings, spawn_launcher_process)
+    modforge_studio_desktop_lib::logging::log_tauri_command_error_with_message(
+        "launch_launcher_game",
+        (|| {
+            let settings_path = launcher_settings_path(&app).map_err(|message| {
+                launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message)
+            })?;
+            let settings = load_or_create_settings_at_path(&settings_path).map_err(|message| {
+                launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message)
+            })?;
+            launch_game_with_runner(&settings, spawn_launcher_process)
+        })(),
+        |error| error.message.clone(),
+    )
 }
 
 #[tauri::command]
 pub fn get_launcher_backup_directory(app: tauri::AppHandle) -> Result<String, String> {
-    let backup_dir = launcher_backup_dir(&app)?;
-    fs::create_dir_all(&backup_dir).map_err(|error| {
-        format!(
-            "Failed to create launcher backup directory {}: {error}",
-            normalize_path(&backup_dir)
-        )
-    })?;
-    Ok(normalize_path(&backup_dir))
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("get_launcher_backup_directory", (|| {
+        let backup_dir = launcher_backup_dir(&app)?;
+        fs::create_dir_all(&backup_dir).map_err(|error| {
+            format!(
+                "Failed to create launcher backup directory {}: {error}",
+                normalize_path(&backup_dir)
+            )
+        })?;
+        Ok(normalize_path(&backup_dir))
+    })())
 }
 
 #[tauri::command]
 pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String> {
-    let path = request.path.trim();
-    if path.is_empty() {
-        return Err("path is required.".to_string());
-    }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("open_launcher_path", (|| {
+        let path = request.path.trim();
+        if path.is_empty() {
+            return Err("path is required.".to_string());
+        }
 
-    let resolved = clean_input_path(path);
-    if !resolved.exists() {
-        return Err(format!(
-            "Launcher path {} does not exist.",
-            normalize_path(&resolved)
-        ));
-    }
+        let resolved = clean_input_path(path);
+        if !resolved.exists() {
+            return Err(format!(
+                "Launcher path {} does not exist.",
+                normalize_path(&resolved)
+            ));
+        }
 
-    open_path_in_shell(&resolved)
+        open_path_in_shell(&resolved)
+    })())
 }
 
 #[cfg(target_os = "windows")]

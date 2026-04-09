@@ -123,8 +123,10 @@ fn default_download_path() -> Option<PathBuf> {
 
 #[tauri::command]
 pub fn load_launcher_settings(app: tauri::AppHandle) -> Result<LauncherSettings, String> {
-    let settings_path = launcher_settings_path(&app)?;
-    load_or_create_settings_at_path(&settings_path)
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_launcher_settings", (|| {
+        let settings_path = launcher_settings_path(&app)?;
+        load_or_create_settings_at_path(&settings_path)
+    })())
 }
 
 #[tauri::command]
@@ -132,22 +134,24 @@ pub fn save_launcher_settings(
     app: tauri::AppHandle,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
-    let settings_path = launcher_settings_path(&app)?;
-    let existing = load_or_create_settings_at_path(&settings_path)?;
-    let merged = LauncherSettings {
-        game_path: request.game_path.or(existing.game_path),
-        mods_path: request.mods_path.or(existing.mods_path),
-        download_path: request.download_path.or(existing.download_path),
-        nexus_api_key: request.nexus_api_key.or(existing.nexus_api_key),
-        nexus_cookie: request.nexus_cookie.or(existing.nexus_cookie),
-        auto_install_downloads: request
-            .auto_install_downloads
-            .unwrap_or(existing.auto_install_downloads),
-        keep_downloaded_archives: request
-            .keep_downloaded_archives
-            .unwrap_or(existing.keep_downloaded_archives),
-    };
-    let normalized = normalize_settings(merged);
-    save_settings_at_path(&settings_path, &normalized)?;
-    Ok(normalized)
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("save_launcher_settings", (|| {
+        let settings_path = launcher_settings_path(&app)?;
+        let existing = load_or_create_settings_at_path(&settings_path)?;
+        let merged = LauncherSettings {
+            game_path: request.game_path.or(existing.game_path),
+            mods_path: request.mods_path.or(existing.mods_path),
+            download_path: request.download_path.or(existing.download_path),
+            nexus_api_key: request.nexus_api_key.or(existing.nexus_api_key),
+            nexus_cookie: request.nexus_cookie.or(existing.nexus_cookie),
+            auto_install_downloads: request
+                .auto_install_downloads
+                .unwrap_or(existing.auto_install_downloads),
+            keep_downloaded_archives: request
+                .keep_downloaded_archives
+                .unwrap_or(existing.keep_downloaded_archives),
+        };
+        let normalized = normalize_settings(merged);
+        save_settings_at_path(&settings_path, &normalized)?;
+        Ok(normalized)
+    })())
 }

@@ -8,6 +8,7 @@ mod launch;
 mod library;
 mod paths;
 mod settings;
+mod trace;
 mod types;
 
 pub use archive::{inspect_launcher_archive, install_launcher_archive};

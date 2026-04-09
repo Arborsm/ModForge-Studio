@@ -17,6 +17,18 @@ export type ReportAppEventRequest = {
 
 let debugDiagnosticsEnabled = false
 
+function shouldForceNotification(level: AppEventLevel) {
+  return debugDiagnosticsEnabled && (level === 'warning' || level === 'error')
+}
+
+function shouldNotify({ level, notify }: ReportAppEventRequest) {
+  if (shouldForceNotification(level)) {
+    return true
+  }
+
+  return notify !== false
+}
+
 function toLogLevel(level: AppEventLevel): FrontendLogLevel {
   switch (level) {
     case 'debug':
@@ -66,7 +78,7 @@ export function reportAppEvent(request: ReportAppEventRequest) {
     })
   }
 
-  if (request.notify === false) {
+  if (!shouldNotify(request)) {
     return null
   }
 

@@ -1,9 +1,11 @@
+extern crate self as modforge_studio_desktop_lib;
+
 mod assets;
 mod attached_api;
 mod content_patcher;
 mod json_relaxed;
 mod launcher;
-mod logging;
+pub mod logging;
 mod mime;
 mod models;
 mod mods;
@@ -33,7 +35,9 @@ use launcher::{
     save_launcher_library_state, save_launcher_settings, scan_launcher_library,
     search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
 };
-use logging::{build_logging_plugin, set_debug_logging_enabled, DebugLoggingState};
+use logging::{
+    build_logging_plugin, set_debug_logging_enabled, write_frontend_log, DebugLoggingState,
+};
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
 use xact::load_xact_audio_data_url;
@@ -95,7 +99,8 @@ pub fn run() {
             download_launcher_mod,
             inspect_launcher_archive,
             install_launcher_archive,
-            set_debug_logging_enabled
+            set_debug_logging_enabled,
+            write_frontend_log
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

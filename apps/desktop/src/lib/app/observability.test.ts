@@ -96,4 +96,54 @@ describe('observability', () => {
       }),
     )
   })
+
+  it('forces warning and error notifications while debug diagnostics are enabled', async () => {
+    await syncDebugDiagnosticsEnabled(true)
+
+    reportAppEvent({
+      level: 'warning',
+      title: 'Rate limit approaching',
+      notify: false,
+    })
+    reportAppEvent({
+      level: 'error',
+      title: 'Catalog refresh failed',
+      notify: false,
+    })
+
+    expect(publishNotification).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        level: 'warning',
+        title: 'Rate limit approaching',
+      }),
+    )
+    expect(publishNotification).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        level: 'error',
+        title: 'Catalog refresh failed',
+      }),
+    )
+  })
+
+  it('still allows non-critical notifications to stay muted in debug mode', async () => {
+    await syncDebugDiagnosticsEnabled(true)
+
+    expect(
+      reportAppEvent({
+        level: 'info',
+        title: 'Background refresh complete',
+        notify: false,
+      }),
+    ).toBeNull()
+
+    expect(publishNotification).not.toHaveBeenCalled()
+    expect(writeFrontendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'info',
+        message: 'Background refresh complete',
+      }),
+    )
+  })
 })
