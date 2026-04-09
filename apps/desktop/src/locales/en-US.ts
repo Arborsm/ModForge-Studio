@@ -19,13 +19,13 @@ const localeBundle: LocaleBundle = {
         "library": "Library",
         "discover": "Discover",
         "updates": "Updates",
-        "settings": "Debug"
+        "debug": "Debug"
       },
       "descriptions": {
         "library": "Your installed and pinned mods will appear here.",
         "discover": "Browse recommended packs and community highlights.",
         "updates": "Review pending updates before applying changes.",
-        "settings": "Debug-only tools for validating notifications and persistent logs."
+        "debug": "Debug-only tools for validating notifications and persistent logs."
       },
       "overview": {
         "installedMods": "Installed Mods",
@@ -142,7 +142,17 @@ const localeBundle: LocaleBundle = {
         "packTargetLabel": "Add selected mods to pack",
         "noCover": "No Cover",
         "packLabel": "Pack",
-        "storageFolderLabel": "Storage Folder"
+        "storageFolderLabel": "Storage Folder",
+        "manageCurrentPack": "Manage Current Pack",
+        "renameCurrentPack": "Rename Current Pack",
+        "deleteCurrentPack": "Delete Current Pack",
+        "editCurrentPack": "Edit Pack Contents",
+        "editingPackLabel": "Editing Pack:",
+        "includedModsCount": (count) => `${count} mods included`,
+        "cancelEdit": "Cancel",
+        "saveChanges": "Save Changes",
+        "renameCurrentPackPrompt": (name) => `Rename ${name}`,
+        "deleteCurrentPackConfirm": (name) => `Delete ${name}?`
       },
       "discover": {
         "title": "Discover",
@@ -180,13 +190,19 @@ const localeBundle: LocaleBundle = {
       },
       "debug": {
         "title": "Launcher Debug",
-        "subtitle": "Debug-only launcher tools for testing notifications and persistent logging.",
-        "debugOnlyTitle": "Debug Mode Required",
-        "debugOnlyDescription": "This page only appears when global debug mode is enabled. Use it to validate the cross-module message and log pipeline.",
-        "notificationsTitle": "Notification Tests",
-        "notificationsSubtitle": "Emit visible test messages through the global notification system.",
-        "logsTitle": "Log Tests",
-        "logsSubtitle": "Write persistent log records without showing a toast.",
+        "subtitle": "Only visible when debug mode is enabled. Use it to validate global notifications and persistent logs.",
+        "debugOnlyTitle": "Debug Only",
+        "debugOnlyDescription": "This page only appears when global debug mode is enabled. Use it to validate notifications, logs, and future launcher diagnostics in one place.",
+        "notificationsOverviewTitle": "Notification Test Records",
+        "logsOverviewTitle": "Log Test Records",
+        "notificationsTitle": "System Notification Tests",
+        "notificationsSubtitle": "Emit visible test messages through the global notification system and verify level-specific feedback.",
+        "logsTitle": "Persistent Log Tests",
+        "logsSubtitle": "Write persistent test logs without showing a toast so the local logging pipeline can be verified.",
+        "simulationTitle": "Download Simulation",
+        "simulationSubtitle": "Start a launcher-only simulated download at 2 MB/s for 10 seconds to validate progress UI in the title bar and queue.",
+        "simulationButtonIdle": "Start Simulated Download",
+        "simulationButtonRunning": "Simulation Running",
         "notificationButtons": {
           "debug": "Debug Notification",
           "info": "Info Notification",

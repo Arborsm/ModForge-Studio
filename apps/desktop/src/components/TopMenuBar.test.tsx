@@ -53,9 +53,10 @@ function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}):
     },
     launcherChrome: {
       page: 'library',
-      visiblePages: ['library', 'discover', 'updates', 'settings'],
+      visiblePages: ['library', 'discover', 'updates', 'debug'],
       onPageChange: vi.fn(),
       downloadsBadgeCount: 0,
+      downloadsProgressPercent: null,
       downloadsHasFailure: false,
       settingsWarning: false,
       settingsWarningLabel: 'Launcher setup incomplete',
@@ -176,7 +177,7 @@ describe('TopMenuBar', () => {
     expect(screen.getByRole('button', { name: copy.launcher.pages.library })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.launcher.pages.discover })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
-    expect(screen.getByRole('button', { name: copy.launcher.pages.settings })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.launcher.pages.debug })).toBeTruthy()
     expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
   })
 
@@ -194,10 +195,10 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    expect(screen.queryByRole('button', { name: copy.launcher.pages.settings })).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.launcher.pages.debug })).toBeNull()
   })
 
-  it('opens the downloads popup from the shell controls as a floating dialog', () => {
+  it('opens the downloads popup as a non-modal launcher popover', () => {
     const launcherChrome = buildProps().launcherChrome!
     const props = buildProps({
       appMode: 'launcher',
@@ -212,9 +213,47 @@ describe('TopMenuBar', () => {
     const shellControls = screen.getByRole('group', { name: 'Shell controls' })
     fireEvent.click(within(shellControls).getByRole('button', { name: copy.launcher.downloads.title }))
 
-    expect(screen.getByRole('dialog', { name: copy.launcher.downloads.title })).toBeTruthy()
+    const popover = screen.getByRole('dialog', { name: copy.launcher.downloads.title })
+
+    expect(popover).toBeTruthy()
+    expect(popover.getAttribute('aria-modal')).toBeNull()
+    expect(popover.getAttribute('class') ?? '').toContain('pointer-events-auto')
     expect(screen.getByText('Downloads popover')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
+    expect(document.querySelector('.top-menu-float-backdrop')).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.launcher.actions.closeDialog })).toBeNull()
+  })
+
+  it('renders the launcher downloads control as a clickable shell icon button', () => {
+    const props = buildProps({ appMode: 'launcher' })
+    renderWithLocale(<TopMenuBar {...props} />)
+
+    const shellControls = screen.getByRole('group', { name: 'Shell controls' })
+    const downloadsButton = within(shellControls).getByRole('button', { name: copy.launcher.downloads.title })
+    const className = downloadsButton.getAttribute('class') ?? ''
+
+    expect(className).toContain('icon-button')
+    expect(className).toContain('pointer-events-auto')
+  })
+
+  it('renders an aggregate download progress ring in the launcher shell controls', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          appMode: 'launcher',
+          launcherChrome: {
+            ...launcherChrome,
+            downloadsProgressPercent: 50,
+          },
+        })}
+      />,
+    )
+
+    const shellControls = screen.getByRole('group', { name: 'Shell controls' })
+    const progressRing = within(shellControls).getByRole('progressbar', { name: /downloads progress/i })
+
+    expect(progressRing.getAttribute('aria-valuenow')).toBe('50')
   })
 
   it('renders an orange warning marker on settings when launcher setup is incomplete', () => {
@@ -231,7 +270,7 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    const settingsButton = screen.getAllByRole('button', { name: copy.launcher.pages.settings }).at(-1)
+    const settingsButton = screen.getAllByRole('button', { name: copy.launcher.pages.debug }).at(-1)
     expect(settingsButton?.querySelector('.top-menu-warning-dot')).toBeTruthy()
   })
 })

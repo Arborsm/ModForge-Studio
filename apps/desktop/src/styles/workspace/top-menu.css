@@ -171,32 +171,15 @@
 
   .top-menu-icon-action {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 12px;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bg-panel-muted) 94%, transparent),
-        color-mix(in srgb, var(--bg-panel) 88%, transparent)
-      );
-    color: var(--text-secondary);
+    flex-shrink: 0;
     transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      color 160ms ease,
+      box-shadow 160ms ease,
       transform 160ms ease;
   }
 
   .top-menu-icon-action:hover,
   .top-menu-icon-action-active {
-    color: var(--text-primary);
-    background: color-mix(in srgb, var(--bg-active) 88%, transparent);
-    border-color: color-mix(in srgb, var(--accent) 22%, var(--border-color));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, var(--border-color));
   }
 
   .top-menu-icon-action:hover {
@@ -204,7 +187,11 @@
   }
 
   .top-menu-icon-action-failure {
-    border-color: color-mix(in srgb, var(--warning) 32%, var(--border-color));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 32%, var(--border-color));
+  }
+
+  .top-menu-icon-progress-ring {
+    color: var(--text-primary);
   }
 
   .top-menu-icon-badge {

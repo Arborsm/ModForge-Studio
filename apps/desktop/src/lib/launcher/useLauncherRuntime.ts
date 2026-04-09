@@ -39,6 +39,7 @@ export function useLauncherRuntime(locale: LocaleCode) {
     warningState,
     settingsWarning: Object.values(warningState).some(Boolean),
     downloadsBadgeCount,
+    downloadsProgressPercent: downloads.downloadProgressPercent,
     downloadsHasFailure: downloads.counts.failed > 0,
   }
 }

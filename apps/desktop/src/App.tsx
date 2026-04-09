@@ -483,8 +483,8 @@ export default function App() {
   const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
   const availableLauncherPages: LauncherPage[] = debugEnabled
     ? launcherPages
-    : launcherPages.filter((page): page is Exclude<LauncherPage, 'settings'> => page !== 'settings')
-  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'settings' ? 'library' : launcherPage
+    : launcherPages.filter((page): page is Exclude<LauncherPage, 'debug'> => page !== 'debug')
+  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'debug' ? 'library' : launcherPage
   const activePlayerAppearanceProfile =
     playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
   const needsInitialization = !directoryInfo
@@ -613,7 +613,7 @@ export default function App() {
   }, [appMode, debugEnabled, launcherPage])
 
   useEffect(() => {
-    if (!debugEnabled && launcherPage === 'settings') {
+    if (!debugEnabled && launcherPage === 'debug') {
       setLauncherPage('library')
     }
   }, [debugEnabled, launcherPage])
@@ -1016,7 +1016,7 @@ export default function App() {
   }, [])
 
   const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
-    if (nextPage === 'settings' && !debugEnabled) {
+    if (nextPage === 'debug' && !debugEnabled) {
       return
     }
 
@@ -1094,6 +1094,7 @@ export default function App() {
               visiblePages: availableLauncherPages,
               onPageChange: handleLauncherPageChange,
               downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
+              downloadsProgressPercent: launcherRuntime.downloadsProgressPercent,
               downloadsHasFailure: launcherRuntime.downloadsHasFailure,
               settingsWarning: launcherRuntime.settingsWarning,
               settingsWarningLabel: launcherSettingsWarningLabel,
@@ -1175,6 +1176,7 @@ export default function App() {
               <LauncherShell
                 page={activeLauncherPage}
                 debugEnabled={debugEnabled}
+                onToggleDebugMode={() => setDebugEnabled((current) => !current)}
                 settingsState={launcherRuntime.settingsState}
                 downloads={launcherRuntime.downloads}
                 onNavigateToSettings={() => openSettingsWindow('launcher')}
