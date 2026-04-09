@@ -1,56 +1,19 @@
 import { RefreshCw } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { useLauncherDownloads } from '../../../lib/launcher/useLauncherDownloads'
-import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
+import { PanelSection } from '../../ui/PanelSection'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { LauncherDownloadRow } from '../cards/LauncherDownloadRow'
 import { LauncherEmptyState } from '../shared/LauncherEmptyState'
+import { orderLauncherDownloadItems } from '../shared/orderLauncherDownloadItems'
 
 type LauncherDownloadsPageProps = {
   downloads: ReturnType<typeof useLauncherDownloads>
 }
 
-function DownloadSection({
-  title,
-  subtitle,
-  items,
-  emptyLabel,
-  copyStates,
-  downloads,
-}: {
-  title: string
-  subtitle: string
-  items: ReturnType<typeof useLauncherDownloads>['items']
-  emptyLabel: string
-  copyStates: ReturnType<typeof useEditorCopy>['launcher']['states']
-  downloads: ReturnType<typeof useLauncherDownloads>
-}) {
-  return (
-    <PanelSection title={title} subtitle={subtitle}>
-      {items.length ? (
-        <div className="launcher-download-list">
-          {items.map((item) => (
-            <LauncherDownloadRow
-              key={item.id}
-              item={item}
-              statusLabel={copyStates[item.status]}
-              onRetry={() => downloads.retryItem(item.id)}
-              onRemove={() => downloads.removeItem(item.id)}
-              onInstall={() => void downloads.installItem(item.id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <PanelEmptyState>{emptyLabel}</PanelEmptyState>
-      )}
-    </PanelSection>
-  )
-}
-
 export function LauncherDownloadsPage({ downloads }: LauncherDownloadsPageProps) {
   const copy = useEditorCopy().launcher
-  const queueItems = [...downloads.activeItems, ...downloads.queuedItems]
-  const completedItems = [...downloads.readyToInstall, ...downloads.installedItems]
+  const orderedItems = orderLauncherDownloadItems(downloads.items)
 
   return (
     <PanelFrame
@@ -109,37 +72,22 @@ export function LauncherDownloadsPage({ downloads }: LauncherDownloadsPageProps)
       {!downloads.items.length ? (
         <LauncherEmptyState title={copy.downloads.empty} detail={copy.downloads.subtitle} />
       ) : (
-        <div className="launcher-manager-grid">
-          <div className="launcher-manager-column">
-            <DownloadSection
-              title={`${copy.states.downloading} (${queueItems.length})`}
-              subtitle={copy.downloads.subtitle}
-              items={queueItems}
-              emptyLabel={copy.downloads.empty}
-              copyStates={copy.states}
-              downloads={downloads}
-            />
+        <PanelSection>
+          <div className="launcher-download-list-shell">
+            <div className="launcher-download-list">
+              {orderedItems.map((item) => (
+                <LauncherDownloadRow
+                  key={item.id}
+                  item={item}
+                  statusLabel={copy.states[item.status]}
+                  onRetry={() => downloads.retryItem(item.id)}
+                  onRemove={() => downloads.removeItem(item.id)}
+                  onInstall={() => void downloads.installItem(item.id)}
+                />
+              ))}
+            </div>
           </div>
-
-          <div className="launcher-manager-column">
-            <DownloadSection
-              title={`${copy.overview.completedDownloads} (${completedItems.length})`}
-              subtitle={copy.downloads.subtitle}
-              items={completedItems}
-              emptyLabel={copy.states.completed}
-              copyStates={copy.states}
-              downloads={downloads}
-            />
-            <DownloadSection
-              title={`${copy.states.failed} (${downloads.failedItems.length})`}
-              subtitle={copy.downloads.subtitle}
-              items={downloads.failedItems}
-              emptyLabel={copy.states.failed}
-              copyStates={copy.states}
-              downloads={downloads}
-            />
-          </div>
-        </div>
+        </PanelSection>
       )}
     </PanelFrame>
   )

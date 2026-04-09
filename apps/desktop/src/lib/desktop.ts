@@ -488,6 +488,9 @@ export type LauncherDownloadQueueItemRecord = {
   error: string | null
   addedAt: number
   completedAt: number | null
+  totalBytes?: number | null
+  downloadedBytes?: number | null
+  bytesPerSecond?: number | null
 }
 
 export type LauncherDownloadQueueState = {

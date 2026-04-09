@@ -10,6 +10,9 @@ import {
 import type { LauncherDownloadQueueItem, LauncherDownloadQueueStatus, QueueLauncherDownloadInput } from './types'
 
 const MAX_CONCURRENT_LAUNCHER_DOWNLOADS = 3
+const DEBUG_SIMULATION_DURATION_SECONDS = 10
+const DEBUG_SIMULATION_BYTES_PER_SECOND = 2 * 1024 * 1024
+const DEBUG_SIMULATION_TOTAL_BYTES = DEBUG_SIMULATION_DURATION_SECONDS * DEBUG_SIMULATION_BYTES_PER_SECOND
 
 function isQueueStatus(value: string): value is LauncherDownloadQueueStatus {
   return (
@@ -30,6 +33,9 @@ function normalizeQueueItem(item: LauncherDownloadQueueItem): LauncherDownloadQu
     installedTargetPath: item.installedTargetPath ?? null,
     error: item.error ?? null,
     completedAt: item.completedAt ?? null,
+    totalBytes: item.totalBytes ?? null,
+    downloadedBytes: item.downloadedBytes ?? null,
+    bytesPerSecond: item.bytesPerSecond ?? null,
   }
 }
 
@@ -66,6 +72,8 @@ function mapDownloadResultToQueueState(
       error: null,
       completedAt: Date.now(),
       version: result.version,
+      downloadedBytes: item.totalBytes,
+      bytesPerSecond: null,
     }
   }
 
@@ -77,13 +85,32 @@ function mapDownloadResultToQueueState(
     error: null,
     completedAt: Date.now(),
     version: result.version,
+    downloadedBytes: item.totalBytes,
+    bytesPerSecond: null,
   }
 }
 
 export function useLauncherDownloads(settings: LauncherSettings) {
   const [items, setItems] = useState<LauncherDownloadQueueItem[]>([])
   const processingIdsRef = useRef<Set<string>>(new Set())
+  const debugSimulationIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
+  const debugSimulationTicksRef = useRef<Map<string, number>>(new Map())
   const hydratedRef = useRef(false)
+
+  const clearDebugSimulation = useCallback((id: string) => {
+    const intervalHandle = debugSimulationIntervalsRef.current.get(id)
+    if (intervalHandle) {
+      clearInterval(intervalHandle)
+      debugSimulationIntervalsRef.current.delete(id)
+    }
+    debugSimulationTicksRef.current.delete(id)
+  }, [])
+
+  const clearAllDebugSimulations = useCallback(() => {
+    debugSimulationIntervalsRef.current.forEach((intervalHandle) => clearInterval(intervalHandle))
+    debugSimulationIntervalsRef.current.clear()
+    debugSimulationTicksRef.current.clear()
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -107,6 +134,12 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       active = false
     }
   }, [])
+
+  useEffect(() => {
+    return () => {
+      clearAllDebugSimulations()
+    }
+  }, [clearAllDebugSimulations])
 
   useEffect(() => {
     if (!hydratedRef.current) {
@@ -143,6 +176,9 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           error: null,
           addedAt: Date.now(),
           completedAt: null,
+          totalBytes: null,
+          downloadedBytes: null,
+          bytesPerSecond: null,
         },
       ]
     })
@@ -155,6 +191,8 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         status: 'queued',
         error: null,
         completedAt: null,
+        downloadedBytes: null,
+        bytesPerSecond: null,
       })),
     )
   }, [])
@@ -168,6 +206,8 @@ export function useLauncherDownloads(settings: LauncherSettings) {
               status: 'queued',
               error: null,
               completedAt: null,
+              downloadedBytes: null,
+              bytesPerSecond: null,
             }
           : item,
       ),
@@ -175,20 +215,26 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   }, [])
 
   const removeItem = useCallback((id: string) => {
+    clearDebugSimulation(id)
     processingIdsRef.current.delete(id)
     setItems((current) => current.filter((item) => item.id !== id))
-  }, [])
+  }, [clearDebugSimulation])
 
   const removeCompleted = useCallback(() => {
-    setItems((current) =>
-      current.filter((item) => item.status !== 'completed' && item.status !== 'installed' && item.status !== 'failed'),
-    )
-  }, [])
+    setItems((current) => {
+      const removableIds = current
+        .filter((item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed')
+        .map((item) => item.id)
+      removableIds.forEach(clearDebugSimulation)
+      return current.filter((item) => !removableIds.includes(item.id))
+    })
+  }, [clearDebugSimulation])
 
   const clearAll = useCallback(() => {
+    clearAllDebugSimulations()
     processingIdsRef.current.clear()
     setItems([])
-  }, [])
+  }, [clearAllDebugSimulations])
 
   const installItem = useCallback(
     async (id: string) => {
@@ -232,6 +278,8 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           ...item,
           status: 'downloading',
           error: null,
+          downloadedBytes: null,
+          bytesPerSecond: null,
         })),
       )
 
@@ -261,6 +309,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
                   ...mapDownloadResultToQueueState(item, result),
                   status: 'failed',
                   error: nextError instanceof Error ? nextError.message : 'Failed to install downloaded archive.',
+                  bytesPerSecond: null,
                 })),
               )
               return
@@ -278,6 +327,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
               status: 'failed',
               error: nextError instanceof Error ? nextError.message : 'Failed to download launcher mod.',
               completedAt: Date.now(),
+              bytesPerSecond: null,
             })),
           )
         })
@@ -287,6 +337,75 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     },
     [settings.autoInstallDownloads, settings.modsPath],
   )
+
+  const startDebugSimulation = useCallback((title = 'Launcher Debug Download') => {
+    const nextId = `debug-download:${Date.now()}`
+    const addedAt = Date.now()
+
+    setItems((current) => {
+      if (current.some((item) => item.source === 'debug' && item.status === 'downloading')) {
+        return current
+      }
+
+      return [
+        ...current,
+        {
+          id: nextId,
+          modId: -1,
+          title,
+          version: 'debug-sim',
+          imageUrl: null,
+          source: 'debug',
+          status: 'downloading',
+          archivePath: null,
+          installedTargetPath: null,
+          error: null,
+          addedAt,
+          completedAt: null,
+          totalBytes: DEBUG_SIMULATION_TOTAL_BYTES,
+          downloadedBytes: 0,
+          bytesPerSecond: DEBUG_SIMULATION_BYTES_PER_SECOND,
+        },
+      ]
+    })
+
+    if (debugSimulationIntervalsRef.current.has(nextId)) {
+      clearDebugSimulation(nextId)
+    }
+
+    debugSimulationTicksRef.current.set(nextId, 0)
+    const intervalHandle = setInterval(() => {
+      const nextTick = (debugSimulationTicksRef.current.get(nextId) ?? 0) + 1
+      const downloadedBytes = Math.min(DEBUG_SIMULATION_TOTAL_BYTES, nextTick * DEBUG_SIMULATION_BYTES_PER_SECOND)
+      const isComplete = nextTick >= DEBUG_SIMULATION_DURATION_SECONDS
+
+      debugSimulationTicksRef.current.set(nextId, nextTick)
+      setItems((current) => {
+        const target = current.find((item) => item.id === nextId)
+        if (!target) {
+          clearDebugSimulation(nextId)
+          return current
+        }
+
+        return updateQueueItem(current, nextId, (item) => ({
+          ...item,
+          status: isComplete ? 'completed' : 'downloading',
+          archivePath: isComplete ? `debug-download-${item.addedAt}.zip` : null,
+          error: null,
+          completedAt: isComplete ? Date.now() : null,
+          totalBytes: DEBUG_SIMULATION_TOTAL_BYTES,
+          downloadedBytes,
+          bytesPerSecond: isComplete ? null : DEBUG_SIMULATION_BYTES_PER_SECOND,
+        }))
+      })
+
+      if (isComplete) {
+        clearDebugSimulation(nextId)
+      }
+    }, 1000)
+
+    debugSimulationIntervalsRef.current.set(nextId, intervalHandle)
+  }, [clearDebugSimulation])
 
   useEffect(() => {
     if (!settings.nexusApiKey?.trim() && !settings.nexusCookie?.trim()) {
@@ -327,6 +446,23 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     }
   }, [activeItems.length, failedItems.length, installedItems.length, queuedItems.length, readyToInstall.length])
 
+  const downloadProgressPercent = useMemo(() => {
+    const progressItems = activeItems.filter(
+      (item) => typeof item.totalBytes === 'number' && item.totalBytes > 0 && typeof item.downloadedBytes === 'number',
+    )
+    if (!progressItems.length) {
+      return null
+    }
+
+    const downloadedBytes = progressItems.reduce((total, item) => total + (item.downloadedBytes ?? 0), 0)
+    const totalBytes = progressItems.reduce((total, item) => total + (item.totalBytes ?? 0), 0)
+    if (totalBytes <= 0) {
+      return null
+    }
+
+    return Math.max(0, Math.min(100, Math.round((downloadedBytes / totalBytes) * 100)))
+  }, [activeItems])
+
   return {
     items,
     queuedItems,
@@ -336,7 +472,9 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     failedItems,
     removableItems,
     counts,
+    downloadProgressPercent,
     queueDownload,
+    startDebugSimulation,
     retryItem,
     retryFailed,
     removeItem,

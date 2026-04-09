@@ -34,6 +34,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
 describe('useLauncherDownloads', () => {
   afterEach(() => {
     vi.clearAllMocks()
+    vi.useRealTimers()
   })
 
   it('loads the persisted launcher queue from desktop storage', async () => {
@@ -97,5 +98,63 @@ describe('useLauncherDownloads', () => {
         }),
       ],
     })
+  })
+
+  it('simulates a 10 second debug download at 2 MB/s and exposes aggregate progress', async () => {
+    vi.useFakeTimers()
+    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      result.current.startDebugSimulation()
+    })
+
+    expect(result.current.activeItems).toHaveLength(1)
+    expect(result.current.activeItems[0]).toEqual(
+      expect.objectContaining({
+        source: 'debug',
+        status: 'downloading',
+        totalBytes: 20 * 1024 * 1024,
+        downloadedBytes: 0,
+        bytesPerSecond: 2 * 1024 * 1024,
+      }),
+    )
+    expect(result.current.downloadProgressPercent).toBe(0)
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    expect(result.current.activeItems[0]).toEqual(
+      expect.objectContaining({
+        downloadedBytes: 10 * 1024 * 1024,
+      }),
+    )
+    expect(result.current.downloadProgressPercent).toBe(50)
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+
+    expect(result.current.activeItems).toHaveLength(0)
+    expect(result.current.readyToInstall).toHaveLength(1)
+
+    expect(result.current.readyToInstall[0]).toEqual(
+      expect.objectContaining({
+        source: 'debug',
+        status: 'completed',
+        downloadedBytes: 20 * 1024 * 1024,
+        archivePath: expect.stringContaining('debug-download'),
+      }),
+    )
+    expect(result.current.downloadProgressPercent).toBeNull()
   })
 })

@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, Clock3, DownloadCloud, Trash2 } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import type { LauncherDownloadQueueItem } from '../../../lib/launcher/types'
+import { LauncherProgressRing } from '../shared/LauncherProgressRing'
 
 type LauncherDownloadRowProps = {
   item: LauncherDownloadQueueItem
@@ -26,6 +27,22 @@ function getStatusIcon(status: LauncherDownloadQueueItem['status']) {
   return <Clock3 className="h-5 w-5" />
 }
 
+function getDownloadProgressPercent(item: LauncherDownloadQueueItem) {
+  if (typeof item.totalBytes !== 'number' || item.totalBytes <= 0 || typeof item.downloadedBytes !== 'number') {
+    return null
+  }
+
+  return Math.max(0, Math.min(100, Math.round((item.downloadedBytes / item.totalBytes) * 100)))
+}
+
+function formatMegabytes(bytes: number | null) {
+  if (typeof bytes !== 'number') {
+    return null
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export function LauncherDownloadRow({
   item,
   statusLabel,
@@ -35,24 +52,50 @@ export function LauncherDownloadRow({
 }: LauncherDownloadRowProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
-  const sourceLabel = item.source === 'updates' ? copy.pages.updates : copy.pages.discover
+  const sourceLabel =
+    item.source === 'updates' ? copy.pages.updates : item.source === 'debug' ? copy.pages.debug : copy.pages.discover
   const secondaryLabel = [sourceLabel, item.version ?? rootCopy.common.none].join(' / ')
   const resolvedPath = item.installedTargetPath ?? item.archivePath
   const canRetry = item.status === 'failed'
   const canInstall = item.status === 'completed' && Boolean(item.archivePath)
+  const progressPercent = getDownloadProgressPercent(item)
+  const progressRateLabel = formatMegabytes(item.bytesPerSecond)
+  const progressDownloadedLabel = formatMegabytes(item.downloadedBytes)
+  const progressTotalLabel = formatMegabytes(item.totalBytes)
+  const progressLabel =
+    item.status === 'downloading' && progressPercent !== null
+      ? [
+          `${progressPercent}%`,
+          progressRateLabel ? `${progressRateLabel}/s` : null,
+          progressDownloadedLabel && progressTotalLabel ? `${progressDownloadedLabel} / ${progressTotalLabel}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : null
 
   return (
     <article className="launcher-download-row">
       <div className="launcher-download-row-main">
-        <div className="launcher-download-row-icon">{getStatusIcon(item.status)}</div>
+        <div className="launcher-download-row-icon">
+          {item.status === 'downloading' && progressPercent !== null ? (
+            <LauncherProgressRing
+              progress={progressPercent}
+              size={42}
+              strokeWidth={3}
+              label={`${item.title} download progress`}
+              className="launcher-download-row-progress"
+            >
+              <DownloadCloud className="h-5 w-5" />
+            </LauncherProgressRing>
+          ) : (
+            getStatusIcon(item.status)
+          )}
+        </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="launcher-download-row-title">{item.title}</p>
-              <p className="launcher-download-row-subtitle">{secondaryLabel}</p>
-            </div>
-
+        <div className="launcher-download-row-body min-w-0 flex-1">
+          <div className="launcher-download-row-topline">
+            <p className="launcher-download-row-title">{item.title}</p>
+            <p className="launcher-download-row-subtitle">{secondaryLabel}</p>
             <span
               className={`status-pill status-pill-compact ${
                 item.status === 'failed'
@@ -66,9 +109,12 @@ export function LauncherDownloadRow({
             </span>
           </div>
 
-          {item.error ? <p className="launcher-download-row-error">{item.error}</p> : null}
-          {!item.error && resolvedPath ? (
-            <p className="launcher-download-row-path" title={resolvedPath}>
+          {item.error ? <p className="launcher-download-row-detailline launcher-download-row-error">{item.error}</p> : null}
+          {!item.error && progressLabel ? (
+            <p className="launcher-download-row-detailline launcher-download-row-progress-copy">{progressLabel}</p>
+          ) : null}
+          {!item.error && !progressLabel && resolvedPath ? (
+            <p className="launcher-download-row-detailline launcher-download-row-path" title={resolvedPath}>
               {resolvedPath}
             </p>
           ) : null}
