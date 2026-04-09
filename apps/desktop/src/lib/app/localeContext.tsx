@@ -36,6 +36,10 @@ export function useModWorkspaceCopy() {
   return useLocaleBundle().mods
 }
 
+export function useNotificationCopy() {
+  return useLocaleBundle().notifications
+}
+
 export function useViewMenuCopy() {
   return useLocaleBundle().viewMenu
 }

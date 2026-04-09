@@ -771,6 +771,17 @@ const localeBundle: LocaleBundle = {
     "exportSuccess": (path) => `Exported to ${path}`,
     "scanStatus": (count) => `${count} mod projects detected.`
   },
+  "notifications": {
+    "viewportLabel": "Notifications",
+    "dismissLabel": "Dismiss notification",
+    "actionHint": "Press Enter to run action",
+    "levels": {
+      "info": "Info",
+      "success": "Success",
+      "warning": "Warning",
+      "error": "Error"
+    }
+  },
   "worldAtlasViews": {
     "main": "Main World",
     "remote": "Remote Regions"

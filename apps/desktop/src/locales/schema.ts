@@ -693,9 +693,17 @@ export type ModWorkspaceCopy = {
   scanStatus: (count: number) => string
 }
 
+export type NotificationCopy = {
+  viewportLabel: string
+  dismissLabel: string
+  actionHint: string
+  levels: Record<'info' | 'success' | 'warning' | 'error', string>
+}
+
 export type LocaleBundle = {
   editor: EditorCopy
   mods: ModWorkspaceCopy
+  notifications: NotificationCopy
   viewMenu: ViewMenuCopy
   settingsMenu: SettingsMenuCopy
   worldAtlasViews: Record<WorldAtlasViewId, string>

@@ -771,6 +771,17 @@ const localeBundle: LocaleBundle = {
     "exportSuccess": (path) => `已导出到 ${path}`,
     "scanStatus": (count) => `已识别 ${count} 个模组项目。`
   },
+  "notifications": {
+    "viewportLabel": "通知",
+    "dismissLabel": "关闭通知",
+    "actionHint": "按 Enter 执行操作",
+    "levels": {
+      "info": "信息",
+      "success": "成功",
+      "warning": "警告",
+      "error": "错误"
+    }
+  },
   "worldAtlasViews": {
     "main": "主世界",
     "remote": "远程区域"
