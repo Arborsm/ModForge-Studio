@@ -1,6 +1,8 @@
 import { localeBundles } from '../locales'
 import type {
   EditorCopy,
+  LauncherCopy,
+  LauncherPage,
   LocaleCode,
   ModWorkspaceCopy,
   SettingsMenuCopy,
@@ -12,10 +14,13 @@ import type {
 export type {
   BuildingsPanelCopy,
   CharactersPanelCopy,
+  AppMode,
   CoreWorkspaceMode,
   EditorCopy,
   EventStageCopy,
   ItemsPanelCopy,
+  LauncherCopy,
+  LauncherPage,
   LocaleBundle,
   LocaleCode,
   ModWorkspaceCopy,
@@ -30,6 +35,7 @@ export type {
 } from '../locales'
 
 export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
+export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'settings']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
   'zh-CN': localeBundles['zh-CN'].editor,
@@ -62,4 +68,12 @@ export function getWorkspaceModeLabel(locale: LocaleCode, copy: Pick<EditorCopy,
   }
 
   return copy.nav[mode]
+}
+
+export function getLauncherCopy(locale: LocaleCode): LauncherCopy {
+  return localeBundles[locale].editor.launcher
+}
+
+export function getLauncherPageLabel(locale: LocaleCode, page: LauncherPage): string {
+  return getLauncherCopy(locale).pages[page]
 }
