@@ -2,6 +2,8 @@ export type LocaleCode = 'zh-CN' | 'en-US'
 export type ThemeMode = 'dark' | 'light'
 export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
 export type WorkspaceMode = CoreWorkspaceMode | 'mods'
+export type AppMode = 'workbench' | 'launcher'
+export type LauncherPage = 'library' | 'discover' | 'updates' | 'settings'
 export type WorkspaceTone = 'idle' | 'working' | 'ready' | 'error'
 export type WorldAtlasViewId = 'main' | 'remote'
 
@@ -456,11 +458,182 @@ export type ModuleBlueprint = {
   nodes: ModuleNode[]
 }
 
+export type LauncherCopy = {
+  title: string
+  subtitle: string
+  navigation: string
+  pages: Record<LauncherPage, string>
+  descriptions: Record<LauncherPage, string>
+  overview: {
+    installedMods: string
+    enabledMods: string
+    disabledMods: string
+    queuedDownloads: string
+    activeDownloads: string
+    completedDownloads: string
+    pendingUpdates: string
+  }
+  actions: {
+    refresh: string
+    launchGame: string
+    enable: string
+    disable: string
+    enableSelected: string
+    disableSelected: string
+    chooseArchive: string
+    installArchive: string
+    queueDownload: string
+    queueSelectedDownloads: string
+    loadMore: string
+    retry: string
+    remove: string
+    install: string
+    closeDialog: string
+    saveSettings: string
+    openModPage: string
+    viewDetails: string
+    selectAllUpdates: string
+    clearUpdateSelection: string
+    selectAll: string
+    clearSelection: string
+    hideSelected: string
+    showSelected: string
+    searchNext: string
+    searchPrevious: string
+    openFolder: string
+    openStorageFolder: string
+    openBackupFolder: string
+    setCover: string
+    clearCover: string
+    createPack: string
+    applyCurrentPack: string
+    createStorageFolder: string
+    moveToStorageFolder: string
+    addSelectionToPack: string
+  }
+  fields: {
+    filterLibrary: string
+    searchDiscover: string
+    currentVersion: string
+    latestVersion: string
+    uniqueId: string
+    path: string
+    dependencies: string
+    updateKeys: string
+    gamePath: string
+    modsPath: string
+    downloadPath: string
+    nexusApiKey: string
+    nexusCookie: string
+  }
+  toggles: {
+    enabledOnly: string
+    ascending: string
+    autoInstallDownloads: string
+    keepDownloadedArchives: string
+  }
+  library: {
+    title: string
+    subtitle: string
+    empty: string
+      detailsTitle: string
+      detailsSubtitle: string
+      selectionEmpty: string
+      installHint: string
+      previewTitle: string
+      previewSubtitle: string
+      previewEntries: string
+      previewFiles: string
+      previewRoots: string
+      previewNoRoots: string
+      previewLoading: string
+      previewError: string
+      filteredEmpty: string
+      scopeTitle: string
+      scopeHint: string
+      scopeAll: string
+      scopeCurrentPack: string
+      packTitle: string
+      packSubtitle: string
+      packButtonLabel: string
+      storageTitle: string
+      storageSubtitle: string
+      storageButtonLabel: string
+      managementTitle: string
+      managementSubtitle: string
+      visibleTitle: string
+      selectedTitle: string
+      currentPackTitle: string
+      allPacks: string
+      allStorageFolders: string
+      defaultStorageFolder: string
+      selectionButtonLabel: string
+      newPackPlaceholder: string
+      newStorageFolderPlaceholder: string
+      sortLabel: string
+      sortByName: string
+      sortByEnabled: string
+      sortByPack: string
+      sortByFolder: string
+      storageTargetLabel: string
+      packTargetLabel: string
+      noCover: string
+      packLabel: string
+      storageFolderLabel: string
+    }
+  discover: {
+    title: string
+    subtitle: string
+    empty: string
+    credentialsHint: string
+  }
+  updates: {
+    title: string
+    subtitle: string
+    empty: string
+    selectionSummary: (selected: number, total: number) => string
+  }
+  downloads: {
+    title: string
+    subtitle: string
+    empty: string
+  }
+  settings: {
+    title: string
+    subtitle: string
+    pathsHint: string
+    autoInstallHint: string
+    keepArchivesHint: string
+    saved: string
+    saveFailed: string
+  }
+  sortOptions: Record<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name', string>
+  states: {
+    loading: string
+    noImage: string
+    noSummary: string
+    settingsIncomplete: string
+    missingModsPath: string
+    credentialsRequired: string
+    queued: string
+    downloading: string
+    completed: string
+    failed: string
+    installed: string
+  }
+}
+
 export type EditorCopy = {
   brand: {
     name: string
     tagline: string
   }
+  shell: {
+    modeLabel: string
+    workbench: string
+    launcher: string
+  }
+  launcher: LauncherCopy
   menus: string[]
   nav: Record<CoreWorkspaceMode, string>
   localeShort: Record<LocaleCode, string>

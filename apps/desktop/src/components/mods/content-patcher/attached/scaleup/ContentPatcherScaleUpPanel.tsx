@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { measureImageDimensions } from '../../../../../lib/imageMetrics'
 import {
   getScaleUpEditorState,
@@ -237,6 +237,7 @@ export function ContentPatcherScaleUpPanel({
   )
   const editorStateKey = useMemo(() => JSON.stringify(editorState), [editorState])
   const [draft, setDraft] = useState<ScaleUpDraft>(() => cloneDraft(editorState.draft))
+  const lastSyncedEditorStateKeyRef = useRef(editorStateKey)
   const preview = useMemo(
     () =>
       buildScaleUpPreviewModel(draft, {
@@ -271,8 +272,13 @@ export function ContentPatcherScaleUpPanel({
   }, [originalImageDataUrl, resultImageDataUrl])
 
   useEffect(() => {
+    if (lastSyncedEditorStateKeyRef.current === editorStateKey) {
+      return
+    }
+
+    lastSyncedEditorStateKeyRef.current = editorStateKey
     setDraft(cloneDraft(editorState.draft))
-  }, [editorStateKey])
+  }, [editorState.draft, editorStateKey])
 
   function emitDraft(nextDraft: ScaleUpDraft) {
     setDraft(nextDraft)

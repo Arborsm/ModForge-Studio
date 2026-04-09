@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { ComponentProps } from 'react'
-import { fireEvent, screen, within } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import TopMenuBar from './TopMenuBar'
 import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from '../lib/editor-shell'
 import { renderWithLocale } from '../test/renderWithLocale'
@@ -15,8 +15,10 @@ const topMenuStylesPath = existsSync(resolve(process.cwd(), 'src/styles/workspac
   : resolve(process.cwd(), 'apps/desktop/src/styles/workspace/top-menu.css')
 const topMenuStyles = readFileSync(topMenuStylesPath, 'utf8')
 
-function buildProps(): ComponentProps<typeof TopMenuBar> {
+function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}): ComponentProps<typeof TopMenuBar> {
   return {
+    appMode: 'workbench',
+    onAppModeChange: vi.fn(),
     workspaceMode: 'map',
     onWorkspaceChange: vi.fn(),
     theme: 'dark',
@@ -49,10 +51,24 @@ function buildProps(): ComponentProps<typeof TopMenuBar> {
     projectMenu: {
       onOpen: vi.fn(),
     },
+    launcherChrome: {
+      page: 'library',
+      onPageChange: vi.fn(),
+      downloadsBadgeCount: 0,
+      downloadsHasFailure: false,
+      settingsWarning: false,
+      settingsWarningLabel: 'Launcher setup incomplete',
+      downloadsPopover: <div>Downloads popover</div>,
+    },
+    ...overrides,
   }
 }
 
 describe('TopMenuBar', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('labels the workspace module navigation and marks the active module', () => {
     renderWithLocale(<TopMenuBar {...buildProps()} />)
 
@@ -61,8 +77,8 @@ describe('TopMenuBar', () => {
     const activeModule = within(moduleNav).getByRole('button', { name: copy.nav.map })
     const inactiveModule = within(moduleNav).getByRole('button', { name: copy.nav.characters })
 
-    expect(activeModule).toHaveAttribute('aria-current', 'page')
-    expect(inactiveModule).not.toHaveAttribute('aria-current')
+    expect(activeModule.getAttribute('aria-current')).toBe('page')
+    expect(inactiveModule.getAttribute('aria-current')).toBeNull()
   })
 
   it('opens the view menu with expanded state and a labeled menu', () => {
@@ -71,11 +87,11 @@ describe('TopMenuBar', () => {
 
     const viewButton = screen.getByRole('button', { name: viewMenuCopy.title })
 
-    expect(viewButton).toHaveAttribute('aria-expanded', 'false')
+    expect(viewButton.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(viewButton)
 
-    expect(viewButton).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByRole('menu', { name: viewMenuCopy.title })).toBeInTheDocument()
+    expect(viewButton.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('menu', { name: viewMenuCopy.title })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Viewport/i }))
 
@@ -88,12 +104,13 @@ describe('TopMenuBar', () => {
     const shellControls = screen.getByRole('group', { name: 'Shell controls' })
     const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
 
-    expect(within(shellControls).getByRole('button', { name: settingsMenuCopy.title })).toBeInTheDocument()
-    expect(within(shellControls).queryByRole('button', { name: copy.controls.toggleLocale })).not.toBeInTheDocument()
-    expect(within(shellControls).queryByText(copy.localeShort['en-US'])).not.toBeInTheDocument()
-    expect(within(shellControls).getAllByRole('button')).toHaveLength(2)
-    expect(container.querySelector('.dock-chip')).not.toBeInTheDocument()
-    expect(within(mainMenus).queryByRole('button', { name: settingsMenuCopy.title })).not.toBeInTheDocument()
+    expect(within(shellControls).getByRole('button', { name: settingsMenuCopy.title })).toBeTruthy()
+    expect(within(shellControls).getByRole('button', { name: copy.shell.launcher })).toBeTruthy()
+    expect(within(shellControls).queryByRole('button', { name: copy.controls.toggleLocale })).toBeNull()
+    expect(within(shellControls).queryByText(copy.localeShort['en-US'])).toBeNull()
+    expect(within(shellControls).getAllByRole('button')).toHaveLength(3)
+    expect(container.querySelector('.dock-chip')).toBeNull()
+    expect(within(mainMenus).queryByRole('button', { name: settingsMenuCopy.title })).toBeNull()
   })
 
   it('keeps only project and view menus in the title bar', () => {
@@ -101,11 +118,11 @@ describe('TopMenuBar', () => {
 
     const mainMenus = screen.getByRole('navigation', { name: 'Main menus' })
 
-    expect(within(mainMenus).getByRole('button', { name: copy.leftDock.project })).toBeInTheDocument()
-    expect(within(mainMenus).getByRole('button', { name: viewMenuCopy.title })).toBeInTheDocument()
-    expect(within(mainMenus).queryByRole('button', { name: copy.menus[1] })).not.toBeInTheDocument()
-    expect(within(mainMenus).queryByRole('button', { name: copy.menus[3] })).not.toBeInTheDocument()
-    expect(within(mainMenus).queryByRole('button', { name: copy.menus[4] })).not.toBeInTheDocument()
+    expect(within(mainMenus).getByRole('button', { name: copy.leftDock.project })).toBeTruthy()
+    expect(within(mainMenus).getByRole('button', { name: viewMenuCopy.title })).toBeTruthy()
+    expect(within(mainMenus).queryByRole('button', { name: copy.menus[1] })).toBeNull()
+    expect(within(mainMenus).queryByRole('button', { name: copy.menus[3] })).toBeNull()
+    expect(within(mainMenus).queryByRole('button', { name: copy.menus[4] })).toBeNull()
   })
 
   it('uses a centered title-bar grid with a dedicated drag layer while preserving desktop window controls', () => {
@@ -115,17 +132,17 @@ describe('TopMenuBar', () => {
     const dragLayer = container.querySelector('.top-menu-drag-layer[data-tauri-drag-region]')
     const topMenuPrimaryRule = topMenuStyles.match(/\.top-menu-primary\s*\{([\s\S]*?)\n {2}\}/)?.[1] ?? ''
 
-    expect(titleBar).toBeInTheDocument()
+    expect(titleBar).toBeTruthy()
     expect(topMenuPrimaryRule).toBeTruthy()
     expect(topMenuPrimaryRule).toMatch(/pointer-events-none|pointer-events:\s*none/)
     expect(topMenuPrimaryRule).toMatch(/display:\s*grid|@apply[\s\S]*\bgrid\b/)
     expect(topMenuPrimaryRule).toMatch(
       /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(0,\s*1fr\)|@apply[\s\S]*grid-cols-\[minmax\(0,1fr\)_auto_minmax\(0,1fr\)\]/,
     )
-    expect(dragLayer).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Minimize window' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Maximize window' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Close window' })).toBeInTheDocument()
+    expect(dragLayer).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Minimize window' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Maximize window' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Close window' })).toBeTruthy()
   })
 
   it('renders the top menu shell classes', () => {
@@ -134,5 +151,69 @@ describe('TopMenuBar', () => {
     expect(container.querySelector('.top-menu-bar')).toBeTruthy()
     expect(container.querySelector('.top-menu-primary')).toBeTruthy()
     expect(container.querySelector('.top-menu-workspace')).toBeTruthy()
+  })
+
+  it('switches app mode from workbench to launcher through shell controls', () => {
+    const props = buildProps()
+    renderWithLocale(<TopMenuBar {...props} />)
+
+    fireEvent.click(screen.getByRole('button', { name: copy.shell.launcher }))
+
+    expect(props.onAppModeChange).toHaveBeenCalledWith('launcher')
+  })
+
+  it('hides workspace module navigation while launcher mode is active', () => {
+    renderWithLocale(<TopMenuBar {...buildProps({ appMode: 'launcher' })} />)
+
+    expect(screen.queryByRole('navigation', { name: copy.center.moduleWorkspace })).toBeNull()
+    expect(screen.getByRole('button', { name: copy.shell.workbench })).toBeTruthy()
+  })
+
+  it('renders launcher page navigation in the title bar without a downloads page tab', () => {
+    renderWithLocale(<TopMenuBar {...buildProps({ appMode: 'launcher' })} />)
+
+    expect(screen.getByRole('button', { name: copy.launcher.pages.library })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.launcher.pages.discover })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.launcher.pages.settings })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
+  })
+
+  it('opens the downloads popup from the shell controls as a floating dialog', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    const props = buildProps({
+      appMode: 'launcher',
+      launcherChrome: {
+        ...launcherChrome,
+        downloadsBadgeCount: 3,
+      },
+    })
+
+    renderWithLocale(<TopMenuBar {...props} />)
+
+    const shellControls = screen.getByRole('group', { name: 'Shell controls' })
+    fireEvent.click(within(shellControls).getByRole('button', { name: copy.launcher.downloads.title }))
+
+    expect(screen.getByRole('dialog', { name: copy.launcher.downloads.title })).toBeTruthy()
+    expect(screen.getByText('Downloads popover')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
+  })
+
+  it('renders an orange warning marker on settings when launcher setup is incomplete', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          appMode: 'launcher',
+          launcherChrome: {
+            ...launcherChrome,
+            settingsWarning: true,
+          },
+        })}
+      />,
+    )
+
+    const settingsButton = screen.getAllByRole('button', { name: copy.launcher.pages.settings }).at(-1)
+    expect(settingsButton?.querySelector('.top-menu-warning-dot')).toBeTruthy()
   })
 })

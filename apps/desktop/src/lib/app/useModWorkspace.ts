@@ -427,7 +427,9 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       return
     }
 
-    setScaleUpEditor(null)
+    return scheduleDeferred(() => {
+      setScaleUpEditor(null)
+    })
   }, [scaleUpEditor, selectedTargetPath])
 
   useEffect(() => {

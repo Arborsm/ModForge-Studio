@@ -22,6 +22,8 @@ describe('typed locale bundles', () => {
     expect(getWorkspaceModeLabel('zh-CN', getEditorCopy('zh-CN'), 'mods')).toBe(
       getModWorkspaceCopy('zh-CN').workspaceLabel,
     )
+    expect(getEditorCopy('en-US').shell.launcher).toBeTruthy()
+    expect(getEditorCopy('en-US').launcher.pages.library).toBeTruthy()
   })
 
   it('keeps localized toolbar labels and panel titles inside the locale bundles', () => {

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { editorCopy, getSettingsMenuCopy } from './lib/editor-shell'
+import { APP_MODE_STORAGE_KEY, LAUNCHER_PAGE_STORAGE_KEY } from './lib/app/appShell'
 
 const LOCALE_STORAGE_KEY = 'modforge:locale'
 const mapWorkspaceState = {
@@ -25,12 +26,66 @@ vi.mock('./components/WorkspaceLayout', () => ({
   WorkspaceLayout: () => <div data-testid="workspace-layout" />,
 }))
 
+vi.mock('./lib/launcher/useLauncherRuntime', () => ({
+  useLauncherRuntime: () => ({
+    settingsState: {
+      settings: {
+        gamePath: 'C:/Games/Stardew Valley',
+        modsPath: 'C:/Games/Stardew Valley/Mods',
+        downloadPath: 'C:/Downloads',
+        nexusApiKey: null,
+        nexusCookie: null,
+        autoInstallDownloads: false,
+        keepDownloadedArchives: false,
+      },
+      state: 'ready',
+      error: null,
+      saveMessage: null,
+      setSettings: vi.fn(),
+      updateField: vi.fn(),
+      save: vi.fn(async () => null),
+      refresh: vi.fn(async () => {}),
+      pickDirectory: vi.fn(async () => null),
+    },
+    downloads: {
+      items: [],
+      queuedItems: [],
+      activeItems: [],
+      readyToInstall: [],
+      installedItems: [],
+      failedItems: [],
+      removableItems: [],
+      counts: {
+        queued: 0,
+        downloading: 0,
+        completed: 0,
+        failed: 0,
+        readyToInstall: 0,
+      },
+      queueDownload: vi.fn(),
+      retryItem: vi.fn(),
+      retryFailed: vi.fn(),
+      removeItem: vi.fn(),
+      removeCompleted: vi.fn(),
+      installItem: vi.fn(),
+      installAllReady: vi.fn(),
+      clearAll: vi.fn(),
+    },
+    credentialsReady: false,
+    settingsWarning: true,
+    settingsWarningLabel: 'Launcher setup incomplete',
+    downloadsBadgeCount: 0,
+    downloadsHasFailure: false,
+  }),
+}))
+
 vi.mock('./lib/desktop', () => ({
   canUseDesktopHost: () => false,
   clearDesktopLocaleCache: vi.fn(),
   closeCurrentWindow: vi.fn(),
   isCurrentWindowFullscreen: vi.fn(async () => false),
   listKnownGameDirectories: vi.fn(async () => []),
+  launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
   toggleMaximizeCurrentWindow: vi.fn(),
@@ -96,7 +151,7 @@ vi.mock('./lib/app/useItemWorkspace', () => ({
 }))
 
 vi.mock('./lib/app/useModWorkspace', () => ({
-  useModWorkspace: () => ({
+  default: () => ({
     modDiagnostics: [],
     modHasUnsavedChanges: false,
     modProjects: [],
@@ -138,42 +193,45 @@ describe('App locale ownership', () => {
 
   it('updates downstream shell copy immediately when locale changes through Settings', async () => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'en-US')
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].nav.map })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].nav.map })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: englishSettingsCopy.title }))
 
     const localeGroup = await screen.findByRole('radiogroup', { name: englishSettingsCopy.languageLabel })
     const chineseOption = screen.getByRole('radio', { name: englishSettingsCopy.localeLabels['zh-CN'] })
 
-    expect(localeGroup).toBeInTheDocument()
+    expect(localeGroup).toBeTruthy()
 
     fireEvent.click(chineseOption)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeTruthy()
     })
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].nav.map })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].nav.map })).toBeNull()
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('zh-CN')
   })
 
   it('initializes App locale from a valid stored locale value', async () => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh-CN')
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
 
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: getSettingsMenuCopy('zh-CN').title })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: getSettingsMenuCopy('zh-CN').title })).toBeTruthy()
     })
-    expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeTruthy()
     expect(document.documentElement.lang).toBe('zh-CN')
   })
 
   it('falls back from an invalid stored locale to navigator language heuristics', async () => {
     window.localStorage.setItem(LOCALE_STORAGE_KEY, 'es-ES')
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
       value: 'zh-CN',
@@ -182,7 +240,7 @@ describe('App locale ownership', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeTruthy()
     })
     expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('zh-CN')
   })
@@ -198,10 +256,41 @@ describe('App locale ownership', () => {
 
     const { container } = render(<App />)
 
-    expect(container.querySelector('.initialization-preload-backdrop')).toBeInTheDocument()
-    expect(container.querySelector('.initialization-preload-panel')).toBeInTheDocument()
-    expect(screen.getByText('Loading maps')).toBeInTheDocument()
-    expect(screen.getByText('Maps/Town.tmx')).toBeInTheDocument()
-    expect(container.querySelector('.initialization-preload-progress-fill')).toHaveAttribute('style', expect.stringContaining('width: 40%'))
+    expect(container.querySelector('.initialization-preload-backdrop')).toBeTruthy()
+    expect(container.querySelector('.initialization-preload-panel')).toBeTruthy()
+    expect(screen.getByText('Loading maps')).toBeTruthy()
+    expect(screen.getByText('Maps/Town.tmx')).toBeTruthy()
+    expect(container.querySelector('.initialization-preload-progress-fill')?.getAttribute('style')).toContain('width: 40%')
+  })
+
+  it('renders launcher shell and hides workspace layout when the stored app mode is launcher', () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'updates')
+
+    render(<App />)
+
+    expect(screen.queryByTestId('workspace-layout')).toBeNull()
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
+    expect(
+      screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current'),
+    ).not.toBe('page')
+  })
+
+  it('switches app mode to workbench through shell controls and persists it', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
+
+    expect(screen.getByTestId('workspace-layout')).toBeTruthy()
+    expect(window.localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('workbench')
+  })
+
+  it('renders the launcher downloads button in shell controls and the launch game action on the library page', () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
   })
 })

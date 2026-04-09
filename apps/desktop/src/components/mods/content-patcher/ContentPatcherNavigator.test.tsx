@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderWithLocale } from '../../../test/renderWithLocale'
 import { ContentPatcherNavigator } from './ContentPatcherNavigator'
 
+type NavigatorProps = Parameters<typeof ContentPatcherNavigator>[0]
+
 vi.mock('@radix-ui/react-context-menu', () => ({
   Root: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Trigger: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -36,7 +38,7 @@ afterEach(() => {
 describe('ContentPatcherNavigator', () => {
   it('opens the ScaleUp submenu for image targets and routes preview/settings actions', async () => {
     const onOpenScaleUp = vi.fn()
-    const props: any = {
+    const props: NavigatorProps = {
       mode: 'targets',
       onModeChange: vi.fn(),
       patches: [],
@@ -68,7 +70,7 @@ describe('ContentPatcherNavigator', () => {
   })
 
   it('does not expose ScaleUp actions for non-image targets', async () => {
-    const props: any = {
+    const props: NavigatorProps = {
       mode: 'targets',
       onModeChange: vi.fn(),
       patches: [],
