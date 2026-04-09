@@ -288,6 +288,233 @@ export type ModAssetIndex = {
   mods: ModAssetIndexGroup[]
 }
 
+export type LauncherSettings = {
+  gamePath: string | null
+  modsPath: string | null
+  downloadPath: string | null
+  nexusApiKey: string | null
+  nexusCookie: string | null
+  autoInstallDownloads: boolean
+  keepDownloadedArchives: boolean
+}
+
+export type SaveLauncherSettingsRequest = {
+  gamePath?: string | null
+  modsPath?: string | null
+  downloadPath?: string | null
+  nexusApiKey?: string | null
+  nexusCookie?: string | null
+  autoInstallDownloads?: boolean
+  keepDownloadedArchives?: boolean
+}
+
+export type ScanLauncherLibraryRequest = {
+  modsPath: string
+}
+
+export type LauncherLibraryModSummary = {
+  id: string
+  labelKey: string
+  name: string
+  author: string | null
+  version: string | null
+  description: string | null
+  uniqueId: string | null
+  folderName: string
+  absolutePath: string
+  enabled: boolean
+  nexusModId: number | null
+  updateKeys: string[]
+  modUrl: string | null
+  imageUrl: string | null
+  missingRequiredDependencies: string[]
+}
+
+export type LauncherLibraryScanResult = {
+  modsPath: string
+  mods: LauncherLibraryModSummary[]
+}
+
+export type LauncherLibraryStorageFolder = {
+  id: string
+  name: string
+  modKeys: string[]
+}
+
+export type LauncherLibraryPackPreset = {
+  id: string
+  name: string
+  modKeys: string[]
+}
+
+export type LauncherLibraryScopeMode = 'all' | 'current-pack'
+
+export type LauncherLibraryState = {
+  storageFolders: LauncherLibraryStorageFolder[]
+  packPresets: LauncherLibraryPackPreset[]
+  currentPackId: string | null
+  scopeMode: LauncherLibraryScopeMode
+}
+
+export type LauncherLibraryCover = {
+  labelKey: string
+  imagePath: string
+}
+
+export type LauncherLibraryCoversState = {
+  covers: LauncherLibraryCover[]
+}
+
+export type SetLauncherLibraryCoverRequest = {
+  labelKey: string
+  imagePath?: string | null
+}
+
+export type SetLauncherModEnabledRequest = {
+  modPath: string
+  enabled: boolean
+}
+
+export type SetLauncherModEnabledResult = {
+  absolutePath: string
+  enabled: boolean
+}
+
+export type SearchLauncherCatalogRequest = {
+  query?: string | null
+  page?: number
+  sort?: 'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name'
+  ascending?: boolean
+}
+
+export type LauncherCatalogResult = {
+  modId: number
+  title: string
+  summary: string | null
+  author: string | null
+  modUrl: string
+  imageUrl: string | null
+}
+
+export type LauncherCatalogPageResult = {
+  page: number
+  hasMore: boolean
+  results: LauncherCatalogResult[]
+}
+
+export type ResolveLauncherImageRequest = {
+  url: string
+  refresh?: boolean
+}
+
+export type ResolveLauncherImageResult = {
+  sourceUrl: string
+  localPath: string
+  mimeType: string
+}
+
+export type CheckLauncherUpdatesRequest = {
+  modsPath: string
+}
+
+export type LauncherUpdateSummary = {
+  modId: number
+  name: string
+  currentVersion: string | null
+  latestVersion: string
+  absolutePath: string
+  modUrl: string
+  imageUrl: string | null
+}
+
+export type LauncherUpdatesResult = {
+  modsPath: string
+  checkedAtMs: number
+  updates: LauncherUpdateSummary[]
+}
+
+export type DownloadLauncherModRequest = {
+  modId: number
+  fileId?: number | null
+  version?: string | null
+  title?: string | null
+}
+
+export type DownloadLauncherModResult = {
+  modId: number
+  title: string
+  version: string | null
+  fileName: string
+  archivePath: string
+  installed: boolean
+  installedTargetPath: string | null
+}
+
+export type LauncherGameLaunchTarget = 'smapi' | 'game'
+
+export type LauncherGameLaunchResult = {
+  executablePath: string
+  target: LauncherGameLaunchTarget
+}
+
+export type LauncherDownloadQueueItemRecord = {
+  id: string
+  modId: number
+  title: string
+  version: string | null
+  imageUrl: string | null
+  source: string
+  status: string
+  archivePath: string | null
+  installedTargetPath: string | null
+  error: string | null
+  addedAt: number
+  completedAt: number | null
+}
+
+export type LauncherDownloadQueueState = {
+  items: LauncherDownloadQueueItemRecord[]
+}
+
+export type InstallLauncherArchiveRequest = {
+  archivePath: string
+  modsPath?: string | null
+}
+
+export type InstallLauncherArchiveResult = {
+  modName: string
+  uniqueId: string | null
+  version: string | null
+  targetPath: string
+  preservedConfig: boolean
+  preservedI18nFiles: number
+}
+
+export type OpenLauncherPathRequest = {
+  path: string
+}
+
+export type InspectLauncherArchiveRequest = {
+  archivePath: string
+}
+
+export type LauncherArchiveTreeNode = {
+  name: string
+  path: string
+  isDirectory: boolean
+  sizeBytes: number | null
+  children: LauncherArchiveTreeNode[]
+}
+
+export type InspectLauncherArchiveResult = {
+  archivePath: string
+  archiveFileName: string
+  totalEntries: number
+  totalFiles: number
+  modRoots: string[]
+  tree: LauncherArchiveTreeNode[]
+}
+
 function normalizeCachePathSegment(value: string) {
   return value.trim().replaceAll('/', '\\')
 }
@@ -384,6 +611,13 @@ const loadContentPatcherProjectCache = createPromiseCache<ContentPatcherProjectS
 const simulateContentPatcherCache = createPromiseCache<ContentPatcherSimulationResult>()
 const loadContentPatcherResultAssetCache = createPromiseCache<LoadContentPatcherResultAssetResult>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
+const loadLauncherSettingsCache = createPromiseCache<LauncherSettings>()
+const loadLauncherLibraryStateCache = createPromiseCache<LauncherLibraryState>()
+const loadLauncherLibraryCoversCache = createPromiseCache<LauncherLibraryCoversState>()
+const loadLauncherDownloadQueueCache = createPromiseCache<LauncherDownloadQueueState>()
+const scanLauncherLibraryCache = createPromiseCache<LauncherLibraryScanResult>()
+const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>()
+const checkLauncherUpdatesCache = createPromiseCache<LauncherUpdatesResult>()
 
 export function clearDesktopLocaleCache(locale: string) {
   const normalizedLocale = locale.trim()
@@ -417,6 +651,8 @@ export function getDesktopCacheStats() {
     contentPatcherSimulation: simulateContentPatcherCache.size(),
     contentPatcherResultAsset: loadContentPatcherResultAssetCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
+    launcherSettings: loadLauncherSettingsCache.size(),
+    launcherLibrary: scanLauncherLibraryCache.size(),
   }
 }
 
@@ -467,6 +703,46 @@ export async function chooseDirectory(title: string) {
     directory: true,
     multiple: false,
     title,
+  })
+
+  return typeof selected === 'string' ? selected : null
+}
+
+export async function chooseArchiveFile(title: string) {
+  if (!isDesktopHost()) {
+    throw new Error('File selection requires the desktop host.')
+  }
+
+  const selected = await open({
+    directory: false,
+    multiple: false,
+    title,
+    filters: [
+      {
+        name: 'Archives',
+        extensions: ['zip'],
+      },
+    ],
+  })
+
+  return typeof selected === 'string' ? selected : null
+}
+
+export async function chooseImageFile(title: string) {
+  if (!isDesktopHost()) {
+    throw new Error('File selection requires the desktop host.')
+  }
+
+  const selected = await open({
+    directory: false,
+    multiple: false,
+    title,
+    filters: [
+      {
+        name: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp'],
+      },
+    ],
   })
 
   return typeof selected === 'string' ? selected : null
@@ -601,6 +877,119 @@ export function scanDefaultSaveSlots() {
   return readCached(scanDefaultSaveSlotsCache, 'default', () =>
     invokeDesktop<DefaultSaveSlotSummary[]>('scan_default_save_slots'),
   )
+}
+
+export function loadLauncherSettings() {
+  return readCached(loadLauncherSettingsCache, 'default', () =>
+    invokeDesktop<LauncherSettings>('load_launcher_settings'),
+  )
+}
+
+export function loadLauncherLibraryState() {
+  return readCached(loadLauncherLibraryStateCache, 'default', () =>
+    invokeDesktop<LauncherLibraryState>('load_launcher_library_state'),
+  )
+}
+
+export function loadLauncherLibraryCovers() {
+  return readCached(loadLauncherLibraryCoversCache, 'default', () =>
+    invokeDesktop<LauncherLibraryCoversState>('load_launcher_library_covers'),
+  )
+}
+
+export function loadLauncherDownloadQueue() {
+  return readCached(loadLauncherDownloadQueueCache, 'default', () =>
+    invokeDesktop<LauncherDownloadQueueState>('load_launcher_download_queue'),
+  )
+}
+
+export async function saveLauncherSettings(request: SaveLauncherSettingsRequest) {
+  const result = await invokeDesktop<LauncherSettings>('save_launcher_settings', { request })
+  loadLauncherSettingsCache.delete('default')
+  scanLauncherLibraryCache.clear()
+  return result
+}
+
+export async function saveLauncherLibraryState(request: LauncherLibraryState) {
+  const result = await invokeDesktop<LauncherLibraryState>('save_launcher_library_state', { request })
+  loadLauncherLibraryStateCache.delete('default')
+  return result
+}
+
+export async function setLauncherLibraryCover(request: SetLauncherLibraryCoverRequest) {
+  const result = await invokeDesktop<LauncherLibraryCoversState>('set_launcher_library_cover', { request })
+  loadLauncherLibraryCoversCache.delete('default')
+  scanLauncherLibraryCache.clear()
+  return result
+}
+
+export async function saveLauncherDownloadQueue(request: LauncherDownloadQueueState) {
+  const result = await invokeDesktop<LauncherDownloadQueueState>('save_launcher_download_queue', { request })
+  loadLauncherDownloadQueueCache.delete('default')
+  return result
+}
+
+export function scanLauncherLibrary(request: ScanLauncherLibraryRequest) {
+  const cacheKey = normalizeCachePathSegment(request.modsPath)
+  return readCached(scanLauncherLibraryCache, cacheKey, () =>
+    invokeDesktop<LauncherLibraryScanResult>('scan_launcher_library', { request }),
+  )
+}
+
+export async function setLauncherModEnabled(request: SetLauncherModEnabledRequest) {
+  const result = await invokeDesktop<SetLauncherModEnabledResult>('set_launcher_mod_enabled', { request })
+  scanLauncherLibraryCache.clear()
+  return result
+}
+
+export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
+  const cacheKey = JSON.stringify({
+    query: request.query?.trim() || '',
+    page: request.page ?? 1,
+    sort: request.sort ?? 'newest',
+    ascending: request.ascending ?? false,
+  })
+  return readPending(searchLauncherCatalogCache, cacheKey, () =>
+    invokeDesktop<LauncherCatalogPageResult>('search_launcher_catalog', { request }),
+  )
+}
+
+export function resolveLauncherImage(request: ResolveLauncherImageRequest) {
+  return invokeDesktop<ResolveLauncherImageResult>('resolve_launcher_image', { request })
+}
+
+export function getLauncherBackupDirectory() {
+  return invokeDesktop<string>('get_launcher_backup_directory')
+}
+
+export function openLauncherPath(request: OpenLauncherPathRequest) {
+  return invokeDesktop<void>('open_launcher_path', { request })
+}
+
+export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
+  const cacheKey = normalizeCachePathSegment(request.modsPath)
+  return readPending(checkLauncherUpdatesCache, cacheKey, () =>
+    invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', { request }),
+  )
+}
+
+export function downloadLauncherMod(request: DownloadLauncherModRequest) {
+  return invokeDesktop<DownloadLauncherModResult>('download_launcher_mod', { request })
+}
+
+export async function installLauncherArchive(request: InstallLauncherArchiveRequest) {
+  const result = await invokeDesktop<InstallLauncherArchiveResult>('install_launcher_archive', { request })
+  scanLauncherLibraryCache.clear()
+  checkLauncherUpdatesCache.clear()
+  return result
+}
+
+export function inspectLauncherArchive(request: InspectLauncherArchiveRequest) {
+  return invokeDesktop<InspectLauncherArchiveResult>('inspect_launcher_archive', { request })
+}
+
+export function launchLauncherGame() {
+  return invokeDesktop<LauncherGameLaunchResult>('launch_launcher_game')
 }
 
 export async function minimizeCurrentWindow() {

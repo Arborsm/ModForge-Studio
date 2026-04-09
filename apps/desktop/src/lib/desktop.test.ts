@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { invoke } from '@tauri-apps/api/core'
 
 const mockWindow = {
   minimize: vi.fn(),
@@ -47,5 +48,61 @@ describe('desktop window helpers', () => {
 
     expect(mockWindow.isFullscreen).toHaveBeenCalledTimes(1)
     expect(mockWindow.setFullscreen).toHaveBeenCalledWith(true)
+  })
+})
+
+describe('launcher bridge helpers', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, '__TAURI_INTERNALS__', {
+      configurable: true,
+      value: {},
+    })
+    vi.mocked(invoke).mockReset()
+  })
+
+  it('loads launcher settings from tauri backend', async () => {
+    const expected = {
+      gamePath: 'C:\\Games\\Stardew Valley',
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { loadLauncherSettings } = await import('./desktop')
+
+    await expect(loadLauncherSettings()).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('load_launcher_settings', undefined)
+  })
+
+  it('saves launcher settings and scans launcher library with request payload', async () => {
+    const saved = {
+      gamePath: 'C:\\Games\\Stardew Valley',
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+    }
+    const scan = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      mods: [],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(saved).mockResolvedValueOnce(scan)
+    const { saveLauncherSettings, scanLauncherLibrary } = await import('./desktop')
+
+    await expect(saveLauncherSettings(saved)).resolves.toEqual(saved)
+    await expect(scanLauncherLibrary({ modsPath: saved.modsPath })).resolves.toEqual(scan)
+    expect(invoke).toHaveBeenNthCalledWith(1, 'save_launcher_settings', {
+      request: saved,
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'scan_launcher_library', {
+      request: { modsPath: saved.modsPath },
+    })
+  })
+
+  it('launches the game through the launcher bridge', async () => {
+    const launched = {
+      executablePath: 'C:\\Games\\Stardew Valley\\StardewModdingAPI.exe',
+      target: 'smapi',
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(launched)
+    const { launchLauncherGame } = await import('./desktop')
+
+    await expect(launchLauncherGame()).resolves.toEqual(launched)
+    expect(invoke).toHaveBeenCalledWith('launch_launcher_game', undefined)
   })
 })

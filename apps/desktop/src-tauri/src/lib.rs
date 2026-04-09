@@ -2,6 +2,7 @@ mod assets;
 mod attached_api;
 mod content_patcher;
 mod json_relaxed;
+mod launcher;
 mod mime;
 mod models;
 mod mods;
@@ -22,6 +23,14 @@ use assets::{
 use content_patcher::project::load_content_patcher_project;
 use content_patcher::{
     export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher,
+};
+use launcher::{
+    check_launcher_updates, download_launcher_mod, get_launcher_backup_directory,
+    inspect_launcher_archive, install_launcher_archive, load_launcher_download_queue,
+    load_launcher_library_covers, load_launcher_library_state, load_launcher_settings,
+    launch_launcher_game, open_launcher_path, resolve_launcher_image, save_launcher_download_queue,
+    save_launcher_library_state, save_launcher_settings, scan_launcher_library,
+    search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
 };
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
@@ -59,7 +68,26 @@ pub fn run() {
             scan_audio_assets,
             load_audio_data_url,
             load_xact_audio_data_url,
-            scan_default_save_slots
+            scan_default_save_slots,
+            load_launcher_settings,
+            save_launcher_settings,
+            launch_launcher_game,
+            load_launcher_library_state,
+            load_launcher_library_covers,
+            save_launcher_library_state,
+            set_launcher_library_cover,
+            load_launcher_download_queue,
+            save_launcher_download_queue,
+            get_launcher_backup_directory,
+            open_launcher_path,
+            scan_launcher_library,
+            set_launcher_mod_enabled,
+            search_launcher_catalog,
+            resolve_launcher_image,
+            check_launcher_updates,
+            download_launcher_mod,
+            inspect_launcher_archive,
+            install_launcher_archive
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
