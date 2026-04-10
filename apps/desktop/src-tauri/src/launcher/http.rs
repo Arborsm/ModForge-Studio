@@ -1,5 +1,5 @@
 use reqwest::blocking::{Client, Response};
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, COOKIE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, COOKIE, REFERER, USER_AGENT};
 use reqwest::StatusCode;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
@@ -7,6 +7,8 @@ use std::time::{Duration, Instant};
 
 pub(crate) const DEFAULT_GAME_ID: i64 = 1303;
 pub(crate) const LAUNCHER_USER_AGENT: &str = "ModForge Studio/0.1";
+pub(crate) const PUBLIC_BROWSER_USER_AGENT: &str =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
 pub(crate) const LAUNCHER_APP_NAME: &str = "ModForge Studio";
 pub(crate) const LAUNCHER_APP_VERSION: &str = "0.1";
 
@@ -20,6 +22,7 @@ struct NexusThrottleState {
 
 pub(crate) fn launcher_http_client() -> Result<Client, String> {
     Client::builder()
+        .cookie_store(true)
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| format!("Failed to create launcher HTTP client: {error}"))
@@ -163,5 +166,74 @@ pub(crate) fn graphql_headers(
         return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
     }
 
+    Ok(headers)
+}
+
+pub(crate) fn public_page_headers(referer: Option<&str>) -> Result<HeaderMap, String> {
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(PUBLIC_BROWSER_USER_AGENT));
+    headers.insert(
+        ACCEPT,
+        HeaderValue::from_static(
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        ),
+    );
+    headers.insert("Accept-Language", HeaderValue::from_static("zh-CN,zh;q=0.9"));
+    headers.insert("Priority", HeaderValue::from_static("u=0, i"));
+    headers.insert(
+        "sec-ch-ua",
+        HeaderValue::from_static(r#""Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99""#),
+    );
+    headers.insert("sec-ch-ua-mobile", HeaderValue::from_static("?0"));
+    headers.insert("sec-ch-ua-platform", HeaderValue::from_static(r#""Windows""#));
+    headers.insert("sec-fetch-dest", HeaderValue::from_static("document"));
+    headers.insert("sec-fetch-mode", HeaderValue::from_static("navigate"));
+    headers.insert("sec-fetch-site", HeaderValue::from_static("none"));
+    headers.insert("sec-fetch-user", HeaderValue::from_static("?1"));
+    headers.insert(
+        "Upgrade-Insecure-Requests",
+        HeaderValue::from_static("1"),
+    );
+    if let Some(referer) = referer.map(str::trim).filter(|value| !value.is_empty()) {
+        headers.insert(
+            REFERER,
+            HeaderValue::from_str(referer)
+                .map_err(|error| format!("Failed to encode launcher public page referer header: {error}"))?,
+        );
+    }
+    Ok(headers)
+}
+
+pub(crate) fn public_graphql_headers(
+    referer: &str,
+    operation_name: &str,
+) -> Result<HeaderMap, String> {
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, HeaderValue::from_static(PUBLIC_BROWSER_USER_AGENT));
+    headers.insert(ACCEPT, HeaderValue::from_static("*/*"));
+    headers.insert("Accept-Language", HeaderValue::from_static("zh-CN,zh;q=0.9"));
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    headers.insert("Priority", HeaderValue::from_static("u=1, i"));
+    headers.insert(
+        "sec-ch-ua",
+        HeaderValue::from_static(r#""Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99""#),
+    );
+    headers.insert("sec-ch-ua-mobile", HeaderValue::from_static("?0"));
+    headers.insert("sec-ch-ua-platform", HeaderValue::from_static(r#""Windows""#));
+    headers.insert("sec-fetch-dest", HeaderValue::from_static("empty"));
+    headers.insert("sec-fetch-mode", HeaderValue::from_static("cors"));
+    headers.insert("sec-fetch-site", HeaderValue::from_static("same-site"));
+    headers.insert("Origin", HeaderValue::from_static("https://www.nexusmods.com"));
+    headers.insert(
+        REFERER,
+        HeaderValue::from_str(referer)
+            .map_err(|error| format!("Failed to encode launcher public GraphQL referer header: {error}"))?,
+    );
+    headers.insert(
+        "x-graphql-operationname",
+        HeaderValue::from_str(operation_name).map_err(|error| {
+            format!("Failed to encode launcher public GraphQL operation header: {error}")
+        })?,
+    );
     Ok(headers)
 }

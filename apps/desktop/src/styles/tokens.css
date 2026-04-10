@@ -20,6 +20,8 @@
     --text-primary: #18212f;
     --text-secondary: #4f5968;
     --text-tertiary: #7d8798;
+    --text-inverse: #f8fbff;
+    --surface-inverse: #0f172a;
 
     --border-subtle: rgba(91, 104, 126, 0.32);
     --shadow-panel:
@@ -65,6 +67,8 @@
     --text-primary: #f3f6fb;
     --text-secondary: #b4bdcb;
     --text-tertiary: #7d8798;
+    --text-inverse: #f8fbff;
+    --surface-inverse: #05070c;
 
     --border-subtle: rgba(166, 176, 192, 0.2);
     --shadow-panel:

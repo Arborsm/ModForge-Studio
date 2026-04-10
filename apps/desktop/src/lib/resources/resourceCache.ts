@@ -118,6 +118,15 @@ export function createResourceCache<TValue>({
     has(key: string) {
       return isCompletedEntry(entries.get(key))
     },
+    get(key: string) {
+      const current = entries.get(key)
+      if (!isCompletedEntry(current)) {
+        return null
+      }
+
+      touchCompletedEntry(key, current)
+      return current.value
+    },
     invalidate(key: string) {
       const current = entries.get(key)
       entries.delete(key)

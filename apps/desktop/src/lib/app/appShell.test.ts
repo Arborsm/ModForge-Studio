@@ -22,13 +22,24 @@ describe('appShell', () => {
 
   it('reads valid persisted app mode, launcher page, and debug mode', () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'settings')
+    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'debug')
     window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
 
     expect(readStoredAppShellState()).toEqual({
       appMode: 'launcher',
-      launcherPage: 'settings',
+      launcherPage: 'debug',
       debugEnabled: true,
+    })
+  })
+
+  it('migrates the legacy persisted settings page value to debug', () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'settings')
+
+    expect(readStoredAppShellState()).toEqual({
+      appMode: 'launcher',
+      launcherPage: 'debug',
+      debugEnabled: false,
     })
   })
 

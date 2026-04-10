@@ -16,6 +16,7 @@
     "@floating-ui/react": "^0.27.19",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@tailwindcss/postcss": "^4.2.2",
+    "@tanstack/react-virtual": "^3.13.23",
     "@tauri-apps/api": "^2.8.0",
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@xyflow/react": "^12.10.2",

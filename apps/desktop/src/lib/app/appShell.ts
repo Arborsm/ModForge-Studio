@@ -16,14 +16,18 @@ const DEFAULT_APP_SHELL_STATE: AppShellState = {
   debugEnabled: false,
 }
 
-const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'settings']
+const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'debug']
 
 function isAppMode(value: string | null): value is AppMode {
   return value === 'workbench' || value === 'launcher'
 }
 
-function isLauncherPage(value: string | null): value is LauncherPage {
-  return !!value && launcherPages.includes(value as LauncherPage)
+function parseLauncherPage(value: string | null): LauncherPage | null {
+  if (value === 'settings') {
+    return 'debug'
+  }
+
+  return !!value && launcherPages.includes(value as LauncherPage) ? (value as LauncherPage) : null
 }
 
 function isDebugEnabled(value: string | null) {
@@ -50,7 +54,7 @@ export function readStoredAppShellState(): AppShellState {
 
     return {
       appMode: isAppMode(storedAppMode) ? storedAppMode : DEFAULT_APP_SHELL_STATE.appMode,
-      launcherPage: isLauncherPage(storedLauncherPage) ? storedLauncherPage : DEFAULT_APP_SHELL_STATE.launcherPage,
+      launcherPage: parseLauncherPage(storedLauncherPage) ?? DEFAULT_APP_SHELL_STATE.launcherPage,
       debugEnabled: isDebugEnabled(storedDebugEnabled),
     }
   } catch {

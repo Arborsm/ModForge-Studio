@@ -21,6 +21,9 @@ function createItem(overrides: Partial<LauncherDownloadQueueItem>): LauncherDown
     error: null,
     addedAt: 1,
     completedAt: 2,
+    totalBytes: null,
+    downloadedBytes: null,
+    bytesPerSecond: null,
     ...overrides,
   }
 }
@@ -47,7 +50,9 @@ function createDownloads(items: LauncherDownloadQueueItem[]) {
     installedItems: items.filter((item) => item.status === 'installed'),
     failedItems,
     removableItems,
+    downloadProgressPercent: null,
     queueDownload: vi.fn(),
+    startDebugSimulation: vi.fn(),
     retryItem: vi.fn(),
     retryFailed: vi.fn(),
     removeItem: vi.fn(),
@@ -84,6 +89,22 @@ describe('LauncherDownloadsPage', () => {
     expect(screen.getByRole('button', { name: copy.actions.install })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.actions.retry })).toBeTruthy()
     expect(screen.getAllByRole('button', { name: copy.actions.remove })).toHaveLength(2)
+  })
+
+  it('renders downloads in a single fixed-height list without status sections', () => {
+    const downloads = createDownloads([
+      createItem({ id: 'queued-item', title: 'Queued Item', status: 'queued', archivePath: null }),
+      createItem({ id: 'active-item', title: 'Active Item', status: 'downloading', archivePath: null }),
+      createItem({ id: 'failed-item', title: 'Failed Item', status: 'failed', archivePath: null, error: 'Request timed out.' }),
+    ])
+
+    const { container } = renderWithLocale(<LauncherDownloadsPage downloads={downloads} />, 'zh-CN')
+
+    expect(container.querySelector('.launcher-manager-grid')).toBeNull()
+    expect(container.querySelector('.launcher-download-list-shell')).toBeTruthy()
+    expect(container.querySelectorAll('.launcher-download-row')).toHaveLength(3)
+    expect(screen.queryByText(new RegExp(`^${copy.states.failed} \\(`))).toBeNull()
+    expect(screen.queryByText(new RegExp(`^${copy.overview.completedDownloads} \\(`))).toBeNull()
   })
 
   it('forwards row and bulk actions to the download controller callbacks', () => {

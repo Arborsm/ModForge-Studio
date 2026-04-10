@@ -1,36 +1,44 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, DragEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
+import { Check } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
+type LauncherModCardAction = {
+  label: string
+  onSelect: () => void
+}
+
 type LauncherModCardProps = {
   title: string
-  author: string | null
+  titleTooltip?: string
+  meta: string
   imageUrl: string | null
   enabled?: boolean
   onSelect?: () => void
-  onViewDetails?: () => void
-  viewDetailsLabel?: string
-  packName?: string | null
+  contextActions?: LauncherModCardAction[]
   draggable?: boolean
-  onDragStart?: () => void
+  onDragStart?: (event: DragEvent<HTMLElement>) => void
   onDragEnd?: () => void
+  selectionMode?: boolean
+  selected?: boolean
 }
 
 export function LauncherModCard({
   title,
-  author,
+  titleTooltip,
+  meta,
   imageUrl,
   enabled = true,
   onSelect,
-  onViewDetails,
-  viewDetailsLabel,
-  packName,
+  contextActions,
   draggable,
   onDragStart,
   onDragEnd,
+  selectionMode = false,
+  selected = false,
 }: LauncherModCardProps) {
   const copy = useEditorCopy()
   const cover = useLauncherImage(imageUrl)
@@ -51,14 +59,25 @@ export function LauncherModCard({
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={cx('panel-list-card panel-list-card-interactive launcher-mod-card', !enabled && 'launcher-mod-card-disabled')}
+      onClick={selectionMode ? onSelect : undefined}
+      className={cx(
+        'panel-list-card panel-list-card-interactive launcher-mod-card',
+        !enabled && 'launcher-mod-card-disabled',
+        selectionMode && 'launcher-mod-card-selection-mode',
+        selectionMode && selected && 'launcher-mod-card-selected',
+        selectionMode && !selected && 'launcher-mod-card-unselected',
+      )}
     >
       <div className="launcher-mod-card-stack">
-        <button type="button" className="launcher-mod-card-main" onClick={onSelect}>
+        {selectionMode ? (
+          <span className={cx('launcher-mod-card-selection-toggle', selected && 'launcher-mod-card-selection-toggle-active')} aria-hidden="true">
+            <Check className="h-3.5 w-3.5" />
+          </span>
+        ) : null}
+
+        <button type="button" className="launcher-mod-card-main" onClick={onSelect} title={titleTooltip ?? title}>
           <div className="launcher-mod-card-cover" style={coverStyle}>
-            <span className="launcher-mod-card-cover-meta">
-              {packName ? <span className="dock-chip">{packName}</span> : null}
-            </span>
+            <span className="launcher-mod-card-cover-meta" />
             <span className="launcher-mod-card-cover-aura" aria-hidden="true" />
             {cover.imageUrl ? <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image" /> : null}
             {!cover.imageUrl ? (
@@ -71,15 +90,17 @@ export function LauncherModCard({
           </div>
 
           <div className="launcher-mod-card-copy">
-            <p className="launcher-mod-card-title">{title}</p>
-            <p className="launcher-mod-card-meta">{author ?? copy.common.none}</p>
+            <p className="launcher-mod-card-title" title={titleTooltip ?? title}>
+              {title}
+            </p>
+            <p className="launcher-mod-card-meta">{meta || copy.common.none}</p>
           </div>
         </button>
       </div>
     </article>
   )
 
-  if (!onViewDetails) {
+  if (!contextActions?.length) {
     return card
   }
 
@@ -88,9 +109,11 @@ export function LauncherModCard({
       <ContextMenu.Trigger asChild>{card}</ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
-          <ContextMenu.Item className="context-menu-item" onSelect={onViewDetails}>
-            {viewDetailsLabel ?? copy.launcher.library.detailsTitle}
-          </ContextMenu.Item>
+          {contextActions.map((action) => (
+            <ContextMenu.Item key={action.label} className="context-menu-item" onSelect={action.onSelect}>
+              {action.label}
+            </ContextMenu.Item>
+          ))}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

@@ -3,24 +3,16 @@ import { useEditorCopy } from '../app/localeContext'
 import { dismissNotification, publishNotification } from '../app/notifications'
 import {
   checkLauncherUpdates,
-  listenToLauncherUpdateProgress,
   type LauncherSettings,
-  type LauncherUpdateProgressPayload,
 } from '../desktop'
 import type { LauncherUpdateItem, LauncherViewState } from './types'
-
-const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID = 'launcher-updates-progress'
+import {
+  LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
+  getLauncherUpdateNotificationProgress,
+} from './useLauncherUpdateProgressNotifications'
 
 function getSelectionKey(item: LauncherUpdateItem) {
   return `${item.modId}:${item.absolutePath}`
-}
-
-function getNotificationProgress(payload: LauncherUpdateProgressPayload) {
-  if (payload.total <= 0) {
-    return 18
-  }
-
-  return Math.max(0, Math.min(100, (payload.checked / payload.total) * 100))
 }
 
 export function useLauncherUpdates(settings: LauncherSettings) {
@@ -48,7 +40,12 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       title: copy.updates.checkingProgressTitle,
       description: copy.updates.checkingProgressDetail(0, 0, null),
       autoDismissMs: null,
-      progress: 18,
+      progress: getLauncherUpdateNotificationProgress({
+        modsPath: settings.modsPath ?? '',
+        checked: 0,
+        total: 0,
+        currentModName: null,
+      }),
     })
 
     try {
@@ -93,44 +90,6 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       window.clearTimeout(handle)
     }
   }, [refresh])
-
-  useEffect(() => {
-    if (!settings.modsPath) {
-      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
-      return
-    }
-
-    let active = true
-    let unlisten: (() => void) | null = null
-
-    void listenToLauncherUpdateProgress((payload) => {
-      if (!active || payload.modsPath !== settings.modsPath) {
-        return
-      }
-
-      publishNotification({
-        id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.updates.checkingProgressTitle,
-        description: copy.updates.checkingProgressDetail(payload.checked, payload.total, payload.currentModName),
-        autoDismissMs: null,
-        progress: getNotificationProgress(payload),
-      })
-    }).then((dispose) => {
-      if (!active) {
-        dispose()
-        return
-      }
-
-      unlisten = dispose
-    })
-
-    return () => {
-      active = false
-      unlisten?.()
-      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
-    }
-  }, [copy.updates, settings.modsPath])
 
   return {
     items,

@@ -1,5 +1,5 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { resolveLauncherImage } from '../desktop'
 import { createResourceCache } from '../resources/resourceCache'
 
@@ -21,51 +21,53 @@ export async function loadLauncherImageUrl(url: string, refresh = false) {
   })
 }
 
+function getCachedLauncherImageUrl(url: string | null) {
+  if (!url) {
+    return null
+  }
+
+  return launcherImageCache.get(url)
+}
+
 export function useLauncherImage(url: string | null) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const cachedImageUrl = useMemo(() => getCachedLauncherImageUrl(url), [url])
+  const [loadedImage, setLoadedImage] = useState<{ url: string; imageUrl: string } | null>(null)
+  const [loadError, setLoadError] = useState<{ url: string; error: string } | null>(null)
 
   useEffect(() => {
     let active = true
-    const handle = window.setTimeout(() => {
-      if (!active) {
-        return
+    if (!url || cachedImageUrl) {
+      return () => {
+        active = false
       }
+    }
 
-      if (!url) {
-        setImageUrl(null)
-        setError(null)
-        setLoading(false)
-        return
-      }
-
-      setImageUrl(null)
-      setError(null)
-      setLoading(true)
-
-      void loadLauncherImageUrl(url)
-        .then((value) => {
-          if (!active) {
-            return
-          }
-          setImageUrl(value)
-          setLoading(false)
+    void loadLauncherImageUrl(url)
+      .then((value) => {
+        if (!active) {
+          return
+        }
+        setLoadedImage({ url, imageUrl: value })
+        setLoadError(null)
+      })
+      .catch((nextError) => {
+        if (!active) {
+          return
+        }
+        setLoadError({
+          url,
+          error: nextError instanceof Error ? nextError.message : 'Failed to load image.',
         })
-        .catch((nextError) => {
-          if (!active) {
-            return
-          }
-          setError(nextError instanceof Error ? nextError.message : 'Failed to load image.')
-          setLoading(false)
-        })
-    }, 0)
+      })
 
     return () => {
       active = false
-      window.clearTimeout(handle)
     }
-  }, [url])
+  }, [cachedImageUrl, url])
+
+  const imageUrl = cachedImageUrl ?? (url && loadedImage?.url === url ? loadedImage.imageUrl : null)
+  const error = url && !cachedImageUrl && loadError?.url === url ? loadError.error : null
+  const loading = Boolean(url && !cachedImageUrl && !imageUrl && !error)
 
   return {
     imageUrl: url ? imageUrl : null,

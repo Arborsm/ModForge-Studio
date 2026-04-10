@@ -3,7 +3,7 @@ export type ThemeMode = 'dark' | 'light'
 export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
 export type WorkspaceMode = CoreWorkspaceMode | 'mods'
 export type AppMode = 'workbench' | 'launcher'
-export type LauncherPage = 'library' | 'discover' | 'updates' | 'settings'
+export type LauncherPage = 'library' | 'discover' | 'updates' | 'debug'
 export type WorkspaceTone = 'idle' | 'working' | 'ready' | 'error'
 export type WorldAtlasViewId = 'main' | 'remote'
 
@@ -519,6 +519,7 @@ export type LauncherCopy = {
     filterLibrary: string
     searchDiscover: string
     currentVersion: string
+    galleryImages: string
     latestVersion: string
     uniqueId: string
     path: string
@@ -584,6 +585,16 @@ export type LauncherCopy = {
       noCover: string
       packLabel: string
       storageFolderLabel: string
+      manageCurrentPack: string
+      renameCurrentPack: string
+      deleteCurrentPack: string
+      editCurrentPack: string
+      editingPackLabel: string
+      includedModsCount: (count: number) => string
+      cancelEdit: string
+      saveChanges: string
+      renameCurrentPackPrompt: (name: string) => string
+      deleteCurrentPackConfirm: (name: string) => string
     }
   discover: {
     title: string
@@ -619,10 +630,16 @@ export type LauncherCopy = {
     subtitle: string
     debugOnlyTitle: string
     debugOnlyDescription: string
+    notificationsOverviewTitle: string
+    logsOverviewTitle: string
     notificationsTitle: string
     notificationsSubtitle: string
     logsTitle: string
     logsSubtitle: string
+    simulationTitle: string
+    simulationSubtitle: string
+    simulationButtonIdle: string
+    simulationButtonRunning: string
     notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
     logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>
   }

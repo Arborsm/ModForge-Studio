@@ -1,8 +1,9 @@
 use super::archive::inspect_archive_at_path;
 use super::catalog::{
-    build_catalog_graphql_payload, build_update_batch_graphql_payload,
-    can_use_nexus_graphql, parse_catalog_graphql_response,
-    parse_update_batch_graphql_response,
+    build_catalog_graphql_payload, build_public_catalog_graphql_payload,
+    build_update_batch_graphql_payload, parse_public_mod_detail_graphql_response,
+    can_use_nexus_graphql, parse_catalog_graphql_response, parse_catalog_results,
+    parse_remote_mod_detail_html, parse_update_batch_graphql_response,
 };
 use super::downloads::{load_or_create_download_queue_at_path, save_download_queue_at_path};
 use super::launch::launch_game_with_runner;
@@ -18,6 +19,7 @@ use super::types::{
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
     LauncherLibraryCoversState, LauncherLibraryPackPreset, LauncherLibraryScopeMode,
     LauncherLibraryState, LauncherLibraryStorageFolder, LauncherSettings,
+    SearchLauncherCatalogRequest,
     SetLauncherModEnabledRequest,
 };
 use crate::test_support::{create_temp_dir, write_file};
@@ -354,7 +356,29 @@ fn scan_library_extracts_nexus_update_keys() {
 
 #[test]
 fn build_catalog_graphql_payload_maps_query_sort_and_page() {
-    let payload = build_catalog_graphql_payload(Some("tractor"), 2, "updated", false)
+    let payload = build_catalog_graphql_payload(&SearchLauncherCatalogRequest {
+        query: Some("tractor".to_string()),
+        title_query: None,
+        description_query: None,
+        author_query: None,
+        uploader_query: None,
+        page: Some(2),
+        page_size: Some(20),
+        time_range: None,
+        sort: Some("updated".to_string()),
+        ascending: Some(false),
+        category: None,
+        language: None,
+        tags_include: None,
+        tags_exclude: None,
+        include_adult: Some(false),
+        min_file_size: None,
+        max_file_size: None,
+        min_downloads: None,
+        max_downloads: None,
+        min_endorsements: None,
+        max_endorsements: None,
+    })
         .expect("build catalog graphql payload");
 
     assert_eq!(payload["operationName"], "CatalogMods");
@@ -369,6 +393,60 @@ fn build_catalog_graphql_payload_maps_query_sort_and_page() {
     let query = payload["query"].as_str().expect("graphql query string");
     assert!(query.contains("query CatalogMods"));
     assert!(query.contains("mods(filter: $filter, sort: $sort, offset: $offset, count: $count)"));
+}
+
+#[test]
+fn build_public_catalog_graphql_payload_matches_browser_mod_listing_shape() {
+    let payload = build_public_catalog_graphql_payload(&SearchLauncherCatalogRequest {
+        query: Some("tractor".to_string()),
+        title_query: None,
+        description_query: Some("pelican".to_string()),
+        author_query: Some("Pathoschild".to_string()),
+        uploader_query: Some("Pathoschild".to_string()),
+        page: Some(2),
+        page_size: Some(20),
+        time_range: None,
+        sort: Some("updated".to_string()),
+        ascending: Some(false),
+        category: Some("Gameplay Mechanics".to_string()),
+        language: Some("English".to_string()),
+        tags_include: Some("smapi, tractor".to_string()),
+        tags_exclude: Some("nsfw".to_string()),
+        include_adult: Some(false),
+        min_file_size: Some(1024),
+        max_file_size: Some(4096),
+        min_downloads: Some(100),
+        max_downloads: Some(500),
+        min_endorsements: Some(10),
+        max_endorsements: Some(20),
+    })
+        .expect("build public catalog graphql payload");
+
+    assert_eq!(payload["operationName"], "ModsListing");
+    assert_eq!(payload["variables"]["count"], 20);
+    assert_eq!(payload["variables"]["offset"], 20);
+    assert_eq!(payload["variables"]["facets"]["categoryName"], json!(["Gameplay Mechanics"]));
+    assert_eq!(payload["variables"]["facets"]["languageName"], json!(["English"]));
+    assert_eq!(payload["variables"]["facets"]["tag"], json!(["smapi", "tractor"]));
+    assert_eq!(payload["variables"]["filter"]["adultContent"][0]["op"], "EQUALS");
+    assert_eq!(payload["variables"]["filter"]["adultContent"][0]["value"], false);
+    assert_eq!(payload["variables"]["filter"]["gameDomainName"][0]["value"], "stardewvalley");
+    assert_eq!(payload["variables"]["filter"]["name"][0]["value"], "tractor");
+    assert_eq!(payload["variables"]["filter"]["description"][0]["value"], "pelican");
+    assert_eq!(payload["variables"]["filter"]["description"][0]["op"], "MATCHES");
+    assert_eq!(payload["variables"]["filter"]["author"][0]["value"], "Pathoschild");
+    assert_eq!(payload["variables"]["filter"]["uploader"][0]["value"], "Pathoschild");
+    assert_eq!(payload["variables"]["filter"]["fileSize"][0]["op"], "GTE");
+    assert_eq!(payload["variables"]["filter"]["fileSize"][1]["op"], "LTE");
+    assert_eq!(payload["variables"]["filter"]["downloads"][0]["value"], 100);
+    assert_eq!(payload["variables"]["filter"]["endorsements"][1]["value"], 20);
+    assert_eq!(payload["variables"]["postFilter"]["tag"][0]["value"], "nsfw");
+    assert_eq!(payload["variables"]["sort"]["updatedAt"]["direction"], "DESC");
+
+    let query = payload["query"].as_str().expect("public graphql query string");
+    assert!(query.contains("query ModsListing"));
+    assert!(query.contains("fragment ModTileFragment"));
+    assert!(query.contains("thumbnailUrl"));
 }
 
 #[test]
@@ -394,15 +472,33 @@ fn parse_catalog_graphql_response_builds_catalog_page_result() {
                         "uploader": null
                     }
                 ],
-                "totalCount": 45
+                "totalCount": 45,
+                "facetsData": {
+                    "categoryName": {
+                        "Gameplay Mechanics": 2800,
+                        "Maps": 1244
+                    },
+                    "languageName": {
+                        "English": 16098
+                    },
+                    "tag": {
+                        "SMAPI": 18839,
+                        "Translation": 7866
+                    }
+                }
             }
         }
     });
 
-    let page = parse_catalog_graphql_response(&payload, 2).expect("parse catalog graphql response");
+    let page = parse_catalog_graphql_response(&payload, 2, 20).expect("parse catalog graphql response");
 
     assert_eq!(page.page, 2);
+    assert_eq!(page.page_size, 20);
+    assert_eq!(page.total_count, 45);
     assert!(page.has_more);
+    assert_eq!(page.facets.categories[0].name, "Gameplay Mechanics");
+    assert_eq!(page.facets.languages[0].name, "English");
+    assert_eq!(page.facets.tags[0].name, "SMAPI");
     assert_eq!(page.results.len(), 2);
     assert_eq!(page.results[0].mod_id, 101);
     assert_eq!(page.results[0].title, "Tractor Mod");
@@ -412,6 +508,139 @@ fn parse_catalog_graphql_response_builds_catalog_page_result() {
         "https://www.nexusmods.com/stardewvalley/mods/101"
     );
     assert_eq!(page.results[1].author, None);
+}
+
+#[test]
+fn parse_catalog_graphql_response_falls_back_to_public_thumbnail_url() {
+    let payload = json!({
+        "data": {
+            "mods": {
+                "nodes": [
+                    {
+                        "modId": 101,
+                        "name": "Tractor Mod",
+                        "summary": "Drive around Pelican Town.",
+                        "thumbnailUrl": "https://staticdelivery.nexusmods.com/tractor.png",
+                        "uploader": {
+                            "name": "Pathoschild"
+                        }
+                    }
+                ],
+                "totalCount": 1
+            }
+        }
+    });
+
+    let page = parse_catalog_graphql_response(&payload, 1, 20).expect("parse public catalog graphql response");
+
+    assert_eq!(page.results.len(), 1);
+    assert_eq!(
+        page.results[0].image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/tractor.png")
+    );
+}
+
+#[test]
+fn parse_catalog_results_extracts_public_widget_cards_without_credentials() {
+    let html = r#"
+<div class="mod-tile">
+  <div class="tile-name">
+    <a href="/stardewvalley/mods/101">Tractor Mod</a>
+  </div>
+  <img class="fore" src="https://static.nexusmods.com/tractor.png" />
+  <div class="tile-description">Drive around <strong>Pelican Town</strong>.</div>
+  <span>Created by Pathoschild</span>
+</div>
+"#;
+
+    let results = parse_catalog_results(html);
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].mod_id, 101);
+    assert_eq!(results[0].title, "Tractor Mod");
+    assert_eq!(results[0].summary.as_deref(), Some("Drive around Pelican Town"));
+    assert_eq!(results[0].author.as_deref(), Some("Pathoschild"));
+    assert_eq!(
+        results[0].mod_url,
+        "https://www.nexusmods.com/stardewvalley/mods/101"
+    );
+    assert_eq!(
+        results[0].image_url.as_deref(),
+        Some("https://static.nexusmods.com/tractor.png")
+    );
+}
+
+#[test]
+fn parse_remote_mod_detail_html_extracts_summary_version_and_gallery() {
+    let html = r#"
+<meta property="og:title" content="Joja Civic Center" />
+<meta property="og:description" content="Welcome to the Joja Civic Center." />
+<meta property="og:image" content="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png" />
+<meta property="twitter:label1" content="Version" />
+<meta property="twitter:data1" content="1.0.0" />
+<div id="sidebargallery" class="clearfix modimages">
+  <ul class="thumbgallery gallery clearfix">
+    <li class="thumb"
+      data-src="https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-a.png"
+      data-exthumbimage="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-a.png">
+    </li>
+    <li class="thumb"
+      data-src="https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-b.png"
+      data-exthumbimage="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-b.png">
+    </li>
+  </ul>
+</div>
+"#;
+
+    let detail = parse_remote_mod_detail_html(html, 44722).expect("parse remote mod detail html");
+
+    assert_eq!(detail.mod_id, 44722);
+    assert_eq!(detail.name.as_deref(), Some("Joja Civic Center"));
+    assert_eq!(detail.summary.as_deref(), Some("Welcome to the Joja Civic Center."));
+    assert_eq!(detail.version.as_deref(), Some("1.0.0"));
+    assert_eq!(
+        detail.image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png")
+    );
+    assert_eq!(detail.gallery_images.len(), 2);
+    assert_eq!(
+        detail.gallery_images[0],
+        "https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-a.png"
+    );
+}
+
+#[test]
+fn parse_public_mod_detail_graphql_response_extracts_author_version_and_description() {
+    let payload = json!({
+        "data": {
+            "mod": {
+                "modId": 44722,
+                "name": "Joja Civic Center",
+                "summary": "Short summary.",
+                "description": "<p>Full <strong>description</strong> for the mod.</p>",
+                "version": "1.0.0",
+                "pictureUrl": "https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-cover.png",
+                "thumbnailUrl": "https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png",
+                "author": "blue704",
+                "uploader": {
+                    "name": "blue704"
+                }
+            }
+        }
+    });
+
+    let detail =
+        parse_public_mod_detail_graphql_response(&payload, 44722).expect("parse public mod detail graphql");
+
+    assert_eq!(detail.mod_id, 44722);
+    assert_eq!(detail.name.as_deref(), Some("Joja Civic Center"));
+    assert_eq!(detail.author.as_deref(), Some("blue704"));
+    assert_eq!(detail.summary.as_deref(), Some("Full description for the mod."));
+    assert_eq!(detail.version.as_deref(), Some("1.0.0"));
+    assert_eq!(
+        detail.image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-cover.png")
+    );
 }
 
 #[test]

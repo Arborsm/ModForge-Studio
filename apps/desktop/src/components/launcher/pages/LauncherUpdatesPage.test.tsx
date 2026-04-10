@@ -1,10 +1,11 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '../../../lib/desktop'
 import { checkLauncherUpdates } from '../../../lib/desktop'
 import { LocaleProvider } from '../../../lib/app/localeContext'
 import { NotificationProvider, clearNotifications } from '../../../lib/app/notifications'
+import { useLauncherUpdateProgressNotifications } from '../../../lib/launcher/useLauncherUpdateProgressNotifications'
 import { LauncherUpdatesPage } from './LauncherUpdatesPage'
 
 const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
@@ -36,10 +37,18 @@ vi.mock('../../../lib/launcher/imageLoader', () => ({
 
 const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
 
+function UpdateProgressNotificationBridge() {
+  useLauncherUpdateProgressNotifications('zh-CN')
+  return null
+}
+
 function renderWithProviders(ui: ReactElement) {
   return render(
     <LocaleProvider locale="zh-CN">
-      <NotificationProvider>{ui}</NotificationProvider>
+      <NotificationProvider>
+        <UpdateProgressNotificationBridge />
+        {ui}
+      </NotificationProvider>
     </LocaleProvider>,
   )
 }
@@ -177,5 +186,64 @@ describe('LauncherUpdatesPage', () => {
     expect(screen.getByText('检查模组更新')).toBeTruthy()
     expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
     expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 50%')
+  })
+
+  it('keeps update progress notifications alive and updating after the page unmounts', async () => {
+    checkLauncherUpdatesMock.mockImplementation(() => new Promise(() => {}))
+
+    const { container, rerender } = render(
+      <LocaleProvider locale="zh-CN">
+        <NotificationProvider>
+          <UpdateProgressNotificationBridge />
+          <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />
+        </NotificationProvider>
+      </LocaleProvider>,
+    )
+
+    await waitFor(() => {
+      expect(eventListeners.has('launcher://update-check-progress')).toBe(true)
+    })
+
+    await act(async () => {
+      eventListeners.get('launcher://update-check-progress')?.({
+        payload: {
+          modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+          checked: 1,
+          total: 4,
+          currentModName: 'NPC Adventures',
+        },
+      })
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText(/NPC Adventures/)).toBeTruthy()
+
+    rerender(
+      <LocaleProvider locale="zh-CN">
+        <NotificationProvider>
+          <UpdateProgressNotificationBridge />
+          <div>Another page</div>
+        </NotificationProvider>
+      </LocaleProvider>,
+    )
+
+    expect(screen.getByText('Another page')).toBeTruthy()
+    expect(screen.getByText(/NPC Adventures/)).toBeTruthy()
+
+    await act(async () => {
+      eventListeners.get('launcher://update-check-progress')?.({
+        payload: {
+          modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+          checked: 3,
+          total: 4,
+          currentModName: 'Horse Overhaul',
+        },
+      })
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByText(/NPC Adventures/)).toBeNull()
+    expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
+    expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 75%')
   })
 })

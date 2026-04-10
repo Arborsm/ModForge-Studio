@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '../../test/renderWithLocale'
 
+const settingsPageSpy = vi.fn()
+
 vi.mock('./pages/LauncherLibraryPage', () => ({
   LauncherLibraryPage: ({ launchGameLabel }: { launchGameLabel: string }) => <div>{`library-page:${launchGameLabel}`}</div>,
 }))
@@ -15,8 +17,11 @@ vi.mock('./pages/LauncherUpdatesPage', () => ({
   LauncherUpdatesPage: () => <div>updates-page</div>,
 }))
 
-vi.mock('./pages/LauncherSettingsPage', () => ({
-  LauncherSettingsPage: () => <div>settings-page</div>,
+vi.mock('./pages/LauncherDebugPage', () => ({
+  LauncherDebugPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown }) => {
+    settingsPageSpy(props)
+    return <div>settings-page</div>
+  },
 }))
 
 const settingsState = {
@@ -54,7 +59,9 @@ const downloads = {
     failed: 0,
     readyToInstall: 0,
   },
+  downloadProgressPercent: null,
   queueDownload: vi.fn(),
+  startDebugSimulation: vi.fn(),
   retryItem: vi.fn(),
   retryFailed: vi.fn(),
   removeItem: vi.fn(),
@@ -67,6 +74,7 @@ const downloads = {
 describe('LauncherShell', () => {
   afterEach(() => {
     cleanup()
+    settingsPageSpy.mockReset()
   })
 
   it('routes the library page without rendering an in-page launcher navigation rail', () => {
@@ -76,6 +84,7 @@ describe('LauncherShell', () => {
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
         onNavigateToSettings={vi.fn()}
         launchGameLabel="Launch Game"
         launchGameDisabled={false}
@@ -95,6 +104,7 @@ describe('LauncherShell', () => {
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
         onNavigateToSettings={vi.fn()}
         launchGameLabel="Launch Game"
         launchGameDisabled={false}
@@ -113,6 +123,7 @@ describe('LauncherShell', () => {
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
         onNavigateToSettings={vi.fn()}
         launchGameLabel="Launch Game"
         launchGameDisabled={false}
@@ -125,12 +136,15 @@ describe('LauncherShell', () => {
   })
 
   it('routes the settings page', () => {
+    const onToggleDebugMode = vi.fn()
+
     renderWithLocale(
       <LauncherShell
-        page="settings"
+        page="debug"
         debugEnabled={true}
         settingsState={settingsState as never}
         downloads={downloads as never}
+        onToggleDebugMode={onToggleDebugMode}
         onNavigateToSettings={vi.fn()}
         launchGameLabel="Launch Game"
         launchGameDisabled={false}
@@ -140,15 +154,23 @@ describe('LauncherShell', () => {
     )
 
     expect(screen.getByText('settings-page')).toBeTruthy()
+    expect(settingsPageSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        debugEnabled: true,
+        downloads,
+        onToggleDebugMode,
+      }),
+    )
   })
 
   it('falls back to the library page when the debug page is requested while debug mode is disabled', () => {
     renderWithLocale(
       <LauncherShell
-        page="settings"
+        page="debug"
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
         onNavigateToSettings={vi.fn()}
         launchGameLabel="Launch Game"
         launchGameDisabled={false}
@@ -168,6 +190,7 @@ describe('LauncherShell', () => {
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
         onNavigateToSettings={vi.fn()}
         launchGameLabel="Launch Game"
         launchGameDisabled={false}

@@ -1,6 +1,7 @@
 import type {
   DownloadLauncherModResult,
   LauncherCatalogResult,
+  LauncherRemoteModDetail,
   LauncherLibraryModSummary,
   LauncherLibraryPackPreset,
   LauncherLibraryScopeMode,
@@ -20,18 +21,21 @@ export type LauncherDownloadQueueItem = {
   title: string
   version: string | null
   imageUrl: string | null
-  source: 'discover' | 'updates'
+  source: 'discover' | 'updates' | 'debug'
   status: LauncherDownloadQueueStatus
   archivePath: string | null
   installedTargetPath: string | null
   error: string | null
   addedAt: number
   completedAt: number | null
+  totalBytes: number | null
+  downloadedBytes: number | null
+  bytesPerSecond: number | null
 }
 
 export type QueueLauncherDownloadInput = Pick<LauncherCatalogResult, 'modId' | 'title' | 'imageUrl'> & {
   version?: string | null
-  source: LauncherDownloadQueueItem['source']
+  source: Exclude<LauncherDownloadQueueItem['source'], 'debug'>
 }
 
 export type LauncherDashboardStats = {
@@ -50,4 +54,5 @@ export type LauncherLibraryScope = LauncherLibraryScopeMode
 export type PersistedLauncherLibraryState = LauncherLibraryState
 export type LauncherUpdateItem = LauncherUpdateSummary
 export type LauncherDiscoverItem = LauncherCatalogResult
+export type LauncherDiscoverDetail = LauncherRemoteModDetail
 export type CompletedLauncherDownload = DownloadLauncherModResult

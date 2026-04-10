@@ -58,6 +58,7 @@ import { LocaleProvider } from './lib/app/localeContext'
 import { dismissNotification, NotificationProvider, publishNotification } from './lib/app/notifications'
 import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
 import useModWorkspace from './lib/app/useModWorkspace'
+import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 import { scheduleDeferred } from './lib/react/defer'
@@ -299,6 +300,7 @@ export default function App() {
     getWorldAtlasViewLabel,
   })
   const launcherRuntime = useLauncherRuntime(locale)
+  useLauncherUpdateProgressNotifications(locale)
 
   const {
     eventAssets,
@@ -483,8 +485,8 @@ export default function App() {
   const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
   const availableLauncherPages: LauncherPage[] = debugEnabled
     ? launcherPages
-    : launcherPages.filter((page): page is Exclude<LauncherPage, 'settings'> => page !== 'settings')
-  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'settings' ? 'library' : launcherPage
+    : launcherPages.filter((page): page is Exclude<LauncherPage, 'debug'> => page !== 'debug')
+  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'debug' ? 'library' : launcherPage
   const activePlayerAppearanceProfile =
     playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
   const needsInitialization = !directoryInfo
@@ -613,7 +615,7 @@ export default function App() {
   }, [appMode, debugEnabled, launcherPage])
 
   useEffect(() => {
-    if (!debugEnabled && launcherPage === 'settings') {
+    if (!debugEnabled && launcherPage === 'debug') {
       setLauncherPage('library')
     }
   }, [debugEnabled, launcherPage])
@@ -1016,7 +1018,7 @@ export default function App() {
   }, [])
 
   const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
-    if (nextPage === 'settings' && !debugEnabled) {
+    if (nextPage === 'debug' && !debugEnabled) {
       return
     }
 
@@ -1094,6 +1096,7 @@ export default function App() {
               visiblePages: availableLauncherPages,
               onPageChange: handleLauncherPageChange,
               downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
+              downloadsProgressPercent: launcherRuntime.downloadsProgressPercent,
               downloadsHasFailure: launcherRuntime.downloadsHasFailure,
               settingsWarning: launcherRuntime.settingsWarning,
               settingsWarningLabel: launcherSettingsWarningLabel,
@@ -1175,6 +1178,7 @@ export default function App() {
               <LauncherShell
                 page={activeLauncherPage}
                 debugEnabled={debugEnabled}
+                onToggleDebugMode={() => setDebugEnabled((current) => !current)}
                 settingsState={launcherRuntime.settingsState}
                 downloads={launcherRuntime.downloads}
                 onNavigateToSettings={() => openSettingsWindow('launcher')}
@@ -1199,13 +1203,25 @@ export default function App() {
             />
           ) : null}
 
-          {appMode === 'workbench' && debugEnabled ? (
+          {debugEnabled ? (
             <DevDebugOverlay
-              workspaceMode={workspaceMode}
-              mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
-              eventName={selectedEvent?.eventId ?? null}
-              currentEventCommandId={currentEventCommandId}
-              actorCount={selectedEvent?.scene.actors.length ?? 0}
+              workspaceMode={appMode === 'workbench' ? workspaceMode : 'launcher'}
+              mapName={appMode === 'workbench' ? activeAssetName ?? worldAtlasDocument?.name ?? null : null}
+              eventName={appMode === 'workbench' ? selectedEvent?.eventId ?? null : null}
+              currentEventCommandId={appMode === 'workbench' ? currentEventCommandId : null}
+              actorCount={appMode === 'workbench' ? (selectedEvent?.scene.actors.length ?? 0) : 0}
+              contextSectionLabel={appMode === 'workbench' ? 'Workspace' : 'Launcher'}
+              contextMetrics={
+                appMode === 'launcher'
+                  ? [
+                      ['Page', copy.launcher.pages[activeLauncherPage]],
+                      ['Settings', launcherRuntime.settingsState.state],
+                      ['Queue', String(launcherRuntime.downloads.items.length)],
+                      ['Active', String(launcherRuntime.downloads.counts.downloading)],
+                      ['Ready', String(launcherRuntime.downloads.counts.readyToInstall)],
+                    ]
+                  : undefined
+              }
             />
           ) : null}
 

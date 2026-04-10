@@ -503,6 +503,53 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     [libraryState, packPresets, persistLibraryState, selection],
   )
 
+  const addModsToPack = useCallback(
+    async (packId: string, modIds: string[]) => {
+      const normalizedPackId = packId.trim()
+      if (!normalizedPackId) {
+        return
+      }
+
+      const selectedModKeys = Array.from(
+        new Map(
+          modIds
+            .map((id) => mods.find((item) => item.id === id))
+            .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+            .map(getModKey)
+            .map((value) => [normalizeLookupKey(value), value]),
+        ).values(),
+      ).filter(Boolean)
+
+      if (!selectedModKeys.length) {
+        return
+      }
+
+      await persistLibraryState({
+        ...libraryState,
+        packPresets: packPresets.map((pack) => {
+          if (normalizeLookupKey(pack.id) !== normalizeLookupKey(normalizedPackId)) {
+            return pack
+          }
+          const existing = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
+          const modKeys = [...pack.modKeys]
+          for (const modKey of selectedModKeys) {
+            const modLookup = normalizeLookupKey(modKey)
+            if (existing.has(modLookup)) {
+              continue
+            }
+            existing.add(modLookup)
+            modKeys.push(modKey)
+          }
+          return {
+            ...pack,
+            modKeys,
+          }
+        }),
+      })
+    },
+    [libraryState, mods, packPresets, persistLibraryState],
+  )
+
   const createPackPreset = useCallback(
     async (name: string) => {
       const trimmed = name.trim()
@@ -578,6 +625,36 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       })
     },
     [libraryState, packPresets, persistLibraryState],
+  )
+
+  const replacePackMods = useCallback(
+    async (packId: string, modIds: string[]) => {
+      const normalizedPackId = packId.trim()
+      if (!normalizedPackId) {
+        return
+      }
+
+      const uniqueModIds = Array.from(new Set(modIds.map((value) => value.trim()).filter(Boolean)))
+      const replacementKeys = uniqueModIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+        .map((value) => value.trim())
+        .filter(Boolean)
+
+      await persistLibraryState({
+        ...libraryState,
+        packPresets: packPresets.map((pack) =>
+          normalizeLookupKey(pack.id) === normalizeLookupKey(normalizedPackId)
+            ? {
+                ...pack,
+                modKeys: replacementKeys,
+              }
+            : pack,
+        ),
+      })
+    },
+    [libraryState, mods, packPresets, persistLibraryState],
   )
 
   const setScopeMode = useCallback(
@@ -688,9 +765,11 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     renameStorageFolder,
     deleteStorageFolder,
     addSelectionToPack,
+    addModsToPack,
     createPackPreset,
     renamePackPreset,
     deletePackPreset,
+    replacePackMods,
     setCurrentPackId,
     setScopeMode,
     applyCurrentPack,

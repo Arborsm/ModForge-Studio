@@ -1,7 +1,8 @@
-﻿// @ts-nocheck
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import type { LocaleBundle } from './schema'
 
-const localeBundle: LocaleBundle = {
+const localeBundle = {
   "editor": {
     "brand": {
       "name": "ModForge Studio",
@@ -79,6 +80,7 @@ const localeBundle: LocaleBundle = {
         "filterLibrary": "筛选已安装模组",
         "searchDiscover": "搜索 Nexus 模组",
         "currentVersion": "当前版本",
+        "galleryImages": "介绍图",
         "latestVersion": "最新版本",
         "uniqueId": "唯一 ID",
         "path": "路径",
@@ -117,7 +119,7 @@ const localeBundle: LocaleBundle = {
         "scopeHint": "在整个模组库和当前项目包之间快速切换。",
         "scopeAll": "全部模组",
         "scopeCurrentPack": "当前包",
-        "packTitle": "模组包预设",
+        "packTitle": "模组包管理",
         "packSubtitle": "快速切换模组包，也可以把已选卡片直接拖进去归类。",
         "packButtonLabel": "模组包",
         "storageTitle": "存储文件夹",
@@ -128,7 +130,7 @@ const localeBundle: LocaleBundle = {
         "visibleTitle": "当前可见",
         "selectedTitle": "已选中",
         "currentPackTitle": "当前包",
-        "allPacks": "全部模组包",
+        "allPacks": "全部已安装模组",
         "allStorageFolders": "全部文件夹",
         "defaultStorageFolder": "主 Mods 目录",
         "selectionButtonLabel": "选择",
@@ -143,7 +145,17 @@ const localeBundle: LocaleBundle = {
         "packTargetLabel": "把已选模组加入模组包",
         "noCover": "暂无封面",
         "packLabel": "项目包",
-        "storageFolderLabel": "存储文件夹"
+        "storageFolderLabel": "存储文件夹",
+        "manageCurrentPack": "管理当前模组包",
+        "renameCurrentPack": "重命名当前包",
+        "deleteCurrentPack": "删除当前包",
+        "editCurrentPack": "编辑本包内容",
+        "editingPackLabel": "正在编辑包:",
+        "includedModsCount": (count) => `已包含 ${count} 个模组`,
+        "cancelEdit": "取消",
+        "saveChanges": "保存更改",
+        "renameCurrentPackPrompt": (name) => `重命名 ${name}`,
+        "deleteCurrentPackConfirm": (name) => `确定删除 ${name} 吗？`
       },
       "discover": {
         "title": "发现",
@@ -1034,17 +1046,23 @@ const localeBundle: LocaleBundle = {
   }
 }
 
-localeBundle.editor.launcher.pages.settings = '调试'
-localeBundle.editor.launcher.descriptions.settings = '仅供调试使用的消息与日志验证工具。'
+localeBundle.editor.launcher.pages.debug = '调试'
+localeBundle.editor.launcher.descriptions.debug = '仅供调试使用的消息与日志验证工具。'
 localeBundle.editor.launcher.debug = {
   title: '启动器调试',
   subtitle: '仅在开启 debug 时显示，用于验证全局通知与持久化日志。',
   debugOnlyTitle: '仅限调试使用',
-  debugOnlyDescription: '该页只在全局 debug 开关启用时可见。用它来验证跨模块消息和 log 链路是否正常。',
-  notificationsTitle: '消息测试',
-  notificationsSubtitle: '通过全局通知系统发送可见测试消息。',
-  logsTitle: '日志测试',
-  logsSubtitle: '写入持久化 log，不弹出通知。',
+  debugOnlyDescription: '该页只在全局 debug 开关启用时可见，用于集中验证通知、日志以及后续启动器诊断能力。',
+  notificationsOverviewTitle: '消息测试记录',
+  logsOverviewTitle: '日志测试记录',
+  notificationsTitle: '系统通知测试',
+  notificationsSubtitle: '通过全局通知系统发送可见测试消息，验证不同等级消息的视觉反馈与交互行为。',
+  logsTitle: '持久化日志测试',
+  logsSubtitle: '写入仅持久化的测试日志，不弹出通知，用于验证本地日志链路和后续诊断留痕。',
+  simulationTitle: '下载模拟测试',
+  simulationSubtitle: '以 2 MB/s 持续 10 秒注入一个模拟下载任务，用于验证标题栏和下载队列中的进度反馈。',
+  simulationButtonIdle: '开始模拟下载',
+  simulationButtonRunning: '模拟下载进行中',
   notificationButtons: {
     debug: 'Debug 消息',
     info: 'Info 消息',

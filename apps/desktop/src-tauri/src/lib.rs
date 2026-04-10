@@ -30,10 +30,11 @@ use content_patcher::{
 use launcher::{
     check_launcher_updates, download_launcher_mod, get_launcher_backup_directory,
     inspect_launcher_archive, install_launcher_archive, load_launcher_download_queue,
-    load_launcher_library_covers, load_launcher_library_state, load_launcher_settings,
-    launch_launcher_game, open_launcher_path, resolve_launcher_image, save_launcher_download_queue,
-    save_launcher_library_state, save_launcher_settings, scan_launcher_library,
-    search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
+    load_launcher_library_covers, load_launcher_library_state, load_launcher_remote_mod_detail,
+    load_launcher_settings, launch_launcher_game, open_launcher_path, resolve_launcher_image,
+    save_launcher_download_queue, save_launcher_library_state, save_launcher_settings,
+    scan_launcher_library, search_launcher_catalog, set_launcher_library_cover,
+    set_launcher_mod_enabled,
 };
 use logging::{
     build_logging_plugin, set_debug_logging_enabled, write_frontend_log, DebugLoggingState,
@@ -94,6 +95,7 @@ pub fn run() {
             scan_launcher_library,
             set_launcher_mod_enabled,
             search_launcher_catalog,
+            load_launcher_remote_mod_detail,
             resolve_launcher_image,
             check_launcher_updates,
             download_launcher_mod,

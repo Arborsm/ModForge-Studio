@@ -27,6 +27,7 @@ import {
 import { useEditorCopy, useLocale, useSettingsMenuCopy, useViewMenuCopy } from '../lib/app/localeContext'
 import { cx } from '../lib/cx'
 import type { WorkspacePanelMeta } from './WorkspaceLayout'
+import { LauncherProgressRing } from './launcher/shared/LauncherProgressRing'
 
 type TopMenuBarProps = {
   appMode: AppMode
@@ -61,6 +62,7 @@ type TopMenuBarProps = {
     visiblePages: LauncherPage[]
     onPageChange: (page: LauncherPage) => void
     downloadsBadgeCount: number
+    downloadsProgressPercent: number | null
     downloadsHasFailure: boolean
     settingsWarning: boolean
     settingsWarningLabel: string
@@ -305,7 +307,7 @@ export default function TopMenuBar({
                 <nav className="contents" aria-label={copy.launcher.navigation}>
                     {launcherNav.visiblePages.map((page) => {
                       const active = launcherNav.page === page
-                      const warning = page === 'settings' && launcherNav.settingsWarning
+                      const warning = page === 'debug' && launcherNav.settingsWarning
 
                       return (
                         <button
@@ -344,11 +346,11 @@ export default function TopMenuBar({
         <div className="top-menu-cluster top-menu-controls flex min-w-0 items-center justify-self-end gap-2" role="group" aria-label="Shell controls">
           <span className={cx('status-pill status-pill-compact', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
           {launcherNav ? (
-            <div className="top-menu-launcher-tools" ref={downloadsMenuRef}>
+            <div className="top-menu-launcher-tools pointer-events-auto" ref={downloadsMenuRef}>
               <button
                 type="button"
                 className={cx(
-                  'top-menu-icon-action',
+                  'icon-button pointer-events-auto top-menu-icon-action',
                   downloadsMenuOpen && 'top-menu-icon-action-active',
                   launcherNav.downloadsHasFailure && 'top-menu-icon-action-failure',
                 )}
@@ -358,7 +360,19 @@ export default function TopMenuBar({
                 aria-controls={downloadsMenuId}
                 onClick={() => setActiveMenu((current) => (current === 'downloads' ? null : 'downloads'))}
               >
-                <Download className="h-4 w-4" />
+                {launcherNav.downloadsProgressPercent !== null ? (
+                  <LauncherProgressRing
+                    progress={launcherNav.downloadsProgressPercent}
+                    size={32}
+                    strokeWidth={2.5}
+                    label={`${copy.launcher.downloads.title} progress`}
+                    className="top-menu-icon-progress-ring"
+                  >
+                    <Download className="h-4 w-4" />
+                  </LauncherProgressRing>
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
                 {launcherNav.downloadsBadgeCount > 0 ? (
                   <span
                     className={cx(
@@ -370,6 +384,18 @@ export default function TopMenuBar({
                   </span>
                 ) : null}
               </button>
+              {downloadsMenuOpen ? (
+                <section
+                  className="top-menu-float-panel launcher-downloads-float pointer-events-auto panel-surface panel-surface-muted"
+                  id={downloadsMenuId}
+                  role="dialog"
+                  aria-label={copy.launcher.downloads.title}
+                  ref={downloadsFloatRef}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {launcherNav.downloadsPopover}
+                </section>
+              ) : null}
             </div>
           ) : null}
           <button
@@ -436,30 +462,6 @@ export default function TopMenuBar({
         </div>
       </div>
 
-      {downloadsMenuOpen ? (
-        <div className="top-menu-float-backdrop" role="presentation" onClick={() => setActiveMenu(null)}>
-          <section
-            className="top-menu-float-panel launcher-downloads-float panel-surface panel-surface-muted"
-            id={downloadsMenuId}
-            role="dialog"
-            aria-modal="true"
-            aria-label={copy.launcher.downloads.title}
-            ref={downloadsFloatRef}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="icon-button top-menu-float-close"
-              onClick={() => setActiveMenu(null)}
-              aria-label={copy.launcher.actions.closeDialog}
-              title={copy.launcher.actions.closeDialog}
-            >
-              <X className="h-4 w-4" />
-            </button>
-            {launcherNav?.downloadsPopover}
-          </section>
-        </div>
-      ) : null}
     </header>
   )
 }

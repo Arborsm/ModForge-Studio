@@ -4,12 +4,16 @@ import { canUseDesktopHost, clearFileCache, getDesktopCacheStats, getFileCacheSt
 import { getMapViewportCacheStats } from '../lib/mapViewportCache'
 import type { WorkspaceMode } from '../lib/editor-shell'
 
+type DebugOverlayMode = WorkspaceMode | 'launcher'
+
 type DevDebugOverlayProps = {
-  workspaceMode: WorkspaceMode
+  workspaceMode: DebugOverlayMode
   mapName: string | null
   eventName: string | null
   currentEventCommandId: string | null
   actorCount: number
+  contextSectionLabel?: string
+  contextMetrics?: MetricItem[]
 }
 
 type CacheStats = {
@@ -45,14 +49,16 @@ function useFps() {
     let lastTime = performance.now()
     let lastSample = lastTime
     let frameCount = 0
+    let latestFrameTimeMs = 0
 
     const tick = (now: number) => {
       frameCount += 1
-      setFrameTimeMs(now - lastTime)
+      latestFrameTimeMs = now - lastTime
       lastTime = now
 
       if (now - lastSample >= 500) {
         setFps(Math.round((frameCount * 1000) / (now - lastSample)))
+        setFrameTimeMs(latestFrameTimeMs)
         frameCount = 0
         lastSample = now
       }
@@ -73,6 +79,8 @@ export function DevDebugOverlay({
   eventName,
   currentEventCommandId,
   actorCount,
+  contextSectionLabel = 'Workspace',
+  contextMetrics: externalContextMetrics,
 }: DevDebugOverlayProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [position, setPosition] = useState({ x: 20, y: 84 })
@@ -142,6 +150,10 @@ export function DevDebugOverlay({
   )
 
   const contextMetrics = useMemo(() => {
+    if (externalContextMetrics?.length) {
+      return externalContextMetrics
+    }
+
     if (workspaceMode === 'map') {
       return [
         ['Map', mapName ?? 'n/a'],
@@ -176,6 +188,7 @@ export function DevDebugOverlay({
     cacheStats.viewport.pendingImages,
     currentEventCommandId,
     eventName,
+    externalContextMetrics,
     mapName,
     workspaceMode,
   ])
@@ -276,7 +289,7 @@ export function DevDebugOverlay({
           </div>
 
           <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Workspace</p>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{contextSectionLabel}</p>
             {renderMetricGrid(contextMetrics)}
           </div>
 

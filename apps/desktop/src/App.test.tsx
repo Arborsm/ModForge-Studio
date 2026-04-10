@@ -63,7 +63,9 @@ vi.mock('./lib/launcher/useLauncherRuntime', () => ({
         failed: 0,
         readyToInstall: 0,
       },
+      downloadProgressPercent: null,
       queueDownload: vi.fn(),
+      startDebugSimulation: vi.fn(),
       retryItem: vi.fn(),
       retryFailed: vi.fn(),
       removeItem: vi.fn(),
@@ -76,6 +78,7 @@ vi.mock('./lib/launcher/useLauncherRuntime', () => ({
     settingsWarning: true,
     settingsWarningLabel: 'Launcher setup incomplete',
     downloadsBadgeCount: 0,
+    downloadsProgressPercent: null,
     downloadsHasFailure: false,
   }),
 }))
@@ -350,6 +353,15 @@ describe('App locale ownership', () => {
     expect(screen.getByTestId('dev-debug-overlay')).toBeTruthy()
   })
 
+  it('shows the debug overlay in launcher mode when debug mode is enabled', () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
+
+    render(<App />)
+
+    expect(screen.getByTestId('dev-debug-overlay')).toBeTruthy()
+  })
+
   it('toggles debug mode from Settings and persists the flag', async () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
@@ -368,7 +380,7 @@ describe('App locale ownership', () => {
 
   it('falls back to the launcher library when the persisted debug page is disabled', () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'settings')
+    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'debug')
     window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'false')
 
     render(<App />)
@@ -376,19 +388,19 @@ describe('App locale ownership', () => {
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe(
       'page',
     )
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.settings })).toBeNull()
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
   })
 
   it('returns from the launcher debug page when debug mode is turned off', async () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'settings')
+    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'debug')
     window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.settings }).getAttribute('aria-current')).toBe(
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
       'page',
     )
 
@@ -405,7 +417,7 @@ describe('App locale ownership', () => {
       )
     })
 
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.settings })).toBeNull()
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
   })
 })

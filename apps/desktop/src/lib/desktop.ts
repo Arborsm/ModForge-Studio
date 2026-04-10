@@ -393,9 +393,30 @@ export type SetLauncherModEnabledResult = {
 
 export type SearchLauncherCatalogRequest = {
   query?: string | null
+  titleQuery?: string | null
+  descriptionQuery?: string | null
+  authorQuery?: string | null
+  uploaderQuery?: string | null
   page?: number
+  pageSize?: number
+  timeRange?: 'all' | 'day' | 'week' | 'month' | 'year'
   sort?: 'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name'
   ascending?: boolean
+  category?: string | null
+  language?: string | null
+  tagsInclude?: string | null
+  tagsExclude?: string | null
+  includeAdult?: boolean
+  minFileSize?: number | null
+  maxFileSize?: number | null
+  minDownloads?: number | null
+  maxDownloads?: number | null
+  minEndorsements?: number | null
+  maxEndorsements?: number | null
+}
+
+export type LoadLauncherRemoteModDetailRequest = {
+  modId: number
 }
 
 export type LauncherCatalogResult = {
@@ -403,14 +424,47 @@ export type LauncherCatalogResult = {
   title: string
   summary: string | null
   author: string | null
+  uploader: string | null
   modUrl: string
   imageUrl: string | null
+  category: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  downloads: number | null
+  endorsements: number | null
+  fileSize: number | null
+  updateAvailable: boolean
+}
+
+export type LauncherCatalogFacetEntry = {
+  name: string
+  count: number
+}
+
+export type LauncherCatalogFacets = {
+  categories: LauncherCatalogFacetEntry[]
+  languages: LauncherCatalogFacetEntry[]
+  tags: LauncherCatalogFacetEntry[]
 }
 
 export type LauncherCatalogPageResult = {
   page: number
+  pageSize: number
+  totalCount: number
   hasMore: boolean
+  facets: LauncherCatalogFacets
   results: LauncherCatalogResult[]
+}
+
+export type LauncherRemoteModDetail = {
+  modId: number
+  title: string
+  summary: string | null
+  author: string | null
+  version: string | null
+  modUrl: string
+  imageUrl: string | null
+  galleryImages: string[]
 }
 
 export type ResolveLauncherImageRequest = {
@@ -488,6 +542,9 @@ export type LauncherDownloadQueueItemRecord = {
   error: string | null
   addedAt: number
   completedAt: number | null
+  totalBytes?: number | null
+  downloadedBytes?: number | null
+  bytesPerSecond?: number | null
 }
 
 export type LauncherDownloadQueueState = {
@@ -635,6 +692,7 @@ const loadLauncherLibraryCoversCache = createPromiseCache<LauncherLibraryCoversS
 const loadLauncherDownloadQueueCache = createPromiseCache<LauncherDownloadQueueState>()
 const scanLauncherLibraryCache = createPromiseCache<LauncherLibraryScanResult>()
 const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>()
+const loadLauncherRemoteModDetailCache = createPromiseCache<LauncherRemoteModDetail>()
 const checkLauncherUpdatesCache = createPromiseCache<LauncherUpdatesResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 
@@ -1013,12 +1071,36 @@ export async function setLauncherModEnabled(request: SetLauncherModEnabledReques
 export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
   const cacheKey = JSON.stringify({
     query: request.query?.trim() || '',
+    titleQuery: request.titleQuery?.trim() || '',
+    descriptionQuery: request.descriptionQuery?.trim() || '',
+    authorQuery: request.authorQuery?.trim() || '',
+    uploaderQuery: request.uploaderQuery?.trim() || '',
     page: request.page ?? 1,
+    pageSize: request.pageSize ?? 20,
+    timeRange: request.timeRange ?? 'all',
     sort: request.sort ?? 'newest',
     ascending: request.ascending ?? false,
+    category: request.category?.trim() || '',
+    language: request.language?.trim() || '',
+    tagsInclude: request.tagsInclude?.trim() || '',
+    tagsExclude: request.tagsExclude?.trim() || '',
+    includeAdult: request.includeAdult ?? false,
+    minFileSize: request.minFileSize ?? null,
+    maxFileSize: request.maxFileSize ?? null,
+    minDownloads: request.minDownloads ?? null,
+    maxDownloads: request.maxDownloads ?? null,
+    minEndorsements: request.minEndorsements ?? null,
+    maxEndorsements: request.maxEndorsements ?? null,
   })
   return readPending(searchLauncherCatalogCache, cacheKey, () =>
     invokeDesktop<LauncherCatalogPageResult>('search_launcher_catalog', { request }),
+  )
+}
+
+export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetailRequest) {
+  const cacheKey = String(request.modId)
+  return readPending(loadLauncherRemoteModDetailCache, cacheKey, () =>
+    invokeDesktop<LauncherRemoteModDetail>('load_launcher_remote_mod_detail', { request }),
   )
 }
 

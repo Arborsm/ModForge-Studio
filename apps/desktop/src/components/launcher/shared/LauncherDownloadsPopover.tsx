@@ -3,58 +3,15 @@ import { useEditorCopy } from '../../../lib/app/localeContext'
 import { LauncherDownloadRow } from '../cards/LauncherDownloadRow'
 import { LauncherStateBlock } from './LauncherStateBlock'
 import { useLauncherDownloads } from '../../../lib/launcher/useLauncherDownloads'
+import { orderLauncherDownloadItems } from './orderLauncherDownloadItems'
 
 type LauncherDownloadsPopoverProps = {
   downloads: ReturnType<typeof useLauncherDownloads>
 }
 
-type LauncherDownloadsSectionProps = {
-  title: string
-  items: ReturnType<typeof useLauncherDownloads>['items']
-  emptyLabel: string
-  downloads: ReturnType<typeof useLauncherDownloads>
-  statusLabels: ReturnType<typeof useEditorCopy>['launcher']['states']
-}
-
-function LauncherDownloadsSection({
-  title,
-  items,
-  emptyLabel,
-  downloads,
-  statusLabels,
-}: LauncherDownloadsSectionProps) {
-  return (
-    <section className="launcher-downloads-popover-section">
-      <div className="launcher-downloads-popover-section-header">
-        <p className="launcher-downloads-popover-section-title">{title}</p>
-        <span className="dock-chip">{items.length}</span>
-      </div>
-      {items.length ? (
-        <div className="launcher-downloads-popover-list">
-          {items.map((item) => (
-            <LauncherDownloadRow
-              key={item.id}
-              item={item}
-              statusLabel={statusLabels[item.status]}
-              onRetry={() => downloads.retryItem(item.id)}
-              onRemove={() => downloads.removeItem(item.id)}
-              onInstall={() => void downloads.installItem(item.id)}
-            />
-          ))}
-        </div>
-      ) : (
-        <LauncherStateBlock title={emptyLabel} detail="" compact tone="info" />
-      )}
-    </section>
-  )
-}
-
 export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopoverProps) {
   const copy = useEditorCopy().launcher
-  const queueItems = [...downloads.activeItems, ...downloads.queuedItems]
-  const readyItems = downloads.readyToInstall
-  const completedItems = downloads.installedItems
-  const failedItems = downloads.failedItems
+  const orderedItems = orderLauncherDownloadItems(downloads.items)
 
   return (
     <div className="launcher-downloads-popover">
@@ -114,36 +71,22 @@ export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopover
               <RefreshCw className="h-3 w-3" />
               <span>{downloads.counts.downloading} {copy.overview.activeDownloads}</span>
             </span>
+            <span className="dock-chip">{orderedItems.length}</span>
           </div>
-
-          <LauncherDownloadsSection
-            title={`${copy.states.downloading} / ${copy.states.queued}`}
-            items={queueItems}
-            emptyLabel={copy.downloads.empty}
-            downloads={downloads}
-            statusLabels={copy.states}
-          />
-          <LauncherDownloadsSection
-            title={copy.actions.install}
-            items={readyItems}
-            emptyLabel={copy.states.completed}
-            downloads={downloads}
-            statusLabels={copy.states}
-          />
-          <LauncherDownloadsSection
-            title={copy.overview.completedDownloads}
-            items={completedItems}
-            emptyLabel={copy.states.completed}
-            downloads={downloads}
-            statusLabels={copy.states}
-          />
-          <LauncherDownloadsSection
-            title={copy.states.failed}
-            items={failedItems}
-            emptyLabel={copy.states.failed}
-            downloads={downloads}
-            statusLabels={copy.states}
-          />
+          <div className="launcher-downloads-popover-list-shell">
+            <div className="launcher-downloads-popover-list">
+              {orderedItems.map((item) => (
+                <LauncherDownloadRow
+                  key={item.id}
+                  item={item}
+                  statusLabel={copy.states[item.status]}
+                  onRetry={() => downloads.retryItem(item.id)}
+                  onRemove={() => downloads.removeItem(item.id)}
+                  onInstall={() => void downloads.installItem(item.id)}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

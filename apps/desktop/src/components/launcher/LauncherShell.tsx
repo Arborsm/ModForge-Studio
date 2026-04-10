@@ -1,14 +1,15 @@
 import type { LauncherPage } from '../../lib/editor-shell'
 import { useLauncherDownloads } from '../../lib/launcher/useLauncherDownloads'
 import { useLauncherSettings } from '../../lib/launcher/useLauncherSettings'
+import { LauncherDebugPage } from './pages/LauncherDebugPage'
 import { LauncherDiscoverPage } from './pages/LauncherDiscoverPage'
 import { LauncherLibraryPage } from './pages/LauncherLibraryPage'
-import { LauncherSettingsPage } from './pages/LauncherSettingsPage'
 import { LauncherUpdatesPage } from './pages/LauncherUpdatesPage'
 
 type LauncherShellProps = {
   page: LauncherPage
   debugEnabled: boolean
+  onToggleDebugMode: () => void
   settingsState: ReturnType<typeof useLauncherSettings>
   downloads: ReturnType<typeof useLauncherDownloads>
   onNavigateToSettings: () => void
@@ -21,6 +22,7 @@ type LauncherShellProps = {
 export default function LauncherShell({
   page,
   debugEnabled,
+  onToggleDebugMode,
   settingsState,
   downloads,
   onNavigateToSettings,
@@ -29,7 +31,7 @@ export default function LauncherShell({
   launchGameBusy,
   onLaunchGame,
 }: LauncherShellProps) {
-  const activePage = !debugEnabled && page === 'settings' ? 'library' : page
+  const activePage = !debugEnabled && page === 'debug' ? 'library' : page
 
   return (
     <section className="launcher-shell launcher-shell-routed">
@@ -57,7 +59,9 @@ export default function LauncherShell({
             onNavigateToSettings={onNavigateToSettings}
           />
         ) : null}
-        {activePage === 'settings' && debugEnabled ? <LauncherSettingsPage /> : null}
+        {activePage === 'debug' && debugEnabled ? (
+          <LauncherDebugPage debugEnabled={debugEnabled} onToggleDebugMode={onToggleDebugMode} downloads={downloads} />
+        ) : null}
       </div>
     </section>
   )

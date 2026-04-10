@@ -12,7 +12,7 @@ mod trace;
 mod types;
 
 pub use archive::{inspect_launcher_archive, install_launcher_archive};
-pub use catalog::{check_launcher_updates, search_launcher_catalog};
+pub use catalog::{check_launcher_updates, load_launcher_remote_mod_detail, search_launcher_catalog};
 pub use downloads::{
     download_launcher_mod, load_launcher_download_queue, save_launcher_download_queue,
 };
