@@ -558,7 +558,206 @@ export function LauncherLibraryPage({
   return (
       <>
         <section className="launcher-library-page">
-        <div className="launcher-library-shell">
+        {!editMode ? (
+          <section className="launcher-library-console">
+            <div className="launcher-library-console-top">
+              <div className="launcher-library-console-heading">
+                <button
+                  type="button"
+                  className="launcher-library-icon-button launcher-library-inline-menu-button"
+                  aria-label={copy.library.packTitle}
+                  title={copy.library.packTitle}
+                  onClick={() => {
+                    setDrawerOpen((current) => !current)
+                    setQuickSwitchOpen(false)
+                    setPackActionMenuId(null)
+                    setSortMenuOpen(false)
+                  }}
+                >
+                  <Menu className="h-4 w-4" />
+                </button>
+
+                <div className="launcher-library-console-copy" ref={titleMenuRef}>
+                  <button
+                    type="button"
+                    className="launcher-library-title-button"
+                    onClick={() => {
+                      if (drawerOpen) {
+                        return
+                      }
+                      setQuickSwitchOpen((current) => !current)
+                      setPackActionMenuId(null)
+                      setSortMenuOpen(false)
+                    }}
+                  >
+                    <h1 className="launcher-library-console-title">{currentPackLabel}</h1>
+                    {!drawerOpen ? <ChevronDown className="h-4 w-4" /> : null}
+                  </button>
+                  {shortModsPath ? (
+                    <p className="launcher-library-console-subtitle" title={settings.modsPath ?? undefined}>
+                      {shortModsPath}
+                    </p>
+                  ) : null}
+
+                  {quickSwitchOpen && !drawerOpen ? (
+                    <div className="launcher-library-title-menu">
+                      <button
+                        type="button"
+                        className={cx('launcher-library-title-menu-item', !library.currentPackId && 'launcher-library-title-menu-item-active')}
+                        aria-label={copy.library.allPacks}
+                        onClick={() => void selectPack(null)}
+                      >
+                        <span>{copy.library.allPacks}</span>
+                        <span>{library.mods.length}</span>
+                      </button>
+
+                      {library.packPresets.map((pack) => (
+                        <button
+                          key={pack.id}
+                          type="button"
+                          className={cx(
+                            'launcher-library-title-menu-item',
+                            normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') &&
+                              'launcher-library-title-menu-item-active',
+                          )}
+                          aria-label={pack.name}
+                          onClick={() => void selectPack(pack.id)}
+                        >
+                          <span>{pack.name}</span>
+                          <span>{pack.modKeys.length}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="launcher-library-console-actions">
+                <button type="button" className="launcher-library-icon-button" onClick={() => void library.refresh()} aria-label={copy.actions.refresh} title={copy.actions.refresh}>
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+                <button type="button" className="launcher-library-icon-button" onClick={() => void openLibraryRoot()} aria-label={copy.actions.openStorageFolder} title={copy.actions.openStorageFolder}>
+                  <FolderOpen className="h-4 w-4" />
+                </button>
+                <button type="button" className="control-button launcher-library-secondary-action" onClick={() => void inspectArchive()}>
+                  <FolderArchive className="h-4 w-4" />
+                  <span>{copy.actions.installArchive}</span>
+                </button>
+                <button type="button" className="control-button control-button-primary launcher-library-primary-action" disabled={launchGameDisabled} onClick={onLaunchGame}>
+                  <Play className="h-4 w-4" />
+                  <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="launcher-library-console-divider" />
+
+            <div className="launcher-library-console-bottom">
+              <div className="launcher-library-console-left">
+                <label className="launcher-library-search">
+                  <Search className="h-4 w-4" />
+                  <input value={library.filterText} onChange={(event) => library.setFilterText(event.target.value)} placeholder={copy.fields.filterLibrary} spellCheck={false} />
+                </label>
+              </div>
+
+              <div className="launcher-library-console-right">
+                <button
+                  type="button"
+                  className={cx('launcher-library-switch-button', library.enabledOnly && 'launcher-library-switch-button-active')}
+                  role="switch"
+                  aria-checked={library.enabledOnly}
+                  onClick={() => library.setEnabledOnly(!library.enabledOnly)}
+                >
+                  <span className="launcher-library-switch-track" aria-hidden="true">
+                    <span className="launcher-library-switch-thumb" />
+                  </span>
+                  <span>{copy.toggles.enabledOnly}</span>
+                </button>
+
+                <div className="launcher-library-popover-shell" ref={sortMenuRef}>
+                  <button
+                    type="button"
+                    className="launcher-library-sort-trigger"
+                    aria-haspopup="menu"
+                    aria-expanded={sortMenuOpen}
+                    aria-label={copy.library.sortLabel}
+                    onClick={() => {
+                      setSortMenuOpen((current) => !current)
+                      setQuickSwitchOpen(false)
+                      setPackActionMenuId(null)
+                    }}
+                  >
+                    <span>{currentSortLabel}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+
+                  {sortMenuOpen ? (
+                    <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
+                      {sortOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={sortMode === option.value}
+                          className={cx(
+                            'launcher-library-sort-option',
+                            sortMode === option.value && 'launcher-library-sort-option-active',
+                          )}
+                          onClick={() => {
+                            setSortMode(option.value)
+                            setSortMenuOpen(false)
+                          }}
+                        >
+                          <span>{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="launcher-library-edit-bar">
+            <div className="launcher-library-edit-bar-left">
+              <button
+                type="button"
+                className="launcher-library-icon-button launcher-library-inline-menu-button"
+                aria-label={copy.library.packTitle}
+                title={copy.library.packTitle}
+                onClick={() => {
+                  setDrawerOpen((current) => !current)
+                  setQuickSwitchOpen(false)
+                  setPackActionMenuId(null)
+                  setSortMenuOpen(false)
+                }}
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+              <span className="launcher-library-edit-label">
+                {copy.library.editingPackLabel} <strong>{library.currentPack?.name ?? copy.library.allPacks}</strong>
+              </span>
+            </div>
+            <div className="launcher-library-edit-bar-center">
+              <span className="launcher-library-edit-label">{copy.library.includedModsCount(editCount)}</span>
+            </div>
+            <div className="launcher-library-edit-bar-right">
+              <button type="button" className="control-button launcher-library-secondary-action" onClick={cancelEditMode}>
+                {copy.library.cancelEdit}
+              </button>
+              <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={() => void saveEditMode()}>
+                {copy.library.saveChanges}
+              </button>
+            </div>
+          </section>
+        )}
+
+        <div
+          className={cx(
+            'launcher-library-shell',
+            drawerOpen ? 'launcher-library-shell-sidebar-open' : 'launcher-library-shell-sidebar-collapsed',
+          )}
+        >
           <aside
             className={cx(
               'launcher-library-sidebar',
@@ -711,201 +910,7 @@ export function LauncherLibraryPage({
             </div>
           </aside>
 
-          <div className="launcher-library-canvas">
-          {!editMode ? (
-            <section className="launcher-library-console">
-              <div className="launcher-library-console-top">
-                <div className="launcher-library-console-heading">
-                  <button
-                    type="button"
-                    className="launcher-library-icon-button launcher-library-inline-menu-button"
-                    aria-label={copy.library.packTitle}
-                    title={copy.library.packTitle}
-                    onClick={() => {
-                      setDrawerOpen((current) => !current)
-                      setQuickSwitchOpen(false)
-                      setPackActionMenuId(null)
-                      setSortMenuOpen(false)
-                    }}
-                  >
-                    <Menu className="h-4 w-4" />
-                  </button>
-
-                  <div className="launcher-library-console-copy" ref={titleMenuRef}>
-                    <button
-                      type="button"
-                      className="launcher-library-title-button"
-                      onClick={() => {
-                        if (drawerOpen) {
-                          return
-                        }
-                        setQuickSwitchOpen((current) => !current)
-                        setPackActionMenuId(null)
-                        setSortMenuOpen(false)
-                      }}
-                    >
-                      <h1 className="launcher-library-console-title">{currentPackLabel}</h1>
-                      {!drawerOpen ? <ChevronDown className="h-4 w-4" /> : null}
-                    </button>
-                    {shortModsPath ? (
-                      <p className="launcher-library-console-subtitle" title={settings.modsPath ?? undefined}>
-                        {shortModsPath}
-                      </p>
-                    ) : null}
-
-                    {quickSwitchOpen && !drawerOpen ? (
-                      <div className="launcher-library-title-menu">
-                        <button
-                          type="button"
-                          className={cx('launcher-library-title-menu-item', !library.currentPackId && 'launcher-library-title-menu-item-active')}
-                          aria-label={copy.library.allPacks}
-                          onClick={() => void selectPack(null)}
-                        >
-                          <span>{copy.library.allPacks}</span>
-                          <span>{library.mods.length}</span>
-                        </button>
-
-                        {library.packPresets.map((pack) => (
-                          <button
-                            key={pack.id}
-                            type="button"
-                            className={cx(
-                              'launcher-library-title-menu-item',
-                              normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') &&
-                                'launcher-library-title-menu-item-active',
-                            )}
-                            aria-label={pack.name}
-                            onClick={() => void selectPack(pack.id)}
-                          >
-                            <span>{pack.name}</span>
-                            <span>{pack.modKeys.length}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="launcher-library-console-actions">
-                  <button type="button" className="launcher-library-icon-button" onClick={() => void library.refresh()} aria-label={copy.actions.refresh} title={copy.actions.refresh}>
-                    <RefreshCw className="h-4 w-4" />
-                  </button>
-                  <button type="button" className="launcher-library-icon-button" onClick={() => void openLibraryRoot()} aria-label={copy.actions.openStorageFolder} title={copy.actions.openStorageFolder}>
-                    <FolderOpen className="h-4 w-4" />
-                  </button>
-                  <button type="button" className="control-button launcher-library-secondary-action" onClick={() => void inspectArchive()}>
-                    <FolderArchive className="h-4 w-4" />
-                    <span>{copy.actions.installArchive}</span>
-                  </button>
-                  <button type="button" className="control-button control-button-primary launcher-library-primary-action" disabled={launchGameDisabled} onClick={onLaunchGame}>
-                    <Play className="h-4 w-4" />
-                    <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="launcher-library-console-divider" />
-
-              <div className="launcher-library-console-bottom">
-                <div className="launcher-library-console-left">
-                  <label className="launcher-library-search">
-                    <Search className="h-4 w-4" />
-                    <input value={library.filterText} onChange={(event) => library.setFilterText(event.target.value)} placeholder={copy.fields.filterLibrary} spellCheck={false} />
-                  </label>
-                </div>
-
-                <div className="launcher-library-console-right">
-                  <button
-                    type="button"
-                    className={cx('launcher-library-switch-button', library.enabledOnly && 'launcher-library-switch-button-active')}
-                    role="switch"
-                    aria-checked={library.enabledOnly}
-                    onClick={() => library.setEnabledOnly(!library.enabledOnly)}
-                  >
-                    <span className="launcher-library-switch-track" aria-hidden="true">
-                      <span className="launcher-library-switch-thumb" />
-                    </span>
-                    <span>{copy.toggles.enabledOnly}</span>
-                  </button>
-
-                  <div className="launcher-library-popover-shell" ref={sortMenuRef}>
-                    <button
-                      type="button"
-                      className="launcher-library-sort-trigger"
-                      aria-haspopup="menu"
-                      aria-expanded={sortMenuOpen}
-                      aria-label={copy.library.sortLabel}
-                      onClick={() => {
-                        setSortMenuOpen((current) => !current)
-                        setQuickSwitchOpen(false)
-                        setPackActionMenuId(null)
-                      }}
-                    >
-                      <span>{currentSortLabel}</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
-
-                    {sortMenuOpen ? (
-                      <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
-                        {sortOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            role="menuitemradio"
-                            aria-checked={sortMode === option.value}
-                            className={cx(
-                              'launcher-library-sort-option',
-                              sortMode === option.value && 'launcher-library-sort-option-active',
-                            )}
-                            onClick={() => {
-                              setSortMode(option.value)
-                              setSortMenuOpen(false)
-                            }}
-                          >
-                            <span>{option.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </section>
-          ) : (
-            <section className="launcher-library-edit-bar">
-              <div className="launcher-library-edit-bar-left">
-                <button
-                  type="button"
-                  className="launcher-library-icon-button launcher-library-inline-menu-button"
-                  aria-label={copy.library.packTitle}
-                  title={copy.library.packTitle}
-                  onClick={() => {
-                    setDrawerOpen((current) => !current)
-                    setQuickSwitchOpen(false)
-                    setPackActionMenuId(null)
-                    setSortMenuOpen(false)
-                  }}
-                >
-                  <Menu className="h-4 w-4" />
-                </button>
-                <span className="launcher-library-edit-label">
-                  {copy.library.editingPackLabel} <strong>{library.currentPack?.name ?? copy.library.allPacks}</strong>
-                </span>
-              </div>
-              <div className="launcher-library-edit-bar-center">
-                <span className="launcher-library-edit-label">{copy.library.includedModsCount(editCount)}</span>
-              </div>
-              <div className="launcher-library-edit-bar-right">
-                <button type="button" className="control-button launcher-library-secondary-action" onClick={cancelEditMode}>
-                  {copy.library.cancelEdit}
-                </button>
-                <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={() => void saveEditMode()}>
-                  {copy.library.saveChanges}
-                </button>
-              </div>
-            </section>
-          )}
-
+          <div className="launcher-library-content">
           <div className="launcher-library-browser">
             {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
             {library.state === 'error' ? <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" /> : null}
@@ -925,7 +930,7 @@ export function LauncherLibraryPage({
               />
             )}
           </div>
-        </div>
+          </div>
         </div>
 
         <LauncherModDetailPanel

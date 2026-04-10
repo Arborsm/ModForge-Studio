@@ -285,7 +285,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
-    renderLibraryPage()
+    const { container } = renderLibraryPage()
 
     expect(screen.getByRole('button', { name: 'Pack Management' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Story Pack' })).not.toBeNull()
@@ -294,6 +294,10 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Install Archive' })).not.toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).not.toBeNull()
     expect(screen.queryByRole('button', { name: 'Apply Pack' })).toBeNull()
+    expect(container.querySelector('.launcher-library-page > .launcher-library-console')).not.toBeNull()
+    expect(container.querySelector('.launcher-library-shell > .launcher-library-sidebar')).not.toBeNull()
+    expect(container.querySelector('.launcher-library-shell > .launcher-library-content')).not.toBeNull()
+    expect(container.querySelector('.launcher-library-shell .launcher-library-console')).toBeNull()
   })
 
   it('uses a custom enabled-only switch and custom sort menu', async () => {
@@ -312,7 +316,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('menu', { name: 'Quick Sort' })).not.toBeNull()
 
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'Pack' }))
-    expect(screen.getByRole('button', { name: 'Quick Sort' })).toHaveTextContent('Pack')
+    expect(screen.getByRole('button', { name: 'Quick Sort' }).textContent).toContain('Pack')
   })
 
   it('opens the left drawer and switches packs from the pack list', async () => {

@@ -19,6 +19,7 @@ use super::types::{
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
     LauncherLibraryCoversState, LauncherLibraryPackPreset, LauncherLibraryScopeMode,
     LauncherLibraryState, LauncherLibraryStorageFolder, LauncherSettings,
+    SearchLauncherCatalogRequest,
     SetLauncherModEnabledRequest,
 };
 use crate::test_support::{create_temp_dir, write_file};
@@ -355,7 +356,29 @@ fn scan_library_extracts_nexus_update_keys() {
 
 #[test]
 fn build_catalog_graphql_payload_maps_query_sort_and_page() {
-    let payload = build_catalog_graphql_payload(Some("tractor"), 2, "updated", false)
+    let payload = build_catalog_graphql_payload(&SearchLauncherCatalogRequest {
+        query: Some("tractor".to_string()),
+        title_query: None,
+        description_query: None,
+        author_query: None,
+        uploader_query: None,
+        page: Some(2),
+        page_size: Some(20),
+        time_range: None,
+        sort: Some("updated".to_string()),
+        ascending: Some(false),
+        category: None,
+        language: None,
+        tags_include: None,
+        tags_exclude: None,
+        include_adult: Some(false),
+        min_file_size: None,
+        max_file_size: None,
+        min_downloads: None,
+        max_downloads: None,
+        min_endorsements: None,
+        max_endorsements: None,
+    })
         .expect("build catalog graphql payload");
 
     assert_eq!(payload["operationName"], "CatalogMods");
@@ -374,20 +397,51 @@ fn build_catalog_graphql_payload_maps_query_sort_and_page() {
 
 #[test]
 fn build_public_catalog_graphql_payload_matches_browser_mod_listing_shape() {
-    let payload = build_public_catalog_graphql_payload(Some("tractor"), 2, "updated", false)
+    let payload = build_public_catalog_graphql_payload(&SearchLauncherCatalogRequest {
+        query: Some("tractor".to_string()),
+        title_query: None,
+        description_query: Some("pelican".to_string()),
+        author_query: Some("Pathoschild".to_string()),
+        uploader_query: Some("Pathoschild".to_string()),
+        page: Some(2),
+        page_size: Some(20),
+        time_range: None,
+        sort: Some("updated".to_string()),
+        ascending: Some(false),
+        category: Some("Gameplay Mechanics".to_string()),
+        language: Some("English".to_string()),
+        tags_include: Some("smapi, tractor".to_string()),
+        tags_exclude: Some("nsfw".to_string()),
+        include_adult: Some(false),
+        min_file_size: Some(1024),
+        max_file_size: Some(4096),
+        min_downloads: Some(100),
+        max_downloads: Some(500),
+        min_endorsements: Some(10),
+        max_endorsements: Some(20),
+    })
         .expect("build public catalog graphql payload");
 
     assert_eq!(payload["operationName"], "ModsListing");
     assert_eq!(payload["variables"]["count"], 20);
     assert_eq!(payload["variables"]["offset"], 20);
-    assert_eq!(payload["variables"]["facets"]["categoryName"], json!([]));
-    assert_eq!(payload["variables"]["facets"]["languageName"], json!([]));
-    assert_eq!(payload["variables"]["facets"]["tag"], json!([]));
+    assert_eq!(payload["variables"]["facets"]["categoryName"], json!(["Gameplay Mechanics"]));
+    assert_eq!(payload["variables"]["facets"]["languageName"], json!(["English"]));
+    assert_eq!(payload["variables"]["facets"]["tag"], json!(["smapi", "tractor"]));
     assert_eq!(payload["variables"]["filter"]["adultContent"][0]["op"], "EQUALS");
     assert_eq!(payload["variables"]["filter"]["adultContent"][0]["value"], false);
     assert_eq!(payload["variables"]["filter"]["gameDomainName"][0]["value"], "stardewvalley");
     assert_eq!(payload["variables"]["filter"]["name"][0]["value"], "tractor");
-    assert_eq!(payload["variables"]["sort"][0]["updatedAt"]["direction"], "DESC");
+    assert_eq!(payload["variables"]["filter"]["description"][0]["value"], "pelican");
+    assert_eq!(payload["variables"]["filter"]["description"][0]["op"], "MATCHES");
+    assert_eq!(payload["variables"]["filter"]["author"][0]["value"], "Pathoschild");
+    assert_eq!(payload["variables"]["filter"]["uploader"][0]["value"], "Pathoschild");
+    assert_eq!(payload["variables"]["filter"]["fileSize"][0]["op"], "GTE");
+    assert_eq!(payload["variables"]["filter"]["fileSize"][1]["op"], "LTE");
+    assert_eq!(payload["variables"]["filter"]["downloads"][0]["value"], 100);
+    assert_eq!(payload["variables"]["filter"]["endorsements"][1]["value"], 20);
+    assert_eq!(payload["variables"]["postFilter"]["tag"][0]["value"], "nsfw");
+    assert_eq!(payload["variables"]["sort"]["updatedAt"]["direction"], "DESC");
 
     let query = payload["query"].as_str().expect("public graphql query string");
     assert!(query.contains("query ModsListing"));
@@ -418,15 +472,33 @@ fn parse_catalog_graphql_response_builds_catalog_page_result() {
                         "uploader": null
                     }
                 ],
-                "totalCount": 45
+                "totalCount": 45,
+                "facetsData": {
+                    "categoryName": {
+                        "Gameplay Mechanics": 2800,
+                        "Maps": 1244
+                    },
+                    "languageName": {
+                        "English": 16098
+                    },
+                    "tag": {
+                        "SMAPI": 18839,
+                        "Translation": 7866
+                    }
+                }
             }
         }
     });
 
-    let page = parse_catalog_graphql_response(&payload, 2).expect("parse catalog graphql response");
+    let page = parse_catalog_graphql_response(&payload, 2, 20).expect("parse catalog graphql response");
 
     assert_eq!(page.page, 2);
+    assert_eq!(page.page_size, 20);
+    assert_eq!(page.total_count, 45);
     assert!(page.has_more);
+    assert_eq!(page.facets.categories[0].name, "Gameplay Mechanics");
+    assert_eq!(page.facets.languages[0].name, "English");
+    assert_eq!(page.facets.tags[0].name, "SMAPI");
     assert_eq!(page.results.len(), 2);
     assert_eq!(page.results[0].mod_id, 101);
     assert_eq!(page.results[0].title, "Tractor Mod");
@@ -459,7 +531,7 @@ fn parse_catalog_graphql_response_falls_back_to_public_thumbnail_url() {
         }
     });
 
-    let page = parse_catalog_graphql_response(&payload, 1).expect("parse public catalog graphql response");
+    let page = parse_catalog_graphql_response(&payload, 1, 20).expect("parse public catalog graphql response");
 
     assert_eq!(page.results.len(), 1);
     assert_eq!(

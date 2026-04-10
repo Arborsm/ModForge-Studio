@@ -166,9 +166,26 @@ pub struct OpenLauncherPathRequest {
 #[serde(rename_all = "camelCase")]
 pub struct SearchLauncherCatalogRequest {
     pub query: Option<String>,
+    pub title_query: Option<String>,
+    pub description_query: Option<String>,
+    pub author_query: Option<String>,
+    pub uploader_query: Option<String>,
     pub page: Option<usize>,
+    pub page_size: Option<usize>,
+    pub time_range: Option<String>,
     pub sort: Option<String>,
     pub ascending: Option<bool>,
+    pub category: Option<String>,
+    pub language: Option<String>,
+    pub tags_include: Option<String>,
+    pub tags_exclude: Option<String>,
+    pub include_adult: Option<bool>,
+    pub min_file_size: Option<u64>,
+    pub max_file_size: Option<u64>,
+    pub min_downloads: Option<u64>,
+    pub max_downloads: Option<u64>,
+    pub min_endorsements: Option<u64>,
+    pub max_endorsements: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -184,15 +201,41 @@ pub struct LauncherCatalogResult {
     pub title: String,
     pub summary: Option<String>,
     pub author: Option<String>,
+    pub uploader: Option<String>,
     pub mod_url: String,
     pub image_url: Option<String>,
+    pub category: Option<String>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
+    pub downloads: Option<u64>,
+    pub endorsements: Option<u64>,
+    pub file_size: Option<u64>,
+    pub update_available: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherCatalogFacetEntry {
+    pub name: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherCatalogFacets {
+    pub categories: Vec<LauncherCatalogFacetEntry>,
+    pub languages: Vec<LauncherCatalogFacetEntry>,
+    pub tags: Vec<LauncherCatalogFacetEntry>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogPageResult {
     pub page: usize,
+    pub page_size: usize,
+    pub total_count: usize,
     pub has_more: bool,
+    pub facets: LauncherCatalogFacets,
     pub results: Vec<LauncherCatalogResult>,
 }
 

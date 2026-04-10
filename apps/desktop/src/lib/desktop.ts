@@ -393,9 +393,26 @@ export type SetLauncherModEnabledResult = {
 
 export type SearchLauncherCatalogRequest = {
   query?: string | null
+  titleQuery?: string | null
+  descriptionQuery?: string | null
+  authorQuery?: string | null
+  uploaderQuery?: string | null
   page?: number
+  pageSize?: number
+  timeRange?: 'all' | 'day' | 'week' | 'month' | 'year'
   sort?: 'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name'
   ascending?: boolean
+  category?: string | null
+  language?: string | null
+  tagsInclude?: string | null
+  tagsExclude?: string | null
+  includeAdult?: boolean
+  minFileSize?: number | null
+  maxFileSize?: number | null
+  minDownloads?: number | null
+  maxDownloads?: number | null
+  minEndorsements?: number | null
+  maxEndorsements?: number | null
 }
 
 export type LoadLauncherRemoteModDetailRequest = {
@@ -407,13 +424,35 @@ export type LauncherCatalogResult = {
   title: string
   summary: string | null
   author: string | null
+  uploader: string | null
   modUrl: string
   imageUrl: string | null
+  category: string | null
+  createdAt: string | null
+  updatedAt: string | null
+  downloads: number | null
+  endorsements: number | null
+  fileSize: number | null
+  updateAvailable: boolean
+}
+
+export type LauncherCatalogFacetEntry = {
+  name: string
+  count: number
+}
+
+export type LauncherCatalogFacets = {
+  categories: LauncherCatalogFacetEntry[]
+  languages: LauncherCatalogFacetEntry[]
+  tags: LauncherCatalogFacetEntry[]
 }
 
 export type LauncherCatalogPageResult = {
   page: number
+  pageSize: number
+  totalCount: number
   hasMore: boolean
+  facets: LauncherCatalogFacets
   results: LauncherCatalogResult[]
 }
 
@@ -1032,9 +1071,26 @@ export async function setLauncherModEnabled(request: SetLauncherModEnabledReques
 export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
   const cacheKey = JSON.stringify({
     query: request.query?.trim() || '',
+    titleQuery: request.titleQuery?.trim() || '',
+    descriptionQuery: request.descriptionQuery?.trim() || '',
+    authorQuery: request.authorQuery?.trim() || '',
+    uploaderQuery: request.uploaderQuery?.trim() || '',
     page: request.page ?? 1,
+    pageSize: request.pageSize ?? 20,
+    timeRange: request.timeRange ?? 'all',
     sort: request.sort ?? 'newest',
     ascending: request.ascending ?? false,
+    category: request.category?.trim() || '',
+    language: request.language?.trim() || '',
+    tagsInclude: request.tagsInclude?.trim() || '',
+    tagsExclude: request.tagsExclude?.trim() || '',
+    includeAdult: request.includeAdult ?? false,
+    minFileSize: request.minFileSize ?? null,
+    maxFileSize: request.maxFileSize ?? null,
+    minDownloads: request.minDownloads ?? null,
+    maxDownloads: request.maxDownloads ?? null,
+    minEndorsements: request.minEndorsements ?? null,
+    maxEndorsements: request.maxEndorsements ?? null,
   })
   return readPending(searchLauncherCatalogCache, cacheKey, () =>
     invokeDesktop<LauncherCatalogPageResult>('search_launcher_catalog', { request }),

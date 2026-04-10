@@ -223,6 +223,7 @@ pub(crate) fn public_graphql_headers(
     headers.insert("sec-fetch-dest", HeaderValue::from_static("empty"));
     headers.insert("sec-fetch-mode", HeaderValue::from_static("cors"));
     headers.insert("sec-fetch-site", HeaderValue::from_static("same-site"));
+    headers.insert("Origin", HeaderValue::from_static("https://www.nexusmods.com"));
     headers.insert(
         REFERER,
         HeaderValue::from_str(referer)
