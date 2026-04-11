@@ -4,11 +4,13 @@ use super::trace::log_launcher_trace;
 use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
     LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest,
+    OpenLauncherUrlRequest,
 };
 use crate::pathing::{clean_input_path, normalize_path};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use url::Url;
 
 fn launcher_launch_error(
     code: LauncherGameLaunchErrorCode,
@@ -156,6 +158,22 @@ pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String
     })())
 }
 
+#[tauri::command]
+pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> Result<(), String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("open_launcher_url", (|| {
+        let raw_url = request.url.trim();
+        if raw_url.is_empty() {
+            return Err("url is required.".to_string());
+        }
+
+        let parsed = Url::parse(raw_url).map_err(|error| format!("Invalid launcher URL {raw_url}: {error}"))?;
+        match parsed.scheme() {
+            "http" | "https" => open_url_in_shell(parsed.as_str()),
+            scheme => Err(format!("Unsupported launcher URL scheme: {scheme}.")),
+        }
+    })())
+}
+
 #[cfg(target_os = "windows")]
 fn open_path_in_shell(path: &Path) -> Result<(), String> {
     let status = Command::new("explorer")
@@ -164,6 +182,45 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
         .map_err(|error| format!("Failed to launch explorer for {}: {error}", normalize_path(path)))?;
     if !status.success() {
         return Err(format!("Explorer failed for {}.", normalize_path(path)));
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn open_url_in_shell(url: &str) -> Result<(), String> {
+    let status = Command::new("rundll32")
+        .args(["url.dll,FileProtocolHandler", url])
+        .status()
+        .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
+    if !status.success() {
+        return Err(format!("Browser launch failed for {url}."));
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn open_url_in_shell(url: &str) -> Result<(), String> {
+    let status = Command::new("open")
+        .arg(url)
+        .status()
+        .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
+    if !status.success() {
+        return Err(format!("Browser launch failed for {url}."));
+    }
+
+    Ok(())
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+fn open_url_in_shell(url: &str) -> Result<(), String> {
+    let status = Command::new("xdg-open")
+        .arg(url)
+        .status()
+        .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
+    if !status.success() {
+        return Err(format!("Browser launch failed for {url}."));
     }
 
     Ok(())

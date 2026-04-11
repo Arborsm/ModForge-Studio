@@ -20,6 +20,8 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   keepDownloadedArchives: false,
 }
 
+const AUTOSAVE_DELAY_MS = 700
+
 function deriveModsPath(gamePath: string) {
   const trimmedPath = gamePath.trim().replace(/[\\/]+$/, '')
   if (!trimmedPath) {
@@ -28,6 +30,49 @@ function deriveModsPath(gamePath: string) {
 
   const separator = trimmedPath.includes('\\') ? '\\' : '/'
   return `${trimmedPath}${separator}Mods`
+}
+
+function normalizePersistedLauncherSettings(settings: LauncherSettings): LauncherSettings {
+  return {
+    ...settings,
+    gamePath: settings.gamePath?.trim() ? settings.gamePath : null,
+    modsPath: settings.modsPath?.trim() ? settings.modsPath : null,
+    downloadPath: settings.downloadPath?.trim() ? settings.downloadPath : null,
+    nexusApiKey: settings.nexusApiKey?.trim() ? settings.nexusApiKey : null,
+    nexusCookie: settings.nexusCookie?.trim() ? settings.nexusCookie : null,
+  }
+}
+
+function resolveLauncherSettings(settings: LauncherSettings): LauncherSettings {
+  const normalized = normalizePersistedLauncherSettings(settings)
+  const nextGamePath = normalized.gamePath
+  const nextModsPath = normalized.modsPath?.trim() ? normalized.modsPath : nextGamePath ? deriveModsPath(nextGamePath) : null
+
+  return {
+    ...normalized,
+    gamePath: nextGamePath,
+    modsPath: nextModsPath,
+  }
+}
+
+function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSettings | null) {
+  if (left === right) {
+    return true
+  }
+
+  if (!left || !right) {
+    return false
+  }
+
+  return (
+    left.gamePath === right.gamePath &&
+    left.modsPath === right.modsPath &&
+    left.downloadPath === right.downloadPath &&
+    left.nexusApiKey === right.nexusApiKey &&
+    left.nexusCookie === right.nexusCookie &&
+    left.autoInstallDownloads === right.autoInstallDownloads &&
+    left.keepDownloadedArchives === right.keepDownloadedArchives
+  )
 }
 
 type UseLauncherSettingsOptions = {
@@ -40,13 +85,15 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [lastPersistedSettings, setLastPersistedSettings] = useState<LauncherSettings | null>(null)
 
   const refresh = useCallback(async () => {
     setState('loading')
     setError(null)
 
     try {
-      const nextSettings = await loadLauncherSettings()
+      const persisted = normalizePersistedLauncherSettings(await loadLauncherSettings())
+      const nextSettings = { ...persisted }
       if (!nextSettings.gamePath?.trim()) {
         try {
           const detectedGamePath = await detectDefaultGameDirectory()
@@ -60,7 +107,9 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
           // Detection failure should not block loading persisted launcher settings.
         }
       }
-      setSettings(nextSettings)
+      const resolved = resolveLauncherSettings(nextSettings)
+      setSettings(resolved)
+      setLastPersistedSettings(persisted)
       setState('ready')
     } catch (nextError) {
       const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.loadFailed
@@ -88,20 +137,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     }
   }, [refresh])
 
-  const resolvedSettings = useMemo<LauncherSettings>(() => {
-    const nextGamePath = settings.gamePath?.trim() ? settings.gamePath : null
-    const nextModsPath = settings.modsPath?.trim() ? settings.modsPath : nextGamePath ? deriveModsPath(nextGamePath) : null
-
-    if (nextGamePath === settings.gamePath && nextModsPath === settings.modsPath) {
-      return settings
-    }
-
-    return {
-      ...settings,
-      gamePath: nextGamePath,
-      modsPath: nextModsPath,
-    }
-  }, [settings])
+  const resolvedSettings = useMemo<LauncherSettings>(() => resolveLauncherSettings(settings), [settings])
 
   const updateField = useCallback(<TKey extends keyof LauncherSettings>(field: TKey, value: LauncherSettings[TKey]) => {
     setSettings((current) => ({
@@ -111,51 +147,77 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     setSaveMessage(null)
   }, [])
 
-  const save = useCallback(async () => {
-    setError(null)
-    setSaveMessage(null)
-    reportAppEvent({
-      level: 'debug',
-      title: 'Saving launcher settings',
-      notify: false,
-      keyValues: {
-        source: 'launcher-settings',
-        operation: 'save',
-      },
-    })
+  const persistSettings = useCallback(
+    async (nextSettings: LauncherSettings, options?: { notifySuccess?: boolean }) => {
+      const notifySuccess = options?.notifySuccess ?? true
 
-    try {
-      const persisted = await saveLauncherSettings(resolvedSettings)
-      setSettings(persisted)
-      setSaveMessage('saved')
-      setState('ready')
+      setError(null)
+      setSaveMessage(null)
       reportAppEvent({
-        level: 'success',
-        title: launcherCopy.settings.saved,
-        keyValues: {
-          source: 'launcher-settings',
-          operation: 'save',
-          game_path: persisted.gamePath ?? undefined,
-        },
-      })
-      return persisted
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.saveFailed
-      setError(message)
-      setSaveMessage('error')
-      setState('error')
-      reportAppEvent({
-        level: 'error',
-        title: launcherCopy.settings.saveFailed,
-        description: message,
+        level: 'debug',
+        title: 'Saving launcher settings',
+        notify: false,
         keyValues: {
           source: 'launcher-settings',
           operation: 'save',
         },
       })
-      throw nextError
+
+      try {
+        const persisted = resolveLauncherSettings(await saveLauncherSettings(nextSettings))
+        setSettings(persisted)
+        setLastPersistedSettings(persisted)
+        setSaveMessage('saved')
+        setState('ready')
+        if (notifySuccess) {
+          reportAppEvent({
+            level: 'success',
+            title: launcherCopy.settings.saved,
+            keyValues: {
+              source: 'launcher-settings',
+              operation: 'save',
+              game_path: persisted.gamePath ?? undefined,
+            },
+          })
+        }
+        return persisted
+      } catch (nextError) {
+        const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.saveFailed
+        setError(message)
+        setSaveMessage('error')
+        setState('error')
+        reportAppEvent({
+          level: 'error',
+          title: launcherCopy.settings.saveFailed,
+          description: message,
+          keyValues: {
+            source: 'launcher-settings',
+            operation: 'save',
+          },
+        })
+        throw nextError
+      }
+    },
+    [launcherCopy.settings.saveFailed, launcherCopy.settings.saved],
+  )
+
+  const save = useCallback(async (options?: { notifySuccess?: boolean }) => {
+    return persistSettings(resolvedSettings, options)
+  }, [persistSettings, resolvedSettings])
+
+  useEffect(() => {
+    if (state !== 'ready' || launcherSettingsEqual(resolvedSettings, lastPersistedSettings)) {
+      return
     }
-  }, [launcherCopy.settings.saveFailed, launcherCopy.settings.saved, resolvedSettings])
+
+    const handle = window.setTimeout(() => {
+      void persistSettings(resolvedSettings, { notifySuccess: false })
+    }, AUTOSAVE_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(handle)
+    }
+  }, [lastPersistedSettings, persistSettings, resolvedSettings, state])
 
   const pickDirectory = useCallback(
     async (field: 'gamePath' | 'modsPath' | 'downloadPath', title: string) => {

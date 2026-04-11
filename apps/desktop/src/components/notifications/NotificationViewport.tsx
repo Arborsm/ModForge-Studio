@@ -10,6 +10,7 @@ type NotificationViewportProps = {
 }
 
 const EXIT_ANIMATION_MS = 220
+const COLLAPSE_DELAY_MS = 120
 const MAX_STACKED_NOTIFICATIONS = 5
 const STACK_OFFSET_PX = 8
 const STACK_EXPANDED_OFFSET_PX = 76
@@ -183,8 +184,35 @@ function NotificationToast({
 export function NotificationViewport({ notifications, onDismiss }: NotificationViewportProps) {
   const copy = useNotificationCopy()
   const viewportRef = useRef<HTMLElement | null>(null)
+  const collapseTimeoutRef = useRef<number | null>(null)
   const [expanded, setExpanded] = useState(false)
   const visibleNotifications = notifications.slice(-MAX_STACKED_NOTIFICATIONS)
+
+  const cancelPendingCollapse = () => {
+    if (collapseTimeoutRef.current !== null) {
+      window.clearTimeout(collapseTimeoutRef.current)
+      collapseTimeoutRef.current = null
+    }
+  }
+
+  const requestExpand = () => {
+    cancelPendingCollapse()
+    setExpanded(true)
+  }
+
+  const requestCollapse = () => {
+    cancelPendingCollapse()
+    collapseTimeoutRef.current = window.setTimeout(() => {
+      setExpanded(false)
+      collapseTimeoutRef.current = null
+    }, COLLAPSE_DELAY_MS)
+  }
+
+  useEffect(() => {
+    return () => {
+      cancelPendingCollapse()
+    }
+  }, [])
 
   if (!visibleNotifications.length) {
     return null
@@ -198,18 +226,19 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
       tabIndex={-1}
       aria-label={copy.viewportLabel}
       data-expanded={expanded ? 'true' : 'false'}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      onFocusCapture={() => setExpanded(true)}
+      onMouseEnter={requestExpand}
+      onMouseLeave={requestCollapse}
+      onFocusCapture={requestExpand}
       onBlurCapture={(event) => {
         const nextFocused = event.relatedTarget
         if (nextFocused instanceof Node && viewportRef.current?.contains(nextFocused)) {
           return
         }
 
-        setExpanded(false)
+        requestCollapse()
       }}
     >
+      <div className="notification-hover-region" aria-hidden="true" />
       {visibleNotifications.map((notification, index) => {
         const stackIndex = visibleNotifications.length - 1 - index
         const stackOffsetPx = expanded ? STACK_EXPANDED_OFFSET_PX : STACK_OFFSET_PX

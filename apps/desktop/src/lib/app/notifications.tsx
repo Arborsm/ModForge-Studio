@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
 import { NotificationViewport } from '../../components/notifications/NotificationViewport'
+import { playNotificationSound } from './notificationSounds'
 
 export type NotificationLevel = 'success' | 'info' | 'debug' | 'warning' | 'error'
 
@@ -91,6 +92,9 @@ export function publishNotification(request: PublishNotificationRequest) {
     existingIndex === -1
       ? [...notificationState, notification]
       : notificationState.map((item, index) => (index === existingIndex ? notification : item))
+  if (existingIndex === -1) {
+    playNotificationSound(notification.level)
+  }
   emitNotifications()
   return id
 }

@@ -57,6 +57,7 @@ import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { LocaleProvider } from './lib/app/localeContext'
 import { dismissNotification, NotificationProvider, publishNotification } from './lib/app/notifications'
 import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
+import { setNotificationSoundEnabled } from './lib/app/notificationSounds'
 import useModWorkspace from './lib/app/useModWorkspace'
 import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
@@ -123,6 +124,9 @@ export default function App() {
   const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppShellState().appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(() => readStoredAppShellState().launcherPage)
   const [debugEnabled, setDebugEnabled] = useState(() => readStoredAppShellState().debugEnabled)
+  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(
+    () => readStoredAppShellState().notificationSoundEnabled,
+  )
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
@@ -611,8 +615,9 @@ export default function App() {
       appMode,
       launcherPage,
       debugEnabled,
+      notificationSoundEnabled,
     })
-  }, [appMode, debugEnabled, launcherPage])
+  }, [appMode, debugEnabled, launcherPage, notificationSoundEnabled])
 
   useEffect(() => {
     if (!debugEnabled && launcherPage === 'debug') {
@@ -623,6 +628,10 @@ export default function App() {
   useEffect(() => {
     void syncDebugDiagnosticsEnabled(debugEnabled)
   }, [debugEnabled])
+
+  useEffect(() => {
+    setNotificationSoundEnabled(notificationSoundEnabled)
+  }, [notificationSoundEnabled])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current
@@ -1129,16 +1138,20 @@ export default function App() {
                 enableDebugModeLabel={settingsMenuCopy.enableDebugModeLabel}
                 disableDebugModeLabel={settingsMenuCopy.disableDebugModeLabel}
                 debugModeEnabled={debugEnabled}
+                notificationSoundLabel={settingsMenuCopy.notificationSoundLabel}
+                notificationSoundDescription={settingsMenuCopy.notificationSoundDescription}
+                enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
+                disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
+                notificationSoundEnabled={notificationSoundEnabled}
                 launcherContent={<LauncherSettingsForm settingsState={launcherRuntime.settingsState} />}
                 activeCategory={settingsWindowCategory}
-                futureLabel={settingsMenuCopy.futureLabel}
-                futureDescription={settingsMenuCopy.futureDescription}
                 accentOptions={ACCENT_PRESETS}
                 activeAccentId={activeAccentPreset.id}
                 onSelectAccent={setAccentPresetId}
                 onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
                 onSelectLocale={setLocale}
                 onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
+                onToggleNotificationSound={() => setNotificationSoundEnabledState((current) => !current)}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
                 onActiveCategoryChange={setSettingsWindowCategory}
                 onClose={() => setSettingsWindowOpen(false)}

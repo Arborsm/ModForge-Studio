@@ -2,6 +2,7 @@ import { Download, ExternalLink, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useEditorCopy, useSettingsMenuCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
+import { openLauncherUrl } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { useLauncherUpdates } from '../../../lib/launcher/useLauncherUpdates'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '../../../lib/launcher/types'
@@ -80,6 +81,10 @@ function UpdateCard({
             className="control-button"
             aria-label={copy.actions.openModPage}
             title={copy.actions.openModPage}
+            onClick={(event) => {
+              event.preventDefault()
+              void openLauncherUrl({ url: modUrl })
+            }}
           >
             <span>{copy.actions.openModPage}</span>
           </a>
@@ -228,7 +233,16 @@ export function LauncherUpdatesPage({
         </div>
 
         <div className="launcher-toolbar">
-          <a href={selectedItem.modUrl} target="_blank" rel="noreferrer" className="control-button">
+          <a
+            href={selectedItem.modUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="control-button"
+            onClick={(event) => {
+              event.preventDefault()
+              void openLauncherUrl({ url: selectedItem.modUrl })
+            }}
+          >
             <ExternalLink className="h-4 w-4" />
             <span>{copy.actions.openModPage}</span>
           </a>

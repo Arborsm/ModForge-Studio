@@ -97,6 +97,26 @@ describe('observability', () => {
     )
   })
 
+  it('allows debug events when the caller explicitly confirms debug diagnostics are enabled', () => {
+    reportAppEvent({
+      level: 'debug',
+      title: 'Launcher debug button test',
+      debugDiagnosticsEnabled: true,
+    })
+
+    expect(publishNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'debug',
+        title: 'Launcher debug button test',
+      }),
+    )
+    expect(writeFrontendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'debug',
+      }),
+    )
+  })
+
   it('forces warning and error notifications while debug diagnostics are enabled', async () => {
     await syncDebugDiagnosticsEnabled(true)
 

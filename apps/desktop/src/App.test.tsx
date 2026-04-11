@@ -2,7 +2,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { editorCopy, getSettingsMenuCopy } from './lib/editor-shell'
-import { APP_MODE_STORAGE_KEY, DEBUG_ENABLED_STORAGE_KEY, LAUNCHER_PAGE_STORAGE_KEY } from './lib/app/appShell'
+import {
+  APP_MODE_STORAGE_KEY,
+  DEBUG_ENABLED_STORAGE_KEY,
+  LAUNCHER_PAGE_STORAGE_KEY,
+  NOTIFICATION_SOUND_ENABLED_STORAGE_KEY,
+} from './lib/app/appShell'
 import { clearNotifications, publishNotification } from './lib/app/notifications'
 
 const LOCALE_STORAGE_KEY = 'modforge:locale'
@@ -375,6 +380,21 @@ describe('App locale ownership', () => {
     await waitFor(() => {
       expect(window.localStorage.getItem(DEBUG_ENABLED_STORAGE_KEY)).toBe('true')
       expect(screen.getByTestId('dev-debug-overlay')).toBeTruthy()
+    })
+  })
+
+  it('toggles notification sounds from Settings and persists the flag', async () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    const englishSettingsCopy = getSettingsMenuCopy('en-US')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.interaction}`) }))
+    fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.notificationSoundLabel }))
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(NOTIFICATION_SOUND_ENABLED_STORAGE_KEY)).toBe('false')
     })
   })
 

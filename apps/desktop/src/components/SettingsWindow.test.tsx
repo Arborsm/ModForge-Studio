@@ -21,12 +21,14 @@ describe('SettingsWindow', () => {
       categories: {
         appearance: 'Appearance',
         view: 'View',
+        interaction: 'Interaction',
         launcher: 'Launcher',
         debug: 'Debug',
       },
       categoryDescriptions: {
         appearance: 'Theme, accent color, and overall visual style.',
         view: 'Map display, canvas, and information presentation.',
+        interaction: 'Notification sounds and future interaction feedback.',
         launcher: 'Game paths, downloads, and Nexus integration.',
         debug: 'Diagnostics, overlays, notifications, and logs.',
       },
@@ -40,8 +42,6 @@ describe('SettingsWindow', () => {
         { id: 'en-US', label: copy.localeLabels['en-US'] },
       ],
       activeLocale: 'en-US',
-      futureLabel: copy.futureLabel,
-      futureDescription: copy.futureDescription,
       accentOptions: ACCENT_PRESETS,
       activeAccentId: ACCENT_PRESETS[0].id,
       windowModeLabel: 'Window mode',
@@ -55,6 +55,11 @@ describe('SettingsWindow', () => {
       enableDebugModeLabel: 'Enable debug tools',
       disableDebugModeLabel: 'Disable debug tools',
       debugModeEnabled: false,
+      notificationSoundLabel: 'Notification sounds',
+      notificationSoundDescription: 'Play a short sound when a new global notification appears.',
+      enableNotificationSoundLabel: 'Enable notification sounds',
+      disableNotificationSoundLabel: 'Disable notification sounds',
+      notificationSoundEnabled: true,
       launcherContent: (
         <div>
           <span>Game Path</span>
@@ -65,6 +70,7 @@ describe('SettingsWindow', () => {
       onResetAccent: vi.fn(),
       onSelectLocale: vi.fn(),
       onToggleBorderlessFullscreen: vi.fn(),
+      onToggleNotificationSound: vi.fn(),
       onToggleDebugMode: vi.fn(),
       onClose: vi.fn(),
       ...overrides,
@@ -103,6 +109,20 @@ describe('SettingsWindow', () => {
     expect(onToggleDebugMode).toHaveBeenCalledTimes(1)
   })
 
+  it('shows the notification sound toggle in the interaction category and calls the toggle handler', () => {
+    const onToggleNotificationSound = vi.fn()
+    renderWindow({ onToggleNotificationSound })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Interaction/ }))
+
+    const toggle = screen.getByRole('switch', { name: 'Notification sounds' })
+    expect(toggle).toBeTruthy()
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(toggle)
+    expect(onToggleNotificationSound).toHaveBeenCalledTimes(1)
+  })
+
   it('renders launcher settings content in the launcher category', () => {
     renderWindow()
 
@@ -132,6 +152,18 @@ describe('SettingsWindow', () => {
 
     fireEvent.click(chineseOption)
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
+  })
+
+  it('does not render placeholder settings sections in appearance or view', () => {
+    renderWindow()
+
+    expect(screen.queryByText(copy.futureLabel)).toBeNull()
+    expect(screen.queryByText(copy.futureDescription)).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${copy.categories.view}`) }))
+
+    expect(screen.queryByText(copy.futureLabel)).toBeNull()
+    expect(screen.queryByText(copy.futureDescription)).toBeNull()
   })
 
   it('supports arrow-key locale navigation with roving focus semantics', () => {
@@ -230,6 +262,21 @@ describe('SettingsWindow', () => {
     const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
 
     expect(stylesheet).toContain('width: min(920px, calc(100vw - 56px));')
-    expect(stylesheet).toContain('max-height: min(820px, calc(100vh - 56px));')
+    expect(stylesheet).toContain('height: min(820px, calc(100vh - 56px));')
+  })
+
+  it('locks the settings body height and only scrolls the right content column', () => {
+    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
+
+    expect(stylesheet).toMatch(/\.settings-window-body\s*\{\s*min-height:\s*0;\s*overflow:\s*hidden;/)
+    expect(stylesheet).toMatch(/\.settings-window-content\s*\{\s*min-height:\s*0;\s*display:\s*grid;\s*overflow:\s*auto;/)
+  })
+
+  it('styles the settings nav as a lightweight sidebar instead of bordered cards', () => {
+    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
+
+    expect(stylesheet).toContain('.settings-window-nav-item::before')
+    expect(stylesheet).toContain('border: 0;')
+    expect(stylesheet).toContain('box-shadow: inset 3px 0 0 var(--accent);')
   })
 })

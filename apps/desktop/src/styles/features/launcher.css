@@ -1318,20 +1318,6 @@
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 
-  .launcher-form-field {
-    display: grid;
-    gap: 8px;
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .launcher-toggle-card {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-  }
-
   .launcher-stat-card {
     display: flex;
     gap: 10px;
@@ -1346,7 +1332,6 @@
     padding: 14px;
   }
 
-  .launcher-toggle-card p,
   .launcher-stat-card span,
   .launcher-stat-card strong {
     margin: 0;
@@ -4027,6 +4012,69 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
+  }
+
+  .launcher-gallery-cover-dialog {
+    max-width: min(920px, 92vw);
+  }
+
+  .launcher-gallery-cover-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    padding: 0 24px 24px;
+  }
+
+  .launcher-gallery-cover-option {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 18px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg-panel-muted) 88%, transparent);
+    transition:
+      border-color 140ms ease,
+      transform 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .launcher-gallery-cover-option:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 46%, var(--border-color));
+    box-shadow: 0 16px 28px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .launcher-gallery-cover-option-selected {
+    border-color: color-mix(in srgb, var(--accent) 70%, white);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 38%, transparent),
+      0 18px 32px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .launcher-gallery-cover-frame {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at top, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
+      linear-gradient(160deg, color-mix(in srgb, var(--bg-panel) 94%, transparent), color-mix(in srgb, var(--bg-panel-muted) 92%, transparent));
+  }
+
+  .launcher-gallery-cover-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .launcher-gallery-cover-loading {
+    padding: 18px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
   }
 
   .launcher-library-danger-action {

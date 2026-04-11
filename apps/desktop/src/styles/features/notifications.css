@@ -3,9 +3,22 @@
   right: clamp(0.75rem, 2vw, 1.5rem);
   bottom: clamp(0.75rem, 2.4vh, 1.6rem);
   z-index: 80;
-  min-height: 4rem;
+  height: 0;
   width: min(23rem, calc(100vw - 1.5rem));
   pointer-events: none;
+}
+
+.notification-hover-region {
+  position: absolute;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  height: 5.5rem;
+  pointer-events: auto;
+}
+
+.notification-viewport[data-expanded="true"] .notification-hover-region {
+  height: calc(5.5rem + 304px);
 }
 
 .notification-stack-item {

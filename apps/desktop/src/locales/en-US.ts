@@ -68,6 +68,7 @@ const localeBundle: LocaleBundle = {
         "openBackupFolder": "Open Backups",
         "setCover": "Set Cover",
         "clearCover": "Clear Cover",
+        "chooseGalleryCover": "Choose Gallery Cover",
         "createPack": "Create Pack",
         "applyCurrentPack": "Apply Pack",
         "createStorageFolder": "Create Folder",
@@ -153,7 +154,23 @@ const localeBundle: LocaleBundle = {
         "cancelEdit": "Cancel",
         "saveChanges": "Save Changes",
         "renameCurrentPackPrompt": (name) => `Rename ${name}`,
-        "deleteCurrentPackConfirm": (name) => `Delete ${name}?`
+        "deleteCurrentPackConfirm": (name) => `Delete ${name}?`,
+        "loadingMissingCoversTitle": "Fetching Missing Covers",
+        "loadingMissingCoversCurrentMod": (name) => `Fetching cover for ${name}`,
+        "loadingMissingCoversProgress": (completed, total) => `Loaded ${completed} of ${total} missing covers.`,
+        "loadingMissingCoversStageProgress": (stage, completed, total) => `${stage} · ${completed} / ${total}`,
+        "loadingMissingCoversStages": {
+          "local": "Local",
+          "apiCover": "API Cover",
+          "apiGallery": "API Gallery",
+          "remoteCover": "Remote Cover",
+          "remoteGallery": "Remote Gallery"
+        },
+        "galleryCoverTitle": "Gallery Images",
+        "galleryCoverSubtitle": "Choose one image from the Nexus gallery to replace the current cover.",
+        "galleryCoverEmpty": "This mod does not expose any gallery images that can be used as a cover.",
+        "galleryCoverLoading": "Fetching gallery images...",
+        "galleryCoverImageLabel": (index) => `Gallery image ${index}`
       },
       "discover": {
         "title": "Discover",
@@ -185,7 +202,11 @@ const localeBundle: LocaleBundle = {
       "settings": {
         "title": "Launcher Settings",
         "subtitle": "Persist launcher-specific paths and Nexus credentials through ModForge.",
+        "pathsTitle": "Paths",
         "pathsHint": "Game, Mods, and Download paths all stay inside ModForge's existing persistence model.",
+        "nexusAccessTitle": "Nexus Access",
+        "downloadBehaviorTitle": "Download Behavior",
+        "downloadBehaviorHint": "Choose what happens after a download completes and whether archives stay on disk.",
         "autoInstallHint": "Install the archive immediately after a successful download finishes.",
         "keepArchivesHint": "Preserve downloaded zip files after install for rollback or manual reuse.",
         "loadFailed": "Failed to load launcher settings.",
@@ -203,6 +224,9 @@ const localeBundle: LocaleBundle = {
         "notificationsSubtitle": "Emit visible test messages through the global notification system and verify level-specific feedback.",
         "logsTitle": "Persistent Log Tests",
         "logsSubtitle": "Write persistent test logs without showing a toast so the local logging pipeline can be verified.",
+        "clearImageCacheTitle": "Image Cache",
+        "clearImageCacheSubtitle": "Clear cached launcher cover files so the next load resolves them again from disk or the network.",
+        "clearImageCacheButton": "Clear Image Cache",
         "simulationTitle": "Download Simulation",
         "simulationSubtitle": "Start a launcher-only simulated download at 2 MB/s for 10 seconds to validate progress UI in the title bar and queue.",
         "simulationButtonIdle": "Start Simulated Download",
@@ -1044,6 +1068,7 @@ const localeBundle: LocaleBundle = {
     "categories": {
       "appearance": "Appearance",
       "view": "View",
+      "interaction": "Interaction",
       "launcher": "Launcher",
       "debug": "Debug"
     },
@@ -1065,11 +1090,16 @@ const localeBundle: LocaleBundle = {
     "debugModeDescription": "Show diagnostics overlays, allow debug notifications, and persist debug logs.",
     "enableDebugModeLabel": "Enable debug tools",
     "disableDebugModeLabel": "Disable debug tools",
+    "notificationSoundLabel": "Notification Sounds",
+    "notificationSoundDescription": "Play a short sound when a new global notification appears.",
+    "enableNotificationSoundLabel": "Enable notification sounds",
+    "disableNotificationSoundLabel": "Disable notification sounds",
     "futureLabel": "More Settings",
     "futureDescription": "Future editor preferences, display options, and behavior settings will live here.",
     "categoryDescriptions": {
       "appearance": "Theme, accent color, and overall visual style.",
       "view": "Map display, canvas, and information presentation.",
+      "interaction": "Notification sounds and future interaction feedback.",
       "launcher": "Game paths, download defaults, and Nexus credentials.",
       "debug": "Diagnostics, overlays, notifications, and persistent logging."
     }

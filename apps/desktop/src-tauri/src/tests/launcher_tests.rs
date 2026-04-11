@@ -1,14 +1,17 @@
 use super::archive::inspect_archive_at_path;
 use super::catalog::{
     build_catalog_graphql_payload, build_public_catalog_graphql_payload,
-    build_update_batch_graphql_payload, parse_public_mod_detail_graphql_response,
-    can_use_nexus_graphql, parse_catalog_graphql_response, parse_catalog_results,
-    parse_remote_mod_detail_html, parse_update_batch_graphql_response,
+    build_update_batch_graphql_payload, enrich_remote_mod_detail_with_gallery_images,
+    parse_public_mod_detail_graphql_response, can_use_nexus_graphql,
+    parse_catalog_graphql_response, parse_catalog_results, parse_remote_mod_detail_html,
+    parse_remote_mod_images_tab_html, parse_update_batch_graphql_response,
 };
 use super::downloads::{load_or_create_download_queue_at_path, save_download_queue_at_path};
+use super::image_cache::clear_launcher_image_cache_dir;
 use super::launch::launch_game_with_runner;
 use super::library::{
     load_or_create_library_covers_at_path, load_or_create_library_state_at_path,
+    persist_auto_library_cover_at_path,
     save_library_covers_at_path, save_library_state_at_path, scan_library_at_path,
     set_launcher_mod_enabled,
 };
@@ -280,6 +283,8 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
 fn launcher_library_covers_create_default_and_save_roundtrip() {
     let root = create_temp_dir("launcher-library-covers");
     let covers_path = root.join("launcher").join("covers.json");
+    let existing_cover_path = root.join("covers").join("visible.png");
+    write_file(&existing_cover_path, "visible-cover");
 
     let default_state =
         load_or_create_library_covers_at_path(&covers_path).expect("load default covers");
@@ -289,7 +294,7 @@ fn launcher_library_covers_create_default_and_save_roundtrip() {
     let saved_state = LauncherLibraryCoversState {
         covers: vec![LauncherLibraryCover {
             label_key: "ModForge.Visible".to_string(),
-            image_path: r"C:\Covers\visible.png".to_string(),
+            image_path: existing_cover_path.to_string_lossy().to_string(),
         }],
     };
     save_library_covers_at_path(&covers_path, &saved_state).expect("save library covers");
@@ -297,6 +302,103 @@ fn launcher_library_covers_create_default_and_save_roundtrip() {
     let reloaded =
         load_or_create_library_covers_at_path(&covers_path).expect("reload saved covers");
     assert_eq!(reloaded, saved_state);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_library_auto_cover_persistence_adds_missing_cover_without_overwriting_existing_cover() {
+    let root = create_temp_dir("launcher-library-auto-cover");
+    let covers_path = root.join("launcher").join("covers.json");
+    let existing_cover_path = root.join("covers").join("visible.png");
+    let missing_cover_path = root.join("covers").join("missing.png");
+    write_file(&existing_cover_path, "visible-cover");
+    write_file(&missing_cover_path, "missing-cover");
+
+    save_library_covers_at_path(
+        &covers_path,
+        &LauncherLibraryCoversState {
+            covers: vec![LauncherLibraryCover {
+                label_key: "ModForge.Visible".to_string(),
+                image_path: existing_cover_path.to_string_lossy().to_string(),
+            }],
+        },
+    )
+    .expect("save initial covers");
+
+    let updated = persist_auto_library_cover_at_path(
+        &covers_path,
+        "ModForge.Missing",
+        &missing_cover_path,
+    )
+    .expect("persist missing auto cover");
+    assert_eq!(updated.covers.len(), 2);
+    assert!(updated
+        .covers
+        .iter()
+        .any(|cover| cover.label_key == "ModForge.Missing"
+            && cover.image_path == missing_cover_path.to_string_lossy()));
+
+    let skipped = persist_auto_library_cover_at_path(
+        &covers_path,
+        "ModForge.Visible",
+        &missing_cover_path,
+    )
+    .expect("skip existing auto cover overwrite");
+    assert_eq!(skipped.covers.len(), 2);
+    assert!(skipped
+        .covers
+        .iter()
+        .any(|cover| cover.label_key == "ModForge.Visible"
+            && cover.image_path == existing_cover_path.to_string_lossy()));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_library_covers_prune_missing_files_on_load() {
+    let root = create_temp_dir("launcher-library-covers-prune-missing");
+    let covers_path = root.join("launcher").join("covers.json");
+    let existing_cover_path = root.join("covers").join("visible.png");
+    write_file(&existing_cover_path, "visible-cover");
+
+    save_library_covers_at_path(
+        &covers_path,
+        &LauncherLibraryCoversState {
+            covers: vec![
+                LauncherLibraryCover {
+                    label_key: "ModForge.Visible".to_string(),
+                    image_path: existing_cover_path.to_string_lossy().to_string(),
+                },
+                LauncherLibraryCover {
+                    label_key: "ModForge.Missing".to_string(),
+                    image_path: root
+                        .join("covers")
+                        .join("missing.png")
+                        .to_string_lossy()
+                        .to_string(),
+                },
+            ],
+        },
+    )
+    .expect("save covers with stale entry");
+
+    let reloaded =
+        load_or_create_library_covers_at_path(&covers_path).expect("reload pruned launcher covers");
+
+    assert_eq!(
+        reloaded,
+        LauncherLibraryCoversState {
+            covers: vec![LauncherLibraryCover {
+                label_key: "ModForge.Visible".to_string(),
+                image_path: existing_cover_path.to_string_lossy().to_string(),
+            }],
+        }
+    );
+
+    let persisted =
+        load_or_create_library_covers_at_path(&covers_path).expect("reload persisted pruned covers");
+    assert_eq!(persisted, reloaded);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -347,9 +449,37 @@ fn scan_library_extracts_nexus_update_keys() {
 
     let scan = scan_library_at_path(&root).expect("scan launcher library");
     assert_eq!(scan.mods.len(), 1);
+    assert_eq!(scan.mods[0].label_key, "12345");
     assert_eq!(scan.mods[0].nexus_mod_id, Some(12345));
     assert_eq!(scan.mods[0].mod_url.as_deref(), Some("https://www.nexusmods.com/stardewvalley/mods/12345"));
     assert_eq!(scan.mods[0].update_keys, vec!["Nexus:12345".to_string()]);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_keeps_unique_id_as_label_key_without_nexus_id() {
+    let root = create_temp_dir("launcher-library-unique-key");
+    let project = root.join("Mods").join("ExamplePack");
+    write_file(&project.join("manifest.json"), &sample_manifest("ModForge.ExamplePack"));
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    assert_eq!(scan.mods.len(), 1);
+    assert_eq!(scan.mods[0].label_key, "ModForge.ExamplePack");
+    assert_eq!(scan.mods[0].nexus_mod_id, None);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn clear_launcher_image_cache_dir_removes_cached_files() {
+    let root = create_temp_dir("launcher-image-cache-clear");
+    let cache_dir = root.join("launcher").join("images");
+    write_file(&cache_dir.join("cover.webp"), "cached");
+
+    clear_launcher_image_cache_dir(&cache_dir).expect("clear launcher image cache");
+
+    assert!(!cache_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -607,6 +737,64 @@ fn parse_remote_mod_detail_html_extracts_summary_version_and_gallery() {
         detail.gallery_images[0],
         "https://staticdelivery.nexusmods.com/mods/1303/images/44722/44722-a.png"
     );
+}
+
+#[test]
+fn parse_remote_mod_images_tab_html_extracts_author_image_links() {
+    let html = r#"
+<section class="mod_images">
+  <h2>Author images</h2>
+  <a href="https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png">
+    KeDili View image
+  </a>
+  <a href="https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1724525958-1378190888.png">
+    New professions at levels 15 and 20!
+  </a>
+  <a href="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/20054/20054-thumb.png">
+    Thumbnail that should be ignored
+  </a>
+</section>
+"#;
+
+    let images = parse_remote_mod_images_tab_html(html);
+
+    assert_eq!(images.len(), 2);
+    assert_eq!(
+        images[0],
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png"
+    );
+    assert_eq!(
+        images[1],
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1724525958-1378190888.png"
+    );
+}
+
+#[test]
+fn enrich_remote_mod_detail_with_gallery_images_fills_missing_cover_from_images_tab() {
+    let detail = super::catalog::RemoteModDetail {
+        mod_id: 20054,
+        name: Some("Vanilla Plus Professions".to_string()),
+        author: Some("KediDili".to_string()),
+        summary: Some("Professions expansion.".to_string()),
+        version: Some("1.1.1".to_string()),
+        mod_url: "https://www.nexusmods.com/stardewvalley/mods/20054".to_string(),
+        image_url: None,
+        gallery_images: Vec::new(),
+    };
+    let images = vec![
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png"
+            .to_string(),
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1724525958-1378190888.png"
+            .to_string(),
+    ];
+
+    let enriched = enrich_remote_mod_detail_with_gallery_images(detail, images);
+
+    assert_eq!(
+        enriched.image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png")
+    );
+    assert_eq!(enriched.gallery_images.len(), 2);
 }
 
 #[test]

@@ -1070,6 +1070,40 @@ pub(crate) fn parse_remote_mod_detail_html(html: &str, mod_id: i64) -> Option<Re
     })
 }
 
+pub(crate) fn parse_remote_mod_images_tab_html(html: &str) -> Vec<String> {
+    let image_regex = Regex::new(
+        r#"href=["'](?P<src>https://staticdelivery\.nexusmods\.com/mods/\d+/images/[^"'?#]+)["']"#,
+    )
+    .expect("valid mod images tab regex");
+    let mut images = Vec::new();
+    for captures in image_regex.captures_iter(html) {
+        let Some(src) = captures.name("src") else {
+            continue;
+        };
+        let normalized = normalize_nexus_url(src.as_str());
+        if normalized.contains("/images/thumbnails/") {
+            continue;
+        }
+        if !images.iter().any(|value| value == &normalized) {
+            images.push(normalized);
+        }
+    }
+    images
+}
+
+pub(crate) fn enrich_remote_mod_detail_with_gallery_images(
+    mut detail: RemoteModDetail,
+    gallery_images: Vec<String>,
+) -> RemoteModDetail {
+    if detail.gallery_images.is_empty() && !gallery_images.is_empty() {
+        detail.gallery_images = gallery_images.clone();
+    }
+    if detail.image_url.is_none() {
+        detail.image_url = gallery_images.first().cloned();
+    }
+    detail
+}
+
 fn collapse_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
@@ -1194,6 +1228,26 @@ fn load_remote_mod_detail_from_html(client: &Client, mod_id: i64) -> Result<Remo
         .map_err(|error| format!("Failed to read launcher mod page HTML: {error}"))?;
     parse_remote_mod_detail_html(&html, mod_id)
         .ok_or_else(|| format!("Failed to parse launcher mod page HTML for {mod_id}."))
+}
+
+fn load_remote_mod_detail_gallery_from_images_tab(
+    client: &Client,
+    mod_id: i64,
+) -> Result<Vec<String>, String> {
+    let images_url = format!("{}?tab=images", build_mod_page_url(mod_id));
+    let headers = public_page_headers(None)?;
+    let response = send_nexus_request(|| client.get(&images_url).headers(headers.clone()).send())?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to fetch launcher mod images page for {mod_id}: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let html = response
+        .text()
+        .map_err(|error| format!("Failed to read launcher mod images page HTML: {error}"))?;
+    Ok(parse_remote_mod_images_tab_html(&html))
 }
 
 fn load_remote_mod_details_batch(
@@ -1434,10 +1488,24 @@ fn load_launcher_remote_mod_detail_blocking(
     }
 
     let client = launcher_http_client()?;
-    let detail = load_remote_mod_detail_from_public_graphql(&client, request.mod_id).or_else(|error| {
+    let mut detail = load_remote_mod_detail_from_public_graphql(&client, request.mod_id).or_else(|error| {
         log::warn!("launcher public GraphQL mod detail lookup failed, falling back to HTML: {error}");
         load_remote_mod_detail_from_html(&client, request.mod_id)
     })?;
+    if detail.image_url.is_none() && detail.gallery_images.is_empty() {
+        match load_remote_mod_detail_gallery_from_images_tab(&client, request.mod_id) {
+            Ok(gallery_images) if !gallery_images.is_empty() => {
+                detail = enrich_remote_mod_detail_with_gallery_images(detail, gallery_images);
+            }
+            Ok(_) => {}
+            Err(error) => {
+                log::warn!(
+                    "launcher mod images tab lookup failed for {}: {error}",
+                    request.mod_id
+                );
+            }
+        }
+    }
 
     Ok(to_launcher_remote_mod_detail(detail))
 }

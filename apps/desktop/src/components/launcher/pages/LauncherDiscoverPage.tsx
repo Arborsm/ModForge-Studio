@@ -14,7 +14,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
-import type { LauncherSettings } from '../../../lib/desktop'
+import { openLauncherUrl, type LauncherSettings } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import {
   persistLauncherDiscoverToolbarState,
@@ -265,6 +265,10 @@ function DiscoverCard({
         className="launcher-discover-wall-cover"
         aria-label={`${copy.actions.openModPage}: ${item.title}`}
         aria-busy={image.loading ? 'true' : undefined}
+        onClick={(event) => {
+          event.preventDefault()
+          void openLauncherUrl({ url: item.modUrl })
+        }}
       >
         {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
         {!image.imageUrl ? (
@@ -284,7 +288,16 @@ function DiscoverCard({
         </div>
       </a>
       <div className="launcher-discover-wall-body">
-        <a href={item.modUrl} target="_blank" rel="noreferrer" className="launcher-discover-wall-copy">
+        <a
+          href={item.modUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="launcher-discover-wall-copy"
+          onClick={(event) => {
+            event.preventDefault()
+            void openLauncherUrl({ url: item.modUrl })
+          }}
+        >
           <div className="launcher-discover-wall-title-slot">
             <p className="launcher-discover-wall-title">{item.title}</p>
           </div>

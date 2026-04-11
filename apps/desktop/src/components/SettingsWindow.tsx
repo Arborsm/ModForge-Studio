@@ -1,4 +1,4 @@
-import { Bug, Maximize2, Palette, Settings2, X } from 'lucide-react'
+import { Bug, Maximize2, Palette, Settings2, Volume2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { cx } from '../lib/cx'
@@ -15,7 +15,7 @@ type LocaleOption = {
   label: string
 }
 
-export type SettingsWindowCategory = 'appearance' | 'view' | 'launcher' | 'debug'
+export type SettingsWindowCategory = 'appearance' | 'view' | 'interaction' | 'launcher' | 'debug'
 
 type SettingsWindowProps = {
   open: boolean
@@ -23,12 +23,14 @@ type SettingsWindowProps = {
   categories: {
     appearance: string
     view: string
+    interaction: string
     launcher: string
     debug: string
   }
   categoryDescriptions: {
     appearance: string
     view: string
+    interaction: string
     launcher: string
     debug: string
   }
@@ -50,16 +52,20 @@ type SettingsWindowProps = {
   enableDebugModeLabel: string
   disableDebugModeLabel: string
   debugModeEnabled: boolean
+  notificationSoundLabel: string
+  notificationSoundDescription: string
+  enableNotificationSoundLabel: string
+  disableNotificationSoundLabel: string
+  notificationSoundEnabled: boolean
   launcherContent?: ReactNode
   activeCategory?: SettingsWindowCategory
-  futureLabel: string
-  futureDescription: string
   accentOptions: AccentOption[]
   activeAccentId: string
   onSelectAccent: (id: string) => void
   onResetAccent: () => void
   onSelectLocale: (locale: LocaleCode) => void
   onToggleBorderlessFullscreen: () => void
+  onToggleNotificationSound: () => void
   onToggleDebugMode: () => void
   onActiveCategoryChange?: (category: SettingsWindowCategory) => void
   onClose: () => void
@@ -143,16 +149,20 @@ export default function SettingsWindow({
   enableDebugModeLabel,
   disableDebugModeLabel,
   debugModeEnabled,
+  notificationSoundLabel,
+  notificationSoundDescription,
+  enableNotificationSoundLabel,
+  disableNotificationSoundLabel,
+  notificationSoundEnabled,
   launcherContent,
   activeCategory: controlledActiveCategory,
-  futureLabel,
-  futureDescription,
   accentOptions,
   activeAccentId,
   onSelectAccent,
   onResetAccent,
   onSelectLocale,
   onToggleBorderlessFullscreen,
+  onToggleNotificationSound,
   onToggleDebugMode,
   onActiveCategoryChange,
   onClose,
@@ -251,7 +261,7 @@ export default function SettingsWindow({
 
         <div className="settings-window-body">
           <aside className="settings-window-sidebar">
-            {(['appearance', 'view', 'launcher', 'debug'] as const).map((categoryId) => (
+            {(['appearance', 'view', 'interaction', 'launcher', 'debug'] as const).map((categoryId) => (
               <button
                 key={categoryId}
                 type="button"
@@ -357,10 +367,6 @@ export default function SettingsWindow({
                   disabledLabel={disableBorderlessFullscreenLabel}
                   onToggle={onToggleBorderlessFullscreen}
                 />
-                <div className="settings-window-placeholder">
-                  <p className="settings-window-placeholder-title">{futureLabel}</p>
-                  <p className="settings-window-placeholder-copy">{futureDescription}</p>
-                </div>
               </section>
             ) : null}
 
@@ -369,6 +375,24 @@ export default function SettingsWindow({
                 <p className="settings-window-section-title">{categories.launcher}</p>
                 <p className="settings-window-section-copy mt-2">{categoryDescriptions.launcher}</p>
                 <div className="mt-4">{launcherContent}</div>
+              </section>
+            ) : null}
+
+            {activeCategory === 'interaction' ? (
+              <section className="settings-window-section">
+                <p className="settings-window-section-title">{categories.interaction}</p>
+                <p className="settings-window-section-copy mt-2">{categoryDescriptions.interaction}</p>
+                <div className="mt-4">
+                  <SettingsBooleanSwitch
+                    icon={<Volume2 className="h-4 w-4" />}
+                    label={notificationSoundLabel}
+                    description={notificationSoundDescription}
+                    checked={notificationSoundEnabled}
+                    enabledLabel={enableNotificationSoundLabel}
+                    disabledLabel={disableNotificationSoundLabel}
+                    onToggle={onToggleNotificationSound}
+                  />
+                </div>
               </section>
             ) : null}
 
@@ -387,13 +411,6 @@ export default function SettingsWindow({
                     onToggle={onToggleDebugMode}
                   />
                 </div>
-              </section>
-            ) : null}
-
-            {activeCategory === 'appearance' ? (
-              <section className="settings-window-section">
-                <p className="settings-window-section-title">{futureLabel}</p>
-                <p className="settings-window-section-copy mt-2">{futureDescription}</p>
               </section>
             ) : null}
           </div>

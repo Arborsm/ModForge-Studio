@@ -57,6 +57,7 @@ describe('launcher bridge helpers', () => {
       configurable: true,
       value: {},
     })
+    vi.resetModules()
     vi.mocked(invoke).mockReset()
   })
 
@@ -104,6 +105,36 @@ describe('launcher bridge helpers', () => {
 
     await expect(launchLauncherGame()).resolves.toEqual(launched)
     expect(invoke).toHaveBeenCalledWith('launch_launcher_game', undefined)
+  })
+
+  it('clears launcher image cache and invalidates launcher cover and scan caches', async () => {
+    const firstCovers = { covers: [{ labelKey: '20599', imagePath: 'C:\\cache\\cover-1.webp' }] }
+    const firstScan = { modsPath: 'C:\\Games\\Stardew Valley\\Mods', mods: [{ id: 'mod-20599' }] }
+    const secondCovers = { covers: [] }
+    const secondScan = { modsPath: 'C:\\Games\\Stardew Valley\\Mods', mods: [] }
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(firstCovers)
+      .mockResolvedValueOnce(firstScan)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(secondCovers)
+      .mockResolvedValueOnce(secondScan)
+    const { clearLauncherImageCache, loadLauncherLibraryCovers, scanLauncherLibrary } = await import('./desktop')
+
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(firstCovers)
+    await expect(scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(firstScan)
+    await expect(clearLauncherImageCache()).resolves.toBeUndefined()
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(secondCovers)
+    await expect(scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(secondScan)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_launcher_library_covers', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(2, 'scan_launcher_library', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+    expect(invoke).toHaveBeenNthCalledWith(3, 'clear_launcher_image_cache', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(4, 'load_launcher_library_covers', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(5, 'scan_launcher_library', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
   })
 
   it('toggles backend debug logging through the desktop bridge', async () => {

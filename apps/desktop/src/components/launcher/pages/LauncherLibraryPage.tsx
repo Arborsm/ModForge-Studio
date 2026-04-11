@@ -2,15 +2,20 @@ import type { DragEvent } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Folder, FolderArchive, FolderOpen, LayoutGrid, Menu, MoreHorizontal, Play, Plus, RefreshCw, Search } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
+import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import {
   chooseArchiveFile,
   chooseImageFile,
   inspectLauncherArchive,
+  loadLauncherRemoteModDetail,
   openLauncherPath,
+  resolveLauncherImage,
   setLauncherLibraryCover,
   type InspectLauncherArchiveResult,
 } from '../../../lib/desktop'
 import { cx } from '../../../lib/cx'
+import { useLauncherImage } from '../../../lib/launcher/imageLoader'
+import { getLauncherCoverKey } from '../../../lib/launcher/coverKey'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft } from '../../../lib/launcher/types'
 import { useLauncherLibrary } from '../../../lib/launcher/useLauncherLibrary'
 import { LauncherModCard } from '../cards/LauncherModCard'
@@ -32,6 +37,14 @@ type PackDialogState =
   | { kind: 'create'; value: string }
   | { kind: 'rename'; pack: LauncherPackPreset; value: string }
   | { kind: 'delete'; pack: LauncherPackPreset }
+type GalleryCoverDialogState = {
+  mod: LauncherLibraryItem
+  imageUrls: string[]
+  selectedImageUrl: string
+  applying: boolean
+}
+
+const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-gallery-loading'
 
 const normalizeLookupKey = (value: string) => value.trim().toLowerCase()
 const getModKey = (mod: LauncherLibraryItem) => (mod.uniqueId || mod.labelKey || mod.id).trim()
@@ -103,9 +116,18 @@ function includesLibraryFilter(item: LauncherLibraryItem, filterText: string) {
     return true
   }
 
-  return [item.name, item.author, item.uniqueId, item.version]
-    .filter(Boolean)
-    .some((value) => value?.toLowerCase().includes(normalizedFilter))
+  return [
+    item.name,
+    item.author,
+    item.version,
+    item.uniqueId,
+    item.description,
+    item.folderName,
+    item.absolutePath,
+    item.labelKey,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => value.toLowerCase().includes(normalizedFilter))
 }
 
 function buildLibraryCardMeta(mod: LauncherLibraryItem, noneLabel: string) {
@@ -188,6 +210,35 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   )
 })
 
+function GalleryCoverOption({
+  url,
+  selected,
+  label,
+  onSelect,
+}: {
+  url: string
+  selected: boolean
+  label: string
+  onSelect: () => void
+}) {
+  const image = useLauncherImage(url)
+
+  return (
+    <button
+      type="button"
+      className={cx('launcher-gallery-cover-option', selected && 'launcher-gallery-cover-option-selected')}
+      aria-pressed={selected}
+      aria-label={label}
+      onClick={onSelect}
+    >
+      <div className="launcher-gallery-cover-frame">
+        {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-gallery-cover-image" /> : null}
+        {!image.imageUrl ? <span className="launcher-gallery-cover-loading">{label}</span> : null}
+      </div>
+    </button>
+  )
+}
+
 export function LauncherLibraryPage({
   settings,
   launchGameLabel,
@@ -222,10 +273,12 @@ export function LauncherLibraryPage({
   const [quickSwitchOpen, setQuickSwitchOpen] = useState(false)
   const [packActionMenuId, setPackActionMenuId] = useState<string | null>(null)
   const [packDialog, setPackDialog] = useState<PackDialogState | null>(null)
+  const [galleryCoverDialog, setGalleryCoverDialog] = useState<GalleryCoverDialogState | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editingSelectionIds, setEditingSelectionIds] = useState<string[]>([])
   const [draggedModIds, setDraggedModIds] = useState<string[]>([])
   const [dragOverPackId, setDragOverPackId] = useState<string | null>(null)
+  const lastEditSeedRef = useRef<{ editMode: boolean; packId: string | null }>({ editMode: false, packId: null })
 
   const titleMenuRef = useRef<HTMLDivElement | null>(null)
   const drawerPanelRef = useRef<HTMLDivElement | null>(null)
@@ -250,12 +303,18 @@ export function LauncherLibraryPage({
   }, [detailMod, detailModId])
 
   useEffect(() => {
-    if (!editMode) {
-      return
+    const enteredEditMode = editMode && !lastEditSeedRef.current.editMode
+    const changedPackWhileEditing = editMode && library.currentPackId !== lastEditSeedRef.current.packId
+
+    if (enteredEditMode || changedPackWhileEditing) {
+      setEditingSelectionIds(getPackModIds(library.currentPack, library.mods))
     }
 
-    setEditingSelectionIds(getPackModIds(library.currentPack, library.mods))
-  }, [editMode, library.currentPack, library.mods])
+    lastEditSeedRef.current = {
+      editMode,
+      packId: library.currentPackId,
+    }
+  }, [editMode, library.currentPack, library.currentPackId, library.mods])
 
   useEffect(() => {
     if (!quickSwitchOpen && !packActionMenuId && !sortMenuOpen) {
@@ -295,17 +354,12 @@ export function LauncherLibraryPage({
   }, [packDialog])
 
   const visibleMods = useMemo(() => {
-    const source = library.mods.filter((item) => includesLibraryFilter(item, library.filterText))
-    const enabledFiltered = library.enabledOnly ? source.filter((item) => item.enabled) : source
-    const browseScoped =
-      editMode || !library.currentPack
-        ? enabledFiltered
-        : enabledFiltered.filter((item) =>
-            library.currentPack?.modKeys.some((value) => normalizeLookupKey(value) === normalizeLookupKey(getModKey(item))),
-          )
+    const browseScoped = editMode
+      ? library.mods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
+      : library.filteredMods
 
     return sortLibraryMods(browseScoped, sortMode, packLookup, library.currentPackId)
-  }, [editMode, library.currentPack, library.currentPackId, library.enabledOnly, library.filterText, library.mods, packLookup, sortMode])
+  }, [editMode, library.currentPackId, library.enabledOnly, library.filterText, library.filteredMods, library.mods, packLookup, sortMode])
 
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
   const sortOptions = useMemo(
@@ -329,8 +383,10 @@ export function LauncherLibraryPage({
     setActionError(null)
     try {
       await action()
+      return true
     } catch (nextError) {
       setActionError(nextError instanceof Error ? nextError.message : copy.library.empty)
+      return false
     }
   }, [copy.library.empty])
 
@@ -390,15 +446,102 @@ export function LauncherLibraryPage({
       if (!imagePath) {
         return
       }
-      await setLauncherLibraryCover({ labelKey: mod.labelKey, imagePath })
+      await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath })
       await refresh()
     }), [copy.actions.setCover, refresh, runLibraryAction])
 
   const clearModCover = useCallback((mod: LauncherLibraryItem) =>
     runLibraryAction(async () => {
-      await setLauncherLibraryCover({ labelKey: mod.labelKey, imagePath: null })
+      await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath: null })
       await refresh()
     }), [refresh, runLibraryAction])
+
+  const closeGalleryCoverDialog = useCallback(() => {
+    setGalleryCoverDialog(null)
+  }, [])
+
+  const openGalleryCoverDialog = useCallback(async (mod: LauncherLibraryItem) => {
+    setActionError(null)
+
+    if (!mod.nexusModId) {
+      publishNotification({
+        level: 'warning',
+        title: copy.actions.chooseGalleryCover,
+        description: copy.library.galleryCoverEmpty,
+      })
+      return
+    }
+
+    try {
+      publishNotification({
+        id: LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID,
+        level: 'info',
+        title: copy.actions.chooseGalleryCover,
+        description: copy.library.galleryCoverLoading,
+        autoDismissMs: null,
+      })
+
+      const detail = await loadLauncherRemoteModDetail({ modId: mod.nexusModId })
+      const imageUrls = Array.from(new Set(detail.galleryImages.map((value) => value.trim()).filter(Boolean)))
+      if (!imageUrls.length) {
+        dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+        publishNotification({
+          level: 'warning',
+          title: copy.actions.chooseGalleryCover,
+          description: copy.library.galleryCoverEmpty,
+        })
+        return
+      }
+
+      setGalleryCoverDialog({
+        mod,
+        imageUrls,
+        selectedImageUrl: imageUrls[0]!,
+        applying: false,
+      })
+    } catch (nextError) {
+      dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+      publishNotification({
+        level: 'error',
+        title: copy.actions.chooseGalleryCover,
+        description: nextError instanceof Error ? nextError.message : copy.library.empty,
+      })
+      return
+    }
+    dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+  }, [copy.actions.chooseGalleryCover, copy.library.empty, copy.library.galleryCoverEmpty, copy.library.galleryCoverLoading])
+
+  const applyGalleryCover = useCallback(async () => {
+    setActionError(null)
+
+    if (!galleryCoverDialog) {
+      return
+    }
+
+    setGalleryCoverDialog((current) => (current ? { ...current, applying: true } : current))
+
+    try {
+      const resolved = await resolveLauncherImage({ url: galleryCoverDialog.selectedImageUrl })
+      await setLauncherLibraryCover({
+        labelKey: getLauncherCoverKey(galleryCoverDialog.mod),
+        imagePath: resolved.localPath,
+      })
+      await refresh()
+      setGalleryCoverDialog(null)
+      publishNotification({
+        level: 'success',
+        title: copy.actions.setCover,
+        description: galleryCoverDialog.mod.name,
+      })
+    } catch (nextError) {
+      publishNotification({
+        level: 'error',
+        title: copy.actions.setCover,
+        description: nextError instanceof Error ? nextError.message : copy.library.empty,
+      })
+      setGalleryCoverDialog((current) => (current ? { ...current, applying: false } : current))
+    }
+  }, [copy.actions.setCover, copy.library.empty, galleryCoverDialog, refresh])
 
   const openModDetails = useCallback((modId: string) => {
     setSelectedModId(modId)
@@ -414,13 +557,20 @@ export function LauncherLibraryPage({
   }, [])
 
   const selectPack = async (packId: string | null, options?: { closeDrawer?: boolean }) => {
-    await library.setCurrentPackId(packId)
+    const success = await runLibraryAction(async () => {
+      await library.setCurrentPackId(packId)
+    })
+    if (!success) {
+      return false
+    }
+
     setQuickSwitchOpen(false)
     setPackActionMenuId(null)
     setSortMenuOpen(false)
     if (options?.closeDrawer) {
       setDrawerOpen(false)
     }
+    return true
   }
 
   const resolveDraggedModIds = useCallback((modId: string) => {
@@ -504,10 +654,12 @@ export function LauncherLibraryPage({
         return
       }
 
-      await runLibraryAction(async () => {
+      const success = await runLibraryAction(async () => {
         await createPackPreset(nextName)
       })
-      setPackDialog(null)
+      if (success) {
+        setPackDialog(null)
+      }
       return
     }
 
@@ -517,16 +669,21 @@ export function LauncherLibraryPage({
         return
       }
 
-      await runLibraryAction(async () => {
+      const success = await runLibraryAction(async () => {
         await renamePackPreset(packDialog.pack.id, nextName)
       })
-      setPackDialog(null)
+      if (success) {
+        setPackDialog(null)
+      }
       return
     }
 
-    await runLibraryAction(async () => {
+    const success = await runLibraryAction(async () => {
       await deletePackPreset(packDialog.pack.id)
     })
+    if (!success) {
+      return
+    }
     if (library.currentPack && normalizeLookupKey(library.currentPack.id) === normalizeLookupKey(packDialog.pack.id)) {
       setEditMode(false)
     }
@@ -549,8 +706,9 @@ export function LauncherLibraryPage({
     { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
     { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void toggleEnabled(mod) },
     { label: copy.actions.setCover, onSelect: () => void setModCover(mod) },
+    ...(mod.nexusModId ? [{ label: copy.actions.chooseGalleryCover, onSelect: () => void openGalleryCoverDialog(mod) }] : []),
     { label: copy.actions.clearCover, onSelect: () => void clearModCover(mod) },
-  ], [clearModCover, copy.actions.clearCover, copy.actions.disable, copy.actions.enable, copy.actions.openFolder, copy.actions.setCover, copy.actions.viewDetails, openModDetails, openModFolder, setModCover, toggleEnabled])
+  ], [clearModCover, copy.actions.chooseGalleryCover, copy.actions.clearCover, copy.actions.disable, copy.actions.enable, copy.actions.openFolder, copy.actions.setCover, copy.actions.viewDetails, openGalleryCoverDialog, openModDetails, openModFolder, setModCover, toggleEnabled])
 
   const editCount = editingSelectionIds.length
   const currentPackLabel = library.currentPack ? library.currentPack.name : copy.library.allPacks
@@ -633,7 +791,13 @@ export function LauncherLibraryPage({
               </div>
 
               <div className="launcher-library-console-actions">
-                <button type="button" className="launcher-library-icon-button" onClick={() => void library.refresh()} aria-label={copy.actions.refresh} title={copy.actions.refresh}>
+                <button
+                  type="button"
+                  className="launcher-library-icon-button"
+                  onClick={() => void library.refresh()}
+                  aria-label={copy.actions.refresh}
+                  title={copy.actions.refresh}
+                >
                   <RefreshCw className="h-4 w-4" />
                 </button>
                 <button type="button" className="launcher-library-icon-button" onClick={() => void openLibraryRoot()} aria-label={copy.actions.openStorageFolder} title={copy.actions.openStorageFolder}>
@@ -886,7 +1050,10 @@ export function LauncherLibraryPage({
                                   startEditMode()
                                   return
                                 }
-                                await selectPack(pack.id)
+                                const switched = await selectPack(pack.id)
+                                if (!switched) {
+                                  return
+                                }
                                 setEditingSelectionIds(getPackModIds(pack, library.mods))
                                 setEditMode(true)
                                 setPackActionMenuId(null)
@@ -915,7 +1082,16 @@ export function LauncherLibraryPage({
             {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
             {library.state === 'error' ? <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" /> : null}
             {library.state !== 'error' && !visibleMods.length ? (
-              <LauncherStateBlock title={settings.modsPath ? copy.library.filteredEmpty : copy.states.missingModsPath} detail={copy.library.subtitle} />
+              <LauncherStateBlock
+                title={
+                  !settings.modsPath
+                    ? copy.states.missingModsPath
+                    : !library.mods.length
+                      ? copy.library.empty
+                      : copy.library.filteredEmpty
+                }
+                detail={copy.library.subtitle}
+              />
             ) : (
               <VirtualizedLauncherGrid
                 items={visibleMods}
@@ -997,6 +1173,65 @@ export function LauncherLibraryPage({
         onClose={closeArchivePreview}
         onConfirm={() => void confirmArchiveInstall()}
       />
+
+      {galleryCoverDialog ? (
+        <div
+          className="launcher-modal-backdrop launcher-library-dialog-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !galleryCoverDialog.applying) {
+              closeGalleryCoverDialog()
+            }
+          }}
+        >
+          <section className="launcher-library-dialog launcher-gallery-cover-dialog" role="dialog" aria-modal="true" aria-label={copy.library.galleryCoverTitle}>
+            <div className="launcher-library-dialog-header">
+              <h2 className="launcher-library-dialog-title">{copy.library.galleryCoverTitle}</h2>
+              <p className="launcher-library-dialog-copy">{copy.library.galleryCoverSubtitle}</p>
+            </div>
+
+            <div className="launcher-gallery-cover-grid">
+              {galleryCoverDialog.imageUrls.map((url, index) => (
+                <GalleryCoverOption
+                  key={url}
+                  url={url}
+                  selected={galleryCoverDialog.selectedImageUrl === url}
+                  label={copy.library.galleryCoverImageLabel(index + 1)}
+                  onSelect={() =>
+                    setGalleryCoverDialog((current) =>
+                      current
+                        ? {
+                            ...current,
+                            selectedImageUrl: url,
+                          }
+                        : current,
+                    )
+                  }
+                />
+              ))}
+            </div>
+
+            <div className="launcher-library-dialog-actions">
+              <button
+                type="button"
+                className="control-button launcher-library-secondary-action"
+                onClick={closeGalleryCoverDialog}
+                disabled={galleryCoverDialog.applying}
+              >
+                {copy.library.cancelEdit}
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary"
+                onClick={() => void applyGalleryCover()}
+                disabled={galleryCoverDialog.applying}
+              >
+                {copy.actions.setCover}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {packDialog ? (
         <div

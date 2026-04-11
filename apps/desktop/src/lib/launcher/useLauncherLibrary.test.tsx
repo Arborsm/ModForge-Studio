@@ -1,33 +1,76 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { LocaleProvider } from '../app/localeContext'
+import { dismissNotification, publishNotification } from '../app/notifications'
 import type {
+  LauncherLibraryCoversState,
   LauncherLibraryModSummary,
   LauncherLibraryState,
+  LauncherRemoteModDetail,
   LauncherSettings,
 } from '../desktop'
-import {
-  loadLauncherLibraryState,
-  saveLauncherLibraryState,
-  scanLauncherLibrary,
-  setLauncherModEnabled,
-} from '../desktop'
+import * as desktop from '../desktop'
+import { getLauncherCopy } from '../editor-shell'
 import { useLauncherLibrary } from './useLauncherLibrary'
 
 vi.mock('../desktop', async () => {
   const actual = await vi.importActual<typeof import('../desktop')>('../desktop')
   return {
     ...actual,
+    loadLauncherLibraryCovers: vi.fn(),
     loadLauncherLibraryState: vi.fn(),
+    loadLauncherRemoteModDetail: vi.fn(),
+    persistLauncherLibraryRemoteCover: vi.fn(),
     saveLauncherLibraryState: vi.fn(),
     scanLauncherLibrary: vi.fn(),
     setLauncherModEnabled: vi.fn(),
   }
 })
 
-const loadLauncherLibraryStateMock = vi.mocked(loadLauncherLibraryState)
-const saveLauncherLibraryStateMock = vi.mocked(saveLauncherLibraryState)
-const scanLauncherLibraryMock = vi.mocked(scanLauncherLibrary)
-const setLauncherModEnabledMock = vi.mocked(setLauncherModEnabled)
+vi.mock('../app/notifications', async () => {
+  const actual = await vi.importActual<typeof import('../app/notifications')>('../app/notifications')
+  return {
+    ...actual,
+    publishNotification: vi.fn(),
+    dismissNotification: vi.fn(),
+  }
+})
+
+const loadLauncherLibraryCoversMock = vi.mocked(desktop.loadLauncherLibraryCovers)
+const loadLauncherLibraryStateMock = vi.mocked(desktop.loadLauncherLibraryState)
+const loadLauncherRemoteModDetailMock = vi.mocked(desktop.loadLauncherRemoteModDetail)
+const persistLauncherLibraryRemoteCoverMock = vi.mocked(desktop.persistLauncherLibraryRemoteCover)
+const saveLauncherLibraryStateMock = vi.mocked(desktop.saveLauncherLibraryState)
+const scanLauncherLibraryMock = vi.mocked(desktop.scanLauncherLibrary)
+const setLauncherModEnabledMock = vi.mocked(desktop.setLauncherModEnabled)
+const publishNotificationMock = vi.mocked(publishNotification)
+const dismissNotificationMock = vi.mocked(dismissNotification)
+const launcherCopy = getLauncherCopy('zh-CN')
+type AutoCoverStageKey = keyof typeof launcherCopy.library.loadingMissingCoversStages
+
+function createAutoCoverNotification(modName: string, stage: AutoCoverStageKey, completed: number, total: number) {
+  return {
+    id: 'launcher-library-auto-cover-progress',
+    level: 'info' as const,
+    title: launcherCopy.library.loadingMissingCoversCurrentMod(modName),
+    description: launcherCopy.library.loadingMissingCoversStageProgress(
+      launcherCopy.library.loadingMissingCoversStages[stage],
+      completed,
+      total,
+    ),
+    autoDismissMs: null,
+    progress: total > 0 ? (completed / total) * 100 : 0,
+  }
+}
+
+function Wrapper({ children }: { children: ReactNode }) {
+  return (
+    <LocaleProvider locale="zh-CN">
+      {children}
+    </LocaleProvider>
+  )
+}
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -58,6 +101,13 @@ function createLibraryState(overrides: Partial<LauncherLibraryState> = {}): Laun
   }
 }
 
+function createLibraryCoversState(overrides: Partial<LauncherLibraryCoversState> = {}): LauncherLibraryCoversState {
+  return {
+    covers: [],
+    ...overrides,
+  }
+}
+
 function createMod(overrides: Partial<LauncherLibraryModSummary> = {}): LauncherLibraryModSummary {
   return {
     id: 'mod-visible',
@@ -79,12 +129,698 @@ function createMod(overrides: Partial<LauncherLibraryModSummary> = {}): Launcher
   }
 }
 
+function createRemoteModDetail(overrides: Partial<LauncherRemoteModDetail> = {}): LauncherRemoteModDetail {
+  return {
+    modId: 101,
+    title: 'Visible Mod',
+    summary: 'Visible mod.',
+    author: 'ModForge',
+    version: '1.0.0',
+    modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+    imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/101/101-cover.png',
+    galleryImages: [],
+    ...overrides,
+  }
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
+async function flushAsyncWork() {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 describe('useLauncherLibrary', () => {
+  beforeEach(() => {
+    loadLauncherLibraryCoversMock.mockReset()
+    loadLauncherLibraryStateMock.mockReset()
+    loadLauncherRemoteModDetailMock.mockReset()
+    persistLauncherLibraryRemoteCoverMock.mockReset()
+    saveLauncherLibraryStateMock.mockReset()
+    scanLauncherLibraryMock.mockReset()
+    setLauncherModEnabledMock.mockReset()
+    publishNotificationMock.mockReset()
+    dismissNotificationMock.mockReset()
+  })
+
   afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 
+  it('auto-fetches covers only for mods without saved covers', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(
+      createLibraryCoversState({
+        covers: [
+          {
+            labelKey: 'ModForge.Visible',
+            imagePath: 'E:\\Covers\\visible.png',
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-visible',
+          labelKey: 'ModForge.Visible',
+          uniqueId: 'ModForge.Visible',
+          nexusModId: 101,
+        }),
+        createMod({
+          id: 'mod-missing',
+          labelKey: 'ModForge.Missing',
+          uniqueId: 'ModForge.Missing',
+          nexusModId: 202,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Missing Cover',
+        }),
+        createMod({
+          id: 'mod-no-nexus',
+          labelKey: 'ModForge.LocalOnly',
+          uniqueId: 'ModForge.LocalOnly',
+          nexusModId: null,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Local Only',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 202,
+        title: 'Missing Cover',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 202 })
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
+      labelKey: '202',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+    })
+  })
+
+  it('writes the persisted local cover path back into the current mod state', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:05:00Z'))
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-missing',
+          labelKey: 'ModForge.Missing',
+          uniqueId: 'ModForge.Missing',
+          nexusModId: 202,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Missing Cover',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 202,
+        title: 'Missing Cover',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(
+      createLibraryCoversState({
+        covers: [
+          {
+            labelKey: '202',
+            imagePath: 'E:\\Covers\\missing-cover.png',
+          },
+        ],
+      }),
+    )
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+      await flushAsyncWork()
+    })
+
+    expect(result.current.mods[0]?.imageUrl).toBe('E:\\Covers\\missing-cover.png')
+  })
+
+  it('falls back to the first gallery image when the remote detail has no primary imageUrl', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:10:00Z'))
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-gallery-only',
+          labelKey: 'ModForge.GalleryOnly',
+          uniqueId: 'ModForge.GalleryOnly',
+          nexusModId: 20599,
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 20599,
+        title: 'Gallery Only',
+        imageUrl: null,
+        galleryImages: [
+          'https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-1.png',
+          'https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-2.png',
+        ],
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
+      labelKey: '20599',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-1.png',
+    })
+  })
+
+  it('fetches missing covers again on an immediate refresh when they are still missing', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-02T00:00:00Z'))
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-missing',
+          labelKey: 'ModForge.Missing',
+          uniqueId: 'ModForge.Missing',
+          nexusModId: 202,
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 202,
+        title: 'Missing Cover',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+
+    const first = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await first.result.current.refresh()
+      await flushAsyncWork()
+    })
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    first.unmount()
+
+    const second = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await second.result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('fetches newly missing covers on the next refresh without waiting for a cooldown', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-04T00:00:00Z'))
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock
+      .mockResolvedValueOnce(createLibraryCoversState())
+      .mockResolvedValueOnce(
+        createLibraryCoversState({
+          covers: [
+            {
+              labelKey: 'ModForge.MissingA',
+              imagePath: 'E:\\Covers\\missing-a.png',
+            },
+          ],
+        }),
+      )
+    scanLauncherLibraryMock
+      .mockResolvedValueOnce({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        mods: [
+          createMod({
+            id: 'mod-missing-a',
+            labelKey: 'ModForge.MissingA',
+            uniqueId: 'ModForge.MissingA',
+            nexusModId: 201,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        mods: [
+          createMod({
+            id: 'mod-missing-a',
+            labelKey: 'ModForge.MissingA',
+            uniqueId: 'ModForge.MissingA',
+            nexusModId: 201,
+          }),
+          createMod({
+            id: 'mod-missing-b',
+            labelKey: 'ModForge.MissingB',
+            uniqueId: 'ModForge.MissingB',
+            nexusModId: 202,
+          }),
+        ],
+      })
+    loadLauncherRemoteModDetailMock
+      .mockResolvedValueOnce(
+        createRemoteModDetail({
+          modId: 201,
+          title: 'Missing Cover A',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/201/201-cover.png',
+        }),
+      )
+      .mockResolvedValueOnce(
+        createRemoteModDetail({
+          modId: 202,
+          title: 'Missing Cover B',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+        }),
+      )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenLastCalledWith({
+      labelKey: '201',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/201/201-cover.png',
+    })
+
+    vi.setSystemTime(new Date('2000-01-04T00:01:00Z'))
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(2)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenLastCalledWith({
+      labelKey: '202',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+    })
+  })
+
+  it('ignores stale refresh results that finish after a newer refresh', async () => {
+    const firstScanRequest = createDeferred<{ modsPath: string; mods: LauncherLibraryModSummary[] }>()
+    let firstRefreshPromise!: Promise<void>
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock
+      .mockReturnValueOnce(firstScanRequest.promise)
+      .mockResolvedValueOnce({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        mods: [
+          createMod({
+            id: 'mod-new',
+            labelKey: 'ModForge.New',
+            uniqueId: 'ModForge.New',
+            name: 'New Result',
+            nexusModId: null,
+          }),
+        ],
+      })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      firstRefreshPromise = result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(result.current.mods.map((mod) => mod.id)).toEqual(['mod-new'])
+
+    await act(async () => {
+      firstScanRequest.resolve({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        mods: [
+          createMod({
+            id: 'mod-old',
+            labelKey: 'ModForge.Old',
+            uniqueId: 'ModForge.Old',
+            name: 'Old Result',
+            nexusModId: null,
+          }),
+        ],
+      })
+      await firstRefreshPromise
+      await flushAsyncWork()
+    })
+
+    expect(result.current.mods.map((mod) => mod.id)).toEqual(['mod-new'])
+  })
+
+  it.skip('publishes an auto-cover loading notification while missing covers are being fetched', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2000-01-05T00:00:00Z').getTime())
+
+    const detailRequest = createDeferred<LauncherRemoteModDetail>()
+    const persistRequest = createDeferred<LauncherLibraryCoversState>()
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-missing-a',
+          labelKey: 'ModForge.MissingA',
+          uniqueId: 'ModForge.MissingA',
+          nexusModId: 201,
+        }),
+        createMod({
+          id: 'mod-missing-b',
+          labelKey: 'ModForge.MissingB',
+          uniqueId: 'ModForge.MissingB',
+          nexusModId: 202,
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock
+      .mockReturnValueOnce(detailRequest.promise)
+      .mockResolvedValueOnce(
+        createRemoteModDetail({
+          modId: 202,
+          title: 'Missing Cover B',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+        }),
+      )
+    persistLauncherLibraryRemoteCoverMock
+      .mockReturnValueOnce(persistRequest.promise)
+      .mockResolvedValueOnce(createLibraryCoversState())
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(publishNotificationMock).toHaveBeenCalledWith({
+      id: 'launcher-library-auto-cover-progress',
+      level: 'info',
+      title: '正在补全缺失封面',
+      description: '已处理 0 / 2 个缺失封面。',
+      autoDismissMs: null,
+      progress: 0,
+    })
+
+    await act(async () => {
+      persistRequest.resolve(createLibraryCoversState())
+      await flushAsyncWork()
+    })
+
+    expect(publishNotificationMock).toHaveBeenCalledWith({
+      id: 'launcher-library-auto-cover-progress',
+      level: 'info',
+      title: '正在补全缺失封面',
+      description: '已处理 1 / 2 个缺失封面。',
+      autoDismissMs: null,
+      progress: 50,
+    })
+
+    await act(async () => {
+      detailRequest.resolve(
+        createRemoteModDetail({
+          modId: 201,
+          title: 'Missing Cover A',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/201/201-cover.png',
+        }),
+      )
+      await flushAsyncWork()
+    })
+
+    expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-auto-cover-progress')
+  })
+
+  it('publishes per-mod stage progress while missing covers are being fetched', async () => {
+    const detailRequest = createDeferred<LauncherRemoteModDetail>()
+    const persistRequest = createDeferred<LauncherLibraryCoversState>()
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-missing-a',
+          labelKey: 'ModForge.MissingA',
+          uniqueId: 'ModForge.MissingA',
+          name: 'Missing Cover A',
+          nexusModId: 201,
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockReturnValueOnce(detailRequest.promise)
+    persistLauncherLibraryRemoteCoverMock.mockReturnValueOnce(persistRequest.promise)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenNthCalledWith(
+        1,
+        createAutoCoverNotification('Missing Cover A', 'local', 0, 1),
+      )
+      expect(publishNotificationMock).toHaveBeenNthCalledWith(
+        2,
+        createAutoCoverNotification('Missing Cover A', 'apiCover', 0, 1),
+      )
+    })
+
+    await act(async () => {
+      detailRequest.resolve(
+        createRemoteModDetail({
+          modId: 201,
+          title: 'Missing Cover A',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/201/201-cover.png',
+        }),
+      )
+      await flushAsyncWork()
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        createAutoCoverNotification('Missing Cover A', 'remoteCover', 0, 1),
+      )
+    })
+
+    await act(async () => {
+      persistRequest.resolve(createLibraryCoversState())
+      await flushAsyncWork()
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        createAutoCoverNotification('Missing Cover A', 'remoteCover', 1, 1),
+      )
+      expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-auto-cover-progress')
+    })
+  })
+
+  it('publishes gallery stages when the auto-cover flow falls back to gallery images', async () => {
+    const persistRequest = createDeferred<LauncherLibraryCoversState>()
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-gallery-a',
+          labelKey: 'ModForge.GalleryA',
+          uniqueId: 'ModForge.GalleryA',
+          name: 'Gallery Cover A',
+          nexusModId: 20599,
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 20599,
+        title: 'Gallery Cover A',
+        imageUrl: null,
+        galleryImages: ['https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-1.png'],
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockReturnValueOnce(persistRequest.promise)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        createAutoCoverNotification('Gallery Cover A', 'apiGallery', 0, 1),
+      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 0, 1),
+      )
+    })
+
+    await act(async () => {
+      persistRequest.resolve(createLibraryCoversState())
+      await flushAsyncWork()
+    })
+
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
+      labelKey: '20599',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-1.png',
+    })
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 1, 1),
+    )
+  })
+
+  it('keeps the auto-cover flow alive across state writes until every eligible mod finishes', async () => {
+    const detailRequestA = createDeferred<LauncherRemoteModDetail>()
+    const detailRequestB = createDeferred<LauncherRemoteModDetail>()
+    const persistRequestA = createDeferred<LauncherLibraryCoversState>()
+    const persistRequestB = createDeferred<LauncherLibraryCoversState>()
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-a',
+          labelKey: 'ModForge.A',
+          uniqueId: 'ModForge.A',
+          name: 'Cover A',
+          nexusModId: 201,
+        }),
+        createMod({
+          id: 'mod-b',
+          labelKey: 'ModForge.B',
+          uniqueId: 'ModForge.B',
+          name: 'Cover B',
+          nexusModId: 202,
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockReturnValueOnce(detailRequestA.promise).mockReturnValueOnce(detailRequestB.promise)
+    persistLauncherLibraryRemoteCoverMock.mockReturnValueOnce(persistRequestA.promise).mockReturnValueOnce(persistRequestB.promise)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      detailRequestA.resolve(
+        createRemoteModDetail({
+          modId: 201,
+          title: 'Cover A',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/201/201-cover.png',
+        }),
+      )
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      persistRequestA.resolve(
+        createLibraryCoversState({
+          covers: [{ labelKey: '201', imagePath: 'E:\\Covers\\201.png' }],
+        }),
+      )
+      await flushAsyncWork()
+    })
+
+    expect(dismissNotificationMock).not.toHaveBeenCalled()
+    expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Cover A', 'remoteCover', 1, 2))
+
+    await act(async () => {
+      detailRequestB.resolve(
+        createRemoteModDetail({
+          modId: 202,
+          title: 'Cover B',
+          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+        }),
+      )
+      await flushAsyncWork()
+    })
+
+    await act(async () => {
+      persistRequestB.resolve(
+        createLibraryCoversState({
+          covers: [{ labelKey: '202', imagePath: 'E:\\Covers\\202.png' }],
+        }),
+      )
+      await flushAsyncWork()
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Cover B', 'remoteCover', 2, 2))
+      expect(dismissNotificationMock).toHaveBeenCalledTimes(1)
+      expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-auto-cover-progress')
+    })
+  })
+
   it('filters to current pack members when scope mode is current-pack', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         packPresets: [
@@ -118,7 +854,7 @@ describe('useLauncherLibrary', () => {
       ],
     })
 
-    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
     await act(async () => {
       await result.current.refresh()
     })
@@ -130,6 +866,9 @@ describe('useLauncherLibrary', () => {
   })
 
   it('assigns selected mods to one storage folder with single ownership', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         storageFolders: [
@@ -170,7 +909,7 @@ describe('useLauncherLibrary', () => {
     })
     saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
 
-    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
     await act(async () => {
       await result.current.refresh()
     })
@@ -209,6 +948,9 @@ describe('useLauncherLibrary', () => {
   })
 
   it('allows pack presets to keep multi-membership', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         packPresets: [
@@ -242,7 +984,7 @@ describe('useLauncherLibrary', () => {
     })
     saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
 
-    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
     await act(async () => {
       await result.current.refresh()
     })
@@ -282,6 +1024,9 @@ describe('useLauncherLibrary', () => {
   })
 
   it('applyCurrentPack leaves only pack members enabled', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         packPresets: [
@@ -318,7 +1063,7 @@ describe('useLauncherLibrary', () => {
       enabled: true,
     })
 
-    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
     await act(async () => {
       await result.current.refresh()
     })
@@ -339,6 +1084,9 @@ describe('useLauncherLibrary', () => {
   })
 
   it('replacePackMods overwrites the current pack membership from selected card ids', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         packPresets: [
@@ -373,7 +1121,7 @@ describe('useLauncherLibrary', () => {
     })
     saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
 
-    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
     await act(async () => {
       await result.current.refresh()
     })
@@ -408,6 +1156,9 @@ describe('useLauncherLibrary', () => {
   })
 
   it('addModsToPack appends dragged mods into the target pack without duplicates', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
     loadLauncherLibraryStateMock.mockResolvedValue(
       createLibraryState({
         packPresets: [
@@ -441,7 +1192,7 @@ describe('useLauncherLibrary', () => {
     })
     saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
 
-    const { result } = renderHook(() => useLauncherLibrary(createSettings()))
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
     await act(async () => {
       await result.current.refresh()
     })

@@ -149,6 +149,13 @@ pub struct SetLauncherLibraryCoverRequest {
     pub image_path: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PersistLauncherLibraryRemoteCoverRequest {
+    pub label_key: String,
+    pub image_url: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetLauncherModEnabledResult {
@@ -160,6 +167,12 @@ pub struct SetLauncherModEnabledResult {
 #[serde(rename_all = "camelCase")]
 pub struct OpenLauncherPathRequest {
     pub path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenLauncherUrlRequest {
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

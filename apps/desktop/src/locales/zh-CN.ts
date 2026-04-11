@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
+﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import type { LocaleBundle } from './schema'
 
@@ -70,6 +70,7 @@ const localeBundle = {
         "openBackupFolder": "打开备份目录",
         "setCover": "设置封面",
         "clearCover": "清除封面",
+        "chooseGalleryCover": "选择图库封面",
         "createPack": "新建模组包",
         "applyCurrentPack": "应用当前模组包",
         "createStorageFolder": "新建收纳文件夹",
@@ -155,7 +156,23 @@ const localeBundle = {
         "cancelEdit": "取消",
         "saveChanges": "保存更改",
         "renameCurrentPackPrompt": (name) => `重命名 ${name}`,
-        "deleteCurrentPackConfirm": (name) => `确定删除 ${name} 吗？`
+        "deleteCurrentPackConfirm": (name) => `确定删除 ${name} 吗？`,
+        "loadingMissingCoversTitle": "正在获取缺失封面",
+        "loadingMissingCoversCurrentMod": (name) => `正在处理 ${name}`,
+        "loadingMissingCoversProgress": (completed, total) => `已获取 ${completed} / ${total} 个缺失封面`,
+        "loadingMissingCoversStageProgress": (stage, completed, total) => `${stage} · ${completed} / ${total}`,
+        "loadingMissingCoversStages": {
+          "local": "本地",
+          "apiCover": "接口封面",
+          "apiGallery": "接口图片库",
+          "remoteCover": "远程封面",
+          "remoteGallery": "远程图片库"
+        },
+        "galleryCoverTitle": "图库图片",
+        "galleryCoverSubtitle": "从 Nexus 图库中选择一张图片替换当前封面。",
+        "galleryCoverEmpty": "这个模组没有可用作封面的图库图片。",
+        "galleryCoverLoading": "正在获取图库图片...",
+        "galleryCoverImageLabel": (index) => `图库图片 ${index}`
       },
       "discover": {
         "title": "发现",
@@ -187,7 +204,11 @@ const localeBundle = {
       "settings": {
         "title": "启动器设置",
         "subtitle": "通过 ModForge 持久化启动器专用路径与 Nexus 凭据。",
+        "pathsTitle": "路径",
         "pathsHint": "游戏、Mods 和下载路径都继续使用 ModForge 现有的持久化体系。",
+        "nexusAccessTitle": "Nexus 访问",
+        "downloadBehaviorTitle": "下载行为",
+        "downloadBehaviorHint": "控制下载完成后是否自动安装，以及是否保留归档文件。",
         "autoInstallHint": "下载成功后立即把归档安装到 Mods 目录。",
         "keepArchivesHint": "安装完成后保留 zip 归档，便于回滚或手动复用。",
         "loadFailed": "启动器设置加载失败。",
@@ -1018,7 +1039,8 @@ const localeBundle = {
       "appearance": "外观",
       "view": "视图",
       "interaction": "交互",
-      "advanced": "高级"
+      "launcher": "启动器",
+      "debug": "调试"
     },
     "accentLabel": "强调色",
     "resetAccentLabel": "恢复默认强调色",
@@ -1038,13 +1060,18 @@ const localeBundle = {
     "debugModeDescription": "显示诊断覆盖层，允许调试通知，并持久化调试日志。",
     "enableDebugModeLabel": "启用调试工具",
     "disableDebugModeLabel": "关闭调试工具",
+    "notificationSoundLabel": "通知音效",
+    "notificationSoundDescription": "当新的全局消息出现时播放一段简短提示音。",
+    "enableNotificationSoundLabel": "启用通知音效",
+    "disableNotificationSoundLabel": "关闭通知音效",
     "futureLabel": "更多配置",
     "futureDescription": "后续的编辑器偏好、显示选项和行为设置都会放在这里。",
     "categoryDescriptions": {
       "appearance": "主题、强调色和整体视觉风格。",
       "view": "地图显示、画布与信息呈现方式。",
-      "interaction": "输入、导航和编辑交互体验。",
-      "advanced": "实验性选项、诊断和更高级的行为控制。"
+      "interaction": "通知音效与后续交互反馈。",
+      "launcher": "游戏路径、下载默认值和 Nexus 凭据。",
+      "debug": "诊断、覆盖层、通知与持久化日志。"
     }
   }
 }
@@ -1062,6 +1089,9 @@ localeBundle.editor.launcher.debug = {
   notificationsSubtitle: '通过全局通知系统发送可见测试消息，验证不同等级消息的视觉反馈与交互行为。',
   logsTitle: '持久化日志测试',
   logsSubtitle: '写入仅持久化的测试日志，不弹出通知，用于验证本地日志链路和后续诊断留痕。',
+  clearImageCacheTitle: '图片缓存',
+  clearImageCacheSubtitle: '清空启动器封面缓存文件，下一次加载时重新从磁盘或网络解析。',
+  clearImageCacheButton: '清除图片缓存',
   simulationTitle: '下载模拟测试',
   simulationSubtitle: '以 2 MB/s 持续 10 秒注入一个模拟下载任务，用于验证标题栏和下载队列中的进度反馈。',
   simulationButtonIdle: '开始模拟下载',
@@ -1083,17 +1113,20 @@ localeBundle.editor.launcher.debug = {
 localeBundle.settingsMenu.categories = {
   appearance: '外观',
   view: '视图',
+  interaction: '交互',
   launcher: '启动器',
   debug: '调试',
 }
 localeBundle.settingsMenu.categoryDescriptions = {
   appearance: '主题、强调色和整体视觉风格。',
   view: '地图显示、画布与信息呈现方式。',
+  interaction: '通知音效与后续交互反馈。',
   launcher: '游戏路径、下载默认值和 Nexus 凭据。',
   debug: '诊断、覆盖层、通知与持久化日志。',
 }
 
 export default localeBundle as LocaleBundle
+
 
 
 

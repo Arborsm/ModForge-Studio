@@ -381,6 +381,11 @@ export type SetLauncherLibraryCoverRequest = {
   imagePath?: string | null
 }
 
+export type PersistLauncherLibraryRemoteCoverRequest = {
+  labelKey: string
+  imageUrl: string
+}
+
 export type SetLauncherModEnabledRequest = {
   modPath: string
   enabled: boolean
@@ -569,6 +574,10 @@ export type OpenLauncherPathRequest = {
   path: string
 }
 
+export type OpenLauncherUrlRequest = {
+  url: string
+}
+
 export type InspectLauncherArchiveRequest = {
   archivePath: string
 }
@@ -739,6 +748,13 @@ export function getFileCacheStats() {
 
 export function clearFileCache() {
   return invokeDesktop<void>('clear_file_cache')
+}
+
+export async function clearLauncherImageCache() {
+  const result = await invokeDesktop<void>('clear_launcher_image_cache')
+  loadLauncherLibraryCoversCache.delete('default')
+  scanLauncherLibraryCache.clear()
+  return result
 }
 
 function isDesktopHost() {
@@ -1049,6 +1065,13 @@ export async function setLauncherLibraryCover(request: SetLauncherLibraryCoverRe
   return result
 }
 
+export async function persistLauncherLibraryRemoteCover(request: PersistLauncherLibraryRemoteCoverRequest) {
+  const result = await invokeDesktop<LauncherLibraryCoversState>('persist_launcher_library_remote_cover', { request })
+  loadLauncherLibraryCoversCache.delete('default')
+  scanLauncherLibraryCache.clear()
+  return result
+}
+
 export async function saveLauncherDownloadQueue(request: LauncherDownloadQueueState) {
   const result = await invokeDesktop<LauncherDownloadQueueState>('save_launcher_download_queue', { request })
   loadLauncherDownloadQueueCache.delete('default')
@@ -1114,6 +1137,10 @@ export function getLauncherBackupDirectory() {
 
 export function openLauncherPath(request: OpenLauncherPathRequest) {
   return invokeDesktop<void>('open_launcher_path', { request })
+}
+
+export function openLauncherUrl(request: OpenLauncherUrlRequest) {
+  return invokeDesktop<void>('open_launcher_url', { request })
 }
 
 export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {

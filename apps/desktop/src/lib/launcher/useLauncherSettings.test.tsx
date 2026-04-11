@@ -46,6 +46,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
 
 describe('useLauncherSettings', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 
@@ -62,6 +63,28 @@ describe('useLauncherSettings', () => {
     })
 
     expect(reportAppEventMock).not.toHaveBeenCalled()
+  })
+
+  it('persists detected launcher paths after hydration so future sessions keep the scanned library root', async () => {
+    loadLauncherSettingsMock.mockResolvedValue(createSettings())
+    detectDefaultGameDirectoryMock.mockResolvedValue('D:\\Software\\Steam\\steamapps\\common\\Stardew Valley')
+    saveLauncherSettingsMock.mockResolvedValue(
+      createSettings({
+        gamePath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley',
+        modsPath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley\\Mods',
+      }),
+    )
+
+    renderHook(() => useLauncherSettings())
+
+    await waitFor(() => {
+      expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gamePath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley',
+          modsPath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley\\Mods',
+        }),
+      )
+    })
   })
 
   it('keeps persisted launcher paths when they are already configured', async () => {
@@ -140,6 +163,46 @@ describe('useLauncherSettings', () => {
     expect(reportAppEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         level: 'error',
+      }),
+    )
+  })
+
+  it('autosaves launcher settings after edits settle', async () => {
+    loadLauncherSettingsMock.mockResolvedValue(createSettings())
+    detectDefaultGameDirectoryMock.mockResolvedValue(null)
+    saveLauncherSettingsMock.mockResolvedValue(
+      createSettings({
+        nexusCookie: 'session-cookie',
+      }),
+    )
+
+    const { result } = renderHook(() => useLauncherSettings())
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+    })
+
+    vi.useFakeTimers()
+
+    act(() => {
+      result.current.updateField('nexusCookie', 'session-cookie')
+    })
+
+    expect(saveLauncherSettingsMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(699)
+    })
+
+    expect(saveLauncherSettingsMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+
+    expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nexusCookie: 'session-cookie',
       }),
     )
   })

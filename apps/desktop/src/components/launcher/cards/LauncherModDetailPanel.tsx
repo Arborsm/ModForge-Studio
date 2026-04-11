@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { FolderTree, Link2, ScrollText, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
+import { openLauncherUrl } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import type { LauncherLibraryItem } from '../../../lib/launcher/types'
 import { cx } from '../../../lib/cx'
@@ -171,7 +172,16 @@ export function LauncherModDetailPanel({
                   </button>
                 ) : null}
                 {mod.modUrl ? (
-                  <a className="control-button launcher-detail-action" href={mod.modUrl} target="_blank" rel="noreferrer">
+                  <a
+                    className="control-button launcher-detail-action"
+                    href={mod.modUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      void openLauncherUrl({ url: mod.modUrl! })
+                    }}
+                  >
                     {openModPageLabel ?? copy.launcher.actions.openModPage}
                   </a>
                 ) : null}
