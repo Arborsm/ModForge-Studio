@@ -95,10 +95,12 @@ vi.mock('./lib/desktop', () => ({
   clearDesktopLocaleCache: vi.fn(),
   closeCurrentWindow: vi.fn(),
   isCurrentWindowFullscreen: vi.fn(async () => false),
+  loadCachedLauncherUpdates: vi.fn(async () => null),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
   listKnownGameDirectories: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
+  subscribeLauncherUpdates: vi.fn(() => () => {}),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
   toggleMaximizeCurrentWindow: vi.fn(),
 }))

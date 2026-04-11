@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   LauncherRemoteModDetail,
   LauncherSettings,
@@ -10,8 +10,10 @@ import type {
 } from '../../../lib/desktop'
 import {
   checkLauncherUpdates,
+  loadCachedLauncherUpdates,
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
+  subscribeLauncherUpdates,
 } from '../../../lib/desktop'
 import { LocaleProvider } from '../../../lib/app/localeContext'
 import { NotificationProvider, clearNotifications } from '../../../lib/app/notifications'
@@ -25,9 +27,11 @@ vi.mock('../../../lib/desktop', async () => {
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),
+    loadCachedLauncherUpdates: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     loadLauncherUpdateChangelog: vi.fn(),
     openLauncherUrl: vi.fn(),
+    subscribeLauncherUpdates: vi.fn(),
   }
 })
 
@@ -49,8 +53,10 @@ vi.mock('../../../lib/launcher/imageLoader', () => ({
 }))
 
 const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
+const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
 const loadLauncherUpdateChangelogMock = vi.mocked(loadLauncherUpdateChangelog)
+const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
 
 function UpdateProgressNotificationBridge() {
   useLauncherUpdateProgressNotifications('zh-CN')
@@ -139,6 +145,11 @@ describe('LauncherUpdatesPage', () => {
     vi.clearAllMocks()
     vi.restoreAllMocks()
     vi.useRealTimers()
+  })
+
+  beforeEach(() => {
+    loadCachedLauncherUpdatesMock.mockResolvedValue(null)
+    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
   })
 
   it('renders the update console and only loads changelog when the changelog button is clicked', async () => {

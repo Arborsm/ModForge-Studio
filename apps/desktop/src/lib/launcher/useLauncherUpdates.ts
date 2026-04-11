@@ -162,7 +162,6 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       requestTokenRef.current += 1
       window.clearTimeout(handle)
       unsubscribe()
-      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
     }
   }, [applyUpdateResult, loadUpdates, settings.modsPath])
 
