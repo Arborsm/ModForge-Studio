@@ -3,21 +3,30 @@ use super::http::{
     public_page_headers, send_nexus_request, DEFAULT_GAME_ID,
 };
 use super::library::scan_library_at_path;
-use super::paths::{current_timestamp_ms, launcher_settings_path};
+use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::{load_or_create_settings_at_path, normalize_optional_text};
 use super::trace::log_launcher_trace;
 use super::types::{
     CheckLauncherUpdatesRequest, LauncherCatalogFacetEntry, LauncherCatalogFacets,
     LauncherCatalogPageResult, LauncherCatalogResult, LauncherRemoteModDetail,
-    LauncherSettings, LauncherUpdateProgressPayload, LauncherUpdateSummary,
-    LauncherUpdatesResult, LoadLauncherRemoteModDetailRequest, SearchLauncherCatalogRequest,
+    LoadCachedLauncherUpdatesRequest,
+    LauncherSettings, LauncherUpdateChangelogResult, LauncherUpdateProgressPayload,
+    LauncherUpdateSummary, LauncherUpdatesResult, LoadLauncherRemoteModDetailRequest,
+    LoadLauncherUpdateChangelogRequest, SearchLauncherCatalogRequest,
+};
+use super::update_cache::{
+    load_cached_launcher_updates_at_path, save_launcher_updates_cache_at_path,
 };
 use crate::pathing::clean_input_path;
 use regex::Regex;
 use reqwest::blocking::Client;
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use semver::Version;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+#[cfg(target_os = "windows")]
+use std::process::Command;
 use tauri::Emitter;
 
 const DEFAULT_PAGE_SIZE: usize = 20;
@@ -29,8 +38,15 @@ const PUBLIC_CATALOG_PAGE_URL: &str = "https://www.nexusmods.com/games/stardewva
 const PUBLIC_CATALOG_GRAPHQL_REFERER: &str = "https://www.nexusmods.com/";
 const PUBLIC_CATALOG_GRAPHQL_OPERATION_HEADER: &str = "GameModsListing";
 const PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER: &str = "LauncherPublicModDetail";
+const SMAPI_MOD_LOOKUP_ENDPOINT: &str = "https://smapi.io/api/v3.0/mods";
+const SMAPI_APPLICATION_NAME: &str = "ModForge Studio";
+const SMAPI_APPLICATION_VERSION: &str = env!("CARGO_PKG_VERSION");
+const SMAPI_DEFAULT_API_VERSION: &str = "4.1.6";
+const SMAPI_DEFAULT_GAME_VERSION: &str = "1.6.13";
+const SMAPI_DEFAULT_PLATFORM: &str = "Windows";
 const TRENDING_ENDPOINT: &str = "https://api.nexusmods.com/v1/games/stardewvalley/mods/trending.json";
 const LAUNCHER_UPDATE_PROGRESS_EVENT: &str = "launcher://update-check-progress";
+const LAUNCHER_UPDATES_CACHE_TTL_MS: u128 = 5 * 60 * 1000;
 const CATALOG_GRAPHQL_QUERY: &str = r#"
 query CatalogMods($filter: ModsFilter, $sort: [ModsSort!], $offset: Int, $count: Int) {
   mods(filter: $filter, sort: $sort, offset: $offset, count: $count) {
@@ -141,18 +157,176 @@ pub(crate) struct RemoteModDetail {
     pub(crate) mod_url: String,
     pub(crate) image_url: Option<String>,
     pub(crate) gallery_images: Vec<String>,
+    pub(crate) updated_at: Option<String>,
+    pub(crate) file_size: Option<u64>,
 }
 
-#[derive(Debug, Clone)]
-struct UpdateCheckCandidate {
-    mod_id: i64,
-    name: String,
-    current_version: String,
-    absolute_path: String,
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct LauncherUpdateFileMetadata {
+    pub(crate) author: Option<String>,
+    pub(crate) updated_at: Option<String>,
+    pub(crate) file_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ParsedLauncherUpdateChangelog {
+    pub(crate) version: Option<String>,
+    pub(crate) changelog: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct UpdateCheckCandidate {
+    pub(crate) mod_id: i64,
+    pub(crate) unique_id: Option<String>,
+    pub(crate) name: String,
+    pub(crate) current_version: String,
+    pub(crate) absolute_path: String,
+    pub(crate) update_keys: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SmapiRuntimeVersions {
+    pub(crate) api_version: String,
+    pub(crate) game_version: String,
+    pub(crate) platform: String,
 }
 
 pub(crate) fn build_mod_page_url(mod_id: i64) -> String {
     format!("https://www.nexusmods.com/stardewvalley/mods/{mod_id}")
+}
+
+fn default_smapi_runtime_versions() -> SmapiRuntimeVersions {
+    SmapiRuntimeVersions {
+        api_version: SMAPI_DEFAULT_API_VERSION.to_string(),
+        game_version: SMAPI_DEFAULT_GAME_VERSION.to_string(),
+        platform: SMAPI_DEFAULT_PLATFORM.to_string(),
+    }
+}
+
+fn parse_version_triplet(value: &str) -> Option<String> {
+    let mut parts = Vec::new();
+    let mut current = String::new();
+
+    for ch in value.chars() {
+        if ch.is_ascii_digit() {
+            current.push(ch);
+            continue;
+        }
+
+        if ch == '.' && !current.is_empty() && parts.len() < 2 {
+            parts.push(current);
+            current = String::new();
+            continue;
+        }
+
+        if parts.is_empty() {
+            current.clear();
+            continue;
+        }
+
+        break;
+    }
+
+    if !current.is_empty() {
+        parts.push(current);
+    }
+
+    if parts.len() < 3 {
+        return None;
+    }
+
+    Some(parts.into_iter().take(3).collect::<Vec<_>>().join("."))
+}
+
+fn resolve_update_check_game_root(settings: &LauncherSettings, mods_path: &str) -> Option<PathBuf> {
+    settings
+        .game_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(clean_input_path)
+        .or_else(|| {
+            let mods_root = clean_input_path(mods_path);
+            let folder_name = mods_root.file_name()?.to_string_lossy();
+            if !folder_name.eq_ignore_ascii_case("mods") {
+                return None;
+            }
+            mods_root.parent().map(Path::to_path_buf)
+        })
+}
+
+#[cfg(target_os = "windows")]
+fn read_windows_file_version(path: &Path) -> Option<String> {
+    if !path.is_file() {
+        return None;
+    }
+
+    let escaped = path.to_string_lossy().replace('\'', "''");
+    let output = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(format!(
+            "$item = Get-Item -LiteralPath '{escaped}'; \
+             $version = $item.VersionInfo.ProductVersion; \
+             if ([string]::IsNullOrWhiteSpace($version)) {{ $version = $item.VersionInfo.FileVersion }}; \
+             if (-not [string]::IsNullOrWhiteSpace($version)) {{ [Console]::Out.Write($version) }}"
+        ))
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    parse_version_triplet(raw.trim())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn read_windows_file_version(_path: &Path) -> Option<String> {
+    None
+}
+
+pub(crate) fn resolve_smapi_runtime_versions_with_reader<F>(
+    game_root: Option<&Path>,
+    mut version_reader: F,
+) -> SmapiRuntimeVersions
+where
+    F: FnMut(&Path) -> Option<String>,
+{
+    let mut resolved = default_smapi_runtime_versions();
+    let Some(game_root) = game_root else {
+        return resolved;
+    };
+
+    let api_candidates = [
+        game_root.join("StardewModdingAPI.dll"),
+        game_root.join("StardewModdingAPI.exe"),
+    ];
+    if let Some(api_version) = api_candidates
+        .iter()
+        .find_map(|path| version_reader(path).and_then(|value| parse_version_triplet(&value)))
+    {
+        resolved.api_version = api_version;
+    }
+
+    let game_candidates = [
+        game_root.join("Stardew Valley.dll"),
+        game_root.join("Stardew Valley.exe"),
+    ];
+    if let Some(game_version) = game_candidates
+        .iter()
+        .find_map(|path| version_reader(path).and_then(|value| parse_version_triplet(&value)))
+    {
+        resolved.game_version = game_version;
+    }
+
+    resolved
+}
+
+fn resolve_smapi_runtime_versions(settings: &LauncherSettings, mods_path: &str) -> SmapiRuntimeVersions {
+    let game_root = resolve_update_check_game_root(settings, mods_path);
+    resolve_smapi_runtime_versions_with_reader(game_root.as_deref(), read_windows_file_version)
 }
 
 pub(crate) fn can_use_nexus_graphql(settings: &LauncherSettings) -> bool {
@@ -745,6 +919,8 @@ fn parse_remote_mod_detail_node(node: &Value) -> Option<RemoteModDetail> {
         mod_url: build_mod_page_url(mod_id),
         image_url: string_field(node, "pictureUrl"),
         gallery_images: Vec::new(),
+        updated_at: None,
+        file_size: None,
     })
 }
 
@@ -973,42 +1149,6 @@ fn load_remote_mod_details_from_graphql(
         .collect())
 }
 
-fn load_remote_mod_detail_from_api(
-    client: &Client,
-    api_key: &str,
-    mod_id: i64,
-) -> Result<RemoteModDetail, String> {
-    let headers = api_headers(api_key)?;
-    let payload = send_nexus_request(|| {
-        client
-            .get(format!(
-                "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}.json"
-            ))
-            .headers(headers.clone())
-            .send()
-    })?;
-    if !payload.status().is_success() {
-        return Err(format!(
-            "Launcher mod metadata request failed for {mod_id}: HTTP {}",
-            payload.status()
-        ));
-    }
-
-    let json = payload
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher mod metadata JSON: {error}"))?;
-    Ok(RemoteModDetail {
-        mod_id,
-        name: string_field(&json, "name"),
-        author: string_field(&json, "author"),
-        summary: string_field(&json, "summary").or_else(|| string_field(&json, "description")),
-        version: string_field(&json, "version"),
-        mod_url: build_mod_page_url(mod_id),
-        image_url: string_field(&json, "picture_url"),
-        gallery_images: Vec::new(),
-    })
-}
-
 pub(crate) fn parse_remote_mod_detail_html(html: &str, mod_id: i64) -> Option<RemoteModDetail> {
     let title_regex =
         Regex::new(r#"<meta property=["']og:title["'] content=["'](?P<title>[^"']+)["']"#)
@@ -1067,7 +1207,67 @@ pub(crate) fn parse_remote_mod_detail_html(html: &str, mod_id: i64) -> Option<Re
         mod_url: build_mod_page_url(mod_id),
         image_url,
         gallery_images,
+        updated_at: None,
+        file_size: None,
     })
+}
+
+fn smapi_headers() -> Result<HeaderMap, String> {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    headers.insert(
+        "Application-Name",
+        HeaderValue::from_static(SMAPI_APPLICATION_NAME),
+    );
+    headers.insert(
+        "Application-Version",
+        HeaderValue::from_static(SMAPI_APPLICATION_VERSION),
+    );
+    headers.insert(
+        "User-Agent",
+        HeaderValue::from_static(concat!(
+            "ModForge Studio/",
+            env!("CARGO_PKG_VERSION")
+        )),
+    );
+    Ok(headers)
+}
+
+pub(crate) fn build_smapi_update_payload_with_versions(
+    candidates: &[UpdateCheckCandidate],
+    versions: &SmapiRuntimeVersions,
+) -> Value {
+    let mods = candidates
+        .iter()
+        .filter_map(|candidate| {
+            let unique_id = candidate
+                .unique_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())?;
+            Some(json!({
+                "ID": unique_id,
+                "Version": candidate.current_version,
+                "UpdateKeys": candidate.update_keys,
+            }))
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "Mods": mods,
+        "ApiVersion": versions.api_version.clone(),
+        "GameVersion": versions.game_version.clone(),
+        "Platform": versions.platform.clone(),
+        "IncludeExtendedMetadata": true,
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn build_smapi_update_payload(candidates: &[UpdateCheckCandidate]) -> Value {
+    build_smapi_update_payload_with_versions(candidates, &default_smapi_runtime_versions())
 }
 
 pub(crate) fn parse_remote_mod_images_tab_html(html: &str) -> Vec<String> {
@@ -1113,6 +1313,177 @@ fn html_to_text(value: &str) -> String {
     let tag_regex = Regex::new(r"<[^>]+>").expect("valid strip tags regex");
     let with_line_breaks = break_regex.replace_all(value, "\n");
     collapse_whitespace(&decode_html(tag_regex.replace_all(with_line_breaks.as_ref(), " ").trim()))
+}
+
+fn html_to_multiline_text(value: &str) -> String {
+    let block_break_regex = Regex::new(r"(?i)<br\s*/?>|</p>|</div>|</li>|</tr>|</section>|</article>|</h\d>")
+        .expect("valid html block break regex");
+    let tag_regex = Regex::new(r"<[^>]+>").expect("valid strip tags regex");
+    let with_line_breaks = block_break_regex.replace_all(value, "\n");
+    let stripped = decode_html(&tag_regex.replace_all(with_line_breaks.as_ref(), " "));
+
+    stripped
+        .lines()
+        .filter_map(normalize_capture_text)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn normalize_capture_text(value: &str) -> Option<String> {
+    let normalized = collapse_whitespace(&decode_html(value).replace('\u{a0}', " "));
+    let trimmed = normalized.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn parse_launcher_month(month: &str) -> Option<u32> {
+    match month.trim().to_ascii_lowercase().as_str() {
+        "jan" => Some(1),
+        "feb" => Some(2),
+        "mar" => Some(3),
+        "apr" => Some(4),
+        "may" => Some(5),
+        "jun" => Some(6),
+        "jul" => Some(7),
+        "aug" => Some(8),
+        "sep" => Some(9),
+        "oct" => Some(10),
+        "nov" => Some(11),
+        "dec" => Some(12),
+        _ => None,
+    }
+}
+
+fn parse_launcher_timestamp(value: &str) -> Option<String> {
+    let pattern = Regex::new(
+        r"(?i)^(?P<day>\d{1,2})\s+(?P<month>[A-Za-z]{3})\s+(?P<year>\d{4}),?\s+(?P<hour>\d{1,2}):(?P<minute>\d{2})\s*(?P<meridiem>AM|PM)$",
+    )
+    .expect("valid launcher timestamp regex");
+    let captures = pattern.captures(value.trim())?;
+    let day = captures.name("day")?.as_str().parse::<u32>().ok()?;
+    let month = parse_launcher_month(captures.name("month")?.as_str())?;
+    let year = captures.name("year")?.as_str().parse::<u32>().ok()?;
+    let minute = captures.name("minute")?.as_str().parse::<u32>().ok()?;
+    let meridiem = captures.name("meridiem")?.as_str().to_ascii_uppercase();
+    let mut hour = captures.name("hour")?.as_str().parse::<u32>().ok()?;
+    if hour == 12 {
+        hour = 0;
+    }
+    if meridiem == "PM" {
+        hour += 12;
+    }
+
+    Some(format!(
+        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:00Z"
+    ))
+}
+
+fn parse_launcher_file_size(value: &str, unit: &str) -> Option<u64> {
+    let parsed_value = value.trim().parse::<f64>().ok()?;
+    let multiplier = match unit.trim().to_ascii_uppercase().as_str() {
+        "B" => 1_f64,
+        "KB" => 1024_f64,
+        "MB" => 1024_f64 * 1024_f64,
+        "GB" => 1024_f64 * 1024_f64 * 1024_f64,
+        _ => return None,
+    };
+
+    Some((parsed_value * multiplier).round() as u64)
+}
+
+pub(crate) fn parse_launcher_update_file_metadata_text(text: &str) -> LauncherUpdateFileMetadata {
+    let updated_regex = Regex::new(
+        r"(?is)Last updated\s+(?P<value>\d{1,2}\s+[A-Za-z]{3}\s+\d{4},?\s+\d{1,2}:\d{2}\s*[AP]M)",
+    )
+    .expect("valid launcher update timestamp regex");
+    let author_regex = Regex::new(
+        r"(?is)Created by\s+(?P<value>.+?)\s+(?:Virus scan|Tags for this mod|File size|Preview file contents|Main files|Old files|Optional files|Miscellaneous files|$)",
+    )
+    .expect("valid launcher update author regex");
+    let file_size_regex =
+        Regex::new(r"(?is)File size\s+(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>B|KB|MB|GB)")
+            .expect("valid launcher update file size regex");
+
+    let updated_at = updated_regex
+        .captures(text)
+        .and_then(|captures| captures.name("value"))
+        .and_then(|value| normalize_capture_text(value.as_str()))
+        .and_then(|value| parse_launcher_timestamp(&value));
+    let author = author_regex
+        .captures(text)
+        .and_then(|captures| captures.name("value"))
+        .and_then(|value| normalize_capture_text(value.as_str()));
+    let file_size = file_size_regex.captures(text).and_then(|captures| {
+        parse_launcher_file_size(
+            captures.name("value")?.as_str(),
+            captures.name("unit")?.as_str(),
+        )
+    });
+
+    LauncherUpdateFileMetadata {
+        author,
+        updated_at,
+        file_size,
+    }
+}
+
+pub(crate) fn parse_launcher_update_changelog_text(
+    text: &str,
+) -> Option<ParsedLauncherUpdateChangelog> {
+    let stop_labels = [
+        "old files",
+        "optional files",
+        "miscellaneous files",
+        "preview file contents",
+        "manual download",
+        "mod manager download",
+        "mirror 1",
+        "mirror 2",
+        "virus scan",
+        "permissions and credits",
+    ];
+    let lines = text
+        .lines()
+        .filter_map(normalize_capture_text)
+        .collect::<Vec<_>>();
+
+    for (index, line) in lines.iter().enumerate() {
+        if !line.eq_ignore_ascii_case("Version") {
+            continue;
+        }
+
+        let version = lines
+            .get(index + 1)
+            .and_then(|value| normalize_capture_text(value))
+            .map(|value| value.trim_start_matches('v').to_string());
+        let mut changelog_lines = Vec::new();
+        for next in lines.iter().skip(index + 2) {
+            let normalized = next.trim().to_ascii_lowercase();
+            if stop_labels.contains(&normalized.as_str()) || next.eq_ignore_ascii_case("Version") {
+                break;
+            }
+
+            let cleaned = next
+                .trim()
+                .trim_start_matches(|ch: char| matches!(ch, '-' | '•' | '*'))
+                .trim();
+            if cleaned.is_empty() {
+                continue;
+            }
+
+            changelog_lines.push(cleaned.to_string());
+        }
+
+        let changelog = changelog_lines.join("\n");
+        if !changelog.trim().is_empty() {
+            return Some(ParsedLauncherUpdateChangelog { version, changelog });
+        }
+    }
+
+    None
 }
 
 fn extract_html_image_urls(value: &str) -> Vec<String> {
@@ -1170,6 +1541,8 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
             .as_deref()
             .map(extract_html_image_urls)
             .unwrap_or_default(),
+        updated_at: None,
+        file_size: None,
     })
 }
 
@@ -1205,6 +1578,180 @@ fn load_remote_mod_detail_from_public_graphql(client: &Client, mod_id: i64) -> R
         .json::<Value>()
         .map_err(|error| format!("Failed to parse public Nexus mod detail GraphQL response: {error}"))?;
     parse_public_mod_detail_graphql_response(&payload, mod_id)
+}
+
+fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path {
+        current = current.get(*segment)?;
+    }
+    Some(current)
+}
+
+fn string_at_path(value: &Value, path: &[&str]) -> Option<String> {
+    value_at_path(value, path)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn first_string_at_paths(value: &Value, paths: &[&[&str]]) -> Option<String> {
+    paths.iter()
+        .find_map(|path| string_at_path(value, path))
+}
+
+fn normalize_remote_mod_url(value: &str) -> String {
+    if value.starts_with("http://") || value.starts_with("https://") {
+        value.to_string()
+    } else if value.starts_with('/') {
+        normalize_nexus_url(value)
+    } else {
+        value.to_string()
+    }
+}
+
+fn normalize_smapi_mod_url(value: &str, mod_id: i64) -> String {
+    let normalized = normalize_remote_mod_url(value);
+    if normalized.contains("nexusmods.com/") {
+        normalized
+    } else {
+        build_mod_page_url(mod_id)
+    }
+}
+
+pub(crate) fn parse_smapi_update_response(
+    payload: &Value,
+    candidates: &[UpdateCheckCandidate],
+) -> Result<HashMap<i64, RemoteModDetail>, String> {
+    let entries = payload
+        .as_array()
+        .or_else(|| payload.get("Mods").and_then(Value::as_array))
+        .ok_or_else(|| "SMAPI mod lookup response did not contain an array payload.".to_string())?;
+
+    let mut details = HashMap::new();
+    for (candidate, entry) in candidates.iter().zip(entries.iter()) {
+        let latest_version = first_string_at_paths(
+            entry,
+            &[
+                &["Metadata", "Main", "Version"],
+                &["Metadata", "Version"],
+                &["Version"],
+            ],
+        );
+        let Some(version) = latest_version else {
+            continue;
+        };
+
+        let name = first_string_at_paths(
+            entry,
+            &[
+                &["Metadata", "Main", "Name"],
+                &["Metadata", "Name"],
+                &["Name"],
+            ],
+        )
+        .or_else(|| Some(candidate.name.clone()));
+        let author = first_string_at_paths(
+            entry,
+            &[
+                &["Metadata", "Main", "Author"],
+                &["Metadata", "Author"],
+                &["Author"],
+            ],
+        );
+        let summary = first_string_at_paths(
+            entry,
+            &[
+                &["Metadata", "Main", "Description"],
+                &["Metadata", "Description"],
+                &["Description"],
+            ],
+        );
+        let mod_url = first_string_at_paths(
+            entry,
+            &[
+                &["Metadata", "Main", "URL"],
+                &["Metadata", "Main", "Url"],
+                &["Metadata", "Main", "ModPageUrl"],
+                &["Metadata", "Main", "ModUrl"],
+                &["URL"],
+                &["Url"],
+            ],
+        )
+        .map(|value| normalize_smapi_mod_url(&value, candidate.mod_id))
+        .unwrap_or_else(|| build_mod_page_url(candidate.mod_id));
+        let image_url = first_string_at_paths(
+            entry,
+            &[
+                &["Metadata", "Main", "ImageUrl"],
+                &["Metadata", "Main", "ImageURL"],
+                &["Metadata", "ImageUrl"],
+                &["ImageUrl"],
+            ],
+        )
+        .map(|value| normalize_remote_mod_url(&value));
+
+        details.insert(
+            candidate.mod_id,
+            RemoteModDetail {
+                mod_id: candidate.mod_id,
+                name,
+                author,
+                summary,
+                version: Some(version),
+                mod_url,
+                image_url,
+                gallery_images: Vec::new(),
+                updated_at: None,
+                file_size: None,
+            },
+        );
+    }
+
+    Ok(details)
+}
+
+fn load_remote_mod_details_from_smapi(
+    client: &Client,
+    candidates: &[UpdateCheckCandidate],
+    versions: &SmapiRuntimeVersions,
+) -> Result<HashMap<i64, RemoteModDetail>, String> {
+    let smapi_candidates = candidates
+        .iter()
+        .filter(|candidate| {
+            candidate
+                .unique_id
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .is_some()
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    if smapi_candidates.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let headers = smapi_headers()?;
+    let payload = build_smapi_update_payload_with_versions(&smapi_candidates, versions);
+    let response = client
+        .post(SMAPI_MOD_LOOKUP_ENDPOINT)
+        .headers(headers)
+        .json(&payload)
+        .send()
+        .map_err(|error| format!("SMAPI mod lookup request failed: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "SMAPI mod lookup request failed: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let payload = response
+        .json::<Value>()
+        .map_err(|error| format!("Failed to parse SMAPI mod lookup response: {error}"))?;
+    parse_smapi_update_response(&payload, &smapi_candidates)
 }
 
 fn load_remote_mod_detail_from_html(client: &Client, mod_id: i64) -> Result<RemoteModDetail, String> {
@@ -1250,18 +1797,89 @@ fn load_remote_mod_detail_gallery_from_images_tab(
     Ok(parse_remote_mod_images_tab_html(&html))
 }
 
+fn load_remote_mod_files_tab_text(client: &Client, mod_id: i64) -> Result<String, String> {
+    let files_url = format!("{}?tab=files", build_mod_page_url(mod_id));
+    let headers = public_page_headers(None)?;
+    let response = send_nexus_request(|| client.get(&files_url).headers(headers.clone()).send())?;
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to fetch launcher mod files page for {mod_id}: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let html = response
+        .text()
+        .map_err(|error| format!("Failed to read launcher mod files page HTML: {error}"))?;
+    Ok(html_to_multiline_text(&html))
+}
+
+fn enrich_remote_mod_detail_with_file_metadata(
+    mut detail: RemoteModDetail,
+    metadata: LauncherUpdateFileMetadata,
+) -> RemoteModDetail {
+    if detail.author.is_none() {
+        detail.author = metadata.author;
+    }
+    if detail.updated_at.is_none() {
+        detail.updated_at = metadata.updated_at;
+    }
+    if detail.file_size.is_none() {
+        detail.file_size = metadata.file_size;
+    }
+    detail
+}
+
+fn load_remote_mod_file_metadata(
+    client: &Client,
+    mod_id: i64,
+) -> Result<LauncherUpdateFileMetadata, String> {
+    let text = load_remote_mod_files_tab_text(client, mod_id)?;
+    Ok(parse_launcher_update_file_metadata_text(&text))
+}
+
+fn load_remote_mod_changelog_from_files_tab(
+    client: &Client,
+    mod_id: i64,
+) -> Result<ParsedLauncherUpdateChangelog, String> {
+    let text = load_remote_mod_files_tab_text(client, mod_id)?;
+    parse_launcher_update_changelog_text(&text)
+        .ok_or_else(|| format!("Failed to parse launcher mod changelog from files page for {mod_id}."))
+}
+
 fn load_remote_mod_details_batch(
     client: &Client,
     settings: &LauncherSettings,
-    mod_ids: &[i64],
+    candidates: &[UpdateCheckCandidate],
+    smapi_versions: &SmapiRuntimeVersions,
 ) -> Result<HashMap<i64, RemoteModDetail>, String> {
-    if mod_ids.is_empty() {
+    if candidates.is_empty() {
         return Ok(HashMap::new());
     }
 
+    let mut details =
+        load_remote_mod_details_from_smapi(client, candidates, smapi_versions).unwrap_or_else(|error| {
+            log::warn!("launcher smapi update lookup failed, falling back to nexus sources: {error}");
+            HashMap::new()
+        });
+    let missing_after_smapi = candidates
+        .iter()
+        .filter(|candidate| !details.contains_key(&candidate.mod_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    if missing_after_smapi.is_empty() {
+        return Ok(details);
+    }
+
+    let mod_ids = missing_after_smapi
+        .iter()
+        .map(|candidate| candidate.mod_id)
+        .collect::<Vec<_>>();
     if can_use_nexus_graphql(settings) {
-        match load_remote_mod_details_from_graphql(client, settings, mod_ids) {
-            Ok(details) if !details.is_empty() => return Ok(details),
+        match load_remote_mod_details_from_graphql(client, settings, &mod_ids) {
+            Ok(graphql_details) if !graphql_details.is_empty() => {
+                details.extend(graphql_details);
+            }
             Ok(_) => {}
             Err(error) => {
                 log::warn!("launcher graphql update batch failed, falling back to single lookups: {error}");
@@ -1269,18 +1887,23 @@ fn load_remote_mod_details_batch(
         }
     }
 
-    let mut details = HashMap::new();
-    for mod_id in mod_ids {
-        let detail = settings
-            .nexus_api_key
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .and_then(|api_key| load_remote_mod_detail_from_api(client, api_key, *mod_id).ok())
-            .or_else(|| load_remote_mod_detail_from_html(client, *mod_id).ok());
+    let missing_after_graphql = missing_after_smapi
+        .into_iter()
+        .filter(|candidate| !details.contains_key(&candidate.mod_id))
+        .collect::<Vec<_>>();
+    for candidate in missing_after_graphql {
+        let detail = load_remote_mod_detail_from_public_graphql(client, candidate.mod_id)
+            .or_else(|error| {
+                log::warn!(
+                    "launcher public graphql update lookup failed for {}: {error}",
+                    candidate.mod_id
+                );
+                load_remote_mod_detail_from_html(client, candidate.mod_id)
+            })
+            .ok();
 
         if let Some(detail) = detail {
-            details.insert(*mod_id, detail);
+            details.insert(candidate.mod_id, detail);
         }
     }
 
@@ -1336,6 +1959,8 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
         mod_url: detail.mod_url,
         image_url: detail.image_url,
         gallery_images: detail.gallery_images,
+        updated_at: detail.updated_at,
+        file_size: detail.file_size,
     }
 }
 
@@ -1345,6 +1970,7 @@ fn emit_update_check_progress(
     checked: usize,
     total: usize,
     current_mod_name: Option<&str>,
+    updates: Option<&[LauncherUpdateSummary]>,
 ) -> Result<(), String> {
     app.emit(
         LAUNCHER_UPDATE_PROGRESS_EVENT,
@@ -1353,6 +1979,7 @@ fn emit_update_check_progress(
             checked,
             total,
             current_mod_name: current_mod_name.map(str::to_string),
+            updates: updates.map(|items| items.to_vec()),
         },
     )
     .map_err(|error| format!("Failed to emit launcher update progress: {error}"))
@@ -1380,6 +2007,18 @@ pub async fn load_launcher_remote_mod_detail(
         tauri::async_runtime::spawn_blocking(move || load_launcher_remote_mod_detail_blocking(&request))
             .await
             .map_err(|error| format!("Failed to join launcher mod detail task: {error}"))?,
+    )
+}
+
+#[tauri::command]
+pub async fn load_launcher_update_changelog(
+    request: LoadLauncherUpdateChangelogRequest,
+) -> Result<LauncherUpdateChangelogResult, String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_launcher_update_changelog",
+        tauri::async_runtime::spawn_blocking(move || load_launcher_update_changelog_blocking(&request))
+            .await
+            .map_err(|error| format!("Failed to join launcher update changelog task: {error}"))?,
     )
 }
 
@@ -1506,8 +2145,52 @@ fn load_launcher_remote_mod_detail_blocking(
             }
         }
     }
+    match load_remote_mod_file_metadata(&client, request.mod_id) {
+        Ok(metadata) => {
+            detail = enrich_remote_mod_detail_with_file_metadata(detail, metadata);
+        }
+        Err(error) => {
+            log::warn!(
+                "launcher mod file metadata lookup failed for {}: {error}",
+                request.mod_id
+            );
+        }
+    }
 
     Ok(to_launcher_remote_mod_detail(detail))
+}
+
+fn load_launcher_update_changelog_blocking(
+    request: &LoadLauncherUpdateChangelogRequest,
+) -> Result<LauncherUpdateChangelogResult, String> {
+    if request.mod_id <= 0 {
+        return Err("modId must be a positive integer.".to_string());
+    }
+
+    let client = launcher_http_client()?;
+    let changelog = load_remote_mod_changelog_from_files_tab(&client, request.mod_id)?;
+
+    Ok(LauncherUpdateChangelogResult {
+        mod_id: request.mod_id,
+        version: changelog.version,
+        changelog: Some(changelog.changelog),
+    })
+}
+
+#[tauri::command]
+pub fn load_cached_launcher_updates(
+    app: tauri::AppHandle,
+    request: LoadCachedLauncherUpdatesRequest,
+) -> Result<Option<LauncherUpdatesResult>, String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_cached_launcher_updates", (|| {
+        let mods_path = request.mods_path.trim();
+        if mods_path.is_empty() {
+            return Err("modsPath is required.".to_string());
+        }
+
+        let cache_path = launcher_updates_cache_path(&app)?;
+        load_cached_launcher_updates_at_path(&cache_path, mods_path, current_timestamp_ms())
+    })())
 }
 
 #[tauri::command]
@@ -1532,6 +2215,22 @@ fn check_launcher_updates_blocking(
         return Err("modsPath is required.".to_string());
     }
 
+    let force_refresh = request.force_refresh.unwrap_or(false);
+    let now_ms = current_timestamp_ms();
+    let cache_path = launcher_updates_cache_path(app)?;
+    if !force_refresh {
+        if let Some(cached) = load_cached_launcher_updates_at_path(&cache_path, mods_path, now_ms)? {
+            log_launcher_trace(
+                "update-check.cache-hit",
+                &[
+                    ("modsPath", cached.mods_path.clone()),
+                    ("updateCount", cached.updates.len().to_string()),
+                ],
+            );
+            return Ok(cached);
+        }
+    }
+
     let settings_path = launcher_settings_path(app)?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     let scan = scan_library_at_path(&clean_input_path(mods_path))?;
@@ -1541,9 +2240,11 @@ fn check_launcher_updates_blocking(
         .filter_map(|item| {
             Some(UpdateCheckCandidate {
                 mod_id: item.nexus_mod_id?,
+                unique_id: item.unique_id.clone(),
                 name: item.name.clone(),
                 current_version: item.version.clone()?,
                 absolute_path: item.absolute_path.clone(),
+                update_keys: item.update_keys.clone(),
             })
         })
         .collect::<Vec<_>>();
@@ -1555,10 +2256,11 @@ fn check_launcher_updates_blocking(
             ("candidateCount", total.to_string()),
         ],
     );
-    emit_update_check_progress(app, mods_path, 0, total, None)?;
+    let mut updates = Vec::new();
+    emit_update_check_progress(app, mods_path, 0, total, None, Some(&updates))?;
 
     let client = launcher_http_client()?;
-    let mut updates = Vec::new();
+    let smapi_versions = resolve_smapi_runtime_versions(&settings, mods_path);
     let mut checked = 0;
 
     for batch in candidates.chunks(UPDATE_BATCH_SIZE) {
@@ -1570,10 +2272,11 @@ fn check_launcher_updates_blocking(
                 ("modIds", format!("{mod_ids:?}")),
             ],
         );
-        let remote_details = load_remote_mod_details_batch(&client, &settings, &mod_ids).unwrap_or_else(|error| {
-            log::warn!("launcher update batch skipped: {error}");
-            HashMap::new()
-        });
+        let remote_details =
+            load_remote_mod_details_batch(&client, &settings, batch, &smapi_versions).unwrap_or_else(|error| {
+                log::warn!("launcher update batch skipped: {error}");
+                HashMap::new()
+            });
 
         for candidate in batch {
             if let Some(remote) = remote_details.get(&candidate.mod_id) {
@@ -1582,14 +2285,23 @@ fn check_launcher_updates_blocking(
                     .as_deref()
                     .filter(|latest_version| version_is_newer(&candidate.current_version, latest_version))
                 {
+                    let file_metadata = load_remote_mod_file_metadata(&client, candidate.mod_id).ok();
                     updates.push(LauncherUpdateSummary {
                         mod_id: candidate.mod_id,
                         name: remote.name.clone().unwrap_or_else(|| candidate.name.clone()),
+                        author: file_metadata
+                            .as_ref()
+                            .and_then(|metadata| metadata.author.clone())
+                            .or_else(|| remote.author.clone()),
                         current_version: Some(candidate.current_version.clone()),
                         latest_version: latest_version.to_string(),
                         absolute_path: candidate.absolute_path.clone(),
                         mod_url: remote.mod_url.clone(),
                         image_url: remote.image_url.clone(),
+                        updated_at: file_metadata
+                            .as_ref()
+                            .and_then(|metadata| metadata.updated_at.clone()),
+                        file_size: file_metadata.and_then(|metadata| metadata.file_size),
                     });
                 }
             }
@@ -1601,6 +2313,7 @@ fn check_launcher_updates_blocking(
                 checked,
                 total,
                 Some(&candidate.name),
+                Some(&updates),
             )?;
         }
     }
@@ -1608,9 +2321,10 @@ fn check_launcher_updates_blocking(
     updates.sort_by(|left, right| left.name.cmp(&right.name));
     let result = LauncherUpdatesResult {
         mods_path: scan.mods_path,
-        checked_at_ms: current_timestamp_ms(),
+        checked_at_ms: now_ms,
         updates,
     };
+    save_launcher_updates_cache_at_path(&cache_path, &result, now_ms, LAUNCHER_UPDATES_CACHE_TTL_MS)?;
     log_launcher_trace(
         "update-check.complete",
         &[

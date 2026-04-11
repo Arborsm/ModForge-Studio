@@ -31,6 +31,10 @@ type LauncherLibraryPageProps = {
   onLaunchGame: () => void
 }
 
+type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
+  library: ReturnType<typeof useLauncherLibrary>
+}
+
 type ArchivePreviewState = 'idle' | 'loading' | 'ready' | 'error'
 type LibrarySortMode = 'name' | 'enabled-first' | 'pack'
 type PackDialogState =
@@ -239,16 +243,16 @@ function GalleryCoverOption({
   )
 }
 
-export function LauncherLibraryPage({
+export function LauncherLibraryPageContent({
   settings,
+  library,
   launchGameLabel,
   launchGameDisabled,
   launchGameBusy,
   onLaunchGame,
-}: LauncherLibraryPageProps) {
+}: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
-  const library = useLauncherLibrary(settings)
   const {
     refresh,
     setSelectedModId,
@@ -274,6 +278,7 @@ export function LauncherLibraryPage({
   const [packActionMenuId, setPackActionMenuId] = useState<string | null>(null)
   const [packDialog, setPackDialog] = useState<PackDialogState | null>(null)
   const [galleryCoverDialog, setGalleryCoverDialog] = useState<GalleryCoverDialogState | null>(null)
+  const [hiddenViewOpen, setHiddenViewOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editingSelectionIds, setEditingSelectionIds] = useState<string[]>([])
   const [draggedModIds, setDraggedModIds] = useState<string[]>([])
@@ -284,12 +289,34 @@ export function LauncherLibraryPage({
   const drawerPanelRef = useRef<HTMLDivElement | null>(null)
   const sortMenuRef = useRef<HTMLDivElement | null>(null)
   const packDialogInputRef = useRef<HTMLInputElement | null>(null)
+  const lastLoadedModsPathRef = useRef<string | null>(settings.modsPath?.trim() || null)
 
   useEffect(() => {
+    const nextModsPath = settings.modsPath?.trim() || null
+    const modsPathChanged = lastLoadedModsPathRef.current !== nextModsPath
+    if (modsPathChanged) {
+      lastLoadedModsPathRef.current = nextModsPath
+    }
+
+    const shouldRefresh =
+      modsPathChanged || (library.state === 'idle' && library.mods.length === 0 && !library.error)
+    if (!shouldRefresh) {
+      return
+    }
+
     void refresh()
-  }, [refresh])
+  }, [library.error, library.mods.length, library.state, refresh, settings.modsPath])
 
   const packLookup = useMemo(() => buildPackLookup(library.packPresets), [library.packPresets])
+  const hiddenModKeyLookup = useMemo(
+    () => new Set(library.hiddenModKeys.map((value) => normalizeLookupKey(value))),
+    [library.hiddenModKeys],
+  )
+  const hiddenMods = useMemo(
+    () => library.mods.filter((item) => hiddenModKeyLookup.has(normalizeLookupKey(getModKey(item)))),
+    [hiddenModKeyLookup, library.mods],
+  )
+  const visibleLibraryModsCount = library.mods.length - hiddenMods.length
   const detailMod = useMemo(
     () => (detailModId ? library.mods.find((item) => item.id === detailModId) ?? null : null),
     [detailModId, library.mods],
@@ -354,12 +381,16 @@ export function LauncherLibraryPage({
   }, [packDialog])
 
   const visibleMods = useMemo(() => {
-    const browseScoped = editMode
-      ? library.mods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
-      : library.filteredMods
+    const browseScoped = hiddenViewOpen
+      ? hiddenMods
+          .filter((item) => includesLibraryFilter(item, library.filterText))
+          .filter((item) => !library.enabledOnly || item.enabled)
+      : editMode
+        ? library.mods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
+        : library.filteredMods
 
     return sortLibraryMods(browseScoped, sortMode, packLookup, library.currentPackId)
-  }, [editMode, library.currentPackId, library.enabledOnly, library.filterText, library.filteredMods, library.mods, packLookup, sortMode])
+  }, [editMode, hiddenMods, hiddenViewOpen, library.currentPackId, library.enabledOnly, library.filterText, library.filteredMods, library.mods, packLookup, sortMode])
 
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
   const sortOptions = useMemo(
@@ -564,6 +595,7 @@ export function LauncherLibraryPage({
       return false
     }
 
+    setHiddenViewOpen(false)
     setQuickSwitchOpen(false)
     setPackActionMenuId(null)
     setSortMenuOpen(false)
@@ -572,6 +604,16 @@ export function LauncherLibraryPage({
     }
     return true
   }
+
+  const selectHiddenView = useCallback((options?: { closeDrawer?: boolean }) => {
+    setHiddenViewOpen(true)
+    setQuickSwitchOpen(false)
+    setPackActionMenuId(null)
+    setSortMenuOpen(false)
+    if (options?.closeDrawer) {
+      setDrawerOpen(false)
+    }
+  }, [])
 
   const resolveDraggedModIds = useCallback((modId: string) => {
     if (editMode && editingSelectionIds.includes(modId)) {
@@ -701,17 +743,31 @@ export function LauncherLibraryPage({
     stopDraggingMod()
   }
 
-  const directActionsForMod = useCallback((mod: LauncherLibraryItem) => [
-    { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
-    { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
-    { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void toggleEnabled(mod) },
-    { label: copy.actions.setCover, onSelect: () => void setModCover(mod) },
-    ...(mod.nexusModId ? [{ label: copy.actions.chooseGalleryCover, onSelect: () => void openGalleryCoverDialog(mod) }] : []),
-    { label: copy.actions.clearCover, onSelect: () => void clearModCover(mod) },
-  ], [clearModCover, copy.actions.chooseGalleryCover, copy.actions.clearCover, copy.actions.disable, copy.actions.enable, copy.actions.openFolder, copy.actions.setCover, copy.actions.viewDetails, openGalleryCoverDialog, openModDetails, openModFolder, setModCover, toggleEnabled])
+  const directActionsForMod = useCallback((mod: LauncherLibraryItem) => {
+    const isHidden = hiddenModKeyLookup.has(normalizeLookupKey(getModKey(mod)))
+    return [
+      { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
+      { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
+      { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void toggleEnabled(mod) },
+      {
+        label: isHidden ? copy.actions.showMod : copy.actions.hideMod,
+        onSelect: () =>
+          void runLibraryAction(async () => {
+            if (isHidden) {
+              await library.showMods([mod.id])
+              return
+            }
+            await library.hideMods([mod.id])
+          }),
+      },
+      { label: copy.actions.setCover, onSelect: () => void setModCover(mod) },
+      ...(mod.nexusModId ? [{ label: copy.actions.chooseGalleryCover, onSelect: () => void openGalleryCoverDialog(mod) }] : []),
+      { label: copy.actions.clearCover, onSelect: () => void clearModCover(mod) },
+    ]
+  }, [clearModCover, copy.actions.chooseGalleryCover, copy.actions.clearCover, copy.actions.disable, copy.actions.enable, copy.actions.hideMod, copy.actions.openFolder, copy.actions.setCover, copy.actions.showMod, copy.actions.viewDetails, hiddenModKeyLookup, library, openGalleryCoverDialog, openModDetails, openModFolder, runLibraryAction, setModCover, toggleEnabled])
 
   const editCount = editingSelectionIds.length
-  const currentPackLabel = library.currentPack ? library.currentPack.name : copy.library.allPacks
+  const currentPackLabel = hiddenViewOpen ? copy.library.hiddenMods : library.currentPack ? library.currentPack.name : copy.library.allPacks
 
   return (
       <>
@@ -761,12 +817,22 @@ export function LauncherLibraryPage({
                     <div className="launcher-library-title-menu">
                       <button
                         type="button"
-                        className={cx('launcher-library-title-menu-item', !library.currentPackId && 'launcher-library-title-menu-item-active')}
+                        className={cx('launcher-library-title-menu-item', !hiddenViewOpen && !library.currentPackId && 'launcher-library-title-menu-item-active')}
                         aria-label={copy.library.allPacks}
                         onClick={() => void selectPack(null)}
                       >
                         <span>{copy.library.allPacks}</span>
-                        <span>{library.mods.length}</span>
+                        <span>{visibleLibraryModsCount}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className={cx('launcher-library-title-menu-item', hiddenViewOpen && 'launcher-library-title-menu-item-active')}
+                        aria-label={copy.library.hiddenMods}
+                        onClick={() => selectHiddenView()}
+                      >
+                        <span>{copy.library.hiddenMods}</span>
+                        <span>{hiddenMods.length}</span>
                       </button>
 
                       {library.packPresets.map((pack) => (
@@ -775,7 +841,8 @@ export function LauncherLibraryPage({
                           type="button"
                           className={cx(
                             'launcher-library-title-menu-item',
-                            normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') &&
+                            !hiddenViewOpen &&
+                              normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') &&
                               'launcher-library-title-menu-item-active',
                           )}
                           aria-label={pack.name}
@@ -970,7 +1037,7 @@ export function LauncherLibraryPage({
                   >
                     <button
                       type="button"
-                      className={cx('launcher-library-pack-row', !library.currentPackId && 'launcher-library-pack-row-active')}
+                      className={cx('launcher-library-pack-row', !hiddenViewOpen && !library.currentPackId && 'launcher-library-pack-row-active')}
                       aria-label={copy.library.allPacks}
                       onClick={() => void selectPack(null)}
                     >
@@ -979,7 +1046,30 @@ export function LauncherLibraryPage({
                         <span className="launcher-library-pack-row-name">{copy.library.allPacks}</span>
                       </span>
                       <span className="launcher-library-pack-row-trailing">
-                        <span className="launcher-library-pack-row-count-badge">{library.mods.length}</span>
+                        <span className="launcher-library-pack-row-count-badge">{visibleLibraryModsCount}</span>
+                      </span>
+                    </button>
+                  </div>
+
+                  <div
+                    className={cx(
+                      'launcher-library-pack-row-shell',
+                      'launcher-library-pack-row-shell-static',
+                      hiddenViewOpen && 'launcher-library-pack-row-shell-active',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      className={cx('launcher-library-pack-row', hiddenViewOpen && 'launcher-library-pack-row-active')}
+                      aria-label={copy.library.hiddenMods}
+                      onClick={() => selectHiddenView()}
+                    >
+                      <span className="launcher-library-pack-row-main">
+                        <FolderArchive className="launcher-library-pack-row-icon h-4 w-4" />
+                        <span className="launcher-library-pack-row-name">{copy.library.hiddenMods}</span>
+                      </span>
+                      <span className="launcher-library-pack-row-trailing">
+                        <span className="launcher-library-pack-row-count-badge">{hiddenMods.length}</span>
                       </span>
                     </button>
                   </div>
@@ -987,7 +1077,7 @@ export function LauncherLibraryPage({
                   <div className="launcher-library-pack-row-separator" />
 
                   {library.packPresets.map((pack) => {
-                    const isCurrentPack = normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '')
+                    const isCurrentPack = !hiddenViewOpen && normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '')
                     const isActionMenuOpen = packActionMenuId === pack.id
                     const isDropTarget = dragOverPackId === pack.id
 
@@ -1332,4 +1422,9 @@ export function LauncherLibraryPage({
       ) : null}
     </>
   )
+}
+
+export function LauncherLibraryPage(props: LauncherLibraryPageProps) {
+  const library = useLauncherLibrary(props.settings)
+  return <LauncherLibraryPageContent {...props} library={library} />
 }

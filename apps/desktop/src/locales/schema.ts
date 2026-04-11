@@ -516,6 +516,8 @@ export type LauncherCopy = {
     setCover: string
     clearCover: string
     chooseGalleryCover: string
+    hideMod: string
+    showMod: string
     createPack: string
     applyCurrentPack: string
     createStorageFolder: string
@@ -577,6 +579,7 @@ export type LauncherCopy = {
       selectedTitle: string
       currentPackTitle: string
       allPacks: string
+      hiddenMods: string
       allStorageFolders: string
       defaultStorageFolder: string
       selectionButtonLabel: string
@@ -633,6 +636,19 @@ export type LauncherCopy = {
     subtitle: string
     empty: string
     selectionSummary: (selected: number, total: number) => string
+    availableCount: (count: number) => string
+    toggleSelection: (allSelected: boolean) => string
+    recheck: string
+    updateSelected: string
+    updateOne: string
+    viewChangelog: string
+    openHomepage: string
+    openComments: string
+    changelogTitle: (version: string | null) => string
+    changelogLoading: string
+    changelogEmpty: string
+    releaseUnknown: string
+    sizeUnknown: string
     checkingProgressTitle: string
     checkingProgressDetail: (checked: number, total: number, currentModName: string | null) => string
   }

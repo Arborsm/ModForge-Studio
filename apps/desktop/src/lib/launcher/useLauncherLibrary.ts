@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEditorCopy } from '../app/localeContext'
 import { dismissNotification, publishNotification } from '../app/notifications'
 import {
+  checkLauncherUpdates,
   installLauncherArchive,
+  clearLauncherLibraryReadCaches,
+  loadCachedLauncherUpdates,
   loadLauncherLibraryCovers,
   loadLauncherLibraryState,
   loadLauncherRemoteModDetail,
@@ -45,6 +48,7 @@ function createDefaultLibraryState(): LauncherLibraryState {
         modKeys: [],
       },
     ],
+    hiddenModKeys: [],
     packPresets: [],
     currentPackId: null,
     scopeMode: 'all',
@@ -151,10 +155,24 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
     ? (packIdLookup.get(normalizeLookupKey(requestedCurrentPackId)) ?? null)
     : null
 
+  const seenHiddenModKeys = new Set<string>()
+  const hiddenModKeys = (state.hiddenModKeys ?? [])
+    .map((value) => normalizeModKey(value))
+    .filter(Boolean)
+    .filter((value) => {
+      const lookup = normalizeLookupKey(value)
+      if (seenHiddenModKeys.has(lookup)) {
+        return false
+      }
+      seenHiddenModKeys.add(lookup)
+      return true
+    })
+
   const scopeMode: LauncherLibraryScopeMode = state.scopeMode === 'current-pack' ? 'current-pack' : 'all'
 
   return {
     storageFolders,
+    hiddenModKeys,
     packPresets,
     currentPackId,
     scopeMode,
@@ -362,9 +380,13 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     })
   }, [copy.library])
 
-  useEffect(() => () => {
-    mountedRef.current = false
-    cancelAutoCoverFetch()
+  useEffect(() => {
+    mountedRef.current = true
+
+    return () => {
+      mountedRef.current = false
+      cancelAutoCoverFetch()
+    }
   }, [cancelAutoCoverFetch])
 
   const refresh = useCallback(async () => {
@@ -373,6 +395,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     const isRefreshActive = () => mountedRef.current && refreshRequestTokenRef.current === requestToken
 
     cancelAutoCoverFetch()
+    clearLauncherLibraryReadCaches(settings.modsPath)
     setState('loading')
     setError(null)
 
@@ -392,6 +415,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       const eligibleMods = scan.mods.filter(
         (item) =>
           item.nexusModId != null &&
+          !item.imageUrl?.trim() &&
           !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value))),
       )
 
@@ -405,6 +429,26 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setSelectedModIds((current) => current.filter((id) => scan.mods.some((item) => item.id === id)))
       setState('ready')
       startAutoCoverFetch(eligibleMods)
+      const updateModsPath = scan.modsPath || settings.modsPath || ''
+      if (scan.mods.length > 0 && updateModsPath) {
+        void loadCachedLauncherUpdates({ modsPath: updateModsPath })
+          .then((cached) => {
+            if (!isRefreshActive()) {
+              return
+            }
+            if (cached) {
+              return
+            }
+
+            return checkLauncherUpdates({
+              modsPath: updateModsPath,
+              forceRefresh: false,
+            }).then(() => undefined)
+          })
+          .catch(() => {
+            // Background update cache warming should not interrupt the library page.
+          })
+      }
     } catch (nextError) {
       if (!isRefreshActive()) {
         return
@@ -416,6 +460,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   }, [cancelAutoCoverFetch, settings.modsPath, startAutoCoverFetch])
 
   const storageFolders = libraryState.storageFolders
+  const hiddenModKeys = libraryState.hiddenModKeys
   const packPresets = libraryState.packPresets
   const scopeMode = libraryState.scopeMode
   const currentPackId = libraryState.currentPackId
@@ -440,9 +485,14 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     const normalizedFilter = filterText.trim().toLowerCase()
     const currentPackMemberKeys = new Set((currentPack?.modKeys ?? []).map((value) => normalizeLookupKey(value)))
     const activeStorageFolderKeys = new Set((activeStorageFolder?.modKeys ?? []).map((value) => normalizeLookupKey(value)))
+    const hiddenLookup = new Set(hiddenModKeys.map((value) => normalizeLookupKey(value)))
 
     return mods.filter((item) => {
       const modKey = getModKey(item)
+
+      if (hiddenLookup.has(normalizeLookupKey(modKey))) {
+        return false
+      }
 
       if (activeStorageFolder && !activeStorageFolderKeys.has(normalizeLookupKey(modKey))) {
         return false
@@ -460,7 +510,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
       return includesFilter(item, normalizedFilter)
     })
-  }, [activeStorageFolder, currentPack?.modKeys, enabledOnly, filterText, mods, scopeMode])
+  }, [activeStorageFolder, currentPack?.modKeys, enabledOnly, filterText, hiddenModKeys, mods, scopeMode])
 
   const selectedMod = useMemo(
     () => filteredMods.find((item) => item.id === selectedModId) ?? mods.find((item) => item.id === selectedModId) ?? null,
@@ -729,6 +779,63 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     [libraryState, mods, packPresets, persistLibraryState],
   )
 
+  const hideMods = useCallback(
+    async (modIds: string[]) => {
+      const modKeys = Array.from(
+        new Map(
+          modIds
+            .map((id) => mods.find((item) => item.id === id))
+            .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+            .map(getModKey)
+            .map((value) => [normalizeLookupKey(value), value]),
+        ).values(),
+      ).filter(Boolean)
+
+      if (!modKeys.length) {
+        return
+      }
+
+      const existing = new Set(hiddenModKeys.map((value) => normalizeLookupKey(value)))
+      const nextHiddenModKeys = [...hiddenModKeys]
+      for (const modKey of modKeys) {
+        const lookup = normalizeLookupKey(modKey)
+        if (existing.has(lookup)) {
+          continue
+        }
+        existing.add(lookup)
+        nextHiddenModKeys.push(modKey)
+      }
+
+      await persistLibraryState({
+        ...libraryState,
+        hiddenModKeys: nextHiddenModKeys,
+      })
+    },
+    [hiddenModKeys, libraryState, mods, persistLibraryState],
+  )
+
+  const showMods = useCallback(
+    async (modIds: string[]) => {
+      const modLookup = new Set(
+        modIds
+          .map((id) => mods.find((item) => item.id === id))
+          .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+          .map(getModKey)
+          .map((value) => normalizeLookupKey(value)),
+      )
+
+      if (!modLookup.size) {
+        return
+      }
+
+      await persistLibraryState({
+        ...libraryState,
+        hiddenModKeys: hiddenModKeys.filter((value) => !modLookup.has(normalizeLookupKey(value))),
+      })
+    },
+    [hiddenModKeys, libraryState, mods, persistLibraryState],
+  )
+
   const createPackPreset = useCallback(
     async (name: string) => {
       const trimmed = name.trim()
@@ -915,6 +1022,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     storageFolders,
     activeStorageFolder,
     activeStorageFolderId,
+    hiddenModKeys,
     packPresets,
     scopeMode,
     currentPackId,
@@ -945,6 +1053,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     deleteStorageFolder,
     addSelectionToPack,
     addModsToPack,
+    hideMods,
+    showMods,
     createPackPreset,
     renamePackPreset,
     deletePackPreset,

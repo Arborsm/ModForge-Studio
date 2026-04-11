@@ -1,6 +1,6 @@
 use super::fs::{discover_project_roots, read_json_file};
 use super::image_cache::resolve_launcher_image_blocking;
-use super::paths::{launcher_library_covers_path, launcher_library_path};
+use super::paths::{launcher_library_covers_path, launcher_library_path, launcher_updates_cache_path};
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherLibraryCover, LauncherLibraryCoversState, LauncherLibraryModSummary,
@@ -10,6 +10,7 @@ use super::types::{
     SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
     UNSORTED_STORAGE_FOLDER_ID, UNSORTED_STORAGE_FOLDER_NAME,
 };
+use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::pathing::{clean_input_path, normalize_path};
 use serde::Deserialize;
 use serde_json::Value;
@@ -149,8 +150,18 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
         pack_id_lookup.get(&normalize_unique_id(value)).cloned()
     });
 
+    let mut seen_hidden_mod_keys = BTreeSet::new();
+    let hidden_mod_keys = state
+        .hidden_mod_keys
+        .into_iter()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .filter(|value| seen_hidden_mod_keys.insert(normalize_unique_id(value)))
+        .collect::<Vec<_>>();
+
     LauncherLibraryState {
         storage_folders,
+        hidden_mod_keys,
         pack_presets,
         current_pack_id,
         scope_mode: state.scope_mode,
@@ -158,19 +169,23 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
 }
 
 fn migrate_legacy_library_labels(legacy_state: LegacyLauncherLibraryLabelsState) -> LauncherLibraryState {
-    let storage_folders = legacy_state
-        .labels
-        .into_iter()
-        .filter(|label| !label.hidden)
-        .map(|label| LauncherLibraryStorageFolder {
+    let mut storage_folders = Vec::new();
+    let mut hidden_mod_keys = Vec::new();
+    for label in legacy_state.labels {
+        if label.hidden {
+            hidden_mod_keys.extend(label.mod_keys);
+            continue;
+        }
+        storage_folders.push(LauncherLibraryStorageFolder {
             id: label.id,
             name: label.name,
             mod_keys: label.mod_keys,
-        })
-        .collect::<Vec<_>>();
+        });
+    }
 
     normalize_library_state(LauncherLibraryState {
         storage_folders,
+        hidden_mod_keys,
         pack_presets: Vec::new(),
         current_pack_id: None,
         scope_mode: LauncherLibraryScopeMode::All,
@@ -813,15 +828,32 @@ pub fn scan_launcher_library(
 }
 
 #[tauri::command]
+pub(crate) fn set_launcher_mod_enabled_blocking(
+    request: SetLauncherModEnabledRequest,
+) -> Result<SetLauncherModEnabledResult, String> {
+    let mod_path = request.mod_path.trim();
+    if mod_path.is_empty() {
+        return Err("modPath is required.".to_string());
+    }
+
+    set_mod_enabled_at_path(&clean_input_path(mod_path), request.enabled)
+}
+
+#[tauri::command]
 pub fn set_launcher_mod_enabled(
+    app: tauri::AppHandle,
     request: SetLauncherModEnabledRequest,
 ) -> Result<SetLauncherModEnabledResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error("set_launcher_mod_enabled", (|| {
-        let mod_path = request.mod_path.trim();
-        if mod_path.is_empty() {
-            return Err("modPath is required.".to_string());
+        let result = set_launcher_mod_enabled_blocking(request)?;
+        if let Some(mods_path) = clean_input_path(&result.absolute_path)
+            .parent()
+            .map(normalize_path)
+        {
+            let cache_path = launcher_updates_cache_path(&app)?;
+            invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
         }
 
-        set_mod_enabled_at_path(&clean_input_path(mod_path), request.enabled)
+        Ok(result)
     })())
 }

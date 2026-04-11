@@ -34,6 +34,14 @@ pub(crate) fn launcher_library_covers_path(app: &tauri::AppHandle) -> Result<Pat
     Ok(config_dir.join("launcher").join("covers.json"))
 }
 
+pub(crate) fn launcher_updates_cache_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let config_dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|error| format!("Failed to resolve app config directory: {error}"))?;
+    Ok(config_dir.join("launcher").join("updates-cache.json"))
+}
+
 pub(crate) fn launcher_backup_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let config_dir = app
         .path()

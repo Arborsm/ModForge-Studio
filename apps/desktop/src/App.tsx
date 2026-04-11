@@ -110,6 +110,11 @@ function getInitialLocale(): LocaleCode {
 }
 
 export default function App() {
+  const initialShellStateRef = useRef<ReturnType<typeof readStoredAppShellState> | null>(null)
+  if (!initialShellStateRef.current) {
+    initialShellStateRef.current = readStoredAppShellState()
+  }
+  const initialShellState = initialShellStateRef.current
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
@@ -121,12 +126,12 @@ export default function App() {
 
     return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? ACCENT_PRESETS[0].id
   })
-  const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppShellState().appMode)
-  const [launcherPage, setLauncherPage] = useState<LauncherPage>(() => readStoredAppShellState().launcherPage)
-  const [debugEnabled, setDebugEnabled] = useState(() => readStoredAppShellState().debugEnabled)
-  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(
-    () => readStoredAppShellState().notificationSoundEnabled,
+  const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
+  const [launcherPage, setLauncherPage] = useState<LauncherPage>(
+    initialShellState.appMode === 'launcher' ? 'library' : initialShellState.launcherPage,
   )
+  const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
+  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
@@ -613,7 +618,7 @@ export default function App() {
   useEffect(() => {
     persistAppShellState({
       appMode,
-      launcherPage,
+      launcherPage: appMode === 'workbench' ? launcherPage : 'library',
       debugEnabled,
       notificationSoundEnabled,
     })

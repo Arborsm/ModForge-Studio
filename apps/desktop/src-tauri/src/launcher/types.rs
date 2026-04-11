@@ -92,6 +92,8 @@ pub struct LauncherLibraryState {
     #[serde(default)]
     pub storage_folders: Vec<LauncherLibraryStorageFolder>,
     #[serde(default)]
+    pub hidden_mod_keys: Vec<String>,
+    #[serde(default)]
     pub pack_presets: Vec<LauncherLibraryPackPreset>,
     #[serde(default)]
     pub current_pack_id: Option<String>,
@@ -207,6 +209,12 @@ pub struct LoadLauncherRemoteModDetailRequest {
     pub mod_id: i64,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadLauncherUpdateChangelogRequest {
+    pub mod_id: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogResult {
@@ -263,6 +271,20 @@ pub struct LauncherRemoteModDetail {
     pub mod_url: String,
     pub image_url: Option<String>,
     pub gallery_images: Vec<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub file_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherUpdateChangelogResult {
+    pub mod_id: i64,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub changelog: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -284,6 +306,13 @@ pub struct ResolveLauncherImageResult {
 #[serde(rename_all = "camelCase")]
 pub struct CheckLauncherUpdatesRequest {
     pub mods_path: String,
+    pub force_refresh: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadCachedLauncherUpdatesRequest {
+    pub mods_path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -293,21 +322,29 @@ pub struct LauncherUpdateProgressPayload {
     pub checked: usize,
     pub total: usize,
     pub current_mod_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updates: Option<Vec<LauncherUpdateSummary>>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateSummary {
     pub mod_id: i64,
     pub name: String,
+    #[serde(default)]
+    pub author: Option<String>,
     pub current_version: Option<String>,
     pub latest_version: String,
     pub absolute_path: String,
     pub mod_url: String,
     pub image_url: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+    #[serde(default)]
+    pub file_size: Option<u64>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdatesResult {
     pub mods_path: String,
@@ -414,6 +451,7 @@ impl Default for LauncherLibraryState {
     fn default() -> Self {
         Self {
             storage_folders: vec![default_unsorted_storage_folder()],
+            hidden_mod_keys: Vec::new(),
             pack_presets: Vec::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,

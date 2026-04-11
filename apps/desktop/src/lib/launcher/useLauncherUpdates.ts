@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEditorCopy } from '../app/localeContext'
 import { dismissNotification, publishNotification } from '../app/notifications'
 import {
   checkLauncherUpdates,
+  loadCachedLauncherUpdates,
+  subscribeLauncherUpdates,
   type LauncherSettings,
 } from '../desktop'
 import type { LauncherUpdateItem, LauncherViewState } from './types'
@@ -21,13 +23,47 @@ export function useLauncherUpdates(settings: LauncherSettings) {
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const itemsRef = useRef<LauncherUpdateItem[]>([])
+  const mountedRef = useRef(true)
+  const requestTokenRef = useRef(0)
 
-  const refresh = useCallback(async () => {
+  const applyUpdateResult = useCallback((result: { updates: LauncherUpdateItem[] }) => {
+    const previousKeys = itemsRef.current.map(getSelectionKey)
+    const nextKeys = result.updates.map(getSelectionKey)
+    itemsRef.current = result.updates
+    setItems(result.updates)
+    setSelectedKeys((current) => {
+      if (!current.length) {
+        return nextKeys
+      }
+
+      const currentSelection = new Set(current)
+      const hadAllSelected =
+        previousKeys.length > 0 && previousKeys.every((key) => currentSelection.has(key))
+      if (hadAllSelected) {
+        return nextKeys
+      }
+
+      const preserved = nextKeys.filter((key) => currentSelection.has(key))
+      return preserved.length ? preserved : nextKeys
+    })
+    setState('ready')
+    setError(null)
+  }, [])
+
+  const loadUpdates = useCallback(async (forceRefresh: boolean) => {
+    const requestToken = requestTokenRef.current + 1
+    requestTokenRef.current = requestToken
+    const isRequestActive = () => mountedRef.current && requestTokenRef.current === requestToken
+
     if (!settings.modsPath) {
-      setItems([])
-      setSelectedKeys([])
-      setState('idle')
-      setError(null)
+      itemsRef.current = []
+      if (isRequestActive()) {
+        setItems([])
+        setSelectedKeys([])
+        setState('idle')
+        setError(null)
+      }
       dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
       return
     }
@@ -49,17 +85,42 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     })
 
     try {
-      const result = await checkLauncherUpdates({ modsPath: settings.modsPath })
-      setItems(result.updates)
-      setSelectedKeys(result.updates.map(getSelectionKey))
-      setState('ready')
+      if (!forceRefresh) {
+        const cached = await loadCachedLauncherUpdates({
+          modsPath: settings.modsPath,
+        })
+        if (cached) {
+          if (isRequestActive()) {
+            applyUpdateResult(cached)
+          }
+          return
+        }
+      }
+
+      const result = await checkLauncherUpdates({
+        modsPath: settings.modsPath,
+        forceRefresh,
+      })
+      if (!isRequestActive()) {
+        return
+      }
+      applyUpdateResult(result)
     } catch (nextError) {
+      if (!isRequestActive()) {
+        return
+      }
       setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher updates.')
       setState('error')
     } finally {
-      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+      if (isRequestActive()) {
+        dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+      }
     }
-  }, [copy.updates, settings.modsPath])
+  }, [applyUpdateResult, copy.updates, settings.modsPath])
+
+  const refresh = useCallback(async () => {
+    await loadUpdates(true)
+  }, [loadUpdates])
 
   const selectedItems = useMemo(() => {
     const selectedKeySet = new Set(selectedKeys)
@@ -82,14 +143,28 @@ export function useLauncherUpdates(settings: LauncherSettings) {
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
+    const unsubscribe =
+      settings.modsPath
+        ? subscribeLauncherUpdates(settings.modsPath, (result) => {
+            if (!mountedRef.current) {
+              return
+            }
+            applyUpdateResult(result)
+          })
+        : () => {}
     const handle = window.setTimeout(() => {
-      void refresh()
+      void loadUpdates(false)
     }, 0)
 
     return () => {
+      mountedRef.current = false
+      requestTokenRef.current += 1
       window.clearTimeout(handle)
+      unsubscribe()
+      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
     }
-  }, [refresh])
+  }, [applyUpdateResult, loadUpdates, settings.modsPath])
 
   return {
     items,

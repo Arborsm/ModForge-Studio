@@ -178,6 +178,7 @@ function createLibraryState(): MockLibraryState {
   return {
     mods: [primaryMod, secondaryMod],
     filteredMods: [primaryMod, secondaryMod],
+    hiddenModKeys: [],
     selectedMod: primaryMod,
     selectedModId: 'mod-1',
     selectedModIds: [],
@@ -238,6 +239,8 @@ function createLibraryState(): MockLibraryState {
     renamePackPreset: vi.fn(async () => {}),
     deletePackPreset: vi.fn(async () => {}),
     replacePackMods: vi.fn(async () => {}),
+    hideMods: vi.fn(async () => {}),
+    showMods: vi.fn(async () => {}),
     setCurrentPackId: vi.fn(async () => {}),
     applyCurrentPack: vi.fn(async () => {}),
     setSelectionEnabled: vi.fn(async () => {}),
@@ -297,6 +300,23 @@ describe('LauncherLibraryPage', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+  })
+
+  it('does not refresh on mount when the library content is already ready for the current mods path', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage({
+      settings: createSettings({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      }),
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('NPC Adventures')).toBeTruthy()
+    })
+
+    expect(library.refresh).not.toHaveBeenCalled()
   })
 
   it('renders the refreshed console card with inline launch and pack controls', () => {
@@ -613,6 +633,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getAllByRole('menuitem', { name: 'Set Cover' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('menuitem', { name: 'Choose Gallery Cover' }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('menuitem', { name: 'Clear Cover' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('menuitem', { name: 'Hide Mod' }).length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'View Details' })[0]!)
     const dialog = await screen.findByRole('dialog', { name: 'NPC Adventures' })
@@ -635,6 +656,52 @@ describe('LauncherLibraryPage', () => {
         imagePath: 'E:\\Covers\\npc-adventures.png',
       })
     })
+  })
+
+  it('shows a hidden mods bucket in the drawer and routes the context action through hideMods', async () => {
+    const primaryMod = createLibraryMod()
+    const hiddenMod = createLibraryMod({
+      id: 'mod-hidden',
+      labelKey: 'ModForge.Hidden',
+      name: 'Hidden Mod',
+      uniqueId: 'ModForge.Hidden',
+      absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Hidden Mod',
+    })
+    const library = {
+      ...createLibraryState(),
+      mods: [primaryMod, hiddenMod],
+      filteredMods: [primaryMod],
+      hiddenModKeys: ['ModForge.Hidden'],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    expect(await screen.findByRole('button', { name: 'Hidden Mods' })).not.toBeNull()
+
+    fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
+    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Hide Mod' })[0]!)
+
+    await waitFor(() => {
+      expect((library as MockLibraryState & { hideMods: ReturnType<typeof vi.fn> }).hideMods).toHaveBeenCalledWith(['mod-1'])
+    })
+  })
+
+  it('keeps the sidebar open when switching to the hidden mods bucket', async () => {
+    const library = {
+      ...createLibraryState(),
+      hiddenModKeys: ['ModForge.Hidden'],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { container } = renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Hidden Mods' }))
+
+    expect(container.querySelector('.launcher-library-sidebar-open')).not.toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Hidden Mods' }).length).toBeGreaterThan(0)
   })
 
   it('loads gallery images from the context menu and replaces the current cover with the selected image', async () => {

@@ -3,13 +3,14 @@ use super::fs::{
     read_json_file, sanitize_file_name, unique_path,
 };
 use super::library::{normalize_unique_id, scan_library_at_path};
-use super::paths::{launcher_backup_dir, launcher_settings_path};
+use super::paths::{launcher_backup_dir, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
     InstallLauncherArchiveRequest, InstallLauncherArchiveResult, InspectLauncherArchiveRequest,
     InspectLauncherArchiveResult, LauncherArchiveTreeNode,
 };
+use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::pathing::{clean_input_path, normalize_path};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -553,7 +554,7 @@ pub fn install_launcher_archive(
     modforge_studio_desktop_lib::logging::log_tauri_command_error("install_launcher_archive", (|| {
         let settings_path = launcher_settings_path(&app)?;
         let settings = load_or_create_settings_at_path(&settings_path)?;
-        install_archive_at_path(
+        let result = install_archive_at_path(
             &clean_input_path(request.archive_path.trim()),
             request
                 .mods_path
@@ -561,7 +562,17 @@ pub fn install_launcher_archive(
                 .filter(|value| !value.trim().is_empty())
                 .or(settings.mods_path.as_deref()),
             Some(launcher_backup_dir(&app)?.as_path()),
-        )
+        )?;
+
+        if let Some(mods_path) = clean_input_path(&result.target_path)
+            .parent()
+            .map(normalize_path)
+        {
+            let cache_path = launcher_updates_cache_path(&app)?;
+            invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
+        }
+
+        Ok(result)
     })())
 }
 

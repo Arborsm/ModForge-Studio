@@ -362,6 +362,7 @@ export type LauncherLibraryScopeMode = 'all' | 'current-pack'
 
 export type LauncherLibraryState = {
   storageFolders: LauncherLibraryStorageFolder[]
+  hiddenModKeys: string[]
   packPresets: LauncherLibraryPackPreset[]
   currentPackId: string | null
   scopeMode: LauncherLibraryScopeMode
@@ -424,6 +425,10 @@ export type LoadLauncherRemoteModDetailRequest = {
   modId: number
 }
 
+export type LoadLauncherUpdateChangelogRequest = {
+  modId: number
+}
+
 export type LauncherCatalogResult = {
   modId: number
   title: string
@@ -470,6 +475,14 @@ export type LauncherRemoteModDetail = {
   modUrl: string
   imageUrl: string | null
   galleryImages: string[]
+  updatedAt?: string | null
+  fileSize?: number | null
+}
+
+export type LauncherUpdateChangelogResult = {
+  modId: number
+  version: string | null
+  changelog: string | null
 }
 
 export type ResolveLauncherImageRequest = {
@@ -485,16 +498,24 @@ export type ResolveLauncherImageResult = {
 
 export type CheckLauncherUpdatesRequest = {
   modsPath: string
+  forceRefresh?: boolean
+}
+
+export type LoadCachedLauncherUpdatesRequest = {
+  modsPath: string
 }
 
 export type LauncherUpdateSummary = {
   modId: number
   name: string
+  author?: string | null
   currentVersion: string | null
   latestVersion: string
   absolutePath: string
   modUrl: string
   imageUrl: string | null
+  updatedAt?: string | null
+  fileSize?: number | null
 }
 
 export type LauncherUpdatesResult = {
@@ -508,6 +529,7 @@ export type LauncherUpdateProgressPayload = {
   checked: number
   total: number
   currentModName: string | null
+  updates?: LauncherUpdateSummary[] | null
 }
 
 export type DownloadLauncherModRequest = {
@@ -702,8 +724,148 @@ const loadLauncherDownloadQueueCache = createPromiseCache<LauncherDownloadQueueS
 const scanLauncherLibraryCache = createPromiseCache<LauncherLibraryScanResult>()
 const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>()
 const loadLauncherRemoteModDetailCache = createPromiseCache<LauncherRemoteModDetail>()
-const checkLauncherUpdatesCache = createPromiseCache<LauncherUpdatesResult>()
+const loadLauncherUpdateChangelogCache = createPromiseCache<LauncherUpdateChangelogResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
+const LAUNCHER_UPDATES_CACHE_TTL_MS = 5 * 60 * 1000
+const launcherUpdatesPendingRequests = new Map<string, Promise<LauncherUpdatesResult>>()
+const launcherUpdatesSnapshots = new Map<string, { result: LauncherUpdatesResult; isFinal: boolean }>()
+const launcherUpdatesListeners = new Map<string, Set<(result: LauncherUpdatesResult) => void>>()
+const launcherUpdatesRequestVersions = new Map<string, number>()
+let launcherUpdatesProgressBridgePromise: Promise<void> | null = null
+
+function getLauncherUpdatesCacheKey(modsPath: string) {
+  return normalizeCachePathSegment(modsPath)
+}
+
+function hasFreshLauncherUpdatesResult(result: LauncherUpdatesResult) {
+  return Date.now() - result.checkedAtMs < LAUNCHER_UPDATES_CACHE_TTL_MS
+}
+
+function notifyLauncherUpdatesListeners(cacheKey: string, result: LauncherUpdatesResult) {
+  const listeners = launcherUpdatesListeners.get(cacheKey)
+  if (!listeners) {
+    return
+  }
+
+  for (const listener of listeners) {
+    listener(result)
+  }
+}
+
+function storeLauncherUpdatesResult(result: LauncherUpdatesResult, isFinal: boolean) {
+  const cacheKey = getLauncherUpdatesCacheKey(result.modsPath)
+  launcherUpdatesSnapshots.set(cacheKey, { result, isFinal })
+  notifyLauncherUpdatesListeners(cacheKey, result)
+  return result
+}
+
+function storePartialLauncherUpdatesResult(payload: LauncherUpdateProgressPayload) {
+  if (!Array.isArray(payload.updates)) {
+    return null
+  }
+
+  return storeLauncherUpdatesResult(
+    {
+      modsPath: payload.modsPath,
+      checkedAtMs: 0,
+      updates: payload.updates,
+    },
+    false,
+  )
+}
+
+function nextLauncherUpdatesRequestVersion(cacheKey: string) {
+  const version = (launcherUpdatesRequestVersions.get(cacheKey) ?? 0) + 1
+  launcherUpdatesRequestVersions.set(cacheKey, version)
+  return version
+}
+
+function invalidateLauncherUpdatesState(modsPath?: string | null) {
+  const normalizedModsPath = modsPath?.trim()
+  if (!normalizedModsPath) {
+    launcherUpdatesSnapshots.clear()
+    launcherUpdatesPendingRequests.clear()
+    launcherUpdatesRequestVersions.clear()
+    return
+  }
+
+  const cacheKey = getLauncherUpdatesCacheKey(normalizedModsPath)
+  launcherUpdatesSnapshots.delete(cacheKey)
+  launcherUpdatesPendingRequests.delete(cacheKey)
+  launcherUpdatesRequestVersions.set(cacheKey, (launcherUpdatesRequestVersions.get(cacheKey) ?? 0) + 1)
+}
+
+function tryGetFreshLauncherUpdatesResult(modsPath: string) {
+  const snapshot = launcherUpdatesSnapshots.get(getLauncherUpdatesCacheKey(modsPath))
+  if (!snapshot?.isFinal || !hasFreshLauncherUpdatesResult(snapshot.result)) {
+    return null
+  }
+  return snapshot.result
+}
+
+function ensureLauncherUpdatesProgressBridge() {
+  if (launcherUpdatesProgressBridgePromise) {
+    return launcherUpdatesProgressBridgePromise
+  }
+
+  if (!isDesktopHost()) {
+    launcherUpdatesProgressBridgePromise = Promise.resolve()
+    return launcherUpdatesProgressBridgePromise
+  }
+
+  launcherUpdatesProgressBridgePromise = listen<LauncherUpdateProgressPayload>(
+    LAUNCHER_UPDATE_PROGRESS_EVENT,
+    (event) => {
+      storePartialLauncherUpdatesResult(event.payload)
+    },
+  )
+    .then(() => undefined)
+    .catch((error) => {
+      launcherUpdatesProgressBridgePromise = null
+      console.warn('Failed to bridge launcher update progress events.', error)
+    })
+
+  return launcherUpdatesProgressBridgePromise
+}
+
+function parentDirectoryFromPath(path: string) {
+  const normalized = path.trim().replaceAll('/', '\\')
+  if (!normalized) {
+    return null
+  }
+
+  const lastSeparator = normalized.lastIndexOf('\\')
+  if (lastSeparator <= 0) {
+    return null
+  }
+  return normalized.slice(0, lastSeparator)
+}
+
+export function subscribeLauncherUpdates(
+  modsPath: string,
+  listener: (result: LauncherUpdatesResult) => void,
+) {
+  void ensureLauncherUpdatesProgressBridge()
+  const cacheKey = getLauncherUpdatesCacheKey(modsPath)
+  const listeners = launcherUpdatesListeners.get(cacheKey) ?? new Set<(result: LauncherUpdatesResult) => void>()
+  listeners.add(listener)
+  launcherUpdatesListeners.set(cacheKey, listeners)
+  const currentSnapshot = launcherUpdatesSnapshots.get(cacheKey)
+  if (currentSnapshot && (!currentSnapshot.isFinal || hasFreshLauncherUpdatesResult(currentSnapshot.result))) {
+    listener(currentSnapshot.result)
+  }
+
+  return () => {
+    const currentListeners = launcherUpdatesListeners.get(cacheKey)
+    if (!currentListeners) {
+      return
+    }
+    currentListeners.delete(listener)
+    if (!currentListeners.size) {
+      launcherUpdatesListeners.delete(cacheKey)
+    }
+  }
+}
 
 export function clearDesktopLocaleCache(locale: string) {
   const normalizedLocale = locale.trim()
@@ -1028,13 +1190,13 @@ export function loadLauncherSettings() {
 }
 
 export function loadLauncherLibraryState() {
-  return readCached(loadLauncherLibraryStateCache, 'default', () =>
+  return readPending(loadLauncherLibraryStateCache, 'default', () =>
     invokeDesktop<LauncherLibraryState>('load_launcher_library_state'),
   )
 }
 
 export function loadLauncherLibraryCovers() {
-  return readCached(loadLauncherLibraryCoversCache, 'default', () =>
+  return readPending(loadLauncherLibraryCoversCache, 'default', () =>
     invokeDesktop<LauncherLibraryCoversState>('load_launcher_library_covers'),
   )
 }
@@ -1045,10 +1207,21 @@ export function loadLauncherDownloadQueue() {
   )
 }
 
+export function clearLauncherLibraryReadCaches(modsPath?: string | null) {
+  loadLauncherLibraryStateCache.delete('default')
+  loadLauncherLibraryCoversCache.delete('default')
+  if (modsPath?.trim()) {
+    scanLauncherLibraryCache.delete(normalizeCachePathSegment(modsPath))
+    return
+  }
+  scanLauncherLibraryCache.clear()
+}
+
 export async function saveLauncherSettings(request: SaveLauncherSettingsRequest) {
   const result = await invokeDesktop<LauncherSettings>('save_launcher_settings', { request })
   loadLauncherSettingsCache.delete('default')
   scanLauncherLibraryCache.clear()
+  invalidateLauncherUpdatesState(result.modsPath)
   return result
 }
 
@@ -1080,7 +1253,7 @@ export async function saveLauncherDownloadQueue(request: LauncherDownloadQueueSt
 
 export function scanLauncherLibrary(request: ScanLauncherLibraryRequest) {
   const cacheKey = normalizeCachePathSegment(request.modsPath)
-  return readCached(scanLauncherLibraryCache, cacheKey, () =>
+  return readPending(scanLauncherLibraryCache, cacheKey, () =>
     invokeDesktop<LauncherLibraryScanResult>('scan_launcher_library', { request }),
   )
 }
@@ -1088,6 +1261,7 @@ export function scanLauncherLibrary(request: ScanLauncherLibraryRequest) {
 export async function setLauncherModEnabled(request: SetLauncherModEnabledRequest) {
   const result = await invokeDesktop<SetLauncherModEnabledResult>('set_launcher_mod_enabled', { request })
   scanLauncherLibraryCache.clear()
+  invalidateLauncherUpdatesState(parentDirectoryFromPath(request.modPath))
   return result
 }
 
@@ -1127,6 +1301,13 @@ export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetail
   )
 }
 
+export function loadLauncherUpdateChangelog(request: LoadLauncherUpdateChangelogRequest) {
+  const cacheKey = String(request.modId)
+  return readPending(loadLauncherUpdateChangelogCache, cacheKey, () =>
+    invokeDesktop<LauncherUpdateChangelogResult>('load_launcher_update_changelog', { request }),
+  )
+}
+
 export function resolveLauncherImage(request: ResolveLauncherImageRequest) {
   return invokeDesktop<ResolveLauncherImageResult>('resolve_launcher_image', { request })
 }
@@ -1143,11 +1324,42 @@ export function openLauncherUrl(request: OpenLauncherUrlRequest) {
   return invokeDesktop<void>('open_launcher_url', { request })
 }
 
+export async function loadCachedLauncherUpdates(request: LoadCachedLauncherUpdatesRequest) {
+  const localCached = tryGetFreshLauncherUpdatesResult(request.modsPath)
+  if (localCached) {
+    return localCached
+  }
+
+  const result = await invokeDesktop<LauncherUpdatesResult | null>('load_cached_launcher_updates', { request })
+  return result ? storeLauncherUpdatesResult(result, true) : null
+}
+
 export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
-  const cacheKey = normalizeCachePathSegment(request.modsPath)
-  return readPending(checkLauncherUpdatesCache, cacheKey, () =>
-    invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', { request }),
-  )
+  const cacheKey = getLauncherUpdatesCacheKey(request.modsPath)
+  if (!request.forceRefresh) {
+    const pending = launcherUpdatesPendingRequests.get(cacheKey)
+    if (pending) {
+      return pending
+    }
+  }
+
+  const requestVersion = nextLauncherUpdatesRequestVersion(cacheKey)
+  void ensureLauncherUpdatesProgressBridge()
+  const promise = invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', { request })
+    .then((result) => {
+      if (launcherUpdatesRequestVersions.get(cacheKey) === requestVersion) {
+        storeLauncherUpdatesResult(result, true)
+      }
+      return result
+    })
+    .finally(() => {
+      if (launcherUpdatesPendingRequests.get(cacheKey) === promise) {
+        launcherUpdatesPendingRequests.delete(cacheKey)
+      }
+    })
+
+  launcherUpdatesPendingRequests.set(cacheKey, promise)
+  return promise
 }
 
 export function listenToLauncherUpdateProgress(
@@ -1165,7 +1377,7 @@ export function downloadLauncherMod(request: DownloadLauncherModRequest) {
 export async function installLauncherArchive(request: InstallLauncherArchiveRequest) {
   const result = await invokeDesktop<InstallLauncherArchiveResult>('install_launcher_archive', { request })
   scanLauncherLibraryCache.clear()
-  checkLauncherUpdatesCache.clear()
+  invalidateLauncherUpdatesState(request.modsPath)
   return result
 }
 
