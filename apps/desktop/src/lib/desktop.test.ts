@@ -1,6 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 
+const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 const mockWindow = {
   minimize: vi.fn(),
   toggleMaximize: vi.fn(),
@@ -15,6 +27,15 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn(),
+}))
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(async (eventName: string, callback: (event: { payload: unknown }) => void) => {
+    eventListeners.set(eventName, callback)
+    return () => {
+      eventListeners.delete(eventName)
+    }
+  }),
 }))
 
 vi.mock('@tauri-apps/api/window', () => ({
@@ -57,6 +78,8 @@ describe('launcher bridge helpers', () => {
       configurable: true,
       value: {},
     })
+    eventListeners.clear()
+    vi.resetModules()
     vi.mocked(invoke).mockReset()
   })
 
@@ -70,6 +93,94 @@ describe('launcher bridge helpers', () => {
 
     await expect(loadLauncherSettings()).resolves.toEqual(expected)
     expect(invoke).toHaveBeenCalledWith('load_launcher_settings', undefined)
+  })
+
+  it('reloads launcher library state on repeated requests', async () => {
+    const firstState = {
+      storageFolders: [{ id: 'unsorted', name: 'Unsorted', modKeys: [] }],
+      hiddenModKeys: [],
+      packPresets: [],
+      currentPackId: null,
+      scopeMode: 'all',
+    }
+    const secondState = {
+      storageFolders: [{ id: 'unsorted', name: 'Unsorted', modKeys: ['ModForge.NPCAdventures'] }],
+      hiddenModKeys: [],
+      packPresets: [],
+      currentPackId: null,
+      scopeMode: 'all',
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(firstState).mockResolvedValueOnce(secondState)
+    const { loadLauncherLibraryState } = await import('./desktop')
+
+    await expect(loadLauncherLibraryState()).resolves.toEqual(firstState)
+    await expect(loadLauncherLibraryState()).resolves.toEqual(secondState)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_launcher_library_state', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(2, 'load_launcher_library_state', undefined)
+  })
+
+  it('reloads launcher library covers on repeated requests', async () => {
+    const firstCovers = {
+      covers: [],
+    }
+    const secondCovers = {
+      covers: [{ labelKey: '20599', imagePath: 'C:\\cache\\cover-20599.webp' }],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(firstCovers).mockResolvedValueOnce(secondCovers)
+    const { loadLauncherLibraryCovers } = await import('./desktop')
+
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(firstCovers)
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(secondCovers)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_launcher_library_covers', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(2, 'load_launcher_library_covers', undefined)
+  })
+
+  it('clears a stuck launcher library state request before retrying', async () => {
+    const pendingState = createDeferred<{
+      storageFolders: { id: string; name: string; modKeys: string[] }[]
+      hiddenModKeys: string[]
+      packPresets: never[]
+      currentPackId: null
+      scopeMode: 'all'
+    }>()
+    const recoveredState = {
+      storageFolders: [{ id: 'unsorted', name: 'Unsorted', modKeys: ['ModForge.NPCAdventures'] }],
+      hiddenModKeys: [],
+      packPresets: [],
+      currentPackId: null,
+      scopeMode: 'all' as const,
+    }
+    vi.mocked(invoke).mockReturnValueOnce(pendingState.promise).mockResolvedValueOnce(recoveredState)
+    const { clearLauncherLibraryReadCaches, loadLauncherLibraryState } = await import('./desktop')
+
+    void loadLauncherLibraryState()
+    clearLauncherLibraryReadCaches('C:\\Games\\Stardew Valley\\Mods')
+
+    await expect(loadLauncherLibraryState()).resolves.toEqual(recoveredState)
+
+    pendingState.resolve(recoveredState)
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_launcher_library_state', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(2, 'load_launcher_library_state', undefined)
+  })
+
+  it('clears a stuck launcher library covers request before retrying', async () => {
+    const pendingCovers = createDeferred<{ covers: { labelKey: string; imagePath: string }[] }>()
+    const recoveredCovers = {
+      covers: [{ labelKey: '20599', imagePath: 'C:\\cache\\cover-20599.webp' }],
+    }
+    vi.mocked(invoke).mockReturnValueOnce(pendingCovers.promise).mockResolvedValueOnce(recoveredCovers)
+    const { clearLauncherLibraryReadCaches, loadLauncherLibraryCovers } = await import('./desktop')
+
+    void loadLauncherLibraryCovers()
+    clearLauncherLibraryReadCaches('C:\\Games\\Stardew Valley\\Mods')
+
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(recoveredCovers)
+
+    pendingCovers.resolve(recoveredCovers)
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_launcher_library_covers', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(2, 'load_launcher_library_covers', undefined)
   })
 
   it('saves launcher settings and scans launcher library with request payload', async () => {
@@ -104,6 +215,195 @@ describe('launcher bridge helpers', () => {
 
     await expect(launchLauncherGame()).resolves.toEqual(launched)
     expect(invoke).toHaveBeenCalledWith('launch_launcher_game', undefined)
+  })
+
+  it('bypasses a pending launcher update request when force refresh is set', async () => {
+    const pending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    const refreshed = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 456,
+      updates: [],
+    }
+    vi.mocked(invoke).mockReturnValueOnce(pending.promise).mockResolvedValueOnce(refreshed)
+    const { checkLauncherUpdates } = await import('./desktop')
+
+    void checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+
+    await expect(
+      checkLauncherUpdates({
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        forceRefresh: true,
+      }),
+    ).resolves.toEqual(refreshed)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'check_launcher_updates', {
+      request: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        forceRefresh: false,
+      },
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'check_launcher_updates', {
+      request: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        forceRefresh: true,
+      },
+    })
+
+    pending.resolve(refreshed)
+  })
+
+  it('reuses a pending launcher update request for repeated non-forced calls', async () => {
+    const pending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    vi.mocked(invoke).mockReturnValueOnce(pending.promise)
+    const { checkLauncherUpdates } = await import('./desktop')
+
+    const first = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+    const second = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(first).toBe(second)
+
+    pending.resolve({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 789,
+      updates: [],
+    })
+    await expect(first).resolves.toEqual({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 789,
+      updates: [],
+    })
+  })
+
+  it('loads cached launcher updates before checking again', async () => {
+    const cached = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 123,
+      updates: [],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(cached)
+    const { loadCachedLauncherUpdates } = await import('./desktop')
+
+    await expect(loadCachedLauncherUpdates({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(cached)
+    expect(invoke).toHaveBeenCalledWith('load_cached_launcher_updates', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+  })
+
+  it('publishes partial launcher updates from progress events to subscribers', async () => {
+    const { subscribeLauncherUpdates } = await import('./desktop')
+    const listener = vi.fn()
+
+    const unsubscribe = subscribeLauncherUpdates('C:\\Games\\Stardew Valley\\Mods', listener)
+    await Promise.resolve()
+
+    eventListeners.get('launcher://update-check-progress')?.({
+      payload: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        checked: 3,
+        total: 10,
+        currentModName: 'NPC Adventures',
+        updates: [
+          {
+            modId: 101,
+            name: 'NPC Adventures',
+            currentVersion: '1.0.0',
+            latestVersion: '1.2.0',
+            absolutePath: 'C:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+            imageUrl: null,
+          },
+        ],
+      },
+    })
+
+    expect(listener).toHaveBeenCalledWith({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 0,
+      updates: [
+        {
+          modId: 101,
+          name: 'NPC Adventures',
+          currentVersion: '1.0.0',
+          latestVersion: '1.2.0',
+          absolutePath: 'C:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+          modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+          imageUrl: null,
+        },
+      ],
+    })
+
+    unsubscribe()
+  })
+
+  it('clears launcher image cache and invalidates launcher cover and scan caches', async () => {
+    const firstCovers = { covers: [{ labelKey: '20599', imagePath: 'C:\\cache\\cover-1.webp' }] }
+    const firstScan = { modsPath: 'C:\\Games\\Stardew Valley\\Mods', mods: [{ id: 'mod-20599' }] }
+    const secondCovers = { covers: [] }
+    const secondScan = { modsPath: 'C:\\Games\\Stardew Valley\\Mods', mods: [] }
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(firstCovers)
+      .mockResolvedValueOnce(firstScan)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(secondCovers)
+      .mockResolvedValueOnce(secondScan)
+    const { clearLauncherImageCache, loadLauncherLibraryCovers, scanLauncherLibrary } = await import('./desktop')
+
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(firstCovers)
+    await expect(scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(firstScan)
+    await expect(clearLauncherImageCache()).resolves.toBeUndefined()
+    await expect(loadLauncherLibraryCovers()).resolves.toEqual(secondCovers)
+    await expect(scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(secondScan)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'load_launcher_library_covers', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(2, 'scan_launcher_library', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+    expect(invoke).toHaveBeenNthCalledWith(3, 'clear_launcher_image_cache', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(4, 'load_launcher_library_covers', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(5, 'scan_launcher_library', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+  })
+
+  it('rescans the launcher library on repeated requests for the same mods path', async () => {
+    const firstScan = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      mods: [],
+    }
+    const secondScan = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      mods: [{ id: 'mod-20599' }],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(firstScan).mockResolvedValueOnce(secondScan)
+    const { scanLauncherLibrary } = await import('./desktop')
+
+    await expect(scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(firstScan)
+    await expect(scanLauncherLibrary({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(secondScan)
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'scan_launcher_library', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'scan_launcher_library', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
   })
 
   it('toggles backend debug logging through the desktop bridge', async () => {

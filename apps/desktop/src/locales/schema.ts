@@ -26,6 +26,7 @@ export type SettingsMenuCopy = {
   categories: {
     appearance: string
     view: string
+    interaction: string
     launcher: string
     debug: string
   }
@@ -44,11 +45,16 @@ export type SettingsMenuCopy = {
   debugModeDescription: string
   enableDebugModeLabel: string
   disableDebugModeLabel: string
+  notificationSoundLabel: string
+  notificationSoundDescription: string
+  enableNotificationSoundLabel: string
+  disableNotificationSoundLabel: string
   futureLabel: string
   futureDescription: string
   categoryDescriptions: {
     appearance: string
     view: string
+    interaction: string
     launcher: string
     debug: string
   }
@@ -509,6 +515,9 @@ export type LauncherCopy = {
     openBackupFolder: string
     setCover: string
     clearCover: string
+    chooseGalleryCover: string
+    hideMod: string
+    showMod: string
     createPack: string
     applyCurrentPack: string
     createStorageFolder: string
@@ -570,6 +579,7 @@ export type LauncherCopy = {
       selectedTitle: string
       currentPackTitle: string
       allPacks: string
+      hiddenMods: string
       allStorageFolders: string
       defaultStorageFolder: string
       selectionButtonLabel: string
@@ -595,18 +605,50 @@ export type LauncherCopy = {
       saveChanges: string
       renameCurrentPackPrompt: (name: string) => string
       deleteCurrentPackConfirm: (name: string) => string
+      loadingMissingCoversTitle: string
+      loadingMissingCoversCurrentMod: (name: string) => string
+      loadingMissingCoversProgress: (completed: number, total: number) => string
+      loadingMissingCoversStageProgress: (stage: string, completed: number, total: number) => string
+      loadingMissingCoversStages: {
+        local: string
+        apiCover: string
+        apiGallery: string
+        remoteCover: string
+        remoteGallery: string
+      }
+      galleryCoverTitle: string
+      galleryCoverSubtitle: string
+      galleryCoverEmpty: string
+      galleryCoverLoading: string
+      galleryCoverImageLabel: (index: number) => string
     }
   discover: {
     title: string
     subtitle: string
     empty: string
     credentialsHint: string
+    loadingResults: string
+    loadingPage: (page: number) => string
+    loadingCover: string
   }
   updates: {
     title: string
     subtitle: string
     empty: string
     selectionSummary: (selected: number, total: number) => string
+    availableCount: (count: number) => string
+    toggleSelection: (allSelected: boolean) => string
+    recheck: string
+    updateSelected: string
+    updateOne: string
+    viewChangelog: string
+    openHomepage: string
+    openComments: string
+    changelogTitle: (version: string | null) => string
+    changelogLoading: string
+    changelogEmpty: string
+    releaseUnknown: string
+    sizeUnknown: string
     checkingProgressTitle: string
     checkingProgressDetail: (checked: number, total: number, currentModName: string | null) => string
   }
@@ -618,7 +660,11 @@ export type LauncherCopy = {
   settings: {
     title: string
     subtitle: string
+    pathsTitle: string
     pathsHint: string
+    nexusAccessTitle: string
+    downloadBehaviorTitle: string
+    downloadBehaviorHint: string
     autoInstallHint: string
     keepArchivesHint: string
     loadFailed: string
@@ -636,6 +682,9 @@ export type LauncherCopy = {
     notificationsSubtitle: string
     logsTitle: string
     logsSubtitle: string
+    clearImageCacheTitle: string
+    clearImageCacheSubtitle: string
+    clearImageCacheButton: string
     simulationTitle: string
     simulationSubtitle: string
     simulationButtonIdle: string

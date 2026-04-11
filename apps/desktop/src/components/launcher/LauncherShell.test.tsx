@@ -1,12 +1,68 @@
 import { cleanup, screen, within } from '@testing-library/react'
+import { useRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '../../test/renderWithLocale'
 
 const settingsPageSpy = vi.fn()
+let libraryPageInstanceCounter = 0
 
 vi.mock('./pages/LauncherLibraryPage', () => ({
-  LauncherLibraryPage: ({ launchGameLabel }: { launchGameLabel: string }) => <div>{`library-page:${launchGameLabel}`}</div>,
+  LauncherLibraryPageContent: ({ launchGameLabel }: { launchGameLabel: string }) => {
+    const instanceId = useRef(++libraryPageInstanceCounter)
+    return <div>{`library-page:${launchGameLabel}:${instanceId.current}`}</div>
+  },
+}))
+
+vi.mock('../../lib/launcher/useLauncherLibrary', () => ({
+  useLauncherLibrary: vi.fn(() => ({
+    mods: [],
+    storageFolders: [],
+    activeStorageFolder: null,
+    activeStorageFolderId: null,
+    hiddenModKeys: [],
+    packPresets: [],
+    scopeMode: 'all',
+    currentPackId: null,
+    currentPack: null,
+    filteredMods: [],
+    selectedMod: null,
+    selectedModId: null,
+    selectedModIds: [],
+    selection: [],
+    state: 'ready',
+    error: null,
+    filterText: '',
+    enabledOnly: false,
+    refresh: vi.fn(async () => {}),
+    setSelectedModId: vi.fn(),
+    toggleEnabled: vi.fn(async () => {}),
+    installArchive: vi.fn(async () => {}),
+    toggleModSelection: vi.fn(),
+    clearSelection: vi.fn(),
+    selectAllFiltered: vi.fn(),
+    assignSelectionToFolder: vi.fn(async () => {}),
+    createStorageFolder: vi.fn(async () => {}),
+    renameStorageFolder: vi.fn(async () => {}),
+    deleteStorageFolder: vi.fn(async () => {}),
+    addSelectionToPack: vi.fn(async () => {}),
+    addModsToPack: vi.fn(async () => {}),
+    hideMods: vi.fn(async () => {}),
+    showMods: vi.fn(async () => {}),
+    createPackPreset: vi.fn(async () => {}),
+    renamePackPreset: vi.fn(async () => {}),
+    deletePackPreset: vi.fn(async () => {}),
+    setCurrentPackId: vi.fn(async () => {}),
+    replacePackMods: vi.fn(async () => {}),
+    setScopeMode: vi.fn(async () => {}),
+    applyCurrentPack: vi.fn(async () => {}),
+    setSelectionEnabled: vi.fn(async () => {}),
+    setFilterText: vi.fn(),
+    setEnabledOnly: vi.fn(),
+    selectNextSearchMatch: vi.fn(),
+    selectPreviousSearchMatch: vi.fn(),
+    setActiveStorageFolderId: vi.fn(),
+  })),
 }))
 
 vi.mock('./pages/LauncherDiscoverPage', () => ({
@@ -75,6 +131,7 @@ describe('LauncherShell', () => {
   afterEach(() => {
     cleanup()
     settingsPageSpy.mockReset()
+    libraryPageInstanceCounter = 0
   })
 
   it('routes the library page without rendering an in-page launcher navigation rail', () => {
@@ -93,7 +150,7 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.getByText('library-page:Launch Game')).toBeTruthy()
+    expect(screen.getByText('library-page:Launch Game:1')).toBeTruthy()
     expect(container.querySelector('.launcher-shell-page-nav')).toBeNull()
   })
 
@@ -114,6 +171,43 @@ describe('LauncherShell', () => {
     )
 
     expect(screen.getByText('discover-page')).toBeTruthy()
+  })
+
+  it('keeps the library page content rendered when switching away from it', () => {
+    const { rerender } = renderWithLocale(
+      <LauncherShell
+        page="library"
+        debugEnabled={false}
+        settingsState={settingsState as never}
+        downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
+        onNavigateToSettings={vi.fn()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/^library-page:Launch Game:/)).toBeTruthy()
+
+    rerender(
+      <LauncherShell
+        page="discover"
+        debugEnabled={false}
+        settingsState={settingsState as never}
+        downloads={downloads as never}
+        onToggleDebugMode={vi.fn()}
+        onNavigateToSettings={vi.fn()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('discover-page')).toBeTruthy()
+    expect(screen.getByText(/^library-page:Launch Game:/)).toBeTruthy()
   })
 
   it('routes the updates page', () => {
@@ -180,7 +274,7 @@ describe('LauncherShell', () => {
     )
 
     expect(screen.queryByText('settings-page')).toBeNull()
-    expect(screen.getByText('library-page:Launch Game')).toBeTruthy()
+    expect(screen.getByText('library-page:Launch Game:1')).toBeTruthy()
   })
 
   it('does not render a downloads page entry inside the shell', () => {

@@ -1,0 +1,832 @@
+@layer components {
+  .launcher-discover-grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+
+  .launcher-discover-page {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .launcher-discover-console {
+    position: relative;
+    z-index: 20;
+    isolation: isolate;
+    overflow: visible;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
+    padding: 14px 18px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-discover-console-top,
+  .launcher-discover-console-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-discover-console-heading {
+    min-width: 0;
+    flex: 1 1 320px;
+    display: grid;
+    gap: 2px;
+  }
+
+  .launcher-discover-console-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-discover-console-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 20px;
+    line-height: 1.1;
+    font-weight: 700;
+  }
+
+  .launcher-discover-console-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .launcher-discover-console-summary {
+    margin: 0;
+    color: color-mix(in srgb, var(--text-primary) 72%, var(--text-secondary));
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .launcher-discover-console-toolbar {
+    margin-left: auto;
+    flex: 0 1 auto;
+    justify-content: flex-end;
+  }
+
+  .launcher-discover-console-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-discover-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    gap: 0;
+    grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
+    align-items: stretch;
+    overflow: visible;
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    border-radius: 12px;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .launcher-discover-shell-filters-hidden {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .launcher-discover-sidebar {
+    position: relative;
+    min-height: 0;
+    display: grid;
+    gap: 0;
+    align-self: stretch;
+    border: 0;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    border-radius: 12px 0 0 12px;
+    background: var(--bg-panel);
+    padding: 0;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .launcher-discover-content {
+    position: relative;
+    min-width: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+    min-height: 0;
+    padding: 12px 14px;
+    overflow: hidden;
+    align-content: start;
+    border-radius: 0 12px 12px 0;
+  }
+
+  .launcher-discover-filters-toggle,
+  .launcher-discover-searchbar-button,
+  .launcher-discover-icon-button,
+  .launcher-discover-order-button,
+  .launcher-discover-menu-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 36px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+    color: var(--text-primary);
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-discover-filters-toggle:hover,
+  .launcher-discover-searchbar-button:hover,
+  .launcher-discover-icon-button:hover,
+  .launcher-discover-order-button:hover,
+  .launcher-discover-menu-trigger:hover {
+    background: color-mix(in srgb, var(--bg-panel-muted) 96%, var(--border-color));
+  }
+
+  .launcher-discover-filters-toggle:focus-visible,
+  .launcher-discover-menu-trigger:focus-visible,
+  .launcher-discover-order-button:focus-visible,
+  .launcher-discover-icon-button:focus-visible,
+  .launcher-discover-rail-field input:focus-visible,
+  .launcher-discover-range-row input:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    outline-offset: 2px;
+  }
+
+  .launcher-discover-filters-toggle {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--accent);
+  }
+
+  .launcher-discover-icon-button {
+    width: 36px;
+    padding: 0;
+    color: var(--text-secondary);
+  }
+
+  .launcher-discover-menu {
+    position: relative;
+    z-index: 30;
+  }
+
+  .launcher-discover-menu-trigger {
+    min-width: 118px;
+    justify-content: space-between;
+  }
+
+  .launcher-discover-menu-trigger svg {
+    color: var(--text-tertiary);
+  }
+
+  .launcher-discover-menu-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    min-width: 180px;
+    display: grid;
+    gap: 4px;
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-float);
+    padding: 6px;
+  }
+
+  .launcher-discover-menu-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 34px;
+    border-radius: 8px;
+    padding: 0 10px;
+    color: var(--text-secondary);
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .launcher-discover-menu-option:hover,
+  .launcher-discover-menu-option-active {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .launcher-discover-rail-section {
+    display: grid;
+    gap: 0;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .launcher-discover-rail-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 0;
+    background: transparent;
+    padding: 14px 16px;
+    text-align: left;
+  }
+
+  .launcher-discover-rail-chevron {
+    color: var(--text-tertiary);
+    transition: transform 160ms ease;
+  }
+
+  .launcher-discover-rail-chevron-open {
+    transform: rotate(180deg);
+  }
+
+  .launcher-discover-rail-body {
+    display: grid;
+    gap: 10px;
+    padding: 0 16px 14px;
+  }
+
+  .launcher-discover-sidebar-accordion {
+    display: grid;
+    min-height: 0;
+    overflow: auto;
+    scrollbar-width: thin;
+  }
+
+  .launcher-discover-sidebar-accordion .launcher-discover-rail-section:last-child {
+    border-bottom: 0;
+  }
+
+  .launcher-discover-category-list {
+    display: grid;
+    gap: 4px;
+    max-height: 328px;
+    overflow: auto;
+    padding-right: 2px;
+    scrollbar-width: thin;
+  }
+
+  .launcher-discover-category-item,
+  .launcher-discover-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
+    background: transparent;
+    padding: 0 8px;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-discover-category-item input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .launcher-discover-category-item:hover,
+  .launcher-discover-chip:hover {
+    background: color-mix(in srgb, var(--bg-panel-muted) 68%, var(--bg-panel));
+  }
+
+  .launcher-discover-category-item-active,
+  .launcher-discover-chip-active {
+    border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--accent);
+  }
+
+  .launcher-discover-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .launcher-discover-rail-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .launcher-discover-rail-field span {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .launcher-discover-rail-field input,
+  .launcher-discover-range-row input {
+    min-height: 36px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    border-radius: 8px;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    padding: 0 10px;
+    font-size: 13px;
+    outline: none;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease;
+  }
+
+  .launcher-discover-rail-field input:focus,
+  .launcher-discover-range-row input:focus {
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    background: var(--bg-panel);
+  }
+
+  .launcher-discover-tag-field {
+    position: relative;
+  }
+
+  .launcher-discover-tag-input-shell {
+    position: relative;
+  }
+
+  .launcher-discover-tag-suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    z-index: 24;
+    display: grid;
+    gap: 4px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-float);
+    padding: 6px;
+  }
+
+  .launcher-discover-tag-suggestion {
+    width: 100%;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .launcher-discover-tag-suggestion:hover {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .launcher-discover-tag-suggestion span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-discover-tag-suggestion span:last-child {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+
+  .launcher-discover-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
+    font-size: 13px;
+    min-height: 34px;
+  }
+
+  .launcher-discover-toggle-row input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent);
+  }
+
+  .launcher-discover-range-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .launcher-discover-wall {
+    display: grid;
+    gap: 14px;
+    padding-inline: 0;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+
+  .launcher-discover-wall-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    border-radius: 12px;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
+    contain: content;
+    transition:
+      transform 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .launcher-discover-wall-card:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+    box-shadow:
+      var(--shadow-float),
+      0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+  }
+
+  .launcher-discover-wall-cover {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+    text-decoration: none;
+  }
+
+  .launcher-discover-wall-cover-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent-soft) 32%, transparent), transparent 42%),
+      linear-gradient(145deg, color-mix(in srgb, var(--accent) 12%, var(--bg-panel-muted)), var(--bg-panel));
+    overflow: hidden;
+  }
+
+  .launcher-discover-wall-cover-monogram {
+    color: color-mix(in srgb, var(--text-primary) 82%, var(--text-secondary));
+    font-size: clamp(22px, 2.4vw, 34px);
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0.72;
+    user-select: none;
+  }
+
+  .launcher-discover-wall-cover-status {
+    position: absolute;
+    inset: auto 12px 12px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface-inverse) 82%, transparent);
+    color: var(--text-inverse);
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+  }
+
+  .launcher-discover-wall-cover-overlay {
+    position: absolute;
+    inset: auto 10px 10px auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface-inverse) 82%, transparent);
+    color: var(--text-inverse);
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease;
+    pointer-events: none;
+  }
+
+  .launcher-discover-wall-card:hover .launcher-discover-wall-cover-overlay {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .launcher-discover-wall-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 82%, var(--bg-panel));
+    color: var(--accent);
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .launcher-discover-wall-body {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .launcher-discover-wall-copy {
+    min-height: 0;
+    width: 100%;
+    display: grid;
+    align-content: start;
+    gap: 0;
+    text-align: left;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .launcher-discover-wall-title,
+  .launcher-discover-wall-author,
+  .launcher-discover-wall-category,
+  .launcher-discover-wall-summary,
+  .launcher-discover-wall-meta {
+    margin: 0;
+  }
+
+  .launcher-discover-wall-title {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+    display: -webkit-box;
+    line-clamp: 2;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .launcher-discover-wall-title-slot {
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .launcher-discover-wall-author {
+    margin-top: 4px;
+    color: color-mix(in srgb, var(--text-primary) 72%, var(--text-secondary));
+    font-size: 12px;
+  }
+
+  .launcher-discover-wall-category {
+    margin-top: 2px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+  }
+
+  .launcher-discover-wall-summary {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+    display: -webkit-box;
+    line-clamp: 2;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .launcher-discover-wall-summary-slot {
+    min-height: 2.5rem;
+    display: flex;
+    align-items: center;
+    margin-top: 6px;
+  }
+
+  .launcher-discover-wall-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+
+  .launcher-discover-wall-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 24px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+    padding: 0 8px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .launcher-discover-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .launcher-discover-card-quick-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--accent);
+    transition:
+      border-color 160ms ease,
+      background 160ms ease,
+      transform 160ms ease;
+  }
+
+  .launcher-discover-card-quick-action:hover {
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    transform: translateY(-1px);
+  }
+
+  .launcher-discover-results-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+
+  .launcher-discover-results-viewport {
+    min-height: 0;
+    overflow: auto;
+    min-block-size: 320px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+
+  .launcher-discover-results-viewport-loading {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .launcher-discover-wall-shell {
+    position: relative;
+    min-height: 100%;
+  }
+
+  .launcher-discover-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+    backdrop-filter: blur(3px);
+    pointer-events: auto;
+    cursor: progress;
+  }
+
+  .launcher-discover-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid color-mix(in srgb, var(--accent) 16%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 999px;
+    animation: launcher-discover-spinner 720ms linear infinite;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-inverse) 68%, transparent);
+  }
+
+  @keyframes launcher-discover-spinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .launcher-discover-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+  }
+
+  .launcher-discover-pagination-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-discover-pagination-button,
+  .launcher-discover-pagination-page {
+    min-height: 34px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease,
+      opacity 140ms ease;
+  }
+
+  .launcher-discover-pagination-button:hover,
+  .launcher-discover-pagination-page:hover {
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+  }
+
+  .launcher-discover-pagination-page-active {
+    background: var(--accent);
+    color: var(--text-inverse);
+  }
+
+  .launcher-discover-pagination-page-active:hover {
+    background: color-mix(in srgb, var(--accent) 88%, var(--surface-inverse));
+  }
+
+  .launcher-discover-pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .launcher-discover-pagination-ellipsis {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 2px;
+  }
+
+  .launcher-discover-pagination-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .launcher-discover-pagination-jump .control-input {
+    width: 68px;
+    min-width: 68px;
+    height: 34px;
+    text-align: center;
+  }
+}

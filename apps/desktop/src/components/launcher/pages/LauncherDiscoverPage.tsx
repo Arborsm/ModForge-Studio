@@ -14,7 +14,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
-import type { LauncherSettings } from '../../../lib/desktop'
+import { openLauncherUrl, type LauncherSettings } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import {
   persistLauncherDiscoverToolbarState,
@@ -22,6 +22,7 @@ import {
 } from '../../../lib/launcher/launcherDiscoverToolbarState'
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
 import type { QueueLauncherDownloadInput } from '../../../lib/launcher/types'
+import { getLauncherCardMonogram } from '../cards/launcherCardPresentation'
 import { LauncherStateBlock } from '../shared/LauncherStateBlock'
 
 type LauncherDiscoverPageProps = {
@@ -253,6 +254,7 @@ function DiscoverCard({
 }) {
   const copy = useEditorCopy().launcher
   const image = useLauncherImage(item.imageUrl)
+  const coverMonogram = getLauncherCardMonogram(item.title)
 
   return (
     <article className="launcher-discover-wall-card panel-section">
@@ -262,8 +264,23 @@ function DiscoverCard({
         rel="noreferrer"
         className="launcher-discover-wall-cover"
         aria-label={`${copy.actions.openModPage}: ${item.title}`}
+        aria-busy={image.loading ? 'true' : undefined}
+        onClick={(event) => {
+          event.preventDefault()
+          void openLauncherUrl({ url: item.modUrl })
+        }}
       >
         {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
+        {!image.imageUrl ? (
+          <span className="launcher-discover-wall-cover-fallback">
+            <span className="launcher-discover-wall-cover-monogram" aria-hidden="true">
+              {coverMonogram}
+            </span>
+            {image.loading ? (
+              <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span>
+            ) : null}
+          </span>
+        ) : null}
         {item.updateAvailable ? <span className="launcher-discover-wall-badge">Update available</span> : null}
         <div className="launcher-discover-wall-cover-overlay">
           <ExternalLink className="h-4 w-4" />
@@ -271,7 +288,16 @@ function DiscoverCard({
         </div>
       </a>
       <div className="launcher-discover-wall-body">
-        <a href={item.modUrl} target="_blank" rel="noreferrer" className="launcher-discover-wall-copy">
+        <a
+          href={item.modUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="launcher-discover-wall-copy"
+          onClick={(event) => {
+            event.preventDefault()
+            void openLauncherUrl({ url: item.modUrl })
+          }}
+        >
           <div className="launcher-discover-wall-title-slot">
             <p className="launcher-discover-wall-title">{item.title}</p>
           </div>
@@ -449,8 +475,8 @@ export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPagePr
   const popularTags = discover.facets.tags.slice(0, 12)
   const loadingDescription =
     discover.page > 1 || discover.items.length
-      ? `Loading Nexus results for page ${discover.page}.`
-      : copy.discover.subtitle
+      ? copy.discover.loadingPage(discover.page)
+      : copy.discover.loadingResults
 
   useEffect(() => {
     if (discover.state === 'loading') {
@@ -465,7 +491,15 @@ export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPagePr
     }
 
     dismissNotification(LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID)
-  }, [copy.discover.subtitle, copy.discover.title, discover.items.length, discover.page, discover.state, loadingDescription])
+  }, [
+    copy.discover.loadingPage,
+    copy.discover.loadingResults,
+    copy.discover.title,
+    discover.items.length,
+    discover.page,
+    discover.state,
+    loadingDescription,
+  ])
 
   useEffect(() => {
     return () => {

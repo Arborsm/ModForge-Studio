@@ -3,17 +3,19 @@ import { useId, type ReactNode } from 'react'
 import { cx } from '../../../lib/cx'
 import { useEditorCopy, useSettingsMenuCopy } from '../../../lib/app/localeContext'
 import { reportAppEvent, type AppEventLevel } from '../../../lib/app/observability'
+import { clearLauncherImageCache } from '../../../lib/desktop'
 import { useLauncherDownloads } from '../../../lib/launcher/useLauncherDownloads'
 
 type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
 type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>
 
-function NotificationTestButtons({ labels }: { labels: DebugButtonGroup }) {
+function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButtonGroup; debugEnabled: boolean }) {
   const notify = (level: AppEventLevel, title: string) => {
     reportAppEvent({
       level,
       title,
       description: `Launcher debug notification test: ${level}`,
+      debugDiagnosticsEnabled: debugEnabled,
       keyValues: {
         source: 'launcher-debug-page',
         kind: 'notification-test',
@@ -43,12 +45,13 @@ function NotificationTestButtons({ labels }: { labels: DebugButtonGroup }) {
   )
 }
 
-function LogTestButtons({ labels }: { labels: DebugLogButtonGroup }) {
+function LogTestButtons({ labels, debugEnabled }: { labels: DebugLogButtonGroup; debugEnabled: boolean }) {
   const logOnly = (level: Extract<AppEventLevel, 'debug' | 'info' | 'warning' | 'error'>, title: string) => {
     reportAppEvent({
       level,
       title,
       description: `Launcher debug log test: ${level}`,
+      debugDiagnosticsEnabled: debugEnabled,
       notify: false,
       keyValues: {
         source: 'launcher-debug-page',
@@ -168,6 +171,11 @@ export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }
   const copy = useEditorCopy().launcher
   const settingsCopy = useSettingsMenuCopy()
   const debugSimulationActive = downloads.activeItems.some((item) => item.source === 'debug' && item.status === 'downloading')
+  const handleClearLauncherImageCache = () => {
+    void clearLauncherImageCache().catch(() => {
+      // Debug-only affordance: ignore desktop bridge failures here.
+    })
+  }
 
   return (
     <section className="launcher-debug-page">
@@ -204,7 +212,7 @@ export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }
             description={copy.debug.notificationsSubtitle}
             icon={<MessageSquare className="h-4 w-4" />}
           >
-            <NotificationTestButtons labels={copy.debug.notificationButtons} />
+            <NotificationTestButtons labels={copy.debug.notificationButtons} debugEnabled={debugEnabled} />
           </DebugActionCard>
 
           <DebugActionCard
@@ -212,7 +220,19 @@ export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }
             description={copy.debug.logsSubtitle}
             icon={<ScrollText className="h-4 w-4" />}
           >
-            <LogTestButtons labels={copy.debug.logButtons} />
+            <LogTestButtons labels={copy.debug.logButtons} debugEnabled={debugEnabled} />
+          </DebugActionCard>
+
+          <DebugActionCard
+            title={copy.debug.clearImageCacheTitle}
+            description={copy.debug.clearImageCacheSubtitle}
+            icon={<ScrollText className="h-4 w-4" />}
+          >
+            <div className="launcher-toolbar">
+              <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
+                {copy.debug.clearImageCacheButton}
+              </button>
+            </div>
           </DebugActionCard>
 
           <DebugActionCard

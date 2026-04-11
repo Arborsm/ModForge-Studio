@@ -2,7 +2,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { editorCopy, getSettingsMenuCopy } from './lib/editor-shell'
-import { APP_MODE_STORAGE_KEY, DEBUG_ENABLED_STORAGE_KEY, LAUNCHER_PAGE_STORAGE_KEY } from './lib/app/appShell'
+import {
+  APP_MODE_STORAGE_KEY,
+  DEBUG_ENABLED_STORAGE_KEY,
+  LAUNCHER_PAGE_STORAGE_KEY,
+  NOTIFICATION_SOUND_ENABLED_STORAGE_KEY,
+} from './lib/app/appShell'
 import { clearNotifications, publishNotification } from './lib/app/notifications'
 
 const LOCALE_STORAGE_KEY = 'modforge:locale'
@@ -86,13 +91,16 @@ vi.mock('./lib/launcher/useLauncherRuntime', () => ({
 vi.mock('./lib/desktop', () => ({
   canUseDesktopHost: () => false,
   checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
+  clearLauncherLibraryReadCaches: vi.fn(),
   clearDesktopLocaleCache: vi.fn(),
   closeCurrentWindow: vi.fn(),
   isCurrentWindowFullscreen: vi.fn(async () => false),
+  loadCachedLauncherUpdates: vi.fn(async () => null),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
   listKnownGameDirectories: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
+  subscribeLauncherUpdates: vi.fn(() => () => {}),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
   toggleMaximizeCurrentWindow: vi.fn(),
 }))
@@ -272,14 +280,15 @@ describe('App locale ownership', () => {
     expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 40%')
   })
 
-  it('renders launcher shell and hides workspace layout when the stored app mode is launcher', () => {
+  it('opens the launcher library when launcher mode is restored from persisted shell state', () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
     window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'updates')
 
     render(<App />)
 
     expect(screen.queryByTestId('workspace-layout')).toBeNull()
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe('page')
+    expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('library')
     expect(
       screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current'),
     ).not.toBe('page')
@@ -303,6 +312,22 @@ describe('App locale ownership', () => {
     expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
   })
 
+  it('persists the active launcher page only when switching back to workbench', () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'library')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }))
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
+    expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('library')
+
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
+
+    expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('updates')
+    expect(window.localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('workbench')
+  })
+
   it('renders launcher settings inside the global settings window', async () => {
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
@@ -312,7 +337,7 @@ describe('App locale ownership', () => {
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) }))
 
     expect(screen.getByText(editorCopy['en-US'].launcher.fields.gamePath)).toBeTruthy()
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.saveSettings })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.saveSettings })).toBeNull()
   })
 
   it('renders global notifications in both workbench and launcher app modes', () => {
@@ -378,6 +403,21 @@ describe('App locale ownership', () => {
     })
   })
 
+  it('toggles notification sounds from Settings and persists the flag', async () => {
+    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    const englishSettingsCopy = getSettingsMenuCopy('en-US')
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.interaction}`) }))
+    fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.notificationSoundLabel }))
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(NOTIFICATION_SOUND_ENABLED_STORAGE_KEY)).toBe('false')
+    })
+  })
+
   it('falls back to the launcher library when the persisted debug page is disabled', () => {
     window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
     window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'debug')
@@ -400,6 +440,7 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }))
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
       'page',
     )

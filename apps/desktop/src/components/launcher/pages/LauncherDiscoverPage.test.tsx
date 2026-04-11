@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '../../../lib/editor-shell'
 import type { LauncherSettings } from '../../../lib/desktop'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
+import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
 import { renderWithLocale } from '../../../test/renderWithLocale'
 import { LauncherDiscoverPage } from './LauncherDiscoverPage'
@@ -17,17 +18,18 @@ vi.mock('../../../lib/app/notifications', () => ({
 }))
 
 vi.mock('../../../lib/launcher/imageLoader', () => ({
-  useLauncherImage: () => ({
+  useLauncherImage: vi.fn(() => ({
     imageUrl: null,
     error: null,
     loading: false,
-  }),
+  })),
 }))
 
 const copy = editorCopy['zh-CN'].launcher
 const useLauncherDiscoverMock = vi.mocked(useLauncherDiscover)
 const publishNotificationMock = vi.mocked(publishNotification)
 const dismissNotificationMock = vi.mocked(dismissNotification)
+const useLauncherImageMock = vi.mocked(useLauncherImage)
 type DiscoverState = ReturnType<typeof useLauncherDiscover>
 
 function createDiscoverState(overrides: Partial<DiscoverState> = {}): DiscoverState {
@@ -98,6 +100,11 @@ describe('LauncherDiscoverPage', () => {
     cleanup()
     window.localStorage.clear()
     vi.clearAllMocks()
+    useLauncherImageMock.mockReturnValue({
+      imageUrl: null,
+      error: null,
+      loading: false,
+    })
   })
 
   it('keeps discover browsing available without credentials', () => {
@@ -236,8 +243,52 @@ describe('LauncherDiscoverPage', () => {
     expect(container.querySelector('.launcher-discover-results-viewport > .launcher-discover-loading-overlay')).toBeNull()
     expect(loadingOverlay.dispatchEvent(wheelEvent)).toBe(false)
     expect(wheelEvent.defaultPrevented).toBe(true)
-    expect(publishNotificationMock).toHaveBeenCalled()
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: copy.discover.loadingResults,
+      }),
+    )
     expect(dismissNotificationMock).not.toHaveBeenCalled()
+  })
+
+  it('shows a cover placeholder message while a discover cover is still loading', () => {
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        items: [
+          {
+            modId: 44722,
+            title: 'Joja Civic Center',
+            summary: 'Welcome to the Joja Civic Center.',
+            author: 'blue704',
+            uploader: 'blue704',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/44722',
+            imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png',
+            category: 'Maps',
+            createdAt: null,
+            updatedAt: null,
+            downloads: 12_345,
+            endorsements: 678,
+            fileSize: 512_000,
+            updateAvailable: false,
+          },
+        ],
+        totalCount: 1,
+        totalPages: 1,
+      }),
+    )
+    useLauncherImageMock.mockReturnValue({
+      imageUrl: null,
+      error: null,
+      loading: true,
+    })
+
+    const { container } = renderWithLocale(
+      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
+      'zh-CN',
+    )
+
+    expect(screen.getByText(copy.discover.loadingCover)).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-wall-cover-fallback')).toBeTruthy()
   })
 
   it('shows tag suggestions from remote facets inside the tag input menu and applies them on click', () => {

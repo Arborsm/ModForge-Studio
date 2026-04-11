@@ -57,6 +57,7 @@ import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { LocaleProvider } from './lib/app/localeContext'
 import { dismissNotification, NotificationProvider, publishNotification } from './lib/app/notifications'
 import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
+import { setNotificationSoundEnabled } from './lib/app/notificationSounds'
 import useModWorkspace from './lib/app/useModWorkspace'
 import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
@@ -109,6 +110,11 @@ function getInitialLocale(): LocaleCode {
 }
 
 export default function App() {
+  const initialShellStateRef = useRef<ReturnType<typeof readStoredAppShellState> | null>(null)
+  if (!initialShellStateRef.current) {
+    initialShellStateRef.current = readStoredAppShellState()
+  }
+  const initialShellState = initialShellStateRef.current
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
@@ -120,9 +126,12 @@ export default function App() {
 
     return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? ACCENT_PRESETS[0].id
   })
-  const [appMode, setAppMode] = useState<AppMode>(() => readStoredAppShellState().appMode)
-  const [launcherPage, setLauncherPage] = useState<LauncherPage>(() => readStoredAppShellState().launcherPage)
-  const [debugEnabled, setDebugEnabled] = useState(() => readStoredAppShellState().debugEnabled)
+  const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
+  const [launcherPage, setLauncherPage] = useState<LauncherPage>(
+    initialShellState.appMode === 'launcher' ? 'library' : initialShellState.launcherPage,
+  )
+  const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
+  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
@@ -609,10 +618,11 @@ export default function App() {
   useEffect(() => {
     persistAppShellState({
       appMode,
-      launcherPage,
+      launcherPage: appMode === 'workbench' ? launcherPage : 'library',
       debugEnabled,
+      notificationSoundEnabled,
     })
-  }, [appMode, debugEnabled, launcherPage])
+  }, [appMode, debugEnabled, launcherPage, notificationSoundEnabled])
 
   useEffect(() => {
     if (!debugEnabled && launcherPage === 'debug') {
@@ -623,6 +633,10 @@ export default function App() {
   useEffect(() => {
     void syncDebugDiagnosticsEnabled(debugEnabled)
   }, [debugEnabled])
+
+  useEffect(() => {
+    setNotificationSoundEnabled(notificationSoundEnabled)
+  }, [notificationSoundEnabled])
 
   useEffect(() => {
     const previousLocale = previousLocaleRef.current
@@ -1129,16 +1143,20 @@ export default function App() {
                 enableDebugModeLabel={settingsMenuCopy.enableDebugModeLabel}
                 disableDebugModeLabel={settingsMenuCopy.disableDebugModeLabel}
                 debugModeEnabled={debugEnabled}
+                notificationSoundLabel={settingsMenuCopy.notificationSoundLabel}
+                notificationSoundDescription={settingsMenuCopy.notificationSoundDescription}
+                enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
+                disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
+                notificationSoundEnabled={notificationSoundEnabled}
                 launcherContent={<LauncherSettingsForm settingsState={launcherRuntime.settingsState} />}
                 activeCategory={settingsWindowCategory}
-                futureLabel={settingsMenuCopy.futureLabel}
-                futureDescription={settingsMenuCopy.futureDescription}
                 accentOptions={ACCENT_PRESETS}
                 activeAccentId={activeAccentPreset.id}
                 onSelectAccent={setAccentPresetId}
                 onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
                 onSelectLocale={setLocale}
                 onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
+                onToggleNotificationSound={() => setNotificationSoundEnabledState((current) => !current)}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
                 onActiveCategoryChange={setSettingsWindowCategory}
                 onClose={() => setSettingsWindowOpen(false)}

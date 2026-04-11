@@ -205,7 +205,7 @@ describe('NotificationProvider', () => {
     expect(third?.getAttribute('style')).toContain('bottom: 0px')
   })
 
-  it('expands the stacked column upward while hovered and collapses when the pointer leaves', () => {
+  it('expands the stacked column upward while hovered and only collapses after a short leave delay', () => {
     renderNotifications()
 
     act(() => {
@@ -239,6 +239,20 @@ describe('NotificationProvider', () => {
 
     fireEvent.mouseLeave(viewport)
 
+    expect(first?.getAttribute('style')).toContain('bottom: 152px')
+    expect(second?.getAttribute('style')).toContain('bottom: 76px')
+
+    act(() => {
+      vi.advanceTimersByTime(119)
+    })
+
+    expect(first?.getAttribute('style')).toContain('bottom: 152px')
+    expect(second?.getAttribute('style')).toContain('bottom: 76px')
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+
     expect(first?.getAttribute('style')).toContain('bottom: 16px')
     expect(second?.getAttribute('style')).toContain('bottom: 8px')
   })
@@ -260,5 +274,21 @@ describe('NotificationProvider', () => {
     expect(stylesheet).toContain('border-radius: 8px;')
     expect(stylesheet).toContain('transform: translateY(-2px);')
     expect(stylesheet).toContain('transition:')
+  })
+
+  it('does not reserve an invisible hover band above the notification stack', () => {
+    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
+
+    expect(stylesheet).toContain('.notification-viewport {')
+    expect(stylesheet).toContain('height: 0;')
+    expect(stylesheet).not.toContain('min-height: 4rem;')
+  })
+
+  it('uses a stable hover capture region so stack motion does not retrigger enter and leave', () => {
+    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
+
+    expect(stylesheet).toContain('.notification-hover-region')
+    expect(stylesheet).toContain('pointer-events: auto;')
+    expect(stylesheet).toContain('.notification-viewport[data-expanded="true"] .notification-hover-region')
   })
 })

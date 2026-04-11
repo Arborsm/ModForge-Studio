@@ -5,9 +5,14 @@ import { renderWithLocale } from '../../../test/renderWithLocale'
 import { LauncherDebugPage } from './LauncherDebugPage'
 
 const reportAppEvent = vi.fn()
+const clearLauncherImageCache = vi.fn()
 
 vi.mock('../../../lib/app/observability', () => ({
   reportAppEvent: (...args: unknown[]) => reportAppEvent(...args),
+}))
+
+vi.mock('../../../lib/desktop', () => ({
+  clearLauncherImageCache: (...args: unknown[]) => clearLauncherImageCache(...args),
 }))
 
 const copy = editorCopy['zh-CN'].launcher
@@ -20,6 +25,7 @@ describe('LauncherDebugPage', () => {
   afterEach(() => {
     cleanup()
     reportAppEvent.mockReset()
+    clearLauncherImageCache.mockReset()
     downloads.startDebugSimulation.mockReset()
   })
 
@@ -59,6 +65,7 @@ describe('LauncherDebugPage', () => {
       expect.objectContaining({
         level: 'debug',
         title: copy.debug.notificationButtons.debug,
+        debugDiagnosticsEnabled: true,
       }),
     )
   })
@@ -83,5 +90,15 @@ describe('LauncherDebugPage', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.debug.simulationButtonIdle }))
 
     expect(downloads.startDebugSimulation).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the launcher image cache from the debug page', () => {
+    clearLauncherImageCache.mockResolvedValue(undefined)
+
+    renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
+
+    fireEvent.click(screen.getByRole('button', { name: copy.debug.clearImageCacheButton }))
+
+    expect(clearLauncherImageCache).toHaveBeenCalledTimes(1)
   })
 })

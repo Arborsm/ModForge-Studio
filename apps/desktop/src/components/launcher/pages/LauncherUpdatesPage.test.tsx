@@ -1,8 +1,20 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '../../../lib/desktop'
-import { checkLauncherUpdates } from '../../../lib/desktop'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type {
+  LauncherRemoteModDetail,
+  LauncherSettings,
+  LauncherUpdateChangelogResult,
+  LauncherUpdateSummary,
+  LauncherUpdatesResult,
+} from '../../../lib/desktop'
+import {
+  checkLauncherUpdates,
+  loadCachedLauncherUpdates,
+  loadLauncherRemoteModDetail,
+  loadLauncherUpdateChangelog,
+  subscribeLauncherUpdates,
+} from '../../../lib/desktop'
 import { LocaleProvider } from '../../../lib/app/localeContext'
 import { NotificationProvider, clearNotifications } from '../../../lib/app/notifications'
 import { useLauncherUpdateProgressNotifications } from '../../../lib/launcher/useLauncherUpdateProgressNotifications'
@@ -15,6 +27,11 @@ vi.mock('../../../lib/desktop', async () => {
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),
+    loadCachedLauncherUpdates: vi.fn(),
+    loadLauncherRemoteModDetail: vi.fn(),
+    loadLauncherUpdateChangelog: vi.fn(),
+    openLauncherUrl: vi.fn(),
+    subscribeLauncherUpdates: vi.fn(),
   }
 })
 
@@ -36,6 +53,10 @@ vi.mock('../../../lib/launcher/imageLoader', () => ({
 }))
 
 const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
+const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
+const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
+const loadLauncherUpdateChangelogMock = vi.mocked(loadLauncherUpdateChangelog)
+const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
 
 function UpdateProgressNotificationBridge() {
   useLauncherUpdateProgressNotifications('zh-CN')
@@ -70,11 +91,14 @@ function createUpdate(overrides: Partial<LauncherUpdateSummary> = {}): LauncherU
   return {
     modId: 101,
     name: 'NPC Adventures',
+    author: 'Pathoschild',
     currentVersion: '1.0.0',
     latestVersion: '1.2.0',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    updatedAt: '2026-04-09T08:00:00.000Z',
+    fileSize: 13_107_200,
     ...overrides,
   }
 }
@@ -87,26 +111,106 @@ function createResult(updates: LauncherUpdateSummary[]): LauncherUpdatesResult {
   }
 }
 
+function createRemoteDetail(overrides: Partial<LauncherRemoteModDetail> = {}): LauncherRemoteModDetail {
+  return {
+    modId: 101,
+    title: 'NPC Adventures',
+    summary: 'Help villagers travel farther and react smarter.',
+    author: 'Pathoschild',
+    version: '1.2.0',
+    modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+    imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/101/101-cover.png',
+    galleryImages: ['https://staticdelivery.nexusmods.com/mods/1303/images/101/101-gallery-1.png'],
+    updatedAt: '2026-04-09T08:00:00.000Z',
+    fileSize: 13_107_200,
+    ...overrides,
+  }
+}
+
+function createChangelog(overrides: Partial<LauncherUpdateChangelogResult> = {}): LauncherUpdateChangelogResult {
+  return {
+    modId: 101,
+    version: '1.2.0',
+    changelog:
+      '- 修复了在冬季由于雪地渲染导致的菜单闪烁 Bug\n- 增加了对 SMAPI 4.0 的完美支持',
+    ...overrides,
+  }
+}
+
 describe('LauncherUpdatesPage', () => {
   afterEach(() => {
     cleanup()
     clearNotifications()
     eventListeners.clear()
     vi.clearAllMocks()
+    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
-  it('checks all loaded updates by default and bulk-queues only the checked items', async () => {
-    const updates = [
-      createUpdate(),
-      createUpdate({
-        modId: 202,
-        name: 'Horse Overhaul',
-        latestVersion: '3.1.0',
-        absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Horse Overhaul',
-        modUrl: 'https://www.nexusmods.com/stardewvalley/mods/202',
-      }),
-    ]
-    checkLauncherUpdatesMock.mockResolvedValue(createResult(updates))
+  beforeEach(() => {
+    loadCachedLauncherUpdatesMock.mockResolvedValue(null)
+    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
+  })
+
+  it('renders the update console and only loads changelog when the changelog button is clicked', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-12T08:00:00.000Z').getTime())
+
+    checkLauncherUpdatesMock.mockResolvedValue(
+      createResult([
+        createUpdate(),
+        createUpdate({
+          modId: 202,
+          name: 'Horse Overhaul',
+          author: 'FlashShifter',
+          latestVersion: '3.1.0',
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Horse Overhaul',
+          modUrl: 'https://www.nexusmods.com/stardewvalley/mods/202',
+          updatedAt: '2026-04-11T08:00:00.000Z',
+          fileSize: 2_097_152,
+        }),
+      ]),
+    )
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteDetail())
+    loadLauncherUpdateChangelogMock.mockResolvedValue(createChangelog())
+
+    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
+
+    await screen.findByText('模组更新')
+
+    expect(screen.getByText('(2个可用更新)')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '取消全选' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '一键更新所有勾选项' })).toBeTruthy()
+    expect(screen.getByText('3天前发布')).toBeTruthy()
+    expect(screen.getByText('12.5 MB')).toBeTruthy()
+    expect(screen.queryByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeNull()
+    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getAllByRole('button', { name: '更新日志' })[0]!)
+
+    await waitFor(() => {
+      expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 101 })
+      expect(loadLauncherUpdateChangelogMock).toHaveBeenCalledWith({ modId: 101 })
+    })
+
+    expect(await screen.findByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '前往模组主页' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '查看评论区' })).toBeTruthy()
+  })
+
+  it('queues only the checked updates when updating all selected items', async () => {
+    checkLauncherUpdatesMock.mockResolvedValue(
+      createResult([
+        createUpdate(),
+        createUpdate({
+          modId: 202,
+          name: 'Horse Overhaul',
+          latestVersion: '3.1.0',
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Horse Overhaul',
+          modUrl: 'https://www.nexusmods.com/stardewvalley/mods/202',
+        }),
+      ]),
+    )
     const onQueueDownload = vi.fn()
 
     renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} />)
@@ -120,7 +224,7 @@ describe('LauncherUpdatesPage', () => {
     fireEvent.click(secondCheckbox)
     expect(secondCheckbox).toHaveProperty('checked', false)
 
-    fireEvent.click(screen.getByRole('button', { name: /批量加入下载队列/i }))
+    fireEvent.click(screen.getByRole('button', { name: '一键更新所有勾选项' }))
 
     expect(onQueueDownload).toHaveBeenCalledTimes(1)
     expect(onQueueDownload).toHaveBeenCalledWith({
@@ -132,7 +236,7 @@ describe('LauncherUpdatesPage', () => {
     })
   })
 
-  it('supports clearing and restoring the bulk selection', async () => {
+  it('toggles between select all and clear selection from the console control', async () => {
     checkLauncherUpdatesMock.mockResolvedValue(
       createResult([
         createUpdate(),
@@ -150,19 +254,14 @@ describe('LauncherUpdatesPage', () => {
 
     const firstCheckbox = await screen.findByRole('checkbox', { name: 'NPC Adventures' })
     const secondCheckbox = await screen.findByRole('checkbox', { name: 'Horse Overhaul' })
-    const bulkQueueButton = screen.getByRole('button', { name: /批量加入下载队列/i })
 
-    fireEvent.click(screen.getByRole('button', { name: '清除选择' }))
-
+    fireEvent.click(screen.getByRole('button', { name: '取消全选' }))
     expect(firstCheckbox).toHaveProperty('checked', false)
     expect(secondCheckbox).toHaveProperty('checked', false)
-    expect(bulkQueueButton).toHaveProperty('disabled', true)
 
-    fireEvent.click(screen.getByRole('button', { name: '选择全部' }))
-
+    fireEvent.click(screen.getByRole('button', { name: '全选' }))
     expect(firstCheckbox).toHaveProperty('checked', true)
     expect(secondCheckbox).toHaveProperty('checked', true)
-    expect(bulkQueueButton).toHaveProperty('disabled', false)
   })
 
   it('shows update-check progress in the global notification viewport', async () => {

@@ -1,0 +1,191 @@
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import type { PropsWithChildren } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { LocaleProvider } from '../app/localeContext'
+import { NotificationProvider, clearNotifications } from '../app/notifications'
+import {
+  checkLauncherUpdates,
+  loadCachedLauncherUpdates,
+  subscribeLauncherUpdates,
+  type LauncherSettings,
+  type LauncherUpdateSummary,
+  type LauncherUpdatesResult,
+} from '../desktop'
+import { useLauncherUpdates } from './useLauncherUpdates'
+
+vi.mock('../desktop', async () => {
+  const actual = await vi.importActual<typeof import('../desktop')>('../desktop')
+  return {
+    ...actual,
+    checkLauncherUpdates: vi.fn(),
+    loadCachedLauncherUpdates: vi.fn(),
+    subscribeLauncherUpdates: vi.fn(),
+  }
+})
+
+const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
+const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
+const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
+
+function Wrapper({ children }: PropsWithChildren) {
+  return (
+    <LocaleProvider locale="zh-CN">
+      <NotificationProvider>{children}</NotificationProvider>
+    </LocaleProvider>
+  )
+}
+
+function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
+  return {
+    gamePath: null,
+    modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    downloadPath: null,
+    nexusApiKey: null,
+    nexusCookie: null,
+    autoInstallDownloads: false,
+    keepDownloadedArchives: false,
+    ...overrides,
+  }
+}
+
+function createUpdate(overrides: Partial<LauncherUpdateSummary> = {}): LauncherUpdateSummary {
+  return {
+    modId: 101,
+    name: 'NPC Adventures',
+    currentVersion: '1.0.0',
+    latestVersion: '1.2.0',
+    absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+    modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+    imageUrl: null,
+    ...overrides,
+  }
+}
+
+function createResult(updates: LauncherUpdateSummary[]): LauncherUpdatesResult {
+  return {
+    modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    checkedAtMs: 123,
+    updates,
+  }
+}
+
+describe('useLauncherUpdates', () => {
+  afterEach(() => {
+    cleanup()
+    clearNotifications()
+    vi.clearAllMocks()
+  })
+
+  it('uses force refresh only for manual refreshes', async () => {
+    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
+    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
+    checkLauncherUpdatesMock
+      .mockResolvedValueOnce(createResult([createUpdate()]))
+      .mockResolvedValueOnce(createResult([createUpdate({ latestVersion: '1.3.0' })]))
+
+    const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(checkLauncherUpdatesMock).toHaveBeenNthCalledWith(1, {
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(checkLauncherUpdatesMock).toHaveBeenNthCalledWith(2, {
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: true,
+    })
+  })
+
+  it('uses cached updates on mount without starting a new check', async () => {
+    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(
+      createResult([createUpdate({ latestVersion: '1.4.0' })]),
+    )
+    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
+
+    const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(1)
+    })
+
+    expect(loadCachedLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    })
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+  })
+
+  it('applies partial update results from the shared subscription before the final check resolves', async () => {
+    let subscriptionListener: ((result: LauncherUpdatesResult) => void) | null = null
+    const pending = new Promise<LauncherUpdatesResult>(() => {})
+
+    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
+    subscribeLauncherUpdatesMock.mockImplementation((_modsPath, listener) => {
+      subscriptionListener = listener
+      return () => {}
+    })
+    checkLauncherUpdatesMock.mockReturnValueOnce(pending)
+
+    const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+    })
+
+    await act(async () => {
+      subscriptionListener?.(
+        createResult([
+          createUpdate({
+            latestVersion: '1.4.0',
+          }),
+        ]),
+      )
+    })
+
+    expect(result.current.items).toEqual([
+      createUpdate({
+        latestVersion: '1.4.0',
+      }),
+    ])
+  })
+
+  it('selects newly added update items by default when the current list is fully selected', async () => {
+    let subscriptionListener: ((result: LauncherUpdatesResult) => void) | null = null
+
+    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(createResult([createUpdate()]))
+    subscribeLauncherUpdatesMock.mockImplementation((_modsPath, listener) => {
+      subscriptionListener = listener
+      return () => {}
+    })
+
+    const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual([createUpdate()])
+    })
+
+    const addedItem = createUpdate({
+      modId: 102,
+      name: 'Seasonal Portraits',
+      absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Seasonal Portraits',
+      modUrl: 'https://www.nexusmods.com/stardewvalley/mods/102',
+    })
+
+    await act(async () => {
+      subscriptionListener?.(createResult([createUpdate(), addedItem]))
+    })
+
+    expect(result.current.items).toEqual([createUpdate(), addedItem])
+    expect(result.current.selectedItems).toEqual([createUpdate(), addedItem])
+    expect(result.current.selectedCount).toBe(2)
+    expect(result.current.allSelected).toBe(true)
+    expect(result.current.isSelected(addedItem)).toBe(true)
+  })
+})

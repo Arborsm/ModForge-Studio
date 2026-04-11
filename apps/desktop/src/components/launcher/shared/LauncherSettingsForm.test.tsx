@@ -44,7 +44,10 @@ describe('LauncherSettingsForm', () => {
 
     renderWithLocale(<LauncherSettingsForm settingsState={settingsState} />, 'zh-CN')
 
-    expect(screen.getAllByRole('button', { name: copy.actions.saveSettings }).length).toBe(1)
+    expect(screen.getByText(copy.settings.pathsTitle)).toBeTruthy()
+    expect(screen.getByText(copy.settings.nexusAccessTitle)).toBeTruthy()
+    expect(screen.getByText(copy.settings.downloadBehaviorTitle)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: copy.actions.saveSettings })).toBeNull()
     expect(screen.getByText(copy.fields.gamePath)).toBeTruthy()
     expect(screen.getByText(copy.fields.modsPath)).toBeTruthy()
     expect(screen.getByText(copy.fields.downloadPath)).toBeTruthy()
@@ -61,8 +64,14 @@ describe('LauncherSettingsForm', () => {
 
     fireEvent.change(screen.getByLabelText(copy.fields.gamePath), { target: { value: 'C:\\Games' } })
     expect(settingsState.updateField).toHaveBeenCalledWith('gamePath', 'C:\\Games')
+  })
 
-    fireEvent.click(screen.getAllByRole('button', { name: copy.actions.saveSettings })[0])
-    expect(settingsState.save).toHaveBeenCalled()
+  it('uses settings-window control cards for launcher settings items', () => {
+    renderWithLocale(<LauncherSettingsForm settingsState={createSettingsState()} />, 'zh-CN')
+
+    expect(screen.getByLabelText(copy.fields.gamePath).closest('.settings-window-control-card')).toBeTruthy()
+    expect(screen.getByText(copy.fields.nexusApiKey).closest('.settings-window-control-card')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: copy.toggles.autoInstallDownloads }).closest('.settings-window-control-card')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: copy.toggles.keepDownloadedArchives }).closest('.settings-window-control-card')).toBeTruthy()
   })
 })

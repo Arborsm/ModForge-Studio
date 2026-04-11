@@ -2,10 +2,11 @@ import type { CSSProperties } from 'react'
 import { FolderTree, Link2, ScrollText, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
-import { useLauncherImage } from '../../../lib/launcher/imageLoader'
+import { openLauncherUrl } from '../../../lib/desktop'
 import type { LauncherLibraryItem } from '../../../lib/launcher/types'
 import { cx } from '../../../lib/cx'
 import { PanelEmptyState } from '../../ui/PanelSection'
+import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
 type LauncherDetailMod = LauncherLibraryItem & {
@@ -69,7 +70,6 @@ export function LauncherModDetailPanel({
   packName,
 }: LauncherModDetailPanelProps) {
   const copy = useEditorCopy()
-  const cover = useLauncherImage(mod?.imageUrl ?? null)
   const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? title)
   const coverWord = getLauncherCardCoverWord(mod?.name ?? title)
   const coverStyle = {
@@ -138,17 +138,13 @@ export function LauncherModDetailPanel({
           <>
             <section className="launcher-detail-hero-card">
               <div className="launcher-detail-hero">
-                <div className="launcher-detail-cover launcher-mod-card-cover" style={coverStyle}>
-                  <span className="launcher-mod-card-cover-aura" aria-hidden="true" />
-                  {cover.imageUrl ? <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image" /> : null}
-                  {!cover.imageUrl ? (
-                    <span className="launcher-mod-card-cover-fallback">
-                      <span className="launcher-mod-card-cover-word">{coverWord}</span>
-                    </span>
-                  ) : null}
-                  <span className="launcher-mod-card-cover-noise" aria-hidden="true" />
-                  <span className="launcher-mod-card-cover-gradient" aria-hidden="true" />
-                </div>
+                <LauncherArtworkCover
+                  title={mod.name}
+                  imageUrl={mod.imageUrl}
+                  coverStyle={coverStyle}
+                  coverWord={coverWord}
+                  className="launcher-detail-cover"
+                />
 
                 <div className="launcher-detail-copy min-w-0">
                   <p className="launcher-detail-summary">{mod.description ?? noSummary}</p>
@@ -171,7 +167,16 @@ export function LauncherModDetailPanel({
                   </button>
                 ) : null}
                 {mod.modUrl ? (
-                  <a className="control-button launcher-detail-action" href={mod.modUrl} target="_blank" rel="noreferrer">
+                  <a
+                    className="control-button launcher-detail-action"
+                    href={mod.modUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      void openLauncherUrl({ url: mod.modUrl! })
+                    }}
+                  >
                     {openModPageLabel ?? copy.launcher.actions.openModPage}
                   </a>
                 ) : null}

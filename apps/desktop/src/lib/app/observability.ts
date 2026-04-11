@@ -7,6 +7,7 @@ export type ReportAppEventRequest = {
   level: AppEventLevel
   title: string
   description?: string | null
+  debugDiagnosticsEnabled?: boolean
   action?: NotificationAction
   autoDismissMs?: number
   notify?: boolean
@@ -66,7 +67,9 @@ export async function syncDebugDiagnosticsEnabled(enabled: boolean) {
 }
 
 export function reportAppEvent(request: ReportAppEventRequest) {
-  if (request.level === 'debug' && !debugDiagnosticsEnabled) {
+  const debugDiagnosticsActive = request.debugDiagnosticsEnabled ?? debugDiagnosticsEnabled
+
+  if (request.level === 'debug' && !debugDiagnosticsActive) {
     return null
   }
 

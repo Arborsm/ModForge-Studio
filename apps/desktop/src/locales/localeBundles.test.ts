@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { localeBundles } from '.'
 import {
   getEditorCopy,
+  getLauncherCopy,
   getModWorkspaceCopy,
   getSettingsMenuCopy,
   getViewMenuCopy,
@@ -68,5 +69,35 @@ describe('typed locale bundles', () => {
     expect(zhCN.editor.viewportLabels.failedToLoadTilesetImage('Maps/farm')).toContain('Maps/farm')
     expect(zhCN.editor.eventStage.stopCueLabel('wind')).toContain('wind')
     expect(zhCN.mods.importedFrom('D:/Mods/Example')).toContain('D:/Mods/Example')
+  })
+
+  it('exposes launcher library cover notifications and gallery copy in zh-CN', () => {
+    const launcher = getLauncherCopy('zh-CN')
+
+    expect(typeof launcher.actions.chooseGalleryCover).toBe('string')
+    expect(typeof launcher.library.loadingMissingCoversTitle).toBe('string')
+    expect(typeof launcher.library.loadingMissingCoversCurrentMod).toBe('function')
+    expect(typeof launcher.library.loadingMissingCoversProgress).toBe('function')
+    expect(typeof launcher.library.loadingMissingCoversStageProgress).toBe('function')
+    expect(typeof launcher.library.loadingMissingCoversStages.local).toBe('string')
+    expect(typeof launcher.library.galleryCoverTitle).toBe('string')
+    expect(typeof launcher.library.galleryCoverSubtitle).toBe('string')
+    expect(typeof launcher.library.galleryCoverEmpty).toBe('string')
+    expect(typeof launcher.library.galleryCoverLoading).toBe('string')
+    expect(typeof launcher.library.galleryCoverImageLabel).toBe('function')
+
+    expect(launcher.library.loadingMissingCoversCurrentMod('Vanilla Plus Professions')).toContain('Vanilla Plus Professions')
+    expect(launcher.library.loadingMissingCoversProgress(1, 3)).toContain('1')
+    expect(launcher.library.loadingMissingCoversProgress(1, 3)).toContain('3')
+    expect(launcher.library.loadingMissingCoversStageProgress(launcher.library.loadingMissingCoversStages.apiCover, 1, 3)).toContain('1')
+    expect(launcher.library.galleryCoverImageLabel(2)).toContain('2')
+  })
+
+  it('keeps english auto-cover stage progress punctuation readable', () => {
+    const launcher = getLauncherCopy('en-US')
+
+    expect(
+      launcher.library.loadingMissingCoversStageProgress(launcher.library.loadingMissingCoversStages.apiCover, 1, 3),
+    ).toBe('API Cover · 1 / 3')
   })
 })

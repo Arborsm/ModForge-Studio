@@ -1,24 +1,37 @@
 use super::archive::inspect_archive_at_path;
 use super::catalog::{
     build_catalog_graphql_payload, build_public_catalog_graphql_payload,
-    build_update_batch_graphql_payload, parse_public_mod_detail_graphql_response,
-    can_use_nexus_graphql, parse_catalog_graphql_response, parse_catalog_results,
-    parse_remote_mod_detail_html, parse_update_batch_graphql_response,
+    build_smapi_update_payload, build_smapi_update_payload_with_versions,
+    build_update_batch_graphql_payload,
+    can_use_nexus_graphql, enrich_remote_mod_detail_with_gallery_images,
+    parse_launcher_update_changelog_text, parse_launcher_update_file_metadata_text,
+    parse_public_mod_detail_graphql_response,
+    parse_catalog_graphql_response, parse_catalog_results, parse_remote_mod_detail_html,
+    parse_remote_mod_images_tab_html, parse_smapi_update_response,
+    parse_update_batch_graphql_response, resolve_smapi_runtime_versions_with_reader,
+    SmapiRuntimeVersions, UpdateCheckCandidate,
 };
 use super::downloads::{load_or_create_download_queue_at_path, save_download_queue_at_path};
+use super::image_cache::clear_launcher_image_cache_dir;
 use super::launch::launch_game_with_runner;
 use super::library::{
     load_or_create_library_covers_at_path, load_or_create_library_state_at_path,
+    persist_auto_library_cover_at_path,
     save_library_covers_at_path, save_library_state_at_path, scan_library_at_path,
-    set_launcher_mod_enabled,
+    set_launcher_mod_enabled_blocking,
 };
 use super::settings::{load_or_create_settings_at_path, save_settings_at_path};
 use super::trace::format_launcher_trace_message;
+use super::update_cache::{
+    invalidate_launcher_updates_cache_at_path, load_cached_launcher_updates_at_path,
+    save_launcher_updates_cache_at_path,
+};
 use super::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
     LauncherLibraryCoversState, LauncherLibraryPackPreset, LauncherLibraryScopeMode,
     LauncherLibraryState, LauncherLibraryStorageFolder, LauncherSettings,
+    LauncherUpdateSummary, LauncherUpdatesResult,
     SearchLauncherCatalogRequest,
     SetLauncherModEnabledRequest,
 };
@@ -68,6 +81,25 @@ fn sample_manifest_with_required_dependency(unique_id: &str, dependency_unique_i
   ]
 }}"#
     )
+}
+
+fn sample_launcher_updates_result(mods_path: &str, checked_at_ms: u128) -> LauncherUpdatesResult {
+    LauncherUpdatesResult {
+        mods_path: mods_path.to_string(),
+        checked_at_ms,
+        updates: vec![LauncherUpdateSummary {
+            mod_id: 101,
+            name: "NPC Adventures".to_string(),
+            author: Some("Pathoschild".to_string()),
+            current_version: Some("1.0.0".to_string()),
+            latest_version: "1.2.0".to_string(),
+            absolute_path: format!(r"{mods_path}\NPC Adventures"),
+            mod_url: "https://www.nexusmods.com/stardewvalley/mods/101".to_string(),
+            image_url: Some("https://static.nexusmods.com/mods/101.webp".to_string()),
+            updated_at: Some("2024-05-04T03:52:00Z".to_string()),
+            file_size: Some(13_107_200),
+        }],
+    }
 }
 
 #[test]
@@ -145,6 +177,7 @@ fn launcher_library_state_create_default_and_save_roundtrip() {
                 name: "Unsorted".to_string(),
                 mod_keys: Vec::new(),
             }],
+            hidden_mod_keys: Vec::new(),
             pack_presets: Vec::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
@@ -165,6 +198,7 @@ fn launcher_library_state_create_default_and_save_roundtrip() {
                 mod_keys: vec!["ModForge.Hidden".to_string()],
             },
         ],
+        hidden_mod_keys: vec!["ModForge.Hidden".to_string()],
         pack_presets: vec![LauncherLibraryPackPreset {
             id: "farm".to_string(),
             name: "Farm".to_string(),
@@ -214,6 +248,7 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
                 mod_keys: vec!["ModForge.D".to_string()],
             },
         ],
+        hidden_mod_keys: vec!["ModForge.Hidden".to_string(), " modforge.hidden ".to_string()],
         pack_presets: vec![
             LauncherLibraryPackPreset {
                 id: "seasonal".to_string(),
@@ -263,6 +298,10 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
         ]
     );
     assert_eq!(
+        reloaded.hidden_mod_keys,
+        vec!["ModForge.Hidden".to_string()]
+    );
+    assert_eq!(
         reloaded.pack_presets,
         vec![LauncherLibraryPackPreset {
             id: "seasonal".to_string(),
@@ -280,6 +319,8 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
 fn launcher_library_covers_create_default_and_save_roundtrip() {
     let root = create_temp_dir("launcher-library-covers");
     let covers_path = root.join("launcher").join("covers.json");
+    let existing_cover_path = root.join("covers").join("visible.png");
+    write_file(&existing_cover_path, "visible-cover");
 
     let default_state =
         load_or_create_library_covers_at_path(&covers_path).expect("load default covers");
@@ -289,7 +330,7 @@ fn launcher_library_covers_create_default_and_save_roundtrip() {
     let saved_state = LauncherLibraryCoversState {
         covers: vec![LauncherLibraryCover {
             label_key: "ModForge.Visible".to_string(),
-            image_path: r"C:\Covers\visible.png".to_string(),
+            image_path: existing_cover_path.to_string_lossy().to_string(),
         }],
     };
     save_library_covers_at_path(&covers_path, &saved_state).expect("save library covers");
@@ -297,6 +338,103 @@ fn launcher_library_covers_create_default_and_save_roundtrip() {
     let reloaded =
         load_or_create_library_covers_at_path(&covers_path).expect("reload saved covers");
     assert_eq!(reloaded, saved_state);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_library_auto_cover_persistence_adds_missing_cover_without_overwriting_existing_cover() {
+    let root = create_temp_dir("launcher-library-auto-cover");
+    let covers_path = root.join("launcher").join("covers.json");
+    let existing_cover_path = root.join("covers").join("visible.png");
+    let missing_cover_path = root.join("covers").join("missing.png");
+    write_file(&existing_cover_path, "visible-cover");
+    write_file(&missing_cover_path, "missing-cover");
+
+    save_library_covers_at_path(
+        &covers_path,
+        &LauncherLibraryCoversState {
+            covers: vec![LauncherLibraryCover {
+                label_key: "ModForge.Visible".to_string(),
+                image_path: existing_cover_path.to_string_lossy().to_string(),
+            }],
+        },
+    )
+    .expect("save initial covers");
+
+    let updated = persist_auto_library_cover_at_path(
+        &covers_path,
+        "ModForge.Missing",
+        &missing_cover_path,
+    )
+    .expect("persist missing auto cover");
+    assert_eq!(updated.covers.len(), 2);
+    assert!(updated
+        .covers
+        .iter()
+        .any(|cover| cover.label_key == "ModForge.Missing"
+            && cover.image_path == missing_cover_path.to_string_lossy()));
+
+    let skipped = persist_auto_library_cover_at_path(
+        &covers_path,
+        "ModForge.Visible",
+        &missing_cover_path,
+    )
+    .expect("skip existing auto cover overwrite");
+    assert_eq!(skipped.covers.len(), 2);
+    assert!(skipped
+        .covers
+        .iter()
+        .any(|cover| cover.label_key == "ModForge.Visible"
+            && cover.image_path == existing_cover_path.to_string_lossy()));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_library_covers_prune_missing_files_on_load() {
+    let root = create_temp_dir("launcher-library-covers-prune-missing");
+    let covers_path = root.join("launcher").join("covers.json");
+    let existing_cover_path = root.join("covers").join("visible.png");
+    write_file(&existing_cover_path, "visible-cover");
+
+    save_library_covers_at_path(
+        &covers_path,
+        &LauncherLibraryCoversState {
+            covers: vec![
+                LauncherLibraryCover {
+                    label_key: "ModForge.Visible".to_string(),
+                    image_path: existing_cover_path.to_string_lossy().to_string(),
+                },
+                LauncherLibraryCover {
+                    label_key: "ModForge.Missing".to_string(),
+                    image_path: root
+                        .join("covers")
+                        .join("missing.png")
+                        .to_string_lossy()
+                        .to_string(),
+                },
+            ],
+        },
+    )
+    .expect("save covers with stale entry");
+
+    let reloaded =
+        load_or_create_library_covers_at_path(&covers_path).expect("reload pruned launcher covers");
+
+    assert_eq!(
+        reloaded,
+        LauncherLibraryCoversState {
+            covers: vec![LauncherLibraryCover {
+                label_key: "ModForge.Visible".to_string(),
+                image_path: existing_cover_path.to_string_lossy().to_string(),
+            }],
+        }
+    );
+
+    let persisted =
+        load_or_create_library_covers_at_path(&covers_path).expect("reload persisted pruned covers");
+    assert_eq!(persisted, reloaded);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -347,9 +485,121 @@ fn scan_library_extracts_nexus_update_keys() {
 
     let scan = scan_library_at_path(&root).expect("scan launcher library");
     assert_eq!(scan.mods.len(), 1);
+    assert_eq!(scan.mods[0].label_key, "12345");
     assert_eq!(scan.mods[0].nexus_mod_id, Some(12345));
     assert_eq!(scan.mods[0].mod_url.as_deref(), Some("https://www.nexusmods.com/stardewvalley/mods/12345"));
     assert_eq!(scan.mods[0].update_keys, vec!["Nexus:12345".to_string()]);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_updates_cache_returns_unexpired_entry_for_matching_mods_path() {
+    let root = create_temp_dir("launcher-updates-cache-hit");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
+
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 300_000)
+        .expect("save launcher updates cache");
+
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        "C:/Games/Stardew Valley/Mods",
+        250_000,
+    )
+    .expect("load launcher updates cache");
+
+    assert_eq!(loaded, Some(cached));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_updates_cache_ignores_and_prunes_expired_entries() {
+    let root = create_temp_dir("launcher-updates-cache-expired");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
+
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 300_000)
+        .expect("save launcher updates cache");
+
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        301_001,
+    )
+    .expect("load expired launcher updates cache");
+
+    assert_eq!(loaded, None);
+
+    let reloaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        301_001,
+    )
+    .expect("reload pruned launcher updates cache");
+    assert_eq!(reloaded, None);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_updates_cache_invalidates_only_the_matching_mods_path() {
+    let root = create_temp_dir("launcher-updates-cache-invalidate");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let first = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
+    let second = sample_launcher_updates_result(r"D:\Games\Stardew Valley\Mods", 2_000);
+
+    save_launcher_updates_cache_at_path(&cache_path, &first, 1_000, 300_000)
+        .expect("save first launcher updates cache entry");
+    save_launcher_updates_cache_at_path(&cache_path, &second, 2_000, 300_000)
+        .expect("save second launcher updates cache entry");
+
+    invalidate_launcher_updates_cache_at_path(&cache_path, Some("C:/Games/Stardew Valley/Mods"))
+        .expect("invalidate launcher updates cache");
+
+    let first_loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        50_000,
+    )
+    .expect("load invalidated launcher updates cache");
+    let second_loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        r"D:\Games\Stardew Valley\Mods",
+        50_000,
+    )
+    .expect("load remaining launcher updates cache");
+
+    assert_eq!(first_loaded, None);
+    assert_eq!(second_loaded, Some(second));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn scan_library_keeps_unique_id_as_label_key_without_nexus_id() {
+    let root = create_temp_dir("launcher-library-unique-key");
+    let project = root.join("Mods").join("ExamplePack");
+    write_file(&project.join("manifest.json"), &sample_manifest("ModForge.ExamplePack"));
+
+    let scan = scan_library_at_path(&root).expect("scan launcher library");
+    assert_eq!(scan.mods.len(), 1);
+    assert_eq!(scan.mods[0].label_key, "ModForge.ExamplePack");
+    assert_eq!(scan.mods[0].nexus_mod_id, None);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn clear_launcher_image_cache_dir_removes_cached_files() {
+    let root = create_temp_dir("launcher-image-cache-clear");
+    let cache_dir = root.join("launcher").join("images");
+    write_file(&cache_dir.join("cover.webp"), "cached");
+
+    clear_launcher_image_cache_dir(&cache_dir).expect("clear launcher image cache");
+
+    assert!(!cache_dir.exists());
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -610,6 +860,66 @@ fn parse_remote_mod_detail_html_extracts_summary_version_and_gallery() {
 }
 
 #[test]
+fn parse_remote_mod_images_tab_html_extracts_author_image_links() {
+    let html = r#"
+<section class="mod_images">
+  <h2>Author images</h2>
+  <a href="https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png">
+    KeDili View image
+  </a>
+  <a href="https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1724525958-1378190888.png">
+    New professions at levels 15 and 20!
+  </a>
+  <a href="https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/20054/20054-thumb.png">
+    Thumbnail that should be ignored
+  </a>
+</section>
+"#;
+
+    let images = parse_remote_mod_images_tab_html(html);
+
+    assert_eq!(images.len(), 2);
+    assert_eq!(
+        images[0],
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png"
+    );
+    assert_eq!(
+        images[1],
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1724525958-1378190888.png"
+    );
+}
+
+#[test]
+fn enrich_remote_mod_detail_with_gallery_images_fills_missing_cover_from_images_tab() {
+    let detail = super::catalog::RemoteModDetail {
+        mod_id: 20054,
+        name: Some("Vanilla Plus Professions".to_string()),
+        author: Some("KediDili".to_string()),
+        summary: Some("Professions expansion.".to_string()),
+        version: Some("1.1.1".to_string()),
+        mod_url: "https://www.nexusmods.com/stardewvalley/mods/20054".to_string(),
+        image_url: None,
+        gallery_images: Vec::new(),
+        updated_at: None,
+        file_size: None,
+    };
+    let images = vec![
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png"
+            .to_string(),
+        "https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1724525958-1378190888.png"
+            .to_string(),
+    ];
+
+    let enriched = enrich_remote_mod_detail_with_gallery_images(detail, images);
+
+    assert_eq!(
+        enriched.image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/20054/20054-1716579111-984463733.png")
+    );
+    assert_eq!(enriched.gallery_images.len(), 2);
+}
+
+#[test]
 fn parse_public_mod_detail_graphql_response_extracts_author_version_and_description() {
     let payload = json!({
         "data": {
@@ -644,6 +954,64 @@ fn parse_public_mod_detail_graphql_response_extracts_author_version_and_descript
 }
 
 #[test]
+fn parse_launcher_update_file_metadata_text_extracts_author_timestamp_and_size() {
+    let text = r#"
+File information
+Last updated
+04 May 2024 3:52AM
+Original upload
+17 Nov 2018 11:54PM
+Created by
+Pathoschild
+Virus scan
+Safe to use
+Tags for this mod
+File size
+12.5MB
+"#;
+
+    let metadata = parse_launcher_update_file_metadata_text(text);
+
+    assert_eq!(metadata.author.as_deref(), Some("Pathoschild"));
+    assert_eq!(metadata.updated_at.as_deref(), Some("2024-05-04T03:52:00Z"));
+    assert_eq!(metadata.file_size, Some(13_107_200));
+}
+
+#[test]
+fn parse_launcher_update_changelog_text_extracts_latest_version_block() {
+    let text = r#"
+Main files
+Lookup Anything 1.43.5
+Date uploaded
+04 May 2024, 3:52AM
+File size
+12.5MB
+Version
+1.43.5
+Updated SMAPI from 4.0.6 to 4.0.8.
+Improved support for custom building paint.
+
+Old files
+Lookup Anything 1.43.4
+Date uploaded
+28 Apr 2024, 1:15AM
+File size
+12.3MB
+Version
+1.43.4
+Updated for SMAPI 4.0.6.
+"#;
+
+    let changelog = parse_launcher_update_changelog_text(text).expect("latest changelog");
+
+    assert_eq!(changelog.version.as_deref(), Some("1.43.5"));
+    assert_eq!(
+        changelog.changelog,
+        "Updated SMAPI from 4.0.6 to 4.0.8.\nImproved support for custom building paint."
+    );
+}
+
+#[test]
 fn build_update_batch_graphql_payload_uses_legacy_mods_by_domain() {
     let payload =
         build_update_batch_graphql_payload(&[101, 202]).expect("build update batch graphql payload");
@@ -656,6 +1024,230 @@ fn build_update_batch_graphql_payload_uses_legacy_mods_by_domain() {
     let query = payload["query"].as_str().expect("graphql query string");
     assert!(query.contains("query LauncherUpdateBatch"));
     assert!(query.contains("legacyModsByDomain"));
+}
+
+#[test]
+fn build_smapi_update_payload_uses_unique_ids_and_update_keys() {
+    let payload = build_smapi_update_payload(&[
+        UpdateCheckCandidate {
+            mod_id: 541,
+            unique_id: Some("Pathoschild.LookupAnything".to_string()),
+            name: "Lookup Anything".to_string(),
+            current_version: "1.43.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
+            update_keys: vec!["Nexus:541".to_string()],
+        },
+        UpdateCheckCandidate {
+            mod_id: 999,
+            unique_id: None,
+            name: "Missing Unique ID".to_string(),
+            current_version: "1.0.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Missing Unique ID".to_string(),
+            update_keys: vec!["Nexus:999".to_string()],
+        },
+    ]);
+
+    assert_eq!(payload["ApiVersion"], "4.1.6");
+    assert_eq!(payload["GameVersion"], "1.6.13");
+    assert_eq!(payload["Platform"], "Windows");
+    assert_eq!(payload["IncludeExtendedMetadata"], true);
+    assert_eq!(payload["Mods"].as_array().map(Vec::len), Some(1));
+    assert_eq!(payload["Mods"][0]["ID"], "Pathoschild.LookupAnything");
+    assert_eq!(payload["Mods"][0]["Version"], "1.43.0");
+    assert_eq!(payload["Mods"][0]["UpdateKeys"], json!(["Nexus:541"]));
+}
+
+#[test]
+fn build_smapi_update_payload_uses_detected_versions() {
+    let payload = build_smapi_update_payload_with_versions(
+        &[UpdateCheckCandidate {
+            mod_id: 541,
+            unique_id: Some("Pathoschild.LookupAnything".to_string()),
+            name: "Lookup Anything".to_string(),
+            current_version: "1.43.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
+            update_keys: vec!["Nexus:541".to_string()],
+        }],
+        &SmapiRuntimeVersions {
+            api_version: "4.2.1".to_string(),
+            game_version: "1.6.15".to_string(),
+            platform: "Windows".to_string(),
+        },
+    );
+
+    assert_eq!(payload["ApiVersion"], "4.2.1");
+    assert_eq!(payload["GameVersion"], "1.6.15");
+    assert_eq!(payload["Platform"], "Windows");
+}
+
+#[test]
+fn resolve_smapi_runtime_versions_prefers_detected_versions() {
+    let root = create_temp_dir("launcher-smapi-version-detect");
+    let smapi_dll = root.join("StardewModdingAPI.dll");
+    let game_dll = root.join("Stardew Valley.dll");
+    write_file(&smapi_dll, "smapi");
+    write_file(&game_dll, "game");
+
+    let versions = resolve_smapi_runtime_versions_with_reader(Some(root.as_path()), |path| {
+        if path == smapi_dll.as_path() {
+            return Some("4.2.1.7".to_string());
+        }
+        if path == game_dll.as_path() {
+            return Some("1.6.15-gog".to_string());
+        }
+        None
+    });
+
+    assert_eq!(
+        versions,
+        SmapiRuntimeVersions {
+            api_version: "4.2.1".to_string(),
+            game_version: "1.6.15".to_string(),
+            platform: "Windows".to_string(),
+        }
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn resolve_smapi_runtime_versions_falls_back_to_defaults() {
+    let versions = resolve_smapi_runtime_versions_with_reader(None, |_| Some("9.9.9".to_string()));
+
+    assert_eq!(
+        versions,
+        SmapiRuntimeVersions {
+            api_version: "4.1.6".to_string(),
+            game_version: "1.6.13".to_string(),
+            platform: "Windows".to_string(),
+        }
+    );
+}
+
+#[test]
+fn parse_smapi_update_response_extracts_versions_by_candidate_order() {
+    let payload = json!([
+        {
+            "Metadata": {
+                "Main": {
+                    "Name": "Lookup Anything",
+                    "Author": "Pathoschild",
+                    "Description": "Inspect anything.",
+                    "Version": "1.44.0",
+                    "URL": "https://www.nexusmods.com/stardewvalley/mods/541",
+                    "ImageUrl": "https://staticdelivery.nexusmods.com/mods/1303/images/541/541-cover.png"
+                }
+            }
+        },
+        {
+            "Metadata": {
+                "Main": {
+                    "Name": "Tractor Mod",
+                    "Version": "5.0.0"
+                }
+            }
+        }
+    ]);
+
+    let details = parse_smapi_update_response(
+        &payload,
+        &[
+            UpdateCheckCandidate {
+                mod_id: 541,
+                unique_id: Some("Pathoschild.LookupAnything".to_string()),
+                name: "Lookup Anything".to_string(),
+                current_version: "1.43.0".to_string(),
+                absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
+                update_keys: vec!["Nexus:541".to_string()],
+            },
+            UpdateCheckCandidate {
+                mod_id: 1401,
+                unique_id: Some("Pathoschild.TractorMod".to_string()),
+                name: "Tractor Mod".to_string(),
+                current_version: "4.9.9".to_string(),
+                absolute_path: r"E:\Games\Stardew Valley\Mods\Tractor Mod".to_string(),
+                update_keys: vec!["Nexus:1401".to_string()],
+            },
+        ],
+    )
+    .expect("parse smapi update response");
+
+    assert_eq!(details.len(), 2);
+    assert_eq!(details[&541].name.as_deref(), Some("Lookup Anything"));
+    assert_eq!(details[&541].author.as_deref(), Some("Pathoschild"));
+    assert_eq!(details[&541].summary.as_deref(), Some("Inspect anything."));
+    assert_eq!(details[&541].version.as_deref(), Some("1.44.0"));
+    assert_eq!(
+        details[&541].image_url.as_deref(),
+        Some("https://staticdelivery.nexusmods.com/mods/1303/images/541/541-cover.png")
+    );
+    assert_eq!(details[&1401].name.as_deref(), Some("Tractor Mod"));
+    assert_eq!(details[&1401].version.as_deref(), Some("5.0.0"));
+    assert_eq!(
+        details[&1401].mod_url,
+        "https://www.nexusmods.com/stardewvalley/mods/1401"
+    );
+}
+
+#[test]
+fn parse_smapi_update_response_skips_entries_without_versions() {
+    let payload = json!([
+        {
+            "Metadata": {
+                "Main": {
+                    "Name": "Lookup Anything"
+                }
+            }
+        }
+    ]);
+
+    let details = parse_smapi_update_response(
+        &payload,
+        &[UpdateCheckCandidate {
+            mod_id: 541,
+            unique_id: Some("Pathoschild.LookupAnything".to_string()),
+            name: "Lookup Anything".to_string(),
+            current_version: "1.43.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
+            update_keys: vec!["Nexus:541".to_string()],
+        }],
+    )
+    .expect("parse smapi update response");
+
+    assert!(details.is_empty());
+}
+
+#[test]
+fn parse_smapi_update_response_keeps_nexus_page_url_for_external_links() {
+    let payload = json!([
+        {
+            "Metadata": {
+                "Main": {
+                    "Name": "Lookup Anything",
+                    "Version": "1.44.0",
+                    "URL": "https://smapi.io/mods"
+                }
+            }
+        }
+    ]);
+
+    let details = parse_smapi_update_response(
+        &payload,
+        &[UpdateCheckCandidate {
+            mod_id: 541,
+            unique_id: Some("Pathoschild.LookupAnything".to_string()),
+            name: "Lookup Anything".to_string(),
+            current_version: "1.43.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
+            update_keys: vec!["Nexus:541".to_string()],
+        }],
+    )
+    .expect("parse smapi update response");
+
+    assert_eq!(
+        details[&541].mod_url,
+        "https://www.nexusmods.com/stardewvalley/mods/541"
+    );
 }
 
 #[test]
@@ -719,7 +1311,7 @@ fn set_launcher_mod_enabled_renames_dot_prefixed_folder() {
         &sample_manifest("ModForge.ExamplePack"),
     );
 
-    let result = set_launcher_mod_enabled(SetLauncherModEnabledRequest {
+    let result = set_launcher_mod_enabled_blocking(SetLauncherModEnabledRequest {
         mod_path: project.to_string_lossy().to_string(),
         enabled: true,
     })
