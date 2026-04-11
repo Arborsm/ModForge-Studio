@@ -89,7 +89,7 @@
   - `apps/desktop/src/lib/launcher/useLauncherLibrary.ts`
   - `apps/desktop/src/lib/launcher/useLauncherDownloads.ts`
   - `apps/desktop/src/lib/launcher/useLauncherSettings.ts`
-- Launcher 样式：`apps/desktop/src/styles/features/launcher.css`
+- Launcher 样式：`apps/desktop/src/styles/features/launcher/`
 
 ### Workbench
 
@@ -153,7 +153,7 @@
   - `apps/desktop/src/components/TopMenuBar.tsx`
   - `apps/desktop/src/components/launcher/LauncherShell.tsx`
   - `apps/desktop/src/styles/workspace/top-menu.css`
-  - `apps/desktop/src/styles/features/launcher.css`
+  - `apps/desktop/src/styles/features/launcher/`
 - 改 launcher library 卡片、详情、筛选、模组包：
   - `apps/desktop/src/components/launcher/pages/LauncherLibraryPage.tsx`
   - `apps/desktop/src/components/launcher/cards/LauncherModCard.tsx`

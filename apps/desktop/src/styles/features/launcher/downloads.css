@@ -1,0 +1,100 @@
+@layer components {
+  .launcher-downloads-popover {
+    width: min(560px, calc(100vw - 36px));
+    display: grid;
+    gap: 14px;
+  }
+
+  .launcher-downloads-float {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    z-index: 185;
+    width: min(760px, calc(100vw - 48px));
+    max-height: min(78vh, 840px);
+    padding: 18px;
+  }
+
+  .launcher-downloads-float .launcher-downloads-popover {
+    width: 100%;
+  }
+
+  .launcher-downloads-popover-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .launcher-downloads-popover-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .launcher-downloads-popover-subtitle {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 38ch;
+  }
+
+  .launcher-downloads-popover-actions,
+  .launcher-downloads-popover-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-downloads-popover-metrics {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .launcher-downloads-popover-body {
+    display: grid;
+    gap: 14px;
+  }
+
+  .launcher-downloads-popover-section {
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-downloads-popover-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .launcher-downloads-popover-section-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .launcher-downloads-popover-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-empty-state-detail {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .launcher-empty-state-action {
+    margin-top: 10px;
+  }
+}

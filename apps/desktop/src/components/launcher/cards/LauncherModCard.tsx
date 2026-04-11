@@ -3,7 +3,7 @@ import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Check } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
-import { useLauncherImage } from '../../../lib/launcher/imageLoader'
+import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
 type LauncherModCardAction = {
@@ -41,7 +41,6 @@ export function LauncherModCard({
   selected = false,
 }: LauncherModCardProps) {
   const copy = useEditorCopy()
-  const cover = useLauncherImage(imageUrl)
   const fallbackPalette = getLauncherCardFallbackPalette(title)
   const coverWord = getLauncherCardCoverWord(title)
   const coverStyle = {
@@ -76,18 +75,7 @@ export function LauncherModCard({
         ) : null}
 
         <button type="button" className="launcher-mod-card-main" onClick={onSelect} title={titleTooltip ?? title}>
-          <div className="launcher-mod-card-cover" style={coverStyle}>
-            <span className="launcher-mod-card-cover-meta" />
-            <span className="launcher-mod-card-cover-aura" aria-hidden="true" />
-            {cover.imageUrl ? <img src={cover.imageUrl} alt="" className="launcher-mod-card-cover-image" /> : null}
-            {!cover.imageUrl ? (
-              <span className="launcher-mod-card-cover-fallback">
-                <span className="launcher-mod-card-cover-word">{coverWord}</span>
-              </span>
-            ) : null}
-            <span className="launcher-mod-card-cover-noise" aria-hidden="true" />
-            <span className="launcher-mod-card-cover-gradient" aria-hidden="true" />
-          </div>
+          <LauncherArtworkCover title={title} imageUrl={imageUrl} coverStyle={coverStyle} coverWord={coverWord} />
 
           <div className="launcher-mod-card-copy">
             <p className="launcher-mod-card-title" title={titleTooltip ?? title}>
