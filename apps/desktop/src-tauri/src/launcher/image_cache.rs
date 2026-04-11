@@ -90,12 +90,13 @@ fn mime_type_from_path(path: &Path) -> String {
     }
 }
 
-#[tauri::command]
-pub fn resolve_launcher_image(
-    app: tauri::AppHandle,
-    request: ResolveLauncherImageRequest,
+fn resolve_launcher_image_blocking(
+    app: &tauri::AppHandle,
+    request: &ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("resolve_launcher_image", (|| {
+    let request = request;
+    let app = app;
+    (|| {
         let url = request.url.trim();
         if url.is_empty() {
             return Err("url is required.".to_string());
@@ -169,5 +170,18 @@ pub fn resolve_launcher_image(
             mime_type: content_type,
             local_path: normalize_path(&target_path),
         })
-    })())
+    })()
+}
+
+#[tauri::command]
+pub async fn resolve_launcher_image(
+    app: tauri::AppHandle,
+    request: ResolveLauncherImageRequest,
+) -> Result<ResolveLauncherImageResult, String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "resolve_launcher_image",
+        tauri::async_runtime::spawn_blocking(move || resolve_launcher_image_blocking(&app, &request))
+            .await
+            .map_err(|error| format!("Failed to join launcher image task: {error}"))?,
+    )
 }

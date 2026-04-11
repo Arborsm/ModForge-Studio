@@ -159,7 +159,10 @@ const localeBundle: LocaleBundle = {
         "title": "Discover",
         "subtitle": "Search Nexus and queue direct downloads into the launcher pipeline.",
         "empty": "No discover results matched the current query.",
-        "credentialsHint": "Configure your Nexus API key or cookie in Settings before queueing downloads."
+        "credentialsHint": "Configure your Nexus API key or cookie in Settings before queueing downloads.",
+        "loadingResults": "Loading Nexus results...",
+        "loadingPage": (page) => `Loading Nexus results for page ${page}...`,
+        "loadingCover": "Loading cover..."
       },
       "updates": {
         "title": "Updates",

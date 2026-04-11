@@ -715,6 +715,44 @@
     text-decoration: none;
   }
 
+  .launcher-discover-wall-cover-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent-soft) 32%, transparent), transparent 42%),
+      linear-gradient(145deg, color-mix(in srgb, var(--accent) 12%, var(--bg-panel-muted)), var(--bg-panel));
+    overflow: hidden;
+  }
+
+  .launcher-discover-wall-cover-monogram {
+    color: color-mix(in srgb, var(--text-primary) 82%, var(--text-secondary));
+    font-size: clamp(22px, 2.4vw, 34px);
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    opacity: 0.72;
+    user-select: none;
+  }
+
+  .launcher-discover-wall-cover-status {
+    position: absolute;
+    inset: auto 12px 12px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface-inverse) 82%, transparent);
+    color: var(--text-inverse);
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    backdrop-filter: blur(10px);
+  }
+
   .launcher-discover-wall-cover-overlay {
     position: absolute;
     inset: auto 10px 10px auto;

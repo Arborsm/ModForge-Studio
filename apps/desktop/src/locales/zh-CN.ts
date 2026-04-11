@@ -161,7 +161,10 @@ const localeBundle = {
         "title": "发现",
         "subtitle": "搜索 Nexus 并把下载任务加入启动器流水线。",
         "empty": "当前搜索条件下没有匹配结果。",
-        "credentialsHint": "请先在设置中配置 Nexus API Key 或 Cookie，再加入直接下载任务。"
+        "credentialsHint": "请先在设置中配置 Nexus API Key 或 Cookie，再加入直接下载任务。",
+        "loadingResults": "正在加载 Nexus 结果...",
+        "loadingPage": (page) => `正在加载第 ${page} 页 Nexus 结果...`,
+        "loadingCover": "封面加载中..."
       },
       "updates": {
         "title": "更新",

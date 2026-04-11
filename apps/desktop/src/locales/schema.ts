@@ -601,6 +601,9 @@ export type LauncherCopy = {
     subtitle: string
     empty: string
     credentialsHint: string
+    loadingResults: string
+    loadingPage: (page: number) => string
+    loadingCover: string
   }
   updates: {
     title: string
