@@ -1,14 +1,16 @@
 use super::fs::{discover_project_roots, read_json_file};
 use super::image_cache::resolve_launcher_image_blocking;
-use super::paths::{launcher_library_covers_path, launcher_library_path, launcher_updates_cache_path};
+use super::paths::{
+    launcher_library_covers_path, launcher_library_path, launcher_updates_cache_path,
+};
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherLibraryCover, LauncherLibraryCoversState, LauncherLibraryModSummary,
     LauncherLibraryPackPreset, LauncherLibraryScanResult, LauncherLibraryScopeMode,
     LauncherLibraryState, LauncherLibraryStorageFolder, PersistLauncherLibraryRemoteCoverRequest,
     ResolveLauncherImageRequest, ScanLauncherLibraryRequest, SetLauncherLibraryCoverRequest,
-    SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
-    UNSORTED_STORAGE_FOLDER_ID, UNSORTED_STORAGE_FOLDER_NAME,
+    SetLauncherModEnabledRequest, SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID,
+    UNSORTED_STORAGE_FOLDER_NAME,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::pathing::{clean_input_path, normalize_path};
@@ -168,7 +170,9 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
     }
 }
 
-fn migrate_legacy_library_labels(legacy_state: LegacyLauncherLibraryLabelsState) -> LauncherLibraryState {
+fn migrate_legacy_library_labels(
+    legacy_state: LegacyLauncherLibraryLabelsState,
+) -> LauncherLibraryState {
     let mut storage_folders = Vec::new();
     let mut hidden_mod_keys = Vec::new();
     for label in legacy_state.labels {
@@ -243,7 +247,8 @@ pub(crate) fn load_or_create_library_state_at_path(
         if let Ok(parsed) = serde_json::from_str::<LauncherLibraryState>(&content) {
             return Ok(normalize_library_state(parsed));
         }
-        if let Ok(legacy_state) = serde_json::from_str::<LegacyLauncherLibraryLabelsState>(&content) {
+        if let Ok(legacy_state) = serde_json::from_str::<LegacyLauncherLibraryLabelsState>(&content)
+        {
             let migrated = migrate_legacy_library_labels(legacy_state);
             save_library_state_at_path(state_path, &migrated)?;
             return Ok(migrated);
@@ -295,12 +300,13 @@ pub(crate) fn load_or_create_library_covers_at_path(
                 normalize_path(covers_path)
             )
         })?;
-        let parsed: LauncherLibraryCoversState = serde_json::from_str(&content).map_err(|error| {
-            format!(
-                "Launcher library covers {} is invalid JSON: {error}",
-                normalize_path(covers_path)
-            )
-        })?;
+        let parsed: LauncherLibraryCoversState =
+            serde_json::from_str(&content).map_err(|error| {
+                format!(
+                    "Launcher library covers {} is invalid JSON: {error}",
+                    normalize_path(covers_path)
+                )
+            })?;
         let normalized = normalize_library_covers(parsed);
         let pruned = prune_missing_library_covers(normalized.clone());
         if pruned != normalized {
@@ -486,7 +492,11 @@ fn extract_nexus_mod_id(update_keys: &[String]) -> Option<i64> {
         if !provider.eq_ignore_ascii_case("Nexus") {
             return None;
         }
-        value.trim().parse::<i64>().ok().filter(|mod_id| *mod_id > 0)
+        value
+            .trim()
+            .parse::<i64>()
+            .ok()
+            .filter(|mod_id| *mod_id > 0)
     })
 }
 
@@ -494,7 +504,11 @@ fn build_mod_page_url(mod_id: i64) -> String {
     format!("https://www.nexusmods.com/stardewvalley/mods/{mod_id}")
 }
 
-fn preferred_cover_label_key(nexus_mod_id: Option<i64>, unique_id: Option<&str>, folder_name: &str) -> String {
+fn preferred_cover_label_key(
+    nexus_mod_id: Option<i64>,
+    unique_id: Option<&str>,
+    folder_name: &str,
+) -> String {
     nexus_mod_id
         .map(|value| value.to_string())
         .or_else(|| unique_id.map(ToOwned::to_owned))
@@ -670,10 +684,13 @@ fn set_mod_enabled_at_path(
 
 #[tauri::command]
 pub fn load_launcher_library_state(app: tauri::AppHandle) -> Result<LauncherLibraryState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_launcher_library_state", (|| {
-        let state_path = launcher_library_path(&app)?;
-        load_or_create_library_state_at_path(&state_path)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_launcher_library_state",
+        (|| {
+            let state_path = launcher_library_path(&app)?;
+            load_or_create_library_state_at_path(&state_path)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -681,22 +698,28 @@ pub fn save_launcher_library_state(
     app: tauri::AppHandle,
     request: LauncherLibraryState,
 ) -> Result<LauncherLibraryState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("save_launcher_library_state", (|| {
-        let state_path = launcher_library_path(&app)?;
-        let normalized = normalize_library_state(request);
-        save_library_state_at_path(&state_path, &normalized)?;
-        Ok(normalized)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "save_launcher_library_state",
+        (|| {
+            let state_path = launcher_library_path(&app)?;
+            let normalized = normalize_library_state(request);
+            save_library_state_at_path(&state_path, &normalized)?;
+            Ok(normalized)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn load_launcher_library_covers(
     app: tauri::AppHandle,
 ) -> Result<LauncherLibraryCoversState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_launcher_library_covers", (|| {
-        let covers_path = launcher_library_covers_path(&app)?;
-        load_or_create_library_covers_at_path(&covers_path)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_launcher_library_covers",
+        (|| {
+            let covers_path = launcher_library_covers_path(&app)?;
+            load_or_create_library_covers_at_path(&covers_path)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -704,44 +727,47 @@ pub fn set_launcher_library_cover(
     app: tauri::AppHandle,
     request: SetLauncherLibraryCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("set_launcher_library_cover", (|| {
-        let label_key = request.label_key.trim();
-        if label_key.is_empty() {
-            return Err("labelKey is required.".to_string());
-        }
-
-        let covers_path = launcher_library_covers_path(&app)?;
-        let current = load_or_create_library_covers_at_path(&covers_path)?;
-        let normalized_key = normalize_unique_id(label_key);
-        let mut covers = current
-            .covers
-            .into_iter()
-            .filter(|cover| normalize_unique_id(&cover.label_key) != normalized_key)
-            .collect::<Vec<_>>();
-
-        if let Some(image_path) = request
-            .image_path
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            let image_path = clean_input_path(image_path);
-            if !image_path.is_file() {
-                return Err(format!(
-                    "Launcher cover image {} does not exist.",
-                    normalize_path(&image_path)
-                ));
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "set_launcher_library_cover",
+        (|| {
+            let label_key = request.label_key.trim();
+            if label_key.is_empty() {
+                return Err("labelKey is required.".to_string());
             }
-            covers.push(LauncherLibraryCover {
-                label_key: label_key.to_string(),
-                image_path: normalize_path(&image_path),
-            });
-        }
 
-        let normalized = normalize_library_covers(LauncherLibraryCoversState { covers });
-        save_library_covers_at_path(&covers_path, &normalized)?;
-        Ok(normalized)
-    })())
+            let covers_path = launcher_library_covers_path(&app)?;
+            let current = load_or_create_library_covers_at_path(&covers_path)?;
+            let normalized_key = normalize_unique_id(label_key);
+            let mut covers = current
+                .covers
+                .into_iter()
+                .filter(|cover| normalize_unique_id(&cover.label_key) != normalized_key)
+                .collect::<Vec<_>>();
+
+            if let Some(image_path) = request
+                .image_path
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                let image_path = clean_input_path(image_path);
+                if !image_path.is_file() {
+                    return Err(format!(
+                        "Launcher cover image {} does not exist.",
+                        normalize_path(&image_path)
+                    ));
+                }
+                covers.push(LauncherLibraryCover {
+                    label_key: label_key.to_string(),
+                    image_path: normalize_path(&image_path),
+                });
+            }
+
+            let normalized = normalize_library_covers(LauncherLibraryCoversState { covers });
+            save_library_covers_at_path(&covers_path, &normalized)?;
+            Ok(normalized)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -781,7 +807,11 @@ pub async fn persist_launcher_library_remote_cover(
                 },
             )?;
 
-            persist_auto_library_cover_at_path(&covers_path, label_key, &clean_input_path(&resolved.local_path))
+            persist_auto_library_cover_at_path(
+                &covers_path,
+                label_key,
+                &clean_input_path(&resolved.local_path),
+            )
         })
         .await
         .map_err(|error| format!("Failed to join launcher remote cover task: {error}"))?,
@@ -793,38 +823,41 @@ pub fn scan_launcher_library(
     app: tauri::AppHandle,
     request: ScanLauncherLibraryRequest,
 ) -> Result<LauncherLibraryScanResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("scan_launcher_library", (|| {
-        let mods_path = request.mods_path.trim();
-        if mods_path.is_empty() {
-            return Err("modsPath is required.".to_string());
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "scan_launcher_library",
+        (|| {
+            let mods_path = request.mods_path.trim();
+            if mods_path.is_empty() {
+                return Err("modsPath is required.".to_string());
+            }
 
-        let mut scan = scan_library_at_path(&clean_input_path(mods_path))?;
-        let covers_path = launcher_library_covers_path(&app)?;
-        let covers = load_or_create_library_covers_at_path(&covers_path)?;
-        let cover_map = covers
-            .covers
-            .into_iter()
-            .filter_map(|cover| {
-                let image_path = clean_input_path(&cover.image_path);
-                if !image_path.is_file() {
-                    return None;
-                }
-                Some((
-                    normalize_unique_id(&cover.label_key),
-                    normalize_path(&image_path),
-                ))
-            })
-            .collect::<BTreeMap<_, _>>();
-
-        for mod_summary in &mut scan.mods {
-            mod_summary.image_url = cover_lookup_keys(mod_summary)
+            let mut scan = scan_library_at_path(&clean_input_path(mods_path))?;
+            let covers_path = launcher_library_covers_path(&app)?;
+            let covers = load_or_create_library_covers_at_path(&covers_path)?;
+            let cover_map = covers
+                .covers
                 .into_iter()
-                .find_map(|key| cover_map.get(&normalize_unique_id(&key)).cloned());
-        }
+                .filter_map(|cover| {
+                    let image_path = clean_input_path(&cover.image_path);
+                    if !image_path.is_file() {
+                        return None;
+                    }
+                    Some((
+                        normalize_unique_id(&cover.label_key),
+                        normalize_path(&image_path),
+                    ))
+                })
+                .collect::<BTreeMap<_, _>>();
 
-        Ok(scan)
-    })())
+            for mod_summary in &mut scan.mods {
+                mod_summary.image_url = cover_lookup_keys(mod_summary)
+                    .into_iter()
+                    .find_map(|key| cover_map.get(&normalize_unique_id(&key)).cloned());
+            }
+
+            Ok(scan)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -844,16 +877,19 @@ pub fn set_launcher_mod_enabled(
     app: tauri::AppHandle,
     request: SetLauncherModEnabledRequest,
 ) -> Result<SetLauncherModEnabledResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("set_launcher_mod_enabled", (|| {
-        let result = set_launcher_mod_enabled_blocking(request)?;
-        if let Some(mods_path) = clean_input_path(&result.absolute_path)
-            .parent()
-            .map(normalize_path)
-        {
-            let cache_path = launcher_updates_cache_path(&app)?;
-            invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "set_launcher_mod_enabled",
+        (|| {
+            let result = set_launcher_mod_enabled_blocking(request)?;
+            if let Some(mods_path) = clean_input_path(&result.absolute_path)
+                .parent()
+                .map(normalize_path)
+            {
+                let cache_path = launcher_updates_cache_path(&app)?;
+                invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
+            }
 
-        Ok(result)
-    })())
+            Ok(result)
+        })(),
+    )
 }

@@ -1,8 +1,6 @@
 use super::http::launcher_http_client;
 use super::paths::launcher_image_cache_dir;
-use super::types::{
-    ResolveLauncherImageRequest, ResolveLauncherImageResult,
-};
+use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
 use crate::pathing::normalize_path;
 use reqwest::header::CONTENT_TYPE;
 use sha2::{Digest, Sha256};
@@ -24,7 +22,8 @@ fn find_cached_image_path(cache_dir: &Path, cache_key: &str) -> Result<Option<Pa
         )
     })?;
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect launcher image cache entry: {error}"))?;
+        let entry = entry
+            .map_err(|error| format!("Failed to inspect launcher image cache entry: {error}"))?;
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
         if file_name.starts_with(cache_key) {
@@ -43,7 +42,8 @@ fn clear_cached_files_for_key(cache_dir: &Path, cache_key: &str) -> Result<(), S
         )
     })?;
     for entry in entries {
-        let entry = entry.map_err(|error| format!("Failed to inspect launcher image cache entry: {error}"))?;
+        let entry = entry
+            .map_err(|error| format!("Failed to inspect launcher image cache entry: {error}"))?;
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
         if !file_name.starts_with(cache_key) {
@@ -72,7 +72,13 @@ fn extension_from_url(value: &str) -> Option<String> {
 }
 
 fn image_extension_from_content_type(value: &str) -> Option<String> {
-    match value.split(';').next()?.trim().to_ascii_lowercase().as_str() {
+    match value
+        .split(';')
+        .next()?
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "image/jpeg" => Some("jpg".to_string()),
         "image/png" => Some("png".to_string()),
         "image/webp" => Some("webp".to_string()),
@@ -82,7 +88,11 @@ fn image_extension_from_content_type(value: &str) -> Option<String> {
 }
 
 fn mime_type_from_path(path: &Path) -> String {
-    match path.extension().and_then(|value| value.to_str()).unwrap_or_default() {
+    match path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+    {
         "png" => "image/png".to_string(),
         "webp" => "image/webp".to_string(),
         "gif" => "image/gif".to_string(),
@@ -193,16 +203,21 @@ pub async fn resolve_launcher_image(
 ) -> Result<ResolveLauncherImageResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "resolve_launcher_image",
-        tauri::async_runtime::spawn_blocking(move || resolve_launcher_image_blocking(&app, &request))
-            .await
-            .map_err(|error| format!("Failed to join launcher image task: {error}"))?,
+        tauri::async_runtime::spawn_blocking(move || {
+            resolve_launcher_image_blocking(&app, &request)
+        })
+        .await
+        .map_err(|error| format!("Failed to join launcher image task: {error}"))?,
     )
 }
 
 #[tauri::command]
 pub fn clear_launcher_image_cache(app: tauri::AppHandle) -> Result<(), String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("clear_launcher_image_cache", (|| {
-        let cache_dir = launcher_image_cache_dir(&app)?;
-        clear_launcher_image_cache_dir(&cache_dir)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "clear_launcher_image_cache",
+        (|| {
+            let cache_dir = launcher_image_cache_dir(&app)?;
+            clear_launcher_image_cache_dir(&cache_dir)
+        })(),
+    )
 }

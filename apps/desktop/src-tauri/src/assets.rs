@@ -538,33 +538,39 @@ pub fn list_known_game_directories() -> Vec<String> {
 
 #[tauri::command]
 pub fn get_file_cache_stats() -> Result<FileCacheStats, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("get_file_cache_stats", (|| {
-        let root = active_file_cache_dir();
-        let (entry_count, total_size_bytes) = collect_directory_size(&root)?;
-        Ok(FileCacheStats {
-            root_path: normalize_path(&root),
-            entry_count,
-            total_size_bytes,
-        })
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "get_file_cache_stats",
+        (|| {
+            let root = active_file_cache_dir();
+            let (entry_count, total_size_bytes) = collect_directory_size(&root)?;
+            Ok(FileCacheStats {
+                root_path: normalize_path(&root),
+                entry_count,
+                total_size_bytes,
+            })
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn clear_file_cache() -> Result<(), String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("clear_file_cache", (|| {
-        let root = active_file_cache_dir();
-        if !root.exists() {
-            return Ok(());
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "clear_file_cache",
+        (|| {
+            let root = active_file_cache_dir();
+            if !root.exists() {
+                return Ok(());
+            }
 
-        fs::remove_dir_all(&root).map_err(|error| {
-            format!(
-                "Failed to clear file cache {}: {error}",
-                normalize_path(&root)
-            )
-        })?;
-        Ok(())
-    })())
+            fs::remove_dir_all(&root).map_err(|error| {
+                format!(
+                    "Failed to clear file cache {}: {error}",
+                    normalize_path(&root)
+                )
+            })?;
+            Ok(())
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -577,145 +583,156 @@ pub fn validate_game_directory(path: String) -> Result<GameDirectoryInfo, String
 
 #[tauri::command]
 pub fn scan_maps(path: String, locale: Option<String>) -> Result<Vec<MapAssetSummary>, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("scan_maps", (|| {
-        let root = clean_input_path(&path);
-        let info = read_directory_info(&root)?;
-        let requested_locale = normalize_requested_locale(locale.as_deref());
-        let maps_path = info.maps_path.as_ref().map(PathBuf::from).ok_or_else(|| {
-            "No map source path is available for the selected game directory.".to_string()
-        })?;
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "scan_maps",
+        (|| {
+            let root = clean_input_path(&path);
+            let info = read_directory_info(&root)?;
+            let requested_locale = normalize_requested_locale(locale.as_deref());
+            let maps_path = info.maps_path.as_ref().map(PathBuf::from).ok_or_else(|| {
+                "No map source path is available for the selected game directory.".to_string()
+            })?;
 
-        let entries = fs::read_dir(&maps_path)
-            .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&maps_path)))?;
+            let entries = fs::read_dir(&maps_path).map_err(|error| {
+                format!("Failed to read {}: {error}", normalize_path(&maps_path))
+            })?;
 
-        let mut grouped_variants: BTreeMap<String, LocalizedAssetVariants> = BTreeMap::new();
-        for entry in entries {
-            let entry = entry.map_err(|error| format!("Failed to inspect map entry: {error}"))?;
-            let absolute_path = entry.path();
-            if !absolute_path.is_file() {
-                continue;
-            }
-
-            let is_target_format = absolute_path
-                .extension()
-                .and_then(|value| value.to_str())
-                .is_some_and(|value| value.eq_ignore_ascii_case("xnb"));
-
-            if !is_target_format {
-                continue;
-            }
-
-            let relative_path = absolute_path
-                .strip_prefix(&root)
-                .map_err(|error| format!("Failed to derive relative path: {error}"))?;
-            let logical_relative_path = logicalized_asset_path(relative_path);
-            let logical_key = normalize_path(&logical_relative_path);
-            let stem = absolute_path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .unwrap_or_default();
-            let (_, suffix) = split_localized_stem(stem);
-            let variants = grouped_variants.entry(logical_key).or_default();
-
-            match suffix {
-                Some(asset_locale) if asset_locale.eq_ignore_ascii_case(requested_locale) => {
-                    variants.localized = Some(absolute_path);
+            let mut grouped_variants: BTreeMap<String, LocalizedAssetVariants> = BTreeMap::new();
+            for entry in entries {
+                let entry =
+                    entry.map_err(|error| format!("Failed to inspect map entry: {error}"))?;
+                let absolute_path = entry.path();
+                if !absolute_path.is_file() {
+                    continue;
                 }
-                Some(_) => {}
-                None => {
-                    variants.base = Some(absolute_path);
+
+                let is_target_format = absolute_path
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|value| value.eq_ignore_ascii_case("xnb"));
+
+                if !is_target_format {
+                    continue;
+                }
+
+                let relative_path = absolute_path
+                    .strip_prefix(&root)
+                    .map_err(|error| format!("Failed to derive relative path: {error}"))?;
+                let logical_relative_path = logicalized_asset_path(relative_path);
+                let logical_key = normalize_path(&logical_relative_path);
+                let stem = absolute_path
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default();
+                let (_, suffix) = split_localized_stem(stem);
+                let variants = grouped_variants.entry(logical_key).or_default();
+
+                match suffix {
+                    Some(asset_locale) if asset_locale.eq_ignore_ascii_case(requested_locale) => {
+                        variants.localized = Some(absolute_path);
+                    }
+                    Some(_) => {}
+                    None => {
+                        variants.base = Some(absolute_path);
+                    }
                 }
             }
-        }
 
-        let mut maps = Vec::new();
-        for (logical_relative_path, variants) in grouped_variants {
-            let Some(selected_path) = variants.localized.as_ref().or(variants.base.as_ref()) else {
-                continue;
-            };
+            let mut maps = Vec::new();
+            for (logical_relative_path, variants) in grouped_variants {
+                let Some(selected_path) = variants.localized.as_ref().or(variants.base.as_ref())
+                else {
+                    continue;
+                };
 
-            if !is_map_xnb(selected_path) {
-                continue;
+                if !is_map_xnb(selected_path) {
+                    continue;
+                }
+
+                maps.push(build_map_summary(
+                    Path::new(&logical_relative_path),
+                    selected_path,
+                )?);
             }
 
-            maps.push(build_map_summary(
-                Path::new(&logical_relative_path),
-                selected_path,
-            )?);
-        }
-
-        maps.sort_by(|left, right| left.name.cmp(&right.name));
-        Ok(maps)
-    })())
+            maps.sort_by(|left, right| left.name.cmp(&right.name));
+            Ok(maps)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn scan_events(path: String) -> Result<Vec<EventAssetSummary>, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("scan_events", (|| {
-        let root = clean_input_path(&path);
-        read_directory_info(&root)?;
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "scan_events",
+        (|| {
+            let root = clean_input_path(&path);
+            read_directory_info(&root)?;
 
-        let events_path = event_source_path(&root);
-        if !events_path.exists() {
-            return Ok(Vec::new());
-        }
-
-        let entries = fs::read_dir(&events_path)
-            .map_err(|error| format!("Failed to read {}: {error}", normalize_path(&events_path)))?;
-
-        let mut events = Vec::new();
-        for entry in entries {
-            let entry = entry.map_err(|error| format!("Failed to inspect event entry: {error}"))?;
-            let absolute_path = entry.path();
-            if !absolute_path.is_file() {
-                continue;
+            let events_path = event_source_path(&root);
+            if !events_path.exists() {
+                return Ok(Vec::new());
             }
 
-            let is_xnb = absolute_path
-                .extension()
-                .and_then(|value| value.to_str())
-                .is_some_and(|value| value.eq_ignore_ascii_case("xnb"));
-            if !is_xnb {
-                continue;
+            let entries = fs::read_dir(&events_path).map_err(|error| {
+                format!("Failed to read {}: {error}", normalize_path(&events_path))
+            })?;
+
+            let mut events = Vec::new();
+            for entry in entries {
+                let entry =
+                    entry.map_err(|error| format!("Failed to inspect event entry: {error}"))?;
+                let absolute_path = entry.path();
+                if !absolute_path.is_file() {
+                    continue;
+                }
+
+                let is_xnb = absolute_path
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|value| value.eq_ignore_ascii_case("xnb"));
+                if !is_xnb {
+                    continue;
+                }
+
+                let stem = absolute_path
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default();
+
+                if stem.rsplit_once('.').is_some_and(|(_, suffix)| {
+                    suffix.len() == 5 && suffix.chars().nth(2) == Some('-')
+                }) {
+                    continue;
+                }
+
+                let metadata = entry
+                    .metadata()
+                    .map_err(|error| format!("Failed to read file metadata: {error}"))?;
+                let relative_path = absolute_path
+                    .strip_prefix(&root)
+                    .map_err(|error| format!("Failed to derive relative path: {error}"))?;
+                let name = stem.to_string();
+                let file_name = absolute_path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_string();
+
+                events.push(EventAssetSummary {
+                    id: normalize_path(relative_path).replace('\\', "/"),
+                    name,
+                    file_name,
+                    absolute_path: normalize_path(&absolute_path),
+                    relative_path: normalize_path(relative_path),
+                    size_bytes: metadata.len(),
+                });
             }
 
-            let stem = absolute_path
-                .file_stem()
-                .and_then(|value| value.to_str())
-                .unwrap_or_default();
-
-            if stem.rsplit_once('.').is_some_and(|(_, suffix)| {
-                suffix.len() == 5 && suffix.chars().nth(2) == Some('-')
-            }) {
-                continue;
-            }
-
-            let metadata = entry
-                .metadata()
-                .map_err(|error| format!("Failed to read file metadata: {error}"))?;
-            let relative_path = absolute_path
-                .strip_prefix(&root)
-                .map_err(|error| format!("Failed to derive relative path: {error}"))?;
-            let name = stem.to_string();
-            let file_name = absolute_path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .unwrap_or_default()
-                .to_string();
-
-            events.push(EventAssetSummary {
-                id: normalize_path(relative_path).replace('\\', "/"),
-                name,
-                file_name,
-                absolute_path: normalize_path(&absolute_path),
-                relative_path: normalize_path(relative_path),
-                size_bytes: metadata.len(),
-            });
-        }
-
-        events.sort_by(|left, right| left.name.cmp(&right.name));
-        Ok(events)
-    })())
+            events.sort_by(|left, right| left.name.cmp(&right.name));
+            Ok(events)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -724,87 +741,95 @@ pub fn load_map_asset(
     map_path: String,
     locale: Option<String>,
 ) -> Result<MapAssetContent, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_map_asset", (|| {
-        let root = clean_input_path(&root_path);
-        let requested_locale = locale.as_deref();
-        let absolute_path =
-            preferred_existing_xnb_path(&clean_input_path(&map_path), requested_locale);
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_map_asset",
+        (|| {
+            let root = clean_input_path(&root_path);
+            let requested_locale = locale.as_deref();
+            let absolute_path =
+                preferred_existing_xnb_path(&clean_input_path(&map_path), requested_locale);
 
-        if !absolute_path.exists() {
-            return Err(format!(
-                "Map file does not exist: {}",
-                normalize_path(&absolute_path)
-            ));
-        }
-
-        let relative_path = absolute_path
-            .strip_prefix(&root)
-            .map_err(|error| format!("Map path is outside the selected game directory: {error}"))?;
-        let logical_relative_path = logicalized_asset_path(relative_path);
-
-        let format = absolute_path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-
-        let content = match format.as_str() {
-            "xnb" => {
-                if let Some(content) =
-                    read_cached_string_asset("map", &absolute_path, requested_locale)?
-                {
-                    content
-                } else {
-                    let xnb = read_xnb_from_path(&absolute_path)?;
-                    let bytes = xnb
-                        .content
-                        .as_bytes()
-                        .ok_or_else(|| "Map XNB did not contain TBin data.".to_string())?;
-                    let map = parse_tbin_map(
-                        bytes,
-                        &absolute_path,
-                        &normalize_path(&logical_relative_path),
-                    )?;
-                    let content = serde_json::to_string(&map)
-                        .map_err(|error| format!("Failed to serialize map: {error}"))?;
-                    if let Err(error) =
-                        write_cached_string_asset("map", &absolute_path, requested_locale, &content)
-                    {
-                        log::warn!(
-                            "Failed to cache parsed map {}: {}",
-                            normalize_path(&absolute_path),
-                            error
-                        );
-                    }
-                    content
-                }
-            }
-            "tmx" => {
-                return Err("TMX loading is no longer supported. Load XNB maps instead.".to_string());
-            }
-            _ => {
+            if !absolute_path.exists() {
                 return Err(format!(
-                    "Unsupported map format for {}",
+                    "Map file does not exist: {}",
                     normalize_path(&absolute_path)
-                ))
+                ));
             }
-        };
 
-        let name = absolute_path
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .map(|value| split_localized_stem(value).0)
-            .unwrap_or("Unnamed")
-            .to_string();
+            let relative_path = absolute_path.strip_prefix(&root).map_err(|error| {
+                format!("Map path is outside the selected game directory: {error}")
+            })?;
+            let logical_relative_path = logicalized_asset_path(relative_path);
 
-        Ok(MapAssetContent {
-            name,
-            format,
-            absolute_path: normalize_path(&absolute_path),
-            relative_path: normalize_path(&logical_relative_path),
-            content,
-        })
-    })())
+            let format = absolute_path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+
+            let content = match format.as_str() {
+                "xnb" => {
+                    if let Some(content) =
+                        read_cached_string_asset("map", &absolute_path, requested_locale)?
+                    {
+                        content
+                    } else {
+                        let xnb = read_xnb_from_path(&absolute_path)?;
+                        let bytes = xnb
+                            .content
+                            .as_bytes()
+                            .ok_or_else(|| "Map XNB did not contain TBin data.".to_string())?;
+                        let map = parse_tbin_map(
+                            bytes,
+                            &absolute_path,
+                            &normalize_path(&logical_relative_path),
+                        )?;
+                        let content = serde_json::to_string(&map)
+                            .map_err(|error| format!("Failed to serialize map: {error}"))?;
+                        if let Err(error) = write_cached_string_asset(
+                            "map",
+                            &absolute_path,
+                            requested_locale,
+                            &content,
+                        ) {
+                            log::warn!(
+                                "Failed to cache parsed map {}: {}",
+                                normalize_path(&absolute_path),
+                                error
+                            );
+                        }
+                        content
+                    }
+                }
+                "tmx" => {
+                    return Err(
+                        "TMX loading is no longer supported. Load XNB maps instead.".to_string()
+                    );
+                }
+                _ => {
+                    return Err(format!(
+                        "Unsupported map format for {}",
+                        normalize_path(&absolute_path)
+                    ))
+                }
+            };
+
+            let name = absolute_path
+                .file_stem()
+                .and_then(|value| value.to_str())
+                .map(|value| split_localized_stem(value).0)
+                .unwrap_or("Unnamed")
+                .to_string();
+
+            Ok(MapAssetContent {
+                name,
+                format,
+                absolute_path: normalize_path(&absolute_path),
+                relative_path: normalize_path(&logical_relative_path),
+                content,
+            })
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -813,181 +838,215 @@ pub fn load_text_asset(
     asset_path: String,
     locale: Option<String>,
 ) -> Result<TextAssetContent, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_text_asset", (|| {
-        let root = clean_input_path(&root_path);
-        let requested_path = root.join(clean_input_path(&asset_path));
-        let requested_locale = locale.as_deref();
-        let absolute_path = preferred_existing_xnb_path(&requested_path, requested_locale);
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_text_asset",
+        (|| {
+            let root = clean_input_path(&root_path);
+            let requested_path = root.join(clean_input_path(&asset_path));
+            let requested_locale = locale.as_deref();
+            let absolute_path = preferred_existing_xnb_path(&requested_path, requested_locale);
 
-        if !absolute_path.exists() {
-            return Err(format!(
-                "Text asset does not exist: {}",
-                normalize_path(&absolute_path)
-            ));
-        }
+            if !absolute_path.exists() {
+                return Err(format!(
+                    "Text asset does not exist: {}",
+                    normalize_path(&absolute_path)
+                ));
+            }
 
-        let relative_path = absolute_path.strip_prefix(&root).map_err(|error| {
-            format!("Text asset path is outside the selected game directory: {error}")
-        })?;
-        let logical_relative_path = logicalized_asset_path(relative_path);
+            let relative_path = absolute_path.strip_prefix(&root).map_err(|error| {
+                format!("Text asset path is outside the selected game directory: {error}")
+            })?;
+            let logical_relative_path = logicalized_asset_path(relative_path);
 
-        let content = match absolute_path.extension().and_then(|value| value.to_str()) {
-            Some(ext) if ext.eq_ignore_ascii_case("xnb") => {
-                if let Some(content) =
-                    read_cached_string_asset("text", &absolute_path, requested_locale)?
-                {
-                    content
-                } else {
-                    let (content, cacheable_source_path) = match read_xnb_from_path(&absolute_path) {
-                        Ok(xnb) => {
-                            let json = xnb.content.to_json();
-                            (
-                                serde_json::to_string(&json).map_err(|error| {
-                                    format!("Failed to serialize XNB data: {error}")
-                                })?,
-                                Some(absolute_path.as_path()),
-                            )
-                        }
-                        Err(xnb_error) => {
-                            if let Some(content) =
-                                read_unpacked_text_asset(&root, &logical_relative_path)?
-                            {
-                                log::warn!(
+            let content = match absolute_path.extension().and_then(|value| value.to_str()) {
+                Some(ext) if ext.eq_ignore_ascii_case("xnb") => {
+                    if let Some(content) =
+                        read_cached_string_asset("text", &absolute_path, requested_locale)?
+                    {
+                        content
+                    } else {
+                        let (content, cacheable_source_path) = match read_xnb_from_path(
+                            &absolute_path,
+                        ) {
+                            Ok(xnb) => {
+                                let json = xnb.content.to_json();
+                                (
+                                    serde_json::to_string(&json).map_err(|error| {
+                                        format!("Failed to serialize XNB data: {error}")
+                                    })?,
+                                    Some(absolute_path.as_path()),
+                                )
+                            }
+                            Err(xnb_error) => {
+                                if let Some(content) =
+                                    read_unpacked_text_asset(&root, &logical_relative_path)?
+                                {
+                                    log::warn!(
                                     "Falling back to unpacked JSON for {} after XNB parse failure: {}",
                                     normalize_path(&absolute_path),
                                     xnb_error
                                 );
-                                (content, None)
-                            } else {
-                                let fallback_hint =
-                                    unpacked_text_asset_path(&root, &logical_relative_path)
-                                        .map(|path| {
-                                            format!(
-                                                " Checked unpacked fallback at {}.",
-                                                normalize_path(&path)
-                                            )
-                                        })
-                                        .unwrap_or_default();
-                                return Err(format!(
-                                    "Failed to parse XNB text asset {}: {}.{}",
+                                    (content, None)
+                                } else {
+                                    let fallback_hint =
+                                        unpacked_text_asset_path(&root, &logical_relative_path)
+                                            .map(|path| {
+                                                format!(
+                                                    " Checked unpacked fallback at {}.",
+                                                    normalize_path(&path)
+                                                )
+                                            })
+                                            .unwrap_or_default();
+                                    return Err(format!(
+                                        "Failed to parse XNB text asset {}: {}.{}",
+                                        normalize_path(&absolute_path),
+                                        xnb_error,
+                                        fallback_hint
+                                    ));
+                                }
+                            }
+                        };
+                        if let Some(cacheable_source_path) = cacheable_source_path {
+                            if let Err(error) = write_cached_string_asset(
+                                "text",
+                                cacheable_source_path,
+                                requested_locale,
+                                &content,
+                            ) {
+                                log::warn!(
+                                    "Failed to cache text asset {}: {}",
                                     normalize_path(&absolute_path),
-                                    xnb_error,
-                                    fallback_hint
-                                ));
+                                    error
+                                );
                             }
                         }
-                    };
-                    if let Some(cacheable_source_path) = cacheable_source_path {
+                        content
+                    }
+                }
+                _ => {
+                    if let Some(content) =
+                        read_cached_string_asset("text-file", &absolute_path, requested_locale)?
+                    {
+                        content
+                    } else {
+                        let content = fs::read_to_string(&absolute_path).map_err(|error| {
+                            format!(
+                                "Failed to read text asset {}: {error}",
+                                normalize_path(&absolute_path)
+                            )
+                        })?;
                         if let Err(error) = write_cached_string_asset(
-                            "text",
-                            cacheable_source_path,
+                            "text-file",
+                            &absolute_path,
                             requested_locale,
                             &content,
                         ) {
                             log::warn!(
-                                "Failed to cache text asset {}: {}",
+                                "Failed to cache text file {}: {}",
                                 normalize_path(&absolute_path),
                                 error
                             );
                         }
+                        content
                     }
-                    content
                 }
-            }
-            _ => {
-                if let Some(content) =
-                    read_cached_string_asset("text-file", &absolute_path, requested_locale)?
-                {
-                    content
-                } else {
-                    let content = fs::read_to_string(&absolute_path).map_err(|error| {
-                        format!(
-                            "Failed to read text asset {}: {error}",
-                            normalize_path(&absolute_path)
-                        )
-                    })?;
-                    if let Err(error) = write_cached_string_asset(
-                        "text-file",
-                        &absolute_path,
-                        requested_locale,
-                        &content,
-                    ) {
-                        log::warn!(
-                            "Failed to cache text file {}: {}",
-                            normalize_path(&absolute_path),
-                            error
-                        );
-                    }
-                    content
-                }
-            }
-        };
+            };
 
-        Ok(TextAssetContent {
-            absolute_path: normalize_path(&absolute_path),
-            relative_path: normalize_path(&logical_relative_path),
-            content,
-        })
-    })())
+            Ok(TextAssetContent {
+                absolute_path: normalize_path(&absolute_path),
+                relative_path: normalize_path(&logical_relative_path),
+                content,
+            })
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn load_text_file(path: String) -> Result<LocalTextFileContent, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_text_file", (|| {
-        let absolute_path = clean_input_path(&path);
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_text_file",
+        (|| {
+            let absolute_path = clean_input_path(&path);
 
-        if !absolute_path.exists() {
-            return Err(format!(
-                "Text file does not exist: {}",
-                normalize_path(&absolute_path)
-            ));
-        }
+            if !absolute_path.exists() {
+                return Err(format!(
+                    "Text file does not exist: {}",
+                    normalize_path(&absolute_path)
+                ));
+            }
 
-        let content = fs::read_to_string(&absolute_path).map_err(|error| {
-            format!(
-                "Failed to read text file {}: {error}",
-                normalize_path(&absolute_path)
-            )
-        })?;
+            let content = fs::read_to_string(&absolute_path).map_err(|error| {
+                format!(
+                    "Failed to read text file {}: {error}",
+                    normalize_path(&absolute_path)
+                )
+            })?;
 
-        Ok(LocalTextFileContent {
-            absolute_path: normalize_path(&absolute_path),
-            content,
-        })
-    })())
+            Ok(LocalTextFileContent {
+                absolute_path: normalize_path(&absolute_path),
+                content,
+            })
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn load_image_data_url(path: String, locale: Option<String>) -> Result<String, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_image_data_url", (|| {
-        let requested_locale = locale.as_deref();
-        let absolute_path = preferred_existing_xnb_path(&clean_input_path(&path), requested_locale);
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_image_data_url",
+        (|| {
+            let requested_locale = locale.as_deref();
+            let absolute_path =
+                preferred_existing_xnb_path(&clean_input_path(&path), requested_locale);
 
-        if !absolute_path.exists() {
-            return Err(format!(
-                "Image file does not exist: {}",
-                normalize_path(&absolute_path)
-            ));
-        }
+            if !absolute_path.exists() {
+                return Err(format!(
+                    "Image file does not exist: {}",
+                    normalize_path(&absolute_path)
+                ));
+            }
 
-        if let Some(content) = read_cached_string_asset("image", &absolute_path, requested_locale)? {
-            return Ok(content);
-        }
+            if let Some(content) =
+                read_cached_string_asset("image", &absolute_path, requested_locale)?
+            {
+                return Ok(content);
+            }
 
-        let ext = absolute_path
-            .extension()
-            .and_then(|value| value.to_str())
-            .unwrap_or_default();
+            let ext = absolute_path
+                .extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default();
 
-        if ext.eq_ignore_ascii_case("xnb") {
-            let xnb = read_xnb_from_path(&absolute_path)?;
-            let texture = xnb
-                .content
-                .as_texture()
-                .ok_or_else(|| "XNB file did not contain a Texture2D asset.".to_string())?;
-            let png_bytes = encode_texture_png(texture)?;
-            let encoded = base64::engine::general_purpose::STANDARD.encode(png_bytes);
-            let payload = format!("data:image/png;base64,{encoded}");
+            if ext.eq_ignore_ascii_case("xnb") {
+                let xnb = read_xnb_from_path(&absolute_path)?;
+                let texture = xnb
+                    .content
+                    .as_texture()
+                    .ok_or_else(|| "XNB file did not contain a Texture2D asset.".to_string())?;
+                let png_bytes = encode_texture_png(texture)?;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(png_bytes);
+                let payload = format!("data:image/png;base64,{encoded}");
+                if let Err(error) =
+                    write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
+                {
+                    log::warn!(
+                        "Failed to cache image asset {}: {}",
+                        normalize_path(&absolute_path),
+                        error
+                    );
+                }
+                return Ok(payload);
+            }
+
+            let bytes = fs::read(&absolute_path).map_err(|error| {
+                format!(
+                    "Failed to read image file {}: {error}",
+                    normalize_path(&absolute_path)
+                )
+            })?;
+            let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+            let mime = infer_image_mime(&absolute_path);
+            let payload = format!("data:{mime};base64,{encoded}");
             if let Err(error) =
                 write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
             {
@@ -997,73 +1056,59 @@ pub fn load_image_data_url(path: String, locale: Option<String>) -> Result<Strin
                     error
                 );
             }
-            return Ok(payload);
-        }
-
-        let bytes = fs::read(&absolute_path).map_err(|error| {
-            format!(
-                "Failed to read image file {}: {error}",
-                normalize_path(&absolute_path)
-            )
-        })?;
-        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-        let mime = infer_image_mime(&absolute_path);
-        let payload = format!("data:{mime};base64,{encoded}");
-        if let Err(error) =
-            write_cached_string_asset("image", &absolute_path, requested_locale, &payload)
-        {
-            log::warn!(
-                "Failed to cache image asset {}: {}",
-                normalize_path(&absolute_path),
-                error
-            );
-        }
-        Ok(payload)
-    })())
+            Ok(payload)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn scan_audio_assets(path: String) -> Result<Vec<AudioAssetSummary>, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("scan_audio_assets", (|| {
-        let root = clean_input_path(&path);
-        read_directory_info(&root)?;
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "scan_audio_assets",
+        (|| {
+            let root = clean_input_path(&path);
+            read_directory_info(&root)?;
 
-        let mut assets = Vec::new();
-        for candidate in audio_source_roots(&root) {
-            collect_audio_assets(&root, &candidate, &mut assets)?;
-        }
+            let mut assets = Vec::new();
+            for candidate in audio_source_roots(&root) {
+                collect_audio_assets(&root, &candidate, &mut assets)?;
+            }
 
-        assets.sort_by(|left, right| {
-            left.cue
-                .cmp(&right.cue)
-                .then_with(|| left.kind.cmp(&right.kind))
-        });
-        Ok(assets)
-    })())
+            assets.sort_by(|left, right| {
+                left.cue
+                    .cmp(&right.cue)
+                    .then_with(|| left.kind.cmp(&right.kind))
+            });
+            Ok(assets)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn load_audio_data_url(path: String) -> Result<String, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_audio_data_url", (|| {
-        let absolute_path = clean_input_path(&path);
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_audio_data_url",
+        (|| {
+            let absolute_path = clean_input_path(&path);
 
-        if !absolute_path.exists() {
-            return Err(format!(
-                "Audio file does not exist: {}",
-                normalize_path(&absolute_path)
-            ));
-        }
+            if !absolute_path.exists() {
+                return Err(format!(
+                    "Audio file does not exist: {}",
+                    normalize_path(&absolute_path)
+                ));
+            }
 
-        let bytes = fs::read(&absolute_path).map_err(|error| {
-            format!(
-                "Failed to read audio file {}: {error}",
-                normalize_path(&absolute_path)
-            )
-        })?;
-        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-        let mime = infer_audio_mime(&absolute_path);
-        Ok(format!("data:{mime};base64,{encoded}"))
-    })())
+            let bytes = fs::read(&absolute_path).map_err(|error| {
+                format!(
+                    "Failed to read audio file {}: {error}",
+                    normalize_path(&absolute_path)
+                )
+            })?;
+            let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+            let mime = infer_audio_mime(&absolute_path);
+            Ok(format!("data:{mime};base64,{encoded}"))
+        })(),
+    )
 }
 
 #[cfg(test)]

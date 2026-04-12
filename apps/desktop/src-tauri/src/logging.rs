@@ -109,22 +109,27 @@ where
     LogError: FnOnce(String),
 {
     if let Err(error) = &result {
-        log_error(format_tauri_command_error(command_name, &describe_error(error)));
+        log_error(format_tauri_command_error(
+            command_name,
+            &describe_error(error),
+        ));
     }
 
     result
 }
 
-pub fn log_tauri_command_error<T, E>(
-    command_name: &str,
-    result: Result<T, E>,
-) -> Result<T, E>
+pub fn log_tauri_command_error<T, E>(command_name: &str, result: Result<T, E>) -> Result<T, E>
 where
     E: Display,
 {
-    log_tauri_command_error_with(command_name, result, |error| error.to_string(), |message| {
-        log::error!(target: COMMAND_LOG_TARGET, "{message}");
-    })
+    log_tauri_command_error_with(
+        command_name,
+        result,
+        |error| error.to_string(),
+        |message| {
+            log::error!(target: COMMAND_LOG_TARGET, "{message}");
+        },
+    )
 }
 
 pub fn log_tauri_command_error_with_message<T, E, F>(
@@ -205,10 +210,7 @@ mod tests {
             },
         );
 
-        assert_eq!(
-            result.unwrap_err(),
-            "content pipeline exploded".to_string()
-        );
+        assert_eq!(result.unwrap_err(), "content pipeline exploded".to_string());
         assert_eq!(
             captured.as_deref(),
             Some("Tauri command `scan_maps` failed: content pipeline exploded")

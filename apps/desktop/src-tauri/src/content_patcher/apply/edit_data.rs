@@ -115,9 +115,7 @@ fn resolve_target_field<'a>(
                 }
 
                 let array = current.as_array_mut().ok_or_else(|| {
-                    format!(
-                        "EditData TargetField index `{array_index}` requires a JSON array."
-                    )
+                    format!("EditData TargetField index `{array_index}` requires a JSON array.")
                 })?;
 
                 while array.len() <= *array_index {

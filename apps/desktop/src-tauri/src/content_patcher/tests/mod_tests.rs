@@ -580,7 +580,10 @@ fn load_content_patcher_result_asset_applies_target_field_entries_to_character_a
     std::fs::create_dir_all(&pack_root).expect("pack dir");
 
     std::fs::write(
-        game_root.join("Content").join("Data").join("Characters.json"),
+        game_root
+            .join("Content")
+            .join("Data")
+            .join("Characters.json"),
         r#"{
   "Emily": {
     "DisplayName": "Emily",
@@ -650,9 +653,9 @@ fn load_content_patcher_result_asset_applies_target_field_entries_to_character_a
         .expect("appearance array");
 
     assert_eq!(appearance.len(), 2);
-    assert!(appearance.iter().any(|entry| {
-        entry.get("Id").and_then(Value::as_str) == Some("Vanilla.EmilyWinter")
-    }));
+    assert!(appearance
+        .iter()
+        .any(|entry| { entry.get("Id").and_then(Value::as_str) == Some("Vanilla.EmilyWinter") }));
     assert!(appearance.iter().any(|entry| {
         entry.get("Id").and_then(Value::as_str) == Some("ModForge.EmilySpring")
             && entry.get("Portrait").and_then(Value::as_str) == Some("Portraits/Emily_Spring")

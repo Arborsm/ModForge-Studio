@@ -3,8 +3,7 @@ use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
-    LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest,
-    OpenLauncherUrlRequest,
+    LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest,
 };
 use crate::pathing::{clean_input_path, normalize_path};
 use std::fs;
@@ -126,52 +125,62 @@ pub fn launch_launcher_game(
 
 #[tauri::command]
 pub fn get_launcher_backup_directory(app: tauri::AppHandle) -> Result<String, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("get_launcher_backup_directory", (|| {
-        let backup_dir = launcher_backup_dir(&app)?;
-        fs::create_dir_all(&backup_dir).map_err(|error| {
-            format!(
-                "Failed to create launcher backup directory {}: {error}",
-                normalize_path(&backup_dir)
-            )
-        })?;
-        Ok(normalize_path(&backup_dir))
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "get_launcher_backup_directory",
+        (|| {
+            let backup_dir = launcher_backup_dir(&app)?;
+            fs::create_dir_all(&backup_dir).map_err(|error| {
+                format!(
+                    "Failed to create launcher backup directory {}: {error}",
+                    normalize_path(&backup_dir)
+                )
+            })?;
+            Ok(normalize_path(&backup_dir))
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("open_launcher_path", (|| {
-        let path = request.path.trim();
-        if path.is_empty() {
-            return Err("path is required.".to_string());
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "open_launcher_path",
+        (|| {
+            let path = request.path.trim();
+            if path.is_empty() {
+                return Err("path is required.".to_string());
+            }
 
-        let resolved = clean_input_path(path);
-        if !resolved.exists() {
-            return Err(format!(
-                "Launcher path {} does not exist.",
-                normalize_path(&resolved)
-            ));
-        }
+            let resolved = clean_input_path(path);
+            if !resolved.exists() {
+                return Err(format!(
+                    "Launcher path {} does not exist.",
+                    normalize_path(&resolved)
+                ));
+            }
 
-        open_path_in_shell(&resolved)
-    })())
+            open_path_in_shell(&resolved)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> Result<(), String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("open_launcher_url", (|| {
-        let raw_url = request.url.trim();
-        if raw_url.is_empty() {
-            return Err("url is required.".to_string());
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "open_launcher_url",
+        (|| {
+            let raw_url = request.url.trim();
+            if raw_url.is_empty() {
+                return Err("url is required.".to_string());
+            }
 
-        let parsed = Url::parse(raw_url).map_err(|error| format!("Invalid launcher URL {raw_url}: {error}"))?;
-        match parsed.scheme() {
-            "http" | "https" => open_url_in_shell(parsed.as_str()),
-            scheme => Err(format!("Unsupported launcher URL scheme: {scheme}.")),
-        }
-    })())
+            let parsed = Url::parse(raw_url)
+                .map_err(|error| format!("Invalid launcher URL {raw_url}: {error}"))?;
+            match parsed.scheme() {
+                "http" | "https" => open_url_in_shell(parsed.as_str()),
+                scheme => Err(format!("Unsupported launcher URL scheme: {scheme}.")),
+            }
+        })(),
+    )
 }
 
 #[cfg(target_os = "windows")]
@@ -179,7 +188,12 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
     let status = Command::new("explorer")
         .arg(path)
         .status()
-        .map_err(|error| format!("Failed to launch explorer for {}: {error}", normalize_path(path)))?;
+        .map_err(|error| {
+            format!(
+                "Failed to launch explorer for {}: {error}",
+                normalize_path(path)
+            )
+        })?;
     if !status.success() {
         return Err(format!("Explorer failed for {}.", normalize_path(path)));
     }
@@ -228,10 +242,12 @@ fn open_url_in_shell(url: &str) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 fn open_path_in_shell(path: &Path) -> Result<(), String> {
-    let status = Command::new("open")
-        .arg(path)
-        .status()
-        .map_err(|error| format!("Failed to launch open for {}: {error}", normalize_path(path)))?;
+    let status = Command::new("open").arg(path).status().map_err(|error| {
+        format!(
+            "Failed to launch open for {}: {error}",
+            normalize_path(path)
+        )
+    })?;
     if !status.success() {
         return Err(format!("open failed for {}.", normalize_path(path)));
     }
@@ -244,7 +260,12 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
     let status = Command::new("xdg-open")
         .arg(path)
         .status()
-        .map_err(|error| format!("Failed to launch xdg-open for {}: {error}", normalize_path(path)))?;
+        .map_err(|error| {
+            format!(
+                "Failed to launch xdg-open for {}: {error}",
+                normalize_path(path)
+            )
+        })?;
     if !status.success() {
         return Err(format!("xdg-open failed for {}.", normalize_path(path)));
     }

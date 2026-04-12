@@ -98,7 +98,10 @@ pub(crate) fn unique_path(path: &Path) -> PathBuf {
         .and_then(|value| value.to_str())
         .unwrap_or("archive")
         .to_string();
-    let extension = path.extension().and_then(|value| value.to_str()).unwrap_or_default();
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
     for index in 2..1000 {
         let candidate_name = if extension.is_empty() {
             format!("{stem} ({index})")
@@ -180,12 +183,13 @@ pub(crate) fn merge_json_object_files(
             normalize_path(source_path)
         )
     })?;
-    let mut target_map: Map<String, Value> = serde_json::from_str(&target_json).map_err(|error| {
-        format!(
-            "Launcher JSON target {} is invalid: {error}",
-            normalize_path(target_path)
-        )
-    })?;
+    let mut target_map: Map<String, Value> =
+        serde_json::from_str(&target_json).map_err(|error| {
+            format!(
+                "Launcher JSON target {} is invalid: {error}",
+                normalize_path(target_path)
+            )
+        })?;
 
     for (key, value) in source_map {
         target_map.entry(key).or_insert(value);
@@ -216,8 +220,8 @@ pub(crate) fn move_directory(source: &Path, destination: &Path) -> Result<(), St
             normalize_path(source)
         )
     })? {
-        let entry =
-            entry.map_err(|error| format!("Failed to inspect launcher extracted entry: {error}"))?;
+        let entry = entry
+            .map_err(|error| format!("Failed to inspect launcher extracted entry: {error}"))?;
         let path = entry.path();
         let target_path = destination.join(entry.file_name());
         if path.is_dir() {

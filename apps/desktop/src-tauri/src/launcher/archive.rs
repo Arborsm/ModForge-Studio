@@ -7,8 +7,8 @@ use super::paths::{launcher_backup_dir, launcher_settings_path, launcher_updates
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
-    InstallLauncherArchiveRequest, InstallLauncherArchiveResult, InspectLauncherArchiveRequest,
-    InspectLauncherArchiveResult, LauncherArchiveTreeNode,
+    InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
+    InstallLauncherArchiveResult, LauncherArchiveTreeNode,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::pathing::{clean_input_path, normalize_path};
@@ -130,7 +130,9 @@ fn build_archive_tree(
         })?;
 
         if name.eq_ignore_ascii_case("manifest.json") {
-            state.mod_roots.insert(manifest_root_for_entry(&relative_path));
+            state
+                .mod_roots
+                .insert(manifest_root_for_entry(&relative_path));
         }
 
         nodes.push(LauncherArchiveTreeNode {
@@ -146,7 +148,11 @@ fn build_archive_tree(
         right
             .is_directory
             .cmp(&left.is_directory)
-            .then_with(|| left.name.to_ascii_lowercase().cmp(&right.name.to_ascii_lowercase()))
+            .then_with(|| {
+                left.name
+                    .to_ascii_lowercase()
+                    .cmp(&right.name.to_ascii_lowercase())
+            })
             .then_with(|| left.path.cmp(&right.path))
     });
 
@@ -238,14 +244,17 @@ pub(crate) fn install_archive_at_path(
         let mod_name = project_name_from_manifest(&manifest, extracted_root);
         let unique_id = string_field(&manifest, "UniqueID");
         let version = string_field(&manifest, "Version");
-        let existing_mod_path = unique_id
-            .as_deref()
-            .and_then(|item| find_existing_mod_path_by_unique_id(&mods_path, item).ok().flatten());
+        let existing_mod_path = unique_id.as_deref().and_then(|item| {
+            find_existing_mod_path_by_unique_id(&mods_path, item)
+                .ok()
+                .flatten()
+        });
         let _backup_snapshot =
             backup_existing_mod_to_launcher_dir(existing_mod_path.as_deref(), backup_root)?;
         let backup_root = temp_root.join("_backup");
         let preserved_config = backup_existing_config(existing_mod_path.as_deref(), &backup_root)?;
-        let preserved_i18n_files = backup_existing_i18n(existing_mod_path.as_deref(), &backup_root)?;
+        let preserved_i18n_files =
+            backup_existing_i18n(existing_mod_path.as_deref(), &backup_root)?;
 
         if let Some(existing_path) = existing_mod_path.as_deref() {
             log_launcher_trace(
@@ -299,11 +308,17 @@ pub(crate) fn install_archive_at_path(
                 ("modName", result.mod_name.clone()),
                 (
                     "uniqueId",
-                    result.unique_id.clone().unwrap_or_else(|| "unknown".to_string()),
+                    result
+                        .unique_id
+                        .clone()
+                        .unwrap_or_else(|| "unknown".to_string()),
                 ),
                 (
                     "version",
-                    result.version.clone().unwrap_or_else(|| "unknown".to_string()),
+                    result
+                        .version
+                        .clone()
+                        .unwrap_or_else(|| "unknown".to_string()),
                 ),
             ],
         );
@@ -388,7 +403,9 @@ fn expand_archive_to_path(archive_path: &Path, destination_path: &Path) -> Resul
             "Expand-Archive -LiteralPath '{archive}' -DestinationPath '{destination}' -Force"
         ))
         .status()
-        .map_err(|error| format!("Failed to launch Expand-Archive for launcher install: {error}"))?;
+        .map_err(|error| {
+            format!("Failed to launch Expand-Archive for launcher install: {error}")
+        })?;
     if !status.success() {
         return Err(format!(
             "Expand-Archive failed for launcher install {}.",
@@ -420,7 +437,10 @@ fn find_existing_mod_path_by_unique_id(
     }))
 }
 
-fn backup_existing_config(existing_mod_path: Option<&Path>, backup_root: &Path) -> Result<bool, String> {
+fn backup_existing_config(
+    existing_mod_path: Option<&Path>,
+    backup_root: &Path,
+) -> Result<bool, String> {
     let Some(existing_mod_path) = existing_mod_path else {
         return Ok(false);
     };
@@ -444,7 +464,10 @@ fn backup_existing_config(existing_mod_path: Option<&Path>, backup_root: &Path) 
     Ok(true)
 }
 
-fn backup_existing_i18n(existing_mod_path: Option<&Path>, backup_root: &Path) -> Result<usize, String> {
+fn backup_existing_i18n(
+    existing_mod_path: Option<&Path>,
+    backup_root: &Path,
+) -> Result<usize, String> {
     let Some(existing_mod_path) = existing_mod_path else {
         return Ok(0);
     };
@@ -468,7 +491,8 @@ fn backup_existing_i18n(existing_mod_path: Option<&Path>, backup_root: &Path) ->
             normalize_path(&i18n_path)
         )
     })? {
-        let entry = entry.map_err(|error| format!("Failed to inspect launcher i18n entry: {error}"))?;
+        let entry =
+            entry.map_err(|error| format!("Failed to inspect launcher i18n entry: {error}"))?;
         let path = entry.path();
         if !path.is_file() || path.extension().and_then(|value| value.to_str()) != Some("json") {
             continue;
@@ -521,7 +545,8 @@ fn restore_backed_up_i18n(backup_root: &Path, target_mod_path: &Path) -> Result<
             normalize_path(&backup_i18n_path)
         )
     })? {
-        let entry = entry.map_err(|error| format!("Failed to inspect launcher i18n backup entry: {error}"))?;
+        let entry = entry
+            .map_err(|error| format!("Failed to inspect launcher i18n backup entry: {error}"))?;
         let source_path = entry.path();
         if !source_path.is_file()
             || source_path.extension().and_then(|value| value.to_str()) != Some("json")
@@ -551,41 +576,47 @@ pub fn install_launcher_archive(
     app: tauri::AppHandle,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("install_launcher_archive", (|| {
-        let settings_path = launcher_settings_path(&app)?;
-        let settings = load_or_create_settings_at_path(&settings_path)?;
-        let result = install_archive_at_path(
-            &clean_input_path(request.archive_path.trim()),
-            request
-                .mods_path
-                .as_deref()
-                .filter(|value| !value.trim().is_empty())
-                .or(settings.mods_path.as_deref()),
-            Some(launcher_backup_dir(&app)?.as_path()),
-        )?;
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "install_launcher_archive",
+        (|| {
+            let settings_path = launcher_settings_path(&app)?;
+            let settings = load_or_create_settings_at_path(&settings_path)?;
+            let result = install_archive_at_path(
+                &clean_input_path(request.archive_path.trim()),
+                request
+                    .mods_path
+                    .as_deref()
+                    .filter(|value| !value.trim().is_empty())
+                    .or(settings.mods_path.as_deref()),
+                Some(launcher_backup_dir(&app)?.as_path()),
+            )?;
 
-        if let Some(mods_path) = clean_input_path(&result.target_path)
-            .parent()
-            .map(normalize_path)
-        {
-            let cache_path = launcher_updates_cache_path(&app)?;
-            invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
-        }
+            if let Some(mods_path) = clean_input_path(&result.target_path)
+                .parent()
+                .map(normalize_path)
+            {
+                let cache_path = launcher_updates_cache_path(&app)?;
+                invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
+            }
 
-        Ok(result)
-    })())
+            Ok(result)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn inspect_launcher_archive(
     request: InspectLauncherArchiveRequest,
 ) -> Result<InspectLauncherArchiveResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("inspect_launcher_archive", (|| {
-        let archive_path = request.archive_path.trim();
-        if archive_path.is_empty() {
-            return Err("archivePath is required.".to_string());
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "inspect_launcher_archive",
+        (|| {
+            let archive_path = request.archive_path.trim();
+            if archive_path.is_empty() {
+                return Err("archivePath is required.".to_string());
+            }
 
-        inspect_archive_at_path(&clean_input_path(archive_path))
-    })())
+            inspect_archive_at_path(&clean_input_path(archive_path))
+        })(),
+    )
 }

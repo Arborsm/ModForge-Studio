@@ -11,10 +11,10 @@ mod models;
 mod mods;
 mod pathing;
 mod saves;
-mod ui_state;
 mod tbin;
 #[cfg(test)]
 mod test_support;
+mod ui_state;
 mod xact;
 mod xnb;
 
@@ -29,25 +29,23 @@ use content_patcher::{
     export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher,
 };
 use launcher::{
-    clear_launcher_image_cache,
-    check_launcher_updates, download_launcher_mod, get_launcher_backup_directory,
-    inspect_launcher_archive, install_launcher_archive, load_launcher_download_queue,
-    load_cached_launcher_updates,
+    check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
+    get_launcher_backup_directory, inspect_launcher_archive, install_launcher_archive,
+    launch_launcher_game, load_cached_launcher_updates, load_launcher_download_queue,
     load_launcher_library_covers, load_launcher_library_state, load_launcher_remote_mod_detail,
-    load_launcher_settings, load_launcher_update_changelog, launch_launcher_game,
-    open_launcher_path, open_launcher_url, persist_launcher_library_remote_cover,
-    resolve_launcher_image, save_launcher_download_queue, save_launcher_library_state,
-    save_launcher_settings, scan_launcher_library, search_launcher_catalog,
-    set_launcher_library_cover, set_launcher_mod_enabled,
+    load_launcher_settings, load_launcher_update_changelog, open_launcher_path, open_launcher_url,
+    persist_launcher_library_remote_cover, resolve_launcher_image, save_launcher_download_queue,
+    save_launcher_library_state, save_launcher_settings, scan_launcher_library,
+    search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
 };
 use logging::{
     build_logging_plugin, set_debug_logging_enabled, write_frontend_log, DebugLoggingState,
 };
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
+use tauri::Manager;
 use ui_state::{load_app_ui_state, patch_app_ui_state};
 use xact::load_xact_audio_data_url;
-use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

@@ -329,7 +329,9 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
             discover_toolbar: AppUiDiscoverToolbarState {
                 sort: normalize_discover_sort(&state.launcher.discover_toolbar.sort),
                 ascending: state.launcher.discover_toolbar.ascending,
-                time_range: normalize_discover_time_range(&state.launcher.discover_toolbar.time_range),
+                time_range: normalize_discover_time_range(
+                    &state.launcher.discover_toolbar.time_range,
+                ),
                 page_size: normalize_discover_page_size(state.launcher.discover_toolbar.page_size),
                 filters_hidden: state.launcher.discover_toolbar.filters_hidden,
             },
@@ -339,8 +341,12 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
 
 fn save_app_ui_state_at_path(path: &Path, state: &AppUiState) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("Failed to create app UI state directory {}: {error}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|error| {
+            format!(
+                "Failed to create app UI state directory {}: {error}",
+                parent.display()
+            )
+        })?;
     }
     let normalized = normalize_app_ui_state(state.clone());
     let json = serde_json::to_string_pretty(&normalized)
@@ -429,10 +435,13 @@ pub(crate) fn patch_app_ui_state_at_path(
 
 #[tauri::command]
 pub fn load_app_ui_state(app: tauri::AppHandle) -> Result<AppUiState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_app_ui_state", (|| {
-        let path = app_ui_state_path(&app)?;
-        load_or_create_app_ui_state_at_path(&path)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_app_ui_state",
+        (|| {
+            let path = app_ui_state_path(&app)?;
+            load_or_create_app_ui_state_at_path(&path)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -440,10 +449,13 @@ pub fn patch_app_ui_state(
     app: tauri::AppHandle,
     request: AppUiStatePatch,
 ) -> Result<AppUiState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("patch_app_ui_state", (|| {
-        let path = app_ui_state_path(&app)?;
-        patch_app_ui_state_at_path(&path, request)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "patch_app_ui_state",
+        (|| {
+            let path = app_ui_state_path(&app)?;
+            patch_app_ui_state_at_path(&path, request)
+        })(),
+    )
 }
 
 #[cfg(test)]

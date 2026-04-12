@@ -90,12 +90,13 @@ pub(crate) fn load_or_create_download_queue_at_path(
                 normalize_path(queue_path)
             )
         })?;
-        let parsed: LauncherDownloadQueueState = serde_json::from_str(&content).map_err(|error| {
-            format!(
-                "Launcher download queue {} is invalid JSON: {error}",
-                normalize_path(queue_path)
-            )
-        })?;
+        let parsed: LauncherDownloadQueueState =
+            serde_json::from_str(&content).map_err(|error| {
+                format!(
+                    "Launcher download queue {} is invalid JSON: {error}",
+                    normalize_path(queue_path)
+                )
+            })?;
         return Ok(normalize_download_queue_state(parsed));
     }
 
@@ -133,10 +134,13 @@ pub(crate) fn save_download_queue_at_path(
 pub fn load_launcher_download_queue(
     app: tauri::AppHandle,
 ) -> Result<LauncherDownloadQueueState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_launcher_download_queue", (|| {
-        let queue_path = launcher_download_queue_path(&app)?;
-        load_or_create_download_queue_at_path(&queue_path)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_launcher_download_queue",
+        (|| {
+            let queue_path = launcher_download_queue_path(&app)?;
+            load_or_create_download_queue_at_path(&queue_path)
+        })(),
+    )
 }
 
 #[tauri::command]
@@ -144,12 +148,15 @@ pub fn save_launcher_download_queue(
     app: tauri::AppHandle,
     request: LauncherDownloadQueueState,
 ) -> Result<LauncherDownloadQueueState, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("save_launcher_download_queue", (|| {
-        let queue_path = launcher_download_queue_path(&app)?;
-        let normalized = normalize_download_queue_state(request);
-        save_download_queue_at_path(&queue_path, &normalized)?;
-        Ok(normalized)
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "save_launcher_download_queue",
+        (|| {
+            let queue_path = launcher_download_queue_path(&app)?;
+            let normalized = normalize_download_queue_state(request);
+            save_download_queue_at_path(&queue_path, &normalized)?;
+            Ok(normalized)
+        })(),
+    )
 }
 
 fn fetch_mod_files_payload(
@@ -157,13 +164,18 @@ fn fetch_mod_files_payload(
     api_key: &str,
     mod_id: i64,
 ) -> Result<Value, String> {
-    let response = client
-        .get(format!(
-            "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files.json"
-        ));
+    let response = client.get(format!(
+        "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files.json"
+    ));
     let headers = api_headers(api_key)?;
-    let response = send_nexus_request(|| response.try_clone().expect("request clone").headers(headers.clone()).send())
-        .map_err(|error| format!("Failed to fetch launcher mod files: {error}"))?;
+    let response = send_nexus_request(|| {
+        response
+            .try_clone()
+            .expect("request clone")
+            .headers(headers.clone())
+            .send()
+    })
+    .map_err(|error| format!("Failed to fetch launcher mod files: {error}"))?;
     if !response.status().is_success() {
         return Err(format!(
             "Launcher mod files request failed for {mod_id}: HTTP {}",
@@ -190,7 +202,9 @@ fn select_download_candidate(
     }
 
     let selected = if let Some(file_id) = requested_file_id {
-        files.iter().find(|item| item.get("file_id").and_then(Value::as_i64) == Some(file_id))
+        files
+            .iter()
+            .find(|item| item.get("file_id").and_then(Value::as_i64) == Some(file_id))
     } else if let Some(version) = requested_version {
         files.iter().find(|item| {
             item.get("version")
@@ -248,12 +262,18 @@ fn resolve_download_url(
                 "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files/{file_id}/download_link.json"
             ));
         let headers = api_headers(api_key)?;
-        let response = send_nexus_request(|| response.try_clone().expect("request clone").headers(headers.clone()).send())
-            .map_err(|error| format!("Failed to fetch launcher download links: {error}"))?;
+        let response = send_nexus_request(|| {
+            response
+                .try_clone()
+                .expect("request clone")
+                .headers(headers.clone())
+                .send()
+        })
+        .map_err(|error| format!("Failed to fetch launcher download links: {error}"))?;
         if response.status().is_success() {
-            let payload = response
-                .json::<Value>()
-                .map_err(|error| format!("Failed to parse launcher download links JSON: {error}"))?;
+            let payload = response.json::<Value>().map_err(|error| {
+                format!("Failed to parse launcher download links JSON: {error}")
+            })?;
             if let Some(uri) = payload
                 .as_array()
                 .and_then(|items| items.first())
@@ -331,144 +351,154 @@ pub fn download_launcher_mod(
     app: tauri::AppHandle,
     request: DownloadLauncherModRequest,
 ) -> Result<DownloadLauncherModResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("download_launcher_mod", (|| {
-        if request.mod_id < 1 {
-            return Err("modId must be greater than 0.".to_string());
-        }
-        log_launcher_trace(
-            "download.start",
-            &[
-                ("modId", request.mod_id.to_string()),
-                (
-                    "requestedFileId",
-                    request.file_id.map(|value| value.to_string()).unwrap_or_default(),
-                ),
-                ("requestedVersion", request.version.clone().unwrap_or_default()),
-            ],
-        );
-
-        let settings_path = launcher_settings_path(&app)?;
-        let settings = load_or_create_settings_at_path(&settings_path)?;
-        let api_key = settings
-            .nexus_api_key
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .ok_or_else(|| "Nexus API key is required to download mods.".to_string())?;
-        let download_dir = resolve_download_dir(&settings)?;
-        fs::create_dir_all(&download_dir).map_err(|error| {
-            format!(
-                "Failed to create launcher download directory {}: {error}",
-                normalize_path(&download_dir)
-            )
-        })?;
-
-        let client = launcher_http_client()?;
-        let files_payload = fetch_mod_files_payload(&client, api_key, request.mod_id)?;
-        let candidate = select_download_candidate(
-            &files_payload,
-            request.file_id,
-            request.version.as_deref(),
-        )?;
-        log_launcher_trace(
-            "download.selected-file",
-            &[
-                ("modId", request.mod_id.to_string()),
-                ("fileId", candidate.file_id.to_string()),
-                ("fileName", candidate.file_name.clone()),
-                ("version", candidate.version.clone().unwrap_or_default()),
-            ],
-        );
-        let download_url =
-            resolve_download_url(&client, &settings, request.mod_id, candidate.file_id)?;
-        let response = client.get(&download_url);
-        let response = send_nexus_request(|| response.try_clone().expect("request clone").send())
-            .map_err(|error| format!("Failed to download launcher mod: {error}"))?;
-        if !response.status().is_success() {
-            return Err(format!(
-                "Failed to download launcher mod {}: HTTP {}",
-                request.mod_id,
-                response.status()
-            ));
-        }
-
-        let file_name = download_file_name(&response, &candidate.file_name);
-        let archive_path = unique_path(&download_dir.join(file_name));
-        let mut archive_file = fs::File::create(&archive_path).map_err(|error| {
-            format!(
-                "Failed to create launcher archive {}: {error}",
-                normalize_path(&archive_path)
-            )
-        })?;
-        let bytes = response
-            .bytes()
-            .map_err(|error| format!("Failed to read launcher download bytes: {error}"))?;
-        archive_file.write_all(&bytes).map_err(|error| {
-            format!(
-                "Failed to write launcher archive {}: {error}",
-                normalize_path(&archive_path)
-            )
-        })?;
-        log_launcher_trace(
-            "download.saved",
-            &[
-                ("modId", request.mod_id.to_string()),
-                ("archivePath", normalize_path(&archive_path)),
-                ("bytes", bytes.len().to_string()),
-            ],
-        );
-
-        let mut installed = false;
-        let mut installed_target_path = None;
-        if settings.auto_install_downloads {
-            let install_result = install_archive_at_path(
-                &archive_path,
-                settings.mods_path.as_deref(),
-                Some(launcher_backup_dir(&app)?.as_path()),
-            )?;
-            installed = true;
-            installed_target_path = Some(install_result.target_path.clone());
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "download_launcher_mod",
+        (|| {
+            if request.mod_id < 1 {
+                return Err("modId must be greater than 0.".to_string());
+            }
             log_launcher_trace(
-                "download.auto-install.complete",
+                "download.start",
                 &[
                     ("modId", request.mod_id.to_string()),
-                    ("targetPath", install_result.target_path.clone()),
+                    (
+                        "requestedFileId",
+                        request
+                            .file_id
+                            .map(|value| value.to_string())
+                            .unwrap_or_default(),
+                    ),
+                    (
+                        "requestedVersion",
+                        request.version.clone().unwrap_or_default(),
+                    ),
                 ],
             );
-            if !settings.keep_downloaded_archives {
-                let _ = fs::remove_file(&archive_path);
-            }
-        }
 
-        let result = DownloadLauncherModResult {
-            mod_id: request.mod_id,
-            title: request
-                .title
-                .map(|value| value.trim().to_string())
+            let settings_path = launcher_settings_path(&app)?;
+            let settings = load_or_create_settings_at_path(&settings_path)?;
+            let api_key = settings
+                .nexus_api_key
+                .as_deref()
+                .map(str::trim)
                 .filter(|value| !value.is_empty())
-                .unwrap_or_else(|| format!("Nexus Mod {}", request.mod_id)),
-            version: candidate.version,
-            file_name: archive_path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .unwrap_or_default()
-                .to_string(),
-            archive_path: normalize_path(&archive_path),
-            installed,
-            installed_target_path,
-        };
-        log_launcher_trace(
-            "download.complete",
-            &[
-                ("modId", result.mod_id.to_string()),
-                ("archivePath", result.archive_path.clone()),
-                ("installed", result.installed.to_string()),
-                (
-                    "installedTargetPath",
-                    result.installed_target_path.clone().unwrap_or_default(),
-                ),
-            ],
-        );
-        Ok(result)
-    })())
+                .ok_or_else(|| "Nexus API key is required to download mods.".to_string())?;
+            let download_dir = resolve_download_dir(&settings)?;
+            fs::create_dir_all(&download_dir).map_err(|error| {
+                format!(
+                    "Failed to create launcher download directory {}: {error}",
+                    normalize_path(&download_dir)
+                )
+            })?;
+
+            let client = launcher_http_client()?;
+            let files_payload = fetch_mod_files_payload(&client, api_key, request.mod_id)?;
+            let candidate = select_download_candidate(
+                &files_payload,
+                request.file_id,
+                request.version.as_deref(),
+            )?;
+            log_launcher_trace(
+                "download.selected-file",
+                &[
+                    ("modId", request.mod_id.to_string()),
+                    ("fileId", candidate.file_id.to_string()),
+                    ("fileName", candidate.file_name.clone()),
+                    ("version", candidate.version.clone().unwrap_or_default()),
+                ],
+            );
+            let download_url =
+                resolve_download_url(&client, &settings, request.mod_id, candidate.file_id)?;
+            let response = client.get(&download_url);
+            let response =
+                send_nexus_request(|| response.try_clone().expect("request clone").send())
+                    .map_err(|error| format!("Failed to download launcher mod: {error}"))?;
+            if !response.status().is_success() {
+                return Err(format!(
+                    "Failed to download launcher mod {}: HTTP {}",
+                    request.mod_id,
+                    response.status()
+                ));
+            }
+
+            let file_name = download_file_name(&response, &candidate.file_name);
+            let archive_path = unique_path(&download_dir.join(file_name));
+            let mut archive_file = fs::File::create(&archive_path).map_err(|error| {
+                format!(
+                    "Failed to create launcher archive {}: {error}",
+                    normalize_path(&archive_path)
+                )
+            })?;
+            let bytes = response
+                .bytes()
+                .map_err(|error| format!("Failed to read launcher download bytes: {error}"))?;
+            archive_file.write_all(&bytes).map_err(|error| {
+                format!(
+                    "Failed to write launcher archive {}: {error}",
+                    normalize_path(&archive_path)
+                )
+            })?;
+            log_launcher_trace(
+                "download.saved",
+                &[
+                    ("modId", request.mod_id.to_string()),
+                    ("archivePath", normalize_path(&archive_path)),
+                    ("bytes", bytes.len().to_string()),
+                ],
+            );
+
+            let mut installed = false;
+            let mut installed_target_path = None;
+            if settings.auto_install_downloads {
+                let install_result = install_archive_at_path(
+                    &archive_path,
+                    settings.mods_path.as_deref(),
+                    Some(launcher_backup_dir(&app)?.as_path()),
+                )?;
+                installed = true;
+                installed_target_path = Some(install_result.target_path.clone());
+                log_launcher_trace(
+                    "download.auto-install.complete",
+                    &[
+                        ("modId", request.mod_id.to_string()),
+                        ("targetPath", install_result.target_path.clone()),
+                    ],
+                );
+                if !settings.keep_downloaded_archives {
+                    let _ = fs::remove_file(&archive_path);
+                }
+            }
+
+            let result = DownloadLauncherModResult {
+                mod_id: request.mod_id,
+                title: request
+                    .title
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| format!("Nexus Mod {}", request.mod_id)),
+                version: candidate.version,
+                file_name: archive_path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                archive_path: normalize_path(&archive_path),
+                installed,
+                installed_target_path,
+            };
+            log_launcher_trace(
+                "download.complete",
+                &[
+                    ("modId", result.mod_id.to_string()),
+                    ("archivePath", result.archive_path.clone()),
+                    ("installed", result.installed.to_string()),
+                    (
+                        "installedTargetPath",
+                        result.installed_target_path.clone().unwrap_or_default(),
+                    ),
+                ],
+            );
+            Ok(result)
+        })(),
+    )
 }

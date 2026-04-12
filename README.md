@@ -52,6 +52,7 @@
 
 - `src/main.rs`: Tauri 程序入口。
 - `src/launcher/`: 启动器相关的 Rust 侧能力。
+- `src/launcher/catalog/`: 启动器发现页搜索、远端模组详情、更新检查与缓存。
 - `src/content_patcher/`: Content Patcher 解析与相关支持代码。
 - `src/xnb/`: XNB 解析。
 - `src/xact/`: XACT 音频相关解析。

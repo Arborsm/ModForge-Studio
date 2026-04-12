@@ -102,7 +102,8 @@ fn load_launcher_updates_cache_state(
         )
     })?;
 
-    serde_json::from_str::<LauncherUpdatesCacheState>(&content).or_else(|_| Ok(LauncherUpdatesCacheState::default()))
+    serde_json::from_str::<LauncherUpdatesCacheState>(&content)
+        .or_else(|_| Ok(LauncherUpdatesCacheState::default()))
 }
 
 fn save_launcher_updates_cache_state(
@@ -131,7 +132,9 @@ fn save_launcher_updates_cache_state(
 
 fn prune_expired_entries(state: &mut LauncherUpdatesCacheState, now_ms: u128) -> bool {
     let count_before = state.entries.len();
-    state.entries.retain(|_, entry| entry.expires_at_ms > now_ms);
+    state
+        .entries
+        .retain(|_, entry| entry.expires_at_ms > now_ms);
     state.entries.len() != count_before
 }
 
@@ -183,39 +186,33 @@ pub(crate) fn inspect_launcher_updates_cache_at_path(
     let entry = state.entries.get(&cache_key_value);
     let in_progress = state.in_progress.get(&cache_key_value);
 
-    let (
-        entry_state,
-        checked_at_ms,
-        expires_at_ms,
-        is_complete,
-        ttl_remaining_ms,
-        expired_by_ms,
-    ) = match entry {
-        Some(entry) if entry.expires_at_ms > now_ms => (
-            LauncherUpdatesCacheEntryState::Fresh,
-            Some(entry.checked_at_ms),
-            Some(entry.expires_at_ms),
-            Some(entry.is_complete),
-            Some(entry.expires_at_ms.saturating_sub(now_ms)),
-            None,
-        ),
-        Some(entry) => (
-            LauncherUpdatesCacheEntryState::Expired,
-            Some(entry.checked_at_ms),
-            Some(entry.expires_at_ms),
-            Some(entry.is_complete),
-            None,
-            Some(now_ms.saturating_sub(entry.expires_at_ms)),
-        ),
-        None => (
-            LauncherUpdatesCacheEntryState::Missing,
-            None,
-            None,
-            None,
-            None,
-            None,
-        ),
-    };
+    let (entry_state, checked_at_ms, expires_at_ms, is_complete, ttl_remaining_ms, expired_by_ms) =
+        match entry {
+            Some(entry) if entry.expires_at_ms > now_ms => (
+                LauncherUpdatesCacheEntryState::Fresh,
+                Some(entry.checked_at_ms),
+                Some(entry.expires_at_ms),
+                Some(entry.is_complete),
+                Some(entry.expires_at_ms.saturating_sub(now_ms)),
+                None,
+            ),
+            Some(entry) => (
+                LauncherUpdatesCacheEntryState::Expired,
+                Some(entry.checked_at_ms),
+                Some(entry.expires_at_ms),
+                Some(entry.is_complete),
+                None,
+                Some(now_ms.saturating_sub(entry.expires_at_ms)),
+            ),
+            None => (
+                LauncherUpdatesCacheEntryState::Missing,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+        };
 
     Ok(LauncherUpdatesCacheInspection {
         cache_key,

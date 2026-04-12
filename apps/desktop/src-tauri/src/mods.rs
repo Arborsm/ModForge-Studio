@@ -765,21 +765,24 @@ fn content_patcher_target_field_first_key(patch: &Map<String, Value>) -> Option<
                 Some(trimmed.to_string())
             }
         }
-        Some(Value::Array(segments)) => segments.first().and_then(Value::as_str).map(str::trim).and_then(
-            |value| {
+        Some(Value::Array(segments)) => segments
+            .first()
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .and_then(|value| {
                 if value.is_empty() {
                     None
                 } else {
                     Some(value.to_string())
                 }
-            },
-        ),
+            }),
         _ => None,
     }
 }
 
 fn strip_xnb_extension(value: &str) -> &str {
-    value.strip_suffix(".xnb")
+    value
+        .strip_suffix(".xnb")
         .or_else(|| value.strip_suffix(".XNB"))
         .unwrap_or(value)
 }
@@ -794,12 +797,16 @@ fn collect_known_character_keys(patches: &[FlattenedContentPatcherPatch]) -> BTr
                 continue;
             }
 
-            if let Some(character_key) = content_patcher_target_field_first_key(&flattened_patch.patch) {
+            if let Some(character_key) =
+                content_patcher_target_field_first_key(&flattened_patch.patch)
+            {
                 keys.insert(character_key);
                 continue;
             }
 
-            if let Some(entries) = object_field(&Value::Object(flattened_patch.patch.clone()), "Entries") {
+            if let Some(entries) =
+                object_field(&Value::Object(flattened_patch.patch.clone()), "Entries")
+            {
                 for key in entries.keys() {
                     let trimmed = key.trim();
                     if !trimmed.is_empty() {
@@ -813,7 +820,10 @@ fn collect_known_character_keys(patches: &[FlattenedContentPatcherPatch]) -> BTr
     keys
 }
 
-fn resolve_character_reference_key(target: &str, known_character_keys: &BTreeSet<String>) -> String {
+fn resolve_character_reference_key(
+    target: &str,
+    known_character_keys: &BTreeSet<String>,
+) -> String {
     let leaf = target_leaf_name(target);
     let normalized_leaf = strip_xnb_extension(leaf.trim());
     if normalized_leaf.is_empty() {
@@ -1259,111 +1269,146 @@ fn copy_dir_recursive(source: &Path, target: &Path) -> Result<(), String> {
 
 #[tauri::command]
 pub fn scan_mod_projects(root_path: String) -> Result<Vec<ModProjectSummary>, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("scan_mod_projects", (|| {
-        let root = clean_input_path(&root_path);
-        let project_roots = discover_project_roots(&root)?;
-        if project_roots.is_empty() {
-            return Ok(Vec::new());
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "scan_mod_projects",
+        (|| {
+            let root = clean_input_path(&root_path);
+            let project_roots = discover_project_roots(&root)?;
+            if project_roots.is_empty() {
+                return Ok(Vec::new());
+            }
 
-        let scanned_projects = collect_scanned_projects(project_roots);
-        let attached_api_registry = load_attached_api_registry(None);
-        let available_mod_ids = collect_available_mod_ids(&scanned_projects, &attached_api_registry);
-        let mut projects = Vec::new();
-        for project in &scanned_projects {
-            let compatibility = evaluate_project_compatibility(
-                &project.manifest,
-                project.content.as_ref(),
-                &available_mod_ids,
-            );
-            projects.push(build_project_summary(
-                &project.project_path,
-                &project.manifest_path,
-                &project.manifest,
-                project.content_path.as_deref(),
-                &compatibility,
-            ));
-        }
+            let scanned_projects = collect_scanned_projects(project_roots);
+            let attached_api_registry = load_attached_api_registry(None);
+            let available_mod_ids =
+                collect_available_mod_ids(&scanned_projects, &attached_api_registry);
+            let mut projects = Vec::new();
+            for project in &scanned_projects {
+                let compatibility = evaluate_project_compatibility(
+                    &project.manifest,
+                    project.content.as_ref(),
+                    &available_mod_ids,
+                );
+                projects.push(build_project_summary(
+                    &project.project_path,
+                    &project.manifest_path,
+                    &project.manifest,
+                    project.content_path.as_deref(),
+                    &compatibility,
+                ));
+            }
 
-        projects.sort_by(|left, right| {
-            left.name
-                .cmp(&right.name)
-                .then_with(|| left.absolute_path.cmp(&right.absolute_path))
-        });
-        Ok(projects)
-    })())
+            projects.sort_by(|left, right| {
+                left.name
+                    .cmp(&right.name)
+                    .then_with(|| left.absolute_path.cmp(&right.absolute_path))
+            });
+            Ok(projects)
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn scan_mod_asset_index(root_path: String) -> Result<ModAssetIndex, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("scan_mod_asset_index", (|| {
-        let root = clean_input_path(&root_path);
-        let project_roots = discover_project_roots(&root)?;
-        let scanned_projects = collect_scanned_projects(project_roots);
-        let attached_api_registry = load_attached_api_registry(None);
-        let available_mod_ids = collect_available_mod_ids(&scanned_projects, &attached_api_registry);
-        let mut mods = Vec::new();
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "scan_mod_asset_index",
+        (|| {
+            let root = clean_input_path(&root_path);
+            let project_roots = discover_project_roots(&root)?;
+            let scanned_projects = collect_scanned_projects(project_roots);
+            let attached_api_registry = load_attached_api_registry(None);
+            let available_mod_ids =
+                collect_available_mod_ids(&scanned_projects, &attached_api_registry);
+            let mut mods = Vec::new();
 
-        for project in &scanned_projects {
-            let Some(content) = project.content.as_ref() else {
-                continue;
-            };
-            let compatibility =
-                evaluate_project_compatibility(&project.manifest, Some(content), &available_mod_ids);
-            if let Some(group) = build_mod_asset_index_group(
-                &project.project_path,
-                &project.manifest,
-                content,
-                &compatibility,
-            ) {
-                let has_entries = !group.maps.is_empty()
-                    || !group.events.is_empty()
-                    || !group.characters.is_empty()
-                    || !group.buildings.is_empty()
-                    || !group.items.is_empty();
-                if has_entries {
-                    mods.push(group);
+            for project in &scanned_projects {
+                let Some(content) = project.content.as_ref() else {
+                    continue;
+                };
+                let compatibility = evaluate_project_compatibility(
+                    &project.manifest,
+                    Some(content),
+                    &available_mod_ids,
+                );
+                if let Some(group) = build_mod_asset_index_group(
+                    &project.project_path,
+                    &project.manifest,
+                    content,
+                    &compatibility,
+                ) {
+                    let has_entries = !group.maps.is_empty()
+                        || !group.events.is_empty()
+                        || !group.characters.is_empty()
+                        || !group.buildings.is_empty()
+                        || !group.items.is_empty();
+                    if has_entries {
+                        mods.push(group);
+                    }
                 }
             }
-        }
 
-        mods.sort_by(|left, right| {
-            left.mod_name
-                .cmp(&right.mod_name)
-                .then_with(|| left.mod_path.cmp(&right.mod_path))
-        });
-        Ok(ModAssetIndex { mods })
-    })())
+            mods.sort_by(|left, right| {
+                left.mod_name
+                    .cmp(&right.mod_name)
+                    .then_with(|| left.mod_path.cmp(&right.mod_path))
+            });
+            Ok(ModAssetIndex { mods })
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_mod_project", (|| {
-        let project_path = ensure_project_root(&clean_input_path(&path))?;
-        let manifest_path = project_path.join("manifest.json");
-        let content_path = project_path.join("content.json");
-        if !content_path.is_file() {
-            return Err(format!(
-                "No content.json was found in {}",
-                normalize_path(&project_path)
-            ));
-        }
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_mod_project",
+        (|| {
+            let project_path = ensure_project_root(&clean_input_path(&path))?;
+            let manifest_path = project_path.join("manifest.json");
+            let content_path = project_path.join("content.json");
+            if !content_path.is_file() {
+                return Err(format!(
+                    "No content.json was found in {}",
+                    normalize_path(&project_path)
+                ));
+            }
 
-        let (_manifest_json, manifest) = read_json_file(&manifest_path)?;
-        let (_content_json, content) = read_json_file(&content_path)?;
-        let scan_root = infer_mods_scan_root(&project_path);
-        let discovered_projects = collect_scanned_projects(discover_project_roots(&scan_root)?);
-        let attached_api_registry = load_attached_api_registry(None);
-        let available_mod_ids =
-            collect_available_mod_ids(&discovered_projects, &attached_api_registry);
-        let compatibility =
-            evaluate_project_compatibility(&manifest, Some(&content), &available_mod_ids);
-        let is_cp = compatibility.is_content_patcher;
-        let diagnostics = build_diagnostics(&manifest, &content, is_cp);
-        if !is_cp {
-            return Ok(ModProjectDetail {
-                plugin_kind: "unknown".to_string(),
-                capabilities: Vec::new(),
+            let (_manifest_json, manifest) = read_json_file(&manifest_path)?;
+            let (_content_json, content) = read_json_file(&content_path)?;
+            let scan_root = infer_mods_scan_root(&project_path);
+            let discovered_projects = collect_scanned_projects(discover_project_roots(&scan_root)?);
+            let attached_api_registry = load_attached_api_registry(None);
+            let available_mod_ids =
+                collect_available_mod_ids(&discovered_projects, &attached_api_registry);
+            let compatibility =
+                evaluate_project_compatibility(&manifest, Some(&content), &available_mod_ids);
+            let is_cp = compatibility.is_content_patcher;
+            let diagnostics = build_diagnostics(&manifest, &content, is_cp);
+            if !is_cp {
+                return Ok(ModProjectDetail {
+                    plugin_kind: "unknown".to_string(),
+                    capabilities: Vec::new(),
+                    summary: build_project_summary(
+                        &project_path,
+                        &manifest_path,
+                        &manifest,
+                        Some(&content_path),
+                        &compatibility,
+                    ),
+                    diagnostics,
+                    content_patcher: None,
+                });
+            }
+
+            if compatibility.status == "incompatible" {
+                return Err(format!(
+                    "This content pack is missing required dependencies: {}",
+                    compatibility.missing_required_dependencies.join(", ")
+                ));
+            }
+
+            Ok(ModProjectDetail {
+                plugin_kind: "content-patcher".to_string(),
+                capabilities: content_patcher_capabilities(),
                 summary: build_project_summary(
                     &project_path,
                     &manifest_path,
@@ -1372,110 +1417,93 @@ pub fn load_mod_project(path: String) -> Result<ModProjectDetail, String> {
                     &compatibility,
                 ),
                 diagnostics,
-                content_patcher: None,
-            });
-        }
-
-        if compatibility.status == "incompatible" {
-            return Err(format!(
-                "This content pack is missing required dependencies: {}",
-                compatibility.missing_required_dependencies.join(", ")
-            ));
-        }
-
-        Ok(ModProjectDetail {
-            plugin_kind: "content-patcher".to_string(),
-            capabilities: content_patcher_capabilities(),
-            summary: build_project_summary(
-                &project_path,
-                &manifest_path,
-                &manifest,
-                Some(&content_path),
-                &compatibility,
-            ),
-            diagnostics,
-            content_patcher: Some(build_content_patcher_data(
-                &manifest_path,
-                &content_path,
-                serde_json::to_string_pretty(&manifest)
-                    .map_err(|error| format!("Failed to serialize manifest.json: {error}"))?,
-                serde_json::to_string_pretty(&content)
-                    .map_err(|error| format!("Failed to serialize content.json: {error}"))?,
-                &content,
-            )),
-        })
-    })())
+                content_patcher: Some(build_content_patcher_data(
+                    &manifest_path,
+                    &content_path,
+                    serde_json::to_string_pretty(&manifest)
+                        .map_err(|error| format!("Failed to serialize manifest.json: {error}"))?,
+                    serde_json::to_string_pretty(&content)
+                        .map_err(|error| format!("Failed to serialize content.json: {error}"))?,
+                    &content,
+                )),
+            })
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn save_mod_project(request: SaveModProjectRequest) -> Result<SaveModProjectResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("save_mod_project", (|| {
-        let source_path = ensure_project_root(&clean_input_path(&request.source_path))?;
-        let target_path = request
-            .output_path
-            .as_deref()
-            .map(clean_input_path)
-            .filter(|path| !normalize_path(path).trim().is_empty())
-            .unwrap_or_else(|| source_path.clone());
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "save_mod_project",
+        (|| {
+            let source_path = ensure_project_root(&clean_input_path(&request.source_path))?;
+            let target_path = request
+                .output_path
+                .as_deref()
+                .map(clean_input_path)
+                .filter(|path| !normalize_path(path).trim().is_empty())
+                .unwrap_or_else(|| source_path.clone());
 
-        let manifest: Value = serde_json::from_str(&request.manifest_json)
-            .map_err(|error| format!("manifest.json is not valid JSON: {error}"))?;
-        let content: Value = serde_json::from_str(&request.content_json)
-            .map_err(|error| format!("content.json is not valid JSON: {error}"))?;
-        let is_cp = is_content_patcher_project(&manifest, &content);
-        let diagnostics = build_diagnostics(&manifest, &content, is_cp);
-        if !is_cp {
-            return Err("Only Content Patcher projects can be saved right now.".to_string());
-        }
-
-        let normalized_source = normalize_path(&source_path).to_ascii_lowercase();
-        let normalized_target = normalize_path(&target_path).to_ascii_lowercase();
-        let source_is_target = normalized_source == normalized_target;
-
-        if !source_is_target {
-            if normalized_target.starts_with(&(normalized_source.clone() + "\\"))
-                || normalized_target.starts_with(&(normalized_source + "/"))
-            {
-                return Err(
-                    "Export target cannot be nested inside the source mod directory.".to_string(),
-                );
+            let manifest: Value = serde_json::from_str(&request.manifest_json)
+                .map_err(|error| format!("manifest.json is not valid JSON: {error}"))?;
+            let content: Value = serde_json::from_str(&request.content_json)
+                .map_err(|error| format!("content.json is not valid JSON: {error}"))?;
+            let is_cp = is_content_patcher_project(&manifest, &content);
+            let diagnostics = build_diagnostics(&manifest, &content, is_cp);
+            if !is_cp {
+                return Err("Only Content Patcher projects can be saved right now.".to_string());
             }
 
-            fs::create_dir_all(&target_path).map_err(|error| {
+            let normalized_source = normalize_path(&source_path).to_ascii_lowercase();
+            let normalized_target = normalize_path(&target_path).to_ascii_lowercase();
+            let source_is_target = normalized_source == normalized_target;
+
+            if !source_is_target {
+                if normalized_target.starts_with(&(normalized_source.clone() + "\\"))
+                    || normalized_target.starts_with(&(normalized_source + "/"))
+                {
+                    return Err(
+                        "Export target cannot be nested inside the source mod directory."
+                            .to_string(),
+                    );
+                }
+
+                fs::create_dir_all(&target_path).map_err(|error| {
+                    format!(
+                        "Failed to create export directory {}: {error}",
+                        normalize_path(&target_path)
+                    )
+                })?;
+                remove_dir_contents(&target_path)?;
+                copy_dir_recursive(&source_path, &target_path)?;
+            }
+
+            let manifest_path = target_path.join("manifest.json");
+            let content_path = target_path.join("content.json");
+            let manifest_pretty = serde_json::to_string_pretty(&manifest)
+                .map_err(|error| format!("Failed to format manifest.json: {error}"))?;
+            let content_pretty = serde_json::to_string_pretty(&content)
+                .map_err(|error| format!("Failed to format content.json: {error}"))?;
+
+            fs::write(&manifest_path, format!("{manifest_pretty}\n")).map_err(|error| {
                 format!(
-                    "Failed to create export directory {}: {error}",
-                    normalize_path(&target_path)
+                    "Failed to write {}: {error}",
+                    normalize_path(&manifest_path)
                 )
             })?;
-            remove_dir_contents(&target_path)?;
-            copy_dir_recursive(&source_path, &target_path)?;
-        }
+            fs::write(&content_path, format!("{content_pretty}\n")).map_err(|error| {
+                format!("Failed to write {}: {error}", normalize_path(&content_path))
+            })?;
 
-        let manifest_path = target_path.join("manifest.json");
-        let content_path = target_path.join("content.json");
-        let manifest_pretty = serde_json::to_string_pretty(&manifest)
-            .map_err(|error| format!("Failed to format manifest.json: {error}"))?;
-        let content_pretty = serde_json::to_string_pretty(&content)
-            .map_err(|error| format!("Failed to format content.json: {error}"))?;
-
-        fs::write(&manifest_path, format!("{manifest_pretty}\n")).map_err(|error| {
-            format!(
-                "Failed to write {}: {error}",
-                normalize_path(&manifest_path)
-            )
-        })?;
-        fs::write(&content_path, format!("{content_pretty}\n")).map_err(|error| {
-            format!("Failed to write {}: {error}", normalize_path(&content_path))
-        })?;
-
-        Ok(SaveModProjectResult {
-            plugin_kind: "content-patcher".to_string(),
-            target_path: normalize_path(&target_path),
-            manifest_path: normalize_path(&manifest_path),
-            content_path: normalize_path(&content_path),
-            diagnostics,
-        })
-    })())
+            Ok(SaveModProjectResult {
+                plugin_kind: "content-patcher".to_string(),
+                target_path: normalize_path(&target_path),
+                manifest_path: normalize_path(&manifest_path),
+                content_path: normalize_path(&content_path),
+                diagnostics,
+            })
+        })(),
+    )
 }
 
 #[cfg(test)]

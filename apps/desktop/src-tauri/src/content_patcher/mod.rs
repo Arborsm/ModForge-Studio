@@ -267,89 +267,99 @@ fn build_target_summaries(
 pub fn simulate_content_patcher(
     request: SimulateContentPatcherRequest,
 ) -> Result<SimulateContentPatcherResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("simulate_content_patcher", (|| {
-        let snapshot = resolve_simulation_snapshot(&request)?;
-        let context = request.context.unwrap_or_else(SimulationContext::default);
-        let effective_context = build_effective_context(&snapshot, &context)?;
-        let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
-        let project_root_path = snapshot.summary.absolute_path.as_deref();
-        let attached_api_registry = load_attached_api_registry(None);
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "simulate_content_patcher",
+        (|| {
+            let snapshot = resolve_simulation_snapshot(&request)?;
+            let context = request.context.unwrap_or_else(SimulationContext::default);
+            let effective_context = build_effective_context(&snapshot, &context)?;
+            let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
+            let project_root_path = snapshot.summary.absolute_path.as_deref();
+            let attached_api_registry = load_attached_api_registry(None);
 
-        let patch_statuses = plan
-            .patches
-            .iter()
-            .map(|patch| {
-                let when = when_to_value(&patch.when);
-                let mut status = evaluate_patch_status(&when, &effective_context, project_root_path);
-                status.patch_id = Some(patch.id.clone());
-                status
+            let patch_statuses = plan
+                .patches
+                .iter()
+                .map(|patch| {
+                    let when = when_to_value(&patch.when);
+                    let mut status =
+                        evaluate_patch_status(&when, &effective_context, project_root_path);
+                    status.patch_id = Some(patch.id.clone());
+                    status
+                })
+                .collect::<Vec<_>>();
+            let targets = build_target_summaries(&plan, &patch_statuses, &attached_api_registry);
+
+            Ok(SimulateContentPatcherResult {
+                plan,
+                targets,
+                patch_statuses,
+                diagnostics: snapshot.diagnostics,
             })
-            .collect::<Vec<_>>();
-        let targets = build_target_summaries(&plan, &patch_statuses, &attached_api_registry);
-
-        Ok(SimulateContentPatcherResult {
-            plan,
-            targets,
-            patch_statuses,
-            diagnostics: snapshot.diagnostics,
-        })
-    })())
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn load_content_patcher_result_asset(
     request: LoadContentPatcherResultAssetRequest,
 ) -> Result<LoadContentPatcherResultAssetResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("load_content_patcher_result_asset", (|| {
-        let context = request.context.clone().unwrap_or_default();
-        let snapshot = resolve_simulation_snapshot(&SimulateContentPatcherRequest {
-            path: request.path.clone(),
-            game_root_path: request.game_root_path.clone(),
-            snapshot: request.snapshot.clone(),
-            manifest_json: request.manifest_json.clone(),
-            content_json: request.content_json.clone(),
-            context: Some(context.clone()),
-        })?;
-        let effective_context = build_effective_context(&snapshot, &context)?;
-        let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
-        let attached_api_registry = load_attached_api_registry(None);
-        load_target_result(
-            &snapshot,
-            &plan,
-            &request.target,
-            &attached_api_registry,
-            &effective_context,
-            request.game_root_path.as_deref(),
-        )
-    })())
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_content_patcher_result_asset",
+        (|| {
+            let context = request.context.clone().unwrap_or_default();
+            let snapshot = resolve_simulation_snapshot(&SimulateContentPatcherRequest {
+                path: request.path.clone(),
+                game_root_path: request.game_root_path.clone(),
+                snapshot: request.snapshot.clone(),
+                manifest_json: request.manifest_json.clone(),
+                content_json: request.content_json.clone(),
+                context: Some(context.clone()),
+            })?;
+            let effective_context = build_effective_context(&snapshot, &context)?;
+            let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
+            let attached_api_registry = load_attached_api_registry(None);
+            load_target_result(
+                &snapshot,
+                &plan,
+                &request.target,
+                &attached_api_registry,
+                &effective_context,
+                request.game_root_path.as_deref(),
+            )
+        })(),
+    )
 }
 
 #[tauri::command]
 pub fn export_content_patcher_asset(
     request: ExportContentPatcherAssetRequest,
 ) -> Result<ExportContentPatcherAssetResult, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error("export_content_patcher_asset", (|| {
-        let target = request.target.clone();
-        let output_path = request.output_path.clone();
-        let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
-            path: request.path,
-            game_root_path: request.game_root_path,
-            snapshot: request.snapshot,
-            manifest_json: request.manifest_json,
-            content_json: request.content_json,
-            context: request.context,
-            target: target.clone(),
-        })?;
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "export_content_patcher_asset",
+        (|| {
+            let target = request.target.clone();
+            let output_path = request.output_path.clone();
+            let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
+                path: request.path,
+                game_root_path: request.game_root_path,
+                snapshot: request.snapshot,
+                manifest_json: request.manifest_json,
+                content_json: request.content_json,
+                context: request.context,
+                target: target.clone(),
+            })?;
 
-        if !result.exportable {
-            return Err(format!(
-                "Target `{target}` is {} and cannot be exported.",
-                result.target.result_state
-            ));
-        }
+            if !result.exportable {
+                return Err(format!(
+                    "Target `{target}` is {} and cannot be exported.",
+                    result.target.result_state
+                ));
+            }
 
-        write_result_asset(&target, &output_path, &result.result)
-    })())
+            write_result_asset(&target, &output_path, &result.result)
+        })(),
+    )
 }
 
 #[cfg(test)]
