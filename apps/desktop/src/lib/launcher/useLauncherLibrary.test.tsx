@@ -329,6 +329,47 @@ describe('useLauncherLibrary', () => {
     expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
   })
 
+  it('continues warming updates when the cached update snapshot is incomplete', async () => {
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          nexusModId: null,
+          updateKeys: [],
+          modUrl: null,
+        }),
+      ],
+    })
+    loadCachedLauncherUpdatesMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 321,
+      updates: [],
+      isComplete: false,
+    })
+    checkLauncherUpdatesMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 654,
+      updates: [],
+      isComplete: true,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(loadCachedLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    })
+    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+  })
+
   it('writes the persisted local cover path back into the current mod state', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2000-01-01T00:05:00Z'))

@@ -13,6 +13,8 @@ import {
   getLauncherUpdateNotificationProgress,
 } from './useLauncherUpdateProgressNotifications'
 
+const LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID = 'launcher-updates-check-error'
+
 function getSelectionKey(item: LauncherUpdateItem) {
   return `${item.modId}:${item.absolutePath}`
 }
@@ -49,6 +51,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     })
     setState('ready')
     setError(null)
+    dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
   }, [])
 
   const loadUpdates = useCallback(async (forceRefresh: boolean) => {
@@ -65,11 +68,13 @@ export function useLauncherUpdates(settings: LauncherSettings) {
         setError(null)
       }
       dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+      dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
       return
     }
 
     setState('loading')
     setError(null)
+    dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
     publishNotification({
       id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
       level: 'info',
@@ -93,7 +98,9 @@ export function useLauncherUpdates(settings: LauncherSettings) {
           if (isRequestActive()) {
             applyUpdateResult(cached)
           }
-          return
+          if (cached.isComplete !== false) {
+            return
+          }
         }
       }
 
@@ -109,7 +116,15 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       if (!isRequestActive()) {
         return
       }
-      setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher updates.')
+      const errorMessage = nextError instanceof Error ? nextError.message : 'Failed to load launcher updates.'
+      publishNotification({
+        id: LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID,
+        level: 'error',
+        title: copy.updates.checkFailedTitle,
+        description: errorMessage,
+        autoDismissMs: null,
+      })
+      setError(copy.updates.checkFailedDetail)
       setState('error')
     } finally {
       if (isRequestActive()) {

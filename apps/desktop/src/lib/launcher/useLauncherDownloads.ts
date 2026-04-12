@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  checkLauncherUpdates,
   downloadLauncherMod,
   installLauncherArchive,
   loadLauncherDownloadQueue,
@@ -13,6 +14,10 @@ const MAX_CONCURRENT_LAUNCHER_DOWNLOADS = 3
 const DEBUG_SIMULATION_DURATION_SECONDS = 10
 const DEBUG_SIMULATION_BYTES_PER_SECOND = 2 * 1024 * 1024
 const DEBUG_SIMULATION_TOTAL_BYTES = DEBUG_SIMULATION_DURATION_SECONDS * DEBUG_SIMULATION_BYTES_PER_SECOND
+
+function getDownloadCredentialError(settings: Pick<LauncherSettings, 'nexusApiKey'>) {
+  return settings.nexusApiKey?.trim() ? null : 'Nexus API key is required to download mods.'
+}
 
 function isQueueStatus(value: string): value is LauncherDownloadQueueStatus {
   return (
@@ -149,7 +154,20 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     void saveLauncherDownloadQueue({ items })
   }, [items])
 
+  const refreshUpdatesAfterInstall = useCallback(() => {
+    if (!settings.modsPath) {
+      return
+    }
+
+    void checkLauncherUpdates({
+      modsPath: settings.modsPath,
+      forceRefresh: false,
+    }).catch(() => {})
+  }, [settings.modsPath])
+
   const queueDownload = useCallback((input: QueueLauncherDownloadInput) => {
+    const credentialError = getDownloadCredentialError(settings)
+
     setItems((current) => {
       const existingIndex = current.findIndex(
         (item) =>
@@ -170,49 +188,53 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           version: input.version ?? null,
           imageUrl: input.imageUrl ?? null,
           source: input.source,
-          status: 'queued',
+          status: credentialError ? 'failed' : 'queued',
           archivePath: null,
           installedTargetPath: null,
-          error: null,
+          error: credentialError,
           addedAt: Date.now(),
-          completedAt: null,
+          completedAt: credentialError ? Date.now() : null,
           totalBytes: null,
           downloadedBytes: null,
           bytesPerSecond: null,
         },
       ]
     })
-  }, [])
+  }, [settings])
 
   const retryItem = useCallback((id: string) => {
+    const credentialError = getDownloadCredentialError(settings)
+
     setItems((current) =>
       updateQueueItem(current, id, (item) => ({
         ...item,
-        status: 'queued',
-        error: null,
-        completedAt: null,
+        status: credentialError ? 'failed' : 'queued',
+        error: credentialError,
+        completedAt: credentialError ? Date.now() : null,
         downloadedBytes: null,
         bytesPerSecond: null,
       })),
     )
-  }, [])
+  }, [settings])
 
   const retryFailed = useCallback(() => {
+    const credentialError = getDownloadCredentialError(settings)
+
     setItems((current) =>
       current.map((item) =>
         item.status === 'failed'
           ? {
               ...item,
-              status: 'queued',
-              error: null,
-              completedAt: null,
+              status: credentialError ? 'failed' : 'queued',
+              error: credentialError,
+              completedAt: credentialError ? Date.now() : null,
               downloadedBytes: null,
               bytesPerSecond: null,
             }
           : item,
       ),
     )
-  }, [])
+  }, [settings])
 
   const removeItem = useCallback((id: string) => {
     clearDebugSimulation(id)
@@ -243,22 +265,34 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         return
       }
 
-      const result = await installLauncherArchive({
-        archivePath: target.archivePath,
-        modsPath: settings.modsPath,
-      })
+      try {
+        const result = await installLauncherArchive({
+          archivePath: target.archivePath,
+          modsPath: settings.modsPath,
+        })
 
-      setItems((current) =>
-        updateQueueItem(current, id, (item) => ({
-          ...item,
-          status: 'installed',
-          installedTargetPath: result.targetPath,
-          error: null,
-          completedAt: Date.now(),
-        })),
-      )
+        setItems((current) =>
+          updateQueueItem(current, id, (item) => ({
+            ...item,
+            status: 'installed',
+            installedTargetPath: result.targetPath,
+            error: null,
+            completedAt: Date.now(),
+          })),
+        )
+        refreshUpdatesAfterInstall()
+      } catch (nextError) {
+        setItems((current) =>
+          updateQueueItem(current, id, (item) => ({
+            ...item,
+            status: 'failed',
+            error: nextError instanceof Error ? nextError.message : 'Failed to install downloaded archive.',
+            completedAt: Date.now(),
+          })),
+        )
+      }
     },
-    [items, settings.modsPath],
+    [items, refreshUpdatesAfterInstall, settings.modsPath],
   )
 
   const installAllReady = useCallback(async () => {
@@ -289,6 +323,14 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         title: queuedItem.title,
       })
         .then(async (result) => {
+          if (result.installed) {
+            setItems((current) =>
+              updateQueueItem(current, queuedItem.id, (item) => mapDownloadResultToQueueState(item, result)),
+            )
+            refreshUpdatesAfterInstall()
+            return
+          }
+
           if (settings.autoInstallDownloads && result.archivePath) {
             try {
               const installResult = await installLauncherArchive({
@@ -302,6 +344,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
                   installedTargetPath: installResult.targetPath,
                 })),
               )
+              refreshUpdatesAfterInstall()
               return
             } catch (nextError) {
               setItems((current) =>
@@ -335,7 +378,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           processingIdsRef.current.delete(queuedItem.id)
         })
     },
-    [settings.autoInstallDownloads, settings.modsPath],
+    [refreshUpdatesAfterInstall, settings.autoInstallDownloads, settings.modsPath],
   )
 
   const startDebugSimulation = useCallback((title = 'Launcher Debug Download') => {
@@ -408,7 +451,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   }, [clearDebugSimulation])
 
   useEffect(() => {
-    if (!settings.nexusApiKey?.trim() && !settings.nexusCookie?.trim()) {
+    if (!settings.nexusApiKey?.trim()) {
       return
     }
 
@@ -421,7 +464,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       .filter((item) => item.status === 'queued' && !processingIdsRef.current.has(item.id))
       .slice(0, availableSlots)
       .forEach((item) => beginDownload(item))
-  }, [beginDownload, items, settings.nexusApiKey, settings.nexusCookie])
+  }, [beginDownload, items, settings.nexusApiKey])
 
   const queuedItems = useMemo(() => items.filter((item) => item.status === 'queued'), [items])
   const activeItems = useMemo(() => items.filter((item) => item.status === 'downloading'), [items])

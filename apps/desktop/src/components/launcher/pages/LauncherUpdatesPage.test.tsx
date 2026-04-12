@@ -30,6 +30,14 @@ vi.mock('../../../lib/desktop', async () => {
     loadCachedLauncherUpdates: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     loadLauncherUpdateChangelog: vi.fn(),
+    listenToLauncherUpdateProgress: vi.fn(async (listener: (payload: unknown) => void) => {
+      eventListeners.set('launcher://update-check-progress', (event: { payload: unknown }) => {
+        listener(event.payload)
+      })
+      return () => {
+        eventListeners.delete('launcher://update-check-progress')
+      }
+    }),
     openLauncherUrl: vi.fn(),
     subscribeLauncherUpdates: vi.fn(),
   }
@@ -72,6 +80,16 @@ function renderWithProviders(ui: ReactElement) {
       </NotificationProvider>
     </LocaleProvider>,
   )
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
 }
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
@@ -152,8 +170,10 @@ describe('LauncherUpdatesPage', () => {
     subscribeLauncherUpdatesMock.mockReturnValue(() => {})
   })
 
-  it('renders the update console and only loads changelog when the changelog button is clicked', async () => {
+  it('expands update rows without loading remote content until the fetch buttons are clicked', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-12T08:00:00.000Z').getTime())
+    const detailPending = createDeferred<LauncherRemoteModDetail>()
+    const changelogPending = createDeferred<LauncherUpdateChangelogResult>()
 
     checkLauncherUpdatesMock.mockResolvedValue(
       createResult([
@@ -170,8 +190,8 @@ describe('LauncherUpdatesPage', () => {
         }),
       ]),
     )
-    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteDetail())
-    loadLauncherUpdateChangelogMock.mockResolvedValue(createChangelog())
+    loadLauncherRemoteModDetailMock.mockImplementation(() => detailPending.promise)
+    loadLauncherUpdateChangelogMock.mockImplementation(() => changelogPending.promise)
 
     renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
@@ -181,16 +201,44 @@ describe('LauncherUpdatesPage', () => {
     expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '取消全选' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '一键更新所有勾选项' })).toBeTruthy()
-    expect(screen.getByText('3天前发布')).toBeTruthy()
-    expect(screen.getByText('12.5 MB')).toBeTruthy()
     expect(screen.queryByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeNull()
+    expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
     expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getAllByRole('button', { name: '更新日志' })[0]!)
+    fireEvent.click(screen.getAllByRole('button', { name: '展开详情' })[0]!)
+
+    expect(screen.getByText('3天前发布')).toBeTruthy()
+    expect(screen.getByText('12.5 MB')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '抓取详情' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '抓取更新日志' })).toBeTruthy()
+    expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
+    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '抓取详情' }))
 
     await waitFor(() => {
       expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 101 })
+    })
+    expect(screen.getByText('正在抓取模组详情')).toBeTruthy()
+
+    await act(async () => {
+      detailPending.resolve(createRemoteDetail())
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByText('Help villagers travel farther and react smarter.')).toBeTruthy()
+    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: '抓取更新日志' }))
+
+    await waitFor(() => {
       expect(loadLauncherUpdateChangelogMock).toHaveBeenCalledWith({ modId: 101 })
+    })
+    expect(screen.getByText('正在抓取更新日志')).toBeTruthy()
+
+    await act(async () => {
+      changelogPending.resolve(createChangelog())
+      await Promise.resolve()
     })
 
     expect(await screen.findByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeTruthy()
@@ -262,6 +310,46 @@ describe('LauncherUpdatesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '全选' }))
     expect(firstCheckbox).toHaveProperty('checked', true)
     expect(secondCheckbox).toHaveProperty('checked', true)
+  })
+
+  it('allows closing the expanded panel while an explicit detail fetch is still loading', async () => {
+    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
+    loadLauncherRemoteModDetailMock.mockImplementation(() => new Promise(() => {}))
+
+    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
+
+    const toggle = await waitFor(() => {
+      const button = screen.getAllByRole('button').find((candidate) => candidate.hasAttribute('aria-expanded'))
+      expect(button).toBeTruthy()
+      return button as HTMLButtonElement
+    })
+
+    fireEvent.click(toggle)
+    fireEvent.click(await screen.findByRole('button', { name: '抓取详情' }))
+    await waitFor(() => {
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    })
+
+    fireEvent.click(toggle)
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
+  })
+
+  it('shows raw update-check failures in notifications instead of rendering them inside the page state block', async () => {
+    const rawError =
+      'Failed to resolve remote update details for mods [20781]: mod 20781 HTML fallback failed: Failed to fetch launcher mod page for 20781: HTTP 403 Forbidden | mod 20781 public GraphQL failed: Mod not found'
+    checkLauncherUpdatesMock.mockRejectedValue(new Error(rawError))
+
+    const { container } = renderWithProviders(
+      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
+    )
+
+    expect(await screen.findByText(rawError)).toBeTruthy()
+
+    const stateDetail = container.querySelector('.launcher-state-block-detail')
+    expect(stateDetail?.textContent ?? '').not.toContain(rawError)
   })
 
   it('shows update-check progress in the global notification viewport', async () => {

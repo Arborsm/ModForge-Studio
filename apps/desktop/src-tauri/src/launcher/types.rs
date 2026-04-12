@@ -307,6 +307,7 @@ pub struct ResolveLauncherImageResult {
 pub struct CheckLauncherUpdatesRequest {
     pub mods_path: String,
     pub force_refresh: Option<bool>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -319,6 +320,7 @@ pub struct LoadCachedLauncherUpdatesRequest {
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateProgressPayload {
     pub mods_path: String,
+    pub session_id: String,
     pub checked: usize,
     pub total: usize,
     pub current_mod_name: Option<String>,
@@ -349,7 +351,13 @@ pub struct LauncherUpdateSummary {
 pub struct LauncherUpdatesResult {
     pub mods_path: String,
     pub checked_at_ms: u128,
+    #[serde(default = "default_launcher_updates_result_is_complete")]
+    pub is_complete: bool,
     pub updates: Vec<LauncherUpdateSummary>,
+}
+
+fn default_launcher_updates_result_is_complete() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize)]

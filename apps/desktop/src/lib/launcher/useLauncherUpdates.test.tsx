@@ -61,11 +61,12 @@ function createUpdate(overrides: Partial<LauncherUpdateSummary> = {}): LauncherU
   }
 }
 
-function createResult(updates: LauncherUpdateSummary[]): LauncherUpdatesResult {
+function createResult(updates: LauncherUpdateSummary[], overrides: Partial<LauncherUpdatesResult> = {}): LauncherUpdatesResult {
   return {
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     checkedAtMs: 123,
     updates,
+    ...overrides,
   }
 }
 
@@ -120,6 +121,36 @@ describe('useLauncherUpdates', () => {
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
     expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+  })
+
+  it('continues the background check when the cached updates snapshot is incomplete', async () => {
+    const pending = new Promise<LauncherUpdatesResult>(() => {})
+    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(
+      createResult([createUpdate({ latestVersion: '1.4.0' })], {
+        isComplete: false,
+      }),
+    )
+    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
+    checkLauncherUpdatesMock.mockReturnValueOnce(pending)
+
+    const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
+
+    await waitFor(() => {
+      expect(result.current.items).toEqual([
+        createUpdate({
+          latestVersion: '1.4.0',
+        }),
+      ])
+    })
+
+    await waitFor(() => {
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
   })
 
   it('applies partial update results from the shared subscription before the final check resolves', async () => {

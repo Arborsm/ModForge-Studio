@@ -1,13 +1,20 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LauncherSettings } from '../desktop'
-import { loadLauncherDownloadQueue, saveLauncherDownloadQueue } from '../desktop'
+import {
+  checkLauncherUpdates,
+  downloadLauncherMod,
+  installLauncherArchive,
+  loadLauncherDownloadQueue,
+  saveLauncherDownloadQueue,
+} from '../desktop'
 import { useLauncherDownloads } from './useLauncherDownloads'
 
 vi.mock('../desktop', async () => {
   const actual = await vi.importActual<typeof import('../desktop')>('../desktop')
   return {
     ...actual,
+    checkLauncherUpdates: vi.fn(),
     loadLauncherDownloadQueue: vi.fn(),
     saveLauncherDownloadQueue: vi.fn(),
     downloadLauncherMod: vi.fn(),
@@ -15,6 +22,9 @@ vi.mock('../desktop', async () => {
   }
 })
 
+const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
+const downloadLauncherModMock = vi.mocked(downloadLauncherMod)
+const installLauncherArchiveMock = vi.mocked(installLauncherArchive)
 const loadLauncherDownloadQueueMock = vi.mocked(loadLauncherDownloadQueue)
 const saveLauncherDownloadQueueMock = vi.mocked(saveLauncherDownloadQueue)
 
@@ -94,7 +104,8 @@ describe('useLauncherDownloads', () => {
           modId: 101,
           title: 'NPC Adventures',
           source: 'discover',
-          status: 'queued',
+          status: 'failed',
+          error: 'Nexus API key is required to download mods.',
         }),
       ],
     })
@@ -156,5 +167,154 @@ describe('useLauncherDownloads', () => {
       }),
     )
     expect(result.current.downloadProgressPercent).toBeNull()
+  })
+
+  it('does not reinstall downloads already auto-installed by the desktop bridge', async () => {
+    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    downloadLauncherModMock.mockResolvedValue({
+      modId: 101,
+      title: 'NPC Adventures',
+      version: '1.2.0',
+      fileName: 'npc-adventures.zip',
+      archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
+      installed: true,
+      installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+    })
+    checkLauncherUpdatesMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 1,
+      updates: [],
+    })
+
+    const { result } = renderHook(() =>
+      useLauncherDownloads(
+        createSettings({
+          nexusApiKey: 'api-key',
+          autoInstallDownloads: true,
+        }),
+      ),
+    )
+
+    await waitFor(() => {
+      expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 101,
+        title: 'NPC Adventures',
+        imageUrl: null,
+        version: '1.2.0',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.installedItems).toHaveLength(1)
+    })
+
+    expect(installLauncherArchiveMock).not.toHaveBeenCalled()
+    expect(result.current.installedItems[0]).toEqual(
+      expect.objectContaining({
+        status: 'installed',
+        installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+      }),
+    )
+    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+  })
+
+  it('marks cookie-only downloads as failed before calling the backend', async () => {
+    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+
+    const { result } = renderHook(() =>
+      useLauncherDownloads(
+        createSettings({
+          nexusCookie: 'sid=abc123',
+        }),
+      ),
+    )
+
+    await waitFor(() => {
+      expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 101,
+        title: 'NPC Adventures',
+        imageUrl: null,
+        version: '1.2.0',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.failedItems).toHaveLength(1)
+    })
+
+    expect(downloadLauncherModMock).not.toHaveBeenCalled()
+    expect(result.current.failedItems[0]).toEqual(
+      expect.objectContaining({
+        status: 'failed',
+        error: 'Nexus API key is required to download mods.',
+      }),
+    )
+  })
+
+  it('captures install failures in queue state and preserves the archive for retrying install', async () => {
+    loadLauncherDownloadQueueMock.mockResolvedValue({
+      items: [
+        {
+          id: 'persisted-job',
+          modId: 101,
+          title: 'NPC Adventures',
+          version: '1.2.0',
+          imageUrl: null,
+          source: 'updates',
+          status: 'completed',
+          archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
+          installedTargetPath: null,
+          error: null,
+          addedAt: 1,
+          completedAt: 2,
+        },
+      ],
+    })
+    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    installLauncherArchiveMock.mockRejectedValue(new Error('Archive missing'))
+
+    const { result } = renderHook(() =>
+      useLauncherDownloads(
+        createSettings({
+          nexusApiKey: 'api-key',
+        }),
+      ),
+    )
+
+    await waitFor(() => {
+      expect(result.current.readyToInstall).toHaveLength(1)
+    })
+
+    await act(async () => {
+      await result.current.installItem('persisted-job')
+    })
+
+    await waitFor(() => {
+      expect(result.current.failedItems).toHaveLength(1)
+    })
+
+    expect(result.current.failedItems[0]).toEqual(
+      expect.objectContaining({
+        status: 'failed',
+        archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
+        error: 'Archive missing',
+      }),
+    )
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
   })
 })

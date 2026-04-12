@@ -521,11 +521,13 @@ export type LauncherUpdateSummary = {
 export type LauncherUpdatesResult = {
   modsPath: string
   checkedAtMs: number
+  isComplete?: boolean
   updates: LauncherUpdateSummary[]
 }
 
 export type LauncherUpdateProgressPayload = {
   modsPath: string
+  sessionId?: string | null
   checked: number
   total: number
   currentModName: string | null
@@ -726,12 +728,17 @@ const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>
 const loadLauncherRemoteModDetailCache = createPromiseCache<LauncherRemoteModDetail>()
 const loadLauncherUpdateChangelogCache = createPromiseCache<LauncherUpdateChangelogResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
-const LAUNCHER_UPDATES_CACHE_TTL_MS = 5 * 60 * 1000
+const LAUNCHER_UPDATES_CACHE_TTL_MS = 30 * 60 * 1000
 const launcherUpdatesPendingRequests = new Map<string, Promise<LauncherUpdatesResult>>()
-const launcherUpdatesSnapshots = new Map<string, { result: LauncherUpdatesResult; isFinal: boolean }>()
+const launcherUpdatesSnapshots = new Map<
+  string,
+  { result: LauncherUpdatesResult; isFinal: boolean; sessionId: string | null }
+>()
 const launcherUpdatesListeners = new Map<string, Set<(result: LauncherUpdatesResult) => void>>()
 const launcherUpdatesRequestVersions = new Map<string, number>()
+const launcherUpdatesActiveSessions = new Map<string, string>()
 let launcherUpdatesProgressBridgePromise: Promise<void> | null = null
+let launcherUpdatesSessionCounter = 0
 
 function getLauncherUpdatesCacheKey(modsPath: string) {
   return normalizeCachePathSegment(modsPath)
@@ -739,6 +746,10 @@ function getLauncherUpdatesCacheKey(modsPath: string) {
 
 function hasFreshLauncherUpdatesResult(result: LauncherUpdatesResult) {
   return Date.now() - result.checkedAtMs < LAUNCHER_UPDATES_CACHE_TTL_MS
+}
+
+function isLauncherUpdatesResultComplete(result: LauncherUpdatesResult) {
+  return result.isComplete !== false
 }
 
 function notifyLauncherUpdatesListeners(cacheKey: string, result: LauncherUpdatesResult) {
@@ -752,15 +763,33 @@ function notifyLauncherUpdatesListeners(cacheKey: string, result: LauncherUpdate
   }
 }
 
-function storeLauncherUpdatesResult(result: LauncherUpdatesResult, isFinal: boolean) {
+function nextLauncherUpdatesSessionId() {
+  launcherUpdatesSessionCounter += 1
+  return `launcher-updates:${Date.now()}:${launcherUpdatesSessionCounter}`
+}
+
+function storeLauncherUpdatesResult(result: LauncherUpdatesResult, isFinal: boolean, sessionId: string | null = null) {
   const cacheKey = getLauncherUpdatesCacheKey(result.modsPath)
-  launcherUpdatesSnapshots.set(cacheKey, { result, isFinal })
+  launcherUpdatesSnapshots.set(cacheKey, { result, isFinal, sessionId })
   notifyLauncherUpdatesListeners(cacheKey, result)
   return result
 }
 
+function getActiveLauncherUpdateProgressSessionId(payload: LauncherUpdateProgressPayload) {
+  const normalizedModsPath = payload.modsPath?.trim()
+  const sessionId = payload.sessionId?.trim()
+  if (!normalizedModsPath || !sessionId) {
+    return null
+  }
+
+  return launcherUpdatesActiveSessions.get(getLauncherUpdatesCacheKey(normalizedModsPath)) === sessionId
+    ? sessionId
+    : null
+}
+
 function storePartialLauncherUpdatesResult(payload: LauncherUpdateProgressPayload) {
-  if (!Array.isArray(payload.updates)) {
+  const sessionId = getActiveLauncherUpdateProgressSessionId(payload)
+  if (!sessionId || !Array.isArray(payload.updates)) {
     return null
   }
 
@@ -768,9 +797,11 @@ function storePartialLauncherUpdatesResult(payload: LauncherUpdateProgressPayloa
     {
       modsPath: payload.modsPath,
       checkedAtMs: 0,
+      isComplete: false,
       updates: payload.updates,
     },
     false,
+    sessionId,
   )
 }
 
@@ -786,6 +817,7 @@ function invalidateLauncherUpdatesState(modsPath?: string | null) {
     launcherUpdatesSnapshots.clear()
     launcherUpdatesPendingRequests.clear()
     launcherUpdatesRequestVersions.clear()
+    launcherUpdatesActiveSessions.clear()
     return
   }
 
@@ -793,6 +825,7 @@ function invalidateLauncherUpdatesState(modsPath?: string | null) {
   launcherUpdatesSnapshots.delete(cacheKey)
   launcherUpdatesPendingRequests.delete(cacheKey)
   launcherUpdatesRequestVersions.set(cacheKey, (launcherUpdatesRequestVersions.get(cacheKey) ?? 0) + 1)
+  launcherUpdatesActiveSessions.delete(cacheKey)
 }
 
 function tryGetFreshLauncherUpdatesResult(modsPath: string) {
@@ -851,7 +884,12 @@ export function subscribeLauncherUpdates(
   listeners.add(listener)
   launcherUpdatesListeners.set(cacheKey, listeners)
   const currentSnapshot = launcherUpdatesSnapshots.get(cacheKey)
-  if (currentSnapshot && (!currentSnapshot.isFinal || hasFreshLauncherUpdatesResult(currentSnapshot.result))) {
+  const activeSessionId = launcherUpdatesActiveSessions.get(cacheKey)
+  const canReplayPartial =
+    !currentSnapshot?.isFinal &&
+    Boolean(currentSnapshot?.sessionId) &&
+    currentSnapshot?.sessionId === activeSessionId
+  if (currentSnapshot && (canReplayPartial || hasFreshLauncherUpdatesResult(currentSnapshot.result))) {
     listener(currentSnapshot.result)
   }
 
@@ -1331,7 +1369,7 @@ export async function loadCachedLauncherUpdates(request: LoadCachedLauncherUpdat
   }
 
   const result = await invokeDesktop<LauncherUpdatesResult | null>('load_cached_launcher_updates', { request })
-  return result ? storeLauncherUpdatesResult(result, true) : null
+  return result ? storeLauncherUpdatesResult(result, isLauncherUpdatesResultComplete(result)) : null
 }
 
 export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
@@ -1344,17 +1382,34 @@ export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
   }
 
   const requestVersion = nextLauncherUpdatesRequestVersion(cacheKey)
+  const sessionId = nextLauncherUpdatesSessionId()
+  launcherUpdatesActiveSessions.set(cacheKey, sessionId)
   void ensureLauncherUpdatesProgressBridge()
-  const promise = invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', { request })
+  const promise = invokeDesktop<LauncherUpdatesResult>('check_launcher_updates', {
+    request: {
+      ...request,
+      sessionId,
+    },
+  })
     .then((result) => {
       if (launcherUpdatesRequestVersions.get(cacheKey) === requestVersion) {
-        storeLauncherUpdatesResult(result, true)
+        storeLauncherUpdatesResult(result, isLauncherUpdatesResultComplete(result), sessionId)
       }
       return result
+    })
+    .catch((error) => {
+      const snapshot = launcherUpdatesSnapshots.get(cacheKey)
+      if (snapshot && !snapshot.isFinal && snapshot.sessionId === sessionId) {
+        launcherUpdatesSnapshots.delete(cacheKey)
+      }
+      throw error
     })
     .finally(() => {
       if (launcherUpdatesPendingRequests.get(cacheKey) === promise) {
         launcherUpdatesPendingRequests.delete(cacheKey)
+      }
+      if (launcherUpdatesActiveSessions.get(cacheKey) === sessionId) {
+        launcherUpdatesActiveSessions.delete(cacheKey)
       }
     })
 
@@ -1366,6 +1421,9 @@ export function listenToLauncherUpdateProgress(
   listener: (payload: LauncherUpdateProgressPayload) => void,
 ): Promise<UnlistenFn> {
   return listen<LauncherUpdateProgressPayload>(LAUNCHER_UPDATE_PROGRESS_EVENT, (event) => {
+    if (!getActiveLauncherUpdateProgressSessionId(event.payload)) {
+      return
+    }
     listener(event.payload)
   })
 }

@@ -1,9 +1,12 @@
 use super::archive::inspect_archive_at_path;
 use super::catalog::{
+    build_launcher_update_summary,
     build_catalog_graphql_payload, build_public_catalog_graphql_payload,
     build_smapi_update_payload, build_smapi_update_payload_with_versions,
     build_update_batch_graphql_payload,
     can_use_nexus_graphql, enrich_remote_mod_detail_with_gallery_images,
+    dedupe_update_candidates_by_mod_id,
+    finalize_remote_mod_details_batch,
     parse_launcher_update_changelog_text, parse_launcher_update_file_metadata_text,
     parse_public_mod_detail_graphql_response,
     parse_catalog_graphql_response, parse_catalog_results, parse_remote_mod_detail_html,
@@ -23,7 +26,11 @@ use super::library::{
 use super::settings::{load_or_create_settings_at_path, save_settings_at_path};
 use super::trace::format_launcher_trace_message;
 use super::update_cache::{
+    inspect_launcher_updates_cache_at_path,
+    clear_launcher_updates_check_in_progress_at_path,
     invalidate_launcher_updates_cache_at_path, load_cached_launcher_updates_at_path,
+    LauncherUpdatesCacheEntryState,
+    mark_launcher_updates_check_in_progress_at_path,
     save_launcher_updates_cache_at_path,
 };
 use super::types::{
@@ -87,6 +94,7 @@ fn sample_launcher_updates_result(mods_path: &str, checked_at_ms: u128) -> Launc
     LauncherUpdatesResult {
         mods_path: mods_path.to_string(),
         checked_at_ms,
+        is_complete: true,
         updates: vec![LauncherUpdateSummary {
             mod_id: 101,
             name: "NPC Adventures".to_string(),
@@ -499,13 +507,13 @@ fn launcher_updates_cache_returns_unexpired_entry_for_matching_mods_path() {
     let cache_path = root.join("launcher").join("updates-cache.json");
     let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
 
-    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 300_000)
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 1_800_000)
         .expect("save launcher updates cache");
 
     let loaded = load_cached_launcher_updates_at_path(
         &cache_path,
         "C:/Games/Stardew Valley/Mods",
-        250_000,
+        1_799_999,
     )
     .expect("load launcher updates cache");
 
@@ -520,13 +528,13 @@ fn launcher_updates_cache_ignores_and_prunes_expired_entries() {
     let cache_path = root.join("launcher").join("updates-cache.json");
     let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
 
-    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 300_000)
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 1_800_000)
         .expect("save launcher updates cache");
 
     let loaded = load_cached_launcher_updates_at_path(
         &cache_path,
         r"C:\Games\Stardew Valley\Mods",
-        301_001,
+        1_801_001,
     )
     .expect("load expired launcher updates cache");
 
@@ -535,7 +543,7 @@ fn launcher_updates_cache_ignores_and_prunes_expired_entries() {
     let reloaded = load_cached_launcher_updates_at_path(
         &cache_path,
         r"C:\Games\Stardew Valley\Mods",
-        301_001,
+        1_801_001,
     )
     .expect("reload pruned launcher updates cache");
     assert_eq!(reloaded, None);
@@ -550,9 +558,9 @@ fn launcher_updates_cache_invalidates_only_the_matching_mods_path() {
     let first = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
     let second = sample_launcher_updates_result(r"D:\Games\Stardew Valley\Mods", 2_000);
 
-    save_launcher_updates_cache_at_path(&cache_path, &first, 1_000, 300_000)
+    save_launcher_updates_cache_at_path(&cache_path, &first, 1_000, 1_800_000)
         .expect("save first launcher updates cache entry");
-    save_launcher_updates_cache_at_path(&cache_path, &second, 2_000, 300_000)
+    save_launcher_updates_cache_at_path(&cache_path, &second, 2_000, 1_800_000)
         .expect("save second launcher updates cache entry");
 
     invalidate_launcher_updates_cache_at_path(&cache_path, Some("C:/Games/Stardew Valley/Mods"))
@@ -573,6 +581,130 @@ fn launcher_updates_cache_invalidates_only_the_matching_mods_path() {
 
     assert_eq!(first_loaded, None);
     assert_eq!(second_loaded, Some(second));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_updates_cache_preserves_incomplete_entries_for_incremental_progress() {
+    let root = create_temp_dir("launcher-updates-cache-incomplete");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let mut cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
+    cached.is_complete = false;
+
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 1_800_000)
+        .expect("save incomplete launcher updates cache");
+
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        60_000,
+    )
+    .expect("load incomplete launcher updates cache");
+
+    assert_eq!(loaded, Some(cached));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_updates_cache_clears_interrupted_check_markers_without_discarding_last_success() {
+    let root = create_temp_dir("launcher-updates-cache-interrupted");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 60_000);
+
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 60_000, 1_800_000)
+        .expect("save launcher updates cache");
+    mark_launcher_updates_check_in_progress_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        120_000,
+    )
+    .expect("mark launcher updates check in progress");
+
+    clear_launcher_updates_check_in_progress_at_path(
+        &cache_path,
+        Some(r"C:\Games\Stardew Valley\Mods"),
+    )
+    .expect("clear launcher updates check in progress");
+
+    let loaded = load_cached_launcher_updates_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        600_000,
+    )
+    .expect("load cached launcher updates");
+
+    assert_eq!(loaded, Some(cached));
+
+    let serialized = fs::read_to_string(&cache_path).expect("read launcher updates cache");
+    assert!(!serialized.contains("inProgress"));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn inspect_launcher_updates_cache_reports_fresh_entry_and_in_progress_state() {
+    let root = create_temp_dir("launcher-updates-cache-inspect-fresh");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 60_000);
+
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 60_000, 1_800_000)
+        .expect("save launcher updates cache");
+    mark_launcher_updates_check_in_progress_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        120_000,
+    )
+    .expect("mark launcher updates check in progress");
+
+    let inspection = inspect_launcher_updates_cache_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        600_000,
+    )
+    .expect("inspect launcher updates cache");
+
+    assert_eq!(
+        inspection.cache_key.as_deref(),
+        Some(r"c:\games\stardew valley\mods")
+    );
+    assert_eq!(inspection.entry_state, LauncherUpdatesCacheEntryState::Fresh);
+    assert_eq!(inspection.checked_at_ms, Some(60_000));
+    assert_eq!(inspection.expires_at_ms, Some(1_860_000));
+    assert_eq!(inspection.is_complete, Some(true));
+    assert_eq!(inspection.ttl_remaining_ms, Some(1_260_000));
+    assert_eq!(inspection.expired_by_ms, None);
+    assert_eq!(inspection.in_progress_active_count, 1);
+    assert_eq!(inspection.in_progress_started_at_ms, Some(120_000));
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn inspect_launcher_updates_cache_reports_expired_entry_state() {
+    let root = create_temp_dir("launcher-updates-cache-inspect-expired");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let cached = sample_launcher_updates_result(r"C:\Games\Stardew Valley\Mods", 1_000);
+
+    save_launcher_updates_cache_at_path(&cache_path, &cached, 1_000, 1_800_000)
+        .expect("save launcher updates cache");
+
+    let inspection = inspect_launcher_updates_cache_at_path(
+        &cache_path,
+        r"C:\Games\Stardew Valley\Mods",
+        1_900_000,
+    )
+    .expect("inspect expired launcher updates cache");
+
+    assert_eq!(inspection.entry_state, LauncherUpdatesCacheEntryState::Expired);
+    assert_eq!(inspection.checked_at_ms, Some(1_000));
+    assert_eq!(inspection.expires_at_ms, Some(1_801_000));
+    assert_eq!(inspection.is_complete, Some(true));
+    assert_eq!(inspection.ttl_remaining_ms, None);
+    assert_eq!(inspection.expired_by_ms, Some(99_000));
+    assert_eq!(inspection.in_progress_active_count, 0);
+    assert_eq!(inspection.in_progress_started_at_ms, None);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -1047,8 +1179,8 @@ fn build_smapi_update_payload_uses_unique_ids_and_update_keys() {
         },
     ]);
 
-    assert_eq!(payload["ApiVersion"], "4.1.6");
-    assert_eq!(payload["GameVersion"], "1.6.13");
+    assert_eq!(payload["ApiVersion"], "4.5.2");
+    assert_eq!(payload["GameVersion"], "1.6.14");
     assert_eq!(payload["Platform"], "Windows");
     assert_eq!(payload["IncludeExtendedMetadata"], true);
     assert_eq!(payload["Mods"].as_array().map(Vec::len), Some(1));
@@ -1117,11 +1249,82 @@ fn resolve_smapi_runtime_versions_falls_back_to_defaults() {
     assert_eq!(
         versions,
         SmapiRuntimeVersions {
-            api_version: "4.1.6".to_string(),
-            game_version: "1.6.13".to_string(),
+            api_version: "4.5.2".to_string(),
+            game_version: "1.6.14".to_string(),
             platform: "Windows".to_string(),
         }
     );
+}
+
+#[test]
+fn dedupe_update_candidates_by_mod_id_keeps_first_candidate_per_mod() {
+    let deduped = dedupe_update_candidates_by_mod_id(&[
+        UpdateCheckCandidate {
+            mod_id: 4,
+            unique_id: Some("Pathoschild.Automate".to_string()),
+            name: "Automate".to_string(),
+            current_version: "2.0.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Automate".to_string(),
+            update_keys: vec!["Nexus:4".to_string()],
+        },
+        UpdateCheckCandidate {
+            mod_id: 4,
+            unique_id: Some("Pathoschild.Automate.Copy".to_string()),
+            name: "Automate Copy".to_string(),
+            current_version: "2.0.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Automate Copy".to_string(),
+            update_keys: vec!["Nexus:4".to_string()],
+        },
+        UpdateCheckCandidate {
+            mod_id: 93,
+            unique_id: Some("Pathoschild.ChestsAnywhere".to_string()),
+            name: "Chests Anywhere".to_string(),
+            current_version: "1.0.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Chests Anywhere".to_string(),
+            update_keys: vec!["Nexus:93".to_string()],
+        },
+    ]);
+
+    assert_eq!(deduped.len(), 2);
+    assert_eq!(deduped[0].mod_id, 4);
+    assert_eq!(deduped[0].absolute_path, r"E:\Games\Stardew Valley\Mods\Automate");
+    assert_eq!(deduped[1].mod_id, 93);
+}
+
+#[test]
+fn build_launcher_update_summary_uses_remote_detail_fields_without_file_metadata() {
+    let summary = build_launcher_update_summary(
+        &UpdateCheckCandidate {
+            mod_id: 541,
+            unique_id: Some("Pathoschild.LookupAnything".to_string()),
+            name: "Lookup Anything".to_string(),
+            current_version: "1.43.0".to_string(),
+            absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
+            update_keys: vec!["Nexus:541".to_string()],
+        },
+        &super::catalog::RemoteModDetail {
+            mod_id: 541,
+            name: Some("Lookup Anything".to_string()),
+            author: Some("Pathoschild".to_string()),
+            summary: Some("Inspect anything.".to_string()),
+            version: Some("1.44.0".to_string()),
+            mod_url: "https://www.nexusmods.com/stardewvalley/mods/541".to_string(),
+            image_url: Some(
+                "https://staticdelivery.nexusmods.com/mods/1303/images/541/541-cover.png"
+                    .to_string(),
+            ),
+            gallery_images: Vec::new(),
+            updated_at: Some("2026-04-11T08:00:00.000Z".to_string()),
+            file_size: Some(13_107_200),
+        },
+    )
+    .expect("remote detail should produce update summary");
+
+    assert_eq!(summary.mod_id, 541);
+    assert_eq!(summary.author.as_deref(), Some("Pathoschild"));
+    assert_eq!(summary.updated_at.as_deref(), Some("2026-04-11T08:00:00.000Z"));
+    assert_eq!(summary.file_size, Some(13_107_200));
+    assert_eq!(summary.latest_version, "1.44.0");
 }
 
 #[test]
@@ -1285,6 +1488,36 @@ fn parse_update_batch_graphql_response_extracts_versions_by_mod_id() {
         "https://www.nexusmods.com/stardewvalley/mods/101"
     );
     assert_eq!(details[1].image_url, None);
+}
+
+#[test]
+fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fail() {
+    let mut details = std::collections::HashMap::new();
+    details.insert(
+        101,
+        super::catalog::RemoteModDetail {
+            mod_id: 101,
+            name: Some("Tractor Mod".to_string()),
+            author: Some("Pathoschild".to_string()),
+            summary: None,
+            version: Some("4.0.1".to_string()),
+            mod_url: "https://www.nexusmods.com/stardewvalley/mods/101".to_string(),
+            image_url: None,
+            gallery_images: Vec::new(),
+            updated_at: None,
+            file_size: None,
+        },
+    );
+
+    let finalized = finalize_remote_mod_details_batch(
+        details,
+        vec![202],
+        vec!["SMAPI timeout".to_string(), "HTML 503".to_string()],
+    )
+    .expect("partial remote detail failures should not abort the batch");
+
+    assert_eq!(finalized.len(), 1);
+    assert_eq!(finalized.get(&101).and_then(|detail| detail.name.as_deref()), Some("Tractor Mod"));
 }
 
 #[test]

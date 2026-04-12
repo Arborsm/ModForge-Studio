@@ -436,7 +436,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
             if (!isRefreshActive()) {
               return
             }
-            if (cached) {
+            if (cached && cached.isComplete !== false) {
               return
             }
 

@@ -194,12 +194,22 @@ const localeBundle: LocaleBundle = {
         "recheck": "Recheck",
         "updateSelected": "Update All Selected",
         "updateOne": "Update This Item",
+        "expandDetails": "Expand Details",
         "viewChangelog": "Changelog",
+        "fetchDetails": "Fetch Details",
+        "fetchChangelog": "Fetch Changelog",
         "openHomepage": "Open Mod Page",
         "openComments": "View Comments",
+        "overviewTitle": "Release Overview",
+        "releaseLabel": "Released",
+        "sizeLabel": "File Size",
+        "detailsLoading": "Loading mod details...",
+        "detailsEmpty": "Click Fetch Details to load the summary, author, and source information.",
         "changelogTitle": (version) => (version ? `Changelog (${version.startsWith('v') ? version : `v${version}`})` : 'Changelog'),
         "changelogLoading": "Loading changelog...",
         "changelogEmpty": "No release notes were published for this version.",
+        "fetchDetailNotice": "Fetching mod details",
+        "fetchChangelogNotice": "Fetching changelog",
         "releaseUnknown": "Release date unavailable",
         "sizeUnknown": "Size unavailable",
         "checkingProgressTitle": "Checking mod updates",
@@ -208,7 +218,9 @@ const localeBundle: LocaleBundle = {
             ? `Checking ${currentModName} (${checked}/${total || '?'})`
             : total > 0
               ? `Checked ${checked}/${total} mods`
-              : 'Preparing installed mods'
+              : 'Preparing installed mods',
+        "checkFailedTitle": "Failed to Check Mod Updates",
+        "checkFailedDetail": "This check did not complete. Try again; detailed diagnostics are shown in notifications."
       },
       "downloads": {
         "title": "Downloads",

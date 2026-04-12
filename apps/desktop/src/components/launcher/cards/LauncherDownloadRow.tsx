@@ -57,7 +57,7 @@ export function LauncherDownloadRow({
   const secondaryLabel = [sourceLabel, item.version ?? rootCopy.common.none].join(' / ')
   const resolvedPath = item.installedTargetPath ?? item.archivePath
   const canRetry = item.status === 'failed'
-  const canInstall = item.status === 'completed' && Boolean(item.archivePath)
+  const canInstall = Boolean(item.archivePath) && (item.status === 'completed' || item.status === 'failed')
   const progressPercent = getDownloadProgressPercent(item)
   const progressRateLabel = formatMegabytes(item.bytesPerSecond)
   const progressDownloadedLabel = formatMegabytes(item.downloadedBytes)

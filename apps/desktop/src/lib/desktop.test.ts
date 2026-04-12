@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 
 const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
@@ -73,6 +73,10 @@ describe('desktop window helpers', () => {
 })
 
 describe('launcher bridge helpers', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   beforeEach(() => {
     Object.defineProperty(window, '__TAURI_INTERNALS__', {
       configurable: true,
@@ -247,12 +251,14 @@ describe('launcher bridge helpers', () => {
       request: {
         modsPath: 'C:\\Games\\Stardew Valley\\Mods',
         forceRefresh: false,
+        sessionId: expect.any(String),
       },
     })
     expect(invoke).toHaveBeenNthCalledWith(2, 'check_launcher_updates', {
       request: {
         modsPath: 'C:\\Games\\Stardew Valley\\Mods',
         forceRefresh: true,
+        sessionId: expect.any(String),
       },
     })
 
@@ -307,16 +313,95 @@ describe('launcher bridge helpers', () => {
     })
   })
 
+  it('does not memoize incomplete cached launcher updates as fresh final snapshots', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-12T00:00:00Z'))
+
+    const partialCached = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: Date.now(),
+      isComplete: false,
+      updates: [],
+    }
+
+    vi.mocked(invoke).mockResolvedValueOnce(partialCached).mockResolvedValueOnce(partialCached)
+    const { loadCachedLauncherUpdates } = await import('./desktop')
+
+    await expect(loadCachedLauncherUpdates({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(
+      partialCached,
+    )
+    await expect(loadCachedLauncherUpdates({ modsPath: 'C:\\Games\\Stardew Valley\\Mods' })).resolves.toEqual(
+      partialCached,
+    )
+
+    expect(invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps successful launcher update snapshots fresh for thirty minutes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-12T00:00:00Z'))
+
+    const cached = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: Date.now(),
+      updates: [],
+    }
+
+    vi.mocked(invoke).mockResolvedValueOnce(cached)
+    const { checkLauncherUpdates, loadCachedLauncherUpdates } = await import('./desktop')
+
+    await expect(
+      checkLauncherUpdates({
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        forceRefresh: true,
+      }),
+    ).resolves.toEqual(cached)
+
+    vi.mocked(invoke).mockReset()
+    vi.setSystemTime(new Date('2026-04-12T00:29:59Z'))
+
+    await expect(
+      loadCachedLauncherUpdates({
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      }),
+    ).resolves.toEqual(cached)
+    expect(invoke).not.toHaveBeenCalled()
+
+    vi.mocked(invoke).mockResolvedValueOnce(null)
+    vi.setSystemTime(new Date('2026-04-12T00:30:01Z'))
+
+    await expect(
+      loadCachedLauncherUpdates({
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      }),
+    ).resolves.toBeNull()
+    expect(invoke).toHaveBeenCalledWith('load_cached_launcher_updates', {
+      request: { modsPath: 'C:\\Games\\Stardew Valley\\Mods' },
+    })
+  })
+
   it('publishes partial launcher updates from progress events to subscribers', async () => {
-    const { subscribeLauncherUpdates } = await import('./desktop')
+    const pending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    vi.mocked(invoke).mockReturnValueOnce(pending.promise)
+    const { checkLauncherUpdates, subscribeLauncherUpdates } = await import('./desktop')
     const listener = vi.fn()
 
     const unsubscribe = subscribeLauncherUpdates('C:\\Games\\Stardew Valley\\Mods', listener)
     await Promise.resolve()
+    const checkPromise = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+    const firstRequest = vi.mocked(invoke).mock.calls[0]?.[1] as { request: { sessionId: string } }
 
     eventListeners.get('launcher://update-check-progress')?.({
       payload: {
         modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        sessionId: firstRequest.request.sessionId,
         checked: 3,
         total: 10,
         currentModName: 'NPC Adventures',
@@ -337,6 +422,7 @@ describe('launcher bridge helpers', () => {
     expect(listener).toHaveBeenCalledWith({
       modsPath: 'C:\\Games\\Stardew Valley\\Mods',
       checkedAtMs: 0,
+      isComplete: false,
       updates: [
         {
           modId: 101,
@@ -350,7 +436,266 @@ describe('launcher bridge helpers', () => {
       ],
     })
 
+    pending.resolve({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 123,
+      updates: [],
+    })
+    await expect(checkPromise).resolves.toEqual({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 123,
+      updates: [],
+    })
+
     unsubscribe()
+  })
+
+  it('does not replay stale partial launcher updates to new subscribers after a failed session', async () => {
+    const pending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    vi.mocked(invoke).mockReturnValueOnce(pending.promise)
+    const { checkLauncherUpdates, subscribeLauncherUpdates } = await import('./desktop')
+    const firstListener = vi.fn()
+
+    const unsubscribeFirst = subscribeLauncherUpdates('C:\\Games\\Stardew Valley\\Mods', firstListener)
+    await Promise.resolve()
+
+    const checkPromise = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+    const firstRequest = vi.mocked(invoke).mock.calls[0]?.[1] as { request: { sessionId: string } }
+    const sessionId = firstRequest.request.sessionId
+
+    eventListeners.get('launcher://update-check-progress')?.({
+      payload: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        sessionId,
+        checked: 1,
+        total: 2,
+        currentModName: 'NPC Adventures',
+        updates: [
+          {
+            modId: 101,
+            name: 'NPC Adventures',
+            currentVersion: '1.0.0',
+            latestVersion: '1.2.0',
+            absolutePath: 'C:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+            imageUrl: null,
+          },
+        ],
+      },
+    })
+
+    expect(firstListener).toHaveBeenCalledTimes(1)
+
+    pending.reject(new Error('Network timeout'))
+    await expect(checkPromise).rejects.toThrow('Network timeout')
+
+    unsubscribeFirst()
+
+    const secondListener = vi.fn()
+    subscribeLauncherUpdates('C:\\Games\\Stardew Valley\\Mods', secondListener)
+
+    expect(secondListener).not.toHaveBeenCalled()
+  })
+
+  it('ignores stale progress events from superseded launcher update sessions', async () => {
+    const firstPending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    const secondPending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    vi.mocked(invoke).mockReturnValueOnce(firstPending.promise).mockReturnValueOnce(secondPending.promise)
+    const { checkLauncherUpdates, subscribeLauncherUpdates } = await import('./desktop')
+    const listener = vi.fn()
+
+    const unsubscribe = subscribeLauncherUpdates('C:\\Games\\Stardew Valley\\Mods', listener)
+    await Promise.resolve()
+
+    const firstCheck = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+    const secondCheck = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: true,
+    })
+    const firstRequest = vi.mocked(invoke).mock.calls[0]?.[1] as { request: { sessionId: string } }
+    const secondRequest = vi.mocked(invoke).mock.calls[1]?.[1] as { request: { sessionId: string } }
+
+    eventListeners.get('launcher://update-check-progress')?.({
+      payload: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        sessionId: firstRequest.request.sessionId,
+        checked: 1,
+        total: 2,
+        currentModName: 'Old Session',
+        updates: [
+          {
+            modId: 101,
+            name: 'Old Session',
+            currentVersion: '1.0.0',
+            latestVersion: '1.1.0',
+            absolutePath: 'C:\\Games\\Stardew Valley\\Mods\\Old Session',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+            imageUrl: null,
+          },
+        ],
+      },
+    })
+
+    expect(listener).not.toHaveBeenCalled()
+
+    eventListeners.get('launcher://update-check-progress')?.({
+      payload: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        sessionId: secondRequest.request.sessionId,
+        checked: 1,
+        total: 2,
+        currentModName: 'Current Session',
+        updates: [
+          {
+            modId: 202,
+            name: 'Current Session',
+            currentVersion: '2.0.0',
+            latestVersion: '2.1.0',
+            absolutePath: 'C:\\Games\\Stardew Valley\\Mods\\Current Session',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/202',
+            imageUrl: null,
+          },
+        ],
+      },
+    })
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 0,
+      isComplete: false,
+      updates: [
+        {
+          modId: 202,
+          name: 'Current Session',
+          currentVersion: '2.0.0',
+          latestVersion: '2.1.0',
+          absolutePath: 'C:\\Games\\Stardew Valley\\Mods\\Current Session',
+          modUrl: 'https://www.nexusmods.com/stardewvalley/mods/202',
+          imageUrl: null,
+        },
+      ],
+    })
+
+    secondPending.resolve({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 222,
+      updates: [],
+    })
+    firstPending.resolve({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 111,
+      updates: [],
+    })
+    await expect(secondCheck).resolves.toEqual({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 222,
+      updates: [],
+    })
+    await expect(firstCheck).resolves.toEqual({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 111,
+      updates: [],
+    })
+
+    unsubscribe()
+  })
+
+  it('does not forward stale progress events to launcher progress listeners', async () => {
+    const firstPending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    const secondPending = createDeferred<{
+      modsPath: string
+      checkedAtMs: number
+      updates: never[]
+    }>()
+    vi.mocked(invoke).mockReturnValueOnce(firstPending.promise).mockReturnValueOnce(secondPending.promise)
+    const { checkLauncherUpdates, listenToLauncherUpdateProgress } = await import('./desktop')
+
+    const firstCheck = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+    const secondCheck = checkLauncherUpdates({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: true,
+    })
+    const firstRequest = vi.mocked(invoke).mock.calls[0]?.[1] as { request: { sessionId: string } }
+    const secondRequest = vi.mocked(invoke).mock.calls[1]?.[1] as { request: { sessionId: string } }
+    const listener = vi.fn()
+    const unlisten = await listenToLauncherUpdateProgress(listener)
+
+    eventListeners.get('launcher://update-check-progress')?.({
+      payload: {
+        modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+        sessionId: firstRequest.request.sessionId,
+        checked: 1,
+        total: 2,
+        currentModName: 'Old Session',
+        updates: [],
+      },
+    })
+
+    expect(listener).not.toHaveBeenCalled()
+
+    const currentPayload = {
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      sessionId: secondRequest.request.sessionId,
+      checked: 2,
+      total: 2,
+      currentModName: 'Current Session',
+      updates: [],
+    }
+    eventListeners.get('launcher://update-check-progress')?.({
+      payload: currentPayload,
+    })
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith(currentPayload)
+
+    secondPending.resolve({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 222,
+      updates: [],
+    })
+    firstPending.resolve({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 111,
+      updates: [],
+    })
+    await expect(secondCheck).resolves.toEqual({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 222,
+      updates: [],
+    })
+    await expect(firstCheck).resolves.toEqual({
+      modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 111,
+      updates: [],
+    })
+
+    unlisten()
   })
 
   it('clears launcher image cache and invalidates launcher cover and scan caches', async () => {

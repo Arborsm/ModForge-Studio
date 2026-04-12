@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, Download, ExternalLink, RefreshCw } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import { useEditorCopy, useLocale, useSettingsMenuCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import {
@@ -25,6 +26,10 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 function getUpdateKey(modId: number, absolutePath: string) {
   return `${modId}:${absolutePath}`
+}
+
+function getUpdateRequestNotificationId(kind: 'detail' | 'changelog', key: string) {
+  return `launcher-update-request:${kind}:${key}`
 }
 
 function formatVersionLabel(value: string | null | undefined) {
@@ -118,6 +123,7 @@ export function LauncherUpdatesPage({
   const settingsMenuCopy = useSettingsMenuCopy()
   const updates = useLauncherUpdates(settings)
   const mountedRef = useRef(true)
+  const activeNotificationIdsRef = useRef(new Set<string>())
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [detailByKey, setDetailByKey] = useState<Record<string, LauncherRemoteModDetail | null>>({})
   const [detailStateByKey, setDetailStateByKey] = useState<Record<string, LoadState>>({})
@@ -128,8 +134,13 @@ export function LauncherUpdatesPage({
 
   useEffect(() => {
     mountedRef.current = true
+    const activeNotificationIds = activeNotificationIdsRef.current
     return () => {
       mountedRef.current = false
+      for (const notificationId of activeNotificationIds) {
+        dismissNotification(notificationId)
+      }
+      activeNotificationIds.clear()
     }
   }, [])
 
@@ -142,74 +153,92 @@ export function LauncherUpdatesPage({
       source: 'updates',
     })
 
-  const expandedItem = useMemo(
-    () => updates.items.find((item) => getUpdateKey(item.modId, item.absolutePath) === expandedKey) ?? null,
-    [expandedKey, updates.items],
-  )
-
-  const loadExpandedContent = async (item: (typeof updates.items)[number]) => {
-    const key = getUpdateKey(item.modId, item.absolutePath)
-    setExpandedKey(key)
-
-    if (detailStateByKey[key] !== 'loading' && !detailByKey[key]) {
-      setDetailStateByKey((current) => ({ ...current, [key]: 'loading' }))
-      setDetailErrorByKey((current) => ({ ...current, [key]: null }))
-      void loadLauncherRemoteModDetail({ modId: item.modId })
-        .then((detail) => {
-          if (!mountedRef.current) {
-            return
-          }
-          setDetailByKey((current) => ({ ...current, [key]: detail }))
-          setDetailStateByKey((current) => ({ ...current, [key]: 'ready' }))
-        })
-        .catch((error) => {
-          if (!mountedRef.current) {
-            return
-          }
-          setDetailStateByKey((current) => ({ ...current, [key]: 'error' }))
-          setDetailErrorByKey((current) => ({
-            ...current,
-            [key]: error instanceof Error ? error.message : 'Failed to load launcher remote mod detail.',
-          }))
-        })
-    }
-
-    if (changelogStateByKey[key] !== 'loading' && !changelogByKey[key]) {
-      setChangelogStateByKey((current) => ({ ...current, [key]: 'loading' }))
-      setChangelogErrorByKey((current) => ({ ...current, [key]: null }))
-      void loadLauncherUpdateChangelog({ modId: item.modId })
-        .then((result) => {
-          if (!mountedRef.current) {
-            return
-          }
-          setChangelogByKey((current) => ({ ...current, [key]: result }))
-          setChangelogStateByKey((current) => ({ ...current, [key]: 'ready' }))
-        })
-        .catch((error) => {
-          if (!mountedRef.current) {
-            return
-          }
-          setChangelogStateByKey((current) => ({ ...current, [key]: 'error' }))
-          setChangelogErrorByKey((current) => ({
-            ...current,
-            [key]: error instanceof Error ? error.message : 'Failed to load launcher update changelog.',
-          }))
-        })
-    }
+  const publishRequestNotification = (id: string, title: string, description: string) => {
+    activeNotificationIdsRef.current.add(id)
+    publishNotification({
+      id,
+      level: 'info',
+      title,
+      description,
+      autoDismissMs: null,
+      progress: 18,
+    })
   }
 
-  const detail = expandedItem ? detailByKey[getUpdateKey(expandedItem.modId, expandedItem.absolutePath)] ?? null : null
-  const detailState = expandedItem ? detailStateByKey[getUpdateKey(expandedItem.modId, expandedItem.absolutePath)] ?? 'idle' : 'idle'
-  const detailError = expandedItem ? detailErrorByKey[getUpdateKey(expandedItem.modId, expandedItem.absolutePath)] ?? null : null
-  const changelog = expandedItem
-    ? changelogByKey[getUpdateKey(expandedItem.modId, expandedItem.absolutePath)] ?? null
-    : null
-  const changelogState = expandedItem
-    ? changelogStateByKey[getUpdateKey(expandedItem.modId, expandedItem.absolutePath)] ?? 'idle'
-    : 'idle'
-  const changelogError = expandedItem
-    ? changelogErrorByKey[getUpdateKey(expandedItem.modId, expandedItem.absolutePath)] ?? null
-    : null
+  const clearRequestNotification = (id: string) => {
+    activeNotificationIdsRef.current.delete(id)
+    dismissNotification(id)
+  }
+
+  const loadExpandedContent = (item: (typeof updates.items)[number]) => {
+    setExpandedKey(getUpdateKey(item.modId, item.absolutePath))
+  }
+
+  const loadExpandedDetail = (item: (typeof updates.items)[number]) => {
+    const key = getUpdateKey(item.modId, item.absolutePath)
+    if (detailStateByKey[key] === 'loading' || detailByKey[key]) {
+      return
+    }
+
+    const notificationId = getUpdateRequestNotificationId('detail', key)
+    setDetailStateByKey((current) => ({ ...current, [key]: 'loading' }))
+    setDetailErrorByKey((current) => ({ ...current, [key]: null }))
+    publishRequestNotification(notificationId, copy.updates.fetchDetailNotice, item.name)
+
+    void loadLauncherRemoteModDetail({ modId: item.modId })
+      .then((detail) => {
+        clearRequestNotification(notificationId)
+        if (!mountedRef.current) {
+          return
+        }
+        setDetailByKey((current) => ({ ...current, [key]: detail }))
+        setDetailStateByKey((current) => ({ ...current, [key]: 'ready' }))
+      })
+      .catch((error) => {
+        clearRequestNotification(notificationId)
+        if (!mountedRef.current) {
+          return
+        }
+        setDetailStateByKey((current) => ({ ...current, [key]: 'error' }))
+        setDetailErrorByKey((current) => ({
+          ...current,
+          [key]: error instanceof Error ? error.message : 'Failed to load launcher remote mod detail.',
+        }))
+      })
+  }
+
+  const loadExpandedChangelog = (item: (typeof updates.items)[number]) => {
+    const key = getUpdateKey(item.modId, item.absolutePath)
+    if (changelogStateByKey[key] === 'loading' || changelogByKey[key]) {
+      return
+    }
+
+    const notificationId = getUpdateRequestNotificationId('changelog', key)
+    setChangelogStateByKey((current) => ({ ...current, [key]: 'loading' }))
+    setChangelogErrorByKey((current) => ({ ...current, [key]: null }))
+    publishRequestNotification(notificationId, copy.updates.fetchChangelogNotice, item.name)
+
+    void loadLauncherUpdateChangelog({ modId: item.modId })
+      .then((result) => {
+        clearRequestNotification(notificationId)
+        if (!mountedRef.current) {
+          return
+        }
+        setChangelogByKey((current) => ({ ...current, [key]: result }))
+        setChangelogStateByKey((current) => ({ ...current, [key]: 'ready' }))
+      })
+      .catch((error) => {
+        clearRequestNotification(notificationId)
+        if (!mountedRef.current) {
+          return
+        }
+        setChangelogStateByKey((current) => ({ ...current, [key]: 'error' }))
+        setChangelogErrorByKey((current) => ({
+          ...current,
+          [key]: error instanceof Error ? error.message : 'Failed to load launcher update changelog.',
+        }))
+      })
+  }
 
   if (!settings.modsPath) {
     return (
@@ -229,7 +258,13 @@ export function LauncherUpdatesPage({
   }
 
   if (updates.state === 'error') {
-    return <LauncherStateBlock title={copy.updates.title} detail={updates.error ?? copy.updates.empty} tone="warning" />
+    return (
+      <LauncherStateBlock
+        title={copy.updates.checkFailedTitle}
+        detail={copy.updates.checkFailedDetail}
+        tone="warning"
+      />
+    )
   }
 
   if (!updates.items.length && updates.state !== 'loading') {
@@ -244,7 +279,9 @@ export function LauncherUpdatesPage({
             <h1 className="launcher-updates-console-title">{copy.updates.title}</h1>
             <span className="launcher-updates-console-count">{copy.updates.availableCount(updates.items.length)}</span>
           </div>
-          <p className="launcher-updates-console-subtitle">{copy.updates.selectionSummary(updates.selectedCount, updates.items.length)}</p>
+          <p className="launcher-updates-console-subtitle">
+            {copy.updates.selectionSummary(updates.selectedCount, updates.items.length)}
+          </p>
         </div>
         <div className="launcher-updates-console-actions">
           <button type="button" className="control-button" onClick={() => void updates.refresh()}>
@@ -278,9 +315,18 @@ export function LauncherUpdatesPage({
           {updates.items.map((item) => {
             const key = getUpdateKey(item.modId, item.absolutePath)
             const isExpanded = expandedKey === key
-            const changelogLoaded = Boolean(changelogByKey[key])
-            const rowDate = formatRelativeUpdateDate(item.updatedAt ?? null, locale, copy.updates.releaseUnknown)
-            const rowSize = formatFileSize(item.fileSize ?? null, copy.updates.sizeUnknown)
+            const detail = detailByKey[key] ?? null
+            const detailState = detailStateByKey[key] ?? 'idle'
+            const detailError = detailErrorByKey[key] ?? null
+            const changelog = changelogByKey[key] ?? null
+            const changelogState = changelogStateByKey[key] ?? 'idle'
+            const changelogError = changelogErrorByKey[key] ?? null
+            const detailDate = formatRelativeUpdateDate(
+              detail?.updatedAt ?? item.updatedAt ?? null,
+              locale,
+              copy.updates.releaseUnknown,
+            )
+            const detailSize = formatFileSize(detail?.fileSize ?? item.fileSize ?? null, copy.updates.sizeUnknown)
 
             return (
               <article key={key} className={cx('launcher-updates-item', isExpanded && 'launcher-updates-item-expanded')}>
@@ -309,26 +355,20 @@ export function LauncherUpdatesPage({
                     <strong className="launcher-updates-row-version-next">{formatVersionLabel(item.latestVersion)}</strong>
                   </div>
 
-                  <div className="launcher-updates-row-meta">
-                    <span>{rowDate}</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{rowSize}</span>
-                  </div>
-
                   <div className="launcher-updates-row-actions">
                     <button
                       type="button"
                       className="launcher-updates-inline-action"
                       aria-expanded={isExpanded ? 'true' : 'false'}
                       onClick={() => {
-                        if (isExpanded && changelogLoaded) {
+                        if (isExpanded) {
                           setExpandedKey(null)
                           return
                         }
-                        void loadExpandedContent(item)
+                        loadExpandedContent(item)
                       }}
                     >
-                      <span>{copy.updates.viewChangelog}</span>
+                      <span>{copy.updates.expandDetails}</span>
                       {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </button>
                     <button type="button" className="control-button" onClick={() => queueItem(item)}>
@@ -348,23 +388,44 @@ export function LauncherUpdatesPage({
                         />
 
                         <div className="launcher-updates-detail-copy">
-                          <p className="launcher-updates-detail-heading">
-                            {copy.updates.changelogTitle(changelog?.version ?? item.latestVersion)}
-                          </p>
-                          <div className="launcher-updates-detail-body">
-                            {changelogState === 'loading' ? <p>{copy.updates.changelogLoading}</p> : null}
-                            {changelogState !== 'loading' && changelog?.changelog ? (
-                              <p className="launcher-updates-detail-changelog">{changelog.changelog}</p>
-                            ) : null}
-                            {changelogState === 'error' ? (
-                              <p className="launcher-updates-detail-error">{changelogError ?? copy.updates.changelogEmpty}</p>
-                            ) : null}
-                            {changelogState === 'ready' && !changelog?.changelog ? (
-                              <p>{copy.updates.changelogEmpty}</p>
-                            ) : null}
-                            {detailState === 'error' && detailError ? (
-                              <p className="launcher-updates-detail-error">{detailError}</p>
-                            ) : null}
+                          <div className="launcher-updates-detail-section">
+                            <p className="launcher-updates-detail-heading">{copy.updates.overviewTitle}</p>
+                            <div className="launcher-updates-detail-body">
+                              {detailState === 'loading' ? <p>{copy.updates.detailsLoading}</p> : null}
+                              {detailState !== 'loading' && detail?.summary ? <p>{detail.summary}</p> : null}
+                              {detailState === 'error' ? (
+                                <p className="launcher-updates-detail-error">{detailError ?? copy.updates.detailsEmpty}</p>
+                              ) : null}
+                              {(detailState === 'idle' || (detailState === 'ready' && !detail?.summary)) && (
+                                <p>{copy.updates.detailsEmpty}</p>
+                              )}
+                            </div>
+                            <div className="launcher-updates-detail-meta">
+                              <p>
+                                <span>{copy.updates.releaseLabel}</span>
+                                <strong>{detailDate}</strong>
+                              </p>
+                              <p>
+                                <span>{copy.updates.sizeLabel}</span>
+                                <strong>{detailSize}</strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="launcher-updates-detail-section">
+                            <p className="launcher-updates-detail-heading">
+                              {copy.updates.changelogTitle(changelog?.version ?? item.latestVersion)}
+                            </p>
+                            <div className="launcher-updates-detail-body">
+                              {changelogState === 'loading' ? <p>{copy.updates.changelogLoading}</p> : null}
+                              {changelogState !== 'loading' && changelog?.changelog ? (
+                                <p className="launcher-updates-detail-changelog">{changelog.changelog}</p>
+                              ) : null}
+                              {changelogState === 'error' ? (
+                                <p className="launcher-updates-detail-error">{changelogError ?? copy.updates.changelogEmpty}</p>
+                              ) : null}
+                              {changelogState === 'ready' && !changelog?.changelog ? <p>{copy.updates.changelogEmpty}</p> : null}
+                            </div>
                           </div>
                         </div>
 
@@ -372,8 +433,28 @@ export function LauncherUpdatesPage({
                           <button
                             type="button"
                             className="control-button"
+                            disabled={detailState === 'loading'}
                             onClick={() => {
-                              void openLauncherUrl({ url: item.modUrl })
+                              loadExpandedDetail(item)
+                            }}
+                          >
+                            <span>{copy.updates.fetchDetails}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="control-button"
+                            disabled={changelogState === 'loading'}
+                            onClick={() => {
+                              loadExpandedChangelog(item)
+                            }}
+                          >
+                            <span>{copy.updates.fetchChangelog}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="control-button"
+                            onClick={() => {
+                              void openLauncherUrl({ url: detail?.modUrl ?? item.modUrl })
                             }}
                           >
                             <ExternalLink className="h-4 w-4" />
@@ -383,7 +464,7 @@ export function LauncherUpdatesPage({
                             type="button"
                             className="control-button"
                             onClick={() => {
-                              void openLauncherUrl({ url: `${item.modUrl}?tab=posts` })
+                              void openLauncherUrl({ url: `${detail?.modUrl ?? item.modUrl}?tab=posts` })
                             }}
                           >
                             <span>{copy.updates.openComments}</span>

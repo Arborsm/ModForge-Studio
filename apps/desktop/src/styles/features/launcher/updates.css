@@ -81,7 +81,7 @@
 
   .launcher-updates-row {
     display: grid;
-    grid-template-columns: auto 40px minmax(0, 1.25fr) minmax(0, 0.9fr) auto auto;
+    grid-template-columns: auto 40px minmax(0, 1.25fr) minmax(0, 0.9fr) auto;
     align-items: center;
     gap: 16px;
     min-height: 60px;
@@ -136,16 +136,14 @@
   }
 
   .launcher-updates-row-copy,
-  .launcher-updates-row-version,
-  .launcher-updates-row-meta {
+  .launcher-updates-row-version {
     min-width: 0;
   }
 
   .launcher-updates-row-title,
   .launcher-updates-row-author,
   .launcher-updates-row-version-current,
-  .launcher-updates-row-version-next,
-  .launcher-updates-row-meta {
+  .launcher-updates-row-version-next {
     margin: 0;
   }
 
@@ -180,16 +178,6 @@
     color: color-mix(in srgb, var(--success) 88%, var(--text-primary));
     font-size: 13px;
     font-weight: 800;
-  }
-
-  .launcher-updates-row-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--text-secondary);
-    font-size: 12px;
-    line-height: 1.4;
-    white-space: nowrap;
   }
 
   .launcher-updates-row-actions {
@@ -253,9 +241,14 @@
 
   .launcher-updates-detail-copy {
     display: grid;
-    gap: 10px;
+    gap: 14px;
     min-width: 0;
     padding-top: 14px;
+  }
+
+  .launcher-updates-detail-section {
+    display: grid;
+    gap: 10px;
   }
 
   .launcher-updates-detail-heading {
@@ -273,6 +266,31 @@
 
   .launcher-updates-detail-body p {
     margin: 0;
+  }
+
+  .launcher-updates-detail-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .launcher-updates-detail-meta p {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+  }
+
+  .launcher-updates-detail-meta span {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .launcher-updates-detail-meta strong {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
   }
 
   .launcher-updates-detail-changelog {
@@ -302,7 +320,6 @@
     }
 
     .launcher-updates-row-version,
-    .launcher-updates-row-meta,
     .launcher-updates-row-actions {
       grid-column: 3 / -1;
       justify-self: start;
@@ -331,7 +348,6 @@
     }
 
     .launcher-updates-row-version,
-    .launcher-updates-row-meta,
     .launcher-updates-row-actions {
       grid-column: 2 / -1;
     }
@@ -339,6 +355,10 @@
     .launcher-updates-detail {
       margin: 0 14px 14px;
       padding: 0 14px 14px;
+    }
+
+    .launcher-updates-detail-meta {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 }
