@@ -433,4 +433,41 @@ describe('LauncherUpdatesPage', () => {
     expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
     expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 75%')
   })
+
+  it('ignores trailing completed progress events after the update check promise already resolved', async () => {
+    const pendingCheck = createDeferred<LauncherUpdatesResult>()
+    checkLauncherUpdatesMock.mockImplementation(() => pendingCheck.promise)
+
+    const { container } = renderWithProviders(
+      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
+    )
+
+    await waitFor(() => {
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+    })
+    expect(container.querySelector('.notification-toast-progress')).toBeTruthy()
+
+    await act(async () => {
+      pendingCheck.resolve(createResult([createUpdate()]))
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(container.querySelector('.notification-toast-progress')).toBeNull()
+    })
+
+    await act(async () => {
+      eventListeners.get('launcher://update-check-progress')?.({
+        payload: {
+          modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+          checked: 140,
+          total: 140,
+          currentModName: 'NPC Adventures',
+        },
+      })
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('.notification-toast-progress')).toBeNull()
+  })
 })

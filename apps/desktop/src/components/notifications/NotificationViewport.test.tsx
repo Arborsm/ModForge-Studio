@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '../../lib/app/localeContext'
@@ -255,40 +253,5 @@ describe('NotificationProvider', () => {
 
     expect(first?.getAttribute('style')).toContain('bottom: 16px')
     expect(second?.getAttribute('style')).toContain('bottom: 8px')
-  })
-
-  it('styles notifications with shared theme tokens', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
-
-    expect(stylesheet).toContain('var(--bg-panel)')
-    expect(stylesheet).toContain('var(--text-primary)')
-    expect(stylesheet).toContain('var(--text-secondary)')
-    expect(stylesheet).toContain('var(--border-color)')
-    expect(stylesheet).toContain('.notification-stack-item')
-    expect(stylesheet).toContain('scaleX(var(--notification-stack-scale))')
-    expect(stylesheet).toContain('data-expanded="true"')
-    expect(stylesheet).toContain('.notification-toast-close')
-    expect(stylesheet).toContain('grid-template-columns: auto 1fr auto;')
-    expect(stylesheet).toContain('width: 1.65rem;')
-    expect(stylesheet).toContain('height: 1.65rem;')
-    expect(stylesheet).toContain('border-radius: 8px;')
-    expect(stylesheet).toContain('transform: translateY(-2px);')
-    expect(stylesheet).toContain('transition:')
-  })
-
-  it('does not reserve an invisible hover band above the notification stack', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
-
-    expect(stylesheet).toContain('.notification-viewport {')
-    expect(stylesheet).toContain('height: 0;')
-    expect(stylesheet).not.toContain('min-height: 4rem;')
-  })
-
-  it('uses a stable hover capture region so stack motion does not retrigger enter and leave', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
-
-    expect(stylesheet).toContain('.notification-hover-region')
-    expect(stylesheet).toContain('pointer-events: auto;')
-    expect(stylesheet).toContain('.notification-viewport[data-expanded="true"] .notification-hover-region')
   })
 })

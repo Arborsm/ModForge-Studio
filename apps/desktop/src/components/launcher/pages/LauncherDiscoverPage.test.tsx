@@ -5,6 +5,11 @@ import type { LauncherSettings } from '../../../lib/desktop'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
+import {
+  applyAppUiStatePatch,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+} from '../../../lib/app/uiState'
 import { renderWithLocale } from '../../../test/renderWithLocale'
 import { LauncherDiscoverPage } from './LauncherDiscoverPage'
 
@@ -15,6 +20,12 @@ vi.mock('../../../lib/launcher/useLauncherDiscover', () => ({
 vi.mock('../../../lib/app/notifications', () => ({
   publishNotification: vi.fn(),
   dismissNotification: vi.fn(),
+}))
+
+vi.mock('../../../lib/app/uiState', () => ({
+  getAppUiStateSnapshot: vi.fn(),
+  initializeAppUiState: vi.fn(),
+  applyAppUiStatePatch: vi.fn(),
 }))
 
 vi.mock('../../../lib/launcher/imageLoader', () => ({
@@ -30,6 +41,9 @@ const useLauncherDiscoverMock = vi.mocked(useLauncherDiscover)
 const publishNotificationMock = vi.mocked(publishNotification)
 const dismissNotificationMock = vi.mocked(dismissNotification)
 const useLauncherImageMock = vi.mocked(useLauncherImage)
+const getAppUiStateSnapshotMock = vi.mocked(getAppUiStateSnapshot)
+const initializeAppUiStateMock = vi.mocked(initializeAppUiState)
+const applyAppUiStatePatchMock = vi.mocked(applyAppUiStatePatch)
 type DiscoverState = ReturnType<typeof useLauncherDiscover>
 
 function createDiscoverState(overrides: Partial<DiscoverState> = {}): DiscoverState {
@@ -98,7 +112,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
 describe('LauncherDiscoverPage', () => {
   afterEach(() => {
     cleanup()
-    window.localStorage.clear()
     vi.clearAllMocks()
     useLauncherImageMock.mockReturnValue({
       imageUrl: null,
@@ -108,6 +121,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('keeps discover browsing available without credentials', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState())
 
     const { container } = renderWithLocale(
@@ -126,6 +145,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('renders the project-aligned browse shell and result cards for discover browsing', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(
       createDiscoverState({
         items: [
@@ -184,6 +209,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('opens the toolbar menus when the discover toolbar controls are clicked', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 30, totalPages: 2 }))
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
@@ -199,10 +230,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('restores and persists the top bar filter visibility state', () => {
-    window.localStorage.setItem(
-      'modforge:launcher-discover-toolbar:v1',
-      JSON.stringify({ filtersHidden: true }),
-    )
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: true } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: true } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 30, totalPages: 2 }))
 
     const { container } = renderWithLocale(
@@ -218,12 +251,24 @@ describe('LauncherDiscoverPage', () => {
 
     expect(screen.getByRole('button', { name: /Hide filters/i })).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeTruthy()
-    expect(JSON.parse(window.localStorage.getItem('modforge:launcher-discover-toolbar:v1') ?? '{}')).toMatchObject({
-      filtersHidden: false,
-    })
+    expect(applyAppUiStatePatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        launcher: expect.objectContaining({
+          discoverToolbar: expect.objectContaining({
+            filtersHidden: false,
+          }),
+        }),
+      }),
+    )
   })
 
   it('shows a circular loading overlay instead of the generic loading copy while discover is loading', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ state: 'loading' }))
 
     const { container } = renderWithLocale(
@@ -252,6 +297,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('shows a cover placeholder message while a discover cover is still loading', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(
       createDiscoverState({
         items: [
@@ -292,6 +343,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('shows tag suggestions from remote facets inside the tag input menu and applies them on click', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     const updateFilter = vi.fn()
 
     useLauncherDiscoverMock.mockReturnValue(
@@ -322,6 +379,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('renders a real paginator and forwards previous/next and jump actions', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     const setPage = vi.fn()
     const goToNextPage = vi.fn()
     const goToPreviousPage = vi.fn()
@@ -375,6 +438,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('keeps the sidebar accordion in single-open mode with the first section open by default', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 28_891, totalPages: 1445 }))
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')

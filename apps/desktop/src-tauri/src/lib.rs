@@ -11,6 +11,7 @@ mod models;
 mod mods;
 mod pathing;
 mod saves;
+mod ui_state;
 mod tbin;
 #[cfg(test)]
 mod test_support;
@@ -44,6 +45,7 @@ use logging::{
 };
 use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use saves::scan_default_save_slots;
+use ui_state::{load_app_ui_state, patch_app_ui_state};
 use xact::load_xact_audio_data_url;
 use tauri::Manager;
 
@@ -109,6 +111,8 @@ pub fn run() {
             download_launcher_mod,
             inspect_launcher_archive,
             install_launcher_archive,
+            load_app_ui_state,
+            patch_app_ui_state,
             set_debug_logging_enabled,
             write_frontend_log
         ])

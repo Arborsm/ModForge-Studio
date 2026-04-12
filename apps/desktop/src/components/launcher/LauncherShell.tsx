@@ -7,6 +7,7 @@ import { LauncherDebugPage } from './pages/LauncherDebugPage'
 import { LauncherDiscoverPage } from './pages/LauncherDiscoverPage'
 import { LauncherLibraryPageContent } from './pages/LauncherLibraryPage'
 import { LauncherUpdatesPage } from './pages/LauncherUpdatesPage'
+import { cx } from '../../lib/cx'
 
 type LauncherShellProps = {
   page: LauncherPage
@@ -52,10 +53,18 @@ export default function LauncherShell({
   return (
     <section className="launcher-shell launcher-shell-routed">
       <div className="launcher-shell-content">
-        <div key="library" hidden={activePage !== 'library'}>
+        <div
+          key="library"
+          hidden={activePage !== 'library'}
+          className={cx('launcher-shell-route', activePage === 'library' && 'launcher-shell-route-active')}
+        >
           {libraryPage}
         </div>
-        <div key="discover" hidden={activePage !== 'discover'}>
+        <div
+          key="discover"
+          hidden={activePage !== 'discover'}
+          className={cx('launcher-shell-route', activePage === 'discover' && 'launcher-shell-route-active')}
+        >
           {activePage === 'discover' ? (
             <LauncherDiscoverPage
               settings={settingsState.settings}
@@ -64,7 +73,11 @@ export default function LauncherShell({
             />
           ) : null}
         </div>
-        <div key="updates" hidden={activePage !== 'updates'}>
+        <div
+          key="updates"
+          hidden={activePage !== 'updates'}
+          className={cx('launcher-shell-route', activePage === 'updates' && 'launcher-shell-route-active')}
+        >
           {activePage === 'updates' ? (
             <LauncherUpdatesPage
               settings={settingsState.settings}
@@ -73,7 +86,11 @@ export default function LauncherShell({
             />
           ) : null}
         </div>
-        <div key="debug" hidden={activePage !== 'debug' || !debugEnabled}>
+        <div
+          key="debug"
+          hidden={activePage !== 'debug' || !debugEnabled}
+          className={cx('launcher-shell-route', activePage === 'debug' && debugEnabled && 'launcher-shell-route-active')}
+        >
           {activePage === 'debug' && debugEnabled ? (
             <LauncherDebugPage debugEnabled={debugEnabled} onToggleDebugMode={onToggleDebugMode} downloads={downloads} />
           ) : null}

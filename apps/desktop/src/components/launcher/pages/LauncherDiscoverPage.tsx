@@ -14,16 +14,21 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
-import { openLauncherUrl, type LauncherSettings } from '../../../lib/desktop'
+import { canUseDesktopHost, openLauncherUrl, type LauncherSettings } from '../../../lib/desktop'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import {
-  persistLauncherDiscoverToolbarState,
-  readStoredLauncherDiscoverToolbarState,
+  normalizeLauncherDiscoverToolbarState,
+  type LauncherDiscoverToolbarState,
 } from '../../../lib/launcher/launcherDiscoverToolbarState'
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
 import type { QueueLauncherDownloadInput } from '../../../lib/launcher/types'
 import { getLauncherCardMonogram } from '../cards/launcherCardPresentation'
 import { LauncherStateBlock } from '../shared/LauncherStateBlock'
+import {
+  applyAppUiStatePatch,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+} from '../../../lib/app/uiState'
 
 type LauncherDiscoverPageProps = {
   settings: LauncherSettings
@@ -190,6 +195,10 @@ function getDiscoverPaginationItems(page: number, totalPages: number) {
   }
 
   return items
+}
+
+function getInitialDiscoverToolbarState(): LauncherDiscoverToolbarState {
+  return normalizeLauncherDiscoverToolbarState(getAppUiStateSnapshot().launcher.discoverToolbar)
 }
 
 function DiscoverMenu<T extends string | number>({
@@ -457,9 +466,61 @@ function TagSuggestionField({
 }
 
 export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPageProps) {
+  const desktopHost = canUseDesktopHost()
+  const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(
+    () => getInitialDiscoverToolbarState(),
+  )
+  const [launcherUiStateReady, setLauncherUiStateReady] = useState(() => !desktopHost)
+
+  useEffect(() => {
+    if (!desktopHost) {
+      return
+    }
+
+    let disposed = false
+
+    void initializeAppUiState()
+      .then((state) => {
+        if (disposed) {
+          return
+        }
+
+        setHydratedToolbarState(normalizeLauncherDiscoverToolbarState(state.launcher.discoverToolbar))
+        setLauncherUiStateReady(true)
+      })
+      .catch(() => {
+        if (!disposed) {
+          setLauncherUiStateReady(true)
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [desktopHost])
+
+  return (
+    <LauncherDiscoverPageContent
+      key={launcherUiStateReady ? 'discover:ready' : 'discover:boot'}
+      onQueueDownload={onQueueDownload}
+      initialToolbarState={hydratedToolbarState}
+      launcherUiStateReady={launcherUiStateReady}
+    />
+  )
+}
+
+function LauncherDiscoverPageContent({
+  onQueueDownload,
+  initialToolbarState,
+  launcherUiStateReady,
+}: {
+  onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  initialToolbarState: LauncherDiscoverToolbarState
+  launcherUiStateReady: boolean
+}) {
   const copy = useEditorCopy().launcher
-  const discover = useLauncherDiscover()
-  const [filtersHidden, setFiltersHidden] = useState(() => readStoredLauncherDiscoverToolbarState().filtersHidden)
+  const discover = useLauncherDiscover(initialToolbarState)
+  const [filtersHidden, setFiltersHidden] = useState(initialToolbarState.filtersHidden)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [openSection, setOpenSection] = useState<DiscoverAccordionSection>(DEFAULT_DISCOVER_OPEN_SECTION)
   const [jumpPageDraft, setJumpPageDraft] = useState('')
@@ -522,8 +583,29 @@ export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPagePr
   }, [discover.state])
 
   useEffect(() => {
-    persistLauncherDiscoverToolbarState({ filtersHidden })
-  }, [filtersHidden])
+    if (!launcherUiStateReady) {
+      return
+    }
+
+    void applyAppUiStatePatch({
+      launcher: {
+        discoverToolbar: {
+          sort: discover.sort,
+          ascending: discover.ascending,
+          timeRange: discover.timeRange,
+          pageSize: discover.pageSize,
+          filtersHidden,
+        },
+      },
+    })
+  }, [
+    discover.ascending,
+    discover.pageSize,
+    discover.sort,
+    discover.timeRange,
+    filtersHidden,
+    launcherUiStateReady,
+  ])
 
   const formattedResultCount = new Intl.NumberFormat('en-US').format(resultCount)
   const rangeStart = resultCount ? (discover.page - 1) * discover.pageSize + 1 : 0

@@ -4,7 +4,10 @@ import {
   type LauncherCatalogFacets,
   type SearchLauncherCatalogRequest,
 } from '../desktop'
-import { persistLauncherDiscoverToolbarState, readStoredLauncherDiscoverToolbarState } from './launcherDiscoverToolbarState'
+import {
+  normalizeLauncherDiscoverToolbarState,
+  type LauncherDiscoverToolbarState,
+} from './launcherDiscoverToolbarState'
 import type { LauncherDiscoverItem, LauncherViewState } from './types'
 
 type DiscoverFilters = {
@@ -59,15 +62,15 @@ function parseOptionalNumber(value: string) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
 }
 
-export function useLauncherDiscover() {
-  const storedToolbarState = readStoredLauncherDiscoverToolbarState()
+export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscoverToolbarState> | null) {
+  const normalizedToolbarState = normalizeLauncherDiscoverToolbarState(initialToolbarState)
   const [items, setItems] = useState<LauncherDiscoverItem[]>([])
   const [query, setQuery] = useState('')
-  const [sort, setSort] = useState<NonNullable<SearchLauncherCatalogRequest['sort']>>(storedToolbarState.sort)
-  const [ascending, setAscending] = useState(storedToolbarState.ascending)
-  const [timeRange, setTimeRange] = useState<NonNullable<SearchLauncherCatalogRequest['timeRange']>>(storedToolbarState.timeRange)
+  const [sort, setSort] = useState<NonNullable<SearchLauncherCatalogRequest['sort']>>(normalizedToolbarState.sort)
+  const [ascending, setAscending] = useState(normalizedToolbarState.ascending)
+  const [timeRange, setTimeRange] = useState<NonNullable<SearchLauncherCatalogRequest['timeRange']>>(normalizedToolbarState.timeRange)
   const [pageSize, setPageSize] = useState<NonNullable<SearchLauncherCatalogRequest['pageSize']>>(
-    storedToolbarState.pageSize,
+    normalizedToolbarState.pageSize,
   )
   const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_FILTERS)
   const [page, setPageState] = useState(1)
@@ -135,15 +138,6 @@ export function useLauncherDiscover() {
       window.clearTimeout(handle)
     }
   }, [ascending, filters, page, pageSize, query, refreshToken, requestDelayMs, sort, timeRange])
-
-  useEffect(() => {
-    persistLauncherDiscoverToolbarState({
-      sort,
-      ascending,
-      timeRange,
-      pageSize,
-    })
-  }, [ascending, pageSize, sort, timeRange])
 
   const resetToFirstPage = () => {
     setPageState(1)

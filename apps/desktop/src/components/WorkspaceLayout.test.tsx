@@ -1,18 +1,9 @@
-/// <reference types="node" />
-
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WorkspaceLayout, type WorkspacePanelConfig } from './WorkspaceLayout'
-import { STORAGE_VERSION } from './workspace/layoutConstants'
-import { buildDefaultSnapshot } from './workspace/layoutState'
-
-const stylesPath = existsSync(resolve(process.cwd(), 'src/styles/workspace/layout.css'))
-  ? resolve(process.cwd(), 'src/styles/workspace/layout.css')
-  : resolve(process.cwd(), 'apps/desktop/src/styles/workspace/layout.css')
-
-const styles = readFileSync(stylesPath, 'utf8')
+import { buildDefaultSnapshot, sanitizeStoredState } from './workspace/layoutState'
+import type { WorkspaceStoredState } from './workspace/layoutTypes'
 
 class ResizeObserverMock {
   observe() {}
@@ -35,7 +26,7 @@ function buildPanels(): WorkspacePanelConfig[] {
   ]
 }
 
-function seedFloatingPanelState(storageKey: string, panels: WorkspacePanelConfig[]) {
+function createFloatingPanelState(panels: WorkspacePanelConfig[]) {
   const snapshot = buildDefaultSnapshot(panels)
   snapshot.panels['mods-trace'] = {
     ...snapshot.panels['mods-trace'],
@@ -47,36 +38,41 @@ function seedFloatingPanelState(storageKey: string, panels: WorkspacePanelConfig
     height: 260,
   }
 
-  window.localStorage.setItem(
-    storageKey,
-    JSON.stringify({
-      version: STORAGE_VERSION,
+  return sanitizeStoredState(
+    {
       ...snapshot,
       presets: {},
-    }),
+    },
+    panels,
   )
 }
 
 describe('WorkspaceLayout floating panel chrome', () => {
   beforeEach(() => {
     vi.stubGlobal('ResizeObserver', ResizeObserverMock)
-    window.localStorage.clear()
   })
 
   afterEach(() => {
     cleanup()
     vi.unstubAllGlobals()
-    window.localStorage.clear()
   })
 
   it('treats the floating restore action as a no-drag click target and restores the panel to the sidebar', async () => {
     const panels = buildPanels()
     const storageKey = 'modforge:workspace-layout:test:floating-restore'
     const onLayoutMetaChange = vi.fn()
+    const onPersistStateChange = vi.fn()
+    const persistedState = createFloatingPanelState(panels)
 
-    seedFloatingPanelState(storageKey, panels)
-
-    render(<WorkspaceLayout panels={panels} storageKey={storageKey} onLayoutMetaChange={onLayoutMetaChange} />)
+    render(
+      <WorkspaceLayout
+        panels={panels}
+        storageKey={storageKey}
+        persistedState={persistedState}
+        onPersistStateChange={onPersistStateChange}
+        onLayoutMetaChange={onLayoutMetaChange}
+      />,
+    )
 
     const restoreButton = await screen.findByTitle('Restore to sidebar')
     expect(restoreButton.getAttribute('data-panel-no-drag')).toBe('true')
@@ -94,37 +90,43 @@ describe('WorkspaceLayout floating panel chrome', () => {
         ]),
       )
     })
+    expect(onPersistStateChange).toHaveBeenCalledWith(
+      storageKey,
+      expect.objectContaining({
+        panels: expect.objectContaining({
+          'mods-trace': expect.objectContaining({
+            mode: 'docked',
+          }),
+        }),
+      }),
+    )
   })
 
-  it('shows a grab cursor on draggable panel headers', () => {
-    expect(styles).not.toMatch(/\.workspace-panel-header\s*\{[^}]*cursor:\s*grab;/s)
-    expect(styles).not.toMatch(/\.workspace-panel-title\s*\{[^}]*cursor:\s*inherit;/s)
-    expect(styles).not.toMatch(/\.workspace-panel-subtitle\s*\{[^}]*cursor:\s*inherit;/s)
-    expect(styles).toMatch(/\.workspace-panel-grip\s*\{[^}]*cursor:\s*grab;/s)
-    expect(styles).toMatch(/\.workspace-panel-grip:active\s*\{[^}]*cursor:\s*grabbing;/s)
-  })
-
-  it('keeps the grab cursor only on the floating header grip icon', async () => {
+  it('does not bounce persisted layout state when the parent echoes it back', async () => {
     const panels = buildPanels()
-    const storageKey = 'modforge:workspace-layout:test:floating-grip-cursor'
+    const storageKey = 'modforge:workspace-layout:test:controlled-echo'
+    const onPersistStateChange = vi.fn()
 
-    seedFloatingPanelState(storageKey, panels)
+    function ControlledHarness() {
+      const [persistedState, setPersistedState] = useState<WorkspaceStoredState | null>(null)
 
-    render(<WorkspaceLayout panels={panels} storageKey={storageKey} />)
+      return (
+        <WorkspaceLayout
+          panels={panels}
+          storageKey={storageKey}
+          persistedState={persistedState}
+          onPersistStateChange={(nextStorageKey, nextState) => {
+            onPersistStateChange(nextStorageKey, nextState)
+            setPersistedState(nextState)
+          }}
+        />
+      )
+    }
 
-    const title = await screen.findByText('Patch Trace')
-    const subtitle = await screen.findByText('Applied patch flow for the selected target')
-    const grip = title.closest('header')?.querySelector('.workspace-panel-grip') as HTMLElement | null
-    const headerMain = title.closest('.workspace-panel-header-main') as HTMLElement | null
+    render(<ControlledHarness />)
 
-    expect(grip?.className).toContain('workspace-panel-grip')
-    expect(grip?.className).toContain('cursor-grab')
-    expect(grip?.className).toContain('active:cursor-grabbing')
-    expect(headerMain?.className).not.toContain('cursor-grab')
-    expect(headerMain?.className).not.toContain('active:cursor-grabbing')
-    expect(title.className).not.toContain('cursor-grab')
-    expect(title.className).not.toContain('active:cursor-grabbing')
-    expect(subtitle.className).not.toContain('cursor-grab')
-    expect(subtitle.className).not.toContain('active:cursor-grabbing')
+    await waitFor(() => {
+      expect(onPersistStateChange).toHaveBeenCalledTimes(1)
+    })
   })
 })

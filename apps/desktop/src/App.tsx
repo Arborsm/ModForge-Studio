@@ -29,14 +29,10 @@ import {
   type ThemeMode,
   type WorkspaceMode,
 } from './lib/editor-shell'
-import { persistAppShellState, readStoredAppShellState } from './lib/app/appShell'
+import { normalizeAppShellState } from './lib/app/appShell'
 import { rgbaFromHex } from './lib/app/color'
 import {
   ACCENT_PRESETS,
-  ACCENT_STORAGE_KEY,
-  PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY,
-  PLAYER_APPEARANCE_PROFILES_STORAGE_KEY,
-  RECENT_GAME_DIRECTORIES_STORAGE_KEY,
   WORKSPACE_LAYOUT_VERSION,
 } from './lib/app/constants'
 import {
@@ -63,11 +59,19 @@ import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLaunch
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
 import { buildWorkspacePanels } from './lib/app/workspacePanels'
 import { scheduleDeferred } from './lib/react/defer'
+import {
+  applyAppUiStatePatch,
+  clearLegacyBrowserUiState,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+} from './lib/app/uiState'
 import type { SettingsWindowCategory } from './components/SettingsWindow'
 import type { ResourcePreloadState } from './lib/app/types'
+import type { WorkspaceStoredState } from './components/workspace/layoutTypes'
 
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
 const PlayerAppearanceWindow = lazy(() => import('./components/PlayerAppearanceWindow'))
+const WORKSPACE_LAYOUT_PERSIST_DEBOUNCE_MS = 180
 
 type IdleDeadlineLike = {
   didTimeout: boolean
@@ -79,7 +83,6 @@ type WindowWithIdleCallback = Window & {
   cancelIdleCallback?: (handle: number) => void
 }
 
-const LOCALE_STORAGE_KEY = 'modforge:locale'
 const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
 
 function getResourcePreloadProgress(state: ResourcePreloadState) {
@@ -90,18 +93,7 @@ function getResourcePreloadProgress(state: ResourcePreloadState) {
   return Math.max(0, Math.min(100, (state.completed / state.total) * 100))
 }
 
-function getInitialLocale(): LocaleCode {
-  if (typeof window !== 'undefined') {
-    try {
-      const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
-      if (storedLocale === 'zh-CN' || storedLocale === 'en-US') {
-        return storedLocale
-      }
-    } catch {
-      // Ignore blocked localStorage access and fall back to navigator heuristics.
-    }
-  }
-
+function getNavigatorLocale(): LocaleCode {
   if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
     return 'zh-CN'
   }
@@ -109,29 +101,71 @@ function getInitialLocale(): LocaleCode {
   return 'en-US'
 }
 
-export default function App() {
-  const initialShellStateRef = useRef<ReturnType<typeof readStoredAppShellState> | null>(null)
-  if (!initialShellStateRef.current) {
-    initialShellStateRef.current = readStoredAppShellState()
+function resolveLocale(value: string | null | undefined): LocaleCode {
+  if (value === 'zh-CN' || value === 'en-US') {
+    return value
   }
-  const initialShellState = initialShellStateRef.current
+
+  return getNavigatorLocale()
+}
+
+function normalizePlayerAppearanceState(
+  profiles: unknown[] | null | undefined,
+  activeProfileId: string | null | undefined,
+) {
+  return readStoredPlayerAppearanceState(JSON.stringify(Array.isArray(profiles) ? profiles : []), activeProfileId ?? null)
+}
+
+function normalizeWorkspaceLayouts(
+  layouts: Record<string, Record<string, unknown>> | null | undefined,
+): Record<string, WorkspaceStoredState> {
+  const entries = Object.entries(layouts ?? {}).filter(
+    ([key, value]) => key.trim().length > 0 && typeof value === 'object' && value !== null && !Array.isArray(value),
+  )
+
+  return Object.fromEntries(entries) as Record<string, WorkspaceStoredState>
+}
+
+function areWorkspaceStoredStatesEqual(
+  left: WorkspaceStoredState | null | undefined,
+  right: WorkspaceStoredState | null | undefined,
+) {
+  if (left === right) {
+    return true
+  }
+
+  if (!left || !right) {
+    return false
+  }
+
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+export default function App() {
+  const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
+  if (!initialAppUiStateRef.current) {
+    initialAppUiStateRef.current = getAppUiStateSnapshot()
+  }
+  const initialAppUiState = initialAppUiStateRef.current!
+  const initialShellState = normalizeAppShellState(initialAppUiState.shell)
+  const initialPlayerAppearanceState = normalizePlayerAppearanceState(
+    initialAppUiState.appearance.playerAppearance.profiles,
+    initialAppUiState.appearance.playerAppearance.activeProfileId,
+  )
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
-  const [locale, setLocale] = useState<LocaleCode>(() => getInitialLocale())
-  const [accentPresetId, setAccentPresetId] = useState<string>(() => {
-    if (typeof window === 'undefined') {
-      return ACCENT_PRESETS[0].id
-    }
-
-    return window.localStorage.getItem(ACCENT_STORAGE_KEY) ?? ACCENT_PRESETS[0].id
-  })
+  const [locale, setLocale] = useState<LocaleCode>(() => resolveLocale(initialAppUiState.appearance.locale))
+  const [accentPresetId, setAccentPresetId] = useState<string>(
+    () => initialAppUiState.appearance.accentPresetId || ACCENT_PRESETS[0].id,
+  )
   const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(
     initialShellState.appMode === 'launcher' ? 'library' : initialShellState.launcherPage,
   )
   const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
   const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
+  const [appUiStateReady, setAppUiStateReady] = useState(false)
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
@@ -141,22 +175,19 @@ export default function App() {
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const [launcherLaunchBusy, setLauncherLaunchBusy] = useState(false)
-  const [storedRecentGameDirectories] = useState<string[]>(() => {
-    if (typeof window === 'undefined') {
-      return []
-    }
-
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem(RECENT_GAME_DIRECTORIES_STORAGE_KEY) ?? '[]')
-      return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : []
-    } catch {
-      return []
-    }
-  })
+  const [storedRecentGameDirectories, setStoredRecentGameDirectories] = useState<string[]>(
+    () => initialAppUiState.appearance.recentGameDirectories,
+  )
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
   const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
+  const workspaceLayoutsRef = useRef<Record<string, WorkspaceStoredState>>(
+    normalizeWorkspaceLayouts(initialAppUiState.workspace.layouts),
+  )
+  const pendingWorkspaceLayoutPatchesRef = useRef<Record<string, WorkspaceStoredState>>({})
+  const workspaceLayoutPersistTimeoutRef = useRef<number | null>(null)
   const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
+
   useEffect(() => {
     if (workspaceMode !== 'map') {
       return
@@ -230,26 +261,10 @@ export default function App() {
     }
   }, [workspaceMode])
 
-  const [playerAppearanceProfiles, setPlayerAppearanceProfiles] = useState(() => {
-    if (typeof window === 'undefined') {
-      return [createDefaultPlayerAppearanceProfile()]
-    }
-
-    return readStoredPlayerAppearanceState(
-      window.localStorage.getItem(PLAYER_APPEARANCE_PROFILES_STORAGE_KEY),
-      window.localStorage.getItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY),
-    ).profiles
-  })
-  const [activePlayerAppearanceProfileId, setActivePlayerAppearanceProfileId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') {
-      return null
-    }
-
-    return readStoredPlayerAppearanceState(
-      window.localStorage.getItem(PLAYER_APPEARANCE_PROFILES_STORAGE_KEY),
-      window.localStorage.getItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY),
-    ).activeProfileId
-  })
+  const [playerAppearanceProfiles, setPlayerAppearanceProfiles] = useState(initialPlayerAppearanceState.profiles)
+  const [activePlayerAppearanceProfileId, setActivePlayerAppearanceProfileId] = useState<string | null>(
+    initialPlayerAppearanceState.activeProfileId,
+  )
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
   const previousLocaleRef = useRef<LocaleCode>(locale)
 
@@ -569,6 +584,51 @@ export default function App() {
   ])
 
   useEffect(() => {
+    if (!desktopHost) {
+      setAppUiStateReady(true)
+      return
+    }
+
+    let disposed = false
+
+    void initializeAppUiState()
+      .then((state) => {
+        if (disposed) {
+          return
+        }
+
+        const nextShellState = normalizeAppShellState(state.shell)
+        const nextLocale = resolveLocale(state.appearance.locale)
+        const nextPlayerAppearanceState = normalizePlayerAppearanceState(
+          state.appearance.playerAppearance.profiles,
+          state.appearance.playerAppearance.activeProfileId,
+        )
+
+        clearLegacyBrowserUiState()
+        setLocale(nextLocale)
+        setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+        setAppMode(nextShellState.appMode)
+        setLauncherPage(nextShellState.appMode === 'launcher' ? 'library' : nextShellState.launcherPage)
+        setDebugEnabled(nextShellState.debugEnabled)
+        setNotificationSoundEnabledState(nextShellState.notificationSoundEnabled)
+        setStoredRecentGameDirectories(state.appearance.recentGameDirectories)
+        workspaceLayoutsRef.current = normalizeWorkspaceLayouts(state.workspace.layouts)
+        setPlayerAppearanceProfiles(nextPlayerAppearanceState.profiles)
+        setActivePlayerAppearanceProfileId(nextPlayerAppearanceState.activeProfileId)
+        setAppUiStateReady(true)
+      })
+      .catch(() => {
+        if (!disposed) {
+          setAppUiStateReady(true)
+        }
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [desktopHost])
+
+  useEffect(() => {
     if (!resourcePreloadState.active) {
       dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID)
       return
@@ -604,25 +664,31 @@ export default function App() {
   }, [locale, theme])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (!appUiStateReady) {
       return
     }
 
-    try {
-      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
-    } catch {
-      // Ignore blocked localStorage writes to keep locale changes functional in-memory.
-    }
-  }, [locale])
+    void applyAppUiStatePatch({
+      appearance: {
+        locale,
+      },
+    })
+  }, [appUiStateReady, locale])
 
   useEffect(() => {
-    persistAppShellState({
-      appMode,
-      launcherPage: appMode === 'workbench' ? launcherPage : 'library',
-      debugEnabled,
-      notificationSoundEnabled,
+    if (!appUiStateReady) {
+      return
+    }
+
+    void applyAppUiStatePatch({
+      shell: {
+        appMode,
+        launcherPage: appMode === 'workbench' ? launcherPage : 'library',
+        debugEnabled,
+        notificationSoundEnabled,
+      },
     })
-  }, [appMode, debugEnabled, launcherPage, notificationSoundEnabled])
+  }, [appMode, appUiStateReady, debugEnabled, launcherPage, notificationSoundEnabled])
 
   useEffect(() => {
     if (!debugEnabled && launcherPage === 'debug') {
@@ -670,16 +736,31 @@ export default function App() {
     root.style.setProperty('--accent-soft', accentSoft)
     root.style.setProperty('--surface-active', activeSurface)
     root.style.setProperty('--bg-active', activeSurface)
-    window.localStorage.setItem(ACCENT_STORAGE_KEY, activeAccentPreset.id)
   }, [activeAccentPreset.color, activeAccentPreset.id, theme])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (!appUiStateReady) {
       return
     }
 
-    window.localStorage.setItem(RECENT_GAME_DIRECTORIES_STORAGE_KEY, JSON.stringify(recentGameDirectories))
-  }, [recentGameDirectories])
+    void applyAppUiStatePatch({
+      appearance: {
+        accentPresetId: activeAccentPreset.id,
+      },
+    })
+  }, [activeAccentPreset.id, appUiStateReady])
+
+  useEffect(() => {
+    if (!appUiStateReady) {
+      return
+    }
+
+    void applyAppUiStatePatch({
+      appearance: {
+        recentGameDirectories,
+      },
+    })
+  }, [appUiStateReady, recentGameDirectories])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -730,17 +811,19 @@ export default function App() {
   }, [desktopHost, settingsWindowOpen])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (!appUiStateReady) {
       return
     }
 
-    window.localStorage.setItem(PLAYER_APPEARANCE_PROFILES_STORAGE_KEY, JSON.stringify(playerAppearanceProfiles))
-    if (activePlayerAppearanceProfileId) {
-      window.localStorage.setItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY, activePlayerAppearanceProfileId)
-    } else {
-      window.localStorage.removeItem(PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY)
-    }
-  }, [activePlayerAppearanceProfileId, playerAppearanceProfiles])
+    void applyAppUiStatePatch({
+      appearance: {
+        playerAppearance: {
+          profiles: playerAppearanceProfiles,
+          activeProfileId: activePlayerAppearanceProfileId,
+        },
+      },
+    })
+  }, [activePlayerAppearanceProfileId, appUiStateReady, playerAppearanceProfiles])
 
   const openAppearanceWindow = useCallback(() => {
     setPlayerAppearanceWindowNonce((current) => current + 1)
@@ -800,6 +883,74 @@ export default function App() {
     const nextFullscreen = await toggleFullscreenCurrentWindow()
     setWindowIsFullscreen(nextFullscreen)
   }, [])
+
+  const workspaceLayoutStorageKey = useMemo(
+    () => `modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`,
+    [workspaceMode],
+  )
+
+  const flushPendingWorkspaceLayoutPatches = useCallback(() => {
+    if (workspaceLayoutPersistTimeoutRef.current !== null) {
+      window.clearTimeout(workspaceLayoutPersistTimeoutRef.current)
+      workspaceLayoutPersistTimeoutRef.current = null
+    }
+
+    if (!appUiStateReady) {
+      return
+    }
+
+    const entries = Object.entries(pendingWorkspaceLayoutPatchesRef.current)
+    if (!entries.length) {
+      return
+    }
+
+    pendingWorkspaceLayoutPatchesRef.current = {}
+
+    void applyAppUiStatePatch({
+      workspace: {
+        layouts: Object.fromEntries(
+          entries.map(([storageKey, state]) => [storageKey, state as Record<string, unknown>]),
+        ),
+      },
+    })
+  }, [appUiStateReady])
+
+  const scheduleWorkspaceLayoutPersist = useCallback(() => {
+    if (!appUiStateReady) {
+      return
+    }
+
+    if (workspaceLayoutPersistTimeoutRef.current !== null) {
+      window.clearTimeout(workspaceLayoutPersistTimeoutRef.current)
+    }
+
+    workspaceLayoutPersistTimeoutRef.current = window.setTimeout(() => {
+      flushPendingWorkspaceLayoutPatches()
+    }, WORKSPACE_LAYOUT_PERSIST_DEBOUNCE_MS)
+  }, [appUiStateReady, flushPendingWorkspaceLayoutPatches])
+
+  useEffect(() => {
+    if (!appUiStateReady || !Object.keys(pendingWorkspaceLayoutPatchesRef.current).length) {
+      return
+    }
+
+    scheduleWorkspaceLayoutPersist()
+  }, [appUiStateReady, scheduleWorkspaceLayoutPersist])
+
+  useEffect(() => () => flushPendingWorkspaceLayoutPatches(), [flushPendingWorkspaceLayoutPatches])
+
+  const handleWorkspacePersistStateChange = useCallback(
+    (storageKey: string, nextState: WorkspaceStoredState) => {
+      if (areWorkspaceStoredStatesEqual(workspaceLayoutsRef.current[storageKey], nextState)) {
+        return
+      }
+
+      workspaceLayoutsRef.current[storageKey] = nextState
+      pendingWorkspaceLayoutPatchesRef.current[storageKey] = nextState
+      scheduleWorkspaceLayoutPersist()
+    },
+    [scheduleWorkspaceLayoutPersist],
+  )
 
   const workspacePanels = buildWorkspacePanels({
     copy,
@@ -1184,27 +1335,33 @@ export default function App() {
             </Suspense>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             {appMode === 'workbench' ? (
-              <WorkspaceLayout
-                ref={workspaceLayoutRef}
-                storageKey={`modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`}
-                panels={workspacePanels}
-                onLayoutMetaChange={handleLayoutMetaChange}
-              />
+              <div className="absolute inset-0 min-h-0 overflow-hidden">
+                <WorkspaceLayout
+                  ref={workspaceLayoutRef}
+                  storageKey={workspaceLayoutStorageKey}
+                  panels={workspacePanels}
+                  persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
+                  onPersistStateChange={handleWorkspacePersistStateChange}
+                  onLayoutMetaChange={handleLayoutMetaChange}
+                />
+              </div>
             ) : (
-              <LauncherShell
-                page={activeLauncherPage}
-                debugEnabled={debugEnabled}
-                onToggleDebugMode={() => setDebugEnabled((current) => !current)}
-                settingsState={launcherRuntime.settingsState}
-                downloads={launcherRuntime.downloads}
-                onNavigateToSettings={() => openSettingsWindow('launcher')}
-                launchGameLabel={copy.launcher.actions.launchGame}
-                launchGameDisabled={!desktopHost || launcherLaunchBusy}
-                launchGameBusy={launcherLaunchBusy}
-                onLaunchGame={() => void handleLaunchGame()}
-              />
+              <div className="absolute inset-0 min-h-0 overflow-hidden">
+                <LauncherShell
+                  page={activeLauncherPage}
+                  debugEnabled={debugEnabled}
+                  onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                  settingsState={launcherRuntime.settingsState}
+                  downloads={launcherRuntime.downloads}
+                  onNavigateToSettings={() => openSettingsWindow('launcher')}
+                  launchGameLabel={copy.launcher.actions.launchGame}
+                  launchGameDisabled={!desktopHost || launcherLaunchBusy}
+                  launchGameBusy={launcherLaunchBusy}
+                  onLaunchGame={() => void handleLaunchGame()}
+                />
+              </div>
             )}
           </div>
 

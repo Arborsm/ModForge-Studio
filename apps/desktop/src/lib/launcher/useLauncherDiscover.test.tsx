@@ -16,27 +16,14 @@ const searchLauncherCatalogMock = vi.mocked(searchLauncherCatalog)
 describe('useLauncherDiscover', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    window.localStorage.clear()
   })
 
   afterEach(() => {
     vi.useRealTimers()
-    window.localStorage.clear()
     vi.clearAllMocks()
   })
 
-  it('restores persisted toolbar preferences for sorting controls', async () => {
-    window.localStorage.setItem(
-      'modforge:launcher-discover-toolbar:v1',
-      JSON.stringify({
-        sort: 'downloads',
-        ascending: true,
-        timeRange: 'week',
-        pageSize: 40,
-        filtersHidden: true,
-      }),
-    )
-
+  it('hydrates toolbar preferences from the provided app ui snapshot', async () => {
     searchLauncherCatalogMock.mockResolvedValue({
       page: 1,
       pageSize: 40,
@@ -46,7 +33,15 @@ describe('useLauncherDiscover', () => {
       results: [],
     })
 
-    const { result } = renderHook(() => useLauncherDiscover())
+    const { result } = renderHook(() =>
+      useLauncherDiscover({
+        sort: 'downloads',
+        ascending: true,
+        timeRange: 'week',
+        pageSize: 40,
+        filtersHidden: true,
+      }),
+    )
 
     await act(async () => {
       vi.runOnlyPendingTimers()
@@ -67,7 +62,7 @@ describe('useLauncherDiscover', () => {
     )
   })
 
-  it('persists toolbar preferences when sorting controls change', async () => {
+  it('uses updated toolbar preferences when sorting controls change', async () => {
     searchLauncherCatalogMock.mockResolvedValue({
       page: 1,
       pageSize: 20,
@@ -91,13 +86,19 @@ describe('useLauncherDiscover', () => {
       result.current.setPageSize(80)
     })
 
-    const persisted = JSON.parse(window.localStorage.getItem('modforge:launcher-discover-toolbar:v1') ?? '{}')
-    expect(persisted).toMatchObject({
-      sort: 'downloads',
-      ascending: true,
-      timeRange: 'month',
-      pageSize: 80,
+    await act(async () => {
+      vi.advanceTimersByTime(320)
+      await Promise.resolve()
     })
+
+    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sort: 'downloads',
+        ascending: true,
+        timeRange: 'month',
+        pageSize: 80,
+      }),
+    )
   })
 
   it('re-runs the catalog request when refresh is triggered from the first page', async () => {

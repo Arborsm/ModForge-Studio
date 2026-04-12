@@ -113,8 +113,14 @@ export default function TopMenuBar({
   ] as const)
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
-  const viewMenuOpen = activeMenu === 'view'
-  const downloadsMenuOpen = activeMenu === 'downloads' && Boolean(launcherNav)
+  const visibleActiveMenu =
+    activeMenu === 'view' && launcherModeActive
+      ? null
+      : activeMenu === 'downloads' && !launcherNav
+        ? null
+        : activeMenu
+  const viewMenuOpen = visibleActiveMenu === 'view'
+  const downloadsMenuOpen = visibleActiveMenu === 'downloads' && Boolean(launcherNav)
   const switchTargetMode: AppMode = launcherModeActive ? 'workbench' : 'launcher'
   const switchTargetLabel = launcherModeActive ? copy.shell.workbench : copy.shell.launcher
   const SwitchTargetIcon = launcherModeActive ? LayoutDashboard : Rocket
@@ -168,109 +174,111 @@ export default function TopMenuBar({
             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{copy.brand.name}</p>
           </div>
 
-          <nav className="top-menu-menus pointer-events-auto hidden items-center gap-2 xl:flex" aria-label="Main menus">
-            <button
-              type="button"
-              className={cx(
-                'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                projectMenu.highlighted ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
-              )}
-              onClick={projectMenu.onOpen}
-            >
-              {copy.leftDock.project}
-            </button>
-
-            <div className="relative" ref={viewMenuRef}>
+          {!launcherModeActive ? (
+            <nav className="top-menu-menus pointer-events-auto hidden items-center gap-2 xl:flex" aria-label="Main menus">
               <button
                 type="button"
                 className={cx(
                   'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                  viewMenuOpen ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                  projectMenu.highlighted ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
                 )}
-                aria-haspopup="menu"
-                aria-expanded={viewMenuOpen}
-                aria-controls={viewMenuId}
-                onClick={() => setActiveMenu((current) => (current === 'view' ? null : 'view'))}
+                onClick={projectMenu.onOpen}
               >
-                {viewMenuCopy.title}
+                {copy.leftDock.project}
               </button>
 
-              {viewMenuOpen ? (
-                <div className="top-menu-dropdown" id={viewMenuId} role="menu" aria-label={viewMenuCopy.title}>
-                  <div className="top-menu-section">
-                    <p className="top-menu-section-title">{viewMenuCopy.panelsLabel}</p>
-                    {viewMenu.panelItems.map((item) => (
+              <div className="relative" ref={viewMenuRef}>
+                <button
+                  type="button"
+                  className={cx(
+                    'rounded-md px-2 py-1 text-xs transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
+                    viewMenuOpen ? 'bg-[var(--bg-active)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]',
+                  )}
+                  aria-haspopup="menu"
+                  aria-expanded={viewMenuOpen}
+                  aria-controls={viewMenuId}
+                  onClick={() => setActiveMenu((current) => (current === 'view' ? null : 'view'))}
+                >
+                  {viewMenuCopy.title}
+                </button>
+
+                {viewMenuOpen ? (
+                  <div className="top-menu-dropdown" id={viewMenuId} role="menu" aria-label={viewMenuCopy.title}>
+                    <div className="top-menu-section">
+                      <p className="top-menu-section-title">{viewMenuCopy.panelsLabel}</p>
+                      {viewMenu.panelItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="top-menu-row"
+                          role="menuitemcheckbox"
+                          aria-checked={item.visible}
+                          onClick={() => viewMenu.onTogglePanel(item.id, !item.visible)}
+                        >
+                          <span>{item.title}</span>
+                          <span className={cx('status-pill', item.visible ? 'status-pill-ready' : 'status-pill-idle')}>
+                            {item.visible ? viewMenuCopy.panelVisibleLabel : viewMenuCopy.panelHiddenLabel}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="top-menu-section">
+                      <p className="top-menu-section-title">{viewMenuCopy.presetsLabel}</p>
                       <button
-                        key={item.id}
                         type="button"
                         className="top-menu-row"
-                        role="menuitemcheckbox"
-                        aria-checked={item.visible}
-                        onClick={() => viewMenu.onTogglePanel(item.id, !item.visible)}
+                        role="menuitem"
+                        onClick={() => {
+                          const presetName = window.prompt(viewMenuCopy.presetNamePrompt)
+                          if (!presetName?.trim()) {
+                            return
+                          }
+
+                          viewMenu.onSavePreset(presetName.trim())
+                        }}
                       >
-                        <span>{item.title}</span>
-                        <span className={cx('status-pill', item.visible ? 'status-pill-ready' : 'status-pill-idle')}>
-                          {item.visible ? viewMenuCopy.panelVisibleLabel : viewMenuCopy.panelHiddenLabel}
-                        </span>
+                        <span>{viewMenuCopy.savePresetLabel}</span>
                       </button>
-                    ))}
+                      <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onResetLayout}>
+                        <span>{viewMenuCopy.resetLabel}</span>
+                      </button>
+                      {viewMenu.presetNames.length ? (
+                        viewMenu.presetNames.map((name) => (
+                          <div key={name} className="top-menu-row">
+                            <button
+                              type="button"
+                              className="min-w-0 flex-1 text-left"
+                              role="menuitem"
+                              onClick={() => viewMenu.onLoadPreset(name)}
+                            >
+                              <span className="truncate">{name}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="workspace-panel-action h-7 w-7"
+                              onClick={() => {
+                                if (!window.confirm(viewMenuCopy.deletePresetConfirm(name))) {
+                                  return
+                                }
+
+                                viewMenu.onDeletePreset(name)
+                              }}
+                              title={viewMenuCopy.deletePresetLabel}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="top-menu-empty">{viewMenuCopy.emptyPresetsLabel}</div>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="top-menu-section">
-                    <p className="top-menu-section-title">{viewMenuCopy.presetsLabel}</p>
-                    <button
-                      type="button"
-                      className="top-menu-row"
-                      role="menuitem"
-                      onClick={() => {
-                        const presetName = window.prompt(viewMenuCopy.presetNamePrompt)
-                        if (!presetName?.trim()) {
-                          return
-                        }
-
-                        viewMenu.onSavePreset(presetName.trim())
-                      }}
-                    >
-                      <span>{viewMenuCopy.savePresetLabel}</span>
-                    </button>
-                    <button type="button" className="top-menu-row" role="menuitem" onClick={viewMenu.onResetLayout}>
-                      <span>{viewMenuCopy.resetLabel}</span>
-                    </button>
-                    {viewMenu.presetNames.length ? (
-                      viewMenu.presetNames.map((name) => (
-                        <div key={name} className="top-menu-row">
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 text-left"
-                            role="menuitem"
-                            onClick={() => viewMenu.onLoadPreset(name)}
-                          >
-                            <span className="truncate">{name}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="workspace-panel-action h-7 w-7"
-                            onClick={() => {
-                              if (!window.confirm(viewMenuCopy.deletePresetConfirm(name))) {
-                                return
-                              }
-
-                              viewMenu.onDeletePreset(name)
-                            }}
-                            title={viewMenuCopy.deletePresetLabel}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="top-menu-empty">{viewMenuCopy.emptyPresetsLabel}</div>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </nav>
+                ) : null}
+              </div>
+            </nav>
+          ) : null}
         </div>
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">

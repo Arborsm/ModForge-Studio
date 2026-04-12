@@ -99,6 +99,90 @@ describe('launcher bridge helpers', () => {
     expect(invoke).toHaveBeenCalledWith('load_launcher_settings', undefined)
   })
 
+  it('loads app ui state from the tauri backend', async () => {
+    const expected = {
+      version: 1,
+      shell: {
+        appMode: 'launcher',
+        launcherPage: 'library',
+        debugEnabled: false,
+        notificationSoundEnabled: true,
+      },
+      appearance: {
+        locale: 'zh-CN',
+        accentPresetId: 'indigo',
+        recentGameDirectories: [],
+        playerAppearance: {
+          profiles: [],
+          activeProfileId: null,
+        },
+      },
+      workspace: {
+        layouts: {},
+      },
+      launcher: {
+        discoverToolbar: {
+          sort: 'newest',
+          ascending: false,
+          timeRange: 'all',
+          pageSize: 20,
+          filtersHidden: false,
+        },
+      },
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { loadAppUiState } = await import('./desktop')
+
+    await expect(loadAppUiState()).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('load_app_ui_state', undefined)
+  })
+
+  it('patches app ui state through the tauri backend', async () => {
+    const expected = {
+      version: 1,
+      shell: {
+        appMode: 'workbench',
+        launcherPage: 'library',
+        debugEnabled: true,
+        notificationSoundEnabled: false,
+      },
+      appearance: {
+        locale: 'en-US',
+        accentPresetId: 'cyan',
+        recentGameDirectories: [],
+        playerAppearance: {
+          profiles: [],
+          activeProfileId: null,
+        },
+      },
+      workspace: {
+        layouts: {},
+      },
+      launcher: {
+        discoverToolbar: {
+          sort: 'downloads',
+          ascending: true,
+          timeRange: 'month',
+          pageSize: 40,
+          filtersHidden: true,
+        },
+      },
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { patchAppUiState } = await import('./desktop')
+
+    await expect(
+      patchAppUiState({
+        shell: expected.shell,
+      }),
+    ).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('patch_app_ui_state', {
+      request: {
+        shell: expected.shell,
+      },
+    })
+  })
+
   it('reloads launcher library state on repeated requests', async () => {
     const firstState = {
       storageFolders: [{ id: 'unsorted', name: 'Unsorted', modKeys: [] }],

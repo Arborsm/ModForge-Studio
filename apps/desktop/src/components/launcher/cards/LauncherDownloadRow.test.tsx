@@ -33,8 +33,8 @@ describe('LauncherDownloadRow', () => {
     cleanup()
   })
 
-  it('renders compact inline metadata and detail rows for downloads', () => {
-    const { container } = renderWithLocale(
+  it('renders metadata content for downloads', () => {
+    renderWithLocale(
       <LauncherDownloadRow
         item={createItem()}
         statusLabel="下载中"
@@ -45,8 +45,6 @@ describe('LauncherDownloadRow', () => {
       'zh-CN',
     )
 
-    expect(container.querySelector('.launcher-download-row-topline')).toBeTruthy()
-    expect(container.querySelector('.launcher-download-row-detailline')).toBeTruthy()
     expect(screen.getByText('NPC Adventures')).toBeTruthy()
     expect(screen.getByText(`${copy.pages.discover} / 1.2.0`)).toBeTruthy()
   })

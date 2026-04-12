@@ -37,7 +37,6 @@ import {
   ROOT_PADDING,
   SLOT_IDS,
   SPLIT_GAP,
-  STORAGE_VERSION,
 } from './workspace/layoutConstants'
 import {
   findDockTarget,
@@ -56,7 +55,7 @@ import {
   movePanelInOrder,
   normalizeChrome,
   normalizeSlots,
-  readStoredState,
+  sanitizeStoredState,
   sanitizeSnapshot,
 } from './workspace/layoutState'
 import {
@@ -114,7 +113,13 @@ const DOCK_TARGETS: Array<{ area: DockArea; label: string; icon: LucideIcon }> =
 type WorkspaceLayoutProps = {
   panels: WorkspacePanelConfig[]
   storageKey?: string
+  persistedState?: Partial<WorkspaceStoredState> | null
+  onPersistStateChange?: (storageKey: string, state: WorkspaceStoredState) => void
   onLayoutMetaChange?: (payload: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => void
+}
+
+function areStoredStatesEqual(left: WorkspaceStoredState, right: WorkspaceStoredState) {
+  return JSON.stringify(left) === JSON.stringify(right)
 }
 
 type DragDockTarget = DockArea | null
@@ -222,7 +227,7 @@ function ToolWindowMenu({
 }
 
 export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayoutProps>(function WorkspaceLayout(
-  { panels, storageKey = 'modforge:workspace-layout:v7', onLayoutMetaChange },
+  { panels, storageKey = 'modforge:workspace-layout:v7', persistedState = null, onPersistStateChange, onLayoutMetaChange },
   ref,
 ) {
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -231,8 +236,11 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
   const interactionRef = useRef<DragInteraction | null>(null)
   const suppressRailClickRef = useRef<string | null>(null)
   const [rootSize, setRootSize] = useState<WorkspaceSize>({ width: 0, height: 0 })
-  const [state, setState] = useState<WorkspaceStoredState>(() => readStoredState(storageKey, panels))
+  const [state, setState] = useState<WorkspaceStoredState>(() =>
+    sanitizeStoredState(persistedState, panels),
+  )
   const stateRef = useRef(state)
+  const persistStateChangeRef = useRef(onPersistStateChange)
   const panelsRef = useRef(panels)
   const [draggedPanelId, setDraggedPanelId] = useState<string | null>(null)
   const [dragDockTarget, setDragDockTarget] = useState<DragDockTarget>(null)
@@ -284,9 +292,25 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     panelsRef.current = panels
   }, [panels])
 
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  useEffect(() => {
+    persistStateChangeRef.current = onPersistStateChange
+  }, [onPersistStateChange])
+
   useLayoutEffect(() => {
-    const nextState = readStoredState(storageKey, panelsRef.current)
+    const nextState = sanitizeStoredState(persistedState, panelsRef.current)
+    if (areStoredStatesEqual(stateRef.current, nextState)) {
+      return
+    }
+
     const frameId = window.requestAnimationFrame(() => {
+      if (areStoredStatesEqual(stateRef.current, nextState)) {
+        return
+      }
+
       setState(nextState)
       setMeasuredDockHeights({})
       setDraggedPanelId(null)
@@ -296,7 +320,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     })
 
     return () => window.cancelAnimationFrame(frameId)
-  }, [panelSchemaKey, storageKey])
+  }, [panelSchemaKey, persistedState, storageKey])
 
   const geometry = useMemo(
     () => getWorkspaceGeometry(panels, panelMap, state, rootSize, measuredDockHeights),
@@ -404,44 +428,8 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
   }, [])
 
   useEffect(() => {
-    stateRef.current = state
-  }, [state])
-
-  const persistState = useCallback(
-    (nextState: WorkspaceStoredState) => {
-      if (typeof window === 'undefined') {
-        return
-      }
-
-      window.localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          version: STORAGE_VERSION,
-          panels: nextState.panels,
-          slots: nextState.slots,
-          chrome: nextState.chrome,
-          presets: nextState.presets,
-        }),
-      )
-    },
-    [storageKey],
-  )
-  useEffect(() => {
-    persistState(state)
-  }, [persistState, state])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const handleBeforeUnload = () => {
-      persistState(stateRef.current)
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [persistState])
+    persistStateChangeRef.current?.(storageKey, state)
+  }, [state, storageKey])
 
   useEffect(() => {
     onLayoutMetaChange?.({

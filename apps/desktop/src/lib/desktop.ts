@@ -78,6 +78,58 @@ export type FrontendLogRequest = {
   keyValues?: Record<string, string | undefined>
 }
 
+export type AppUiShellState = {
+  appMode: string
+  launcherPage: string
+  debugEnabled: boolean
+  notificationSoundEnabled: boolean
+}
+
+export type AppUiAppearanceState = {
+  locale: string
+  accentPresetId: string
+  recentGameDirectories: string[]
+  playerAppearance: {
+    profiles: unknown[]
+    activeProfileId: string | null
+  }
+}
+
+export type AppUiWorkspaceState = {
+  layouts: Record<string, Record<string, unknown>>
+}
+
+export type AppUiLauncherState = {
+  discoverToolbar: {
+    sort: string
+    ascending: boolean
+    timeRange: string
+    pageSize: number
+    filtersHidden: boolean
+  }
+}
+
+export type AppUiState = {
+  version: number
+  shell: AppUiShellState
+  appearance: AppUiAppearanceState
+  workspace: AppUiWorkspaceState
+  launcher: AppUiLauncherState
+}
+
+export type PatchAppUiStateRequest = {
+  shell?: AppUiShellState
+  appearance?: Partial<AppUiAppearanceState> & {
+    playerAppearance?: AppUiAppearanceState['playerAppearance']
+  }
+  workspace?: {
+    layouts?: Record<string, Record<string, unknown> | null>
+  }
+  launcher?: Partial<AppUiLauncherState> & {
+    discoverToolbar?: AppUiLauncherState['discoverToolbar']
+  }
+}
+
 export type PluginKind = 'content-patcher' | 'unknown'
 export type PluginDiagnosticSeverity = 'info' | 'warning' | 'error'
 
@@ -1360,6 +1412,14 @@ export function openLauncherPath(request: OpenLauncherPathRequest) {
 
 export function openLauncherUrl(request: OpenLauncherUrlRequest) {
   return invokeDesktop<void>('open_launcher_url', { request })
+}
+
+export function loadAppUiState() {
+  return invokeDesktop<AppUiState>('load_app_ui_state')
+}
+
+export function patchAppUiState(request: PatchAppUiStateRequest) {
+  return invokeDesktop<AppUiState>('patch_app_ui_state', { request })
 }
 
 export async function loadCachedLauncherUpdates(request: LoadCachedLauncherUpdatesRequest) {

@@ -76,7 +76,7 @@ describe('useLauncherDownloads', () => {
     expect(result.current.items[0]?.id).toBe('persisted-job')
   })
 
-  it('persists queue changes through the desktop bridge instead of localStorage', async () => {
+  it('persists queue changes through the desktop bridge instead of browser storage', async () => {
     loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
     saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
 

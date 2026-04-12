@@ -14,9 +14,17 @@
 
   .launcher-shell-routed .launcher-shell-content {
     height: 100%;
+    min-height: 0;
+    display: grid;
     margin-top: 0;
-    overflow: auto;
+    overflow: hidden;
     padding-right: 2px;
+  }
+
+  .launcher-shell-route {
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
   }
 
   .launcher-debug-page {

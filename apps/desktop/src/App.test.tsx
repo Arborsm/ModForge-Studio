@@ -1,19 +1,219 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { editorCopy, getSettingsMenuCopy } from './lib/editor-shell'
-import {
-  APP_MODE_STORAGE_KEY,
-  DEBUG_ENABLED_STORAGE_KEY,
-  LAUNCHER_PAGE_STORAGE_KEY,
-  NOTIFICATION_SOUND_ENABLED_STORAGE_KEY,
-} from './lib/app/appShell'
+import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from './lib/editor-shell'
 import { clearNotifications, publishNotification } from './lib/app/notifications'
 
-const LOCALE_STORAGE_KEY = 'modforge:locale'
 const mapWorkspaceState = {
   workspaceStatus: { tone: 'ready', message: '' },
   resourcePreloadState: { active: false, message: '', currentLabel: null as string | null, completed: 0, total: 0 },
+}
+
+type MockAppUiState = {
+  version: number
+  shell: {
+    appMode: string
+    launcherPage: string
+    debugEnabled: boolean
+    notificationSoundEnabled: boolean
+  }
+  appearance: {
+    locale: string
+    accentPresetId: string
+    recentGameDirectories: string[]
+    playerAppearance: {
+      profiles: unknown[]
+      activeProfileId: string | null
+    }
+  }
+  workspace: {
+    layouts: Record<string, Record<string, unknown>>
+  }
+  launcher: {
+    discoverToolbar: {
+      sort: string
+      ascending: boolean
+      timeRange: string
+      pageSize: number
+      filtersHidden: boolean
+    }
+  }
+}
+
+type MockAppUiStateOverrides = {
+  version?: number
+  shell?: Partial<MockAppUiState['shell']>
+  appearance?: Partial<Omit<MockAppUiState['appearance'], 'playerAppearance'>> & {
+    playerAppearance?: Partial<MockAppUiState['appearance']['playerAppearance']>
+  }
+  workspace?: {
+    layouts?: MockAppUiState['workspace']['layouts']
+  }
+  launcher?: {
+    discoverToolbar?: Partial<MockAppUiState['launcher']['discoverToolbar']>
+  }
+}
+
+type MockAppUiStatePatch = {
+  shell?: MockAppUiState['shell']
+  appearance?: Partial<MockAppUiState['appearance']> & {
+    playerAppearance?: MockAppUiState['appearance']['playerAppearance']
+  }
+  workspace?: {
+    layouts?: Record<string, Record<string, unknown> | null>
+  }
+  launcher?: {
+    discoverToolbar?: MockAppUiState['launcher']['discoverToolbar']
+  }
+}
+
+function createMockAppUiState(
+  overrides: MockAppUiStateOverrides = {},
+): MockAppUiState {
+  return {
+    version: overrides.version ?? 1,
+    shell: {
+      appMode: overrides.shell?.appMode ?? 'launcher',
+      launcherPage: overrides.shell?.launcherPage ?? 'library',
+      debugEnabled: overrides.shell?.debugEnabled ?? false,
+      notificationSoundEnabled: overrides.shell?.notificationSoundEnabled ?? true,
+    },
+    appearance: {
+      locale: overrides.appearance?.locale ?? 'en-US',
+      accentPresetId: overrides.appearance?.accentPresetId ?? 'indigo',
+      recentGameDirectories: overrides.appearance?.recentGameDirectories ?? [],
+      playerAppearance: {
+        profiles: overrides.appearance?.playerAppearance?.profiles ?? [],
+        activeProfileId: overrides.appearance?.playerAppearance?.activeProfileId ?? null,
+      },
+    },
+    workspace: {
+      layouts: overrides.workspace?.layouts ?? {},
+    },
+    launcher: {
+      discoverToolbar: {
+        sort: overrides.launcher?.discoverToolbar?.sort ?? 'newest',
+        ascending: overrides.launcher?.discoverToolbar?.ascending ?? false,
+        timeRange: overrides.launcher?.discoverToolbar?.timeRange ?? 'all',
+        pageSize: overrides.launcher?.discoverToolbar?.pageSize ?? 20,
+        filtersHidden: overrides.launcher?.discoverToolbar?.filtersHidden ?? false,
+      },
+    },
+  }
+}
+
+function applyMockAppUiStatePatch(patch: MockAppUiStatePatch) {
+  const nextLayouts = { ...mockAppUiState.workspace.layouts }
+
+  for (const [storageKey, layout] of Object.entries(patch.workspace?.layouts ?? {})) {
+    if (layout === null) {
+      delete nextLayouts[storageKey]
+      continue
+    }
+
+    nextLayouts[storageKey] = layout
+  }
+
+  mockAppUiState = {
+    ...mockAppUiState,
+    ...(patch.shell ? { shell: patch.shell } : null),
+    ...(patch.appearance
+      ? {
+          appearance: {
+            ...mockAppUiState.appearance,
+            ...patch.appearance,
+            playerAppearance: patch.appearance.playerAppearance ?? mockAppUiState.appearance.playerAppearance,
+          },
+        }
+      : null),
+    ...(patch.workspace
+      ? {
+          workspace: {
+            ...mockAppUiState.workspace,
+            ...(patch.workspace.layouts ? { layouts: nextLayouts } : null),
+          },
+        }
+      : null),
+    ...(patch.launcher
+      ? {
+          launcher: {
+            ...mockAppUiState.launcher,
+            discoverToolbar: patch.launcher.discoverToolbar ?? mockAppUiState.launcher.discoverToolbar,
+          },
+        }
+      : null),
+  }
+
+  return mockAppUiState
+}
+
+let mockAppUiState = createMockAppUiState()
+const initializeAppUiStateMock = vi.fn(async () => mockAppUiState)
+const applyAppUiStatePatchMock = vi.fn(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
+const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
+const clearLegacyBrowserUiStateMock = vi.fn()
+const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
+
+function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
+  mockAppUiState = createMockAppUiState(overrides)
+}
+
+function createMockWorkspaceLayoutState() {
+  return {
+    chrome: {
+      bottomHeight: 220,
+      bottomSplit: 0.5,
+      leftSplit: 0.44,
+      leftWidth: 0.22,
+      rightSplit: 0.34,
+      rightWidth: 0.24,
+    },
+    panels: {
+      viewport: {
+        dock: 'center',
+        height: 420,
+        lastMode: 'docked',
+        mode: 'docked',
+        width: 640,
+        x: 56,
+        y: 48,
+        zIndex: 1,
+      },
+    },
+    presets: {},
+    slots: {
+      'bottom-left': {
+        activePanelId: null,
+        expanded: false,
+        panelOrder: [],
+      },
+      'bottom-right': {
+        activePanelId: null,
+        expanded: false,
+        panelOrder: [],
+      },
+      'left-bottom': {
+        activePanelId: null,
+        expanded: false,
+        panelOrder: [],
+      },
+      'left-top': {
+        activePanelId: null,
+        expanded: false,
+        panelOrder: [],
+      },
+      'right-bottom': {
+        activePanelId: null,
+        expanded: false,
+        panelOrder: [],
+      },
+      'right-top': {
+        activePanelId: null,
+        expanded: false,
+        panelOrder: [],
+      },
+    },
+  }
 }
 
 vi.mock('./components/DevDebugOverlay', () => ({
@@ -29,7 +229,10 @@ vi.mock('./components/StatusBar', () => ({
 }))
 
 vi.mock('./components/WorkspaceLayout', () => ({
-  WorkspaceLayout: () => <div data-testid="workspace-layout" />,
+  WorkspaceLayout: (props: Record<string, unknown>) => {
+    workspaceLayoutMock(props)
+    return <div data-testid="workspace-layout" data-storage-key={String(props.storageKey ?? '')} />
+  },
 }))
 
 vi.mock('./lib/launcher/useLauncherRuntime', () => ({
@@ -175,11 +378,26 @@ vi.mock('./lib/app/useModWorkspace', () => ({
   }),
 }))
 
+vi.mock('./lib/app/uiState', () => ({
+  initializeAppUiState: () => initializeAppUiStateMock(),
+  applyAppUiStatePatch: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
+  getAppUiStateSnapshot: () => getAppUiStateSnapshotMock(),
+  clearLegacyBrowserUiState: () => clearLegacyBrowserUiStateMock(),
+}))
+
 describe('App locale ownership', () => {
   beforeEach(() => {
-    window.localStorage.clear()
+    seedAppUiState()
     mapWorkspaceState.workspaceStatus = { tone: 'ready', message: '' }
     mapWorkspaceState.resourcePreloadState = { active: false, message: '', currentLabel: null, completed: 0, total: 0 }
+    initializeAppUiStateMock.mockClear()
+    initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
+    applyAppUiStatePatchMock.mockClear()
+    applyAppUiStatePatchMock.mockImplementation(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
+    getAppUiStateSnapshotMock.mockClear()
+    getAppUiStateSnapshotMock.mockImplementation(() => mockAppUiState)
+    clearLegacyBrowserUiStateMock.mockClear()
+    workspaceLayoutMock.mockClear()
     vi.stubGlobal(
       'matchMedia',
       vi.fn().mockImplementation((query: string) => ({
@@ -199,7 +417,6 @@ describe('App locale ownership', () => {
     cleanup()
     clearNotifications()
     vi.unstubAllGlobals()
-    window.localStorage.clear()
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
       value: 'en-US',
@@ -207,8 +424,10 @@ describe('App locale ownership', () => {
   })
 
   it('updates downstream shell copy immediately when locale changes through Settings', async () => {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'en-US')
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    seedAppUiState({
+      appearance: { locale: 'en-US' },
+      shell: { appMode: 'workbench' },
+    })
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
@@ -228,12 +447,14 @@ describe('App locale ownership', () => {
       expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeTruthy()
     })
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].nav.map })).toBeNull()
-    expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('zh-CN')
+    expect(mockAppUiState.appearance.locale).toBe('zh-CN')
   })
 
   it('initializes App locale from a valid stored locale value', async () => {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'zh-CN')
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    seedAppUiState({
+      appearance: { locale: 'zh-CN' },
+      shell: { appMode: 'workbench' },
+    })
 
     render(<App />)
 
@@ -245,8 +466,10 @@ describe('App locale ownership', () => {
   })
 
   it('falls back from an invalid stored locale to navigator language heuristics', async () => {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, 'es-ES')
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    seedAppUiState({
+      appearance: { locale: 'es-ES' },
+      shell: { appMode: 'workbench' },
+    })
     Object.defineProperty(window.navigator, 'language', {
       configurable: true,
       value: 'zh-CN',
@@ -257,7 +480,9 @@ describe('App locale ownership', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: editorCopy['zh-CN'].nav.map })).toBeTruthy()
     })
-    expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe('zh-CN')
+    await waitFor(() => {
+      expect(mockAppUiState.appearance.locale).toBe('zh-CN')
+    })
   })
 
   it('shows preload progress inside a bottom-right notification instead of the overlay', async () => {
@@ -281,30 +506,37 @@ describe('App locale ownership', () => {
   })
 
   it('opens the launcher library when launcher mode is restored from persisted shell state', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'updates')
+    seedAppUiState({
+      shell: {
+        appMode: 'launcher',
+        launcherPage: 'updates',
+      },
+    })
 
     render(<App />)
 
     expect(screen.queryByTestId('workspace-layout')).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe('page')
-    expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('library')
     expect(
       screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current'),
     ).not.toBe('page')
   })
 
-  it('switches app mode to workbench through shell controls and persists it', () => {
+  it('switches app mode to workbench through shell controls and persists it', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
 
     expect(screen.getByTestId('workspace-layout')).toBeTruthy()
-    expect(window.localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('workbench')
+    await waitFor(() => {
+      expect(mockAppUiState.shell.appMode).toBe('workbench')
+    })
   })
 
   it('renders the launcher downloads button in shell controls and the launch game action on the library page', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
 
     render(<App />)
 
@@ -312,20 +544,26 @@ describe('App locale ownership', () => {
     expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
   })
 
-  it('persists the active launcher page only when switching back to workbench', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'library')
+  it('persists the active launcher page only when switching back to workbench', async () => {
+    seedAppUiState({
+      shell: {
+        appMode: 'launcher',
+        launcherPage: 'library',
+      },
+    })
 
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }))
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
-    expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('library')
+    expect(mockAppUiState.shell.launcherPage).toBe('library')
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
 
-    expect(window.localStorage.getItem(LAUNCHER_PAGE_STORAGE_KEY)).toBe('updates')
-    expect(window.localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('workbench')
+    await waitFor(() => {
+      expect(mockAppUiState.shell.launcherPage).toBe('updates')
+      expect(mockAppUiState.shell.appMode).toBe('workbench')
+    })
   })
 
   it('renders launcher settings inside the global settings window', async () => {
@@ -341,7 +579,9 @@ describe('App locale ownership', () => {
   })
 
   it('renders global notifications in both workbench and launcher app modes', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    seedAppUiState({
+      shell: { appMode: 'workbench' },
+    })
     const { unmount } = render(<App />)
 
     act(() => {
@@ -355,7 +595,9 @@ describe('App locale ownership', () => {
 
     unmount()
     clearNotifications()
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
 
     render(<App />)
 
@@ -370,8 +612,12 @@ describe('App locale ownership', () => {
   })
 
   it('shows the debug overlay when debug mode is enabled from persisted shell state', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
-    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
+    seedAppUiState({
+      shell: {
+        appMode: 'workbench',
+        debugEnabled: true,
+      },
+    })
 
     render(<App />)
 
@@ -379,8 +625,12 @@ describe('App locale ownership', () => {
   })
 
   it('shows the debug overlay in launcher mode when debug mode is enabled', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
+    seedAppUiState({
+      shell: {
+        appMode: 'launcher',
+        debugEnabled: true,
+      },
+    })
 
     render(<App />)
 
@@ -388,7 +638,9 @@ describe('App locale ownership', () => {
   })
 
   it('toggles debug mode from Settings and persists the flag', async () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    seedAppUiState({
+      shell: { appMode: 'workbench' },
+    })
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
@@ -398,13 +650,15 @@ describe('App locale ownership', () => {
     fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.debugModeLabel }))
 
     await waitFor(() => {
-      expect(window.localStorage.getItem(DEBUG_ENABLED_STORAGE_KEY)).toBe('true')
+      expect(mockAppUiState.shell.debugEnabled).toBe(true)
       expect(screen.getByTestId('dev-debug-overlay')).toBeTruthy()
     })
   })
 
   it('toggles notification sounds from Settings and persists the flag', async () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'workbench')
+    seedAppUiState({
+      shell: { appMode: 'workbench' },
+    })
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
@@ -414,14 +668,18 @@ describe('App locale ownership', () => {
     fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.notificationSoundLabel }))
 
     await waitFor(() => {
-      expect(window.localStorage.getItem(NOTIFICATION_SOUND_ENABLED_STORAGE_KEY)).toBe('false')
+      expect(mockAppUiState.shell.notificationSoundEnabled).toBe(false)
     })
   })
 
   it('falls back to the launcher library when the persisted debug page is disabled', () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'debug')
-    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'false')
+    seedAppUiState({
+      shell: {
+        appMode: 'launcher',
+        launcherPage: 'debug',
+        debugEnabled: false,
+      },
+    })
 
     render(<App />)
 
@@ -433,9 +691,13 @@ describe('App locale ownership', () => {
   })
 
   it('returns from the launcher debug page when debug mode is turned off', async () => {
-    window.localStorage.setItem(APP_MODE_STORAGE_KEY, 'launcher')
-    window.localStorage.setItem(LAUNCHER_PAGE_STORAGE_KEY, 'debug')
-    window.localStorage.setItem(DEBUG_ENABLED_STORAGE_KEY, 'true')
+    seedAppUiState({
+      shell: {
+        appMode: 'launcher',
+        launcherPage: 'debug',
+        debugEnabled: true,
+      },
+    })
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
@@ -452,7 +714,15 @@ describe('App locale ownership', () => {
     fireEvent.click(screen.getByRole('switch', { name: englishSettingsCopy.debugModeLabel }))
 
     await waitFor(() => {
-      expect(window.localStorage.getItem(DEBUG_ENABLED_STORAGE_KEY)).toBe('false')
+      expect(applyAppUiStatePatchMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shell: expect.objectContaining({
+            appMode: 'launcher',
+            launcherPage: 'library',
+            debugEnabled: false,
+          }),
+        }),
+      )
       expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe(
         'page',
       )
@@ -460,5 +730,80 @@ describe('App locale ownership', () => {
 
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
     expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
+  })
+
+  it('does not re-render App when the workspace layout reports an in-session persist update', async () => {
+    const persistedLayout = createMockWorkspaceLayoutState()
+
+    seedAppUiState({
+      shell: {
+        appMode: 'workbench',
+      },
+      workspace: {
+        layouts: {
+          'modforge:workspace-layout:v11:map': persistedLayout,
+        },
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(workspaceLayoutMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+    })
+
+    const renderCountBeforePersist = workspaceLayoutMock.mock.calls.length
+    const workspaceLayoutProps = workspaceLayoutMock.mock.calls.at(-1)?.[0] as
+      | {
+          storageKey: string
+          onPersistStateChange?: (storageKey: string, state: Record<string, unknown>) => void
+        }
+      | undefined
+
+    expect(workspaceLayoutProps?.storageKey).toBe('modforge:workspace-layout:v11:map')
+
+    const nextLayout = {
+      ...persistedLayout,
+      chrome: {
+        ...persistedLayout.chrome,
+        leftWidth: 0.26,
+      },
+    }
+
+    act(() => {
+      workspaceLayoutProps?.onPersistStateChange?.(workspaceLayoutProps.storageKey, nextLayout)
+    })
+
+    expect(workspaceLayoutMock.mock.calls.length).toBe(renderCountBeforePersist)
+
+    await waitFor(() => {
+      expect(applyAppUiStatePatchMock).toHaveBeenCalledWith({
+        workspace: {
+          layouts: {
+            [workspaceLayoutProps!.storageKey]: nextLayout,
+          },
+        },
+      })
+    })
+  })
+
+  it('hides workbench-only menus after switching to launcher', () => {
+    const viewMenuCopy = getViewMenuCopy('en-US')
+
+    seedAppUiState({
+      shell: {
+        appMode: 'workbench',
+      },
+    })
+
+    render(<App />)
+
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].leftDock.project })).toBeTruthy()
+    expect(screen.getByRole('button', { name: viewMenuCopy.title })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.launcher }))
+
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].leftDock.project })).toBeNull()
+    expect(screen.queryByRole('button', { name: viewMenuCopy.title })).toBeNull()
   })
 })

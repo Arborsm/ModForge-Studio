@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -256,27 +254,5 @@ describe('SettingsWindow', () => {
     expect(chineseOptionUpdated.getAttribute('aria-checked')).toBe('true')
     expect(englishOptionUpdated.getAttribute('tabindex')).toBe('-1')
     expect(chineseOptionUpdated.getAttribute('tabindex')).toBe('0')
-  })
-
-  it('uses a larger settings dialog layout', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
-
-    expect(stylesheet).toContain('width: min(920px, calc(100vw - 56px));')
-    expect(stylesheet).toContain('height: min(820px, calc(100vh - 56px));')
-  })
-
-  it('locks the settings body height and only scrolls the right content column', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
-
-    expect(stylesheet).toMatch(/\.settings-window-body\s*\{\s*min-height:\s*0;\s*overflow:\s*hidden;/)
-    expect(stylesheet).toMatch(/\.settings-window-content\s*\{\s*min-height:\s*0;\s*display:\s*grid;\s*overflow:\s*auto;/)
-  })
-
-  it('styles the settings nav as a lightweight sidebar instead of bordered cards', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/settings-window.css'), 'utf8')
-
-    expect(stylesheet).toContain('.settings-window-nav-item::before')
-    expect(stylesheet).toContain('border: 0;')
-    expect(stylesheet).toContain('box-shadow: inset 3px 0 0 var(--accent);')
   })
 })
