@@ -1,4 +1,5 @@
-use super::{extract_xml_tag_value, parse_vdf, VdfValue};
+use super::{clean_input_path, extract_xml_tag_value, parse_vdf, VdfValue};
+use std::path::Path;
 
 #[test]
 fn extracts_game_path_from_targets_xml() {
@@ -42,4 +43,22 @@ fn parses_steam_libraryfolders_vdf() {
         Some(r"C:\Program Files (x86)\Steam")
     );
     assert!(matches!(primary.get("apps"), Some(VdfValue::Object(_))));
+}
+
+#[test]
+fn clean_input_path_normalizes_windows_relative_separators() {
+    let cleaned = clean_input_path(r".\tmp-cp-relative");
+
+    assert_eq!(cleaned, Path::new("./tmp-cp-relative"));
+}
+
+#[cfg(not(windows))]
+#[test]
+fn clean_input_path_maps_windows_drive_paths_to_wsl_mounts() {
+    let cleaned = clean_input_path(r"E:\SteamLibrary\steamapps\common\Stardew Valley");
+
+    assert_eq!(
+        cleaned,
+        Path::new("/mnt/e/SteamLibrary/steamapps/common/Stardew Valley")
+    );
 }

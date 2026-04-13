@@ -1,34 +1,28 @@
 extern crate self as modforge_studio_desktop_lib;
 
-mod assets;
-mod attached_api;
-mod content_patcher;
-mod json_relaxed;
-mod launcher;
-pub mod logging;
-mod mime;
-mod models;
-mod mods;
-mod pathing;
-mod saves;
-mod tbin;
-#[cfg(test)]
-mod test_support;
-mod ui_state;
-mod xact;
-mod xnb;
+mod commands;
+mod domain;
+mod infrastructure;
+mod support;
 
-use assets::{
+#[cfg(test)]
+#[path = "../tests/support/mod.rs"]
+pub mod test_support;
+pub use support::logging;
+
+use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
+use commands::assets::{
     clear_file_cache, detect_default_game_directory, get_file_cache_stats,
     list_known_game_directories, load_audio_data_url, load_image_data_url, load_map_asset,
     load_text_asset, load_text_file, scan_audio_assets, scan_events, scan_maps,
     validate_game_directory,
 };
-use content_patcher::project::load_content_patcher_project;
-use content_patcher::{
-    export_content_patcher_asset, load_content_patcher_result_asset, simulate_content_patcher,
+use commands::audio::load_xact_audio_data_url;
+use commands::content_patcher::{
+    export_content_patcher_asset, load_content_patcher_project, load_content_patcher_result_asset,
+    simulate_content_patcher,
 };
-use launcher::{
+use commands::launcher::{
     check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
     get_launcher_backup_directory, inspect_launcher_archive, install_launcher_archive,
     launch_launcher_game, load_cached_launcher_updates, load_launcher_download_queue,
@@ -38,14 +32,11 @@ use launcher::{
     save_launcher_library_state, save_launcher_settings, scan_launcher_library,
     search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
 };
-use logging::{
-    build_logging_plugin, set_debug_logging_enabled, write_frontend_log, DebugLoggingState,
-};
-use mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
-use saves::scan_default_save_slots;
+use commands::logging::{set_debug_logging_enabled, write_frontend_log};
+use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
+use commands::saves::scan_default_save_slots;
+use support::logging::{build_logging_plugin, DebugLoggingState};
 use tauri::Manager;
-use ui_state::{load_app_ui_state, patch_app_ui_state};
-use xact::load_xact_audio_data_url;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

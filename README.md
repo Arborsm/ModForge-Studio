@@ -17,7 +17,7 @@
 │     │  └─ test/                  # 前端共享测试、架构测试、回归测试
 │     └─ src-tauri/                # Tauri / Rust 后端
 │        ├─ src/                   # Rust 源码
-│        └─ tests/                 # Rust 集成/回归测试
+│        └─ tests/                 # Rust 集成/回归测试与共享 support
 ├─ AGENTS.md                       # 仓库约束、结构规范、命令约定
 ├─ package.json                    # 工作区脚本入口
 └─ ModForge.Studio.slnx            # 解决方案入口
@@ -51,13 +51,14 @@
 `apps/desktop/src-tauri` 是桌面后端。
 
 - `src/main.rs`: Tauri 程序入口。
-- `src/launcher/`: 启动器相关的 Rust 侧能力。
-- `src/launcher/catalog/`: 启动器发现页搜索、远端模组详情、更新检查与缓存。
-- `src/content_patcher/`: Content Patcher 解析与相关支持代码。
-- `src/xnb/`: XNB 解析。
-- `src/xact/`: XACT 音频相关解析。
+- `src/lib.rs`: Rust 侧总装配入口，负责挂接分层模块与 Tauri handler。
+- `src/commands/`: Tauri command wrapper，仅处理命令入口、参数接线与错误包装。
+- `src/domain/`: 领域逻辑，按业务边界组织，如 launcher、content_patcher、mods、assets、saves、app_ui。
+- `src/infrastructure/`: 技术实现细节，如游戏格式解析、文件系统路径与底层工具。
+- `src/support/`: 横向支撑代码，如 logging。
 - `src/tests/`: 适合拆分出去的 Rust 单元/模块测试。
 - `tests/`: Rust 集成测试、回归测试。
+- `tests/support/`: Rust 单元测试与集成测试共用的辅助模块。
 
 ## Where To Edit
 
@@ -116,11 +117,17 @@
 
 - 前端桥接入口：`apps/desktop/src/lib/desktop.ts`
 - Rust Tauri 入口：`apps/desktop/src-tauri/src/main.rs`
-- Rust launcher 能力：`apps/desktop/src-tauri/src/launcher/`
-- Rust Content Patcher：`apps/desktop/src-tauri/src/content_patcher/`
-- Rust asset parsing：
-  - `apps/desktop/src-tauri/src/xnb/`
-  - `apps/desktop/src-tauri/src/xact/`
+- Rust command wrappers：`apps/desktop/src-tauri/src/commands/`
+- Rust domain 逻辑：
+  - `apps/desktop/src-tauri/src/domain/launcher/`
+  - `apps/desktop/src-tauri/src/domain/content_patcher/`
+  - `apps/desktop/src-tauri/src/domain/mods/`
+  - `apps/desktop/src-tauri/src/domain/assets/`
+- Rust infrastructure：
+  - `apps/desktop/src-tauri/src/infrastructure/game_formats/`
+  - `apps/desktop/src-tauri/src/infrastructure/fs/`
+- Rust support：`apps/desktop/src-tauri/src/support/`
+- Rust test support：`apps/desktop/src-tauri/tests/support/`
 
 ### Copy And Locales
 
@@ -143,6 +150,7 @@
 - 组件就近测试：和组件文件同目录的 `*.test.tsx`
 - 前端架构测试：`apps/desktop/src/test/architecture/`
 - 前端回归测试：`apps/desktop/src/test/regressions/`
+- Rust 测试共享 support：`apps/desktop/src-tauri/tests/support/`
 - Rust 模块/单元测试：`apps/desktop/src-tauri/src/tests/`
 - Rust 集成/回归测试：`apps/desktop/src-tauri/tests/`
 
@@ -164,13 +172,16 @@
   - `apps/desktop/src/lib/launcher/useLauncherSettings.ts`
   - `apps/desktop/src/lib/launcher/useLauncherRuntime.ts`
   - `apps/desktop/src/lib/desktop.ts`
-  - `apps/desktop/src-tauri/src/launcher/`
+  - `apps/desktop/src-tauri/src/commands/launcher.rs`
+  - `apps/desktop/src-tauri/src/domain/launcher/`
 - 改 app mode、默认进入页、壳层状态：
   - `apps/desktop/src/App.tsx`
   - `apps/desktop/src/lib/app/appShell.ts`
 - 改桌面命令或文件系统行为：
   - `apps/desktop/src/lib/desktop.ts`
-  - `apps/desktop/src-tauri/src/`
+  - `apps/desktop/src-tauri/src/commands/`
+  - `apps/desktop/src-tauri/src/domain/`
+  - `apps/desktop/src-tauri/src/infrastructure/`
 - 改文案：
   - `apps/desktop/src/locales/en-US.ts`
   - `apps/desktop/src/locales/zh-CN.ts`

@@ -1,8 +1,8 @@
-use crate::test_support::create_temp_dir;
-use crate::ui_state::{
+use super::{
     load_or_create_app_ui_state_at_path, patch_app_ui_state_at_path, AppUiAppearanceStatePatch,
     AppUiDiscoverToolbarState, AppUiLauncherStatePatch, AppUiStatePatch, AppUiWorkspaceStatePatch,
 };
+use crate::test_support::create_temp_dir;
 use serde_json::json;
 use std::collections::BTreeMap;
 use std::fs;

@@ -1,38 +1,45 @@
-use super::archive::inspect_archive_at_path;
-use super::catalog::{
-    build_catalog_graphql_payload, build_launcher_update_summary,
-    build_public_catalog_graphql_payload, build_smapi_update_payload,
-    build_smapi_update_payload_with_versions, build_update_batch_graphql_payload,
-    can_use_nexus_graphql, dedupe_update_candidates_by_mod_id,
-    enrich_remote_mod_detail_with_gallery_images, finalize_remote_mod_details_batch,
-    parse_catalog_graphql_response, parse_catalog_results, parse_launcher_update_changelog_text,
-    parse_launcher_update_file_metadata_text, parse_public_mod_detail_graphql_response,
-    parse_remote_mod_detail_html, parse_remote_mod_images_tab_html, parse_smapi_update_response,
-    parse_update_batch_graphql_response, resolve_smapi_runtime_versions_with_reader,
-    SmapiRuntimeVersions, UpdateCheckCandidate,
+use crate::domain::launcher::archive::inspect_archive_at_path;
+use crate::domain::launcher::can_use_nexus_graphql;
+use crate::domain::launcher::discovery::{
+    build_catalog_graphql_payload, build_public_catalog_graphql_payload,
+    parse_catalog_graphql_response, parse_catalog_results,
 };
-use super::downloads::{load_or_create_download_queue_at_path, save_download_queue_at_path};
-use super::image_cache::clear_launcher_image_cache_dir;
-use super::launch::launch_game_with_runner;
-use super::library::{
+use crate::domain::launcher::downloads::{
+    load_or_create_download_queue_at_path, save_download_queue_at_path,
+};
+use crate::domain::launcher::image_cache::clear_launcher_image_cache_dir;
+use crate::domain::launcher::remote::{
+    enrich_remote_mod_detail_with_gallery_images, parse_launcher_update_changelog_text,
+    parse_launcher_update_file_metadata_text, parse_public_mod_detail_graphql_response,
+    parse_remote_mod_detail_html, parse_remote_mod_images_tab_html, RemoteModDetail,
+};
+use crate::domain::launcher::runtime::launch_game_with_runner;
+use crate::domain::launcher::library::{
     load_or_create_library_covers_at_path, load_or_create_library_state_at_path,
     persist_auto_library_cover_at_path, save_library_covers_at_path, save_library_state_at_path,
     scan_library_at_path, set_launcher_mod_enabled_blocking,
 };
-use super::settings::{load_or_create_settings_at_path, save_settings_at_path};
-use super::trace::format_launcher_trace_message;
-use super::types::{
+use crate::domain::launcher::settings::{load_or_create_settings_at_path, save_settings_at_path};
+use crate::domain::launcher::trace::format_launcher_trace_message;
+use crate::domain::launcher::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
     LauncherLibraryCoversState, LauncherLibraryPackPreset, LauncherLibraryScopeMode,
     LauncherLibraryState, LauncherLibraryStorageFolder, LauncherSettings, LauncherUpdateSummary,
     LauncherUpdatesResult, SearchLauncherCatalogRequest, SetLauncherModEnabledRequest,
 };
-use super::update_cache::{
+use crate::domain::launcher::update_cache::{
     clear_launcher_updates_check_in_progress_at_path, inspect_launcher_updates_cache_at_path,
     invalidate_launcher_updates_cache_at_path, load_cached_launcher_updates_at_path,
     mark_launcher_updates_check_in_progress_at_path, save_launcher_updates_cache_at_path,
     LauncherUpdatesCacheEntryState,
+};
+use crate::domain::launcher::updates::{
+    build_launcher_update_summary, build_smapi_update_payload,
+    build_smapi_update_payload_with_versions, build_update_batch_graphql_payload,
+    dedupe_update_candidates_by_mod_id, finalize_remote_mod_details_batch,
+    parse_smapi_update_response, parse_update_batch_graphql_response,
+    resolve_smapi_runtime_versions_with_reader, SmapiRuntimeVersions, UpdateCheckCandidate,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use serde_json::json;
@@ -1085,7 +1092,7 @@ fn parse_remote_mod_images_tab_html_extracts_author_image_links() {
 
 #[test]
 fn enrich_remote_mod_detail_with_gallery_images_fills_missing_cover_from_images_tab() {
-    let detail = super::catalog::RemoteModDetail {
+    let detail = RemoteModDetail {
         mod_id: 20054,
         name: Some("Vanilla Plus Professions".to_string()),
         author: Some("KediDili".to_string()),
@@ -1373,7 +1380,7 @@ fn build_launcher_update_summary_uses_remote_detail_fields_without_file_metadata
             absolute_path: r"E:\Games\Stardew Valley\Mods\Lookup Anything".to_string(),
             update_keys: vec!["Nexus:541".to_string()],
         },
-        &super::catalog::RemoteModDetail {
+        &RemoteModDetail {
             mod_id: 541,
             name: Some("Lookup Anything".to_string()),
             author: Some("Pathoschild".to_string()),
@@ -1569,7 +1576,7 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
     let mut details = std::collections::HashMap::new();
     details.insert(
         101,
-        super::catalog::RemoteModDetail {
+        RemoteModDetail {
             mod_id: 101,
             name: Some("Tractor Mod".to_string()),
             author: Some("Pathoschild".to_string()),

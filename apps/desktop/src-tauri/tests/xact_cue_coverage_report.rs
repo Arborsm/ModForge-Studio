@@ -1,16 +1,18 @@
-#[path = "../src/pathing.rs"]
-mod pathing;
-#[path = "../src/xact/mod.rs"]
-mod xact;
+#[path = "support/infrastructure.rs"]
+mod infrastructure;
+#[path = "support/mod.rs"]
+mod test_support;
 
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
+use infrastructure::game_formats::xact;
 #[test]
+#[ignore = "manual XACT coverage report against installed game data"]
 fn report_xact_simple_cue_coverage() {
     let game_root = resolve_game_root();
-    let xsb_path = game_root.join(r"Content\XACT\Sound Bank.xsb");
+    let xsb_path = game_root.join("Content/XACT/Sound Bank.xsb");
     assert!(
         xsb_path.exists(),
         "missing XACT sound bank: {}",
@@ -55,9 +57,10 @@ fn report_xact_simple_cue_coverage() {
 }
 
 #[test]
+#[ignore = "manual XACT coverage report against installed game data"]
 fn report_xact_total_cue_coverage() {
     let game_root = resolve_game_root();
-    let xsb_path = game_root.join(r"Content\XACT\Sound Bank.xsb");
+    let xsb_path = game_root.join("Content/XACT/Sound Bank.xsb");
     assert!(
         xsb_path.exists(),
         "missing XACT sound bank: {}",
@@ -114,9 +117,7 @@ fn report_xact_total_cue_coverage() {
 }
 
 fn resolve_game_root() -> PathBuf {
-    std::env::var_os("SDV_GAME_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley"))
+    test_support::resolve_game_root()
 }
 
 fn percentage(passed: usize, total: usize) -> f64 {

@@ -1,35 +1,25 @@
-#[path = "../src/assets.rs"]
+#[allow(dead_code, unused_imports)]
+#[path = "../src/domain/assets/mod.rs"]
 mod assets;
-#[path = "../src/mime.rs"]
-mod mime;
-#[path = "../src/models.rs"]
-mod models;
-#[path = "../src/pathing.rs"]
-mod pathing;
-#[path = "../src/tbin.rs"]
-mod tbin;
-#[path = "../src/test_support.rs"]
+#[path = "support/infrastructure.rs"]
+mod infrastructure;
+#[allow(dead_code, unused_imports)]
+#[path = "support/mod.rs"]
 mod test_support;
-#[path = "../src/xnb/mod.rs"]
-mod xnb;
-
-use std::path::Path;
 
 #[test]
 fn loads_structured_text_assets_via_unpacked_json_fallback() {
-    let game_root = Path::new(r"E:\SteamLibrary\steamapps\common\Stardew Valley");
+    let game_root = test_support::resolve_game_root();
     assert!(
-        game_root
-            .join(r"Content (unpacked)\Data\Characters.json")
-            .exists(),
+        game_root.join("Content (unpacked)/Data/Characters.json").exists(),
         "expected unpacked Stardew JSON fallback files under {}",
         game_root.display()
     );
 
     for asset_path in [
-        r"Content\Data\Characters.xnb",
-        r"Content\Data\Objects.xnb",
-        r"Content\Data\WorldMap.xnb",
+        "Content/Data/Characters.xnb",
+        "Content/Data/Objects.xnb",
+        "Content/Data/WorldMap.xnb",
     ] {
         let loaded = assets::load_text_asset(
             game_root.display().to_string(),

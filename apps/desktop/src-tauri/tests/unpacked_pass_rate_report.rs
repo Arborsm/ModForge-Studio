@@ -1,15 +1,15 @@
-#[path = "../src/pathing.rs"]
-mod pathing;
-#[path = "../src/tbin.rs"]
-mod tbin;
-#[path = "../src/xnb/mod.rs"]
-mod xnb;
+#[path = "support/infrastructure.rs"]
+mod infrastructure;
+#[path = "support/mod.rs"]
+mod test_support;
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use image::ImageFormat;
+use infrastructure::game_formats::tbin;
+use infrastructure::game_formats::xnb;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum AssetKind {
@@ -76,6 +76,7 @@ struct FailureRecord {
 }
 
 #[test]
+#[ignore = "manual report against installed Content (unpacked) dataset"]
 fn compare_rust_unpack_pass_rate_against_content_unpacked() {
     let game_root = resolve_game_root();
     let content_root = game_root.join("Content");
@@ -266,9 +267,7 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
 }
 
 fn resolve_game_root() -> PathBuf {
-    std::env::var_os("SDV_GAME_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley"))
+    test_support::resolve_game_root()
 }
 
 fn collect_xnb_cases(

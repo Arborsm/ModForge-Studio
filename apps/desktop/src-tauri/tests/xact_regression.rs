@@ -1,16 +1,16 @@
-#[path = "../src/pathing.rs"]
-mod pathing;
-#[path = "../src/xact/mod.rs"]
-mod xact;
+#[path = "support/infrastructure.rs"]
+mod infrastructure;
+#[path = "support/mod.rs"]
+mod test_support;
 
-use std::path::Path;
+use infrastructure::game_formats::xact;
 use std::{fs, path::PathBuf, time::Instant};
 
 #[test]
 fn loads_reference_xact_cues_as_wav_data_urls() {
-    let game_root = Path::new(r"E:\SteamLibrary\steamapps\common\Stardew Valley");
+    let game_root = test_support::resolve_game_root();
     assert!(
-        game_root.join(r"Content\XACT\Sound Bank.xsb").exists(),
+        game_root.join("Content/XACT/Sound Bank.xsb").exists(),
         "expected XACT files under {}",
         game_root.display()
     );
