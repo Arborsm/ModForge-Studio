@@ -1,4 +1,6 @@
-use std::collections::{BTreeMap, HashSet};
+#[cfg(any(windows, test))]
+use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 pub fn normalize_path(path: &Path) -> String {
@@ -331,12 +333,14 @@ fn get_path_from_steam_library(steam_root: &Path) -> Option<PathBuf> {
     None
 }
 
+#[cfg(any(windows, test))]
 #[derive(Debug, Clone)]
 enum VdfValue {
     String(String),
     Object(BTreeMap<String, VdfValue>),
 }
 
+#[cfg(any(windows, test))]
 impl VdfValue {
     fn as_str(&self) -> Option<&str> {
         match self {
@@ -346,6 +350,7 @@ impl VdfValue {
     }
 }
 
+#[cfg(any(windows, test))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum VdfTokenKind {
     OpenBrace,
@@ -353,12 +358,14 @@ enum VdfTokenKind {
     String,
 }
 
+#[cfg(any(windows, test))]
 #[derive(Debug, Clone)]
 struct VdfToken {
     kind: VdfTokenKind,
     value: String,
 }
 
+#[cfg(any(windows, test))]
 fn parse_vdf(content: &str) -> Option<VdfValue> {
     let tokens = tokenize_vdf(content);
     if tokens.is_empty() {
@@ -376,6 +383,7 @@ fn parse_vdf(content: &str) -> Option<VdfValue> {
     Some(VdfValue::Object(entries))
 }
 
+#[cfg(any(windows, test))]
 fn parse_vdf_value(tokens: &[VdfToken], cursor: &mut usize) -> Option<VdfValue> {
     let token = tokens.get(*cursor)?;
     match token.kind {
@@ -402,6 +410,7 @@ fn parse_vdf_value(tokens: &[VdfToken], cursor: &mut usize) -> Option<VdfValue> 
     }
 }
 
+#[cfg(any(windows, test))]
 fn take_vdf_string(tokens: &[VdfToken], cursor: &mut usize) -> Option<String> {
     let token = tokens.get(*cursor)?;
     if token.kind != VdfTokenKind::String {
@@ -412,6 +421,7 @@ fn take_vdf_string(tokens: &[VdfToken], cursor: &mut usize) -> Option<String> {
     Some(token.value.clone())
 }
 
+#[cfg(any(windows, test))]
 fn tokenize_vdf(content: &str) -> Vec<VdfToken> {
     let bytes = content.as_bytes();
     let mut index = 0;

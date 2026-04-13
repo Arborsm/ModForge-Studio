@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[allow(dead_code)]
 pub(crate) fn create_temp_dir(name: &str) -> PathBuf {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -14,6 +15,7 @@ pub(crate) fn create_temp_dir(name: &str) -> PathBuf {
     path
 }
 
+#[allow(dead_code)]
 pub(crate) fn write_file(path: &Path, content: &str) {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("create parent");
@@ -21,12 +23,14 @@ pub(crate) fn write_file(path: &Path, content: &str) {
     fs::write(path, content).expect("write file");
 }
 
+#[allow(dead_code)]
 pub(crate) fn installed_game_root() -> PathBuf {
     infrastructure::fs_pathing::clean_input_path(
         r"E:\SteamLibrary\steamapps\common\Stardew Valley",
     )
 }
 
+#[allow(dead_code)]
 pub(crate) fn resolve_game_root() -> PathBuf {
     std::env::var_os("SDV_GAME_PATH")
         .map(PathBuf::from)
