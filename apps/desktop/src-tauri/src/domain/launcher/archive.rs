@@ -418,13 +418,7 @@ fn backup_existing_config(
     let Some(existing_mod_path) = existing_mod_path else {
         return Ok(false);
     };
-    copy_config_json(
-        existing_mod_path,
-        backup_root,
-        true,
-        "backup",
-        "back up",
-    )
+    copy_config_json(existing_mod_path, backup_root, true, "backup", "back up")
 }
 
 fn backup_existing_i18n(
@@ -517,9 +511,8 @@ fn copy_i18n_jsons(
             normalize_path(source_dir)
         )
     })? {
-        let entry = entry.map_err(|error| {
-            format!("Failed to inspect launcher {source_label} entry: {error}")
-        })?;
+        let entry = entry
+            .map_err(|error| format!("Failed to inspect launcher {source_label} entry: {error}"))?;
         let source_path = entry.path();
         if !source_path.is_file()
             || source_path.extension().and_then(|value| value.to_str()) != Some("json")

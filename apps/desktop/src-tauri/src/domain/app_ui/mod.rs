@@ -67,6 +67,8 @@ pub(crate) struct AppUiWorkspaceState {
 pub(crate) struct AppUiLauncherState {
     #[serde(default)]
     pub(crate) discover_toolbar: AppUiDiscoverToolbarState,
+    #[serde(default)]
+    pub(crate) force_offline: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -122,6 +124,8 @@ pub(crate) struct AppUiWorkspaceStatePatch {
 pub(crate) struct AppUiLauncherStatePatch {
     #[serde(default)]
     pub(crate) discover_toolbar: Option<AppUiDiscoverToolbarState>,
+    #[serde(default)]
+    pub(crate) force_offline: Option<bool>,
 }
 
 fn default_app_ui_state_version() -> u32 {
@@ -335,6 +339,7 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
                 page_size: normalize_discover_page_size(state.launcher.discover_toolbar.page_size),
                 filters_hidden: state.launcher.discover_toolbar.filters_hidden,
             },
+            force_offline: state.launcher.force_offline,
         },
     }
 }
@@ -426,6 +431,9 @@ pub(crate) fn patch_app_ui_state_at_path(
                 page_size: normalize_discover_page_size(discover_toolbar.page_size),
                 filters_hidden: discover_toolbar.filters_hidden,
             };
+        }
+        if let Some(force_offline) = launcher.force_offline {
+            state.launcher.force_offline = force_offline;
         }
     }
     let normalized = normalize_app_ui_state(state);

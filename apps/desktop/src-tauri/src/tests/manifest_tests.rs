@@ -13,7 +13,10 @@ fn string_field_trims_and_ignores_blank_values() {
         "Number": 42
     });
 
-    assert_eq!(string_field(&value, "Name").as_deref(), Some("Example Pack"));
+    assert_eq!(
+        string_field(&value, "Name").as_deref(),
+        Some("Example Pack")
+    );
     assert_eq!(string_field(&value, "Blank"), None);
     assert_eq!(string_field(&value, "Number"), None);
 }

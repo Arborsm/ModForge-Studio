@@ -1,7 +1,7 @@
 use super::types::{LauncherUpdateSummary, LauncherUpdatesResult};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -12,6 +12,8 @@ struct LauncherUpdatesCacheState {
     entries: BTreeMap<String, LauncherUpdatesCacheEntry>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     in_progress: BTreeMap<String, LauncherUpdatesCheckInProgressEntry>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    auto_failures: BTreeMap<String, BTreeMap<i64, LauncherUpdateAutoFailureEntry>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,6 +34,17 @@ struct LauncherUpdatesCheckInProgressEntry {
     started_at_ms: u128,
     #[serde(default = "default_launcher_updates_check_active_count")]
     active_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LauncherUpdateAutoFailureEntry {
+    pub(crate) mod_id: i64,
+    #[serde(default = "default_launcher_update_auto_failure_count")]
+    pub(crate) failure_count: u32,
+    pub(crate) last_failed_at_ms: u128,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) last_error: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,6 +78,10 @@ pub(crate) struct LauncherUpdatesCacheInspection {
 }
 
 fn default_launcher_updates_check_active_count() -> u32 {
+    1
+}
+
+fn default_launcher_update_auto_failure_count() -> u32 {
     1
 }
 
@@ -252,6 +269,125 @@ pub(crate) fn save_launcher_updates_cache_at_path(
     save_launcher_updates_cache_state(cache_path, &state)
 }
 
+#[cfg(test)]
+pub(crate) fn load_launcher_update_auto_failures_at_path(
+    cache_path: &Path,
+    mods_path: &str,
+    mod_id: i64,
+) -> Result<Option<LauncherUpdateAutoFailureEntry>, String> {
+    if mod_id <= 0 {
+        return Ok(None);
+    }
+
+    let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
+        return Ok(None);
+    };
+
+    let state = load_launcher_updates_cache_state(cache_path)?;
+    Ok(state
+        .auto_failures
+        .get(&cache_key)
+        .and_then(|entries| entries.get(&mod_id))
+        .cloned())
+}
+
+pub(crate) fn load_suppressed_launcher_update_mod_ids_at_path(
+    cache_path: &Path,
+    mods_path: &str,
+    threshold: u32,
+) -> Result<HashSet<i64>, String> {
+    let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
+        return Ok(HashSet::new());
+    };
+
+    let state = load_launcher_updates_cache_state(cache_path)?;
+    Ok(state
+        .auto_failures
+        .get(&cache_key)
+        .into_iter()
+        .flat_map(|entries| entries.iter())
+        .filter_map(|(mod_id, entry)| {
+            (entry.failure_count >= threshold && *mod_id > 0).then_some(*mod_id)
+        })
+        .collect())
+}
+
+pub(crate) fn record_launcher_update_auto_failure_at_path(
+    cache_path: &Path,
+    mods_path: &str,
+    mod_id: i64,
+    failed_at_ms: u128,
+    error: Option<&str>,
+) -> Result<LauncherUpdateAutoFailureEntry, String> {
+    let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
+        return Err("modsPath is required.".to_string());
+    };
+    if mod_id <= 0 {
+        return Err("modId must be greater than 0.".to_string());
+    }
+
+    let normalized_error = error
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_string());
+
+    let mut state = load_launcher_updates_cache_state(cache_path)?;
+    let entry = state
+        .auto_failures
+        .entry(cache_key)
+        .or_default()
+        .entry(mod_id)
+        .and_modify(|entry| {
+            entry.failure_count = entry.failure_count.saturating_add(1);
+            entry.last_failed_at_ms = entry.last_failed_at_ms.max(failed_at_ms);
+            entry.last_error = normalized_error.clone();
+        })
+        .or_insert(LauncherUpdateAutoFailureEntry {
+            mod_id,
+            failure_count: 1,
+            last_failed_at_ms: failed_at_ms,
+            last_error: normalized_error,
+        })
+        .clone();
+
+    save_launcher_updates_cache_state(cache_path, &state)?;
+    Ok(entry)
+}
+
+pub(crate) fn clear_launcher_update_auto_failures_at_path(
+    cache_path: &Path,
+    mods_path: &str,
+    mod_ids: &[i64],
+) -> Result<(), String> {
+    if mod_ids.is_empty() || !cache_path.is_file() {
+        return Ok(());
+    }
+
+    let Some(cache_key) = normalize_launcher_updates_cache_key(mods_path) else {
+        return Ok(());
+    };
+
+    let mut state = load_launcher_updates_cache_state(cache_path)?;
+    let mut changed = false;
+    let mut should_remove_cache_key = false;
+    if let Some(entries) = state.auto_failures.get_mut(&cache_key) {
+        for mod_id in mod_ids.iter().copied().filter(|value| *value > 0) {
+            changed |= entries.remove(&mod_id).is_some();
+        }
+        should_remove_cache_key = entries.is_empty();
+    }
+
+    if should_remove_cache_key {
+        state.auto_failures.remove(&cache_key);
+    }
+
+    if changed {
+        save_launcher_updates_cache_state(cache_path, &state)?;
+    }
+
+    Ok(())
+}
+
 pub(crate) fn mark_launcher_updates_check_in_progress_at_path(
     cache_path: &Path,
     mods_path: &str,
@@ -332,12 +468,16 @@ pub(crate) fn invalidate_launcher_updates_cache_at_path(
         Some(cache_key) => {
             let removed_entry = state.entries.remove(&cache_key).is_some();
             let removed_in_progress = state.in_progress.remove(&cache_key).is_some();
-            removed_entry || removed_in_progress
+            let removed_auto_failures = state.auto_failures.remove(&cache_key).is_some();
+            removed_entry || removed_in_progress || removed_auto_failures
         }
         None => {
-            let had_entries = !state.entries.is_empty() || !state.in_progress.is_empty();
+            let had_entries = !state.entries.is_empty()
+                || !state.in_progress.is_empty()
+                || !state.auto_failures.is_empty();
             state.entries.clear();
             state.in_progress.clear();
+            state.auto_failures.clear();
             had_entries
         }
     };

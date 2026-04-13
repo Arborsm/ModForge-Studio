@@ -46,6 +46,7 @@ describe('uiState store', () => {
           pageSize: 40,
           filtersHidden: true,
         },
+        forceOffline: true,
       },
     })
     const { initializeAppUiState, getAppUiStateSnapshot } = await import('./uiState')
@@ -64,6 +65,7 @@ describe('uiState store', () => {
           sort: 'downloads',
           filtersHidden: true,
         },
+        forceOffline: true,
       },
     })
   })
@@ -121,6 +123,24 @@ describe('uiState store', () => {
 
     expect(getAppUiStateSnapshot().workspace.layouts).toEqual({
       'modforge:workspace-layout:v12:items': { panels: { inspector: { visible: false } } },
+    })
+  })
+
+  it('keeps the launcher force-offline flag in memory when applying launcher patches locally', async () => {
+    const desktop = await import('../desktop')
+    vi.mocked(desktop.canUseDesktopHost).mockReturnValue(false)
+    const { applyAppUiStatePatch, getAppUiStateSnapshot } = await import('./uiState')
+
+    await applyAppUiStatePatch({
+      launcher: {
+        forceOffline: true,
+      },
+    })
+
+    expect(getAppUiStateSnapshot()).toMatchObject({
+      launcher: {
+        forceOffline: true,
+      },
     })
   })
 })

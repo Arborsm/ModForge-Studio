@@ -4,6 +4,7 @@ import { dismissNotification, publishNotification } from '../app/notifications'
 import {
   checkLauncherUpdates,
   loadCachedLauncherUpdates,
+  loadLauncherNexusDiagnostics,
   subscribeLauncherUpdates,
   type LauncherSettings,
 } from '../desktop'
@@ -12,6 +13,7 @@ import {
   LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
   getLauncherUpdateNotificationProgress,
 } from './useLauncherUpdateProgressNotifications'
+import { canAutoCheckLauncherUpdates } from './nexusDiagnostics'
 
 const LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID = 'launcher-updates-check-error'
 
@@ -72,24 +74,13 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       return
     }
 
-    setState('loading')
-    setError(null)
-    dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
-    publishNotification({
-      id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
-      level: 'info',
-      title: copy.updates.checkingProgressTitle,
-      description: copy.updates.checkingProgressDetail(0, 0, null),
-      autoDismissMs: null,
-      progress: getLauncherUpdateNotificationProgress({
-        modsPath: settings.modsPath ?? '',
-        checked: 0,
-        total: 0,
-        currentModName: null,
-      }),
-    })
-
     try {
+      let canRunAutomaticCheck = forceRefresh
+      if (!forceRefresh) {
+        const diagnostics = await loadLauncherNexusDiagnostics().catch(() => null)
+        canRunAutomaticCheck = canAutoCheckLauncherUpdates(diagnostics)
+      }
+
       if (!forceRefresh) {
         const cached = await loadCachedLauncherUpdates({
           modsPath: settings.modsPath,
@@ -102,7 +93,33 @@ export function useLauncherUpdates(settings: LauncherSettings) {
             return
           }
         }
+
+        if (!canRunAutomaticCheck) {
+          if (isRequestActive()) {
+            setState('ready')
+            setError(null)
+            dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
+          }
+          return
+        }
       }
+
+      setState('loading')
+      setError(null)
+      dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
+      publishNotification({
+        id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
+        level: 'info',
+        title: copy.updates.checkingProgressTitle,
+        description: copy.updates.checkingProgressDetail(0, 0, null),
+        autoDismissMs: null,
+        progress: getLauncherUpdateNotificationProgress({
+          modsPath: settings.modsPath ?? '',
+          checked: 0,
+          total: 0,
+          currentModName: null,
+        }),
+      })
 
       const result = await checkLauncherUpdates({
         modsPath: settings.modsPath,

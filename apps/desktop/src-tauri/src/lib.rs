@@ -26,11 +26,13 @@ use commands::launcher::{
     check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
     get_launcher_backup_directory, inspect_launcher_archive, install_launcher_archive,
     launch_launcher_game, load_cached_launcher_updates, load_launcher_download_queue,
-    load_launcher_library_covers, load_launcher_library_state, load_launcher_remote_mod_detail,
-    load_launcher_settings, load_launcher_update_changelog, open_launcher_path, open_launcher_url,
-    persist_launcher_library_remote_cover, resolve_launcher_image, save_launcher_download_queue,
-    save_launcher_library_state, save_launcher_settings, scan_launcher_library,
-    search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
+    load_launcher_library_covers, load_launcher_library_state, load_launcher_nexus_diagnostics,
+    load_launcher_remote_mod_detail, load_launcher_settings, load_launcher_update_changelog,
+    open_launcher_path, open_launcher_url, persist_launcher_library_remote_cover,
+    resolve_launcher_image, save_launcher_download_queue, save_launcher_library_state,
+    save_launcher_settings, scan_launcher_library, search_launcher_catalog,
+    set_launcher_nexus_force_offline,
+    set_launcher_library_cover, set_launcher_mod_enabled,
 };
 use commands::logging::{set_debug_logging_enabled, write_frontend_log};
 use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
@@ -49,6 +51,24 @@ pub fn run() {
         .plugin(build_logging_plugin(debug_logging_state))
         .setup(|app| {
             app.state::<DebugLoggingState>().set_enabled(false);
+            let diagnostics_start_result = crate::domain::app_ui::load_app_ui_state(app.handle().clone())
+                .map(|state| state.launcher.force_offline)
+                .and_then(|force_offline| {
+                    if force_offline {
+                        crate::domain::launcher::http::set_launcher_nexus_force_offline(
+                            &app.handle(),
+                            true,
+                        )
+                        .map(|_| ())
+                    } else {
+                        crate::domain::launcher::http::prime_launcher_nexus_diagnostics(
+                            &app.handle(),
+                        )
+                    }
+                });
+            if let Err(error) = diagnostics_start_result {
+                log::warn!("launcher nexus diagnostics startup probe could not start: {error}");
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -94,6 +114,8 @@ pub fn run() {
             load_launcher_remote_mod_detail,
             load_launcher_update_changelog,
             clear_launcher_image_cache,
+            load_launcher_nexus_diagnostics,
+            set_launcher_nexus_force_offline,
             resolve_launcher_image,
             load_cached_launcher_updates,
             check_launcher_updates,

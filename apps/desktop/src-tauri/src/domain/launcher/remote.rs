@@ -1,5 +1,6 @@
 use super::http::{
-    launcher_http_client, public_graphql_headers, public_page_headers, send_nexus_request,
+    launcher_http_client, probe_blocked_launcher_nexus_route, public_graphql_headers,
+    public_page_headers, send_nexus_json_request, send_nexus_request, LauncherNexusRoute,
     DEFAULT_GAME_ID,
 };
 use super::shared::{
@@ -427,10 +428,35 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
     })
 }
 
+fn is_public_graphql_mod_detail_not_found_error(error: &str) -> bool {
+    error.trim().to_ascii_lowercase().contains("mod not found")
+}
+
+fn load_remote_mod_detail_with_public_graphql_fallback<G, H>(
+    mut load_public_graphql: G,
+    mut load_html: H,
+) -> Result<RemoteModDetail, String>
+where
+    G: FnMut() -> Result<RemoteModDetail, String>,
+    H: FnMut() -> Result<RemoteModDetail, String>,
+{
+    match load_public_graphql() {
+        Ok(detail) => Ok(detail),
+        Err(error) if !is_public_graphql_mod_detail_not_found_error(&error) => {
+            log::warn!(
+                "launcher public GraphQL mod detail lookup failed, falling back to HTML: {error}"
+            );
+            load_html()
+        }
+        Err(error) => Err(error),
+    }
+}
+
 pub(super) fn load_remote_mod_detail_from_public_graphql(
     client: &Client,
     mod_id: i64,
 ) -> Result<RemoteModDetail, String> {
+    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicGraphql)?;
     let mod_url = build_mod_page_url(mod_id);
     let headers = public_graphql_headers(&mod_url, PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER)?;
     let payload = json!({
@@ -441,30 +467,29 @@ pub(super) fn load_remote_mod_detail_from_public_graphql(
             "modId": mod_id.to_string(),
         }
     });
-    let response = send_nexus_request(|| {
+    let (status, response_payload) = send_nexus_json_request(|| {
         client
             .post(PUBLIC_GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(&payload)
             .send()
-    })?;
-    if !response.status().is_success() {
+    })
+    .map_err(|error| format!("Public Nexus mod detail GraphQL response failed for {mod_id}: {error}"))?;
+    if !status.is_success() {
         return Err(format!(
             "Public Nexus mod detail GraphQL request failed for {mod_id}: HTTP {}",
-            response.status()
+            status
         ));
     }
 
-    let payload = response.json::<Value>().map_err(|error| {
-        format!("Failed to parse public Nexus mod detail GraphQL response: {error}")
-    })?;
-    parse_public_mod_detail_graphql_response(&payload, mod_id)
+    parse_public_mod_detail_graphql_response(&response_payload, mod_id)
 }
 
 pub(super) fn load_remote_mod_detail_from_html(
     client: &Client,
     mod_id: i64,
 ) -> Result<RemoteModDetail, String> {
+    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicHtml)?;
     let mod_url = build_mod_page_url(mod_id);
     let headers = public_page_headers(None)?;
     let response = send_nexus_request(|| client.get(&mod_url).headers(headers.clone()).send())?;
@@ -486,6 +511,7 @@ fn load_remote_mod_detail_gallery_from_images_tab(
     client: &Client,
     mod_id: i64,
 ) -> Result<Vec<String>, String> {
+    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicHtml)?;
     let images_url = format!("{}?tab=images", build_mod_page_url(mod_id));
     let headers = public_page_headers(None)?;
     let response = send_nexus_request(|| client.get(&images_url).headers(headers.clone()).send())?;
@@ -503,6 +529,7 @@ fn load_remote_mod_detail_gallery_from_images_tab(
 }
 
 fn load_remote_mod_files_tab_text(client: &Client, mod_id: i64) -> Result<String, String> {
+    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicHtml)?;
     let files_url = format!("{}?tab=files", build_mod_page_url(mod_id));
     let headers = public_page_headers(None)?;
     let response = send_nexus_request(|| client.get(&files_url).headers(headers.clone()).send())?;
@@ -604,13 +631,10 @@ fn load_launcher_remote_mod_detail_blocking(
     }
 
     let client = launcher_http_client()?;
-    let mut detail =
-        load_remote_mod_detail_from_public_graphql(&client, request.mod_id).or_else(|error| {
-            log::warn!(
-                "launcher public GraphQL mod detail lookup failed, falling back to HTML: {error}"
-            );
-            load_remote_mod_detail_from_html(&client, request.mod_id)
-        })?;
+    let mut detail = load_remote_mod_detail_with_public_graphql_fallback(
+        || load_remote_mod_detail_from_public_graphql(&client, request.mod_id),
+        || load_remote_mod_detail_from_html(&client, request.mod_id),
+    )?;
     if detail.image_url.is_none() && detail.gallery_images.is_empty() {
         match load_remote_mod_detail_gallery_from_images_tab(&client, request.mod_id) {
             Ok(gallery_images) if !gallery_images.is_empty() => {
@@ -656,3 +680,7 @@ fn load_launcher_update_changelog_blocking(
         changelog: Some(changelog.changelog),
     })
 }
+
+#[cfg(test)]
+#[path = "../../tests/launcher_remote_tests.rs"]
+mod launcher_remote_tests;

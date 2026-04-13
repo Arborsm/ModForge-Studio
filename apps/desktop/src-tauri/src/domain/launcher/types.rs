@@ -287,6 +287,33 @@ pub struct LauncherUpdateChangelogResult {
     pub changelog: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LauncherNexusRouteStatus {
+    Loading,
+    Warning,
+    Success,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherNexusRouteSnapshot {
+    pub route_id: String,
+    pub label: String,
+    pub endpoint: String,
+    pub status: LauncherNexusRouteStatus,
+    pub attempts: u8,
+    pub max_attempts: u8,
+    pub available: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherNexusDiagnosticsResult {
+    pub routes: Vec<LauncherNexusRouteSnapshot>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveLauncherImageRequest {

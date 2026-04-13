@@ -1,7 +1,8 @@
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
 use super::http::{
-    api_headers, launcher_http_client, send_nexus_request, DEFAULT_GAME_ID, LAUNCHER_USER_AGENT,
+    api_headers, launcher_http_client, probe_blocked_launcher_nexus_route, send_nexus_request,
+    LauncherNexusRoute, DEFAULT_GAME_ID, LAUNCHER_USER_AGENT,
 };
 use super::paths::{launcher_backup_dir, launcher_download_queue_path, launcher_settings_path};
 use super::settings::{load_or_create_settings_at_path, resolve_download_dir};
@@ -159,12 +160,19 @@ pub fn save_launcher_download_queue(
 
 fn fetch_mod_files_payload(
     client: &reqwest::blocking::Client,
-    api_key: &str,
+    settings: &crate::domain::launcher::types::LauncherSettings,
     mod_id: i64,
 ) -> Result<Value, String> {
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
     let response = client.get(format!(
         "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files.json"
     ));
+    let api_key = settings
+        .nexus_api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "Configure a Nexus API key before fetching launcher mod files.".to_string())?;
     let headers = api_headers(api_key)?;
     let response = send_nexus_request(|| {
         response
@@ -255,6 +263,7 @@ fn resolve_download_url(
         .map(str::trim)
         .filter(|value| !value.is_empty())
     {
+        probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
         let response = client
             .get(format!(
                 "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files/{file_id}/download_link.json"
@@ -374,12 +383,15 @@ pub fn download_launcher_mod(
 
             let settings_path = launcher_settings_path(&app)?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
-            let api_key = settings
+            if settings
                 .nexus_api_key
                 .as_deref()
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
-                .ok_or_else(|| "Nexus API key is required to download mods.".to_string())?;
+                .is_none()
+            {
+                return Err("Nexus API key is required to download mods.".to_string());
+            }
             let download_dir = resolve_download_dir(&settings)?;
             fs::create_dir_all(&download_dir).map_err(|error| {
                 format!(
@@ -389,7 +401,7 @@ pub fn download_launcher_mod(
             })?;
 
             let client = launcher_http_client()?;
-            let files_payload = fetch_mod_files_payload(&client, api_key, request.mod_id)?;
+            let files_payload = fetch_mod_files_payload(&client, &settings, request.mod_id)?;
             let candidate = select_download_candidate(
                 &files_payload,
                 request.file_id,

@@ -9,8 +9,8 @@ use serde_json::json;
 #[test]
 fn parses_character_list_of_int_arrays_without_stream_desync() {
     let file = test_support::resolve_game_root().join("Content/Data/Characters.xnb");
-    let parsed =
-        xnb::read_xnb_from_path(&file).unwrap_or_else(|error| panic!("{}: {error}", file.display()));
+    let parsed = xnb::read_xnb_from_path(&file)
+        .unwrap_or_else(|error| panic!("{}: {error}", file.display()));
     let json = parsed.content.to_json();
 
     let abigail = json

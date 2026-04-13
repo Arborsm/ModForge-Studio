@@ -20,6 +20,7 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
     assert_eq!(state.appearance.locale, "zh-CN");
     assert_eq!(state.appearance.accent_preset_id, "indigo");
     assert!(state.workspace.layouts.is_empty());
+    assert!(!state.launcher.force_offline);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -53,6 +54,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
                     page_size: 40,
                     filters_hidden: true,
                 }),
+                ..Default::default()
             }),
             ..Default::default()
         },
@@ -60,6 +62,23 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     .expect("patch launcher");
 
     assert_eq!(patched.appearance.locale, "en-US");
+    assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
+    assert!(patched.launcher.discover_toolbar.filters_hidden);
+    assert!(!patched.launcher.force_offline);
+
+    let patched = patch_app_ui_state_at_path(
+        &path,
+        AppUiStatePatch {
+            launcher: Some(AppUiLauncherStatePatch {
+                force_offline: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .expect("patch launcher force offline");
+
+    assert!(patched.launcher.force_offline);
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
 

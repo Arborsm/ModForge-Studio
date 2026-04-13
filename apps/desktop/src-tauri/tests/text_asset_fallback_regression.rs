@@ -11,7 +11,9 @@ mod test_support;
 fn loads_structured_text_assets_via_unpacked_json_fallback() {
     let game_root = test_support::resolve_game_root();
     assert!(
-        game_root.join("Content (unpacked)/Data/Characters.json").exists(),
+        game_root
+            .join("Content (unpacked)/Data/Characters.json")
+            .exists(),
         "expected unpacked Stardew JSON fallback files under {}",
         game_root.display()
     );

@@ -1,3 +1,4 @@
+use super::http::restart_launcher_nexus_diagnostics;
 use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
@@ -163,6 +164,7 @@ pub fn save_launcher_settings(
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;
+            restart_launcher_nexus_diagnostics(&normalized);
             Ok(normalized)
         })(),
     )

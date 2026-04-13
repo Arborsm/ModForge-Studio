@@ -37,6 +37,7 @@ type MockAppUiState = {
       pageSize: number
       filtersHidden: boolean
     }
+    forceOffline: boolean
   }
 }
 
@@ -51,6 +52,7 @@ type MockAppUiStateOverrides = {
   }
   launcher?: {
     discoverToolbar?: Partial<MockAppUiState['launcher']['discoverToolbar']>
+    forceOffline?: boolean
   }
 }
 
@@ -64,6 +66,7 @@ type MockAppUiStatePatch = {
   }
   launcher?: {
     discoverToolbar?: MockAppUiState['launcher']['discoverToolbar']
+    forceOffline?: boolean
   }
 }
 
@@ -98,6 +101,7 @@ function createMockAppUiState(
         pageSize: overrides.launcher?.discoverToolbar?.pageSize ?? 20,
         filtersHidden: overrides.launcher?.discoverToolbar?.filtersHidden ?? false,
       },
+      forceOffline: overrides.launcher?.forceOffline ?? false,
     },
   }
 }
@@ -139,6 +143,7 @@ function applyMockAppUiStatePatch(patch: MockAppUiStatePatch) {
           launcher: {
             ...mockAppUiState.launcher,
             discoverToolbar: patch.launcher.discoverToolbar ?? mockAppUiState.launcher.discoverToolbar,
+            forceOffline: patch.launcher.forceOffline ?? mockAppUiState.launcher.forceOffline,
           },
         }
       : null),
@@ -153,6 +158,9 @@ const applyAppUiStatePatchMock = vi.fn(async (patch: MockAppUiStatePatch) => app
 const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
 const clearLegacyBrowserUiStateMock = vi.fn()
 const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
+const canUseDesktopHostMock = vi.fn(() => false)
+const loadLauncherNexusDiagnosticsMock = vi.fn(async () => ({ routes: [] }))
+const setLauncherNexusForceOfflineMock = vi.fn(async () => ({ routes: [] }))
 
 function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
   mockAppUiState = createMockAppUiState(overrides)
@@ -292,13 +300,15 @@ vi.mock('./lib/launcher/useLauncherRuntime', () => ({
 }))
 
 vi.mock('./lib/desktop', () => ({
-  canUseDesktopHost: () => false,
+  canUseDesktopHost: () => canUseDesktopHostMock(),
   checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
   clearLauncherLibraryReadCaches: vi.fn(),
   clearDesktopLocaleCache: vi.fn(),
   closeCurrentWindow: vi.fn(),
   isCurrentWindowFullscreen: vi.fn(async () => false),
   loadCachedLauncherUpdates: vi.fn(async () => null),
+  loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
+  setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
   listKnownGameDirectories: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
@@ -390,6 +400,12 @@ describe('App locale ownership', () => {
     seedAppUiState()
     mapWorkspaceState.workspaceStatus = { tone: 'ready', message: '' }
     mapWorkspaceState.resourcePreloadState = { active: false, message: '', currentLabel: null, completed: 0, total: 0 }
+    canUseDesktopHostMock.mockReset()
+    canUseDesktopHostMock.mockReturnValue(false)
+    loadLauncherNexusDiagnosticsMock.mockReset()
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue({ routes: [] })
+    setLauncherNexusForceOfflineMock.mockReset()
+    setLauncherNexusForceOfflineMock.mockResolvedValue({ routes: [] })
     initializeAppUiStateMock.mockClear()
     initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
     applyAppUiStatePatchMock.mockClear()
@@ -609,6 +625,47 @@ describe('App locale ownership', () => {
     })
 
     expect(screen.getByText('Launcher notification')).toBeTruthy()
+  })
+
+  it('publishes a startup warning notification when launcher diagnostics settle with failed routes', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    })
+
+    render(<App />)
+
+    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsTitle)).toBeTruthy()
+    expect(screen.getByText(/Nexus Public GraphQL/)).toBeTruthy()
+    expect(screen.getByText(/Failed after 3 attempts: timeout/)).toBeTruthy()
+  })
+
+  it('applies the persisted launcher force-offline override during startup hydration', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+      launcher: { forceOffline: true },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(setLauncherNexusForceOfflineMock).toHaveBeenCalledWith(true)
+    })
   })
 
   it('shows the debug overlay when debug mode is enabled from persisted shell state', () => {

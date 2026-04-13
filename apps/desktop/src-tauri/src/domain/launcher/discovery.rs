@@ -1,19 +1,16 @@
 use super::can_use_nexus_graphql;
 use super::http::{
-    api_headers, graphql_headers, launcher_http_client, public_graphql_headers,
-    public_page_headers, send_nexus_request, DEFAULT_GAME_ID,
+    api_headers, graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route,
+    public_graphql_headers, send_nexus_json_request, LauncherNexusRoute,
 };
 use super::paths::launcher_settings_path;
 use super::settings::{load_or_create_settings_at_path, normalize_optional_text};
-use super::shared::{
-    build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
-};
+use super::shared::{build_mod_page_url, extract_graphql_error, string_field};
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherCatalogFacetEntry, LauncherCatalogFacets, LauncherCatalogPageResult,
     LauncherCatalogResult, LauncherSettings, SearchLauncherCatalogRequest,
 };
-use regex::Regex;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 
@@ -21,7 +18,6 @@ const DEFAULT_PAGE_SIZE: usize = 20;
 const MAX_PAGE_SIZE: usize = 80;
 const GRAPHQL_ENDPOINT: &str = "https://graphql.nexusmods.com/";
 const PUBLIC_GRAPHQL_ENDPOINT: &str = "https://api-router.nexusmods.com/graphql";
-const PUBLIC_CATALOG_PAGE_URL: &str = "https://www.nexusmods.com/games/stardewvalley/mods";
 const PUBLIC_CATALOG_GRAPHQL_REFERER: &str = "https://www.nexusmods.com/";
 const PUBLIC_CATALOG_GRAPHQL_OPERATION_HEADER: &str = "GameModsListing";
 const TRENDING_ENDPOINT: &str =
@@ -114,7 +110,8 @@ fn build_catalog_sort(sort: &str, ascending: bool) -> Value {
         "endorsements" => json!([{ "endorsements": { "direction": direction } }]),
         "name" => json!([{ "name": { "direction": direction } }]),
         // GraphQL does not currently expose a first-class "trending" sort, so the
-        // fallback path uses the legacy public endpoint when possible.
+        // anonymous path approximates it with endorsements while the credentialed
+        // path uses the dedicated trending endpoint when available.
         "trending" => json!([{ "endorsements": { "direction": direction } }]),
         _ => json!([{ "createdAt": { "direction": direction } }]),
     }
@@ -130,99 +127,6 @@ fn build_public_catalog_sort(sort: &str, ascending: bool) -> Value {
         "trending" => json!({ "endorsements": { "direction": direction } }),
         _ => json!({ "createdAt": { "direction": direction } }),
     }
-}
-
-fn launcher_catalog_url(
-    request: &SearchLauncherCatalogRequest,
-    page: usize,
-    page_size: usize,
-    sort: &str,
-    ascending: bool,
-) -> Result<reqwest::Url, String> {
-    let sort_key = match sort {
-        "downloads" => "OLD_downloads",
-        "endorsements" => "OLD_endorsements",
-        "updated" => "lastupdate",
-        "name" => "name",
-        "trending" => "two_weeks_ratings",
-        _ => "date",
-    };
-    let order = if ascending { "ASC" } else { "DESC" };
-    let include_adult = request.include_adult.unwrap_or(false);
-    let mut filter = format!(
-        "nav:true,home:false,type:0,user_id:0,game_id:{DEFAULT_GAME_ID},advfilt:true,include_adult:{include_adult},show_game_filter:false,page_size:{page_size},page:{page},order:{order},sort_by={sort_key}"
-    );
-    if let Some(search) = normalize_optional_text(request.query.clone()) {
-        filter.push_str(",search_filename=");
-        filter.push_str(&search);
-    }
-    if let Some(search) = normalize_optional_text(request.title_query.clone()) {
-        filter.push_str(",title=");
-        filter.push_str(&search);
-    }
-    if let Some(search) = normalize_optional_text(request.description_query.clone()) {
-        filter.push_str(",description=");
-        filter.push_str(&search);
-    }
-    if let Some(search) = normalize_optional_text(request.author_query.clone()) {
-        filter.push_str(",author=");
-        filter.push_str(&search);
-    }
-    if let Some(search) = normalize_optional_text(request.uploader_query.clone()) {
-        filter.push_str(",uploader=");
-        filter.push_str(&search);
-    }
-    if let Some(category) = normalize_optional_text(request.category.clone()) {
-        filter.push_str(",category=");
-        filter.push_str(&category);
-    }
-    if let Some(language) = normalize_optional_text(request.language.clone()) {
-        filter.push_str(",language=");
-        filter.push_str(&language);
-    }
-    if let Some(tags) = normalize_optional_text(request.tags_include.clone()) {
-        filter.push_str(",tag_inc=");
-        filter.push_str(&tags);
-    }
-    if let Some(tags) = normalize_optional_text(request.tags_exclude.clone()) {
-        filter.push_str(",tag_exc=");
-        filter.push_str(&tags);
-    }
-    if let Some(time_range) =
-        normalize_optional_text(request.time_range.clone()).filter(|value| value != "all")
-    {
-        filter.push_str(",time_range=");
-        filter.push_str(&time_range);
-    }
-    if let Some(min_size) = request.min_file_size {
-        filter.push_str(",size_min=");
-        filter.push_str(&min_size.to_string());
-    }
-    if let Some(max_size) = request.max_file_size {
-        filter.push_str(",size_max=");
-        filter.push_str(&max_size.to_string());
-    }
-    if let Some(min_downloads) = request.min_downloads {
-        filter.push_str(",downloads_min=");
-        filter.push_str(&min_downloads.to_string());
-    }
-    if let Some(max_downloads) = request.max_downloads {
-        filter.push_str(",downloads_max=");
-        filter.push_str(&max_downloads.to_string());
-    }
-    if let Some(min_endorsements) = request.min_endorsements {
-        filter.push_str(",endorsements_min=");
-        filter.push_str(&min_endorsements.to_string());
-    }
-    if let Some(max_endorsements) = request.max_endorsements {
-        filter.push_str(",endorsements_max=");
-        filter.push_str(&max_endorsements.to_string());
-    }
-
-    let mut url = reqwest::Url::parse("https://www.nexusmods.com/Core/Libs/Common/Widgets/ModList")
-        .map_err(|error| format!("Failed to build launcher catalog URL: {error}"))?;
-    url.query_pairs_mut().append_pair("RH_ModList", &filter);
-    Ok(url)
 }
 
 pub(crate) fn build_catalog_graphql_payload(
@@ -558,74 +462,6 @@ fn parse_catalog_graphql_node(node: &Value) -> Option<LauncherCatalogResult> {
     })
 }
 
-pub(crate) fn parse_catalog_results(html: &str) -> Vec<LauncherCatalogResult> {
-    let anchor_regex = Regex::new(
-        r#"tile-name[^>]*>\s*<a[^>]*href=["'](?P<href>[^"']+)["'][^>]*>(?P<title>[^<]+)"#,
-    )
-    .expect("valid catalog anchor regex");
-    let image_regex =
-        Regex::new(r#"class=["'][^"']*\bfore\b[^"']*["'][^>]*src=["'](?P<src>[^"']+)["']"#)
-            .expect("valid catalog image regex");
-    let summary_regex = Regex::new(
-        r#"class=["'][^"']*(?:summary|tile-desc|tile-description)[^"']*["'][^>]*>(?P<summary>.*?)</"#,
-    )
-    .expect("valid catalog summary regex");
-    let author_regex =
-        Regex::new(r#"Created by\s*(?P<author>[^<]+)"#).expect("valid catalog author regex");
-
-    html.split("mod-tile")
-        .skip(1)
-        .filter_map(|section| {
-            let anchor = anchor_regex.captures(section)?;
-            let href = anchor.name("href")?.as_str();
-            let title = decode_html(anchor.name("title")?.as_str())
-                .trim()
-                .to_string();
-            let mod_url = normalize_nexus_url(href);
-            let mod_id = mod_url
-                .rsplit('/')
-                .find_map(|segment| segment.parse::<i64>().ok())?;
-            let image_url = image_regex
-                .captures(section)
-                .and_then(|captures| captures.name("src"))
-                .map(|value| normalize_nexus_url(value.as_str()));
-            let summary = summary_regex
-                .captures(section)
-                .and_then(|captures| captures.name("summary"))
-                .map(|value| {
-                    let tag_regex = Regex::new(r"<[^>]+>").expect("valid strip tags regex");
-                    decode_html(tag_regex.replace_all(value.as_str(), " ").trim())
-                        .split_whitespace()
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                })
-                .filter(|value| !value.is_empty());
-            let author = author_regex
-                .captures(section)
-                .and_then(|captures| captures.name("author"))
-                .map(|value| decode_html(value.as_str()).trim().to_string())
-                .filter(|value| !value.is_empty());
-
-            Some(LauncherCatalogResult {
-                mod_id,
-                title,
-                summary,
-                author,
-                uploader: None,
-                mod_url,
-                image_url,
-                category: None,
-                created_at: None,
-                updated_at: None,
-                downloads: None,
-                endorsements: None,
-                file_size: None,
-                update_available: false,
-            })
-        })
-        .collect()
-}
-
 fn parse_trending_catalog_response(
     payload: &Value,
     page: usize,
@@ -684,6 +520,7 @@ fn load_public_catalog_page_from_graphql(
     client: &Client,
     request: &SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
+    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicGraphql)?;
     let page = request.page.unwrap_or(1).max(1);
     let page_size = catalog_page_size(request.page_size);
     let headers = public_graphql_headers(
@@ -691,70 +528,29 @@ fn load_public_catalog_page_from_graphql(
         PUBLIC_CATALOG_GRAPHQL_OPERATION_HEADER,
     )?;
     let payload = build_public_catalog_graphql_payload(request)?;
-    let response = send_nexus_request(|| {
+    let (status, response_payload) = send_nexus_json_request(|| {
         client
             .post(PUBLIC_GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(&payload)
             .send()
-    })?;
-    if !response.status().is_success() {
+    })
+    .map_err(|error| format!("Public Nexus catalog GraphQL response failed: {error}"))?;
+    if !status.is_success() {
         return Err(format!(
             "Public Nexus catalog GraphQL request failed: HTTP {}",
-            response.status()
+            status
         ));
     }
 
-    let payload = response.json::<Value>().map_err(|error| {
-        format!("Failed to parse public Nexus catalog GraphQL response: {error}")
-    })?;
-    parse_catalog_graphql_response(&payload, page, page_size)
-}
-
-fn load_public_catalog_page_from_html(
-    client: &Client,
-    request: &SearchLauncherCatalogRequest,
-) -> Result<LauncherCatalogPageResult, String> {
-    let page = request.page.unwrap_or(1).max(1);
-    let page_size = catalog_page_size(request.page_size);
-    let sort = request.sort.as_deref().unwrap_or("newest");
-    let ascending = request.ascending.unwrap_or(false);
-    let url = launcher_catalog_url(request, page, page_size, sort, ascending)?;
-    let headers = public_page_headers(Some(PUBLIC_CATALOG_PAGE_URL))?;
-    let response = send_nexus_request(|| client.get(url.clone()).headers(headers.clone()).send())?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Public Nexus catalog request failed: HTTP {}",
-            response.status()
-        ));
-    }
-
-    let html = response
-        .text()
-        .map_err(|error| format!("Failed to read public Nexus catalog response: {error}"))?;
-    let results = parse_catalog_results(&html);
-
-    Ok(LauncherCatalogPageResult {
-        page,
-        page_size,
-        total_count: results.len(),
-        has_more: results.len() >= page_size,
-        facets: empty_catalog_facets(),
-        results,
-    })
+    parse_catalog_graphql_response(&response_payload, page, page_size)
 }
 
 fn load_public_catalog_page(
     client: &Client,
     request: &SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
-    match load_public_catalog_page_from_graphql(client, request) {
-        Ok(result) => Ok(result),
-        Err(error) => {
-            log::warn!("launcher public GraphQL catalog lookup failed, falling back to legacy HTML: {error}");
-            load_public_catalog_page_from_html(client, request)
-        }
-    }
+    load_public_catalog_page_from_graphql(client, request)
 }
 
 fn load_catalog_page_from_graphql(
@@ -767,55 +563,58 @@ fn load_catalog_page_from_graphql(
     if !can_use_nexus_graphql(settings) {
         return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
     }
+    probe_blocked_launcher_nexus_route(
+        client,
+        Some(settings),
+        LauncherNexusRoute::PrivateGraphql,
+    )?;
 
     let headers = graphql_headers(
         settings.nexus_api_key.as_deref(),
         settings.nexus_cookie.as_deref(),
     )?;
-    let response = send_nexus_request(|| {
+    let (status, response_payload) = send_nexus_json_request(|| {
         client
             .post(GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(payload)
             .send()
-    })?;
-    if !response.status().is_success() {
+    })
+    .map_err(|error| format!("Nexus catalog GraphQL response failed: {error}"))?;
+    if !status.is_success() {
         return Err(format!(
             "Nexus catalog GraphQL request failed: HTTP {}",
-            response.status()
+            status
         ));
     }
 
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse Nexus catalog GraphQL response: {error}"))?;
-    parse_catalog_graphql_response(&payload, page, page_size)
+    parse_catalog_graphql_response(&response_payload, page, page_size)
 }
 
 fn load_trending_catalog_page(
     client: &Client,
+    settings: &LauncherSettings,
     api_key: &str,
     page: usize,
     ascending: bool,
 ) -> Result<LauncherCatalogPageResult, String> {
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
     let headers = api_headers(api_key)?;
-    let response = send_nexus_request(|| {
+    let (status, response_payload) = send_nexus_json_request(|| {
         client
             .get(TRENDING_ENDPOINT)
             .headers(headers.clone())
             .send()
-    })?;
-    if !response.status().is_success() {
+    })
+    .map_err(|error| format!("Nexus trending response failed: {error}"))?;
+    if !status.is_success() {
         return Err(format!(
             "Nexus trending request failed: HTTP {}",
-            response.status()
+            status
         ));
     }
 
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse Nexus trending response: {error}"))?;
-    parse_trending_catalog_response(&payload, page, ascending)
+    parse_trending_catalog_response(&response_payload, page, ascending)
 }
 
 pub async fn search_launcher_catalog(
@@ -862,7 +661,7 @@ fn search_launcher_catalog_blocking(
             .map(str::trim)
             .filter(|value| !value.is_empty())
         {
-            let result = load_trending_catalog_page(&client, api_key, page, ascending)?;
+            let result = load_trending_catalog_page(&client, &settings, api_key, page, ascending)?;
             log_launcher_trace(
                 "catalog.search.complete",
                 &[
@@ -886,7 +685,7 @@ fn search_launcher_catalog_blocking(
                 ("totalCount", result.total_count.to_string()),
                 ("resultCount", result.results.len().to_string()),
                 ("hasMore", result.has_more.to_string()),
-                ("source", "public-html".to_string()),
+                ("source", "public-graphql".to_string()),
             ],
         );
         return Ok(result);
@@ -911,7 +710,7 @@ fn search_launcher_catalog_blocking(
         }
         Err(error) => {
             log::warn!(
-                "launcher graphql catalog lookup failed, falling back to public HTML: {error}"
+                "launcher graphql catalog lookup failed, falling back to public GraphQL: {error}"
             );
             let result = load_public_catalog_page(&client, request)?;
             log_launcher_trace(
@@ -922,7 +721,7 @@ fn search_launcher_catalog_blocking(
                     ("totalCount", result.total_count.to_string()),
                     ("resultCount", result.results.len().to_string()),
                     ("hasMore", result.has_more.to_string()),
-                    ("source", "public-html-fallback".to_string()),
+                    ("source", "public-graphql-fallback".to_string()),
                 ],
             );
             result
@@ -931,3 +730,7 @@ fn search_launcher_catalog_blocking(
 
     Ok(result)
 }
+
+#[cfg(test)]
+#[path = "../../tests/launcher_discovery_tests.rs"]
+mod launcher_discovery_tests;

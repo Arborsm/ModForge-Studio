@@ -108,6 +108,7 @@ export type AppUiLauncherState = {
     pageSize: number
     filtersHidden: boolean
   }
+  forceOffline: boolean
 }
 
 export type AppUiState = {
@@ -536,6 +537,23 @@ export type LauncherUpdateChangelogResult = {
   modId: number
   version: string | null
   changelog: string | null
+}
+
+export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
+
+export type LauncherNexusRouteSnapshot = {
+  routeId: string
+  label: string
+  endpoint: string
+  status: LauncherNexusRouteStatus
+  attempts: number
+  maxAttempts: number
+  available: boolean
+  message: string
+}
+
+export type LauncherNexusDiagnosticsResult = {
+  routes: LauncherNexusRouteSnapshot[]
 }
 
 export type ResolveLauncherImageRequest = {
@@ -1393,6 +1411,14 @@ export function loadLauncherUpdateChangelog(request: LoadLauncherUpdateChangelog
   return readPending(loadLauncherUpdateChangelogCache, cacheKey, () =>
     invokeDesktop<LauncherUpdateChangelogResult>('load_launcher_update_changelog', { request }),
   )
+}
+
+export function loadLauncherNexusDiagnostics() {
+  return invokeDesktop<LauncherNexusDiagnosticsResult>('load_launcher_nexus_diagnostics')
+}
+
+export function setLauncherNexusForceOffline(forceOffline: boolean) {
+  return invokeDesktop<LauncherNexusDiagnosticsResult>('set_launcher_nexus_force_offline', { forceOffline })
 }
 
 export function resolveLauncherImage(request: ResolveLauncherImageRequest) {

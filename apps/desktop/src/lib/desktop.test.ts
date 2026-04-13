@@ -99,6 +99,28 @@ describe('launcher bridge helpers', () => {
     expect(invoke).toHaveBeenCalledWith('load_launcher_settings', undefined)
   })
 
+  it('loads launcher Nexus diagnostics from the tauri backend', async () => {
+    const expected = {
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'loading',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Attempt 1 of 3 is in progress.',
+        },
+      ],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { loadLauncherNexusDiagnostics } = await import('./desktop')
+
+    await expect(loadLauncherNexusDiagnostics()).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('load_launcher_nexus_diagnostics', undefined)
+  })
+
   it('loads app ui state from the tauri backend', async () => {
     const expected = {
       version: 1,
@@ -128,6 +150,7 @@ describe('launcher bridge helpers', () => {
           pageSize: 20,
           filtersHidden: false,
         },
+        forceOffline: false,
       },
     }
     vi.mocked(invoke).mockResolvedValueOnce(expected)
@@ -166,6 +189,7 @@ describe('launcher bridge helpers', () => {
           pageSize: 40,
           filtersHidden: true,
         },
+        forceOffline: false,
       },
     }
     vi.mocked(invoke).mockResolvedValueOnce(expected)
@@ -180,6 +204,30 @@ describe('launcher bridge helpers', () => {
       request: {
         shell: expected.shell,
       },
+    })
+  })
+
+  it('sets launcher Nexus force-offline through the tauri backend', async () => {
+    const expected = {
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Forced offline by debug override.',
+        },
+      ],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { setLauncherNexusForceOffline } = await import('./desktop')
+
+    await expect(setLauncherNexusForceOffline(true)).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('set_launcher_nexus_force_offline', {
+      forceOffline: true,
     })
   })
 

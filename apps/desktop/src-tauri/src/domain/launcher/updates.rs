@@ -1,5 +1,8 @@
 use super::can_use_nexus_graphql;
-use super::http::{graphql_headers, launcher_http_client, send_nexus_request};
+use super::http::{
+    graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route,
+    send_nexus_request, LauncherNexusRoute,
+};
 use super::library::scan_library_at_path;
 use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::remote::{
@@ -14,9 +17,11 @@ use super::types::{
     LauncherUpdateSummary, LauncherUpdatesResult, LoadCachedLauncherUpdatesRequest,
 };
 use super::update_cache::{
-    clear_launcher_updates_check_in_progress_at_path, inspect_launcher_updates_cache_at_path,
-    load_cached_launcher_updates_at_path, mark_launcher_updates_check_in_progress_at_path,
-    normalize_launcher_updates_cache_key, save_launcher_updates_cache_at_path,
+    clear_launcher_update_auto_failures_at_path, clear_launcher_updates_check_in_progress_at_path,
+    inspect_launcher_updates_cache_at_path, load_cached_launcher_updates_at_path,
+    load_suppressed_launcher_update_mod_ids_at_path,
+    mark_launcher_updates_check_in_progress_at_path, normalize_launcher_updates_cache_key,
+    record_launcher_update_auto_failure_at_path, save_launcher_updates_cache_at_path,
     LauncherUpdatesCacheInspection,
 };
 use crate::infrastructure::fs::pathing::clean_input_path;
@@ -41,6 +46,7 @@ const SMAPI_DEFAULT_GAME_VERSION: &str = "1.6.14";
 const SMAPI_DEFAULT_PLATFORM: &str = "Windows";
 const LAUNCHER_UPDATE_PROGRESS_EVENT: &str = "launcher://update-check-progress";
 const LAUNCHER_UPDATES_CACHE_TTL_MS: u128 = 30 * 60 * 1000;
+pub(crate) const AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD: u32 = 3;
 const UPDATE_BATCH_GRAPHQL_QUERY: &str = r#"
 query LauncherUpdateBatch($ids: [CompositeDomainWithIdInput!]!) {
   legacyModsByDomain(ids: $ids) {
@@ -116,6 +122,28 @@ pub(crate) fn dedupe_update_candidates_by_mod_id(
         .filter(|candidate| seen.insert(candidate.mod_id))
         .cloned()
         .collect()
+}
+
+pub(crate) fn partition_update_candidates_for_request(
+    candidates: Vec<UpdateCheckCandidate>,
+    suppressed_mod_ids: &HashSet<i64>,
+    force_refresh: bool,
+) -> (Vec<UpdateCheckCandidate>, Vec<i64>) {
+    if force_refresh || suppressed_mod_ids.is_empty() {
+        return (candidates, Vec::new());
+    }
+
+    let mut allowed = Vec::with_capacity(candidates.len());
+    let mut skipped = Vec::new();
+    for candidate in candidates {
+        if suppressed_mod_ids.contains(&candidate.mod_id) {
+            skipped.push(candidate.mod_id);
+        } else {
+            allowed.push(candidate);
+        }
+    }
+
+    (allowed, skipped)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,6 +344,11 @@ fn load_remote_mod_details_from_graphql(
     if !can_use_nexus_graphql(settings) {
         return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
     }
+    probe_blocked_launcher_nexus_route(
+        client,
+        Some(settings),
+        LauncherNexusRoute::PrivateGraphql,
+    )?;
 
     let headers = graphql_headers(
         settings.nexus_api_key.as_deref(),
@@ -551,6 +584,7 @@ fn load_remote_mod_details_from_smapi(
         return Ok(HashMap::new());
     }
 
+    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::Smapi)?;
     let headers = smapi_headers()?;
     let payload = build_smapi_update_payload_with_versions(&smapi_candidates, versions);
     let response = client
@@ -1067,12 +1101,38 @@ fn check_launcher_updates_blocking(
                 })
             })
             .collect::<Vec<_>>();
+        let suppressed_mod_ids = if force_refresh {
+            HashSet::new()
+        } else {
+            load_suppressed_launcher_update_mod_ids_at_path(
+                &cache_path,
+                mods_path,
+                AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD,
+            )?
+        };
+        let (candidates, skipped_mod_ids) =
+            partition_update_candidates_for_request(candidates, &suppressed_mod_ids, force_refresh);
         let total = candidates.len();
+        if !skipped_mod_ids.is_empty() {
+            log_launcher_trace(
+                "update-check.auto-suppressed",
+                &[
+                    ("modsPath", mods_path.to_string()),
+                    ("skippedCount", skipped_mod_ids.len().to_string()),
+                    ("skippedModIds", format!("{skipped_mod_ids:?}")),
+                    (
+                        "threshold",
+                        AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD.to_string(),
+                    ),
+                ],
+            );
+        }
         log_launcher_trace(
             "update-check.start",
             &[
                 ("modsPath", mods_path.to_string()),
                 ("candidateCount", total.to_string()),
+                ("skippedCount", skipped_mod_ids.len().to_string()),
             ],
         );
         let mut updates = Vec::new();
@@ -1097,6 +1157,48 @@ fn check_launcher_updates_blocking(
             );
             let remote_details =
                 load_remote_mod_details_batch(&client, &settings, batch, &smapi_versions)?;
+            let resolved_mod_ids = batch
+                .iter()
+                .filter(|candidate| remote_details.contains_key(&candidate.mod_id))
+                .map(|candidate| candidate.mod_id)
+                .collect::<Vec<_>>();
+            if !resolved_mod_ids.is_empty() {
+                clear_launcher_update_auto_failures_at_path(
+                    &cache_path,
+                    mods_path,
+                    &resolved_mod_ids,
+                )?;
+            }
+            if !force_refresh {
+                let unresolved_mod_ids = batch
+                    .iter()
+                    .filter(|candidate| !remote_details.contains_key(&candidate.mod_id))
+                    .map(|candidate| candidate.mod_id)
+                    .collect::<Vec<_>>();
+                for mod_id in unresolved_mod_ids {
+                    let failure = record_launcher_update_auto_failure_at_path(
+                        &cache_path,
+                        mods_path,
+                        mod_id,
+                        current_timestamp_ms(),
+                        Some("All remote update detail fallbacks failed."),
+                    )?;
+                    log_launcher_trace(
+                        "update-check.auto-failure",
+                        &[
+                            ("modsPath", mods_path.to_string()),
+                            ("modId", mod_id.to_string()),
+                            ("failureCount", failure.failure_count.to_string()),
+                            (
+                                "suppressed",
+                                (failure.failure_count
+                                    >= AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD)
+                                    .to_string(),
+                            ),
+                        ],
+                    );
+                }
+            }
 
             for candidate in batch {
                 if let Some(remote) = remote_details.get(&candidate.mod_id) {
@@ -1196,3 +1298,7 @@ fn check_launcher_updates_blocking(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/launcher_update_suppression_tests.rs"]
+mod launcher_update_suppression_tests;

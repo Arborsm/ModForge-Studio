@@ -29,10 +29,10 @@ lz4_flex = "0.13.0"
 lzxd = "0.2.6"
 image = { version = "0.25", default-features = false, features = ["png"] }
 sha2 = "0.11.0"
-regex = "1.12.2"
+regex = "1.12.3"
 reqwest = { version = "0.13.2", default-features = false, features = ["blocking", "cookies", "form", "json", "rustls"] }
-semver = "1.0.27"
-url = "2.5.7"
+semver = "1.0.28"
+url = "2.5.8"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"

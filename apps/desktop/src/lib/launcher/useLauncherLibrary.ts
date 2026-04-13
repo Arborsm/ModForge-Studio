@@ -7,6 +7,7 @@ import {
   clearLauncherLibraryReadCaches,
   loadCachedLauncherUpdates,
   loadLauncherLibraryCovers,
+  loadLauncherNexusDiagnostics,
   loadLauncherLibraryState,
   loadLauncherRemoteModDetail,
   persistLauncherLibraryRemoteCover,
@@ -21,6 +22,7 @@ import {
 } from '../desktop'
 import { getLauncherCoverKey, getLauncherCoverKeyCandidates } from './coverKey'
 import { getModKey, includesFilter, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
+import { canAutoCheckLauncherUpdates, canAutoFetchLauncherRemoteCovers } from './nexusDiagnostics'
 import type { LauncherSettingsDraft, LauncherViewState } from './types'
 
 const UNSORTED_FOLDER_ID = 'unsorted'
@@ -370,7 +372,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     setError(null)
 
     try {
-      const [loadedLibraryState, loadedCovers, scan] = await Promise.all([
+      const [diagnostics, loadedLibraryState, loadedCovers, scan] = await Promise.all([
+        loadLauncherNexusDiagnostics().catch(() => null),
         loadLauncherLibraryState(),
         loadLauncherLibraryCovers(),
         settings.modsPath
@@ -398,9 +401,11 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setSelectedModId((current) => current ?? scan.mods[0]?.id ?? null)
       setSelectedModIds((current) => current.filter((id) => scan.mods.some((item) => item.id === id)))
       setState('ready')
-      startAutoCoverFetch(eligibleMods)
+      if (canAutoFetchLauncherRemoteCovers(diagnostics)) {
+        startAutoCoverFetch(eligibleMods)
+      }
       const updateModsPath = scan.modsPath || settings.modsPath || ''
-      if (scan.mods.length > 0 && updateModsPath) {
+      if (scan.mods.length > 0 && updateModsPath && canAutoCheckLauncherUpdates(diagnostics)) {
         void loadCachedLauncherUpdates({ modsPath: updateModsPath })
           .then((cached) => {
             if (!isRefreshActive()) {

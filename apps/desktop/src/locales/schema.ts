@@ -694,6 +694,14 @@ export type LauncherCopy = {
     notificationsSubtitle: string
     logsTitle: string
     logsSubtitle: string
+    nexusDiagnosticsTitle: string
+    nexusDiagnosticsSubtitle: string
+    nexusDiagnosticsLoading: string
+    nexusDiagnosticsEmpty: string
+    forceOfflineEnableButton: string
+    forceOfflineDisableButton: string
+    forceOfflineEnabledLabel: string
+    forceOfflineDisabledLabel: string
     clearImageCacheTitle: string
     clearImageCacheSubtitle: string
     clearImageCacheButton: string

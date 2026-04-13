@@ -1,6 +1,7 @@
 use crate::domain::launcher::archive;
 use crate::domain::launcher::discovery;
 use crate::domain::launcher::downloads;
+use crate::domain::launcher::http;
 use crate::domain::launcher::image_cache;
 use crate::domain::launcher::library;
 use crate::domain::launcher::remote;
@@ -11,13 +12,14 @@ use crate::domain::launcher::types::{
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
     LauncherGameLaunchError, LauncherGameLaunchResult, LauncherLibraryCoversState,
-    LauncherLibraryScanResult, LauncherLibraryState, LauncherRemoteModDetail, LauncherSettings,
-    LauncherUpdateChangelogResult, LauncherUpdatesResult, LoadCachedLauncherUpdatesRequest,
-    LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
-    OpenLauncherPathRequest, OpenLauncherUrlRequest, PersistLauncherLibraryRemoteCoverRequest,
-    ResolveLauncherImageRequest, ResolveLauncherImageResult, SaveLauncherSettingsRequest,
-    ScanLauncherLibraryRequest, SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest,
-    SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
+    LauncherLibraryScanResult, LauncherLibraryState, LauncherNexusDiagnosticsResult,
+    LauncherRemoteModDetail, LauncherSettings, LauncherUpdateChangelogResult,
+    LauncherUpdatesResult, LoadCachedLauncherUpdatesRequest, LoadLauncherRemoteModDetailRequest,
+    LoadLauncherUpdateChangelogRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
+    ResolveLauncherImageResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
+    SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
+    SetLauncherModEnabledResult,
 };
 use crate::domain::launcher::updates;
 
@@ -164,6 +166,21 @@ pub async fn resolve_launcher_image(
 #[tauri::command]
 pub fn clear_launcher_image_cache(app: tauri::AppHandle) -> Result<(), String> {
     image_cache::clear_launcher_image_cache(app)
+}
+
+#[tauri::command]
+pub fn load_launcher_nexus_diagnostics(
+    app: tauri::AppHandle,
+) -> Result<LauncherNexusDiagnosticsResult, String> {
+    http::load_launcher_nexus_diagnostics(&app)
+}
+
+#[tauri::command]
+pub fn set_launcher_nexus_force_offline(
+    app: tauri::AppHandle,
+    force_offline: bool,
+) -> Result<LauncherNexusDiagnosticsResult, String> {
+    http::set_launcher_nexus_force_offline(&app, force_offline)
 }
 
 #[tauri::command]

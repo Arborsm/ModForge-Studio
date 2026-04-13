@@ -1,4 +1,6 @@
-use super::http::launcher_http_client;
+use super::http::{
+    launcher_http_client, launcher_nexus_route_for_url, probe_blocked_launcher_nexus_route,
+};
 use super::paths::launcher_image_cache_dir;
 use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
 use crate::infrastructure::fs::pathing::normalize_path;
@@ -154,6 +156,9 @@ pub(crate) fn resolve_launcher_image_blocking(
         }
 
         let client = launcher_http_client()?;
+        if let Some(route) = launcher_nexus_route_for_url(url) {
+            probe_blocked_launcher_nexus_route(&client, None, route)?;
+        }
         let response = client
             .get(url)
             .send()

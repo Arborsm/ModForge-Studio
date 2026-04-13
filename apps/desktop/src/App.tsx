@@ -15,6 +15,7 @@ import {
   launchLauncherGame,
   listKnownGameDirectories,
   minimizeCurrentWindow,
+  setLauncherNexusForceOffline,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
 } from './lib/desktop'
@@ -54,6 +55,10 @@ import { LocaleProvider } from './lib/app/localeContext'
 import { dismissNotification, NotificationProvider, publishNotification } from './lib/app/notifications'
 import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
 import { setNotificationSoundEnabled } from './lib/app/notificationSounds'
+import {
+  getLauncherNexusWarningRoutes,
+  loadSettledLauncherNexusDiagnostics,
+} from './lib/launcher/nexusDiagnostics'
 import useModWorkspace from './lib/app/useModWorkspace'
 import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
@@ -84,6 +89,7 @@ type WindowWithIdleCallback = Window & {
 }
 
 const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
+const LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID = 'launcher-nexus-diagnostics'
 
 function getResourcePreloadProgress(state: ResourcePreloadState) {
   if (state.total <= 0) {
@@ -627,6 +633,52 @@ export default function App() {
       disposed = true
     }
   }, [desktopHost])
+
+  useEffect(() => {
+    if (!desktopHost) {
+      return
+    }
+
+    let disposed = false
+
+    void loadSettledLauncherNexusDiagnostics()
+      .then((diagnostics) => {
+        if (disposed) {
+          return
+        }
+
+        const warningRoutes = getLauncherNexusWarningRoutes(diagnostics)
+        if (!warningRoutes.length) {
+          dismissNotification(LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID)
+          return
+        }
+
+        publishNotification({
+          id: LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID,
+          level: 'warning',
+          title: copy.launcher.debug.nexusDiagnosticsTitle,
+          description: warningRoutes.map((route) => `${route.label}: ${route.message}`).join('\n'),
+          autoDismissMs: null,
+        })
+      })
+      .catch(() => {
+        // Ignore startup diagnostics errors. Manual actions can still reprobe routes later.
+      })
+
+    return () => {
+      disposed = true
+    }
+  }, [copy.launcher.debug.nexusDiagnosticsTitle, desktopHost])
+
+  useEffect(() => {
+    if (!desktopHost || !appUiStateReady) {
+      return
+    }
+
+    void setLauncherNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {
+      // Startup launcher diagnostics synchronization should not block the shell.
+    })
+  }, [appUiStateReady, desktopHost])
 
   useEffect(() => {
     if (!resourcePreloadState.active) {

@@ -210,6 +210,101 @@
     color: var(--launcher-text-accent-strong);
   }
 
+  .launcher-debug-route-loading {
+    margin: 0;
+    color: var(--launcher-text-secondary);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .launcher-debug-route-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-debug-route-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 88px auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px;
+    border: 1px solid var(--launcher-border-soft);
+    border-radius: 10px;
+    background: var(--launcher-surface-base);
+  }
+
+  .launcher-debug-route-copy {
+    min-width: 0;
+  }
+
+  .launcher-debug-route-header {
+    display: block;
+  }
+
+  .launcher-debug-route-title {
+    margin: 0;
+    min-width: 0;
+    color: var(--launcher-text-primary);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .launcher-debug-route-endpoint,
+  .launcher-debug-route-message {
+    margin: 6px 0 0;
+    color: var(--launcher-text-secondary);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .launcher-debug-route-endpoint {
+    word-break: break-all;
+  }
+
+  .launcher-debug-route-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: 100%;
+    min-inline-size: 0;
+    block-size: 30px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    border: 1px solid var(--launcher-border-soft);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+    text-align: center;
+    text-transform: lowercase;
+    white-space: nowrap;
+  }
+
+  .launcher-debug-route-status-loading {
+    border-color: color-mix(in srgb, var(--launcher-border-accent) 40%, var(--launcher-border-soft));
+    background: color-mix(in srgb, var(--launcher-surface-accent) 72%, white 28%);
+    color: var(--launcher-text-accent-strong);
+  }
+
+  .launcher-debug-route-status-warning {
+    border-color: color-mix(in srgb, var(--warning) 34%, var(--launcher-border-soft));
+    background: color-mix(in srgb, var(--warning) 12%, var(--launcher-surface-base));
+    color: var(--warning);
+  }
+
+  .launcher-debug-route-status-success {
+    border-color: color-mix(in srgb, var(--success) 34%, var(--launcher-border-soft));
+    background: color-mix(in srgb, var(--success) 12%, var(--launcher-surface-base));
+    color: var(--success);
+  }
+
+  .launcher-debug-route-attempts {
+    align-self: center;
+    margin-left: 8px;
+  }
+
   .launcher-page-scaffold {
     display: grid;
     gap: 16px;

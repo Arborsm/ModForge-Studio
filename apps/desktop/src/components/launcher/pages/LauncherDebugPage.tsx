@@ -1,9 +1,16 @@
-import { Bug, Download, MessageSquare, ScrollText } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
+import { Bug, Download, MessageSquare, ScrollText, Wifi } from 'lucide-react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
+import { applyAppUiStatePatch, getAppUiStateSnapshot } from '../../../lib/app/uiState'
 import { cx } from '../../../lib/cx'
 import { useEditorCopy, useSettingsMenuCopy } from '../../../lib/app/localeContext'
 import { reportAppEvent, type AppEventLevel } from '../../../lib/app/observability'
-import { clearLauncherImageCache } from '../../../lib/desktop'
+import {
+  canUseDesktopHost,
+  clearLauncherImageCache,
+  loadLauncherNexusDiagnostics,
+  setLauncherNexusForceOffline,
+  type LauncherNexusRouteSnapshot,
+} from '../../../lib/desktop'
 import { useLauncherDownloads } from '../../../lib/launcher/useLauncherDownloads'
 
 type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
@@ -167,6 +174,145 @@ function DebugActionCard({
   )
 }
 
+function LauncherNexusDiagnosticsCard({
+  title,
+  description,
+  loadingLabel,
+  emptyLabel,
+  forceOfflineEnableButton,
+  forceOfflineDisableButton,
+  forceOfflineEnabledLabel,
+  forceOfflineDisabledLabel,
+}: {
+  title: string
+  description: string
+  loadingLabel: string
+  emptyLabel: string
+  forceOfflineEnableButton: string
+  forceOfflineDisableButton: string
+  forceOfflineEnabledLabel: string
+  forceOfflineDisabledLabel: string
+}) {
+  const [routes, setRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
+  const [loading, setLoading] = useState(() => canUseDesktopHost())
+  const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
+  const [toggleBusy, setToggleBusy] = useState(false)
+  const [pollNonce, setPollNonce] = useState(0)
+
+  useEffect(() => {
+    if (!canUseDesktopHost()) {
+      return
+    }
+
+    let disposed = false
+    let timeoutId: number | null = null
+
+    const poll = async () => {
+      try {
+        const diagnostics = await loadLauncherNexusDiagnostics()
+        if (disposed) {
+          return
+        }
+
+        setRoutes(diagnostics.routes)
+        setLoading(false)
+        if (diagnostics.routes.some((route) => route.status === 'loading')) {
+          timeoutId = window.setTimeout(() => {
+            void poll()
+          }, 1000)
+        }
+      } catch {
+        if (!disposed) {
+          setLoading(false)
+          setRoutes([])
+        }
+      }
+    }
+
+    void poll()
+
+    return () => {
+      disposed = true
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [pollNonce])
+
+  const handleToggleForceOffline = async () => {
+    const nextForceOffline = !forceOffline
+    setToggleBusy(true)
+
+    try {
+      const diagnostics = await setLauncherNexusForceOffline(nextForceOffline)
+      await applyAppUiStatePatch({
+        launcher: {
+          forceOffline: nextForceOffline,
+        },
+      })
+      setForceOffline(nextForceOffline)
+      setRoutes(diagnostics.routes)
+      setLoading(false)
+      if (diagnostics.routes.some((route) => route.status === 'loading')) {
+        setLoading(true)
+        setPollNonce((value) => value + 1)
+      }
+    } catch {
+      // Debug-only control: leave the last known state in place on bridge failures.
+    } finally {
+      setToggleBusy(false)
+    }
+  }
+
+  return (
+    <DebugActionCard
+      title={title}
+      description={description}
+      icon={<Wifi className="h-4 w-4" />}
+    >
+      <div className="launcher-toolbar">
+        <button
+          type="button"
+          className={cx('control-button', forceOffline && 'control-button-primary')}
+          disabled={!canUseDesktopHost() || toggleBusy}
+          onClick={() => {
+            void handleToggleForceOffline()
+          }}
+        >
+          {forceOffline ? forceOfflineDisableButton : forceOfflineEnableButton}
+        </button>
+        <span className="dock-chip">{forceOffline ? forceOfflineEnabledLabel : forceOfflineDisabledLabel}</span>
+      </div>
+      {loading ? <p className="launcher-debug-route-loading">{loadingLabel}</p> : null}
+      {!loading && !routes.length ? <p className="launcher-debug-route-loading">{emptyLabel}</p> : null}
+      {!loading && routes.length ? (
+        <div className="launcher-debug-route-list">
+          {routes.map((route) => (
+            <section key={route.routeId} className="launcher-debug-route-row">
+              <div className="launcher-debug-route-copy">
+                <div className="launcher-debug-route-header">
+                  <h3 className="launcher-debug-route-title">{route.label}</h3>
+                </div>
+                <p className="launcher-debug-route-endpoint">{route.endpoint}</p>
+                <p className="launcher-debug-route-message">{route.message}</p>
+              </div>
+              <span
+                className={cx(
+                  'launcher-debug-route-status',
+                  `launcher-debug-route-status-${route.status}`,
+                )}
+              >
+                {route.status}
+              </span>
+              <span className="dock-chip launcher-debug-route-attempts">{`${route.attempts}/${route.maxAttempts}`}</span>
+            </section>
+          ))}
+        </div>
+      ) : null}
+    </DebugActionCard>
+  )
+}
+
 export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }: LauncherDebugPageProps) {
   const copy = useEditorCopy().launcher
   const settingsCopy = useSettingsMenuCopy()
@@ -222,6 +368,17 @@ export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }
           >
             <LogTestButtons labels={copy.debug.logButtons} debugEnabled={debugEnabled} />
           </DebugActionCard>
+
+          <LauncherNexusDiagnosticsCard
+            title={copy.debug.nexusDiagnosticsTitle}
+            description={copy.debug.nexusDiagnosticsSubtitle}
+            loadingLabel={copy.debug.nexusDiagnosticsLoading}
+            emptyLabel={copy.debug.nexusDiagnosticsEmpty}
+            forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
+            forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
+            forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
+            forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
+          />
 
           <DebugActionCard
             title={copy.debug.clearImageCacheTitle}
