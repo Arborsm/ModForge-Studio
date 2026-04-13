@@ -203,27 +203,15 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    z-index: 40;
-    min-width: 180px;
-    display: grid;
-    gap: 4px;
-    border-radius: 10px;
-    background: var(--bg-elevated);
-    box-shadow: var(--shadow-float);
-    padding: 6px;
+    --launcher-menu-surface: var(--bg-elevated);
+    --launcher-menu-shadow: var(--shadow-float);
+    --launcher-menu-z: 40;
   }
 
   .launcher-discover-menu-option {
-    width: 100%;
-    display: flex;
-    align-items: center;
     justify-content: flex-start;
     min-height: 34px;
-    border-radius: 8px;
-    padding: 0 10px;
     color: var(--text-secondary);
-    text-align: left;
-    font-size: 13px;
     font-weight: 600;
   }
 

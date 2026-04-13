@@ -97,7 +97,6 @@
     justify-content: center;
     justify-items: center;
     align-content: flex-start;
-    justify-content: center;
     gap: var(--item-group-gap, 8px);
     padding: 12px;
     flex: 1 1 auto;

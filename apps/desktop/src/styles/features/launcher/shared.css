@@ -545,4 +545,54 @@
     display: grid;
     gap: 4px;
   }
+
+  .launcher-discover-menu-popover,
+  .launcher-library-title-menu,
+  .launcher-library-pack-row-menu,
+  .launcher-library-pack-menu,
+  .launcher-library-settings-menu,
+  .launcher-library-sort-menu {
+    display: grid;
+    gap: 4px;
+    border-radius: 10px;
+    padding: 6px;
+    min-width: var(--launcher-menu-min-width, 180px);
+    background: var(--launcher-menu-surface, var(--launcher-surface-base));
+    box-shadow: var(--launcher-menu-shadow, 0 10px 30px rgba(15, 23, 42, 0.14));
+    z-index: var(--launcher-menu-z, 20);
+  }
+
+  .launcher-discover-menu-option,
+  .launcher-library-title-menu-item,
+  .launcher-library-pack-row-menu-item,
+  .launcher-library-pack-option,
+  .launcher-library-settings-option,
+  .launcher-library-sort-option {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    font-size: 13px;
+    padding: 0 10px;
+    border-radius: 8px;
+  }
+
+  .launcher-library-title-menu-item:hover,
+  .launcher-library-pack-row-menu-item:hover,
+  .launcher-library-pack-option:hover,
+  .launcher-library-settings-option:hover,
+  .launcher-library-sort-option:hover {
+    background: rgba(17, 24, 39, 0.06);
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-library-title-menu-item-active,
+  .launcher-library-pack-option-active,
+  .launcher-library-sort-option-active {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--launcher-text-primary);
+    font-weight: 600;
+  }
 }

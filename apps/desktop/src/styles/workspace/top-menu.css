@@ -145,9 +145,8 @@
   }
 
   .top-menu-empty {
-    border: 1px dashed var(--border-color);
+    --panel-empty-border: var(--border-color);
     border-radius: 14px;
-    color: var(--text-secondary);
     padding: 10px;
     font-size: 12px;
   }

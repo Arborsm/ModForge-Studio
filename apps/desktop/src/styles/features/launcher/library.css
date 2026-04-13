@@ -768,40 +768,16 @@
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
-    min-width: 220px;
-    padding: 6px;
-    display: grid;
-    gap: 4px;
-    border-radius: 10px;
-    background: var(--launcher-surface-base);
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
-    z-index: 25;
+    --launcher-menu-min-width: 220px;
+    --launcher-menu-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+    --launcher-menu-z: 25;
   }
 
   .launcher-library-title-menu-item {
-    width: 100%;
     min-height: 36px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
     color: var(--launcher-text-secondary);
     padding: 0 12px;
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    font-size: 13px;
-    text-align: left;
-  }
-
-  .launcher-library-title-menu-item:hover {
-    background: rgba(17, 24, 39, 0.06);
-    color: var(--launcher-text-primary);
-  }
-
-  .launcher-library-title-menu-item-active {
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--launcher-text-primary);
-    font-weight: 600;
   }
 
   .launcher-library-console-actions,
@@ -1144,33 +1120,13 @@
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
-    min-width: 180px;
-    padding: 6px;
-    display: grid;
-    gap: 4px;
-    border-radius: 10px;
-    background: var(--launcher-surface-base);
-    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
-    z-index: 10;
+    --launcher-menu-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+    --launcher-menu-z: 10;
   }
 
   .launcher-library-pack-row-menu-item {
-    width: 100%;
     min-height: 34px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
     color: var(--launcher-text-secondary);
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    text-align: left;
-    font-size: 13px;
-  }
-
-  .launcher-library-pack-row-menu-item:hover {
-    background: rgba(17, 24, 39, 0.06);
-    color: var(--launcher-text-primary);
   }
 
   .launcher-library-popover-shell {
@@ -1197,47 +1153,21 @@
     position: absolute;
     top: calc(100% + 8px);
     left: 0;
-    min-width: 180px;
-    padding: 6px;
-    border-radius: 10px;
-    background: var(--launcher-surface-base);
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
-    z-index: 20;
   }
 
   .launcher-library-settings-menu {
-    min-width: 170px;
+    --launcher-menu-min-width: 170px;
   }
 
   .launcher-library-pack-option,
   .launcher-library-settings-option {
-    width: 100%;
     min-height: 34px;
-    border: 0;
     border-radius: 6px;
-    background: transparent;
     color: var(--launcher-text-secondary);
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    font-size: 13px;
-    text-align: left;
     transition:
       background-color 140ms ease,
       color 140ms ease;
-  }
-
-  .launcher-library-pack-option:hover,
-  .launcher-library-settings-option:hover {
-    background: rgba(17, 24, 39, 0.06);
-    color: var(--launcher-text-primary);
-  }
-
-  .launcher-library-pack-option-active {
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--launcher-text-primary);
-    font-weight: 600;
   }
 
   .launcher-library-edit-button {
@@ -1352,42 +1282,14 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    min-width: 180px;
-    padding: 6px;
-    display: grid;
-    gap: 4px;
-    border-radius: 10px;
-    background: var(--launcher-surface-base);
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
-    z-index: 20;
   }
 
   .launcher-library-sort-option {
-    width: 100%;
     min-height: 34px;
-    border: 0;
-    border-radius: 8px;
-    background: transparent;
     color: var(--launcher-text-secondary);
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    text-align: left;
-    font-size: 13px;
     transition:
       background-color 140ms ease,
       color 140ms ease;
-  }
-
-  .launcher-library-sort-option:hover {
-    background: rgba(17, 24, 39, 0.06);
-    color: var(--launcher-text-primary);
-  }
-
-  .launcher-library-sort-option-active {
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    color: var(--launcher-text-primary);
-    font-weight: 600;
   }
 
   .launcher-library-dialog-backdrop {
