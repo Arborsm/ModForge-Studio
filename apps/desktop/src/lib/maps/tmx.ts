@@ -8,6 +8,8 @@ import type {
   MapTilesetAnimationFrame,
 } from './types'
 
+import { getMapDirectory, normalizePath } from './path'
+
 function getRequiredAttribute(element: Element, name: string) {
   const value = element.getAttribute(name)
   if (!value) {
@@ -36,18 +38,12 @@ function getBooleanAttribute(element: Element, name: string, fallback = true) {
   return value !== '0' && value.toLowerCase() !== 'false'
 }
 
-function normalizePath(path: string) {
-  return path.replaceAll('/', '\\')
-}
-
 function resolveTilesetImagePath(sourcePath: string, imageSource: string | null) {
   if (!imageSource) {
     return null
   }
 
-  const normalizedMapPath = normalizePath(sourcePath)
-  const separatorIndex = normalizedMapPath.lastIndexOf('\\')
-  const mapDirectory = separatorIndex >= 0 ? normalizedMapPath.slice(0, separatorIndex) : normalizedMapPath
+  const mapDirectory = getMapDirectory(sourcePath)
   const normalizedSource = normalizePath(imageSource)
   const fileName = /\.[A-Za-z0-9]+$/.test(normalizedSource) ? normalizedSource : `${normalizedSource}.png`
 

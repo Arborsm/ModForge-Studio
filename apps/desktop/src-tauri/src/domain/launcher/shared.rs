@@ -1,5 +1,7 @@
 use serde_json::Value;
 
+pub(super) use crate::domain::manifest::string_field;
+
 pub(super) fn build_mod_page_url(mod_id: i64) -> String {
     format!("https://www.nexusmods.com/stardewvalley/mods/{mod_id}")
 }
@@ -22,15 +24,6 @@ pub(super) fn normalize_nexus_url(value: &str) -> String {
     } else {
         format!("https://www.nexusmods.com{}", value.trim())
     }
-}
-
-pub(super) fn string_field(value: &Value, key: &str) -> Option<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
 }
 
 pub(super) fn decode_html(value: &str) -> String {

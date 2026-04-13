@@ -2,6 +2,7 @@
 import { open } from '@tauri-apps/plugin-dialog'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { normalizeCachePathSegment } from './cachePaths'
 
 export type GameDirectoryInfo = {
   rootPath: string
@@ -673,10 +674,6 @@ export type InspectLauncherArchiveResult = {
   totalFiles: number
   modRoots: string[]
   tree: LauncherArchiveTreeNode[]
-}
-
-function normalizeCachePathSegment(value: string) {
-  return value.trim().replaceAll('/', '\\')
 }
 
 function createPromiseCache<T>() {

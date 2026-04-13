@@ -2,12 +2,15 @@ import {useDeferredValue, useEffect, useMemo, useState} from 'react'
 import {deferToTimeout} from '../react/deferred'
 import {type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps} from '../desktop'
 import type {BuildingsPanelCopy, LocaleCode} from '../../locales'
-import {loadImageResourceFromPath} from '../imageMetrics'
+import {getLocalizedImagePathCandidates, loadImageResourceFromPath} from '../imageMetrics'
 import type {ViewportWorldPoint} from '../../components/MapViewport'
-import type {MapDocument, MapPropertyValue, MapTileset} from '../maps/types'
+import type {MapDocument, MapPropertyValue} from '../maps/types'
+import {normalizeMapName} from '../maps/mapNames'
+import {getActionTargetMap, getPortalTargetMapFromProperties} from '../maps/portalTargets'
+import {isExteriorWarp, parseWarpEntries} from '../maps/warps'
 import {OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH} from './characterWorkspace'
+import {buildGameContentPath} from './contentPaths'
 import {
-  buildGameContentPath,
   type BuildingMaterialEntry,
   BUILDINGS_DATA_ASSET_PATH,
   type BuildingTextureAssetState,
@@ -65,14 +68,6 @@ type ObjectDataEntry = {
   SpriteIndex?: number | string | null
 }
 
-type WarpEntry = {
-  sourceX: number
-  sourceY: number
-  targetMap: string
-  targetX: number
-  targetY: number
-}
-
 type WorldLocationSeedSource = 'predefined' | 'merged'
 
 type WorldLocationSeed = {
@@ -99,21 +94,6 @@ type LocationDataSeed = {
 
 const stringTableCache = new Map<string, Promise<Record<string, string>>>()
 const LOCATIONS_DATA_ASSET_PATH = 'Content\\Data\\Locations.xnb'
-const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
-const FLIPPED_VERTICALLY_FLAG = 0x40000000
-const FLIPPED_DIAGONALLY_FLAG = 0x20000000
-const ROTATED_HEXAGONAL_120_FLAG = 0x10000000
-const TILE_ID_MASK =
-  (~(
-    FLIPPED_HORIZONTALLY_FLAG |
-    FLIPPED_VERTICALLY_FLAG |
-    FLIPPED_DIAGONALLY_FLAG |
-    ROTATED_HEXAGONAL_120_FLAG
-  )) >>> 0
-
-function normalizeMapName(name: string) {
-  return name.trim().toLowerCase()
-}
 
 function isTruthyProperty(value: MapPropertyValue | undefined) {
   if (typeof value === 'boolean') {
@@ -130,26 +110,6 @@ function isTruthyProperty(value: MapPropertyValue | undefined) {
   }
 
   return false
-}
-
-function asPropertyString(value: MapPropertyValue | undefined) {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-
-  return ''
-}
-
-function getLocalizedImagePathCandidates(path: string, locale: LocaleCode) {
-  if (locale === 'en-US') {
-    return [path]
-  }
-
-  return [path.replace(/\.xnb$/iu, `.${locale}.xnb`), path]
 }
 
 async function loadImageState(path: string | null, locale: LocaleCode): Promise<BuildingTextureAssetState> {
@@ -487,151 +447,6 @@ async function runWithConcurrency<T, R>(
 function getMapAssetName(document: MapDocument) {
   const normalizedRelativePath = document.relativePath.replaceAll('/', '\\').replace(/^Content\\/iu, '')
   return normalizedRelativePath.replace(/\.xnb$/iu, '').replaceAll('\\', '/')
-}
-
-function parseWarpProperty(rawValue: string) {
-  const tokens = rawValue.trim().split(/\s+/u).filter(Boolean)
-  const entries: WarpEntry[] = []
-
-  for (let index = 0; index + 4 < tokens.length; index += 5) {
-    const sourceX = Number.parseInt(tokens[index] ?? '', 10)
-    const sourceY = Number.parseInt(tokens[index + 1] ?? '', 10)
-    const targetMap = tokens[index + 2] ?? ''
-    const targetX = Number.parseInt(tokens[index + 3] ?? '', 10)
-    const targetY = Number.parseInt(tokens[index + 4] ?? '', 10)
-
-    if (
-      !Number.isFinite(sourceX) ||
-      !Number.isFinite(sourceY) ||
-      !Number.isFinite(targetX) ||
-      !Number.isFinite(targetY) ||
-      !targetMap
-    ) {
-      continue
-    }
-
-    entries.push({
-      sourceX,
-      sourceY,
-      targetMap,
-      targetX,
-      targetY,
-    })
-  }
-
-  return entries
-}
-
-function parseWarpEntries(mapDocument: MapDocument) {
-  const entries: WarpEntry[] = []
-
-  for (const propertyName of ['Warp', 'NPCWarp']) {
-    const rawValue = asPropertyString(mapDocument.properties[propertyName]).trim()
-    if (!rawValue) {
-      continue
-    }
-
-    entries.push(...parseWarpProperty(rawValue))
-  }
-
-  return entries
-}
-
-function isExteriorWarp(mapDocument: MapDocument, entry: WarpEntry) {
-  return (
-    entry.sourceX < 0 ||
-    entry.sourceY < 0 ||
-    entry.sourceX >= mapDocument.width ||
-    entry.sourceY >= mapDocument.height
-  )
-}
-
-function parsePortalTargetMapFromAction(rawAction: string) {
-  const tokens = rawAction.trim().split(/\s+/u)
-  if (!tokens.length) {
-    return null
-  }
-
-  const actionName = tokens[0]
-  if (actionName === 'LockedDoorWarp' && tokens.length >= 4) {
-    return tokens[3]
-  }
-
-  if (actionName === 'MagicWarp' && tokens.length >= 2) {
-    return tokens[1]
-  }
-
-  if (actionName === 'Warp') {
-    if (tokens.length >= 4 && Number.isFinite(Number(tokens[1])) && Number.isFinite(Number(tokens[2]))) {
-      return tokens[3]
-    }
-
-    if (tokens.length >= 2) {
-      return tokens[1]
-    }
-  }
-
-  return null
-}
-
-function findTileset(tilesets: MapTileset[], gid: number) {
-  for (let index = tilesets.length - 1; index >= 0; index -= 1) {
-    const tileset = tilesets[index]
-    if (gid >= tileset.firstGid) {
-      return tileset
-    }
-  }
-
-  return null
-}
-
-function getActionTargetMap(rawGid: number, sourceDocument: MapDocument) {
-  const gid = rawGid >>> 0
-  const baseGid = gid & TILE_ID_MASK
-  if (baseGid === 0) {
-    return null
-  }
-
-  const tileset = findTileset(sourceDocument.tilesets, baseGid)
-  if (!tileset) {
-    return null
-  }
-
-  const tileId = baseGid - tileset.firstGid
-  const tileProperties = tileset.tileProperties[tileId]
-  if (!tileProperties) {
-    return null
-  }
-
-  for (const propertyName of ['Action', 'TouchAction']) {
-    const rawAction = asPropertyString(tileProperties[propertyName]).trim()
-    if (!rawAction) {
-      continue
-    }
-
-    const targetMap = parsePortalTargetMapFromAction(rawAction)
-    if (targetMap) {
-      return targetMap
-    }
-  }
-
-  return null
-}
-
-function getPortalTargetMapFromProperties(properties: Record<string, MapPropertyValue>) {
-  for (const propertyName of ['Action', 'TouchAction']) {
-    const rawAction = asPropertyString(properties[propertyName]).trim()
-    if (!rawAction) {
-      continue
-    }
-
-    const targetMap = parsePortalTargetMapFromAction(rawAction)
-    if (targetMap) {
-      return targetMap
-    }
-  }
-
-  return null
 }
 
 type WorldEntranceAggregate = {
@@ -1224,7 +1039,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     }
 
     let cancelled = false
-    const springObjectsPath = buildGameContentPath(directoryInfo.rootPath, SPRING_OBJECTS_ASSET_PATH.replace(/^Content\\/iu, '').replace(/\.xnb$/iu, ''))
+    const springObjectsPath = buildGameContentPath(directoryInfo.rootPath, SPRING_OBJECTS_ASSET_PATH)
 
     void loadImageState(springObjectsPath, locale)
       .then((state) => {

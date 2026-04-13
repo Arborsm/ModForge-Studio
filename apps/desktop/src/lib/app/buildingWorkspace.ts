@@ -1,3 +1,7 @@
+import { buildGameContentPath } from './contentPaths'
+
+export { buildGameContentPath } from './contentPaths'
+
 export const BUILDINGS_DATA_ASSET_PATH = 'Content\\Data\\Buildings.xnb'
 
 type BuildingPoint = {
@@ -610,14 +614,6 @@ export function createConstructibleBuildingGroups(entries: BuildingWorkspaceEntr
       } satisfies ConstructibleBuildingGroup
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName))
-}
-
-export function buildGameContentPath(rootPath: string, assetName: string | null) {
-  if (!assetName) {
-    return null
-  }
-
-  return `${rootPath}\\Content\\${assetName.replaceAll('/', '\\')}.xnb`
 }
 
 export function getBuildingTexturePath(rootPath: string | null, entry: BuildingWorkspaceEntry | null) {

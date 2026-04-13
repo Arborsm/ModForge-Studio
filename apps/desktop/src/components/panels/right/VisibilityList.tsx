@@ -3,6 +3,18 @@ import { useMemo, useState } from 'react'
 import { cx } from '../../../lib/cx'
 import type { VisibilityListItem } from './shared'
 
+type VisibilityListVariant = 'panel' | 'dock'
+
+const visibilitySectionClassName = {
+  panel: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+  dock: 'panel-section-muted panel-section overflow-hidden',
+} satisfies Record<VisibilityListVariant, string>
+
+const visibilityEmptyStateClassName = {
+  panel: 'rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]',
+  dock: 'panel-empty-state',
+} satisfies Record<VisibilityListVariant, string>
+
 function VisibilityRow({
   name,
   meta,
@@ -37,10 +49,12 @@ export function GroupedVisibilityList({
   items,
   filterPlaceholder,
   emptyMessage,
+  variant = 'panel',
 }: {
   items: VisibilityListItem[]
   filterPlaceholder: string
   emptyMessage: string
+  variant?: VisibilityListVariant
 }) {
   const [filterValue, setFilterValue] = useState('')
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
@@ -100,7 +114,7 @@ export function GroupedVisibilityList({
               return (
                 <div
                   key={item.id}
-                  className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                  className={visibilitySectionClassName[variant]}
                 >
                   <VisibilityRow
                     name={item.name}
@@ -116,7 +130,7 @@ export function GroupedVisibilityList({
             return (
               <section
                 key={group.groupLabel}
-                className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                className={visibilitySectionClassName[variant]}
               >
                 <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-3 py-2">
                   <button
@@ -174,7 +188,7 @@ export function GroupedVisibilityList({
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+        <div className={visibilityEmptyStateClassName[variant]}>
           {emptyMessage}
         </div>
       )}

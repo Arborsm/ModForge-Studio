@@ -78,7 +78,7 @@ struct FailureRecord {
 #[test]
 #[ignore = "manual report against installed Content (unpacked) dataset"]
 fn compare_rust_unpack_pass_rate_against_content_unpacked() {
-    let game_root = resolve_game_root();
+    let game_root = test_support::resolve_game_root();
     let content_root = game_root.join("Content");
     let unpacked_root = game_root.join("Content (unpacked)");
 
@@ -264,10 +264,6 @@ fn compare_rust_unpack_pass_rate_against_content_unpacked() {
         "Failure details written to {}",
         failure_report_path.display()
     );
-}
-
-fn resolve_game_root() -> PathBuf {
-    test_support::resolve_game_root()
 }
 
 fn collect_xnb_cases(

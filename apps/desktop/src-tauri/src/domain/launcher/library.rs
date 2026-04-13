@@ -13,6 +13,10 @@ use super::types::{
     UNSORTED_STORAGE_FOLDER_NAME,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
+use crate::domain::manifest::{
+    normalize_unique_id, project_name_from_manifest, required_dependency_ids, string_array_field,
+    string_field,
+};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use serde::Deserialize;
 use serde_json::Value;
@@ -42,10 +46,6 @@ struct LegacyLauncherLibraryLabel {
 #[serde(rename_all = "camelCase")]
 struct LegacyLauncherLibraryLabelsState {
     pub labels: Vec<LegacyLauncherLibraryLabel>,
-}
-
-pub(crate) fn normalize_unique_id(value: &str) -> String {
-    value.trim().to_ascii_lowercase()
 }
 
 fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState {
@@ -405,71 +405,6 @@ fn collect_scanned_projects(project_roots: Vec<PathBuf>) -> Vec<ScannedLauncherM
     }
 
     projects
-}
-
-fn string_field(value: &Value, key: &str) -> Option<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn string_array_field(value: &Value, key: &str) -> Vec<String> {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .map(str::trim)
-        .filter(|item| !item.is_empty())
-        .map(ToOwned::to_owned)
-        .collect()
-}
-
-fn project_name_from_manifest(manifest: &Value, project_path: &Path) -> String {
-    string_field(manifest, "Name")
-        .or_else(|| {
-            project_path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .map(ToOwned::to_owned)
-        })
-        .unwrap_or_else(|| "Unnamed Mod".to_string())
-}
-
-fn required_dependency_ids(manifest: &Value) -> Vec<String> {
-    let mut dependencies = Vec::new();
-    let mut seen = BTreeSet::new();
-
-    for dependency in manifest
-        .get("Dependencies")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        let Some(object) = dependency.as_object() else {
-            continue;
-        };
-        if object.get("IsRequired").and_then(Value::as_bool) != Some(true) {
-            continue;
-        }
-        let Some(unique_id) = object
-            .get("UniqueID")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        else {
-            continue;
-        };
-        if seen.insert(normalize_unique_id(unique_id)) {
-            dependencies.push(unique_id.to_string());
-        }
-    }
-
-    dependencies
 }
 
 fn collect_available_enabled_mod_ids(projects: &[ScannedLauncherMod]) -> BTreeSet<String> {

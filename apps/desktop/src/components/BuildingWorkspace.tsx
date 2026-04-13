@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Grid2x2 } from 'lucide-react'
+import { formatPoint, formatRect } from '../lib/app/geometryFormatting'
 import { getSpringObjectsSourceRect } from '../lib/app/eventStageShared'
 import { useBuildingsCopy } from '../lib/app/localeContext'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../lib/app/buildingWorkspace'
@@ -54,14 +55,6 @@ function buildAbsoluteSpriteLayerStyle({
     backgroundSize: `${sheetWidth}px ${sheetHeight}px`,
     imageRendering: 'pixelated',
   }
-}
-
-function formatPoint(value: { X: number; Y: number } | null, fallback: string) {
-  return value ? `${value.X}, ${value.Y}` : fallback
-}
-
-function formatRect(value: { X: number; Y: number; Width: number; Height: number } | null, fallback: string) {
-  return value ? `${value.X}, ${value.Y} / ${value.Width} x ${value.Height}` : fallback
 }
 
 function getResolvedSourceRect(entry: BuildingWorkspaceEntry, textureState: BuildingTextureAssetState | null) {

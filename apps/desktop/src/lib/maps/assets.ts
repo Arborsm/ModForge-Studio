@@ -1,9 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import type { MapDocument, MapTileset } from './types'
 
-function normalizePath(path: string) {
-  return path.replaceAll('/', '\\')
-}
+import { getMapDirectory, normalizePath } from './path'
 
 export function resolveTilesetImagePath(mapDocument: MapDocument, tileset: MapTileset) {
   if (tileset.imagePath) {
@@ -14,10 +12,7 @@ export function resolveTilesetImagePath(mapDocument: MapDocument, tileset: MapTi
     return null
   }
 
-  const normalizedMapPath = normalizePath(mapDocument.sourcePath)
-  const separatorIndex = normalizedMapPath.lastIndexOf('\\')
-  const mapDirectory =
-    separatorIndex >= 0 ? normalizedMapPath.slice(0, separatorIndex) : normalizedMapPath
+  const mapDirectory = getMapDirectory(mapDocument.sourcePath)
   const sourceName = normalizePath(tileset.imageSource)
   const fileName = /\.[A-Za-z0-9]+$/.test(sourceName) ? sourceName : `${sourceName}.xnb`
 

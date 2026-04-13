@@ -2,7 +2,7 @@ use super::fs::{
     copy_directory_recursive, discover_project_roots, merge_json_object_files, move_directory,
     read_json_file, sanitize_file_name, unique_path,
 };
-use super::library::{normalize_unique_id, scan_library_at_path};
+use super::library::scan_library_at_path;
 use super::paths::{launcher_backup_dir, launcher_settings_path, launcher_updates_cache_path};
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
@@ -11,12 +11,14 @@ use super::types::{
     InstallLauncherArchiveResult, LauncherArchiveTreeNode,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
+use crate::domain::manifest::{normalize_unique_id, project_name_from_manifest, string_field};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use serde_json::Value;
 use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "windows")]
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Default)]
@@ -40,21 +42,10 @@ pub(crate) fn inspect_archive_at_path(
         ));
     }
 
-    let temp_root = temp_work_dir("launcher-inspect");
-    if temp_root.exists() {
-        let _ = fs::remove_dir_all(&temp_root);
-    }
-    fs::create_dir_all(&temp_root).map_err(|error| {
-        format!(
-            "Failed to create launcher archive inspection directory {}: {error}",
-            normalize_path(&temp_root)
-        )
-    })?;
-
-    let inspect_result = (|| {
-        expand_archive_to_path(archive_path, &temp_root)?;
+    with_temp_work_dir("launcher-inspect", "archive inspection", |temp_root| {
+        expand_archive_to_path(archive_path, temp_root)?;
         let mut state = ArchiveInspectionState::default();
-        let tree = build_archive_tree(&temp_root, &temp_root, &mut state)?;
+        let tree = build_archive_tree(temp_root, temp_root, &mut state)?;
         let result = InspectLauncherArchiveResult {
             archive_path: normalize_path(archive_path),
             archive_file_name: archive_path
@@ -76,10 +67,7 @@ pub(crate) fn inspect_archive_at_path(
             ],
         );
         Ok(result)
-    })();
-
-    let _ = fs::remove_dir_all(&temp_root);
-    inspect_result
+    })
 }
 
 fn build_archive_tree(
@@ -208,20 +196,9 @@ pub(crate) fn install_archive_at_path(
         )
     })?;
 
-    let temp_root = temp_work_dir("launcher-install");
-    if temp_root.exists() {
-        let _ = fs::remove_dir_all(&temp_root);
-    }
-    fs::create_dir_all(&temp_root).map_err(|error| {
-        format!(
-            "Failed to create launcher temp directory {}: {error}",
-            normalize_path(&temp_root)
-        )
-    })?;
-
-    let install_result = (|| {
-        expand_archive_to_path(archive_path, &temp_root)?;
-        let project_roots = discover_project_roots(&temp_root)?;
+    with_temp_work_dir("launcher-install", "temp", |temp_root| {
+        expand_archive_to_path(archive_path, temp_root)?;
+        let project_roots = discover_project_roots(temp_root)?;
         if project_roots.is_empty() {
             return Err("The archive did not contain a SMAPI manifest.json file.".to_string());
         }
@@ -322,10 +299,7 @@ pub(crate) fn install_archive_at_path(
             ],
         );
         Ok(result)
-    })();
-
-    let _ = fs::remove_dir_all(&temp_root);
-    install_result
+    })
 }
 
 fn temp_work_dir(name: &str) -> PathBuf {
@@ -336,24 +310,25 @@ fn temp_work_dir(name: &str) -> PathBuf {
     env::temp_dir().join(format!("modforge-{name}-{unique}"))
 }
 
-fn project_name_from_manifest(manifest: &Value, project_path: &Path) -> String {
-    string_field(manifest, "Name")
-        .or_else(|| {
-            project_path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .map(ToOwned::to_owned)
-        })
-        .unwrap_or_else(|| "Unnamed Mod".to_string())
-}
+fn with_temp_work_dir<T>(
+    name: &str,
+    purpose: &str,
+    operation: impl FnOnce(&Path) -> Result<T, String>,
+) -> Result<T, String> {
+    let temp_root = temp_work_dir(name);
+    if temp_root.exists() {
+        let _ = fs::remove_dir_all(&temp_root);
+    }
+    fs::create_dir_all(&temp_root).map_err(|error| {
+        format!(
+            "Failed to create launcher {purpose} directory {}: {error}",
+            normalize_path(&temp_root)
+        )
+    })?;
 
-fn string_field(value: &Value, key: &str) -> Option<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
+    let result = operation(&temp_root);
+    let _ = fs::remove_dir_all(&temp_root);
+    result
 }
 
 fn backup_existing_mod_to_launcher_dir(
@@ -443,24 +418,13 @@ fn backup_existing_config(
     let Some(existing_mod_path) = existing_mod_path else {
         return Ok(false);
     };
-    let config_path = existing_mod_path.join("config.json");
-    if !config_path.is_file() {
-        return Ok(false);
-    }
-
-    fs::create_dir_all(backup_root).map_err(|error| {
-        format!(
-            "Failed to create launcher backup directory {}: {error}",
-            normalize_path(backup_root)
-        )
-    })?;
-    fs::copy(&config_path, backup_root.join("config.json")).map_err(|error| {
-        format!(
-            "Failed to back up launcher config {}: {error}",
-            normalize_path(&config_path)
-        )
-    })?;
-    Ok(true)
+    copy_config_json(
+        existing_mod_path,
+        backup_root,
+        true,
+        "backup",
+        "back up",
+    )
 }
 
 fn backup_existing_i18n(
@@ -471,81 +435,91 @@ fn backup_existing_i18n(
         return Ok(0);
     };
     let i18n_path = existing_mod_path.join("i18n");
-    if !i18n_path.is_dir() {
-        return Ok(0);
-    }
-
-    let backup_i18n_path = backup_root.join("i18n");
-    fs::create_dir_all(&backup_i18n_path).map_err(|error| {
-        format!(
-            "Failed to create launcher i18n backup directory {}: {error}",
-            normalize_path(&backup_i18n_path)
-        )
-    })?;
-
-    let mut copied = 0;
-    for entry in fs::read_dir(&i18n_path).map_err(|error| {
-        format!(
-            "Failed to read launcher i18n directory {}: {error}",
-            normalize_path(&i18n_path)
-        )
-    })? {
-        let entry =
-            entry.map_err(|error| format!("Failed to inspect launcher i18n entry: {error}"))?;
-        let path = entry.path();
-        if !path.is_file() || path.extension().and_then(|value| value.to_str()) != Some("json") {
-            continue;
-        }
-        fs::copy(&path, backup_i18n_path.join(entry.file_name())).map_err(|error| {
-            format!(
-                "Failed to back up launcher i18n file {}: {error}",
-                normalize_path(&path)
-            )
-        })?;
-        copied += 1;
-    }
-
-    Ok(copied)
+    copy_i18n_jsons(
+        &i18n_path,
+        &backup_root.join("i18n"),
+        "i18n",
+        "i18n backup",
+        "back up",
+        false,
+    )
 }
 
 fn restore_backed_up_config(backup_root: &Path, target_mod_path: &Path) -> Result<(), String> {
-    let backup_config = backup_root.join("config.json");
-    if !backup_config.is_file() {
-        return Ok(());
-    }
-
-    fs::copy(&backup_config, target_mod_path.join("config.json")).map_err(|error| {
-        format!(
-            "Failed to restore launcher config {}: {error}",
-            normalize_path(&backup_config)
-        )
-    })?;
+    copy_config_json(backup_root, target_mod_path, false, "target", "restore")?;
     Ok(())
 }
 
 fn restore_backed_up_i18n(backup_root: &Path, target_mod_path: &Path) -> Result<usize, String> {
-    let backup_i18n_path = backup_root.join("i18n");
-    if !backup_i18n_path.is_dir() {
+    copy_i18n_jsons(
+        &backup_root.join("i18n"),
+        &target_mod_path.join("i18n"),
+        "i18n backup",
+        "target i18n",
+        "restore",
+        true,
+    )
+}
+
+fn copy_config_json(
+    source_dir: &Path,
+    target_dir: &Path,
+    ensure_target_dir: bool,
+    target_label: &str,
+    action: &str,
+) -> Result<bool, String> {
+    let config_path = source_dir.join("config.json");
+    if !config_path.is_file() {
+        return Ok(false);
+    }
+
+    if ensure_target_dir {
+        fs::create_dir_all(target_dir).map_err(|error| {
+            format!(
+                "Failed to create launcher {target_label} directory {}: {error}",
+                normalize_path(target_dir)
+            )
+        })?;
+    }
+
+    fs::copy(&config_path, target_dir.join("config.json")).map_err(|error| {
+        format!(
+            "Failed to {action} launcher config {}: {error}",
+            normalize_path(&config_path)
+        )
+    })?;
+    Ok(true)
+}
+
+fn copy_i18n_jsons(
+    source_dir: &Path,
+    target_dir: &Path,
+    source_label: &str,
+    target_label: &str,
+    action: &str,
+    merge_existing: bool,
+) -> Result<usize, String> {
+    if !source_dir.is_dir() {
         return Ok(0);
     }
 
-    let target_i18n_path = target_mod_path.join("i18n");
-    fs::create_dir_all(&target_i18n_path).map_err(|error| {
+    fs::create_dir_all(target_dir).map_err(|error| {
         format!(
-            "Failed to create launcher target i18n directory {}: {error}",
-            normalize_path(&target_i18n_path)
+            "Failed to create launcher {target_label} directory {}: {error}",
+            normalize_path(target_dir)
         )
     })?;
 
-    let mut restored = 0;
-    for entry in fs::read_dir(&backup_i18n_path).map_err(|error| {
+    let mut copied = 0;
+    for entry in fs::read_dir(source_dir).map_err(|error| {
         format!(
-            "Failed to read launcher i18n backup directory {}: {error}",
-            normalize_path(&backup_i18n_path)
+            "Failed to read launcher {source_label} directory {}: {error}",
+            normalize_path(source_dir)
         )
     })? {
-        let entry = entry
-            .map_err(|error| format!("Failed to inspect launcher i18n backup entry: {error}"))?;
+        let entry = entry.map_err(|error| {
+            format!("Failed to inspect launcher {source_label} entry: {error}")
+        })?;
         let source_path = entry.path();
         if !source_path.is_file()
             || source_path.extension().and_then(|value| value.to_str()) != Some("json")
@@ -553,21 +527,21 @@ fn restore_backed_up_i18n(backup_root: &Path, target_mod_path: &Path) -> Result<
             continue;
         }
 
-        let target_path = target_i18n_path.join(entry.file_name());
-        if target_path.is_file() {
+        let target_path = target_dir.join(entry.file_name());
+        if merge_existing && target_path.is_file() {
             merge_json_object_files(&source_path, &target_path)?;
         } else {
             fs::copy(&source_path, &target_path).map_err(|error| {
                 format!(
-                    "Failed to restore launcher i18n file {}: {error}",
+                    "Failed to {action} launcher i18n file {}: {error}",
                     normalize_path(&source_path)
                 )
             })?;
         }
-        restored += 1;
+        copied += 1;
     }
 
-    Ok(restored)
+    Ok(copied)
 }
 
 pub fn install_launcher_archive(

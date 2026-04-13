@@ -5,6 +5,8 @@ import { useEditorCopy, useLocale } from '../lib/app/localeContext'
 import type { GameDirectoryInfo, MapAssetSummary } from '../lib/desktop'
 import { cx } from '../lib/cx'
 import { PanelFrame } from './ui/PanelFrame'
+import { formatBytes } from './byteSize'
+import { getAssetGroupLabel } from './panels/left/shared'
 
 type LeftDockProps = {
   workspaceMode: WorkspaceMode
@@ -23,29 +25,6 @@ type LeftDockProps = {
   assetFilter: string
   onAssetFilterChange: (value: string) => void
   onOpenAsset: (asset: MapAssetSummary) => void
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function getAssetGroupLabel(asset: MapAssetSummary) {
-  const relativePath = asset.relativePath.replaceAll('\\', '/')
-  const pathSegments = relativePath.split('/')
-  const fileName = pathSegments[pathSegments.length - 1]?.replace(/\.(tmx|xnb)$/i, '') ?? asset.name
-  const familySource = /^Island(?:_|-|[A-Z])/.test(fileName)
-    ? 'Island'
-    : fileName.split(/[-_]/)[0]?.replace(/\d+$/u, '') || fileName
-
-  return familySource || '#'
 }
 
 export default function LeftDock({

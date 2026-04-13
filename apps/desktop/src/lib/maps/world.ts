@@ -11,14 +11,12 @@ import type {
   MapTileset,
   MapTilesetAnimationFrame,
 } from './types'
-
-type WarpEntry = {
-  sourceX: number
-  sourceY: number
-  targetMap: string
-  targetX: number
-  targetY: number
-}
+import { asMapPropertyString } from './properties'
+import { normalizeMapName } from './mapNames'
+import { getActionTargetMap, getPortalTargetMapFromProperties } from './portalTargets'
+import { extractTileFlags, stripTileGidFlags } from './tileFlags'
+import { findTilesetForGid } from './tilesets'
+import { isExteriorWarp, parseWarpEntries } from './warps'
 
 type MapPlacement = {
   document: MapDocument
@@ -55,25 +53,11 @@ type WarpEdge = {
   samples: number
 }
 
-const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
-const FLIPPED_VERTICALLY_FLAG = 0x40000000
-const FLIPPED_DIAGONALLY_FLAG = 0x20000000
-const ROTATED_HEXAGONAL_120_FLAG = 0x10000000
-const FLAG_MASK =
-  FLIPPED_HORIZONTALLY_FLAG |
-  FLIPPED_VERTICALLY_FLAG |
-  FLIPPED_DIAGONALLY_FLAG |
-  ROTATED_HEXAGONAL_120_FLAG
-const TILE_ID_MASK = (~FLAG_MASK) >>> 0
 const RELAXATION_PASSES = 24
 const MAP_LAYOUT_GAP = 14
 const WORLD_MAP_SECTION_GAP = 80
 const ATLAS_ROUTE_PADDING = 3
 const OVERLAP_RESOLUTION_PASSES = 10
-
-function normalizeMapName(name: string) {
-  return name.trim().toLowerCase()
-}
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -263,82 +247,12 @@ export function parseWorldMapLayout(content: string) {
   return Object.fromEntries(Array.from(layout.entries(), ([key, value]) => [key, value.area])) as WorldMapLayout
 }
 
-function asPropertyString(value: MapPropertyValue | undefined) {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value)
-  }
-
-  return ''
-}
-
 function isTruthyProperty(value: MapPropertyValue | undefined) {
   if (typeof value === 'boolean') {
     return value
   }
 
-  return ['t', 'true', '1', 'yes'].includes(asPropertyString(value).trim().toLowerCase())
-}
-
-function parseWarpProperty(rawValue: string) {
-  const tokens = rawValue.trim().split(/\s+/)
-  const entries: WarpEntry[] = []
-
-  for (let index = 0; index + 4 < tokens.length; index += 5) {
-    const sourceX = Number.parseInt(tokens[index], 10)
-    const sourceY = Number.parseInt(tokens[index + 1], 10)
-    const targetMap = tokens[index + 2]
-    const targetX = Number.parseInt(tokens[index + 3], 10)
-    const targetY = Number.parseInt(tokens[index + 4], 10)
-
-    if (
-      !Number.isFinite(sourceX) ||
-      !Number.isFinite(sourceY) ||
-      !Number.isFinite(targetX) ||
-      !Number.isFinite(targetY) ||
-      !targetMap
-    ) {
-      continue
-    }
-
-    entries.push({
-      sourceX,
-      sourceY,
-      targetMap,
-      targetX,
-      targetY,
-    })
-  }
-
-  return entries
-}
-
-function parseWarpEntries(mapDocument: MapDocument) {
-  const properties = ['Warp', 'NPCWarp']
-  const entries: WarpEntry[] = []
-
-  for (const propertyName of properties) {
-    const rawValue = asPropertyString(mapDocument.properties[propertyName]).trim()
-    if (!rawValue) {
-      continue
-    }
-
-    entries.push(...parseWarpProperty(rawValue))
-  }
-
-  return entries
-}
-
-function isExteriorWarp(mapDocument: MapDocument, entry: WarpEntry) {
-  return (
-    entry.sourceX < 0 ||
-    entry.sourceY < 0 ||
-    entry.sourceX >= mapDocument.width ||
-    entry.sourceY >= mapDocument.height
-  )
+  return ['t', 'true', '1', 'yes'].includes(asMapPropertyString(value).trim().toLowerCase())
 }
 
 function canBePlacedInWorldAtlas(mapDocument: MapDocument) {
@@ -889,25 +803,13 @@ function buildLayoutFromWorldMap(
   }
 }
 
-function findTileset(tilesets: MapTileset[], gid: number) {
-  for (let index = tilesets.length - 1; index >= 0; index -= 1) {
-    const tileset = tilesets[index]
-    if (gid >= tileset.firstGid) {
-      return tileset
-    }
-  }
-
-  return null
-}
-
 function toAtlasTileGid(rawGid: number, tilesets: MapTileset[], firstGidMap: Map<number, number>) {
-  const gid = rawGid >>> 0
-  const baseGid = gid & TILE_ID_MASK
+  const baseGid = stripTileGidFlags(rawGid)
   if (baseGid === 0) {
     return 0
   }
 
-  const tileset = findTileset(tilesets, baseGid)
+  const tileset = findTilesetForGid(tilesets, baseGid)
   if (!tileset) {
     return 0
   }
@@ -917,7 +819,7 @@ function toAtlasTileGid(rawGid: number, tilesets: MapTileset[], firstGidMap: Map
     return 0
   }
 
-  const flags = gid & FLAG_MASK
+  const flags = extractTileFlags(rawGid)
   return (flags | (atlasFirstGid + (baseGid - tileset.firstGid))) >>> 0
 }
 
@@ -1435,83 +1337,6 @@ function buildAtlasPortals(placements: MapPlacement[]) {
       sourceY: clamp(sourceY, 0, sourceDocument.height - 1),
       samples: 1,
     })
-  }
-
-  function parsePortalTargetMapFromAction(rawAction: string) {
-    const tokens = rawAction.trim().split(/\s+/)
-    if (!tokens.length) {
-      return null
-    }
-
-    const actionName = tokens[0]
-    if (actionName === 'LockedDoorWarp' && tokens.length >= 4) {
-      return tokens[3]
-    }
-
-    if (actionName === 'MagicWarp' && tokens.length >= 2) {
-      return tokens[1]
-    }
-
-    if (actionName === 'Warp') {
-      if (tokens.length >= 4 && Number.isFinite(Number(tokens[1])) && Number.isFinite(Number(tokens[2]))) {
-        return tokens[3]
-      }
-
-      if (tokens.length >= 2) {
-        return tokens[1]
-      }
-    }
-
-    return null
-  }
-
-  function getActionTargetMap(rawGid: number, sourceDocument: MapDocument) {
-    const gid = rawGid >>> 0
-    const baseGid = gid & TILE_ID_MASK
-    if (baseGid === 0) {
-      return null
-    }
-
-    const tileset = findTileset(sourceDocument.tilesets, baseGid)
-    if (!tileset) {
-      return null
-    }
-
-    const tileId = baseGid - tileset.firstGid
-    const tileProperties = tileset.tileProperties[tileId]
-    if (!tileProperties) {
-      return null
-    }
-
-    for (const propertyName of ['Action', 'TouchAction']) {
-      const rawAction = asPropertyString(tileProperties[propertyName]).trim()
-      if (!rawAction) {
-        continue
-      }
-
-      const targetMap = parsePortalTargetMapFromAction(rawAction)
-      if (targetMap) {
-        return targetMap
-      }
-    }
-
-    return null
-  }
-
-  function getPortalTargetMapFromProperties(properties: Record<string, MapPropertyValue>) {
-    for (const propertyName of ['Action', 'TouchAction']) {
-      const rawAction = asPropertyString(properties[propertyName]).trim()
-      if (!rawAction) {
-        continue
-      }
-
-      const targetMap = parsePortalTargetMapFromAction(rawAction)
-      if (targetMap) {
-        return targetMap
-      }
-    }
-
-    return null
   }
 
   for (const placement of placements) {

@@ -1,20 +1,10 @@
 use super::types::ContentPatcherProjectDiagnostic;
+pub(crate) use crate::domain::manifest::content_pack_for_unique_id;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
 pub(crate) fn as_non_empty_string(value: Option<&Value>) -> Option<String> {
     value
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-pub(crate) fn content_pack_for_unique_id(manifest: &Value) -> Option<String> {
-    manifest
-        .get("ContentPackFor")
-        .and_then(Value::as_object)
-        .and_then(|pack| pack.get("UniqueID"))
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())

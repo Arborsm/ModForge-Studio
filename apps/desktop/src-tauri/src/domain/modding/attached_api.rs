@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::domain::manifest::normalize_unique_id;
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct AttachedApiRegistry {
     provided_unique_ids_by_provider: BTreeMap<String, Vec<String>>,
@@ -132,10 +134,6 @@ pub(crate) struct AttachedApiDescriptor {
 pub(crate) struct AttachedApiTargetDescriptor {
     pub(crate) asset_path: String,
     pub(crate) asset_kind: String,
-}
-
-fn normalize_unique_id(value: &str) -> String {
-    value.trim().to_ascii_lowercase()
 }
 
 fn normalize_asset_path(path: &str) -> String {

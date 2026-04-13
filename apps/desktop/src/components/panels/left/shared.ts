@@ -32,18 +32,6 @@ export type AssetBrowserPanelProps = {
   onOpenModAsset: (entry: ModBrowserEntry<MapAssetSummary>) => void
 }
 
-export function formatBytes(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 export function getAssetGroupLabel(asset: MapAssetSummary) {
   const relativePath = asset.relativePath.replaceAll('\\', '/')
   const pathSegments = relativePath.split('/')
@@ -54,3 +42,5 @@ export function getAssetGroupLabel(asset: MapAssetSummary) {
 
   return familySource || '#'
 }
+
+export { formatBytes } from '../../byteSize'

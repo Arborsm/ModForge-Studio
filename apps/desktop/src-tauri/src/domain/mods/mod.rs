@@ -5,6 +5,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::domain::content_patcher::attached::load_attached_api_registry;
+use crate::domain::manifest::{
+    content_pack_for_unique_id, normalize_unique_id, project_name_from_manifest,
+    required_dependency_ids, string_array_field, string_field,
+};
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::game_formats::json_relaxed;
@@ -170,81 +174,12 @@ struct ProjectCompatibility {
     missing_required_dependencies: Vec<String>,
 }
 
-fn string_field(value: &Value, key: &str) -> Option<String> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn bool_field(value: &Value, key: &str) -> Option<bool> {
-    value.get(key).and_then(Value::as_bool)
-}
-
-fn string_array_field(value: &Value, key: &str) -> Vec<String> {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-                .map(ToOwned::to_owned)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
-}
-
 fn object_field<'a>(value: &'a Value, key: &str) -> Option<&'a Map<String, Value>> {
     value.get(key).and_then(Value::as_object)
 }
 
 fn array_field<'a>(value: &'a Value, key: &str) -> Option<&'a Vec<Value>> {
     value.get(key).and_then(Value::as_array)
-}
-
-fn content_pack_for_unique_id(manifest: &Value) -> Option<String> {
-    object_field(manifest, "ContentPackFor")
-        .and_then(|pack| pack.get("UniqueID"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn normalize_unique_id(value: &str) -> String {
-    value.trim().to_ascii_lowercase()
-}
-
-fn required_dependency_ids(manifest: &Value) -> Vec<String> {
-    let mut dependencies = Vec::new();
-    let mut seen = BTreeSet::new();
-
-    for dependency in array_field(manifest, "Dependencies").into_iter().flatten() {
-        let Some(object) = dependency.as_object() else {
-            continue;
-        };
-        if bool_field(&Value::Object(object.clone()), "IsRequired") != Some(true) {
-            continue;
-        }
-        let Some(unique_id) = object
-            .get("UniqueID")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        else {
-            continue;
-        };
-        if seen.insert(normalize_unique_id(unique_id)) {
-            dependencies.push(unique_id.to_string());
-        }
-    }
-
-    dependencies
 }
 
 fn is_content_patcher_manifest(manifest: &Value) -> bool {
@@ -573,17 +508,6 @@ fn build_diagnostics(manifest: &Value, content: &Value, is_cp: bool) -> Vec<ModP
     }
 
     diagnostics
-}
-
-fn project_name_from_manifest(manifest: &Value, project_path: &Path) -> String {
-    string_field(manifest, "Name")
-        .or_else(|| {
-            project_path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .map(ToOwned::to_owned)
-        })
-        .unwrap_or_else(|| "Unnamed Mod".to_string())
 }
 
 fn build_project_summary(

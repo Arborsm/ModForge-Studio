@@ -1,3 +1,4 @@
+import { formatPoint } from '../../../lib/app/geometryFormatting'
 import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import type { BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
 import { PanelFrame } from '../../ui/PanelFrame'
@@ -23,10 +24,6 @@ function renderDictionary(entries: Record<string, string>, noneLabel: string) {
       ))}
     </div>
   )
-}
-
-function formatPoint(value: { X: number; Y: number } | null, fallback: string) {
-  return value ? `${value.X}, ${value.Y}` : fallback
 }
 
 export function BuildingDetailsPanel({ building }: BuildingDetailsPanelProps) {

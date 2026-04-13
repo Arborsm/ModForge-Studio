@@ -20,24 +20,13 @@ import {
   type LauncherLibraryStorageFolder,
 } from '../desktop'
 import { getLauncherCoverKey, getLauncherCoverKeyCandidates } from './coverKey'
+import { getModKey, includesFilter, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
 import type { LauncherSettingsDraft, LauncherViewState } from './types'
 
 const UNSORTED_FOLDER_ID = 'unsorted'
 const UNSORTED_FOLDER_NAME = 'Unsorted'
 const LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY = 3
 const LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID = 'launcher-library-auto-cover-progress'
-
-function normalizeLookupKey(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function normalizeModKey(value: string) {
-  return value.trim()
-}
-
-function getModKey(item: LauncherLibraryModSummary) {
-  return normalizeModKey(item.uniqueId || item.labelKey || item.id)
-}
 
 function createDefaultLibraryState(): LauncherLibraryState {
   return {
@@ -177,25 +166,6 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
     currentPackId,
     scopeMode,
   }
-}
-
-function includesFilter(item: LauncherLibraryModSummary, normalizedFilter: string) {
-  if (!normalizedFilter) {
-    return true
-  }
-
-  return [
-    item.name,
-    item.author,
-    item.version,
-    item.uniqueId,
-    item.description,
-    item.folderName,
-    item.absolutePath,
-    item.labelKey,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .some((value) => value.toLowerCase().includes(normalizedFilter))
 }
 
 function slugifyName(value: string) {

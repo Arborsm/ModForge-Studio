@@ -1,4 +1,5 @@
-import type { MapDocument, MapLayer, MapTileset } from '../maps/types'
+import type { MapDocument, MapLayer } from '../maps/types'
+import { findTilesetForGid } from '../maps/tilesets'
 import type { EventActorState } from './eventStageShared'
 
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
@@ -6,17 +7,6 @@ const FLIPPED_VERTICALLY_FLAG = 0x40000000
 const FLIPPED_DIAGONALLY_FLAG = 0x20000000
 const FLAG_MASK = (FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG) >>> 0
 const TILE_ID_MASK = (~FLAG_MASK) >>> 0
-
-function findTileset(tilesets: MapTileset[], gid: number) {
-  for (let index = tilesets.length - 1; index >= 0; index -= 1) {
-    const tileset = tilesets[index]
-    if (gid >= tileset.firstGid) {
-      return tileset
-    }
-  }
-
-  return null
-}
 
 function getLayerByName(mapDocument: MapDocument, layerName: string) {
   const normalizedLayerName = layerName.trim().toLowerCase()
@@ -40,7 +30,7 @@ function getTileProperty(mapDocument: MapDocument, layerName: string, tileX: num
     return null
   }
 
-  const tileset = findTileset(mapDocument.tilesets, gid)
+  const tileset = findTilesetForGid(mapDocument.tilesets, gid)
   if (!tileset) {
     return null
   }

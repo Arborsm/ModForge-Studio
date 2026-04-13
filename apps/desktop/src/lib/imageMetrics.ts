@@ -1,4 +1,7 @@
+import { getLocalizedPathCacheKey } from './cachePaths'
 import { loadImageDataUrl } from './desktop'
+
+export { getLocalizedPathCacheKey, normalizeCachePathSegment } from './cachePaths'
 
 export type LoadedImageResource = {
   image: HTMLImageElement
@@ -13,12 +16,12 @@ const MAX_PATH_IMAGE_RESOURCE_CACHE_ENTRIES = 128
 const imageResourceCache = new Map<string, Promise<LoadedImageResource>>()
 const pathImageResourceCache = new Map<string, Promise<LoadedImageResource | null>>()
 
-function normalizeCachePathSegment(value: string) {
-  return value.trim().replaceAll('/', '\\')
-}
+export function getLocalizedImagePathCandidates(path: string, locale?: string) {
+  if (!locale || locale === 'en-US') {
+    return [path]
+  }
 
-function getLocalizedPathCacheKey(path: string, locale?: string) {
-  return `${normalizeCachePathSegment(path)}::${locale?.trim() || 'default'}`
+  return [path.replace(/\.xnb$/iu, `.${locale}.xnb`), path]
 }
 
 function trimCache<K, V>(cache: Map<K, V>, maxEntries: number) {

@@ -11,7 +11,7 @@ use infrastructure::game_formats::xact;
 #[test]
 #[ignore = "manual XACT coverage report against installed game data"]
 fn report_xact_simple_cue_coverage() {
-    let game_root = resolve_game_root();
+    let game_root = test_support::resolve_game_root();
     let xsb_path = game_root.join("Content/XACT/Sound Bank.xsb");
     assert!(
         xsb_path.exists(),
@@ -59,7 +59,7 @@ fn report_xact_simple_cue_coverage() {
 #[test]
 #[ignore = "manual XACT coverage report against installed game data"]
 fn report_xact_total_cue_coverage() {
-    let game_root = resolve_game_root();
+    let game_root = test_support::resolve_game_root();
     let xsb_path = game_root.join("Content/XACT/Sound Bank.xsb");
     assert!(
         xsb_path.exists(),
@@ -114,10 +114,6 @@ fn report_xact_total_cue_coverage() {
         &timings,
     );
     assert_eq!(passed, total, "some cues still failed");
-}
-
-fn resolve_game_root() -> PathBuf {
-    test_support::resolve_game_root()
 }
 
 fn percentage(passed: usize, total: usize) -> f64 {

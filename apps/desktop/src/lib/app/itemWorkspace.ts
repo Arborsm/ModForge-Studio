@@ -3,6 +3,7 @@ import {
   getClothingShirtMenuMaskSourceRect,
   getClothingShirtMenuSourceRect,
 } from './clothingSprites'
+export { buildGameContentPath } from './contentPaths'
 
 export const OBJECT_DATA_ASSET_PATH = 'Content\\Data\\Objects.xnb'
 export const BIG_CRAFTABLE_DATA_ASSET_PATH = 'Content\\Data\\BigCraftables.xnb'
@@ -673,14 +674,6 @@ export function buildItemSearchAliases(...values: Array<string | null | undefine
     })
     .join(' ')
     .toLowerCase()
-}
-
-export function buildGameContentPath(rootPath: string, assetName: string | null) {
-  if (!assetName) {
-    return null
-  }
-
-  return `${rootPath}\\Content\\${assetName.replaceAll('/', '\\')}.xnb`
 }
 
 export function getQualifiedItemId(kind: ItemKind, itemId: string) {
