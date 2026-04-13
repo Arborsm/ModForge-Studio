@@ -19,7 +19,8 @@
 │        ├─ src/                   # Rust 源码
 │        └─ tests/                 # Rust 集成/回归测试与共享 support
 ├─ AGENTS.md                       # 仓库约束、结构规范、命令约定
-├─ package.json                    # 工作区脚本入口
+├─ package.json                    # 根脚本入口
+├─ pnpm-workspace.yaml             # pnpm workspace 包范围定义
 └─ ModForge.Studio.slnx            # 解决方案入口
 ```
 
@@ -205,6 +206,7 @@
 - `uv run npm.cmd run lint -w @modforge/desktop`: 前端 lint。
 - `uv run npm.cmd run test -w @modforge/desktop`: 前端测试。
 - `uv run npm.cmd run build --workspace @modforge/desktop`: 前端构建。
+- `uv run pnpm -r list --depth -1`: 检查 pnpm workspace 是否正确识别根包和各子包。
 - `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`: Rust 检查。
 - `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`: Rust 测试。
 

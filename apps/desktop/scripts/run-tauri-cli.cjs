@@ -3,7 +3,7 @@ const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 
 const desktopRoot = path.resolve(__dirname, '..')
-const tauriCliEntry = path.resolve(desktopRoot, '../../node_modules/@tauri-apps/cli/tauri.js')
+const tauriCliEntry = require.resolve('@tauri-apps/cli/tauri.js', { paths: [desktopRoot] })
 
 async function main() {
   const userArgs = process.argv.slice(2)

@@ -188,7 +188,7 @@ export default function SettingsWindow({
       return
     }
 
-    let nextIndex = index
+    let nextIndex: number
 
     switch (event.key) {
       case 'ArrowDown':
