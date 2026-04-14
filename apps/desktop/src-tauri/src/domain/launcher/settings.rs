@@ -26,6 +26,7 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
         nexus_cookie: normalize_optional_text(settings.nexus_cookie),
         auto_install_downloads: settings.auto_install_downloads,
         keep_downloaded_archives: settings.keep_downloaded_archives,
+        auto_check_mod_updates: settings.auto_check_mod_updates,
     }
 }
 
@@ -161,6 +162,9 @@ pub fn save_launcher_settings(
                 keep_downloaded_archives: request
                     .keep_downloaded_archives
                     .unwrap_or(existing.keep_downloaded_archives),
+                auto_check_mod_updates: request
+                    .auto_check_mod_updates
+                    .unwrap_or(existing.auto_check_mod_updates),
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;
@@ -169,3 +173,7 @@ pub fn save_launcher_settings(
         })(),
     )
 }
+
+#[cfg(test)]
+#[path = "tests/settings_tests.rs"]
+mod settings_tests;

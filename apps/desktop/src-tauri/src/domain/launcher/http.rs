@@ -314,6 +314,13 @@ fn is_launcher_nexus_route_blocked(route: LauncherNexusRoute) -> bool {
         .unwrap_or(false)
 }
 
+fn launcher_nexus_force_offline_active() -> bool {
+    launcher_nexus_diagnostics_state()
+        .lock()
+        .expect("launcher nexus diagnostics mutex should not be poisoned")
+        .force_offline
+}
+
 fn set_launcher_nexus_route_snapshot(snapshot: LauncherNexusRouteSnapshot) {
     let Some(route) = LauncherNexusRoute::from_route_id(&snapshot.route_id) else {
         return;
@@ -334,6 +341,10 @@ pub(crate) fn probe_blocked_launcher_nexus_route_with_runner<F>(
 where
     F: FnMut() -> Result<(), String>,
 {
+    if launcher_nexus_force_offline_active() {
+        return ensure_launcher_nexus_route_available(route);
+    }
+
     if !is_launcher_nexus_route_blocked(route) {
         return Ok(());
     }
@@ -743,6 +754,15 @@ pub(crate) fn load_launcher_nexus_diagnostics(
     app: &AppHandle,
 ) -> Result<LauncherNexusDiagnosticsResult, String> {
     prime_launcher_nexus_diagnostics(app)?;
+    Ok(snapshot_launcher_nexus_diagnostics())
+}
+
+pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
+    app: &AppHandle,
+) -> Result<LauncherNexusDiagnosticsResult, String> {
+    let settings_path = launcher_settings_path(app)?;
+    let settings = load_or_create_settings_at_path(&settings_path)?;
+    restart_launcher_nexus_diagnostics(&settings);
     Ok(snapshot_launcher_nexus_diagnostics())
 }
 

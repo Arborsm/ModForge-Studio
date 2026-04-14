@@ -19,7 +19,6 @@ use crate::domain::launcher::library::{
     persist_auto_library_cover_at_path, save_library_covers_at_path, save_library_state_at_path,
     scan_library_at_path, set_launcher_mod_enabled_blocking,
 };
-use crate::domain::launcher::settings::{load_or_create_settings_at_path, save_settings_at_path};
 use crate::domain::launcher::trace::format_launcher_trace_message;
 use crate::domain::launcher::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
@@ -141,32 +140,6 @@ fn launcher_trace_message_skips_blank_values() {
         message,
         r#"launcher.toggle.complete modPath="E:\\Games\\Mods\\ExamplePack" enabled="false""#
     );
-}
-
-#[test]
-fn launcher_settings_create_default_and_save_roundtrip() {
-    let root = create_temp_dir("launcher-settings");
-    let settings_path = root.join("launcher").join("settings.json");
-
-    let default_settings = load_or_create_settings_at_path(&settings_path).expect("load defaults");
-    assert_eq!(default_settings, LauncherSettings::default());
-    assert!(settings_path.is_file());
-
-    let saved_settings = LauncherSettings {
-        game_path: Some(r"C:\Games\Stardew Valley".to_string()),
-        mods_path: Some(r"C:\Games\Stardew Valley\Mods".to_string()),
-        download_path: Some(r"C:\Users\Example\Downloads\ModForge Studio".to_string()),
-        nexus_api_key: Some("nexus-key".to_string()),
-        nexus_cookie: Some("cookie=value".to_string()),
-        auto_install_downloads: true,
-        keep_downloaded_archives: true,
-    };
-    save_settings_at_path(&settings_path, &saved_settings).expect("save settings");
-
-    let reloaded = load_or_create_settings_at_path(&settings_path).expect("reload settings");
-    assert_eq!(reloaded, saved_settings);
-
-    fs::remove_dir_all(root).expect("cleanup");
 }
 
 #[test]

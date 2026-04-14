@@ -361,6 +361,7 @@ export type LauncherSettings = {
   nexusCookie: string | null
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
+  autoCheckModUpdates: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -371,6 +372,7 @@ export type SaveLauncherSettingsRequest = {
   nexusCookie?: string | null
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
+  autoCheckModUpdates?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -1415,6 +1417,10 @@ export function loadLauncherUpdateChangelog(request: LoadLauncherUpdateChangelog
 
 export function loadLauncherNexusDiagnostics() {
   return invokeDesktop<LauncherNexusDiagnosticsResult>('load_launcher_nexus_diagnostics')
+}
+
+export function restartLauncherNexusDiagnostics() {
+  return invokeDesktop<LauncherNexusDiagnosticsResult>('restart_launcher_nexus_diagnostics')
 }
 
 export function setLauncherNexusForceOffline(forceOffline: boolean) {

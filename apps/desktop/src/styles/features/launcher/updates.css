@@ -63,6 +63,37 @@
     padding: 0;
   }
 
+  .launcher-updates-shell-state {
+    display: grid;
+    place-items: center;
+    padding: clamp(20px, 3vw, 32px);
+    overflow: hidden;
+  }
+
+  .launcher-updates-content {
+    width: 100%;
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    padding: clamp(20px, 3vw, 32px);
+    border-radius: 18px;
+  }
+
+  .launcher-updates-content-blocked,
+  .launcher-updates-content-empty {
+    background:
+      linear-gradient(180deg, #f8f9fa, color-mix(in srgb, #f8f9fa 76%, var(--bg-panel) 24%));
+  }
+
+  .launcher-updates-content-error {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, #fff1f2 72%, var(--bg-panel) 28%),
+        color-mix(in srgb, #f8fafc 82%, var(--bg-panel) 18%)
+      );
+  }
+
   .launcher-updates-list {
     display: grid;
   }

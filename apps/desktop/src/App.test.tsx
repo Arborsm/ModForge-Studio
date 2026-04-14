@@ -161,6 +161,7 @@ const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
 const canUseDesktopHostMock = vi.fn(() => false)
 const loadLauncherNexusDiagnosticsMock = vi.fn(async () => ({ routes: [] }))
 const setLauncherNexusForceOfflineMock = vi.fn(async () => ({ routes: [] }))
+const restartLauncherNexusDiagnosticsMock = vi.fn(async () => ({ routes: [] }))
 
 function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
   mockAppUiState = createMockAppUiState(overrides)
@@ -254,6 +255,7 @@ vi.mock('./lib/launcher/useLauncherRuntime', () => ({
         nexusCookie: null,
         autoInstallDownloads: false,
         keepDownloadedArchives: false,
+        autoCheckModUpdates: true,
       },
       state: 'ready',
       error: null,
@@ -293,6 +295,7 @@ vi.mock('./lib/launcher/useLauncherRuntime', () => ({
     credentialsReady: false,
     settingsWarning: true,
     settingsWarningLabel: 'Launcher setup incomplete',
+    updatesBadgeCount: 0,
     downloadsBadgeCount: 0,
     downloadsProgressPercent: null,
     downloadsHasFailure: false,
@@ -308,6 +311,7 @@ vi.mock('./lib/desktop', () => ({
   isCurrentWindowFullscreen: vi.fn(async () => false),
   loadCachedLauncherUpdates: vi.fn(async () => null),
   loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
+  restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
   listKnownGameDirectories: vi.fn(async () => []),
@@ -406,6 +410,8 @@ describe('App locale ownership', () => {
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({ routes: [] })
     setLauncherNexusForceOfflineMock.mockReset()
     setLauncherNexusForceOfflineMock.mockResolvedValue({ routes: [] })
+    restartLauncherNexusDiagnosticsMock.mockReset()
+    restartLauncherNexusDiagnosticsMock.mockResolvedValue({ routes: [] })
     initializeAppUiStateMock.mockClear()
     initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
     applyAppUiStatePatchMock.mockClear()
@@ -649,9 +655,118 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsTitle)).toBeTruthy()
+    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationTitle)).toBeTruthy()
+    expect(
+      screen.getByText(
+        editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationImpact('Discover / automatic updates'),
+      ),
+    ).toBeTruthy()
+    expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
+    expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationNote)).toBeTruthy()
     expect(screen.getByText(/Nexus Public GraphQL/)).toBeTruthy()
-    expect(screen.getByText(/Failed after 3 attempts: timeout/)).toBeTruthy()
+    expect(screen.queryByText(/Failed after 3 attempts: timeout/)).toBeNull()
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeTruthy()
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
+  })
+
+  it('does not expose a diagnostics retry action while launcher Nexus routes are forced offline', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+      launcher: { forceOffline: true },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    })
+
+    render(<App />)
+
+    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationTitle)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeNull()
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
+  })
+
+  it('opens the launcher debug page from the diagnostics notification detail button', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    })
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: editorCopy['en-US'].launcher.debug.title })).toBeTruthy()
+    })
+  })
+
+  it('restarts Nexus diagnostics from the diagnostics notification retry button', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    })
+    restartLauncherNexusDiagnosticsMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'loading',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Attempt 1 of 3 is in progress.',
+        },
+      ],
+    })
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.retry }))
+
+    await waitFor(() => {
+      expect(restartLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('applies the persisted launcher force-offline override during startup hydration', async () => {

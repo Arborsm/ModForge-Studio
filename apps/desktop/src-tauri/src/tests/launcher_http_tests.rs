@@ -23,6 +23,7 @@ fn launcher_settings(api_key: Option<&str>, cookie: Option<&str>) -> LauncherSet
         nexus_cookie: cookie.map(str::to_string),
         auto_install_downloads: false,
         keep_downloaded_archives: false,
+        auto_check_mod_updates: true,
     }
 }
 
@@ -169,6 +170,40 @@ fn force_offline_override_blocks_all_configured_routes() {
         .expect_err("public GraphQL should be blocked while force offline is active");
     ensure_launcher_nexus_route_available(LauncherNexusRoute::Smapi)
         .expect_err("SMAPI should be blocked while force offline is active");
+}
+
+#[test]
+fn force_offline_override_prevents_blocked_route_reprobe_recovery() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    reset_launcher_nexus_diagnostics_for_test();
+
+    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None, None), true);
+
+    let mut attempts = 0;
+    let error = probe_blocked_launcher_nexus_route_with_runner(
+        LauncherNexusRoute::PublicGraphql,
+        || {
+            attempts += 1;
+            Ok(())
+        },
+        false,
+    )
+    .expect_err("forced-offline route should not recover via reprobe");
+
+    assert_eq!(attempts, 0);
+    assert!(error.contains("Forced offline"));
+
+    let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
+    let public_graphql = diagnostics
+        .routes
+        .iter()
+        .find(|route| route.route_id == LauncherNexusRoute::PublicGraphql.id())
+        .expect("public GraphQL snapshot should exist");
+    assert_eq!(public_graphql.status, LauncherNexusRouteStatus::Warning);
+    assert!(!public_graphql.available);
+    assert!(public_graphql.message.contains("Forced offline"));
 }
 
 #[test]

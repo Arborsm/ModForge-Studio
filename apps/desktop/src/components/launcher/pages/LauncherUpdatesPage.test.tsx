@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
+  LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
   LauncherSettings,
   LauncherUpdateChangelogResult,
@@ -11,6 +12,7 @@ import type {
 import {
   checkLauncherUpdates,
   loadCachedLauncherUpdates,
+  loadLauncherNexusDiagnostics,
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
   subscribeLauncherUpdates,
@@ -28,6 +30,7 @@ vi.mock('../../../lib/desktop', async () => {
     ...actual,
     checkLauncherUpdates: vi.fn(),
     loadCachedLauncherUpdates: vi.fn(),
+    loadLauncherNexusDiagnostics: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     loadLauncherUpdateChangelog: vi.fn(),
     listenToLauncherUpdateProgress: vi.fn(async (listener: (payload: unknown) => void) => {
@@ -62,6 +65,7 @@ vi.mock('../../../lib/launcher/imageLoader', () => ({
 
 const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
 const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
+const loadLauncherNexusDiagnosticsMock = vi.mocked(loadLauncherNexusDiagnostics)
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
 const loadLauncherUpdateChangelogMock = vi.mocked(loadLauncherUpdateChangelog)
 const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
@@ -101,6 +105,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
   }
 }
@@ -126,6 +131,47 @@ function createResult(updates: LauncherUpdateSummary[]): LauncherUpdatesResult {
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     checkedAtMs: 123,
     updates,
+  }
+}
+
+function createLauncherDiagnosticsResult(
+  overrides: Partial<Record<string, { status: 'loading' | 'warning' | 'success'; available: boolean; message: string }>> = {},
+): LauncherNexusDiagnosticsResult {
+  const defaults: Record<
+    string,
+    { label: string; endpoint: string; status: 'loading' | 'warning' | 'success'; available: boolean; message: string }
+  > = {
+    publicGraphql: {
+      label: 'Nexus Public GraphQL',
+      endpoint: 'https://api-router.nexusmods.com/graphql',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    publicHtml: {
+      label: 'Nexus Public HTML',
+      endpoint: 'https://www.nexusmods.com/stardewvalley',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    smapi: {
+      label: 'SMAPI',
+      endpoint: 'https://smapi.io/api/v3.0/mods',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+  }
+
+  return {
+    routes: Object.entries(defaults).map(([routeId, route]) => ({
+      routeId,
+      attempts: 1,
+      maxAttempts: 3,
+      ...route,
+      ...(overrides[routeId] ?? {}),
+    })),
   }
 }
 
@@ -167,6 +213,7 @@ describe('LauncherUpdatesPage', () => {
 
   beforeEach(() => {
     loadCachedLauncherUpdatesMock.mockResolvedValue(null)
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
     subscribeLauncherUpdatesMock.mockReturnValue(() => {})
   })
 
@@ -244,6 +291,107 @@ describe('LauncherUpdatesPage', () => {
     expect(await screen.findByText(/修复了在冬季由于雪地渲染导致的菜单闪烁 Bug/)).toBeTruthy()
     expect(screen.getByRole('button', { name: '前往模组主页' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '查看评论区' })).toBeTruthy()
+  })
+
+  it('shows diagnostics details when automatic update checks are blocked by unavailable routes', async () => {
+    const onRetryDiagnostics = vi.fn().mockResolvedValue(undefined)
+    const onNavigateToDiagnostics = vi.fn()
+    loadLauncherNexusDiagnosticsMock
+      .mockResolvedValueOnce(
+        createLauncherDiagnosticsResult({
+          publicGraphql: {
+            status: 'warning',
+            available: false,
+            message: 'Forced offline by debug override.',
+          },
+          publicHtml: {
+            status: 'warning',
+            available: false,
+            message: 'Forced offline by debug override.',
+          },
+          smapi: {
+            status: 'warning',
+            available: false,
+            message: 'Forced offline by debug override.',
+          },
+        }),
+      )
+      .mockResolvedValue(createLauncherDiagnosticsResult())
+    checkLauncherUpdatesMock.mockResolvedValue(createResult([]))
+
+    const { container } = renderWithProviders(
+      <LauncherUpdatesPage
+        settings={createSettings()}
+        onQueueDownload={vi.fn()}
+        onRetryDiagnostics={onRetryDiagnostics}
+        onNavigateToDiagnostics={onNavigateToDiagnostics}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(container.querySelector('.launcher-updates-content-blocked')).toBeTruthy()
+    expect(container.querySelector('.launcher-blocked-state')).toBeTruthy()
+    expect(await screen.findByText('自动更新检查已暂停')).toBeTruthy()
+    expect(screen.getByText('更新通路连续失败后，后台自动检查会先暂停，避免反复发送同样会失败的请求。')).toBeTruthy()
+    expect(await screen.findByText(/Nexus Public GraphQL: Forced offline by debug override\./)).toBeTruthy()
+    expect(screen.queryByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeNull()
+    expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '前往通路诊断' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '复制日志' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '展开详情' }))
+    expect(screen.getByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '前往通路诊断' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新检查' }))
+
+    await waitFor(() => {
+      expect(onNavigateToDiagnostics).toHaveBeenCalledTimes(1)
+      expect(onRetryDiagnostics).toHaveBeenCalledTimes(1)
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        forceRefresh: false,
+      })
+    })
+  })
+
+  it('renders a centered error card with diagnostics link and expandable request details', async () => {
+    const onNavigateToDiagnostics = vi.fn()
+    const onRetryDiagnostics = vi.fn().mockResolvedValue(undefined)
+    checkLauncherUpdatesMock
+      .mockRejectedValueOnce(new Error('Nexus Public GraphQL: timeout'))
+      .mockResolvedValueOnce(createResult([]))
+
+    const { container } = renderWithProviders(
+      <LauncherUpdatesPage
+        settings={createSettings()}
+        onQueueDownload={vi.fn()}
+        onRetryDiagnostics={onRetryDiagnostics}
+        onNavigateToDiagnostics={onNavigateToDiagnostics}
+      />,
+    )
+
+    expect(await screen.findByText('检查模组更新失败')).toBeTruthy()
+    expect(container.querySelector('.launcher-updates-content-error')).toBeTruthy()
+    expect(container.querySelector('.launcher-blocked-state')).toBeTruthy()
+    expect(screen.getByText('这次检查没有完成，请重试。详细原因已通过通知显示。')).toBeTruthy()
+    expect(screen.getByText(/Nexus Public GraphQL: timeout/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '前往通路诊断' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '前往通路诊断' }))
+    fireEvent.click(screen.getByRole('button', { name: '重新检查' }))
+
+    await waitFor(() => {
+      expect(onNavigateToDiagnostics).toHaveBeenCalledTimes(1)
+      expect(onRetryDiagnostics).toHaveBeenCalledTimes(1)
+      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('queues only the checked updates when updating all selected items', async () => {

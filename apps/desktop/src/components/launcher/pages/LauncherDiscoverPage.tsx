@@ -1,4 +1,6 @@
 import {
+  AlertTriangle,
+  ArrowRight,
   CalendarDays,
   ChevronDown,
   ChevronLeft,
@@ -9,6 +11,7 @@ import {
   HardDrive,
   LayoutGrid,
   RefreshCw,
+  Search,
 } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
@@ -23,6 +26,7 @@ import {
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
 import type { QueueLauncherDownloadInput } from '../../../lib/launcher/types'
 import { getLauncherCardMonogram } from '../cards/launcherCardPresentation'
+import { LauncherBlockedState } from '../shared/LauncherBlockedState'
 import { LauncherStateBlock } from '../shared/LauncherStateBlock'
 import {
   applyAppUiStatePatch,
@@ -34,6 +38,8 @@ type LauncherDiscoverPageProps = {
   settings: LauncherSettings
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
   onNavigateToSettings?: () => void
+  onNavigateToDiagnostics?: () => void
+  onRetryDiagnostics?: (() => Promise<void> | void) | null
 }
 
 type DiscoverOption<T extends string | number> = {
@@ -201,11 +207,19 @@ function getInitialDiscoverToolbarState(): LauncherDiscoverToolbarState {
   return normalizeLauncherDiscoverToolbarState(getAppUiStateSnapshot().launcher.discoverToolbar)
 }
 
+function getBlockedReasonLines(reason: string | null | undefined) {
+  return (reason ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
 function DiscoverMenu<T extends string | number>({
   label,
   value,
   options,
   open,
+  disabled = false,
   onToggle,
   onSelect,
 }: {
@@ -213,6 +227,7 @@ function DiscoverMenu<T extends string | number>({
   value: T
   options: DiscoverOption<T>[]
   open: boolean
+  disabled?: boolean
   onToggle: () => void
   onSelect: (value: T) => void
 }) {
@@ -227,6 +242,7 @@ function DiscoverMenu<T extends string | number>({
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open ? 'true' : 'false'}
+        disabled={disabled}
       >
         <span>{active?.label ?? label}</span>
         <ChevronDown className="h-4 w-4" />
@@ -465,7 +481,11 @@ function TagSuggestionField({
   )
 }
 
-export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPageProps) {
+export function LauncherDiscoverPage({
+  onQueueDownload,
+  onNavigateToDiagnostics,
+  onRetryDiagnostics,
+}: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
   const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(
     () => getInitialDiscoverToolbarState(),
@@ -503,6 +523,8 @@ export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPagePr
     <LauncherDiscoverPageContent
       key={launcherUiStateReady ? 'discover:ready' : 'discover:boot'}
       onQueueDownload={onQueueDownload}
+      onNavigateToDiagnostics={onNavigateToDiagnostics}
+      onRetryDiagnostics={onRetryDiagnostics}
       initialToolbarState={hydratedToolbarState}
       launcherUiStateReady={launcherUiStateReady}
     />
@@ -511,10 +533,14 @@ export function LauncherDiscoverPage({ onQueueDownload }: LauncherDiscoverPagePr
 
 function LauncherDiscoverPageContent({
   onQueueDownload,
+  onNavigateToDiagnostics,
+  onRetryDiagnostics,
   initialToolbarState,
   launcherUiStateReady,
 }: {
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  onNavigateToDiagnostics?: () => void
+  onRetryDiagnostics?: (() => Promise<void> | void) | null
   initialToolbarState: LauncherDiscoverToolbarState
   launcherUiStateReady: boolean
 }) {
@@ -523,9 +549,17 @@ function LauncherDiscoverPageContent({
   const [filtersHidden, setFiltersHidden] = useState(initialToolbarState.filtersHidden)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [openSection, setOpenSection] = useState<DiscoverAccordionSection>(DEFAULT_DISCOVER_OPEN_SECTION)
+  const [blockedDetailsExpanded, setBlockedDetailsExpanded] = useState(false)
+  const [blockedRetryPending, setBlockedRetryPending] = useState(false)
   const [jumpPageDraft, setJumpPageDraft] = useState('')
   const [jumpPageDirty, setJumpPageDirty] = useState(false)
   const resultsViewportRef = useRef<HTMLDivElement | null>(null)
+  const discoverBlocked = Boolean(discover.blockedReason && discover.state !== 'loading')
+  const blockedReasonLines = getBlockedReasonLines(discover.blockedReason)
+  const primaryBlockedReason = blockedReasonLines[0] ?? null
+  const blockedReasonText = blockedReasonLines.join('\n')
+  const discoverRequestFailed = !discoverBlocked && discover.state === 'error'
+  const effectiveFiltersHidden = filtersHidden || discoverBlocked || discoverRequestFailed
   const resultCount = discover.totalCount || discover.items.length
   const categoryOptions = discover.facets.categories.length
     ? discover.facets.categories
@@ -583,6 +617,18 @@ function LauncherDiscoverPageContent({
   }, [discover.state])
 
   useEffect(() => {
+    setBlockedDetailsExpanded(false)
+  }, [discover.blockedReason])
+
+  useEffect(() => {
+    if (!discoverBlocked && !discoverRequestFailed) {
+      return
+    }
+
+    setOpenMenuId(null)
+  }, [discoverBlocked, discoverRequestFailed])
+
+  useEffect(() => {
     if (!launcherUiStateReady) {
       return
     }
@@ -629,6 +675,22 @@ function LauncherDiscoverPageContent({
     setJumpPageDraft('')
   }
 
+  const handleBlockedRetry = async () => {
+    if (blockedRetryPending) {
+      return
+    }
+
+    setBlockedRetryPending(true)
+    try {
+      await onRetryDiagnostics?.()
+    } catch {
+      // The follow-up discover revalidation will surface the latest blocked reason.
+    } finally {
+      discover.revalidate()
+      setBlockedRetryPending(false)
+    }
+  }
+
   return (
     <section className="launcher-discover-page">
       <header className="launcher-discover-console panel-surface">
@@ -646,9 +708,10 @@ function LauncherDiscoverPageContent({
               type="button"
               className="launcher-discover-filters-toggle control-button"
               onClick={() => setFiltersHidden((current) => !current)}
+              disabled={discoverBlocked || discoverRequestFailed}
             >
               <Filter className="h-4 w-4" />
-              <span>{filtersHidden ? 'Show filters' : 'Hide filters'}</span>
+              <span>{effectiveFiltersHidden ? 'Show filters' : 'Hide filters'}</span>
             </button>
             <div className="launcher-discover-console-actions">
               <DiscoverMenu
@@ -656,6 +719,7 @@ function LauncherDiscoverPageContent({
                 value={discover.timeRange}
                 options={TIME_RANGE_OPTIONS}
                 open={openMenuId === 'time'}
+                disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
                 onSelect={(value) => {
                   discover.setTimeRange(value)
@@ -667,6 +731,7 @@ function LauncherDiscoverPageContent({
                 value={discover.sort}
                 options={SORT_OPTIONS}
                 open={openMenuId === 'sort'}
+                disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
                 onSelect={(value) => {
                   discover.setSort(value)
@@ -677,6 +742,7 @@ function LauncherDiscoverPageContent({
                 type="button"
                 className="launcher-discover-order-button control-button"
                 onClick={() => discover.setAscending(!discover.ascending)}
+                disabled={discoverBlocked}
               >
                 {discover.ascending ? 'Asc.' : 'Desc.'}
               </button>
@@ -685,13 +751,19 @@ function LauncherDiscoverPageContent({
                 value={discover.pageSize}
                 options={PAGE_SIZE_OPTIONS}
                 open={openMenuId === 'size'}
+                disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
                 onSelect={(value) => {
                   discover.setPageSize(value)
                   setOpenMenuId(null)
                 }}
               />
-              <button type="button" className="launcher-discover-icon-button control-button" aria-label="Grid view">
+              <button
+                type="button"
+                className="launcher-discover-icon-button control-button"
+                aria-label="Grid view"
+                disabled={discoverBlocked}
+              >
                 <LayoutGrid className="h-4 w-4" />
               </button>
               <button
@@ -699,6 +771,7 @@ function LauncherDiscoverPageContent({
                 className="launcher-discover-icon-button control-button"
                 onClick={discover.refresh}
                 aria-label={copy.actions.refresh}
+                disabled={discoverBlocked}
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -707,10 +780,17 @@ function LauncherDiscoverPageContent({
         </div>
       </header>
 
-      <div className={cx('launcher-discover-shell', filtersHidden && 'launcher-discover-shell-filters-hidden')}>
-        {!filtersHidden ? (
-          <aside className="launcher-discover-sidebar panel-surface panel-surface-muted">
-            <div className="launcher-discover-sidebar-accordion">
+      <div className={cx('launcher-discover-shell', effectiveFiltersHidden && 'launcher-discover-shell-filters-hidden')}>
+        {!effectiveFiltersHidden ? (
+          <aside
+            className={cx(
+              'launcher-discover-sidebar panel-surface panel-surface-muted',
+              discoverBlocked && 'launcher-discover-sidebar-disabled',
+            )}
+            aria-disabled={discoverBlocked ? 'true' : undefined}
+          >
+            <fieldset className="launcher-discover-sidebar-fieldset" disabled={discoverBlocked}>
+              <div className="launcher-discover-sidebar-accordion">
               <DiscoverRailSection id="category" title="Category" open={openSection === 'category'} onToggle={toggleSection}>
                 <div className="launcher-discover-category-list">
                   {categoryOptions.map((category) => (
@@ -911,20 +991,94 @@ function LauncherDiscoverPageContent({
                   />
                 </div>
               </DiscoverRailSection>
-            </div>
+              </div>
+            </fieldset>
+            {discoverBlocked ? (
+              <div className="launcher-discover-sidebar-scrim" aria-hidden="true">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+            ) : null}
           </aside>
         ) : null}
 
-        <div className="launcher-discover-content">
-          {discover.state === 'error' ? (
-            <LauncherStateBlock title={copy.discover.title} detail={discover.error ?? copy.discover.empty} tone="warning" />
+        <div
+          className={cx(
+            'launcher-discover-content',
+            discoverBlocked && 'launcher-discover-content-blocked',
+            discoverRequestFailed && 'launcher-discover-content-error',
+          )}
+        >
+          {discoverBlocked ? (
+            <LauncherBlockedState
+              className="launcher-discover-blocked-state"
+              eyebrow={copy.discover.title}
+              title={copy.discover.blockedTitle}
+              detail={copy.discover.blockedDetail}
+              issueLabel={copy.discover.blockedIssueLabel}
+              issueSummary={primaryBlockedReason}
+              detailsText={blockedReasonText}
+              detailsExpanded={blockedDetailsExpanded}
+              detailsToggleLabel={
+                blockedDetailsExpanded
+                  ? copy.discover.blockedDetailsCollapseAction
+                  : copy.discover.blockedDetailsExpandAction
+              }
+              copyLabel={copy.discover.blockedCopyLogsAction}
+              onToggleDetails={() => setBlockedDetailsExpanded((current) => !current)}
+              onCopyDetails={() => {
+                if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+                  return
+                }
+
+                void navigator.clipboard.writeText(blockedReasonText)
+              }}
+              illustrationAccent={<Search className="h-4 w-4" />}
+              primaryAction={
+                <button
+                  type="button"
+                  className="control-button control-button-primary"
+                  onClick={() => void handleBlockedRetry()}
+                  disabled={blockedRetryPending}
+                  aria-busy={blockedRetryPending ? 'true' : undefined}
+                >
+                  <RefreshCw className={cx('h-4 w-4', blockedRetryPending && 'animate-spin')} />
+                  <span>{copy.discover.blockedRetryAction}</span>
+                </button>
+              }
+              secondaryAction={
+                onNavigateToDiagnostics ? (
+                  <button type="button" className="control-button" onClick={onNavigateToDiagnostics}>
+                    <ArrowRight className="h-4 w-4" />
+                    <span>{copy.discover.blockedDiagnosticsAction}</span>
+                  </button>
+                ) : null
+              }
+            />
           ) : null}
 
-          {discover.state !== 'error' && discover.state !== 'loading' && !discover.items.length ? (
+          {discoverRequestFailed ? (
+            <LauncherBlockedState
+              className="launcher-discover-blocked-state"
+              eyebrow={copy.discover.title}
+              title={copy.discover.errorTitle}
+              detail={copy.discover.errorDetail}
+              issueLabel={copy.discover.blockedIssueLabel}
+              issueSummary={discover.error ?? copy.discover.empty}
+              tone="error"
+              primaryAction={
+                <button type="button" className="control-button control-button-primary" onClick={() => void discover.refresh()}>
+                  <RefreshCw className="h-4 w-4" />
+                  <span>{copy.actions.refresh}</span>
+                </button>
+              }
+            />
+          ) : null}
+
+          {!discoverBlocked && discover.state !== 'error' && discover.state !== 'loading' && !discover.items.length ? (
             <LauncherStateBlock title={copy.discover.empty} detail={copy.discover.subtitle} />
           ) : null}
 
-          {discover.state !== 'error' && (discover.items.length > 0 || discover.state === 'loading') ? (
+          {!discoverBlocked && discover.state !== 'error' && (discover.items.length > 0 || discover.state === 'loading') ? (
             <div className="launcher-discover-results-shell">
               <div
                 ref={resultsViewportRef}

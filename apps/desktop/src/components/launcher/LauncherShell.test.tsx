@@ -89,6 +89,7 @@ const settingsState = {
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
   },
   state: 'ready' as const,
   error: null,

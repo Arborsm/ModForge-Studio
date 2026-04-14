@@ -545,6 +545,7 @@ export type LauncherCopy = {
     ascending: string
     autoInstallDownloads: string
     keepDownloadedArchives: string
+    autoCheckModUpdates: string
   }
   library: {
     title: string
@@ -630,6 +631,16 @@ export type LauncherCopy = {
     loadingResults: string
     loadingPage: (page: number) => string
     loadingCover: string
+    blockedTitle: string
+    blockedDetail: string
+    blockedIssueLabel: string
+    blockedRetryAction: string
+    blockedDiagnosticsAction: string
+    blockedDetailsExpandAction: string
+    blockedDetailsCollapseAction: string
+    blockedCopyLogsAction: string
+    errorTitle: string
+    errorDetail: string
   }
   updates: {
     title: string
@@ -663,6 +674,13 @@ export type LauncherCopy = {
     checkingProgressDetail: (checked: number, total: number, currentModName: string | null) => string
     checkFailedTitle: string
     checkFailedDetail: string
+    issueLabel: string
+    diagnosticsAction: string
+    detailsExpandAction: string
+    detailsCollapseAction: string
+    copyLogsAction: string
+    blockedTitle: string
+    blockedDetail: string
   }
   downloads: {
     title: string
@@ -677,6 +695,7 @@ export type LauncherCopy = {
     nexusAccessTitle: string
     downloadBehaviorTitle: string
     downloadBehaviorHint: string
+    autoCheckUpdatesHint: string
     autoInstallHint: string
     keepArchivesHint: string
     loadFailed: string
@@ -698,6 +717,27 @@ export type LauncherCopy = {
     nexusDiagnosticsSubtitle: string
     nexusDiagnosticsLoading: string
     nexusDiagnosticsEmpty: string
+    nexusDiagnosticsEndpointLabel: string
+    nexusDiagnosticsAttemptsLabel: string
+    nexusDiagnosticsRouteLabel: string
+    nexusDiagnosticsObservedLabel: string
+    nexusDiagnosticsAvailabilityLabel: string
+    nexusDiagnosticsAvailableState: string
+    nexusDiagnosticsUnavailableState: string
+    nexusDiagnosticsLoadingState: string
+    nexusDiagnosticsNotificationTitle: string
+    nexusDiagnosticsNotificationImpact: (targets: string) => string
+    nexusDiagnosticsNotificationLimitedImpact: string
+    nexusDiagnosticsNotificationBody: (count: number) => string
+    nexusDiagnosticsNotificationNote: string
+    nexusMessagePreviewTitle: string
+    nexusMessagePreviewSubtitle: string
+    nexusMessagePreviewHealthyDetail: string
+    nexusMessagePreviewUnavailableDetail: (targets: string) => string
+    nexusMessagePreviewLimitedDetail: string
+    nexusMessagePreviewNote: string
+    nexusMessagePreviewDiscoverTarget: string
+    nexusMessagePreviewUpdatesTarget: string
     forceOfflineEnableButton: string
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string

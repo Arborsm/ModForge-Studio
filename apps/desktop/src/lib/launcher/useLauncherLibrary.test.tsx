@@ -88,8 +88,9 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
-  }
+  } as LauncherSettings
 }
 
 function createLibraryState(overrides: Partial<LauncherLibraryState> = {}): LauncherLibraryState {
@@ -499,6 +500,34 @@ describe('useLauncherLibrary', () => {
     })
 
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadCachedLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+  })
+
+  it('skips automatic update warming when automatic update checking is disabled', async () => {
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          nexusModId: null,
+          updateKeys: [],
+          modUrl: null,
+        }),
+      ],
+    })
+
+    const { result } = renderHook(
+      () => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })),
+      { wrapper: Wrapper },
+    )
 
     await act(async () => {
       await result.current.refresh()

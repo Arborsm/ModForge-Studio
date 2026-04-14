@@ -176,6 +176,13 @@ pub fn load_launcher_nexus_diagnostics(
 }
 
 #[tauri::command]
+pub fn restart_launcher_nexus_diagnostics(
+    app: tauri::AppHandle,
+) -> Result<LauncherNexusDiagnosticsResult, String> {
+    http::restart_launcher_nexus_diagnostics_with_app(&app)
+}
+
+#[tauri::command]
 pub fn set_launcher_nexus_force_offline(
     app: tauri::AppHandle,
     force_offline: bool,

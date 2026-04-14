@@ -7,6 +7,7 @@ import { reportAppEvent, type AppEventLevel } from '../../../lib/app/observabili
 import {
   canUseDesktopHost,
   clearLauncherImageCache,
+  type LauncherNexusDiagnosticsResult,
   loadLauncherNexusDiagnostics,
   setLauncherNexusForceOffline,
   type LauncherNexusRouteSnapshot,
@@ -15,6 +16,25 @@ import { useLauncherDownloads } from '../../../lib/launcher/useLauncherDownloads
 
 type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
 type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>
+
+function getRouteAvailabilityCopy(
+  route: LauncherNexusRouteSnapshot,
+  labels: {
+    available: string
+    unavailable: string
+    loading: string
+  },
+) {
+  if (route.status === 'loading') {
+    return labels.loading
+  }
+
+  if (route.available && route.status === 'success') {
+    return labels.available
+  }
+
+  return labels.unavailable
+}
 
 function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButtonGroup; debugEnabled: boolean }) {
   const notify = (level: AppEventLevel, title: string) => {
@@ -33,19 +53,19 @@ function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButton
 
   return (
     <div className="launcher-toolbar">
-      <button type="button" className="control-button" onClick={() => notify('debug', labels.debug)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-debug" onClick={() => notify('debug', labels.debug)}>
         {labels.debug}
       </button>
-      <button type="button" className="control-button" onClick={() => notify('info', labels.info)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-info" onClick={() => notify('info', labels.info)}>
         {labels.info}
       </button>
-      <button type="button" className="control-button" onClick={() => notify('success', labels.success)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-success" onClick={() => notify('success', labels.success)}>
         {labels.success}
       </button>
-      <button type="button" className="control-button" onClick={() => notify('warning', labels.warning)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-warning" onClick={() => notify('warning', labels.warning)}>
         {labels.warning}
       </button>
-      <button type="button" className="control-button control-button-primary" onClick={() => notify('error', labels.error)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-error" onClick={() => notify('error', labels.error)}>
         {labels.error}
       </button>
     </div>
@@ -70,16 +90,16 @@ function LogTestButtons({ labels, debugEnabled }: { labels: DebugLogButtonGroup;
 
   return (
     <div className="launcher-toolbar">
-      <button type="button" className="control-button" onClick={() => logOnly('debug', labels.debug)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-debug" onClick={() => logOnly('debug', labels.debug)}>
         {labels.debug}
       </button>
-      <button type="button" className="control-button" onClick={() => logOnly('info', labels.info)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-info" onClick={() => logOnly('info', labels.info)}>
         {labels.info}
       </button>
-      <button type="button" className="control-button" onClick={() => logOnly('warning', labels.warning)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-warning" onClick={() => logOnly('warning', labels.warning)}>
         {labels.warning}
       </button>
-      <button type="button" className="control-button control-button-primary" onClick={() => logOnly('error', labels.error)}>
+      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-error" onClick={() => logOnly('error', labels.error)}>
         {labels.error}
       </button>
     </div>
@@ -89,6 +109,7 @@ function LogTestButtons({ labels, debugEnabled }: { labels: DebugLogButtonGroup;
 type LauncherDebugPageProps = {
   debugEnabled: boolean
   onToggleDebugMode: () => void
+  onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   downloads: ReturnType<typeof useLauncherDownloads>
 }
 
@@ -151,12 +172,14 @@ function DebugActionCard({
   title,
   description,
   icon,
+  headerActions,
   children,
 }: {
   title: string
   description: string
   icon: ReactNode
-  children: ReactNode
+  headerActions?: ReactNode
+  children?: ReactNode
 }) {
   return (
     <section className="launcher-debug-card">
@@ -165,11 +188,14 @@ function DebugActionCard({
           <h2 className="launcher-debug-card-title">{title}</h2>
           <p className="launcher-debug-card-description">{description}</p>
         </div>
-        <span className="launcher-debug-card-badge" aria-hidden="true">
-          {icon}
-        </span>
+        <div className="launcher-debug-card-header-side">
+          {headerActions ? <div className="launcher-debug-card-header-actions">{headerActions}</div> : null}
+          <span className="launcher-debug-card-badge" aria-hidden="true">
+            {icon}
+          </span>
+        </div>
       </div>
-      <div className="launcher-debug-card-tray">{children}</div>
+      {children != null ? <div className="launcher-debug-card-tray">{children}</div> : null}
     </section>
   )
 }
@@ -179,19 +205,37 @@ function LauncherNexusDiagnosticsCard({
   description,
   loadingLabel,
   emptyLabel,
+  endpointLabel,
+  attemptsLabel,
+  routeLabel,
+  observedLabel,
+  availabilityLabel,
+  availableState,
+  unavailableState,
+  loadingState,
   forceOfflineEnableButton,
   forceOfflineDisableButton,
   forceOfflineEnabledLabel,
   forceOfflineDisabledLabel,
+  onDiagnosticsUpdate,
 }: {
   title: string
   description: string
   loadingLabel: string
   emptyLabel: string
+  endpointLabel: string
+  attemptsLabel: string
+  routeLabel: string
+  observedLabel: string
+  availabilityLabel: string
+  availableState: string
+  unavailableState: string
+  loadingState: string
   forceOfflineEnableButton: string
   forceOfflineDisableButton: string
   forceOfflineEnabledLabel: string
   forceOfflineDisabledLabel: string
+  onDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
 }) {
   const [routes, setRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
   const [loading, setLoading] = useState(() => canUseDesktopHost())
@@ -215,6 +259,7 @@ function LauncherNexusDiagnosticsCard({
         }
 
         setRoutes(diagnostics.routes)
+        onDiagnosticsUpdate?.(diagnostics)
         setLoading(false)
         if (diagnostics.routes.some((route) => route.status === 'loading')) {
           timeoutId = window.setTimeout(() => {
@@ -237,7 +282,7 @@ function LauncherNexusDiagnosticsCard({
         window.clearTimeout(timeoutId)
       }
     }
-  }, [pollNonce])
+  }, [onDiagnosticsUpdate, pollNonce])
 
   const handleToggleForceOffline = async () => {
     const nextForceOffline = !forceOffline
@@ -252,6 +297,7 @@ function LauncherNexusDiagnosticsCard({
       })
       setForceOffline(nextForceOffline)
       setRoutes(diagnostics.routes)
+      onDiagnosticsUpdate?.(diagnostics as LauncherNexusDiagnosticsResult)
       setLoading(false)
       if (diagnostics.routes.some((route) => route.status === 'loading')) {
         setLoading(true)
@@ -269,42 +315,79 @@ function LauncherNexusDiagnosticsCard({
       title={title}
       description={description}
       icon={<Wifi className="h-4 w-4" />}
+      headerActions={
+        <div className="launcher-toolbar">
+          <button
+            type="button"
+            className={cx('control-button', forceOffline && 'control-button-primary')}
+            disabled={!canUseDesktopHost() || toggleBusy}
+            onClick={() => {
+              void handleToggleForceOffline()
+            }}
+          >
+            {forceOffline ? forceOfflineDisableButton : forceOfflineEnableButton}
+          </button>
+          <span className="dock-chip">{forceOffline ? forceOfflineEnabledLabel : forceOfflineDisabledLabel}</span>
+        </div>
+      }
     >
-      <div className="launcher-toolbar">
-        <button
-          type="button"
-          className={cx('control-button', forceOffline && 'control-button-primary')}
-          disabled={!canUseDesktopHost() || toggleBusy}
-          onClick={() => {
-            void handleToggleForceOffline()
-          }}
-        >
-          {forceOffline ? forceOfflineDisableButton : forceOfflineEnableButton}
-        </button>
-        <span className="dock-chip">{forceOffline ? forceOfflineEnabledLabel : forceOfflineDisabledLabel}</span>
-      </div>
       {loading ? <p className="launcher-debug-route-loading">{loadingLabel}</p> : null}
       {!loading && !routes.length ? <p className="launcher-debug-route-loading">{emptyLabel}</p> : null}
       {!loading && routes.length ? (
         <div className="launcher-debug-route-list">
           {routes.map((route) => (
-            <section key={route.routeId} className="launcher-debug-route-row">
-              <div className="launcher-debug-route-copy">
-                <div className="launcher-debug-route-header">
+            <section
+              key={route.routeId}
+              className={cx(
+                'launcher-debug-route-row',
+                `launcher-debug-route-row-${route.status}`,
+              )}
+            >
+              <div className="launcher-debug-route-top">
+                <div className="launcher-debug-route-copy">
                   <h3 className="launcher-debug-route-title">{route.label}</h3>
                 </div>
-                <p className="launcher-debug-route-endpoint">{route.endpoint}</p>
-                <p className="launcher-debug-route-message">{route.message}</p>
+                <span
+                  className={cx(
+                    'launcher-debug-route-status',
+                    `launcher-debug-route-status-${route.status}`,
+                  )}
+                >
+                  {route.status}
+                </span>
               </div>
-              <span
-                className={cx(
-                  'launcher-debug-route-status',
-                  `launcher-debug-route-status-${route.status}`,
-                )}
-              >
-                {route.status}
-              </span>
-              <span className="dock-chip launcher-debug-route-attempts">{`${route.attempts}/${route.maxAttempts}`}</span>
+
+              <div className="launcher-debug-route-meta">
+                <span className="launcher-debug-route-chip">
+                  <strong>{endpointLabel}</strong>
+                  <span>{route.endpoint}</span>
+                </span>
+                <span className="launcher-debug-route-chip">
+                  <strong>{attemptsLabel}</strong>
+                  <span>{`${route.attempts} / ${route.maxAttempts}`}</span>
+                </span>
+                <span className="launcher-debug-route-chip">
+                  <strong>{routeLabel}</strong>
+                  <span>{route.routeId}</span>
+                </span>
+              </div>
+
+              <div className="launcher-debug-route-details">
+                <div className="launcher-debug-route-detail-row">
+                  <div className="launcher-debug-route-detail-label">{observedLabel}</div>
+                  <div className="launcher-debug-route-detail-value">{route.message}</div>
+                </div>
+                <div className="launcher-debug-route-detail-row">
+                  <div className="launcher-debug-route-detail-label">{availabilityLabel}</div>
+                  <div className="launcher-debug-route-detail-value">
+                    {getRouteAvailabilityCopy(route, {
+                      available: availableState,
+                      unavailable: unavailableState,
+                      loading: loadingState,
+                    })}
+                  </div>
+                </div>
+              </div>
             </section>
           ))}
         </div>
@@ -313,7 +396,12 @@ function LauncherNexusDiagnosticsCard({
   )
 }
 
-export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }: LauncherDebugPageProps) {
+export function LauncherDebugPage({
+  debugEnabled,
+  onToggleDebugMode,
+  onLauncherDiagnosticsUpdate,
+  downloads,
+}: LauncherDebugPageProps) {
   const copy = useEditorCopy().launcher
   const settingsCopy = useSettingsMenuCopy()
   const debugSimulationActive = downloads.activeItems.some((item) => item.source === 'debug' && item.status === 'downloading')
@@ -374,41 +462,52 @@ export function LauncherDebugPage({ debugEnabled, onToggleDebugMode, downloads }
             description={copy.debug.nexusDiagnosticsSubtitle}
             loadingLabel={copy.debug.nexusDiagnosticsLoading}
             emptyLabel={copy.debug.nexusDiagnosticsEmpty}
+            endpointLabel={copy.debug.nexusDiagnosticsEndpointLabel}
+            attemptsLabel={copy.debug.nexusDiagnosticsAttemptsLabel}
+            routeLabel={copy.debug.nexusDiagnosticsRouteLabel}
+            observedLabel={copy.debug.nexusDiagnosticsObservedLabel}
+            availabilityLabel={copy.debug.nexusDiagnosticsAvailabilityLabel}
+            availableState={copy.debug.nexusDiagnosticsAvailableState}
+            unavailableState={copy.debug.nexusDiagnosticsUnavailableState}
+            loadingState={copy.debug.nexusDiagnosticsLoadingState}
             forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
             forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
             forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
             forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
+            onDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
           />
 
           <DebugActionCard
             title={copy.debug.clearImageCacheTitle}
             description={copy.debug.clearImageCacheSubtitle}
             icon={<ScrollText className="h-4 w-4" />}
-          >
-            <div className="launcher-toolbar">
-              <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
-                {copy.debug.clearImageCacheButton}
-              </button>
-            </div>
-          </DebugActionCard>
+            headerActions={
+              <div className="launcher-toolbar">
+                <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
+                  {copy.debug.clearImageCacheButton}
+                </button>
+              </div>
+            }
+          />
 
           <DebugActionCard
             title={copy.debug.simulationTitle}
             description={copy.debug.simulationSubtitle}
             icon={<Download className="h-4 w-4" />}
-          >
-            <div className="launcher-toolbar">
-              <button
-                type="button"
-                className="control-button control-button-primary"
-                onClick={() => downloads.startDebugSimulation(copy.debug.simulationTitle)}
-                disabled={debugSimulationActive}
-              >
-                {debugSimulationActive ? copy.debug.simulationButtonRunning : copy.debug.simulationButtonIdle}
-              </button>
-              <span className="dock-chip">2 MB/s · 10s · 20 MB</span>
-            </div>
-          </DebugActionCard>
+            headerActions={
+              <div className="launcher-toolbar">
+                <button
+                  type="button"
+                  className="control-button control-button-primary"
+                  onClick={() => downloads.startDebugSimulation(copy.debug.simulationTitle)}
+                  disabled={debugSimulationActive}
+                >
+                  {debugSimulationActive ? copy.debug.simulationButtonRunning : copy.debug.simulationButtonIdle}
+                </button>
+                <span className="dock-chip">2 MB/s · 10s · 20 MB</span>
+              </div>
+            }
+          />
         </div>
       </div>
     </section>

@@ -1,6 +1,7 @@
 import type { LauncherSettings } from '../desktop'
 import type { LocaleCode } from '../editor-shell'
 import { useLauncherDownloads } from './useLauncherDownloads'
+import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
 import { useLauncherSettings } from './useLauncherSettings'
 
 export type LauncherWarningState = {
@@ -26,6 +27,7 @@ export function getLauncherWarningState(settings: LauncherSettings): LauncherWar
 export function useLauncherRuntime(locale: LocaleCode) {
   const settingsState = useLauncherSettings({ locale })
   const downloads = useLauncherDownloads(settingsState.settings)
+  const updatesBadgeCount = useLauncherUpdatesBadgeCount(settingsState.settings)
   const warningState = getLauncherWarningState(settingsState.settings)
   const downloadsBadgeCount =
     downloads.counts.failed > 0
@@ -38,6 +40,7 @@ export function useLauncherRuntime(locale: LocaleCode) {
     credentialsReady: hasLauncherCredentials(settingsState.settings),
     warningState,
     settingsWarning: Object.values(warningState).some(Boolean),
+    updatesBadgeCount,
     downloadsBadgeCount,
     downloadsProgressPercent: downloads.downloadProgressPercent,
     downloadsHasFailure: downloads.counts.failed > 0,

@@ -13,6 +13,7 @@ use super::types::{
 };
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 
 const DEFAULT_PAGE_SIZE: usize = 20;
 const MAX_PAGE_SIZE: usize = 80;
@@ -129,6 +130,46 @@ fn build_public_catalog_sort(sort: &str, ascending: bool) -> Value {
     }
 }
 
+fn catalog_time_range_days(time_range: Option<&str>) -> Option<i64> {
+    match time_range
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("day") => Some(1),
+        Some("week") => Some(7),
+        Some("month") => Some(30),
+        Some("year") => Some(365),
+        _ => None,
+    }
+}
+
+fn catalog_time_range_filter_field(sort: &str) -> &'static str {
+    match sort {
+        "updated" => "updatedAt",
+        _ => "createdAt",
+    }
+}
+
+fn build_catalog_time_range_filter(
+    time_range: Option<&str>,
+    sort: &str,
+) -> Result<Option<(&'static str, Value)>, String> {
+    let days = match catalog_time_range_days(time_range) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let lower_bound = (OffsetDateTime::now_utc() - Duration::days(days))
+        .format(&Rfc3339)
+        .map_err(|error| format!("Failed to format catalog time range filter: {error}"))?;
+
+    Ok(Some((
+        catalog_time_range_filter_field(sort),
+        json!([{ "value": lower_bound, "op": "GTE" }]),
+    )))
+}
+
 pub(crate) fn build_catalog_graphql_payload(
     request: &SearchLauncherCatalogRequest,
 ) -> Result<Value, String> {
@@ -179,6 +220,11 @@ pub(crate) fn build_catalog_graphql_payload(
             "uploader".to_string(),
             graphql_filter_value(query, "WILDCARD"),
         );
+    }
+    if let Some((field, value)) =
+        build_catalog_time_range_filter(request.time_range.as_deref(), sort)?
+    {
+        filter.insert(field.to_string(), value);
     }
 
     Ok(json!({
@@ -250,6 +296,11 @@ pub(crate) fn build_public_catalog_graphql_payload(
     }
     if uploader_filter != json!([]) {
         filter.insert("uploader".to_string(), uploader_filter);
+    }
+    if let Some((field, value)) =
+        build_catalog_time_range_filter(request.time_range.as_deref(), sort)?
+    {
+        filter.insert(field.to_string(), value);
     }
 
     let mut file_size_filters = Vec::new();

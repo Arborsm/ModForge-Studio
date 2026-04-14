@@ -48,8 +48,9 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
-  }
+  } as LauncherSettings
 }
 
 function createUpdate(overrides: Partial<LauncherUpdateSummary> = {}): LauncherUpdateSummary {
@@ -300,6 +301,34 @@ describe('useLauncherUpdates', () => {
       expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
     })
 
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: true,
+    })
+  })
+
+  it('skips automatic update checks when automatic update checking is disabled but still allows manual refresh', async () => {
+    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
+    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
+    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
+
+    const { result } = renderHook(
+      () => useLauncherUpdates(createSettings({ autoCheckModUpdates: false })),
+      { wrapper: Wrapper },
+    )
+
+    await waitFor(() => {
+      expect(subscribeLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+    })
+
+    expect(loadLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
+    expect(loadCachedLauncherUpdatesMock).not.toHaveBeenCalled()
     expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
 
     await act(async () => {

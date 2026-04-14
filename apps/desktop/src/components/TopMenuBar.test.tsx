@@ -49,6 +49,7 @@ function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}):
       page: 'library',
       visiblePages: ['library', 'discover', 'updates', 'debug'],
       onPageChange: vi.fn(),
+      updatesBadgeCount: 0,
       downloadsBadgeCount: 0,
       downloadsProgressPercent: null,
       downloadsHasFailure: false,
@@ -156,6 +157,26 @@ describe('TopMenuBar', () => {
     expect(screen.getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.launcher.pages.debug })).toBeTruthy()
     expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
+  })
+
+  it('renders an updates count badge on the updates tab and caps large values', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          appMode: 'launcher',
+          launcherChrome: {
+            ...launcherChrome,
+            updatesBadgeCount: 125,
+          },
+        })}
+      />,
+    )
+
+    const updatesButton = screen.getByRole('button', { name: copy.launcher.pages.updates })
+    const badge = updatesButton.querySelector('.top-menu-launcher-nav-badge')
+
+    expect(badge?.textContent).toBe('99+')
   })
 
   it('hides the launcher debug page tab when debug mode is disabled', () => {

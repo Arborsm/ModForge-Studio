@@ -61,6 +61,7 @@ type TopMenuBarProps = {
     page: LauncherPage
     visiblePages: LauncherPage[]
     onPageChange: (page: LauncherPage) => void
+    updatesBadgeCount: number
     downloadsBadgeCount: number
     downloadsProgressPercent: number | null
     downloadsHasFailure: boolean
@@ -78,6 +79,14 @@ const MODULE_ICONS = {
   events: GitMerge,
   mods: Library,
 } satisfies Record<WorkspaceMode, typeof Map>
+
+function formatLauncherNavBadgeCount(count: number) {
+  if (count <= 0) {
+    return null
+  }
+
+  return count > 99 ? '99+' : String(count)
+}
 
 export default function TopMenuBar({
   appMode,
@@ -316,6 +325,7 @@ export default function TopMenuBar({
                     {launcherNav.visiblePages.map((page) => {
                       const active = launcherNav.page === page
                       const warning = page === 'debug' && launcherNav.settingsWarning
+                      const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
 
                       return (
                         <button
@@ -333,6 +343,11 @@ export default function TopMenuBar({
                           onClick={() => launcherNav.onPageChange(page)}
                         >
                           <span>{copy.launcher.pages[page]}</span>
+                          {updatesBadge ? (
+                            <span className="top-menu-launcher-nav-badge" aria-hidden="true">
+                              {updatesBadge}
+                            </span>
+                          ) : null}
                           {warning ? (
                             <span
                               className="top-menu-warning-dot"

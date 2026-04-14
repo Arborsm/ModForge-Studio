@@ -1,21 +1,65 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { searchLauncherCatalog } from '../desktop'
+import { loadLauncherNexusDiagnostics, searchLauncherCatalog, type LauncherNexusDiagnosticsResult } from '../desktop'
 import { useLauncherDiscover } from './useLauncherDiscover'
 
 vi.mock('../desktop', async () => {
   const actual = await vi.importActual<typeof import('../desktop')>('../desktop')
   return {
     ...actual,
+    loadLauncherNexusDiagnostics: vi.fn(),
     searchLauncherCatalog: vi.fn(),
   }
 })
 
+const loadLauncherNexusDiagnosticsMock = vi.mocked(loadLauncherNexusDiagnostics)
 const searchLauncherCatalogMock = vi.mocked(searchLauncherCatalog)
+
+function createLauncherDiagnosticsResult(
+  overrides: Partial<Record<string, { status: 'loading' | 'warning' | 'success'; available: boolean; message: string }>> = {},
+): LauncherNexusDiagnosticsResult {
+  const defaults: Record<
+    string,
+    { label: string; endpoint: string; status: 'loading' | 'warning' | 'success'; available: boolean; message: string }
+  > = {
+    publicGraphql: {
+      label: 'Nexus Public GraphQL',
+      endpoint: 'https://api-router.nexusmods.com/graphql',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    privateGraphql: {
+      label: 'Nexus Private GraphQL',
+      endpoint: 'https://graphql.nexusmods.com/',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    nexusApi: {
+      label: 'Nexus API',
+      endpoint: 'https://api.nexusmods.com/v1/games/stardewvalley/mods/trending.json',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+  }
+
+  return {
+    routes: Object.entries(defaults).map(([routeId, route]) => ({
+      routeId,
+      attempts: 1,
+      maxAttempts: 3,
+      ...route,
+      ...(overrides[routeId] ?? {}),
+    })),
+  }
+}
 
 describe('useLauncherDiscover', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
   })
 
   afterEach(() => {
@@ -356,5 +400,46 @@ describe('useLauncherDiscover', () => {
         category: 'Maps',
       }),
     )
+  })
+
+  it('skips automatic discover searches when all discover routes are unavailable', async () => {
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue(
+      createLauncherDiagnosticsResult({
+        publicGraphql: {
+          status: 'warning',
+          available: false,
+          message: 'Forced offline by debug override.',
+        },
+        privateGraphql: {
+          status: 'warning',
+          available: false,
+          message: 'Forced offline by debug override.',
+        },
+        nexusApi: {
+          status: 'warning',
+          available: false,
+          message: 'Forced offline by debug override.',
+        },
+      }),
+    )
+    searchLauncherCatalogMock.mockResolvedValue({
+      page: 1,
+      pageSize: 20,
+      totalCount: 0,
+      hasMore: false,
+      facets: { categories: [], languages: [], tags: [] },
+      results: [],
+    })
+
+    const { result } = renderHook(() => useLauncherDiscover())
+
+    await act(async () => {
+      vi.runOnlyPendingTimers()
+      await Promise.resolve()
+    })
+
+    expect(searchLauncherCatalogMock).not.toHaveBeenCalled()
+    expect(result.current.blockedReason).toContain('Nexus Public GraphQL')
+    expect(result.current.blockedReason).toContain('Forced offline by debug override.')
   })
 })

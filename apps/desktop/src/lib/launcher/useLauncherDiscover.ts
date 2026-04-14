@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  loadLauncherNexusDiagnostics,
   searchLauncherCatalog,
   type LauncherCatalogFacets,
   type SearchLauncherCatalogRequest,
@@ -8,6 +9,7 @@ import {
   normalizeLauncherDiscoverToolbarState,
   type LauncherDiscoverToolbarState,
 } from './launcherDiscoverToolbarState'
+import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'
 import type { LauncherDiscoverItem, LauncherViewState } from './types'
 
 type DiscoverFilters = {
@@ -81,16 +83,21 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
   const [facets, setFacets] = useState<LauncherCatalogFacets>(EMPTY_FACETS)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [blockedReason, setBlockedReason] = useState<string | null>(null)
   const requestIdRef = useRef(0)
+  const manualRefreshBypassRef = useRef(false)
 
   useEffect(() => {
     const requestId = requestIdRef.current + 1
     requestIdRef.current = requestId
+    const bypassDiagnostics = manualRefreshBypassRef.current
+    manualRefreshBypassRef.current = false
     const handle = window.setTimeout(() => {
       setState('loading')
       setError(null)
+      setBlockedReason(null)
 
-      void searchLauncherCatalog({
+      const requestPayload = {
         query,
         titleQuery: filters.titleQuery,
         descriptionQuery: filters.descriptionQuery,
@@ -112,9 +119,34 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
         maxDownloads: parseOptionalNumber(filters.maxDownloads),
         minEndorsements: parseOptionalNumber(filters.minEndorsements),
         maxEndorsements: parseOptionalNumber(filters.maxEndorsements),
-      })
-        .then((result) => {
+      } satisfies SearchLauncherCatalogRequest
+
+      void (bypassDiagnostics
+        ? Promise.resolve(null)
+        : loadLauncherNexusDiagnostics().catch(() => null))
+        .then((diagnostics) => {
           if (requestIdRef.current !== requestId) {
+            return null
+          }
+
+          const unavailableReason =
+            diagnostics && !canAutoLoadLauncherDiscover(diagnostics, { query, sort })
+              ? getLauncherDiscoverUnavailableReason(diagnostics, { query, sort })
+              : null
+          if (unavailableReason) {
+            setItems([])
+            setTotalCount(0)
+            setHasMore(false)
+            setFacets(EMPTY_FACETS)
+            setBlockedReason(unavailableReason)
+            setState('ready')
+            return null
+          }
+
+          return searchLauncherCatalog(requestPayload)
+        })
+        .then((result) => {
+          if (!result || requestIdRef.current !== requestId) {
             return
           }
 
@@ -122,6 +154,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
           setTotalCount(result.totalCount)
           setHasMore(result.hasMore)
           setFacets(result.facets)
+          setBlockedReason(null)
           setState('ready')
         })
         .catch((nextError) => {
@@ -129,6 +162,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
             return
           }
 
+          setBlockedReason(null)
           setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher discover results.')
           setState('error')
         })
@@ -152,6 +186,13 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
     setPageState((current) => (current === clamped ? current : clamped))
   }
 
+  const revalidate = () => {
+    requestIdRef.current += 1
+    setRequestDelayMs(0)
+    resetToFirstPage()
+    setRefreshToken((current) => current + 1)
+  }
+
   return {
     items,
     query,
@@ -167,6 +208,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
     filters,
     state,
     error,
+    blockedReason,
     setQuery: (value: string) => {
       setRequestDelayMs(320)
       setQuery(value)
@@ -215,11 +257,10 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
       }
       setPage(page - 1)
     },
+    revalidate,
     refresh: () => {
-      requestIdRef.current += 1
-      setRequestDelayMs(0)
-      resetToFirstPage()
-      setRefreshToken((current) => current + 1)
+      manualRefreshBypassRef.current = true
+      revalidate()
     },
   }
 }

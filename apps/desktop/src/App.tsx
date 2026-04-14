@@ -14,10 +14,12 @@ import {
   isCurrentWindowFullscreen,
   launchLauncherGame,
   listKnownGameDirectories,
+  restartLauncherNexusDiagnostics,
   minimizeCurrentWindow,
   setLauncherNexusForceOffline,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
+  type LauncherNexusDiagnosticsResult,
 } from './lib/desktop'
 import {
   editorCopy,
@@ -56,9 +58,11 @@ import { dismissNotification, NotificationProvider, publishNotification } from '
 import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
 import { setNotificationSoundEnabled } from './lib/app/notificationSounds'
 import {
-  getLauncherNexusWarningRoutes,
   loadSettledLauncherNexusDiagnostics,
 } from './lib/launcher/nexusDiagnostics'
+import {
+  syncLauncherDiagnosticsNotification,
+} from './lib/launcher/nexusDiagnosticsNotifications'
 import useModWorkspace from './lib/app/useModWorkspace'
 import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
 import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
@@ -89,8 +93,6 @@ type WindowWithIdleCallback = Window & {
 }
 
 const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
-const LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID = 'launcher-nexus-diagnostics'
-
 function getResourcePreloadProgress(state: ResourcePreloadState) {
   if (state.total <= 0) {
     return 18
@@ -192,6 +194,7 @@ export default function App() {
   )
   const pendingWorkspaceLayoutPatchesRef = useRef<Record<string, WorkspaceStoredState>>({})
   const workspaceLayoutPersistTimeoutRef = useRef<number | null>(null)
+  const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -634,6 +637,42 @@ export default function App() {
     }
   }, [desktopHost])
 
+  const handleViewLauncherDiagnostics = useCallback(() => {
+    setAppMode('launcher')
+    setDebugEnabled(true)
+    setLauncherPage('debug')
+  }, [])
+
+  const handleLauncherDiagnosticsUpdate = useCallback((diagnostics: LauncherNexusDiagnosticsResult | null | undefined) => {
+    syncLauncherDiagnosticsNotification(copy.launcher, diagnostics, {
+      onRetry: getAppUiStateSnapshot().launcher.forceOffline
+        ? null
+        : () => launcherDiagnosticsRetryRef.current?.(),
+      onViewDetails: handleViewLauncherDiagnostics,
+    })
+  }, [copy.launcher, handleViewLauncherDiagnostics])
+
+  useEffect(() => {
+    launcherDiagnosticsRetryRef.current = async () => {
+      if (!desktopHost) {
+        return
+      }
+
+      if (getAppUiStateSnapshot().launcher.forceOffline) {
+        return
+      }
+
+      await restartLauncherNexusDiagnostics()
+
+      const diagnostics = await loadSettledLauncherNexusDiagnostics()
+      handleLauncherDiagnosticsUpdate(diagnostics)
+    }
+
+    return () => {
+      launcherDiagnosticsRetryRef.current = null
+    }
+  }, [desktopHost, handleLauncherDiagnosticsUpdate])
+
   useEffect(() => {
     if (!desktopHost) {
       return
@@ -646,20 +685,7 @@ export default function App() {
         if (disposed) {
           return
         }
-
-        const warningRoutes = getLauncherNexusWarningRoutes(diagnostics)
-        if (!warningRoutes.length) {
-          dismissNotification(LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID)
-          return
-        }
-
-        publishNotification({
-          id: LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID,
-          level: 'warning',
-          title: copy.launcher.debug.nexusDiagnosticsTitle,
-          description: warningRoutes.map((route) => `${route.label}: ${route.message}`).join('\n'),
-          autoDismissMs: null,
-        })
+        handleLauncherDiagnosticsUpdate(diagnostics)
       })
       .catch(() => {
         // Ignore startup diagnostics errors. Manual actions can still reprobe routes later.
@@ -668,7 +694,10 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [copy.launcher.debug.nexusDiagnosticsTitle, desktopHost])
+  }, [
+    desktopHost,
+    handleLauncherDiagnosticsUpdate,
+  ])
 
   useEffect(() => {
     if (!desktopHost || !appUiStateReady) {
@@ -1312,6 +1341,7 @@ export default function App() {
               page: activeLauncherPage,
               visiblePages: availableLauncherPages,
               onPageChange: handleLauncherPageChange,
+              updatesBadgeCount: launcherRuntime.updatesBadgeCount,
               downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
               downloadsProgressPercent: launcherRuntime.downloadsProgressPercent,
               downloadsHasFailure: launcherRuntime.downloadsHasFailure,
@@ -1405,6 +1435,13 @@ export default function App() {
                   page={activeLauncherPage}
                   debugEnabled={debugEnabled}
                   onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                  onNavigateToDiagnostics={handleViewLauncherDiagnostics}
+                  onRetryDiagnostics={
+                    getAppUiStateSnapshot().launcher.forceOffline
+                      ? null
+                      : async () => launcherDiagnosticsRetryRef.current?.()
+                  }
+                  onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
                   settingsState={launcherRuntime.settingsState}
                   downloads={launcherRuntime.downloads}
                   onNavigateToSettings={() => openSettingsWindow('launcher')}

@@ -3,8 +3,13 @@ use serde::{Deserialize, Serialize};
 pub(crate) const UNSORTED_STORAGE_FOLDER_ID: &str = "unsorted";
 pub(crate) const UNSORTED_STORAGE_FOLDER_NAME: &str = "Unsorted";
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+fn default_auto_check_mod_updates() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct LauncherSettings {
     pub game_path: Option<String>,
     pub mods_path: Option<String>,
@@ -13,6 +18,23 @@ pub struct LauncherSettings {
     pub nexus_cookie: Option<String>,
     pub auto_install_downloads: bool,
     pub keep_downloaded_archives: bool,
+    #[serde(default = "default_auto_check_mod_updates")]
+    pub auto_check_mod_updates: bool,
+}
+
+impl Default for LauncherSettings {
+    fn default() -> Self {
+        Self {
+            game_path: None,
+            mods_path: None,
+            download_path: None,
+            nexus_api_key: None,
+            nexus_cookie: None,
+            auto_install_downloads: false,
+            keep_downloaded_archives: false,
+            auto_check_mod_updates: default_auto_check_mod_updates(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -25,6 +47,7 @@ pub struct SaveLauncherSettingsRequest {
     pub nexus_cookie: Option<String>,
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
+    pub auto_check_mod_updates: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

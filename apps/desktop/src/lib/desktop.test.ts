@@ -91,6 +91,7 @@ describe('launcher bridge helpers', () => {
     const expected = {
       gamePath: 'C:\\Games\\Stardew Valley',
       modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      autoCheckModUpdates: true,
     }
     vi.mocked(invoke).mockResolvedValueOnce(expected)
     const { loadLauncherSettings } = await import('./desktop')
@@ -119,6 +120,28 @@ describe('launcher bridge helpers', () => {
 
     await expect(loadLauncherNexusDiagnostics()).resolves.toEqual(expected)
     expect(invoke).toHaveBeenCalledWith('load_launcher_nexus_diagnostics', undefined)
+  })
+
+  it('restarts launcher Nexus diagnostics through the tauri backend', async () => {
+    const expected = {
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'loading',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Attempt 1 of 3 is in progress.',
+        },
+      ],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { restartLauncherNexusDiagnostics } = await import('./desktop')
+
+    await expect(restartLauncherNexusDiagnostics()).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('restart_launcher_nexus_diagnostics', undefined)
   })
 
   it('loads app ui state from the tauri backend', async () => {
@@ -323,6 +346,7 @@ describe('launcher bridge helpers', () => {
     const saved = {
       gamePath: 'C:\\Games\\Stardew Valley',
       modsPath: 'C:\\Games\\Stardew Valley\\Mods',
+      autoCheckModUpdates: false,
     }
     const scan = {
       modsPath: 'C:\\Games\\Stardew Valley\\Mods',

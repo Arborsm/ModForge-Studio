@@ -161,6 +161,22 @@
     position: relative;
   }
 
+  .top-menu-launcher-nav-badge {
+    display: inline-flex;
+    min-width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 6px;
+    background: color-mix(in srgb, var(--accent) 82%, white 18%);
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, white 18%, transparent);
+  }
+
   .top-menu-launcher-tools {
     position: relative;
     display: flex;

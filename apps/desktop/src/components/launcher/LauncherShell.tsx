@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import type { LauncherPage } from '../../lib/editor-shell'
+import type { LauncherNexusDiagnosticsResult } from '../../lib/desktop'
 import { useLauncherDownloads } from '../../lib/launcher/useLauncherDownloads'
 import { useLauncherLibrary } from '../../lib/launcher/useLauncherLibrary'
 import { useLauncherSettings } from '../../lib/launcher/useLauncherSettings'
@@ -13,6 +14,9 @@ type LauncherShellProps = {
   page: LauncherPage
   debugEnabled: boolean
   onToggleDebugMode: () => void
+  onNavigateToDiagnostics?: () => void
+  onRetryDiagnostics?: (() => Promise<void> | void) | null
+  onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   settingsState: ReturnType<typeof useLauncherSettings>
   downloads: ReturnType<typeof useLauncherDownloads>
   onNavigateToSettings: () => void
@@ -26,6 +30,9 @@ export default function LauncherShell({
   page,
   debugEnabled,
   onToggleDebugMode,
+  onNavigateToDiagnostics,
+  onRetryDiagnostics,
+  onLauncherDiagnosticsUpdate,
   settingsState,
   downloads,
   onNavigateToSettings,
@@ -69,6 +76,8 @@ export default function LauncherShell({
             <LauncherDiscoverPage
               settings={settingsState.settings}
               onQueueDownload={downloads.queueDownload}
+              onNavigateToDiagnostics={onNavigateToDiagnostics}
+              onRetryDiagnostics={onRetryDiagnostics}
               onNavigateToSettings={onNavigateToSettings}
             />
           ) : null}
@@ -82,6 +91,8 @@ export default function LauncherShell({
             <LauncherUpdatesPage
               settings={settingsState.settings}
               onQueueDownload={downloads.queueDownload}
+              onNavigateToDiagnostics={onNavigateToDiagnostics}
+              onRetryDiagnostics={onRetryDiagnostics}
               onNavigateToSettings={onNavigateToSettings}
             />
           ) : null}
@@ -92,7 +103,12 @@ export default function LauncherShell({
           className={cx('launcher-shell-route', activePage === 'debug' && debugEnabled && 'launcher-shell-route-active')}
         >
           {activePage === 'debug' && debugEnabled ? (
-            <LauncherDebugPage debugEnabled={debugEnabled} onToggleDebugMode={onToggleDebugMode} downloads={downloads} />
+            <LauncherDebugPage
+              debugEnabled={debugEnabled}
+              onToggleDebugMode={onToggleDebugMode}
+              onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
+              downloads={downloads}
+            />
           ) : null}
         </div>
       </div>

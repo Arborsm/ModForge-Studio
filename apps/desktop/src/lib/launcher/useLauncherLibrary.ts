@@ -405,7 +405,12 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         startAutoCoverFetch(eligibleMods)
       }
       const updateModsPath = scan.modsPath || settings.modsPath || ''
-      if (scan.mods.length > 0 && updateModsPath && canAutoCheckLauncherUpdates(diagnostics)) {
+      if (
+        settings.autoCheckModUpdates !== false &&
+        scan.mods.length > 0 &&
+        updateModsPath &&
+        canAutoCheckLauncherUpdates(diagnostics)
+      ) {
         void loadCachedLauncherUpdates({ modsPath: updateModsPath })
           .then((cached) => {
             if (!isRefreshActive()) {
@@ -432,7 +437,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to scan launcher library.')
       setState('error')
     }
-  }, [cancelAutoCoverFetch, settings.modsPath, startAutoCoverFetch])
+  }, [cancelAutoCoverFetch, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
 
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys
