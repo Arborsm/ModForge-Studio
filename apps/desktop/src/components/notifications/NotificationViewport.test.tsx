@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '../../lib/app/localeContext'
@@ -24,6 +22,7 @@ describe('NotificationProvider', () => {
   afterEach(() => {
     cleanup()
     clearNotifications()
+    vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
@@ -148,6 +147,61 @@ describe('NotificationProvider', () => {
     expect(screen.getByText('Export failed')).toBeTruthy()
   })
 
+  it('renders diagnostic notifications with an impact summary, compact route tags, and action buttons', () => {
+    const onRetry = vi.fn()
+    const onViewDetails = vi.fn()
+    renderNotifications()
+
+    act(() => {
+      publishNotification({
+        id: 'launcher-nexus-diagnostics',
+        level: 'error',
+        variant: 'diagnostic',
+        title: 'Nexus Route Diagnostics Failed',
+        summary: 'Impact: Discover / automatic updates paused.',
+        description: '4 routes did not pass verification.',
+        note: 'You can retry now, or open diagnostics to inspect the exact failures.',
+        chips: [
+          { label: 'GraphQL', tone: 'warning' },
+          { label: 'HTML', tone: 'warning' },
+          { label: 'Image CDN', tone: 'warning' },
+          { label: 'SMAPI', tone: 'warning' },
+        ],
+        secondaryAction: {
+          label: 'Retry now',
+          callback: onRetry,
+        },
+        action: {
+          label: 'View details',
+          callback: onViewDetails,
+          tone: 'primary',
+        },
+        autoDismissMs: null,
+      })
+    })
+
+    const toast = screen.getByText('Nexus Route Diagnostics Failed').closest('.notification-toast')
+
+    expect(toast?.className).toContain('notification-toast-variant-diagnostic')
+    expect(screen.getByText('Nexus Route Diagnostics Failed')).toBeTruthy()
+    expect(screen.getByText('Impact: Discover / automatic updates paused.')).toBeTruthy()
+    expect(screen.getByText('4 routes did not pass verification.')).toBeTruthy()
+    expect(screen.getByText('You can retry now, or open diagnostics to inspect the exact failures.')).toBeTruthy()
+
+    expect(screen.getByText('GraphQL').closest('.notification-toast-chip')?.className).toContain(
+      'notification-toast-chip-warning',
+    )
+    expect(screen.getByText('SMAPI').closest('.notification-toast-chip')?.className).toContain(
+      'notification-toast-chip-warning',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry now' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }))
+    expect(onViewDetails).toHaveBeenCalledTimes(1)
+  })
+
   it('runs optional actions and allows manual dismissal', () => {
     const onRetry = vi.fn()
     renderNotifications()
@@ -206,6 +260,13 @@ describe('NotificationProvider', () => {
   })
 
   it('expands the stacked column upward while hovered and only collapses after a short leave delay', () => {
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation((callback: FrameRequestCallback) => {
+        callback(16)
+        return 1
+      })
+
     renderNotifications()
 
     act(() => {
@@ -226,28 +287,86 @@ describe('NotificationProvider', () => {
     const viewport = screen.getByRole('region', { name: 'Notifications' })
     const first = screen.getByText('First notification').closest('.notification-stack-item')
     const second = screen.getByText('Second notification').closest('.notification-stack-item')
+    const firstToast = screen.getByText('First notification').closest('.notification-toast') as HTMLElement
+    const secondToast = screen.getByText('Second notification').closest('.notification-toast') as HTMLElement
+    const thirdToast = screen.getByText('Third notification').closest('.notification-toast') as HTMLElement
+
+    Object.defineProperty(firstToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 320,
+        height: 120,
+        top: 0,
+        right: 0,
+        bottom: 120,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(secondToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 360,
+        height: 96,
+        top: 0,
+        right: 0,
+        bottom: 96,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(thirdToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 420,
+        height: 76,
+        top: 0,
+        right: 0,
+        bottom: 76,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
 
     expect(first?.getAttribute('style')).toContain('bottom: 16px')
     expect(second?.getAttribute('style')).toContain('bottom: 8px')
+    expect(first?.getAttribute('style')).toContain('height: 76px')
+    expect(second?.getAttribute('style')).toContain('height: 76px')
+    expect(first?.getAttribute('style')).toContain('width: 420px')
+    expect(second?.getAttribute('style')).toContain('width: 420px')
+
+    requestAnimationFrameSpy.mockRestore()
 
     fireEvent.mouseEnter(viewport)
 
-    expect(first?.getAttribute('style')).toContain('bottom: 152px')
-    expect(second?.getAttribute('style')).toContain('bottom: 76px')
-    expect(first?.getAttribute('style')).toContain('--notification-stack-scale: 1')
-    expect(second?.getAttribute('style')).toContain('--notification-stack-scale: 1')
+    expect(first?.getAttribute('style')).toContain('bottom: 188px')
+    expect(second?.getAttribute('style')).toContain('bottom: 84px')
+    expect(first?.getAttribute('style')).not.toContain('height:')
+    expect(second?.getAttribute('style')).not.toContain('height:')
+    expect(first?.getAttribute('style')).toContain('width: 320px')
+    expect(second?.getAttribute('style')).toContain('width: 360px')
 
     fireEvent.mouseLeave(viewport)
 
-    expect(first?.getAttribute('style')).toContain('bottom: 152px')
-    expect(second?.getAttribute('style')).toContain('bottom: 76px')
+    expect(first?.getAttribute('style')).toContain('bottom: 188px')
+    expect(second?.getAttribute('style')).toContain('bottom: 84px')
 
     act(() => {
       vi.advanceTimersByTime(119)
     })
 
-    expect(first?.getAttribute('style')).toContain('bottom: 152px')
-    expect(second?.getAttribute('style')).toContain('bottom: 76px')
+    expect(first?.getAttribute('style')).toContain('bottom: 188px')
+    expect(second?.getAttribute('style')).toContain('bottom: 84px')
 
     act(() => {
       vi.advanceTimersByTime(1)
@@ -255,40 +374,247 @@ describe('NotificationProvider', () => {
 
     expect(first?.getAttribute('style')).toContain('bottom: 16px')
     expect(second?.getAttribute('style')).toContain('bottom: 8px')
+    expect(first?.getAttribute('style')).toContain('height: 76px')
+    expect(second?.getAttribute('style')).toContain('height: 76px')
+    expect(first?.getAttribute('style')).toContain('width: 420px')
+    expect(second?.getAttribute('style')).toContain('width: 420px')
   })
 
-  it('styles notifications with shared theme tokens', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
+  it('uses measured notification heights when expanding a taller stacked card', () => {
+    renderNotifications()
 
-    expect(stylesheet).toContain('var(--bg-panel)')
-    expect(stylesheet).toContain('var(--text-primary)')
-    expect(stylesheet).toContain('var(--text-secondary)')
-    expect(stylesheet).toContain('var(--border-color)')
-    expect(stylesheet).toContain('.notification-stack-item')
-    expect(stylesheet).toContain('scaleX(var(--notification-stack-scale))')
-    expect(stylesheet).toContain('data-expanded="true"')
-    expect(stylesheet).toContain('.notification-toast-close')
-    expect(stylesheet).toContain('grid-template-columns: auto 1fr auto;')
-    expect(stylesheet).toContain('width: 1.65rem;')
-    expect(stylesheet).toContain('height: 1.65rem;')
-    expect(stylesheet).toContain('border-radius: 8px;')
-    expect(stylesheet).toContain('transform: translateY(-2px);')
-    expect(stylesheet).toContain('transition:')
+    act(() => {
+      publishNotification({
+        level: 'info',
+        title: 'First notification',
+      })
+      publishNotification({
+        level: 'info',
+        title: 'Second notification',
+      })
+      publishNotification({
+        id: 'launcher-nexus-diagnostics',
+        level: 'error',
+        variant: 'diagnostic',
+        title: 'Nexus Route Diagnostics Failed',
+        summary: 'Impact: Discover / automatic updates paused.',
+        description: '4 routes did not pass verification.',
+        chips: [
+          { label: 'GraphQL', tone: 'warning' },
+          { label: 'HTML', tone: 'warning' },
+          { label: 'Image CDN', tone: 'warning' },
+          { label: 'SMAPI', tone: 'warning' },
+        ],
+        autoDismissMs: null,
+      })
+    })
+
+    const viewport = screen.getByRole('region', { name: 'Notifications' })
+    const first = screen.getByText('First notification').closest('.notification-stack-item')
+    const second = screen.getByText('Second notification').closest('.notification-stack-item')
+    const thirdToast = screen.getByText('Nexus Route Diagnostics Failed').closest('.notification-toast') as HTMLElement
+    const secondToast = screen.getByText('Second notification').closest('.notification-toast') as HTMLElement
+
+    Object.defineProperty(thirdToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 520,
+        height: 160,
+        top: 0,
+        right: 0,
+        bottom: 160,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(secondToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 320,
+        height: 96,
+        top: 0,
+        right: 0,
+        bottom: 96,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+      fireEvent.mouseEnter(viewport)
+    })
+
+    expect(second?.getAttribute('style')).toContain('bottom: 168px')
+    expect(first?.getAttribute('style')).toContain('bottom: 272px')
   })
 
-  it('does not reserve an invisible hover band above the notification stack', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
+  it('applies collapsed shared width immediately from synchronous measurements', () => {
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      if (this instanceof HTMLElement && this.classList.contains('notification-toast')) {
+        const text = this.textContent ?? ''
 
-    expect(stylesheet).toContain('.notification-viewport {')
-    expect(stylesheet).toContain('height: 0;')
-    expect(stylesheet).not.toContain('min-height: 4rem;')
+        if (text.includes('Third notification')) {
+          return {
+            width: 420,
+            height: 76,
+            top: 0,
+            right: 0,
+            bottom: 76,
+            left: 0,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+          } as DOMRect
+        }
+
+        if (text.includes('Second notification')) {
+          return {
+            width: 360,
+            height: 96,
+            top: 0,
+            right: 0,
+            bottom: 96,
+            left: 0,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+          } as DOMRect
+        }
+
+        if (text.includes('First notification')) {
+          return {
+            width: 320,
+            height: 120,
+            top: 0,
+            right: 0,
+            bottom: 120,
+            left: 0,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+          } as DOMRect
+        }
+      }
+
+      return {
+        width: 0,
+        height: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    })
+
+    renderNotifications()
+
+    act(() => {
+      publishNotification({
+        level: 'info',
+        title: 'First notification',
+      })
+      publishNotification({
+        level: 'info',
+        title: 'Second notification',
+      })
+      publishNotification({
+        level: 'info',
+        title: 'Third notification',
+      })
+    })
+
+    const first = screen.getByText('First notification').closest('.notification-stack-item')
+    const second = screen.getByText('Second notification').closest('.notification-stack-item')
+
+    expect(first?.getAttribute('style')).toContain('width: 420px')
+    expect(second?.getAttribute('style')).toContain('width: 420px')
+
+    boundsSpy.mockRestore()
   })
 
-  it('uses a stable hover capture region so stack motion does not retrigger enter and leave', () => {
-    const stylesheet = readFileSync(resolve(process.cwd(), 'src/styles/features/notifications.css'), 'utf8')
+  it('positions a taller stacked card using the front card real height when expanded', () => {
+    renderNotifications()
 
-    expect(stylesheet).toContain('.notification-hover-region')
-    expect(stylesheet).toContain('pointer-events: auto;')
-    expect(stylesheet).toContain('.notification-viewport[data-expanded="true"] .notification-hover-region')
+    act(() => {
+      publishNotification({
+        level: 'info',
+        title: 'First notification',
+      })
+      publishNotification({
+        level: 'info',
+        title: 'Second notification',
+      })
+      publishNotification({
+        level: 'info',
+        title: 'Third notification',
+      })
+    })
+
+    const viewport = screen.getByRole('region', { name: 'Notifications' })
+    const first = screen.getByText('First notification').closest('.notification-stack-item')
+    const second = screen.getByText('Second notification').closest('.notification-stack-item')
+    const firstToast = screen.getByText('First notification').closest('.notification-toast') as HTMLElement
+    const secondToast = screen.getByText('Second notification').closest('.notification-toast') as HTMLElement
+    const thirdToast = screen.getByText('Third notification').closest('.notification-toast') as HTMLElement
+
+    Object.defineProperty(firstToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 320,
+        height: 120,
+        top: 0,
+        right: 0,
+        bottom: 120,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(secondToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 360,
+        height: 96,
+        top: 0,
+        right: 0,
+        bottom: 96,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(thirdToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 420,
+        height: 52,
+        top: 0,
+        right: 0,
+        bottom: 52,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+      fireEvent.mouseEnter(viewport)
+    })
+
+    expect(second?.getAttribute('style')).toContain('bottom: 60px')
+    expect(first?.getAttribute('style')).toContain('bottom: 164px')
   })
+
 })

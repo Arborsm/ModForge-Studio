@@ -2,6 +2,7 @@ import { FileArchive, FileJson, FolderTree } from 'lucide-react'
 import type { InspectLauncherArchiveResult, LauncherArchiveTreeNode } from '../../../lib/desktop'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
+import { formatBytesOrPlaceholder } from '../../byteSize'
 
 type LauncherArchiveInstallDialogProps = {
   open: boolean
@@ -13,27 +14,6 @@ type LauncherArchiveInstallDialogProps = {
   onConfirm: () => void
 }
 
-function formatBytes(value: number | null) {
-  if (value == null) {
-    return 'dir'
-  }
-
-  if (value < 1024) {
-    return `${value} B`
-  }
-
-  const units = ['KB', 'MB', 'GB']
-  let size = value / 1024
-  let unitIndex = 0
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024
-    unitIndex += 1
-  }
-
-  return `${size.toFixed(1)} ${units[unitIndex]}`
-}
-
 function ArchiveTreeNode({ node, depth = 0 }: { node: LauncherArchiveTreeNode; depth?: number }) {
   return (
     <div className="launcher-archive-node">
@@ -42,7 +22,7 @@ function ArchiveTreeNode({ node, depth = 0 }: { node: LauncherArchiveTreeNode; d
           {node.isDirectory ? <FolderTree className="h-4 w-4" /> : <FileJson className="h-4 w-4" />}
         </span>
         <span className="launcher-archive-node-name">{node.name}</span>
-        <span className="launcher-archive-node-size">{formatBytes(node.sizeBytes)}</span>
+        <span className="launcher-archive-node-size">{formatBytesOrPlaceholder(node.sizeBytes, 'dir')}</span>
       </div>
 
       {node.children.length ? (

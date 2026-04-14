@@ -16,6 +16,7 @@ import {
 import { cx } from '../../../lib/cx'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { getLauncherCoverKey } from '../../../lib/launcher/coverKey'
+import { getModKey, includesLibraryFilter, normalizeLookupKey } from '../../../lib/launcher/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft } from '../../../lib/launcher/types'
 import { useLauncherLibrary } from '../../../lib/launcher/useLauncherLibrary'
 import { LauncherModCard } from '../cards/LauncherModCard'
@@ -49,9 +50,6 @@ type GalleryCoverDialogState = {
 }
 
 const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-gallery-loading'
-
-const normalizeLookupKey = (value: string) => value.trim().toLowerCase()
-const getModKey = (mod: LauncherLibraryItem) => (mod.uniqueId || mod.labelKey || mod.id).trim()
 
 const shortenLibraryPath = (value: string | null | undefined) => {
   if (!value) {
@@ -112,26 +110,6 @@ function sortLibraryMods(
     if (sortMode === 'pack') return compareText(leftPack, rightPack) || compareText(left.name, right.name)
     return compareText(left.name, right.name)
   })
-}
-
-function includesLibraryFilter(item: LauncherLibraryItem, filterText: string) {
-  const normalizedFilter = filterText.trim().toLowerCase()
-  if (!normalizedFilter) {
-    return true
-  }
-
-  return [
-    item.name,
-    item.author,
-    item.version,
-    item.uniqueId,
-    item.description,
-    item.folderName,
-    item.absolutePath,
-    item.labelKey,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .some((value) => value.toLowerCase().includes(normalizedFilter))
 }
 
 function buildLibraryCardMeta(mod: LauncherLibraryItem, noneLabel: string) {

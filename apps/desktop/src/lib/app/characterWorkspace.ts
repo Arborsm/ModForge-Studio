@@ -1,3 +1,7 @@
+import { buildGameContentPath } from './contentPaths'
+
+export { buildGameContentPath } from './contentPaths'
+
 export const CHARACTER_DATA_ASSET_PATH = 'Content\\Data\\Characters.xnb'
 export const CHARACTER_GIFT_TASTES_ASSET_PATH = 'Content\\Data\\NPCGiftTastes.xnb'
 export const OBJECT_DATA_ASSET_PATH = 'Content\\Data\\Objects.xnb'
@@ -324,15 +328,6 @@ export function createCharacterEntryIndex(content: string) {
       }
     })
     .sort((left, right) => left.displayName.localeCompare(right.displayName))
-}
-
-export function buildGameContentPath(rootPath: string, assetName: string | null) {
-  if (!assetName) {
-    return null
-  }
-
-  const normalized = assetName.replaceAll('/', '\\').replace(/^Content\\/iu, '')
-  return `${rootPath}\\Content\\${normalized}.xnb`
 }
 
 export function resolveCharacterVariantPaths(rootPath: string | null, variant: CharacterAppearanceVariant | null) {

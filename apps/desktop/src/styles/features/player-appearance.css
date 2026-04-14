@@ -1,11 +1,6 @@
 @layer components {
   .appearance-window-backdrop {
-    position: fixed;
-    inset: 0;
     z-index: 230;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 24px;
     background:
       radial-gradient(circle at top, color-mix(in srgb, var(--accent) 12%, transparent), transparent 36%),
@@ -17,44 +12,20 @@
     position: relative;
     width: min(1320px, calc(100vw - 48px));
     max-height: min(860px, calc(100vh - 48px));
-    overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
     border-radius: 24px;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, transparent), color-mix(in srgb, var(--bg-elevated) 98%, transparent));
-    box-shadow: var(--shadow-float);
-    display: flex;
-    flex-direction: column;
   }
 
   .appearance-window-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
     gap: 18px;
-    padding: 18px 20px 16px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, transparent), color-mix(in srgb, var(--bg-panel-muted) 76%, transparent));
   }
 
-  .appearance-window-eyebrow {
-    margin: 0 0 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-secondary);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-
   .appearance-window-title {
-    margin: 0;
-    color: var(--text-primary);
     font-size: 22px;
-    font-weight: 700;
   }
 
   .appearance-window-copy {
@@ -179,10 +150,9 @@
   }
 
   .appearance-window-placeholder {
-    border: 1px dashed color-mix(in srgb, var(--border-color) 82%, transparent);
+    --panel-empty-border: color-mix(in srgb, var(--border-color) 82%, transparent);
     border-radius: 16px;
     padding: 14px;
-    color: var(--text-secondary);
     font-size: 12px;
     line-height: 1.6;
     text-align: center;

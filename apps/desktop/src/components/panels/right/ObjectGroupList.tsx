@@ -5,18 +5,37 @@ import { useEditorCopy } from '../../../lib/app/localeContext'
 import { cx } from '../../../lib/cx'
 import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag, type ObjectGroupListItem } from './shared'
 
+type ObjectGroupListVariant = 'panel' | 'dock'
+
+const objectGroupCardClassName = {
+  panel: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+  dock: 'panel-section-muted panel-section overflow-hidden',
+} satisfies Record<ObjectGroupListVariant, string>
+
+const objectGroupSectionClassName = {
+  panel: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+  dock: 'panel-section-muted panel-section overflow-hidden',
+} satisfies Record<ObjectGroupListVariant, string>
+
+const objectGroupEmptyStateClassName = {
+  panel: 'rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]',
+  dock: 'panel-empty-state',
+} satisfies Record<ObjectGroupListVariant, string>
+
 function ObjectGroupCard({
   item,
   focusedObjectTarget,
   onFocusObject,
+  variant,
 }: {
   item: ObjectGroupListItem
   focusedObjectTarget: FocusedMapObjectTarget | null
   onFocusObject: (groupId: number, objectId: number) => void
+  variant: ObjectGroupListVariant
 }) {
   const copy = useEditorCopy()
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+    <div className={objectGroupCardClassName[variant]}>
       <div className="flex items-start justify-between gap-3 px-3 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.name}</p>
@@ -44,10 +63,16 @@ function ObjectGroupCard({
                   key={object.id}
                   type="button"
                   className={cx(
-                    'w-full rounded-lg border px-3 py-2 text-left transition-colors',
+                    variant === 'dock'
+                      ? 'panel-list-card panel-list-card-interactive w-full rounded-lg px-3 py-2 text-left'
+                      : 'w-full rounded-lg border px-3 py-2 text-left transition-colors',
                     isFocused
-                      ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-panel))]'
-                      : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-active)]',
+                      ? variant === 'dock'
+                        ? 'panel-list-card-active'
+                        : 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_16%,var(--bg-panel))]'
+                      : variant === 'dock'
+                        ? 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]'
+                        : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-active)]',
                   )}
                   onClick={() => onFocusObject(item.group.id, object.id)}
                 >
@@ -84,12 +109,14 @@ export function GroupedObjectGroupList({
   emptyMessage,
   focusedObjectTarget,
   onFocusObject,
+  variant = 'panel',
 }: {
   items: ObjectGroupListItem[]
   filterPlaceholder: string
   emptyMessage: string
   focusedObjectTarget: FocusedMapObjectTarget | null
   onFocusObject: (groupId: number, objectId: number) => void
+  variant?: ObjectGroupListVariant
 }) {
   const copy = useEditorCopy()
   const [filterValue, setFilterValue] = useState('')
@@ -159,6 +186,7 @@ export function GroupedObjectGroupList({
                   item={entry.items[0]}
                   focusedObjectTarget={focusedObjectTarget}
                   onFocusObject={onFocusObject}
+                  variant={variant}
                 />
               )
             }
@@ -166,7 +194,7 @@ export function GroupedObjectGroupList({
             return (
               <section
                 key={entry.groupLabel}
-                className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                className={objectGroupSectionClassName[variant]}
               >
                 <button
                   type="button"
@@ -207,6 +235,7 @@ export function GroupedObjectGroupList({
                         item={item}
                         focusedObjectTarget={focusedObjectTarget}
                         onFocusObject={onFocusObject}
+                        variant={variant}
                       />
                     ))}
                   </div>
@@ -216,7 +245,7 @@ export function GroupedObjectGroupList({
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
+        <div className={objectGroupEmptyStateClassName[variant]}>
           {emptyMessage}
         </div>
       )}

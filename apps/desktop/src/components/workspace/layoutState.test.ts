@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { movePanelInOrder, normalizeChrome } from './layoutState'
+import { movePanelInOrder, normalizeChrome, sanitizeStoredState } from './layoutState'
 import { getHorizontalUsableWidth, getResolvedSidePanelWidths } from './layoutSizing'
 import type { WorkspacePanelConfig, WorkspaceSize } from './layoutTypes'
 
@@ -38,6 +38,43 @@ describe('layoutState', () => {
     expect(chrome.leftWidth).toBeGreaterThanOrEqual(0.12)
     expect(chrome.rightWidth).toBeLessThanOrEqual(0.62)
     expect(chrome.bottomHeight).toBeGreaterThanOrEqual(180)
+  })
+
+  it('keeps center workspace panels docked and visible when sanitizing persisted state', () => {
+    const panels: WorkspacePanelConfig[] = [
+      {
+        id: 'viewport',
+        title: 'Viewport',
+        subtitle: '',
+        content: null,
+        minWidth: 320,
+        minHeight: 240,
+        defaultDock: 'center',
+      },
+    ]
+
+    const state = sanitizeStoredState(
+      {
+        panels: {
+          viewport: {
+            mode: 'hidden',
+            lastMode: 'docked',
+            dock: 'right-top',
+            x: 12,
+            y: 24,
+            width: 640,
+            height: 480,
+            zIndex: 1,
+          },
+        },
+      },
+      panels,
+    )
+
+    expect(state.panels.viewport.mode).toBe('docked')
+    expect(state.panels.viewport.lastMode).toBe('docked')
+    expect(state.panels.viewport.dock).toBe('center')
+    expect(state.slots['right-top'].panelOrder).toEqual([])
   })
 })
 

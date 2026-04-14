@@ -218,6 +218,14 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
         </div>
         <div className="launcher-settings-toggle-list">
           <LauncherSettingsSwitch
+            label={copy.toggles.autoCheckModUpdates}
+            description={settingsCopy.autoCheckUpdatesHint}
+            checked={settings.autoCheckModUpdates}
+            enabledLabel={commonCopy.yes}
+            disabledLabel={commonCopy.no}
+            onToggle={() => updateField('autoCheckModUpdates', !settings.autoCheckModUpdates)}
+          />
+          <LauncherSettingsSwitch
             label={copy.toggles.autoInstallDownloads}
             description={copy.settings.autoInstallHint}
             checked={settings.autoInstallDownloads}

@@ -15,6 +15,10 @@ export function getLauncherUpdateNotificationProgress(payload: LauncherUpdatePro
   return Math.max(0, Math.min(100, (payload.checked / payload.total) * 100))
 }
 
+function isLauncherUpdateProgressComplete(payload: LauncherUpdateProgressPayload) {
+  return payload.total > 0 && payload.checked >= payload.total
+}
+
 export function publishLauncherUpdateProgressNotification(
   copy: LauncherUpdatesCopy,
   payload: LauncherUpdateProgressPayload,
@@ -37,6 +41,11 @@ export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
 
     void listenToLauncherUpdateProgress((payload) => {
       if (!active) {
+        return
+      }
+
+      if (isLauncherUpdateProgressComplete(payload)) {
+        dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
         return
       }
 

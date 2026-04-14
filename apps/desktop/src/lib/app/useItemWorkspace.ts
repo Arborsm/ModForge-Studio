@@ -1,12 +1,25 @@
 import {useCallback, useDeferredValue, useEffect, useMemo, useState} from 'react'
 import {type GameDirectoryInfo, loadTextAsset} from '../desktop'
 import type {ItemsPanelCopy, LocaleCode} from '../../locales'
-import {loadImageResourceFromPath} from '../imageMetrics'
+import {
+  getLocalizedImagePathCandidates,
+  getLocalizedPathCacheKey,
+  loadImageResourceFromPath,
+  normalizeCachePathSegment,
+} from '../imageMetrics'
 import {CHARACTER_DATA_ASSET_PATH, CHARACTER_GIFT_TASTES_ASSET_PATH} from './characterWorkspace'
+import {buildGameContentPath} from './contentPaths'
+import {
+  buildNpcGiftTasteBuckets,
+  buildUniversalGiftTasteBuckets,
+  type GiftTasteBuckets,
+  normalizeContextTag,
+  normalizeTagFragment,
+  parseQualifiedGiftTasteObjectId,
+} from './giftTasteHelpers'
 import {
   BIG_CRAFTABLE_DATA_ASSET_PATH,
   BOOTS_DATA_ASSET_PATH,
-  buildGameContentPath,
   buildItemSearchAliases,
   COOKING_RECIPES_ASSET_PATH,
   CRAFTING_RECIPES_ASSET_PATH,
@@ -67,16 +80,8 @@ const stringTableCache = new Map<string, Promise<Record<string, string>>>()
 const itemEntriesCache = new Map<string, Promise<ItemWorkspaceEntry[]>>()
 const imageStateCache = new Map<string, Promise<ItemTextureAssetState>>()
 
-function normalizeCachePathSegment(value: string) {
-  return value.trim().replaceAll('/', '\\')
-}
-
 function getRootLocaleCacheKey(rootPath: string, locale: LocaleCode) {
   return `${normalizeCachePathSegment(rootPath)}::${locale}`
-}
-
-function getLocalizedPathCacheKey(path: string, locale: LocaleCode) {
-  return `${normalizeCachePathSegment(path)}::${locale}`
 }
 
 async function readCachedPromise<T>(cache: Map<string, Promise<T>>, key: string, loader: () => Promise<T>) {
@@ -92,14 +97,6 @@ async function readCachedPromise<T>(cache: Map<string, Promise<T>>, key: string,
 
   cache.set(key, pending)
   return pending
-}
-
-function getLocalizedImagePathCandidates(path: string, locale: LocaleCode) {
-  if (locale === 'en-US') {
-    return [path]
-  }
-
-  return [path.replace(/\.xnb$/iu, `.${locale}.xnb`), path]
 }
 
 async function loadImageState(path: string | null, locale: LocaleCode): Promise<ItemTextureAssetState> {
@@ -299,14 +296,6 @@ function sortItemEntries(entries: ItemWorkspaceEntry[], locale: LocaleCode) {
   })
 }
 
-type GiftTasteBuckets = {
-  love: string[]
-  like: string[]
-  neutral: string[]
-  dislike: string[]
-  hate: string[]
-}
-
 type CharacterGiftTarget = {
   internalName: string
   displayName: string
@@ -319,38 +308,6 @@ const GIFT_TASTE_ORDER: Array<{ key: keyof GiftTasteBuckets; result: 'love' | 'h
   { key: 'dislike', result: 'dislike' },
   { key: 'neutral', result: 'neutral' },
 ]
-
-function parseGiftTasteTokens(value: string | null | undefined, tokenIndex: number) {
-  if (!value) {
-    return []
-  }
-
-  const segments = value.split('/')
-  const bucket = segments[tokenIndex]?.trim() ?? ''
-  return bucket ? bucket.split(/\s+/u).filter(Boolean) : []
-}
-
-function parseQualifiedGiftTasteObjectId(token: string) {
-  const trimmed = token.trim()
-  if (!trimmed) {
-    return null
-  }
-
-  const qualifiedObjectMatch = /^\(O\)(.+)$/iu.exec(trimmed)
-  if (qualifiedObjectMatch) {
-    return qualifiedObjectMatch[1]?.trim() || null
-  }
-
-  return trimmed
-}
-
-function normalizeContextTag(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function normalizeTagFragment(value: string) {
-  return value.trim().toLowerCase().replaceAll("'", '').replace(/\s+/gu, '_')
-}
 
 function buildCandidateContextTags(entry: ItemWorkspaceEntry) {
   const tags = new Set(entry.contextTags.map((tag) => normalizeContextTag(tag)))
@@ -369,26 +326,6 @@ function buildCandidateContextTags(entry: ItemWorkspaceEntry) {
   }
 
   return tags
-}
-
-function buildUniversalGiftTasteBuckets(giftTasteEntries: Record<string, string>) {
-  return {
-    love: giftTasteEntries.Universal_Love?.split(/\s+/u).filter(Boolean) ?? [],
-    hate: giftTasteEntries.Universal_Hate?.split(/\s+/u).filter(Boolean) ?? [],
-    like: giftTasteEntries.Universal_Like?.split(/\s+/u).filter(Boolean) ?? [],
-    dislike: giftTasteEntries.Universal_Dislike?.split(/\s+/u).filter(Boolean) ?? [],
-    neutral: giftTasteEntries.Universal_Neutral?.split(/\s+/u).filter(Boolean) ?? [],
-  } satisfies GiftTasteBuckets
-}
-
-function buildNpcGiftTasteBuckets(rawValue: string | null | undefined): GiftTasteBuckets {
-  return {
-    love: parseGiftTasteTokens(rawValue, 1),
-    like: parseGiftTasteTokens(rawValue, 3),
-    dislike: parseGiftTasteTokens(rawValue, 5),
-    hate: parseGiftTasteTokens(rawValue, 7),
-    neutral: parseGiftTasteTokens(rawValue, 9),
-  }
 }
 
 function hasCategoryToken(tokens: string[], category: number | null) {

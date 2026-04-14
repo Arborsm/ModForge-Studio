@@ -1,4 +1,5 @@
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../lib/app/buildingWorkspace'
+import { formatPoint, formatRect } from '../../../lib/app/geometryFormatting'
 import type { ModSourceEntry } from '../../../lib/app/modAssetIndex'
 import { useBuildingsCopy } from '../../../lib/app/localeContext'
 import { PanelFrame } from '../../ui/PanelFrame'
@@ -20,14 +21,6 @@ function renderKv(label: string, value: string) {
       <span className="max-w-[55%] truncate text-right">{value}</span>
     </div>
   )
-}
-
-function formatPoint(value: { X: number; Y: number } | null, fallback: string) {
-  return value ? `${value.X}, ${value.Y}` : fallback
-}
-
-function formatRect(value: { X: number; Y: number; Width: number; Height: number } | null, fallback: string) {
-  return value ? `${value.X}, ${value.Y} / ${value.Width} x ${value.Height}` : fallback
 }
 
 export function BuildingInspectorPanel({

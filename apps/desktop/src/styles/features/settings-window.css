@@ -1,11 +1,6 @@
 @layer components {
   .settings-window-backdrop {
-    position: fixed;
-    inset: 0;
     z-index: 220;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 28px;
     background: color-mix(in srgb, var(--bg-app) 26%, rgba(15, 23, 42, 0.42));
     backdrop-filter: blur(10px);
@@ -14,42 +9,18 @@
   .settings-window-panel {
     width: min(920px, calc(100vw - 56px));
     height: min(820px, calc(100vh - 56px));
-    overflow: hidden;
     border: 1px solid var(--border-color);
     border-radius: 20px;
     background: color-mix(in srgb, var(--bg-elevated) 100%, transparent);
-    box-shadow: var(--shadow-float);
-    display: flex;
-    flex-direction: column;
   }
 
   .settings-window-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
     gap: 16px;
-    padding: 18px 20px 16px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
   }
 
-  .settings-window-eyebrow {
-    margin: 0 0 8px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-secondary);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-  }
-
   .settings-window-title {
-    margin: 0;
-    color: var(--text-primary);
     font-size: 20px;
-    font-weight: 700;
   }
 
   .settings-window-body {
@@ -317,11 +288,11 @@
     transform: translateX(22px);
   }
 
-  .settings-accent-card {
+  .settings-accent-card,
+  .settings-locale-option {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 10px;
-    width: 100%;
     border: 1px solid var(--border-color);
     border-radius: 14px;
     background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
@@ -334,12 +305,18 @@
       color 160ms ease;
   }
 
-  .settings-accent-card:hover {
+  .settings-accent-card {
+    gap: 10px;
+  }
+
+  .settings-accent-card:hover,
+  .settings-locale-option:hover {
     background: color-mix(in srgb, var(--bg-active) 80%, transparent);
     color: var(--text-primary);
   }
 
-  .settings-accent-card-active {
+  .settings-accent-card-active,
+  .settings-locale-option-active {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
     color: var(--text-primary);
@@ -366,37 +343,10 @@
     gap: 10px;
   }
 
-  .settings-locale-option {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--bg-panel) 84%, transparent);
-    color: var(--text-secondary);
-    padding: 12px;
-    text-align: left;
-    transition:
-      border-color 160ms ease,
-      background-color 160ms ease,
-      color 160ms ease;
-  }
-
-  .settings-locale-option:hover {
-    background: color-mix(in srgb, var(--bg-active) 80%, transparent);
-    color: var(--text-primary);
-  }
-
   .settings-locale-option:focus-visible {
     outline: none;
     border-color: color-mix(in srgb, var(--accent) 62%, var(--border-color));
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-soft) 100%, transparent);
-    color: var(--text-primary);
-  }
-
-  .settings-locale-option-active {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
     color: var(--text-primary);
   }
 

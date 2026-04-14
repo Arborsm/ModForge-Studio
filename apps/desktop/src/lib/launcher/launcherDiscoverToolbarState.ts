@@ -20,6 +20,14 @@ export const DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE: LauncherDiscoverToolbarSta
   filtersHidden: false,
 }
 
+type LauncherDiscoverToolbarStateInput = {
+  sort?: string | null
+  ascending?: boolean | string | null
+  timeRange?: string | null
+  pageSize?: number | string | null
+  filtersHidden?: boolean | string | null
+}
+
 function isDiscoverSort(value: unknown): value is LauncherDiscoverToolbarState['sort'] {
   return typeof value === 'string' && DISCOVER_SORT_OPTIONS.includes(value as LauncherDiscoverToolbarState['sort'])
 }
@@ -35,53 +43,49 @@ function isDiscoverPageSize(value: unknown): value is number {
   return typeof value === 'number' && DISCOVER_PAGE_SIZE_OPTIONS.includes(value as (typeof DISCOVER_PAGE_SIZE_OPTIONS)[number])
 }
 
-export function readStoredLauncherDiscoverToolbarState(): LauncherDiscoverToolbarState {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE
+function parseOptionalBoolean(value: boolean | string | null | undefined) {
+  if (typeof value === 'boolean') {
+    return value
   }
 
-  try {
-    const raw = window.localStorage.getItem(LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY)
-    if (!raw) {
-      return DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE
-    }
-
-    const parsed = JSON.parse(raw) as Partial<LauncherDiscoverToolbarState>
-    return {
-      sort: isDiscoverSort(parsed.sort) ? parsed.sort : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.sort,
-      ascending:
-        typeof parsed.ascending === 'boolean'
-          ? parsed.ascending
-          : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.ascending,
-      timeRange: isDiscoverTimeRange(parsed.timeRange)
-        ? parsed.timeRange
-        : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.timeRange,
-      pageSize: isDiscoverPageSize(parsed.pageSize) ? parsed.pageSize : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.pageSize,
-      filtersHidden:
-        typeof parsed.filtersHidden === 'boolean'
-          ? parsed.filtersHidden
-          : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.filtersHidden,
-    }
-  } catch {
-    return DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE
+  if (value === 'true') {
+    return true
   }
+
+  if (value === 'false') {
+    return false
+  }
+
+  return null
 }
 
-export function persistLauncherDiscoverToolbarState(nextState: Partial<LauncherDiscoverToolbarState>) {
-  if (typeof window === 'undefined') {
-    return
+function parseDiscoverPageSize(value: number | string | null | undefined) {
+  if (typeof value === 'number') {
+    return value
   }
 
-  try {
-    const current = readStoredLauncherDiscoverToolbarState()
-    window.localStorage.setItem(
-      LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY,
-      JSON.stringify({
-        ...current,
-        ...nextState,
-      }),
-    )
-  } catch {
-    // Ignore blocked storage writes and keep discover toolbar state in-memory.
+  if (typeof value !== 'string' || !value.trim()) {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function normalizeLauncherDiscoverToolbarState(
+  input?: LauncherDiscoverToolbarStateInput | null,
+): LauncherDiscoverToolbarState {
+  const ascending = parseOptionalBoolean(input?.ascending)
+  const filtersHidden = parseOptionalBoolean(input?.filtersHidden)
+  const pageSize = parseDiscoverPageSize(input?.pageSize)
+
+  return {
+    sort: isDiscoverSort(input?.sort) ? input.sort : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.sort,
+    ascending: ascending ?? DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.ascending,
+    timeRange: isDiscoverTimeRange(input?.timeRange)
+      ? input.timeRange
+      : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.timeRange,
+    pageSize: isDiscoverPageSize(pageSize) ? pageSize : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.pageSize,
+    filtersHidden: filtersHidden ?? DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.filtersHidden,
   }
 }

@@ -1,4 +1,6 @@
 import type { MapDocument, MapPropertyValue } from '../maps/types'
+import { stripTileGidFlags } from '../maps/tileFlags'
+import { findTilesetForGid as resolveTilesetForGid } from '../maps/tilesets'
 
 export type StageWorldOverlaySprite = {
   id: string
@@ -21,14 +23,6 @@ export type StageBuildingDataEntry = {
   DrawOffset?: { X: number; Y: number } | null
   SortTileOffset?: number | null
 }
-
-const TILE_ID_MASK =
-  ~(
-    0x80000000 |
-    0x40000000 |
-    0x20000000 |
-    0x10000000
-  ) >>> 0
 
 const STANDARD_OBJECT_SHEET_COLUMNS = 24
 const stageOverlayCache = new WeakMap<Record<string, StageBuildingDataEntry>, WeakMap<MapDocument, StageWorldOverlaySprite[]>>()
@@ -53,17 +47,9 @@ function getMapPropertyPoint(mapDocument: MapDocument, key: string) {
   return parseMapPointPropertyValue(mapDocument.properties[key])
 }
 
-function findTilesetForGid(mapDocument: MapDocument, gid: number) {
-  const tileGid = gid & TILE_ID_MASK
-  let candidate = null as MapDocument['tilesets'][number] | null
-
-  for (const tileset of mapDocument.tilesets) {
-    if (tileGid >= tileset.firstGid) {
-      candidate = tileset
-    } else {
-      break
-    }
-  }
+function resolveStageTileReference(mapDocument: MapDocument, gid: number) {
+  const tileGid = stripTileGidFlags(gid)
+  const candidate = resolveTilesetForGid(mapDocument.tilesets, tileGid)
 
   return candidate ? { tileset: candidate, tileId: tileGid - candidate.firstGid } : null
 }
@@ -316,7 +302,7 @@ function buildPathLayerWorldOverlaySprites(mapDocument: MapDocument): StageWorld
         continue
       }
 
-      const resolved = findTilesetForGid(mapDocument, gid)
+      const resolved = resolveStageTileReference(mapDocument, gid)
       const tileId = resolved?.tileId ?? -1
       const tileProperties = resolved?.tileset.tileProperties[tileId]
       const treePreviewId = getTreePreviewIdForPathTile(mapDocument, tileId, tileProperties, tileX, tileY)

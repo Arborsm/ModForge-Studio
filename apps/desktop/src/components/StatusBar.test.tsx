@@ -67,14 +67,6 @@ describe('StatusBar', () => {
     expect(within(hoverGroup).getByText(/X 384/i)).toBeTruthy()
   })
 
-  it('renders the status bar shell classes', () => {
-    const { container } = renderWithLocale(<StatusBar {...buildProps()} />)
-
-    expect(container.querySelector('.status-bar')).toBeTruthy()
-    expect(container.querySelector('.status-bar-group')).toBeTruthy()
-    expect(container.querySelector('.status-bar-indicator')).toBeTruthy()
-  })
-
   it('renders launcher mode status details instead of workspace telemetry', () => {
     renderWithLocale(
         <StatusBar

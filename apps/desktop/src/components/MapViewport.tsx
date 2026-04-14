@@ -12,7 +12,15 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from 'react'
+import { getObjectInteractionTag } from './mapObjectHelpers'
 import { resolveTilesetImagePath } from '../lib/maps/assets'
+import {
+  FLIPPED_DIAGONALLY_FLAG,
+  FLIPPED_HORIZONTALLY_FLAG,
+  FLIPPED_VERTICALLY_FLAG,
+  stripTileGidFlags,
+} from '../lib/maps/tileFlags'
+import { findTilesetForGid } from '../lib/maps/tilesets'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../lib/editor-shell'
 import { loadImageResourceFromPath } from '../lib/imageMetrics'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '../lib/mapViewportCache'
@@ -125,22 +133,10 @@ type FocusWorldPoint = {
 
 export type ViewportWorldPoint = FocusWorldPoint
 
-const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
-const FLIPPED_VERTICALLY_FLAG = 0x40000000
-const FLIPPED_DIAGONALLY_FLAG = 0x20000000
-const ROTATED_HEXAGONAL_120_FLAG = 0x10000000
-const TILE_ID_MASK = ~(
-  FLIPPED_HORIZONTALLY_FLAG |
-  FLIPPED_VERTICALLY_FLAG |
-  FLIPPED_DIAGONALLY_FLAG |
-  ROTATED_HEXAGONAL_120_FLAG
-)
 const VIEWPORT_PADDING = 56
 const VIEWPORT_OVERPAN = 160
 const MAX_RENDER_CANVAS_DIMENSION = 4096
 const MAX_RENDER_CANVAS_AREA = 16_777_216
-const INTERACTIVE_OBJECT_PROPERTY_KEYS = ['Action', 'TouchAction', 'Warp', 'NPCWarp', 'LockedDoorWarp', 'MagicWarp']
-
 function clampZoom(value: number) {
   return clampPanZoomZoom(value)
 }
@@ -291,16 +287,6 @@ function hashString(value: string) {
 
 function getGroupColor(groupName: string) {
   return `hsl(${hashString(groupName) % 360} 78% 64%)`
-}
-
-function getObjectInteractionTag(object: MapObject) {
-  for (const key of INTERACTIVE_OBJECT_PROPERTY_KEYS) {
-    if (key in object.properties) {
-      return key
-    }
-  }
-
-  return null
 }
 
 function getObjectDisplayLabel(object: MapObject) {
@@ -526,17 +512,6 @@ function collectHoveredObjects(
   return hits
 }
 
-function findTileset(tilesets: MapTileset[], gid: number) {
-  for (let index = tilesets.length - 1; index >= 0; index -= 1) {
-    const tileset = tilesets[index]
-    if (gid >= tileset.firstGid) {
-      return tileset
-    }
-  }
-
-  return null
-}
-
 function buildHoverInfo(
   mapDocument: MapDocument,
   visibleLayerIds: ReadonlySet<number>,
@@ -558,12 +533,12 @@ function buildHoverInfo(
   for (let index = visibleLayers.length - 1; index >= 0; index -= 1) {
     const layer = visibleLayers[index]
     const rawGid = layer.gids[tileIndex] >>> 0
-    const gid = rawGid & TILE_ID_MASK
+    const gid = stripTileGidFlags(rawGid)
     if (gid === 0) {
       continue
     }
 
-    const tileset = findTileset(mapDocument.tilesets, gid)
+    const tileset = findTilesetForGid(mapDocument.tilesets, gid)
     const tileId = tileset ? gid - tileset.firstGid : null
 
     return {
@@ -620,12 +595,12 @@ function rasterizeTileLayers(
 
     for (let index = 0; index < layer.gids.length; index += 1) {
       const rawGid = layer.gids[index] >>> 0
-      const gid = rawGid & TILE_ID_MASK
+      const gid = stripTileGidFlags(rawGid)
       if (gid === 0) {
         continue
       }
 
-      const tileset = findTileset(tilesets, gid)
+      const tileset = findTilesetForGid(tilesets, gid)
       if (!tileset) {
         continue
       }

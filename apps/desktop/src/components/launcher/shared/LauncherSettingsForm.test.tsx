@@ -16,8 +16,9 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: 'cookie',
     autoInstallDownloads: true,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
-  }
+  } as LauncherSettings
 }
 
 function createSettingsState(settings: LauncherSettings = createSettings()) {
@@ -55,6 +56,7 @@ describe('LauncherSettingsForm', () => {
     expect(screen.getByText(copy.fields.nexusCookie)).toBeTruthy()
     expect(screen.getByText(copy.toggles.autoInstallDownloads)).toBeTruthy()
     expect(screen.getByText(copy.toggles.keepDownloadedArchives)).toBeTruthy()
+    expect(screen.getByText(copy.toggles.autoCheckModUpdates)).toBeTruthy()
   })
 
   it('calls updateField and save through the provided settings state', () => {
@@ -64,6 +66,9 @@ describe('LauncherSettingsForm', () => {
 
     fireEvent.change(screen.getByLabelText(copy.fields.gamePath), { target: { value: 'C:\\Games' } })
     expect(settingsState.updateField).toHaveBeenCalledWith('gamePath', 'C:\\Games')
+
+    fireEvent.click(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }))
+    expect(settingsState.updateField).toHaveBeenCalledWith('autoCheckModUpdates', false)
   })
 
   it('uses settings-window control cards for launcher settings items', () => {
@@ -73,5 +78,6 @@ describe('LauncherSettingsForm', () => {
     expect(screen.getByText(copy.fields.nexusApiKey).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.autoInstallDownloads }).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.keepDownloadedArchives }).closest('.settings-window-control-card')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }).closest('.settings-window-control-card')).toBeTruthy()
   })
 })

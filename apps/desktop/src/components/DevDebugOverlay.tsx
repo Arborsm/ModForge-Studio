@@ -3,6 +3,7 @@ import { getStageMetadataCacheStats } from '../lib/app/eventStageShared'
 import { canUseDesktopHost, clearFileCache, getDesktopCacheStats, getFileCacheStats, type FileCacheStats } from '../lib/desktop'
 import { getMapViewportCacheStats } from '../lib/mapViewportCache'
 import type { WorkspaceMode } from '../lib/editor-shell'
+import { formatBytes } from './byteSize'
 
 type DebugOverlayMode = WorkspaceMode | 'launcher'
 
@@ -24,20 +25,20 @@ type CacheStats = {
 
 type MetricItem = [string, string]
 
-function formatBytes(value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return '0 B'
+const debugOverlayPrecision = (_size: number, value: number, unit: string) => {
+  if (unit === 'MB') {
+    return value >= 100 * 1024 * 1024 ? 0 : 1
   }
 
-  if (value >= 1024 * 1024) {
-    return `${(value / (1024 * 1024)).toFixed(value >= 100 * 1024 * 1024 ? 0 : 1)} MB`
+  if (unit === 'KB') {
+    return value >= 100 * 1024 ? 0 : 1
   }
 
-  if (value >= 1024) {
-    return `${(value / 1024).toFixed(value >= 100 * 1024 ? 0 : 1)} KB`
-  }
+  return 1
+}
 
-  return `${value} B`
+function formatOverlayBytes(value: number) {
+  return formatBytes(value, { decimals: debugOverlayPrecision })
 }
 
 function useFps() {
@@ -299,7 +300,7 @@ export function DevDebugOverlay({
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">File Cache</p>
                   <p className="mt-1 text-xs text-[var(--text-primary)]">
-                    {fileCacheStats ? `${fileCacheStats.entryCount} entries / ${formatBytes(fileCacheStats.totalSizeBytes)}` : 'Loading...'}
+                    {fileCacheStats ? `${fileCacheStats.entryCount} entries / ${formatOverlayBytes(fileCacheStats.totalSizeBytes)}` : 'Loading...'}
                   </p>
                 </div>
                 <button

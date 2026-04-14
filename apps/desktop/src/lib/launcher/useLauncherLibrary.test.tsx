@@ -7,6 +7,7 @@ import type {
   LauncherLibraryCoversState,
   LauncherLibraryModSummary,
   LauncherLibraryState,
+  LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
   LauncherSettings,
 } from '../desktop'
@@ -21,6 +22,7 @@ vi.mock('../desktop', async () => {
     checkLauncherUpdates: vi.fn(),
     loadCachedLauncherUpdates: vi.fn(),
     loadLauncherLibraryCovers: vi.fn(),
+    loadLauncherNexusDiagnostics: vi.fn(),
     loadLauncherLibraryState: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     persistLauncherLibraryRemoteCover: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock('../app/notifications', async () => {
 const checkLauncherUpdatesMock = vi.mocked(desktop.checkLauncherUpdates)
 const loadCachedLauncherUpdatesMock = vi.mocked(desktop.loadCachedLauncherUpdates)
 const loadLauncherLibraryCoversMock = vi.mocked(desktop.loadLauncherLibraryCovers)
+const loadLauncherNexusDiagnosticsMock = vi.mocked(desktop.loadLauncherNexusDiagnostics)
 const loadLauncherLibraryStateMock = vi.mocked(desktop.loadLauncherLibraryState)
 const loadLauncherRemoteModDetailMock = vi.mocked(desktop.loadLauncherRemoteModDetail)
 const persistLauncherLibraryRemoteCoverMock = vi.mocked(desktop.persistLauncherLibraryRemoteCover)
@@ -85,8 +88,9 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
-  }
+  } as LauncherSettings
 }
 
 function createLibraryState(overrides: Partial<LauncherLibraryState> = {}): LauncherLibraryState {
@@ -158,6 +162,54 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
+function createLauncherDiagnosticsResult(
+  overrides: Partial<Record<string, { status: 'loading' | 'warning' | 'success'; available: boolean; message: string }>> = {},
+): LauncherNexusDiagnosticsResult {
+  const defaults: Record<
+    string,
+    { label: string; endpoint: string; status: 'loading' | 'warning' | 'success'; available: boolean; message: string }
+  > = {
+    publicGraphql: {
+      label: 'Nexus Public GraphQL',
+      endpoint: 'https://api-router.nexusmods.com/graphql',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    publicHtml: {
+      label: 'Nexus Public HTML',
+      endpoint: 'https://www.nexusmods.com/stardewvalley',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    nexusImages: {
+      label: 'Nexus Image CDN',
+      endpoint: 'https://staticdelivery.nexusmods.com/',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+    smapi: {
+      label: 'SMAPI',
+      endpoint: 'https://smapi.io/api/v3.0/mods',
+      status: 'success',
+      available: true,
+      message: 'Connected after 1 attempt.',
+    },
+  }
+
+  return {
+    routes: Object.entries(defaults).map(([routeId, route]) => ({
+      routeId,
+      attempts: 1,
+      maxAttempts: 3,
+      ...route,
+      ...(overrides[routeId] ?? {}),
+    })),
+  }
+}
+
 async function flushAsyncWork() {
   await Promise.resolve()
   await Promise.resolve()
@@ -169,6 +221,7 @@ describe('useLauncherLibrary', () => {
     checkLauncherUpdatesMock.mockReset()
     loadCachedLauncherUpdatesMock.mockReset()
     loadLauncherLibraryCoversMock.mockReset()
+    loadLauncherNexusDiagnosticsMock.mockReset()
     loadLauncherLibraryStateMock.mockReset()
     loadLauncherRemoteModDetailMock.mockReset()
     persistLauncherLibraryRemoteCoverMock.mockReset()
@@ -183,6 +236,7 @@ describe('useLauncherLibrary', () => {
       updates: [],
     })
     loadCachedLauncherUpdatesMock.mockResolvedValue(null)
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
   })
 
   afterEach(() => {
@@ -326,6 +380,161 @@ describe('useLauncherLibrary', () => {
     expect(loadCachedLauncherUpdatesMock).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+  })
+
+  it('continues warming updates when the cached update snapshot is incomplete', async () => {
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          nexusModId: null,
+          updateKeys: [],
+          modUrl: null,
+        }),
+      ],
+    })
+    loadCachedLauncherUpdatesMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 321,
+      updates: [],
+      isComplete: false,
+    })
+    checkLauncherUpdatesMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 654,
+      updates: [],
+      isComplete: true,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    expect(loadCachedLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    })
+    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      forceRefresh: false,
+    })
+  })
+
+  it('skips automatic remote cover fetching when the Nexus image route is unavailable', async () => {
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue(
+      createLauncherDiagnosticsResult({
+        nexusImages: {
+          status: 'warning',
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      }),
+    )
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-cover',
+          labelKey: 'ModForge.Cover',
+          uniqueId: 'ModForge.Cover',
+          name: 'Cover Mod',
+          nexusModId: 303,
+        }),
+      ],
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadLauncherRemoteModDetailMock).not.toHaveBeenCalled()
+    expect(persistLauncherLibraryRemoteCoverMock).not.toHaveBeenCalled()
+  })
+
+  it('skips automatic update warming when every update route is unavailable', async () => {
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue(
+      createLauncherDiagnosticsResult({
+        publicGraphql: {
+          status: 'warning',
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+        publicHtml: {
+          status: 'warning',
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+        smapi: {
+          status: 'warning',
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      }),
+    )
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          nexusModId: null,
+          updateKeys: [],
+          modUrl: null,
+        }),
+      ],
+    })
+    loadCachedLauncherUpdatesMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      checkedAtMs: 321,
+      updates: [],
+      isComplete: false,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadCachedLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+  })
+
+  it('skips automatic update warming when automatic update checking is disabled', async () => {
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          nexusModId: null,
+          updateKeys: [],
+          modUrl: null,
+        }),
+      ],
+    })
+
+    const { result } = renderHook(
+      () => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })),
+      { wrapper: Wrapper },
+    )
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadCachedLauncherUpdatesMock).not.toHaveBeenCalled()
     expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
   })
 

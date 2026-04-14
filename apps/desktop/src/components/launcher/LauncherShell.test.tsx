@@ -89,6 +89,7 @@ const settingsState = {
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
   },
   state: 'ready' as const,
   error: null,
@@ -155,7 +156,7 @@ describe('LauncherShell', () => {
   })
 
   it('routes the discover page', () => {
-    renderWithLocale(
+    const { container } = renderWithLocale(
       <LauncherShell
         page="discover"
         debugEnabled={false}
@@ -171,6 +172,9 @@ describe('LauncherShell', () => {
     )
 
     expect(screen.getByText('discover-page')).toBeTruthy()
+    const activeRoute = container.querySelector('.launcher-shell-route.launcher-shell-route-active')
+    expect(activeRoute).toBeTruthy()
+    expect(activeRoute?.textContent).toContain('discover-page')
   })
 
   it('keeps the library page content rendered when switching away from it', () => {

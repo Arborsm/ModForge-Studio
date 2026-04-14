@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { normalizeLookupKey } from '../launcher/libraryHelpers'
 import { scanModAssetIndex, type GameDirectoryInfo, type ModAssetIndex, type ModAssetIndexGroup, type ModAssetReference } from '../desktop'
 
 export type BrowserSourceMode = 'original' | 'mod'
@@ -33,10 +34,6 @@ export type ModSourceEntry = {
   label: string
   targets: string[]
   patchIds: string[]
-}
-
-function normalizeLookupKey(value: string) {
-  return value.trim().toLowerCase()
 }
 
 export function getModBrowserSelectionId(modId: string, key: string) {

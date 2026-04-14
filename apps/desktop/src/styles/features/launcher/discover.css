@@ -120,6 +120,39 @@
     box-shadow: none;
   }
 
+  .launcher-discover-sidebar-fieldset {
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .launcher-discover-sidebar-disabled .launcher-discover-sidebar-accordion {
+    opacity: 0.34;
+    filter: saturate(0.48);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .launcher-discover-sidebar-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg-panel) 72%, transparent),
+        color-mix(in srgb, var(--bg-panel-muted) 84%, transparent)
+      );
+    backdrop-filter: blur(10px);
+    color: color-mix(in srgb, var(--warning) 82%, var(--text-primary));
+    pointer-events: none;
+  }
+
   .launcher-discover-content {
     position: relative;
     min-width: 0;
@@ -131,6 +164,23 @@
     overflow: hidden;
     align-content: start;
     border-radius: 0 12px 12px 0;
+  }
+
+  .launcher-discover-content-blocked,
+  .launcher-discover-content-error {
+    place-items: center;
+    padding: clamp(20px, 3vw, 32px);
+    background:
+      linear-gradient(180deg, #f8f9fa, color-mix(in srgb, #f8f9fa 76%, var(--bg-panel) 24%));
+  }
+
+  .launcher-discover-content-error {
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, #fff1f2 72%, var(--bg-panel) 28%),
+        color-mix(in srgb, #f8fafc 82%, var(--bg-panel) 18%)
+      );
   }
 
   .launcher-discover-filters-toggle,
@@ -162,6 +212,16 @@
   .launcher-discover-order-button:hover,
   .launcher-discover-menu-trigger:hover {
     background: color-mix(in srgb, var(--bg-panel-muted) 96%, var(--border-color));
+  }
+
+  .launcher-discover-filters-toggle:disabled,
+  .launcher-discover-searchbar-button:disabled,
+  .launcher-discover-icon-button:disabled,
+  .launcher-discover-order-button:disabled,
+  .launcher-discover-menu-trigger:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 
   .launcher-discover-filters-toggle:focus-visible,
@@ -203,27 +263,15 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    z-index: 40;
-    min-width: 180px;
-    display: grid;
-    gap: 4px;
-    border-radius: 10px;
-    background: var(--bg-elevated);
-    box-shadow: var(--shadow-float);
-    padding: 6px;
+    --launcher-menu-surface: var(--bg-elevated);
+    --launcher-menu-shadow: var(--shadow-float);
+    --launcher-menu-z: 40;
   }
 
   .launcher-discover-menu-option {
-    width: 100%;
-    display: flex;
-    align-items: center;
     justify-content: flex-start;
     min-height: 34px;
-    border-radius: 8px;
-    padding: 0 10px;
     color: var(--text-secondary);
-    text-align: left;
-    font-size: 13px;
     font-weight: 600;
   }
 
@@ -828,5 +876,28 @@
     min-width: 68px;
     height: 34px;
     text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    .launcher-discover-blocked-state {
+      border-radius: 22px;
+      padding: 22px 18px;
+    }
+
+    .launcher-discover-blocked-highlight,
+    .launcher-discover-blocked-details {
+      width: 100%;
+    }
+
+    .launcher-discover-blocked-details-toolbar,
+    .launcher-discover-blocked-actions {
+      justify-content: stretch;
+    }
+
+    .launcher-discover-blocked-details-toolbar .control-button,
+    .launcher-discover-blocked-actions .control-button {
+      width: 100%;
+      justify-content: center;
+    }
   }
 }

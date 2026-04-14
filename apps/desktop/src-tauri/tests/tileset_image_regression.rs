@@ -1,28 +1,21 @@
-#[path = "../src/assets.rs"]
+#[allow(dead_code, unused_imports)]
+#[path = "../src/domain/assets/mod.rs"]
 mod assets;
-#[path = "../src/mime.rs"]
-mod mime;
-#[path = "../src/models.rs"]
-mod models;
-#[path = "../src/pathing.rs"]
-mod pathing;
-#[path = "../src/tbin.rs"]
-mod tbin;
-#[path = "../src/test_support.rs"]
+#[path = "support/infrastructure.rs"]
+mod infrastructure;
+#[allow(dead_code, unused_imports)]
+#[path = "support/mod.rs"]
 mod test_support;
-#[path = "../src/xnb/mod.rs"]
-mod xnb;
 
 use serde_json::Value;
 use std::fs;
-use std::path::Path;
 use std::path::PathBuf;
 use std::time::Instant;
 
 #[test]
 fn loads_farm_tileset_images_as_data_urls() {
-    let game_root = Path::new(r"E:\SteamLibrary\steamapps\common\Stardew Valley");
-    let map_path = game_root.join(r"Content\Maps\Farm.xnb");
+    let game_root = test_support::resolve_game_root();
+    let map_path = game_root.join("Content/Maps/Farm.xnb");
     assert!(map_path.exists(), "expected map at {}", map_path.display());
 
     let map_started = Instant::now();

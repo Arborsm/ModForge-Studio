@@ -1,10 +1,15 @@
-import { cleanup, fireEvent, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '../../../lib/editor-shell'
 import type { LauncherSettings } from '../../../lib/desktop'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import { useLauncherImage } from '../../../lib/launcher/imageLoader'
 import { useLauncherDiscover } from '../../../lib/launcher/useLauncherDiscover'
+import {
+  applyAppUiStatePatch,
+  getAppUiStateSnapshot,
+  initializeAppUiState,
+} from '../../../lib/app/uiState'
 import { renderWithLocale } from '../../../test/renderWithLocale'
 import { LauncherDiscoverPage } from './LauncherDiscoverPage'
 
@@ -15,6 +20,12 @@ vi.mock('../../../lib/launcher/useLauncherDiscover', () => ({
 vi.mock('../../../lib/app/notifications', () => ({
   publishNotification: vi.fn(),
   dismissNotification: vi.fn(),
+}))
+
+vi.mock('../../../lib/app/uiState', () => ({
+  getAppUiStateSnapshot: vi.fn(),
+  initializeAppUiState: vi.fn(),
+  applyAppUiStatePatch: vi.fn(),
 }))
 
 vi.mock('../../../lib/launcher/imageLoader', () => ({
@@ -30,6 +41,9 @@ const useLauncherDiscoverMock = vi.mocked(useLauncherDiscover)
 const publishNotificationMock = vi.mocked(publishNotification)
 const dismissNotificationMock = vi.mocked(dismissNotification)
 const useLauncherImageMock = vi.mocked(useLauncherImage)
+const getAppUiStateSnapshotMock = vi.mocked(getAppUiStateSnapshot)
+const initializeAppUiStateMock = vi.mocked(initializeAppUiState)
+const applyAppUiStatePatchMock = vi.mocked(applyAppUiStatePatch)
 type DiscoverState = ReturnType<typeof useLauncherDiscover>
 
 function createDiscoverState(overrides: Partial<DiscoverState> = {}): DiscoverState {
@@ -68,6 +82,7 @@ function createDiscoverState(overrides: Partial<DiscoverState> = {}): DiscoverSt
     },
     state: 'ready',
     error: null,
+    blockedReason: null,
     setQuery: vi.fn(),
     setSort: vi.fn(),
     setAscending: vi.fn(),
@@ -77,6 +92,7 @@ function createDiscoverState(overrides: Partial<DiscoverState> = {}): DiscoverSt
     goToNextPage: vi.fn(),
     goToPreviousPage: vi.fn(),
     updateFilter: vi.fn(),
+    revalidate: vi.fn(),
     refresh: vi.fn(),
     ...overrides,
   }
@@ -91,6 +107,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
   }
 }
@@ -98,7 +115,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
 describe('LauncherDiscoverPage', () => {
   afterEach(() => {
     cleanup()
-    window.localStorage.clear()
     vi.clearAllMocks()
     useLauncherImageMock.mockReturnValue({
       imageUrl: null,
@@ -108,6 +124,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('keeps discover browsing available without credentials', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState())
 
     const { container } = renderWithLocale(
@@ -126,6 +148,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('renders the project-aligned browse shell and result cards for discover browsing', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(
       createDiscoverState({
         items: [
@@ -184,6 +212,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('opens the toolbar menus when the discover toolbar controls are clicked', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 30, totalPages: 2 }))
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
@@ -199,10 +233,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('restores and persists the top bar filter visibility state', () => {
-    window.localStorage.setItem(
-      'modforge:launcher-discover-toolbar:v1',
-      JSON.stringify({ filtersHidden: true }),
-    )
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: true } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: true } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 30, totalPages: 2 }))
 
     const { container } = renderWithLocale(
@@ -218,12 +254,24 @@ describe('LauncherDiscoverPage', () => {
 
     expect(screen.getByRole('button', { name: /Hide filters/i })).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeTruthy()
-    expect(JSON.parse(window.localStorage.getItem('modforge:launcher-discover-toolbar:v1') ?? '{}')).toMatchObject({
-      filtersHidden: false,
-    })
+    expect(applyAppUiStatePatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        launcher: expect.objectContaining({
+          discoverToolbar: expect.objectContaining({
+            filtersHidden: false,
+          }),
+        }),
+      }),
+    )
   })
 
   it('shows a circular loading overlay instead of the generic loading copy while discover is loading', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ state: 'loading' }))
 
     const { container } = renderWithLocale(
@@ -251,7 +299,43 @@ describe('LauncherDiscoverPage', () => {
     expect(dismissNotificationMock).not.toHaveBeenCalled()
   })
 
+  it('auto-collapses the discover sidebar while the request is in an error state without persisting that collapse', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        state: 'error',
+        error: 'Nexus Public GraphQL: timeout',
+      }),
+    )
+
+    const { container } = renderWithLocale(
+      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
+      'zh-CN',
+    )
+
+    expect(container.querySelector('.launcher-discover-shell-filters-hidden')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
+    expect(screen.getByRole('button', { name: /Show filters/i }).hasAttribute('disabled')).toBe(true)
+    expect(
+      applyAppUiStatePatchMock.mock.calls.some(([payload]) =>
+        (payload as { launcher?: { discoverToolbar?: { filtersHidden?: boolean } } }).launcher?.discoverToolbar
+          ?.filtersHidden === true,
+      ),
+    ).toBe(false)
+  })
+
   it('shows a cover placeholder message while a discover cover is still loading', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(
       createDiscoverState({
         items: [
@@ -291,7 +375,101 @@ describe('LauncherDiscoverPage', () => {
     expect(container.querySelector('.launcher-discover-wall-cover-fallback')).toBeTruthy()
   })
 
+  it('renders a centered blocked-state card with retry, diagnostics, and expandable technical details', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    const revalidate = vi.fn()
+    const onNavigateToDiagnostics = vi.fn()
+    const onRetryDiagnostics = vi.fn().mockResolvedValue(undefined)
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        blockedReason: [
+          'Nexus Public GraphQL: Forced offline by debug override.',
+          'Nexus Public HTML: Forced offline by debug override.',
+        ].join('\n'),
+        revalidate,
+      }),
+    )
+
+    const { container } = renderWithLocale(
+      <LauncherDiscoverPage
+        settings={createSettings()}
+        onQueueDownload={vi.fn()}
+        onNavigateToDiagnostics={onNavigateToDiagnostics}
+        onRetryDiagnostics={onRetryDiagnostics}
+      />,
+      'zh-CN',
+    )
+
+    expect(container.querySelector('.launcher-discover-content-blocked')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-blocked-state')).toBeTruthy()
+    expect(screen.getByText(copy.discover.blockedTitle)).toBeTruthy()
+    expect(screen.getByText(copy.discover.blockedDetail)).toBeTruthy()
+    expect(screen.getByText(/Nexus Public GraphQL: Forced offline by debug override\./)).toBeTruthy()
+    expect(screen.queryByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeNull()
+    expect(screen.getByRole('button', { name: copy.discover.blockedRetryAction })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.discover.blockedDiagnosticsAction })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.discover.blockedCopyLogsAction })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.blockedDetailsExpandAction }))
+
+    expect(screen.getByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.blockedRetryAction }))
+    fireEvent.click(screen.getByRole('button', { name: copy.discover.blockedDiagnosticsAction }))
+
+    await waitFor(() => {
+      expect(onRetryDiagnostics).toHaveBeenCalledTimes(1)
+      expect(revalidate).toHaveBeenCalledTimes(1)
+      expect(onNavigateToDiagnostics).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('auto-collapses the discover sidebar while route diagnostics are blocking discover without persisting that collapse', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    useLauncherDiscoverMock.mockReturnValue(
+      createDiscoverState({
+        blockedReason: 'Nexus Public GraphQL: Forced offline by debug override.',
+        facets: {
+          categories: [{ name: 'Maps', count: 317 }],
+          languages: [{ name: 'English', count: 16098 }],
+          tags: [{ name: 'SMAPI', count: 18839 }],
+        },
+      }),
+    )
+
+    const { container } = renderWithLocale(
+      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
+      'zh-CN',
+    )
+
+    expect(container.querySelector('.launcher-discover-shell-filters-hidden')).toBeTruthy()
+    expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
+    expect(screen.getByRole('button', { name: /Show filters/i }).hasAttribute('disabled')).toBe(true)
+    expect(
+      applyAppUiStatePatchMock.mock.calls.some(([payload]) =>
+        (payload as { launcher?: { discoverToolbar?: { filtersHidden?: boolean } } }).launcher?.discoverToolbar
+          ?.filtersHidden === true,
+      ),
+    ).toBe(false)
+  })
+
   it('shows tag suggestions from remote facets inside the tag input menu and applies them on click', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     const updateFilter = vi.fn()
 
     useLauncherDiscoverMock.mockReturnValue(
@@ -300,8 +478,8 @@ describe('LauncherDiscoverPage', () => {
           categories: [],
           languages: [],
           tags: [
-          { name: 'SMAPI', count: 18839 },
-          { name: 'Expansion', count: 912 },
+            { name: 'SMAPI', count: 18839 },
+            { name: 'Expansion', count: 912 },
           ],
         },
         updateFilter,
@@ -322,6 +500,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('renders a real paginator and forwards previous/next and jump actions', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     const setPage = vi.fn()
     const goToNextPage = vi.fn()
     const goToPreviousPage = vi.fn()
@@ -375,6 +559,12 @@ describe('LauncherDiscoverPage', () => {
   })
 
   it('keeps the sidebar accordion in single-open mode with the first section open by default', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 28_891, totalPages: 1445 }))
 
     renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')

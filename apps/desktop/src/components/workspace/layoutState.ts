@@ -3,7 +3,6 @@ import {
   RIGHT_SLOTS,
   BOTTOM_SLOTS,
   SLOT_IDS,
-  STORAGE_VERSION,
 } from './layoutConstants'
 import type {
   DockArea,
@@ -26,6 +25,11 @@ export function isItemsWorkspacePanels(panels?: WorkspacePanelConfig[]) {
 
 export function getForcedDockForPanel(): DockArea | null {
   return null
+}
+
+function isRequiredCenterPanel(panel: WorkspacePanelConfig) {
+  const forcedDock = getForcedDockForPanel()
+  return (forcedDock ?? panel.defaultDock ?? null) === 'center'
 }
 
 export function getDockedPanelIdsForSlot(
@@ -180,11 +184,19 @@ export function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefine
 
   panels.forEach((panel) => {
     const forcedDock = getForcedDockForPanel()
-    mergedPanels[panel.id] = {
+    const nextPanelState: WorkspacePanelState = {
       ...defaults.panels[panel.id],
       ...(snapshot?.panels?.[panel.id] ?? {}),
       ...(forcedDock ? { dock: forcedDock } : {}),
     }
+
+    if (isRequiredCenterPanel(panel)) {
+      nextPanelState.mode = 'docked'
+      nextPanelState.lastMode = 'docked'
+      nextPanelState.dock = 'center'
+    }
+
+    mergedPanels[panel.id] = nextPanelState
   })
 
   const mergedSlots = Object.fromEntries(
@@ -207,35 +219,24 @@ export function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefine
   }
 }
 
-export function readStoredState(storageKey: string, panels: WorkspacePanelConfig[]) {
+export function createDefaultStoredState(panels: WorkspacePanelConfig[]) {
   const defaults = buildDefaultSnapshot(panels)
+  return { ...defaults, presets: {} } satisfies WorkspaceStoredState
+}
 
-  if (typeof window === 'undefined') {
-    return { ...defaults, presets: {} } satisfies WorkspaceStoredState
-  }
+export function sanitizeStoredState(snapshot: Partial<WorkspaceStoredState> | null | undefined, panels: WorkspacePanelConfig[]) {
+  const rawPresets = snapshot?.presets ?? {}
+  const presets = Object.fromEntries(
+    Object.entries(rawPresets).filter(([, value]) => typeof value === 'object' && value !== null).map(([name, value]) => [
+      name,
+      sanitizeSnapshot(value as Partial<WorkspaceSnapshot>, panels),
+    ]),
+  )
 
-  try {
-    const raw = window.localStorage.getItem(storageKey)
-    if (!raw) {
-      return { ...defaults, presets: {} } satisfies WorkspaceStoredState
-    }
-
-    const parsed = JSON.parse(raw) as { version: number } & Partial<WorkspaceStoredState>
-    if (parsed.version !== STORAGE_VERSION) {
-      return { ...defaults, presets: {} } satisfies WorkspaceStoredState
-    }
-
-    const presets = Object.fromEntries(
-      Object.entries(parsed.presets ?? {}).map(([name, snapshot]) => [name, sanitizeSnapshot(snapshot, panels)]),
-    )
-
-    return {
-      ...sanitizeSnapshot(parsed, panels),
-      presets,
-    } satisfies WorkspaceStoredState
-  } catch {
-    return { ...defaults, presets: {} } satisfies WorkspaceStoredState
-  }
+  return {
+    ...sanitizeSnapshot(snapshot ?? undefined, panels),
+    presets,
+  } satisfies WorkspaceStoredState
 }
 
 export function getActiveDockedPanel(panelMap: Record<string, WorkspacePanelConfig>, state: WorkspaceStoredState, slot: SlotId) {

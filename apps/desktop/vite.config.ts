@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { resolveDevServerPorts } from './devServerPorts.ts'
+import { resolveDevServerHost, resolveDevServerPorts } from './scripts/tauriDevRuntime.mjs'
 
-const host = process.env.TAURI_DEV_HOST ?? '127.0.0.1'
+const host = resolveDevServerHost()
 const { port, hmrPort } = resolveDevServerPorts()
 
 export default defineConfig({

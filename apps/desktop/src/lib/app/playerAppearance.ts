@@ -149,7 +149,7 @@ export function readStoredPlayerAppearanceState(
   rawProfiles: string | null,
   rawActiveProfileId: string | null,
 ): StoredPlayerAppearanceState {
-  let parsedProfiles: unknown = []
+  let parsedProfiles: unknown
 
   try {
     parsedProfiles = rawProfiles ? (JSON.parse(rawProfiles) as unknown) : []

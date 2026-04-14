@@ -4,6 +4,7 @@ import { dismissNotification, publishNotification } from '../app/notifications'
 import {
   checkLauncherUpdates,
   loadCachedLauncherUpdates,
+  loadLauncherNexusDiagnostics,
   subscribeLauncherUpdates,
   type LauncherSettings,
 } from '../desktop'
@@ -12,6 +13,9 @@ import {
   LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
   getLauncherUpdateNotificationProgress,
 } from './useLauncherUpdateProgressNotifications'
+import { canAutoCheckLauncherUpdates, getLauncherUpdateUnavailableReason } from './nexusDiagnostics'
+
+const LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID = 'launcher-updates-check-error'
 
 function getSelectionKey(item: LauncherUpdateItem) {
   return `${item.modId}:${item.absolutePath}`
@@ -23,6 +27,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [blockedReason, setBlockedReason] = useState<string | null>(null)
   const itemsRef = useRef<LauncherUpdateItem[]>([])
   const mountedRef = useRef(true)
   const requestTokenRef = useRef(0)
@@ -49,6 +54,8 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     })
     setState('ready')
     setError(null)
+    setBlockedReason(null)
+    dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
   }, [])
 
   const loadUpdates = useCallback(async (forceRefresh: boolean) => {
@@ -63,28 +70,36 @@ export function useLauncherUpdates(settings: LauncherSettings) {
         setSelectedKeys([])
         setState('idle')
         setError(null)
+        setBlockedReason(null)
       }
       dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+      dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
       return
     }
 
-    setState('loading')
-    setError(null)
-    publishNotification({
-      id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
-      level: 'info',
-      title: copy.updates.checkingProgressTitle,
-      description: copy.updates.checkingProgressDetail(0, 0, null),
-      autoDismissMs: null,
-      progress: getLauncherUpdateNotificationProgress({
-        modsPath: settings.modsPath ?? '',
-        checked: 0,
-        total: 0,
-        currentModName: null,
-      }),
-    })
+    if (!forceRefresh && settings.autoCheckModUpdates === false) {
+      if (isRequestActive()) {
+        setState('ready')
+        setError(null)
+        setBlockedReason(null)
+      }
+      dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+      dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
+      return
+    }
 
     try {
+      let canRunAutomaticCheck = forceRefresh
+      let unavailableReason: string | null = null
+      if (!forceRefresh) {
+        const diagnostics = await loadLauncherNexusDiagnostics().catch(() => null)
+        unavailableReason =
+          diagnostics && !canAutoCheckLauncherUpdates(diagnostics)
+            ? getLauncherUpdateUnavailableReason(diagnostics)
+            : null
+        canRunAutomaticCheck = unavailableReason ? false : true
+      }
+
       if (!forceRefresh) {
         const cached = await loadCachedLauncherUpdates({
           modsPath: settings.modsPath,
@@ -93,9 +108,39 @@ export function useLauncherUpdates(settings: LauncherSettings) {
           if (isRequestActive()) {
             applyUpdateResult(cached)
           }
+          if (cached.isComplete !== false) {
+            return
+          }
+        }
+
+        if (!canRunAutomaticCheck) {
+          if (isRequestActive()) {
+            setState('ready')
+            setError(null)
+            setBlockedReason(unavailableReason)
+            dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
+          }
           return
         }
       }
+
+      setState('loading')
+      setError(null)
+      setBlockedReason(null)
+      dismissNotification(LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID)
+      publishNotification({
+        id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
+        level: 'info',
+        title: copy.updates.checkingProgressTitle,
+        description: copy.updates.checkingProgressDetail(0, 0, null),
+        autoDismissMs: null,
+        progress: getLauncherUpdateNotificationProgress({
+          modsPath: settings.modsPath ?? '',
+          checked: 0,
+          total: 0,
+          currentModName: null,
+        }),
+      })
 
       const result = await checkLauncherUpdates({
         modsPath: settings.modsPath,
@@ -109,17 +154,30 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       if (!isRequestActive()) {
         return
       }
-      setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher updates.')
+      const errorMessage = nextError instanceof Error ? nextError.message : 'Failed to load launcher updates.'
+      publishNotification({
+        id: LAUNCHER_UPDATES_ERROR_NOTIFICATION_ID,
+        level: 'error',
+        title: copy.updates.checkFailedTitle,
+        description: errorMessage,
+        autoDismissMs: null,
+      })
+      setError(errorMessage)
+      setBlockedReason(null)
       setState('error')
     } finally {
       if (isRequestActive()) {
         dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
       }
     }
-  }, [applyUpdateResult, copy.updates, settings.modsPath])
+  }, [applyUpdateResult, copy.updates, settings.autoCheckModUpdates, settings.modsPath])
 
   const refresh = useCallback(async () => {
     await loadUpdates(true)
+  }, [loadUpdates])
+
+  const revalidate = useCallback(async () => {
+    await loadUpdates(false)
   }, [loadUpdates])
 
   const selectedItems = useMemo(() => {
@@ -173,6 +231,8 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     allSelected: items.length > 0 && selectedItems.length === items.length,
     state,
     error,
+    blockedReason,
+    revalidate,
     refresh,
     isSelected: (item: LauncherUpdateItem) => selectedKeys.includes(getSelectionKey(item)),
     toggleSelected,

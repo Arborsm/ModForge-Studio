@@ -40,8 +40,9 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
     ...overrides,
-  }
+  } as LauncherSettings
 }
 
 describe('useLauncherSettings', () => {
@@ -203,6 +204,41 @@ describe('useLauncherSettings', () => {
     expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         nexusCookie: 'session-cookie',
+      }),
+    )
+  })
+
+  it('autosaves launcher settings after the automatic update toggle changes', async () => {
+    loadLauncherSettingsMock.mockResolvedValue(createSettings())
+    detectDefaultGameDirectoryMock.mockResolvedValue(null)
+    saveLauncherSettingsMock.mockResolvedValue(
+      createSettings({
+        autoCheckModUpdates: false,
+      }),
+    )
+
+    const { result } = renderHook(() => useLauncherSettings())
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+    })
+
+    vi.useFakeTimers()
+
+    act(() => {
+      result.current.setSettings({
+        ...(result.current.settings as LauncherSettings),
+        autoCheckModUpdates: false,
+      } as LauncherSettings)
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700)
+    })
+
+    expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autoCheckModUpdates: false,
       }),
     )
   })

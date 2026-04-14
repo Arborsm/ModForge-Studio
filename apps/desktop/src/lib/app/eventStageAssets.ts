@@ -11,6 +11,7 @@ import {
 import type { LocaleCode } from '../editor-shell'
 import { loadImageResourceFromPath } from '../imageMetrics'
 import type { PlayerAppearanceProfile } from './playerAppearance'
+import { buildGameContentPath } from './contentPaths'
 import {
   DEFAULT_FARMER_HAIR_STYLE_INDEX,
   DEFAULT_FARMER_PANTS_SPRITE_INDEX,
@@ -569,16 +570,15 @@ function buildAssetPath(rootPath: string, folderName: 'Characters' | 'Portraits'
   return `${rootPath}\\Content\\${folderName}\\${textureName}.xnb`
 }
 
-function buildContentImagePath(rootPath: string, textureName: string) {
-  return `${rootPath}\\Content\\${textureName.replaceAll('/', '\\')}.xnb`
-}
-
 function preloadImage(path: string) {
   return loadImageResourceFromPath(path)
 }
 
 async function resolveContentImage(rootPath: string, textureName: string) {
-  const path = buildContentImagePath(rootPath, textureName)
+  const path = buildGameContentPath(rootPath, textureName)
+  if (!path) {
+    return null
+  }
   const image = await preloadImage(path)
   if (!image) {
     return null
@@ -622,7 +622,17 @@ async function resolveEffectAsset(textureName: string, rootPath: string | null):
     }
   }
 
-  const path = buildContentImagePath(rootPath, textureName)
+  const path = buildGameContentPath(rootPath, textureName)
+  if (!path) {
+    return {
+      requestKey: `${rootPath}::${textureName}`,
+      textureName,
+      path: null,
+      url: null,
+      width: null,
+      height: null,
+    }
+  }
   const image = await preloadImage(path)
 
   return {

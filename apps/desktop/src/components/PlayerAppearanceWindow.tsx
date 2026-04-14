@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { buildGameContentPath } from '../lib/app/contentPaths'
 import type { LocaleCode } from '../lib/editor-shell'
 import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '../lib/desktop'
 import { loadImageResourceFromPath } from '../lib/imageMetrics'
@@ -207,25 +208,25 @@ function buildCharactersPath(rootPath: string, textureName: string) {
   return `${rootPath}\\Content\\Characters\\${textureName}.xnb`
 }
 
-function buildContentImagePath(rootPath: string, textureName: string) {
-  return `${rootPath}\\Content\\${textureName.replaceAll('/', '\\')}.xnb`
-}
-
 function preloadImage(path: string) {
   return loadImageResourceFromPath(path)
+}
+
+function preloadContentImage(rootPath: string, textureName: string) {
+  return preloadImage(buildGameContentPath(rootPath, textureName)!)
 }
 
 async function loadAppearanceAssets(rootPath: string): Promise<AppearanceAssets> {
   const [baseMale, baseFemale, hair, shirts, pants, accessories, hats, skinColors, shoeColors] = await Promise.all([
     preloadImage(buildCharactersPath(rootPath, 'Farmer\\farmer_base')),
     preloadImage(buildCharactersPath(rootPath, 'Farmer\\farmer_girl_base')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/hairstyles')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/shirts')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/pants')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/accessories')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/hats')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/skinColors')),
-    preloadImage(buildContentImagePath(rootPath, 'Characters/Farmer/shoeColors')),
+    preloadContentImage(rootPath, 'Characters/Farmer/hairstyles'),
+    preloadContentImage(rootPath, 'Characters/Farmer/shirts'),
+    preloadContentImage(rootPath, 'Characters/Farmer/pants'),
+    preloadContentImage(rootPath, 'Characters/Farmer/accessories'),
+    preloadContentImage(rootPath, 'Characters/Farmer/hats'),
+    preloadContentImage(rootPath, 'Characters/Farmer/skinColors'),
+    preloadContentImage(rootPath, 'Characters/Farmer/shoeColors'),
   ])
 
   return {

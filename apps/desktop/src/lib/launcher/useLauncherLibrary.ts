@@ -7,6 +7,7 @@ import {
   clearLauncherLibraryReadCaches,
   loadCachedLauncherUpdates,
   loadLauncherLibraryCovers,
+  loadLauncherNexusDiagnostics,
   loadLauncherLibraryState,
   loadLauncherRemoteModDetail,
   persistLauncherLibraryRemoteCover,
@@ -20,24 +21,14 @@ import {
   type LauncherLibraryStorageFolder,
 } from '../desktop'
 import { getLauncherCoverKey, getLauncherCoverKeyCandidates } from './coverKey'
+import { getModKey, includesFilter, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
+import { canAutoCheckLauncherUpdates, canAutoFetchLauncherRemoteCovers } from './nexusDiagnostics'
 import type { LauncherSettingsDraft, LauncherViewState } from './types'
 
 const UNSORTED_FOLDER_ID = 'unsorted'
 const UNSORTED_FOLDER_NAME = 'Unsorted'
 const LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY = 3
 const LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID = 'launcher-library-auto-cover-progress'
-
-function normalizeLookupKey(value: string) {
-  return value.trim().toLowerCase()
-}
-
-function normalizeModKey(value: string) {
-  return value.trim()
-}
-
-function getModKey(item: LauncherLibraryModSummary) {
-  return normalizeModKey(item.uniqueId || item.labelKey || item.id)
-}
 
 function createDefaultLibraryState(): LauncherLibraryState {
   return {
@@ -177,25 +168,6 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
     currentPackId,
     scopeMode,
   }
-}
-
-function includesFilter(item: LauncherLibraryModSummary, normalizedFilter: string) {
-  if (!normalizedFilter) {
-    return true
-  }
-
-  return [
-    item.name,
-    item.author,
-    item.version,
-    item.uniqueId,
-    item.description,
-    item.folderName,
-    item.absolutePath,
-    item.labelKey,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .some((value) => value.toLowerCase().includes(normalizedFilter))
 }
 
 function slugifyName(value: string) {
@@ -400,7 +372,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     setError(null)
 
     try {
-      const [loadedLibraryState, loadedCovers, scan] = await Promise.all([
+      const [diagnostics, loadedLibraryState, loadedCovers, scan] = await Promise.all([
+        loadLauncherNexusDiagnostics().catch(() => null),
         loadLauncherLibraryState(),
         loadLauncherLibraryCovers(),
         settings.modsPath
@@ -428,15 +401,22 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setSelectedModId((current) => current ?? scan.mods[0]?.id ?? null)
       setSelectedModIds((current) => current.filter((id) => scan.mods.some((item) => item.id === id)))
       setState('ready')
-      startAutoCoverFetch(eligibleMods)
+      if (canAutoFetchLauncherRemoteCovers(diagnostics)) {
+        startAutoCoverFetch(eligibleMods)
+      }
       const updateModsPath = scan.modsPath || settings.modsPath || ''
-      if (scan.mods.length > 0 && updateModsPath) {
+      if (
+        settings.autoCheckModUpdates !== false &&
+        scan.mods.length > 0 &&
+        updateModsPath &&
+        canAutoCheckLauncherUpdates(diagnostics)
+      ) {
         void loadCachedLauncherUpdates({ modsPath: updateModsPath })
           .then((cached) => {
             if (!isRefreshActive()) {
               return
             }
-            if (cached) {
+            if (cached && cached.isComplete !== false) {
               return
             }
 
@@ -457,7 +437,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to scan launcher library.')
       setState('error')
     }
-  }, [cancelAutoCoverFetch, settings.modsPath, startAutoCoverFetch])
+  }, [cancelAutoCoverFetch, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
 
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys

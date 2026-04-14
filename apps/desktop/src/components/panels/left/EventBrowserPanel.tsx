@@ -4,6 +4,7 @@ import type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup } from '../../
 import { cx } from '../../../lib/cx'
 import { PanelFrame } from '../../ui/PanelFrame'
 import { BrowserSourceSwitch } from '../../ui/BrowserSourceSwitch'
+import { formatBytes } from '../../byteSize'
 
 type EventBrowserPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -18,18 +19,6 @@ type EventBrowserPanelProps = {
   onAssetFilterChange: (value: string) => void
   onOpenAsset: (asset: EventAssetSummary) => void
   onOpenModAsset: (entry: ModBrowserEntry<EventAssetSummary>) => void
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export function EventBrowserPanel({

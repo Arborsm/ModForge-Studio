@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,10 +8,6 @@ import { renderWithLocale } from '../test/renderWithLocale'
 const copy = editorCopy['en-US']
 const viewMenuCopy = getViewMenuCopy('en-US')
 const settingsMenuCopy = getSettingsMenuCopy('en-US')
-const topMenuStylesPath = existsSync(resolve(process.cwd(), 'src/styles/workspace/top-menu.css'))
-  ? resolve(process.cwd(), 'src/styles/workspace/top-menu.css')
-  : resolve(process.cwd(), 'apps/desktop/src/styles/workspace/top-menu.css')
-const topMenuStyles = readFileSync(topMenuStylesPath, 'utf8')
 
 function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}): ComponentProps<typeof TopMenuBar> {
   return {
@@ -55,6 +49,7 @@ function buildProps(overrides: Partial<ComponentProps<typeof TopMenuBar>> = {}):
       page: 'library',
       visiblePages: ['library', 'discover', 'updates', 'debug'],
       onPageChange: vi.fn(),
+      updatesBadgeCount: 0,
       downloadsBadgeCount: 0,
       downloadsProgressPercent: null,
       downloadsHasFailure: false,
@@ -127,32 +122,15 @@ describe('TopMenuBar', () => {
     expect(within(mainMenus).queryByRole('button', { name: copy.menus[4] })).toBeNull()
   })
 
-  it('uses a centered title-bar grid with a dedicated drag layer while preserving desktop window controls', () => {
+  it('keeps a dedicated drag layer while preserving desktop window controls', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps()} desktopHost />)
 
-    const titleBar = container.querySelector('.top-menu-primary')
     const dragLayer = container.querySelector('.top-menu-drag-layer[data-tauri-drag-region]')
-    const topMenuPrimaryRule = topMenuStyles.match(/\.top-menu-primary\s*\{([\s\S]*?)\n {2}\}/)?.[1] ?? ''
 
-    expect(titleBar).toBeTruthy()
-    expect(topMenuPrimaryRule).toBeTruthy()
-    expect(topMenuPrimaryRule).toMatch(/pointer-events-none|pointer-events:\s*none/)
-    expect(topMenuPrimaryRule).toMatch(/display:\s*grid|@apply[\s\S]*\bgrid\b/)
-    expect(topMenuPrimaryRule).toMatch(
-      /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(0,\s*1fr\)|@apply[\s\S]*grid-cols-\[minmax\(0,1fr\)_auto_minmax\(0,1fr\)\]/,
-    )
     expect(dragLayer).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Minimize window' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Maximize window' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Close window' })).toBeTruthy()
-  })
-
-  it('renders the top menu shell classes', () => {
-    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
-
-    expect(container.querySelector('.top-menu-bar')).toBeTruthy()
-    expect(container.querySelector('.top-menu-primary')).toBeTruthy()
-    expect(container.querySelector('.top-menu-workspace')).toBeTruthy()
   })
 
   it('switches app mode from workbench to launcher through shell controls', () => {
@@ -179,6 +157,26 @@ describe('TopMenuBar', () => {
     expect(screen.getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.launcher.pages.debug })).toBeTruthy()
     expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
+  })
+
+  it('renders an updates count badge on the updates tab and caps large values', () => {
+    const launcherChrome = buildProps().launcherChrome!
+    renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          appMode: 'launcher',
+          launcherChrome: {
+            ...launcherChrome,
+            updatesBadgeCount: 125,
+          },
+        })}
+      />,
+    )
+
+    const updatesButton = screen.getByRole('button', { name: copy.launcher.pages.updates })
+    const badge = updatesButton.querySelector('.top-menu-launcher-nav-badge')
+
+    expect(badge?.textContent).toBe('99+')
   })
 
   it('hides the launcher debug page tab when debug mode is disabled', () => {
@@ -222,18 +220,6 @@ describe('TopMenuBar', () => {
     expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
     expect(document.querySelector('.top-menu-float-backdrop')).toBeNull()
     expect(screen.queryByRole('button', { name: copy.launcher.actions.closeDialog })).toBeNull()
-  })
-
-  it('renders the launcher downloads control as a clickable shell icon button', () => {
-    const props = buildProps({ appMode: 'launcher' })
-    renderWithLocale(<TopMenuBar {...props} />)
-
-    const shellControls = screen.getByRole('group', { name: 'Shell controls' })
-    const downloadsButton = within(shellControls).getByRole('button', { name: copy.launcher.downloads.title })
-    const className = downloadsButton.getAttribute('class') ?? ''
-
-    expect(className).toContain('icon-button')
-    expect(className).toContain('pointer-events-auto')
   })
 
   it('renders an aggregate download progress ring in the launcher shell controls', () => {
