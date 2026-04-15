@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:force": "vite --force",
-    "build": "tsc -b && vite build",
+    "dev": "vite --configLoader runner",
+    "dev:force": "vite --configLoader runner --force",
+    "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build --configLoader runner",
     "lint": "eslint .",
-    "test": "vitest run",
-    "preview": "vite preview",
+    "test": "vitest run --configLoader runner --pool=threads",
+    "preview": "vite preview --configLoader runner",
     "tauri": "node ./scripts/run-tauri-cli.cjs"
   },
   "dependencies": {

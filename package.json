@@ -2,15 +2,16 @@
   "name": "modforge-studio",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@10.30.3",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @modforge/desktop",
-    "desktop:dev": "npm run tauri dev -w @modforge/desktop",
-    "build": "npm run build -w @modforge/desktop",
-    "lint": "npm run lint -w @modforge/desktop",
-    "desktop:build": "npm run tauri build -w @modforge/desktop"
+    "dev": "pnpm --filter @modforge/desktop dev",
+    "desktop:dev": "pnpm --filter @modforge/desktop tauri dev",
+    "build": "pnpm --filter @modforge/desktop build",
+    "lint": "pnpm --filter @modforge/desktop lint",
+    "desktop:build": "pnpm --filter @modforge/desktop tauri build"
   }
 }

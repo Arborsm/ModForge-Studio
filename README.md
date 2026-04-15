@@ -201,11 +201,11 @@
 
 从仓库根目录运行。
 
-- `uv run npm.cmd run dev`: 仅前端开发。
-- `uv run npm.cmd run desktop:dev`: 启动完整桌面应用。
-- `uv run npm.cmd run lint -w @modforge/desktop`: 前端 lint。
-- `uv run npm.cmd run test -w @modforge/desktop`: 前端测试。
-- `uv run npm.cmd run build --workspace @modforge/desktop`: 前端构建。
+- `uv run pnpm dev`: 仅前端开发。
+- `uv run pnpm desktop:dev`: 启动完整桌面应用。
+- `uv run pnpm lint`: 前端 lint。
+- `uv run pnpm --filter @modforge/desktop test`: 前端测试。
+- `uv run pnpm build`: 前端构建。
 - `uv run pnpm -r list --depth -1`: 检查 pnpm workspace 是否正确识别根包和各子包。
 - `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`: Rust 检查。
 - `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`: Rust 测试。

@@ -206,12 +206,17 @@ describe('LauncherUpdatesPage', () => {
     cleanup()
     clearNotifications()
     eventListeners.clear()
-    vi.clearAllMocks()
     vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
   beforeEach(() => {
+    checkLauncherUpdatesMock.mockReset()
+    loadCachedLauncherUpdatesMock.mockReset()
+    loadLauncherNexusDiagnosticsMock.mockReset()
+    loadLauncherRemoteModDetailMock.mockReset()
+    loadLauncherUpdateChangelogMock.mockReset()
+    subscribeLauncherUpdatesMock.mockReset()
     loadCachedLauncherUpdatesMock.mockResolvedValue(null)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
     subscribeLauncherUpdatesMock.mockReturnValue(() => {})
@@ -337,14 +342,17 @@ describe('LauncherUpdatesPage', () => {
     expect(container.querySelector('.launcher-blocked-state')).toBeTruthy()
     expect(await screen.findByText('自动更新检查已暂停')).toBeTruthy()
     expect(screen.getByText('更新通路连续失败后，后台自动检查会先暂停，避免反复发送同样会失败的请求。')).toBeTruthy()
-    expect(await screen.findByText(/Nexus Public GraphQL: Forced offline by debug override\./)).toBeTruthy()
-    expect(screen.queryByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeNull()
     expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '前往通路诊断' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '复制日志' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: '展开详情' }))
-    expect(screen.getByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeTruthy()
+    await waitFor(() => {
+      const details = container.querySelector('.launcher-blocked-pre')
+      expect(details?.textContent ?? '').toContain('SMAPI: Forced offline by debug override.')
+      expect(details?.textContent ?? '').toContain('Nexus Public GraphQL: Forced offline by debug override.')
+      expect(details?.textContent ?? '').toContain('Nexus Public HTML: Forced offline by debug override.')
+    })
 
     fireEvent.click(screen.getByRole('button', { name: '前往通路诊断' }))
     fireEvent.click(screen.getByRole('button', { name: '重新检查' }))
@@ -360,11 +368,12 @@ describe('LauncherUpdatesPage', () => {
     })
   })
 
-  it('renders a centered error card with diagnostics link and expandable request details', async () => {
+  it('renders a centered error card while keeping raw request details in notifications', async () => {
     const onNavigateToDiagnostics = vi.fn()
     const onRetryDiagnostics = vi.fn().mockResolvedValue(undefined)
+    const rawError = 'Nexus Public GraphQL: timeout'
     checkLauncherUpdatesMock
-      .mockRejectedValueOnce(new Error('Nexus Public GraphQL: timeout'))
+      .mockRejectedValueOnce(new Error(rawError))
       .mockResolvedValueOnce(createResult([]))
 
     const { container } = renderWithProviders(
@@ -376,11 +385,17 @@ describe('LauncherUpdatesPage', () => {
       />,
     )
 
-    expect(await screen.findByText('检查模组更新失败')).toBeTruthy()
-    expect(container.querySelector('.launcher-updates-content-error')).toBeTruthy()
+    await waitFor(() => {
+      expect(container.querySelector('.launcher-updates-content-error')).toBeTruthy()
+    })
     expect(container.querySelector('.launcher-blocked-state')).toBeTruthy()
     expect(screen.getByText('这次检查没有完成，请重试。详细原因已通过通知显示。')).toBeTruthy()
-    expect(screen.getByText(/Nexus Public GraphQL: timeout/)).toBeTruthy()
+    const notificationToast = (await screen.findByText(rawError)).closest('.notification-toast')
+    expect(notificationToast).toBeTruthy()
+    expect(container.querySelector('.launcher-blocked-highlight')).toBeNull()
+    expect(container.querySelector('.launcher-blocked-details')).toBeNull()
+    expect(screen.queryByRole('button', { name: '展开详情' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '复制日志' })).toBeNull()
     expect(screen.getByRole('button', { name: '前往通路诊断' })).toBeTruthy()
     expect(screen.getByRole('button', { name: '重新检查' })).toBeTruthy()
 
@@ -483,21 +498,6 @@ describe('LauncherUpdatesPage', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
     expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
-  })
-
-  it('shows raw update-check failures in notifications instead of rendering them inside the page state block', async () => {
-    const rawError =
-      'Failed to resolve remote update details for mods [20781]: mod 20781 HTML fallback failed: Failed to fetch launcher mod page for 20781: HTTP 403 Forbidden | mod 20781 public GraphQL failed: Mod not found'
-    checkLauncherUpdatesMock.mockRejectedValue(new Error(rawError))
-
-    const { container } = renderWithProviders(
-      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-    )
-
-    expect(await screen.findByText(rawError)).toBeTruthy()
-
-    const stateDetail = container.querySelector('.launcher-state-block-detail')
-    expect(stateDetail?.textContent ?? '').not.toContain(rawError)
   })
 
   it('shows update-check progress in the global notification viewport', async () => {

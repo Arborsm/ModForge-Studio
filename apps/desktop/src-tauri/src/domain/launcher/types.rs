@@ -431,6 +431,17 @@ pub struct DownloadLauncherModResult {
     pub installed_target_path: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallLauncherArchiveInstalledMod {
+    pub mod_name: String,
+    pub unique_id: Option<String>,
+    pub version: Option<String>,
+    pub target_path: String,
+    pub preserved_config: bool,
+    pub preserved_i18n_files: usize,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallLauncherArchiveRequest {
@@ -447,6 +458,37 @@ pub struct InstallLauncherArchiveResult {
     pub target_path: String,
     pub preserved_config: bool,
     pub preserved_i18n_files: usize,
+    pub installed_mods: Vec<InstallLauncherArchiveInstalledMod>,
+    pub backup_id: String,
+    pub backup_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherInstallBackupSummary {
+    pub backup_id: String,
+    pub backup_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListLauncherInstallBackupsRequest {
+    pub mods_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreLauncherInstallBackupRequest {
+    pub backup_id: String,
+    pub mods_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreLauncherInstallBackupResult {
+    pub backup_id: String,
+    pub backup_path: String,
+    pub restored_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

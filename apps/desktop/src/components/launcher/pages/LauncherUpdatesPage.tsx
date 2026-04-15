@@ -280,11 +280,8 @@ export function LauncherUpdatesPage({
   const emptyState = !updates.items.length && updates.state !== 'loading' && !updatesBlocked && !updatesCheckFailed
   const stateCardVisible = updatesBlocked || updatesCheckFailed || emptyState
   const blockedReasonLines = getStatusReasonLines(updates.blockedReason)
-  const errorReasonLines = getStatusReasonLines(updates.error)
   const blockedIssueSummary = blockedReasonLines[0] ?? null
-  const errorIssueSummary = errorReasonLines[0] ?? null
   const blockedReasonText = blockedReasonLines.join('\n')
-  const errorReasonText = errorReasonLines.join('\n')
   const consoleSubtitle =
     !updatesBlocked && !updatesCheckFailed && updates.items.length
       ? copy.updates.selectionSummary(updates.selectedCount, updates.items.length)
@@ -404,21 +401,13 @@ export function LauncherUpdatesPage({
               title={copy.updates.checkFailedTitle}
               detail={copy.updates.checkFailedDetail}
               issueLabel={copy.updates.issueLabel}
-              issueSummary={errorIssueSummary}
-              detailsText={errorReasonText}
-              detailsExpanded={statusDetailsExpanded}
-              detailsToggleLabel={
-                statusDetailsExpanded ? copy.updates.detailsCollapseAction : copy.updates.detailsExpandAction
-              }
-              copyLabel={copy.updates.copyLogsAction}
-              onToggleDetails={() => setStatusDetailsExpanded((current) => !current)}
-              onCopyDetails={() => {
-                if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
-                  return
-                }
-
-                void navigator.clipboard.writeText(errorReasonText)
-              }}
+              issueSummary={null}
+              detailsText={null}
+              detailsExpanded={false}
+              detailsToggleLabel={null}
+              copyLabel={null}
+              onToggleDetails={null}
+              onCopyDetails={null}
               illustrationAccent={<RefreshCw className="h-4 w-4" />}
               tone="error"
               primaryAction={

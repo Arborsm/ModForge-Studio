@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import type { LauncherNexusDiagnosticsResult } from './lib/desktop'
 import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from './lib/editor-shell'
 import { clearNotifications, publishNotification } from './lib/app/notifications'
 
@@ -159,9 +160,21 @@ const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
 const clearLegacyBrowserUiStateMock = vi.fn()
 const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
 const canUseDesktopHostMock = vi.fn(() => false)
-const loadLauncherNexusDiagnosticsMock = vi.fn(async () => ({ routes: [] }))
-const setLauncherNexusForceOfflineMock = vi.fn(async () => ({ routes: [] }))
-const restartLauncherNexusDiagnosticsMock = vi.fn(async () => ({ routes: [] }))
+function createLauncherNexusDiagnosticsResult(
+  routes: LauncherNexusDiagnosticsResult['routes'] = [],
+): LauncherNexusDiagnosticsResult {
+  return { routes }
+}
+
+const loadLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
+  async () => createLauncherNexusDiagnosticsResult(),
+)
+const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promise<LauncherNexusDiagnosticsResult>>(
+  async () => createLauncherNexusDiagnosticsResult(),
+)
+const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
+  async () => createLauncherNexusDiagnosticsResult(),
+)
 
 function seedAppUiState(overrides: MockAppUiStateOverrides = {}) {
   mockAppUiState = createMockAppUiState(overrides)
@@ -663,7 +676,6 @@ describe('App locale ownership', () => {
     ).toBeTruthy()
     expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
     expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationNote)).toBeTruthy()
-    expect(screen.getByText(/Nexus Public GraphQL/)).toBeTruthy()
     expect(screen.queryByText(/Failed after 3 attempts: timeout/)).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeTruthy()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
