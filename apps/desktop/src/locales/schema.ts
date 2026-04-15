@@ -563,6 +563,20 @@ export type LauncherCopy = {
       previewNoRoots: string
       previewLoading: string
       previewError: string
+      installSummaryTitle: string
+      installSummarySubtitle: string
+      installSummaryInstalledMods: (count: number) => string
+      installSummaryPreservedConfig: string
+      installSummaryPreservedI18n: string
+      installSummaryBackupSubtitle: string
+      installBackupsTitle: string
+      installBackupsSubtitle: string
+      installBackupsLoading: string
+      installBackupsEmpty: string
+      installBackupsError: string
+      manageInstallBackups: string
+      restoreInstallBackup: string
+      installBackupIdLabel: string
       filteredEmpty: string
       scopeTitle: string
       scopeHint: string

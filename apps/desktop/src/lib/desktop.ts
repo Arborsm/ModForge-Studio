@@ -658,6 +658,15 @@ export type InstallLauncherArchiveRequest = {
   modsPath?: string | null
 }
 
+export type InstallLauncherArchiveInstalledMod = {
+  modName: string
+  uniqueId: string | null
+  version: string | null
+  targetPath: string
+  preservedConfig: boolean
+  preservedI18nFiles: number
+}
+
 export type InstallLauncherArchiveResult = {
   modName: string
   uniqueId: string | null
@@ -665,6 +674,29 @@ export type InstallLauncherArchiveResult = {
   targetPath: string
   preservedConfig: boolean
   preservedI18nFiles: number
+  installedMods: InstallLauncherArchiveInstalledMod[]
+  backupId: string
+  backupPath: string
+}
+
+export type LauncherInstallBackupSummary = {
+  backupId: string
+  backupPath: string
+}
+
+export type ListLauncherInstallBackupsRequest = {
+  modsPath?: string | null
+}
+
+export type RestoreLauncherInstallBackupRequest = {
+  backupId: string
+  modsPath?: string | null
+}
+
+export type RestoreLauncherInstallBackupResult = {
+  backupId: string
+  backupPath: string
+  restoredPaths: string[]
 }
 
 export type OpenLauncherPathRequest = {
@@ -1525,6 +1557,19 @@ export async function installLauncherArchive(request: InstallLauncherArchiveRequ
   const result = await invokeDesktop<InstallLauncherArchiveResult>('install_launcher_archive', { request })
   scanLauncherLibraryCache.clear()
   invalidateLauncherUpdatesState(request.modsPath)
+  return result
+}
+
+export function listLauncherInstallBackups(request: ListLauncherInstallBackupsRequest) {
+  return invokeDesktop<LauncherInstallBackupSummary[]>('list_launcher_install_backups', { request })
+}
+
+export async function restoreLauncherInstallBackup(request: RestoreLauncherInstallBackupRequest) {
+  const result = await invokeDesktop<RestoreLauncherInstallBackupResult>('restore_launcher_install_backup', { request })
+  scanLauncherLibraryCache.clear()
+  for (const restoredPath of result.restoredPaths) {
+    invalidateLauncherUpdatesState(parentDirectoryFromPath(restoredPath))
+  }
   return result
 }
 

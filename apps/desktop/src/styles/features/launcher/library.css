@@ -1359,6 +1359,60 @@
     gap: 10px;
   }
 
+  .launcher-library-install-dialog {
+    width: min(860px, calc(100vw - 32px));
+  }
+
+  .launcher-library-install-dialog-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .launcher-library-install-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-library-install-card {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 92%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
+  }
+
+  .launcher-library-install-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-library-install-card-path,
+  .launcher-library-install-card-meta {
+    margin: 0;
+    color: var(--launcher-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-library-install-card-meta {
+    display: grid;
+    gap: 2px;
+  }
+
+  .launcher-library-install-backup-card {
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-library-install-card-actions {
+    justify-content: flex-start;
+  }
+
   .launcher-gallery-cover-dialog {
     max-width: min(920px, 92vw);
   }

@@ -1,17 +1,25 @@
 import type { ReactElement, ReactNode } from 'react'
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '../../../lib/app/localeContext'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
-import type { InspectLauncherArchiveResult, LauncherLibraryModSummary, LauncherSettings } from '../../../lib/desktop'
+import type {
+  InspectLauncherArchiveResult,
+  InstallLauncherArchiveResult,
+  LauncherInstallBackupSummary,
+  LauncherLibraryModSummary,
+  LauncherSettings,
+} from '../../../lib/desktop'
 import {
   chooseArchiveFile,
   chooseImageFile,
   inspectLauncherArchive,
+  listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherUrl,
   openLauncherPath,
   resolveLauncherImage,
+  restoreLauncherInstallBackup,
   setLauncherLibraryCover,
 } from '../../../lib/desktop'
 import { useLauncherLibrary } from '../../../lib/launcher/useLauncherLibrary'
@@ -67,10 +75,12 @@ vi.mock('../../../lib/desktop', async () => {
     chooseArchiveFile: vi.fn(),
     chooseImageFile: vi.fn(),
     inspectLauncherArchive: vi.fn(),
+    listLauncherInstallBackups: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     openLauncherUrl: vi.fn(),
     openLauncherPath: vi.fn(),
     resolveLauncherImage: vi.fn(),
+    restoreLauncherInstallBackup: vi.fn(),
     setLauncherLibraryCover: vi.fn(),
   }
 })
@@ -89,14 +99,26 @@ type MockLibraryState = ReturnType<typeof useLauncherLibrary>
 const chooseArchiveFileMock = vi.mocked(chooseArchiveFile)
 const chooseImageFileMock = vi.mocked(chooseImageFile)
 const inspectLauncherArchiveMock = vi.mocked(inspectLauncherArchive)
+const listLauncherInstallBackupsMock = vi.mocked(listLauncherInstallBackups)
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
 const openLauncherUrlMock = vi.mocked(openLauncherUrl)
 const openLauncherPathMock = vi.mocked(openLauncherPath)
 const resolveLauncherImageMock = vi.mocked(resolveLauncherImage)
+const restoreLauncherInstallBackupMock = vi.mocked(restoreLauncherInstallBackup)
 const setLauncherLibraryCoverMock = vi.mocked(setLauncherLibraryCover)
 const useLauncherLibraryMock = vi.mocked(useLauncherLibrary)
 const dismissNotificationMock = vi.mocked(dismissNotification)
 const publishNotificationMock = vi.mocked(publishNotification)
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -159,6 +181,50 @@ function createArchivePreview(overrides: Partial<InspectLauncherArchiveResult> =
         ],
       },
     ],
+    ...overrides,
+  }
+}
+
+function createInstallArchiveResult(
+  overrides: Partial<InstallLauncherArchiveResult> = {},
+): InstallLauncherArchiveResult {
+  return {
+    modName: 'Example Pack',
+    uniqueId: 'ModForge.ExamplePack',
+    version: '2.0.0',
+    targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack',
+    preservedConfig: true,
+    preservedI18nFiles: 2,
+    installedMods: [
+      {
+        modName: 'Example Pack',
+        uniqueId: 'ModForge.ExamplePack',
+        version: '2.0.0',
+        targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack',
+        preservedConfig: true,
+        preservedI18nFiles: 2,
+      },
+      {
+        modName: 'Example Pack Chinese',
+        uniqueId: 'ModForge.ExamplePack.zh',
+        version: '1.0.0',
+        targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack [zh]',
+        preservedConfig: false,
+        preservedI18nFiles: 1,
+      },
+    ],
+    backupId: 'install-123',
+    backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
+    ...overrides,
+  }
+}
+
+function createInstallBackupSummary(
+  overrides: Partial<LauncherInstallBackupSummary> = {},
+): LauncherInstallBackupSummary {
+  return {
+    backupId: 'install-123',
+    backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
     ...overrides,
   }
 }
@@ -226,7 +292,7 @@ function createLibraryState(): MockLibraryState {
     setEnabledOnly: vi.fn(),
     refresh: vi.fn(async () => {}),
     toggleEnabled: vi.fn(async () => {}),
-    installArchive: vi.fn(async () => {}),
+    installArchive: vi.fn(async () => createInstallArchiveResult()),
     toggleModSelection: vi.fn(),
     clearSelection: vi.fn(),
     selectAllFiltered: vi.fn(),
@@ -348,6 +414,27 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
 
     expect(library.refresh).toHaveBeenCalledWith()
+  })
+
+  it('clears action errors after a successful manual refresh', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage({
+      settings: createSettings({
+        modsPath: null,
+      }),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Storage Folder' }))
+    expect(await screen.findByText('Configure the Mods path in Settings before scanning the library.')).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+
+    await waitFor(() => {
+      expect(library.refresh).toHaveBeenCalled()
+      expect(screen.queryByText('Configure the Mods path in Settings before scanning the library.')).toBeNull()
+    })
   })
 
   it('renders the hook-filtered library list instead of recomputing visibility from raw mods', () => {
@@ -852,7 +939,232 @@ describe('LauncherLibraryPage', () => {
     })
 
     fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
-    expect(library.installArchive).toHaveBeenCalledWith('E:\\Downloads\\preview.zip')
+
+    await waitFor(() => {
+      expect(library.installArchive).toHaveBeenCalledWith('E:\\Downloads\\preview.zip')
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'success',
+          title: 'Install Summary',
+          summary: 'Example Pack',
+          description: '2 installed targets',
+        }),
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
+    })
+  })
+
+  it('publishes an install result notification after archive installation and opens the summary dialog from the notification action', async () => {
+    const library = createLibraryState()
+    library.installArchive = vi.fn(async () => createInstallArchiveResult())
+    useLauncherLibraryMock.mockReturnValue(library)
+    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
+    listLauncherInstallBackupsMock.mockResolvedValue([createInstallBackupSummary()])
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
+
+    expect(screen.queryByRole('dialog', { name: 'Install Summary' })).toBeNull()
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'success',
+          title: 'Install Summary',
+          summary: 'Example Pack',
+          description: '2 installed targets',
+          autoDismissMs: 15_000,
+          action: expect.objectContaining({
+            label: 'View Details',
+            tone: 'primary',
+            callback: expect.any(Function),
+          }),
+        }),
+      )
+    })
+
+    const notificationRequest = publishNotificationMock.mock.calls.at(-1)?.[0]
+    expect(notificationRequest?.action).toBeDefined()
+
+    await act(async () => {
+      await notificationRequest?.action?.callback()
+    })
+
+    const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
+    expect(within(summaryDialog).getAllByText('Example Pack').length).toBeGreaterThan(0)
+    expect(within(summaryDialog).getByText('install-123')).not.toBeNull()
+
+    fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+
+    await waitFor(() => {
+      expect(listLauncherInstallBackupsMock).toHaveBeenCalledWith({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      })
+    })
+    expect(await screen.findByRole('dialog', { name: 'Install Backups' })).not.toBeNull()
+  })
+
+  it('keeps the install summary visible when opening install backups from the summary fails', async () => {
+    const library = createLibraryState()
+    library.installArchive = vi.fn(async () => createInstallArchiveResult())
+    useLauncherLibraryMock.mockReturnValue(library)
+    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
+    listLauncherInstallBackupsMock.mockRejectedValue(new Error('Backups unavailable'))
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Install Summary',
+          action: expect.objectContaining({
+            callback: expect.any(Function),
+          }),
+        }),
+      )
+    })
+
+    const notificationRequest = publishNotificationMock.mock.calls.at(-1)?.[0]
+
+    await act(async () => {
+      await notificationRequest?.action?.callback()
+    })
+
+    const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
+    fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+
+    await waitFor(() => {
+      expect(listLauncherInstallBackupsMock).toHaveBeenCalledWith({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      })
+    })
+
+    expect(await screen.findByRole('dialog', { name: 'Install Summary' })).not.toBeNull()
+    const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    expect(within(backupsDialog).getByText('Backups unavailable')).not.toBeNull()
+  })
+
+  it('keeps the install summary visible when the backup dialog is closed before backup loading finishes', async () => {
+    const library = createLibraryState()
+    library.installArchive = vi.fn(async () => createInstallArchiveResult())
+    useLauncherLibraryMock.mockReturnValue(library)
+    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
+    const backupsDeferred = createDeferred<LauncherInstallBackupSummary[]>()
+    listLauncherInstallBackupsMock.mockReturnValue(backupsDeferred.promise)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /install archive/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /^install$/i }))
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Install Summary',
+          action: expect.objectContaining({
+            callback: expect.any(Function),
+          }),
+        }),
+      )
+    })
+
+    const notificationRequest = publishNotificationMock.mock.calls.at(-1)?.[0]
+
+    await act(async () => {
+      await notificationRequest?.action?.callback()
+    })
+
+    const summaryDialog = await screen.findByRole('dialog', { name: 'Install Summary' })
+    fireEvent.click(within(summaryDialog).getByRole('button', { name: 'Manage Install Backups' }))
+
+    const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Close' }))
+
+    await act(async () => {
+      backupsDeferred.resolve([createInstallBackupSummary()])
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Install Backups' })).toBeNull()
+    expect(await screen.findByRole('dialog', { name: 'Install Summary' })).not.toBeNull()
+  })
+
+  it('restores an install backup from the backup manager dialog and refreshes the library', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    listLauncherInstallBackupsMock.mockResolvedValue([createInstallBackupSummary()])
+    restoreLauncherInstallBackupMock.mockResolvedValue({
+      backupId: 'install-123',
+      backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
+      restoredPaths: ['E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack'],
+    })
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+
+    const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    expect(within(backupsDialog).getByText('install-123')).not.toBeNull()
+
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
+
+    await waitFor(() => {
+      expect(restoreLauncherInstallBackupMock).toHaveBeenCalledWith({
+        backupId: 'install-123',
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      })
+      expect(library.refresh).toHaveBeenCalled()
+    })
+  })
+
+  it('keeps backup restore successful when the follow-up refresh fails', async () => {
+    const library = createLibraryState()
+    library.refresh = vi.fn(async () => {
+      throw new Error('Refresh failed')
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+    listLauncherInstallBackupsMock.mockResolvedValue([createInstallBackupSummary()])
+    restoreLauncherInstallBackupMock.mockResolvedValue({
+      backupId: 'install-123',
+      backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
+      restoredPaths: ['E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack'],
+    })
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Install Backups' }))
+
+    const backupsDialog = await screen.findByRole('dialog', { name: 'Install Backups' })
+    fireEvent.click(within(backupsDialog).getByRole('button', { name: 'Restore Backup' }))
+
+    await waitFor(() => {
+      expect(restoreLauncherInstallBackupMock).toHaveBeenCalledWith({
+        backupId: 'install-123',
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      })
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith({
+        level: 'success',
+        title: 'Restore Backup',
+        description: 'install-123',
+      })
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Install Backups' })).toBeNull()
+    expect(await screen.findByText('Refresh failed')).not.toBeNull()
   })
 
   it('renders the full large-library grid directly without virtualization', async () => {
