@@ -1,12 +1,16 @@
+import type { UnlistenFn } from '@tauri-apps/api/event'
 import type { DragEvent } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Folder, FolderArchive, FolderOpen, LayoutGrid, Menu, MoreHorizontal, Play, Plus, RefreshCw, Search } from 'lucide-react'
 import { useEditorCopy } from '../../../lib/app/localeContext'
 import { dismissNotification, publishNotification } from '../../../lib/app/notifications'
 import {
+  LAUNCHER_ARCHIVE_FILE_SUFFIXES,
   chooseArchiveFile,
   chooseImageFile,
   inspectLauncherArchive,
+  isSupportedLauncherArchivePath,
+  listenToLauncherArchiveDragDrop,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherPath,
@@ -56,6 +60,12 @@ type GalleryCoverDialogState = {
   applying: boolean
 }
 
+type DroppedArchivePaths = {
+  supportedPaths: string[]
+  missingPathCount: number
+  unsupportedCount: number
+}
+
 const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-gallery-loading'
 const LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS = 15_000
 
@@ -71,6 +81,31 @@ const shortenLibraryPath = (value: string | null | undefined) => {
   }
 
   return `...\\${parts.slice(-3).join('\\')}`
+}
+
+function splitDroppedArchivePaths(paths: string[] | undefined): DroppedArchivePaths {
+  return (paths ?? []).reduce<DroppedArchivePaths>(
+    (state, value) => {
+      const nextPath = value.trim()
+      if (!nextPath) {
+        state.missingPathCount += 1
+        return state
+      }
+
+      if (!isSupportedLauncherArchivePath(nextPath)) {
+        state.unsupportedCount += 1
+        return state
+      }
+
+      state.supportedPaths.push(nextPath)
+      return state
+    },
+    {
+      supportedPaths: [],
+      missingPathCount: 0,
+      unsupportedCount: 0,
+    },
+  )
 }
 
 function buildPackLookup(packPresets: LauncherPackPreset[]) {
@@ -252,7 +287,8 @@ export function LauncherLibraryPageContent({
   } = library
 
   const [archivePreviewState, setArchivePreviewState] = useState<ArchivePreviewState>('idle')
-  const [archivePreview, setArchivePreview] = useState<InspectLauncherArchiveResult | null>(null)
+  const [archivePreviews, setArchivePreviews] = useState<InspectLauncherArchiveResult[]>([])
+  const [selectedArchivePreviewPath, setSelectedArchivePreviewPath] = useState<string | null>(null)
   const [archivePreviewError, setArchivePreviewError] = useState<string | null>(null)
   const [installingArchive, setInstallingArchive] = useState(false)
   const [installResult, setInstallResult] = useState<InstallLauncherArchiveResult | null>(null)
@@ -273,6 +309,7 @@ export function LauncherLibraryPageContent({
   const [hiddenViewOpen, setHiddenViewOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editingSelectionIds, setEditingSelectionIds] = useState<string[]>([])
+  const [archiveDropActive, setArchiveDropActive] = useState(false)
   const [draggedModIds, setDraggedModIds] = useState<string[]>([])
   const [dragOverPackId, setDragOverPackId] = useState<string | null>(null)
   const lastEditSeedRef = useRef<{ editMode: boolean; packId: string | null }>({ editMode: false, packId: null })
@@ -390,6 +427,7 @@ export function LauncherLibraryPageContent({
   }, [editMode, hiddenMods, hiddenViewOpen, library.currentPackId, library.enabledOnly, library.filterText, library.filteredMods, library.mods, packLookup, sortMode])
 
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
+  const supportedArchiveFormatsLabel = useMemo(() => LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', '), [])
   const sortOptions = useMemo(
     () => [
       { value: 'name' as const, label: copy.library.sortByName },
@@ -402,7 +440,8 @@ export function LauncherLibraryPageContent({
 
   const closeArchivePreview = useCallback(() => {
     setArchivePreviewState('idle')
-    setArchivePreview(null)
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
     setArchivePreviewError(null)
     setInstallingArchive(false)
   }, [])
@@ -416,6 +455,99 @@ export function LauncherLibraryPageContent({
     setInstallBackupsError(null)
     setInstallResult(result)
   }, [])
+
+  const publishArchiveInstallSuccess = useCallback((result: InstallLauncherArchiveResult) => {
+    publishNotification({
+      level: 'success',
+      title: copy.library.installSummaryTitle,
+      summary: result.modName,
+      description: copy.library.installSummaryInstalledMods(result.installedMods.length),
+      action: {
+        label: copy.actions.viewDetails,
+        callback: () => openInstallSummary(result),
+        tone: 'primary',
+      },
+      autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
+    })
+  }, [copy.actions.viewDetails, copy.library, openInstallSummary])
+
+  const publishArchiveInstallError = useCallback((error: unknown) => {
+    publishNotification({
+      level: 'error',
+      title: copy.actions.installArchive,
+      description: error instanceof Error ? error.message : copy.library.previewError,
+    })
+  }, [copy.actions.installArchive, copy.library.previewError])
+
+  const publishArchiveDropError = useCallback((description: string) => {
+    publishNotification({
+      level: 'error',
+      title: copy.actions.installArchive,
+      description,
+    })
+  }, [copy.actions.installArchive])
+
+  const openArchivePreviewForPaths = useCallback(async (paths: string[]) => {
+    setArchivePreviewState('loading')
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
+    setArchivePreviewError(null)
+
+    const nextPreviews: InspectLauncherArchiveResult[] = []
+    let firstError: string | null = null
+
+    for (const path of paths) {
+      try {
+        nextPreviews.push(await inspectLauncherArchive({ archivePath: path }))
+      } catch (nextError) {
+        const description = nextError instanceof Error ? nextError.message : copy.library.previewError
+        if (!firstError) {
+          firstError = description
+        }
+        publishNotification({
+          level: 'error',
+          title: copy.library.previewTitle,
+          description,
+        })
+      }
+    }
+
+    if (nextPreviews.length) {
+      setArchivePreviews(nextPreviews)
+      setSelectedArchivePreviewPath(nextPreviews[0]?.archivePath ?? null)
+      setArchivePreviewState('ready')
+      return
+    }
+
+    if (firstError) {
+      setArchivePreviewState('idle')
+      setArchivePreviews([])
+      setSelectedArchivePreviewPath(null)
+      setArchivePreviewError(firstError)
+      return
+    }
+
+    setArchivePreviewState('idle')
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
+    setArchivePreviewError(null)
+  }, [copy.library.previewError, copy.library.previewTitle])
+
+  const openArchivePreviewForPath = useCallback(async (path: string) => {
+    try {
+      await openArchivePreviewForPaths([path])
+    } catch (nextError) {
+      setArchivePreviewState('idle')
+      setArchivePreviews([])
+      setSelectedArchivePreviewPath(null)
+      setArchivePreviewError(null)
+      publishNotification({
+        level: 'error',
+        title: copy.library.previewTitle,
+        description: nextError instanceof Error ? nextError.message : copy.library.previewError,
+      })
+    }
+  }, [copy.library.previewError, copy.library.previewTitle, openArchivePreviewForPaths])
 
   const closeInstallBackupsDialog = useCallback(() => {
     if (restoringBackupId) {
@@ -484,49 +616,105 @@ export function LauncherLibraryPageContent({
       return
     }
 
-    setArchivePreviewState('loading')
-    setArchivePreview(null)
-    setArchivePreviewError(null)
-
-    try {
-      setArchivePreview(await inspectLauncherArchive({ archivePath: path }))
-      setArchivePreviewState('ready')
-    } catch (nextError) {
-      setArchivePreviewError(nextError instanceof Error ? nextError.message : copy.library.previewError)
-      setArchivePreviewState('error')
-    }
+    await openArchivePreviewForPath(path)
   }
 
   const confirmArchiveInstall = async () => {
-    if (!archivePreview) {
+    if (!archivePreviews.length) {
       return
     }
 
     setInstallingArchive(true)
 
+    let successfulInstalls = 0
+
     try {
-      const result = await library.installArchive(archivePreview.archivePath)
-      closeArchivePreview()
-      publishNotification({
-        level: 'success',
-        title: copy.library.installSummaryTitle,
-        summary: result.modName,
-        description: copy.library.installSummaryInstalledMods(result.installedMods.length),
-        action: {
-          label: copy.actions.viewDetails,
-          callback: () => openInstallSummary(result),
-          tone: 'primary',
-        },
-        autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
-      })
-      void refreshLibrary()
+      for (const preview of archivePreviews) {
+        try {
+          const result = await library.installArchive(preview.archivePath)
+          successfulInstalls += 1
+          publishArchiveInstallSuccess(result)
+        } catch (nextError) {
+          publishArchiveInstallError(nextError)
+        }
+      }
+
+      if (successfulInstalls > 0) {
+        closeArchivePreview()
+        void refreshLibrary()
+      }
     } catch (nextError) {
-      setArchivePreviewError(nextError instanceof Error ? nextError.message : copy.library.previewError)
-      setArchivePreviewState('error')
+      publishArchiveInstallError(nextError)
     } finally {
       setInstallingArchive(false)
     }
   }
+
+  const handleDroppedArchives = useCallback(async (paths: string[] | undefined) => {
+    const { supportedPaths, missingPathCount, unsupportedCount } = splitDroppedArchivePaths(paths)
+
+    if (!supportedPaths.length) {
+      if (missingPathCount > 0 && unsupportedCount === 0) {
+        publishArchiveDropError(copy.library.dragDropMissingPath)
+        return
+      }
+
+      publishArchiveDropError(copy.library.dragDropUnsupportedArchive(supportedArchiveFormatsLabel))
+      return
+    }
+
+    if (missingPathCount > 0) {
+      publishArchiveDropError(copy.library.dragDropSkippedMissingPaths(missingPathCount))
+    }
+
+    if (unsupportedCount > 0) {
+      publishArchiveDropError(copy.library.dragDropSkippedUnsupportedArchives(unsupportedCount, supportedArchiveFormatsLabel))
+    }
+
+    await openArchivePreviewForPaths(supportedPaths)
+  }, [copy.library, openArchivePreviewForPaths, publishArchiveDropError, supportedArchiveFormatsLabel])
+
+  useEffect(() => {
+    let cancelled = false
+    let dispose: UnlistenFn | null = null
+
+    void listenToLauncherArchiveDragDrop(async (payload) => {
+      if (cancelled) {
+        return
+      }
+
+      if (payload.type === 'leave') {
+        setArchiveDropActive(false)
+        return
+      }
+
+      if (payload.type === 'enter') {
+        setArchiveDropActive(splitDroppedArchivePaths(payload.paths).supportedPaths.length > 0)
+        return
+      }
+
+      if (payload.type === 'over') {
+        return
+      }
+
+      setArchiveDropActive(false)
+
+      await handleDroppedArchives(payload.paths)
+    }).then((unlisten) => {
+      if (cancelled) {
+        unlisten()
+        return
+      }
+      dispose = unlisten
+    })
+
+    return () => {
+      cancelled = true
+      dispose?.()
+    }
+  }, [
+    handleDroppedArchives,
+  ])
 
   const restoreInstallBackupSession = useCallback(async (backupId: string) => {
     setInstallBackupsError(null)
@@ -1267,6 +1455,14 @@ export function LauncherLibraryPageContent({
 
           <div className="launcher-library-content">
           <div className="launcher-library-browser">
+            {archiveDropActive ? (
+              <div className="launcher-library-drop-overlay" role="status" aria-live="polite">
+                <div className="launcher-library-drop-overlay-card">
+                  <strong>{copy.library.dragDropInstallTitle}</strong>
+                  <span>{copy.library.dragDropInstallSubtitle(supportedArchiveFormatsLabel)}</span>
+                </div>
+              </div>
+            ) : null}
             {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
             {library.state === 'error' ? <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" /> : null}
             {library.state !== 'error' && !visibleMods.length ? (
@@ -1356,10 +1552,12 @@ export function LauncherLibraryPageContent({
         open={archivePreviewState !== 'idle'}
         loading={archivePreviewState === 'loading'}
         installing={installingArchive}
-        preview={archivePreview}
+        previews={archivePreviews}
+        selectedArchivePath={selectedArchivePreviewPath}
         error={archivePreviewState === 'error' ? archivePreviewError : null}
         onClose={closeArchivePreview}
         onConfirm={() => void confirmArchiveInstall()}
+        onSelectArchive={setSelectedArchivePreviewPath}
       />
 
       <LauncherInstallSummaryDialog

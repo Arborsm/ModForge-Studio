@@ -14,6 +14,7 @@ import {
   chooseArchiveFile,
   chooseImageFile,
   inspectLauncherArchive,
+  listenToLauncherArchiveDragDrop,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherUrl,
@@ -25,6 +26,10 @@ import {
 import { useLauncherLibrary } from '../../../lib/launcher/useLauncherLibrary'
 import { renderWithLocale } from '../../../test/renderWithLocale'
 import { LauncherLibraryPage } from './LauncherLibraryPage'
+
+const archiveDragDropListeners: Array<
+  (payload: { type: string; paths?: string[]; position?: { x: number; y: number } }) => void | Promise<void>
+> = []
 
 vi.mock('@radix-ui/react-context-menu', async () => {
   function Root({ children }: { children: ReactNode }) {
@@ -75,6 +80,15 @@ vi.mock('../../../lib/desktop', async () => {
     chooseArchiveFile: vi.fn(),
     chooseImageFile: vi.fn(),
     inspectLauncherArchive: vi.fn(),
+    listenToLauncherArchiveDragDrop: vi.fn(async (listener) => {
+      archiveDragDropListeners.push(listener)
+      return () => {
+        const index = archiveDragDropListeners.indexOf(listener)
+        if (index >= 0) {
+          archiveDragDropListeners.splice(index, 1)
+        }
+      }
+    }),
     listLauncherInstallBackups: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     openLauncherUrl: vi.fn(),
@@ -99,6 +113,7 @@ type MockLibraryState = ReturnType<typeof useLauncherLibrary>
 const chooseArchiveFileMock = vi.mocked(chooseArchiveFile)
 const chooseImageFileMock = vi.mocked(chooseImageFile)
 const inspectLauncherArchiveMock = vi.mocked(inspectLauncherArchive)
+const listenToLauncherArchiveDragDropMock = vi.mocked(listenToLauncherArchiveDragDrop)
 const listLauncherInstallBackupsMock = vi.mocked(listLauncherInstallBackups)
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
 const openLauncherUrlMock = vi.mocked(openLauncherUrl)
@@ -118,6 +133,16 @@ function createDeferred<T>() {
     reject = nextReject
   })
   return { promise, resolve, reject }
+}
+
+async function emitArchiveDragDrop(payload: {
+  type: string
+  paths?: string[]
+  position?: { x: number; y: number }
+}) {
+  for (const listener of archiveDragDropListeners) {
+    await listener(payload)
+  }
 }
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
@@ -365,6 +390,7 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
 
 describe('LauncherLibraryPage', () => {
   afterEach(() => {
+    archiveDragDropListeners.length = 0
     cleanup()
     vi.clearAllMocks()
   })
@@ -403,6 +429,283 @@ describe('LauncherLibraryPage', () => {
     expect(container.querySelector('.launcher-library-shell > .launcher-library-sidebar')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-content')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell .launcher-library-console')).toBeNull()
+  })
+
+  it('shows an install overlay for multiple supported external archives and hides it on leave', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(listenToLauncherArchiveDragDropMock).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Release to Preview Archives')).toBeNull()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'enter',
+        paths: ['E:\\Downloads\\example.7z', 'E:\\Downloads\\second.zip'],
+        position: { x: 160, y: 240 },
+      })
+    })
+
+    expect(screen.getByText('Release to Preview Archives')).not.toBeNull()
+    expect(screen.getByText('Drop one or more archives to install. Supported formats: .zip, .7z, .rar, .tar.gz, .tgz, .tar')).not.toBeNull()
+
+    await act(async () => {
+      await emitArchiveDragDrop({ type: 'leave' })
+    })
+
+    expect(screen.queryByText('Release to Preview Archives')).toBeNull()
+  })
+
+  it('inspects a supported archive dropped on the library page', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    inspectLauncherArchiveMock.mockResolvedValue(
+      createArchivePreview({
+        archivePath: 'E:\\Downloads\\preview.7z',
+        archiveFileName: 'preview.7z',
+      }),
+    )
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\preview.7z'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    await waitFor(() => {
+      expect(inspectLauncherArchiveMock).toHaveBeenCalledWith({ archivePath: 'E:\\Downloads\\preview.7z' })
+    })
+
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+  })
+
+  it('previews multiple supported archives, lets the user switch previews, and installs them after confirmation', async () => {
+    const library = createLibraryState()
+    const installArchiveMock = vi.mocked(library.installArchive)
+    inspectLauncherArchiveMock
+      .mockResolvedValueOnce(
+        createArchivePreview({
+          archivePath: 'E:\\Downloads\\a.zip',
+          archiveFileName: 'a.zip',
+          modRoots: ['First Pack'],
+          tree: [
+            {
+              name: 'First Pack',
+              path: 'First Pack',
+              isDirectory: true,
+              sizeBytes: null,
+              children: [
+                {
+                  name: 'manifest.json',
+                  path: 'First Pack/manifest.json',
+                  isDirectory: false,
+                  sizeBytes: 128,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createArchivePreview({
+          archivePath: 'E:\\Downloads\\b.zip',
+          archiveFileName: 'b.zip',
+          modRoots: ['Second Pack'],
+          tree: [
+            {
+              name: 'Second Pack',
+              path: 'Second Pack',
+              isDirectory: true,
+              sizeBytes: null,
+              children: [
+                {
+                  name: 'manifest.json',
+                  path: 'Second Pack/manifest.json',
+                  isDirectory: false,
+                  sizeBytes: 128,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        }),
+      )
+    installArchiveMock
+      .mockResolvedValueOnce(
+        createInstallArchiveResult({
+          modName: 'First Pack',
+          uniqueId: 'ModForge.FirstPack',
+          installedMods: [
+            {
+              modName: 'First Pack',
+              uniqueId: 'ModForge.FirstPack',
+              version: '1.0.0',
+              targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] First Pack',
+              preservedConfig: false,
+              preservedI18nFiles: 0,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        createInstallArchiveResult({
+          modName: 'Second Pack',
+          uniqueId: 'ModForge.SecondPack',
+          installedMods: [
+            {
+              modName: 'Second Pack',
+              uniqueId: 'ModForge.SecondPack',
+              version: '1.0.0',
+              targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] Second Pack',
+              preservedConfig: false,
+              preservedI18nFiles: 0,
+            },
+          ],
+        }),
+      )
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\a.zip', 'E:\\Downloads\\b.zip'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    await waitFor(() => {
+      expect(inspectLauncherArchiveMock).toHaveBeenNthCalledWith(1, { archivePath: 'E:\\Downloads\\a.zip' })
+      expect(inspectLauncherArchiveMock).toHaveBeenNthCalledWith(2, { archivePath: 'E:\\Downloads\\b.zip' })
+    })
+
+    expect(installArchiveMock).not.toHaveBeenCalled()
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+    expect(screen.getAllByText('First Pack').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /b\.zip/i }))
+    })
+
+    expect(screen.queryByText('First Pack')).toBeNull()
+    expect(screen.getAllByText('Second Pack').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    })
+
+    await waitFor(() => {
+      expect(installArchiveMock).toHaveBeenNthCalledWith(1, 'E:\\Downloads\\a.zip')
+      expect(installArchiveMock).toHaveBeenNthCalledWith(2, 'E:\\Downloads\\b.zip')
+    })
+
+    expect(library.refresh).toHaveBeenCalledTimes(1)
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'success',
+        title: 'Install Summary',
+        summary: 'First Pack',
+      }),
+    )
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'success',
+        title: 'Install Summary',
+        summary: 'Second Pack',
+      }),
+    )
+  })
+
+  it('skips unsupported dropped files while previewing the supported archives', async () => {
+    const library = createLibraryState()
+    inspectLauncherArchiveMock.mockResolvedValue(
+      createArchivePreview({
+        archivePath: 'E:\\Downloads\\a.zip',
+        archiveFileName: 'a.zip',
+      }),
+    )
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\a.zip', 'E:\\Downloads\\notes.txt'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    await waitFor(() => {
+      expect(inspectLauncherArchiveMock).toHaveBeenCalledWith({ archivePath: 'E:\\Downloads\\a.zip' })
+    })
+
+    expect(publishNotificationMock).toHaveBeenCalledWith({
+      level: 'error',
+      title: 'Install Archive',
+      description: 'Skipped 1 unsupported file. Supported formats: .zip, .7z, .rar, .tar.gz, .tgz, .tar',
+    })
+    expect(library.installArchive).not.toHaveBeenCalled()
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+  })
+
+  it('publishes an error notification when an unsupported file is dropped', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\notes.txt'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith({
+        level: 'error',
+        title: 'Install Archive',
+        description: 'Only these archive formats are supported: .zip, .7z, .rar, .tar.gz, .tgz, .tar',
+      })
+    })
+
+    expect(inspectLauncherArchiveMock).not.toHaveBeenCalled()
+  })
+
+  it('publishes an error notification when archive preview inspection fails', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    inspectLauncherArchiveMock.mockRejectedValue(new Error('Inspection failed'))
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\broken.zip'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    await waitFor(() => {
+      expect(publishNotificationMock).toHaveBeenCalledWith({
+        level: 'error',
+        title: 'Archive Preview',
+        description: 'Inspection failed',
+      })
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
   })
 
   it('refreshes the library when the toolbar refresh button is clicked', () => {

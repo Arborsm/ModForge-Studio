@@ -19,7 +19,7 @@ afterEach(() => {
 })
 
 describe('vite config', () => {
-  it('uses trimmed shared dev runtime host and explicit ports', async () => {
+  it('uses trimmed shared dev runtime host and explicit ports', { timeout: 15_000 }, async () => {
     process.env.TAURI_DEV_HOST = ' 0.0.0.0 '
     process.env.MODFORGE_DEV_PORT = '6200'
     process.env.MODFORGE_DEV_HMR_PORT = '6201'

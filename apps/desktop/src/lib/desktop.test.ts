@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 
 const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
+const dragDropListeners: Array<(event: { payload: unknown }) => void> = []
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -19,6 +21,15 @@ const mockWindow = {
   close: vi.fn(),
   isFullscreen: vi.fn(),
   setFullscreen: vi.fn(),
+  onDragDropEvent: vi.fn(async (callback: (event: { payload: unknown }) => void) => {
+    dragDropListeners.push(callback)
+    return () => {
+      const index = dragDropListeners.indexOf(callback)
+      if (index >= 0) {
+        dragDropListeners.splice(index, 1)
+      }
+    }
+  }),
 }
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -83,8 +94,71 @@ describe('launcher bridge helpers', () => {
       value: {},
     })
     eventListeners.clear()
+    dragDropListeners.length = 0
     vi.resetModules()
     vi.mocked(invoke).mockReset()
+    vi.mocked(open).mockReset()
+    mockWindow.onDragDropEvent.mockClear()
+  })
+
+  it('recognizes supported launcher archive paths', async () => {
+    const { isSupportedLauncherArchivePath } = await import('./desktop')
+
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.zip')).toBe(true)
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.7Z')).toBe(true)
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.rar')).toBe(true)
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.tar')).toBe(true)
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.tgz')).toBe(true)
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.tar.gz')).toBe(true)
+
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.gz')).toBe(false)
+    expect(isSupportedLauncherArchivePath('E:\\Downloads\\example.txt')).toBe(false)
+    expect(isSupportedLauncherArchivePath('')).toBe(false)
+  })
+
+  it('opens the archive picker with all supported archive extensions', async () => {
+    vi.mocked(open).mockResolvedValueOnce('E:\\Downloads\\example.7z')
+    const { chooseArchiveFile } = await import('./desktop')
+
+    await expect(chooseArchiveFile('Install Archive')).resolves.toBe('E:\\Downloads\\example.7z')
+    expect(open).toHaveBeenCalledWith({
+      directory: false,
+      multiple: false,
+      title: 'Install Archive',
+      filters: [
+        {
+          name: 'Archives',
+          extensions: ['zip', '7z', 'rar', 'tar', 'tgz', 'gz'],
+        },
+      ],
+    })
+  })
+
+  it('listens to launcher archive drag-drop events through the current window', async () => {
+    const { listenToLauncherArchiveDragDrop } = await import('./desktop')
+    const listener = vi.fn()
+
+    const unlisten = await listenToLauncherArchiveDragDrop(listener)
+
+    expect(mockWindow.onDragDropEvent).toHaveBeenCalledTimes(1)
+    expect(dragDropListeners).toHaveLength(1)
+
+    dragDropListeners[0]?.({
+      payload: {
+        type: 'drop',
+        paths: ['E:\\Downloads\\example.7z'],
+        position: { x: 144, y: 288 },
+      },
+    })
+
+    expect(listener).toHaveBeenCalledWith({
+      type: 'drop',
+      paths: ['E:\\Downloads\\example.7z'],
+      position: { x: 144, y: 288 },
+    })
+
+    unlisten()
+    expect(dragDropListeners).toHaveLength(0)
   })
 
   it('loads launcher settings from tauri backend', async () => {

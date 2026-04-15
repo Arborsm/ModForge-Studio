@@ -27,12 +27,16 @@ tauri-plugin-dialog = "2.7.0"
 tauri-plugin-log = "2.8.0"
 lz4_flex = "0.13.0"
 lzxd = "0.2.6"
+flate2 = "1.1.9"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 sha2 = "0.11.0"
 regex = "1.12.3"
 reqwest = { version = "0.13.2", default-features = false, features = ["blocking", "cookies", "form", "json", "rustls"] }
 semver = "1.0.28"
+sevenz-rust = { version = "0.6.1", features = ["compress"] }
+tar = "0.4.44"
 time = { version = "0.3.44", features = ["formatting"] }
+unrar = "0.5.8"
 url = "2.5.8"
 zip = { version = "2.4.2", default-features = false, features = ["deflate"] }
 

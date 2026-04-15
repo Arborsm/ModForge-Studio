@@ -560,9 +560,18 @@ export type LauncherCopy = {
       previewEntries: string
       previewFiles: string
       previewRoots: string
+      previewArchiveListTitle: string
+      previewArchiveListSubtitle: string
       previewNoRoots: string
       previewLoading: string
       previewError: string
+      dragDropInstallTitle: string
+      dragDropInstallSubtitle: (formats: string) => string
+      dragDropMultipleFiles: string
+      dragDropUnsupportedArchive: (formats: string) => string
+      dragDropMissingPath: string
+      dragDropSkippedUnsupportedArchives: (count: number, formats: string) => string
+      dragDropSkippedMissingPaths: (count: number) => string
       installSummaryTitle: string
       installSummarySubtitle: string
       installSummaryInstalledMods: (count: number) => string
