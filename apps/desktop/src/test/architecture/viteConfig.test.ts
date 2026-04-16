@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import path from 'node:path'
 
 const ORIGINAL_ENV = { ...process.env }
 
@@ -34,5 +35,19 @@ describe('vite config', () => {
     expect(server.host).toBe('0.0.0.0')
     expect(server.port).toBe(6200)
     expect(server.hmr.port).toBe(6201)
+  })
+
+  it('stores vite cache in the system cache directory when LOCALAPPDATA is available', async () => {
+    process.env.LOCALAPPDATA = '/tmp/modforge-localappdata'
+
+    const config = await loadViteConfig()
+
+    expect(config.cacheDir).toBe(path.join('/tmp/modforge-localappdata', 'ModForge Studio', 'vite'))
+  })
+
+  it('does not block the first html response with startup warmup work', async () => {
+    const config = await loadViteConfig()
+
+    expect(config.server?.warmup).toBeUndefined()
   })
 })

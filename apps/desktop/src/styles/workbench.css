@@ -1,0 +1,12 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss" source(none);
+@import "./workspace/layout.css";
+@import "./features/player-appearance.css";
+@import "./features/content-patcher.css";
+@import "./features/item-group.css";
+@import "./features/initialization-overlay.css";
+@source "../App.tsx";
+@source "../components";
+@source not "../components/launcher";
+@source "../lib";
+@source not "../lib/launcher";
