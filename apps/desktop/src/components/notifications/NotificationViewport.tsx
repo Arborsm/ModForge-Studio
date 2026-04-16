@@ -338,7 +338,7 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
 
   const getExpandedStackHeight = (notificationId: string) => toastHeights[notificationId] ?? STACK_EXPANDED_OFFSET_PX
   const frontOrderedNotifications = [...visibleNotifications].reverse()
-  const expandedOffsets = frontOrderedNotifications.map((notification, index) => {
+  const expandedOffsets = frontOrderedNotifications.map((_, index) => {
     if (index === 0) {
       return 0
     }

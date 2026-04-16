@@ -1,7 +1,7 @@
 ﻿import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import { getCurrentWindow } from '@tauri-apps/api/window'
+import { getCurrentWindow, type DragDropEvent } from '@tauri-apps/api/window'
 import { normalizeCachePathSegment } from './cachePaths'
 
 export type GameDirectoryInfo = {
@@ -78,6 +78,11 @@ export type FrontendLogRequest = {
   line?: number
   keyValues?: Record<string, string | undefined>
 }
+
+export const LAUNCHER_ARCHIVE_FILE_DIALOG_EXTENSIONS = ['zip', '7z', 'rar', 'tar', 'tgz', 'gz'] as const
+export const LAUNCHER_ARCHIVE_FILE_SUFFIXES = ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'] as const
+
+export type LauncherArchiveDragDropPayload = DragDropEvent
 
 export type AppUiShellState = {
   appMode: string
@@ -658,6 +663,15 @@ export type InstallLauncherArchiveRequest = {
   modsPath?: string | null
 }
 
+export type InstallLauncherArchiveInstalledMod = {
+  modName: string
+  uniqueId: string | null
+  version: string | null
+  targetPath: string
+  preservedConfig: boolean
+  preservedI18nFiles: number
+}
+
 export type InstallLauncherArchiveResult = {
   modName: string
   uniqueId: string | null
@@ -665,6 +679,29 @@ export type InstallLauncherArchiveResult = {
   targetPath: string
   preservedConfig: boolean
   preservedI18nFiles: number
+  installedMods: InstallLauncherArchiveInstalledMod[]
+  backupId: string
+  backupPath: string
+}
+
+export type LauncherInstallBackupSummary = {
+  backupId: string
+  backupPath: string
+}
+
+export type ListLauncherInstallBackupsRequest = {
+  modsPath?: string | null
+}
+
+export type RestoreLauncherInstallBackupRequest = {
+  backupId: string
+  modsPath?: string | null
+}
+
+export type RestoreLauncherInstallBackupResult = {
+  backupId: string
+  backupPath: string
+  restoredPaths: string[]
 }
 
 export type OpenLauncherPathRequest = {
@@ -1119,6 +1156,27 @@ export async function chooseDirectory(title: string) {
   return typeof selected === 'string' ? selected : null
 }
 
+export function isSupportedLauncherArchivePath(path: string) {
+  const normalized = path.trim().toLowerCase()
+  if (!normalized) {
+    return false
+  }
+
+  return LAUNCHER_ARCHIVE_FILE_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+}
+
+export function listenToLauncherArchiveDragDrop(
+  listener: (payload: LauncherArchiveDragDropPayload) => void,
+): Promise<UnlistenFn> {
+  if (!isDesktopHost()) {
+    return Promise.resolve(() => {})
+  }
+
+  return getCurrentWindow().onDragDropEvent((event) => {
+    listener(event.payload)
+  })
+}
+
 export async function chooseArchiveFile(title: string) {
   if (!isDesktopHost()) {
     throw new Error('File selection requires the desktop host.')
@@ -1131,7 +1189,7 @@ export async function chooseArchiveFile(title: string) {
     filters: [
       {
         name: 'Archives',
-        extensions: ['zip'],
+        extensions: [...LAUNCHER_ARCHIVE_FILE_DIALOG_EXTENSIONS],
       },
     ],
   })
@@ -1525,6 +1583,19 @@ export async function installLauncherArchive(request: InstallLauncherArchiveRequ
   const result = await invokeDesktop<InstallLauncherArchiveResult>('install_launcher_archive', { request })
   scanLauncherLibraryCache.clear()
   invalidateLauncherUpdatesState(request.modsPath)
+  return result
+}
+
+export function listLauncherInstallBackups(request: ListLauncherInstallBackupsRequest) {
+  return invokeDesktop<LauncherInstallBackupSummary[]>('list_launcher_install_backups', { request })
+}
+
+export async function restoreLauncherInstallBackup(request: RestoreLauncherInstallBackupRequest) {
+  const result = await invokeDesktop<RestoreLauncherInstallBackupResult>('restore_launcher_install_backup', { request })
+  scanLauncherLibraryCache.clear()
+  for (const restoredPath of result.restoredPaths) {
+    invalidateLauncherUpdatesState(parentDirectoryFromPath(restoredPath))
+  }
   return result
 }
 

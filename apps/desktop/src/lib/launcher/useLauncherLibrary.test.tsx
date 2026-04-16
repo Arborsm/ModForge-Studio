@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '../app/localeContext'
 import { dismissNotification, publishNotification } from '../app/notifications'
 import type {
+  InstallLauncherArchiveResult,
   LauncherLibraryCoversState,
   LauncherLibraryModSummary,
   LauncherLibraryState,
@@ -21,6 +22,7 @@ vi.mock('../desktop', async () => {
     ...actual,
     checkLauncherUpdates: vi.fn(),
     loadCachedLauncherUpdates: vi.fn(),
+    installLauncherArchive: vi.fn(),
     loadLauncherLibraryCovers: vi.fn(),
     loadLauncherNexusDiagnostics: vi.fn(),
     loadLauncherLibraryState: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('../app/notifications', async () => {
 
 const checkLauncherUpdatesMock = vi.mocked(desktop.checkLauncherUpdates)
 const loadCachedLauncherUpdatesMock = vi.mocked(desktop.loadCachedLauncherUpdates)
+const installLauncherArchiveMock = vi.mocked(desktop.installLauncherArchive)
 const loadLauncherLibraryCoversMock = vi.mocked(desktop.loadLauncherLibraryCovers)
 const loadLauncherNexusDiagnosticsMock = vi.mocked(desktop.loadLauncherNexusDiagnostics)
 const loadLauncherLibraryStateMock = vi.mocked(desktop.loadLauncherLibraryState)
@@ -207,6 +210,32 @@ function createLauncherDiagnosticsResult(
       ...route,
       ...(overrides[routeId] ?? {}),
     })),
+  }
+}
+
+function createInstallArchiveResult(
+  overrides: Partial<InstallLauncherArchiveResult> = {},
+): InstallLauncherArchiveResult {
+  return {
+    modName: 'Example Pack',
+    uniqueId: 'ModForge.ExamplePack',
+    version: '2.0.0',
+    targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack',
+    preservedConfig: true,
+    preservedI18nFiles: 2,
+    installedMods: [
+      {
+        modName: 'Example Pack',
+        uniqueId: 'ModForge.ExamplePack',
+        version: '2.0.0',
+        targetPath: 'E:\\Games\\Stardew Valley\\Mods\\[CP] Example Pack',
+        preservedConfig: true,
+        preservedI18nFiles: 2,
+      },
+    ],
+    backupId: 'install-123',
+    backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
+    ...overrides,
   }
 }
 
@@ -1630,6 +1659,26 @@ describe('useLauncherLibrary', () => {
       ],
       currentPackId: null,
       scopeMode: 'all',
+    })
+  })
+
+  it('installArchive resolves with the install result even when a follow-up refresh would fail', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    installLauncherArchiveMock.mockResolvedValue(createInstallArchiveResult())
+    scanLauncherLibraryMock.mockRejectedValue(new Error('Refresh failed'))
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+
+    await act(async () => {
+      await expect(result.current.installArchive('E:\\Downloads\\example.zip')).resolves.toEqual(
+        createInstallArchiveResult(),
+      )
+    })
+
+    expect(installLauncherArchiveMock).toHaveBeenCalledWith({
+      archivePath: 'E:\\Downloads\\example.zip',
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
   })
 })

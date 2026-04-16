@@ -454,7 +454,7 @@ describe('NotificationProvider', () => {
   })
 
   it('applies collapsed shared width immediately from synchronous measurements', () => {
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this instanceof HTMLElement && this.classList.contains('notification-toast')) {
         const text = this.textContent ?? ''
 

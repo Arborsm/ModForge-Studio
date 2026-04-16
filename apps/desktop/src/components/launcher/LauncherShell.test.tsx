@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import { useRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
@@ -155,7 +155,7 @@ describe('LauncherShell', () => {
     expect(container.querySelector('.launcher-shell-page-nav')).toBeNull()
   })
 
-  it('routes the discover page', () => {
+  it('routes the discover page', async () => {
     const { container } = renderWithLocale(
       <LauncherShell
         page="discover"
@@ -171,13 +171,13 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.getByText('discover-page')).toBeTruthy()
+    expect(await screen.findByText('discover-page')).toBeTruthy()
     const activeRoute = container.querySelector('.launcher-shell-route.launcher-shell-route-active')
     expect(activeRoute).toBeTruthy()
     expect(activeRoute?.textContent).toContain('discover-page')
   })
 
-  it('keeps the library page content rendered when switching away from it', () => {
+  it('keeps the library page content rendered when switching away from it', async () => {
     const { rerender } = renderWithLocale(
       <LauncherShell
         page="library"
@@ -210,11 +210,11 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.getByText('discover-page')).toBeTruthy()
+    expect(await screen.findByText('discover-page')).toBeTruthy()
     expect(screen.getByText(/^library-page:Launch Game:/)).toBeTruthy()
   })
 
-  it('routes the updates page', () => {
+  it('routes the updates page', async () => {
     renderWithLocale(
       <LauncherShell
         page="updates"
@@ -230,10 +230,10 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.getByText('updates-page')).toBeTruthy()
+    expect(await screen.findByText('updates-page')).toBeTruthy()
   })
 
-  it('routes the settings page', () => {
+  it('routes the settings page', async () => {
     const onToggleDebugMode = vi.fn()
 
     renderWithLocale(
@@ -251,14 +251,16 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.getByText('settings-page')).toBeTruthy()
-    expect(settingsPageSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        debugEnabled: true,
-        downloads,
-        onToggleDebugMode,
-      }),
-    )
+    expect(await screen.findByText('settings-page')).toBeTruthy()
+    await waitFor(() => {
+      expect(settingsPageSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          debugEnabled: true,
+          downloads,
+          onToggleDebugMode,
+        }),
+      )
+    })
   })
 
   it('falls back to the library page when the debug page is requested while debug mode is disabled', () => {

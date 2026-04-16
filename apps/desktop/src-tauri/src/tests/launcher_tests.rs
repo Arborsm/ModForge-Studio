@@ -1,4 +1,4 @@
-use crate::domain::launcher::archive::inspect_archive_at_path;
+use crate::domain::launcher::archive::{inspect_archive_at_path, install_archive_at_path};
 use crate::domain::launcher::can_use_nexus_graphql;
 use crate::domain::launcher::discovery::{
     build_catalog_graphql_payload, build_public_catalog_graphql_payload,
@@ -43,10 +43,11 @@ use crate::domain::launcher::updates::{
 use crate::test_support::{create_temp_dir, write_file};
 use serde_json::json;
 use std::fs;
-#[cfg(target_os = "windows")]
 use std::path::Path;
-#[cfg(target_os = "windows")]
-use std::process::Command;
+use std::io::Write;
+use zip::write::SimpleFileOptions;
+use zip::CompressionMethod;
+use zip::ZipWriter;
 
 fn sample_manifest(unique_id: &str) -> String {
     format!(
@@ -1766,19 +1767,51 @@ fn launch_game_returns_typed_error_when_no_executable_exists() {
     fs::remove_dir_all(root).expect("cleanup");
 }
 
-#[cfg(target_os = "windows")]
 fn create_zip_from_directory(source_dir: &Path, archive_path: &Path) {
-    let source = source_dir.to_string_lossy().replace('\'', "''");
-    let archive = archive_path.to_string_lossy().replace('\'', "''");
-    let status = Command::new("powershell")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg(format!(
-            "Add-Type -AssemblyName 'System.IO.Compression.FileSystem'; [System.IO.Compression.ZipFile]::CreateFromDirectory('{source}', '{archive}')"
-        ))
-        .status()
-        .expect("create archive");
-    assert!(status.success(), "expected archive creation to succeed");
+    let archive_file = fs::File::create(archive_path).expect("create archive file");
+    let mut archive = ZipWriter::new(archive_file);
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+
+    for relative_path in collect_relative_files(source_dir) {
+        let source_path = source_dir.join(&relative_path);
+        let archive_entry = relative_path.to_string_lossy().replace('\\', "/");
+        archive
+            .start_file(archive_entry, options)
+            .expect("start archive file");
+        archive
+            .write_all(&fs::read(&source_path).expect("read source file"))
+            .expect("write archive file");
+    }
+
+    archive.finish().expect("finish archive");
+}
+
+fn collect_relative_files(root: &Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    collect_relative_files_recursive(root, root, &mut files);
+    files.sort();
+    files
+}
+
+fn collect_relative_files_recursive(
+    root: &Path,
+    current_dir: &Path,
+    output: &mut Vec<std::path::PathBuf>,
+) {
+    for entry in fs::read_dir(current_dir).expect("read directory") {
+        let entry = entry.expect("directory entry");
+        let entry_path = entry.path();
+        if entry_path.is_dir() {
+            collect_relative_files_recursive(root, &entry_path, output);
+            continue;
+        }
+        output.push(
+            entry_path
+                .strip_prefix(root)
+                .expect("relative path")
+                .to_path_buf(),
+        );
+    }
 }
 
 fn collect_paths(nodes: &[LauncherArchiveTreeNode], output: &mut Vec<String>) {
@@ -1788,7 +1821,6 @@ fn collect_paths(nodes: &[LauncherArchiveTreeNode], output: &mut Vec<String>) {
     }
 }
 
-#[cfg(target_os = "windows")]
 #[test]
 fn inspect_archive_detects_manifest_roots_and_builds_tree() {
     let root = create_temp_dir("launcher-inspect-archive");
@@ -1844,7 +1876,6 @@ fn inspect_archive_detects_manifest_roots_and_builds_tree() {
     fs::remove_dir_all(root).expect("cleanup");
 }
 
-#[cfg(target_os = "windows")]
 #[test]
 fn inspect_archive_detects_manifest_at_archive_root() {
     let root = create_temp_dir("launcher-inspect-archive-root");
@@ -1860,6 +1891,40 @@ fn inspect_archive_detects_manifest_at_archive_root() {
 
     let result = inspect_archive_at_path(&archive_path).expect("inspect archive");
     assert_eq!(result.mod_roots, vec![".".to_string()]);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn install_archive_installs_zip_bundle_and_reports_backup_details() {
+    let root = create_temp_dir("launcher-install-archive");
+    let source = root.join("source");
+    let mods_root = root.join("Mods");
+    let backup_root = root.join("backups");
+    write_file(
+        &source.join("[CP] Example Pack").join("manifest.json"),
+        &sample_manifest("ModForge.ExamplePack"),
+    );
+    write_file(
+        &source.join("[CP] Example Pack").join("content.json"),
+        r#"{"Format":"2.0.0","Changes":[]}"#,
+    );
+
+    let archive_path = root.join("bundle.zip");
+    create_zip_from_directory(&source, &archive_path);
+
+    let result = install_archive_at_path(
+        &archive_path,
+        Some(&mods_root.to_string_lossy()),
+        Some(&backup_root),
+    )
+    .expect("install archive");
+
+    assert_eq!(result.installed_mods.len(), 1);
+    assert_eq!(result.installed_mods[0].unique_id.as_deref(), Some("ModForge.ExamplePack"));
+    assert!(mods_root.join("[CP] Example Pack").join("manifest.json").is_file());
+    assert!(!result.backup_id.trim().is_empty());
+    assert!(Path::new(&result.backup_path).join("metadata.json").is_file());
 
     fs::remove_dir_all(root).expect("cleanup");
 }

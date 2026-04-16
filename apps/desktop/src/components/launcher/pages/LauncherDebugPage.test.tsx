@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '../../../lib/editor-shell'
 import { renderWithLocale } from '../../../test/renderWithLocale'
@@ -23,6 +23,10 @@ function createDeferred<T>() {
     reject = nextReject
   })
   return { promise, resolve, reject }
+}
+
+function createNeverSettledPromise<T>() {
+  return new Promise<T>(() => {})
 }
 
 vi.mock('../../../lib/app/observability', () => ({
@@ -64,7 +68,7 @@ describe('LauncherDebugPage', () => {
   })
 
   it('renders localized debug tool sections', () => {
-    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
 
     expect(screen.getByRole('heading', { name: copy.debug.title })).toBeTruthy()
@@ -76,7 +80,7 @@ describe('LauncherDebugPage', () => {
   })
 
   it('renders a debug mode switch and calls the toggle handler', () => {
-    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const onToggleDebugMode = vi.fn()
 
     renderWithLocale(
@@ -93,7 +97,7 @@ describe('LauncherDebugPage', () => {
   })
 
   it('emits a debug notification test event', () => {
-    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
 
     fireEvent.click(screen.getByRole('button', { name: copy.debug.notificationButtons.debug }))
@@ -108,7 +112,7 @@ describe('LauncherDebugPage', () => {
   })
 
   it('emits a warning log test event without showing a notification', () => {
-    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
 
     fireEvent.click(screen.getByRole('button', { name: copy.debug.logButtons.warning }))
@@ -123,7 +127,7 @@ describe('LauncherDebugPage', () => {
   })
 
   it('starts a simulated launcher download from the debug page', () => {
-    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
 
     fireEvent.click(screen.getByRole('button', { name: copy.debug.simulationButtonIdle }))
@@ -133,7 +137,7 @@ describe('LauncherDebugPage', () => {
 
   it('clears the launcher image cache from the debug page', () => {
     clearLauncherImageCache.mockResolvedValue(undefined)
-    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
 
     renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
 
@@ -242,9 +246,7 @@ describe('LauncherDebugPage', () => {
 
     renderWithLocale(<LauncherDebugPage debugEnabled={true} onToggleDebugMode={vi.fn()} downloads={downloads as never} />, 'zh-CN')
 
-    await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: copy.debug.forceOfflineEnableButton }))
-    })
+    fireEvent.click(await screen.findByRole('button', { name: copy.debug.forceOfflineEnableButton }))
 
     await waitFor(() => {
       expect(applyAppUiStatePatch).toHaveBeenCalledWith({

@@ -1,21 +1,18 @@
-﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { DevDebugOverlay } from './components/DevDebugOverlay'
-import InitializationOverlay from './components/InitializationOverlay'
 import StatusBar from './components/StatusBar'
 import TopMenuBar from './components/TopMenuBar'
 import LauncherShell from './components/launcher/LauncherShell'
-import { LauncherSettingsForm } from './components/launcher/shared/LauncherSettingsForm'
 import { LauncherDownloadsPopover } from './components/launcher/shared/LauncherDownloadsPopover'
-import { WorkspaceLayout, type WorkspaceLayoutHandle, type WorkspacePanelMeta } from './components/WorkspaceLayout'
+import { LauncherSettingsForm } from './components/launcher/shared/LauncherSettingsForm'
 import {
   canUseDesktopHost,
   clearDesktopLocaleCache,
   closeCurrentWindow,
   isCurrentWindowFullscreen,
   launchLauncherGame,
-  listKnownGameDirectories,
-  restartLauncherNexusDiagnostics,
   minimizeCurrentWindow,
+  restartLauncherNexusDiagnostics,
   setLauncherNexusForceOffline,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
@@ -24,20 +21,15 @@ import {
 import {
   editorCopy,
   getSettingsMenuCopy,
-  getWorldAtlasViewLabel,
   launcherPages,
   type AppMode,
   type LauncherPage,
   type LocaleCode,
   type ThemeMode,
-  type WorkspaceMode,
 } from './lib/editor-shell'
 import { normalizeAppShellState } from './lib/app/appShell'
 import { rgbaFromHex } from './lib/app/color'
-import {
-  ACCENT_PRESETS,
-  WORKSPACE_LAYOUT_VERSION,
-} from './lib/app/constants'
+import { ACCENT_PRESETS } from './lib/app/constants'
 import {
   clonePlayerAppearanceProfile,
   createDefaultPlayerAppearanceProfile,
@@ -46,60 +38,32 @@ import {
   type PlayerAppearanceProfile,
 } from './lib/app/playerAppearance'
 import { clearLocalizedStageMetadataCache } from './lib/app/eventStageShared'
-import { clearImageMetricsLocaleCache } from './lib/imageMetrics'
-import { clearMapViewportLocaleCache } from './lib/mapViewportCache'
-import { useEventWorkspace } from './lib/app/useEventWorkspace'
-import { useMapWorkspace } from './lib/app/useMapWorkspace'
-import { useCharacterWorkspace } from './lib/app/useCharacterWorkspace'
-import { useBuildingWorkspace } from './lib/app/useBuildingWorkspace'
-import { useItemWorkspace } from './lib/app/useItemWorkspace'
 import { LocaleProvider } from './lib/app/localeContext'
-import { dismissNotification, NotificationProvider, publishNotification } from './lib/app/notifications'
-import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
+import { NotificationProvider } from './lib/app/notifications'
 import { setNotificationSoundEnabled } from './lib/app/notificationSounds'
-import {
-  loadSettledLauncherNexusDiagnostics,
-} from './lib/launcher/nexusDiagnostics'
-import {
-  syncLauncherDiagnosticsNotification,
-} from './lib/launcher/nexusDiagnosticsNotifications'
-import useModWorkspace from './lib/app/useModWorkspace'
-import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
-import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
-import { buildWorkspacePanels } from './lib/app/workspacePanels'
-import { scheduleDeferred } from './lib/react/defer'
+import { syncDebugDiagnosticsEnabled } from './lib/app/observability'
 import {
   applyAppUiStatePatch,
   clearLegacyBrowserUiState,
   getAppUiStateSnapshot,
   initializeAppUiState,
 } from './lib/app/uiState'
+import { clearImageMetricsLocaleCache } from './lib/imageMetrics'
+import {
+  loadSettledLauncherNexusDiagnostics,
+} from './lib/launcher/nexusDiagnostics'
+import {
+  syncLauncherDiagnosticsNotification,
+} from './lib/launcher/nexusDiagnosticsNotifications'
+import { useLauncherRuntime } from './lib/launcher/useLauncherRuntime'
+import { useLauncherUpdateProgressNotifications } from './lib/launcher/useLauncherUpdateProgressNotifications'
+import { clearMapViewportLocaleCache } from './lib/mapViewportCache'
 import type { SettingsWindowCategory } from './components/SettingsWindow'
-import type { ResourcePreloadState } from './lib/app/types'
-import type { WorkspaceStoredState } from './components/workspace/layoutTypes'
 
 const SettingsWindow = lazy(() => import('./components/SettingsWindow'))
-const PlayerAppearanceWindow = lazy(() => import('./components/PlayerAppearanceWindow'))
-const WORKSPACE_LAYOUT_PERSIST_DEBOUNCE_MS = 180
+const WorkbenchExperience = lazy(() => import('./components/workbench/WorkbenchExperience'))
 
-type IdleDeadlineLike = {
-  didTimeout: boolean
-  timeRemaining: () => number
-}
-
-type WindowWithIdleCallback = Window & {
-  requestIdleCallback?: (callback: (deadline: IdleDeadlineLike) => void, options?: { timeout?: number }) => number
-  cancelIdleCallback?: (handle: number) => void
-}
-
-const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
-function getResourcePreloadProgress(state: ResourcePreloadState) {
-  if (state.total <= 0) {
-    return 18
-  }
-
-  return Math.max(0, Math.min(100, (state.completed / state.total) * 100))
-}
+let workbenchStylesPromise: Promise<unknown> | null = null
 
 function getNavigatorLocale(): LocaleCode {
   if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
@@ -124,42 +88,19 @@ function normalizePlayerAppearanceState(
   return readStoredPlayerAppearanceState(JSON.stringify(Array.isArray(profiles) ? profiles : []), activeProfileId ?? null)
 }
 
-function normalizeWorkspaceLayouts(
-  layouts: Record<string, Record<string, unknown>> | null | undefined,
-): Record<string, WorkspaceStoredState> {
-  const entries = Object.entries(layouts ?? {}).filter(
-    ([key, value]) => key.trim().length > 0 && typeof value === 'object' && value !== null && !Array.isArray(value),
-  )
-
-  return Object.fromEntries(entries) as Record<string, WorkspaceStoredState>
-}
-
-function areWorkspaceStoredStatesEqual(
-  left: WorkspaceStoredState | null | undefined,
-  right: WorkspaceStoredState | null | undefined,
-) {
-  if (left === right) {
-    return true
-  }
-
-  if (!left || !right) {
-    return false
-  }
-
-  return JSON.stringify(left) === JSON.stringify(right)
-}
-
 export default function App() {
   const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
   if (!initialAppUiStateRef.current) {
     initialAppUiStateRef.current = getAppUiStateSnapshot()
   }
-  const initialAppUiState = initialAppUiStateRef.current!
+
+  const initialAppUiState = initialAppUiStateRef.current
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
   const initialPlayerAppearanceState = normalizePlayerAppearanceState(
     initialAppUiState.appearance.playerAppearance.profiles,
     initialAppUiState.appearance.playerAppearance.activeProfileId,
   )
+
   const [theme, setTheme] = useState<ThemeMode>(() =>
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
@@ -174,423 +115,29 @@ export default function App() {
   const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
   const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
   const [appUiStateReady, setAppUiStateReady] = useState(false)
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
-  const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
-  const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
-  const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
-  const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const [launcherLaunchBusy, setLauncherLaunchBusy] = useState(false)
-  const [storedRecentGameDirectories, setStoredRecentGameDirectories] = useState<string[]>(
-    () => initialAppUiState.appearance.recentGameDirectories,
-  )
-  const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
-  const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
-  const [viewMenuPresetNames, setViewMenuPresetNames] = useState<string[]>([])
-  const workspaceLayoutsRef = useRef<Record<string, WorkspaceStoredState>>(
-    normalizeWorkspaceLayouts(initialAppUiState.workspace.layouts),
-  )
-  const pendingWorkspaceLayoutPatchesRef = useRef<Record<string, WorkspaceStoredState>>({})
-  const workspaceLayoutPersistTimeoutRef = useRef<number | null>(null)
-  const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
-  const [currentEventCommandId, setCurrentEventCommandId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (workspaceMode !== 'map') {
-      return
-    }
-
-    const handleContextMenu = (event: MouseEvent) => {
-      event.preventDefault()
-    }
-
-    document.addEventListener('contextmenu', handleContextMenu)
-    return () => {
-      document.removeEventListener('contextmenu', handleContextMenu)
-    }
-  }, [workspaceMode])
-
-  useEffect(() => {
-    let cancelled = false
-    let cancelReset = () => {}
-    let cancelRevealFrame = () => {}
-    let cancelRevealTimeout = () => {}
-    let idleId = 0
-
-    const scheduleMode = (mode: WorkspaceMode | null) => {
-      cancelReset = scheduleDeferred(() => {
-        if (!cancelled) {
-          setDeferredHeavyWorkspaceMode(mode)
-        }
-      }, 'frame')
-    }
-
-    if (workspaceMode !== 'map' && workspaceMode !== 'characters') {
-      scheduleMode(workspaceMode)
-      return () => {
-        cancelled = true
-        cancelReset()
-      }
-    }
-
-    scheduleMode(null)
-
-    const revealHeavyWorkspace = () => {
-      if (cancelled) {
-        return
-      }
-      setDeferredHeavyWorkspaceMode(workspaceMode)
-    }
-
-    const windowWithIdleCallback = window as WindowWithIdleCallback
-
-    if (typeof windowWithIdleCallback.requestIdleCallback === 'function') {
-      idleId = windowWithIdleCallback.requestIdleCallback(
-        () => {
-          revealHeavyWorkspace()
-        },
-        { timeout: 300 },
-      )
-    } else {
-      cancelRevealFrame = scheduleDeferred(() => {
-        cancelRevealTimeout = scheduleDeferred(revealHeavyWorkspace, 'timeout')
-      }, 'frame')
-    }
-
-    return () => {
-      cancelled = true
-      if (idleId && typeof windowWithIdleCallback.cancelIdleCallback === 'function') {
-        windowWithIdleCallback.cancelIdleCallback(idleId)
-      }
-      cancelReset()
-      cancelRevealFrame()
-      cancelRevealTimeout()
-    }
-  }, [workspaceMode])
-
   const [playerAppearanceProfiles, setPlayerAppearanceProfiles] = useState(initialPlayerAppearanceState.profiles)
   const [activePlayerAppearanceProfileId, setActivePlayerAppearanceProfileId] = useState<string | null>(
     initialPlayerAppearanceState.activeProfileId,
   )
-  const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
+  const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
   const previousLocaleRef = useRef<LocaleCode>(locale)
+  const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
-  const {
-    workspaceStatus,
-    resourcePreloadState,
-    gameDirectory,
-    setGameDirectory,
-    directoryInfo,
-    mapAssets,
-    filteredAssets,
-    browserSourceMode: mapBrowserSourceMode,
-    setBrowserSourceMode: setMapBrowserSourceMode,
-    modMapGroups,
-    activeModMapSelectionId,
-    activeMapModSources,
-    activeMapId,
-    activeAsset,
-    assetFilter,
-    setAssetFilter,
-    mapDocument,
-    worldAtlasViews,
-    activeWorldAtlasViewId,
-    workspaceTabs,
-    activeTabId,
-    hoverInfo,
-    setHoverInfo,
-    visibleLayerIds,
-    visibleObjectGroupIds,
-    focusedObjectTarget,
-    showGameWorldAdditions,
-    setShowGameWorldAdditions,
-    worldOverlaySprites,
-    worldOverlayTextureAssets,
-    worldAtlasDocument,
-    openMap,
-    handleOpenModMapAsset,
-    handleSelectWorldAtlasView,
-    handleSelectWorkspaceTab,
-    handleCloseWorkspaceTab,
-    handleReorderWorkspaceTabs,
-    handleOpenAtlasTarget,
-    handleScanAndOpenTown,
-    handleChooseDirectory,
-    toggleLayer,
-    toggleObjectGroup,
-    setAllLayers,
-    setAllObjectGroups,
-    focusObject,
-  } = useMapWorkspace({
-    copy,
-    locale,
-    desktopHost,
-    setWorkspaceMode,
-    getWorldAtlasViewLabel,
-  })
   const launcherRuntime = useLauncherRuntime(locale)
+
   useLauncherUpdateProgressNotifications(locale)
 
-  const {
-    eventAssets,
-    filteredEventAssets,
-    browserSourceMode: eventBrowserSourceMode,
-    setBrowserSourceMode: setEventBrowserSourceMode,
-    modEventGroups,
-    activeModEventSelectionId,
-    activeEventModSources,
-    eventAssetFilter,
-    setEventAssetFilter,
-    activeEventAssetId,
-    parsedEventAsset,
-    selectedEventKey,
-    selectedEvent,
-    selectedTimelineEntryId,
-    setSelectedTimelineEntryId,
-    timelineJumpRequestId,
-    requestTimelineJump,
-    clearTimelineJumpRequest,
-    eventStatusMessage,
-    handleOpenEventAsset,
-    handleOpenModEventAsset,
-    handleSelectEvent,
-  } = useEventWorkspace({
-    copy,
-    locale,
-    directoryInfo,
-  })
-  const {
-    characters,
-    filteredCharacters,
-    browserSourceMode: characterBrowserSourceMode,
-    setBrowserSourceMode: setCharacterBrowserSourceMode,
-    modCharacterGroups,
-    activeModCharacterSelectionId,
-    activeCharacterModSources,
-    characterFilter,
-    setCharacterFilter,
-    activeCharacterId,
-    activeCharacter,
-    activeVariant: activeCharacterVariant,
-    characterStatusMessage,
-    assetState: activeCharacterAssetState,
-    handleSelectCharacter,
-    handleSelectModCharacter,
-    handleSelectVariant: handleSelectCharacterVariant,
-  } = useCharacterWorkspace({
-    directoryInfo,
-    locale,
-    copy: copy.charactersPanel,
-    enableVisualAssets: workspaceMode === 'characters' && deferredHeavyWorkspaceMode === 'characters',
-  })
-  const {
-    constructibleGroups,
-    filteredConstructibleGroups,
-    worldBuildings,
-    filteredWorldBuildings,
-    browserSourceMode: buildingBrowserSourceMode,
-    setBrowserSourceMode: setBuildingBrowserSourceMode,
-    modBuildingGroups,
-    activeModBuildingSelectionId,
-    activeBuildingModSources,
-    buildingFilter,
-    setBuildingFilter,
-    activeBuildingId,
-    activeBuilding,
-    activeUpgradeChain,
-    buildingStatusMessage,
-    activeTextureState: activeBuildingTextureState,
-    activeChainTextureStates: activeBuildingChainTextureStates,
-    activeIndoorMapDocument: activeBuildingIndoorMapDocument,
-    activeIndoorMapPath: activeBuildingIndoorMapPath,
-    activeIndoorMapMessage: activeBuildingIndoorMapMessage,
-    activeExteriorMapDocument: activeBuildingExteriorMapDocument,
-    activeExteriorMapPath: activeBuildingExteriorMapPath,
-    activeExteriorMapMessage: activeBuildingExteriorMapMessage,
-    activeExteriorFocusPoint: activeBuildingExteriorFocusPoint,
-    springObjectsState: buildingSpringObjectsState,
-    handleSelectBuilding,
-    handleSelectModBuilding,
-  } = useBuildingWorkspace({
-    directoryInfo,
-    locale,
-    copy: copy.buildingsPanel,
-  })
-  const {
-    items,
-    filteredItems,
-    browserSourceMode: itemBrowserSourceMode,
-    setBrowserSourceMode: setItemBrowserSourceMode,
-    modItemGroups,
-    activeModItemSelectionId,
-    activeItemModSources,
-    itemFilter,
-    setItemFilter,
-    activeItemId,
-    activeItem,
-    itemLookup,
-    itemStatusMessage,
-    textureStatesByAssetName: itemTextureStatesByAssetName,
-    ensureTextureAssetStates: ensureItemTextureAssetStates,
-    handleSelectItem,
-    handleSelectModItem,
-  } = useItemWorkspace({
-    directoryInfo,
-    locale,
-    copy: copy.itemsPanel,
-  })
-  const {
-    copy: modWorkspaceCopy,
-    pluginDefinition: modPluginDefinition,
-    modProjects,
-    filteredModProjects,
-    modFilter,
-    setModFilter,
-    contentPatcherOnly,
-    setContentPatcherOnly,
-    compatibleOnly,
-    setCompatibleOnly,
-    activeProjectPath,
-    activeProject,
-    projectDetail: activeModProjectDetail,
-    manifestEditor: modManifestEditor,
-    contentEditor: modContentEditor,
-    contentSummary: modContentSummary,
-    diagnostics: modDiagnostics,
-    selectedPatchId: activeModPatchId,
-    setSelectedPatchId: setActiveModPatchId,
-    selectedPatch: activeModPatch,
-    patchWhenError: modPatchWhenError,
-    statusMessage: modStatusMessage,
-    hasUnsavedChanges: modHasUnsavedChanges,
-    canPersist: modCanPersist,
-    lastSaveResult: modLastSaveResult,
-    contentPatcherSnapshot,
-    contentPatcherSimulation,
-    contentPatcherResultAsset,
-    contentPatcherResultLoading,
-    contentPatcherResultError,
-    simulationContext,
-    navigatorMode,
-    setNavigatorMode,
-    selectedTargetPath,
-    setSelectedTargetPath,
-    scaleUpEditor,
-    handleSelectProject: handleSelectModProject,
-    handleImportProject: handleImportModProject,
-    handleRefreshProjects: handleRefreshModProjects,
-    handleManifestFieldChange: handleModManifestFieldChange,
-    handleManifestTextChange: handleModManifestTextChange,
-    handleContentTextChange: handleModContentTextChange,
-    handleAddPatch: handleAddModPatch,
-    handleRemoveSelectedPatch: handleRemoveModPatch,
-    handlePatchFieldChange: handleModPatchFieldChange,
-    handlePatchWhenChange: handleModPatchWhenChange,
-    handleSaveProject: handleSaveModProject,
-    handleExportProject: handleExportModProject,
-    handleSimulationContextChange,
-    handleOpenScaleUpEditor,
-    handleCloseScaleUpEditor,
-    handleScaleUpContentChange,
-  } = useModWorkspace({
-    directoryInfo,
-    locale,
-  })
-
-  const moduleBlueprint = workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
-  const settingsMenuCopy = getSettingsMenuCopy(locale)
-  const localeOptions =
-    locale === 'en-US'
-      ? [
-          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
-          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
-        ]
-      : [
-          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
-          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
-        ]
-  const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
-  const activeAssetName = mapDocument?.name ?? activeAsset?.name
-  const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
-  const availableLauncherPages: LauncherPage[] = debugEnabled
-    ? launcherPages
-    : launcherPages.filter((page): page is Exclude<LauncherPage, 'debug'> => page !== 'debug')
-  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'debug' ? 'library' : launcherPage
-  const activePlayerAppearanceProfile =
-    playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
-  const needsInitialization = !directoryInfo
-  const interactionLocked = resourcePreloadState.active
-  const showProjectOverlay = (needsInitialization || projectOverlayOpen) && !interactionLocked
-  const currentWorkspaceStatus = useMemo(() => {
-    if (workspaceMode === 'events') {
-      return {
-        tone: directoryInfo ? (eventAssets.length ? 'ready' : eventStatusMessage ? 'error' : 'idle') : 'idle',
-        message: eventStatusMessage,
-      } as const
+  useEffect(() => {
+    if (appMode === 'workbench') {
+      setWorkbenchLoaded(true)
     }
-
-    if (workspaceMode === 'characters') {
-      return {
-        tone: directoryInfo ? (characters.length ? 'ready' : characterStatusMessage ? 'error' : 'idle') : 'idle',
-        message: characterStatusMessage,
-      } as const
-    }
-
-    if (workspaceMode === 'buildings') {
-      const buildingBrowserCount = constructibleGroups.length + worldBuildings.length
-      return {
-        tone: directoryInfo ? (buildingBrowserCount ? 'ready' : buildingStatusMessage ? 'error' : 'idle') : 'idle',
-        message: buildingStatusMessage,
-      } as const
-    }
-
-    if (workspaceMode === 'items') {
-      return {
-        tone: directoryInfo ? (items.length ? 'ready' : itemStatusMessage ? 'error' : 'idle') : 'idle',
-        message: itemStatusMessage,
-      } as const
-    }
-
-    if (workspaceMode === 'mods') {
-      const hasModErrors = modDiagnostics.some((diagnostic) => diagnostic.severity === 'error')
-      return {
-        tone: directoryInfo
-          ? hasModErrors
-            ? 'error'
-            : modHasUnsavedChanges
-              ? 'working'
-              : modProjects.length || activeModProjectDetail
-                ? 'ready'
-                : 'idle'
-          : 'idle',
-        message: modStatusMessage,
-      } as const
-    }
-
-    return workspaceStatus
-  }, [
-    buildingStatusMessage,
-    constructibleGroups.length,
-    characterStatusMessage,
-    characters.length,
-    directoryInfo,
-    eventAssets.length,
-    eventStatusMessage,
-    itemStatusMessage,
-    items.length,
-    modDiagnostics,
-    modHasUnsavedChanges,
-    modProjects.length,
-    modStatusMessage,
-    activeModProjectDetail,
-    worldBuildings.length,
-    workspaceMode,
-    workspaceStatus,
-  ])
+  }, [appMode])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -620,8 +167,6 @@ export default function App() {
         setLauncherPage(nextShellState.appMode === 'launcher' ? 'library' : nextShellState.launcherPage)
         setDebugEnabled(nextShellState.debugEnabled)
         setNotificationSoundEnabledState(nextShellState.notificationSoundEnabled)
-        setStoredRecentGameDirectories(state.appearance.recentGameDirectories)
-        workspaceLayoutsRef.current = normalizeWorkspaceLayouts(state.workspace.layouts)
         setPlayerAppearanceProfiles(nextPlayerAppearanceState.profiles)
         setActivePlayerAppearanceProfileId(nextPlayerAppearanceState.activeProfileId)
         setAppUiStateReady(true)
@@ -694,10 +239,7 @@ export default function App() {
     return () => {
       disposed = true
     }
-  }, [
-    desktopHost,
-    handleLauncherDiagnosticsUpdate,
-  ])
+  }, [desktopHost, handleLauncherDiagnosticsUpdate])
 
   useEffect(() => {
     if (!desktopHost || !appUiStateReady) {
@@ -710,39 +252,18 @@ export default function App() {
   }, [appUiStateReady, desktopHost])
 
   useEffect(() => {
-    if (!resourcePreloadState.active) {
-      dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID)
-      return
-    }
-
-    publishNotification({
-      id: RESOURCE_PRELOAD_NOTIFICATION_ID,
-      level: 'info',
-      title: resourcePreloadState.message || copy.messages.preloadingResources,
-      description: resourcePreloadState.currentLabel || null,
-      autoDismissMs: null,
-      progress: getResourcePreloadProgress(resourcePreloadState),
-    })
-  }, [
-    copy.messages.preloadingResources,
-    resourcePreloadState,
-  ])
-
-  useEffect(() => () => dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID), [])
-
-  const recentGameDirectories = useMemo(() => {
-    const currentRoot = directoryInfo?.rootPath
-    if (!currentRoot) {
-      return storedRecentGameDirectories
-    }
-
-    return [currentRoot, ...storedRecentGameDirectories.filter((path) => path !== currentRoot)].slice(0, 6)
-  }, [directoryInfo?.rootPath, storedRecentGameDirectories])
-
-  useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
+
+  useEffect(() => {
+    if (appMode !== 'workbench') {
+      return
+    }
+
+    workbenchStylesPromise ??= import('./styles/workbench.css')
+    void workbenchStylesPromise
+  }, [appMode])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -798,13 +319,7 @@ export default function App() {
     previousLocaleRef.current = locale
   }, [locale])
 
-  useEffect(() => {
-    if (workspaceMode !== 'events' || !currentEventCommandId) {
-      return
-    }
-
-    workspaceLayoutRef.current?.setPanelVisibility('diagnostics', true)
-  }, [currentEventCommandId, workspaceMode])
+  const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
 
   useEffect(() => {
     const root = document.documentElement
@@ -830,42 +345,6 @@ export default function App() {
       },
     })
   }, [activeAccentPreset.id, appUiStateReady])
-
-  useEffect(() => {
-    if (!appUiStateReady) {
-      return
-    }
-
-    void applyAppUiStatePatch({
-      appearance: {
-        recentGameDirectories,
-      },
-    })
-  }, [appUiStateReady, recentGameDirectories])
-
-  useEffect(() => {
-    if (!desktopHost) {
-      return
-    }
-
-    let disposed = false
-
-    void listKnownGameDirectories()
-      .then((paths) => {
-        if (!disposed) {
-          setKnownGameDirectories(paths)
-        }
-      })
-      .catch(() => {
-        if (!disposed) {
-          setKnownGameDirectories([])
-        }
-      })
-
-    return () => {
-      disposed = true
-    }
-  }, [desktopHost])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -906,17 +385,16 @@ export default function App() {
     })
   }, [activePlayerAppearanceProfileId, appUiStateReady, playerAppearanceProfiles])
 
-  const openAppearanceWindow = useCallback(() => {
-    setPlayerAppearanceWindowNonce((current) => current + 1)
-    setPlayerAppearanceWindowOpen(true)
-  }, [])
+  const activePlayerAppearanceProfile =
+    playerAppearanceProfiles.find((profile) => profile.id === activePlayerAppearanceProfileId) ?? playerAppearanceProfiles[0] ?? null
 
   const handleCreatePlayerAppearanceProfile = useCallback(() => {
-    const nextProfile = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? `鐜╁ ${playerAppearanceProfiles.length + 1}` : `Player ${playerAppearanceProfiles.length + 1}`)
+    const nextProfile = createDefaultPlayerAppearanceProfile(
+      locale === 'zh-CN' ? `\u73a9\u5bb6 ${playerAppearanceProfiles.length + 1}` : `Player ${playerAppearanceProfiles.length + 1}`,
+    )
     setPlayerAppearanceProfiles((current) => [...current, nextProfile])
     setActivePlayerAppearanceProfileId(nextProfile.id)
-    openAppearanceWindow()
-  }, [locale, openAppearanceWindow, playerAppearanceProfiles.length])
+  }, [locale, playerAppearanceProfiles.length])
 
   const handleDuplicatePlayerAppearanceProfile = useCallback(() => {
     if (!activePlayerAppearanceProfile) {
@@ -935,7 +413,7 @@ export default function App() {
 
     const remainingProfiles = playerAppearanceProfiles.filter((profile) => profile.id !== activePlayerAppearanceProfile.id)
     if (remainingProfiles.length === 0) {
-      const fallback = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? '榛樿鐜╁' : 'Default Player')
+      const fallback = createDefaultPlayerAppearanceProfile(locale === 'zh-CN' ? '\u9ed8\u8ba4\u73a9\u5bb6' : 'Default Player')
       setPlayerAppearanceProfiles([fallback])
       setActivePlayerAppearanceProfileId(fallback.id)
       return
@@ -945,322 +423,28 @@ export default function App() {
     setActivePlayerAppearanceProfileId(remainingProfiles[0]?.id ?? null)
   }, [activePlayerAppearanceProfile, locale, playerAppearanceProfiles])
 
-  const handleChangePlayerAppearanceProfile = useCallback((nextProfile: Parameters<typeof sanitizePlayerAppearanceProfile>[0]) => {
+  const handleChangePlayerAppearanceProfile = useCallback((nextProfile: PlayerAppearanceProfile) => {
     const sanitized = sanitizePlayerAppearanceProfile(nextProfile)
     setPlayerAppearanceProfiles((current) => current.map((profile) => (profile.id === sanitized.id ? sanitized : profile)))
   }, [])
 
-  const handleImportPlayerAppearanceProfile = useCallback(
-    (nextProfile: PlayerAppearanceProfile) => {
-      const sanitized = sanitizePlayerAppearanceProfile(nextProfile)
-      setPlayerAppearanceProfiles((current) => [...current, sanitized])
-      setActivePlayerAppearanceProfileId(sanitized.id)
-      openAppearanceWindow()
-    },
-    [openAppearanceWindow],
-  )
+  const handleImportPlayerAppearanceProfile = useCallback((nextProfile: PlayerAppearanceProfile) => {
+    const sanitized = sanitizePlayerAppearanceProfile(nextProfile)
+    setPlayerAppearanceProfiles((current) => [...current, sanitized])
+    setActivePlayerAppearanceProfileId(sanitized.id)
+  }, [])
 
   const handleToggleBorderlessFullscreen = useCallback(async () => {
     const nextFullscreen = await toggleFullscreenCurrentWindow()
     setWindowIsFullscreen(nextFullscreen)
   }, [])
 
-  const workspaceLayoutStorageKey = useMemo(
-    () => `modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`,
-    [workspaceMode],
-  )
-
-  const flushPendingWorkspaceLayoutPatches = useCallback(() => {
-    if (workspaceLayoutPersistTimeoutRef.current !== null) {
-      window.clearTimeout(workspaceLayoutPersistTimeoutRef.current)
-      workspaceLayoutPersistTimeoutRef.current = null
-    }
-
-    if (!appUiStateReady) {
-      return
-    }
-
-    const entries = Object.entries(pendingWorkspaceLayoutPatchesRef.current)
-    if (!entries.length) {
-      return
-    }
-
-    pendingWorkspaceLayoutPatchesRef.current = {}
-
-    void applyAppUiStatePatch({
-      workspace: {
-        layouts: Object.fromEntries(
-          entries.map(([storageKey, state]) => [storageKey, state as Record<string, unknown>]),
-        ),
-      },
-    })
-  }, [appUiStateReady])
-
-  const scheduleWorkspaceLayoutPersist = useCallback(() => {
-    if (!appUiStateReady) {
-      return
-    }
-
-    if (workspaceLayoutPersistTimeoutRef.current !== null) {
-      window.clearTimeout(workspaceLayoutPersistTimeoutRef.current)
-    }
-
-    workspaceLayoutPersistTimeoutRef.current = window.setTimeout(() => {
-      flushPendingWorkspaceLayoutPatches()
-    }, WORKSPACE_LAYOUT_PERSIST_DEBOUNCE_MS)
-  }, [appUiStateReady, flushPendingWorkspaceLayoutPatches])
-
-  useEffect(() => {
-    if (!appUiStateReady || !Object.keys(pendingWorkspaceLayoutPatchesRef.current).length) {
-      return
-    }
-
-    scheduleWorkspaceLayoutPersist()
-  }, [appUiStateReady, scheduleWorkspaceLayoutPersist])
-
-  useEffect(() => () => flushPendingWorkspaceLayoutPatches(), [flushPendingWorkspaceLayoutPatches])
-
-  const handleWorkspacePersistStateChange = useCallback(
-    (storageKey: string, nextState: WorkspaceStoredState) => {
-      if (areWorkspaceStoredStatesEqual(workspaceLayoutsRef.current[storageKey], nextState)) {
-        return
-      }
-
-      workspaceLayoutsRef.current[storageKey] = nextState
-      pendingWorkspaceLayoutPatchesRef.current[storageKey] = nextState
-      scheduleWorkspaceLayoutPersist()
-    },
-    [scheduleWorkspaceLayoutPersist],
-  )
-
-  const workspacePanels = buildWorkspacePanels({
-    copy,
-    locale,
-    workspaceMode,
-    directoryInfo,
-    mapAssets,
-    filteredAssets,
-    mapBrowserSourceMode,
-    onMapBrowserSourceModeChange: setMapBrowserSourceMode,
-    modMapGroups,
-    activeModMapSelectionId,
-    activeMapModSources,
-    activeMapId,
-    activeAssetName,
-    assetFilter,
-    onAssetFilterChange: setAssetFilter,
-    onOpenAsset: (asset) => {
-      void openMap(asset)
-    },
-    onOpenModAsset: handleOpenModMapAsset,
-    workspaceTabs,
-    activeTabId,
-    onSelectWorkspaceTab: handleSelectWorkspaceTab,
-    onCloseWorkspaceTab: handleCloseWorkspaceTab,
-    onReorderWorkspaceTabs: handleReorderWorkspaceTabs,
-    mapDocument,
-    worldAtlasViews,
-    activeWorldAtlasViewId,
-    onSelectWorldAtlasView: handleSelectWorldAtlasView,
-    onOpenAtlasTarget: handleOpenAtlasTarget,
-    theme,
-    accentColor: activeAccentPreset.color,
-    visibleLayerIds,
-    onToggleLayer: toggleLayer,
-    onShowAllLayers: () => setAllLayers(true),
-    onHideAllLayers: () => setAllLayers(false),
-    visibleObjectGroupIds,
-    onToggleObjectGroup: toggleObjectGroup,
-    onShowAllObjectGroups: () => setAllObjectGroups(true),
-    onHideAllObjectGroups: () => setAllObjectGroups(false),
-    focusedObjectTarget,
-    showGameWorldAdditions,
-    onToggleGameWorldAdditions: () => setShowGameWorldAdditions((current) => !current),
-    worldOverlaySprites,
-    worldOverlayTextureAssets,
-    onFocusObject: focusObject,
-    onHoverChange: setHoverInfo,
-    workspaceStatus: currentWorkspaceStatus,
-    moduleBlueprint,
-    eventAssets,
-    filteredEventAssets,
-    eventBrowserSourceMode,
-    onEventBrowserSourceModeChange: setEventBrowserSourceMode,
-    modEventGroups,
-    activeModEventSelectionId,
-    activeEventModSources,
-    activeEventAssetId,
-    eventAssetFilter,
-    onEventAssetFilterChange: setEventAssetFilter,
-    onOpenEventAsset: handleOpenEventAsset,
-    onOpenModEventAsset: handleOpenModEventAsset,
-    parsedEventAsset,
-    selectedEventKey,
-    selectedEvent,
-    selectedTimelineEntryId,
-    timelineJumpRequestId,
-    currentEventCommandId,
-    eventStatusMessage,
-    onSelectEvent: handleSelectEvent,
-    onSelectTimelineEntry: setSelectedTimelineEntryId,
-    onActivateTimelineEntry: requestTimelineJump,
-    onTimelineJumpHandled: clearTimelineJumpRequest,
-    onPlaybackCommandChange: setCurrentEventCommandId,
-    activePlayerAppearanceProfile,
-    onOpenPlayerAppearanceWindow: openAppearanceWindow,
-    characters,
-    filteredCharacters,
-    characterBrowserSourceMode,
-    onCharacterBrowserSourceModeChange: setCharacterBrowserSourceMode,
-    modCharacterGroups,
-    activeModCharacterSelectionId,
-    activeCharacterModSources,
-    activeCharacterId,
-    activeCharacter,
-    activeCharacterVariant,
-    characterFilter,
-    characterStatusMessage,
-    activeCharacterAssetState,
-    onCharacterFilterChange: setCharacterFilter,
-    onSelectCharacter: handleSelectCharacter,
-    onSelectModCharacter: handleSelectModCharacter,
-    onSelectCharacterVariant: handleSelectCharacterVariant,
-    constructibleGroups,
-    filteredConstructibleGroups,
-    worldBuildings,
-    filteredWorldBuildings,
-    buildingBrowserSourceMode,
-    onBuildingBrowserSourceModeChange: setBuildingBrowserSourceMode,
-    modBuildingGroups,
-    activeModBuildingSelectionId,
-    activeBuildingModSources,
-    activeBuildingId,
-    activeBuilding,
-    activeUpgradeChain,
-    buildingFilter,
-    buildingStatusMessage,
-    activeBuildingTextureState,
-    activeBuildingChainTextureStates,
-    activeBuildingIndoorMapDocument,
-    activeBuildingIndoorMapPath,
-    activeBuildingIndoorMapMessage,
-    activeBuildingExteriorMapDocument,
-    activeBuildingExteriorMapPath,
-    activeBuildingExteriorMapMessage,
-    activeBuildingExteriorFocusPoint,
-    buildingSpringObjectsState,
-    onBuildingFilterChange: setBuildingFilter,
-    onSelectBuilding: handleSelectBuilding,
-    onSelectModBuilding: handleSelectModBuilding,
-    items,
-    filteredItems,
-    itemBrowserSourceMode,
-    onItemBrowserSourceModeChange: setItemBrowserSourceMode,
-    modItemGroups,
-    activeModItemSelectionId,
-    activeItemModSources,
-    activeItemId,
-    activeItem,
-    itemLookup,
-    itemFilter,
-    itemStatusMessage,
-    itemTextureStatesByAssetName,
-    ensureItemTextureAssetStates,
-    onItemFilterChange: setItemFilter,
-    onSelectItem: handleSelectItem,
-    onSelectModItem: handleSelectModItem,
-    modWorkspaceCopy,
-    modPluginDefinition,
-    modProjects,
-    filteredModProjects,
-    activeProjectPath,
-    activeProject: activeProject ?? null,
-    modFilter,
-    contentPatcherOnly,
-    compatibleOnly,
-    onModFilterChange: setModFilter,
-    onContentPatcherOnlyChange: setContentPatcherOnly,
-    onCompatibleOnlyChange: setCompatibleOnly,
-    onSelectModProject: handleSelectModProject,
-    onImportModProject: () => void handleImportModProject(),
-    onRefreshModProjects: () => void handleRefreshModProjects(),
-    activeModProjectDetail,
-    modManifestEditor,
-    modContentEditor,
-    modContentSummary,
-    modDiagnostics,
-    activeModPatchId,
-    onSelectModPatch: setActiveModPatchId,
-    activeModPatch: activeModPatch ?? null,
-    modPatchWhenError,
-    modHasUnsavedChanges,
-    modCanPersist,
-    modStatusMessage,
-    modLastSaveResult: modLastSaveResult ?? null,
-    contentPatcherSnapshot,
-    contentPatcherSimulation,
-    contentPatcherResultAsset,
-    contentPatcherResultLoading,
-    contentPatcherResultError,
-    simulationContext,
-    navigatorMode,
-    selectedTargetPath,
-    onNavigatorModeChange: setNavigatorMode,
-    scaleUpEditor,
-    onModManifestFieldChange: handleModManifestFieldChange,
-    onModManifestTextChange: handleModManifestTextChange,
-    onModContentTextChange: handleModContentTextChange,
-    onAddModPatch: handleAddModPatch,
-    onRemoveModPatch: handleRemoveModPatch,
-    onModPatchFieldChange: handleModPatchFieldChange,
-    onModPatchWhenChange: handleModPatchWhenChange,
-    onSaveModProject: () => void handleSaveModProject(),
-    onExportModProject: () => void handleExportModProject(),
-    onSimulationContextChange: handleSimulationContextChange,
-    onSelectTarget: setSelectedTargetPath,
-    onOpenScaleUp: handleOpenScaleUpEditor,
-    onScaleUpContentChange: handleScaleUpContentChange,
-    onCloseScaleUpEditor: handleCloseScaleUpEditor,
-    heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
-  })
-
-  const handleLayoutMetaChange = useCallback(
-    ({ panelItems, presetNames }: { panelItems: typeof viewMenuPanelItems; presetNames: string[] }) => {
-      setViewMenuPanelItems((current) => {
-        if (
-          current.length === panelItems.length &&
-          current.every(
-            (item, index) =>
-              item.id === panelItems[index]?.id &&
-              item.title === panelItems[index]?.title &&
-              item.visible === panelItems[index]?.visible &&
-              item.mode === panelItems[index]?.mode &&
-              item.dock === panelItems[index]?.dock,
-          )
-        ) {
-          return current
-        }
-
-        return panelItems
-      })
-
-      setViewMenuPresetNames((current) => {
-        if (current.length === presetNames.length && current.every((name, index) => name === presetNames[index])) {
-          return current
-        }
-
-        return presetNames
-      })
-    },
-    [],
-  )
-
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
     setAppMode(nextMode)
+  }, [])
 
-    if (nextMode === 'launcher') {
-      setProjectOverlayOpen(false)
-    }
+  const handleSwitchToLauncher = useCallback(() => {
+    setAppMode('launcher')
   }, [])
 
   const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
@@ -1299,57 +483,152 @@ export default function App() {
     }
   }, [desktopHost, launcherLaunchBusy, launcherRuntime.settingsState.settings.gamePath, openSettingsWindow])
 
+  const settingsMenuCopy = getSettingsMenuCopy(locale)
+  const localeOptions =
+    locale === 'en-US'
+      ? [
+          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
+          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
+        ]
+      : [
+          { id: 'zh-CN' as const, label: settingsMenuCopy.localeLabels['zh-CN'] },
+          { id: 'en-US' as const, label: settingsMenuCopy.localeLabels['en-US'] },
+        ]
+  const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
+  const availableLauncherPages: LauncherPage[] = debugEnabled
+    ? launcherPages
+    : launcherPages.filter((page): page is Exclude<LauncherPage, 'debug'> => page !== 'debug')
+  const activeLauncherPage: LauncherPage = !debugEnabled && launcherPage === 'debug' ? 'library' : launcherPage
+
   return (
     <LocaleProvider locale={locale}>
       <NotificationProvider>
-        <div
-          className="relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]"
-          aria-busy={interactionLocked}
-        >
-          <TopMenuBar
-            appMode={appMode}
-            onAppModeChange={handleAppModeChange}
-            workspaceMode={workspaceMode}
-            onWorkspaceChange={setWorkspaceMode}
-            theme={theme}
-            onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-            statusTone={currentWorkspaceStatus.tone}
-            desktopHost={desktopHost}
-            onMinimizeWindow={() => void minimizeCurrentWindow()}
-            onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
-            onCloseWindow={() => void closeCurrentWindow()}
-            viewMenu={{
-              panelItems: viewMenuPanelItems,
-              presetNames: viewMenuPresetNames,
-              onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
-              onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
-              onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
-              onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
-              onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
-            }}
-            settingsMenu={{
-              onOpen: () => openSettingsWindow('appearance'),
-            }}
-            projectMenu={{
-              highlighted: appMode === 'workbench' && showProjectOverlay,
-              onOpen: () => {
-                setAppMode('workbench')
-                setProjectOverlayOpen(true)
-              },
-            }}
-            launcherChrome={{
-              page: activeLauncherPage,
-              visiblePages: availableLauncherPages,
-              onPageChange: handleLauncherPageChange,
-              updatesBadgeCount: launcherRuntime.updatesBadgeCount,
-              downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
-              downloadsProgressPercent: launcherRuntime.downloadsProgressPercent,
-              downloadsHasFailure: launcherRuntime.downloadsHasFailure,
-              settingsWarning: launcherRuntime.settingsWarning,
-              settingsWarningLabel: launcherSettingsWarningLabel,
-              downloadsPopover: <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />,
-            }}
-          />
+        <div className="relative h-screen w-screen overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]">
+          <div className={appMode === 'launcher' ? 'flex h-full flex-col' : 'hidden'}>
+            <TopMenuBar
+              appMode="launcher"
+              onAppModeChange={handleAppModeChange}
+              workspaceMode="map"
+              onWorkspaceChange={() => {}}
+              theme={theme}
+              onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+              statusTone="idle"
+              desktopHost={desktopHost}
+              onMinimizeWindow={() => void minimizeCurrentWindow()}
+              onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+              onCloseWindow={() => void closeCurrentWindow()}
+              viewMenu={{
+                panelItems: [],
+                presetNames: [],
+                onTogglePanel: () => {},
+                onResetLayout: () => {},
+                onSavePreset: () => {},
+                onLoadPreset: () => {},
+                onDeletePreset: () => {},
+              }}
+              settingsMenu={{
+                onOpen: () => openSettingsWindow('appearance'),
+              }}
+              projectMenu={{
+                onOpen: () => {},
+              }}
+              launcherChrome={{
+                page: activeLauncherPage,
+                visiblePages: availableLauncherPages,
+                onPageChange: handleLauncherPageChange,
+                updatesBadgeCount: launcherRuntime.updatesBadgeCount,
+                downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
+                downloadsProgressPercent: launcherRuntime.downloadsProgressPercent,
+                downloadsHasFailure: launcherRuntime.downloadsHasFailure,
+                settingsWarning: launcherRuntime.settingsWarning,
+                settingsWarningLabel: launcherSettingsWarningLabel,
+                downloadsPopover: <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />,
+              }}
+            />
+
+            <div className="relative min-h-0 flex-1 overflow-hidden">
+              <div className="absolute inset-0 min-h-0 overflow-hidden">
+                <LauncherShell
+                  page={activeLauncherPage}
+                  debugEnabled={debugEnabled}
+                  onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                  onNavigateToDiagnostics={handleViewLauncherDiagnostics}
+                  onRetryDiagnostics={
+                    getAppUiStateSnapshot().launcher.forceOffline
+                      ? null
+                      : async () => launcherDiagnosticsRetryRef.current?.()
+                  }
+                  onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
+                  settingsState={launcherRuntime.settingsState}
+                  downloads={launcherRuntime.downloads}
+                  onNavigateToSettings={() => openSettingsWindow('launcher')}
+                  launchGameLabel={copy.launcher.actions.launchGame}
+                  launchGameDisabled={!desktopHost || launcherLaunchBusy}
+                  launchGameBusy={launcherLaunchBusy}
+                  onLaunchGame={() => void handleLaunchGame()}
+                />
+              </div>
+            </div>
+
+            {debugEnabled ? (
+              <DevDebugOverlay
+                workspaceMode="launcher"
+                mapName={null}
+                eventName={null}
+                currentEventCommandId={null}
+                actorCount={0}
+                contextSectionLabel="Launcher"
+                contextMetrics={[
+                  ['Page', copy.launcher.pages[activeLauncherPage]],
+                  ['Settings', launcherRuntime.settingsState.state],
+                  ['Queue', String(launcherRuntime.downloads.items.length)],
+                  ['Active', String(launcherRuntime.downloads.counts.downloading)],
+                  ['Ready', String(launcherRuntime.downloads.counts.readyToInstall)],
+                ]}
+              />
+            ) : null}
+
+            <StatusBar
+              appMode="launcher"
+              launcherPage={activeLauncherPage}
+              workspaceMode="map"
+              workspaceStatus={{ tone: 'idle', message: '' }}
+              directoryInfo={null}
+              mapAssets={[]}
+              activeAsset={null}
+              mapDocument={null}
+              pathLabel={copy.common.none}
+              hoverInfo={null}
+            />
+          </div>
+
+          {workbenchLoaded ? (
+            <Suspense fallback={null}>
+              <WorkbenchExperience
+                active={appMode === 'workbench'}
+                appUiStateReady={appUiStateReady}
+                theme={theme}
+                locale={locale}
+                accentColor={activeAccentPreset.color}
+                debugEnabled={debugEnabled}
+                desktopHost={desktopHost}
+                onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                onSwitchToLauncher={handleSwitchToLauncher}
+                onOpenSettings={openSettingsWindow}
+                onMinimizeWindow={() => void minimizeCurrentWindow()}
+                onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+                onCloseWindow={() => void closeCurrentWindow()}
+                playerAppearanceProfiles={playerAppearanceProfiles}
+                activePlayerAppearanceProfileId={activePlayerAppearanceProfileId}
+                onSelectPlayerAppearanceProfile={setActivePlayerAppearanceProfileId}
+                onCreatePlayerAppearanceProfile={handleCreatePlayerAppearanceProfile}
+                onDuplicatePlayerAppearanceProfile={handleDuplicatePlayerAppearanceProfile}
+                onDeletePlayerAppearanceProfile={handleDeletePlayerAppearanceProfile}
+                onImportPlayerAppearanceProfile={handleImportPlayerAppearanceProfile}
+                onChangePlayerAppearanceProfile={handleChangePlayerAppearanceProfile}
+              />
+            </Suspense>
+          ) : null}
 
           {settingsWindowOpen ? (
             <Suspense fallback={null}>
@@ -1396,123 +675,8 @@ export default function App() {
               />
             </Suspense>
           ) : null}
-
-          {playerAppearanceWindowOpen ? (
-            <Suspense fallback={null}>
-              <PlayerAppearanceWindow
-                key={`player-appearance:${playerAppearanceWindowNonce}`}
-                open={playerAppearanceWindowOpen}
-                locale={locale}
-                rootPath={directoryInfo?.rootPath ?? null}
-                profiles={playerAppearanceProfiles}
-                activeProfileId={activePlayerAppearanceProfileId}
-                onSelectProfile={setActivePlayerAppearanceProfileId}
-                onCreateProfile={handleCreatePlayerAppearanceProfile}
-                onDuplicateProfile={handleDuplicatePlayerAppearanceProfile}
-                onDeleteProfile={handleDeletePlayerAppearanceProfile}
-                onImportProfile={handleImportPlayerAppearanceProfile}
-                onChangeProfile={handleChangePlayerAppearanceProfile}
-                onClose={() => setPlayerAppearanceWindowOpen(false)}
-              />
-            </Suspense>
-          ) : null}
-
-          <div className="relative min-h-0 flex-1 overflow-hidden">
-            {appMode === 'workbench' ? (
-              <div className="absolute inset-0 min-h-0 overflow-hidden">
-                <WorkspaceLayout
-                  ref={workspaceLayoutRef}
-                  storageKey={workspaceLayoutStorageKey}
-                  panels={workspacePanels}
-                  persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
-                  onPersistStateChange={handleWorkspacePersistStateChange}
-                  onLayoutMetaChange={handleLayoutMetaChange}
-                />
-              </div>
-            ) : (
-              <div className="absolute inset-0 min-h-0 overflow-hidden">
-                <LauncherShell
-                  page={activeLauncherPage}
-                  debugEnabled={debugEnabled}
-                  onToggleDebugMode={() => setDebugEnabled((current) => !current)}
-                  onNavigateToDiagnostics={handleViewLauncherDiagnostics}
-                  onRetryDiagnostics={
-                    getAppUiStateSnapshot().launcher.forceOffline
-                      ? null
-                      : async () => launcherDiagnosticsRetryRef.current?.()
-                  }
-                  onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
-                  settingsState={launcherRuntime.settingsState}
-                  downloads={launcherRuntime.downloads}
-                  onNavigateToSettings={() => openSettingsWindow('launcher')}
-                  launchGameLabel={copy.launcher.actions.launchGame}
-                  launchGameDisabled={!desktopHost || launcherLaunchBusy}
-                  launchGameBusy={launcherLaunchBusy}
-                  onLaunchGame={() => void handleLaunchGame()}
-                />
-              </div>
-            )}
-          </div>
-
-          {appMode === 'workbench' && showProjectOverlay ? (
-            <InitializationOverlay
-              desktopHost={desktopHost}
-              gameDirectory={gameDirectory}
-              detectedDirectories={knownGameDirectories}
-              onGameDirectoryChange={setGameDirectory}
-              onSelectDirectory={setGameDirectory}
-              onChooseDirectory={() => void handleChooseDirectory()}
-              onScanAndOpenTown={() => void handleScanAndOpenTown()}
-              onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
-            />
-          ) : null}
-
-          {debugEnabled ? (
-            <DevDebugOverlay
-              workspaceMode={appMode === 'workbench' ? workspaceMode : 'launcher'}
-              mapName={appMode === 'workbench' ? activeAssetName ?? worldAtlasDocument?.name ?? null : null}
-              eventName={appMode === 'workbench' ? selectedEvent?.eventId ?? null : null}
-              currentEventCommandId={appMode === 'workbench' ? currentEventCommandId : null}
-              actorCount={appMode === 'workbench' ? (selectedEvent?.scene.actors.length ?? 0) : 0}
-              contextSectionLabel={appMode === 'workbench' ? 'Workspace' : 'Launcher'}
-              contextMetrics={
-                appMode === 'launcher'
-                  ? [
-                      ['Page', copy.launcher.pages[activeLauncherPage]],
-                      ['Settings', launcherRuntime.settingsState.state],
-                      ['Queue', String(launcherRuntime.downloads.items.length)],
-                      ['Active', String(launcherRuntime.downloads.counts.downloading)],
-                      ['Ready', String(launcherRuntime.downloads.counts.readyToInstall)],
-                    ]
-                  : undefined
-              }
-            />
-          ) : null}
-
-            <StatusBar
-            appMode={appMode}
-            launcherPage={activeLauncherPage}
-            workspaceMode={workspaceMode}
-            workspaceStatus={currentWorkspaceStatus}
-            directoryInfo={directoryInfo}
-            mapAssets={mapAssets}
-            activeAsset={activeAsset}
-            mapDocument={mapDocument}
-            pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
-            hoverInfo={hoverInfo}
-          />
-
         </div>
       </NotificationProvider>
     </LocaleProvider>
   )
 }
-
-
-
-
-
-
-
-
-

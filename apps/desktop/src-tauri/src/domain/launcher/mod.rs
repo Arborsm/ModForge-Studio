@@ -4,6 +4,7 @@ pub mod downloads;
 pub mod fs;
 pub mod http;
 pub mod image_cache;
+pub mod install_manager;
 pub mod library;
 pub mod paths;
 pub mod remote;

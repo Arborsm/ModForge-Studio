@@ -375,7 +375,7 @@ describe('LauncherDiscoverPage', () => {
     expect(container.querySelector('.launcher-discover-wall-cover-fallback')).toBeTruthy()
   })
 
-  it('renders a centered blocked-state card with retry, diagnostics, and expandable technical details', () => {
+  it('renders a centered blocked-state card with retry, diagnostics, and expandable technical details', async () => {
     getAppUiStateSnapshotMock.mockReturnValue({
       launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
     } as never)

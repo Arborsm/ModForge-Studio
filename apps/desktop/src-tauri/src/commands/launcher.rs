@@ -11,15 +11,16 @@ use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
-    LauncherGameLaunchError, LauncherGameLaunchResult, LauncherLibraryCoversState,
-    LauncherLibraryScanResult, LauncherLibraryState, LauncherNexusDiagnosticsResult,
-    LauncherRemoteModDetail, LauncherSettings, LauncherUpdateChangelogResult,
-    LauncherUpdatesResult, LoadCachedLauncherUpdatesRequest, LoadLauncherRemoteModDetailRequest,
+    LauncherGameLaunchError, LauncherGameLaunchResult, LauncherInstallBackupSummary,
+    LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
+    LauncherNexusDiagnosticsResult, LauncherRemoteModDetail, LauncherSettings,
+    LauncherUpdateChangelogResult, LauncherUpdatesResult, ListLauncherInstallBackupsRequest,
+    LoadCachedLauncherUpdatesRequest, LoadLauncherRemoteModDetailRequest,
     LoadLauncherUpdateChangelogRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
-    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
-    ResolveLauncherImageResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
-    SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
-    SetLauncherModEnabledResult,
+    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest, ResolveLauncherImageResult,
+    RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
+    SaveLauncherSettingsRequest, ScanLauncherLibraryRequest, SearchLauncherCatalogRequest,
+    SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
 };
 use crate::domain::launcher::updates;
 
@@ -212,6 +213,22 @@ pub fn install_launcher_archive(
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
     archive::install_launcher_archive(app, request)
+}
+
+#[tauri::command]
+pub fn list_launcher_install_backups(
+    app: tauri::AppHandle,
+    request: ListLauncherInstallBackupsRequest,
+) -> Result<Vec<LauncherInstallBackupSummary>, String> {
+    archive::list_launcher_install_backups(app, request)
+}
+
+#[tauri::command]
+pub fn restore_launcher_install_backup(
+    app: tauri::AppHandle,
+    request: RestoreLauncherInstallBackupRequest,
+) -> Result<RestoreLauncherInstallBackupResult, String> {
+    archive::restore_launcher_install_backup(app, request)
 }
 
 #[tauri::command]

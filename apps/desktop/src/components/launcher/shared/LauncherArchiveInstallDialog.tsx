@@ -1,6 +1,7 @@
 import { FileArchive, FileJson, FolderTree } from 'lucide-react'
 import type { InspectLauncherArchiveResult, LauncherArchiveTreeNode } from '../../../lib/desktop'
 import { useEditorCopy } from '../../../lib/app/localeContext'
+import { cx } from '../../../lib/cx'
 import { PanelEmptyState, PanelSection } from '../../ui/PanelSection'
 import { formatBytesOrPlaceholder } from '../../byteSize'
 
@@ -8,10 +9,12 @@ type LauncherArchiveInstallDialogProps = {
   open: boolean
   loading: boolean
   installing: boolean
-  preview: InspectLauncherArchiveResult | null
+  previews: InspectLauncherArchiveResult[]
+  selectedArchivePath: string | null
   error: string | null
   onClose: () => void
   onConfirm: () => void
+  onSelectArchive: (archivePath: string) => void
 }
 
 function ArchiveTreeNode({ node, depth = 0 }: { node: LauncherArchiveTreeNode; depth?: number }) {
@@ -40,12 +43,16 @@ export function LauncherArchiveInstallDialog({
   open,
   loading,
   installing,
-  preview,
+  previews,
+  selectedArchivePath,
   error,
   onClose,
   onConfirm,
+  onSelectArchive,
 }: LauncherArchiveInstallDialogProps) {
   const copy = useEditorCopy().launcher
+  const selectedPreview =
+    previews.find((preview) => preview.archivePath === selectedArchivePath) ?? previews[0] ?? null
 
   if (!open) {
     return null
@@ -57,7 +64,7 @@ export function LauncherArchiveInstallDialog({
         <header className="panel-header">
           <div className="min-w-0">
             <p className="panel-title">{copy.library.previewTitle}</p>
-            <p className="panel-subtitle">{preview?.archiveFileName ?? copy.library.previewSubtitle}</p>
+            <p className="panel-subtitle">{selectedPreview?.archiveFileName ?? copy.library.previewSubtitle}</p>
           </div>
           <div className="launcher-header-actions">
             <button type="button" className="control-button" onClick={onClose}>
@@ -66,7 +73,7 @@ export function LauncherArchiveInstallDialog({
             <button
               type="button"
               className="control-button control-button-primary"
-              disabled={!preview || loading || installing}
+              disabled={!previews.length || loading || installing}
               onClick={onConfirm}
             >
               {copy.actions.install}
@@ -87,43 +94,78 @@ export function LauncherArchiveInstallDialog({
             </div>
           ) : null}
 
-          {!loading && !error && preview ? (
+          {!loading && !error && selectedPreview ? (
             <div className="launcher-modal-content launcher-archive-preview-grid">
-              <PanelSection title={copy.library.previewTitle} subtitle={copy.library.previewSubtitle}>
-                <div className="launcher-stats-row">
-                  <div className="launcher-stat-card">
-                    <span>{copy.library.previewEntries}</span>
-                    <strong>{preview.totalEntries}</strong>
-                  </div>
-                  <div className="launcher-stat-card">
-                    <span>{copy.library.previewFiles}</span>
-                    <strong>{preview.totalFiles}</strong>
-                  </div>
-                  <div className="launcher-stat-card">
-                    <span>{copy.library.previewRoots}</span>
-                    <strong>{preview.modRoots.length}</strong>
-                  </div>
-                </div>
-
-                <div className="launcher-archive-root-list">
-                  {preview.modRoots.length ? (
-                    preview.modRoots.map((root) => (
-                      <span key={root} className="dock-chip">
-                        <FileArchive className="h-3 w-3" />
-                        <span>{root}</span>
-                      </span>
-                    ))
-                  ) : (
-                    <PanelEmptyState>{copy.library.previewNoRoots}</PanelEmptyState>
-                  )}
+              <PanelSection
+                title={copy.library.previewArchiveListTitle}
+                subtitle={copy.library.previewArchiveListSubtitle}
+                className="launcher-archive-preview-sidebar"
+                bodyClassName="launcher-archive-preview-list-shell"
+              >
+                <div className="launcher-archive-preview-list">
+                  {previews.map((preview) => {
+                    const selected = preview.archivePath === selectedPreview.archivePath
+                    return (
+                      <button
+                        key={preview.archivePath}
+                        type="button"
+                        className={cx(
+                          'launcher-archive-preview-list-item',
+                          selected && 'launcher-archive-preview-list-item-active',
+                        )}
+                        onClick={() => onSelectArchive(preview.archivePath)}
+                      >
+                        <span className="launcher-archive-preview-list-item-title">
+                          <FileArchive className="h-4 w-4" />
+                          <span>{preview.archiveFileName}</span>
+                        </span>
+                        <span className="launcher-archive-preview-list-item-path">{preview.archivePath}</span>
+                      </button>
+                    )
+                  })}
                 </div>
               </PanelSection>
 
-              <PanelSection title={preview.archiveFileName} subtitle={preview.archivePath}>
-                <div className="launcher-archive-tree">
-                  {preview.tree.map((node) => (
-                    <ArchiveTreeNode key={node.path} node={node} />
-                  ))}
+              <PanelSection
+                title={selectedPreview.archiveFileName}
+                subtitle={selectedPreview.archivePath}
+                className="launcher-archive-preview-detail"
+                bodyClassName="launcher-archive-preview-detail-shell"
+              >
+                <div className="launcher-archive-preview-detail-scroll">
+                  <div className="launcher-stats-row">
+                    <div className="launcher-stat-card">
+                      <span>{copy.library.previewEntries}</span>
+                      <strong>{selectedPreview.totalEntries}</strong>
+                    </div>
+                    <div className="launcher-stat-card">
+                      <span>{copy.library.previewFiles}</span>
+                      <strong>{selectedPreview.totalFiles}</strong>
+                    </div>
+                    <div className="launcher-stat-card">
+                      <span>{copy.library.previewRoots}</span>
+                      <strong>{selectedPreview.modRoots.length}</strong>
+                    </div>
+                  </div>
+
+                  <div className="launcher-archive-root-list">
+                    {selectedPreview.modRoots.length ? (
+                      selectedPreview.modRoots.map((root) => (
+                        <span key={root} className="dock-chip">
+                          <FileArchive className="h-3 w-3" />
+                          <span>{root}</span>
+                        </span>
+                      ))
+                    ) : (
+                      <PanelEmptyState>{copy.library.previewNoRoots}</PanelEmptyState>
+                    )}
+                  </div>
+
+                  <div className="launcher-archive-tree">
+                    {selectedPreview.tree.map((node) => (
+                      <ArchiveTreeNode key={node.path} node={node} />
+                    ))}
+                  </div>
                 </div>
               </PanelSection>
             </div>

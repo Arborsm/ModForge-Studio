@@ -1359,6 +1359,148 @@
     gap: 10px;
   }
 
+  .launcher-library-install-dialog {
+    width: min(860px, calc(100vw - 32px));
+  }
+
+  .launcher-library-install-dialog-grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .launcher-archive-preview-grid {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .launcher-archive-preview-sidebar,
+  .launcher-archive-preview-detail,
+  .launcher-archive-preview-list-shell,
+  .launcher-archive-preview-detail-shell {
+    min-height: 0;
+  }
+
+  .launcher-archive-preview-list,
+  .launcher-archive-preview-detail-scroll {
+    min-height: 0;
+    max-height: min(56vh, 620px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .launcher-archive-preview-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 4px;
+  }
+
+  .launcher-archive-preview-list-item {
+    width: 100%;
+    display: grid;
+    gap: 6px;
+    padding: 12px 13px;
+    border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 88%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
+    color: var(--launcher-text-secondary);
+    text-align: left;
+    transition:
+      border-color 140ms ease,
+      background-color 140ms ease,
+      color 140ms ease,
+      transform 140ms ease,
+      box-shadow 140ms ease;
+  }
+
+  .launcher-archive-preview-list-item:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--launcher-border-soft));
+    background: color-mix(in srgb, var(--launcher-surface-accent) 88%, transparent);
+  }
+
+  .launcher-archive-preview-list-item-active {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--launcher-border-soft));
+    background: color-mix(in srgb, var(--launcher-surface-accent) 94%, transparent);
+    color: var(--launcher-text-accent);
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .launcher-archive-preview-list-item-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--launcher-text-primary);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .launcher-archive-preview-list-item-title span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-archive-preview-list-item-path {
+    color: var(--launcher-text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-archive-preview-detail-scroll {
+    display: grid;
+    gap: 14px;
+    padding-right: 4px;
+  }
+
+  .launcher-library-install-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-library-install-card {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--launcher-border-soft) 92%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--launcher-surface-muted) 84%, transparent);
+  }
+
+  .launcher-library-install-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--launcher-text-primary);
+  }
+
+  .launcher-library-install-card-path,
+  .launcher-library-install-card-meta {
+    margin: 0;
+    color: var(--launcher-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .launcher-library-install-card-meta {
+    display: grid;
+    gap: 2px;
+  }
+
+  .launcher-library-install-backup-card {
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-library-install-card-actions {
+    justify-content: flex-start;
+  }
+
   .launcher-gallery-cover-dialog {
     max-width: min(920px, 92vw);
   }
@@ -1458,6 +1600,50 @@
     min-height: 0;
     overflow: hidden;
     contain: layout paint;
+  }
+
+  .launcher-library-drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(15, 23, 42, 0.08)),
+      rgba(248, 250, 252, 0.92);
+    backdrop-filter: blur(10px);
+    pointer-events: none;
+  }
+
+  .launcher-library-drop-overlay-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: min(420px, 100%);
+    max-width: 520px;
+    padding: 22px 24px;
+    border: 1px dashed color-mix(in srgb, var(--accent) 48%, rgba(15, 23, 42, 0.18));
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--launcher-surface-base) 88%, white);
+    box-shadow:
+      0 20px 48px rgba(15, 23, 42, 0.18),
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+    text-align: center;
+  }
+
+  .launcher-library-drop-overlay-card strong {
+    color: var(--launcher-text-primary);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .launcher-library-drop-overlay-card span {
+    color: var(--launcher-text-secondary);
+    font-size: 13px;
+    line-height: 1.5;
   }
 
   .launcher-library-grid-viewport {

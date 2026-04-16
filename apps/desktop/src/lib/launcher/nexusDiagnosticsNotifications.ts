@@ -1,4 +1,9 @@
-import { dismissNotification, publishNotification, type NotificationChip } from '../app/notifications'
+import {
+  dismissNotification,
+  publishNotification,
+  type NotificationChip,
+  type PublishNotificationRequest,
+} from '../app/notifications'
 import type { LauncherCopy } from '../editor-shell'
 import type { LauncherNexusDiagnosticsResult } from '../desktop'
 import {
@@ -9,6 +14,8 @@ import {
 } from './nexusDiagnostics'
 
 export const LAUNCHER_NEXUS_DIAGNOSTICS_NOTIFICATION_ID = 'launcher-nexus-diagnostics'
+
+type LauncherDiagnosticsNotificationContent = Omit<PublishNotificationRequest, 'id' | 'autoDismissMs'>
 
 type LauncherDiagnosticsNotificationActions = {
   onRetry?: (() => void | Promise<void>) | null
@@ -45,7 +52,7 @@ export function buildLauncherDiagnosticsNotificationContent(
   copy: LauncherCopy,
   diagnostics: LauncherNexusDiagnosticsResult,
   actions: LauncherDiagnosticsNotificationActions = {},
-) {
+): LauncherDiagnosticsNotificationContent | null {
   const warningRoutes = getLauncherNexusWarningRoutes(diagnostics)
   if (!warningRoutes.length) {
     return null

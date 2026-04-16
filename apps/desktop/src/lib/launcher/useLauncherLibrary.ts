@@ -515,13 +515,12 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
   const installArchive = useCallback(
     async (archivePath: string) => {
-      await installLauncherArchive({
+      return installLauncherArchive({
         archivePath,
         modsPath: settings.modsPath,
       })
-      await refresh()
     },
-    [refresh, settings.modsPath],
+    [settings.modsPath],
   )
 
   const toggleModSelection = useCallback((id: string) => {

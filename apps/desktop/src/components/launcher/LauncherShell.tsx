@@ -1,14 +1,21 @@
-import { useMemo } from 'react'
+import { Suspense, lazy, useMemo } from 'react'
 import type { LauncherPage } from '../../lib/editor-shell'
 import type { LauncherNexusDiagnosticsResult } from '../../lib/desktop'
 import { useLauncherDownloads } from '../../lib/launcher/useLauncherDownloads'
 import { useLauncherLibrary } from '../../lib/launcher/useLauncherLibrary'
 import { useLauncherSettings } from '../../lib/launcher/useLauncherSettings'
-import { LauncherDebugPage } from './pages/LauncherDebugPage'
-import { LauncherDiscoverPage } from './pages/LauncherDiscoverPage'
 import { LauncherLibraryPageContent } from './pages/LauncherLibraryPage'
-import { LauncherUpdatesPage } from './pages/LauncherUpdatesPage'
 import { cx } from '../../lib/cx'
+
+const LauncherDiscoverPage = lazy(() =>
+  import('./pages/LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })),
+)
+const LauncherUpdatesPage = lazy(() =>
+  import('./pages/LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })),
+)
+const LauncherDebugPage = lazy(() =>
+  import('./pages/LauncherDebugPage').then((module) => ({ default: module.LauncherDebugPage })),
+)
 
 type LauncherShellProps = {
   page: LauncherPage
@@ -72,44 +79,50 @@ export default function LauncherShell({
           hidden={activePage !== 'discover'}
           className={cx('launcher-shell-route', activePage === 'discover' && 'launcher-shell-route-active')}
         >
-          {activePage === 'discover' ? (
-            <LauncherDiscoverPage
-              settings={settingsState.settings}
-              onQueueDownload={downloads.queueDownload}
-              onNavigateToDiagnostics={onNavigateToDiagnostics}
-              onRetryDiagnostics={onRetryDiagnostics}
-              onNavigateToSettings={onNavigateToSettings}
-            />
-          ) : null}
+          <Suspense fallback={null}>
+            {activePage === 'discover' ? (
+              <LauncherDiscoverPage
+                settings={settingsState.settings}
+                onQueueDownload={downloads.queueDownload}
+                onNavigateToDiagnostics={onNavigateToDiagnostics}
+                onRetryDiagnostics={onRetryDiagnostics}
+                onNavigateToSettings={onNavigateToSettings}
+              />
+            ) : null}
+          </Suspense>
         </div>
         <div
           key="updates"
           hidden={activePage !== 'updates'}
           className={cx('launcher-shell-route', activePage === 'updates' && 'launcher-shell-route-active')}
         >
-          {activePage === 'updates' ? (
-            <LauncherUpdatesPage
-              settings={settingsState.settings}
-              onQueueDownload={downloads.queueDownload}
-              onNavigateToDiagnostics={onNavigateToDiagnostics}
-              onRetryDiagnostics={onRetryDiagnostics}
-              onNavigateToSettings={onNavigateToSettings}
-            />
-          ) : null}
+          <Suspense fallback={null}>
+            {activePage === 'updates' ? (
+              <LauncherUpdatesPage
+                settings={settingsState.settings}
+                onQueueDownload={downloads.queueDownload}
+                onNavigateToDiagnostics={onNavigateToDiagnostics}
+                onRetryDiagnostics={onRetryDiagnostics}
+                onNavigateToSettings={onNavigateToSettings}
+              />
+            ) : null}
+          </Suspense>
         </div>
         <div
           key="debug"
           hidden={activePage !== 'debug' || !debugEnabled}
           className={cx('launcher-shell-route', activePage === 'debug' && debugEnabled && 'launcher-shell-route-active')}
         >
-          {activePage === 'debug' && debugEnabled ? (
-            <LauncherDebugPage
-              debugEnabled={debugEnabled}
-              onToggleDebugMode={onToggleDebugMode}
-              onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
-              downloads={downloads}
-            />
-          ) : null}
+          <Suspense fallback={null}>
+            {activePage === 'debug' && debugEnabled ? (
+              <LauncherDebugPage
+                debugEnabled={debugEnabled}
+                onToggleDebugMode={onToggleDebugMode}
+                onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
+                downloads={downloads}
+              />
+            ) : null}
+          </Suspense>
         </div>
       </div>
     </section>

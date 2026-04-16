@@ -429,7 +429,18 @@ describe('useModWorkspace', () => {
       expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
     })
 
-    await expect(result.current.handleSaveProject()).rejects.toThrow('Disk full')
+    let thrownError: unknown = null
+
+    await act(async () => {
+      try {
+        await result.current.handleSaveProject()
+      } catch (error) {
+        thrownError = error
+      }
+    })
+
+    expect(thrownError).toBeInstanceOf(Error)
+    expect((thrownError as Error).message).toBe('Disk full')
 
     expect(vi.mocked(reportAppEvent)).toHaveBeenCalledWith(
       expect.objectContaining({

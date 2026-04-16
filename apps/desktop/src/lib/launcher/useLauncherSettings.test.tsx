@@ -160,7 +160,19 @@ describe('useLauncherSettings', () => {
       expect(result.current.state).toBe('ready')
     })
 
-    await expect(result.current.save()).rejects.toThrow('Write denied')
+    let thrownError: unknown = null
+
+    await act(async () => {
+      try {
+        await result.current.save()
+      } catch (error) {
+        thrownError = error
+      }
+    })
+
+    expect(thrownError).toBeInstanceOf(Error)
+    expect((thrownError as Error).message).toBe('Write denied')
+    expect(result.current.state).toBe('error')
     expect(reportAppEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         level: 'error',
