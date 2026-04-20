@@ -204,6 +204,28 @@ function normalizeWhen(when: Record<string, unknown> | undefined): Record<string
   return Object.keys(result).length > 0 ? result : undefined
 }
 
+function buildConfigJsonAsset(configSchema: ConfigSchemaEntry[]): {
+  relativePath: string
+  mediaType: string
+  bytesBase64: string
+} {
+  const defaults: Record<string, unknown> = {}
+  for (const entry of configSchema) {
+    defaults[entry.key] = entry.defaultValue
+  }
+  const content = `${JSON.stringify(defaults, null, 2)}\n`
+  const bytes = new TextEncoder().encode(content)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]!)
+  }
+  return {
+    relativePath: 'config.json',
+    mediaType: 'application/json',
+    bytesBase64: btoa(binary),
+  }
+}
+
 // ─── content.json / manifest.json 前端生成 ───────────────────────────────
 
 export function buildManifestJson(draft: GeneratedProjectDraft): string {
@@ -656,11 +678,16 @@ export function useGeneratedProject() {
         }
       })
 
+      // config.json 默认值文件（当 ConfigSchema 存在时）
+      const configAssets = activeDraft.configSchema.length > 0
+        ? [buildConfigJsonAsset(activeDraft.configSchema)]
+        : []
+
       return exportGeneratedProjectPack({
         output_path: outputPath,
         manifest_json: manifestJson,
         content_json: contentJson,
-        virtual_assets: [...activeDraft.virtualAssets, ...includeAssets],
+        virtual_assets: [...activeDraft.virtualAssets, ...includeAssets, ...configAssets],
       })
     },
     [activeDraft],
