@@ -11,6 +11,7 @@ import {
   type AppMode,
   type LocaleCode,
   type ThemeMode,
+  type ViewportLabels,
   type WorkspaceMode,
 } from '../../lib/editor-shell'
 import { WORKSPACE_LAYOUT_VERSION } from '../../lib/app/constants'
@@ -22,7 +23,13 @@ import { useBuildingWorkspace } from '../../lib/app/useBuildingWorkspace'
 import { useItemWorkspace } from '../../lib/app/useItemWorkspace'
 import { dismissNotification, publishNotification } from '../../lib/app/notifications'
 import useModWorkspace from '../../lib/app/useModWorkspace'
+import { useGeneratedProject } from '../../lib/app/useGeneratedProject'
+import { GeneratedProjectOverview } from '../generated-project/GeneratedProjectOverview'
+import { WorkflowModeShell } from '../generated-project/WorkflowModeShell'
+import { PreviewModeShell } from '../generated-project/PreviewModeShell'
 import { buildWorkspacePanels } from '../../lib/app/workspacePanels'
+import '../../lib/plugins/builtInWorkspaces'
+import { getWorkspacePlugin } from '../../lib/plugins/workspaceRegistry'
 import { scheduleDeferred } from '../../lib/react/defer'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '../../lib/app/uiState'
 import type { SettingsWindowCategory } from '../SettingsWindow'
@@ -129,10 +136,21 @@ export default function WorkbenchExperience({
   }
 
   const initialAppUiState = initialAppUiStateRef.current
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('map')
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
+  const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>(() => {
+    const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
+    return saved === 'edit' || saved === 'preview' ? saved : 'edit'
+  })
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
+  const [activeEditPatchId, setActiveEditPatchId] = useState<string | null>(null)
+
+  // 切换 workspace 时重置 patch 选择
+  useEffect(() => {
+    setActiveEditPatchId(null)
+  }, [workspaceMode])
+
   const [storedRecentGameDirectories, setStoredRecentGameDirectories] = useState<string[]>(
     () => initialAppUiState?.appearance.recentGameDirectories ?? [],
   )
@@ -462,6 +480,8 @@ export default function WorkbenchExperience({
     directoryInfo,
     locale,
   })
+
+  const generatedProject = useGeneratedProject()
 
   const moduleBlueprint =
     workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods'
@@ -920,7 +940,19 @@ export default function WorkbenchExperience({
         appMode="workbench"
         onAppModeChange={handleAppModeChange}
         workspaceMode={workspaceMode}
-        onWorkspaceChange={setWorkspaceMode}
+        onWorkspaceChange={(mode) => {
+          setWorkspaceMode(mode)
+          if (mode === 'mods') {
+            setWorkspaceViewMode('edit')
+          }
+        }}
+        workspaceViewMode={workspaceMode !== 'mods' ? workspaceViewMode : undefined}
+        onWorkspaceViewModeChange={(mode) => {
+          setWorkspaceViewMode(mode)
+          void applyAppUiStatePatch({
+            workspace: { workspaceViewMode: mode },
+          })
+        }}
         theme={theme}
         onToggleTheme={onToggleTheme}
         statusTone={currentWorkspaceStatus.tone}
@@ -970,14 +1002,67 @@ export default function WorkbenchExperience({
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0 min-h-0 overflow-hidden">
-          <WorkspaceLayout
-            ref={workspaceLayoutRef}
-            storageKey={workspaceLayoutStorageKey}
-            panels={workspacePanels}
-            persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
-            onPersistStateChange={handleWorkspacePersistStateChange}
-            onLayoutMetaChange={handleLayoutMetaChange}
-          />
+          {workspaceMode === 'mods' ? (
+            <GeneratedProjectOverview
+              draft={generatedProject.activeDraft}
+              drafts={generatedProject.drafts}
+              patchCountByWorkspace={generatedProject.patchCountByWorkspace}
+              isDirty={generatedProject.isDirty}
+              isLoading={generatedProject.draftLoading}
+              onCreateDraft={(metadata) => {
+                void generatedProject.createDraft(metadata)
+              }}
+              onLoadDraft={generatedProject.loadDraft}
+              onDeleteDraft={generatedProject.deleteDraft}
+              onCopyDraft={generatedProject.copyDraft}
+              onSaveDraft={generatedProject.saveDraft}
+              onExportPack={async (outputPath) => {
+                await generatedProject.exportPack(outputPath)
+              }}
+              onConfigSchemaChange={(entries) => {
+                for (const entry of generatedProject.configSchema) {
+                  generatedProject.removeConfigEntry(entry.key)
+                }
+                for (const entry of entries) {
+                  generatedProject.addConfigEntry(entry)
+                }
+              }}
+              onNavigateToWorkspace={(ws) => {
+                setWorkspaceMode(ws)
+                setWorkspaceViewMode('edit')
+              }}
+            />
+          ) : workspaceViewMode === 'preview' ? (
+            <PreviewModeShell
+              workspaceMode={workspaceMode}
+              gameRootPath={directoryInfo?.rootPath ?? null}
+              directoryInfo={directoryInfo}
+              locale={locale}
+              theme={theme}
+              accentColor={accentColor}
+              viewportLabels={copy.viewportLabels}
+            />
+          ) : generatedProject.activeDraft ? (
+            <EditWorkspaceContent
+              workspaceMode={workspaceMode}
+              generatedProject={generatedProject}
+              activeEditPatchId={activeEditPatchId}
+              onSelectPatch={setActiveEditPatchId}
+              locale={locale}
+              theme={theme}
+              accentColor={accentColor}
+              viewportLabels={copy.viewportLabels}
+            />
+          ) : (
+            <WorkspaceLayout
+              ref={workspaceLayoutRef}
+              storageKey={workspaceLayoutStorageKey}
+              panels={workspacePanels}
+              persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
+              onPersistStateChange={handleWorkspacePersistStateChange}
+              onLayoutMetaChange={handleLayoutMetaChange}
+            />
+          )}
         </div>
       </div>
 
@@ -1002,6 +1087,11 @@ export default function WorkbenchExperience({
           currentEventCommandId={currentEventCommandId}
           actorCount={selectedEvent?.scene.actors.length ?? 0}
           contextSectionLabel="Workspace"
+          contextMetrics={[
+            ['Draft', generatedProject.activeDraft?.projectMetadata.projectName ?? 'none'],
+            ['Patches', String(generatedProject.activeDraft?.patches.length ?? 0)],
+            ['View', workspaceViewMode],
+          ]}
         />
       ) : null}
 
@@ -1018,5 +1108,102 @@ export default function WorkbenchExperience({
         hoverInfo={hoverInfo}
       />
     </div>
+  )
+}
+
+// ─── Edit Workspace Content ────────────────────────────────────────────
+
+import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
+import type { UseGeneratedProjectReturn } from '../../lib/app/useGeneratedProject'
+
+type EditWorkspaceContentProps = {
+  workspaceMode: WorkspaceId
+  generatedProject: UseGeneratedProjectReturn
+  activeEditPatchId: string | null
+  onSelectPatch: (patchId: string | null) => void
+  locale: LocaleCode
+  theme: ThemeMode
+  accentColor: string
+  viewportLabels: ViewportLabels
+}
+
+function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatchId, onSelectPatch, locale, theme, accentColor, viewportLabels }: EditWorkspaceContentProps) {
+  const workspacePatches = generatedProject.getPatchesForWorkspace(workspaceMode)
+  const activePatch = activeEditPatchId ? workspacePatches.find((p) => p.id === activeEditPatchId) ?? null : null
+
+  return (
+    <WorkflowModeShell
+      workspaceId={workspaceMode}
+      draft={generatedProject.activeDraft}
+      patches={workspacePatches}
+      activePatchId={activeEditPatchId}
+      onSelectPatch={onSelectPatch}
+      onPatchAdd={(action, target) => {
+        const id = generatedProject.addPatch(workspaceMode, target, action)
+        onSelectPatch(id)
+      }}
+      onPatchRemove={(id) => {
+        generatedProject.removePatch(id)
+        if (activeEditPatchId === id) {
+          onSelectPatch(null)
+        }
+      }}
+      onPatchUpdate={generatedProject.updatePatch}
+      onConfigSchemaChange={(entries) => {
+        // Clear existing and re-add
+        for (const entry of generatedProject.configSchema) {
+          generatedProject.removeConfigEntry(entry.key)
+        }
+        for (const entry of entries) {
+          generatedProject.addConfigEntry(entry)
+        }
+      }}
+      onSaveDraft={generatedProject.saveDraft}
+      isDirty={generatedProject.isDirty}
+    >
+      {activePatch ? (() => {
+        const plugin = getWorkspacePlugin(workspaceMode)
+        const Editor = plugin?.editMode.editor
+        if (!Editor) {
+          return (
+            <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
+              No editor registered for {workspaceMode} workspace.
+            </div>
+          )
+        }
+        return (
+          <Editor
+            patch={activePatch}
+            draft={generatedProject.activeDraft!}
+            onPatchChange={generatedProject.updatePatch}
+            onAddVirtualAsset={generatedProject.addVirtualAsset}
+            locale={locale}
+            theme={theme}
+            accentColor={accentColor}
+            viewportLabels={viewportLabels}
+          />
+        )
+      })() : (
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+          <span className="text-xs">
+            {workspacePatches.length === 0
+              ? 'No patches yet. Click + in the sidebar to add one.'
+              : 'Select a patch from the sidebar to edit.'}
+          </span>
+          {workspacePatches.length === 0 && (
+            <button
+              type="button"
+              className="control-button control-button-primary text-xs"
+              onClick={() => {
+                // Open AddPatchDialog via WorkflowModeShell's internal button
+                // This is handled by the shell itself
+              }}
+            >
+              Add Patch
+            </button>
+          )}
+        </div>
+      )}
+    </WorkflowModeShell>
   )
 }

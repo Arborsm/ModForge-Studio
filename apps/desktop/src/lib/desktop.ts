@@ -101,8 +101,14 @@ export type AppUiAppearanceState = {
   }
 }
 
+export type WorkspaceViewMode = 'edit' | 'preview'
+
 export type AppUiWorkspaceState = {
   layouts: Record<string, Record<string, unknown>>
+  workspaceViewMode?: WorkspaceViewMode
+  generatedProject?: {
+    activeGeneratedDraftKey?: string | null
+  }
 }
 
 export type AppUiLauncherState = {
@@ -131,6 +137,10 @@ export type PatchAppUiStateRequest = {
   }
   workspace?: {
     layouts?: Record<string, Record<string, unknown> | null>
+    workspaceViewMode?: WorkspaceViewMode
+    generatedProject?: {
+      activeGeneratedDraftKey?: string | null
+    }
   }
   launcher?: Partial<AppUiLauncherState> & {
     discoverToolbar?: AppUiLauncherState['discoverToolbar']
@@ -356,6 +366,77 @@ export type ModAssetIndexGroup = {
 
 export type ModAssetIndex = {
   mods: ModAssetIndexGroup[]
+}
+
+// ─── Generated Project ─────────────────────────────────────────────────
+
+export type GeneratedProjectOverlayTarget = {
+  uniqueId: string
+  displayName: string | null
+  required: boolean
+  source: 'scanned-mod' | 'manual'
+}
+
+export type GeneratedProjectDraftSummary = {
+  draftStorageKey: string
+  projectName: string
+  projectUniqueId: string
+  lastDraftSavedAt: number | null
+  lastExportedAt: number | null
+}
+
+export type GeneratedProjectDraftRecord = {
+  draftStorageKey: string
+  projectMetadata: {
+    projectName: string
+    projectDescription: string
+    projectAuthor: string
+    projectVersion: string
+    projectUniqueId: string
+    gameRootPath: string | null
+    contentPackForUniqueId: string
+  }
+  overlayTargets: GeneratedProjectOverlayTarget[]
+  configSchemaDraft: Record<string, unknown>
+  serializedChangeRegistry: Record<string, unknown>
+  eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
+  lastDraftSavedAt: number | null
+  lastExportedAt: number | null
+  lastExportPath: string | null
+  lastExportFingerprint: {
+    draftFingerprint: string
+    environmentFingerprint: string
+    capabilityFingerprint: string
+  } | null
+}
+
+export type CopyGeneratedProjectDraftRequest = {
+  source_draft_storage_key: string
+}
+
+export type GeneratedProjectExportRequest = {
+  output_path: string
+  manifest_json: string
+  content_json: string
+  virtual_assets: VirtualPreviewAsset[]
+}
+
+export type GeneratedProjectExportResult = {
+  output_path: string
+  manifest_path: string
+  content_path: string
+  virtual_asset_paths: string[]
+}
+
+export type BuildGeneratedProjectMapAssetRequest = {
+  relative_path: string
+  map_document: unknown // MapDocument from backend
+}
+
+export type VirtualPreviewAsset = {
+  relativePath: string
+  mediaType: string
+  bytesBase64: string
 }
 
 export type LauncherSettings = {
@@ -1657,4 +1738,47 @@ export async function closeCurrentWindow() {
   }
 
   await getCurrentWindow().close()
+}
+
+// ─── Generated Project Commands ────────────────────────────────────────
+
+const generatedProjectDraftsCache = createPromiseCache<GeneratedProjectDraftSummary[]>()
+const generatedProjectDraftCache = createPromiseCache<GeneratedProjectDraftRecord>()
+
+export function listGeneratedProjectDrafts() {
+  return readCached(generatedProjectDraftsCache, 'default', () =>
+    invokeDesktop<GeneratedProjectDraftSummary[]>('list_generated_project_drafts'),
+  )
+}
+
+export function loadGeneratedProjectDraft(storageKey: string) {
+  return readPending(generatedProjectDraftCache, storageKey, () =>
+    invokeDesktop<GeneratedProjectDraftRecord>('load_generated_project_draft', { draftStorageKey: storageKey }),
+  )
+}
+
+export function saveGeneratedProjectDraft(draft: GeneratedProjectDraftRecord) {
+  const cacheKey = draft.draftStorageKey
+  generatedProjectDraftCache.delete(cacheKey)
+  generatedProjectDraftsCache.delete('default')
+  return invokeDesktop<GeneratedProjectDraftRecord>('save_generated_project_draft', { draft })
+}
+
+export function deleteGeneratedProjectDraft(storageKey: string) {
+  generatedProjectDraftCache.delete(storageKey)
+  generatedProjectDraftsCache.delete('default')
+  return invokeDesktop<void>('delete_generated_project_draft', { draftStorageKey: storageKey })
+}
+
+export function copyGeneratedProjectDraft(request: CopyGeneratedProjectDraftRequest) {
+  generatedProjectDraftsCache.delete('default')
+  return invokeDesktop<GeneratedProjectDraftRecord>('copy_generated_project_draft', { request })
+}
+
+export function exportGeneratedProjectPack(request: GeneratedProjectExportRequest) {
+  return invokeDesktop<GeneratedProjectExportResult>('export_generated_project_pack', { request })
+}
+
+export function buildGeneratedProjectMapAsset(request: BuildGeneratedProjectMapAssetRequest) {
+  return invokeDesktop<VirtualPreviewAsset>('build_generated_project_map_asset', { request })
 }

@@ -8,7 +8,7 @@
     "dev:force": "vite --configLoader runner --force",
     "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build --configLoader runner",
     "lint": "eslint .",
-    "test": "vitest run --configLoader runner --pool=threads",
+    "test": "vitest run --configLoader runner --pool=threads --maxWorkers=3",
     "preview": "vite preview --configLoader runner",
     "tauri": "node ./scripts/run-tauri-cli.cjs"
   },

@@ -2307,6 +2307,7 @@ dependencies = [
  "time",
  "unrar",
  "url",
+ "uuid",
  "winreg 0.56.0",
  "zip",
 ]

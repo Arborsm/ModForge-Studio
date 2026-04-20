@@ -1,5 +1,5 @@
 use self::apply::load_target_result;
-use self::assets::infer_target_asset_kind;
+use self::assets::{infer_target_asset_kind, with_virtual_preview_assets};
 use self::common::{
     as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value,
 };
@@ -308,19 +308,25 @@ pub fn load_content_patcher_result_asset(
                 snapshot: request.snapshot.clone(),
                 manifest_json: request.manifest_json.clone(),
                 content_json: request.content_json.clone(),
+                virtual_assets: request.virtual_assets.clone(),
+                available_capabilities: request.available_capabilities.clone(),
+                fingerprint: request.fingerprint.clone(),
                 context: Some(context.clone()),
+                ..Default::default()
             })?;
             let effective_context = build_effective_context(&snapshot, &context)?;
             let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
             let attached_api_registry = attached::load_attached_api_registry(None);
-            load_target_result(
-                &snapshot,
-                &plan,
-                &request.target,
-                &attached_api_registry,
-                &effective_context,
-                request.game_root_path.as_deref(),
-            )
+            with_virtual_preview_assets(request.virtual_assets.as_deref(), || {
+                load_target_result(
+                    &snapshot,
+                    &plan,
+                    &request.target,
+                    &attached_api_registry,
+                    &effective_context,
+                    request.game_root_path.as_deref(),
+                )
+            })
         })(),
     )
 }
@@ -339,6 +345,9 @@ pub fn export_content_patcher_asset(
                 snapshot: request.snapshot,
                 manifest_json: request.manifest_json,
                 content_json: request.content_json,
+                virtual_assets: request.virtual_assets,
+                available_capabilities: request.available_capabilities,
+                fingerprint: request.fingerprint,
                 context: request.context,
                 target: target.clone(),
             })?;

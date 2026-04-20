@@ -66,13 +66,90 @@ pub struct ContentPatcherPatchPlan {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct VirtualPreviewAsset {
+    pub relative_path: String,
+    pub media_type: String,
+    pub bytes_base64: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherPreviewFingerprint {
+    pub draft_fingerprint: String,
+    pub environment_fingerprint: String,
+    pub capability_fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+pub enum ContentPatcherPreviewRequest {
+    ExistingProjectPath {
+        project_path: String,
+        game_root_path: Option<String>,
+        simulation_context: Option<SimulationContext>,
+    },
+    GeneratedProjectDraft {
+        manifest_json: String,
+        content_json: String,
+        virtual_assets: Vec<VirtualPreviewAsset>,
+        available_capabilities: Vec<String>,
+        fingerprint: ContentPatcherPreviewFingerprint,
+        simulation_context: Option<SimulationContext>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct SimulateContentPatcherRequest {
     pub path: Option<String>,
     pub game_root_path: Option<String>,
     pub snapshot: Option<ContentPatcherProjectSnapshot>,
     pub manifest_json: Option<String>,
     pub content_json: Option<String>,
+    pub virtual_assets: Option<Vec<VirtualPreviewAsset>>,
+    pub available_capabilities: Option<Vec<String>>,
+    pub fingerprint: Option<ContentPatcherPreviewFingerprint>,
     pub context: Option<SimulationContext>,
+}
+
+impl From<ContentPatcherPreviewRequest> for SimulateContentPatcherRequest {
+    fn from(value: ContentPatcherPreviewRequest) -> Self {
+        match value {
+            ContentPatcherPreviewRequest::ExistingProjectPath {
+                project_path,
+                game_root_path,
+                simulation_context,
+            } => Self {
+                path: Some(project_path),
+                game_root_path,
+                snapshot: None,
+                manifest_json: None,
+                content_json: None,
+                virtual_assets: None,
+                available_capabilities: None,
+                fingerprint: None,
+                context: simulation_context,
+            },
+            ContentPatcherPreviewRequest::GeneratedProjectDraft {
+                manifest_json,
+                content_json,
+                virtual_assets,
+                available_capabilities,
+                fingerprint,
+                simulation_context,
+            } => Self {
+                path: None,
+                game_root_path: None,
+                snapshot: None,
+                manifest_json: Some(manifest_json),
+                content_json: Some(content_json),
+                virtual_assets: Some(virtual_assets),
+                available_capabilities: Some(available_capabilities),
+                fingerprint: Some(fingerprint),
+                context: simulation_context,
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -133,6 +210,9 @@ pub struct LoadContentPatcherResultAssetRequest {
     pub snapshot: Option<ContentPatcherProjectSnapshot>,
     pub manifest_json: Option<String>,
     pub content_json: Option<String>,
+    pub virtual_assets: Option<Vec<VirtualPreviewAsset>>,
+    pub available_capabilities: Option<Vec<String>>,
+    pub fingerprint: Option<ContentPatcherPreviewFingerprint>,
     pub context: Option<SimulationContext>,
     pub target: String,
 }
@@ -155,6 +235,9 @@ pub struct ExportContentPatcherAssetRequest {
     pub snapshot: Option<ContentPatcherProjectSnapshot>,
     pub manifest_json: Option<String>,
     pub content_json: Option<String>,
+    pub virtual_assets: Option<Vec<VirtualPreviewAsset>>,
+    pub available_capabilities: Option<Vec<String>>,
+    pub fingerprint: Option<ContentPatcherPreviewFingerprint>,
     pub context: Option<SimulationContext>,
     pub target: String,
     pub output_path: String,
@@ -176,4 +259,142 @@ pub struct SimulateContentPatcherResult {
     pub targets: Vec<ContentPatcherTargetSummary>,
     pub patch_statuses: Vec<ContentPatcherPatchStatus>,
     pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
+}
+
+#[cfg(test)]
+mod preview_request_tests {
+    use super::{
+        ContentPatcherPreviewRequest, ExportContentPatcherAssetRequest,
+        LoadContentPatcherResultAssetRequest, SimulateContentPatcherRequest,
+    };
+    use serde_json::json;
+
+    #[test]
+    fn existing_project_preview_requests_convert_into_legacy_simulation_requests() {
+        let request: ContentPatcherPreviewRequest = serde_json::from_value(json!({
+            "kind": "existing-project-path",
+            "projectPath": "E:\\Mods\\SeasonalGarden",
+            "gameRootPath": "E:\\Games\\Stardew Valley",
+            "simulationContext": {
+                "season": "winter",
+                "config": {},
+                "installedMods": [],
+                "customTokens": {}
+            }
+        }))
+        .expect("deserialize preview request");
+
+        let request: SimulateContentPatcherRequest = request.into();
+
+        assert_eq!(request.path.as_deref(), Some("E:\\Mods\\SeasonalGarden"));
+        assert_eq!(
+            request.game_root_path.as_deref(),
+            Some("E:\\Games\\Stardew Valley")
+        );
+        assert_eq!(request.context.and_then(|value| value.season), Some("winter".to_string()));
+    }
+
+    #[test]
+    fn generated_project_preview_requests_preserve_inline_preview_fields() {
+        let request: ContentPatcherPreviewRequest = serde_json::from_value(json!({
+            "kind": "generated-project-draft",
+            "manifestJson": "{ \"Name\": \"Builder Draft\" }",
+            "contentJson": "{ \"Format\": \"2.0.0\", \"Changes\": [] }",
+            "virtualAssets": [
+                {
+                    "relativePath": "assets/maps/town.png",
+                    "mediaType": "image/png",
+                    "bytesBase64": "Zm9v"
+                }
+            ],
+            "availableCapabilities": ["cp-safe", "map-export"],
+            "fingerprint": {
+                "draftFingerprint": "draft:1",
+                "environmentFingerprint": "environment:1",
+                "capabilityFingerprint": "capability:1"
+            },
+            "simulationContext": {
+                "season": "spring",
+                "config": {},
+                "installedMods": [],
+                "customTokens": {}
+            }
+        }))
+        .expect("deserialize preview request");
+
+        let request: SimulateContentPatcherRequest = request.into();
+
+        assert_eq!(request.path, None);
+        assert_eq!(request.manifest_json.as_deref(), Some("{ \"Name\": \"Builder Draft\" }"));
+        assert_eq!(
+            request.content_json.as_deref(),
+            Some("{ \"Format\": \"2.0.0\", \"Changes\": [] }")
+        );
+        assert_eq!(request.virtual_assets.as_ref().map(Vec::len), Some(1));
+        assert_eq!(
+            request.available_capabilities.as_ref().map(Vec::len),
+            Some(2)
+        );
+        assert_eq!(
+            request
+                .fingerprint
+                .as_ref()
+                .map(|value| value.draft_fingerprint.as_str()),
+            Some("draft:1")
+        );
+        assert_eq!(request.context.and_then(|value| value.season), Some("spring".to_string()));
+    }
+
+    #[test]
+    fn legacy_result_asset_requests_remain_backward_compatible() {
+        let request: LoadContentPatcherResultAssetRequest = serde_json::from_value(json!({
+            "path": "E:\\Mods\\SeasonalGarden",
+            "gameRootPath": "E:\\Games\\Stardew Valley",
+            "target": "Data/Objects"
+        }))
+        .expect("deserialize result asset request");
+
+        assert_eq!(request.path.as_deref(), Some("E:\\Mods\\SeasonalGarden"));
+        assert_eq!(request.target, "Data/Objects");
+        assert!(request.virtual_assets.is_none());
+        assert!(request.available_capabilities.is_none());
+        assert!(request.fingerprint.is_none());
+    }
+
+    #[test]
+    fn export_asset_requests_accept_preview_fields() {
+        let request: ExportContentPatcherAssetRequest = serde_json::from_value(json!({
+            "target": "TileSheets/crops",
+            "outputPath": "E:\\Exports\\crops.png",
+            "virtualAssets": [
+                {
+                    "relativePath": "assets/generated/crops.png",
+                    "mediaType": "image/png",
+                    "bytesBase64": "Zm9v"
+                }
+            ],
+            "availableCapabilities": ["cp-safe", "image-export"],
+            "fingerprint": {
+                "draftFingerprint": "draft:1",
+                "environmentFingerprint": "environment:1",
+                "capabilityFingerprint": "capability:1"
+            }
+        }))
+        .expect("deserialize export request");
+
+        assert_eq!(request.target, "TileSheets/crops");
+        assert_eq!(request.output_path, "E:\\Exports\\crops.png");
+        assert_eq!(request.virtual_assets.as_ref().map(Vec::len), Some(1));
+        assert_eq!(
+            request.available_capabilities.as_ref().map(Vec::len),
+            Some(2)
+        );
+        assert_eq!(
+            request
+                .fingerprint
+                .as_ref()
+                .map(|value| value.environment_fingerprint.as_str()),
+            Some("environment:1")
+        );
+    }
 }

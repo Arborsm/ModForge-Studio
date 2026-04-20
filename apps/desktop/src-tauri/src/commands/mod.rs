@@ -2,6 +2,7 @@ pub mod app_ui;
 pub mod assets;
 pub mod audio;
 pub mod content_patcher;
+pub mod generated_project;
 pub mod launcher;
 pub mod logging;
 pub mod mods;
