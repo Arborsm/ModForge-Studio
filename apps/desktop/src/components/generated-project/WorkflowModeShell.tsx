@@ -36,14 +36,14 @@ export function WorkflowModeShell({
 }: WorkflowModeShellProps) {
   void workspaceId // reserved for future per-workspace layout variations
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
-  const [configDialogMode, setConfigDialogMode] = useState<'when' | 'config'>('when')
+  const [configDialogMode, setConfigDialogMode] = useState<'properties' | 'config'>('properties')
   const [addPatchDialogOpen, setAddPatchDialogOpen] = useState(false)
 
   const activePatch = activePatchId ? patches.find((p) => p.id === activePatchId) ?? null : null
 
-  function handleEditWhen(patchId: string) {
+  function handleEditProperties(patchId: string) {
     onSelectPatch(patchId)
-    setConfigDialogMode('when')
+    setConfigDialogMode('properties')
     setConfigDialogOpen(true)
   }
 
@@ -67,7 +67,7 @@ export function WorkflowModeShell({
             }
           }}
           onTogglePatch={(id, enabled) => onPatchUpdate(id, { enabled })}
-          onEditWhen={handleEditWhen}
+          onEditProperties={handleEditProperties}
           onOpenConfig={handleOpenConfig}
           onSaveDraft={onSaveDraft}
           isDirty={isDirty}
@@ -85,7 +85,7 @@ export function WorkflowModeShell({
           patch={activePatch}
           configSchema={draft.configSchema}
           onClose={() => setConfigDialogOpen(false)}
-          onPatchWhenChange={(patchId, when) => onPatchUpdate(patchId, { when })}
+          onPatchPropertiesChange={(patchId, props) => onPatchUpdate(patchId, props)}
           onConfigSchemaChange={onConfigSchemaChange}
         />
       ) : null}

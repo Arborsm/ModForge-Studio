@@ -288,8 +288,18 @@ pub fn build_content_json(
                                 "X": t.get("x").and_then(Value::as_i64).unwrap_or(0),
                                 "Y": t.get("y").and_then(Value::as_i64).unwrap_or(0),
                             }));
-                            if let Some(tile_index) = t.get("tileIndex").and_then(Value::as_i64) {
-                                tile.insert("TileIndex".to_string(), json!(tile_index));
+                            if let Some(set_tilesheet) = t.get("setTilesheet").and_then(Value::as_str) {
+                                tile.insert("SetTilesheet".to_string(), json!(set_tilesheet));
+                            }
+                            if let Some(set_index) = t.get("setIndex").and_then(Value::as_i64) {
+                                tile.insert("SetIndex".to_string(), json!(set_index));
+                            } else if let Some(set_index_str) = t.get("setIndex").and_then(Value::as_str) {
+                                tile.insert("SetIndex".to_string(), json!(set_index_str));
+                            }
+                            if let Some(remove) = t.get("remove").and_then(Value::as_bool) {
+                                if remove {
+                                    tile.insert("Remove".to_string(), json!("true"));
+                                }
                             }
                             if let Some(props) = t.get("setProperties").and_then(Value::as_object) {
                                 tile.insert("SetProperties".to_string(), Value::Object(props.clone()));
@@ -327,6 +337,9 @@ pub fn build_content_json(
             let mut token = Map::new();
             token.insert("Name".to_string(), json!(t.name));
             token.insert("Value".to_string(), json!(t.value));
+            if let Some(when) = &t.when {
+                token.insert("When".to_string(), Value::Object(when.clone()));
+            }
             Value::Object(token)
         }).collect();
         content.insert("DynamicTokens".to_string(), Value::Array(tokens));
@@ -646,7 +659,7 @@ mod tests {
                             "layer": "Back",
                             "x": 5,
                             "y": 10,
-                            "tileIndex": 42,
+                            "setIndex": 42,
                             "setProperties": {"Passable": "T"}
                         }
                     ]
@@ -662,7 +675,7 @@ mod tests {
         assert!(content.contains("\"Position\""));
         assert!(content.contains("\"X\": 5"));
         assert!(content.contains("\"Y\": 10"));
-        assert!(content.contains("\"TileIndex\": 42"));
+        assert!(content.contains("\"SetIndex\": 42"));
         assert!(content.contains("\"SetProperties\""));
         assert!(content.contains("\"Passable\""));
     }
@@ -746,10 +759,12 @@ mod tests {
             DynamicToken {
                 name: "SeasonUpper".to_string(),
                 value: "{{uppercase {{Season}}}}".to_string(),
+                when: None,
             },
             DynamicToken {
                 name: "PlayerName".to_string(),
                 value: "{{PlayerName}}".to_string(),
+                when: None,
             },
         ];
         let content = build_content_json(&draft).unwrap();

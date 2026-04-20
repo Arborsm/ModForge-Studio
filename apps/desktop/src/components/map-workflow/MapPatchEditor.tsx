@@ -339,7 +339,9 @@ interface MapTileEdit {
   layer: string
   x: number
   y: number
-  tileIndex?: number
+  setTilesheet?: string
+  setIndex?: number | string
+  remove?: boolean
   setProperties?: Record<string, string>
 }
 
@@ -455,7 +457,8 @@ function MapTilesEditor({
                     layer: hoverInfo.layerName ?? 'Back',
                     x: hoverInfo.tileX,
                     y: hoverInfo.tileY,
-                    tileIndex: hoverInfo.tileId ?? undefined,
+                    setTilesheet: hoverInfo.tilesetName ?? undefined,
+                    setIndex: hoverInfo.tileId ?? undefined,
                   },
                 ])
               }}
@@ -519,17 +522,47 @@ function MapTilesEditor({
                   }}
                 />
                 <input
-                  type="number"
-                  placeholder="TileIndex"
-                  className="w-16 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                  value={tile.tileIndex ?? ''}
+                  type="text"
+                  placeholder="Tilesheet"
+                  className="w-20 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.setTilesheet ?? ''}
                   onChange={(e) => {
                     const next = [...mapTiles]
-                    const val = e.target.value
-                    next[index] = { ...tile, tileIndex: val ? Number(val) : undefined }
+                    const val = e.target.value.trim()
+                    next[index] = { ...tile, setTilesheet: val || undefined }
                     onMapTilesChange(next)
                   }}
                 />
+                <input
+                  type="text"
+                  placeholder="Index"
+                  className="w-14 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.setIndex ?? ''}
+                  onChange={(e) => {
+                    const next = [...mapTiles]
+                    const val = e.target.value.trim()
+                    if (!val) {
+                      const { setIndex: _, ...rest } = tile
+                      next[index] = rest
+                    } else {
+                      const num = Number(val)
+                      next[index] = { ...tile, setIndex: Number.isNaN(num) ? val : num }
+                    }
+                    onMapTilesChange(next)
+                  }}
+                />
+                <label className="flex items-center gap-1 text-[10px] text-[var(--text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={tile.remove ?? false}
+                    onChange={(e) => {
+                      const next = [...mapTiles]
+                      next[index] = { ...tile, remove: e.target.checked || undefined }
+                      onMapTilesChange(next)
+                    }}
+                  />
+                  Remove
+                </label>
                 <input
                   type="text"
                   placeholder="Props (key=value,...)"

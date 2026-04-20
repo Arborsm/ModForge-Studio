@@ -20,8 +20,9 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const entries = (editorState['entries'] as Record<string, string> | undefined) ?? {}
   const fields = (editorState['fields'] as Record<string, Record<string, string>> | undefined) ?? {}
+  const moveEntries = (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
 
-  type EditorTab = 'events' | 'fields' | 'textops'
+  type EditorTab = 'events' | 'fields' | 'textops' | 'moveentries'
   const [activeTab, setActiveTab] = useState<EditorTab>('events')
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -42,6 +43,12 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
   function updateTextOperations(newOps: unknown[]) {
     onPatchChange(patch.id, {
       editorState: { ...editorState, textOperations: newOps },
+    })
+  }
+
+  function updateMoveEntries(newEntries: Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }>) {
+    onPatchChange(patch.id, {
+      editorState: { ...editorState, moveEntries: newEntries },
     })
   }
 
@@ -97,6 +104,17 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
           >
             <Text className="h-3 w-3" /> TextOps
           </button>
+          <button
+            type="button"
+            className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
+              activeTab === 'moveentries'
+                ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+            onClick={() => { setActiveTab('moveentries'); setSelectedKey(null); setExpandedCmds(new Set()) }}
+          >
+            <FileText className="h-3 w-3" /> MoveEntries
+          </button>
         </div>
       </div>
 
@@ -132,10 +150,15 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
           setSelectedKey={setSelectedKey}
           updateFields={updateFields}
         />
-      ) : (
+      ) : activeTab === 'textops' ? (
         <TextOpsEditor
           textOperations={(editorState['textOperations'] as unknown[] | undefined) ?? []}
           updateTextOperations={updateTextOperations}
+        />
+      ) : (
+        <MoveEntriesEditor
+          moveEntries={moveEntries}
+          updateMoveEntries={updateMoveEntries}
         />
       )}
     </div>
@@ -512,6 +535,7 @@ interface TextOperation {
   value: string
   search?: string
   delimiter?: string
+  replaceMode?: 'First' | 'All'
 }
 
 function TextOpsEditor({
@@ -637,19 +661,36 @@ function TextOpsEditor({
                 </div>
 
                 {(op.operation === 'ReplaceDelimited' || op.operation === 'RemoveDelimited') && (
-                  <div className="mt-2">
-                    <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
-                      Search
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                      value={op.search ?? ''}
-                      onChange={(e) =>
-                        updateOp(index, { search: e.target.value || undefined })
-                      }
-                    />
-                  </div>
+                  <>
+                    <div className="mt-2">
+                      <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
+                        Search
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={op.search ?? ''}
+                        onChange={(e) =>
+                          updateOp(index, { search: e.target.value || undefined })
+                        }
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
+                        ReplaceMode
+                      </label>
+                      <select
+                        className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={op.replaceMode ?? 'First'}
+                        onChange={(e) =>
+                          updateOp(index, { replaceMode: e.target.value as 'First' | 'All' })
+                        }
+                      >
+                        <option value="First">First</option>
+                        <option value="All">All</option>
+                      </select>
+                    </div>
+                  </>
                 )}
               </div>
             ))}
@@ -850,4 +891,124 @@ function stripOuterQuotes(value: string): string {
     return trimmed.slice(1, -1)
   }
   return trimmed
+}
+
+// ─── MoveEntries Sub-Editor ──────────────────────────────────────────────
+
+function MoveEntriesEditor({
+  moveEntries,
+  updateMoveEntries,
+}: {
+  moveEntries: Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }>
+  updateMoveEntries: (entries: Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }>) => void
+}) {
+  function addEntry() {
+    updateMoveEntries([...moveEntries, { id: '' }])
+  }
+
+  function updateEntry(index: number, updates: Partial<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }>) {
+    const next = [...moveEntries]
+    next[index] = { ...next[index], ...updates }
+    // Clean up empty optional fields
+    if (updates.beforeId === '') delete (next[index] as Record<string, unknown>)['beforeId']
+    if (updates.afterId === '') delete (next[index] as Record<string, unknown>)['afterId']
+    if (updates.toPosition === '') delete (next[index] as Record<string, unknown>)['toPosition']
+    updateMoveEntries(next)
+  }
+
+  function removeEntry(index: number) {
+    updateMoveEntries(moveEntries.filter((_, i) => i !== index))
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          MoveEntries ({moveEntries.length})
+        </span>
+        <button
+          type="button"
+          className="flex items-center gap-1 text-[10px] text-[var(--accent)] hover:underline"
+          onClick={addEntry}
+        >
+          <Plus className="h-3 w-3" /> Add entry
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-auto p-3">
+        {moveEntries.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+            <FileText className="h-8 w-8 opacity-40" />
+            <p className="text-xs">No move entries yet.</p>
+            <p className="max-w-xs text-center text-[10px]">
+              MoveEntries let you reorder entries in an EditData patch by specifying
+              ID, BeforeId, AfterId, or ToPosition.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {moveEntries.map((entry, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-2.5"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-[var(--text-secondary)]">#{index + 1}</span>
+                  <button
+                    type="button"
+                    className="icon-button h-6 w-6 text-red-400"
+                    onClick={() => removeEntry(index)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">ID</label>
+                    <input
+                      type="text"
+                      placeholder="Entry ID"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={entry.id}
+                      onChange={(e) => updateEntry(index, { id: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">ToPosition</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 5"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={entry.toPosition ?? ''}
+                      onChange={(e) => updateEntry(index, { toPosition: e.target.value || undefined })}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">BeforeId</label>
+                    <input
+                      type="text"
+                      placeholder="ID to insert before"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={entry.beforeId ?? ''}
+                      onChange={(e) => updateEntry(index, { beforeId: e.target.value || undefined })}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">AfterId</label>
+                    <input
+                      type="text"
+                      placeholder="ID to insert after"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={entry.afterId ?? ''}
+                      onChange={(e) => updateEntry(index, { afterId: e.target.value || undefined })}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }

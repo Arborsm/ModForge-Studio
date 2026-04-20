@@ -29,6 +29,10 @@ interface GeneratedProjectOverviewProps {
   aliasTokenNames: Record<string, string>
   onAliasTokenNamesChange: (aliases: Record<string, string>) => void
   onNavigateToWorkspace: (workspace: WorkspaceId) => void
+  customLocations: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>
+  onCustomLocationsChange: (locations: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>) => void
+  dynamicTokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>
+  onDynamicTokensChange: (tokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>) => void
 }
 
 export function GeneratedProjectOverview({
@@ -47,6 +51,10 @@ export function GeneratedProjectOverview({
   aliasTokenNames,
   onAliasTokenNamesChange,
   onNavigateToWorkspace,
+  customLocations,
+  onCustomLocationsChange,
+  dynamicTokens,
+  onDynamicTokensChange,
 }: GeneratedProjectOverviewProps) {
   const [activeFile, setActiveFile] = useState<'manifest' | 'content'>('manifest')
   const [selectedDraftKey, setSelectedDraftKey] = useState<string | null>(draft?.draftStorageKey ?? null)
@@ -296,6 +304,150 @@ export function GeneratedProjectOverview({
                 </div>
               </div>
             </div>
+
+            {/* CustomLocations Editor */}
+            <div className="mt-3 border-t border-[var(--border-color)] pt-2">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">CustomLocations</span>
+                <button
+                  type="button"
+                  className="icon-button h-5 w-5"
+                  onClick={() => {
+                    onCustomLocationsChange([...customLocations, { name: '' }])
+                  }}
+                  title="Add location"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="space-y-1">
+                {customLocations.map((loc, index) => (
+                  <div key={index} className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={loc.name}
+                        onChange={(e) => {
+                          const next = [...customLocations]
+                          next[index] = { ...loc, name: e.target.value }
+                          onCustomLocationsChange(next)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="icon-button h-5 w-5 shrink-0 text-red-400"
+                        onClick={() => {
+                          onCustomLocationsChange(customLocations.filter((_, i) => i !== index))
+                        }}
+                        title="Remove location"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="FromMapFile (optional)"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={loc.fromMapFile ?? ''}
+                      onChange={(e) => {
+                        const next = [...customLocations]
+                        const val = e.target.value.trim()
+                        next[index] = { ...loc, fromMapFile: val || undefined }
+                        onCustomLocationsChange(next)
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* DynamicTokens Editor */}
+            <div className="mt-3 border-t border-[var(--border-color)] pt-2">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">DynamicTokens</span>
+                <button
+                  type="button"
+                  className="icon-button h-5 w-5"
+                  onClick={() => {
+                    onDynamicTokensChange([...dynamicTokens, { name: '', value: '' }])
+                  }}
+                  title="Add token"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="space-y-1.5">
+                {dynamicTokens.map((token, index) => (
+                  <div key={index} className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={token.name}
+                        onChange={(e) => {
+                          const next = [...dynamicTokens]
+                          next[index] = { ...token, name: e.target.value }
+                          onDynamicTokensChange(next)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="icon-button h-5 w-5 shrink-0 text-red-400"
+                        onClick={() => {
+                          onDynamicTokensChange(dynamicTokens.filter((_, i) => i !== index))
+                        }}
+                        title="Remove token"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Value"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={token.value}
+                      onChange={(e) => {
+                        const next = [...dynamicTokens]
+                        next[index] = { ...token, value: e.target.value }
+                        onDynamicTokensChange(next)
+                      }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="When conditions (key=value, comma-separated)"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={token.when ? Object.entries(token.when).map(([k, v]) => `${k}=${typeof v === 'string' ? v : JSON.stringify(v)}`).join(', ') : ''}
+                      onChange={(e) => {
+                        const next = [...dynamicTokens]
+                        const text = e.target.value.trim()
+                        if (!text) {
+                          const { when: _, ...rest } = token
+                          next[index] = rest
+                        } else {
+                          const when: Record<string, unknown> = {}
+                          for (const part of text.split(',')) {
+                            const [k, ...vParts] = part.split('=')
+                            if (k?.trim()) {
+                              const v = vParts.join('=').trim()
+                              try {
+                                when[k.trim()] = JSON.parse(v)
+                              } catch {
+                                when[k.trim()] = v
+                              }
+                            }
+                          }
+                          next[index] = { ...token, when }
+                        }
+                        onDynamicTokensChange(next)
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </>
         ) : (
           <div className="text-center text-xs text-[var(--text-secondary)]">
@@ -341,7 +493,7 @@ export function GeneratedProjectOverview({
           patch={null}
           configSchema={draft.configSchema}
           onClose={() => setConfigDialogOpen(false)}
-          onPatchWhenChange={() => { /* not used in config mode */ }}
+          onPatchPropertiesChange={() => { /* not used in config mode */ }}
           onConfigSchemaChange={onConfigSchemaChange}
         />
       ) : null}

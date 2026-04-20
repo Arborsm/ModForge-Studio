@@ -4,11 +4,11 @@ import type { ConfigSchemaEntry, DraftPatch } from '../../lib/app/useGeneratedPr
 
 interface ConfigSchemaDialogProps {
   open: boolean
-  mode: 'when' | 'config'
+  mode: 'properties' | 'config'
   patch: DraftPatch | null
   configSchema: ConfigSchemaEntry[]
   onClose: () => void
-  onPatchWhenChange: (patchId: string, when: Record<string, unknown> | undefined) => void
+  onPatchPropertiesChange: (patchId: string, properties: Partial<DraftPatch>) => void
   onConfigSchemaChange: (entries: ConfigSchemaEntry[]) => void
 }
 
@@ -18,11 +18,13 @@ export function ConfigSchemaDialog({
   patch,
   configSchema,
   onClose,
-  onPatchWhenChange,
+  onPatchPropertiesChange,
   onConfigSchemaChange,
 }: ConfigSchemaDialogProps) {
-  const [activeTab, setActiveTab] = useState<'when' | 'config'>(initialMode)
+  const [activeTab, setActiveTab] = useState<'properties' | 'config'>(initialMode)
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
+
+  // Properties tab state
   const [whenEntries, setWhenEntries] = useState<Array<{ key: string; value: string }>>(() => {
     const entries: Array<{ key: string; value: string }> = []
     if (patch?.when) {
@@ -35,6 +37,19 @@ export function ConfigSchemaDialog({
     }
     return entries.length > 0 ? entries : [{ key: '', value: '' }]
   })
+  const [priority, setPriority] = useState(() => patch?.priority ?? '')
+  const [enabled, setEnabled] = useState(() => typeof patch?.enabled === 'boolean' ? patch.enabled : true)
+  const [update, setUpdate] = useState(() => patch?.update ?? '')
+  const [localTokens, setLocalTokens] = useState<Array<{ key: string; value: string }>>(() => {
+    const entries: Array<{ key: string; value: string }> = []
+    if (patch?.localTokens) {
+      for (const [key, value] of Object.entries(patch.localTokens)) {
+        entries.push({ key, value: typeof value === 'string' ? value : JSON.stringify(value) })
+      }
+    }
+    return entries.length > 0 ? entries : [{ key: '', value: '' }]
+  })
+
   const [schemaEntries, setSchemaEntries] = useState<ConfigSchemaEntry[]>(configSchema)
 
   if (!open) return null
@@ -57,7 +72,7 @@ export function ConfigSchemaDialog({
     setSchemaEntries(next)
   }
 
-  function handleSaveWhen() {
+  function handleSaveProperties() {
     if (!patch) return
     const when: Record<string, unknown> = {}
     for (const entry of whenEntries) {
@@ -69,7 +84,19 @@ export function ConfigSchemaDialog({
         }
       }
     }
-    onPatchWhenChange(patch.id, Object.keys(when).length > 0 ? when : undefined)
+    const tokens: Record<string, string> = {}
+    for (const entry of localTokens) {
+      if (entry.key.trim()) {
+        tokens[entry.key.trim()] = entry.value
+      }
+    }
+    const props: Partial<DraftPatch> = {}
+    if (Object.keys(when).length > 0) props.when = when
+    if (priority !== '' && !Number.isNaN(Number(priority))) props.priority = Number(priority)
+    if (enabled !== true) props.enabled = enabled
+    if (update) props.update = update as DraftPatch['update']
+    if (Object.keys(tokens).length > 0) props.localTokens = tokens
+    onPatchPropertiesChange(patch.id, props)
     onClose()
   }
 
@@ -79,8 +106,8 @@ export function ConfigSchemaDialog({
   }
 
   function handleSave() {
-    if (activeTab === 'when') {
-      handleSaveWhen()
+    if (activeTab === 'properties') {
+      handleSaveProperties()
     } else {
       handleSaveConfig()
     }
@@ -95,13 +122,13 @@ export function ConfigSchemaDialog({
             <button
               type="button"
               className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                activeTab === 'when'
+                activeTab === 'properties'
                   ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
-              onClick={() => setActiveTab('when')}
+              onClick={() => setActiveTab('properties')}
             >
-              When
+              Properties
             </button>
             <button
               type="button"
@@ -122,51 +149,143 @@ export function ConfigSchemaDialog({
 
         {/* Body */}
         <div className="max-h-[60vh] overflow-auto px-4 py-3">
-          {activeTab === 'when' ? (
-            <div className="space-y-2">
+          {activeTab === 'properties' ? (
+            <div className="space-y-4">
               <p className="text-xs text-[var(--text-secondary)]">
-                {patch ? `Edit When conditions for: ${patch.logName}` : 'Select a patch to edit its When conditions.'}
+                {patch ? `Edit properties for: ${patch.logName}` : 'Select a patch to edit its properties.'}
               </p>
-              {whenEntries.map((entry, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Key (e.g. Season)"
-                    className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                    value={entry.key}
-                    onChange={(e) => {
-                      const next = [...whenEntries]
-                      next[index] = { ...entry, key: e.target.value }
-                      setWhenEntries(next)
-                    }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Value (e.g. spring)"
-                    className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                    value={entry.value}
-                    onChange={(e) => {
-                      const next = [...whenEntries]
-                      next[index] = { ...entry, value: e.target.value }
-                      setWhenEntries(next)
-                    }}
-                  />
+
+              {/* Priority */}
+              <div>
+                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Priority</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 0"
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                />
+              </div>
+
+              {/* Enabled */}
+              <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[var(--accent)]"
+                  checked={enabled}
+                  onChange={(e) => setEnabled(e.target.checked)}
+                />
+                Enabled
+              </label>
+
+              {/* Update */}
+              <div>
+                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Update</label>
+                <select
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={update}
+                  onChange={(e) => setUpdate(e.target.value)}
+                >
+                  <option value="">Default</option>
+                  <option value="OnDayStart">OnDayStart</option>
+                  <option value="OnLocationChange">OnLocationChange</option>
+                  <option value="OnTimeChange">OnTimeChange</option>
+                </select>
+              </div>
+
+              {/* When conditions */}
+              <div className="border-t border-[var(--border-color)] pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">When</span>
+                <div className="mt-1.5 space-y-2">
+                  {whenEntries.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Key (e.g. Season)"
+                        className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={entry.key}
+                        onChange={(e) => {
+                          const next = [...whenEntries]
+                          next[index] = { ...entry, key: e.target.value }
+                          setWhenEntries(next)
+                        }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Value (e.g. spring)"
+                        className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={entry.value}
+                        onChange={(e) => {
+                          const next = [...whenEntries]
+                          next[index] = { ...entry, value: e.target.value }
+                          setWhenEntries(next)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="icon-button h-7 w-7 shrink-0 text-red-400"
+                        onClick={() => setWhenEntries(whenEntries.filter((_, i) => i !== index))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
                   <button
                     type="button"
-                    className="icon-button h-7 w-7 shrink-0 text-red-400"
-                    onClick={() => setWhenEntries(whenEntries.filter((_, i) => i !== index))}
+                    className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                    onClick={() => setWhenEntries([...whenEntries, { key: '', value: '' }])}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Plus className="h-3 w-3" /> Add condition
                   </button>
                 </div>
-              ))}
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
-                onClick={() => setWhenEntries([...whenEntries, { key: '', value: '' }])}
-              >
-                <Plus className="h-3 w-3" /> Add condition
-              </button>
+              </div>
+
+              {/* LocalTokens */}
+              <div className="border-t border-[var(--border-color)] pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">LocalTokens</span>
+                <div className="mt-1.5 space-y-2">
+                  {localTokens.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Token name"
+                        className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={entry.key}
+                        onChange={(e) => {
+                          const next = [...localTokens]
+                          next[index] = { ...entry, key: e.target.value }
+                          setLocalTokens(next)
+                        }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Value"
+                        className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                        value={entry.value}
+                        onChange={(e) => {
+                          const next = [...localTokens]
+                          next[index] = { ...entry, value: e.target.value }
+                          setLocalTokens(next)
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="icon-button h-7 w-7 shrink-0 text-red-400"
+                        onClick={() => setLocalTokens(localTokens.filter((_, i) => i !== index))}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                    onClick={() => setLocalTokens([...localTokens, { key: '', value: '' }])}
+                  >
+                    <Plus className="h-3 w-3" /> Add token
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="space-y-2">

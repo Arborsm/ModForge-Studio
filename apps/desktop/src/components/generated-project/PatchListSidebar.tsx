@@ -9,7 +9,7 @@ interface PatchListSidebarProps {
   onAddPatch: () => void
   onRemovePatch: (patchId: string) => void
   onTogglePatch: (patchId: string, enabled: boolean) => void
-  onEditWhen: (patchId: string) => void
+  onEditProperties: (patchId: string) => void
   onOpenConfig: () => void
   onSaveDraft: () => void
   isDirty: boolean
@@ -22,7 +22,7 @@ export function PatchListSidebar({
   onAddPatch,
   onRemovePatch,
   onTogglePatch,
-  onEditWhen,
+  onEditProperties,
   onOpenConfig,
   onSaveDraft,
   isDirty,
@@ -122,11 +122,11 @@ export function PatchListSidebar({
                     className="w-full rounded-md px-2.5 py-1.5 text-left text-[11px] text-[var(--text-primary)] hover:bg-[var(--bg-active)]"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onEditWhen(patch.id)
+                      onEditProperties(patch.id)
                       setContextMenuPatchId(null)
                     }}
                   >
-                    Edit When
+                    Edit Properties
                   </button>
                   <button
                     type="button"

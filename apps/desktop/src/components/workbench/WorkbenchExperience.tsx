@@ -1058,6 +1058,10 @@ export default function WorkbenchExperience({
                 setWorkspaceMode(ws)
                 setWorkspaceViewMode('edit')
               }}
+              customLocations={generatedProject.customLocations}
+              onCustomLocationsChange={generatedProject.setCustomLocations}
+              dynamicTokens={generatedProject.dynamicTokens}
+              onDynamicTokensChange={generatedProject.setDynamicTokens}
             />
           ) : workspaceViewMode === 'preview' ? (
             <PreviewModeShell

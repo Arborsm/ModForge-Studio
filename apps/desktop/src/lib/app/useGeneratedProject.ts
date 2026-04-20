@@ -69,11 +69,11 @@ export interface GeneratedProjectDraft {
   patches: DraftPatch[]
   virtualAssets: VirtualPreviewAsset[]
   /** CP DynamicTokens defined at content.json root level. */
-  dynamicTokens: Array<{ name: string; value: string }>
+  dynamicTokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>
   /** CP CustomLocations defined at content.json root level. */
   customLocations: Array<{
     name: string
-    fromMapFile: string
+    fromMapFile?: string
     migrateLegacyNames?: string[]
   }>
   /** CP AliasTokenNames defined at content.json root level. */
@@ -217,7 +217,7 @@ function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjec
       (record.serializedChangeRegistry as Record<string, unknown>) ?? {},
     ),
     virtualAssets: [], // virtual assets are managed separately and attached at export time
-    dynamicTokens: (record.dynamicTokens as Array<{ name: string; value: string }> | undefined) ?? [],
+    dynamicTokens: (record.dynamicTokens as Array<{ name: string; value: string; when?: Record<string, unknown> }> | undefined) ?? [],
     customLocations: (record.customLocations as Array<{ name: string; fromMapFile: string; migrateLegacyNames?: string[] }> | undefined) ?? [],
     aliasTokenNames: (record.aliasTokenNames as Record<string, string> | undefined) ?? {},
   }
@@ -243,7 +243,11 @@ function frontendToBackend(draft: GeneratedProjectDraft): GeneratedProjectDraftR
     })),
     configSchemaDraft: serializeConfigSchema(draft.configSchema),
     serializedChangeRegistry: serializeChangeRegistry(draft.patches),
-    dynamicTokens: draft.dynamicTokens,
+    dynamicTokens: draft.dynamicTokens.map((t) => ({
+      name: t.name,
+      value: t.value,
+      ...(t.when && Object.keys(t.when).length > 0 ? { when: t.when } : {}),
+    })),
     customLocations: draft.customLocations,
     aliasTokenNames: draft.aliasTokenNames,
     eventSourceSnapshotsByTarget: {},
@@ -451,8 +455,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     if (patch.fromFile) {
       change['FromFile'] = patch.fromFile
     }
-    if (patch.when) {
-      change['When'] = patch.when
+    const when = normalizeWhen(patch.when)
+    if (when) {
+      change['When'] = when
     }
     if (patch.targetLocale) {
       change['TargetLocale'] = patch.targetLocale
@@ -495,8 +500,14 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
                 Layer: t['layer'],
                 Position: { X: t['x'] ?? 0, Y: t['y'] ?? 0 },
               }
-              if (t['tileIndex'] !== undefined) {
-                tile['TileIndex'] = t['tileIndex']
+              if (t['setTilesheet'] !== undefined && t['setTilesheet'] !== '') {
+                tile['SetTilesheet'] = t['setTilesheet']
+              }
+              if (t['setIndex'] !== undefined) {
+                tile['SetIndex'] = t['setIndex']
+              }
+              if (t['remove'] === true) {
+                tile['Remove'] = 'true'
               }
               if (t['setProperties'] && typeof t['setProperties'] === 'object') {
                 tile['SetProperties'] = t['setProperties']
@@ -537,7 +548,6 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     allChanges.push({
       Action: 'Include',
       FromFile: relativePath,
-      LogName: `Include ${ws} changes`,
     })
 
     // Append actual changes
@@ -554,10 +564,13 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     Changes: allChanges,
   }
   if (draft.dynamicTokens.length > 0) {
-    content['DynamicTokens'] = draft.dynamicTokens.map((t) => ({
-      Name: t.name,
-      Value: t.value,
-    }))
+    content['DynamicTokens'] = draft.dynamicTokens.map((t) => {
+      const result: Record<string, unknown> = { Name: t.name, Value: t.value }
+      if (t.when && Object.keys(t.when).length > 0) {
+        result['When'] = t.when
+      }
+      return result
+    })
   }
   if (draft.customLocations.length > 0) {
     content['CustomLocations'] = draft.customLocations.map((loc) => {
@@ -810,6 +823,26 @@ export function useGeneratedProject() {
     setIsDirty(true)
   }, [])
 
+  // ── CustomLocations 管理 ──
+
+  const setCustomLocations = useCallback((locations: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>) => {
+    setActiveDraft((current) => {
+      if (!current) return current
+      return { ...current, customLocations: locations }
+    })
+    setIsDirty(true)
+  }, [])
+
+  // ── DynamicTokens 管理 ──
+
+  const setDynamicTokens = useCallback((tokens: Array<{ name: string; value: string; when?: Record<string, unknown> }>) => {
+    setActiveDraft((current) => {
+      if (!current) return current
+      return { ...current, dynamicTokens: tokens }
+    })
+    setIsDirty(true)
+  }, [])
+
   // ── AliasTokenNames 管理 ──
 
   const addAliasTokenName = useCallback((alias: string, tokenName: string) => {
@@ -949,6 +982,14 @@ export function useGeneratedProject() {
     virtualAssets: activeDraft?.virtualAssets ?? [],
     addVirtualAsset,
     removeVirtualAsset,
+
+    // CustomLocations
+    customLocations: activeDraft?.customLocations ?? [],
+    setCustomLocations,
+
+    // DynamicTokens
+    dynamicTokens: activeDraft?.dynamicTokens ?? [],
+    setDynamicTokens,
 
     // AliasTokenNames
     aliasTokenNames: activeDraft?.aliasTokenNames ?? {},
