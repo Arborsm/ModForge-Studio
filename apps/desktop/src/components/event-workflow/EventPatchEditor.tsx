@@ -4,6 +4,9 @@ import type { DraftPatch, GeneratedProjectDraft } from '../../lib/app/useGenerat
 import { parseEventCommands, parseEventCommand, parseEventSceneSetup } from '../../lib/events/parser'
 import type { EventCommand } from '../../lib/events/types'
 
+// TODO: Support TextOperations (Append/Prepend/ReplaceDelimited) for event script editing
+// TODO: Support Fork condition editing in a more visual way
+
 interface EventPatchEditorProps {
   patch: DraftPatch
   draft: GeneratedProjectDraft

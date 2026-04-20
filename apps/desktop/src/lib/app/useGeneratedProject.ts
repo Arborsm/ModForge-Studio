@@ -25,6 +25,7 @@ export interface DraftPatch {
   target: string
   action: 'EditData' | 'EditImage' | 'EditMap' | 'Load'
   logName: string
+  // TODO: CP supports string tokens like "{{EnableEdit}}" for Enabled, not just boolean
   enabled: boolean
   when?: Record<string, unknown>
   fromFile?: string
@@ -252,6 +253,7 @@ export function buildManifestJson(draft: GeneratedProjectDraft): string {
       if (entry.description !== undefined) {
         def['Description'] = entry.description
       }
+      // TODO: Support AllowBlank, AllowMultiple, Section (CP fields not yet in UI)
       schema[entry.key] = def
     }
     manifest['ConfigSchema'] = schema
@@ -297,6 +299,7 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     }
 
     // 合并 Entries
+    // TODO: Support Fields (edit specific fields within entries) and TextOperations
     const entries: Record<string, unknown> = {}
     for (const patch of patches) {
       const state = patch.editorState as Record<string, unknown> | undefined
@@ -345,6 +348,15 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
             change['AddWarps'] = v.map((w: Record<string, unknown>) =>
               `${w['fromX']} ${w['fromY']} ${w['toMap']} ${w['toX']} ${w['toY']}`
             )
+          }
+        } else if ((k === 'fromArea' || k === 'toArea') && v && typeof v === 'object') {
+          // Convert x/y/width/height to CP's X/Y/Width/Height
+          const area = v as Record<string, unknown>
+          change[k === 'fromArea' ? 'FromArea' : 'ToArea'] = {
+            X: area['x'] ?? 0,
+            Y: area['y'] ?? 0,
+            Width: area['width'] ?? 0,
+            Height: area['height'] ?? 0,
           }
         } else {
           change[k] = v

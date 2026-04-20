@@ -401,6 +401,8 @@ function MapTilesEditor({
       </div>
 
       {/* Toolbar */}
+      {/* TODO: Add tile editing UI (MapTiles support for CP EditMap) */}
+      {/* TODO: Add AddNpcWarps support (separate from regular warps) */}
       <div className="shrink-0 flex items-center justify-between border-t border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5">
         <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
           {hoverInfo ? (
