@@ -399,6 +399,9 @@ export type GeneratedProjectDraftRecord = {
   overlayTargets: GeneratedProjectOverlayTarget[]
   configSchemaDraft: Record<string, unknown>
   serializedChangeRegistry: Record<string, unknown>
+  dynamicTokens?: Array<{ name: string; value: string }>
+  customLocations?: Array<{ name: string; fromMapFile: string; migrateLegacyNames?: string[] }>
+  aliasTokenNames?: Record<string, string>
   eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
   lastDraftSavedAt: number | null
   lastExportedAt: number | null

@@ -15,8 +15,11 @@ import type { WorkspaceId } from '../plugins/workspaceRegistry'
 export interface ConfigSchemaEntry {
   key: string
   defaultValue: unknown
-  allowValues?: unknown[]
+  allowValues?: string
   description?: string
+  allowBlank?: boolean
+  allowMultiple?: boolean
+  section?: string
 }
 
 export interface DraftPatch {
@@ -25,11 +28,22 @@ export interface DraftPatch {
   target: string
   action: 'EditData' | 'EditImage' | 'EditMap' | 'Load'
   logName: string
-  // TODO: CP supports string tokens like "{{EnableEdit}}" for Enabled, not just boolean
-  enabled: boolean
+  /** CP supports boolean or string tokens like "{{EnableEdit}}" for Enabled. */
+  enabled: boolean | string
   when?: Record<string, unknown>
   fromFile?: string
   editorState: unknown
+  // ── CP PatchConfig advanced fields ──
+  /** Only apply this patch when the game is using this locale (e.g. "zh-CN"). */
+  targetLocale?: string
+  /** When to update this patch: OnDayStart, OnLocationChange, OnTimeChange, Always. */
+  update?: string
+  /** Patch priority for load order (default "Late"). */
+  priority?: string | number
+  /** Local tokens scoped to this patch. */
+  localTokens?: Record<string, unknown>
+  /** Target field path within the data asset (CP TargetField). */
+  targetField?: string[]
 }
 
 export interface GeneratedProjectOverlayTarget {
@@ -54,6 +68,16 @@ export interface GeneratedProjectDraft {
   configSchema: ConfigSchemaEntry[]
   patches: DraftPatch[]
   virtualAssets: VirtualPreviewAsset[]
+  /** CP DynamicTokens defined at content.json root level. */
+  dynamicTokens: Array<{ name: string; value: string }>
+  /** CP CustomLocations defined at content.json root level. */
+  customLocations: Array<{
+    name: string
+    fromMapFile: string
+    migrateLegacyNames?: string[]
+  }>
+  /** CP AliasTokenNames defined at content.json root level. */
+  aliasTokenNames: Record<string, string>
 }
 
 export interface VirtualPreviewAsset {
@@ -74,8 +98,11 @@ function parseConfigSchema(configSchemaDraft: Record<string, unknown>): ConfigSc
       return {
         key,
         defaultValue: def['Default'] ?? null,
-        allowValues: Array.isArray(def['AllowValues']) ? def['AllowValues'] : undefined,
+        allowValues: typeof def['AllowValues'] === 'string' ? def['AllowValues'] : undefined,
         description: typeof def['Description'] === 'string' ? def['Description'] : undefined,
+        allowBlank: typeof def['AllowBlank'] === 'boolean' ? def['AllowBlank'] : undefined,
+        allowMultiple: typeof def['AllowMultiple'] === 'boolean' ? def['AllowMultiple'] : undefined,
+        section: typeof def['Section'] === 'string' ? def['Section'] : undefined,
       }
     })
 }
@@ -84,11 +111,20 @@ function serializeConfigSchema(entries: ConfigSchemaEntry[]): Record<string, unk
   const result: Record<string, unknown> = {}
   for (const entry of entries) {
     const def: Record<string, unknown> = { Default: entry.defaultValue }
-    if (entry.allowValues !== undefined) {
+    if (entry.allowValues !== undefined && entry.allowValues !== '') {
       def['AllowValues'] = entry.allowValues
     }
-    if (entry.description !== undefined) {
+    if (entry.description !== undefined && entry.description !== '') {
       def['Description'] = entry.description
+    }
+    if (entry.allowBlank !== undefined) {
+      def['AllowBlank'] = entry.allowBlank
+    }
+    if (entry.allowMultiple !== undefined) {
+      def['AllowMultiple'] = entry.allowMultiple
+    }
+    if (entry.section !== undefined && entry.section !== '') {
+      def['Section'] = entry.section
     }
     result[entry.key] = def
   }
@@ -99,34 +135,60 @@ function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] 
   const patches = Array.isArray(serialized['patches']) ? serialized['patches'] : []
   return patches
     .filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null && !Array.isArray(p))
-    .map((p) => ({
-      id: String(p['id'] ?? ''),
-      workspace: String(p['workspace'] ?? 'map') as WorkspaceId,
-      target: String(p['target'] ?? ''),
-      action: String(p['action'] ?? 'EditData') as DraftPatch['action'],
-      logName: String(p['logName'] ?? ''),
-      enabled: p['enabled'] !== false,
-      when: typeof p['when'] === 'object' && p['when'] !== null && !Array.isArray(p['when'])
-        ? p['when'] as Record<string, unknown>
-        : undefined,
-      fromFile: typeof p['fromFile'] === 'string' ? p['fromFile'] : undefined,
-      editorState: p['editorState'] ?? {},
-    }))
+    .map((p) => {
+      const rawTargetField = p['targetField']
+      return {
+        id: String(p['id'] ?? ''),
+        workspace: String(p['workspace'] ?? 'map') as WorkspaceId,
+        target: String(p['target'] ?? ''),
+        action: String(p['action'] ?? 'EditData') as DraftPatch['action'],
+        logName: String(p['logName'] ?? ''),
+        enabled: typeof p['enabled'] === 'boolean'
+          ? p['enabled']
+          : typeof p['enabled'] === 'string'
+            ? p['enabled']
+            : true,
+        when: typeof p['when'] === 'object' && p['when'] !== null && !Array.isArray(p['when'])
+          ? p['when'] as Record<string, unknown>
+          : undefined,
+        fromFile: typeof p['fromFile'] === 'string' ? p['fromFile'] : undefined,
+        editorState: p['editorState'] ?? {},
+        targetLocale: typeof p['targetLocale'] === 'string' ? p['targetLocale'] : undefined,
+        update: typeof p['update'] === 'string' ? p['update'] : undefined,
+        priority: typeof p['priority'] === 'string' || typeof p['priority'] === 'number' ? p['priority'] : undefined,
+        localTokens: typeof p['localTokens'] === 'object' && p['localTokens'] !== null && !Array.isArray(p['localTokens'])
+          ? p['localTokens'] as Record<string, unknown>
+          : undefined,
+        targetField: Array.isArray(rawTargetField)
+          ? rawTargetField.filter((v): v is string => typeof v === 'string')
+          : undefined,
+      }
+    })
 }
 
 function serializeChangeRegistry(patches: DraftPatch[]): Record<string, unknown> {
   return {
-    patches: patches.map((p) => ({
-      id: p.id,
-      workspace: p.workspace,
-      target: p.target,
-      action: p.action,
-      logName: p.logName,
-      enabled: p.enabled,
-      when: p.when,
-      fromFile: p.fromFile,
-      editorState: p.editorState,
-    })),
+    patches: patches.map((p) => {
+      const result: Record<string, unknown> = {
+        id: p.id,
+        workspace: p.workspace,
+        target: p.target,
+        action: p.action,
+        logName: p.logName,
+        enabled: p.enabled,
+        when: p.when,
+        fromFile: p.fromFile,
+        editorState: p.editorState,
+        targetLocale: p.targetLocale,
+        update: p.update,
+        priority: p.priority,
+        localTokens: p.localTokens,
+      }
+      if (p.targetField !== undefined && p.targetField.length > 0) {
+        result['targetField'] = p.targetField
+      }
+      return result
+    }),
   }
 }
 
@@ -155,6 +217,9 @@ function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjec
       (record.serializedChangeRegistry as Record<string, unknown>) ?? {},
     ),
     virtualAssets: [], // virtual assets are managed separately and attached at export time
+    dynamicTokens: (record.dynamicTokens as Array<{ name: string; value: string }> | undefined) ?? [],
+    customLocations: (record.customLocations as Array<{ name: string; fromMapFile: string; migrateLegacyNames?: string[] }> | undefined) ?? [],
+    aliasTokenNames: (record.aliasTokenNames as Record<string, string> | undefined) ?? {},
   }
 }
 
@@ -178,6 +243,9 @@ function frontendToBackend(draft: GeneratedProjectDraft): GeneratedProjectDraftR
     })),
     configSchemaDraft: serializeConfigSchema(draft.configSchema),
     serializedChangeRegistry: serializeChangeRegistry(draft.patches),
+    dynamicTokens: draft.dynamicTokens,
+    customLocations: draft.customLocations,
+    aliasTokenNames: draft.aliasTokenNames,
     eventSourceSnapshotsByTarget: {},
     lastDraftSavedAt: null,
     lastExportedAt: null,
@@ -244,16 +312,21 @@ export function buildManifestJson(draft: GeneratedProjectDraft): string {
     const schema: Record<string, unknown> = {}
     for (const entry of draft.configSchema) {
       const def: Record<string, unknown> = { Default: entry.defaultValue }
-      if (entry.allowValues !== undefined) {
-        // CP expects AllowValues as comma-delimited string, not array
-        def['AllowValues'] = Array.isArray(entry.allowValues)
-          ? entry.allowValues.join(', ')
-          : entry.allowValues
+      if (entry.allowValues !== undefined && entry.allowValues !== '') {
+        def['AllowValues'] = entry.allowValues
       }
-      if (entry.description !== undefined) {
+      if (entry.description !== undefined && entry.description !== '') {
         def['Description'] = entry.description
       }
-      // TODO: Support AllowBlank, AllowMultiple, Section (CP fields not yet in UI)
+      if (entry.allowBlank !== undefined) {
+        def['AllowBlank'] = entry.allowBlank
+      }
+      if (entry.allowMultiple !== undefined) {
+        def['AllowMultiple'] = entry.allowMultiple
+      }
+      if (entry.section !== undefined && entry.section !== '') {
+        def['Section'] = entry.section
+      }
       schema[entry.key] = def
     }
     manifest['ConfigSchema'] = schema
@@ -268,7 +341,8 @@ export interface ContentBuildResult {
 }
 
 export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResult {
-  const activePatches = draft.patches.filter((p) => p.enabled)
+  // enabled can be boolean or string token (e.g. "{{EnableMapEdit}}")
+  const activePatches = draft.patches.filter((p) => p.enabled !== false)
 
   // 按 workspace 分组 changes
   const workspaceChanges = new Map<string, Record<string, unknown>[]>()
@@ -299,21 +373,63 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     }
 
     // 合并 Entries
-    // TODO: Support Fields (edit specific fields within entries) and TextOperations
     const entries: Record<string, unknown> = {}
+    // 合并 Fields (EntryKey -> { FieldName -> Value })
+    const fields: Record<string, Record<string, unknown>> = {}
+    // 收集 TextOperations
+    const textOperations: unknown[] = []
     for (const patch of patches) {
       const state = patch.editorState as Record<string, unknown> | undefined
       if (state?.['entries'] && typeof state['entries'] === 'object' && state['entries'] !== null) {
         Object.assign(entries, state['entries'])
       }
+      if (state?.['fields'] && typeof state['fields'] === 'object' && state['fields'] !== null) {
+        const patchFields = state['fields'] as Record<string, Record<string, unknown>>
+        for (const [entryKey, fieldMap] of Object.entries(patchFields)) {
+          if (!fields[entryKey]) {
+            fields[entryKey] = {}
+          }
+          Object.assign(fields[entryKey], fieldMap)
+        }
+      }
+      if (state?.['textOperations'] && Array.isArray(state['textOperations'])) {
+        textOperations.push(...state['textOperations'])
+      }
     }
     if (Object.keys(entries).length > 0) {
       change['Entries'] = entries
     }
+    if (Object.keys(fields).length > 0) {
+      change['Fields'] = fields
+    }
+    if (textOperations.length > 0) {
+      change['TextOperations'] = textOperations
+    }
+    // 收集 MoveEntries（CP 格式为数组 { ID, BeforeId, AfterId, ToPosition }）
+    const moveEntries: unknown[] = []
+    for (const patch of patches) {
+      const state = patch.editorState as Record<string, unknown> | undefined
+      if (state?.['moveEntries'] && Array.isArray(state['moveEntries'])) {
+        moveEntries.push(...state['moveEntries'])
+      }
+    }
+    if (moveEntries.length > 0) {
+      change['MoveEntries'] = moveEntries
+    }
 
-    const when = normalizeWhen(patches[0]?.when)
-    if (when) {
-      change['When'] = when
+    // CP PatchConfig common fields from first patch
+    const first = patches[0]
+    if (first) {
+      if (first.logName) change['LogName'] = first.logName
+      if (typeof first.enabled === 'string') change['Enabled'] = first.enabled
+      if (first.fromFile) change['FromFile'] = first.fromFile
+      const when = normalizeWhen(first.when)
+      if (when) change['When'] = when
+      if (first.targetLocale) change['TargetLocale'] = first.targetLocale
+      if (first.update) change['Update'] = first.update
+      if (first.priority !== undefined) change['Priority'] = first.priority
+      if (first.localTokens) change['LocalTokens'] = first.localTokens
+      if (first.targetField !== undefined && first.targetField.length > 0) change['TargetField'] = first.targetField
     }
 
     changes.push(change)
@@ -329,11 +445,26 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
       Target: patch.target,
       LogName: patch.logName,
     }
+    if (typeof patch.enabled === 'string') {
+      change['Enabled'] = patch.enabled
+    }
     if (patch.fromFile) {
       change['FromFile'] = patch.fromFile
     }
     if (patch.when) {
       change['When'] = patch.when
+    }
+    if (patch.targetLocale) {
+      change['TargetLocale'] = patch.targetLocale
+    }
+    if (patch.update) {
+      change['Update'] = patch.update
+    }
+    if (patch.priority !== undefined) {
+      change['Priority'] = patch.priority
+    }
+    if (patch.localTokens) {
+      change['LocalTokens'] = patch.localTokens
     }
     const state = patch.editorState as Record<string, unknown> | undefined
     if (state) {
@@ -349,6 +480,30 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
               `${w['fromX']} ${w['fromY']} ${w['toMap']} ${w['toX']} ${w['toY']}`
             )
           }
+        } else if (patch.action === 'EditMap' && k === 'npcWarps') {
+          // Convert structured npc warps to CP's AddNpcWarps string format
+          if (Array.isArray(v)) {
+            change['AddNpcWarps'] = v.map((w: Record<string, unknown>) =>
+              `${w['fromX']} ${w['fromY']} ${w['toMap']} ${w['toX']} ${w['toY']}`
+            )
+          }
+        } else if (patch.action === 'EditMap' && k === 'mapTiles') {
+          // Convert structured map tiles to CP's MapTiles format
+          if (Array.isArray(v)) {
+            change['MapTiles'] = v.map((t: Record<string, unknown>) => {
+              const tile: Record<string, unknown> = {
+                Layer: t['layer'],
+                Position: { X: t['x'] ?? 0, Y: t['y'] ?? 0 },
+              }
+              if (t['tileIndex'] !== undefined) {
+                tile['TileIndex'] = t['tileIndex']
+              }
+              if (t['setProperties'] && typeof t['setProperties'] === 'object') {
+                tile['SetProperties'] = t['setProperties']
+              }
+              return tile
+            })
+          }
         } else if ((k === 'fromArea' || k === 'toArea') && v && typeof v === 'object') {
           // Convert x/y/width/height to CP's X/Y/Width/Height
           const area = v as Record<string, unknown>
@@ -358,6 +513,8 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
             Width: area['width'] ?? 0,
             Height: area['height'] ?? 0,
           }
+        } else if (k === 'patchMode') {
+          change['PatchMode'] = v
         } else {
           change[k] = v
         }
@@ -392,9 +549,30 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     })
   }
 
-  const content = {
+  const content: Record<string, unknown> = {
     Format: '2.0.0',
     Changes: allChanges,
+  }
+  if (draft.dynamicTokens.length > 0) {
+    content['DynamicTokens'] = draft.dynamicTokens.map((t) => ({
+      Name: t.name,
+      Value: t.value,
+    }))
+  }
+  if (draft.customLocations.length > 0) {
+    content['CustomLocations'] = draft.customLocations.map((loc) => {
+      const result: Record<string, unknown> = {
+        Name: loc.name,
+        FromMapFile: loc.fromMapFile,
+      }
+      if (loc.migrateLegacyNames && loc.migrateLegacyNames.length > 0) {
+        result['MigrateLegacyNames'] = loc.migrateLegacyNames
+      }
+      return result
+    })
+  }
+  if (Object.keys(draft.aliasTokenNames).length > 0) {
+    content['AliasTokenNames'] = draft.aliasTokenNames
   }
 
   return {
@@ -475,6 +653,9 @@ export function useGeneratedProject() {
         configSchema: [],
         patches: [],
         virtualAssets: [],
+        dynamicTokens: [],
+        customLocations: [],
+        aliasTokenNames: {},
       }
       const record = frontendToBackend(newDraft)
       await saveGeneratedProjectDraft(record)
@@ -629,6 +810,29 @@ export function useGeneratedProject() {
     setIsDirty(true)
   }, [])
 
+  // ── AliasTokenNames 管理 ──
+
+  const addAliasTokenName = useCallback((alias: string, tokenName: string) => {
+    setActiveDraft((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        aliasTokenNames: { ...current.aliasTokenNames, [alias]: tokenName },
+      }
+    })
+    setIsDirty(true)
+  }, [])
+
+  const removeAliasTokenName = useCallback((alias: string) => {
+    setActiveDraft((current) => {
+      if (!current) return current
+      const next = { ...current.aliasTokenNames }
+      delete next[alias]
+      return { ...current, aliasTokenNames: next }
+    })
+    setIsDirty(true)
+  }, [])
+
   // ── Virtual Asset 管理 ──
 
   const addVirtualAsset = useCallback((asset: VirtualPreviewAsset) => {
@@ -745,6 +949,11 @@ export function useGeneratedProject() {
     virtualAssets: activeDraft?.virtualAssets ?? [],
     addVirtualAsset,
     removeVirtualAsset,
+
+    // AliasTokenNames
+    aliasTokenNames: activeDraft?.aliasTokenNames ?? {},
+    addAliasTokenName,
+    removeAliasTokenName,
 
     // Metadata
     updateMetadata,

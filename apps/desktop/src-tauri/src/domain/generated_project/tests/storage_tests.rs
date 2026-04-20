@@ -46,6 +46,9 @@ fn sample_draft(draft_storage_key: &str) -> GeneratedProjectDraftRecord {
                 }
             ]
         }),
+        dynamic_tokens: Vec::new(),
+        custom_locations: Vec::new(),
+        alias_token_names: BTreeMap::new(),
         event_source_snapshots_by_target: BTreeMap::from([(
             "Data/Events/Town".to_string(),
             GeneratedProjectEventSourceSnapshot {

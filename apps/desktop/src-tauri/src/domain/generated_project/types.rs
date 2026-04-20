@@ -1,7 +1,7 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::infrastructure::game_formats::tbin::MapDocument;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 use std::fmt::{self, Display, Formatter};
 
@@ -16,6 +16,12 @@ pub struct GeneratedProjectDraftRecord {
     pub config_schema_draft: Value,
     #[serde(default = "default_json_object")]
     pub serialized_change_registry: Value,
+    #[serde(default)]
+    pub dynamic_tokens: Vec<DynamicToken>,
+    #[serde(default)]
+    pub custom_locations: Vec<CustomLocation>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub alias_token_names: BTreeMap<String, String>,
     #[serde(default)]
     pub event_source_snapshots_by_target: BTreeMap<String, GeneratedProjectEventSourceSnapshot>,
     #[serde(default)]
@@ -33,6 +39,22 @@ pub struct GeneratedProjectDraftRecord {
 pub struct GeneratedProjectEventSourceSnapshot {
     #[serde(default)]
     pub raw_scripts_by_key: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DynamicToken {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomLocation {
+    pub name: String,
+    pub from_map_file: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub migrate_legacy_names: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -206,14 +228,46 @@ pub struct ChangeRegistryPatch {
     pub target: String,
     pub action: String,
     pub log_name: String,
-    #[serde(default = "default_true")]
-    pub enabled: bool,
+    #[serde(default = "default_true_value")]
+    pub enabled: Value,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from_file: Option<String>,
     #[serde(default)]
     pub editor_state: Value,
+    // ── CP PatchConfig advanced fields ──
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_locale: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub update: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub local_tokens: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_field: Option<Vec<String>>,
+}
+
+impl Default for ChangeRegistryPatch {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            workspace: String::new(),
+            target: String::new(),
+            action: String::new(),
+            log_name: String::new(),
+            enabled: default_true_value(),
+            when: None,
+            from_file: None,
+            editor_state: Value::Object(Map::new()),
+            target_locale: None,
+            update: None,
+            priority: None,
+            local_tokens: None,
+            target_field: None,
+        }
+    }
 }
 
 impl Default for ChangeRegistry {
@@ -249,4 +303,8 @@ fn default_json_object() -> Value {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_true_value() -> Value {
+    Value::Bool(true)
 }

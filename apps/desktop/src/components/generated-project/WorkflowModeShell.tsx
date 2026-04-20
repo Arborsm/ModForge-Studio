@@ -14,7 +14,7 @@ interface WorkflowModeShellProps {
   onPatchAdd: (action: DraftPatch['action'], target: string) => void
   onPatchRemove: (patchId: string) => void
   onPatchUpdate: (patchId: string, patch: Partial<DraftPatch>) => void
-  onConfigSchemaChange: (entries: Array<{ key: string; defaultValue: unknown; allowValues?: unknown[]; description?: string }>) => void
+  onConfigSchemaChange: (entries: Array<{ key: string; defaultValue: unknown; allowValues?: string; description?: string }>) => void
   onSaveDraft: () => void
   isDirty: boolean
   children: ReactNode

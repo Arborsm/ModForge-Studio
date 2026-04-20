@@ -37,6 +37,8 @@ export function MapPatchEditor({
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const properties = (editorState['properties'] as Record<string, unknown> | undefined) ?? {}
   const warps = (editorState['warps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
+  const npcWarps = (editorState['npcWarps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
+  const mapTiles = (editorState['mapTiles'] as Array<MapTileEdit> | undefined) ?? []
 
   // Tiles tab state
   const gameRootPath = draft.projectMetadata.gameRootPath
@@ -137,10 +139,18 @@ export function MapPatchEditor({
             />
           </div>
         ) : activeTab === 'warps' ? (
-          <div className="p-3">
+          <div className="space-y-4 p-3">
             <MapWarpsEditor
+              title="Player Warps"
+              description="Add warp points to teleport players (AddWarps)"
               warps={warps}
               onChange={(newWarps) => updateEditorState({ warps: newWarps })}
+            />
+            <MapWarpsEditor
+              title="NPC Warps"
+              description="Add warp points for NPC pathfinding (AddNpcWarps)"
+              warps={npcWarps}
+              onChange={(newWarps) => updateEditorState({ npcWarps: newWarps })}
             />
           </div>
         ) : (
@@ -159,6 +169,8 @@ export function MapPatchEditor({
             onBuildAsset={() =>
               setBuildDialogOpen(true)
             }
+            mapTiles={mapTiles}
+            onMapTilesChange={(tiles) => updateEditorState({ mapTiles: tiles })}
           />
         )}
       </div>
@@ -265,15 +277,20 @@ function MapPropertiesEditor({
 }
 
 function MapWarpsEditor({
+  title,
+  description,
   warps,
   onChange,
 }: {
+  title: string
+  description: string
   warps: Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }>
   onChange: (warps: Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }>) => void
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-[10px] text-[var(--text-secondary)]">Add warp points to teleport players</p>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{title}</div>
+      <p className="text-[10px] text-[var(--text-secondary)]">{description}</p>
       {warps.map((warp, index) => (
         <div key={index} className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-2">
           <div className="grid grid-cols-5 gap-1.5 flex-1">
@@ -318,6 +335,14 @@ function MapWarpsEditor({
   )
 }
 
+interface MapTileEdit {
+  layer: string
+  x: number
+  y: number
+  tileIndex?: number
+  setProperties?: Record<string, string>
+}
+
 function MapTilesEditor({
   mapDocument,
   mapLoading,
@@ -331,6 +356,8 @@ function MapTilesEditor({
   viewportLabels,
   gameRootPath,
   onBuildAsset,
+  mapTiles,
+  onMapTilesChange,
 }: {
   mapDocument: MapDocument | null
   mapLoading: boolean
@@ -344,6 +371,8 @@ function MapTilesEditor({
   viewportLabels: ViewportLabels
   gameRootPath: string | null
   onBuildAsset: () => void
+  mapTiles: MapTileEdit[]
+  onMapTilesChange: (tiles: MapTileEdit[]) => void
 }) {
   if (!gameRootPath) {
     return (
@@ -401,8 +430,6 @@ function MapTilesEditor({
       </div>
 
       {/* Toolbar */}
-      {/* TODO: Add tile editing UI (MapTiles support for CP EditMap) */}
-      {/* TODO: Add AddNpcWarps support (separate from regular warps) */}
       <div className="shrink-0 flex items-center justify-between border-t border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5">
         <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
           {hoverInfo ? (
@@ -416,14 +443,129 @@ function MapTilesEditor({
             <span>Hover over the map to see tile details.</span>
           )}
         </div>
-        <button
-          type="button"
-          className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[10px] font-medium text-white hover:opacity-90"
-          onClick={onBuildAsset}
-        >
-          <Hammer className="h-3 w-3" /> Build Asset
-        </button>
+        <div className="flex items-center gap-2">
+          {hoverInfo?.layerName && (
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-1 text-[10px] font-medium text-[var(--text-primary)] hover:bg-[var(--bg-active)]"
+              onClick={() => {
+                onMapTilesChange([
+                  ...mapTiles,
+                  {
+                    layer: hoverInfo.layerName ?? 'Back',
+                    x: hoverInfo.tileX,
+                    y: hoverInfo.tileY,
+                    tileIndex: hoverInfo.tileId ?? undefined,
+                  },
+                ])
+              }}
+            >
+              <Plus className="h-3 w-3" /> Add Tile Edit
+            </button>
+          )}
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[10px] font-medium text-white hover:opacity-90"
+            onClick={onBuildAsset}
+          >
+            <Hammer className="h-3 w-3" /> Build Asset
+          </button>
+        </div>
       </div>
+
+      {/* MapTiles Editor */}
+      {mapTiles.length > 0 && (
+        <div className="shrink-0 max-h-[180px] overflow-auto border-t border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
+          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+            MapTiles Edits ({mapTiles.length})
+          </div>
+          <div className="space-y-1.5">
+            {mapTiles.map((tile, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-1.5 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] p-1.5"
+              >
+                <input
+                  type="text"
+                  placeholder="Layer"
+                  className="w-20 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.layer}
+                  onChange={(e) => {
+                    const next = [...mapTiles]
+                    next[index] = { ...tile, layer: e.target.value }
+                    onMapTilesChange(next)
+                  }}
+                />
+                <input
+                  type="number"
+                  placeholder="X"
+                  className="w-12 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.x}
+                  onChange={(e) => {
+                    const next = [...mapTiles]
+                    next[index] = { ...tile, x: Number(e.target.value) }
+                    onMapTilesChange(next)
+                  }}
+                />
+                <input
+                  type="number"
+                  placeholder="Y"
+                  className="w-12 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.y}
+                  onChange={(e) => {
+                    const next = [...mapTiles]
+                    next[index] = { ...tile, y: Number(e.target.value) }
+                    onMapTilesChange(next)
+                  }}
+                />
+                <input
+                  type="number"
+                  placeholder="TileIndex"
+                  className="w-16 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.tileIndex ?? ''}
+                  onChange={(e) => {
+                    const next = [...mapTiles]
+                    const val = e.target.value
+                    next[index] = { ...tile, tileIndex: val ? Number(val) : undefined }
+                    onMapTilesChange(next)
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Props (key=value,...)"
+                  className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={tile.setProperties ? Object.entries(tile.setProperties).map(([k, v]) => `${k}=${v}`).join(', ') : ''}
+                  onChange={(e) => {
+                    const next = [...mapTiles]
+                    const text = e.target.value.trim()
+                    if (!text) {
+                      const { setProperties: _, ...rest } = tile
+                      next[index] = rest
+                    } else {
+                      const props: Record<string, string> = {}
+                      for (const part of text.split(',')) {
+                        const [k, ...vParts] = part.split('=')
+                        if (k?.trim()) {
+                          props[k.trim()] = vParts.join('=').trim()
+                        }
+                      }
+                      next[index] = { ...tile, setProperties: props }
+                    }
+                    onMapTilesChange(next)
+                  }}
+                />
+                <button
+                  type="button"
+                  className="icon-button h-5 w-5 shrink-0 text-red-400"
+                  onClick={() => onMapTilesChange(mapTiles.filter((_, i) => i !== index))}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

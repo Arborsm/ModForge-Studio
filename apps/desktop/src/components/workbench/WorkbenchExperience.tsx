@@ -1044,6 +1044,16 @@ export default function WorkbenchExperience({
                   generatedProject.addConfigEntry(entry)
                 }
               }}
+              aliasTokenNames={generatedProject.aliasTokenNames}
+              onAliasTokenNamesChange={(aliases) => {
+                // Replace all aliases: remove existing then add new ones
+                for (const key of Object.keys(generatedProject.aliasTokenNames)) {
+                  generatedProject.removeAliasTokenName(key)
+                }
+                for (const [alias, tokenName] of Object.entries(aliases)) {
+                  generatedProject.addAliasTokenName(alias, tokenName)
+                }
+              }}
               onNavigateToWorkspace={(ws) => {
                 setWorkspaceMode(ws)
                 setWorkspaceViewMode('edit')

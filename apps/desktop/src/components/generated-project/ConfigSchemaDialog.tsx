@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ConfigSchemaEntry, DraftPatch } from '../../lib/app/useGeneratedProject'
 
 interface ConfigSchemaDialogProps {
@@ -22,6 +22,7 @@ export function ConfigSchemaDialog({
   onConfigSchemaChange,
 }: ConfigSchemaDialogProps) {
   const [activeTab, setActiveTab] = useState<'when' | 'config'>(initialMode)
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
   const [whenEntries, setWhenEntries] = useState<Array<{ key: string; value: string }>>(() => {
     const entries: Array<{ key: string; value: string }> = []
     if (patch?.when) {
@@ -37,6 +38,24 @@ export function ConfigSchemaDialog({
   const [schemaEntries, setSchemaEntries] = useState<ConfigSchemaEntry[]>(configSchema)
 
   if (!open) return null
+
+  function toggleRow(index: number) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) {
+        next.delete(index)
+      } else {
+        next.add(index)
+      }
+      return next
+    })
+  }
+
+  function updateSchemaEntry(index: number, updates: Partial<ConfigSchemaEntry>) {
+    const next = [...schemaEntries]
+    next[index] = { ...next[index]!, ...updates }
+    setSchemaEntries(next)
+  }
 
   function handleSaveWhen() {
     if (!patch) return
@@ -155,40 +174,117 @@ export function ConfigSchemaDialog({
                 Define ConfigSchema entries for your mod.
               </p>
               {schemaEntries.map((entry, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Key"
-                    className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                    value={entry.key}
-                    onChange={(e) => {
-                      const next = [...schemaEntries]
-                      next[index] = { ...entry, key: e.target.value }
-                      setSchemaEntries(next)
-                    }}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Default Value"
-                    className="flex-1 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                    value={JSON.stringify(entry.defaultValue)}
-                    onChange={(e) => {
-                      const next = [...schemaEntries]
-                      try {
-                        next[index] = { ...entry, defaultValue: JSON.parse(e.target.value) }
-                      } catch {
-                        next[index] = { ...entry, defaultValue: e.target.value }
-                      }
-                      setSchemaEntries(next)
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="icon-button h-7 w-7 shrink-0 text-red-400"
-                    onClick={() => setSchemaEntries(schemaEntries.filter((_, i) => i !== index))}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                <div
+                  key={index}
+                  className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                >
+                  {/* Collapsed row */}
+                  <div className="flex items-center gap-2 px-2.5 py-2">
+                    <button
+                      type="button"
+                      className="icon-button h-5 w-5 shrink-0"
+                      onClick={() => toggleRow(index)}
+                    >
+                      {expandedRows.has(index) ? (
+                        <ChevronDown className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
+                      )}
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Key"
+                      className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={entry.key}
+                      onChange={(e) => updateSchemaEntry(index, { key: e.target.value })}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Default"
+                      className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={entry.defaultValue === null ? '' : typeof entry.defaultValue === 'string' ? entry.defaultValue : JSON.stringify(entry.defaultValue)}
+                      onChange={(e) => {
+                        const text = e.target.value
+                        try {
+                          updateSchemaEntry(index, { defaultValue: JSON.parse(text) })
+                        } catch {
+                          updateSchemaEntry(index, { defaultValue: text })
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="icon-button h-6 w-6 shrink-0 text-red-400"
+                      onClick={() => setSchemaEntries(schemaEntries.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  {/* Expanded detail */}
+                  {expandedRows.has(index) && (
+                    <div className="space-y-2 border-t border-[var(--border-color)] px-2.5 py-2">
+                      <div>
+                        <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
+                          AllowValues (comma-separated)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="spring, summer, fall, winter"
+                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          value={entry.allowValues ?? ''}
+                          onChange={(e) => updateSchemaEntry(index, { allowValues: e.target.value || undefined })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
+                          Description
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Explain this option to players"
+                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          value={entry.description ?? ''}
+                          onChange={(e) => updateSchemaEntry(index, { description: e.target.value || undefined })}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
+                          Section
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Group name (optional)"
+                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          value={entry.section ?? ''}
+                          onChange={(e) => updateSchemaEntry(index, { section: e.target.value || undefined })}
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-1.5 text-[11px] text-[var(--text-primary)]">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 accent-[var(--accent)]"
+                            checked={entry.allowBlank ?? false}
+                            onChange={(e) => updateSchemaEntry(index, { allowBlank: e.target.checked || undefined })}
+                          />
+                          AllowBlank
+                        </label>
+                        <label className="flex items-center gap-1.5 text-[11px] text-[var(--text-primary)]">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 accent-[var(--accent)]"
+                            checked={entry.allowMultiple ?? false}
+                            onChange={(e) => updateSchemaEntry(index, { allowMultiple: e.target.checked || undefined })}
+                          />
+                          AllowMultiple
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               <button

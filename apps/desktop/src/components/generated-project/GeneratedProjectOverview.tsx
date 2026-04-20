@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FileCode, FileJson, Folder, Plus, Save, Download } from 'lucide-react'
+import { FileCode, FileJson, Folder, Plus, Save, Download, Trash2 } from 'lucide-react'
 import { buildContentJson, type GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
 import { CreateDraftDialog } from './CreateDraftDialog'
@@ -25,7 +25,9 @@ interface GeneratedProjectOverviewProps {
   onCopyDraft: (storageKey: string) => void
   onSaveDraft: () => void
   onExportPack: (outputPath: string) => Promise<void>
-  onConfigSchemaChange: (entries: Array<{ key: string; defaultValue: unknown; allowValues?: unknown[]; description?: string }>) => void
+  onConfigSchemaChange: (entries: Array<{ key: string; defaultValue: unknown; allowValues?: string; description?: string }>) => void
+  aliasTokenNames: Record<string, string>
+  onAliasTokenNamesChange: (aliases: Record<string, string>) => void
   onNavigateToWorkspace: (workspace: WorkspaceId) => void
 }
 
@@ -42,6 +44,8 @@ export function GeneratedProjectOverview({
   onSaveDraft,
   onExportPack,
   onConfigSchemaChange,
+  aliasTokenNames,
+  onAliasTokenNamesChange,
   onNavigateToWorkspace,
 }: GeneratedProjectOverviewProps) {
   const [activeFile, setActiveFile] = useState<'manifest' | 'content'>('manifest')
@@ -219,6 +223,79 @@ export function GeneratedProjectOverview({
                 </div>
               </div>
             ) : null}
+
+            {/* AliasTokenNames Editor */}
+            <div className="mt-3 border-t border-[var(--border-color)] pt-2">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--text-secondary)]">AliasTokenNames</span>
+              </div>
+              <div className="space-y-1">
+                {Object.entries(aliasTokenNames).map(([alias, tokenName]) => (
+                  <div key={alias} className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={alias}
+                      readOnly
+                      className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)]"
+                    />
+                    <span className="text-[10px] text-[var(--text-secondary)]">→</span>
+                    <input
+                      type="text"
+                      value={tokenName}
+                      onChange={(e) => {
+                        onAliasTokenNamesChange({ ...aliasTokenNames, [alias]: e.target.value })
+                      }}
+                      className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                    />
+                    <button
+                      type="button"
+                      className="icon-button h-5 w-5 shrink-0 text-red-400"
+                      onClick={() => {
+                        const next = { ...aliasTokenNames }
+                        delete next[alias]
+                        onAliasTokenNamesChange(next)
+                      }}
+                      title="Remove alias"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Alias"
+                    id="alias-token-alias"
+                    className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  />
+                  <span className="text-[10px] text-[var(--text-secondary)]">→</span>
+                  <input
+                    type="text"
+                    placeholder="TokenName"
+                    id="alias-token-target"
+                    className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  />
+                  <button
+                    type="button"
+                    className="icon-button h-5 w-5 shrink-0"
+                    onClick={() => {
+                      const aliasEl = document.getElementById('alias-token-alias') as HTMLInputElement | null
+                      const targetEl = document.getElementById('alias-token-target') as HTMLInputElement | null
+                      const alias = aliasEl?.value.trim() ?? ''
+                      const target = targetEl?.value.trim() ?? ''
+                      if (alias && target) {
+                        onAliasTokenNamesChange({ ...aliasTokenNames, [alias]: target })
+                        if (aliasEl) aliasEl.value = ''
+                        if (targetEl) targetEl.value = ''
+                      }
+                    }}
+                    title="Add alias"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </>
         ) : (
           <div className="text-center text-xs text-[var(--text-secondary)]">
@@ -355,8 +432,21 @@ function generateManifestJson(draft: GeneratedProjectDraft): string {
     const schema: Record<string, unknown> = {}
     for (const entry of draft.configSchema) {
       const def: Record<string, unknown> = { Default: entry.defaultValue }
-      if (entry.allowValues !== undefined) def.AllowValues = entry.allowValues
-      if (entry.description !== undefined) def.Description = entry.description
+      if (entry.allowValues !== undefined && entry.allowValues !== '') {
+        def.AllowValues = entry.allowValues
+      }
+      if (entry.description !== undefined && entry.description !== '') {
+        def.Description = entry.description
+      }
+      if ('allowBlank' in entry && entry.allowBlank !== undefined) {
+        def.AllowBlank = entry.allowBlank
+      }
+      if ('allowMultiple' in entry && entry.allowMultiple !== undefined) {
+        def.AllowMultiple = entry.allowMultiple
+      }
+      if ('section' in entry && entry.section !== undefined && entry.section !== '') {
+        def.Section = entry.section
+      }
       schema[entry.key] = def
     }
     manifest.ConfigSchema = schema
