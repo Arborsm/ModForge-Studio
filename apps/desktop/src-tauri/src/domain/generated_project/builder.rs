@@ -5,6 +5,24 @@ use super::types::{
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
 
+/// Convert a When condition object so all values are strings.
+/// CP expects `When` values as strings (`InvariantDictionary<string?>`).
+fn stringify_when_values(when: &Value) -> Value {
+    let mut result = Map::new();
+    if let Some(obj) = when.as_object() {
+        for (k, v) in obj {
+            let s = match v {
+                Value::Bool(b) => b.to_string(),
+                Value::Number(n) => n.to_string(),
+                Value::String(s) => s.clone(),
+                other => other.to_string(),
+            };
+            result.insert(k.clone(), json!(s));
+        }
+    }
+    Value::Object(result)
+}
+
 /// Build a `manifest.json` string from the draft metadata.
 pub fn build_manifest_json(
     draft: &GeneratedProjectDraftRecord,
@@ -113,7 +131,7 @@ pub fn build_content_json(
         // When conditions: use the first patch's When (UI enforces consistency)
         if let Some(first) = patches.first() {
             if let Some(when) = &first.when {
-                change.insert("When".to_string(), when.clone());
+                change.insert("When".to_string(), stringify_when_values(when));
             }
         }
         changes.push(Value::Object(change));
@@ -131,7 +149,7 @@ pub fn build_content_json(
         }
 
         if let Some(when) = &patch.when {
-            change.insert("When".to_string(), when.clone());
+            change.insert("When".to_string(), stringify_when_values(when));
         }
 
         // editor_state may carry action-specific fields (FromArea, ToArea, MapProperties, etc.)
@@ -141,7 +159,34 @@ pub fn build_content_json(
                 if k == "entries" {
                     continue;
                 }
-                change.insert(k.clone(), v.clone());
+                // Map internal field names to CP field names
+                let cp_key = if patch.action.to_lowercase() == "editmap" {
+                    match k.as_str() {
+                        "properties" => "MapProperties",
+                        "warps" => "AddWarps",
+                        _ => k,
+                    }
+                } else {
+                    k
+                };
+                // Convert warps array to CP's AddWarps string format
+                if cp_key == "AddWarps" && v.is_array() {
+                    let warps: Vec<String> = v.as_array().unwrap_or(&vec![])
+                        .iter()
+                        .filter_map(|w| w.as_object())
+                        .map(|w| {
+                            let from_x = w.get("fromX").and_then(Value::as_i64).unwrap_or(0);
+                            let from_y = w.get("fromY").and_then(Value::as_i64).unwrap_or(0);
+                            let to_map = w.get("toMap").and_then(Value::as_str).unwrap_or("");
+                            let to_x = w.get("toX").and_then(Value::as_i64).unwrap_or(0);
+                            let to_y = w.get("toY").and_then(Value::as_i64).unwrap_or(0);
+                            format!("{} {} {} {} {}", from_x, from_y, to_map, to_x, to_y)
+                        })
+                        .collect();
+                    change.insert(cp_key.to_string(), json!(warps));
+                } else {
+                    change.insert(cp_key.to_string(), v.clone());
+                }
             }
         }
 

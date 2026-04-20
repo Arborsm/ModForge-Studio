@@ -26,7 +26,10 @@ export function ConfigSchemaDialog({
     const entries: Array<{ key: string; value: string }> = []
     if (patch?.when) {
       for (const [key, value] of Object.entries(patch.when)) {
-        entries.push({ key, value: JSON.stringify(value) })
+        entries.push({
+          key,
+          value: typeof value === 'string' ? value : JSON.stringify(value),
+        })
       }
     }
     return entries.length > 0 ? entries : [{ key: '', value: '' }]

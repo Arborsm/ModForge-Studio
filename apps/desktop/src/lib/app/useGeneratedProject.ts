@@ -185,6 +185,25 @@ function frontendToBackend(draft: GeneratedProjectDraft): GeneratedProjectDraftR
   }
 }
 
+/** Normalize When condition values to strings (CP expects string values). */
+function normalizeWhen(when: Record<string, unknown> | undefined): Record<string, string> | undefined {
+  if (!when) return undefined
+  const result: Record<string, string> = {}
+  for (const [k, v] of Object.entries(when)) {
+    if (v === null || v === undefined) continue
+    if (typeof v === 'boolean') {
+      result[k] = v ? 'true' : 'false'
+    } else if (typeof v === 'number') {
+      result[k] = String(v)
+    } else if (typeof v === 'string') {
+      result[k] = v
+    } else {
+      result[k] = JSON.stringify(v)
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
 // ─── content.json / manifest.json 前端生成 ───────────────────────────────
 
 export function buildManifestJson(draft: GeneratedProjectDraft): string {
@@ -203,7 +222,10 @@ export function buildManifestJson(draft: GeneratedProjectDraft): string {
     for (const entry of draft.configSchema) {
       const def: Record<string, unknown> = { Default: entry.defaultValue }
       if (entry.allowValues !== undefined) {
-        def['AllowValues'] = entry.allowValues
+        // CP expects AllowValues as comma-delimited string, not array
+        def['AllowValues'] = Array.isArray(entry.allowValues)
+          ? entry.allowValues.join(', ')
+          : entry.allowValues
       }
       if (entry.description !== undefined) {
         def['Description'] = entry.description
@@ -264,8 +286,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
       change['Entries'] = entries
     }
 
-    if (patches[0]?.when) {
-      change['When'] = patches[0].when
+    const when = normalizeWhen(patches[0]?.when)
+    if (when) {
+      change['When'] = when
     }
 
     changes.push(change)
@@ -291,7 +314,19 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     if (state) {
       for (const [k, v] of Object.entries(state)) {
         if (k === 'entries') continue
-        change[k] = v
+        // Map internal field names to CP field names
+        if (patch.action === 'EditMap' && k === 'properties') {
+          change['MapProperties'] = v
+        } else if (patch.action === 'EditMap' && k === 'warps') {
+          // Convert structured warps to CP's AddWarps string format
+          if (Array.isArray(v)) {
+            change['AddWarps'] = v.map((w: Record<string, unknown>) =>
+              `${w['fromX']} ${w['fromY']} ${w['toMap']} ${w['toX']} ${w['toY']}`
+            )
+          }
+        } else {
+          change[k] = v
+        }
       }
     }
 
@@ -301,12 +336,22 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
 
   // 生成各 workspace 的 include 文件
   const includeFiles: Array<{ relativePath: string; content: string }> = []
-  const includePaths: string[] = []
+  const allChanges: Record<string, unknown>[] = []
 
   for (const [ws, changes] of workspaceChanges) {
     if (changes.length === 0) continue
     const relativePath = `changes/${ws}.json`
-    includePaths.push(relativePath)
+
+    // Include patch must be in Changes array as a regular patch entry
+    allChanges.push({
+      Action: 'Include',
+      FromFile: relativePath,
+      LogName: `Include ${ws} changes`,
+    })
+
+    // Append actual changes
+    allChanges.push(...changes)
+
     includeFiles.push({
       relativePath,
       content: `${JSON.stringify({ Changes: changes }, null, 2)}\n`,
@@ -315,8 +360,7 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
 
   const content = {
     Format: '2.0.0',
-    ...(includePaths.length > 0 ? { Include: includePaths } : {}),
-    Changes: [] as Record<string, unknown>[],
+    Changes: allChanges,
   }
 
   return {
