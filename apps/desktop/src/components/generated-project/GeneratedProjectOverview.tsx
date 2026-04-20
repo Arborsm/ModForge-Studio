@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FileCode, FileJson, Folder, Plus, Save, Download } from 'lucide-react'
 import { buildContentJson, type GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
@@ -54,7 +54,21 @@ export function GeneratedProjectOverview({
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
 
   const manifestJson = draft ? generateManifestJson(draft) : ''
-  const contentJson = draft ? buildContentJson(draft).contentJson : ''
+  const { contentJson, includeFiles } = draft ? buildContentJson(draft) : { contentJson: '', includeFiles: [] }
+
+  const exportFileList = useMemo(() => {
+    const files = ['manifest.json', 'content.json']
+    for (const inc of includeFiles) {
+      files.push(inc.relativePath)
+    }
+    if (draft?.configSchema.length) {
+      files.push('config.json')
+    }
+    for (const asset of draft?.virtualAssets ?? []) {
+      files.push(asset.relativePath)
+    }
+    return files
+  }, [draft, includeFiles])
 
   return (
     <div className="flex h-full">
@@ -226,6 +240,7 @@ export function GeneratedProjectOverview({
       <ExportDialog
         open={exportDialogOpen}
         draftName={draft?.projectMetadata.projectName ?? ''}
+        fileList={exportFileList}
         onClose={() => setExportDialogOpen(false)}
         onExport={onExportPack}
       />

@@ -5,11 +5,12 @@ import { chooseDirectory } from '../../lib/desktop'
 interface ExportDialogProps {
   open: boolean
   draftName: string
+  fileList: string[]
   onClose: () => void
   onExport: (outputPath: string) => Promise<void>
 }
 
-export function ExportDialog({ open, draftName, onClose, onExport }: ExportDialogProps) {
+export function ExportDialog({ open, draftName, fileList, onClose, onExport }: ExportDialogProps) {
   const [outputPath, setOutputPath] = useState('')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -81,11 +82,11 @@ export function ExportDialog({ open, draftName, onClose, onExport }: ExportDialo
           ) : null}
 
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
-            <div className="text-[10px] text-[var(--text-secondary)]">Files to export:</div>
-            <ul className="mt-1 space-y-0.5 text-[10px] text-[var(--text-primary)]">
-              <li>manifest.json</li>
-              <li>content.json</li>
-              <li>assets/ (virtual assets)</li>
+            <div className="text-[10px] text-[var(--text-secondary)]">Files to export ({fileList.length}):</div>
+            <ul className="mt-1 max-h-32 space-y-0.5 overflow-auto text-[10px] text-[var(--text-primary)]">
+              {fileList.map((file) => (
+                <li key={file}>{file}</li>
+              ))}
             </ul>
           </div>
 
