@@ -1017,7 +1017,24 @@ export default function WorkbenchExperience({
               onCopyDraft={generatedProject.copyDraft}
               onSaveDraft={generatedProject.saveDraft}
               onExportPack={async (outputPath) => {
-                await generatedProject.exportPack(outputPath)
+                try {
+                  const result = await generatedProject.exportPack(outputPath)
+                  publishNotification({
+                    id: 'export-success',
+                    level: 'success',
+                    title: 'Export Complete',
+                    description: `Pack exported to ${result.output_path}`,
+                    autoDismissMs: 5000,
+                  })
+                } catch (err) {
+                  publishNotification({
+                    id: 'export-error',
+                    level: 'error',
+                    title: 'Export Failed',
+                    description: err instanceof Error ? err.message : String(err),
+                    autoDismissMs: 8000,
+                  })
+                }
               }}
               onConfigSchemaChange={(entries) => {
                 for (const entry of generatedProject.configSchema) {
