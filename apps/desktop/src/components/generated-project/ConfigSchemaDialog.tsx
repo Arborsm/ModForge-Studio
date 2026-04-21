@@ -37,8 +37,13 @@ export function ConfigSchemaDialog({
     }
     return entries.length > 0 ? entries : [{ key: '', value: '' }]
   })
-  const [priority, setPriority] = useState(() => patch?.priority ?? '')
-  const [enabled, setEnabled] = useState(() => typeof patch?.enabled === 'boolean' ? patch.enabled : true)
+  const [priority, setPriority] = useState(() =>
+    patch?.priority !== undefined ? String(patch.priority) : ''
+  )
+  const [enabled, setEnabled] = useState(() =>
+    typeof patch?.enabled === 'boolean' ? patch.enabled : true
+  )
+  const [targetLocale, setTargetLocale] = useState(() => patch?.targetLocale ?? '')
   const [update, setUpdate] = useState(() => patch?.update ?? '')
   const [localTokens, setLocalTokens] = useState<Array<{ key: string; value: string }>>(() => {
     const entries: Array<{ key: string; value: string }> = []
@@ -92,9 +97,15 @@ export function ConfigSchemaDialog({
     }
     const props: Partial<DraftPatch> = {}
     if (Object.keys(when).length > 0) props.when = when
-    if (priority !== '' && !Number.isNaN(Number(priority))) props.priority = Number(priority)
-    if (enabled !== true) props.enabled = enabled
+    if (priority !== '') {
+      const num = Number(priority)
+      props.priority = Number.isNaN(num) ? priority : num
+    }
+    if (!enabled) {
+      props.enabled = false
+    }
     if (update) props.update = update as DraftPatch['update']
+    if (targetLocale) props.targetLocale = targetLocale
     if (Object.keys(tokens).length > 0) props.localTokens = tokens
     onPatchPropertiesChange(patch.id, props)
     onClose()
@@ -159,8 +170,8 @@ export function ConfigSchemaDialog({
               <div>
                 <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Priority</label>
                 <input
-                  type="number"
-                  placeholder="e.g. 0"
+                  type="text"
+                  placeholder="e.g. Early, Late, or 10"
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
@@ -168,15 +179,29 @@ export function ConfigSchemaDialog({
               </div>
 
               {/* Enabled */}
-              <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+              <div>
+                <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[var(--accent)]"
+                    checked={enabled}
+                    onChange={(e) => setEnabled(e.target.checked)}
+                  />
+                  Enabled
+                </label>
+              </div>
+
+              {/* TargetLocale */}
+              <div>
+                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">TargetLocale</label>
                 <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-[var(--accent)]"
-                  checked={enabled}
-                  onChange={(e) => setEnabled(e.target.checked)}
+                  type="text"
+                  placeholder="e.g. zh-CN, fr-FR"
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={targetLocale}
+                  onChange={(e) => setTargetLocale(e.target.value)}
                 />
-                Enabled
-              </label>
+              </div>
 
               {/* Update */}
               <div>

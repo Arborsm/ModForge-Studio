@@ -23,16 +23,23 @@ const mapWorkspacePlugin: WorkspacePlugin = {
         Action: patch.action,
         Target: patch.target,
       }
-      // Merge editor state excluding internal fields
+      // Map editor state to CP field names
       for (const [k, v] of Object.entries(state)) {
         if (k === 'entries') continue
-        entry[k] = v
+        const cpKey = k === 'properties' ? 'MapProperties'
+          : k === 'warps' ? 'AddWarps'
+          : k === 'npcWarps' ? 'AddNpcWarps'
+          : k === 'mapTiles' ? 'MapTiles'
+          : k
+        entry[cpKey] = v
       }
       return entry
     },
     fromChangeEntry: (change) => ({
-      properties: change['Entries'] ?? {},
-      warps: change['Warps'] ?? [],
+      properties: change['MapProperties'] ?? {},
+      warps: change['AddWarps'] ?? [],
+      npcWarps: change['AddNpcWarps'] ?? [],
+      mapTiles: change['MapTiles'] ?? [],
     }),
   },
 }
@@ -88,14 +95,17 @@ const imageWorkspacePlugin = (id: 'characters' | 'buildings' | 'items', label: s
       if (patch.fromFile) {
         entry['FromFile'] = patch.fromFile
       }
-      if (state['patchMode']) {
-        entry['PatchMode'] = state['patchMode']
-      }
-      if (state['fromArea']) {
-        entry['FromArea'] = state['fromArea']
-      }
-      if (state['toArea']) {
-        entry['ToArea'] = state['toArea']
+      // Load action does not support PatchMode/FromArea/ToArea
+      if (patch.action !== 'Load') {
+        if (state['patchMode']) {
+          entry['PatchMode'] = state['patchMode']
+        }
+        if (state['fromArea']) {
+          entry['FromArea'] = state['fromArea']
+        }
+        if (state['toArea']) {
+          entry['ToArea'] = state['toArea']
+        }
       }
       return entry
     },

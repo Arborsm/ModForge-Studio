@@ -1,11 +1,9 @@
 use crate::domain::generated_project as domain_generated_project;
-pub use crate::domain::generated_project::types::BuildGeneratedProjectMapAssetRequest;
-pub use crate::domain::generated_project::types::CopyGeneratedProjectDraftRequest;
-pub use crate::domain::generated_project::types::GeneratedProjectExportRequest;
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::domain::generated_project::types::{
+    BuildGeneratedProjectMapAssetRequest, CopyGeneratedProjectDraftRequest,
     GeneratedProjectDraftError, GeneratedProjectDraftRecord, GeneratedProjectDraftSummary,
-    GeneratedProjectExportResult,
+    GeneratedProjectExportRequest, GeneratedProjectExportResult,
 };
 
 #[tauri::command]
@@ -79,5 +77,16 @@ pub fn build_generated_project_map_asset(
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "build_generated_project_map_asset",
         domain_generated_project::build_generated_project_map_asset(request),
+    )
+}
+
+#[tauri::command]
+pub fn import_generated_project_pack(
+    mod_directory_path: String,
+) -> Result<GeneratedProjectDraftRecord, GeneratedProjectDraftError> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "import_generated_project_pack",
+        domain_generated_project::import_generated_project_pack(&mod_directory_path,
+        ),
     )
 }

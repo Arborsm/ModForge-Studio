@@ -15,12 +15,15 @@ interface EventPatchEditorProps {
 }
 
 export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset }: EventPatchEditorProps) {
-  void draft
   void onAddVirtualAsset
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
-  const entries = (editorState['entries'] as Record<string, string> | undefined) ?? {}
+  const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? {}
   const fields = (editorState['fields'] as Record<string, Record<string, string>> | undefined) ?? {}
   const moveEntries = (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
+
+  // Original event scripts from scanned game data (read-only reference)
+  const eventSnapshot = draft.eventSourceSnapshotsByTarget[patch.target]
+  const originalScripts = eventSnapshot?.rawScriptsByKey ?? {}
 
   type EditorTab = 'events' | 'fields' | 'textops' | 'moveentries'
   const [activeTab, setActiveTab] = useState<EditorTab>('events')
@@ -28,7 +31,7 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [expandedCmds, setExpandedCmds] = useState<Set<string>>(new Set())
 
-  function updateEntries(newEntries: Record<string, string>) {
+  function updateEntries(newEntries: Record<string, unknown>) {
     onPatchChange(patch.id, {
       editorState: { ...editorState, entries: newEntries },
     })
@@ -55,7 +58,7 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
   function updateCommand(index: number, newRaw: string) {
     if (!selectedKey) return
     const selectedEntry = entries[selectedKey]
-    if (!selectedEntry) return
+    if (typeof selectedEntry !== 'string') return
     const segments = parseEventCommands(selectedEntry)
     segments[index + 3] = newRaw
     const newScript = segments.join('/')
@@ -136,6 +139,7 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
       {activeTab === 'events' ? (
         <EventsEditor
           entries={entries}
+          originalScripts={originalScripts}
           selectedKey={selectedKey}
           setSelectedKey={setSelectedKey}
           expandedCmds={expandedCmds}
@@ -169,6 +173,7 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
 
 function EventsEditor({
   entries,
+  originalScripts,
   selectedKey,
   setSelectedKey,
   expandedCmds,
@@ -176,24 +181,27 @@ function EventsEditor({
   updateEntries,
   updateCommand,
 }: {
-  entries: Record<string, string>
+  entries: Record<string, unknown>
+  originalScripts: Record<string, string>
   selectedKey: string | null
   setSelectedKey: (k: string | null) => void
   expandedCmds: Set<string>
   setExpandedCmds: React.Dispatch<React.SetStateAction<Set<string>>>
-  updateEntries: (e: Record<string, string>) => void
+  updateEntries: (e: Record<string, unknown>) => void
   updateCommand: (index: number, newRaw: string) => void
 }) {
   const entryList = Object.entries(entries)
   const selectedEntry = selectedKey ? entries[selectedKey] ?? null : null
+  const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
+  const selectedOriginalScript = selectedKey ? originalScripts[selectedKey] ?? null : null
 
   const parsedEvent = useMemo(() => {
-    if (!selectedEntry) return null
-    const segments = parseEventCommands(selectedEntry)
+    if (!selectedEntryString) return null
+    const segments = parseEventCommands(selectedEntryString)
     const scene = parseEventSceneSetup(segments)
     const commands = segments.slice(3).map((raw, index) => parseEventCommand(raw, index))
     return { scene, commands, segments }
-  }, [selectedEntry])
+  }, [selectedEntryString])
 
   function toggleCommandExpand(cmdId: string) {
     setExpandedCmds((prev) => {
@@ -263,6 +271,26 @@ function EventsEditor({
       <div className="min-w-0 flex-1 overflow-auto">
         {parsedEvent ? (
           <div className="space-y-3 p-3">
+            {/* Original Script Reference */}
+            {selectedOriginalScript && selectedOriginalScript !== selectedEntryString && (
+              <div className="rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,var(--border-color))] bg-[var(--bg-panel-muted)] p-3">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)]">
+                    Original Script (Reference)
+                  </span>
+                  <span className="text-[9px] text-[var(--text-secondary)]">
+                    Read-only snapshot from game data
+                  </span>
+                </div>
+                <textarea
+                  className="h-20 w-full resize-none rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 font-mono text-[10px] leading-4 text-[var(--text-secondary)] outline-none"
+                  value={selectedOriginalScript}
+                  readOnly
+                  spellCheck={false}
+                />
+              </div>
+            )}
+
             {/* Scene Setup */}
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
@@ -362,10 +390,35 @@ function EventsEditor({
               </div>
               <textarea
                 className="h-32 w-full resize-none rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 font-mono text-[10px] leading-4 text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                value={selectedEntry ?? ''}
+                value={selectedEntryString ?? ''}
                 onChange={(e) => {
                   if (!selectedKey) return
                   updateEntries({ ...entries, [selectedKey]: e.target.value })
+                }}
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        ) : selectedEntry !== null ? (
+          /* Non-string entry (object/array/number) — generic JSON editor */
+          <div className="space-y-3 p-3">
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                Entry Value
+              </div>
+              <p className="mb-2 text-[10px] text-[var(--text-secondary)]">
+                This entry is not an event script. Edit the raw JSON below.
+              </p>
+              <textarea
+                className="h-64 w-full resize-none rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 font-mono text-[10px] leading-4 text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                value={JSON.stringify(selectedEntry, null, 2)}
+                onChange={(e) => {
+                  if (!selectedKey) return
+                  try {
+                    updateEntries({ ...entries, [selectedKey]: JSON.parse(e.target.value) })
+                  } catch {
+                    // ignore invalid JSON while typing
+                  }
                 }}
                 spellCheck={false}
               />

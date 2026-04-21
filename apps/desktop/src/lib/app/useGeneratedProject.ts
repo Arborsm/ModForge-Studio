@@ -3,6 +3,7 @@ import {
   copyGeneratedProjectDraft,
   deleteGeneratedProjectDraft,
   exportGeneratedProjectPack,
+  importGeneratedProjectPack,
   loadGeneratedProjectDraft,
   listGeneratedProjectDrafts,
   saveGeneratedProjectDraft,
@@ -63,6 +64,10 @@ export interface GeneratedProjectDraft {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    /** SMAPI manifest optional: minimum API version required. */
+    minimumApiVersion?: string
+    /** SMAPI manifest optional: update check keys (e.g. ["Nexus:1915"]). */
+    updateKeys?: string[]
   }
   overlayTargets: GeneratedProjectOverlayTarget[]
   configSchema: ConfigSchemaEntry[]
@@ -78,6 +83,8 @@ export interface GeneratedProjectDraft {
   }>
   /** CP AliasTokenNames defined at content.json root level. */
   aliasTokenNames: Record<string, string>
+  /** Event source snapshots cached by target path (internal editor state). */
+  eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
 }
 
 export interface VirtualPreviewAsset {
@@ -203,6 +210,8 @@ function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjec
       projectUniqueId: record.projectMetadata.projectUniqueId,
       gameRootPath: record.projectMetadata.gameRootPath,
       contentPackForUniqueId: record.projectMetadata.contentPackForUniqueId,
+      minimumApiVersion: record.projectMetadata.minimumApiVersion ?? undefined,
+      updateKeys: record.projectMetadata.updateKeys ?? undefined,
     },
     overlayTargets: record.overlayTargets.map((t) => ({
       uniqueId: t.uniqueId,
@@ -220,6 +229,8 @@ function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjec
     dynamicTokens: (record.dynamicTokens as Array<{ name: string; value: string; when?: Record<string, unknown> }> | undefined) ?? [],
     customLocations: (record.customLocations as Array<{ name: string; fromMapFile: string; migrateLegacyNames?: string[] }> | undefined) ?? [],
     aliasTokenNames: (record.aliasTokenNames as Record<string, string> | undefined) ?? {},
+    eventSourceSnapshotsByTarget:
+      (record.eventSourceSnapshotsByTarget as Record<string, { rawScriptsByKey: Record<string, string> }> | undefined) ?? {},
   }
 }
 
@@ -234,6 +245,8 @@ function frontendToBackend(draft: GeneratedProjectDraft): GeneratedProjectDraftR
       projectUniqueId: draft.projectMetadata.projectUniqueId,
       gameRootPath: draft.projectMetadata.gameRootPath,
       contentPackForUniqueId: draft.projectMetadata.contentPackForUniqueId,
+      ...(draft.projectMetadata.minimumApiVersion ? { minimumApiVersion: draft.projectMetadata.minimumApiVersion } : {}),
+      ...(draft.projectMetadata.updateKeys && draft.projectMetadata.updateKeys.length > 0 ? { updateKeys: draft.projectMetadata.updateKeys } : {}),
     },
     overlayTargets: draft.overlayTargets.map((t) => ({
       uniqueId: t.uniqueId,
@@ -250,7 +263,7 @@ function frontendToBackend(draft: GeneratedProjectDraft): GeneratedProjectDraftR
     })),
     customLocations: draft.customLocations,
     aliasTokenNames: draft.aliasTokenNames,
-    eventSourceSnapshotsByTarget: {},
+    eventSourceSnapshotsByTarget: draft.eventSourceSnapshotsByTarget,
     lastDraftSavedAt: null,
     lastExportedAt: null,
     lastExportPath: null,
@@ -311,6 +324,12 @@ export function buildManifestJson(draft: GeneratedProjectDraft): string {
     UniqueID: meta.projectUniqueId,
     ContentPackFor: { UniqueID: meta.contentPackForUniqueId },
   }
+  if (meta.minimumApiVersion) {
+    manifest['MinimumApiVersion'] = meta.minimumApiVersion
+  }
+  if (meta.updateKeys && meta.updateKeys.length > 0) {
+    manifest['UpdateKeys'] = meta.updateKeys
+  }
 
   if (draft.configSchema.length > 0) {
     const schema: Record<string, unknown> = {}
@@ -344,9 +363,39 @@ export interface ContentBuildResult {
   includeFiles: Array<{ relativePath: string; content: string }>
 }
 
+/** Map camelCase object keys to PascalCase for CP JSON output. */
+function mapKeysToPascalCase(obj: Record<string, unknown>, keyMap: Record<string, string>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    result[keyMap[k] ?? k] = v
+  }
+  return result
+}
+
+const TEXT_OP_KEY_MAP: Record<string, string> = {
+  operation: 'Operation',
+  target: 'Target',
+  value: 'Value',
+  delimiter: 'Delimiter',
+  search: 'Search',
+  replaceMode: 'ReplaceMode',
+}
+
+const MOVE_ENTRY_KEY_MAP: Record<string, string> = {
+  id: 'ID',
+  beforeId: 'BeforeId',
+  afterId: 'AfterId',
+  toPosition: 'ToPosition',
+}
+
 export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResult {
   // enabled can be boolean or string token (e.g. "{{EnableMapEdit}}")
-  const activePatches = draft.patches.filter((p) => p.enabled !== false)
+  // CP treats "false" (any case) as disabled; everything else is a token or enabled.
+  const activePatches = draft.patches.filter((p) => {
+    if (p.enabled === false) return false
+    if (typeof p.enabled === 'string' && p.enabled.toLowerCase() === 'false') return false
+    return true
+  })
 
   // 按 workspace 分组 changes
   const workspaceChanges = new Map<string, Record<string, unknown>[]>()
@@ -407,7 +456,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
       change['Fields'] = fields
     }
     if (textOperations.length > 0) {
-      change['TextOperations'] = textOperations
+      change['TextOperations'] = textOperations.map((op) =>
+        mapKeysToPascalCase(op as Record<string, unknown>, TEXT_OP_KEY_MAP)
+      )
     }
     // 收集 MoveEntries（CP 格式为数组 { ID, BeforeId, AfterId, ToPosition }）
     const moveEntries: unknown[] = []
@@ -418,7 +469,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
       }
     }
     if (moveEntries.length > 0) {
-      change['MoveEntries'] = moveEntries
+      change['MoveEntries'] = moveEntries.map((entry) =>
+        mapKeysToPascalCase(entry as Record<string, unknown>, MOVE_ENTRY_KEY_MAP)
+      )
     }
 
     // CP PatchConfig common fields from first patch
@@ -426,7 +479,7 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     if (first) {
       if (first.logName) change['LogName'] = first.logName
       if (typeof first.enabled === 'string') change['Enabled'] = first.enabled
-      if (first.fromFile) change['FromFile'] = first.fromFile
+      // Note: EditData cannot use FromFile when Format >= 1.18 (we use 2.0.0)
       const when = normalizeWhen(first.when)
       if (when) change['When'] = when
       if (first.targetLocale) change['TargetLocale'] = first.targetLocale
@@ -436,6 +489,10 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
       if (first.targetField !== undefined && first.targetField.length > 0) change['TargetField'] = first.targetField
     }
 
+    // Skip empty EditData changes: CP requires at least one of Entries/Fields/MoveEntries/TextOperations or FromFile
+    if (!change['Entries'] && !change['Fields'] && !change['TextOperations'] && !change['MoveEntries'] && !change['FromFile']) {
+      continue
+    }
     changes.push(change)
     workspaceChanges.set(ws, changes)
   }
@@ -447,7 +504,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     const change: Record<string, unknown> = {
       Action: patch.action,
       Target: patch.target,
-      LogName: patch.logName,
+    }
+    if (patch.logName) {
+      change['LogName'] = patch.logName
     }
     if (typeof patch.enabled === 'string') {
       change['Enabled'] = patch.enabled
@@ -470,6 +529,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     }
     if (patch.localTokens) {
       change['LocalTokens'] = patch.localTokens
+    }
+    if (patch.targetField !== undefined && patch.targetField.length > 0) {
+      change['TargetField'] = patch.targetField
     }
     const state = patch.editorState as Record<string, unknown> | undefined
     if (state) {
@@ -496,9 +558,17 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
           // Convert structured map tiles to CP's MapTiles format
           if (Array.isArray(v)) {
             change['MapTiles'] = v.map((t: Record<string, unknown>) => {
+              const mapPosValue = (val: unknown): number | string => {
+                if (typeof val === 'number') return val
+                if (typeof val === 'string') {
+                  const num = Number(val)
+                  return Number.isNaN(num) ? val : num
+                }
+                return 0
+              }
               const tile: Record<string, unknown> = {
                 Layer: t['layer'],
-                Position: { X: t['x'] ?? 0, Y: t['y'] ?? 0 },
+                Position: { X: mapPosValue(t['x']), Y: mapPosValue(t['y']) },
               }
               if (t['setTilesheet'] !== undefined && t['setTilesheet'] !== '') {
                 tile['SetTilesheet'] = t['setTilesheet']
@@ -516,19 +586,50 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
             })
           }
         } else if ((k === 'fromArea' || k === 'toArea') && v && typeof v === 'object') {
-          // Convert x/y/width/height to CP's X/Y/Width/Height
+          // Convert x/y/width/height to CP's X/Y/Width/Height (support string tokens)
           const area = v as Record<string, unknown>
+          const mapAreaValue = (val: unknown): number | string => {
+            if (typeof val === 'number') return val
+            if (typeof val === 'string') {
+              const num = Number(val)
+              return Number.isNaN(num) ? val : num
+            }
+            return 0
+          }
           change[k === 'fromArea' ? 'FromArea' : 'ToArea'] = {
-            X: area['x'] ?? 0,
-            Y: area['y'] ?? 0,
-            Width: area['width'] ?? 0,
-            Height: area['height'] ?? 0,
+            X: mapAreaValue(area['x']),
+            Y: mapAreaValue(area['y']),
+            Width: mapAreaValue(area['width']),
+            Height: mapAreaValue(area['height']),
           }
         } else if (k === 'patchMode') {
           change['PatchMode'] = v
+        } else if (k === 'textOperations' && Array.isArray(v)) {
+          change['TextOperations'] = v.map((op) =>
+            mapKeysToPascalCase(op as Record<string, unknown>, TEXT_OP_KEY_MAP)
+          )
+        } else if (k === 'moveEntries' && Array.isArray(v)) {
+          change['MoveEntries'] = v.map((entry) =>
+            mapKeysToPascalCase(entry as Record<string, unknown>, MOVE_ENTRY_KEY_MAP)
+          )
         } else {
           change[k] = v
         }
+      }
+    }
+
+    // Validate patch has required content for its action
+    const action = patch.action
+    if (action === 'EditImage' && !change['FromFile']) {
+      continue // CP requires FromFile for EditImage
+    }
+    if (action === 'Load' && !change['FromFile']) {
+      continue // CP requires FromFile for Load
+    }
+    if (action === 'EditMap') {
+      const hasContent = change['MapProperties'] || change['AddWarps'] || change['AddNpcWarps'] || change['MapTiles'] || change['TextOperations'] || change['FromFile']
+      if (!hasContent) {
+        continue // CP requires at least one of MapProperties/AddWarps/AddNpcWarps/MapTiles/TextOperations/FromFile for EditMap
       }
     }
 
@@ -544,14 +645,11 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     if (changes.length === 0) continue
     const relativePath = `changes/${ws}.json`
 
-    // Include patch must be in Changes array as a regular patch entry
+    // Include patch references the per-workspace changes file
     allChanges.push({
       Action: 'Include',
       FromFile: relativePath,
     })
-
-    // Append actual changes
-    allChanges.push(...changes)
 
     includeFiles.push({
       relativePath,
@@ -563,11 +661,15 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     Format: '2.0.0',
     Changes: allChanges,
   }
+  if (draft.configSchema.length > 0) {
+    content['ConfigSchema'] = serializeConfigSchema(draft.configSchema)
+  }
   if (draft.dynamicTokens.length > 0) {
     content['DynamicTokens'] = draft.dynamicTokens.map((t) => {
       const result: Record<string, unknown> = { Name: t.name, Value: t.value }
-      if (t.when && Object.keys(t.when).length > 0) {
-        result['When'] = t.when
+      const when = normalizeWhen(t.when)
+      if (when) {
+        result['When'] = when
       }
       return result
     })
@@ -669,6 +771,7 @@ export function useGeneratedProject() {
         dynamicTokens: [],
         customLocations: [],
         aliasTokenNames: {},
+        eventSourceSnapshotsByTarget: {},
       }
       const record = frontendToBackend(newDraft)
       await saveGeneratedProjectDraft(record)
@@ -903,6 +1006,26 @@ export function useGeneratedProject() {
     setIsDirty(true)
   }, [])
 
+  // ── Import ──
+
+  const importPack = useCallback(async (modDirectoryPath: string) => {
+    setDraftLoading(true)
+    setDraftError(null)
+    try {
+      const record = await importGeneratedProjectPack(modDirectoryPath)
+      const draft = backendToFrontend(record)
+      setActiveDraft(draft)
+      setIsDirty(false)
+      await refreshDrafts()
+      return draft
+    } catch (error) {
+      setDraftError(error instanceof Error ? error.message : String(error))
+      throw error
+    } finally {
+      setDraftLoading(false)
+    }
+  }, [refreshDrafts])
+
   // ── Export ──
 
   const exportPack = useCallback(
@@ -998,6 +1121,9 @@ export function useGeneratedProject() {
 
     // Metadata
     updateMetadata,
+
+    // Import
+    importPack,
 
     // Build / Export
     buildManifestJson,

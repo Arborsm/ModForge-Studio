@@ -10,13 +10,14 @@ interface ImagePatchEditorProps {
 }
 
 type Area = {
-  x: number
-  y: number
-  width: number
-  height: number
+  x: number | string
+  y: number | string
+  width: number | string
+  height: number | string
 }
 
 export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset }: ImagePatchEditorProps) {
+  const isLoad = patch.action === 'Load'
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
   const toArea = (editorState['toArea'] as Area | undefined) ?? null
@@ -80,10 +81,11 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
     [handleFileSelect],
   )
 
-  function updateArea(areaType: 'fromArea' | 'toArea', field: keyof Area, value: number) {
+  function updateArea(areaType: 'fromArea' | 'toArea', field: keyof Area, raw: string) {
     const current = areaType === 'fromArea' ? fromArea : toArea
     const next: Area = current ? { ...current } : { x: 0, y: 0, width: 0, height: 0 }
-    next[field] = value
+    const num = Number(raw)
+    next[field] = Number.isNaN(num) ? raw : num
     updateEditorState({ [areaType]: next })
   }
 
@@ -167,69 +169,82 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
         {/* Right: Settings */}
         <div className="min-w-0 flex-1 overflow-auto p-3">
           <div className="space-y-4">
-            {/* Patch Mode */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                Patch Mode
-              </label>
-              <select
-                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                value={patchMode}
-                onChange={(e) => updateEditorState({ patchMode: e.target.value })}
-              >
-                <option value="Replace">Replace</option>
-                <option value="Overlay">Overlay</option>
-              </select>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                Replace: overwrite the entire target image. Overlay: blend on top.
-              </p>
-            </div>
-
-            {/* From Area */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                From Area (Source Crop)
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {(['x', 'y', 'width', 'height'] as const).map((field) => (
-                  <div key={field}>
-                    <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
-                    <input
-                      type="number"
-                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                      value={fromArea?.[field] ?? 0}
-                      onChange={(e) => updateArea('fromArea', field, Number(e.target.value))}
-                    />
-                  </div>
-                ))}
+            {isLoad ? (
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
+                <p className="text-xs font-medium text-[var(--text-primary)]">Load Action</p>
+                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                  This patch will replace the entire target asset with the uploaded file. No area or mode options are available for Load patches.
+                </p>
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                Crop region from your replacement image. Leave at 0 to use the full image.
-              </p>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Patch Mode */}
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                    Patch Mode
+                  </label>
+                  <select
+                    className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                    value={patchMode}
+                    onChange={(e) => updateEditorState({ patchMode: e.target.value })}
+                  >
+                    <option value="Replace">Replace</option>
+                    <option value="Overlay">Overlay</option>
+                  </select>
+                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                    Replace: overwrite the entire target image. Overlay: blend on top.
+                  </p>
+                </div>
 
-            {/* To Area */}
-            <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                To Area (Target Position)
-              </label>
-              <div className="grid grid-cols-4 gap-2">
-                {(['x', 'y', 'width', 'height'] as const).map((field) => (
-                  <div key={field}>
-                    <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
-                    <input
-                      type="number"
-                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                      value={toArea?.[field] ?? 0}
-                      onChange={(e) => updateArea('toArea', field, Number(e.target.value))}
-                    />
+                {/* From Area */}
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                    From Area (Source Crop)
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                      <div key={field}>
+                        <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                        <input
+                          type="text"
+                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          value={fromArea?.[field] ?? ''}
+                          placeholder="0"
+                          onChange={(e) => updateArea('fromArea', field, e.target.value)}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
+                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                    Crop region from your replacement image. Numbers or tokens like {'{{X}}'}.
+                  </p>
+                </div>
+
+                {/* To Area */}
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                    To Area (Target Position)
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                      <div key={field}>
+                        <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                        <input
+                          type="text"
+                          className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                          value={toArea?.[field] ?? ''}
+                          placeholder="0"
+                          onChange={(e) => updateArea('toArea', field, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                    Position on the target image. Numbers or tokens like {'{{X}}'}.
+                  </p>
+                </div>
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                Position on the target image where your replacement will be placed.
-              </p>
-            </div>
+            )}
 
             {/* Quick Upload Button */}
             <button
@@ -238,7 +253,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload className="h-3.5 w-3.5" />
-              {displayUrl ? 'Replace Image' : 'Upload Image'}
+              {displayUrl ? 'Replace File' : 'Upload File'}
             </button>
           </div>
         </div>

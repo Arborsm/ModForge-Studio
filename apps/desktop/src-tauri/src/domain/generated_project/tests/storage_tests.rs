@@ -25,6 +25,8 @@ fn sample_draft(draft_storage_key: &str) -> GeneratedProjectDraftRecord {
             project_unique_id: "ModForge.BuilderDraft".to_string(),
             game_root_path: Some("E:\\Games\\Stardew Valley".to_string()),
             content_pack_for_unique_id: "Pathoschild.ContentPatcher".to_string(),
+            minimum_api_version: None,
+            update_keys: Vec::new(),
         },
         overlay_targets: vec![GeneratedProjectOverlayTarget {
             unique_id: "Pathoschild.ContentPatcher".to_string(),

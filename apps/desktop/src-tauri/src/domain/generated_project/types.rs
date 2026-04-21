@@ -54,7 +54,8 @@ pub struct DynamicToken {
 #[serde(rename_all = "camelCase")]
 pub struct CustomLocation {
     pub name: String,
-    pub from_map_file: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from_map_file: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub migrate_legacy_names: Vec<String>,
 }
@@ -70,6 +71,10 @@ pub struct GeneratedProjectMetadata {
     pub game_root_path: Option<String>,
     #[serde(default = "default_content_pack_for_unique_id")]
     pub content_pack_for_unique_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_api_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub update_keys: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,6 +154,7 @@ pub enum GeneratedProjectDraftOperation {
     Copy,
     BuildMapAsset,
     Export,
+    Import,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

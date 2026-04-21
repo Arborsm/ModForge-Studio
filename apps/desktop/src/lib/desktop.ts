@@ -1785,3 +1785,7 @@ export function exportGeneratedProjectPack(request: GeneratedProjectExportReques
 export function buildGeneratedProjectMapAsset(request: BuildGeneratedProjectMapAssetRequest) {
   return invokeDesktop<VirtualPreviewAsset>('build_generated_project_map_asset', { request })
 }
+
+export function importGeneratedProjectPack(modDirectoryPath: string) {
+  return invokeDesktop<GeneratedProjectDraftRecord>('import_generated_project_pack', { modDirectoryPath })
+}
