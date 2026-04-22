@@ -309,10 +309,6 @@ fn default_json_object() -> Value {
     json!({})
 }
 
-fn default_true() -> bool {
-    true
-}
-
 fn default_true_value() -> Value {
     Value::Bool(true)
 }

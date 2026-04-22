@@ -1,6 +1,6 @@
 use crate::domain::content_patcher;
 use crate::domain::content_patcher::types::{
-    ContentPatcherPreviewRequest, ContentPatcherProjectSnapshot, ExportContentPatcherAssetRequest,
+    ContentPatcherProjectSnapshot, ExportContentPatcherAssetRequest,
     ExportContentPatcherAssetResult, LoadContentPatcherResultAssetRequest,
     LoadContentPatcherResultAssetResult, SimulateContentPatcherRequest,
     SimulateContentPatcherResult,
@@ -16,12 +16,6 @@ pub fn simulate_content_patcher(
     request: SimulateContentPatcherRequest,
 ) -> Result<SimulateContentPatcherResult, String> {
     content_patcher::simulate_content_patcher(request)
-}
-
-pub fn build_preview_simulation_request(
-    request: ContentPatcherPreviewRequest,
-) -> SimulateContentPatcherRequest {
-    request.into()
 }
 
 #[tauri::command]

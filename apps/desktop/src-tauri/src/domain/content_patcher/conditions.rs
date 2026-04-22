@@ -108,13 +108,6 @@ fn lookup_context_value<'a>(
         .map(|(_, value)| value)
 }
 
-fn strip_prefix_case_insensitive<'a>(value: &'a str, prefix: &str) -> Option<&'a str> {
-    value
-        .get(..prefix.len())
-        .filter(|candidate| candidate.eq_ignore_ascii_case(prefix))
-        .and_then(|_| value.get(prefix.len()..))
-}
-
 fn list_contains(values: &[String], item: &str) -> bool {
     values.iter().any(|v| v.eq_ignore_ascii_case(item))
 }

@@ -51,7 +51,6 @@ export default defineConfig({
           }
 
           if (
-            normalizedId.includes('/src/components/EventWorkspace') ||
             normalizedId.includes('/src/components/EventStageWorkspace') ||
             normalizedId.includes('/src/lib/events/') ||
             normalizedId.includes('/src/lib/app/eventStage')
