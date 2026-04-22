@@ -889,6 +889,13 @@ export type EditorCopy = {
     scanned: string
     hover: string
     coordinates: string
+    event: string
+    commands: string
+    actors: string
+    selectedCommand: string
+    modified: string
+    design: string
+    noEditItem: string
   }
   common: {
     none: string

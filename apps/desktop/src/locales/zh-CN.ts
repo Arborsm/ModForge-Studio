@@ -408,7 +408,14 @@ const localeBundle = {
       "pathMissing": "未验证路径",
       "scanned": "扫描结果",
       "hover": "悬停",
-      "coordinates": "坐标"
+      "coordinates": "坐标",
+      "event": "事件",
+      "commands": "指令",
+      "actors": "角色",
+      "selectedCommand": "选中",
+      "modified": "已修改",
+      "design": "设计了",
+      "noEditItem": "未选择编辑项"
     },
     "common": {
       "none": "无",

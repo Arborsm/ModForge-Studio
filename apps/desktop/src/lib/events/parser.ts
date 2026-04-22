@@ -39,10 +39,7 @@ function splitOutsideQuotes(source: string, delimiter: string) {
     }
 
     if (!inQuotes && source.startsWith(delimiter, index)) {
-      const trimmed = current.trim()
-      if (trimmed) {
-        result.push(trimmed)
-      }
+      result.push(current.trim())
       current = ''
       index += delimiter.length - 1
       continue
@@ -51,11 +48,7 @@ function splitOutsideQuotes(source: string, delimiter: string) {
     current += char
   }
 
-  const tail = current.trim()
-  if (tail) {
-    result.push(tail)
-  }
-
+  result.push(current.trim())
   return result
 }
 

@@ -1141,6 +1141,7 @@ export default function WorkbenchExperience({
         appMode="workbench"
         launcherPage="library"
         workspaceMode={workspaceMode}
+        workspaceViewMode={workspaceViewMode}
         workspaceStatus={currentWorkspaceStatus}
         directoryInfo={directoryInfo}
         mapAssets={mapAssets}
@@ -1148,6 +1149,14 @@ export default function WorkbenchExperience({
         mapDocument={mapDocument}
         pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
         hoverInfo={hoverInfo}
+        eventName={selectedEvent?.eventId ?? null}
+        eventPreconditions={selectedEvent?.preconditions}
+        eventCommandCount={selectedEvent?.commands.length ?? 0}
+        eventActorCount={selectedEvent?.scene.actors.length ?? 0}
+        currentEventCommandId={currentEventCommandId}
+        patchName={activeEditPatchId ?? null}
+        scriptLength={selectedEvent?.rawScript.length}
+        isModified={selectedEvent ? selectedEvent.rawScript !== (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript) : false}
       />
     </div>
   )
@@ -1232,6 +1241,7 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
             theme={theme}
             accentColor={accentColor}
             viewportLabels={viewportLabels}
+            gameRootPath={directoryInfo?.rootPath ?? null}
           />
         )
       })() : (

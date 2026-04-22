@@ -57,6 +57,8 @@ type MapViewportProps = {
   viewportOverlay?: ReactNode
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
+  contextMenuExtraItems?: ReactNode
+  onAddObjectHere?: (tileX: number, tileY: number) => void
   initialZoom?: number | null
 }
 
@@ -686,6 +688,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     viewportOverlay,
     focusWorldPoint,
     contextMenuEnabled = true,
+    contextMenuExtraItems,
+    onAddObjectHere,
     initialZoom = null,
   },
   ref,
@@ -696,6 +700,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const mapRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const lastHoverRef = useRef<TileHoverInfo | null>(null)
   const foregroundRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
@@ -1686,7 +1691,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    onHoverChange?.(buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY))
+    const info = buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY)
+    if (info) {
+      lastHoverRef.current = info
+    }
+    onHoverChange?.(info)
   }
 
   function getCanvasWorldPoint(clientX: number, clientY: number) {
@@ -1968,9 +1977,26 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             {labels.resetPan}
           </ContextMenu.Item>
           <ContextMenu.Separator className="context-menu-separator" />
-          <ContextMenu.Item className="context-menu-item" disabled>
-            {labels.addObjectHere} · {labels.unavailable}
-          </ContextMenu.Item>
+          {onAddObjectHere ? (
+            <ContextMenu.Item
+              className="context-menu-item"
+              disabled={!lastHoverRef.current}
+              onSelect={() => {
+                const hover = lastHoverRef.current
+                if (hover) {
+                  onAddObjectHere(hover.tileX, hover.tileY)
+                }
+              }}
+            >
+              {labels.addObjectHere}
+              {lastHoverRef.current ? ` (${lastHoverRef.current.tileX}, ${lastHoverRef.current.tileY})` : ''}
+            </ContextMenu.Item>
+          ) : (
+            <ContextMenu.Item className="context-menu-item" disabled>
+              {labels.addObjectHere} · {labels.unavailable}
+            </ContextMenu.Item>
+          )}
+          {contextMenuExtraItems}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

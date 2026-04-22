@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Grid2x2 } from 'lucide-react'
+import { Grid2x2, UserPlus, Camera, MapPin } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { loadMapAsset, validateGameDirectory } from '../../lib/desktop'
 import { loadImageUrlFromPath } from '../../lib/imageMetrics'
 import type { MapDocument } from '../../lib/maps/types'
 import type { EventSceneActor, EventScript } from '../../lib/events/types'
-import { MapViewport, type ViewportWorldPoint } from '../MapViewport'
+import { MapViewport, type ViewportWorldPoint, type TileHoverInfo } from '../MapViewport'
 import { cx } from '../../lib/cx'
 
 const FARMER_NAME_PATTERN = /^farmer\d*$/iu
@@ -131,6 +132,10 @@ export interface EventStagePreviewProps {
   initialZoom?: number
   /** Callback fired when actor sprite/portrait assets are loaded. */
   onActorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
+  /** Callback fired when user clicks on a tile in the map. */
+  onTileClick?: (tileX: number, tileY: number) => void
+  /** Callback fired when user selects a context menu action on the map. */
+  onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp', tileX: number, tileY: number) => void
 }
 
 export function EventStagePreview({
@@ -147,11 +152,14 @@ export function EventStagePreview({
   hideHeader,
   initialZoom = EVENT_STAGE_INITIAL_ZOOM,
   onActorAssetsChange,
+  onTileClick,
+  onContextMenuAction,
 }: EventStagePreviewProps) {
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapError, setMapError] = useState('')
   const [actorAssets, setActorAssets] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
   const [showGrid, setShowGrid] = useState(true)
+  const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
 
   // Load map
   useEffect(() => {
@@ -325,6 +333,24 @@ export function EventStagePreview({
             {eventScript?.eventId ?? mapName ?? 'Scene'}
           </div>
         </div>
+        <div className="flex items-end justify-between gap-3">
+          {hoverInfo && (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)] shadow-[var(--shadow-panel)]">
+                ({hoverInfo.tileX}, {hoverInfo.tileY})
+              </span>
+              {onTileClick && (
+                <button
+                  type="button"
+                  className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[9px] font-semibold text-white shadow-sm hover:opacity-90"
+                  onClick={() => onTileClick(hoverInfo.tileX, hoverInfo.tileY)}
+                >
+                  Use
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {additionalViewportOverlay}
     </div>
@@ -373,11 +399,40 @@ export function EventStagePreview({
               accentColor={accentColor}
               showGrid={showGrid}
               showStatsChips={false}
-              contextMenuEnabled={false}
+              contextMenuEnabled={true}
+              contextMenuExtraItems={
+                onContextMenuAction && hoverInfo ? (
+                  <>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
+                      Add Actor Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <Camera className="mr-1.5 inline h-3.5 w-3.5" />
+                      Set Camera Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                    </ContextMenu.Item>
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
+                      Add Warp Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                    </ContextMenu.Item>
+                  </>
+                ) : null
+              }
               initialZoom={initialZoom}
               mapOverlay={mapOverlay}
               viewportOverlay={viewportOverlay}
               focusWorldPoint={focusWorldPoint}
+              onHoverChange={setHoverInfo}
             />
           </div>
         ) : (

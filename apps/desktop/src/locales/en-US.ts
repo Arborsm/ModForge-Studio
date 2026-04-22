@@ -473,7 +473,14 @@ const localeBundle: LocaleBundle = {
       "pathMissing": "Path not validated",
       "scanned": "Scanned",
       "hover": "Hover",
-      "coordinates": "Coordinates"
+      "coordinates": "Coordinates",
+      "event": "Event",
+      "commands": "Commands",
+      "actors": "Actors",
+      "selectedCommand": "Selected",
+      "modified": "Modified",
+      "design": "Design",
+      "noEditItem": "No item selected for editing"
     },
     "common": {
       "none": "None",
