@@ -1,13 +1,11 @@
-﻿import { Grid2x2, Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
+﻿import { Pause, Play, RotateCcw, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { loadMapAsset, type GameDirectoryInfo } from '../lib/desktop'
+import type { GameDirectoryInfo } from '../lib/desktop'
 import type { ThemeMode, ViewportLabels } from '../lib/editor-shell'
-import { loadImageUrlFromPath } from '../lib/imageMetrics'
 import { parseEventCommand } from '../lib/events/parser'
 import type { EventCommand, EventSceneActor, EventScript, ParsedEventAsset } from '../lib/events/types'
-import type { MapDocument } from '../lib/maps/types'
 import { cx } from '../lib/cx'
-import { MapViewport, type ViewportWorldPoint } from './MapViewport'
+import { EventStagePreview } from './event-workflow/EventStagePreview'
 
 type EventWorkspaceProps = {
   locale: 'zh-CN' | 'en-US'
@@ -73,21 +71,8 @@ type PlaybackState = {
   ended: boolean
 }
 
-type ActorAssetUrlsState = {
-  requestKey: string
-  spriteUrl: string | null
-  portraitUrl: string | null
-}
-
-const parsedEventStageMapCache = new Map<string, MapDocument>()
-
 const SETUP_ENTRY_ID = 'setup'
 const FARMER_NAME_PATTERN = /^farmer\d*$/iu
-const EVENT_STAGE_INITIAL_ZOOM = 2.5
-
-function getParsedEventStageMapCacheKey(rootPath: string, mapPath: string, locale: EventWorkspaceProps['locale']) {
-  return `${rootPath.replaceAll('/', '\\')}::${mapPath.replaceAll('/', '\\')}::${locale}`
-}
 
 function buildLabels(locale: 'zh-CN' | 'en-US') {
   return locale === 'zh-CN'
@@ -862,132 +847,11 @@ export default function EventWorkspace({
 }: EventWorkspaceProps) {
   const labels = buildLabels(locale)
   const [autoPlay, setAutoPlay] = useState(false)
-  const [showGrid, setShowGrid] = useState(true)
   const [selectedEntryId, setSelectedEntryId] = useState<string>(SETUP_ENTRY_ID)
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() =>
     createInitialPlaybackState(selectedEvent, directoryInfo?.rootPath ?? null),
   )
-  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
-  const [mapMessage, setMapMessage] = useState('')
-  const [actorAssetUrls, setActorAssetUrls] = useState<Record<string, ActorAssetUrlsState>>({})
-
-  useEffect(() => {
-    if (!parsedEventAsset || !directoryInfo?.rootPath) {
-      setMapDocument(null)
-      setMapMessage('')
-      return
-    }
-
-    if (!directoryInfo.mapsPath) {
-      setMapDocument(null)
-      setMapMessage(labels.stageMissing)
-      return
-    }
-
-    const mapPath = `${directoryInfo.mapsPath}\\${parsedEventAsset.asset.name}.xnb`
-    let cancelled = false
-
-    setMapMessage(labels.stageWaiting)
-
-    void (async () => {
-      try {
-        const asset = await loadMapAsset(directoryInfo.rootPath, mapPath, locale)
-        if (cancelled) {
-          return
-        }
-
-        if (asset.format === 'xnb') {
-          const cacheKey = getParsedEventStageMapCacheKey(directoryInfo.rootPath, mapPath, locale)
-          const cachedDocument = parsedEventStageMapCache.get(cacheKey)
-          const nextDocument = cachedDocument ?? (JSON.parse(asset.content) as MapDocument)
-          if (!cachedDocument) {
-            parsedEventStageMapCache.set(cacheKey, nextDocument)
-          }
-          setMapDocument(nextDocument)
-        } else {
-          throw new Error('Only XNB maps can be staged for events.')
-        }
-        setMapMessage(asset.relativePath)
-      } catch (error) {
-        if (!cancelled) {
-          setMapDocument(null)
-          setMapMessage(`${labels.stageFailed}: ${error instanceof Error ? error.message : String(error)}`)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [directoryInfo?.rootPath, directoryInfo?.mapsPath, labels.stageFailed, labels.stageMissing, labels.stageWaiting, locale, parsedEventAsset])
-
-  const actorAssetRequests = useMemo(
-    () =>
-      Object.entries(playbackState.actors).map(([key, actor]) => ({
-        key,
-        spritePath: actor.spritePath,
-        portraitPath: actor.portraitPath,
-        requestKey: `${actor.spritePath ?? ''}::${actor.portraitPath ?? ''}`,
-      })),
-    [playbackState.actors],
-  )
-
-  useEffect(() => {
-    if (!directoryInfo?.rootPath) {
-      setActorAssetUrls({})
-      return
-    }
-
-    setActorAssetUrls((current) =>
-      Object.fromEntries(
-        actorAssetRequests.flatMap((request) => {
-          const cached = current[request.key]
-          return cached?.requestKey === request.requestKey ? [[request.key, cached] as const] : []
-        }),
-      ),
-    )
-  }, [actorAssetRequests, directoryInfo?.rootPath])
-
-  const pendingActorAssetRequests = useMemo(
-    () => actorAssetRequests.filter((request) => actorAssetUrls[request.key]?.requestKey !== request.requestKey),
-    [actorAssetRequests, actorAssetUrls],
-  )
-
-  useEffect(() => {
-    if (!directoryInfo?.rootPath || pendingActorAssetRequests.length === 0) {
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      const entries = await Promise.all(
-        pendingActorAssetRequests.map(async (request) => {
-          const spriteUrl = request.spritePath ? await loadImageUrlFromPath(request.spritePath).catch(() => null) : null
-          const portraitUrl = request.portraitPath ? await loadImageUrlFromPath(request.portraitPath).catch(() => null) : null
-          return [
-            request.key,
-            {
-              requestKey: request.requestKey,
-              spriteUrl,
-              portraitUrl,
-            } satisfies ActorAssetUrlsState,
-          ] as const
-        }),
-      )
-
-      if (!cancelled) {
-        setActorAssetUrls((current) => ({
-          ...current,
-          ...Object.fromEntries(entries),
-        }))
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [directoryInfo?.rootPath, pendingActorAssetRequests])
+  const [actorAssetUrls, setActorAssetUrls] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
 
   useEffect(() => {
     setAutoPlay(false)
@@ -1067,92 +931,12 @@ export default function EventWorkspace({
   const selectedTimelineEntry =
     timelineEntries.find((entry) => entry.id === selectedEntryId) ?? timelineEntries[0] ?? null
   const selectedCommand = selectedTimelineEntry?.command ?? null
-  const focusWorldPoint = useMemo<ViewportWorldPoint | null>(() => {
-    if (!mapDocument || !playbackState.focusTile) {
-      return null
-    }
-
-    return {
-      worldX: (playbackState.focusTile.tileX + 0.5) * mapDocument.tileWidth,
-      worldY: (playbackState.focusTile.tileY + 0.5) * mapDocument.tileHeight,
-    }
-  }, [mapDocument, playbackState.focusTile])
   const currentDialogueActor =
     playbackState.currentEntry?.tone === 'dialogue' && playbackState.currentEntry.title
       ? getActorByName(playbackState.actors, playbackState.currentEntry.title)
       : null
 
-  const mapOverlay = useMemo(() => {
-    if (!mapDocument) {
-      return null
-    }
-
-    return (
-      <div className="absolute inset-0">
-        {Object.values(playbackState.actors)
-          .sort((left, right) => left.tileY - right.tileY)
-          .map((actor) => {
-            const pixelX = actor.tileX * mapDocument.tileWidth
-            const pixelY = (actor.tileY - 1) * mapDocument.tileHeight
-            const spriteFrameX = (actor.frame % 4) * 16
-            const spriteFrameY = Math.floor(actor.frame / 4) * 32
-            const actorHeight = mapDocument.tileHeight * 2
-            const actorWidth = mapDocument.tileWidth
-            const actorLabel = normalizeActorName(actor.actorName)
-            const actorKey = toActorKey(actor.actorName)
-            const spriteUrl = actorAssetUrls[actorKey]?.spriteUrl ?? null
-
-            return (
-              <div
-                key={actor.id}
-                className="absolute transition-[transform] duration-300 ease-out"
-                style={{
-                  transform: `translate(${pixelX}px, ${pixelY}px)`,
-                  width: `${actorWidth}px`,
-                  height: `${actorHeight}px`,
-                  zIndex: actor.tileY,
-                }}
-              >
-                {spriteUrl ? (
-                  <div
-                    className="relative overflow-hidden"
-                    style={{
-                      width: `${actorWidth}px`,
-                      height: `${actorHeight}px`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '16px',
-                        height: '32px',
-                        transform: `scale(${Math.max(1, actorWidth / 16)})`,
-                        transformOrigin: 'top left',
-                        backgroundImage: `url(${spriteUrl})`,
-                        backgroundPosition: `-${spriteFrameX}px -${spriteFrameY}px`,
-                        backgroundRepeat: 'no-repeat',
-                        imageRendering: 'pixelated',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-full w-full items-end justify-center">
-                    <div className="rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-                      {actorLabel}
-                    </div>
-                  </div>
-                )}
-
-                <div className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-                  {actorLabel}
-                </div>
-              </div>
-            )
-          })}
-      </div>
-    )
-  }, [actorAssetUrls, mapDocument, playbackState.actors])
-
-  const viewportOverlay = (
+  const additionalViewportOverlay = (
     <div className="absolute inset-0 flex flex-col justify-between p-4 pb-24">
       <div className="flex justify-between gap-3">
         <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
@@ -1278,31 +1062,21 @@ export default function EventWorkspace({
       <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="grid min-h-0 gap-3 xl:grid-rows-[minmax(0,1fr)_240px]">
           <div className="panel-surface panel-surface-muted min-h-0">
-            <div className="panel-header">
-              <div>
-                <p className="panel-title">{labels.scene}</p>
-                <p className="panel-subtitle">{mapMessage || eventStatusMessage}</p>
-              </div>
-            </div>
-
-            <div className="panel-body min-h-0 p-3">
-              <div className="relative h-full">
-                <MapViewport
-                  key={mapDocument ? `${mapDocument.sourcePath}:${selectedEvent?.key ?? 'event'}` : `empty:${selectedEvent?.key ?? 'event'}`}
+            <div className="panel-body min-h-0 p-0 h-full"
+            >
+              <div className="relative h-full"
+              >
+                <EventStagePreview
+                  eventScript={selectedEvent}
+                  mapName={parsedEventAsset.asset.name}
+                  gameRootPath={directoryInfo?.rootPath ?? null}
                   locale={locale}
-                  mapDocument={mapDocument}
-                  visibleLayerIds={mapDocument?.layers.map((layer) => layer.id) ?? []}
-                  visibleObjectGroupIds={[]}
-                  labels={viewportLabels}
                   theme={theme}
                   accentColor={accentColor}
-                  showGrid={showGrid}
-                  showStatsChips={false}
-                  contextMenuEnabled={false}
-                  initialZoom={EVENT_STAGE_INITIAL_ZOOM}
-                  mapOverlay={mapOverlay}
-                  viewportOverlay={viewportOverlay}
-                  focusWorldPoint={focusWorldPoint}
+                  viewportLabels={viewportLabels}
+                  hideHeader
+                  additionalViewportOverlay={additionalViewportOverlay}
+                  onActorAssetsChange={setActorAssetUrls}
                 />
                 <div className="workspace-viewport-toolbar" role="toolbar" aria-label={labels.scene}>
                   <div className="workspace-viewport-toolbar-group">
@@ -1340,17 +1114,7 @@ export default function EventWorkspace({
                   </div>
 
                   <div className="workspace-viewport-toolbar-group workspace-viewport-toolbar-group-push">
-                    <button
-                      type="button"
-                      className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
-                      title="Toggle grid"
-                      aria-label="Toggle grid"
-                      aria-pressed={showGrid}
-                      disabled={!mapDocument}
-                      onClick={() => setShowGrid((current) => !current)}
-                    >
-                      <Grid2x2 className="h-4 w-4" />
-                    </button>
+                    {/* Grid toggle is provided by EventStagePreview */}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Grid2x2 } from 'lucide-react'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { loadMapAsset, validateGameDirectory } from '../../lib/desktop'
@@ -121,6 +121,16 @@ export interface EventStagePreviewProps {
   accentColor?: string
   viewportLabels?: ViewportLabels
   className?: string
+  /** Additional overlay rendered on top of the map (inside map coordinate space). */
+  additionalMapOverlay?: ReactNode
+  /** Additional overlay rendered on top of the viewport (screen space). */
+  additionalViewportOverlay?: ReactNode
+  /** Hide default header. */
+  hideHeader?: boolean
+  /** Initial zoom level. */
+  initialZoom?: number
+  /** Callback fired when actor sprite/portrait assets are loaded. */
+  onActorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
 }
 
 export function EventStagePreview({
@@ -132,10 +142,15 @@ export function EventStagePreview({
   accentColor = '#6366f1',
   viewportLabels = {} as ViewportLabels,
   className,
+  additionalMapOverlay,
+  additionalViewportOverlay,
+  hideHeader,
+  initialZoom = EVENT_STAGE_INITIAL_ZOOM,
+  onActorAssetsChange,
 }: EventStagePreviewProps) {
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapError, setMapError] = useState('')
-  const [actorSprites, setActorSprites] = useState<Record<string, string | null>>({})
+  const [actorAssets, setActorAssets] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
   const [showGrid, setShowGrid] = useState(true)
 
   // Load map
@@ -186,10 +201,11 @@ export function EventStagePreview({
   // Build actor map from event script
   const actorMap = useMemo(() => buildActorMap(eventScript, gameRootPath), [eventScript, gameRootPath])
 
-  // Load actor sprites
+  // Load actor sprites and portraits
   useEffect(() => {
     if (!gameRootPath || Object.keys(actorMap).length === 0) {
-      setActorSprites({})
+      setActorAssets({})
+      onActorAssetsChange?.({})
       return
     }
 
@@ -199,20 +215,22 @@ export function EventStagePreview({
       const entries = await Promise.all(
         Object.values(actorMap).map(async (actor) => {
           const key = toActorKey(actor.actorName)
-          if (!actor.spritePath) return [key, null] as const
-          const url = await loadImageUrlFromPath(actor.spritePath).catch(() => null)
-          return [key, url] as const
+          const spriteUrl = actor.spritePath ? await loadImageUrlFromPath(actor.spritePath).catch(() => null) : null
+          const portraitUrl = actor.portraitPath ? await loadImageUrlFromPath(actor.portraitPath).catch(() => null) : null
+          return [key, { spriteUrl, portraitUrl }] as const
         }),
       )
+      const next = Object.fromEntries(entries)
       if (!cancelled) {
-        setActorSprites(Object.fromEntries(entries))
+        setActorAssets(next)
+        onActorAssetsChange?.(next)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [actorMap, gameRootPath])
+  }, [actorMap, gameRootPath, onActorAssetsChange])
 
   const focusWorldPoint = useMemo<ViewportWorldPoint | null>(() => {
     if (!mapDocument) return null
@@ -224,11 +242,11 @@ export function EventStagePreview({
     }
   }, [mapDocument, eventScript, actorMap])
 
-  const mapOverlay = useMemo(() => {
+  const baseMapOverlay = useMemo(() => {
     if (!mapDocument) return null
 
     return (
-      <div className="absolute inset-0">
+      <>
         {Object.values(actorMap)
           .sort((left, right) => left.tileY - right.tileY)
           .map((actor) => {
@@ -240,7 +258,7 @@ export function EventStagePreview({
             const actorWidth = mapDocument.tileWidth
             const actorLabel = normalizeActorName(actor.actorName)
             const actorKey = toActorKey(actor.actorName)
-            const spriteUrl = actorSprites[actorKey] ?? null
+            const spriteUrl = actorAssets[actorKey]?.spriteUrl ?? null
 
             return (
               <div
@@ -288,47 +306,60 @@ export function EventStagePreview({
               </div>
             )
           })}
-      </div>
+      </>
     )
-  }, [actorMap, actorSprites, mapDocument])
+  }, [actorMap, actorAssets, mapDocument])
+
+  const mapOverlay = (
+    <div className="absolute inset-0">
+      {baseMapOverlay}
+      {additionalMapOverlay}
+    </div>
+  )
 
   const viewportOverlay = (
-    <div className="absolute inset-0 flex flex-col justify-between p-4">
-      <div className="flex justify-between gap-3">
-        <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-          {eventScript?.eventId ?? mapName ?? 'Scene'}
+    <div className="absolute inset-0">
+      <div className="absolute inset-0 flex flex-col justify-between p-4">
+        <div className="flex justify-between gap-3">
+          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+            {eventScript?.eventId ?? mapName ?? 'Scene'}
+          </div>
         </div>
       </div>
+      {additionalViewportOverlay}
     </div>
   )
 
   const hasValidStage = Boolean(mapDocument && eventScript)
+  const bodyHeightClass = hideHeader ? 'h-full' : 'h-[calc(100%-58px)]'
 
   return (
     <div className={`flex h-full flex-col ${className ?? ''}`}>
-      <div className="panel-header">
-        <div>
-          <p className="panel-title">Stage Preview</p>
-          <p className="panel-subtitle">
-            {mapError || (mapDocument ? `${mapName} — ${eventScript?.scene.actors.length ?? 0} actors` : 'Loading stage...')}
-          </p>
+      {!hideHeader && (
+        <div className="panel-header">
+          <div>
+            <p className="panel-title">Stage Preview</p>
+            <p className="panel-subtitle">
+              {mapError || (mapDocument ? `${mapName} — ${eventScript?.scene.actors.length ?? 0} actors` : 'Loading stage...')}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
+              title="Toggle grid"
+              aria-label="Toggle grid"
+              aria-pressed={showGrid}
+              disabled={!mapDocument}
+              onClick={() => setShowGrid((current) => !current)}
+            >
+              <Grid2x2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
-            title="Toggle grid"
-            aria-label="Toggle grid"
-            aria-pressed={showGrid}
-            disabled={!mapDocument}
-            onClick={() => setShowGrid((current) => !current)}
-          >
-            <Grid2x2 className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      )}
 
-      <div className="panel-body h-[calc(100%-58px)] min-h-0 p-3">
+      <div className={`panel-body ${bodyHeightClass} min-h-0 p-3`}>
         {hasValidStage ? (
           <div className="relative h-full">
             <MapViewport
@@ -343,7 +374,7 @@ export function EventStagePreview({
               showGrid={showGrid}
               showStatsChips={false}
               contextMenuEnabled={false}
-              initialZoom={EVENT_STAGE_INITIAL_ZOOM}
+              initialZoom={initialZoom}
               mapOverlay={mapOverlay}
               viewportOverlay={viewportOverlay}
               focusWorldPoint={focusWorldPoint}
