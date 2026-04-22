@@ -1,0 +1,370 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Grid2x2 } from 'lucide-react'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
+import { loadMapAsset, validateGameDirectory } from '../../lib/desktop'
+import { loadImageUrlFromPath } from '../../lib/imageMetrics'
+import type { MapDocument } from '../../lib/maps/types'
+import type { EventSceneActor, EventScript } from '../../lib/events/types'
+import { MapViewport, type ViewportWorldPoint } from '../MapViewport'
+import { cx } from '../../lib/cx'
+
+const FARMER_NAME_PATTERN = /^farmer\d*$/iu
+const EVENT_STAGE_INITIAL_ZOOM = 2.5
+
+function normalizeActorName(value: string) {
+  return value.trim().replace(/\?$/u, '')
+}
+
+function toActorKey(actorName: string) {
+  return normalizeActorName(actorName).toLowerCase()
+}
+
+function isFarmerActor(actorName: string) {
+  return FARMER_NAME_PATTERN.test(normalizeActorName(actorName))
+}
+
+function getTextureName(actorName: string) {
+  const normalized = normalizeActorName(actorName)
+  if (!normalized || normalized === 'player' || isFarmerActor(normalized) || normalized === 'spouse') {
+    return null
+  }
+  return normalized
+}
+
+function getDefaultFrame(direction: number) {
+  switch (direction) {
+    case 0:
+      return 8
+    case 1:
+      return 4
+    case 3:
+      return 12
+    default:
+      return 0
+  }
+}
+
+function resolveActorFocusTile(actorMap: Record<string, EventActorState>) {
+  const farmer = Object.values(actorMap).find((actor) => isFarmerActor(actor.actorName))
+  const primary = farmer ?? Object.values(actorMap)[0]
+  return primary ? { tileX: primary.tileX, tileY: primary.tileY } : null
+}
+
+function resolveCameraFocus(
+  event: EventScript | null,
+  actorMap: Record<string, EventActorState>,
+) {
+  if (!event) return resolveActorFocusTile(actorMap)
+  const raw = event.scene.cameraInstruction?.trim()
+  if (!raw || raw === 'continue' || raw === 'follow') {
+    return resolveActorFocusTile(actorMap)
+  }
+  const parts = raw.split(/\s+/u)
+  const tileX = Number.parseInt(parts[0] ?? '', 10)
+  const tileY = Number.parseInt(parts[1] ?? '', 10)
+  if (Number.isFinite(tileX) && Number.isFinite(tileY)) {
+    return { tileX, tileY }
+  }
+  const actor = actorMap[toActorKey(raw)]
+  return actor ? { tileX: actor.tileX, tileY: actor.tileY } : resolveActorFocusTile(actorMap)
+}
+
+type EventActorState = {
+  id: string
+  actorName: string
+  textureName: string | null
+  tileX: number
+  tileY: number
+  facingDirection: number
+  frame: number
+  spritePath: string | null
+  portraitPath: string | null
+  spriteUrl: string | null
+  portraitUrl: string | null
+}
+
+function createActorState(actor: EventSceneActor, rootPath: string | null): EventActorState {
+  const textureName = getTextureName(actor.actorName)
+  return {
+    id: actor.id,
+    actorName: actor.actorName,
+    textureName,
+    tileX: actor.tileX,
+    tileY: actor.tileY,
+    facingDirection: actor.facingDirection,
+    frame: getDefaultFrame(actor.facingDirection),
+    spritePath: textureName && rootPath ? `${rootPath}\\Content\\Characters\\${textureName}.xnb` : null,
+    portraitPath: textureName && rootPath ? `${rootPath}\\Content\\Portraits\\${textureName}.xnb` : null,
+    spriteUrl: null,
+    portraitUrl: null,
+  }
+}
+
+function buildActorMap(event: EventScript | null, rootPath: string | null): Record<string, EventActorState> {
+  if (!event) return {}
+  return Object.fromEntries(
+    event.scene.actors.map((actor) => {
+      const actorState = createActorState(actor, rootPath)
+      return [toActorKey(actor.actorName), actorState]
+    }),
+  )
+}
+
+// ─── Component ───────────────────────────────────────────────────────────
+
+export interface EventStagePreviewProps {
+  eventScript: EventScript | null
+  mapName: string | null
+  gameRootPath: string | null
+  locale?: LocaleCode
+  theme?: ThemeMode
+  accentColor?: string
+  viewportLabels?: ViewportLabels
+  className?: string
+}
+
+export function EventStagePreview({
+  eventScript,
+  mapName,
+  gameRootPath,
+  locale = 'en-US',
+  theme = 'light',
+  accentColor = '#6366f1',
+  viewportLabels = {} as ViewportLabels,
+  className,
+}: EventStagePreviewProps) {
+  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
+  const [mapError, setMapError] = useState('')
+  const [actorSprites, setActorSprites] = useState<Record<string, string | null>>({})
+  const [showGrid, setShowGrid] = useState(true)
+
+  // Load map
+  useEffect(() => {
+    if (!gameRootPath || !mapName) {
+      setMapDocument(null)
+      setMapError(gameRootPath ? 'No map name provided.' : '')
+      return
+    }
+
+    let cancelled = false
+    setMapError('')
+
+    void (async () => {
+      try {
+        const directoryInfo = await validateGameDirectory(gameRootPath)
+        if (cancelled) return
+        if (!directoryInfo.mapsPath) {
+          setMapDocument(null)
+          setMapError('No maps folder found in game directory.')
+          return
+        }
+
+        const mapPath = `${directoryInfo.mapsPath}\\${mapName}.xnb`
+        const asset = await loadMapAsset(gameRootPath, mapPath, locale)
+        if (cancelled) return
+
+        if (asset.format === 'xnb') {
+          const doc = JSON.parse(asset.content) as MapDocument
+          setMapDocument(doc)
+        } else {
+          setMapDocument(null)
+          setMapError('Only XNB maps can be staged for events.')
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setMapDocument(null)
+          setMapError(err instanceof Error ? err.message : String(err))
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [gameRootPath, mapName, locale])
+
+  // Build actor map from event script
+  const actorMap = useMemo(() => buildActorMap(eventScript, gameRootPath), [eventScript, gameRootPath])
+
+  // Load actor sprites
+  useEffect(() => {
+    if (!gameRootPath || Object.keys(actorMap).length === 0) {
+      setActorSprites({})
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const entries = await Promise.all(
+        Object.values(actorMap).map(async (actor) => {
+          const key = toActorKey(actor.actorName)
+          if (!actor.spritePath) return [key, null] as const
+          const url = await loadImageUrlFromPath(actor.spritePath).catch(() => null)
+          return [key, url] as const
+        }),
+      )
+      if (!cancelled) {
+        setActorSprites(Object.fromEntries(entries))
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [actorMap, gameRootPath])
+
+  const focusWorldPoint = useMemo<ViewportWorldPoint | null>(() => {
+    if (!mapDocument) return null
+    const focusTile = resolveCameraFocus(eventScript, actorMap)
+    if (!focusTile) return null
+    return {
+      worldX: (focusTile.tileX + 0.5) * mapDocument.tileWidth,
+      worldY: (focusTile.tileY + 0.5) * mapDocument.tileHeight,
+    }
+  }, [mapDocument, eventScript, actorMap])
+
+  const mapOverlay = useMemo(() => {
+    if (!mapDocument) return null
+
+    return (
+      <div className="absolute inset-0">
+        {Object.values(actorMap)
+          .sort((left, right) => left.tileY - right.tileY)
+          .map((actor) => {
+            const pixelX = actor.tileX * mapDocument.tileWidth
+            const pixelY = (actor.tileY - 1) * mapDocument.tileHeight
+            const spriteFrameX = (actor.frame % 4) * 16
+            const spriteFrameY = Math.floor(actor.frame / 4) * 32
+            const actorHeight = mapDocument.tileHeight * 2
+            const actorWidth = mapDocument.tileWidth
+            const actorLabel = normalizeActorName(actor.actorName)
+            const actorKey = toActorKey(actor.actorName)
+            const spriteUrl = actorSprites[actorKey] ?? null
+
+            return (
+              <div
+                key={actor.id}
+                className="absolute transition-[transform] duration-300 ease-out"
+                style={{
+                  transform: `translate(${pixelX}px, ${pixelY}px)`,
+                  width: `${actorWidth}px`,
+                  height: `${actorHeight}px`,
+                  zIndex: actor.tileY,
+                }}
+              >
+                {spriteUrl ? (
+                  <div
+                    className="relative overflow-hidden"
+                    style={{
+                      width: `${actorWidth}px`,
+                      height: `${actorHeight}px`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '16px',
+                        height: '32px',
+                        transform: `scale(${Math.max(1, actorWidth / 16)})`,
+                        transformOrigin: 'top left',
+                        backgroundImage: `url(${spriteUrl})`,
+                        backgroundPosition: `-${spriteFrameX}px -${spriteFrameY}px`,
+                        backgroundRepeat: 'no-repeat',
+                        imageRendering: 'pixelated',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-full w-full items-end justify-center">
+                    <div className="rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+                      {actorLabel}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+                  {actorLabel}
+                </div>
+              </div>
+            )
+          })}
+      </div>
+    )
+  }, [actorMap, actorSprites, mapDocument])
+
+  const viewportOverlay = (
+    <div className="absolute inset-0 flex flex-col justify-between p-4">
+      <div className="flex justify-between gap-3">
+        <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+          {eventScript?.eventId ?? mapName ?? 'Scene'}
+        </div>
+      </div>
+    </div>
+  )
+
+  const hasValidStage = Boolean(mapDocument && eventScript)
+
+  return (
+    <div className={`flex h-full flex-col ${className ?? ''}`}>
+      <div className="panel-header">
+        <div>
+          <p className="panel-title">Stage Preview</p>
+          <p className="panel-subtitle">
+            {mapError || (mapDocument ? `${mapName} — ${eventScript?.scene.actors.length ?? 0} actors` : 'Loading stage...')}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
+            title="Toggle grid"
+            aria-label="Toggle grid"
+            aria-pressed={showGrid}
+            disabled={!mapDocument}
+            onClick={() => setShowGrid((current) => !current)}
+          >
+            <Grid2x2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="panel-body h-[calc(100%-58px)] min-h-0 p-3">
+        {hasValidStage ? (
+          <div className="relative h-full">
+            <MapViewport
+              key={mapDocument ? `${mapDocument.sourcePath}:${eventScript?.key ?? 'event'}` : `empty:${eventScript?.key ?? 'event'}`}
+              locale={locale}
+              mapDocument={mapDocument}
+              visibleLayerIds={mapDocument?.layers.map((layer) => layer.id) ?? []}
+              visibleObjectGroupIds={[]}
+              labels={viewportLabels}
+              theme={theme}
+              accentColor={accentColor}
+              showGrid={showGrid}
+              showStatsChips={false}
+              contextMenuEnabled={false}
+              initialZoom={EVENT_STAGE_INITIAL_ZOOM}
+              mapOverlay={mapOverlay}
+              viewportOverlay={viewportOverlay}
+              focusWorldPoint={focusWorldPoint}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
+            {mapError ? (
+              <>
+                <p className="text-xs text-red-400">{mapError}</p>
+                <p className="text-[10px]">Check that the game root path is configured correctly.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs">Stage preview unavailable.</p>
+                <p className="text-[10px]">Requires a valid game root path and map name.</p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

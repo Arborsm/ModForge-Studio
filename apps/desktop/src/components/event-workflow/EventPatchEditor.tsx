@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Plus, Trash2, FileText, ChevronDown, ChevronRight, Database, ListTree, Text } from 'lucide-react'
 import type { DraftPatch, GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { parseEventCommands, parseEventCommand, parseEventSceneSetup } from '../../lib/events/parser'
-import type { EventCommand } from '../../lib/events/types'
+import type { EventCommand, EventScript } from '../../lib/events/types'
+import { EventStagePreview } from './EventStagePreview'
 
 // TODO: Support TextOperations (Append/Prepend/ReplaceDelimited) for event script editing
 // TODO: Support Fork condition editing in a more visual way
@@ -12,9 +14,13 @@ interface EventPatchEditorProps {
   draft: GeneratedProjectDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
+  locale?: LocaleCode
+  theme?: ThemeMode
+  accentColor?: string
+  viewportLabels?: ViewportLabels
 }
 
-export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset }: EventPatchEditorProps) {
+export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset, locale, theme, accentColor, viewportLabels }: EventPatchEditorProps) {
   void onAddVirtualAsset
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? {}
@@ -146,6 +152,12 @@ export function EventPatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
           setExpandedCmds={setExpandedCmds}
           updateEntries={updateEntries}
           updateCommand={updateCommand}
+          patchTarget={patch.target}
+          gameRootPath={draft.projectMetadata.gameRootPath}
+          locale={locale}
+          theme={theme}
+          accentColor={accentColor}
+          viewportLabels={viewportLabels}
         />
       ) : activeTab === 'fields' ? (
         <FieldsEditor
@@ -180,6 +192,12 @@ function EventsEditor({
   setExpandedCmds,
   updateEntries,
   updateCommand,
+  patchTarget,
+  gameRootPath,
+  locale,
+  theme,
+  accentColor,
+  viewportLabels,
 }: {
   entries: Record<string, unknown>
   originalScripts: Record<string, string>
@@ -189,6 +207,12 @@ function EventsEditor({
   setExpandedCmds: React.Dispatch<React.SetStateAction<Set<string>>>
   updateEntries: (e: Record<string, unknown>) => void
   updateCommand: (index: number, newRaw: string) => void
+  patchTarget: string
+  gameRootPath: string | null
+  locale?: LocaleCode
+  theme?: ThemeMode
+  accentColor?: string
+  viewportLabels?: ViewportLabels
 }) {
   const entryList = Object.entries(entries)
   const selectedEntry = selectedKey ? entries[selectedKey] ?? null : null
@@ -196,12 +220,30 @@ function EventsEditor({
   const selectedOriginalScript = selectedKey ? originalScripts[selectedKey] ?? null : null
 
   const parsedEvent = useMemo(() => {
-    if (!selectedEntryString) return null
+    if (selectedEntryString === null) return null
     const segments = parseEventCommands(selectedEntryString)
     const scene = parseEventSceneSetup(segments)
     const commands = segments.slice(3).map((raw, index) => parseEventCommand(raw, index))
     return { scene, commands, segments }
   }, [selectedEntryString])
+
+  const eventScript: EventScript | null = useMemo(() => {
+    if (!parsedEvent || !selectedKey || selectedEntryString === null) return null
+    return {
+      key: selectedKey,
+      eventId: selectedKey,
+      preconditions: [],
+      rawScript: selectedEntryString,
+      rawSegments: parsedEvent.segments,
+      scene: parsedEvent.scene,
+      commands: parsedEvent.commands,
+    }
+  }, [parsedEvent, selectedKey, selectedEntryString])
+
+  const mapName = useMemo(() => {
+    const parts = patchTarget.split('/')
+    return parts[parts.length - 1] ?? null
+  }, [patchTarget])
 
   function toggleCommandExpand(cmdId: string) {
     setExpandedCmds((prev) => {
@@ -271,6 +313,22 @@ function EventsEditor({
       <div className="min-w-0 flex-1 overflow-auto">
         {parsedEvent ? (
           <div className="space-y-3 p-3">
+            {/* Stage Preview */}
+            {eventScript && (
+              <div className="h-80 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] overflow-hidden">
+                <EventStagePreview
+                  eventScript={eventScript}
+                  mapName={mapName}
+                  gameRootPath={gameRootPath}
+                  locale={locale}
+                  theme={theme}
+                  accentColor={accentColor}
+                  viewportLabels={viewportLabels}
+                  className="h-full"
+                />
+              </div>
+            )}
+
             {/* Original Script Reference */}
             {selectedOriginalScript && selectedOriginalScript !== selectedEntryString && (
               <div className="rounded-lg border border-[color-mix(in_srgb,var(--accent)_25%,var(--border-color))] bg-[var(--bg-panel-muted)] p-3">
