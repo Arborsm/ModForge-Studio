@@ -27,7 +27,7 @@ export interface DraftPatch {
   id: string
   workspace: WorkspaceId
   target: string
-  action: 'EditData' | 'EditImage' | 'EditMap' | 'Load'
+  action: 'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include'
   logName: string
   /** CP supports boolean or string tokens like "{{EnableEdit}}" for Enabled. */
   enabled: boolean | string
@@ -212,7 +212,7 @@ function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjec
       contentPackForUniqueId: record.projectMetadata.contentPackForUniqueId,
       minimumApiVersion: record.projectMetadata.minimumApiVersion ?? undefined,
       updateKeys: record.projectMetadata.updateKeys ?? undefined,
-    },
+    } as GeneratedProjectDraft['projectMetadata'],
     overlayTargets: record.overlayTargets.map((t) => ({
       uniqueId: t.uniqueId,
       displayName: t.displayName ?? null,
@@ -290,6 +290,15 @@ function normalizeWhen(when: Record<string, unknown> | undefined): Record<string
   return Object.keys(result).length > 0 ? result : undefined
 }
 
+function encodeTextToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
 function buildConfigJsonAsset(configSchema: ConfigSchemaEntry[]): {
   relativePath: string
   mediaType: string
@@ -300,15 +309,10 @@ function buildConfigJsonAsset(configSchema: ConfigSchemaEntry[]): {
     defaults[entry.key] = entry.defaultValue
   }
   const content = `${JSON.stringify(defaults, null, 2)}\n`
-  const bytes = new TextEncoder().encode(content)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!)
-  }
   return {
     relativePath: 'config.json',
     mediaType: 'application/json',
-    bytesBase64: btoa(binary),
+    bytesBase64: encodeTextToBase64(content),
   }
 }
 
@@ -329,30 +333,6 @@ export function buildManifestJson(draft: GeneratedProjectDraft): string {
   }
   if (meta.updateKeys && meta.updateKeys.length > 0) {
     manifest['UpdateKeys'] = meta.updateKeys
-  }
-
-  if (draft.configSchema.length > 0) {
-    const schema: Record<string, unknown> = {}
-    for (const entry of draft.configSchema) {
-      const def: Record<string, unknown> = { Default: entry.defaultValue }
-      if (entry.allowValues !== undefined && entry.allowValues !== '') {
-        def['AllowValues'] = entry.allowValues
-      }
-      if (entry.description !== undefined && entry.description !== '') {
-        def['Description'] = entry.description
-      }
-      if (entry.allowBlank !== undefined) {
-        def['AllowBlank'] = entry.allowBlank
-      }
-      if (entry.allowMultiple !== undefined) {
-        def['AllowMultiple'] = entry.allowMultiple
-      }
-      if (entry.section !== undefined && entry.section !== '') {
-        def['Section'] = entry.section
-      }
-      schema[entry.key] = def
-    }
-    manifest['ConfigSchema'] = schema
   }
 
   return `${JSON.stringify(manifest, null, 2)}\n`
@@ -400,13 +380,29 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
   // 按 workspace 分组 changes
   const workspaceChanges = new Map<string, Record<string, unknown>[]>()
 
-  // 合并同 Target + 同 Action (EditData) 的 patch
+  // 合并同 Target + 同 Action + 同 PatchConfig (When/Enabled/Priority 等) 的 EditData patch
+  // 避免不同条件的 patch 被合并后丢失条件信息
   const editDataGroups = new Map<string, DraftPatch[]>()
   const standalonePatches: DraftPatch[] = []
 
+  function getEditDataMergeKey(patch: DraftPatch): string {
+    const parts = [
+      patch.workspace,
+      patch.target,
+      typeof patch.enabled === 'string' ? patch.enabled : String(patch.enabled),
+      patch.when ? JSON.stringify(normalizeWhen(patch.when)) : '',
+      patch.targetLocale ?? '',
+      patch.update ?? '',
+      String(patch.priority ?? ''),
+      patch.localTokens ? JSON.stringify(patch.localTokens) : '',
+      patch.targetField ? JSON.stringify(patch.targetField) : '',
+    ]
+    return parts.join('\0')
+  }
+
   for (const patch of activePatches) {
     if (patch.action === 'EditData') {
-      const key = `${patch.workspace}:${patch.target}`
+      const key = getEditDataMergeKey(patch)
       const group = editDataGroups.get(key) ?? []
       group.push(patch)
       editDataGroups.set(key, group)
@@ -479,7 +475,7 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
     if (first) {
       if (first.logName) change['LogName'] = first.logName
       if (typeof first.enabled === 'string') change['Enabled'] = first.enabled
-      // Note: EditData cannot use FromFile when Format >= 1.18 (we use 2.0.0)
+      // Note: EditData cannot use FromFile when Format >= 1.18 (we use 2.9.0)
       const when = normalizeWhen(first.when)
       if (when) change['When'] = when
       if (first.targetLocale) change['TargetLocale'] = first.targetLocale
@@ -503,7 +499,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
 
     const change: Record<string, unknown> = {
       Action: patch.action,
-      Target: patch.target,
+    }
+    if (patch.action !== 'Include') {
+      change['Target'] = patch.target
     }
     if (patch.logName) {
       change['LogName'] = patch.logName
@@ -586,7 +584,7 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
             })
           }
         } else if ((k === 'fromArea' || k === 'toArea') && v && typeof v === 'object') {
-          // Convert x/y/width/height to CP's X/Y/Width/Height (support string tokens)
+          // Convert all area keys to CP PascalCase (e.g. x->X, width->Width) preserving extra fields
           const area = v as Record<string, unknown>
           const mapAreaValue = (val: unknown): number | string => {
             if (typeof val === 'number') return val
@@ -596,12 +594,12 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
             }
             return 0
           }
-          change[k === 'fromArea' ? 'FromArea' : 'ToArea'] = {
-            X: mapAreaValue(area['x']),
-            Y: mapAreaValue(area['y']),
-            Width: mapAreaValue(area['width']),
-            Height: mapAreaValue(area['height']),
+          const pascalCase = (s: string): string => s ? s[0].toUpperCase() + s.slice(1) : s
+          const mappedArea: Record<string, number | string> = {}
+          for (const [areaKey, areaVal] of Object.entries(area)) {
+            mappedArea[pascalCase(areaKey)] = mapAreaValue(areaVal)
           }
+          change[k === 'fromArea' ? 'FromArea' : 'ToArea'] = mappedArea
         } else if (k === 'patchMode') {
           change['PatchMode'] = v
         } else if (k === 'textOperations' && Array.isArray(v)) {
@@ -632,6 +630,9 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
         continue // CP requires at least one of MapProperties/AddWarps/AddNpcWarps/MapTiles/TextOperations/FromFile for EditMap
       }
     }
+    if (action === 'Include' && !change['FromFile']) {
+      continue // CP requires FromFile for Include
+    }
 
     changes.push(change)
     workspaceChanges.set(patch.workspace, changes)
@@ -658,7 +659,7 @@ export function buildContentJson(draft: GeneratedProjectDraft): ContentBuildResu
   }
 
   const content: Record<string, unknown> = {
-    Format: '2.0.0',
+    Format: '2.9.0',
     Changes: allChanges,
   }
   if (draft.configSchema.length > 0) {
@@ -837,18 +838,19 @@ export function useGeneratedProject() {
   // ── Patch 管理 ──
 
   const addPatchWithReturn = useCallback(
-    (workspace: WorkspaceId, target: string, action: DraftPatch['action']): string => {
+    (workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string): string => {
       const id = generatePatchId()
       setActiveDraft((current) => {
         if (!current) return current
         const newPatch: DraftPatch = {
           id,
           workspace,
-          target,
+          target: action === 'Include' ? '' : target,
           action,
-          logName: `${action} → ${target}`,
+          logName: action === 'Include' ? `Include → ${fromFile ?? ''}` : `${action} → ${target}`,
           enabled: true,
           editorState: {},
+          ...(fromFile ? { fromFile } : {}),
         }
         return { ...current, patches: [...current.patches, newPatch] }
       })
@@ -1037,18 +1039,11 @@ export function useGeneratedProject() {
       const { contentJson, includeFiles } = buildContentJson(activeDraft)
 
       // Include 文件作为 virtual assets 传入
-      const includeAssets = includeFiles.map((file) => {
-        const bytes = new TextEncoder().encode(file.content)
-        let binary = ''
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]!)
-        }
-        return {
-          relativePath: file.relativePath,
-          mediaType: 'application/json',
-          bytesBase64: btoa(binary),
-        }
-      })
+      const includeAssets = includeFiles.map((file) => ({
+        relativePath: file.relativePath,
+        mediaType: 'application/json',
+        bytesBase64: encodeTextToBase64(file.content),
+      }))
 
       // config.json 默认值文件（当 ConfigSchema 存在时）
       const configAssets = activeDraft.configSchema.length > 0

@@ -27,6 +27,14 @@ fn real_skimpy_scaleup_pack_path() -> PathBuf {
         })
 }
 
+fn real_skimpy_scaleup_pack_ii_path() -> PathBuf {
+    std::env::var_os("MODFORGE_REAL_SCALEUP_PACK_II_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\mods\[CP] [DDF] Skimpy VN Portraits II")
+        })
+}
+
 fn preview_fingerprint() -> ContentPatcherPreviewFingerprint {
     ContentPatcherPreviewFingerprint {
         draft_fingerprint: "draft:1".to_string(),
@@ -1775,4 +1783,102 @@ fn export_content_patcher_asset_writes_map_tbin_snapshot() {
     assert_eq!(parsed.name, "Town");
     assert_eq!(parsed.tile_width, 0);
     assert_eq!(parsed.tile_height, 0);
+}
+
+#[test]
+fn simulate_skimpy_vn_portraits_ii_loads_without_errors() {
+    let pack_root = real_skimpy_scaleup_pack_ii_path();
+    if !pack_root.join("manifest.json").is_file() {
+        return;
+    }
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulate real pack II");
+
+    // Verify plan contains expected action types
+    let actions: std::collections::HashSet<String> = simulation
+        .plan
+        .patches
+        .iter()
+        .map(|p| p.action.clone())
+        .collect();
+    assert!(actions.contains("Load"), "expected Load patches");
+    assert!(actions.contains("EditData"), "expected EditData patches");
+    assert!(actions.contains("EditImage"), "expected EditImage patches");
+
+    // Verify no patch has error status (unless due to missing game assets)
+    let error_count = simulation
+        .patch_statuses
+        .iter()
+        .filter(|s| s.status == "error")
+        .count();
+    assert_eq!(error_count, 0, "expected zero error statuses in plan");
+
+    // Verify targets exist
+    assert!(
+        !simulation.targets.is_empty(),
+        "expected at least one target"
+    );
+    assert!(
+        simulation
+            .targets
+            .iter()
+            .any(|t| t.path == "Data/Shops"),
+        "expected Data/Shops target from EditData with TargetField"
+    );
+    assert!(
+        simulation
+            .targets
+            .iter()
+            .any(|t| t.path == "Data/Characters"),
+        "expected Data/Characters target"
+    );
+}
+
+#[test]
+fn simulate_daisyniko_tilesheets_loads_without_errors() {
+    let pack_root = PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\[CP] DaisyNiko's Tilesheets");
+    if !pack_root.join("manifest.json").is_file() {
+        return;
+    }
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulate daisyniko tilesheets");
+
+    let actions: std::collections::HashSet<String> = simulation
+        .plan
+        .patches
+        .iter()
+        .map(|p| p.action.clone())
+        .collect();
+    assert!(actions.contains("Load"), "expected Load patches");
+    assert!(actions.contains("EditImage"), "expected EditImage patches");
+
+    let error_count = simulation
+        .patch_statuses
+        .iter()
+        .filter(|s| s.status == "error")
+        .count();
+    assert_eq!(error_count, 0, "expected zero error statuses");
+
+    assert!(
+        !simulation.targets.is_empty(),
+        "expected at least one target"
+    );
 }

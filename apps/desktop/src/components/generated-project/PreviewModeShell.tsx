@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Eye, Map, Calendar, User, Building2, Package } from 'lucide-react'
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
 import type { GameDirectoryInfo } from '../../lib/desktop'
-import { scanMaps, scanEvents, loadMapAsset, loadTextAsset, loadImageDataUrl } from '../../lib/desktop'
+import { scanMaps, scanEvents, scanModProjects, loadMapAsset, loadTextAsset, loadImageDataUrl } from '../../lib/desktop'
 import type { MapDocument } from '../../lib/maps/types'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { MapViewport } from '../MapViewport'
@@ -22,6 +22,9 @@ type ResourceItem = {
   name: string
   type: string
   path: string
+  author?: string
+  version?: string
+  description?: string
 }
 
 const WORKSPACE_ICONS: Record<WorkspaceId, React.ReactNode> = {
@@ -127,7 +130,23 @@ export function PreviewModeShell({
             break
           }
           case 'mods': {
-            items.push({ id: 'installed', name: 'Installed Mods', type: 'mod-list', path: 'Mods/' })
+            try {
+              const mods = await scanModProjects(gameRootPath)
+              for (const m of mods) {
+                items.push({
+                  id: m.id,
+                  name: m.name,
+                  type: 'mod',
+                  path: `Mods/${m.id}/`,
+                  author: m.author ?? undefined,
+                  version: m.version ?? undefined,
+                  description: m.description ?? undefined,
+                })
+              }
+            } catch {
+              // Fallback placeholder if scan fails
+              items.push({ id: 'installed', name: 'Installed Mods', type: 'mod-list', path: 'Mods/' })
+            }
             break
           }
         }
@@ -208,7 +227,7 @@ export function PreviewModeShell({
                 const url = await loadImageDataUrl(altPath, locale)
                 if (cancelled) return
                 setPreviewImageUrl(url)
-              } catch (err) {
+              } catch {
                 if (!cancelled) setPreviewError('Could not load building texture.')
               }
             }
@@ -222,6 +241,10 @@ export function PreviewModeShell({
             if (cancelled) return
             setPreviewContent(textAsset.content)
             setPreviewLoading(false)
+            break
+          }
+          case 'mods': {
+            // Mod details are already in the resource item; no extra loading needed
             break
           }
         }
@@ -386,6 +409,64 @@ function PreviewContent({
   imageUrl: string | null
   directoryInfo: GameDirectoryInfo
 }) {
+  // Mod detail preview
+  if (workspaceMode === 'mods' && resource.type === 'mod') {
+    return (
+      <div className="h-full overflow-auto p-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            {WORKSPACE_ICONS[workspaceMode]}
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
+              {resource.name}
+            </h2>
+            <span className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
+              {resource.type}
+            </span>
+          </div>
+
+          <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+            <div className="space-y-2 text-xs text-[var(--text-secondary)]">
+              {resource.version ? (
+                <div className="flex gap-2">
+                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Version</span>
+                  <span className="text-[var(--text-primary)]">{resource.version}</span>
+                </div>
+              ) : null}
+              {resource.author ? (
+                <div className="flex gap-2">
+                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Author</span>
+                  <span className="text-[var(--text-primary)]">{resource.author}</span>
+                </div>
+              ) : null}
+              <div className="flex gap-2">
+                <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Path</span>
+                <span className="font-mono text-[var(--text-primary)]">{resource.path}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Root</span>
+                <span className="font-mono text-[var(--text-primary)]">{directoryInfo.rootPath}</span>
+              </div>
+            </div>
+          </div>
+
+          {resource.description ? (
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                Description
+              </div>
+              <p className="text-xs leading-5 text-[var(--text-primary)]">{resource.description}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-8">
+              <Eye className="h-8 w-8 text-[var(--text-secondary)] opacity-30" />
+              <p className="text-xs text-[var(--text-secondary)]">No description available.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-full overflow-auto p-4">
       <div className="space-y-3">

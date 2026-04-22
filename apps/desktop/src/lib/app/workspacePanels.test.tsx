@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '../editor-shell'
 import { getModWorkspaceCopy } from '../editor-shell'
+import { createDefaultContentPatcherSimulationContext } from '../plugins/contentPatcher'
 import { renderWithLocale } from '../../test/renderWithLocale'
 import type { BuildingTextureAssetState } from './buildingWorkspace'
 import type { CharacterVisualAssetState } from './characterWorkspace'
@@ -201,14 +202,7 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     contentPatcherResultAsset: null,
     contentPatcherResultLoading: false,
     contentPatcherResultError: null,
-    simulationContext: {
-      season: '',
-      weather: '',
-      relationship: '',
-      config: {},
-      installedMods: [],
-      customTokens: {},
-    },
+    simulationContext: createDefaultContentPatcherSimulationContext(),
     onModManifestFieldChange: noop,
     onModManifestTextChange: noop,
     onModContentTextChange: noop,

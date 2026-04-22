@@ -15,7 +15,7 @@ export type MapAssetSummary = {
   id: string
   name: string
   fileName: string
-  format: 'tmx' | 'xnb'
+  format: 'tmx' | 'tbin' | 'xnb'
   absolutePath: string
   relativePath: string
   sizeBytes: number
@@ -32,7 +32,7 @@ export type EventAssetSummary = {
 
 export type MapAssetContent = {
   name: string
-  format: 'tmx' | 'xnb'
+  format: 'tmx' | 'tbin' | 'xnb'
   absolutePath: string
   relativePath: string
   content: string
@@ -242,6 +242,8 @@ export type ContentPatcherPlannedPatch = {
   fromFile: string | null
   when: Record<string, unknown>
   sourcePath: string
+  priority: number
+  update: string[]
 }
 
 export type ContentPatcherPatchPlan = {
@@ -251,9 +253,62 @@ export type ContentPatcherPatchPlan = {
 export type ContentPatcherSimulationContext = {
   season?: string
   weather?: string
+  day?: number
+  dayOfWeek?: string
+  daysPlayed?: number
+  year?: number
+  time?: number
+  playerName?: string
+  playerGender?: string
+  farmName?: string
+  locationName?: string
+  spouse?: string
+  isMainPlayer?: boolean
+  stardropCount?: number
+  hasFlags?: string[]
+  hasSeenEvents?: string[]
+  hasConversationTopics?: string[]
+  hasDialogueAnswers?: string[]
+  hasWalletItems?: string[]
+  hasProfessions?: string[]
+  hasCraftingRecipes?: string[]
+  hasCookingRecipes?: string[]
+  skillLevels?: Record<string, number>
+  hasActiveQuests?: string[]
+  hasCompletedQuests?: string[]
+  hasItems?: string[]
+  hasPet?: boolean
+  petType?: string
+  hasChildren?: boolean
+  childCount?: number
+  dailyLuck?: number
+  hasCaughtFish?: string[]
+  hasReadLetters?: string[]
+  hasVisitedLocations?: string[]
+  isOutdoors?: boolean
+  locationContext?: string
+  locationUniqueName?: string
+  locationOwnerId?: string
+  preferredPet?: string
+  farmCave?: string
+  farmMapAsset?: string
+  havingChild?: boolean
+  pregnant?: boolean
+  roommate?: string
+  hearts?: Record<string, number>
+  childNames?: string[]
+  childGenders?: string[]
+  dayEvent?: string
+  farmType?: string
+  farmhouseUpgrade?: number
+  isCommunityCenterComplete?: boolean
+  isJojaMartComplete?: boolean
+  language?: string
+  relationships?: Record<string, string>
   config?: Record<string, unknown>
   installedMods?: string[]
   customTokens?: Record<string, unknown>
+  ignoreEntryWhenConditions?: boolean
 }
 
 export type SimulateContentPatcherRequest = {
@@ -328,6 +383,7 @@ export type ContentPatcherSimulationResult = {
   targets: ContentPatcherTargetSummary[]
   patchStatuses: ContentPatcherPatchStatus[]
   diagnostics: ModProjectDiagnostic[]
+  dynamicTokens: Record<string, unknown>
 }
 
 export type SaveModProjectRequest = {
@@ -395,6 +451,8 @@ export type GeneratedProjectDraftRecord = {
     projectUniqueId: string
     gameRootPath: string | null
     contentPackForUniqueId: string
+    minimumApiVersion?: string
+    updateKeys?: string[]
   }
   overlayTargets: GeneratedProjectOverlayTarget[]
   configSchemaDraft: Record<string, unknown>

@@ -56,6 +56,7 @@ export function GeneratedProjectOverview({
   dynamicTokens,
   onDynamicTokensChange,
 }: GeneratedProjectOverviewProps) {
+  void onNavigateToWorkspace
   const [activeFile, setActiveFile] = useState<'manifest' | 'content'>('manifest')
   const [selectedDraftKey, setSelectedDraftKey] = useState<string | null>(draft?.draftStorageKey ?? null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -201,17 +202,15 @@ export function GeneratedProjectOverview({
                 {(['map', 'events', 'characters', 'buildings', 'items'] as WorkspaceId[]).map((ws) => {
                   const count = patchCountByWorkspace[ws] ?? 0
                   return (
-                    <button
+                    <div
                       key={ws}
-                      type="button"
-                      className="flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-[11px] transition-colors hover:bg-[var(--bg-panel-muted)]"
-                      onClick={() => onNavigateToWorkspace(ws)}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-1 text-[11px]"
                     >
                       <span className="capitalize text-[var(--text-primary)]">{ws}</span>
                       <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${count > 0 ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`}>
                         {count}
                       </span>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -424,7 +423,8 @@ export function GeneratedProjectOverview({
                         const next = [...dynamicTokens]
                         const text = e.target.value.trim()
                         if (!text) {
-                          const { when: _, ...rest } = token
+                          const { when, ...rest } = token
+                          void when
                           next[index] = rest
                         } else {
                           const when: Record<string, unknown> = {}

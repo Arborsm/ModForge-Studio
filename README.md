@@ -98,7 +98,7 @@
 
 - 顶层布局：`apps/desktop/src/components/WorkspaceLayout.tsx`
 - 顶栏：`apps/desktop/src/components/TopMenuBar.tsx`
-- workspace panel 装配：`apps/desktop/src/lib/app/workspacePanels.ts`
+- workspace panel 装配：`apps/desktop/src/lib/app/workspacePanels.tsx`
 - app shell 状态：`apps/desktop/src/lib/app/appShell.ts`
 - 通用 orchestration：`apps/desktop/src/lib/app/`
 - 工作台样式：`apps/desktop/src/styles/workspace/`
@@ -113,6 +113,20 @@
 - Mods: `apps/desktop/src/lib/app/useModWorkspace.ts`
 
 对应的渲染组件通常在 `apps/desktop/src/components/` 下按功能拆分，先从 workspace hook 找状态入口，再顺着组件引用看 UI。
+
+### Generated Project Builder
+
+- 核心重构设计文档：`docs/project-mods-core-driven-refactor.md`（改 Project 模式前必读）
+- 重构实施指南：`docs/project-mods-core-driven-refactor-milestones.md`（按 Milestone 执行时对照）
+- 全工作台编辑模式总设：`docs/cryptic-churning-journal.md`
+- 核心编辑层（ChangeRegistry、CP 生成器、诊断）：`apps/desktop/src/lib/app/editing/`
+- 编辑会话与草稿生命周期：`apps/desktop/src/lib/app/editing/useEditProject.ts`、`useGeneratedProjectWorkspace.ts`
+- 面板组件（Browser/Editor/Preview/Export/Drafts/ModHub）：`apps/desktop/src/components/project/`
+- 面板装配器：`apps/desktop/src/lib/app/workspacePanels/project/buildGeneratedProjectPanels.tsx`
+- 生成项目草稿/导出后端：`apps/desktop/src-tauri/src/domain/generated_project/`
+- 生成项目桌面桥接入口：`apps/desktop/src/lib/desktop.ts`
+
+如果要改 generated-project 预览或导出，不要从 `useModWorkspace.ts` 盲跳开始，先看 `docs/project-mods-core-driven-refactor.md` 了解当前架构目标，再进 `lib/app/editing/` 看 draft、preview、export helper，最后进 `components/project/` 看 UI 组合。
 
 ### Desktop Bridge
 
@@ -183,6 +197,12 @@
   - `apps/desktop/src-tauri/src/commands/`
   - `apps/desktop/src-tauri/src/domain/`
   - `apps/desktop/src-tauri/src/infrastructure/`
+- 改 generated-project 预览、导出、草稿同步：
+  - `docs/project-mods-core-driven-refactor.md`（先读设计文档）
+  - `apps/desktop/src/lib/app/editing/`
+  - `apps/desktop/src/components/workbench-project/`
+  - `apps/desktop/src/lib/desktop.ts`
+  - `apps/desktop/src-tauri/src/domain/generated_project/`
 - 改文案：
   - `apps/desktop/src/locales/en-US.ts`
   - `apps/desktop/src/locales/zh-CN.ts`

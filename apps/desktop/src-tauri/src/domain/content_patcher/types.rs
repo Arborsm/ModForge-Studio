@@ -56,6 +56,8 @@ pub struct ContentPatcherPlannedPatch {
     pub from_file: Option<String>,
     pub when: BTreeMap<String, Value>,
     pub source_path: String,
+    pub priority: i32,
+    pub update: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -259,6 +261,7 @@ pub struct SimulateContentPatcherResult {
     pub targets: Vec<ContentPatcherTargetSummary>,
     pub patch_statuses: Vec<ContentPatcherPatchStatus>,
     pub diagnostics: Vec<ContentPatcherProjectDiagnostic>,
+    pub dynamic_tokens: BTreeMap<String, Value>,
 }
 
 #[cfg(test)]

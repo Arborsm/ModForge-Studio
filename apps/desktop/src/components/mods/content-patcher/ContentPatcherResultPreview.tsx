@@ -12,6 +12,7 @@ type ContentPatcherResultPreviewProps = {
     defaultValue: unknown
   }>
   onSimulationContextChange: (next: ContentPatcherBackendSimulationContext) => void
+  dynamicTokens?: Record<string, unknown>
 }
 
 export function ContentPatcherResultPreview({
@@ -21,6 +22,7 @@ export function ContentPatcherResultPreview({
   simulationContext,
   simulationConfigEntries,
   onSimulationContextChange,
+  dynamicTokens,
 }: ContentPatcherResultPreviewProps) {
   if (loading) {
     return (
@@ -58,6 +60,7 @@ export function ContentPatcherResultPreview({
           simulationContext={simulationContext}
           simulationConfigEntries={simulationConfigEntries}
           onSimulationContextChange={onSimulationContextChange}
+          dynamicTokens={dynamicTokens}
         />
       </section>
     )

@@ -231,7 +231,7 @@ pub fn load_target_result(
             let apply_result = match (&mut loaded_target, asset_kind.as_str()) {
                 (LoadedTargetBase::Json { result_json }, "json") => {
                     if patch.action.eq_ignore_ascii_case("EditData") {
-                        edit_data::apply_edit_data_patch(result_json, &parsed_patch)
+                        edit_data::apply_edit_data_patch(result_json, &parsed_patch, context, project_root_path)
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
@@ -272,7 +272,12 @@ pub fn load_target_result(
                 }
                 (LoadedTargetBase::Map { result_map }, "map") => {
                     if patch.action.eq_ignore_ascii_case("EditMap") {
-                        edit_map::apply_edit_map_patch(&mut result_map.debug, &parsed_patch)
+                        edit_map::apply_edit_map_patch(
+                            snapshot,
+                            result_map,
+                            &parsed_patch,
+                            &patch.source_path,
+                        )
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)
@@ -300,17 +305,24 @@ pub fn load_target_result(
                     change_summary = summary;
                 }
                 Err(err) => {
-                    has_apply_error = true;
-                    entry_status = "error".to_string();
-                    entry_reason = err.clone();
-                    change_summary = "no change".to_string();
-                    let diagnostic = ContentPatcherProjectDiagnostic {
-                        severity: "error".to_string(),
-                        message: err,
-                        field: Some(format!("patch.{}", patch.id)),
-                    };
-                    entry_diagnostics.push(diagnostic.clone());
-                    diagnostics.push(diagnostic);
+                    if err.to_ascii_lowercase().contains("unresolved token") {
+                        has_indeterminate = true;
+                        entry_status = "indeterminate".to_string();
+                        entry_reason = err;
+                        change_summary = "no change".to_string();
+                    } else {
+                        has_apply_error = true;
+                        entry_status = "error".to_string();
+                        entry_reason = err.clone();
+                        change_summary = "no change".to_string();
+                        let diagnostic = ContentPatcherProjectDiagnostic {
+                            severity: "error".to_string(),
+                            message: err,
+                            field: Some(format!("patch.{}", patch.id)),
+                        };
+                        entry_diagnostics.push(diagnostic.clone());
+                        diagnostics.push(diagnostic);
+                    }
                 }
             }
         }

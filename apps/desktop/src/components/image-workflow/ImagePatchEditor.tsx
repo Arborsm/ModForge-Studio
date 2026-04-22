@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Upload, Trash2, ImageIcon } from 'lucide-react'
 import type { DraftPatch, GeneratedProjectDraft, VirtualPreviewAsset } from '../../lib/app/useGeneratedProject'
 
@@ -7,6 +7,7 @@ interface ImagePatchEditorProps {
   draft: GeneratedProjectDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: VirtualPreviewAsset) => void
+  onRemoveVirtualAsset?: (relativePath: string) => void
 }
 
 type Area = {
@@ -16,7 +17,7 @@ type Area = {
   height: number | string
 }
 
-export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset }: ImagePatchEditorProps) {
+export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsset, onRemoveVirtualAsset }: ImagePatchEditorProps) {
   const isLoad = patch.action === 'Load'
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
@@ -26,6 +27,15 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    const current = previewUrl
+    return () => {
+      if (current?.startsWith('blob:')) {
+        URL.revokeObjectURL(current)
+      }
+    }
+  }, [previewUrl])
+
   function updateEditorState(updates: Record<string, unknown>) {
     onPatchChange(patch.id, {
       editorState: { ...editorState, ...updates },
@@ -34,16 +44,16 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
 
   const handleFileSelect = useCallback(
     async (file: File) => {
-      const arrayBuffer = await file.arrayBuffer()
-      const bytes = new Uint8Array(arrayBuffer)
-      let binary = ''
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]!)
-      }
-      const base64 = btoa(binary)
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
 
-      // Determine media type
+      // Extract pure base64 from data URL
       const mediaType = file.type || 'image/png'
+      const base64 = dataUrl.split(',')[1] ?? ''
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png'
       const relativePath = `assets/${patch.target.replace(/\//g, '_')}_${Date.now()}.${ext}`
 
@@ -59,12 +69,10 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
         fromFile: relativePath,
       })
 
-      // Set preview
-      const blob = new Blob([arrayBuffer], { type: mediaType })
-      const url = URL.createObjectURL(blob)
+      // Set preview directly from data URL (no blob/URL.createObjectURL needed)
       setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev)
-        return url
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
+        return dataUrl
       })
     },
     [onAddVirtualAsset, onPatchChange, patch.id, patch.target],
@@ -126,9 +134,12 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                   className="icon-button h-6 w-6 text-red-400"
                   onClick={() => {
                     setPreviewUrl((prev) => {
-                      if (prev) URL.revokeObjectURL(prev)
+                      if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev)
                       return null
                     })
+                    if (patch.fromFile && onRemoveVirtualAsset) {
+                      onRemoveVirtualAsset(patch.fromFile)
+                    }
                     onPatchChange(patch.id, { fromFile: undefined })
                   }}
                 >
@@ -190,9 +201,10 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                   >
                     <option value="Replace">Replace</option>
                     <option value="Overlay">Overlay</option>
+                    <option value="Mask">Mask</option>
                   </select>
                   <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                    Replace: overwrite the entire target image. Overlay: blend on top.
+                    Replace: overwrite the entire target image. Overlay: blend on top. Mask: apply as transparency mask (CP 2.9.0).
                   </p>
                 </div>
 

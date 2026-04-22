@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MoreHorizontal, Plus, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react'
 import type { DraftPatch } from '../../lib/app/useGeneratedProject'
 
@@ -8,7 +8,7 @@ interface PatchListSidebarProps {
   onSelectPatch: (patchId: string) => void
   onAddPatch: () => void
   onRemovePatch: (patchId: string) => void
-  onTogglePatch: (patchId: string, enabled: boolean) => void
+  onTogglePatch: (patchId: string, enabled: boolean | string) => void
   onEditProperties: (patchId: string) => void
   onOpenConfig: () => void
   onSaveDraft: () => void
@@ -28,6 +28,18 @@ export function PatchListSidebar({
   isDirty,
 }: PatchListSidebarProps) {
   const [contextMenuPatchId, setContextMenuPatchId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!contextMenuPatchId) return
+    function handleMouseDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenuPatchId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => document.removeEventListener('mousedown', handleMouseDown)
+  }, [contextMenuPatchId])
 
   return (
     <div className="flex h-full flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)]">
@@ -116,7 +128,7 @@ export function PatchListSidebar({
 
               {/* Context Menu */}
               {contextMenuPatchId === patch.id ? (
-                <div className="absolute right-1 top-8 z-50 min-w-[140px] rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1 shadow-lg">
+                <div ref={menuRef} className="absolute right-1 top-8 z-50 min-w-[140px] rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1 shadow-lg">
                   <button
                     type="button"
                     className="w-full rounded-md px-2.5 py-1.5 text-left text-[11px] text-[var(--text-primary)] hover:bg-[var(--bg-active)]"

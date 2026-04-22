@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LoadContentPatcherResultAssetResult } from '../../../lib/desktop'
+import { createDefaultContentPatcherSimulationContext } from '../../../lib/plugins/contentPatcher'
 import { ContentPatcherResultPreview } from './ContentPatcherResultPreview'
 
 afterEach(() => {
@@ -56,14 +57,7 @@ function buildImageResult(): ImageResultWithOriginal {
 }
 
 function buildSimulationContext() {
-  return {
-    season: '',
-    weather: '',
-    relationship: '',
-    config: {},
-    installedMods: [],
-    customTokens: {},
-  }
+  return createDefaultContentPatcherSimulationContext()
 }
 
 describe('ContentPatcherResultPreview', () => {

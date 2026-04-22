@@ -30,6 +30,7 @@ export type EditorComponent = ComponentType<{
     mediaType: string
     bytesBase64: string
   }) => void
+  onRemoveVirtualAsset?: (relativePath: string) => void
   locale?: LocaleCode
   theme?: ThemeMode
   accentColor?: string

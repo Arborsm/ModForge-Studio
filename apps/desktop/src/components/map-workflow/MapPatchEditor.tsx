@@ -13,13 +13,21 @@ interface MapPatchEditorProps {
   draft: GeneratedProjectDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
+  onRemoveVirtualAsset?: (relativePath: string) => void
   locale?: LocaleCode
   theme?: ThemeMode
   accentColor?: string
   viewportLabels?: ViewportLabels
 }
 
-type MapEditorTab = 'properties' | 'warps' | 'tiles'
+type MapEditorTab = 'properties' | 'warps' | 'tiles' | 'file'
+
+type Area = {
+  x: number | string
+  y: number | string
+  width: number | string
+  height: number | string
+}
 
 export function MapPatchEditor({
   patch,
@@ -39,6 +47,9 @@ export function MapPatchEditor({
   const warps = (editorState['warps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
   const npcWarps = (editorState['npcWarps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
   const mapTiles = (editorState['mapTiles'] as Array<MapTileEdit> | undefined) ?? []
+  const patchMode = (editorState['patchMode'] as string | undefined) ?? 'ReplaceByLayer'
+  const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
+  const toArea = (editorState['toArea'] as Area | undefined) ?? null
 
   // Tiles tab state
   const gameRootPath = draft.projectMetadata.gameRootPath
@@ -66,17 +77,35 @@ export function MapPatchEditor({
         // Extract map name from target, e.g. "Maps/Town" -> "Town"
         const targetParts = patch.target.split('/')
         const mapName = targetParts[targetParts.length - 1] ?? patch.target
-        const mapsPath = `${gameRootPath}\\Content\\Maps`
-        const mapPath = `${mapsPath}\\${mapName}.xnb`
 
-        const asset = await loadMapAsset(gameRootPath, mapPath, locale)
+        // Try loading in order of preference: .xnb, .tbin, .tmx
+        const extensions = ['.xnb', '.tbin', '.tmx']
+        let lastError: Error | null = null
+        let loadedAsset: Awaited<ReturnType<typeof loadMapAsset>> | null = null
+
+        for (const ext of extensions) {
+          const mapPath = `${gameRootPath}/Content/Maps/${mapName}${ext}`
+          try {
+            loadedAsset = await loadMapAsset(gameRootPath, mapPath, locale)
+            if (!cancelled) break
+          } catch (err) {
+            lastError = err instanceof Error ? err : new Error(String(err))
+          }
+        }
+
         if (cancelled) return
 
-        if (asset.format === 'xnb') {
-          const doc = JSON.parse(asset.content) as MapDocument
-          setMapDocument(doc)
+        if (loadedAsset) {
+          if (loadedAsset.format === 'xnb' || loadedAsset.format === 'tbin') {
+            const doc = JSON.parse(loadedAsset.content) as MapDocument
+            setMapDocument(doc)
+          } else {
+            setMapError(`Format ${loadedAsset.format} not yet supported for tile editing.`)
+          }
+        } else if (lastError) {
+          setMapError(lastError.message)
         } else {
-          setMapError(`Format ${asset.format} not yet supported for tile editing.`)
+          setMapError(`Unable to load map for target "${patch.target}".`)
         }
       } catch (err) {
         if (!cancelled) {
@@ -103,6 +132,14 @@ export function MapPatchEditor({
     })
   }
 
+  function updateArea(areaType: 'fromArea' | 'toArea', field: keyof Area, raw: string) {
+    const current = areaType === 'fromArea' ? fromArea : toArea
+    const next: Area = current ? { ...current } : { x: 0, y: 0, width: 0, height: 0 }
+    const num = Number(raw)
+    next[field] = Number.isNaN(num) ? raw : num
+    updateEditorState({ [areaType]: next })
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -113,7 +150,7 @@ export function MapPatchEditor({
 
       {/* Tabs */}
       <div className="flex gap-0.5 border-b border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-1">
-        {(['properties', 'warps', 'tiles'] as MapEditorTab[]).map((tab) => (
+        {(['properties', 'warps', 'tiles', 'file'] as MapEditorTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -124,7 +161,7 @@ export function MapPatchEditor({
             }`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'properties' ? 'MapProperties' : tab === 'warps' ? 'Warps' : 'Tiles'}
+            {tab === 'properties' ? 'MapProperties' : tab === 'warps' ? 'Warps' : tab === 'tiles' ? 'Tiles' : 'FromFile'}
           </button>
         ))}
       </div>
@@ -153,7 +190,7 @@ export function MapPatchEditor({
               onChange={(newWarps) => updateEditorState({ npcWarps: newWarps })}
             />
           </div>
-        ) : (
+        ) : activeTab === 'tiles' ? (
           <MapTilesEditor
             mapDocument={mapDocument}
             mapLoading={mapLoading}
@@ -172,6 +209,95 @@ export function MapPatchEditor({
             mapTiles={mapTiles}
             onMapTilesChange={(tiles) => updateEditorState({ mapTiles: tiles })}
           />
+        ) : (
+          <div className="space-y-4 p-3">
+            {/* FromFile */}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                FromFile
+              </label>
+              <input
+                type="text"
+                placeholder="assets/CustomMap.tbin"
+                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                value={patch.fromFile ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value.trim()
+                  onPatchChange(patch.id, { fromFile: val || undefined })
+                }}
+              />
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                Path to a .tbin, .tmx, or .xnb map file to overlay onto the target.
+              </p>
+            </div>
+
+            {/* PatchMode */}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                Patch Mode
+              </label>
+              <select
+                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                value={patchMode}
+                onChange={(e) => updateEditorState({ patchMode: e.target.value })}
+              >
+                <option value="ReplaceByLayer">ReplaceByLayer</option>
+                <option value="Overlay">Overlay</option>
+                <option value="Replace">Replace</option>
+              </select>
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                ReplaceByLayer: replace matching layers. Overlay: merge layers. Replace: replace entire map.
+              </p>
+            </div>
+
+            {/* FromArea */}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                From Area (Source Crop)
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                  <div key={field}>
+                    <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                    <input
+                      type="text"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={fromArea?.[field] ?? ''}
+                      placeholder="0"
+                      onChange={(e) => updateArea('fromArea', field, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                Crop region from the source map. Numbers or tokens like {'{{X}}'}.
+              </p>
+            </div>
+
+            {/* ToArea */}
+            <div>
+              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                To Area (Target Position)
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {(['x', 'y', 'width', 'height'] as const).map((field) => (
+                  <div key={field}>
+                    <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                    <input
+                      type="text"
+                      className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                      value={toArea?.[field] ?? ''}
+                      placeholder="0"
+                      onChange={(e) => updateArea('toArea', field, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                Position on the target map. Numbers or tokens like {'{{X}}'}.
+              </p>
+            </div>
+          </div>
         )}
       </div>
 
@@ -454,7 +580,7 @@ function MapTilesEditor({
                 onMapTilesChange([
                   ...mapTiles,
                   {
-                    layer: hoverInfo.layerName ?? 'Back',
+                    layer: hoverInfo.layerName || 'Back',
                     x: hoverInfo.tileX,
                     y: hoverInfo.tileY,
                     setTilesheet: hoverInfo.tilesetName ?? undefined,

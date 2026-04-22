@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getModWorkspaceCopy } from '../../lib/editor-shell'
+import { createDefaultContentPatcherSimulationContext } from '../../lib/plugins/contentPatcher'
 import type { WorkspacePluginCapability } from '../../lib/plugins/types'
 import { renderWithLocale } from '../../test/renderWithLocale'
 import { ContentPatcherWorkspace } from './ContentPatcherWorkspace'
@@ -107,6 +108,8 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
             target: 'Data/Objects',
             fromFile: null,
             when: {},
+            priority: 0,
+            update: [],
           },
         ],
       },
@@ -121,6 +124,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
       ],
       patchStatuses: [{ patchId: 'content.json:0#target:0#from:0', status: 'applied', reasons: [] }],
       diagnostics: [],
+      dynamicTokens: {},
     },
     contentPatcherResultAsset: {
       target: {
@@ -144,14 +148,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
     },
     contentPatcherResultLoading: false,
     contentPatcherResultError: null,
-    simulationContext: {
-      season: '',
-      weather: '',
-      relationship: '',
-      config: {},
-      installedMods: [],
-      customTokens: {},
-    },
+    simulationContext: createDefaultContentPatcherSimulationContext(),
     scaleUpEditor: null,
     onScaleUpContentChange: vi.fn(),
     onCloseScaleUpEditor: vi.fn(),

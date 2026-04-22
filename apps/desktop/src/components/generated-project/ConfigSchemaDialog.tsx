@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import type { ConfigSchemaEntry, DraftPatch } from '../../lib/app/useGeneratedProject'
 
@@ -40,8 +40,13 @@ export function ConfigSchemaDialog({
   const [priority, setPriority] = useState(() =>
     patch?.priority !== undefined ? String(patch.priority) : ''
   )
-  const [enabled, setEnabled] = useState(() =>
+  const initialEnabledMode = typeof patch?.enabled === 'string' ? 'token' : 'bool'
+  const [enabledMode, setEnabledMode] = useState<'bool' | 'token'>(initialEnabledMode)
+  const [enabledBool, setEnabledBool] = useState(() =>
     typeof patch?.enabled === 'boolean' ? patch.enabled : true
+  )
+  const [enabledToken, setEnabledToken] = useState(() =>
+    typeof patch?.enabled === 'string' ? patch.enabled : ''
   )
   const [targetLocale, setTargetLocale] = useState(() => patch?.targetLocale ?? '')
   const [update, setUpdate] = useState(() => patch?.update ?? '')
@@ -56,6 +61,45 @@ export function ConfigSchemaDialog({
   })
 
   const [schemaEntries, setSchemaEntries] = useState<ConfigSchemaEntry[]>(configSchema)
+  const initializedPatchIdRef = useRef<string | null>(null)
+
+  // Sync patch-related state only when the patch identity changes
+  useEffect(() => {
+    if (!patch || initializedPatchIdRef.current === patch.id) return
+    initializedPatchIdRef.current = patch.id
+    setWhenEntries(() => {
+      const entries: Array<{ key: string; value: string }> = []
+      if (patch.when) {
+        for (const [key, value] of Object.entries(patch.when)) {
+          entries.push({
+            key,
+            value: typeof value === 'string' ? value : JSON.stringify(value),
+          })
+        }
+      }
+      return entries.length > 0 ? entries : [{ key: '', value: '' }]
+    })
+    setPriority(patch.priority !== undefined ? String(patch.priority) : '')
+    setEnabledMode(typeof patch.enabled === 'string' ? 'token' : 'bool')
+    setEnabledBool(typeof patch.enabled === 'boolean' ? patch.enabled : true)
+    setEnabledToken(typeof patch.enabled === 'string' ? patch.enabled : '')
+    setTargetLocale(patch.targetLocale ?? '')
+    setUpdate(patch.update ?? '')
+    setLocalTokens(() => {
+      const entries: Array<{ key: string; value: string }> = []
+      if (patch.localTokens) {
+        for (const [key, value] of Object.entries(patch.localTokens)) {
+          entries.push({ key, value: typeof value === 'string' ? value : JSON.stringify(value) })
+        }
+      }
+      return entries.length > 0 ? entries : [{ key: '', value: '' }]
+    })
+  }, [patch])
+
+  // Sync schema entries when configSchema changes
+  useEffect(() => {
+    setSchemaEntries(configSchema)
+  }, [configSchema])
 
   if (!open) return null
 
@@ -96,17 +140,21 @@ export function ConfigSchemaDialog({
       }
     }
     const props: Partial<DraftPatch> = {}
-    if (Object.keys(when).length > 0) props.when = when
+    props.when = Object.keys(when).length > 0 ? when : undefined
     if (priority !== '') {
       const num = Number(priority)
       props.priority = Number.isNaN(num) ? priority : num
+    } else {
+      props.priority = undefined
     }
-    if (!enabled) {
-      props.enabled = false
+    if (enabledMode === 'token') {
+      props.enabled = enabledToken.trim() || undefined
+    } else {
+      props.enabled = enabledBool
     }
     if (update) props.update = update as DraftPatch['update']
     if (targetLocale) props.targetLocale = targetLocale
-    if (Object.keys(tokens).length > 0) props.localTokens = tokens
+    props.localTokens = Object.keys(tokens).length > 0 ? tokens : undefined
     onPatchPropertiesChange(patch.id, props)
     onClose()
   }
@@ -171,24 +219,66 @@ export function ConfigSchemaDialog({
                 <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Priority</label>
                 <input
                   type="text"
-                  placeholder="e.g. Early, Late, or 10"
+                  list="priority-options"
+                  placeholder={patch?.action === 'Load' ? 'e.g. Low, Medium, High, Exclusive' : 'e.g. Early, Default, Late, or Default + 2'}
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
                 />
+                <datalist id="priority-options">
+                  {patch?.action === 'Load' ? (
+                    <>
+                      <option value="Low" />
+                      <option value="Medium" />
+                      <option value="High" />
+                      <option value="Exclusive" />
+                    </>
+                  ) : (
+                    <>
+                      <option value="Early" />
+                      <option value="Default" />
+                      <option value="Late" />
+                    </>
+                  )}
+                </datalist>
               </div>
 
               {/* Enabled */}
               <div>
-                <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Enabled</label>
+                <select
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={enabledMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'bool' | 'token'
+                    setEnabledMode(mode)
+                    if (mode === 'bool' && !enabledBool) {
+                      setEnabledBool(true)
+                    }
+                  }}
+                >
+                  <option value="bool">Enabled / Disabled</option>
+                  <option value="token">Custom Token</option>
+                </select>
+                {enabledMode === 'bool' ? (
+                  <label className="mt-1.5 flex items-center gap-2 text-xs text-[var(--text-primary)]">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[var(--accent)]"
+                      checked={enabledBool}
+                      onChange={(e) => setEnabledBool(e.target.checked)}
+                    />
+                    {enabledBool ? 'Enabled' : 'Disabled'}
+                  </label>
+                ) : (
                   <input
-                    type="checkbox"
-                    className="h-4 w-4 accent-[var(--accent)]"
-                    checked={enabled}
-                    onChange={(e) => setEnabled(e.target.checked)}
+                    type="text"
+                    className="mt-1.5 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                    value={enabledToken}
+                    onChange={(e) => setEnabledToken(e.target.value)}
+                    placeholder='e.g. {{EnableEdit}}'
                   />
-                  Enabled
-                </label>
+                )}
               </div>
 
               {/* TargetLocale */}

@@ -322,10 +322,10 @@ export default function TopMenuBar({
                       </button>
                     )
                   })}
-                  {workspaceViewMode && onWorkspaceViewModeChange && workspaceMode !== 'mods' ? (
+                  {workspaceViewMode && onWorkspaceViewModeChange ? (
                     <div className="mx-1 h-4 w-px bg-[var(--border-color)]" />
                   ) : null}
-                  {workspaceViewMode && onWorkspaceViewModeChange && workspaceMode !== 'mods' ? (
+                  {workspaceViewMode && onWorkspaceViewModeChange ? (
                     <div className="flex items-center gap-0.5 rounded-lg bg-[var(--bg-panel-muted)] p-0.5">
                       <button
                         type="button"
@@ -337,7 +337,7 @@ export default function TopMenuBar({
                         )}
                         onClick={() => onWorkspaceViewModeChange('edit')}
                       >
-                        项目
+                        设计
                       </button>
                       <button
                         type="button"
@@ -349,7 +349,7 @@ export default function TopMenuBar({
                         )}
                         onClick={() => onWorkspaceViewModeChange('preview')}
                       >
-                        预览
+                        浏览
                       </button>
                     </div>
                   ) : null}

@@ -353,3 +353,43 @@ fn load_content_patcher_project_normalizes_dot_segment_include_within_root() {
 
     fs::remove_dir_all(root).expect("cleanup");
 }
+
+#[test]
+fn load_real_cp_mods_produces_valid_snapshots() {
+    let mods_dir = std::path::PathBuf::from("E:/SteamLibrary/steamapps/common/Stardew Valley/Mods");
+    if !mods_dir.is_dir() {
+        return;
+    }
+
+    let test_mods = [
+        "[CP] DaisyNiko's Tilesheets",
+        "[CP] [DDF] Skimpy VN Portraits II",
+        "[CP] Childhood Sweetheart Caroline",
+        "[CP] Mermaid Replaces Mariner",
+    ];
+
+    for mod_name in test_mods {
+        let mod_path = mods_dir.join(mod_name);
+        if !mod_path.is_dir() {
+            continue;
+        }
+        let snapshot = load_content_patcher_project(mod_path.to_string_lossy().into_owned());
+        assert!(
+            snapshot.is_ok(),
+            "Failed to load {}: {:?}",
+            mod_name,
+            snapshot.err()
+        );
+        let snapshot = snapshot.unwrap();
+        assert!(
+            snapshot.summary.name.is_some(),
+            "{} missing summary name",
+            mod_name
+        );
+        assert!(
+            snapshot.sources.iter().any(|s| s.path == "content.json"),
+            "{} missing content.json source",
+            mod_name
+        );
+    }
+}

@@ -26,7 +26,6 @@ import useModWorkspace from '../../lib/app/useModWorkspace'
 import { useGeneratedProject } from '../../lib/app/useGeneratedProject'
 import { GeneratedProjectOverview } from '../generated-project/GeneratedProjectOverview'
 import { WorkflowModeShell } from '../generated-project/WorkflowModeShell'
-import { PreviewModeShell } from '../generated-project/PreviewModeShell'
 import { buildWorkspacePanels } from '../../lib/app/workspacePanels'
 import '../../lib/plugins/builtInWorkspaces'
 import { getWorkspacePlugin } from '../../lib/plugins/workspaceRegistry'
@@ -946,7 +945,7 @@ export default function WorkbenchExperience({
             setWorkspaceViewMode('edit')
           }
         }}
-        workspaceViewMode={workspaceMode !== 'mods' ? workspaceViewMode : undefined}
+        workspaceViewMode={workspaceViewMode}
         onWorkspaceViewModeChange={(mode) => {
           setWorkspaceViewMode(mode)
           void applyAppUiStatePatch({
@@ -1002,7 +1001,28 @@ export default function WorkbenchExperience({
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0 min-h-0 overflow-hidden">
-          {workspaceMode === 'mods' ? (
+          {workspaceViewMode === 'preview' ? (
+            <WorkspaceLayout
+              ref={workspaceLayoutRef}
+              storageKey={workspaceLayoutStorageKey}
+              panels={workspacePanels}
+              persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
+              onPersistStateChange={handleWorkspacePersistStateChange}
+              onLayoutMetaChange={handleLayoutMetaChange}
+            />
+          ) : workspaceMode === 'mods' && generatedProject.activeDraft ? (
+            <EditWorkspaceContent
+              workspaceMode={workspaceMode}
+              generatedProject={generatedProject}
+              activeEditPatchId={activeEditPatchId}
+              onSelectPatch={setActiveEditPatchId}
+              locale={locale}
+              theme={theme}
+              accentColor={accentColor}
+              viewportLabels={copy.viewportLabels}
+              directoryInfo={directoryInfo}
+            />
+          ) : workspaceMode === 'mods' ? (
             <GeneratedProjectOverview
               draft={generatedProject.activeDraft}
               drafts={generatedProject.drafts}
@@ -1063,16 +1083,6 @@ export default function WorkbenchExperience({
               dynamicTokens={generatedProject.dynamicTokens}
               onDynamicTokensChange={generatedProject.setDynamicTokens}
             />
-          ) : workspaceViewMode === 'preview' ? (
-            <PreviewModeShell
-              workspaceMode={workspaceMode}
-              gameRootPath={directoryInfo?.rootPath ?? null}
-              directoryInfo={directoryInfo}
-              locale={locale}
-              theme={theme}
-              accentColor={accentColor}
-              viewportLabels={copy.viewportLabels}
-            />
           ) : generatedProject.activeDraft ? (
             <EditWorkspaceContent
               workspaceMode={workspaceMode}
@@ -1083,6 +1093,7 @@ export default function WorkbenchExperience({
               theme={theme}
               accentColor={accentColor}
               viewportLabels={copy.viewportLabels}
+              directoryInfo={directoryInfo}
             />
           ) : (
             <WorkspaceLayout
@@ -1146,6 +1157,7 @@ export default function WorkbenchExperience({
 
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
 import type { UseGeneratedProjectReturn } from '../../lib/app/useGeneratedProject'
+import type { GameDirectoryInfo } from '../../lib/desktop'
 
 type EditWorkspaceContentProps = {
   workspaceMode: WorkspaceId
@@ -1156,9 +1168,10 @@ type EditWorkspaceContentProps = {
   theme: ThemeMode
   accentColor: string
   viewportLabels: ViewportLabels
+  directoryInfo?: GameDirectoryInfo | null
 }
 
-function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatchId, onSelectPatch, locale, theme, accentColor, viewportLabels }: EditWorkspaceContentProps) {
+function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatchId, onSelectPatch, locale, theme, accentColor, viewportLabels, directoryInfo }: EditWorkspaceContentProps) {
   const workspacePatches = generatedProject.getPatchesForWorkspace(workspaceMode)
   const activePatch = activeEditPatchId ? workspacePatches.find((p) => p.id === activeEditPatchId) ?? null : null
 
@@ -1169,8 +1182,8 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
       patches={workspacePatches}
       activePatchId={activeEditPatchId}
       onSelectPatch={onSelectPatch}
-      onPatchAdd={(action, target) => {
-        const id = generatedProject.addPatch(workspaceMode, target, action)
+      onPatchAdd={(action, target, fromFile) => {
+        const id = generatedProject.addPatch(workspaceMode, target, action, fromFile)
         onSelectPatch(id)
       }}
       onPatchRemove={(id) => {
@@ -1191,6 +1204,12 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
       }}
       onSaveDraft={generatedProject.saveDraft}
       isDirty={generatedProject.isDirty}
+      gameRootPath={directoryInfo?.rootPath ?? null}
+      directoryInfo={directoryInfo}
+      locale={locale}
+      theme={theme}
+      accentColor={accentColor}
+      viewportLabels={viewportLabels}
     >
       {activePatch ? (() => {
         const plugin = getWorkspacePlugin(workspaceMode)
@@ -1208,6 +1227,7 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
             draft={generatedProject.activeDraft!}
             onPatchChange={generatedProject.updatePatch}
             onAddVirtualAsset={generatedProject.addVirtualAsset}
+            onRemoveVirtualAsset={generatedProject.removeVirtualAsset}
             locale={locale}
             theme={theme}
             accentColor={accentColor}

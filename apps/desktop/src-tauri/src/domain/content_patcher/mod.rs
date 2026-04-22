@@ -6,7 +6,7 @@ use self::common::{
 use self::conditions::evaluate_patch_status;
 use self::context::SimulationContext;
 use self::export::write_result_asset;
-use self::plan::{build_effective_context, build_patch_plan_with_context};
+use self::plan::{build_effective_context, build_patch_plan_with_context, resolve_dynamic_tokens_for_snapshot};
 use self::project::load_content_patcher_project;
 use self::schema::parse_json_str;
 use self::types::{
@@ -268,6 +268,7 @@ pub fn simulate_content_patcher(
             let snapshot = resolve_simulation_snapshot(&request)?;
             let context = request.context.unwrap_or_else(SimulationContext::default);
             let effective_context = build_effective_context(&snapshot, &context)?;
+            let dynamic_tokens = resolve_dynamic_tokens_for_snapshot(&snapshot, &context)?;
             let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
             let project_root_path = snapshot.summary.absolute_path.as_deref();
             let attached_api_registry = attached::load_attached_api_registry(None);
@@ -290,6 +291,7 @@ pub fn simulate_content_patcher(
                 targets,
                 patch_statuses,
                 diagnostics: snapshot.diagnostics,
+                dynamic_tokens,
             })
         })(),
     )
