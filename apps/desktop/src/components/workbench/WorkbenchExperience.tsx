@@ -25,10 +25,9 @@ import { dismissNotification, publishNotification } from '../../lib/app/notifica
 import useModWorkspace from '../../lib/app/useModWorkspace'
 import { useGeneratedProject } from '../../lib/app/useGeneratedProject'
 import { GeneratedProjectOverview } from '../generated-project/GeneratedProjectOverview'
-import { WorkflowModeShell } from '../generated-project/WorkflowModeShell'
+import { EditModeShell } from '../generated-project/EditModeShell'
 import { buildWorkspacePanels } from '../../lib/app/workspacePanels'
 import '../../lib/plugins/builtInWorkspaces'
-import { getWorkspacePlugin } from '../../lib/plugins/workspaceRegistry'
 import { scheduleDeferred } from '../../lib/react/defer'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '../../lib/app/uiState'
 import type { SettingsWindowCategory } from '../SettingsWindow'
@@ -145,9 +144,62 @@ export default function WorkbenchExperience({
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [activeEditPatchId, setActiveEditPatchId] = useState<string | null>(null)
 
-  // 切换 workspace 时重置 patch 选择
+  // ─── Edit Mode 导航历史栈 ───────────────────────────────────────────
+  const [editNavHistory, setEditNavHistory] = useState<(string | '__LIST__')[]>(['__LIST__'])
+  const [editNavIndex, setEditNavIndex] = useState(0)
+
+  function navigateToPatch(patchId: string | null) {
+    const entry = patchId ?? '__LIST__'
+    setEditNavHistory((prev) => {
+      const truncated = prev.slice(0, editNavIndex + 1)
+      if (truncated.length >= 50) truncated.shift()
+      return [...truncated, entry]
+    })
+    setEditNavIndex((prev) => Math.min(prev + 1, 49))
+    setActiveEditPatchId(patchId)
+  }
+
+  function goBack() {
+    setEditNavIndex((prev) => {
+      if (prev <= 0) return prev
+      const nextIndex = prev - 1
+      const target = editNavHistory[nextIndex]
+      setActiveEditPatchId(target === '__LIST__' ? null : target)
+      return nextIndex
+    })
+  }
+
+  function goForward() {
+    setEditNavIndex((prev) => {
+      if (prev >= editNavHistory.length - 1) return prev
+      const nextIndex = prev + 1
+      const target = editNavHistory[nextIndex]
+      setActiveEditPatchId(target === '__LIST__' ? null : target)
+      return nextIndex
+    })
+  }
+
+  // 鼠标侧键导航（button 3=后退, 4=前进）
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      if (workspaceViewMode !== 'edit') return
+      if (e.button === 3) {
+        e.preventDefault()
+        goBack()
+      } else if (e.button === 4) {
+        e.preventDefault()
+        goForward()
+      }
+    }
+    window.addEventListener('mousedown', onMouseDown)
+    return () => window.removeEventListener('mousedown', onMouseDown)
+  }, [workspaceViewMode, editNavIndex, editNavHistory])
+
+  // 切换 workspace 时重置 patch 选择和导航栈
   useEffect(() => {
     setActiveEditPatchId(null)
+    setEditNavHistory(['__LIST__'])
+    setEditNavIndex(0)
   }, [workspaceMode])
 
   const [storedRecentGameDirectories, setStoredRecentGameDirectories] = useState<string[]>(
@@ -1015,12 +1067,16 @@ export default function WorkbenchExperience({
               workspaceMode={workspaceMode}
               generatedProject={generatedProject}
               activeEditPatchId={activeEditPatchId}
-              onSelectPatch={setActiveEditPatchId}
+              onSelectPatch={navigateToPatch}
               locale={locale}
               theme={theme}
               accentColor={accentColor}
               viewportLabels={copy.viewportLabels}
               directoryInfo={directoryInfo}
+              canGoBack={editNavIndex > 0}
+              canGoForward={editNavIndex < editNavHistory.length - 1}
+              onGoBack={goBack}
+              onGoForward={goForward}
             />
           ) : workspaceMode === 'mods' ? (
             <GeneratedProjectOverview
@@ -1088,12 +1144,16 @@ export default function WorkbenchExperience({
               workspaceMode={workspaceMode}
               generatedProject={generatedProject}
               activeEditPatchId={activeEditPatchId}
-              onSelectPatch={setActiveEditPatchId}
+              onSelectPatch={navigateToPatch}
               locale={locale}
               theme={theme}
               accentColor={accentColor}
               viewportLabels={copy.viewportLabels}
               directoryInfo={directoryInfo}
+              canGoBack={editNavIndex > 0}
+              canGoForward={editNavIndex < editNavHistory.length - 1}
+              onGoBack={goBack}
+              onGoForward={goForward}
             />
           ) : (
             <WorkspaceLayout
@@ -1178,14 +1238,17 @@ type EditWorkspaceContentProps = {
   accentColor: string
   viewportLabels: ViewportLabels
   directoryInfo?: GameDirectoryInfo | null
+  canGoBack: boolean
+  canGoForward: boolean
+  onGoBack: () => void
+  onGoForward: () => void
 }
 
-function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatchId, onSelectPatch, locale, theme, accentColor, viewportLabels, directoryInfo }: EditWorkspaceContentProps) {
+function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatchId, onSelectPatch, locale, theme, accentColor, viewportLabels, directoryInfo, canGoBack, canGoForward, onGoBack, onGoForward }: EditWorkspaceContentProps) {
   const workspacePatches = generatedProject.getPatchesForWorkspace(workspaceMode)
-  const activePatch = activeEditPatchId ? workspacePatches.find((p) => p.id === activeEditPatchId) ?? null : null
 
   return (
-    <WorkflowModeShell
+    <EditModeShell
       workspaceId={workspaceMode}
       draft={generatedProject.activeDraft}
       patches={workspacePatches}
@@ -1203,7 +1266,6 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
       }}
       onPatchUpdate={generatedProject.updatePatch}
       onConfigSchemaChange={(entries) => {
-        // Clear existing and re-add
         for (const entry of generatedProject.configSchema) {
           generatedProject.removeConfigEntry(entry.key)
         }
@@ -1213,58 +1275,18 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
       }}
       onSaveDraft={generatedProject.saveDraft}
       isDirty={generatedProject.isDirty}
+      onAddVirtualAsset={generatedProject.addVirtualAsset}
+      onRemoveVirtualAsset={generatedProject.removeVirtualAsset}
       gameRootPath={directoryInfo?.rootPath ?? null}
       directoryInfo={directoryInfo}
       locale={locale}
       theme={theme}
       accentColor={accentColor}
       viewportLabels={viewportLabels}
-    >
-      {activePatch ? (() => {
-        const plugin = getWorkspacePlugin(workspaceMode)
-        const Editor = plugin?.editMode.editor
-        if (!Editor) {
-          return (
-            <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
-              No editor registered for {workspaceMode} workspace.
-            </div>
-          )
-        }
-        return (
-          <Editor
-            patch={activePatch}
-            draft={generatedProject.activeDraft!}
-            onPatchChange={generatedProject.updatePatch}
-            onAddVirtualAsset={generatedProject.addVirtualAsset}
-            onRemoveVirtualAsset={generatedProject.removeVirtualAsset}
-            locale={locale}
-            theme={theme}
-            accentColor={accentColor}
-            viewportLabels={viewportLabels}
-            gameRootPath={directoryInfo?.rootPath ?? null}
-          />
-        )
-      })() : (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
-          <span className="text-xs">
-            {workspacePatches.length === 0
-              ? 'No patches yet. Click + in the sidebar to add one.'
-              : 'Select a patch from the sidebar to edit.'}
-          </span>
-          {workspacePatches.length === 0 && (
-            <button
-              type="button"
-              className="control-button control-button-primary text-xs"
-              onClick={() => {
-                // Open AddPatchDialog via WorkflowModeShell's internal button
-                // This is handled by the shell itself
-              }}
-            >
-              Add Patch
-            </button>
-          )}
-        </div>
-      )}
-    </WorkflowModeShell>
+      canGoBack={canGoBack}
+      canGoForward={canGoForward}
+      onGoBack={onGoBack}
+      onGoForward={onGoForward}
+    />
   )
 }
