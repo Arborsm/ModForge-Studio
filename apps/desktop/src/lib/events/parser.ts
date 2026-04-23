@@ -363,7 +363,7 @@ function parseCommandDetail(command: string, args: string[]) {
 }
 
 export function parseEventCommand(raw: string, index: number): EventCommand {
-  const args = splitSpaceQuoteAware(raw)
+  const args = splitSpaceQuoteAware(raw).map(stripOuterQuotes)
   const command = (args[0] ?? '').trim()
   const kind = getCommandKind(command)
   const eventCommand: EventCommand = {

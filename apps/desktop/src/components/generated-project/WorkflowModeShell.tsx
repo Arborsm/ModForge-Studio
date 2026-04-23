@@ -122,8 +122,8 @@ export function WorkflowModeShell({
           {activeTab === 'reference' && showReferenceTab ? (
             <PreviewModeShell
               workspaceMode={workspaceId}
-              gameRootPath={gameRootPath}
-              directoryInfo={directoryInfo}
+              gameRootPath={gameRootPath ?? null}
+              directoryInfo={directoryInfo ?? null}
               locale={locale!}
               theme={theme!}
               accentColor={accentColor ?? '#6366f1'}

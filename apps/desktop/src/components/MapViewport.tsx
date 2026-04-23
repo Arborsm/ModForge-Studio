@@ -59,6 +59,7 @@ type MapViewportProps = {
   contextMenuEnabled?: boolean
   contextMenuExtraItems?: ReactNode
   onAddObjectHere?: (tileX: number, tileY: number) => void
+  onTileClick?: (tileX: number, tileY: number) => void
   initialZoom?: number | null
 }
 
@@ -690,6 +691,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     contextMenuEnabled = true,
     contextMenuExtraItems,
     onAddObjectHere,
+    onTileClick,
     initialZoom = null,
   },
   ref,
@@ -1776,11 +1778,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY)
     if (event.button === 0 && moved <= 6) {
       const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
-      const portal = worldPoint ? getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY) : null
-      if (portal) {
-        onAtlasPortalOpen?.(portal.targetMap)
-        onHoverChange?.(null)
-        return
+      if (worldPoint && mapDocument) {
+        const portal = getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY)
+        if (portal) {
+          onAtlasPortalOpen?.(portal.targetMap)
+          onHoverChange?.(null)
+          return
+        }
+        const tileX = Math.floor(worldPoint.pixelX / mapDocument.tileWidth)
+        const tileY = Math.floor(worldPoint.pixelY / mapDocument.tileHeight)
+        if (tileX >= 0 && tileY >= 0 && tileX < mapDocument.width && tileY < mapDocument.height) {
+          onTileClick?.(tileX, tileY)
+          return
+        }
       }
     }
 

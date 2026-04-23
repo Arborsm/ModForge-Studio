@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Grid2x2, UserPlus, Camera, MapPin } from 'lucide-react'
+import { Grid2x2, UserPlus, Camera, MapPin, Route } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { loadMapAsset, validateGameDirectory } from '../../lib/desktop'
@@ -8,6 +8,9 @@ import type { MapDocument } from '../../lib/maps/types'
 import type { EventSceneActor, EventScript } from '../../lib/events/types'
 import { MapViewport, type ViewportWorldPoint, type TileHoverInfo } from '../MapViewport'
 import { cx } from '../../lib/cx'
+import { StagePathOverlay } from './StagePathOverlay'
+import { ActorSprite } from './ActorSprite'
+import { useEditorStore } from '../../lib/events/editorStore'
 
 const FARMER_NAME_PATTERN = /^farmer\d*$/iu
 const EVENT_STAGE_INITIAL_ZOOM = 2.5
@@ -159,7 +162,9 @@ export function EventStagePreview({
   const [mapError, setMapError] = useState('')
   const [actorAssets, setActorAssets] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
   const [showGrid, setShowGrid] = useState(true)
+  const [showPaths, setShowPaths] = useState(true)
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
+  const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
 
   // Load map
   useEffect(() => {
@@ -255,68 +260,38 @@ export function EventStagePreview({
 
     return (
       <>
+        {showPaths && (
+          <StagePathOverlay
+            eventScript={eventScript}
+            mapDocument={mapDocument}
+            selectedCommandIndex={selectedCommandIndex}
+          />
+        )}
         {Object.values(actorMap)
           .sort((left, right) => left.tileY - right.tileY)
           .map((actor) => {
-            const pixelX = actor.tileX * mapDocument.tileWidth
-            const pixelY = (actor.tileY - 1) * mapDocument.tileHeight
-            const spriteFrameX = (actor.frame % 4) * 16
-            const spriteFrameY = Math.floor(actor.frame / 4) * 32
-            const actorHeight = mapDocument.tileHeight * 2
-            const actorWidth = mapDocument.tileWidth
-            const actorLabel = normalizeActorName(actor.actorName)
             const actorKey = toActorKey(actor.actorName)
             const spriteUrl = actorAssets[actorKey]?.spriteUrl ?? null
 
             return (
-              <div
+              <ActorSprite
                 key={actor.id}
-                className="absolute transition-[transform] duration-300 ease-out"
-                style={{
-                  transform: `translate(${pixelX}px, ${pixelY}px)`,
-                  width: `${actorWidth}px`,
-                  height: `${actorHeight}px`,
-                  zIndex: actor.tileY,
-                }}
-              >
-                {spriteUrl ? (
-                  <div
-                    className="relative overflow-hidden"
-                    style={{
-                      width: `${actorWidth}px`,
-                      height: `${actorHeight}px`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '16px',
-                        height: '32px',
-                        transform: `scale(${Math.max(1, actorWidth / 16)})`,
-                        transformOrigin: 'top left',
-                        backgroundImage: `url(${spriteUrl})`,
-                        backgroundPosition: `-${spriteFrameX}px -${spriteFrameY}px`,
-                        backgroundRepeat: 'no-repeat',
-                        imageRendering: 'pixelated',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex h-full w-full items-end justify-center">
-                    <div className="rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-                      {actorLabel}
-                    </div>
-                  </div>
-                )}
-
-                <div className="pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_86%,transparent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-                  {actorLabel}
-                </div>
-              </div>
+                actorKey={actorKey}
+                actorName={actor.actorName}
+                spriteUrl={spriteUrl}
+                initialTileX={actor.tileX}
+                initialTileY={actor.tileY}
+                initialDirection={actor.facingDirection}
+                tileWidth={mapDocument.tileWidth}
+                tileHeight={mapDocument.tileHeight}
+                eventScript={eventScript}
+                selectedCommandIndex={selectedCommandIndex}
+              />
             )
           })}
       </>
     )
-  }, [actorMap, actorAssets, mapDocument])
+  }, [actorMap, actorAssets, mapDocument, eventScript, showPaths, selectedCommandIndex])
 
   const mapOverlay = (
     <div className="absolute inset-0">
@@ -381,6 +356,17 @@ export function EventStagePreview({
             >
               <Grid2x2 className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              className={cx('workspace-viewport-toolbar-icon-button', showPaths && 'workspace-viewport-toolbar-button-active')}
+              title="Toggle movement paths"
+              aria-label="Toggle movement paths"
+              aria-pressed={showPaths}
+              disabled={!mapDocument || !eventScript}
+              onClick={() => setShowPaths((current) => !current)}
+            >
+              <Route className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}
@@ -433,6 +419,7 @@ export function EventStagePreview({
               viewportOverlay={viewportOverlay}
               focusWorldPoint={focusWorldPoint}
               onHoverChange={setHoverInfo}
+              onTileClick={onTileClick}
             />
           </div>
         ) : (
