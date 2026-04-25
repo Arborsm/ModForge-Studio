@@ -4,11 +4,13 @@ interface DeleteConfirmDialogProps {
   open: boolean
   title: string
   message: string
+  cancelLabel: string
+  confirmLabel: string
   onClose: () => void
   onConfirm: () => void
 }
 
-export function DeleteConfirmDialog({ open, title, message, onClose, onConfirm }: DeleteConfirmDialogProps) {
+export function DeleteConfirmDialog({ open, title, message, cancelLabel, confirmLabel, onClose, onConfirm }: DeleteConfirmDialogProps) {
   if (!open) return null
 
   return (
@@ -29,7 +31,7 @@ export function DeleteConfirmDialog({ open, title, message, onClose, onConfirm }
 
           <div className="mt-4 flex justify-end gap-2">
             <button type="button" className="control-button text-xs" onClick={onClose}>
-              Cancel
+              {cancelLabel}
             </button>
             <button
               type="button"
@@ -39,7 +41,7 @@ export function DeleteConfirmDialog({ open, title, message, onClose, onConfirm }
                 onClose()
               }}
             >
-              Delete
+              {confirmLabel}
             </button>
           </div>
         </div>

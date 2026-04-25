@@ -948,6 +948,149 @@ export type EditorCopy = {
     loadedMapAssetsWithActiveMap: (count: number, format: string, mapName: string) => string
   }
   viewportLabels: ViewportLabels
+  studioDesk: {
+    title: string
+    heading: string
+    subtitle: string
+    heroSubtitle: string
+    designTagsLabel: string
+    designTags: string[]
+    creativeMode: string
+    newCreation: string
+    newEvent: string
+    newMap: string
+    newItem: string
+    recentInspirations: string
+    modified: string
+    synced: string
+    mainStage: string
+    cardKickers: {
+      scriptwriter: string
+      cartographer: string
+      castAndProps: string
+      projectPulse: string
+    }
+    scriptwriter: string
+    cartographer: string
+    castAndProps: string
+    mostActive: string
+    recentChanges: string
+    continueScript: string
+    openWorkspace: string
+    projectPulse: string
+    worldBible: string
+    quickSearchLabel: string
+    quickSearchPlaceholder: string
+    globalRules: string
+    lexicalReferences: string
+    customLocations: string
+    exportCenter: string
+    publishPack: string
+    lastExport: string
+    neverExported: string
+    noActiveDraftTitle: string
+    noActiveDraftSubtitle: string
+    createDraft: string
+    importDraft: string
+    noEntries: string
+    searchEmpty: string
+    activeRules: (count: number) => string
+    tokenCount: (count: number) => string
+    locationCount: (count: number) => string
+    assetCount: (count: number) => string
+    castCount: (count: number) => string
+    avatarInitials: string[]
+    avatarOverflow: (count: number) => string
+    scriptPreview: {
+      firstSpeakerInitial: string
+      firstSpeakerName: string
+      firstLine: string
+      secondSpeakerInitial: string
+      secondSpeakerName: string
+      choicesLine: string
+    }
+    edited: {
+      justNow: string
+      recently: string
+      minutesAgo: (minutes: number) => string
+      hoursAgo: (hours: number) => string
+    }
+    stats: {
+      events: string
+      maps: string
+      festivals: string
+      conflicts: string
+    }
+    workspaceDescriptions: Record<WorkspaceMode, string>
+    createDialog: {
+      title: string
+      projectName: string
+      uniqueId: string
+      author: string
+      version: string
+      description: string
+      cancel: string
+      create: string
+    }
+    exportDialog: {
+      title: string
+      project: string
+      outputDirectory: string
+      browse: string
+      filesToExport: (count: number) => string
+      cancel: string
+      export: string
+      exporting: string
+      selectDirectory: string
+    }
+    toolbar: {
+      back: string
+      forward: string
+      editView: string
+      editor: string
+      reference: string
+      unsaved: string
+      saved: string
+      project: string
+      add: string
+      config: string
+      save: string
+      saveDirty: string
+      patchCount: (count: number) => string
+    }
+    patchCatalog: {
+      title: string
+      patches: string
+      enabled: string
+      draft: string
+      dirty: string
+      clean: string
+      searchPlaceholder: string
+      filters: Record<'all' | 'enabled' | 'disabled', string>
+      actionFilterLabel: string
+      allActions: string
+      shown: (count: number) => string
+      addPatch: string
+      emptyTitle: string
+      emptySubtitle: string
+      selectedPatch: string
+      editPatch: string
+      action: string
+      target: string
+      fromFile: string
+      targetField: string
+      status: string
+      disabled: string
+      enablePatch: string
+      disablePatch: string
+      when: string
+      conditions: (count: number) => string
+      selectPrompt: string
+      deleteTitle: string
+      deleteMessage: (name: string) => string
+      deleteAction: string
+    }
+  }
   eventStage: EventStageCopy
   charactersPanel: CharactersPanelCopy
   buildingsPanel: BuildingsPanelCopy

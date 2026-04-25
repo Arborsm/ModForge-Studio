@@ -21,11 +21,14 @@ export function BuildAssetDialog({ open, mapDocument, targetMapName, onClose, on
   const [buildState, setBuildState] = useState<BuildState>({ phase: 'idle' })
 
   useEffect(() => {
-    if (!open || buildState.phase !== 'idle') return
-
-    setBuildState({ phase: 'building', message: 'Serializing map to tBIN format...' })
+    if (!open) return
 
     let cancelled = false
+
+    queueMicrotask(() => {
+      if (cancelled) return
+      setBuildState({ phase: 'building', message: 'Serializing map to tBIN format...' })
+    })
 
     void (async () => {
       try {
@@ -49,11 +52,11 @@ export function BuildAssetDialog({ open, mapDocument, targetMapName, onClose, on
     return () => {
       cancelled = true
     }
-  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapDocument, onAssetBuilt, open, targetMapName])
 
   useEffect(() => {
     if (!open) {
-      setBuildState({ phase: 'idle' })
+      queueMicrotask(() => setBuildState({ phase: 'idle' }))
     }
   }, [open])
 

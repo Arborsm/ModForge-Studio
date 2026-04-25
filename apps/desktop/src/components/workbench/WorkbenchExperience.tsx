@@ -24,8 +24,10 @@ import { useItemWorkspace } from '../../lib/app/useItemWorkspace'
 import { dismissNotification, publishNotification } from '../../lib/app/notifications'
 import useModWorkspace from '../../lib/app/useModWorkspace'
 import { useGeneratedProject } from '../../lib/app/useGeneratedProject'
-import { GeneratedProjectOverview } from '../generated-project/GeneratedProjectOverview'
 import { EditModeShell } from '../generated-project/EditModeShell'
+import { StudioDesk } from '../generated-project/StudioDesk'
+import { getEditModeRoute } from '../../lib/app/editModeRoute'
+import { buildStudioDeskModel } from '../../lib/app/studioDeskModel'
 import { buildWorkspacePanels } from '../../lib/app/workspacePanels'
 import '../../lib/plugins/builtInWorkspaces'
 import { scheduleDeferred } from '../../lib/react/defer'
@@ -128,12 +130,7 @@ export default function WorkbenchExperience({
   onImportPlayerAppearanceProfile,
   onChangePlayerAppearanceProfile,
 }: WorkbenchExperienceProps) {
-  const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
-  if (!initialAppUiStateRef.current) {
-    initialAppUiStateRef.current = getAppUiStateSnapshot()
-  }
-
-  const initialAppUiState = initialAppUiStateRef.current
+  const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
   const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>(() => {
     const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
@@ -148,7 +145,7 @@ export default function WorkbenchExperience({
   const [editNavHistory, setEditNavHistory] = useState<(string | '__LIST__')[]>(['__LIST__'])
   const [editNavIndex, setEditNavIndex] = useState(0)
 
-  function navigateToPatch(patchId: string | null) {
+  const navigateToPatch = useCallback((patchId: string | null) => {
     const entry = patchId ?? '__LIST__'
     setEditNavHistory((prev) => {
       const truncated = prev.slice(0, editNavIndex + 1)
@@ -157,9 +154,9 @@ export default function WorkbenchExperience({
     })
     setEditNavIndex((prev) => Math.min(prev + 1, 49))
     setActiveEditPatchId(patchId)
-  }
+  }, [editNavIndex])
 
-  function goBack() {
+  const goBack = useCallback(() => {
     setEditNavIndex((prev) => {
       if (prev <= 0) return prev
       const nextIndex = prev - 1
@@ -167,9 +164,9 @@ export default function WorkbenchExperience({
       setActiveEditPatchId(target === '__LIST__' ? null : target)
       return nextIndex
     })
-  }
+  }, [editNavHistory])
 
-  function goForward() {
+  const goForward = useCallback(() => {
     setEditNavIndex((prev) => {
       if (prev >= editNavHistory.length - 1) return prev
       const nextIndex = prev + 1
@@ -177,7 +174,15 @@ export default function WorkbenchExperience({
       setActiveEditPatchId(target === '__LIST__' ? null : target)
       return nextIndex
     })
-  }
+  }, [editNavHistory])
+
+  const openStudioDeskRoute = useCallback(() => {
+    setWorkspaceMode('mods')
+    setWorkspaceViewMode('edit')
+    setActiveEditPatchId(null)
+    setEditNavHistory(['__LIST__'])
+    setEditNavIndex(0)
+  }, [])
 
   // 鼠标侧键导航（button 3=后退, 4=前进）
   useEffect(() => {
@@ -193,13 +198,20 @@ export default function WorkbenchExperience({
     }
     window.addEventListener('mousedown', onMouseDown)
     return () => window.removeEventListener('mousedown', onMouseDown)
-  }, [workspaceViewMode, editNavIndex, editNavHistory])
+  }, [goBack, goForward, workspaceViewMode])
 
   // 切换 workspace 时重置 patch 选择和导航栈
   useEffect(() => {
-    setActiveEditPatchId(null)
-    setEditNavHistory(['__LIST__'])
-    setEditNavIndex(0)
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      setActiveEditPatchId(null)
+      setEditNavHistory(['__LIST__'])
+      setEditNavIndex(0)
+    })
+    return () => {
+      cancelled = true
+    }
   }, [workspaceMode])
 
   const [storedRecentGameDirectories, setStoredRecentGameDirectories] = useState<string[]>(
@@ -211,9 +223,10 @@ export default function WorkbenchExperience({
   const [playerAppearanceWindowOpen, setPlayerAppearanceWindowOpen] = useState(false)
   const [playerAppearanceWindowNonce, setPlayerAppearanceWindowNonce] = useState(0)
   const workspaceLayoutRef = useRef<WorkspaceLayoutHandle | null>(null)
-  const workspaceLayoutsRef = useRef<Record<string, WorkspaceStoredState>>(
-    normalizeWorkspaceLayouts(initialAppUiState?.workspace.layouts),
+  const [workspaceLayouts, setWorkspaceLayouts] = useState<Record<string, WorkspaceStoredState>>(
+    () => normalizeWorkspaceLayouts(initialAppUiState?.workspace.layouts),
   )
+  const workspaceLayoutsRef = useRef<Record<string, WorkspaceStoredState>>(workspaceLayouts)
   const pendingWorkspaceLayoutPatchesRef = useRef<Record<string, WorkspaceStoredState>>({})
   const workspaceLayoutPersistTimeoutRef = useRef<number | null>(null)
   const hydratedWorkspaceStateRef = useRef(false)
@@ -300,8 +313,12 @@ export default function WorkbenchExperience({
     }
 
     const state = getAppUiStateSnapshot()
-    workspaceLayoutsRef.current = normalizeWorkspaceLayouts(state.workspace.layouts)
-    setStoredRecentGameDirectories(state.appearance.recentGameDirectories)
+    const nextLayouts = normalizeWorkspaceLayouts(state.workspace.layouts)
+    workspaceLayoutsRef.current = nextLayouts
+    queueMicrotask(() => {
+      setWorkspaceLayouts(nextLayouts)
+      setStoredRecentGameDirectories(state.appearance.recentGameDirectories)
+    })
     hydratedWorkspaceStateRef.current = true
   }, [appUiStateReady])
 
@@ -533,6 +550,23 @@ export default function WorkbenchExperience({
   })
 
   const generatedProject = useGeneratedProject()
+  const studioDeskModel = useMemo(
+    () => buildStudioDeskModel({
+      activeDraft: generatedProject.activeDraft,
+      drafts: generatedProject.drafts,
+      patchCountByWorkspace: generatedProject.patchCountByWorkspace,
+      dirtyPatchIds: generatedProject.dirtyPatchIds,
+      isDirty: generatedProject.isDirty,
+    }),
+    [
+      generatedProject.activeDraft,
+      generatedProject.drafts,
+      generatedProject.patchCountByWorkspace,
+      generatedProject.dirtyPatchIds,
+      generatedProject.isDirty,
+    ],
+  )
+  const editModeRoute = getEditModeRoute(workspaceMode, Boolean(generatedProject.activeDraft))
 
   const moduleBlueprint =
     workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods'
@@ -748,6 +782,7 @@ export default function WorkbenchExperience({
       }
 
       workspaceLayoutsRef.current[storageKey] = nextState
+      setWorkspaceLayouts((current) => ({ ...current, [storageKey]: nextState }))
       pendingWorkspaceLayoutPatchesRef.current[storageKey] = nextState
       scheduleWorkspaceLayoutPersist()
     },
@@ -988,48 +1023,56 @@ export default function WorkbenchExperience({
   return (
     <div className={active ? 'flex h-full flex-col' : 'hidden'} aria-busy={interactionLocked} aria-hidden={!active}>
       <TopMenuBar
-        appMode="workbench"
-        onAppModeChange={handleAppModeChange}
-        workspaceMode={workspaceMode}
-        onWorkspaceChange={(mode) => {
-          setWorkspaceMode(mode)
-          if (mode === 'mods') {
-            setWorkspaceViewMode('edit')
-          }
-        }}
-        workspaceViewMode={workspaceViewMode}
-        onWorkspaceViewModeChange={(mode) => {
-          setWorkspaceViewMode(mode)
-          void applyAppUiStatePatch({
-            workspace: { workspaceViewMode: mode },
-          })
-        }}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        statusTone={currentWorkspaceStatus.tone}
-        desktopHost={desktopHost}
-        onMinimizeWindow={onMinimizeWindow}
-        onToggleMaximizeWindow={onToggleMaximizeWindow}
-        onCloseWindow={onCloseWindow}
-        viewMenu={{
-          panelItems: viewMenuPanelItems,
-          presetNames: viewMenuPresetNames,
-          onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
-          onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
-          onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
-          onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
-          onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
-        }}
-        settingsMenu={{
-          onOpen: () => onOpenSettings('appearance'),
-        }}
-        projectMenu={{
-          highlighted: showProjectOverlay,
-          onOpen: () => {
-            setProjectOverlayOpen(true)
-          },
-        }}
-      />
+          appMode="workbench"
+          onAppModeChange={handleAppModeChange}
+          workspaceMode={workspaceMode}
+          onWorkspaceChange={(mode) => {
+            if (mode === 'mods') {
+              openStudioDeskRoute()
+              return
+            }
+            setWorkspaceMode(mode)
+          }}
+          workspaceViewMode={workspaceViewMode}
+          onWorkspaceViewModeChange={(mode) => {
+            if (mode === 'edit') {
+              openStudioDeskRoute()
+              void applyAppUiStatePatch({
+                workspace: { workspaceViewMode: mode },
+              })
+              return
+            }
+            setWorkspaceViewMode(mode)
+            void applyAppUiStatePatch({
+              workspace: { workspaceViewMode: mode },
+            })
+          }}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+          statusTone={currentWorkspaceStatus.tone}
+          desktopHost={desktopHost}
+          onMinimizeWindow={onMinimizeWindow}
+          onToggleMaximizeWindow={onToggleMaximizeWindow}
+          onCloseWindow={onCloseWindow}
+          viewMenu={{
+            panelItems: viewMenuPanelItems,
+            presetNames: viewMenuPresetNames,
+            onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
+            onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
+            onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
+            onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
+            onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
+          }}
+          settingsMenu={{
+            onOpen: () => onOpenSettings('appearance'),
+          }}
+          projectMenu={{
+            highlighted: showProjectOverlay,
+            onOpen: () => {
+              setProjectOverlayOpen(true)
+            },
+          }}
+        />
 
       {playerAppearanceWindowOpen ? (
         <Suspense fallback={null}>
@@ -1058,88 +1101,67 @@ export default function WorkbenchExperience({
               ref={workspaceLayoutRef}
               storageKey={workspaceLayoutStorageKey}
               panels={workspacePanels}
-              persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
+              persistedState={workspaceLayouts[workspaceLayoutStorageKey] ?? null}
               onPersistStateChange={handleWorkspacePersistStateChange}
               onLayoutMetaChange={handleLayoutMetaChange}
             />
-          ) : workspaceMode === 'mods' && generatedProject.activeDraft ? (
-            <EditWorkspaceContent
-              workspaceMode={workspaceMode}
-              generatedProject={generatedProject}
-              activeEditPatchId={activeEditPatchId}
-              onSelectPatch={navigateToPatch}
-              locale={locale}
-              theme={theme}
-              accentColor={accentColor}
-              viewportLabels={copy.viewportLabels}
-              directoryInfo={directoryInfo}
-              canGoBack={editNavIndex > 0}
-              canGoForward={editNavIndex < editNavHistory.length - 1}
-              onGoBack={goBack}
-              onGoForward={goForward}
-            />
-          ) : workspaceMode === 'mods' ? (
-            <GeneratedProjectOverview
-              draft={generatedProject.activeDraft}
-              drafts={generatedProject.drafts}
-              patchCountByWorkspace={generatedProject.patchCountByWorkspace}
-              isDirty={generatedProject.isDirty}
-              isLoading={generatedProject.draftLoading}
+          ) : editModeRoute === 'studio-desk' ? (
+            <StudioDesk
+              model={studioDeskModel}
+              copy={copy}
               onCreateDraft={(metadata) => {
-                void generatedProject.createDraft(metadata)
+                void generatedProject.createDraft({
+                  ...metadata,
+                  gameRootPath: directoryInfo?.rootPath ?? null,
+                })
               }}
-              onLoadDraft={generatedProject.loadDraft}
-              onDeleteDraft={generatedProject.deleteDraft}
-              onCopyDraft={generatedProject.copyDraft}
-              onSaveDraft={generatedProject.saveDraft}
+              onCreatePatch={(action, nextWorkspace) => {
+                if (!generatedProject.activeDraft) {
+                  return
+                }
+                setWorkspaceMode(nextWorkspace)
+                setWorkspaceViewMode('edit')
+                const id = generatedProject.addPatch(nextWorkspace, '', action)
+                navigateToPatch(id)
+              }}
+              onOpenWorkspace={(nextWorkspace) => {
+                setWorkspaceMode(nextWorkspace)
+                setWorkspaceViewMode('edit')
+                navigateToPatch(null)
+              }}
+              onOpenPatch={(patchId) => {
+                const patch = generatedProject.activeDraft?.patches.find((candidate) => candidate.id === patchId)
+                if (!patch) {
+                  return
+                }
+                setWorkspaceMode(patch.workspace)
+                setWorkspaceViewMode('edit')
+                navigateToPatch(patchId)
+              }}
               onExportPack={async (outputPath) => {
                 try {
                   const result = await generatedProject.exportPack(outputPath)
                   publishNotification({
-                    id: 'export-success',
+                    id: 'studio-desk-export-success',
                     level: 'success',
-                    title: 'Export Complete',
-                    description: `Pack exported to ${result.output_path}`,
+                    title: copy.studioDesk.exportCenter,
+                    description: result.output_path,
                     autoDismissMs: 5000,
                   })
-                } catch (err) {
+                } catch (error) {
                   publishNotification({
-                    id: 'export-error',
+                    id: 'studio-desk-export-error',
                     level: 'error',
-                    title: 'Export Failed',
-                    description: err instanceof Error ? err.message : String(err),
+                    title: copy.studioDesk.exportCenter,
+                    description: error instanceof Error ? error.message : String(error),
                     autoDismissMs: 8000,
                   })
+                  throw error
                 }
               }}
-              onConfigSchemaChange={(entries) => {
-                for (const entry of generatedProject.configSchema) {
-                  generatedProject.removeConfigEntry(entry.key)
-                }
-                for (const entry of entries) {
-                  generatedProject.addConfigEntry(entry)
-                }
-              }}
-              aliasTokenNames={generatedProject.aliasTokenNames}
-              onAliasTokenNamesChange={(aliases) => {
-                // Replace all aliases: remove existing then add new ones
-                for (const key of Object.keys(generatedProject.aliasTokenNames)) {
-                  generatedProject.removeAliasTokenName(key)
-                }
-                for (const [alias, tokenName] of Object.entries(aliases)) {
-                  generatedProject.addAliasTokenName(alias, tokenName)
-                }
-              }}
-              onNavigateToWorkspace={(ws) => {
-                setWorkspaceMode(ws)
-                setWorkspaceViewMode('edit')
-              }}
-              customLocations={generatedProject.customLocations}
-              onCustomLocationsChange={generatedProject.setCustomLocations}
-              dynamicTokens={generatedProject.dynamicTokens}
-              onDynamicTokensChange={generatedProject.setDynamicTokens}
+              isLoading={generatedProject.draftLoading}
             />
-          ) : generatedProject.activeDraft ? (
+          ) : (
             <EditWorkspaceContent
               workspaceMode={workspaceMode}
               generatedProject={generatedProject}
@@ -1154,15 +1176,6 @@ export default function WorkbenchExperience({
               canGoForward={editNavIndex < editNavHistory.length - 1}
               onGoBack={goBack}
               onGoForward={goForward}
-            />
-          ) : (
-            <WorkspaceLayout
-              ref={workspaceLayoutRef}
-              storageKey={workspaceLayoutStorageKey}
-              panels={workspacePanels}
-              persistedState={workspaceLayoutsRef.current[workspaceLayoutStorageKey] ?? null}
-              onPersistStateChange={handleWorkspacePersistStateChange}
-              onLayoutMetaChange={handleLayoutMetaChange}
             />
           )}
         </div>
@@ -1198,26 +1211,26 @@ export default function WorkbenchExperience({
       ) : null}
 
       <StatusBar
-        appMode="workbench"
-        launcherPage="library"
-        workspaceMode={workspaceMode}
-        workspaceViewMode={workspaceViewMode}
-        workspaceStatus={currentWorkspaceStatus}
-        directoryInfo={directoryInfo}
-        mapAssets={mapAssets}
-        activeAsset={activeAsset}
-        mapDocument={mapDocument}
-        pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
-        hoverInfo={hoverInfo}
-        eventName={selectedEvent?.eventId ?? null}
-        eventPreconditions={selectedEvent?.preconditions}
-        eventCommandCount={selectedEvent?.commands.length ?? 0}
-        eventActorCount={selectedEvent?.scene.actors.length ?? 0}
-        currentEventCommandId={currentEventCommandId}
-        patchName={activeEditPatchId ?? null}
-        scriptLength={selectedEvent?.rawScript.length}
-        isModified={selectedEvent ? selectedEvent.rawScript !== (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript) : false}
-      />
+          appMode="workbench"
+          launcherPage="library"
+          workspaceMode={workspaceMode}
+          workspaceViewMode={workspaceViewMode}
+          workspaceStatus={currentWorkspaceStatus}
+          directoryInfo={directoryInfo}
+          mapAssets={mapAssets}
+          activeAsset={activeAsset}
+          mapDocument={mapDocument}
+          pathLabel={mapDocument?.relativePath ?? activeAsset?.relativePath ?? worldAtlasDocument?.relativePath ?? copy.common.none}
+          hoverInfo={hoverInfo}
+          eventName={selectedEvent?.eventId ?? null}
+          eventPreconditions={selectedEvent?.preconditions}
+          eventCommandCount={selectedEvent?.commands.length ?? 0}
+          eventActorCount={selectedEvent?.scene.actors.length ?? 0}
+          currentEventCommandId={currentEventCommandId}
+          patchName={activeEditPatchId ?? null}
+          scriptLength={selectedEvent?.rawScript.length}
+          isModified={selectedEvent ? selectedEvent.rawScript !== (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript) : false}
+        />
     </div>
   )
 }

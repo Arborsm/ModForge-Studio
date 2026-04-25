@@ -1,7 +1,6 @@
 // components/generated-project/EditorPage.tsx
 // 编辑器路由页：根据 Patch 类型分发对应编辑器
 
-import { useState } from 'react'
 import type { DraftPatch, GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
 import type { GameDirectoryInfo } from '../../lib/desktop'
@@ -22,6 +21,7 @@ interface EditorPageProps {
   viewportLabels?: ViewportLabels
   gameRootPath: string | null
   directoryInfo: GameDirectoryInfo | null
+  viewMode: 'editor' | 'reference'
 }
 
 export function EditorPage({
@@ -37,9 +37,8 @@ export function EditorPage({
   viewportLabels,
   gameRootPath,
   directoryInfo,
+  viewMode,
 }: EditorPageProps) {
-  const [activeTab, setActiveTab] = useState<'editor' | 'reference'>('editor')
-
   const showReferenceTab = Boolean(gameRootPath && directoryInfo && locale && theme)
 
   if (!patch || !draft) {
@@ -52,40 +51,12 @@ export function EditorPage({
 
   const plugin = getWorkspacePlugin(workspaceId)
   const Editor = plugin?.editMode.editor
+  const shouldShowReference = viewMode === 'reference' && showReferenceTab
 
   return (
     <div className="flex h-full flex-col">
-      {/* Editor/Reference Tab */}
-      {showReferenceTab ? (
-        <div className="flex h-9 shrink-0 items-center gap-0.5 border-b border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3"
-        >
-          <button
-            type="button"
-            className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
-              activeTab === 'editor'
-                ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-            onClick={() => setActiveTab('editor')}
-          >
-            Editor
-          </button>
-          <button
-            type="button"
-            className={`rounded-md px-3 py-1 text-[11px] font-medium transition-colors ${
-              activeTab === 'reference'
-                ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-            onClick={() => setActiveTab('reference')}
-          >
-            Reference
-          </button>
-        </div>
-      ) : null}
-
       <div className="min-h-0 flex-1 overflow-hidden">
-        {activeTab === 'reference' && showReferenceTab ? (
+        {shouldShowReference ? (
           <PreviewModeShell
             workspaceMode={workspaceId}
             gameRootPath={gameRootPath}

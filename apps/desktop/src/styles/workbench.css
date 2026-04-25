@@ -3,6 +3,7 @@
 @import "./workspace/layout.css";
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
+@import "./features/generated-project-edit.css";
 @import "./features/item-group.css";
 @import "./features/initialization-overlay.css";
 @source "../App.tsx";

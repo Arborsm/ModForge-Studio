@@ -119,6 +119,9 @@
 - 核心重构设计文档：`docs/project-mods-core-driven-refactor.md`（改 Project 模式前必读）
 - 重构实施指南：`docs/project-mods-core-driven-refactor-milestones.md`（按 Milestone 执行时对照）
 - 全工作台编辑模式总设：`docs/cryptic-churning-journal.md`
+- Studio Desk 项目首页：`apps/desktop/src/components/generated-project/StudioDesk.tsx`
+- Studio Desk 数据选择器：`apps/desktop/src/lib/app/studioDeskModel.ts`
+- Edit Mode 工作区壳层：`apps/desktop/src/components/generated-project/EditModeShell.tsx`
 - 核心编辑层（ChangeRegistry、CP 生成器、诊断）：`apps/desktop/src/lib/app/editing/`
 - 编辑会话与草稿生命周期：`apps/desktop/src/lib/app/editing/useEditProject.ts`、`useGeneratedProjectWorkspace.ts`
 - 面板组件（Browser/Editor/Preview/Export/Drafts/ModHub）：`apps/desktop/src/components/project/`
@@ -199,6 +202,9 @@
   - `apps/desktop/src-tauri/src/infrastructure/`
 - 改 generated-project 预览、导出、草稿同步：
   - `docs/project-mods-core-driven-refactor.md`（先读设计文档）
+  - `apps/desktop/src/components/generated-project/`
+  - `apps/desktop/src/lib/app/studioDeskModel.ts`
+  - `apps/desktop/src/lib/app/useGeneratedProject.ts`
   - `apps/desktop/src/lib/app/editing/`
   - `apps/desktop/src/components/workbench-project/`
   - `apps/desktop/src/lib/desktop.ts`

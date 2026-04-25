@@ -39,6 +39,11 @@ describe('typed locale bundles', () => {
     expect(typeof (zhCN.itemsPanel as Record<string, unknown>).filtersTitle).toBe('string')
   })
 
+  it('exposes Studio Desk copy in both locales', () => {
+    expect(localeBundles['zh-CN'].editor.studioDesk.title).toBe('工作室桌面')
+    expect(localeBundles['en-US'].editor.studioDesk.title).toBe('Studio Desk')
+  })
+
   it('exposes runtime locale bundle formatter functions and mods copy without source inspection', () => {
     const enUS = localeBundles['en-US']
     const zhCN = localeBundles['zh-CN']

@@ -31,6 +31,8 @@ export interface DraftPatch {
   logName: string
   /** CP supports boolean or string tokens like "{{EnableEdit}}" for Enabled. */
   enabled: boolean | string
+  /** Last local edit timestamp, used by Studio Desk recency ordering. */
+  updatedAt?: number
   when?: Record<string, unknown>
   fromFile?: string
   editorState: unknown
@@ -155,6 +157,7 @@ function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] 
           : typeof p['enabled'] === 'string'
             ? p['enabled']
             : true,
+        updatedAt: typeof p['updatedAt'] === 'number' ? p['updatedAt'] : undefined,
         when: typeof p['when'] === 'object' && p['when'] !== null && !Array.isArray(p['when'])
           ? p['when'] as Record<string, unknown>
           : undefined,
@@ -193,6 +196,9 @@ function serializeChangeRegistry(patches: DraftPatch[]): Record<string, unknown>
       }
       if (p.targetField !== undefined && p.targetField.length > 0) {
         result['targetField'] = p.targetField
+      }
+      if (p.updatedAt !== undefined) {
+        result['updatedAt'] = p.updatedAt
       }
       return result
     }),
@@ -711,6 +717,7 @@ export function useGeneratedProject() {
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [dirtyPatchIds, setDirtyPatchIds] = useState<Set<string>>(() => new Set())
   const isDirtyRef = useRef(false)
 
   // 保持 ref 同步
@@ -741,9 +748,11 @@ export function useGeneratedProject() {
       const record = await loadGeneratedProjectDraft(storageKey)
       setActiveDraft(backendToFrontend(record))
       setIsDirty(false)
+      setDirtyPatchIds(new Set())
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
       setActiveDraft(null)
+      setDirtyPatchIds(new Set())
     } finally {
       setDraftLoading(false)
     }
@@ -778,6 +787,7 @@ export function useGeneratedProject() {
       await saveGeneratedProjectDraft(record)
       setActiveDraft(newDraft)
       setIsDirty(false)
+      setDirtyPatchIds(new Set())
       await refreshDrafts()
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
@@ -795,6 +805,7 @@ export function useGeneratedProject() {
       const record = frontendToBackend(activeDraft)
       await saveGeneratedProjectDraft(record)
       setIsDirty(false)
+      setDirtyPatchIds(new Set())
       await refreshDrafts()
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
@@ -810,6 +821,7 @@ export function useGeneratedProject() {
       if (activeDraft?.draftStorageKey === storageKey) {
         setActiveDraft(null)
         setIsDirty(false)
+        setDirtyPatchIds(new Set())
       }
       await refreshDrafts()
     } catch (error) {
@@ -827,6 +839,7 @@ export function useGeneratedProject() {
       const copied = backendToFrontend(record)
       setActiveDraft(copied)
       setIsDirty(false)
+      setDirtyPatchIds(new Set())
       await refreshDrafts()
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
@@ -840,6 +853,7 @@ export function useGeneratedProject() {
   const addPatchWithReturn = useCallback(
     (workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string): string => {
       const id = generatePatchId()
+      const updatedAt = Date.now()
       setActiveDraft((current) => {
         if (!current) return current
         const newPatch: DraftPatch = {
@@ -849,12 +863,14 @@ export function useGeneratedProject() {
           action,
           logName: action === 'Include' ? `Include → ${fromFile ?? ''}` : `${action} → ${target}`,
           enabled: true,
+          updatedAt,
           editorState: {},
           ...(fromFile ? { fromFile } : {}),
         }
         return { ...current, patches: [...current.patches, newPatch] }
       })
       setIsDirty(true)
+      setDirtyPatchIds((current) => new Set(current).add(id))
       return id
     },
     [],
@@ -869,19 +885,26 @@ export function useGeneratedProject() {
       }
     })
     setIsDirty(true)
+    setDirtyPatchIds((current) => {
+      const next = new Set(current)
+      next.delete(patchId)
+      return next
+    })
   }, [])
 
   const updatePatch = useCallback((patchId: string, patch: Partial<DraftPatch>) => {
+    const updatedAt = Date.now()
     setActiveDraft((current) => {
       if (!current) return current
       return {
         ...current,
         patches: current.patches.map((p) =>
-          p.id === patchId ? { ...p, ...patch } : p,
+          p.id === patchId ? { ...p, ...patch, updatedAt } : p,
         ),
       }
     })
     setIsDirty(true)
+    setDirtyPatchIds((current) => new Set(current).add(patchId))
   }, [])
 
   const getPatchesForWorkspace = useCallback(
@@ -1018,6 +1041,7 @@ export function useGeneratedProject() {
       const draft = backendToFrontend(record)
       setActiveDraft(draft)
       setIsDirty(false)
+      setDirtyPatchIds(new Set())
       await refreshDrafts()
       return draft
     } catch (error) {
@@ -1077,6 +1101,7 @@ export function useGeneratedProject() {
     draftLoading,
     draftError,
     isDirty,
+    dirtyPatchIds,
     createDraft,
     loadDraft,
     saveDraft,

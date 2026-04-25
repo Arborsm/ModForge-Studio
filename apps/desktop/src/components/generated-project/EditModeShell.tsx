@@ -1,11 +1,14 @@
 // components/generated-project/EditModeShell.tsx
-// Edit 模式总壳层：Header + Patch List / Editor 路由
+// Edit 模式总壳层：Header + Patch catalog / full-page editor route
 
-import { ArrowLeft, ArrowRight, Pencil, Eye } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import type { DraftPatch, GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
 import type { GameDirectoryInfo } from '../../lib/desktop'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
+import { AddPatchDialog } from './AddPatchDialog'
+import { ConfigSchemaDialog } from './ConfigSchemaDialog'
+import { EditModeToolbar } from './EditModeToolbar'
 import { PatchListPage } from './PatchListPage'
 import { EditorPage } from './EditorPage'
 
@@ -61,107 +64,63 @@ export function EditModeShell({
   onRemoveVirtualAsset,
 }: EditModeShellProps) {
   const activePatch = activePatchId ? patches.find((p) => p.id === activePatchId) ?? null : null
+  const [editorViewMode, setEditorViewMode] = useState<'editor' | 'reference'>('editor')
+  const [addPatchDialogOpen, setAddPatchDialogOpen] = useState(false)
+  const [configDialogOpen, setConfigDialogOpen] = useState(false)
+  const showReference = Boolean(gameRootPath && directoryInfo && locale && theme)
+  const activeEditorViewMode = showReference ? editorViewMode : 'editor'
+
+  function handleSelectPatch(patchId: string | null) {
+    onSelectPatch(patchId)
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        onSaveDraft()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onSaveDraft])
 
   return (
-    <div className="flex h-full flex-col bg-[var(--bg-app)]">
-      {/* Header */}
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4">
-        {/* 导航箭头 */}
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-              canGoBack
-                ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]'
-                : 'cursor-default text-[var(--text-muted)] opacity-40'
-            }`}
-            onClick={onGoBack}
-            disabled={!canGoBack}
-            title="返回 (鼠标侧键)"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-              canGoForward
-                ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]'
-                : 'cursor-default text-[var(--text-muted)] opacity-40'
-            }`}
-            onClick={onGoForward}
-            disabled={!canGoForward}
-            title="前进 (鼠标侧键)"
-          >
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* 分隔线 */}
-        <div className="mx-1 h-5 w-px bg-[var(--border-color)]" />
-
-        {/* 页面标题 */}
-        {activePatchId ? (
-          <>
-            <button
-              type="button"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]"
-              onClick={() => onSelectPatch(null)}
-              title="返回 Patch 列表"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <Pencil className="h-3.5 w-3.5 text-[var(--accent)]" />
-            <span className="text-xs font-semibold text-[var(--text-primary)]">
-              {activePatch?.logName ?? 'Edit Patch'}
-            </span>
-            <span className="text-[10px] text-[var(--text-secondary)]">
-              {activePatch?.action} → {activePatch?.target}
-            </span>
-          </>
-        ) : (
-          <>
-            <Eye className="h-3.5 w-3.5 text-[var(--accent)]" />
-            <span className="text-xs font-semibold text-[var(--text-primary)]">
-              Patches
-            </span>
-            <span className="text-[10px] text-[var(--text-secondary)]">
-              ({patches.length})
-            </span>
-          </>
-        )}
-
-        <div className="flex-1" />
-
-        {/* 右侧操作区 */}
-        <div className="flex items-center gap-1.5">
-          {!activePatchId && (
-            <button
-              type="button"
-              className="control-button control-button-primary text-[10px]"
-              onClick={onSaveDraft}
-              disabled={!isDirty}
-            >
-              {isDirty ? 'Save*' : 'Save'}
-            </button>
-          )}
-        </div>
-      </div>
+    <div className="edit-mode-shell">
+      <EditModeToolbar
+        workspaceId={workspaceId}
+        patches={patches}
+        activePatchId={activePatchId}
+        activePatch={activePatch}
+        viewMode={activeEditorViewMode}
+        showReference={showReference}
+        isDirty={isDirty}
+        canGoBack={canGoBack}
+        canGoForward={canGoForward}
+        onGoBack={onGoBack}
+        onGoForward={onGoForward}
+        onSelectPatch={handleSelectPatch}
+        onViewModeChange={setEditorViewMode}
+        onAddPatch={() => {
+          setAddPatchDialogOpen(true)
+        }}
+        onOpenConfig={() => setConfigDialogOpen(true)}
+        onSaveDraft={onSaveDraft}
+      />
 
       {/* 内容区 */}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activePatchId === null ? (
           <PatchListPage
             patches={patches}
-            onEditPatch={onSelectPatch}
-            onAddPatch={onPatchAdd}
+            onEditPatch={handleSelectPatch}
+            onAddPatchRequest={() => setAddPatchDialogOpen(true)}
             onRemovePatch={onPatchRemove}
             onTogglePatch={(id, enabled) => onPatchUpdate(id, { enabled })}
-            onSaveDraft={onSaveDraft}
-            isDirty={isDirty}
             workspaceId={workspaceId}
             draft={draft}
-            onConfigSchemaChange={onConfigSchemaChange}
-            onPatchUpdate={onPatchUpdate}
+            isDirty={isDirty}
           />
         ) : (
           <EditorPage
@@ -177,9 +136,32 @@ export function EditModeShell({
             viewportLabels={viewportLabels}
             gameRootPath={gameRootPath ?? null}
             directoryInfo={directoryInfo ?? null}
+            viewMode={activeEditorViewMode}
           />
         )}
       </div>
+
+      {configDialogOpen && draft ? (
+        <ConfigSchemaDialog
+          open={configDialogOpen}
+          mode="config"
+          patch={activePatch}
+          configSchema={draft.configSchema}
+          onClose={() => setConfigDialogOpen(false)}
+          onPatchPropertiesChange={(patchId, props) => onPatchUpdate(patchId, props)}
+          onConfigSchemaChange={onConfigSchemaChange}
+        />
+      ) : null}
+
+      <AddPatchDialog
+        open={addPatchDialogOpen}
+        workspaceId={workspaceId}
+        onClose={() => setAddPatchDialogOpen(false)}
+        onAdd={(action, target, fromFile) => {
+          setAddPatchDialogOpen(false)
+          onPatchAdd(action, target, fromFile)
+        }}
+      />
     </div>
   )
 }
