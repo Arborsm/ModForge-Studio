@@ -58,9 +58,19 @@ export function ContentPatcherPatchPropertiesPanel({
   const prevWhenTextRef = useRef(whenText)
 
   useEffect(() => {
+    let cancelled = false
+
     if (prevWhenTextRef.current !== whenText) {
       prevWhenTextRef.current = whenText
-      setWhenDraft(whenText)
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setWhenDraft(whenText)
+        }
+      })
+    }
+
+    return () => {
+      cancelled = true
     }
   }, [whenText])
 

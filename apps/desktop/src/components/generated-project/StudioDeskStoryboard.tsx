@@ -4,6 +4,7 @@ import type { EditorCopy } from '../../locales'
 import type { StudioDeskInspiration, StudioDeskInspirationKind } from '../../lib/app/studioDeskModel'
 import type { DraftPatch } from '../../lib/app/useGeneratedProject'
 import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
+import { formatStudioTimestamp } from './studioDeskFormatting'
 
 type StudioDeskStoryboardProps = {
   copy: EditorCopy
@@ -19,14 +20,6 @@ function iconFor(kind: StudioDeskInspirationKind) {
   if (kind === 'map') return <Grid3X3 className="h-4 w-4" />
   if (kind === 'event') return <MessageSquare className="h-4 w-4" />
   return <PackagePlus className="h-4 w-4" />
-}
-
-function formatEditedLabel(copy: EditorCopy['studioDesk'], updatedAt: number | null) {
-  if (!updatedAt) return copy.edited.recently
-  const minutes = Math.max(0, Math.round((Date.now() - updatedAt) / 60_000))
-  if (minutes <= 1) return copy.edited.justNow
-  if (minutes < 60) return copy.edited.minutesAgo(minutes)
-  return copy.edited.hoursAgo(Math.max(1, Math.round(minutes / 60)))
 }
 
 export function StudioDeskStoryboard({
@@ -102,7 +95,7 @@ export function StudioDeskStoryboard({
                 <span className="studio-inspiration-icon">{iconFor(item.kind)}</span>
                 <span className="studio-inspiration-text">
                   <strong>{item.title}</strong>
-                  <span>{formatEditedLabel(desk, item.updatedAt)}</span>
+                  <span>{formatStudioTimestamp(desk, item.updatedAt)}</span>
                 </span>
                 <span
                   className={`studio-status-dot studio-status-${item.status}`}

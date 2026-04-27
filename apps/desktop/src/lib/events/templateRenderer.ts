@@ -12,6 +12,7 @@ export function renderTemplate(
   args: string[],
   _locale: 'zh-CN' | 'en-US' = 'en-US',
 ): RenderedNode[] {
+  void _locale
   return schema.template.map((item): RenderedNode => {
     if (item.type === 'text') {
       return { type: 'static', text: item.value }

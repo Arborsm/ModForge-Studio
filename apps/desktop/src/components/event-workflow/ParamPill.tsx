@@ -44,7 +44,10 @@ function directionLabel(value: string) {
 
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
   const handlerRef = useRef(handler)
-  handlerRef.current = handler
+
+  useEffect(() => {
+    handlerRef.current = handler
+  }, [handler])
 
   useEffect(() => {
     function onClick(event: MouseEvent) {

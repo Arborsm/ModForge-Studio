@@ -668,7 +668,8 @@ function MapTilesEditor({
                     const next = [...mapTiles]
                     const val = e.target.value.trim()
                     if (!val) {
-                      const { setIndex: _, ...rest } = tile
+                      const { setIndex, ...rest } = tile
+                      void setIndex
                       next[index] = rest
                     } else {
                       const num = Number(val)
@@ -698,7 +699,8 @@ function MapTilesEditor({
                     const next = [...mapTiles]
                     const text = e.target.value.trim()
                     if (!text) {
-                      const { setProperties: _, ...rest } = tile
+                      const { setProperties, ...rest } = tile
+                      void setProperties
                       next[index] = rest
                     } else {
                       const props: Record<string, string> = {}

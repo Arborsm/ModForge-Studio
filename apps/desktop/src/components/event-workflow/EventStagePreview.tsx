@@ -168,14 +168,26 @@ export function EventStagePreview({
 
   // Load map
   useEffect(() => {
+    let cancelled = false
+
     if (!gameRootPath || !mapName) {
-      setMapDocument(null)
-      setMapError(gameRootPath ? 'No map name provided.' : '')
-      return
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setMapDocument(null)
+          setMapError(gameRootPath ? 'No map name provided.' : '')
+        }
+      })
+
+      return () => {
+        cancelled = true
+      }
     }
 
-    let cancelled = false
-    setMapError('')
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setMapError('')
+      }
+    })
 
     void (async () => {
       try {
@@ -216,13 +228,20 @@ export function EventStagePreview({
 
   // Load actor sprites and portraits
   useEffect(() => {
-    if (!gameRootPath || Object.keys(actorMap).length === 0) {
-      setActorAssets({})
-      onActorAssetsChange?.({})
-      return
-    }
-
     let cancelled = false
+
+    if (!gameRootPath || Object.keys(actorMap).length === 0) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setActorAssets({})
+          onActorAssetsChange?.({})
+        }
+      })
+
+      return () => {
+        cancelled = true
+      }
+    }
 
     void (async () => {
       const entries = await Promise.all(

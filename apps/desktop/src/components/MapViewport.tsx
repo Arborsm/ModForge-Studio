@@ -703,6 +703,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const mapRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const lastHoverRef = useRef<TileHoverInfo | null>(null)
+  const [contextMenuHover, setContextMenuHover] = useState<TileHoverInfo | null>(null)
   const foregroundRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
@@ -1690,13 +1691,12 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   function updateHover(event: PointerEvent<HTMLDivElement>) {
     const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
     if (!mapDocument || !worldPoint) {
+      lastHoverRef.current = null
       return
     }
 
     const info = buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY)
-    if (info) {
-      lastHoverRef.current = info
-    }
+    lastHoverRef.current = info
     onHoverChange?.(info)
   }
 
@@ -1962,7 +1962,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   return (
-    <ContextMenu.Root>
+    <ContextMenu.Root onOpenChange={(open) => {
+      if (open) {
+        setContextMenuHover(lastHoverRef.current)
+      }
+    }}>
       <ContextMenu.Trigger asChild>{viewportContent}</ContextMenu.Trigger>
 
       <ContextMenu.Portal>
@@ -1990,16 +1994,16 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
           {onAddObjectHere ? (
             <ContextMenu.Item
               className="context-menu-item"
-              disabled={!lastHoverRef.current}
+              disabled={!contextMenuHover}
               onSelect={() => {
-                const hover = lastHoverRef.current
+                const hover = contextMenuHover
                 if (hover) {
                   onAddObjectHere(hover.tileX, hover.tileY)
                 }
               }}
             >
               {labels.addObjectHere}
-              {lastHoverRef.current ? ` (${lastHoverRef.current.tileX}, ${lastHoverRef.current.tileY})` : ''}
+              {contextMenuHover ? ` (${contextMenuHover.tileX}, ${contextMenuHover.tileY})` : ''}
             </ContextMenu.Item>
           ) : (
             <ContextMenu.Item className="context-menu-item" disabled>

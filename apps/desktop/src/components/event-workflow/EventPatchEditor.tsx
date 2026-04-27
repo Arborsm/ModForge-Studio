@@ -15,6 +15,9 @@ import { useEditorStore } from '../../lib/events/editorStore'
 
 type EditorTab = 'events' | 'fields' | 'textops' | 'moveentries'
 
+const EMPTY_ENTRIES: Record<string, unknown> = {}
+const EMPTY_RAW_SCRIPTS: Record<string, string> = {}
+
 interface EventPatchEditorProps {
   patch: DraftPatch
   draft: GeneratedProjectDraft
@@ -49,12 +52,12 @@ export function EventPatchEditor({
 }: EventPatchEditorProps) {
   void onAddVirtualAsset
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
-  const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? {}
+  const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? EMPTY_ENTRIES
   const fields = (editorState['fields'] as Record<string, Record<string, string>> | undefined) ?? {}
   const moveEntries = (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
   const gameRootPath = externalGameRootPath ?? draft.projectMetadata.gameRootPath ?? null
   const eventSnapshot = draft.eventSourceSnapshotsByTarget[patch.target]
-  const originalScripts = eventSnapshot?.rawScriptsByKey ?? {}
+  const originalScripts = eventSnapshot?.rawScriptsByKey ?? EMPTY_RAW_SCRIPTS
 
   const [activeTab, setActiveTab] = useState<EditorTab>('events')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
