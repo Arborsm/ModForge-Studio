@@ -40,6 +40,40 @@ function draft(patches: DraftPatch[] = []): GeneratedProjectDraft {
 }
 
 describe('buildStudioDeskModel', () => {
+  test('derives project lobby cards and counts from draft summaries', () => {
+    const activeDraft = draft([patch({ id: 'disabled', enabled: false })])
+
+    const model = buildStudioDeskModel({
+      activeDraft,
+      drafts: [
+        {
+          draftStorageKey: 'draft-1',
+          projectName: '星露谷夏日祭扩展',
+          projectUniqueId: 'Arbor.SummerFestival',
+          lastDraftSavedAt: 200,
+          lastExportedAt: 100,
+        },
+        {
+          draftStorageKey: 'draft-2',
+          projectName: '海风旅店',
+          projectUniqueId: 'Arbor.HarborInn',
+          lastDraftSavedAt: 50,
+          lastExportedAt: 60,
+        },
+      ],
+      patchCountByWorkspace: { events: 1 },
+      dirtyPatchIds: new Set(['disabled']),
+      isDirty: true,
+    })
+
+    expect(model.gallery.projects.map((project) => project.title)).toEqual([
+      '星露谷夏日祭扩展',
+      '海风旅店',
+    ])
+    expect(model.gallery.projects[0]?.statuses).toEqual(['active', 'export', 'conflict'])
+    expect(model.gallery.counts).toMatchObject({ all: 2, active: 2, export: 1, conflict: 1, archive: 0 })
+  })
+
   test('sorts recent inspirations by updatedAt descending', () => {
     const model = buildStudioDeskModel({
       activeDraft: draft([
@@ -96,6 +130,11 @@ describe('buildStudioDeskModel', () => {
     const activeDraft = draft()
     activeDraft.configSchema = [{ key: 'EnableFestival', defaultValue: true }]
     activeDraft.dynamicTokens = [{ name: 'FestivalDay', value: '14' }]
+    activeDraft.customLocations = [{ name: 'FestivalPlaza', fromMapFile: 'Maps/FestivalPlaza.tmx' }]
+    activeDraft.patches = [
+      patch({ id: 'event', workspace: 'events', logName: 'Festival intro', target: 'Data/Events/Town' }),
+      patch({ id: 'item', workspace: 'items', logName: 'Festival drink', target: 'Data/Objects' }),
+    ]
 
     const model = buildStudioDeskModel({
       activeDraft,
@@ -107,5 +146,8 @@ describe('buildStudioDeskModel', () => {
 
     expect(model.worldBible.configSchema).toEqual([{ key: 'EnableFestival', value: 'true' }])
     expect(model.worldBible.tokens).toEqual([{ key: 'FestivalDay', value: '{{FestivalDay}}' }])
+    expect(model.worldBible.story).toEqual([{ key: 'Festival intro', value: 'Data/Events/Town' }])
+    expect(model.worldBible.items).toEqual([{ key: 'Festival drink', value: 'Data/Objects' }])
+    expect(model.worldBible.scenes).toEqual([{ key: 'FestivalPlaza', value: 'Maps/FestivalPlaza.tmx' }])
   })
 })

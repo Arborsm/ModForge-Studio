@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Copy, Grid3X3, MessageSquare, PackagePlus, Plus, Trash2 } from 'lucide-react'
 import type { EditorCopy } from '../../locales'
 import type { StudioDeskInspiration, StudioDeskInspirationKind } from '../../lib/app/studioDeskModel'
@@ -38,10 +39,27 @@ export function StudioDeskStoryboard({
   onPreviewFocusChange,
 }: StudioDeskStoryboardProps) {
   const desk = copy.studioDesk
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredInspirations = useMemo(() => {
+    if (!normalizedQuery) return inspirations
+    return inspirations.filter((item) =>
+      `${item.title} ${item.target} ${item.action}`.toLowerCase().includes(normalizedQuery)
+    )
+  }, [inspirations, normalizedQuery])
 
   return (
-    <aside className="studio-storyboard">
+    <aside className="studio-storyboard" aria-label={desk.recentInspirations}>
       <div className="studio-section-label">{desk.recentInspirations}</div>
+      <label className="studio-stack-filter">
+        <span className="sr-only">{desk.quickSearchLabel}</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={desk.quickSearchPlaceholder}
+        />
+      </label>
       <button type="button" className="studio-create-button" onClick={onCreateDraft}>
         <Plus className="h-4 w-4" />
         <span>{desk.newCreation}</span>
@@ -71,8 +89,8 @@ export function StudioDeskStoryboard({
       </div>
 
       <div className="studio-inspiration-list">
-        {inspirations.length ? (
-          inspirations.map((item) => (
+        {filteredInspirations.length ? (
+          filteredInspirations.map((item) => (
             <article key={item.patchId} className={`studio-inspiration studio-inspiration-${item.kind}`}>
               <button
                 type="button"

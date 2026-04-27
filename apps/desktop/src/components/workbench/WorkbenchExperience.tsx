@@ -140,6 +140,7 @@ export default function WorkbenchExperience({
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
   const [activeEditPatchId, setActiveEditPatchId] = useState<string | null>(null)
+  const [studioDeskGalleryOpen, setStudioDeskGalleryOpen] = useState(true)
 
   // ─── Edit Mode 导航历史栈 ───────────────────────────────────────────
   const [editNavHistory, setEditNavHistory] = useState<(string | '__LIST__')[]>(['__LIST__'])
@@ -1138,6 +1139,18 @@ export default function WorkbenchExperience({
                 setWorkspaceViewMode('edit')
                 navigateToPatch(patchId)
               }}
+              onOpenDraft={(draftStorageKey) => {
+                void generatedProject.loadDraft(draftStorageKey)
+                setWorkspaceMode('mods')
+                setWorkspaceViewMode('edit')
+                navigateToPatch(null)
+              }}
+              onCopyDraft={(draftStorageKey) => {
+                void generatedProject.copyDraft(draftStorageKey)
+              }}
+              onDeleteDraft={(draftStorageKey) => {
+                void generatedProject.deleteDraft(draftStorageKey)
+              }}
               onExportPack={async (outputPath) => {
                 try {
                   const result = await generatedProject.exportPack(outputPath)
@@ -1160,6 +1173,8 @@ export default function WorkbenchExperience({
                 }
               }}
               isLoading={generatedProject.draftLoading}
+              galleryOpen={studioDeskGalleryOpen}
+              onGalleryOpenChange={setStudioDeskGalleryOpen}
             />
           ) : (
             <EditWorkspaceContent
@@ -1210,7 +1225,8 @@ export default function WorkbenchExperience({
         />
       ) : null}
 
-      <StatusBar
+      {workspaceViewMode !== 'edit' ? (
+        <StatusBar
           appMode="workbench"
           launcherPage="library"
           workspaceMode={workspaceMode}
@@ -1231,6 +1247,7 @@ export default function WorkbenchExperience({
           scriptLength={selectedEvent?.rawScript.length}
           isModified={selectedEvent ? selectedEvent.rawScript !== (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript) : false}
         />
+      ) : null}
     </div>
   )
 }

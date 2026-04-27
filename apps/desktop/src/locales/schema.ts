@@ -955,6 +955,31 @@ export type EditorCopy = {
     heroSubtitle: string
     designTagsLabel: string
     designTags: string[]
+    projectLobby: string
+    projectLobbyControl: string
+    projectGrid: string
+    projectCount: (count: number) => string
+    searchProjects: string
+    galleryFilters: Record<'all' | 'active' | 'export' | 'conflict' | 'archive', string>
+    overview: string
+    totalProjects: string
+    waitingExport: string
+    needsAttention: string
+    returnCurrentDesk: string
+    currentActive: string
+    pendingExport: string
+    hasConflict: string
+    archived: string
+    openProject: string
+    selectProject: (name: string) => string
+    copyProject: string
+    deleteProject: string
+    selectedProjects: (count: number) => string
+    clearSelection: string
+    bulkDelete: string
+    deleteProjectTitle: string
+    deleteProjectMessage: (name: string) => string
+    deleteProjectsMessage: (count: number) => string
     creativeMode: string
     newCreation: string
     newEvent: string
@@ -970,6 +995,13 @@ export type EditorCopy = {
       castAndProps: string
       projectPulse: string
     }
+    creationControls: string
+    scriptConsole: string
+    stageTabs: Record<'script' | 'map' | 'actors' | 'props', string>
+    stageEmpty: string
+    linkedResources: string
+    sortByTime: string
+    bibleTabs: Record<'actors' | 'tokens' | 'story' | 'items' | 'scenes', string>
     scriptwriter: string
     cartographer: string
     castAndProps: string
@@ -978,7 +1010,9 @@ export type EditorCopy = {
     continueScript: string
     openWorkspace: string
     projectPulse: string
+    pulseSummary: (action: string) => string
     worldBible: string
+    closeWorldBible: string
     quickSearchLabel: string
     quickSearchPlaceholder: string
     globalRules: string
@@ -994,6 +1028,8 @@ export type EditorCopy = {
     importDraft: string
     noEntries: string
     searchEmpty: string
+    bibleEntryCount: (count: number) => string
+    bibleReferenceCount: (count: number) => string
     activeRules: (count: number) => string
     tokenCount: (count: number) => string
     locationCount: (count: number) => string
@@ -1019,6 +1055,7 @@ export type EditorCopy = {
       events: string
       maps: string
       festivals: string
+      assets: string
       conflicts: string
     }
     workspaceDescriptions: Record<WorkspaceMode, string>

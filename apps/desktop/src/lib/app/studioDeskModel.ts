@@ -4,6 +4,9 @@ import type { DraftPatch, GeneratedProjectDraft } from './useGeneratedProject'
 
 export type StudioDeskInspirationStatus = 'modified' | 'synced'
 export type StudioDeskInspirationKind = 'event' | 'map' | 'asset' | 'project'
+export type StudioDeskProjectFilter = 'all' | 'active' | 'export' | 'conflict' | 'archive'
+export type StudioDeskProjectStatus = Exclude<StudioDeskProjectFilter, 'all'>
+export type StudioDeskProjectCoverTone = 'festival' | 'harbor' | 'market' | 'forest' | 'greenhouse' | 'archive'
 
 export type StudioDeskInspiration = {
   patchId: string
@@ -31,7 +34,29 @@ export type StudioDeskWorldBible = {
   configSchema: StudioDeskWorldBibleEntry[]
   tokens: StudioDeskWorldBibleEntry[]
   customLocations: StudioDeskWorldBibleEntry[]
+  actors: StudioDeskWorldBibleEntry[]
+  story: StudioDeskWorldBibleEntry[]
+  items: StudioDeskWorldBibleEntry[]
+  scenes: StudioDeskWorldBibleEntry[]
   conflictCount: number
+}
+
+export type StudioDeskGalleryProject = {
+  draftStorageKey: string
+  title: string
+  uniqueId: string
+  lastEditedAt: number | null
+  lastExportedAt: number | null
+  isCurrent: boolean
+  statuses: StudioDeskProjectStatus[]
+  searchText: string
+  coverTone: StudioDeskProjectCoverTone
+  conflictCount: number
+}
+
+export type StudioDeskGallery = {
+  projects: StudioDeskGalleryProject[]
+  counts: Record<StudioDeskProjectFilter, number>
 }
 
 export type StudioDeskModel = {
@@ -40,12 +65,14 @@ export type StudioDeskModel = {
   projectUniqueId: string
   hasActiveDraft: boolean
   draftSummaries: GeneratedProjectDraftSummary[]
+  gallery: StudioDeskGallery
   recentInspirations: StudioDeskInspiration[]
   workspaceEntrypoints: StudioDeskWorkspaceEntrypoint[]
   stats: {
     eventCount: number
     mapCount: number
     festivalCount: number
+    assetCount: number
     conflictCount: number
   }
   worldBible: StudioDeskWorldBible
@@ -64,11 +91,12 @@ type BuildStudioDeskModelInput = {
 }
 
 const workspaceOrder: WorkspaceId[] = ['events', 'map', 'characters', 'buildings', 'items', 'mods']
+const coverTones: StudioDeskProjectCoverTone[] = ['festival', 'harbor', 'market', 'forest', 'greenhouse']
 
 function getPatchKind(patch: DraftPatch): StudioDeskInspirationKind {
   if (patch.workspace === 'events') return 'event'
   if (patch.workspace === 'map') return 'map'
-  if (patch.workspace === 'characters' || patch.workspace === 'buildings' || patch.workspace === 'items') return 'asset'
+  if (isAssetWorkspace(patch.workspace)) return 'asset'
   return 'project'
 }
 
@@ -81,6 +109,17 @@ function stringifyValue(value: unknown): string {
 
 function getPatchTitle(patch: DraftPatch): string {
   return patch.logName.trim() || patch.target.trim() || patch.action
+}
+
+function isAssetWorkspace(workspace: WorkspaceId): boolean {
+  return workspace === 'characters' || workspace === 'buildings' || workspace === 'items'
+}
+
+function getPatchEntry(patch: DraftPatch): StudioDeskWorldBibleEntry {
+  return {
+    key: getPatchTitle(patch),
+    value: patch.target.trim() || patch.action,
+  }
 }
 
 function countFestivalSignals(activeDraft: GeneratedProjectDraft | null): number {
@@ -108,11 +147,78 @@ function buildExportFileList(activeDraft: GeneratedProjectDraft | null): string[
   ]
 }
 
+function isDraftWaitingForExport(summary: GeneratedProjectDraftSummary, isCurrent: boolean, isDirty: boolean): boolean {
+  if (isCurrent && isDirty) return true
+  const savedAt = summary.lastDraftSavedAt ?? 0
+  const exportedAt = summary.lastExportedAt ?? 0
+  return savedAt > 0 && savedAt > exportedAt
+}
+
+function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: number): StudioDeskGallery {
+  const activeDraftKey = input.activeDraft?.draftStorageKey ?? null
+  const summaries = input.activeDraft && !input.drafts.some((summary) => summary.draftStorageKey === input.activeDraft?.draftStorageKey)
+    ? [
+        {
+          draftStorageKey: input.activeDraft.draftStorageKey,
+          projectName: input.activeDraft.projectMetadata.projectName,
+          projectUniqueId: input.activeDraft.projectMetadata.projectUniqueId,
+          lastDraftSavedAt: null,
+          lastExportedAt: null,
+        },
+        ...input.drafts,
+      ]
+    : input.drafts
+  const projects = summaries.map((summary, index): StudioDeskGalleryProject => {
+    const isCurrent = summary.draftStorageKey === activeDraftKey
+    const statuses: StudioDeskProjectStatus[] = ['active']
+    const projectConflictCount = isCurrent ? conflictCount : 0
+    if (isDraftWaitingForExport(summary, isCurrent, input.isDirty)) {
+      statuses.push('export')
+    }
+    if (projectConflictCount > 0) {
+      statuses.push('conflict')
+    }
+
+    return {
+      draftStorageKey: summary.draftStorageKey,
+      title: summary.projectName.trim() || summary.draftStorageKey,
+      uniqueId: summary.projectUniqueId,
+      lastEditedAt: summary.lastDraftSavedAt,
+      lastExportedAt: summary.lastExportedAt,
+      isCurrent,
+      statuses,
+      searchText: [
+        summary.projectName,
+        summary.projectUniqueId,
+        summary.draftStorageKey,
+        isCurrent ? input.activeDraft?.projectMetadata.projectDescription ?? '' : '',
+      ].join(' '),
+      coverTone: coverTones[index % coverTones.length] ?? 'festival',
+      conflictCount: projectConflictCount,
+    }
+  })
+
+  const counts: Record<StudioDeskProjectFilter, number> = {
+    all: projects.length,
+    active: projects.filter((project) => project.statuses.includes('active')).length,
+    export: projects.filter((project) => project.statuses.includes('export')).length,
+    conflict: projects.filter((project) => project.statuses.includes('conflict')).length,
+    archive: projects.filter((project) => project.statuses.includes('archive')).length,
+  }
+
+  return { projects, counts }
+}
+
 export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDeskModel {
   const activeDraft = input.activeDraft
   const patches = activeDraft?.patches ?? []
   const conflictCount = patches.filter((patch) => patch.enabled === false).length
   const activeSummary = input.drafts.find((summary) => summary.draftStorageKey === activeDraft?.draftStorageKey)
+  const assetCount =
+    (input.patchCountByWorkspace.characters ?? 0) +
+    (input.patchCountByWorkspace.buildings ?? 0) +
+    (input.patchCountByWorkspace.items ?? 0) +
+    (activeDraft?.virtualAssets.length ?? 0)
 
   return {
     projectName: activeDraft?.projectMetadata.projectName ?? '',
@@ -120,6 +226,7 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
     projectUniqueId: activeDraft?.projectMetadata.projectUniqueId ?? '',
     hasActiveDraft: Boolean(activeDraft),
     draftSummaries: input.drafts,
+    gallery: buildGalleryProjects(input, conflictCount),
     recentInspirations: patches
       .slice()
       .sort((left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0))
@@ -143,6 +250,7 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
       eventCount: input.patchCountByWorkspace.events ?? 0,
       mapCount: input.patchCountByWorkspace.map ?? 0,
       festivalCount: countFestivalSignals(activeDraft),
+      assetCount,
       conflictCount,
     },
     worldBible: {
@@ -158,6 +266,24 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
         key: location.name,
         value: location.fromMapFile ?? '',
       })),
+      actors: patches
+        .filter((patch) => patch.workspace === 'characters')
+        .map(getPatchEntry),
+      story: patches
+        .filter((patch) => patch.workspace === 'events')
+        .map(getPatchEntry),
+      items: patches
+        .filter((patch) => patch.workspace === 'items')
+        .map(getPatchEntry),
+      scenes: [
+        ...(activeDraft?.customLocations ?? []).map((location) => ({
+          key: location.name,
+          value: location.fromMapFile ?? '',
+        })),
+        ...patches
+          .filter((patch) => patch.workspace === 'map' || patch.workspace === 'buildings')
+          .map(getPatchEntry),
+      ],
       conflictCount,
     },
     exportSummary: {
