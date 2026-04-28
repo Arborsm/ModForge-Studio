@@ -4,6 +4,7 @@
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
 @import "./features/generated-project-edit.css";
+@import "./features/studio-tree-sidebar.css";
 @import "./features/item-group.css";
 @import "./features/initialization-overlay.css";
 @source "../App.tsx";

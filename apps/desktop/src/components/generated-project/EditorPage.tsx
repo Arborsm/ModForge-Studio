@@ -19,6 +19,7 @@ interface EditorPageProps {
   theme?: ThemeMode
   accentColor?: string
   viewportLabels?: ViewportLabels
+  selectedEventKey?: string | null
   gameRootPath: string | null
   directoryInfo: GameDirectoryInfo | null
   viewMode: 'editor' | 'reference'
@@ -35,6 +36,7 @@ export function EditorPage({
   theme,
   accentColor,
   viewportLabels,
+  selectedEventKey,
   gameRootPath,
   directoryInfo,
   viewMode,
@@ -77,6 +79,7 @@ export function EditorPage({
             theme={theme}
             accentColor={accentColor}
             viewportLabels={viewportLabels}
+            selectedEventKey={selectedEventKey}
             gameRootPath={gameRootPath}
           />
         ) : (

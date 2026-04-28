@@ -999,6 +999,11 @@ export type EditorCopy = {
     scriptConsole: string
     stageTabs: Record<'script' | 'map' | 'actors' | 'props', string>
     stageEmpty: string
+    wipBadge: string
+    wipTitle: (area: string) => string
+    wipDescription: string
+    wipOpenHint: (area: string) => string
+    wipChecklist: string[]
     linkedResources: string
     sortByTime: string
     bibleTabs: Record<'actors' | 'tokens' | 'story' | 'items' | 'scenes', string>
@@ -1126,6 +1131,140 @@ export type EditorCopy = {
       deleteTitle: string
       deleteMessage: (name: string) => string
       deleteAction: string
+    }
+    eventPatchHub: {
+      navigationLabel: string
+      eventTreeLabel: string
+      searchPlaceholder: string
+      filtersTitle: string
+      filters: Record<'all' | 'withTriggers' | 'withoutTriggers' | 'disabled', string>
+      hubLabel: string
+      breadcrumbLabel: string
+      backLabel: string
+      forwardLabel: string
+      projectFallback: string
+      eventsLabel: string
+      savedLabel: string
+      unsavedLabel: string
+      patchSettingsLabel: string
+      multiSelectLabel: string
+      selectedCountLabel: (count: number) => string
+      addEventLabel: string
+      contextMenuLabel: string
+      configurePatchAction: string
+      duplicatePatchAction: string
+      deletePatchAction: string
+      openEditorAction: string
+      duplicateEventAction: string
+      disableEventAction: string
+      enableEventAction: string
+      deleteEventAction: string
+      storyboardTitle: string
+      storyboardCaption: string
+      emptyTitle: string
+      emptySubtitle: string
+      enterEditorLabel: string
+      actorsLabel: string
+      noTriggersLabel: string
+      noConditionsLabel: string
+      noActorsLabel: string
+      preconditionGroupLabels: {
+        environment: string
+        player: string
+        progress: string
+      }
+      preconditionNegatedLabel: (label: string) => string
+      preconditionUnknownLabel: (raw: string) => string
+      preconditionSeasonName: (season: string) => string
+      preconditionWeatherName: (weather: string) => string
+      preconditionDayName: (day: string) => string
+      preconditionGenderName: (gender: string) => string
+      preconditions: {
+        gameStateQuery: (query: string) => string
+        activeDialogueEvent: (id: string) => string
+        dayOfMonth: (days: string[]) => string
+        dayOfWeek: (days: string[]) => string
+        festivalDay: string
+        goldenWalnuts: (count: string) => string
+        inUpgradedHouse: (level: string) => string
+        npcVisible: (name: string) => string
+        npcVisibleHere: (name: string) => string
+        random: (chance: string) => string
+        season: (seasons: string[]) => string
+        time: (min: string, max: string) => string
+        upcomingFestival: (days: string) => string
+        weather: (weather: string) => string
+        worldState: (id: string) => string
+        year: (year: string) => string
+        choseDialogueAnswers: (ids: string[]) => string
+        dating: (name: string) => string
+        earnedMoney: (amount: string) => string
+        freeInventorySlots: (count: string) => string
+        friendship: (pairs: string[]) => string
+        gender: (gender: string) => string
+        hasItem: (itemId: string) => string
+        hasMoney: (amount: string) => string
+        localMail: (letterId: string) => string
+        missingPet: (pet: string | null) => string
+        reachedMineBottom: (count: string) => string
+        roommate: string
+        sawEvent: (ids: string[]) => string
+        sawSecretNote: (noteId: string) => string
+        shipped: (pairs: string[]) => string
+        skill: (skill: string, level: string) => string
+        spouse: (name: string) => string
+        spouseBed: string
+        tile: (tiles: string[]) => string
+        communityCenterOrWarehouseDone: string
+        daysPlayed: (days: string) => string
+        hostMail: (letterId: string) => string
+        hostOrLocalMail: (letterId: string) => string
+        isHost: string
+        jojaBundlesDone: string
+        sendMail: (letterId: string) => string
+      }
+      gameStateQuerySemantics: {
+        all: (parts: string[]) => string
+        any: (parts: string[]) => string
+        generic: (label: string, args: string[]) => string
+        label: (key: string) => string
+        location: (location: string) => string
+        locationSeason: (location: string, seasons: string[]) => string
+        weather: (location: string, weather: string[]) => string
+        trueLabel: string
+        falseLabel: string
+      }
+      commandCount: (count: number) => string
+      actorCount: (count: number) => string
+      dialogueCount: (count: number) => string
+      eventCount: (count: number) => string
+      previewLabel: string
+      scriptPreviewTitle: (eventTitle: string) => string
+      scriptPreviewEmptyTitle: string
+      scriptDraftLabel: string
+      noScriptStepsLabel: string
+      stagePreviewTitle: (location: string) => string
+      stagePreviewEmptyTitle: string
+      previewReadyLabel: string
+      inspectorTitle: string
+      inspectorScope: (eventTitle: string) => string
+      noEventSelected: string
+      moreActionsLabel: string
+      scriptDiagnosticsTitle: string
+      noConflictsLabel: string
+      resourceStatsTitle: string
+      patchScopeLabel: string
+      eventLogicTitle: string
+      eventLevelLabel: string
+      triggerConditionsLabel: string
+      involvedActorsLabel: string
+      commandMetricLabel: string
+      patchConfigTitle: string
+      exportReadyLabel: string
+      exportBlockedLabel: string
+      eventCountLabel: string
+      selectedEventLabel: string
+      targetFieldPlaceholder: string
     }
   }
   eventStage: EventStageCopy

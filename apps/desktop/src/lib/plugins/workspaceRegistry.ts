@@ -35,6 +35,7 @@ export type EditorComponent = ComponentType<{
   theme?: ThemeMode
   accentColor?: string
   viewportLabels?: ViewportLabels
+  selectedEventKey?: string | null
   gameRootPath?: string | null
 }>
 

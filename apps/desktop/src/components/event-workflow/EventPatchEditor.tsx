@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Database, FileText, ListTree, Map, Plus, Text, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Database, Map, Plus, Trash2 } from 'lucide-react'
 import type { DraftPatch, GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '../../lib/events/parser'
@@ -7,7 +7,6 @@ import { serializeRaw } from '../../lib/events/rawSerializer'
 import { getSchema } from '../../lib/events/commandSchemaRegistry'
 import type { EventScript, EventSceneSetup } from '../../lib/events/types'
 import { EventStagePreview } from './EventStagePreview'
-import { EventSelector } from './EventSelector'
 import { PickModeOverlay } from './PickModeOverlay'
 import { SceneSetupBar } from './SceneSetupBar'
 import { ScriptEditor } from './ScriptEditor'
@@ -16,7 +15,6 @@ import { useEditorStore } from '../../lib/events/editorStore'
 type EditorTab = 'events' | 'fields' | 'textops' | 'moveentries'
 
 const EMPTY_ENTRIES: Record<string, unknown> = {}
-const EMPTY_RAW_SCRIPTS: Record<string, string> = {}
 
 interface EventPatchEditorProps {
   patch: DraftPatch
@@ -27,6 +25,7 @@ interface EventPatchEditorProps {
   theme?: ThemeMode
   accentColor?: string
   viewportLabels?: ViewportLabels
+  selectedEventKey?: string | null
   gameRootPath?: string | null
 }
 
@@ -48,6 +47,7 @@ export function EventPatchEditor({
   theme,
   accentColor,
   viewportLabels,
+  selectedEventKey,
   gameRootPath: externalGameRootPath,
 }: EventPatchEditorProps) {
   void onAddVirtualAsset
@@ -56,11 +56,11 @@ export function EventPatchEditor({
   const fields = (editorState['fields'] as Record<string, Record<string, string>> | undefined) ?? {}
   const moveEntries = (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
   const gameRootPath = externalGameRootPath ?? draft.projectMetadata.gameRootPath ?? null
-  const eventSnapshot = draft.eventSourceSnapshotsByTarget[patch.target]
-  const originalScripts = eventSnapshot?.rawScriptsByKey ?? EMPTY_RAW_SCRIPTS
 
-  const [activeTab, setActiveTab] = useState<EditorTab>('events')
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const activeTab: EditorTab = 'events'
+  const entryKeys = useMemo(() => Object.keys(entries), [entries])
+  const selectedKey = selectedEventKey && entries[selectedEventKey] != null ? selectedEventKey : entryKeys[0] ?? null
+  const setSelectedKey: (key: string | null) => void = () => {}
 
   function updateEntries(newEntries: Record<string, unknown>) {
     onPatchChange(patch.id, {
@@ -99,74 +99,8 @@ export function EventPatchEditor({
     updateEntries({ ...entries, [selectedKey]: segments.join('/') })
   }
 
-  const eventSelectorOptions = useMemo(
-    () =>
-      Object.entries(entries).map(([key, value]) => ({
-        key,
-        isModified: originalScripts[key] != null && originalScripts[key] !== value,
-      })),
-    [entries, originalScripts],
-  )
-
-  const sectionOptions: Array<{ id: EditorTab; label: string; icon: ReactNode }> = [
-    { id: 'events', label: 'Events', icon: <ListTree className="h-3 w-3" /> },
-    { id: 'fields', label: 'Fields', icon: <Database className="h-3 w-3" /> },
-    { id: 'textops', label: 'TextOps', icon: <Text className="h-3 w-3" /> },
-    { id: 'moveentries', label: 'MoveEntries', icon: <FileText className="h-3 w-3" /> },
-  ]
-
   return (
     <div className="event-edit-shell">
-      <header className="event-edit-toolbar">
-        <div className="event-edit-toolbar-title">
-          <span className="panel-title">Event Patch</span>
-          <span className="panel-subtitle truncate">{patch.target}</span>
-        </div>
-
-        {activeTab === 'events' ? (
-          <EventSelector
-            events={eventSelectorOptions}
-            selectedKey={selectedKey}
-            onSelect={setSelectedKey}
-            locale={locale}
-            className="event-edit-entry-menu"
-          />
-        ) : null}
-
-        <div className="event-edit-section-tabs" role="tablist" aria-label="Event editor section">
-          {sectionOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className={`event-edit-section-tab ${activeTab === option.id ? 'event-edit-section-tab-active' : ''}`}
-              onClick={() => {
-                setActiveTab(option.id)
-                setSelectedKey(null)
-              }}
-              aria-selected={activeTab === option.id}
-              role="tab"
-            >
-              {option.icon}
-              <span>{option.label}</span>
-            </button>
-          ))}
-        </div>
-      </header>
-
-      <div className="event-edit-target-row">
-        <span className="event-edit-target-label">TargetField</span>
-        <input
-          type="text"
-          placeholder="e.g. Emily, Appearance (comma-separated path segments)"
-          className="control-input h-8 min-w-0 flex-1 text-xs"
-          value={patch.targetField?.join(', ') ?? ''}
-          onChange={(event) => {
-            const parts = event.target.value.split(',').map((part) => part.trim()).filter(Boolean)
-            onPatchChange(patch.id, { targetField: parts.length > 0 ? parts : undefined })
-          }}
-        />
-      </div>
-
       {activeTab === 'events' ? (
         <EventsEditor
           entries={entries}

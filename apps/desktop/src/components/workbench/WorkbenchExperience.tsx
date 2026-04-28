@@ -376,7 +376,6 @@ export default function WorkbenchExperience({
     copy,
     locale,
     desktopHost,
-    setWorkspaceMode,
     getWorldAtlasViewLabel,
   })
 
@@ -1028,7 +1027,7 @@ export default function WorkbenchExperience({
           onAppModeChange={handleAppModeChange}
           workspaceMode={workspaceMode}
           onWorkspaceChange={(mode) => {
-            if (mode === 'mods') {
+            if (mode === 'mods' && workspaceViewMode === 'edit') {
               openStudioDeskRoute()
               return
             }
@@ -1287,6 +1286,7 @@ function EditWorkspaceContent({ workspaceMode, generatedProject, activeEditPatch
       onPatchAdd={(action, target, fromFile) => {
         const id = generatedProject.addPatch(workspaceMode, target, action, fromFile)
         onSelectPatch(id)
+        return id
       }}
       onPatchRemove={(id) => {
         generatedProject.removePatch(id)

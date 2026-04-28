@@ -40,6 +40,14 @@ export function StudioDeskStoryboard({
       `${item.title} ${item.target} ${item.action}`.toLowerCase().includes(normalizedQuery)
     )
   }, [inspirations, normalizedQuery])
+  const handlePrimaryCreate = () => {
+    if (hasActiveDraft) {
+      onCreatePatch('EditData', 'events')
+      return
+    }
+
+    onCreateDraft()
+  }
 
   return (
     <aside className="studio-storyboard" aria-label={desk.recentInspirations}>
@@ -53,9 +61,9 @@ export function StudioDeskStoryboard({
           placeholder={desk.quickSearchPlaceholder}
         />
       </label>
-      <button type="button" className="studio-create-button" onClick={onCreateDraft}>
+      <button type="button" className="studio-create-button" onClick={handlePrimaryCreate}>
         <Plus className="h-4 w-4" />
-        <span>{desk.newCreation}</span>
+        <span>{hasActiveDraft ? desk.newCreation : desk.createDraft}</span>
       </button>
       <div className="studio-create-strip">
         <button

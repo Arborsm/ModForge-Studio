@@ -13,13 +13,10 @@ type StudioDeskMainStageProps = {
 }
 
 type StudioStagePage = 'script' | 'map' | 'actors' | 'props'
+type StudioWipStagePage = Exclude<StudioStagePage, 'script'>
 
 function entryCount(model: StudioDeskModel, workspaceId: WorkspaceId) {
   return model.workspaceEntrypoints.find((entry) => entry.workspaceId === workspaceId)?.patchCount ?? 0
-}
-
-function getMapSeed(title: string) {
-  return Array.from(title).reduce((total, char) => total + char.charCodeAt(0), 0)
 }
 
 function handleWorkspaceCardKeyDown(event: KeyboardEvent<HTMLElement>, callback: () => void) {
@@ -35,6 +32,12 @@ function workspaceForStagePage(page: StudioStagePage): WorkspaceId {
   return 'events'
 }
 
+function wipWorkspaceForStagePage(page: StudioWipStagePage): WorkspaceId {
+  if (page === 'map') return 'map'
+  if (page === 'actors') return 'characters'
+  return 'items'
+}
+
 function entryCards(entries: StudioDeskWorldBibleEntry[], emptyLabel: string) {
   if (!entries.length) {
     return <div className="studio-empty-note">{emptyLabel}</div>
@@ -48,6 +51,71 @@ function entryCards(entries: StudioDeskWorldBibleEntry[], emptyLabel: string) {
   ))
 }
 
+function StudioWipStagePanel({
+  copy,
+  page,
+  hasActiveDraft,
+  onOpenWorkspace,
+}: {
+  copy: EditorCopy
+  page: StudioWipStagePage
+  hasActiveDraft: boolean
+  onOpenWorkspace: (workspace: WorkspaceId) => void
+}) {
+  const desk = copy.studioDesk
+  const title = desk.stageTabs[page]
+  const workspace = wipWorkspaceForStagePage(page)
+
+  return (
+    <section className="studio-stage-page studio-stage-page-wip active" aria-label={title}>
+      <div className={cx('studio-wip-panel', `studio-wip-panel-${page}`)}>
+        <div className="studio-wip-blueprint" aria-hidden="true">
+          <span className="studio-wip-node studio-wip-node-a" />
+          <span className="studio-wip-node studio-wip-node-b" />
+          <span className="studio-wip-node studio-wip-node-c" />
+          <span className="studio-wip-line studio-wip-line-a" />
+          <span className="studio-wip-line studio-wip-line-b" />
+        </div>
+        <div className="studio-wip-copy">
+          <span className="studio-wip-badge">{desk.wipBadge}</span>
+          <h3>{desk.wipTitle(title)}</h3>
+          <p>{desk.wipDescription}</p>
+        </div>
+      </div>
+      <aside className="studio-wip-side">
+        <span>{desk.wipOpenHint(title)}</span>
+        <div className="studio-wip-checklist" aria-label={desk.wipBadge}>
+          {desk.wipChecklist.map((item) => <small key={item}>{item}</small>)}
+        </div>
+        <button type="button" className="studio-wip-open-button" disabled={!hasActiveDraft} onClick={() => onOpenWorkspace(workspace)}>
+          {desk.openWorkspace}
+        </button>
+      </aside>
+    </section>
+  )
+}
+
+function StudioWipMini({
+  copy,
+  title,
+}: {
+  copy: EditorCopy
+  title: string
+}) {
+  const desk = copy.studioDesk
+
+  return (
+    <div className="studio-wip-mini">
+      <span className="studio-wip-badge">{desk.wipBadge}</span>
+      <strong>{desk.wipTitle(title)}</strong>
+      <span>{desk.wipOpenHint(title)}</span>
+      <div className="studio-wip-mini-grid" aria-hidden="true">
+        {Array.from({ length: 9 }).map((_, index) => <i key={index} />)}
+      </div>
+    </div>
+  )
+}
+
 export function StudioDeskMainStage({
   copy,
   model,
@@ -58,15 +126,9 @@ export function StudioDeskMainStage({
   const desk = copy.studioDesk
   const [stagePage, setStagePage] = useState<StudioStagePage>('script')
   const hasActiveDraft = model.hasActiveDraft
-  const mapPreview = model.recentInspirations.find((item) => item.kind === 'map')
-  const activeMapPreview = previewFocus?.kind === 'map' ? previewFocus : mapPreview
   const previewKind = previewFocus?.kind ?? null
-  const mapPreviewTitle = activeMapPreview?.title ?? desk.openWorkspace
-  const mapSeed = getMapSeed(mapPreviewTitle)
   const pulseItems = model.recentInspirations.slice(0, 4)
   const scriptItems = model.recentInspirations.filter((item) => item.kind === 'event')
-  const mapItems = model.recentInspirations.filter((item) => item.kind === 'map')
-  const propEntries = model.worldBible.items.length ? model.worldBible.items : model.worldBible.tokens
   const projectDescription = hasActiveDraft
     ? model.projectDescription.trim() || desk.heroSubtitle
     : desk.noActiveDraftSubtitle
@@ -159,62 +221,15 @@ export function StudioDeskMainStage({
             ) : null}
 
             {stagePage === 'map' ? (
-              <section className="studio-stage-page active" aria-label={desk.stageTabs.map}>
-                <button type="button" className="studio-map-thumbnail-button" disabled={!hasActiveDraft} onClick={() => onOpenWorkspace('map')}>
-                  <span data-testid="studio-map-preview-title" className="sr-only">{mapPreviewTitle}</span>
-                  <span className="studio-map-thumbnail" aria-hidden="true">
-                    {Array.from({ length: 40 }).map((_, index) => (
-                      <span key={index} className={(index + mapSeed) % 7 === 0 ? 'studio-map-tile-accent' : undefined} />
-                    ))}
-                  </span>
-                </button>
-                <aside className="studio-stage-detail-panel">
-                  <h3>{desk.stageTabs.map}</h3>
-                  <div className="studio-script-asset-grid">
-                    {entryCards(model.worldBible.scenes.length ? model.worldBible.scenes : mapItems.map((item) => ({ key: item.title, value: item.target })), desk.stageEmpty)}
-                  </div>
-                </aside>
-              </section>
+              <StudioWipStagePanel copy={copy} page="map" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
             ) : null}
 
             {stagePage === 'actors' ? (
-              <section className="studio-stage-page active" aria-label={desk.stageTabs.actors}>
-                <div className="studio-actor-grid">
-                  {model.worldBible.actors.length ? model.worldBible.actors.slice(0, 4).map((entry) => (
-                    <div key={entry.key} className="studio-actor-card">
-                      <span>{entry.key.slice(0, 2)}</span>
-                      <strong>{entry.key}</strong>
-                      <small>{entry.value}</small>
-                    </div>
-                  )) : <div className="studio-empty-note">{desk.stageEmpty}</div>}
-                </div>
-                <aside className="studio-stage-detail-panel">
-                  <h3>{desk.stageTabs.actors}</h3>
-                  <div className="studio-script-asset-grid">
-                    {entryCards(model.worldBible.actors, desk.stageEmpty)}
-                  </div>
-                </aside>
-              </section>
+              <StudioWipStagePanel copy={copy} page="actors" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
             ) : null}
 
             {stagePage === 'props' ? (
-              <section className="studio-stage-page active" aria-label={desk.stageTabs.props}>
-                <div className="studio-prop-grid">
-                  {propEntries.length ? propEntries.slice(0, 4).map((entry) => (
-                    <div key={entry.key} className="studio-prop-card">
-                      <span>{entry.key.slice(0, 1)}</span>
-                      <strong>{entry.key}</strong>
-                      <small>{entry.value}</small>
-                    </div>
-                  )) : <div className="studio-empty-note">{desk.stageEmpty}</div>}
-                </div>
-                <aside className="studio-stage-detail-panel">
-                  <h3>{desk.stageTabs.props}</h3>
-                  <div className="studio-script-asset-grid">
-                    {entryCards(propEntries, desk.stageEmpty)}
-                  </div>
-                </aside>
-              </section>
+              <StudioWipStagePanel copy={copy} page="props" hasActiveDraft={hasActiveDraft} onOpenWorkspace={onOpenWorkspace} />
             ) : null}
           </div>
 
@@ -223,7 +238,7 @@ export function StudioDeskMainStage({
             className="studio-primary-action"
             onClick={hasActiveDraft ? openStageWorkspace : onCreateDraft}
           >
-            {hasActiveDraft ? desk.continueScript : desk.createDraft}
+            {hasActiveDraft ? (stagePage === 'script' ? desk.continueScript : desk.openWorkspace) : desk.createDraft}
           </button>
         </article>
 
@@ -240,14 +255,9 @@ export function StudioDeskMainStage({
               <div className="studio-card-kicker">{desk.cardKickers.castAndProps}</div>
               <h2>{desk.castAndProps}</h2>
             </div>
-            <span className="studio-card-pill">{desk.assetCount(model.stats.assetCount)}</span>
+            <span className="studio-card-pill">{desk.wipBadge}</span>
           </div>
-          <div className="studio-avatar-stack" aria-hidden="true">
-            {model.worldBible.actors.slice(0, 3).map((entry) => (
-              <span key={entry.key}>{entry.key.slice(0, 2)}</span>
-            ))}
-            {model.stats.assetCount > 3 ? <span>{desk.avatarOverflow(model.stats.assetCount - 3)}</span> : null}
-          </div>
+          <StudioWipMini copy={copy} title={desk.castAndProps} />
         </article>
 
         <article className={cx('studio-workspace-card studio-map-card studio-quick-workspace-card', !hasActiveDraft && 'studio-workspace-disabled', previewKind === 'map' && 'studio-preview-active')}>
@@ -256,14 +266,10 @@ export function StudioDeskMainStage({
               <div className="studio-card-kicker">{desk.cardKickers.cartographer}</div>
               <h2>{desk.cartographer}</h2>
             </div>
-            <span className="studio-card-pill">{`${entryCount(model, 'map')} ${desk.stats.maps}`}</span>
+            <span className="studio-card-pill">{desk.wipBadge}</span>
           </div>
-          <button type="button" className="studio-map-thumbnail-button" disabled={!hasActiveDraft} onClick={() => onOpenWorkspace('map')}>
-            <span className="studio-map-thumbnail" aria-hidden="true">
-              {Array.from({ length: 36 }).map((_, index) => (
-                <span key={index} className={(index + mapSeed) % 7 === 0 ? 'studio-map-tile-accent' : undefined} />
-              ))}
-            </span>
+          <button type="button" className="studio-wip-mini-button" disabled={!hasActiveDraft} onClick={() => onOpenWorkspace('map')}>
+            <StudioWipMini copy={copy} title={desk.cartographer} />
           </button>
         </article>
       </div>

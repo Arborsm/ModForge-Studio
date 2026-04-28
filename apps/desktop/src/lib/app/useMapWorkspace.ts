@@ -12,7 +12,7 @@ import {
   type GameDirectoryInfo,
   type MapAssetSummary,
 } from '../desktop'
-import type { EditorCopy, LocaleCode, WorkspaceMode } from '../../locales'
+import type { EditorCopy, LocaleCode } from '../../locales'
 import { resolveTilesetImagePath } from '../maps/assets'
 import type { MapDocument } from '../maps/types'
 import {
@@ -59,8 +59,11 @@ type UseMapWorkspaceOptions = {
   copy: EditorCopy
   locale: LocaleCode
   desktopHost: boolean
-  setWorkspaceMode: (mode: WorkspaceMode) => void
   getWorldAtlasViewLabel: (locale: LocaleCode, viewId: WorldAtlasView['id']) => string
+}
+
+type OpenMapOptions = {
+  forceReload?: boolean
 }
 
 type WorldAtlasCacheEntry = {
@@ -169,7 +172,6 @@ export function useMapWorkspace({
   copy,
   locale,
   desktopHost,
-  setWorkspaceMode,
   getWorldAtlasViewLabel,
 }: UseMapWorkspaceOptions) {
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
@@ -493,7 +495,7 @@ export function useMapWorkspace({
     summary: MapAssetSummary,
     knownDirectoryInfo?: GameDirectoryInfo | null,
     knownMapCount = mapAssets.length,
-    options?: { forceReload?: boolean },
+    options?: OpenMapOptions,
   ) {
     const info = knownDirectoryInfo ?? directoryInfo ?? (await ensureValidatedDirectory(gameDirectory))
     if (!info) {
@@ -505,7 +507,6 @@ export function useMapWorkspace({
       return
     }
 
-    setWorkspaceMode('map')
     setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
 
     try {
@@ -563,7 +564,7 @@ export function useMapWorkspace({
     entry: ModBrowserEntry<MapAssetSummary>,
     knownDirectoryInfo?: GameDirectoryInfo | null,
     knownMapCount = mapAssets.length,
-    options?: { forceReload?: boolean },
+    options?: OpenMapOptions,
   ) {
     const info = knownDirectoryInfo ?? directoryInfo ?? (await ensureValidatedDirectory(gameDirectory))
     if (!info) {
@@ -576,7 +577,6 @@ export function useMapWorkspace({
       return
     }
 
-    setWorkspaceMode('map')
     setWorkspaceStatus({ tone: 'working', message: copy.messages.loadingMap })
     setActiveModMapSelectionId(entry.selectionId)
 
@@ -646,7 +646,6 @@ export function useMapWorkspace({
   ) {
     const atlasCacheKey = getWorldAtlasCacheKey(info.rootPath, locale, assets, worldRootName)
 
-    setWorkspaceMode('map')
     setMapTabs((current) => current.filter((tab) => tab.dirty))
     setActiveTabId(WORLD_ATLAS_TAB_ID)
     setWorldAtlasViews([])
@@ -808,7 +807,6 @@ export function useMapWorkspace({
       return
     }
 
-    setWorkspaceMode('map')
     setActiveWorldAtlasViewId(viewId)
     setActiveTabId(WORLD_ATLAS_TAB_ID)
     applyMapDocument(nextWorldAtlasView.document, null)
@@ -823,8 +821,6 @@ export function useMapWorkspace({
   }
 
   function handleSelectWorkspaceTab(tabId: string) {
-    setWorkspaceMode('map')
-
     if (tabId === WORLD_ATLAS_TAB_ID) {
       setActiveTabId(WORLD_ATLAS_TAB_ID)
       applyMapDocument(worldAtlasDocument, null)

@@ -237,7 +237,20 @@ describe('StudioDesk', () => {
     fireEvent.click(screen.getByRole('button', { name: '地图' }))
 
     expect(screen.getByTestId('studio-preview-focus')).toHaveTextContent('map:矿山入口.map')
-    expect(screen.getByTestId('studio-map-preview-title')).toHaveTextContent('矿山入口.map')
+    expect(screen.getByText('地图工作台正在搭建')).toBeTruthy()
+  })
+
+  test('renders non-event console tabs as WIP placeholders without changing tab labels', () => {
+    renderDesk({ galleryOpen: false })
+
+    const stageSwitch = screen.getAllByLabelText('舞台中心').find((element) => element.classList.contains('studio-stage-switch'))
+    expect(stageSwitch).toBeTruthy()
+    const stageTabs = within(stageSwitch as HTMLElement)
+    expect(stageTabs.getByRole('button', { name: '地图' })).toBeTruthy()
+    fireEvent.click(stageTabs.getByRole('button', { name: '演员' }))
+
+    expect(screen.getByText('演员工作台正在搭建')).toBeTruthy()
+    expect(stageTabs.queryByRole('button', { name: /演员.*WIP/ })).toBeNull()
   })
 
   test('opens create project dialog from Studio Desk', async () => {
@@ -246,6 +259,16 @@ describe('StudioDesk', () => {
     fireEvent.click(screen.getByRole('button', { name: /新建项目/ }))
 
     expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  test('starts a new creation inside the active project instead of creating a project', () => {
+    const props = renderDesk({ galleryOpen: false })
+
+    fireEvent.click(screen.getByRole('button', { name: /开启新创作/ }))
+
+    expect(props.onCreatePatch).toHaveBeenCalledWith('EditData', 'events')
+    expect(props.onCreateDraft).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   test('opens export dialog without prompt', async () => {

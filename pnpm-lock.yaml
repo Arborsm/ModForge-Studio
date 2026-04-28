@@ -64,6 +64,13 @@ importers:
       zustand:
         specifier: ^5.0.12
         version: 5.0.12(@types/react@19.2.14)(react@19.2.5)(use-sync-external-store@1.6.0(react@19.2.5))
+    optionalDependencies:
+      '@rolldown/binding-linux-x64-gnu':
+        specifier: 1.0.0-rc.15
+        version: 1.0.0-rc.15
+      '@rolldown/binding-win32-x64-msvc':
+        specifier: 1.0.0-rc.15
+        version: 1.0.0-rc.15
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.4
