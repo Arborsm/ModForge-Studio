@@ -140,10 +140,17 @@ function getDisabledEventKeys(patch: DraftPatch): Set<string> {
   return new Set(disabledKeys)
 }
 
-function buildHubEvent(patch: DraftPatch, key: string, rawScript: string, disabledEventKeys: Set<string>): EventPatchHubEvent {
+function getEventAliases(patch: DraftPatch): Record<string, string> {
+  const state = asRecord(patch.editorState)
+  const aliases = asRecord(state['eventAliases'])
+  return Object.fromEntries(Object.entries(aliases).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
+}
+
+function buildHubEvent(patch: DraftPatch, key: string, rawScript: string, disabledEventKeys: Set<string>, eventAliases: Record<string, string>): EventPatchHubEvent {
   const parser = new EventPreconditionParser()
   const keyParts = splitEventPreconditions(key)
   const eventId = keyParts[0] ?? key
+  const alias = eventAliases[key]?.trim() ?? ''
   const triggers = keyParts.slice(1).filter(Boolean)
   const preconditionGroups = parser.parse(keyParts.slice(1))
   const segments = parseEventCommands(rawScript)
@@ -157,7 +164,7 @@ function buildHubEvent(patch: DraftPatch, key: string, rawScript: string, disabl
   return {
     key,
     eventId,
-    title: eventId || key,
+    title: alias || eventId || key,
     status: patch.enabled && !disabledEventKeys.has(key) ? 'draft' : 'disabled',
     severity: 'ok',
     triggers,
@@ -194,7 +201,8 @@ function buildPatchSearchText(patch: DraftPatch, events: EventPatchHubEvent[]) {
 export function buildEventPatchHubPatches(patches: DraftPatch[]): EventPatchHubPatch[] {
   return patches.map((patch) => {
     const disabledEventKeys = getDisabledEventKeys(patch)
-    const events = eventEntriesFromPatch(patch).map(([key, rawScript]) => buildHubEvent(patch, key, rawScript, disabledEventKeys))
+    const eventAliases = getEventAliases(patch)
+    const events = eventEntriesFromPatch(patch).map(([key, rawScript]) => buildHubEvent(patch, key, rawScript, disabledEventKeys, eventAliases))
     const conditionSummary = summarizePatchWhen(patch.when)
     const stats: EventPatchHubStats = {
       events: events.length,

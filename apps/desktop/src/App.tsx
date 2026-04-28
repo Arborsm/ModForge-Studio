@@ -503,7 +503,7 @@ export default function App() {
   return (
     <LocaleProvider locale={locale}>
       <NotificationProvider>
-        <div className="relative h-screen w-screen overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)]">
+        <div className="relative h-screen w-screen overflow-hidden bg-(--bg-app) text-(--text-primary)">
           <div className={appMode === 'launcher' ? 'flex h-full flex-col' : 'hidden'}>
             <TopMenuBar
               appMode="launcher"

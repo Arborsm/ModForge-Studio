@@ -140,9 +140,32 @@ function serializeConfigSchema(entries: ConfigSchemaEntry[]): Record<string, unk
   return result
 }
 
+function fallbackPatchId(patch: Pick<DraftPatch, 'action' | 'target' | 'fromFile'>, index: number): string {
+  const target = patch.action === 'Include' ? patch.fromFile : patch.target
+  return `${patch.action}:${target || `patch-${index + 1}`}`
+}
+
+function ensureUniquePatchIds(patches: DraftPatch[]): DraftPatch[] {
+  const seen = new Set<string>()
+
+  return patches.map((patch, index) => {
+    const baseId = patch.id.trim() || fallbackPatchId(patch, index)
+    let id = baseId
+    let suffix = 2
+
+    while (seen.has(id)) {
+      id = `${baseId}-${suffix}`
+      suffix += 1
+    }
+
+    seen.add(id)
+    return id === patch.id ? patch : { ...patch, id }
+  })
+}
+
 function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] {
   const patches = Array.isArray(serialized['patches']) ? serialized['patches'] : []
-  return patches
+  const parsed = patches
     .filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null && !Array.isArray(p))
     .map((p) => {
       const rawTargetField = p['targetField']
@@ -174,6 +197,7 @@ function parseChangeRegistry(serialized: Record<string, unknown>): DraftPatch[] 
           : undefined,
       }
     })
+  return ensureUniquePatchIds(parsed)
 }
 
 function serializeChangeRegistry(patches: DraftPatch[]): Record<string, unknown> {
@@ -711,6 +735,25 @@ function generatePatchId() {
   return `patch-${Date.now()}-${nextPatchId}`
 }
 
+function isDefaultPatchConfig(patch: DraftPatch) {
+  return !patch.when
+    && !patch.targetLocale
+    && !patch.update
+    && !patch.priority
+    && !patch.localTokens
+    && (!patch.targetField || patch.targetField.length === 0)
+}
+
+function isSameDefaultPatch(patch: DraftPatch, workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string) {
+  if (!isDefaultPatchConfig(patch) || patch.workspace !== workspace || patch.action !== action) {
+    return false
+  }
+  if (action === 'Include') {
+    return (patch.fromFile ?? '') === (fromFile ?? '')
+  }
+  return patch.target === target
+}
+
 export function useGeneratedProject() {
   const [drafts, setDrafts] = useState<GeneratedProjectDraftSummary[]>([])
   const [activeDraft, setActiveDraft] = useState<GeneratedProjectDraft | null>(null)
@@ -852,10 +895,18 @@ export function useGeneratedProject() {
 
   const addPatchWithReturn = useCallback(
     (workspace: WorkspaceId, target: string, action: DraftPatch['action'], fromFile?: string): string => {
+      const existingPatch = activeDraft?.patches.find((patch) => isSameDefaultPatch(patch, workspace, target, action, fromFile))
+      if (existingPatch) {
+        return existingPatch.id
+      }
+
       const id = generatePatchId()
       const updatedAt = Date.now()
       setActiveDraft((current) => {
         if (!current) return current
+        if (current.patches.some((patch) => isSameDefaultPatch(patch, workspace, target, action, fromFile))) {
+          return current
+        }
         const newPatch: DraftPatch = {
           id,
           workspace,
@@ -873,7 +924,7 @@ export function useGeneratedProject() {
       setDirtyPatchIds((current) => new Set(current).add(id))
       return id
     },
-    [],
+    [activeDraft],
   )
 
   const removePatch = useCallback((patchId: string) => {

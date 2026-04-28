@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import type { DraftPatch, GeneratedProjectDraft } from '../../lib/app/useGeneratedProject'
 import { renderWithLocale } from '../../test/renderWithLocale'
@@ -187,7 +187,7 @@ describe('PatchListPage event hub', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '复制 Patch' }))
     expect(onDuplicatePatch).toHaveBeenCalledWith(expect.objectContaining({ id: 'patch-town' }))
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: '进入编辑器 event_square_meeting_1900' }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: '#02event_square_meeting_1900' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '复制场次' }))
     expect(onPatchUpdate).toHaveBeenCalledWith(
       'patch-town',
@@ -217,4 +217,172 @@ describe('PatchListPage event hub', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '删除 Patch' }))
     expect(onRemovePatch).toHaveBeenCalledWith('patch-town')
   })
+
+  test('opens the event condition builder from the event context menu and applies selected chips', () => {
+    const onPatchUpdate = vi.fn()
+    renderWithLocale(
+      <PatchListPage
+        patches={[eventPatch()]}
+        onEditPatch={vi.fn()}
+        onAddPatchRequest={vi.fn()}
+        onRemovePatch={vi.fn()}
+        onTogglePatch={vi.fn()}
+        onPatchUpdate={onPatchUpdate}
+        canGoBack={false}
+        canGoForward={false}
+        onGoBack={vi.fn()}
+        onGoForward={vi.fn()}
+        onOpenConfig={vi.fn()}
+        onSaveDraft={vi.fn()}
+        workspaceId="events"
+        draft={draft()}
+        isDirty={false}
+      />,
+      'zh-CN',
+    )
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: '进入编辑器 event_square_meeting_1900' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
+
+    const dialog = screen.getByRole('dialog', { name: '触发条件设计器' })
+    const dock = screen.getByLabelText('窗口外预览')
+    expect(dialog).toBeTruthy()
+    expect(dock).toBeTruthy()
+    expect(dialog.contains(dock)).toBe(false)
+    expect(screen.getByText('像配置拍摄现场一样选择触发条件')).toBeTruthy()
+    expect(dialog.contains(screen.getByLabelText('逻辑链条预览'))).toBe(false)
+
+    fireEvent.change(screen.getByLabelText('Event ID'), { target: { value: '' } })
+    expect(screen.getByText('ID 不能为空')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '封装场次' })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Event ID'), { target: { value: '{{ModId}}_abigail_secret' } })
+    fireEvent.change(screen.getByLabelText('场景别名'), { target: { value: '阿比盖尔的秘密' } })
+    fireEvent.click(screen.getByRole('button', { name: '春' }))
+
+    expect(screen.getByText('春季')).toBeTruthy()
+    expect(screen.getByText(/当 春季 时。/u)).toBeTruthy()
+    expect(screen.getByText('Season Spring/')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: '封装场次' }))
+
+    expect(onPatchUpdate).toHaveBeenCalledWith(
+      'patch-town',
+      expect.objectContaining({
+        editorState: expect.objectContaining({
+          entries: expect.objectContaining({
+            '{{ModId}}_abigail_secret/Season Spring': expect.any(String),
+          }),
+          eventAliases: {
+            '{{ModId}}_abigail_secret/Season Spring': '阿比盖尔的秘密',
+          },
+        }),
+      }),
+    )
+  })
+
+  test('uses compact condition chips when the logic chain has many conditions', () => {
+    const { container } = renderWithLocale(
+      <PatchListPage
+        patches={[
+          eventPatch({
+            editorState: {
+              entries: {
+                'event_dense/Time 1900 2300/Season Spring/Weather sunny/Friendship Abigail 1000/SawEvent FestivalIntroSeen/LocalMail got_lantern/HasMoney 5000':
+                  'spring/Farmer 12 45/Abigail 12 45 2/message "Dense"',
+              },
+            },
+          }),
+        ]}
+        onEditPatch={vi.fn()}
+        onAddPatchRequest={vi.fn()}
+        onRemovePatch={vi.fn()}
+        onTogglePatch={vi.fn()}
+        onPatchUpdate={vi.fn()}
+        canGoBack={false}
+        canGoForward={false}
+        onGoBack={vi.fn()}
+        onGoForward={vi.fn()}
+        onOpenConfig={vi.fn()}
+        onSaveDraft={vi.fn()}
+        workspaceId="events"
+        draft={draft()}
+        isDirty={false}
+      />,
+      'zh-CN',
+    )
+
+    const treeEventButton = container.querySelector<HTMLButtonElement>('.event-patch-tree-event')
+    expect(treeEventButton).toBeTruthy()
+    fireEvent.contextMenu(treeEventButton!)
+    fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
+
+    const chain = container.querySelector('.condition-chip-scroll.compact')
+    expect(chain).toBeTruthy()
+    expect(chain?.querySelectorAll('.condition-chip').length).toBeGreaterThanOrEqual(7)
+    expect(chain?.querySelector('.condition-chip-compact')?.textContent).toContain('19-23')
+    expect(chain?.querySelector('.condition-chip-full')).toBeTruthy()
+  })
+
+  test('builds chained and grouped GameStateQuery logic from the query category', () => {
+    const onPatchUpdate = vi.fn()
+    renderWithLocale(
+      <PatchListPage
+        patches={[eventPatch()]}
+        onEditPatch={vi.fn()}
+        onAddPatchRequest={vi.fn()}
+        onRemovePatch={vi.fn()}
+        onTogglePatch={vi.fn()}
+        onPatchUpdate={onPatchUpdate}
+        canGoBack={false}
+        canGoForward={false}
+        onGoBack={vi.fn()}
+        onGoForward={vi.fn()}
+        onOpenConfig={vi.fn()}
+        onSaveDraft={vi.fn()}
+        workspaceId="events"
+        draft={draft()}
+        isDirty={false}
+      />,
+      'zh-CN',
+    )
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: '进入编辑器 event_square_meeting_1900' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
+    fireEvent.click(screen.getByRole('button', { name: /高级查询/u }))
+    fireEvent.click(screen.getByRole('button', { name: '打开 GameStateQuery 构建器' }))
+
+    const queryDialog = screen.getByRole('dialog', { name: 'GameStateQuery 构建器' })
+    expect(queryDialog).toBeTruthy()
+    expect(screen.getByText('PLAYER_HAS_BUFF')).toBeTruthy()
+    expect(screen.getByText('检查玩家是否拥有指定增益效果。')).toBeTruthy()
+
+    const timeCard = screen.getByText('检查当前时间是否位于 600 到 2600 的 26 小时时钟范围内。').closest('.condition-catalog-option')
+    const weatherCard = screen.getByText('检查指定地点上下文的天气是否匹配。').closest('.condition-catalog-option')
+    const itemCard = screen.getByText('检查玩家背包中是否拥有指定物品。').closest('.condition-catalog-option')
+    expect(timeCard).toBeTruthy()
+    expect(weatherCard).toBeTruthy()
+    expect(itemCard).toBeTruthy()
+
+    fireEvent.click(within(timeCard as HTMLElement).getByRole('button', { name: '加入条件' }))
+    fireEvent.click(within(weatherCard as HTMLElement).getByRole('button', { name: '加入 ANY 分支' }))
+    fireEvent.click(within(itemCard as HTMLElement).getByRole('button', { name: '加入 ANY 分支' }))
+    fireEvent.click(screen.getByRole('button', { name: '封装 ANY 组' }))
+    fireEvent.click(screen.getByRole('button', { name: '加入查询' }))
+
+    expect(screen.getAllByText(/ANY/u).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: '封装场次' }))
+
+    expect(onPatchUpdate).toHaveBeenCalledWith(
+      'patch-town',
+      expect.objectContaining({
+        editorState: expect.objectContaining({
+          entries: expect.objectContaining({
+            'event_square_meeting_1900/GameStateQuery "TIME 1900 2300, ANY \\"WEATHER Here Sun\\" \\"PLAYER_HAS_ITEM Current 24\\""': expect.any(String),
+          }),
+        }),
+      }),
+    )
+  })
+
 })

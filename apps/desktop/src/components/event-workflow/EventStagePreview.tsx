@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Grid2x2, UserPlus, Camera, MapPin, Route } from 'lucide-react'
+import { Code2, Grid2x2, UserPlus, Camera, MapPin, Route } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '../../lib/editor-shell'
 import { loadMapAsset, validateGameDirectory } from '../../lib/desktop'
@@ -138,7 +138,8 @@ export interface EventStagePreviewProps {
   /** Callback fired when user clicks on a tile in the map. */
   onTileClick?: (tileX: number, tileY: number) => void
   /** Callback fired when user selects a context menu action on the map. */
-  onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp', tileX: number, tileY: number) => void
+  onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
+  conditionBuilderLabel?: string
 }
 
 export function EventStagePreview({
@@ -157,6 +158,7 @@ export function EventStagePreview({
   onActorAssetsChange,
   onTileClick,
   onContextMenuAction,
+  conditionBuilderLabel,
 }: EventStagePreviewProps) {
   const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
   const [mapError, setMapError] = useState('')
@@ -408,6 +410,14 @@ export function EventStagePreview({
               contextMenuExtraItems={
                 onContextMenuAction && hoverInfo ? (
                   <>
+                    <ContextMenu.Separator className="context-menu-separator" />
+                    <ContextMenu.Item
+                      className="context-menu-item"
+                      onSelect={() => onContextMenuAction('conditionBuilder', hoverInfo.tileX, hoverInfo.tileY)}
+                    >
+                      <Code2 className="mr-1.5 inline h-3.5 w-3.5" />
+                      {conditionBuilderLabel ?? 'Design trigger conditions'}
+                    </ContextMenu.Item>
                     <ContextMenu.Separator className="context-menu-separator" />
                     <ContextMenu.Item
                       className="context-menu-item"

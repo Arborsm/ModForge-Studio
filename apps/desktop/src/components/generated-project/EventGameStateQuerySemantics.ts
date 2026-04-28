@@ -2,7 +2,7 @@ import type { EditorCopy } from '../../locales'
 
 type HubCopy = EditorCopy['studioDesk']['eventPatchHub']
 
-const GAME_STATE_QUERY_KEYS = [
+export const GAME_STATE_QUERY_KEYS = [
   'ANY',
   'DATE_RANGE',
   'SEASON_DAY',

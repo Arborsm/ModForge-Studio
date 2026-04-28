@@ -1159,6 +1159,172 @@ export type EditorCopy = {
       disableEventAction: string
       enableEventAction: string
       deleteEventAction: string
+      conditionBuilderAction: string
+      conditionBuilder: {
+        title: string
+        subtitle: string
+        closeLabel: string
+        eventIdLabel: string
+        eventIdPlaceholder: string
+        autoGenerateLabel: string
+        aliasLabel: string
+        aliasPlaceholder: string
+        categorySearchPlaceholder: string
+        categories: Record<'world' | 'social' | 'player' | 'story' | 'query', string>
+        categoryDescriptions: Record<'world' | 'social' | 'player' | 'story' | 'query', string>
+        timeTitle: string
+        timeStartLabel: string
+        timeEndLabel: string
+        applyTimeLabel: string
+        seasonTitle: string
+        seasons: Record<'spring' | 'summer' | 'fall' | 'winter', string>
+        weatherTitle: string
+        weathers: Record<'sunny' | 'rainy' | 'storm' | 'snow' | 'greenRain', string>
+        npcLabel: string
+        npcPlaceholder: string
+        recentNpcsTitle: string
+        npcResultsTitle: string
+        friendshipTitle: string
+        comparatorAtLeast: string
+        comparatorBelow: string
+        heartsLabel: (count: number) => string
+        friendshipPointsLabel: (points: number, max: number, hearts: number) => string
+        specialStatusTitle: string
+        datingLabel: string
+        spouseLabel: string
+        presentLabel: string
+        moneyLabel: string
+        skillLabel: string
+        skillLevelLabel: string
+        genderLabel: string
+        hasItemLabel: string
+        itemPlaceholder: string
+        storyEventLabel: string
+        storyEventPlaceholder: string
+        storyTagPrefix: string
+        mailLabel: string
+        mailPlaceholder: string
+        queryLabel: string
+        queryOpenBuilderLabel: string
+        querySummaryEmpty: string
+        gameStateQueryBuilder: {
+          title: string
+          subtitle: string
+          closeLabel: string
+          templateRailLabel: string
+          naturalPreviewLabel: string
+          codePreviewLabel: string
+          emptyPreview: string
+          cancelAction: string
+          applyAction: string
+          categoryAllLabel: string
+          categoryLabels: Record<'logic' | 'world' | 'location' | 'player' | 'item' | 'system', string>
+          catalogSearchPlaceholder: string
+          matchesCountLabel: (count: number) => string
+          logicAllLabel: string
+          chainTitle: string
+          branchTitle: string
+          addClauseAction: string
+          addBranchAction: string
+          addAnyGroupAction: string
+          emptyChainLabel: string
+          emptyBranchLabel: string
+          negateClauseLabel: (code: string) => string
+          removeClauseLabel: (code: string) => string
+          fieldLabels: Record<
+            | 'achievement'
+            | 'answer'
+            | 'buff'
+            | 'building'
+            | 'cave'
+            | 'chance'
+            | 'context'
+            | 'count'
+            | 'day'
+            | 'days'
+            | 'end'
+            | 'event'
+            | 'farm'
+            | 'field'
+            | 'fish'
+            | 'gender'
+            | 'item'
+            | 'level'
+            | 'location'
+            | 'mail'
+            | 'monster'
+            | 'money'
+            | 'npc'
+            | 'pet'
+            | 'player'
+            | 'profession'
+            | 'quality'
+            | 'recipe'
+            | 'relationship'
+            | 'season'
+            | 'song'
+            | 'specialOrder'
+            | 'start'
+            | 'stat'
+            | 'tag'
+            | 'target'
+            | 'type'
+            | 'value'
+            | 'weather'
+            | 'year',
+            string
+          >
+          optionLabels: Record<string, string>
+        }
+        catalogTitle: string
+        catalogCountLabel: (count: number) => string
+        catalogArgumentLabel: string
+        catalogAddLabel: string
+        catalogConditions: Record<string, {
+          title: string
+          description: string
+          placeholder?: string
+          fieldLabel?: string
+        }>
+        catalogPresetLabel: string
+        catalogWeekdayLabels: Record<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun', string>
+        catalogAnyPetLabel: string
+        catalogPetLabels: Record<'cat' | 'dog', string>
+        catalogItemIdLabel: string
+        catalogCountInputLabel: string
+        catalogTileXLabel: string
+        catalogTileYLabel: string
+        logicChainTitle: string
+        logicChainEmpty: string
+        negateLabel: (label: string) => string
+        removeChipLabel: (label: string) => string
+        conflictLabel: string
+        previewDockLabel: string
+        validationEventIdRequired: string
+        naturalPreviewLabel: string
+        naturalPreviewEmpty: string
+        naturalPreview: (parts: string[]) => string
+        codePreviewLabel: string
+        codePreviewEmpty: string
+        cancelAction: string
+        confirmAction: string
+        chipLabels: {
+          time: string
+          season: string
+          weather: string
+          friendship: string
+          dating: string
+          spouse: string
+          present: string
+          money: string
+          skill: string
+          gender: string
+          item: string
+          sawEvent: string
+          mail: string
+          query: string
+        }
+      }
       storyboardTitle: string
       storyboardCaption: string
       emptyTitle: string
@@ -1228,6 +1394,7 @@ export type EditorCopy = {
         any: (parts: string[]) => string
         generic: (label: string, args: string[]) => string
         label: (key: string) => string
+        description: (key: string) => string
         location: (location: string) => string
         locationSeason: (location: string, seasons: string[]) => string
         weather: (location: string, weather: string[]) => string

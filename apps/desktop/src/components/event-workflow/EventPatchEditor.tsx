@@ -11,6 +11,9 @@ import { PickModeOverlay } from './PickModeOverlay'
 import { SceneSetupBar } from './SceneSetupBar'
 import { ScriptEditor } from './ScriptEditor'
 import { useEditorStore } from '../../lib/events/editorStore'
+import { useEditorCopy } from '../../lib/app/localeContext'
+import { buildEventPatchHubPatches } from '../generated-project/EventPatchHubModel'
+import { EventConditionBuilderModal, type EventConditionBuilderResult } from '../generated-project/EventConditionBuilderModal'
 
 type EditorTab = 'events' | 'fields' | 'textops' | 'moveentries'
 
@@ -51,16 +54,22 @@ export function EventPatchEditor({
   gameRootPath: externalGameRootPath,
 }: EventPatchEditorProps) {
   void onAddVirtualAsset
+  const hubCopy = useEditorCopy().studioDesk.eventPatchHub
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? EMPTY_ENTRIES
   const fields = (editorState['fields'] as Record<string, Record<string, string>> | undefined) ?? {}
   const moveEntries = (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
   const gameRootPath = externalGameRootPath ?? draft.projectMetadata.gameRootPath ?? null
+  const [conditionBuilderOpen, setConditionBuilderOpen] = useState(false)
 
   const activeTab: EditorTab = 'events'
   const entryKeys = useMemo(() => Object.keys(entries), [entries])
   const selectedKey = selectedEventKey && entries[selectedEventKey] != null ? selectedEventKey : entryKeys[0] ?? null
   const setSelectedKey: (key: string | null) => void = () => {}
+  const hubPatch = useMemo(() => buildEventPatchHubPatches([patch])[0] ?? null, [patch])
+  const conditionBuilderEvent = selectedKey ? hubPatch?.events.find((event) => event.key === selectedKey) ?? null : null
+  const eventAliases = eventAliasesFromState(editorState)
+  const conditionBuilderAlias = conditionBuilderEvent ? eventAliases[conditionBuilderEvent.key] ?? '' : ''
 
   function updateEntries(newEntries: Record<string, unknown>) {
     onPatchChange(patch.id, {
@@ -84,6 +93,44 @@ export function EventPatchEditor({
     onPatchChange(patch.id, {
       editorState: { ...editorState, moveEntries: newEntries },
     })
+  }
+
+  function applyConditionBuilder(result: EventConditionBuilderResult) {
+    if (!selectedKey) {
+      setConditionBuilderOpen(false)
+      return
+    }
+
+    const selectedEntry = entries[selectedKey]
+    if (typeof selectedEntry !== 'string') {
+      setConditionBuilderOpen(false)
+      return
+    }
+
+    const nextEntries = { ...entries }
+    if (result.eventKey !== selectedKey) {
+      delete nextEntries[selectedKey]
+    }
+    nextEntries[result.eventKey] = selectedEntry
+
+    const nextAliases = eventAliasesFromState(editorState)
+    delete nextAliases[selectedKey]
+    if (result.alias) {
+      nextAliases[result.eventKey] = result.alias
+    }
+
+    const disabledKeys = Array.isArray(editorState['disabledEventKeys'])
+      ? editorState['disabledEventKeys'].map((key) => key === selectedKey ? result.eventKey : key)
+      : []
+    onPatchChange(patch.id, {
+      editorState: {
+        ...editorState,
+        entries: nextEntries,
+        disabledEventKeys: disabledKeys,
+        eventAliases: nextAliases,
+      },
+    })
+    setConditionBuilderOpen(false)
   }
 
   function updateCommand(index: number, newRaw: string) {
@@ -113,6 +160,8 @@ export function EventPatchEditor({
           theme={theme}
           accentColor={accentColor}
           viewportLabels={viewportLabels}
+          conditionBuilderLabel={hubCopy.conditionBuilderAction}
+          onOpenConditionBuilder={() => setConditionBuilderOpen(true)}
         />
       ) : activeTab === 'fields' ? (
         <FieldsEditor fields={fields} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateFields={updateFields} />
@@ -124,7 +173,29 @@ export function EventPatchEditor({
       ) : (
         <MoveEntriesEditor moveEntries={moveEntries} updateMoveEntries={updateMoveEntries} />
       )}
+      {conditionBuilderOpen && conditionBuilderEvent && hubPatch ? (
+        <EventConditionBuilderModal
+          event={conditionBuilderEvent}
+          allEvents={hubPatch.events}
+          alias={conditionBuilderAlias}
+          hubCopy={hubCopy}
+          copy={hubCopy.conditionBuilder}
+          onApply={applyConditionBuilder}
+          onCancel={() => setConditionBuilderOpen(false)}
+        />
+      ) : null}
     </div>
+  )
+}
+
+function eventAliasesFromState(state: Record<string, unknown>): Record<string, string> {
+  if (typeof state['eventAliases'] !== 'object' || state['eventAliases'] === null || Array.isArray(state['eventAliases'])) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(state['eventAliases'] as Record<string, unknown>)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
   )
 }
 
@@ -139,6 +210,8 @@ function EventsEditor({
   theme,
   accentColor,
   viewportLabels,
+  conditionBuilderLabel,
+  onOpenConditionBuilder,
 }: {
   entries: Record<string, unknown>
   selectedKey: string | null
@@ -150,6 +223,8 @@ function EventsEditor({
   theme?: ThemeMode
   accentColor?: string
   viewportLabels?: ViewportLabels
+  conditionBuilderLabel: string
+  onOpenConditionBuilder: () => void
 }) {
   const selectedEntry = selectedKey ? entries[selectedKey] ?? null : null
   const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
@@ -266,12 +341,16 @@ function EventsEditor({
     setPickingActorIndex(null)
   }
 
-  function handleContextMenuAction(action: 'addActor' | 'setCamera' | 'addWarp', tileX: number, tileY: number) {
+  function handleContextMenuAction(action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) {
     if (!selectedKey || !parsedEvent) {
       return
     }
 
     switch (action) {
+      case 'conditionBuilder': {
+        onOpenConditionBuilder()
+        break
+      }
       case 'addActor': {
         const defaultName = `actor${parsedEvent.scene.actors.length + 1}`
         const newActor = { id: `actor-${Date.now()}`, actorName: defaultName, tileX, tileY, facingDirection: 2 }
@@ -334,6 +413,7 @@ function EventsEditor({
               hideHeader
               onTileClick={handleTileClick}
               onContextMenuAction={handleContextMenuAction}
+              conditionBuilderLabel={conditionBuilderLabel}
               additionalViewportOverlay={
                 <PickModeOverlay
                   active={isPickMode || pickingActorIndex !== null}

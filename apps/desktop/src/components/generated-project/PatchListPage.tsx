@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Clock,
   CloudRain,
+  Code2,
   Copy,
   Eye,
   FileJson,
@@ -27,6 +28,7 @@ import type { WorkspaceId } from '../../lib/plugins/workspaceRegistry'
 import { cx } from '../../lib/cx'
 import { useEditorCopy } from '../../lib/app/localeContext'
 import { buildEventPatchHubPatches, type EventPatchHubEvent, type EventPatchHubPatch } from './EventPatchHubModel'
+import { EventConditionBuilderModal, type EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { formatEventPreconditionForHub, type ParsedEventPrecondition } from './EventPreconditionSemantics'
 
 type EventFilter = 'all' | 'withTriggers' | 'withoutTriggers' | 'disabled'
@@ -98,6 +100,17 @@ function disabledEventKeysFromState(state: Record<string, unknown>): string[] {
     : []
 }
 
+function eventAliasesFromState(state: Record<string, unknown>): Record<string, string> {
+  if (typeof state['eventAliases'] !== 'object' || state['eventAliases'] === null || Array.isArray(state['eventAliases'])) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(state['eventAliases'] as Record<string, unknown>)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  )
+}
+
 function nextDuplicateEventKey(entries: Record<string, unknown>, eventKey: string) {
   const baseKey = `${eventKey}_copy`
   if (entries[baseKey] == null) {
@@ -149,6 +162,7 @@ export function PatchListPage({
   const [multiSelect, setMultiSelect] = useState(false)
   const [selectedEventKeys, setSelectedEventKeys] = useState<Set<string>>(() => new Set())
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [conditionBuilder, setConditionBuilder] = useState<{ patchId: string; eventKey: string } | null>(null)
   const nextEventIdRef = useRef(0)
 
   const hubPatches = useMemo(() => buildEventPatchHubPatches(patches), [patches])
@@ -169,6 +183,11 @@ export function PatchListPage({
   const activeEvent = selectedEvent ?? (activePatch?.events[0] ?? null)
   const shownEvents = activePatch ? filterEvents(activePatch.events, eventFilter) : []
   const openEventKey = selectedEventKey === null ? activeEvent?.key ?? null : expandedEventKey
+  const conditionBuilderPatch = conditionBuilder ? hubPatches.find((patch) => patch.id === conditionBuilder.patchId) ?? null : null
+  const conditionBuilderEvent = conditionBuilderPatch?.events.find((event) => event.key === conditionBuilder?.eventKey) ?? null
+  const conditionBuilderAlias = conditionBuilderPatch && conditionBuilderEvent
+    ? eventAliasesFromState(patchEditorState(conditionBuilderPatch.sourcePatch))[conditionBuilderEvent.key] ?? ''
+    : ''
 
   const filterOptions: Array<{ id: EventFilter; label: string; count: number; icon: typeof ListTree }> = activePatch
     ? [
@@ -353,7 +372,7 @@ export function PatchListPage({
     setSelectedPatchId(null)
   }
 
-  function handleEventMenuAction(action: 'edit' | 'duplicate' | 'toggle' | 'delete') {
+  function handleEventMenuAction(action: 'edit' | 'conditionBuilder' | 'duplicate' | 'toggle' | 'delete') {
     const menu = contextMenu?.kind === 'event' ? contextMenu : null
     const patch = menu ? hubPatches.find((item) => item.id === menu.patchId) ?? null : null
     const event = patch?.events.find((item) => item.key === menu?.eventKey) ?? null
@@ -365,6 +384,13 @@ export function PatchListPage({
       openEditor(event)
       return
     }
+    if (action === 'conditionBuilder') {
+      setSelectedPatchId(patch.id)
+      setSelectedEventKey(event.key)
+      setExpandedEventKey(event.key)
+      setConditionBuilder({ patchId: patch.id, eventKey: event.key })
+      return
+    }
     if (action === 'duplicate') {
       duplicateEvent(patch.sourcePatch, event)
       return
@@ -374,6 +400,48 @@ export function PatchListPage({
       return
     }
     deleteEvent(patch.sourcePatch, event)
+  }
+
+  function applyConditionBuilder(result: EventConditionBuilderResult) {
+    const builder = conditionBuilder
+    const patch = builder ? hubPatches.find((item) => item.id === builder.patchId) ?? null : null
+    if (!builder || !patch || !onPatchUpdate) {
+      setConditionBuilder(null)
+      return
+    }
+
+    const state = patchEditorState(patch.sourcePatch)
+    const entries = eventEntriesFromState(state)
+    const rawScript = entries[builder.eventKey]
+    if (typeof rawScript !== 'string') {
+      setConditionBuilder(null)
+      return
+    }
+
+    const nextEntries = { ...entries }
+    if (result.eventKey !== builder.eventKey) {
+      delete nextEntries[builder.eventKey]
+    }
+    nextEntries[result.eventKey] = rawScript
+
+    const nextAliases = eventAliasesFromState(state)
+    delete nextAliases[builder.eventKey]
+    if (result.alias) {
+      nextAliases[result.eventKey] = result.alias
+    }
+
+    const disabledKeys = disabledEventKeysFromState(state).map((key) => (key === builder.eventKey ? result.eventKey : key))
+    onPatchUpdate(patch.id, {
+      editorState: {
+        ...state,
+        entries: nextEntries,
+        disabledEventKeys: disabledKeys,
+        eventAliases: nextAliases,
+      },
+    })
+    setSelectedEventKey(result.eventKey)
+    setExpandedEventKey(result.eventKey)
+    setConditionBuilder(null)
   }
 
   function renderPreconditionRows(preconditions: ParsedEventPrecondition[]) {
@@ -700,6 +768,10 @@ export function PatchListPage({
                 <PencilLine className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{hub.openEditorAction}</span>
               </button>
+              <button type="button" role="menuitem" onClick={() => handleEventMenuAction('conditionBuilder')} disabled={!onPatchUpdate}>
+                <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>{hub.conditionBuilderAction}</span>
+              </button>
               <button type="button" role="menuitem" onClick={() => handleEventMenuAction('duplicate')}>
                 <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{hub.duplicateEventAction}</span>
@@ -721,6 +793,17 @@ export function PatchListPage({
             </>
           )}
         </div>
+      ) : null}
+      {conditionBuilderEvent && conditionBuilderPatch ? (
+        <EventConditionBuilderModal
+          event={conditionBuilderEvent}
+          allEvents={conditionBuilderPatch.events}
+          alias={conditionBuilderAlias}
+          hubCopy={hub}
+          copy={hub.conditionBuilder}
+          onApply={applyConditionBuilder}
+          onCancel={() => setConditionBuilder(null)}
+        />
       ) : null}
     </div>
   )
