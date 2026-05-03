@@ -275,10 +275,6 @@ export function StudioDeskMainStage({
       </div>
 
       <section className="studio-pulse" aria-label={desk.projectPulse}>
-        <div className="studio-pulse-head">
-          <span>{desk.recentChanges}</span>
-          <span>{desk.sortByTime}</span>
-        </div>
         <div className="studio-pulse-line">
           {pulseItems.length ? (
             pulseItems.map((item) => (

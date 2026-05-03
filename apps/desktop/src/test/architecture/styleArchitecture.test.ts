@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const STYLES_DIR = resolve(process.cwd(), 'src/styles')
@@ -25,7 +25,7 @@ async function listCssFiles(directory: string): Promise<string[]> {
 
 describe('style architecture', () => {
   it('keeps global theme tokens owned by tokens.css', async () => {
-    const cssFiles = (await listCssFiles(STYLES_DIR)).filter((file) => !file.endsWith('/tokens.css'))
+    const cssFiles = (await listCssFiles(STYLES_DIR)).filter((file) => basename(file) !== 'tokens.css')
     const violations: string[] = []
 
     await Promise.all(
@@ -47,7 +47,7 @@ describe('style architecture', () => {
   })
 
   it('does not let export center metadata styles override the publish button label', async () => {
-    const source = await readFile(join(STYLES_DIR, 'features/generated-project-edit.css'), 'utf8')
+    const source = await readFile(join(STYLES_DIR, 'features/generated-project/studio-world-bible.css'), 'utf8')
 
     expect(source).not.toMatch(/\.studio-export-center\s+span\s*\{/)
   })

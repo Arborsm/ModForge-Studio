@@ -4,6 +4,13 @@
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
 @import "./features/generated-project-edit.css";
+@import "./features/event-patch-hub.css";
+@import "./features/condition-builder.css";
+@import "./features/game-state-query.css";
+@import "./features/studio-desk.css";
+@import "./features/studio-workspace.css";
+@import "./features/studio-pulse.css";
+@import "./features/studio-world-bible.css";
 @import "./features/studio-tree-sidebar.css";
 @import "./features/item-group.css";
 @import "./features/initialization-overlay.css";
