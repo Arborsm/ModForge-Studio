@@ -27,3 +27,4 @@ services/**/obj/
 /obj/
 .devDocs
 .superpowers
+.claude

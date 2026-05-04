@@ -55,11 +55,22 @@ pub(crate) struct AppUiPlayerAppearanceState {
     pub(crate) active_profile_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AppUiWorkspaceState {
     #[serde(default)]
     pub(crate) layouts: BTreeMap<String, Value>,
+    #[serde(default = "default_workspace_view_mode")]
+    pub(crate) workspace_view_mode: String,
+    #[serde(default)]
+    pub(crate) generated_project: AppUiGeneratedProjectWorkspaceState,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppUiGeneratedProjectWorkspaceState {
+    #[serde(default)]
+    pub(crate) active_generated_draft_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -117,6 +128,17 @@ pub(crate) struct AppUiAppearanceStatePatch {
 pub(crate) struct AppUiWorkspaceStatePatch {
     #[serde(default)]
     pub(crate) layouts: Option<BTreeMap<String, Option<Value>>>,
+    #[serde(default)]
+    pub(crate) workspace_view_mode: Option<String>,
+    #[serde(default)]
+    pub(crate) generated_project: Option<AppUiGeneratedProjectWorkspaceStatePatch>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AppUiGeneratedProjectWorkspaceStatePatch {
+    #[serde(default)]
+    pub(crate) active_generated_draft_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -150,6 +172,10 @@ fn default_locale() -> String {
 
 fn default_accent_preset_id() -> String {
     "indigo".to_string()
+}
+
+fn default_workspace_view_mode() -> String {
+    "edit".to_string()
 }
 
 fn default_discover_sort() -> String {
@@ -194,6 +220,16 @@ impl Default for AppUiAppearanceState {
             accent_preset_id: default_accent_preset_id(),
             recent_game_directories: Vec::new(),
             player_appearance: AppUiPlayerAppearanceState::default(),
+        }
+    }
+}
+
+impl Default for AppUiWorkspaceState {
+    fn default() -> Self {
+        Self {
+            layouts: BTreeMap::new(),
+            workspace_view_mode: default_workspace_view_mode(),
+            generated_project: AppUiGeneratedProjectWorkspaceState::default(),
         }
     }
 }
@@ -311,6 +347,24 @@ fn normalize_workspace_layouts(layouts: BTreeMap<String, Value>) -> BTreeMap<Str
         .collect()
 }
 
+fn normalize_workspace_view_mode(value: &str) -> String {
+    match value.trim() {
+        "preview" | "project" => value.trim().to_string(),
+        _ => default_workspace_view_mode(),
+    }
+}
+
+fn normalize_generated_project_workspace_state(
+    state: AppUiGeneratedProjectWorkspaceState,
+) -> AppUiGeneratedProjectWorkspaceState {
+    AppUiGeneratedProjectWorkspaceState {
+        active_generated_draft_key: state
+            .active_generated_draft_key
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+    }
+}
+
 fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
     AppUiState {
         version: default_app_ui_state_version(),
@@ -328,6 +382,12 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
         },
         workspace: AppUiWorkspaceState {
             layouts: normalize_workspace_layouts(state.workspace.layouts),
+            workspace_view_mode: normalize_workspace_view_mode(
+                &state.workspace.workspace_view_mode,
+            ),
+            generated_project: normalize_generated_project_workspace_state(
+                state.workspace.generated_project,
+            ),
         },
         launcher: AppUiLauncherState {
             discover_toolbar: AppUiDiscoverToolbarState {
@@ -420,6 +480,17 @@ pub(crate) fn patch_app_ui_state_at_path(
                     }
                 }
             }
+        }
+        if let Some(workspace_view_mode) = workspace.workspace_view_mode {
+            state.workspace.workspace_view_mode =
+                normalize_workspace_view_mode(&workspace_view_mode);
+        }
+        if let Some(generated_project) = workspace.generated_project {
+            state.workspace.generated_project = normalize_generated_project_workspace_state(
+                AppUiGeneratedProjectWorkspaceState {
+                    active_generated_draft_key: generated_project.active_generated_draft_key,
+                },
+            );
         }
     }
     if let Some(launcher) = patch.launcher {

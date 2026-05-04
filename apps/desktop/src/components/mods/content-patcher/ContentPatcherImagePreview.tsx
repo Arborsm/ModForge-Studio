@@ -18,6 +18,7 @@ type ContentPatcherImagePreviewProps = {
     defaultValue: unknown
   }>
   onSimulationContextChange: (next: ContentPatcherBackendSimulationContext) => void
+  dynamicTokens?: Record<string, unknown>
 }
 
 type ImageFrameProps = {
@@ -110,6 +111,7 @@ export function ContentPatcherImagePreview({
   simulationContext,
   simulationConfigEntries,
   onSimulationContextChange,
+  dynamicTokens,
 }: ContentPatcherImagePreviewProps) {
   const [compareMode, setCompareMode] = useState<CompareMode>('split')
   const [diffOnly, setDiffOnly] = useState(false)
@@ -404,6 +406,7 @@ export function ContentPatcherImagePreview({
                   configEntries={simulationConfigEntries}
                   value={simulationContext}
                   onChange={onSimulationContextChange}
+                  dynamicTokens={dynamicTokens}
                 />
               </div>
             ) : null}

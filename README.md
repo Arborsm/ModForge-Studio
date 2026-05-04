@@ -98,7 +98,7 @@
 
 - 顶层布局：`apps/desktop/src/components/WorkspaceLayout.tsx`
 - 顶栏：`apps/desktop/src/components/TopMenuBar.tsx`
-- workspace panel 装配：`apps/desktop/src/lib/app/workspacePanels.ts`
+- workspace panel 装配：`apps/desktop/src/lib/app/workspacePanels.tsx`
 - app shell 状态：`apps/desktop/src/lib/app/appShell.ts`
 - 通用 orchestration：`apps/desktop/src/lib/app/`
 - 工作台样式：`apps/desktop/src/styles/workspace/`
@@ -113,6 +113,24 @@
 - Mods: `apps/desktop/src/lib/app/useModWorkspace.ts`
 
 对应的渲染组件通常在 `apps/desktop/src/components/` 下按功能拆分，先从 workspace hook 找状态入口，再顺着组件引用看 UI。
+
+### Generated Project Builder
+
+- Edit Mode UI 设计：`docs/design-edit-mode-redesign.md`
+- Studio Desk 总入口：`apps/desktop/src/components/generated-project/StudioDesk.tsx`
+- Studio Desk 项目大厅：`apps/desktop/src/components/generated-project/StudioDeskProjectGallery.tsx`
+- Studio Desk 左/中/右区域：`StudioDeskStoryboard.tsx`、`StudioDeskMainStage.tsx`、`StudioDeskWorldBible.tsx`
+- Studio Desk 数据选择器：`apps/desktop/src/lib/app/studioDeskModel.ts`
+- Edit Mode 路由判断：`apps/desktop/src/lib/app/editModeRoute.ts`
+- Edit Mode 工作区壳层：`apps/desktop/src/components/generated-project/EditModeShell.tsx`
+- Patch 列表与快捷切换：`PatchListPage.tsx`、`PatchQuickMenu.tsx`、`PatchSummaryCard.tsx`
+- 工作区编辑器注册：`apps/desktop/src/lib/plugins/workspaceRegistry.ts`、`apps/desktop/src/lib/plugins/builtInWorkspaces.ts`
+- 具体编辑器：`apps/desktop/src/components/event-workflow/EventPatchEditor.tsx`、`map-workflow/MapPatchEditor.tsx`、`image-workflow/ImagePatchEditor.tsx`
+- 草稿生命周期与 Content Patcher 输出构建：`apps/desktop/src/lib/app/useGeneratedProject.ts`
+- 生成项目草稿/导出后端：`apps/desktop/src-tauri/src/domain/generated_project/`
+- 生成项目桌面桥接入口：`apps/desktop/src/lib/desktop.ts`
+
+如果要改 generated-project 预览或导出，不要从 `useModWorkspace.ts` 盲跳开始。先看 `useGeneratedProject.ts` 里的 draft、`manifest.json`、`content.json` 构建路径，再看 `components/generated-project/` 的 UI 组合，最后进 `src-tauri/src/domain/generated_project/` 看桌面导出实现。
 
 ### Desktop Bridge
 
@@ -183,6 +201,23 @@
   - `apps/desktop/src-tauri/src/commands/`
   - `apps/desktop/src-tauri/src/domain/`
   - `apps/desktop/src-tauri/src/infrastructure/`
+- 改 Studio Desk 项目大厅、世界百科、Edit Mode 项目首页：
+  - `docs/design-edit-mode-redesign.md`
+  - `apps/desktop/src/components/generated-project/StudioDesk.tsx`
+  - `apps/desktop/src/components/generated-project/StudioDeskProjectGallery.tsx`
+  - `apps/desktop/src/components/generated-project/StudioDeskStoryboard.tsx`
+  - `apps/desktop/src/components/generated-project/StudioDeskMainStage.tsx`
+  - `apps/desktop/src/components/generated-project/StudioDeskWorldBible.tsx`
+  - `apps/desktop/src/lib/app/studioDeskModel.ts`
+  - `apps/desktop/src/styles/features/generated-project-edit.css`
+- 改 generated-project patch 编辑、预览、导出、草稿同步：
+  - `apps/desktop/src/components/generated-project/`
+  - `apps/desktop/src/lib/app/studioDeskModel.ts`
+  - `apps/desktop/src/lib/app/useGeneratedProject.ts`
+  - `apps/desktop/src/lib/plugins/workspaceRegistry.ts`
+  - `apps/desktop/src/lib/plugins/builtInWorkspaces.ts`
+  - `apps/desktop/src/lib/desktop.ts`
+  - `apps/desktop/src-tauri/src/domain/generated_project/`
 - 改文案：
   - `apps/desktop/src/locales/en-US.ts`
   - `apps/desktop/src/locales/zh-CN.ts`

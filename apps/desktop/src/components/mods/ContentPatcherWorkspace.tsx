@@ -10,6 +10,7 @@ import type { ContentPatcherBackendSimulationContext } from '../../lib/plugins/c
 import { useModWorkspaceCopy } from '../../lib/app/localeContext'
 import type { WorkspacePluginDefinition } from '../../lib/plugins/types'
 import { ContentPatcherResultPreview } from './content-patcher/ContentPatcherResultPreview'
+import { ContentPatcherPatchPropertiesPanel } from './content-patcher/ContentPatcherPatchPropertiesPanel'
 import { ContentPatcherScaleUpPanel } from './content-patcher/attached/scaleup/ContentPatcherScaleUpPanel'
 
 type PatchSummary = {
@@ -67,7 +68,7 @@ type ContentPatcherWorkspaceProps = {
   onManifestFieldChange: (field: string, value: string) => void
   onManifestTextChange: (value: string) => void
   onContentTextChange: (value: string) => void
-  onPatchFieldChange: (field: string, value: string) => void
+  onPatchFieldChange: (field: string, value: string | boolean) => void
   onPatchWhenChange: (value: string) => void
   onAddPatch: () => void
   onRemoveSelectedPatch: () => void
@@ -93,11 +94,17 @@ export function ContentPatcherWorkspace({
   contentPatcherResultLoading,
   contentPatcherResultError,
   simulationContext,
+  selectedPatch,
+  patchWhenError,
   selectedTargetPath,
   scaleUpEditor,
   onSimulationContextChange,
   onSaveProject,
   onExportProject,
+  onPatchFieldChange,
+  onPatchWhenChange,
+  onAddPatch,
+  onRemoveSelectedPatch,
   onScaleUpContentChange,
   onCloseScaleUpEditor,
 }: ContentPatcherWorkspaceProps) {
@@ -139,7 +146,15 @@ export function ContentPatcherWorkspace({
         </div>
       </header>
 
-      <section className="cp-debugger-body">
+      <section className="cp-debugger-body" style={{ flexDirection: 'column', gap: 10 }}>
+        <ContentPatcherPatchPropertiesPanel
+          patch={selectedPatch}
+          patchWhenError={patchWhenError}
+          onFieldChange={onPatchFieldChange}
+          onWhenChange={onPatchWhenChange}
+          onAddPatch={onAddPatch}
+          onRemoveSelectedPatch={onRemoveSelectedPatch}
+        />
         <ContentPatcherResultPreview
           result={contentPatcherResultAsset}
           loading={contentPatcherResultLoading}
@@ -147,6 +162,7 @@ export function ContentPatcherWorkspace({
           simulationContext={simulationContext}
           simulationConfigEntries={contentSummary.configEntries ?? contentSummary.configKeys.map((key) => ({ key, defaultValue: null }))}
           onSimulationContextChange={onSimulationContextChange}
+          dynamicTokens={contentPatcherSimulation?.dynamicTokens}
         />
         {activeScaleUpPanel && onScaleUpContentChange && onCloseScaleUpEditor ? (
           <ContentPatcherScaleUpPanel

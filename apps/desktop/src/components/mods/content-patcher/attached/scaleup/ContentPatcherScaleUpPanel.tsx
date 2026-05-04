@@ -315,7 +315,7 @@ export function ContentPatcherScaleUpPanel({
   }
 
   return (
-    <section className="mt-4 rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
+    <section className="mt-4 min-h-0 flex-1 overflow-auto rounded-[28px] border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 flex items-center gap-2">

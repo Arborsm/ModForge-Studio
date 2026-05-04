@@ -2,6 +2,7 @@ use base64::Engine;
 use std::fs;
 
 use super::types::{ContentPatcherResultAsset, ExportContentPatcherAssetResult};
+use crate::infrastructure::game_formats::tbin::{serialize_tbin_map, MapDocument};
 
 pub fn write_result_asset(
     target: &str,
@@ -43,17 +44,21 @@ pub fn write_result_asset(
             })
         }
         "map" => {
-            let map_debug = result
-                .map_debug
+            let map_json = result
+                .json
                 .as_ref()
-                .ok_or_else(|| "missing map debug result".to_string())?;
-            let formatted =
-                serde_json::to_string_pretty(map_debug).map_err(|err| err.to_string())?;
-            fs::write(output_path, formatted).map_err(|err| err.to_string())?;
+                .ok_or_else(|| "missing map result".to_string())?;
+            let document: MapDocument =
+                serde_json::from_value(map_json.clone()).map_err(|err| {
+                    format!("Failed to deserialize map export payload: {err}")
+                })?;
+            let bytes = serialize_tbin_map(&document)
+                .map_err(|err| format!("Failed to serialize map export payload: {err}"))?;
+            fs::write(output_path, bytes).map_err(|err| err.to_string())?;
             Ok(ExportContentPatcherAssetResult {
                 target: target.to_string(),
                 output_path: output_path.to_string(),
-                format: "map-debug-json".to_string(),
+                format: "tbin".to_string(),
                 diagnostics: Vec::new(),
             })
         }

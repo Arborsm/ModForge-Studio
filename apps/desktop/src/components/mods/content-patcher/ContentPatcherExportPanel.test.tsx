@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { chooseDirectory, exportContentPatcherAsset, type LoadContentPatcherResultAssetResult } from '../../../lib/desktop'
+import { createDefaultContentPatcherSimulationContext } from '../../../lib/plugins/contentPatcher'
 import { renderWithLocale } from '../../../test/renderWithLocale'
 import { ContentPatcherExportPanel } from './ContentPatcherExportPanel'
 
@@ -66,14 +67,7 @@ describe('ContentPatcherExportPanel', () => {
         }}
         manifestJson={'{\n  "Name": "Seasonal Garden"\n}\n'}
         contentJson={'{\n  "Format": "2.0.0",\n  "Changes": []\n}\n'}
-        simulationContext={{
-          season: '',
-          weather: '',
-          relationship: '',
-          config: {},
-          installedMods: [],
-          customTokens: {},
-        }}
+        simulationContext={createDefaultContentPatcherSimulationContext()}
         selectedTargetPath="Data/Objects"
         result={buildResult()}
       />,

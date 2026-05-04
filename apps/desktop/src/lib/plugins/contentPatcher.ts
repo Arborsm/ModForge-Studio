@@ -12,13 +12,128 @@ type ParsedJsonResult = {
   error: string | null
 }
 
+export function createDefaultContentPatcherSimulationContext(): ContentPatcherBackendSimulationContext {
+  return {
+    season: '',
+    weather: '',
+    day: undefined,
+    dayOfWeek: '',
+    daysPlayed: undefined,
+    year: undefined,
+    time: undefined,
+    playerName: '',
+    playerGender: '',
+    farmName: '',
+    locationName: '',
+    spouse: '',
+    isMainPlayer: undefined,
+    stardropCount: undefined,
+    hasFlags: [],
+    hasSeenEvents: [],
+    hasConversationTopics: [],
+    hasDialogueAnswers: [],
+    hasWalletItems: [],
+    hasProfessions: [],
+    hasCraftingRecipes: [],
+    hasCookingRecipes: [],
+    skillLevels: {},
+    hasActiveQuests: [],
+    hasCompletedQuests: [],
+    hasItems: [],
+    hasPet: undefined,
+    petType: '',
+    hasChildren: undefined,
+    childCount: undefined,
+    dailyLuck: undefined,
+    hasCaughtFish: [],
+    hasReadLetters: [],
+    hasVisitedLocations: [],
+    isOutdoors: undefined,
+    locationContext: '',
+    locationUniqueName: '',
+    locationOwnerId: '',
+    preferredPet: '',
+    farmCave: '',
+    farmMapAsset: '',
+    havingChild: undefined,
+    pregnant: undefined,
+    roommate: '',
+    hearts: {},
+    childNames: [],
+    childGenders: [],
+    dayEvent: '',
+    farmType: '',
+    farmhouseUpgrade: undefined,
+    isCommunityCenterComplete: undefined,
+    isJojaMartComplete: undefined,
+    language: '',
+    relationships: {},
+    config: {},
+    installedMods: [],
+    customTokens: {},
+    ignoreEntryWhenConditions: false,
+  }
+}
+
 export type ContentPatcherBackendSimulationContext = {
   season: string
   weather: string
-  relationship: string | number
+  day: number | undefined
+  dayOfWeek: string
+  daysPlayed: number | undefined
+  year: number | undefined
+  time: number | undefined
+  playerName: string
+  playerGender: string
+  farmName: string
+  locationName: string
+  spouse: string
+  isMainPlayer: boolean | undefined
+  stardropCount: number | undefined
+  hasFlags: string[]
+  hasSeenEvents: string[]
+  hasConversationTopics: string[]
+  hasDialogueAnswers: string[]
+  hasWalletItems: string[]
+  hasProfessions: string[]
+  hasCraftingRecipes: string[]
+  hasCookingRecipes: string[]
+  skillLevels: Record<string, number>
+  hasActiveQuests: string[]
+  hasCompletedQuests: string[]
+  hasItems: string[]
+  hasPet: boolean | undefined
+  petType: string
+  hasChildren: boolean | undefined
+  childCount: number | undefined
+  dailyLuck: number | undefined
+  hasCaughtFish: string[]
+  hasReadLetters: string[]
+  hasVisitedLocations: string[]
+  isOutdoors: boolean | undefined
+  locationContext: string
+  locationUniqueName: string
+  locationOwnerId: string
+  preferredPet: string
+  farmCave: string
+  farmMapAsset: string
+  havingChild: boolean | undefined
+  pregnant: boolean | undefined
+  roommate: string
+  hearts: Record<string, number>
+  childNames: string[]
+  childGenders: string[]
+  dayEvent: string
+  farmType: string
+  farmhouseUpgrade: number | undefined
+  isCommunityCenterComplete: boolean | undefined
+  isJojaMartComplete: boolean | undefined
+  language: string
+  relationships: Record<string, string>
   config: Record<string, string | number | boolean>
   installedMods: string[]
   customTokens: Record<string, unknown>
+  ignoreEntryWhenConditions: boolean
 }
 
 function isJsonObject(value: unknown): value is JsonObject {
@@ -50,12 +165,81 @@ function normalizeBackendSimulationContext(
 ): DesktopContentPatcherSimulationContext {
   const season = context.season.trim()
   const weather = context.weather.trim()
+  const playerName = context.playerName.trim()
+  const playerGender = context.playerGender.trim()
+  const farmName = context.farmName.trim()
+  const locationName = context.locationName.trim()
+  const spouse = context.spouse.trim()
+  const petType = context.petType.trim()
+  const farmType = context.farmType.trim()
+  const language = context.language.trim()
+  const locationContext = context.locationContext.trim()
+  const locationUniqueName = context.locationUniqueName.trim()
+  const locationOwnerId = context.locationOwnerId.trim()
+  const preferredPet = context.preferredPet.trim()
+  const farmCave = context.farmCave.trim()
+  const farmMapAsset = context.farmMapAsset.trim()
+  const roommate = context.roommate.trim()
+  const dayEvent = context.dayEvent.trim()
   return {
     season: season || undefined,
     weather: weather || undefined,
+    day: context.day,
+    dayOfWeek: context.dayOfWeek.trim() || undefined,
+    daysPlayed: context.daysPlayed,
+    year: context.year,
+    time: context.time,
+    playerName: playerName || undefined,
+    playerGender: playerGender || undefined,
+    farmName: farmName || undefined,
+    locationName: locationName || undefined,
+    locationContext: locationContext || undefined,
+    locationUniqueName: locationUniqueName || undefined,
+    locationOwnerId: locationOwnerId || undefined,
+    spouse: spouse || undefined,
+    roommate: roommate || undefined,
+    isMainPlayer: context.isMainPlayer,
+    isOutdoors: context.isOutdoors,
+    stardropCount: context.stardropCount,
+    hasFlags: context.hasFlags,
+    hasSeenEvents: context.hasSeenEvents,
+    hasCaughtFish: context.hasCaughtFish,
+    hasReadLetters: context.hasReadLetters,
+    hasVisitedLocations: context.hasVisitedLocations,
+    hasConversationTopics: context.hasConversationTopics,
+    hasDialogueAnswers: context.hasDialogueAnswers,
+    hasWalletItems: context.hasWalletItems,
+    hasProfessions: context.hasProfessions,
+    hasCraftingRecipes: context.hasCraftingRecipes,
+    hasCookingRecipes: context.hasCookingRecipes,
+    skillLevels: context.skillLevels,
+    hasActiveQuests: context.hasActiveQuests,
+    hasCompletedQuests: context.hasCompletedQuests,
+    hasItems: context.hasItems,
+    hasPet: context.hasPet,
+    petType: petType || undefined,
+    preferredPet: preferredPet || undefined,
+    hasChildren: context.hasChildren,
+    childCount: context.childCount,
+    childNames: context.childNames,
+    childGenders: context.childGenders,
+    havingChild: context.havingChild,
+    pregnant: context.pregnant,
+    dailyLuck: context.dailyLuck,
+    hearts: context.hearts,
+    farmType: farmType || undefined,
+    farmCave: farmCave || undefined,
+    farmMapAsset: farmMapAsset || undefined,
+    farmhouseUpgrade: context.farmhouseUpgrade,
+    isCommunityCenterComplete: context.isCommunityCenterComplete,
+    isJojaMartComplete: context.isJojaMartComplete,
+    dayEvent: dayEvent || undefined,
+    language: language || undefined,
+    relationships: context.relationships,
     config: context.config,
     installedMods: context.installedMods.map((value) => value.trim()).filter(Boolean),
     customTokens: context.customTokens,
+    ignoreEntryWhenConditions: context.ignoreEntryWhenConditions,
   }
 }
 
@@ -217,17 +401,21 @@ function replacePatch(value: unknown, patchId: string, nextPatch: JsonObject) {
   return withChanges(value, (changes) => changes.map((entry, index) => (index === patch.index ? nextPatch : entry)))
 }
 
-export function updatePatchField(value: unknown, patchId: string, field: string, nextValue: string) {
+export function updatePatchField(value: unknown, patchId: string, field: string, nextValue: string | boolean) {
   const currentPatch = getPatchObject(value, patchId)
   if (!currentPatch) {
     return ensureJsonObject(value)
   }
 
-  const trimmed = nextValue.trim()
-  if (trimmed) {
-    currentPatch[field] = trimmed
+  if (typeof nextValue === 'boolean') {
+    currentPatch[field] = nextValue
   } else {
-    delete currentPatch[field]
+    const trimmed = nextValue.trim()
+    if (trimmed) {
+      currentPatch[field] = trimmed
+    } else {
+      delete currentPatch[field]
+    }
   }
 
   return replacePatch(value, patchId, currentPatch)

@@ -1,6 +1,8 @@
 use super::project::{normalize_relative_path, resolve_include_relative_path};
 use super::schema::{parse_json_file, parse_json_str};
-use super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
+use super::types::{
+    ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot, VirtualPreviewAsset,
+};
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::infrastructure::game_formats::tbin::{parse_tbin_map, MapDocument};
@@ -9,7 +11,82 @@ use base64::Engine;
 use image::codecs::png::PngEncoder;
 use image::{ColorType, GenericImageView, ImageEncoder, RgbaImage};
 use serde_json::{Map, Value};
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+
+thread_local! {
+    static VIRTUAL_PREVIEW_ASSETS: RefCell<Option<BTreeMap<String, VirtualPreviewAsset>>> =
+        const { RefCell::new(None) };
+}
+
+struct VirtualPreviewAssetScope {
+    previous: Option<BTreeMap<String, VirtualPreviewAsset>>,
+}
+
+impl Drop for VirtualPreviewAssetScope {
+    fn drop(&mut self) {
+        VIRTUAL_PREVIEW_ASSETS.with(|assets| {
+            assets.replace(self.previous.take());
+        });
+    }
+}
+
+fn normalize_virtual_preview_asset_path(path: &str) -> Option<String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    Some(normalize_relative_path(Path::new(trimmed)))
+}
+
+fn index_virtual_preview_assets(
+    assets: &[VirtualPreviewAsset],
+) -> BTreeMap<String, VirtualPreviewAsset> {
+    let mut indexed = BTreeMap::new();
+    for asset in assets {
+        if let Some(path) = normalize_virtual_preview_asset_path(&asset.relative_path) {
+            indexed.insert(path, asset.clone());
+        }
+    }
+    indexed
+}
+
+pub fn with_virtual_preview_assets<T>(
+    virtual_assets: Option<&[VirtualPreviewAsset]>,
+    f: impl FnOnce() -> T,
+) -> T {
+    let scope = VIRTUAL_PREVIEW_ASSETS.with(|assets| VirtualPreviewAssetScope {
+        previous: assets.replace(virtual_assets.map(index_virtual_preview_assets)),
+    });
+    let result = f();
+    drop(scope);
+    result
+}
+
+fn decode_virtual_preview_asset_bytes(relative_path: &str) -> Result<Option<Vec<u8>>, String> {
+    let asset = VIRTUAL_PREVIEW_ASSETS.with(|assets| {
+        assets
+            .borrow()
+            .as_ref()
+            .and_then(|assets| assets.get(relative_path).cloned())
+    });
+
+    let Some(asset) = asset else {
+        return Ok(None);
+    };
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(asset.bytes_base64)
+        .map_err(|err| {
+            format!(
+                "Failed to decode virtual preview asset `{}` ({}): {err}",
+                asset.relative_path, asset.media_type
+            )
+        })?;
+    Ok(Some(bytes))
+}
 
 fn target_looks_like_map(target: &str) -> bool {
     target.starts_with("Maps/")
@@ -61,17 +138,24 @@ pub fn infer_target_asset_kind(
     "json".to_string()
 }
 
-fn resolve_from_file_path(
-    snapshot: &ContentPatcherProjectSnapshot,
+fn resolve_from_file_relative_path(
     source_path: &str,
     from_file: &str,
-) -> Result<(String, PathBuf), String> {
+) -> Result<(PathBuf, String), String> {
     let relative_from = resolve_include_relative_path(Path::new(source_path), from_file)?;
     let normalized_from = normalize_relative_path(&relative_from);
+    Ok((relative_from, normalized_from))
+}
+
+fn resolve_from_file_path(
+    snapshot: &ContentPatcherProjectSnapshot,
+    relative_from: &Path,
+    from_file: &str,
+) -> Result<PathBuf, String> {
     let root = snapshot.summary.absolute_path.as_ref().ok_or_else(|| {
         format!("Unable to resolve FromFile `{from_file}` without project root path.")
     })?;
-    Ok((normalized_from, Path::new(root).join(&relative_from)))
+    Ok(Path::new(root).join(relative_from))
 }
 
 pub fn load_base_json_asset(target: &str, game_root_path: Option<&str>) -> Value {
@@ -313,8 +397,17 @@ pub fn load_json_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<Value, String> {
-    let (normalized_from, absolute_from) =
-        resolve_from_file_path(snapshot, source_path, from_file)?;
+    let (relative_from, normalized_from) =
+        resolve_from_file_relative_path(source_path, from_file)?;
+
+    if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
+        let raw_json = String::from_utf8(bytes).map_err(|err| {
+            format!(
+                "Failed to decode virtual JSON patch asset `{normalized_from}` as UTF-8: {err}"
+            )
+        })?;
+        return parse_json_str(&raw_json, &normalized_from);
+    }
 
     if let Some(source) = snapshot
         .sources
@@ -324,6 +417,7 @@ pub fn load_json_patch_asset(
         return parse_json_str(&source.raw_json, &source.path);
     }
 
+    let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
     let (_, parsed) = parse_json_file(&absolute_from)?;
     Ok(parsed)
 }
@@ -333,7 +427,19 @@ pub fn load_image_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<RgbaImage, String> {
-    let (_, absolute_from) = resolve_from_file_path(snapshot, source_path, from_file)?;
+    let (relative_from, normalized_from) =
+        resolve_from_file_relative_path(source_path, from_file)?;
+
+    if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
+        let image = image::load_from_memory(&bytes).map_err(|err| {
+            format!(
+                "Failed to load virtual image patch asset `{normalized_from}`: {err}"
+            )
+        })?;
+        return Ok(image.to_rgba8());
+    }
+
+    let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
     let image = image::open(&absolute_from).map_err(|err| {
         format!(
             "Failed to load image patch asset {}: {err}",
@@ -348,7 +454,17 @@ pub fn load_map_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<LoadedMapAsset, String> {
-    let (_, absolute_from) = resolve_from_file_path(snapshot, source_path, from_file)?;
+    let (relative_from, normalized_from) =
+        resolve_from_file_relative_path(source_path, from_file)?;
+
+    if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
+        let virtual_path = PathBuf::from(&normalized_from);
+        let document = parse_tbin_map(&bytes, &virtual_path, &normalized_from)?;
+        let debug = build_map_debug_summary(&document);
+        return Ok(LoadedMapAsset { document, debug });
+    }
+
+    let absolute_from = resolve_from_file_path(snapshot, &relative_from, from_file)?;
     let bytes = std::fs::read(&absolute_from).map_err(|err| {
         format!(
             "Failed to read map patch asset {}: {err}",

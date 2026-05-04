@@ -22,6 +22,12 @@ use commands::content_patcher::{
     export_content_patcher_asset, load_content_patcher_project, load_content_patcher_result_asset,
     simulate_content_patcher,
 };
+use commands::generated_project::{
+    build_generated_project_map_asset,
+    copy_generated_project_draft, delete_generated_project_draft, list_generated_project_drafts,
+    export_generated_project_pack, import_generated_project_pack, load_generated_project_draft,
+    save_generated_project_draft,
+};
 use commands::launcher::{
     check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
     get_launcher_backup_directory, inspect_launcher_archive, install_launcher_archive,
@@ -84,6 +90,14 @@ pub fn run() {
             scan_mod_asset_index,
             load_mod_project,
             save_mod_project,
+            list_generated_project_drafts,
+            load_generated_project_draft,
+            save_generated_project_draft,
+            delete_generated_project_draft,
+            copy_generated_project_draft,
+            build_generated_project_map_asset,
+            export_generated_project_pack,
+            import_generated_project_pack,
             load_content_patcher_project,
             simulate_content_patcher,
             load_content_patcher_result_asset,

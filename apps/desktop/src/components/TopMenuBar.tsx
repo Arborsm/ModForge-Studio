@@ -34,6 +34,8 @@ type TopMenuBarProps = {
   onAppModeChange: (mode: AppMode) => void
   workspaceMode: WorkspaceMode
   onWorkspaceChange: (mode: WorkspaceMode) => void
+  workspaceViewMode?: 'edit' | 'preview'
+  onWorkspaceViewModeChange?: (mode: 'edit' | 'preview') => void
   theme: ThemeMode
   onToggleTheme: () => void
   statusTone: WorkspaceTone
@@ -93,6 +95,8 @@ export default function TopMenuBar({
   onAppModeChange,
   workspaceMode,
   onWorkspaceChange,
+  workspaceViewMode,
+  onWorkspaceViewModeChange,
   theme,
   onToggleTheme,
   statusTone,
@@ -115,7 +119,7 @@ export default function TopMenuBar({
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
-  const orderedNavModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
+  const orderedNavModes: WorkspaceMode[] = ['mods', 'map', 'events', 'characters', 'buildings', 'items']
   const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [
     mode,
     getWorkspaceModeLabel(locale, copy, mode),
@@ -318,6 +322,37 @@ export default function TopMenuBar({
                       </button>
                     )
                   })}
+                  {workspaceViewMode && onWorkspaceViewModeChange ? (
+                    <div className="mx-1 h-4 w-px bg-[var(--border-color)]" />
+                  ) : null}
+                  {workspaceViewMode && onWorkspaceViewModeChange ? (
+                    <div className="flex items-center gap-0.5 rounded-lg bg-[var(--bg-panel-muted)] p-0.5">
+                      <button
+                        type="button"
+                        className={cx(
+                          'rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
+                          workspaceViewMode === 'edit'
+                            ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                        )}
+                        onClick={() => onWorkspaceViewModeChange('edit')}
+                      >
+                        设计
+                      </button>
+                      <button
+                        type="button"
+                        className={cx(
+                          'rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
+                          workspaceViewMode === 'preview'
+                            ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+                        )}
+                        onClick={() => onWorkspaceViewModeChange('preview')}
+                      >
+                        浏览
+                      </button>
+                    </div>
+                  ) : null}
                 </nav>
               ) : (
                 <>

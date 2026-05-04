@@ -15,7 +15,7 @@ export type MapAssetSummary = {
   id: string
   name: string
   fileName: string
-  format: 'tmx' | 'xnb'
+  format: 'tmx' | 'tbin' | 'xnb'
   absolutePath: string
   relativePath: string
   sizeBytes: number
@@ -32,7 +32,7 @@ export type EventAssetSummary = {
 
 export type MapAssetContent = {
   name: string
-  format: 'tmx' | 'xnb'
+  format: 'tmx' | 'tbin' | 'xnb'
   absolutePath: string
   relativePath: string
   content: string
@@ -101,8 +101,14 @@ export type AppUiAppearanceState = {
   }
 }
 
+export type WorkspaceViewMode = 'edit' | 'preview'
+
 export type AppUiWorkspaceState = {
   layouts: Record<string, Record<string, unknown>>
+  workspaceViewMode?: WorkspaceViewMode
+  generatedProject?: {
+    activeGeneratedDraftKey?: string | null
+  }
 }
 
 export type AppUiLauncherState = {
@@ -131,6 +137,10 @@ export type PatchAppUiStateRequest = {
   }
   workspace?: {
     layouts?: Record<string, Record<string, unknown> | null>
+    workspaceViewMode?: WorkspaceViewMode
+    generatedProject?: {
+      activeGeneratedDraftKey?: string | null
+    }
   }
   launcher?: Partial<AppUiLauncherState> & {
     discoverToolbar?: AppUiLauncherState['discoverToolbar']
@@ -232,6 +242,8 @@ export type ContentPatcherPlannedPatch = {
   fromFile: string | null
   when: Record<string, unknown>
   sourcePath: string
+  priority: number
+  update: string[]
 }
 
 export type ContentPatcherPatchPlan = {
@@ -241,9 +253,62 @@ export type ContentPatcherPatchPlan = {
 export type ContentPatcherSimulationContext = {
   season?: string
   weather?: string
+  day?: number
+  dayOfWeek?: string
+  daysPlayed?: number
+  year?: number
+  time?: number
+  playerName?: string
+  playerGender?: string
+  farmName?: string
+  locationName?: string
+  spouse?: string
+  isMainPlayer?: boolean
+  stardropCount?: number
+  hasFlags?: string[]
+  hasSeenEvents?: string[]
+  hasConversationTopics?: string[]
+  hasDialogueAnswers?: string[]
+  hasWalletItems?: string[]
+  hasProfessions?: string[]
+  hasCraftingRecipes?: string[]
+  hasCookingRecipes?: string[]
+  skillLevels?: Record<string, number>
+  hasActiveQuests?: string[]
+  hasCompletedQuests?: string[]
+  hasItems?: string[]
+  hasPet?: boolean
+  petType?: string
+  hasChildren?: boolean
+  childCount?: number
+  dailyLuck?: number
+  hasCaughtFish?: string[]
+  hasReadLetters?: string[]
+  hasVisitedLocations?: string[]
+  isOutdoors?: boolean
+  locationContext?: string
+  locationUniqueName?: string
+  locationOwnerId?: string
+  preferredPet?: string
+  farmCave?: string
+  farmMapAsset?: string
+  havingChild?: boolean
+  pregnant?: boolean
+  roommate?: string
+  hearts?: Record<string, number>
+  childNames?: string[]
+  childGenders?: string[]
+  dayEvent?: string
+  farmType?: string
+  farmhouseUpgrade?: number
+  isCommunityCenterComplete?: boolean
+  isJojaMartComplete?: boolean
+  language?: string
+  relationships?: Record<string, string>
   config?: Record<string, unknown>
   installedMods?: string[]
   customTokens?: Record<string, unknown>
+  ignoreEntryWhenConditions?: boolean
 }
 
 export type SimulateContentPatcherRequest = {
@@ -318,6 +383,7 @@ export type ContentPatcherSimulationResult = {
   targets: ContentPatcherTargetSummary[]
   patchStatuses: ContentPatcherPatchStatus[]
   diagnostics: ModProjectDiagnostic[]
+  dynamicTokens: Record<string, unknown>
 }
 
 export type SaveModProjectRequest = {
@@ -356,6 +422,82 @@ export type ModAssetIndexGroup = {
 
 export type ModAssetIndex = {
   mods: ModAssetIndexGroup[]
+}
+
+// ─── Generated Project ─────────────────────────────────────────────────
+
+export type GeneratedProjectOverlayTarget = {
+  uniqueId: string
+  displayName: string | null
+  required: boolean
+  source: 'scanned-mod' | 'manual'
+}
+
+export type GeneratedProjectDraftSummary = {
+  draftStorageKey: string
+  projectName: string
+  projectUniqueId: string
+  lastDraftSavedAt: number | null
+  lastExportedAt: number | null
+}
+
+export type GeneratedProjectDraftRecord = {
+  draftStorageKey: string
+  projectMetadata: {
+    projectName: string
+    projectDescription: string
+    projectAuthor: string
+    projectVersion: string
+    projectUniqueId: string
+    gameRootPath: string | null
+    contentPackForUniqueId: string
+    minimumApiVersion?: string
+    updateKeys?: string[]
+  }
+  overlayTargets: GeneratedProjectOverlayTarget[]
+  configSchemaDraft: Record<string, unknown>
+  serializedChangeRegistry: Record<string, unknown>
+  dynamicTokens?: Array<{ name: string; value: string; when?: Record<string, unknown> }>
+  customLocations?: Array<{ name: string; fromMapFile?: string; migrateLegacyNames?: string[] }>
+  aliasTokenNames?: Record<string, string>
+  eventSourceSnapshotsByTarget: Record<string, { rawScriptsByKey: Record<string, string> }>
+  lastDraftSavedAt: number | null
+  lastExportedAt: number | null
+  lastExportPath: string | null
+  lastExportFingerprint: {
+    draftFingerprint: string
+    environmentFingerprint: string
+    capabilityFingerprint: string
+  } | null
+}
+
+export type CopyGeneratedProjectDraftRequest = {
+  source_draft_storage_key: string
+}
+
+export type GeneratedProjectExportRequest = {
+  output_path: string
+  manifest_json: string
+  content_json: string
+  virtual_assets: VirtualPreviewAsset[]
+}
+
+export type GeneratedProjectExportResult = {
+  output_path: string
+  manifest_path: string
+  content_path: string
+  virtual_asset_paths: string[]
+}
+
+export type BuildGeneratedProjectMapAssetRequest = {
+  relative_path: string
+  map_document: unknown // MapDocument from backend
+}
+
+export type VirtualPreviewAsset = {
+  relativePath: string
+  mediaType: string
+  bytesBase64: string
 }
 
 export type LauncherSettings = {
@@ -1657,4 +1799,51 @@ export async function closeCurrentWindow() {
   }
 
   await getCurrentWindow().close()
+}
+
+// ─── Generated Project Commands ────────────────────────────────────────
+
+const generatedProjectDraftsCache = createPromiseCache<GeneratedProjectDraftSummary[]>()
+const generatedProjectDraftCache = createPromiseCache<GeneratedProjectDraftRecord>()
+
+export function listGeneratedProjectDrafts() {
+  return readCached(generatedProjectDraftsCache, 'default', () =>
+    invokeDesktop<GeneratedProjectDraftSummary[]>('list_generated_project_drafts'),
+  )
+}
+
+export function loadGeneratedProjectDraft(storageKey: string) {
+  return readPending(generatedProjectDraftCache, storageKey, () =>
+    invokeDesktop<GeneratedProjectDraftRecord>('load_generated_project_draft', { draftStorageKey: storageKey }),
+  )
+}
+
+export function saveGeneratedProjectDraft(draft: GeneratedProjectDraftRecord) {
+  const cacheKey = draft.draftStorageKey
+  generatedProjectDraftCache.delete(cacheKey)
+  generatedProjectDraftsCache.delete('default')
+  return invokeDesktop<GeneratedProjectDraftRecord>('save_generated_project_draft', { draft })
+}
+
+export function deleteGeneratedProjectDraft(storageKey: string) {
+  generatedProjectDraftCache.delete(storageKey)
+  generatedProjectDraftsCache.delete('default')
+  return invokeDesktop<void>('delete_generated_project_draft', { draftStorageKey: storageKey })
+}
+
+export function copyGeneratedProjectDraft(request: CopyGeneratedProjectDraftRequest) {
+  generatedProjectDraftsCache.delete('default')
+  return invokeDesktop<GeneratedProjectDraftRecord>('copy_generated_project_draft', { request })
+}
+
+export function exportGeneratedProjectPack(request: GeneratedProjectExportRequest) {
+  return invokeDesktop<GeneratedProjectExportResult>('export_generated_project_pack', { request })
+}
+
+export function buildGeneratedProjectMapAsset(request: BuildGeneratedProjectMapAssetRequest) {
+  return invokeDesktop<VirtualPreviewAsset>('build_generated_project_map_asset', { request })
+}
+
+export function importGeneratedProjectPack(modDirectoryPath: string) {
+  return invokeDesktop<GeneratedProjectDraftRecord>('import_generated_project_pack', { modDirectoryPath })
 }

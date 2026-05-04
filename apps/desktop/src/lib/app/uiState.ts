@@ -62,6 +62,10 @@ export function createDefaultAppUiState(): AppUiState {
     },
     workspace: {
       layouts: {},
+      workspaceViewMode: 'edit',
+      generatedProject: {
+        activeGeneratedDraftKey: null,
+      },
     },
     launcher: {
       discoverToolbar: {
@@ -130,6 +134,14 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     },
     workspace: {
       layouts: normalizeLayouts(raw?.workspace?.layouts),
+      workspaceViewMode: raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
+        ? raw.workspace.workspaceViewMode
+        : defaults.workspace.workspaceViewMode,
+      generatedProject: {
+        activeGeneratedDraftKey: typeof raw?.workspace?.generatedProject?.activeGeneratedDraftKey === 'string' && raw.workspace.generatedProject.activeGeneratedDraftKey.trim()
+          ? raw.workspace.generatedProject.activeGeneratedDraftKey
+          : null,
+      },
     },
     launcher: {
       discoverToolbar: {

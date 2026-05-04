@@ -1,0 +1,423 @@
+@layer components {
+  .edit-mode-shell {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-app);
+  }
+
+  .edit-mode-toolbar {
+    display: flex;
+    min-height: 52px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+    padding: 8px 12px;
+  }
+
+  .edit-mode-toolbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .edit-mode-toolbar-context {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .edit-mode-toolbar-context-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+
+  .edit-mode-toolbar-title {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .edit-mode-toolbar-subtitle {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .edit-mode-toolbar-spacer {
+    flex: 1 1 auto;
+    min-width: 12px;
+  }
+
+  .edit-mode-view-switch,
+  .event-edit-section-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 86%, transparent);
+    padding: 3px;
+  }
+
+  .edit-mode-view-switch-button,
+  .event-edit-section-tab {
+    display: inline-flex;
+    height: 28px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 7px;
+    color: var(--text-secondary);
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .edit-mode-view-switch-button:hover,
+  .event-edit-section-tab:hover {
+    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
+    color: var(--text-primary);
+  }
+
+  .edit-mode-view-switch-button-active,
+  .event-edit-section-tab-active,
+  .edit-mode-button-active {
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    color: var(--text-primary);
+  }
+
+  .edit-patch-menu {
+    position: relative;
+    flex: 0 1 300px;
+    min-width: 220px;
+  }
+
+  .edit-patch-menu-trigger {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .edit-patch-menu-trigger-open {
+    border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .edit-patch-menu-popover {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    z-index: 30;
+    display: grid;
+    width: min(460px, calc(100vw - 32px));
+    max-height: min(560px, calc(100vh - 120px));
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
+    padding: 10px;
+  }
+
+  .edit-patch-menu-all {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .edit-patch-menu-scroll {
+    display: grid;
+    min-height: 0;
+    align-content: start;
+    gap: 12px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .edit-patch-menu-group {
+    display: grid;
+    gap: 8px;
+  }
+
+  .edit-patch-menu-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .edit-patch-catalog {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    overflow: hidden;
+    padding: 12px;
+  }
+
+  .edit-patch-catalog-summary {
+    padding: 14px;
+  }
+
+  .edit-patch-catalog-summary-main,
+  .edit-patch-catalog-controls,
+  .edit-patch-catalog-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .edit-patch-catalog-summary-main {
+    justify-content: space-between;
+  }
+
+  .edit-patch-catalog-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(86px, 1fr));
+    gap: 8px;
+  }
+
+  .edit-patch-catalog-controls {
+    margin-top: 14px;
+  }
+
+  .edit-patch-catalog-filter-row {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+  }
+
+  .edit-patch-catalog-body {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(420px, 1fr) minmax(300px, 360px);
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .edit-patch-catalog-list,
+  .edit-patch-catalog-detail {
+    min-height: 0;
+  }
+
+  .edit-patch-catalog-scroll {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .edit-patch-card {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 90%, white 10%);
+    padding: 8px;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .edit-patch-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--bg-active) 66%, transparent);
+  }
+
+  .edit-patch-card-active {
+    border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+  }
+
+  .edit-patch-card-disabled {
+    opacity: 0.68;
+  }
+
+  .edit-patch-card-main {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: flex-start;
+    gap: 10px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+  }
+
+  .edit-patch-card-icon {
+    display: inline-flex;
+    margin-top: 2px;
+    flex: 0 0 auto;
+  }
+
+  .edit-patch-card-title-row,
+  .edit-patch-card-meta {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .edit-patch-card-title {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .edit-patch-card-meta {
+    margin-top: 3px;
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  .edit-patch-card-path {
+    display: block;
+    margin-top: 5px;
+    overflow: hidden;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .edit-patch-card-status {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .edit-patch-card-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .edit-patch-card-compact {
+    border-radius: 12px;
+    padding: 7px;
+  }
+
+  .edit-patch-card-compact .edit-patch-card-actions,
+  .edit-patch-card-compact .edit-patch-card-status {
+    display: none;
+  }
+
+
+  .event-edit-shell {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-app);
+  }
+
+  .event-edit-toolbar {
+    display: flex;
+    min-height: 48px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+    padding: 8px 12px;
+  }
+
+  .event-edit-toolbar-title {
+    display: grid;
+    min-width: 180px;
+    gap: 2px;
+  }
+
+  .event-edit-entry-menu {
+    flex: 0 1 280px;
+  }
+
+  .event-edit-section-tabs {
+    margin-left: auto;
+  }
+
+  .event-edit-target-row {
+    display: flex;
+    min-height: 42px;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border-color);
+    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    padding: 6px 12px;
+  }
+
+  .event-edit-target-label {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 980px) {
+    .edit-mode-toolbar,
+    .event-edit-toolbar,
+    .edit-patch-catalog-summary-main,
+    .edit-patch-catalog-controls {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .edit-patch-menu,
+    .edit-mode-view-switch,
+    .event-edit-section-tabs {
+      width: 100%;
+    }
+
+    .edit-patch-catalog-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .edit-patch-catalog-detail {
+      display: none;
+    }
+
+    .edit-patch-catalog-metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edit-mode-view-switch-button,
+    .event-edit-section-tab,
+    .edit-patch-card {
+      transition: none;
+    }
+  }
+}

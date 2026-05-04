@@ -39,10 +39,7 @@ function splitOutsideQuotes(source: string, delimiter: string) {
     }
 
     if (!inQuotes && source.startsWith(delimiter, index)) {
-      const trimmed = current.trim()
-      if (trimmed) {
-        result.push(trimmed)
-      }
+      result.push(current.trim())
       current = ''
       index += delimiter.length - 1
       continue
@@ -51,11 +48,7 @@ function splitOutsideQuotes(source: string, delimiter: string) {
     current += char
   }
 
-  const tail = current.trim()
-  if (tail) {
-    result.push(tail)
-  }
-
+  result.push(current.trim())
   return result
 }
 
@@ -370,7 +363,7 @@ function parseCommandDetail(command: string, args: string[]) {
 }
 
 export function parseEventCommand(raw: string, index: number): EventCommand {
-  const args = splitSpaceQuoteAware(raw)
+  const args = splitSpaceQuoteAware(raw).map(stripOuterQuotes)
   const command = (args[0] ?? '').trim()
   const kind = getCommandKind(command)
   const eventCommand: EventCommand = {

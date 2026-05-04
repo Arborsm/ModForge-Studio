@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -298,7 +298,7 @@ fn read_map(cursor: &mut Cursor<'_>) -> Result<Map, String> {
     })
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapDocument {
     pub name: String,
@@ -317,7 +317,7 @@ pub struct MapDocument {
     pub object_groups: Vec<MapObjectGroup>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MapPropertyValue {
     String(String),
@@ -325,7 +325,7 @@ pub enum MapPropertyValue {
     Bool(bool),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapTileset {
     pub first_gid: u32,
@@ -343,14 +343,14 @@ pub struct MapTileset {
     pub animations: HashMap<u32, Vec<MapTilesetAnimationFrame>>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapTilesetAnimationFrame {
     pub tile_id: u32,
     pub duration: u32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapLayer {
     pub id: u32,
@@ -367,7 +367,7 @@ pub struct MapLayer {
     pub non_empty_tiles: u32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapObjectGroup {
     pub id: u32,
@@ -380,7 +380,7 @@ pub struct MapObjectGroup {
     pub objects: Vec<MapObject>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MapObject {
     pub id: u32,
@@ -411,6 +411,240 @@ fn convert_properties(
         .iter()
         .map(|(key, value)| (key.clone(), property_to_value(value)))
         .collect()
+}
+
+fn push_u8(bytes: &mut Vec<u8>, value: u8) {
+    bytes.push(value);
+}
+
+fn push_i32(bytes: &mut Vec<u8>, value: i32) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn push_f32(bytes: &mut Vec<u8>, value: f32) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn checked_i32_from_u32(label: &str, value: u32) -> Result<i32, String> {
+    i32::try_from(value).map_err(|_| format!("{label} value {value} exceeds tBIN limits."))
+}
+
+fn checked_i32_from_usize(label: &str, value: usize) -> Result<i32, String> {
+    i32::try_from(value).map_err(|_| format!("{label} value {value} exceeds tBIN limits."))
+}
+
+fn push_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
+    push_i32(
+        bytes,
+        checked_i32_from_usize("String length", value.len())?,
+    );
+    bytes.extend_from_slice(value.as_bytes());
+    Ok(())
+}
+
+fn push_vector(bytes: &mut Vec<u8>, x: i32, y: i32) {
+    push_i32(bytes, x);
+    push_i32(bytes, y);
+}
+
+fn write_properties(
+    bytes: &mut Vec<u8>,
+    properties: &HashMap<String, MapPropertyValue>,
+) -> Result<(), String> {
+    let mut entries = properties.iter().collect::<Vec<_>>();
+    entries.sort_by(|(left_key, _), (right_key, _)| left_key.cmp(right_key));
+
+    push_i32(bytes, checked_i32_from_usize("Property count", entries.len())?);
+    for (key, value) in entries {
+        push_string(bytes, key)?;
+        match value {
+            MapPropertyValue::Bool(value) => {
+                push_u8(bytes, 0);
+                push_u8(bytes, u8::from(*value));
+            }
+            MapPropertyValue::Number(value) => {
+                if !value.is_finite() {
+                    return Err(format!("Property '{key}' has unsupported non-finite number {value}."));
+                }
+
+                if value.fract() == 0.0
+                    && *value >= i32::MIN as f64
+                    && *value <= i32::MAX as f64
+                {
+                    push_u8(bytes, 1);
+                    push_i32(bytes, *value as i32);
+                } else if *value >= f32::MIN as f64 && *value <= f32::MAX as f64 {
+                    push_u8(bytes, 2);
+                    push_f32(bytes, *value as f32);
+                } else {
+                    return Err(format!(
+                        "Property '{key}' number {value} is out of range for tBIN serialization."
+                    ));
+                }
+            }
+            MapPropertyValue::String(value) => {
+                push_u8(bytes, 3);
+                push_string(bytes, value)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn write_optional_properties(
+    bytes: &mut Vec<u8>,
+    properties: Option<&HashMap<String, MapPropertyValue>>,
+) -> Result<(), String> {
+    match properties {
+        Some(properties) => write_properties(bytes, properties),
+        None => {
+            push_i32(bytes, 0);
+            Ok(())
+        }
+    }
+}
+
+fn tileset_sheet_size(tileset: &MapTileset) -> Result<(i32, i32), String> {
+    if tileset.columns == 0
+        || tileset.tile_count == 0
+        || tileset.tile_width == 0
+        || tileset.tile_height == 0
+    {
+        return Err(format!(
+            "Tileset '{}' has invalid tileset dimensions.",
+            tileset.name
+        ));
+    }
+
+    if tileset.tile_count % tileset.columns != 0 {
+        return Err(format!(
+            "Tileset '{}' has a non-rectangular sheet and cannot be serialized to tBIN.",
+            tileset.name
+        ));
+    }
+
+    Ok((
+        checked_i32_from_u32("Tileset columns", tileset.columns)?,
+        checked_i32_from_u32("Tileset rows", tileset.tile_count / tileset.columns)?,
+    ))
+}
+
+fn sorted_tilesets(document: &MapDocument) -> Result<Vec<&MapTileset>, String> {
+    let mut tilesets = document.tilesets.iter().collect::<Vec<_>>();
+    tilesets.sort_by_key(|tileset| tileset.first_gid);
+
+    let mut previous_name: Option<&str> = None;
+    let mut previous_end_exclusive = 0u64;
+
+    for tileset in &tilesets {
+        if tileset.first_gid == 0 {
+            return Err(format!(
+                "Tileset '{}' has invalid first_gid 0.",
+                tileset.name
+            ));
+        }
+
+        tileset_sheet_size(tileset)?;
+
+        let start = u64::from(tileset.first_gid);
+        let end_exclusive = start
+            .checked_add(u64::from(tileset.tile_count))
+            .ok_or_else(|| format!("Tileset '{}' exceeds tBIN gid limits.", tileset.name))?;
+
+        if start < previous_end_exclusive {
+            return Err(format!(
+                "Tileset ranges overlap between '{}' and '{}'.",
+                previous_name.unwrap_or("<unknown>"),
+                tileset.name
+            ));
+        }
+
+        previous_name = Some(tileset.name.as_str());
+        previous_end_exclusive = end_exclusive;
+    }
+
+    Ok(tilesets)
+}
+
+fn resolve_tileset_for_gid<'a>(
+    gid: u32,
+    tilesets: &[&'a MapTileset],
+) -> Result<(&'a MapTileset, u32), String> {
+    let gid = u64::from(gid);
+
+    for tileset in tilesets {
+        let start = u64::from(tileset.first_gid);
+        let end_exclusive = start + u64::from(tileset.tile_count);
+        if gid >= start && gid < end_exclusive {
+            return Ok((tileset, (gid - start) as u32));
+        }
+    }
+
+    Err(format!("GID {gid} is outside all tileset ranges."))
+}
+
+fn write_static_tile(
+    bytes: &mut Vec<u8>,
+    tileset: &MapTileset,
+    local_tile_id: u32,
+) -> Result<(), String> {
+    push_u8(bytes, b'S');
+    push_i32(bytes, checked_i32_from_u32("Tile id", local_tile_id)?);
+    push_u8(bytes, 0);
+    write_optional_properties(bytes, tileset.tile_properties.get(&local_tile_id))
+}
+
+fn write_animated_tile(
+    bytes: &mut Vec<u8>,
+    tileset: &MapTileset,
+    local_tile_id: u32,
+    frames: &[MapTilesetAnimationFrame],
+) -> Result<(), String> {
+    let first_frame = frames.first().ok_or_else(|| {
+        format!(
+            "Tileset '{}' tile {} has an animation with no frames.",
+            tileset.name, local_tile_id
+        )
+    })?;
+
+    if frames.iter().any(|frame| frame.duration != first_frame.duration) {
+        return Err(format!(
+            "Tileset '{}' tile {} has mixed-duration animation frames.",
+            tileset.name, local_tile_id
+        ));
+    }
+
+    if frames
+        .iter()
+        .any(|frame| frame.tile_id >= tileset.tile_count)
+    {
+        return Err(format!(
+            "Tileset '{}' tile {} has an animation that references a different tileset or an out-of-range tile.",
+            tileset.name, local_tile_id
+        ));
+    }
+
+    push_u8(bytes, b'A');
+    push_i32(
+        bytes,
+        checked_i32_from_u32("Animation interval", first_frame.duration)?,
+    );
+    push_i32(
+        bytes,
+        checked_i32_from_usize("Animation frame count", frames.len())?,
+    );
+    push_u8(bytes, b'T');
+    push_string(bytes, &tileset.name)?;
+
+    for frame in frames {
+        push_u8(bytes, b'S');
+        push_i32(bytes, checked_i32_from_u32("Animation frame tile id", frame.tile_id)?);
+        push_u8(bytes, 0);
+        push_i32(bytes, 0);
+    }
+
+    write_optional_properties(bytes, tileset.tile_properties.get(&local_tile_id))
 }
 
 pub fn parse_tbin_map(
@@ -555,6 +789,132 @@ pub fn parse_tbin_map(
     };
 
     Ok(document)
+}
+
+pub fn serialize_tbin_map(document: &MapDocument) -> Result<Vec<u8>, String> {
+    if document
+        .object_groups
+        .iter()
+        .any(|group| !group.objects.is_empty())
+    {
+        return Err("Non-empty object groups are not supported by tBIN serialization.".to_string());
+    }
+
+    let layer_tile_width = checked_i32_from_u32("Layer tile width", document.tile_width)?;
+    let layer_tile_height = checked_i32_from_u32("Layer tile height", document.tile_height)?;
+    let sorted_tilesets = sorted_tilesets(document)?;
+
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"tBIN10");
+
+    push_string(&mut bytes, &document.name)?;
+    push_string(&mut bytes, "")?;
+    write_properties(&mut bytes, &document.properties)?;
+
+    push_i32(
+        &mut bytes,
+        checked_i32_from_usize("Tileset count", sorted_tilesets.len())?,
+    );
+    for tileset in &sorted_tilesets {
+        let (sheet_width, sheet_height) = tileset_sheet_size(tileset)?;
+
+        push_string(&mut bytes, &tileset.name)?;
+        push_string(&mut bytes, "")?;
+        push_string(
+            &mut bytes,
+            tileset.image_source.as_deref().unwrap_or_default(),
+        )?;
+        push_vector(&mut bytes, sheet_width, sheet_height);
+        push_vector(
+            &mut bytes,
+            checked_i32_from_u32("Tileset tile width", tileset.tile_width)?,
+            checked_i32_from_u32("Tileset tile height", tileset.tile_height)?,
+        );
+        push_vector(&mut bytes, 0, 0);
+        push_vector(&mut bytes, 0, 0);
+        write_properties(&mut bytes, &tileset.properties)?;
+    }
+
+    push_i32(
+        &mut bytes,
+        checked_i32_from_usize("Layer count", document.layers.len())?,
+    );
+    for layer in &document.layers {
+        if layer.kind != "tile" {
+            return Err(format!(
+                "Layer '{}' has unsupported kind '{}'; only tile layers can be serialized to tBIN.",
+                layer.name, layer.kind
+            ));
+        }
+
+        let layer_width = checked_i32_from_u32("Layer width", layer.width)?;
+        let layer_height = checked_i32_from_u32("Layer height", layer.height)?;
+        let expected_gid_count = usize::try_from(u64::from(layer.width) * u64::from(layer.height))
+            .map_err(|_| format!("Layer '{}' exceeds addressable tile storage.", layer.name))?;
+
+        if layer.gids.len() != expected_gid_count {
+            return Err(format!(
+                "Layer '{}' expected {} gids but found {}.",
+                layer.name,
+                expected_gid_count,
+                layer.gids.len()
+            ));
+        }
+
+        push_string(&mut bytes, &layer.name)?;
+        push_u8(&mut bytes, u8::from(layer.visible));
+        push_string(&mut bytes, "")?;
+        push_vector(&mut bytes, layer_width, layer_height);
+        push_vector(&mut bytes, layer_tile_width, layer_tile_height);
+        write_properties(&mut bytes, &layer.properties)?;
+
+        let row_width = layer.width as usize;
+        let row_count = layer.height as usize;
+        let mut current_tileset_name: Option<&str> = None;
+
+        for row_index in 0..row_count {
+            let row_start = row_index * row_width;
+            let row_end = row_start + row_width;
+            let row = &layer.gids[row_start..row_end];
+            let mut column_index = 0usize;
+
+            while column_index < row.len() {
+                let gid = row[column_index];
+                if gid == 0 {
+                    let mut zero_run = 1usize;
+                    while column_index + zero_run < row.len() && row[column_index + zero_run] == 0
+                    {
+                        zero_run += 1;
+                    }
+
+                    push_u8(&mut bytes, b'N');
+                    push_i32(
+                        &mut bytes,
+                        checked_i32_from_usize("Zero-tile run length", zero_run)?,
+                    );
+                    column_index += zero_run;
+                    continue;
+                }
+
+                let (tileset, local_tile_id) = resolve_tileset_for_gid(gid, &sorted_tilesets)?;
+                if current_tileset_name != Some(tileset.name.as_str()) {
+                    push_u8(&mut bytes, b'T');
+                    push_string(&mut bytes, &tileset.name)?;
+                    current_tileset_name = Some(tileset.name.as_str());
+                }
+
+                if let Some(frames) = tileset.animations.get(&local_tile_id) {
+                    write_animated_tile(&mut bytes, tileset, local_tile_id, frames)?;
+                } else {
+                    write_static_tile(&mut bytes, tileset, local_tile_id)?;
+                }
+
+                column_index += 1;
+            }
+        }
+    }
+
+    Ok(bytes)
 }
 
 fn resolve_gid(

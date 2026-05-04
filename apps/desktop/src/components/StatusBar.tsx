@@ -10,6 +10,7 @@ type StatusBarProps = {
   appMode: AppMode
   launcherPage: LauncherPage
   workspaceMode: WorkspaceMode
+  workspaceViewMode?: 'edit' | 'preview'
   workspaceStatus: {
     tone: WorkspaceTone
     message: string
@@ -20,12 +21,21 @@ type StatusBarProps = {
   mapDocument: MapDocument | null
   pathLabel: string
   hoverInfo: TileHoverInfo | null
+  eventName?: string | null
+  eventPreconditions?: string[]
+  eventCommandCount?: number
+  eventActorCount?: number
+  currentEventCommandId?: string | null
+  patchName?: string | null
+  scriptLength?: number
+  isModified?: boolean
 }
 
 export default function StatusBar({
   appMode,
   launcherPage,
   workspaceMode,
+  workspaceViewMode = 'preview',
   workspaceStatus,
   directoryInfo,
   mapAssets,
@@ -33,6 +43,14 @@ export default function StatusBar({
   mapDocument,
   pathLabel,
   hoverInfo,
+  eventName,
+  eventPreconditions,
+  eventCommandCount,
+  eventActorCount,
+  currentEventCommandId,
+  patchName,
+  scriptLength,
+  isModified,
 }: StatusBarProps) {
   const copy = useEditorCopy()
   const xnbCount = mapAssets.filter((asset) => asset.format === 'xnb').length
@@ -58,6 +76,80 @@ export default function StatusBar({
     )
   }
 
+  // ─── Edit Mode Status Bar ──────────────────────────────────────────────
+  if (workspaceViewMode === 'edit') {
+    const preconditions = eventPreconditions?.slice(1).join(' / ') ?? ''
+    const selectedCmdIndex = currentEventCommandId ? currentEventCommandId.replace(/^cmd:/u, '') : ''
+    const hasEditorData = Boolean(patchName || eventName)
+
+    return (
+      <footer className="status-bar" role="contentinfo">
+        {/* Left: Mode + Identity */}
+        <div className="status-bar-group status-bar-group-primary" role="group" aria-label={copy.statusBar.design}>
+          <span className="status-pill status-pill-compact bg-[var(--accent)] text-white">{copy.statusBar.design}</span>
+          {patchName && (
+            <div className="status-bar-item status-bar-item-wide">
+              <span className="status-bar-label">Patch</span>
+              <span className="status-bar-value">{patchName}</span>
+            </div>
+          )}
+          {eventName && (
+            <div className="status-bar-item status-bar-item-wide">
+              <span className="status-bar-label">{copy.statusBar.event}</span>
+              <span className="status-bar-value" title={preconditions || undefined}>
+                {eventName}
+                {preconditions ? ` · ${preconditions}` : ''}
+              </span>
+            </div>
+          )}
+          {!hasEditorData && (
+            <span className="text-[10px] text-[var(--text-tertiary)]">{copy.statusBar.noEditItem}</span>
+          )}
+        </div>
+
+        {hasEditorData && (
+          <>
+            <div className="status-bar-divider" aria-hidden="true" />
+
+            {/* Center: Edit Statistics */}
+            <div className="status-bar-group status-bar-group-context" role="group" aria-label={copy.statusBar.event}>
+              <div className="status-bar-item">
+                <span className="status-bar-label">{copy.statusBar.commands}</span>
+                <span className="status-bar-value">{eventCommandCount ?? 0}</span>
+              </div>
+              <div className="status-bar-item">
+                <span className="status-bar-label">{copy.statusBar.actors}</span>
+                <span className="status-bar-value">{eventActorCount ?? 0}</span>
+              </div>
+              {selectedCmdIndex && (
+                <div className="status-bar-item">
+                  <span className="status-bar-label">{copy.statusBar.selectedCommand}</span>
+                  <span className="status-bar-value">#{selectedCmdIndex}</span>
+                </div>
+              )}
+              {scriptLength !== undefined && (
+                <div className="status-bar-item">
+                  <span className="status-bar-label">Chars</span>
+                  <span className="status-bar-value">{scriptLength}</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {isModified && (
+          <>
+            <div className="status-bar-divider" aria-hidden="true" />
+            <div className="status-bar-group status-bar-group-context">
+              <span className="status-pill status-pill-compact status-pill-busy">{copy.statusBar.modified}</span>
+            </div>
+          </>
+        )}
+      </footer>
+    )
+  }
+
+  // ─── Preview / Browse Mode Status Bar ──────────────────────────────────
   return (
     <footer className="status-bar" role="contentinfo">
       <div className="status-bar-group status-bar-group-primary" role="group" aria-label={copy.rightDock.workspaceStatus}>

@@ -57,6 +57,9 @@ type MapViewportProps = {
   viewportOverlay?: ReactNode
   focusWorldPoint?: ViewportWorldPoint | null
   contextMenuEnabled?: boolean
+  contextMenuExtraItems?: ReactNode
+  onAddObjectHere?: (tileX: number, tileY: number) => void
+  onTileClick?: (tileX: number, tileY: number) => void
   initialZoom?: number | null
 }
 
@@ -686,6 +689,9 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     viewportOverlay,
     focusWorldPoint,
     contextMenuEnabled = true,
+    contextMenuExtraItems,
+    onAddObjectHere,
+    onTileClick,
     initialZoom = null,
   },
   ref,
@@ -696,6 +702,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const foregroundCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const mapRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const lastHoverRef = useRef<TileHoverInfo | null>(null)
+  const [contextMenuHover, setContextMenuHover] = useState<TileHoverInfo | null>(null)
   const foregroundRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
@@ -1683,10 +1691,13 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   function updateHover(event: PointerEvent<HTMLDivElement>) {
     const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
     if (!mapDocument || !worldPoint) {
+      lastHoverRef.current = null
       return
     }
 
-    onHoverChange?.(buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY))
+    const info = buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY)
+    lastHoverRef.current = info
+    onHoverChange?.(info)
   }
 
   function getCanvasWorldPoint(clientX: number, clientY: number) {
@@ -1767,11 +1778,19 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY)
     if (event.button === 0 && moved <= 6) {
       const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
-      const portal = worldPoint ? getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY) : null
-      if (portal) {
-        onAtlasPortalOpen?.(portal.targetMap)
-        onHoverChange?.(null)
-        return
+      if (worldPoint && mapDocument) {
+        const portal = getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY)
+        if (portal) {
+          onAtlasPortalOpen?.(portal.targetMap)
+          onHoverChange?.(null)
+          return
+        }
+        const tileX = Math.floor(worldPoint.pixelX / mapDocument.tileWidth)
+        const tileY = Math.floor(worldPoint.pixelY / mapDocument.tileHeight)
+        if (tileX >= 0 && tileY >= 0 && tileX < mapDocument.width && tileY < mapDocument.height) {
+          onTileClick?.(tileX, tileY)
+          return
+        }
       }
     }
 
@@ -1943,7 +1962,11 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   }
 
   return (
-    <ContextMenu.Root>
+    <ContextMenu.Root onOpenChange={(open) => {
+      if (open) {
+        setContextMenuHover(lastHoverRef.current)
+      }
+    }}>
       <ContextMenu.Trigger asChild>{viewportContent}</ContextMenu.Trigger>
 
       <ContextMenu.Portal>
@@ -1968,9 +1991,26 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
             {labels.resetPan}
           </ContextMenu.Item>
           <ContextMenu.Separator className="context-menu-separator" />
-          <ContextMenu.Item className="context-menu-item" disabled>
-            {labels.addObjectHere} · {labels.unavailable}
-          </ContextMenu.Item>
+          {onAddObjectHere ? (
+            <ContextMenu.Item
+              className="context-menu-item"
+              disabled={!contextMenuHover}
+              onSelect={() => {
+                const hover = contextMenuHover
+                if (hover) {
+                  onAddObjectHere(hover.tileX, hover.tileY)
+                }
+              }}
+            >
+              {labels.addObjectHere}
+              {contextMenuHover ? ` (${contextMenuHover.tileX}, ${contextMenuHover.tileY})` : ''}
+            </ContextMenu.Item>
+          ) : (
+            <ContextMenu.Item className="context-menu-item" disabled>
+              {labels.addObjectHere} · {labels.unavailable}
+            </ContextMenu.Item>
+          )}
+          {contextMenuExtraItems}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

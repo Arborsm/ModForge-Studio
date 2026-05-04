@@ -1,4 +1,7 @@
+use super::super::conditions::evaluate_patch_status;
+use super::super::context::SimulationContext;
 use serde_json::{Map, Value};
+use std::collections::BTreeMap;
 
 enum TargetFieldSegment {
     Key(String),
@@ -135,19 +138,80 @@ fn resolve_target_field<'a>(
     Ok(current)
 }
 
-fn apply_entries_to_object(base_object: &mut Map<String, Value>, entries: &Map<String, Value>) {
+fn resolve_conditional_entry(
+    value: &Value,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+    ignore_when: bool,
+) -> Option<Value> {
+    if ignore_when {
+        return Some(value.clone());
+    }
+    let obj = match value.as_object() {
+        Some(o) => o,
+        None => return Some(value.clone()),
+    };
+    let when = match obj.get("When") {
+        Some(w) => w,
+        None => return Some(value.clone()),
+    };
+    let when_obj = match when {
+        Value::Object(map) => {
+            let mut bt = BTreeMap::new();
+            for (k, v) in map {
+                bt.insert(k.clone(), v.clone());
+            }
+            bt
+        }
+        _ => return Some(value.clone()),
+    };
+    let status = evaluate_patch_status(
+        &Value::Object(serde_json::Map::from_iter(when_obj.iter().map(|(k, v)| (k.clone(), v.clone())))),
+        context,
+        project_root_path,
+    );
+    if status.status == "applied" {
+        obj.get("Value").cloned().or_else(|| {
+            let mut cloned = obj.clone();
+            cloned.remove("When");
+            Some(Value::Object(cloned))
+        })
+    } else {
+        None
+    }
+}
+
+fn apply_entries_to_object(
+    base_object: &mut Map<String, Value>,
+    entries: &Map<String, Value>,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+    ignore_when: bool,
+) {
     for (key, value) in entries {
+        let Some(effective_value) = resolve_conditional_entry(value, context, project_root_path, ignore_when) else {
+            continue;
+        };
         if let Some(existing_value) = base_object.get_mut(key) {
-            merge_json_value(existing_value, value);
+            merge_json_value(existing_value, &effective_value);
         } else {
-            base_object.insert(key.clone(), value.clone());
+            base_object.insert(key.clone(), effective_value);
         }
     }
 }
 
-fn apply_entries_to_array(base_array: &mut Vec<Value>, entries: &Map<String, Value>) {
+fn apply_entries_to_array(
+    base_array: &mut Vec<Value>,
+    entries: &Map<String, Value>,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+    ignore_when: bool,
+) {
     for (key, value) in entries {
-        let entry_id = value
+        let Some(effective_value) = resolve_conditional_entry(value, context, project_root_path, ignore_when) else {
+            continue;
+        };
+        let entry_id = effective_value
             .get("Id")
             .and_then(Value::as_str)
             .map(str::trim)
@@ -161,39 +225,873 @@ fn apply_entries_to_array(base_array: &mut Vec<Value>, entries: &Map<String, Val
                 .map(str::trim)
                 .is_some_and(|existing_id| existing_id == entry_id)
         }) {
-            merge_json_value(existing_value, value);
+            merge_json_value(existing_value, &effective_value);
         } else {
-            base_array.push(value.clone());
+            base_array.push(effective_value);
         }
     }
 }
 
-pub fn apply_edit_data_patch(
-    base: &mut Value,
-    patch: &serde_json::Map<String, Value>,
-) -> Result<String, String> {
-    let entries = patch
-        .get("Entries")
-        .and_then(Value::as_object)
-        .ok_or_else(|| "EditData patch is missing an Entries object.".to_string())?;
+// ── Fields support ──
 
-    let target_field = parse_target_field_segments(patch)?;
-    let target_value = if target_field.is_empty() {
-        base
+fn set_value_at_path(obj: &mut Map<String, Value>, path: &[&str], value: &Value) {
+    if path.is_empty() {
+        return;
+    }
+    if path.len() == 1 {
+        if value.is_null() {
+            obj.remove(path[0]);
+        } else {
+            obj.insert(path[0].to_string(), value.clone());
+        }
+        return;
+    }
+    let next = obj
+        .entry(path[0].to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if let Value::Object(next_obj) = next {
+        set_value_at_path(next_obj, &path[1..], value);
     } else {
-        resolve_target_field(base, &target_field, entries)?
-    };
+        // Overwrite non-object intermediate node with an object
+        *next = Value::Object(Map::new());
+        if let Value::Object(next_obj) = next {
+            set_value_at_path(next_obj, &path[1..], value);
+        }
+    }
+}
 
-    match target_value {
-        Value::Object(base_object) => apply_entries_to_object(base_object, entries),
-        Value::Array(base_array) => apply_entries_to_array(base_array, entries),
+fn set_field_in_entry(entry: &mut Value, field_key: &str, field_value: &Value) {
+    match entry {
+        Value::Object(obj) => {
+            let segments: Vec<&str> = field_key.split('/').collect();
+            if segments.len() <= 1 {
+                if field_value.is_null() {
+                    obj.remove(field_key);
+                } else {
+                    obj.insert(field_key.to_string(), field_value.clone());
+                }
+            } else {
+                set_value_at_path(obj, &segments, field_value);
+            }
+        }
+        Value::String(text) => {
+            // Slash-delimited string field editing
+            let parts: Vec<&str> = text.split('/').collect();
+            if let Ok(index) = field_key.parse::<usize>() {
+                if index < parts.len() {
+                    let mut new_parts: Vec<String> = parts.iter().map(|s| s.to_string()).collect();
+                    if field_value.is_null() {
+                        new_parts.remove(index);
+                    } else {
+                        let replacement = match field_value {
+                            Value::String(s) => s.clone(),
+                            Value::Number(n) => n.to_string(),
+                            Value::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
+                            other => other.to_string(),
+                        };
+                        new_parts[index] = replacement;
+                    }
+                    *entry = Value::String(new_parts.join("/"));
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn apply_fields_patch(
+    base: &mut Value,
+    fields: &Map<String, Value>,
+) -> Result<String, String> {
+    match base {
+        Value::Object(base_object) => {
+            for (entry_key, field_map) in fields {
+                let Some(field_map) = field_map.as_object() else {
+                    continue;
+                };
+                let entry = base_object
+                    .entry(entry_key.clone())
+                    .or_insert_with(|| Value::Object(Map::new()));
+                for (field_key, field_value) in field_map {
+                    set_field_in_entry(entry, field_key, field_value);
+                }
+            }
+        }
+        Value::Array(base_array) => {
+            for (entry_key, field_map) in fields {
+                let Some(field_map) = field_map.as_object() else {
+                    continue;
+                };
+                if let Some(entry) = base_array.iter_mut().find(|e| {
+                    e.get("Id")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        == Some(entry_key)
+                }) {
+                    for (field_key, field_value) in field_map {
+                        set_field_in_entry(entry, field_key, field_value);
+                    }
+                }
+            }
+        }
         _ => {
             return Err(
-                "EditData TargetField resolved to a scalar value, which cannot accept Entries."
-                    .to_string(),
+                "EditData Fields requires the target to be an object or array.".to_string(),
             )
         }
     }
 
-    Ok(format!("updated {} entries", entries.len()))
+    Ok(format!("updated {} field entries", fields.len()))
+}
+
+// ── MoveEntries support ──
+
+#[derive(Debug, Clone)]
+struct MoveEntry {
+    id: String,
+    before_id: Option<String>,
+    after_id: Option<String>,
+    to_position: Option<String>,
+}
+
+fn parse_move_entries(patch: &Map<String, Value>) -> Result<Vec<MoveEntry>, String> {
+    let Some(move_entries) = patch.get("MoveEntries").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+
+    move_entries
+        .iter()
+        .map(|entry| {
+            let obj = entry.as_object().ok_or("MoveEntries item must be an object.")?;
+            let id = obj
+                .get("ID")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .ok_or("MoveEntries item is missing ID.")?;
+            Ok(MoveEntry {
+                id: id.to_string(),
+                before_id: obj
+                    .get("BeforeId")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToOwned::to_owned),
+                after_id: obj
+                    .get("AfterId")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToOwned::to_owned),
+                to_position: obj
+                    .get("ToPosition")
+                    .and_then(Value::as_str)
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToOwned::to_owned),
+            })
+        })
+        .collect()
+}
+
+fn apply_move_entries(
+    base: &mut Value,
+    move_entries: &[MoveEntry],
+) -> Result<String, String> {
+    let Value::Array(array) = base else {
+        return Err("EditData MoveEntries requires the target to be a list (array).".to_string());
+    };
+
+    let mut moved_count = 0;
+
+    for move_entry in move_entries {
+        let current_index = array.iter().position(|item| {
+            item.get("Id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .is_some_and(|id| id == move_entry.id)
+        });
+
+        let Some(current_index) = current_index else {
+            continue;
+        };
+
+        let item = array.remove(current_index);
+
+        let target_index = if let Some(ref to_position) = move_entry.to_position {
+            match to_position.to_ascii_lowercase().as_str() {
+                "top" => 0,
+                "bottom" => array.len(),
+                _ => to_position.parse::<usize>().unwrap_or(array.len()),
+            }
+        } else if let Some(ref before_id) = move_entry.before_id {
+            array
+                .iter()
+                .position(|item| {
+                    item.get("Id")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .is_some_and(|id| id == before_id.as_str())
+                })
+                .unwrap_or(array.len())
+        } else if let Some(ref after_id) = move_entry.after_id {
+            array
+                .iter()
+                .position(|item| {
+                    item.get("Id")
+                        .and_then(Value::as_str)
+                        .map(str::trim)
+                        .is_some_and(|id| id == after_id.as_str())
+                })
+                .map(|i| i + 1)
+                .unwrap_or(array.len())
+        } else {
+            array.len()
+        };
+
+        let insert_index = target_index.min(array.len());
+        array.insert(insert_index, item);
+        moved_count += 1;
+    }
+
+    Ok(format!("moved {} entries", moved_count))
+}
+
+// ── TextOperations support ──
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TextOperationType {
+    Append,
+    Prepend,
+    RemoveDelimited,
+    ReplaceDelimited,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ReplaceMode {
+    First,
+    Last,
+    All,
+}
+
+#[derive(Debug, Clone)]
+struct TextOperation {
+    operation: TextOperationType,
+    target: Vec<String>,
+    value: Option<String>,
+    delimiter: String,
+    search: Option<String>,
+    replace_mode: ReplaceMode,
+}
+
+fn parse_text_operations(patch: &Map<String, Value>) -> Result<Vec<TextOperation>, String> {
+    let Some(ops) = patch.get("TextOperations").and_then(Value::as_array) else {
+        return Ok(Vec::new());
+    };
+
+    ops.iter()
+        .map(|op| {
+            let obj = op.as_object().ok_or("TextOperations item must be an object.")?;
+
+            let operation = obj
+                .get("Operation")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .ok_or("TextOperations item is missing Operation.")?;
+            let operation = match operation.to_ascii_lowercase().as_str() {
+                "append" => TextOperationType::Append,
+                "prepend" => TextOperationType::Prepend,
+                "removedelimited" => TextOperationType::RemoveDelimited,
+                "replacedelimited" => TextOperationType::ReplaceDelimited,
+                other => return Err(format!("Unsupported TextOperation: {other}")),
+            };
+
+            let target = obj
+                .get("Target")
+                .and_then(Value::as_array)
+                .ok_or("TextOperations item is missing Target array.")?
+                .iter()
+                .map(|v| {
+                    v.as_str()
+                        .map(str::trim)
+                        .ok_or("TextOperations Target must contain strings.")
+                        .map(ToOwned::to_owned)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let value = obj
+                .get("Value")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToOwned::to_owned);
+
+            let delimiter = obj
+                .get("Delimiter")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or(" ")
+                .to_string();
+
+            let search = obj
+                .get("Search")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(ToOwned::to_owned);
+
+            let replace_mode = obj
+                .get("ReplaceMode")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or("All");
+            let replace_mode = match replace_mode.to_ascii_lowercase().as_str() {
+                "first" => ReplaceMode::First,
+                "last" => ReplaceMode::Last,
+                _ => ReplaceMode::All,
+            };
+
+            Ok(TextOperation {
+                operation,
+                target,
+                value,
+                delimiter,
+                search,
+                replace_mode,
+            })
+        })
+        .collect()
+}
+
+fn resolve_text_target<'a>(
+    base: &'a mut Value,
+    target: &[String],
+) -> Result<Option<&'a mut Value>, String> {
+    let mut current = base;
+
+    for (i, segment) in target.iter().enumerate() {
+        match current {
+            Value::Object(obj) => {
+                if !obj.contains_key(segment.as_str()) && i == target.len() - 1 {
+                    // Last segment doesn't exist yet; will be created as empty string
+                    obj.insert(segment.clone(), Value::String(String::new()));
+                    return Ok(Some(obj.get_mut(segment.as_str()).unwrap()));
+                }
+                current = obj.get_mut(segment.as_str()).ok_or_else(|| {
+                    format!("TextOperations target segment `{segment}` not found.")
+                })?;
+            }
+            Value::Array(arr) => {
+                if let Ok(index) = segment.parse::<usize>() {
+                    current = arr.get_mut(index).ok_or_else(|| {
+                        format!("TextOperations target index `{segment}` out of bounds.")
+                    })?;
+                } else {
+                    // Find by ID
+                    let idx = arr.iter().position(|item| {
+                        item.get("Id")
+                            .and_then(Value::as_str)
+                            .map(str::trim)
+                            .is_some_and(|id| id == segment)
+                    });
+                    let idx = idx.ok_or_else(|| {
+                        format!("TextOperations target array entry `{segment}` not found.")
+                    })?;
+                    current = &mut arr[idx];
+                }
+            }
+            _ => {
+                return Err(
+                    "TextOperations target path must traverse objects or arrays.".to_string(),
+                )
+            }
+        }
+    }
+
+    Ok(Some(current))
+}
+
+fn apply_delimited_operation(
+    text: &str,
+    operation: &TextOperationType,
+    value: &str,
+    delimiter: &str,
+    search: Option<&str>,
+    replace_mode: &ReplaceMode,
+) -> String {
+    let parts: Vec<&str> = text.split(delimiter).collect();
+    let trimmed_parts: Vec<&str> = parts.iter().map(|p| p.trim()).collect();
+
+    match operation {
+        TextOperationType::Append => {
+            if text.is_empty() {
+                value.to_string()
+            } else {
+                format!("{text}{delimiter}{value}")
+            }
+        }
+        TextOperationType::Prepend => {
+            if text.is_empty() {
+                value.to_string()
+            } else {
+                format!("{value}{delimiter}{text}")
+            }
+        }
+        TextOperationType::RemoveDelimited => {
+            let search_term = search.unwrap_or(value);
+            trimmed_parts
+                .into_iter()
+                .filter(|p| *p != search_term)
+                .collect::<Vec<_>>()
+                .join(delimiter)
+        }
+        TextOperationType::ReplaceDelimited => {
+            let search_term = search.unwrap_or(value);
+            let mut replaced = false;
+            let mut result = Vec::new();
+
+            for part in trimmed_parts {
+                if part == search_term {
+                    if !replaced || *replace_mode == ReplaceMode::All {
+                        result.push(value);
+                        if *replace_mode == ReplaceMode::First {
+                            replaced = true;
+                        }
+                        continue;
+                    }
+                }
+                result.push(part);
+            }
+
+            result.join(delimiter)
+        }
+    }
+}
+
+fn apply_text_operations(
+    base: &mut Value,
+    operations: &[TextOperation],
+) -> Result<String, String> {
+    let mut applied_count = 0;
+
+    for op in operations {
+        let target_value = resolve_text_target(base, &op.target)?;
+        let Some(target_value) = target_value else {
+            continue;
+        };
+
+        let text = match target_value {
+            Value::String(s) => s.clone(),
+            ref other => other.to_string(),
+        };
+
+        let new_text = match op.operation {
+            TextOperationType::Append | TextOperationType::Prepend => {
+                let value = op.value.as_deref().unwrap_or("");
+                apply_delimited_operation(
+                    &text,
+                    &op.operation,
+                    value,
+                    &op.delimiter,
+                    None,
+                    &op.replace_mode,
+                )
+            }
+            TextOperationType::RemoveDelimited => {
+                let search = op.search.as_deref().or(op.value.as_deref()).unwrap_or("");
+                apply_delimited_operation(
+                    &text,
+                    &op.operation,
+                    "",
+                    &op.delimiter,
+                    Some(search),
+                    &op.replace_mode,
+                )
+            }
+            TextOperationType::ReplaceDelimited => {
+                let search = op.search.as_deref().unwrap_or("");
+                let value = op.value.as_deref().unwrap_or("");
+                apply_delimited_operation(
+                    &text,
+                    &op.operation,
+                    value,
+                    &op.delimiter,
+                    Some(search),
+                    &op.replace_mode,
+                )
+            }
+        };
+
+        *target_value = Value::String(new_text);
+        applied_count += 1;
+    }
+
+    Ok(format!("applied {} text operations", applied_count))
+}
+
+// ── Main entry point ──
+
+pub fn apply_edit_data_patch(
+    base: &mut Value,
+    patch: &serde_json::Map<String, Value>,
+    context: &SimulationContext,
+    project_root_path: Option<&str>,
+) -> Result<String, String> {
+    let ignore_when = context.ignore_entry_when_conditions.unwrap_or(false);
+    let target_field = parse_target_field_segments(patch)?;
+    let entries_for_default = patch
+        .get("Entries")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let target_value = if target_field.is_empty() {
+        base
+    } else {
+        resolve_target_field(base, &target_field, &entries_for_default)?
+    };
+
+    let mut changes = Vec::new();
+
+    // 1. Apply Entries
+    if let Some(entries) = patch.get("Entries").and_then(Value::as_object) {
+        match target_value {
+            Value::Object(base_object) => {
+                apply_entries_to_object(base_object, entries, context, project_root_path, ignore_when)
+            }
+            Value::Array(base_array) => {
+                apply_entries_to_array(base_array, entries, context, project_root_path, ignore_when)
+            }
+            _ => {
+                return Err(
+                    "EditData TargetField resolved to a scalar value, which cannot accept Entries."
+                        .to_string(),
+                )
+            }
+        }
+        changes.push(format!("{} entries", entries.len()));
+    }
+
+    // 2. Apply Fields
+    if let Some(fields) = patch.get("Fields").and_then(Value::as_object) {
+        apply_fields_patch(target_value, fields)?;
+        changes.push(format!("{} fields", fields.len()));
+    }
+
+    // 3. Apply MoveEntries
+    let move_entries = parse_move_entries(patch)?;
+    if !move_entries.is_empty() {
+        apply_move_entries(target_value, &move_entries)?;
+        changes.push(format!("{} moved", move_entries.len()));
+    }
+
+    // 4. Apply TextOperations
+    let text_ops = parse_text_operations(patch)?;
+    if !text_ops.is_empty() {
+        apply_text_operations(target_value, &text_ops)?;
+        changes.push(format!("{} text ops", text_ops.len()));
+    }
+
+    if changes.is_empty() {
+        return Err("EditData patch must specify at least one of: Entries, Fields, MoveEntries, or TextOperations.".to_string());
+    }
+
+    Ok(format!("updated {}", changes.join(", ")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_edit_data_patch;
+    use crate::domain::content_patcher::context::SimulationContext;
+    use serde_json::{json, Map, Value};
+
+    fn patch_from(obj: serde_json::Value) -> Map<String, Value> {
+        obj.as_object().unwrap().clone()
+    }
+
+    #[test]
+    fn apply_fields_modifies_nested_field() {
+        // Fields operates on the target value directly (no Entries wrapper)
+        let mut base = json!({
+            "Emily": {
+                "DisplayName": "Emily",
+                "Price": 100
+            }
+        });
+        let patch = patch_from(json!({
+            "Fields": {
+                "Emily": {
+                    "Price": 200
+                }
+            }
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let emily = base.get("Emily").unwrap().as_object().unwrap();
+        assert_eq!(emily.get("Price").unwrap().as_i64(), Some(200));
+        assert_eq!(emily.get("DisplayName").unwrap().as_str(), Some("Emily"));
+    }
+
+    #[test]
+    fn apply_text_operations_append_and_prepend() {
+        let mut base = json!({
+            "Items": "a,b,c"
+        });
+        let patch = patch_from(json!({
+            "TextOperations": [
+                {
+                    "Operation": "Append",
+                    "Target": ["Items"],
+                    "Value": "d",
+                    "Delimiter": ","
+                },
+                {
+                    "Operation": "Prepend",
+                    "Target": ["Items"],
+                    "Value": "z",
+                    "Delimiter": ","
+                }
+            ]
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let items = base.get("Items").unwrap().as_str().unwrap();
+        // After prepend then append: "z,a,b,c,d"
+        assert_eq!(items, "z,a,b,c,d");
+    }
+
+    #[test]
+    fn apply_text_operations_replace_delimited() {
+        let mut base = json!({
+            "Gifts": "a,b,c"
+        });
+        let patch = patch_from(json!({
+            "TextOperations": [
+                {
+                    "Operation": "ReplaceDelimited",
+                    "Target": ["Gifts"],
+                    "Search": "b",
+                    "Value": "x",
+                    "Delimiter": ","
+                }
+            ]
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let gifts = base.get("Gifts").unwrap().as_str().unwrap();
+        assert_eq!(gifts, "a,x,c");
+    }
+
+    #[test]
+    fn apply_text_operations_remove_delimited() {
+        let mut base = json!({
+            "Gifts": "a,b,c"
+        });
+        let patch = patch_from(json!({
+            "TextOperations": [
+                {
+                    "Operation": "RemoveDelimited",
+                    "Target": ["Gifts"],
+                    "Search": "b",
+                    "Delimiter": ","
+                }
+            ]
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let gifts = base.get("Gifts").unwrap().as_str().unwrap();
+        assert_eq!(gifts, "a,c");
+    }
+
+    #[test]
+    fn apply_move_entries_reorders_array() {
+        // MoveEntries requires the target value itself to be an array
+        let mut base = json!([
+            { "Id": "a", "Name": "First" },
+            { "Id": "b", "Name": "Second" },
+            { "Id": "c", "Name": "Third" }
+        ]);
+        let patch = patch_from(json!({
+            "MoveEntries": [
+                { "ID": "c", "BeforeId": "a" }
+            ]
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let entries = base.as_array().unwrap();
+        assert_eq!(entries[0]["Id"], "c");
+        assert_eq!(entries[1]["Id"], "a");
+        assert_eq!(entries[2]["Id"], "b");
+    }
+
+    #[test]
+    fn apply_move_entries_by_to_position() {
+        let mut base = json!([
+            { "Id": "a" },
+            { "Id": "b" },
+            { "Id": "c" }
+        ]);
+        let patch = patch_from(json!({
+            "MoveEntries": [
+                { "ID": "a", "ToPosition": "2" }
+            ]
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let entries = base.as_array().unwrap();
+        assert_eq!(entries[0]["Id"], "b");
+        assert_eq!(entries[1]["Id"], "c");
+        assert_eq!(entries[2]["Id"], "a");
+    }
+
+    #[test]
+    fn apply_entries_replaces_and_adds() {
+        // Entries operates on the target value directly
+        let mut base = json!({
+            "Existing": "old",
+            "Keep": "value"
+        });
+        let patch = patch_from(json!({
+            "Entries": {
+                "Existing": "new",
+                "NewEntry": "added"
+            }
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(base.get("Existing").unwrap().as_str(), Some("new"));
+        assert_eq!(base.get("Keep").unwrap().as_str(), Some("value"));
+        assert_eq!(base.get("NewEntry").unwrap().as_str(), Some("added"));
+    }
+
+    #[test]
+    fn apply_fields_with_nested_object_path() {
+        let mut base = json!({
+            "Emily": {
+                "DisplayName": "Emily",
+                "CustomFields": {}
+            }
+        });
+        let patch = patch_from(json!({
+            "Fields": {
+                "Emily": {
+                    "CustomFields/MyMod/Flag": true,
+                    "DisplayName/Name": "New Emily"
+                }
+            }
+        }));
+        let result = apply_edit_data_patch(&mut base, &patch, &SimulationContext::default(), None);
+        assert!(result.is_ok(), "{result:?}");
+        let emily = base.get("Emily").unwrap().as_object().unwrap();
+        let custom_fields = emily.get("CustomFields").unwrap().as_object().unwrap();
+        let mymod = custom_fields.get("MyMod").unwrap().as_object().unwrap();
+        assert_eq!(mymod.get("Flag").unwrap().as_bool(), Some(true));
+        assert_eq!(emily.get("DisplayName").unwrap().as_object().unwrap().get("Name").unwrap().as_str(), Some("New Emily"));
+        assert_eq!(emily.get("DisplayName").unwrap().as_object().unwrap().get("Name").unwrap().as_str(), Some("New Emily"));
+    }
+
+    #[test]
+    fn apply_entries_with_when_condition_applies_when_met() {
+        let mut base = json!({
+            "Keep": "value"
+        });
+        let patch = patch_from(json!({
+            "Entries": {
+                "ConditionalEntry": {
+                    "When": { "Season": "spring" },
+                    "Value": "applied"
+                },
+                "AlwaysEntry": "always"
+            }
+        }));
+        let context = SimulationContext {
+            season: Some("spring".to_string()),
+            ..SimulationContext::default()
+        };
+        let result = apply_edit_data_patch(&mut base, &patch, &context, None);
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(base.get("ConditionalEntry").unwrap().as_str(), Some("applied"));
+        assert_eq!(base.get("AlwaysEntry").unwrap().as_str(), Some("always"));
+        assert_eq!(base.get("Keep").unwrap().as_str(), Some("value"));
+    }
+
+    #[test]
+    fn apply_entries_with_when_condition_skips_when_not_met() {
+        let mut base = json!({
+            "Keep": "value"
+        });
+        let patch = patch_from(json!({
+            "Entries": {
+                "ConditionalEntry": {
+                    "When": { "Season": "winter" },
+                    "Value": "applied"
+                },
+                "AlwaysEntry": "always"
+            }
+        }));
+        let context = SimulationContext {
+            season: Some("spring".to_string()),
+            ..SimulationContext::default()
+        };
+        let result = apply_edit_data_patch(&mut base, &patch, &context, None);
+        assert!(result.is_ok(), "{result:?}");
+        assert!(base.get("ConditionalEntry").is_none());
+        assert_eq!(base.get("AlwaysEntry").unwrap().as_str(), Some("always"));
+        assert_eq!(base.get("Keep").unwrap().as_str(), Some("value"));
+    }
+
+    #[test]
+    fn apply_entries_with_when_uses_object_without_when_as_value() {
+        let mut base = json!({});
+        let patch = patch_from(json!({
+            "Entries": {
+                "EntryWithData": {
+                    "When": { "Season": "spring" },
+                    "Name": "Test",
+                    "Price": 100
+                }
+            }
+        }));
+        let context = SimulationContext {
+            season: Some("spring".to_string()),
+            ..SimulationContext::default()
+        };
+        let result = apply_edit_data_patch(&mut base, &patch, &context, None);
+        assert!(result.is_ok(), "{result:?}");
+        let entry = base.get("EntryWithData").unwrap().as_object().unwrap();
+        assert_eq!(entry.get("Name").unwrap().as_str(), Some("Test"));
+        assert_eq!(entry.get("Price").unwrap().as_i64(), Some(100));
+        assert!(entry.get("When").is_none());
+    }
+
+    #[test]
+    fn apply_entries_with_when_in_array_mode() {
+        let mut base = json!([
+            { "Id": "a", "Name": "First" }
+        ]);
+        let patch = patch_from(json!({
+            "Entries": {
+                "b": {
+                    "When": { "Season": "spring" },
+                    "Id": "b",
+                    "Name": "Second"
+                },
+                "c": {
+                    "When": { "Season": "winter" },
+                    "Id": "c",
+                    "Name": "Skipped"
+                }
+            }
+        }));
+        let context = SimulationContext {
+            season: Some("spring".to_string()),
+            ..SimulationContext::default()
+        };
+        let result = apply_edit_data_patch(&mut base, &patch, &context, None);
+        assert!(result.is_ok(), "{result:?}");
+        let arr = base.as_array().unwrap();
+        assert_eq!(arr.len(), 2);
+        assert_eq!(arr[0]["Id"], "a");
+        assert_eq!(arr[1]["Id"], "b");
+        assert_eq!(arr[1]["Name"], "Second");
+    }
 }

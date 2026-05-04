@@ -32,14 +32,25 @@ impl AreaDefaults {
     }
 }
 
+fn contains_unresolved_token(text: &str) -> bool {
+    text.contains("{{") && text.contains("}}")
+}
+
 fn parse_object_area(
     values: &serde_json::Map<String, Value>,
     defaults: AreaDefaults,
 ) -> Result<(u32, u32, u32, u32), String> {
     let read = |key: &str, default: Option<u32>| -> Result<u32, String> {
         match values.get(key) {
-            Some(value) => coerce_u32(value)
-                .ok_or_else(|| format!("Image area `{key}` must be an unsigned integer.")),
+            Some(value) => {
+                if let Value::String(text) = value {
+                    if contains_unresolved_token(text) {
+                        return Err(format!("Image area `{key}` contains an unresolved token."));
+                    }
+                }
+                coerce_u32(value)
+                    .ok_or_else(|| format!("Image area `{key}` must be an unsigned integer."))
+            }
             None => default.ok_or_else(|| format!("Image area object is missing `{key}`.")),
         }
     };
@@ -65,6 +76,11 @@ fn parse_area_value(
             let numbers = values
                 .iter()
                 .map(|entry| {
+                    if let Value::String(text) = entry {
+                        if contains_unresolved_token(text) {
+                            return Err("Image area array contains an unresolved token.".to_string());
+                        }
+                    }
                     coerce_u32(entry).ok_or_else(|| {
                         "Image area array values must be unsigned integers.".to_string()
                     })
@@ -73,11 +89,17 @@ fn parse_area_value(
             Ok(Some((numbers[0], numbers[1], numbers[2], numbers[3])))
         }
         Value::String(text) => {
+            if contains_unresolved_token(text) {
+                return Err("Image area string contains an unresolved token.".to_string());
+            }
             let parts = text
                 .split(',')
                 .map(str::trim)
                 .filter(|part| !part.is_empty())
                 .map(|part| {
+                    if contains_unresolved_token(part) {
+                        return Err("Image area string contains an unresolved token.".to_string());
+                    }
                     part.parse::<u32>()
                         .map_err(|err| format!("Invalid image area segment `{part}`: {err}"))
                 })
@@ -97,6 +119,21 @@ fn parse_area_value(
 fn apply_replace(base: &mut RgbaImage, source: &RgbaImage, to_x: u32, to_y: u32) {
     for (x, y, pixel) in source.enumerate_pixels() {
         base.put_pixel(to_x + x, to_y + y, *pixel);
+    }
+}
+
+fn apply_mask(base: &mut RgbaImage, source: &RgbaImage, to_x: u32, to_y: u32) {
+    for (x, y, mask_pixel) in source.enumerate_pixels() {
+        let bx = to_x + x;
+        let by = to_y + y;
+        if bx >= base.width() || by >= base.height() {
+            continue;
+        }
+        let mut target_pixel = *base.get_pixel(bx, by);
+        let mask_alpha = f32::from(mask_pixel[3]) / 255.0;
+        let new_alpha = (f32::from(target_pixel[3]) * (1.0 - mask_alpha)).round() as u8;
+        target_pixel[3] = new_alpha;
+        base.put_pixel(bx, by, target_pixel);
     }
 }
 
@@ -137,10 +174,12 @@ pub fn apply_edit_image_patch(
         .get("PatchMode")
         .and_then(Value::as_str)
         .map(str::trim)
-        .unwrap_or("Overlay");
+        .unwrap_or("Replace");
 
     if mode.eq_ignore_ascii_case("Replace") {
         apply_replace(base, &source, to_x, to_y);
+    } else if mode.eq_ignore_ascii_case("Mask") {
+        apply_mask(base, &source, to_x, to_y);
     } else {
         image::imageops::overlay(base, &source, i64::from(to_x), i64::from(to_y));
     }
@@ -153,4 +192,133 @@ pub fn apply_edit_image_patch(
         to_x,
         to_y
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apply_edit_image_patch;
+    use super::super::super::assets::{encode_image_png, with_virtual_preview_assets};
+    use super::super::super::types::{ContentPatcherProjectSnapshot, VirtualPreviewAsset};
+    use base64::Engine;
+    use image::RgbaImage;
+    use serde_json::{json, Map, Value};
+
+    fn empty_snapshot() -> ContentPatcherProjectSnapshot {
+        ContentPatcherProjectSnapshot {
+            summary: Default::default(),
+            sources: Vec::new(),
+            include_tree: Vec::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn patch_from(obj: serde_json::Value) -> Map<String, Value> {
+        obj.as_object().unwrap().clone()
+    }
+
+    fn image_to_virtual_asset(image: &RgbaImage, relative_path: &str) -> VirtualPreviewAsset {
+        let bytes = encode_image_png(image).unwrap();
+        let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        VirtualPreviewAsset {
+            relative_path: relative_path.to_string(),
+            media_type: "image/png".to_string(),
+            bytes_base64: base64,
+        }
+    }
+
+    #[test]
+    fn apply_mask_reduces_alpha() {
+        // Base image: 4x4 fully opaque white
+        let mut base = RgbaImage::from_pixel(4, 4, image::Rgba([255, 255, 255, 255]));
+        // Mask image: 2x2 with alpha=128 (semi-transparent black)
+        let mask = RgbaImage::from_pixel(2, 2, image::Rgba([0, 0, 0, 128]));
+
+        let asset = image_to_virtual_asset(&mask, "assets/mask.png");
+        let snapshot = empty_snapshot();
+        let patch = patch_from(json!({
+            "FromFile": "assets/mask.png",
+            "PatchMode": "Mask",
+            "ToArea": { "X": 1, "Y": 1 }
+        }));
+
+        let result = with_virtual_preview_assets(Some(&[asset]), || {
+            apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        });
+        assert!(result.is_ok(), "{result:?}");
+
+        // Pixel (0,0) should be untouched (outside mask area)
+        let untouched = base.get_pixel(0, 0);
+        assert_eq!(untouched[3], 255);
+
+        // Pixel (1,1) should have reduced alpha: 255 * (1 - 128/255) ≈ 127
+        let masked = base.get_pixel(1, 1);
+        assert!(masked[3] < 255, "expected alpha reduction, got {}", masked[3]);
+        assert!(masked[3] > 0, "expected non-zero alpha, got {}", masked[3]);
+    }
+
+    #[test]
+    fn apply_replace_overwrites_pixels() {
+        let mut base = RgbaImage::from_pixel(4, 4, image::Rgba([255, 0, 0, 255]));
+        let source = RgbaImage::from_pixel(2, 2, image::Rgba([0, 255, 0, 255]));
+
+        let asset = image_to_virtual_asset(&source, "assets/green.png");
+        let snapshot = empty_snapshot();
+        let patch = patch_from(json!({
+            "FromFile": "assets/green.png",
+            "PatchMode": "Replace",
+            "ToArea": { "X": 0, "Y": 0 }
+        }));
+
+        let result = with_virtual_preview_assets(Some(&[asset]), || {
+            apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        });
+        assert!(result.is_ok(), "{result:?}");
+
+        // (0,0) should be green
+        assert_eq!(base.get_pixel(0, 0), &image::Rgba([0, 255, 0, 255]));
+        // (3,3) should remain red
+        assert_eq!(base.get_pixel(3, 3), &image::Rgba([255, 0, 0, 255]));
+    }
+
+    #[test]
+    fn apply_overlay_blends_pixels() {
+        let mut base = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
+        let source = RgbaImage::from_pixel(2, 2, image::Rgba([0, 0, 255, 128]));
+
+        let asset = image_to_virtual_asset(&source, "assets/blue.png");
+        let snapshot = empty_snapshot();
+        let patch = patch_from(json!({
+            "FromFile": "assets/blue.png",
+            "PatchMode": "Overlay"
+        }));
+
+        let result = with_virtual_preview_assets(Some(&[asset]), || {
+            apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        });
+        assert!(result.is_ok(), "{result:?}");
+
+        // After overlay, pixel should be blended (not pure red or pure blue)
+        let blended = base.get_pixel(0, 0);
+        assert_ne!(blended[0], 255, "red should be blended");
+        assert_ne!(blended[2], 255, "blue should be blended");
+    }
+
+    #[test]
+    fn default_patch_mode_is_replace() {
+        let mut base = RgbaImage::from_pixel(4, 4, image::Rgba([0, 0, 0, 255]));
+        let source = RgbaImage::from_pixel(1, 1, image::Rgba([255, 255, 255, 255]));
+
+        let asset = image_to_virtual_asset(&source, "assets/white.png");
+        let snapshot = empty_snapshot();
+        // No PatchMode specified
+        let patch = patch_from(json!({
+            "FromFile": "assets/white.png"
+        }));
+
+        let result = with_virtual_preview_assets(Some(&[asset]), || {
+            apply_edit_image_patch(&snapshot, &mut base, &patch, "content.json")
+        });
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(base.get_pixel(0, 0), &image::Rgba([255, 255, 255, 255]));
+    }
 }

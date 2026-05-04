@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildContentPatcherSimulationRequest,
+  createDefaultContentPatcherSimulationContext,
   getPatchObject,
   parseJsonText,
   summarizeContentPatcherContent,
@@ -22,14 +23,7 @@ describe('contentPatcher helpers', () => {
       includeTree: [],
       diagnostics: [],
     }
-    const context = {
-      season: '',
-      weather: '',
-      relationship: '',
-      config: {},
-      installedMods: [],
-      customTokens: {},
-    }
+    const context = createDefaultContentPatcherSimulationContext()
 
     const request = buildContentPatcherSimulationRequest(snapshot as never, context, {
       path: 'E:\\Mods\\SeasonalGarden',

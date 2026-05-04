@@ -1,6 +1,7 @@
 use super::{
     load_or_create_app_ui_state_at_path, patch_app_ui_state_at_path, AppUiAppearanceStatePatch,
-    AppUiDiscoverToolbarState, AppUiLauncherStatePatch, AppUiStatePatch, AppUiWorkspaceStatePatch,
+    AppUiDiscoverToolbarState, AppUiGeneratedProjectWorkspaceStatePatch, AppUiLauncherStatePatch,
+    AppUiStatePatch, AppUiWorkspaceStatePatch,
 };
 use crate::test_support::create_temp_dir;
 use serde_json::json;
@@ -20,6 +21,14 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
     assert_eq!(state.appearance.locale, "zh-CN");
     assert_eq!(state.appearance.accent_preset_id, "indigo");
     assert!(state.workspace.layouts.is_empty());
+    assert_eq!(state.workspace.workspace_view_mode, "edit");
+    assert!(
+        state
+            .workspace
+            .generated_project
+            .active_generated_draft_key
+            .is_none()
+    );
     assert!(!state.launcher.force_offline);
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -43,6 +52,30 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     .expect("save appearance");
     assert_eq!(saved.appearance.locale, "en-US");
 
+    let saved = patch_app_ui_state_at_path(
+        &path,
+        AppUiStatePatch {
+            workspace: Some(AppUiWorkspaceStatePatch {
+                workspace_view_mode: Some("project".to_string()),
+                generated_project: Some(AppUiGeneratedProjectWorkspaceStatePatch {
+                    active_generated_draft_key: Some("  draft-001  ".to_string()),
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .expect("save workspace generated-project metadata");
+    assert_eq!(saved.workspace.workspace_view_mode, "project");
+    assert_eq!(
+        saved
+            .workspace
+            .generated_project
+            .active_generated_draft_key
+            .as_deref(),
+        Some("draft-001")
+    );
+
     let patched = patch_app_ui_state_at_path(
         &path,
         AppUiStatePatch {
@@ -65,6 +98,43 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
     assert!(!patched.launcher.force_offline);
+    assert_eq!(patched.workspace.workspace_view_mode, "project");
+    assert_eq!(
+        patched
+            .workspace
+            .generated_project
+            .active_generated_draft_key
+            .as_deref(),
+        Some("draft-001")
+    );
+
+    let mut layouts = BTreeMap::new();
+    layouts.insert(
+        "modforge:workspace-layout:v11:mods:generated-project-builder".to_string(),
+        Some(json!({
+            "panels": {}
+        })),
+    );
+    let patched = patch_app_ui_state_at_path(
+        &path,
+        AppUiStatePatch {
+            workspace: Some(AppUiWorkspaceStatePatch {
+                layouts: Some(layouts),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .expect("patch workspace layouts");
+    assert_eq!(patched.workspace.workspace_view_mode, "project");
+    assert_eq!(
+        patched
+            .workspace
+            .generated_project
+            .active_generated_draft_key
+            .as_deref(),
+        Some("draft-001")
+    );
 
     let patched = patch_app_ui_state_at_path(
         &path,
@@ -81,6 +151,55 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert!(patched.launcher.force_offline);
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn load_app_ui_state_discards_non_session_generated_project_payloads() {
+    let root = create_temp_dir("app-ui-state-generated-project-workspace");
+    let path = root.join("app").join("ui-state.json");
+
+    fs::create_dir_all(path.parent().expect("app dir")).expect("create app dir");
+    fs::write(
+        &path,
+        serde_json::to_string_pretty(&json!({
+            "version": 1,
+            "shell": {},
+            "appearance": {},
+            "workspace": {
+                "layouts": {},
+                "workspaceViewMode": "project",
+                "generatedProject": {
+                    "activeGeneratedDraftKey": "  draft-002  ",
+                    "projectMetadata": {
+                        "projectName": "Should be discarded"
+                    },
+                    "serializedChangeRegistry": {
+                        "ops": []
+                    }
+                }
+            },
+            "launcher": {}
+        }))
+        .expect("serialize raw state"),
+    )
+    .expect("write raw state");
+
+    let state = load_or_create_app_ui_state_at_path(&path).expect("load sanitized state");
+    assert_eq!(state.workspace.workspace_view_mode, "project");
+    assert_eq!(
+        state
+            .workspace
+            .generated_project
+            .active_generated_draft_key
+            .as_deref(),
+        Some("draft-002")
+    );
+
+    let saved = fs::read_to_string(&path).expect("read sanitized file");
+    assert!(!saved.contains("projectMetadata"));
+    assert!(!saved.contains("serializedChangeRegistry"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -106,6 +225,7 @@ fn patch_app_ui_state_updates_and_removes_workspace_layout_entries() {
         AppUiStatePatch {
             workspace: Some(AppUiWorkspaceStatePatch {
                 layouts: Some(layouts),
+                ..Default::default()
             }),
             ..Default::default()
         },
@@ -120,6 +240,7 @@ fn patch_app_ui_state_updates_and_removes_workspace_layout_entries() {
         AppUiStatePatch {
             workspace: Some(AppUiWorkspaceStatePatch {
                 layouts: Some(removals),
+                ..Default::default()
             }),
             ..Default::default()
         },

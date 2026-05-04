@@ -1,12 +1,12 @@
 use self::apply::load_target_result;
-use self::assets::infer_target_asset_kind;
+use self::assets::{infer_target_asset_kind, with_virtual_preview_assets};
 use self::common::{
     as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value,
 };
 use self::conditions::evaluate_patch_status;
 use self::context::SimulationContext;
 use self::export::write_result_asset;
-use self::plan::{build_effective_context, build_patch_plan_with_context};
+use self::plan::{build_effective_context, build_patch_plan_with_context, resolve_dynamic_tokens_for_snapshot};
 use self::project::load_content_patcher_project;
 use self::schema::parse_json_str;
 use self::types::{
@@ -268,6 +268,7 @@ pub fn simulate_content_patcher(
             let snapshot = resolve_simulation_snapshot(&request)?;
             let context = request.context.unwrap_or_else(SimulationContext::default);
             let effective_context = build_effective_context(&snapshot, &context)?;
+            let dynamic_tokens = resolve_dynamic_tokens_for_snapshot(&snapshot, &context)?;
             let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
             let project_root_path = snapshot.summary.absolute_path.as_deref();
             let attached_api_registry = attached::load_attached_api_registry(None);
@@ -290,6 +291,7 @@ pub fn simulate_content_patcher(
                 targets,
                 patch_statuses,
                 diagnostics: snapshot.diagnostics,
+                dynamic_tokens,
             })
         })(),
     )
@@ -308,19 +310,25 @@ pub fn load_content_patcher_result_asset(
                 snapshot: request.snapshot.clone(),
                 manifest_json: request.manifest_json.clone(),
                 content_json: request.content_json.clone(),
+                virtual_assets: request.virtual_assets.clone(),
+                available_capabilities: request.available_capabilities.clone(),
+                fingerprint: request.fingerprint.clone(),
                 context: Some(context.clone()),
+                ..Default::default()
             })?;
             let effective_context = build_effective_context(&snapshot, &context)?;
             let plan = build_patch_plan_with_context(&snapshot, &effective_context)?;
             let attached_api_registry = attached::load_attached_api_registry(None);
-            load_target_result(
-                &snapshot,
-                &plan,
-                &request.target,
-                &attached_api_registry,
-                &effective_context,
-                request.game_root_path.as_deref(),
-            )
+            with_virtual_preview_assets(request.virtual_assets.as_deref(), || {
+                load_target_result(
+                    &snapshot,
+                    &plan,
+                    &request.target,
+                    &attached_api_registry,
+                    &effective_context,
+                    request.game_root_path.as_deref(),
+                )
+            })
         })(),
     )
 }
@@ -339,6 +347,9 @@ pub fn export_content_patcher_asset(
                 snapshot: request.snapshot,
                 manifest_json: request.manifest_json,
                 content_json: request.content_json,
+                virtual_assets: request.virtual_assets,
+                available_capabilities: request.available_capabilities,
+                fingerprint: request.fingerprint,
                 context: request.context,
                 target: target.clone(),
             })?;

@@ -4,13 +4,15 @@ use super::{
 use crate::commands::content_patcher as content_patcher_commands;
 use crate::domain::content_patcher::context::SimulationContext;
 use crate::domain::content_patcher::types::{
-    ContentPatcherProjectSnapshot, ContentPatcherProjectSummary, ContentPatcherSourceFile,
-    ExportContentPatcherAssetRequest, LoadContentPatcherResultAssetRequest,
-    SimulateContentPatcherRequest,
+    ContentPatcherPreviewFingerprint, ContentPatcherProjectSnapshot,
+    ContentPatcherProjectSummary, ContentPatcherSourceFile, ExportContentPatcherAssetRequest,
+    LoadContentPatcherResultAssetRequest, SimulateContentPatcherRequest, VirtualPreviewAsset,
 };
+use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use base64::Engine;
 use image::RgbaImage;
 use serde_json::Value;
+use std::path::Path;
 use std::path::PathBuf;
 
 fn scaleup_assets_target() -> &'static str {
@@ -23,6 +25,39 @@ fn real_skimpy_scaleup_pack_path() -> PathBuf {
         .unwrap_or_else(|| {
             PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\mods\[CP] [DDF] Skimpy VN Portraits")
         })
+}
+
+fn real_skimpy_scaleup_pack_ii_path() -> PathBuf {
+    std::env::var_os("MODFORGE_REAL_SCALEUP_PACK_II_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\mods\[CP] [DDF] Skimpy VN Portraits II")
+        })
+}
+
+fn preview_fingerprint() -> ContentPatcherPreviewFingerprint {
+    ContentPatcherPreviewFingerprint {
+        draft_fingerprint: "draft:1".to_string(),
+        environment_fingerprint: "environment:1".to_string(),
+        capability_fingerprint: "capability:1".to_string(),
+    }
+}
+
+fn virtual_json_asset(relative_path: &str, json: &str) -> VirtualPreviewAsset {
+    VirtualPreviewAsset {
+        relative_path: relative_path.to_string(),
+        media_type: "application/json".to_string(),
+        bytes_base64: base64::engine::general_purpose::STANDARD.encode(json.as_bytes()),
+    }
+}
+
+fn virtual_png_asset(relative_path: &str, image: &RgbaImage) -> VirtualPreviewAsset {
+    VirtualPreviewAsset {
+        relative_path: relative_path.to_string(),
+        media_type: "image/png".to_string(),
+        bytes_base64: base64::engine::general_purpose::STANDARD
+            .encode(super::assets::encode_image_png(image).expect("encode png")),
+    }
 }
 
 #[test]
@@ -47,6 +82,7 @@ fn commands_module_reexports_simulate_content_patcher() {
             .to_string(),
         ),
         context: Some(SimulationContext::default()),
+        ..Default::default()
     };
 
     let result = content_patcher_commands::simulate_content_patcher(request).expect("simulate");
@@ -85,6 +121,7 @@ fn simulate_content_patcher_marks_malformed_when_as_indeterminate() {
             season: Some("spring".to_string()),
             ..SimulationContext::default()
         }),
+        ..Default::default()
     };
 
     let result = simulate_content_patcher(request).expect("simulation");
@@ -126,6 +163,7 @@ fn simulate_content_patcher_uses_in_memory_edits_for_phase_a_statuses() {
             season: Some("spring".to_string()),
             ..SimulationContext::default()
         }),
+        ..Default::default()
     };
 
     let result = simulate_content_patcher(request).expect("simulate");
@@ -162,6 +200,7 @@ fn simulate_content_patcher_preserves_target_order_from_plan() {
             .to_string(),
         ),
         context: Some(SimulationContext::default()),
+        ..Default::default()
     };
 
     let result = simulate_content_patcher(request).expect("simulate");
@@ -210,6 +249,7 @@ fn simulate_content_patcher_uses_built_in_scaleup_asset_kinds() {
         manifest_json: None,
         content_json: None,
         context: Some(SimulationContext::default()),
+        ..Default::default()
     });
     let result = result.expect("simulate");
 
@@ -289,6 +329,7 @@ fn load_content_patcher_result_asset_loads_scaleup_entries_from_included_file() 
         manifest_json: None,
         content_json: None,
         context: Some(SimulationContext::default()),
+        ..Default::default()
     })
     .expect("simulate");
     let target = simulation
@@ -308,6 +349,7 @@ fn load_content_patcher_result_asset_loads_scaleup_entries_from_included_file() 
         content_json: None,
         context: Some(SimulationContext::default()),
         target: scaleup_assets_target().to_string(),
+        ..Default::default()
     })
     .expect("scaleup json result");
 
@@ -373,6 +415,7 @@ fn load_content_patcher_result_asset_reads_scaleup_entries_from_real_skimpy_pack
         manifest_json: None,
         content_json: None,
         context: Some(SimulationContext::default()),
+        ..Default::default()
     })
     .expect("simulate real pack");
     let target = simulation
@@ -391,6 +434,7 @@ fn load_content_patcher_result_asset_reads_scaleup_entries_from_real_skimpy_pack
         content_json: None,
         context: Some(SimulationContext::default()),
         target: scaleup_assets_target().to_string(),
+        ..Default::default()
     })
     .expect("real scaleup json result");
 
@@ -460,6 +504,7 @@ fn load_content_patcher_result_asset_applies_edit_data_for_json_target() {
         ),
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
+        ..Default::default()
     };
 
     let result = load_content_patcher_result_asset(request).expect("json result");
@@ -513,10 +558,79 @@ fn load_content_patcher_result_asset_applies_load_for_json_target() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
+        ..Default::default()
     };
 
     let result = load_content_patcher_result_asset(request).expect("json load result");
     let loaded = result.result.json.expect("json payload");
+    assert_eq!(
+        loaded
+            .get("24")
+            .and_then(|value| value.get("Price"))
+            .and_then(|value| value.as_i64()),
+        Some(35)
+    );
+}
+
+#[test]
+fn load_content_patcher_result_asset_uses_virtual_json_asset_relative_to_included_source() {
+    let snapshot = ContentPatcherProjectSnapshot {
+        summary: ContentPatcherProjectSummary::default(),
+        sources: vec![
+            ContentPatcherSourceFile {
+                path: "content.json".to_string(),
+                absolute_path: "content.json".to_string(),
+                raw_json: r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "patches/load.json"
+    }
+  ]
+}"#
+                .to_string(),
+            },
+            ContentPatcherSourceFile {
+                path: "patches/load.json".to_string(),
+                absolute_path: "patches/load.json".to_string(),
+                raw_json: r#"{
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Data/Objects",
+      "FromFile": "../assets/generated/objects.json"
+    }
+  ]
+}"#
+                .to_string(),
+            },
+        ],
+        include_tree: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+
+    let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
+        path: None,
+        game_root_path: None,
+        snapshot: Some(snapshot),
+        manifest_json: None,
+        content_json: None,
+        virtual_assets: Some(vec![virtual_json_asset(
+            "assets/generated/objects.json",
+            r#"{
+  "24": { "Name": "Parsnip", "Price": 35 }
+}"#,
+        )]),
+        available_capabilities: Some(vec!["cp-safe".to_string(), "image-export".to_string()]),
+        fingerprint: Some(preview_fingerprint()),
+        context: Some(SimulationContext::default()),
+        target: "Data/Objects".to_string(),
+    })
+    .expect("json load result");
+
+    let loaded = result.result.json.expect("json payload");
+    assert_eq!(result.trace[0].source_path, "patches/load.json");
     assert_eq!(
         loaded
             .get("24")
@@ -573,6 +687,7 @@ fn load_content_patcher_result_asset_uses_game_content_json_as_base() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
+        ..Default::default()
     })
     .expect("json result");
 
@@ -671,6 +786,7 @@ fn load_content_patcher_result_asset_applies_target_field_entries_to_character_a
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "Data/Characters".to_string(),
+        ..Default::default()
     })
     .expect("characters result");
 
@@ -723,6 +839,7 @@ fn export_content_patcher_asset_writes_json_result() {
             .join("Data-Objects.json")
             .to_string_lossy()
             .into_owned(),
+        ..Default::default()
     };
 
     let result = export_content_patcher_asset(request).expect("json export");
@@ -766,6 +883,7 @@ fn export_content_patcher_asset_rejects_indeterminate_target() {
             .join("blocked.json")
             .to_string_lossy()
             .into_owned(),
+        ..Default::default()
     };
 
     let error = export_content_patcher_asset(request).expect_err("blocked export");
@@ -811,6 +929,7 @@ fn load_content_patcher_result_asset_returns_image_data_url() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "TileSheets/crops".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -821,6 +940,83 @@ fn load_content_patcher_result_asset_returns_image_data_url() {
         .as_deref()
         .is_some_and(|value| value.starts_with("data:image/png;base64,")));
     assert!(result.exportable);
+}
+
+#[test]
+fn load_content_patcher_result_asset_uses_virtual_image_asset_relative_to_included_source() {
+    let overlay = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
+    let snapshot = ContentPatcherProjectSnapshot {
+        summary: ContentPatcherProjectSummary::default(),
+        sources: vec![
+            ContentPatcherSourceFile {
+                path: "content.json".to_string(),
+                absolute_path: "content.json".to_string(),
+                raw_json: r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "patches/image.json"
+    }
+  ]
+}"#
+                .to_string(),
+            },
+            ContentPatcherSourceFile {
+                path: "patches/image.json".to_string(),
+                absolute_path: "patches/image.json".to_string(),
+                raw_json: r#"{
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "TileSheets/crops",
+      "FromFile": "../assets/generated/crops.png"
+    }
+  ]
+}"#
+                .to_string(),
+            },
+        ],
+        include_tree: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+
+    let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
+        path: None,
+        game_root_path: None,
+        snapshot: Some(snapshot),
+        manifest_json: None,
+        content_json: None,
+        virtual_assets: Some(vec![virtual_png_asset(
+            "assets/generated/crops.png",
+            &overlay,
+        )]),
+        available_capabilities: Some(vec!["cp-safe".to_string(), "image-export".to_string()]),
+        fingerprint: Some(preview_fingerprint()),
+        context: Some(SimulationContext::default()),
+        target: "TileSheets/crops".to_string(),
+    })
+    .expect("image result");
+
+    let data_url = result
+        .result
+        .image_data_url
+        .clone()
+        .expect("image data url");
+    let encoded = data_url
+        .strip_prefix("data:image/png;base64,")
+        .expect("png data url");
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .expect("decode png");
+    let image = image::load_from_memory(&decoded)
+        .expect("load png")
+        .to_rgba8();
+
+    assert_eq!(result.trace[0].source_path, "patches/image.json");
+    assert_eq!(image.width(), 2);
+    assert_eq!(image.height(), 2);
+    assert_eq!(image.get_pixel(1, 1).0, [255, 0, 0, 255]);
 }
 
 #[test]
@@ -878,6 +1074,7 @@ fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
         context: Some(SimulationContext::default()),
         game_root_path: Some(game_root.to_string_lossy().into_owned()),
         target: "TileSheets/crops".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -985,6 +1182,7 @@ fn load_content_patcher_result_asset_accepts_object_areas_without_explicit_x() {
         context: Some(SimulationContext::default()),
         game_root_path: Some(game_root.to_string_lossy().into_owned()),
         target: "TileSheets/Objects_2".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -1061,6 +1259,7 @@ fn load_content_patcher_result_asset_accepts_stringified_object_area_numbers() {
         context: Some(SimulationContext::default()),
         game_root_path: Some(game_root.to_string_lossy().into_owned()),
         target: "TileSheets/Objects_2".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -1141,6 +1340,7 @@ fn load_content_patcher_result_asset_uses_config_schema_defaults_for_when_condit
         context: Some(SimulationContext::default()),
         game_root_path: Some(game_root.to_string_lossy().into_owned()),
         target: "TileSheets/Objects_2".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -1218,6 +1418,7 @@ fn load_content_patcher_result_asset_applies_image_patch_when_has_file_condition
         context: Some(SimulationContext::default()),
         game_root_path: Some(game_root.to_string_lossy().into_owned()),
         target: "TileSheets/Objects_2".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -1279,6 +1480,7 @@ fn load_content_patcher_result_asset_describes_blank_original_fallback_for_missi
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "TileSheets/crops".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -1334,6 +1536,7 @@ fn simulate_and_load_result_resolve_target_and_from_file_tokens_for_image_target
         manifest_json: None,
         content_json: None,
         context: Some(context.clone()),
+        ..Default::default()
     })
     .expect("simulation");
 
@@ -1351,6 +1554,7 @@ fn simulate_and_load_result_resolve_target_and_from_file_tokens_for_image_target
         content_json: None,
         context: Some(context),
         target: "TileSheets/spring_town".to_string(),
+        ..Default::default()
     })
     .expect("image result");
 
@@ -1405,6 +1609,74 @@ fn export_content_patcher_asset_writes_png_result() {
             .join("TileSheets-crops.png")
             .to_string_lossy()
             .into_owned(),
+        ..Default::default()
+    })
+    .expect("png export");
+
+    let bytes = std::fs::read(&result.output_path).expect("png bytes");
+    assert_eq!(result.format, "png");
+    assert!(bytes.starts_with(&[137, 80, 78, 71]));
+}
+
+#[test]
+fn export_content_patcher_asset_writes_png_from_virtual_preview_asset() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-virtual-image-export");
+    std::fs::create_dir_all(&temp_dir).expect("temp dir");
+    let overlay = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
+    let snapshot = ContentPatcherProjectSnapshot {
+        summary: ContentPatcherProjectSummary::default(),
+        sources: vec![
+            ContentPatcherSourceFile {
+                path: "content.json".to_string(),
+                absolute_path: "content.json".to_string(),
+                raw_json: r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "Include",
+      "FromFile": "patches/image.json"
+    }
+  ]
+}"#
+                .to_string(),
+            },
+            ContentPatcherSourceFile {
+                path: "patches/image.json".to_string(),
+                absolute_path: "patches/image.json".to_string(),
+                raw_json: r#"{
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "TileSheets/crops",
+      "FromFile": "../assets/generated/crops.png"
+    }
+  ]
+}"#
+                .to_string(),
+            },
+        ],
+        include_tree: Vec::new(),
+        diagnostics: Vec::new(),
+    };
+
+    let result = export_content_patcher_asset(ExportContentPatcherAssetRequest {
+        path: None,
+        game_root_path: None,
+        snapshot: Some(snapshot),
+        manifest_json: None,
+        content_json: None,
+        virtual_assets: Some(vec![virtual_png_asset(
+            "assets/generated/crops.png",
+            &overlay,
+        )]),
+        available_capabilities: Some(vec!["cp-safe".to_string(), "image-export".to_string()]),
+        fingerprint: Some(preview_fingerprint()),
+        context: Some(SimulationContext::default()),
+        target: "TileSheets/crops".to_string(),
+        output_path: temp_dir
+            .join("TileSheets-crops.png")
+            .to_string_lossy()
+            .into_owned(),
     })
     .expect("png export");
 
@@ -1445,6 +1717,7 @@ fn load_content_patcher_result_asset_returns_map_debug_summary() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "Maps/Town".to_string(),
+        ..Default::default()
     })
     .expect("map result");
 
@@ -1456,7 +1729,7 @@ fn load_content_patcher_result_asset_returns_map_debug_summary() {
 }
 
 #[test]
-fn export_content_patcher_asset_writes_map_debug_json_snapshot() {
+fn export_content_patcher_asset_writes_map_tbin_snapshot() {
     let temp_dir = std::env::temp_dir().join("modforge-cp-map-export");
     std::fs::create_dir_all(&temp_dir).expect("temp dir");
     let pack_dir = temp_dir.join("pack");
@@ -1490,14 +1763,122 @@ fn export_content_patcher_asset_writes_map_debug_json_snapshot() {
         context: Some(SimulationContext::default()),
         target: "Maps/Town".to_string(),
         output_path: temp_dir
-            .join("Maps-Town.debug.json")
+            .join("Maps-Town.tbin")
             .to_string_lossy()
             .into_owned(),
+        ..Default::default()
     })
     .expect("map export");
 
-    assert_eq!(result.format, "map-debug-json");
-    assert!(std::fs::read_to_string(&result.output_path)
-        .unwrap()
-        .contains("\"layers\""));
+    assert_eq!(result.format, "tbin");
+    let bytes = std::fs::read(&result.output_path).expect("read exported map");
+    assert!(bytes.starts_with(b"tBIN10"));
+
+    let parsed = parse_tbin_map(
+        &bytes,
+        Path::new(&result.output_path),
+        "Maps/Town.tbin",
+    )
+    .expect("parse exported tbin");
+    assert_eq!(parsed.name, "Town");
+    assert_eq!(parsed.tile_width, 0);
+    assert_eq!(parsed.tile_height, 0);
+}
+
+#[test]
+fn simulate_skimpy_vn_portraits_ii_loads_without_errors() {
+    let pack_root = real_skimpy_scaleup_pack_ii_path();
+    if !pack_root.join("manifest.json").is_file() {
+        return;
+    }
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulate real pack II");
+
+    // Verify plan contains expected action types
+    let actions: std::collections::HashSet<String> = simulation
+        .plan
+        .patches
+        .iter()
+        .map(|p| p.action.clone())
+        .collect();
+    assert!(actions.contains("Load"), "expected Load patches");
+    assert!(actions.contains("EditData"), "expected EditData patches");
+    assert!(actions.contains("EditImage"), "expected EditImage patches");
+
+    // Verify no patch has error status (unless due to missing game assets)
+    let error_count = simulation
+        .patch_statuses
+        .iter()
+        .filter(|s| s.status == "error")
+        .count();
+    assert_eq!(error_count, 0, "expected zero error statuses in plan");
+
+    // Verify targets exist
+    assert!(
+        !simulation.targets.is_empty(),
+        "expected at least one target"
+    );
+    assert!(
+        simulation
+            .targets
+            .iter()
+            .any(|t| t.path == "Data/Shops"),
+        "expected Data/Shops target from EditData with TargetField"
+    );
+    assert!(
+        simulation
+            .targets
+            .iter()
+            .any(|t| t.path == "Data/Characters"),
+        "expected Data/Characters target"
+    );
+}
+
+#[test]
+fn simulate_daisyniko_tilesheets_loads_without_errors() {
+    let pack_root = PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\[CP] DaisyNiko's Tilesheets");
+    if !pack_root.join("manifest.json").is_file() {
+        return;
+    }
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: None,
+        content_json: None,
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulate daisyniko tilesheets");
+
+    let actions: std::collections::HashSet<String> = simulation
+        .plan
+        .patches
+        .iter()
+        .map(|p| p.action.clone())
+        .collect();
+    assert!(actions.contains("Load"), "expected Load patches");
+    assert!(actions.contains("EditImage"), "expected EditImage patches");
+
+    let error_count = simulation
+        .patch_statuses
+        .iter()
+        .filter(|s| s.status == "error")
+        .count();
+    assert_eq!(error_count, 0, "expected zero error statuses");
+
+    assert!(
+        !simulation.targets.is_empty(),
+        "expected at least one target"
+    );
 }
