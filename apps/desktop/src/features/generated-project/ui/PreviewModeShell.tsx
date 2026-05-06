@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Eye, Map, Calendar, User, Building2, Package } from 'lucide-react'
+import { useGeneratedProjectPort } from '../model/generatedProjectProvider'
 import type { WorkspaceId } from '@shared/contracts'
-import type { GameDirectoryInfo } from '@platform/desktop'
-import { scanMaps, scanEvents, scanModProjects, loadMapAsset, loadTextAsset, loadImageDataUrl } from '@platform/desktop'
 import type { MapDocument } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { MapViewport } from '@entities/map'
@@ -10,7 +9,7 @@ import { MapViewport } from '@entities/map'
 interface PreviewModeShellProps {
   workspaceMode: WorkspaceId
   gameRootPath: string | null
-  directoryInfo: GameDirectoryInfo | null
+  directoryInfo: { rootPath: string; executablePath: string; mapsPath: string | null; mapCount: number } | null
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string
@@ -54,6 +53,7 @@ export function PreviewModeShell({
   accentColor,
   viewportLabels,
 }: PreviewModeShellProps) {
+  const port = useGeneratedProjectPort()
   const [resources, setResources] = useState<ResourceItem[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null)
@@ -86,7 +86,7 @@ export function PreviewModeShell({
         switch (workspaceMode) {
           case 'map': {
             if (directoryInfo.mapsPath) {
-              const maps = await scanMaps(directoryInfo.mapsPath, locale)
+              const maps = await port.scanMaps(directoryInfo.mapsPath, locale)
               for (const m of maps) {
                 items.push({ id: m.id, name: m.name, type: m.format, path: m.relativePath })
               }
@@ -95,7 +95,7 @@ export function PreviewModeShell({
           }
           case 'events': {
             try {
-              const events = await scanEvents(gameRootPath)
+              const events = await port.scanEvents(gameRootPath)
               for (const e of events) {
                 items.push({ id: e.id, name: e.name, type: 'events', path: e.relativePath })
               }
@@ -131,7 +131,7 @@ export function PreviewModeShell({
           }
           case 'mods': {
             try {
-              const mods = await scanModProjects(gameRootPath)
+              const mods = await port.scanModProjects(gameRootPath)
               for (const m of mods) {
                 items.push({
                   id: m.id,
@@ -185,7 +185,7 @@ export function PreviewModeShell({
             if (!directoryInfo?.mapsPath) return
             setMapLoading(true)
             const mapPath = `${directoryInfo.mapsPath}\\${selectedResource.name}.xnb`
-            const asset = await loadMapAsset(directoryInfo.rootPath, mapPath, locale)
+            const asset = await port.loadMapAsset(directoryInfo.rootPath, mapPath, locale)
             if (cancelled) return
             if (asset.format === 'xnb') {
               setMapDocument(JSON.parse(asset.content) as MapDocument)
@@ -198,7 +198,7 @@ export function PreviewModeShell({
           case 'events': {
             setPreviewLoading(true)
             const eventPath = `${gameRootPath}\\Content\\${selectedResource.path}.xnb`
-            const textAsset = await loadTextAsset(gameRootPath, eventPath, locale)
+            const textAsset = await port.loadTextAsset(gameRootPath, eventPath, locale)
             if (cancelled) return
             setPreviewContent(textAsset.content)
             setPreviewLoading(false)
@@ -207,7 +207,7 @@ export function PreviewModeShell({
           case 'characters': {
             setPreviewLoading(true)
             const portraitPath = `${gameRootPath}\\Content\\Portraits\\${selectedResource.name}.xnb`
-            const url = await loadImageDataUrl(portraitPath, locale)
+            const url = await port.loadImageDataUrl(portraitPath, locale)
             if (cancelled) return
             setPreviewImageUrl(url)
             setPreviewLoading(false)
@@ -217,14 +217,14 @@ export function PreviewModeShell({
             setPreviewLoading(true)
             const buildingPath = `${gameRootPath}\\Content\\Buildings\\${selectedResource.name}.xnb`
             try {
-              const url = await loadImageDataUrl(buildingPath, locale)
+              const url = await port.loadImageDataUrl(buildingPath, locale)
               if (cancelled) return
               setPreviewImageUrl(url)
             } catch {
               // Some buildings are directories, try alternative paths
               const altPath = `${gameRootPath}\\Content\\Buildings\\${selectedResource.name}_0.xnb`
               try {
-                const url = await loadImageDataUrl(altPath, locale)
+                const url = await port.loadImageDataUrl(altPath, locale)
                 if (cancelled) return
                 setPreviewImageUrl(url)
               } catch {
@@ -237,7 +237,7 @@ export function PreviewModeShell({
           case 'items': {
             setPreviewLoading(true)
             const itemPath = `${gameRootPath}\\Content\\Data\\${selectedResource.name}.xnb`
-            const textAsset = await loadTextAsset(gameRootPath, itemPath, locale)
+            const textAsset = await port.loadTextAsset(gameRootPath, itemPath, locale)
             if (cancelled) return
             setPreviewContent(textAsset.content)
             setPreviewLoading(false)
@@ -407,7 +407,7 @@ function PreviewContent({
   resource: ResourceItem
   content: string | null
   imageUrl: string | null
-  directoryInfo: GameDirectoryInfo
+  directoryInfo: { rootPath: string; executablePath: string; mapsPath: string | null; mapCount: number }
 }) {
   // Mod detail preview
   if (workspaceMode === 'mods' && resource.type === 'mod') {

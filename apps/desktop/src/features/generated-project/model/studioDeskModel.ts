@@ -1,4 +1,4 @@
-import type { GeneratedProjectDraftSummary } from '@platform/desktop'
+import type { GeneratedProjectDraftSummary } from '../model/generatedProjectPort'
 import type { DraftPatch, GeneratedProjectDraft, WorkspaceId } from '@shared/contracts'
 
 export type StudioDeskInspirationStatus = 'modified' | 'synced'

@@ -233,6 +233,38 @@ describe('frontend module architecture', () => {
     expect(violations).toEqual([])
   })
 
+  it(
+    'blocks direct @platform/desktop imports from generated-project production code',
+    async () => {
+      const sourceFiles = await collectSourceFiles(sourcePath('src/features/generated-project'))
+      const violations: string[] = []
+
+      for (const filePath of sourceFiles) {
+        if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
+          continue
+        }
+
+        const source = await readFile(filePath, 'utf8')
+        const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+        if (source.includes('@platform/desktop')) {
+          violations.push(`${relativePath} imports @platform/desktop`)
+        }
+
+        if (source.includes('@tauri-apps/api')) {
+          violations.push(`${relativePath} imports @tauri-apps/api`)
+        }
+
+        if (/\binvoke\s*\(/.test(source)) {
+          violations.push(`${relativePath} calls invoke(`)
+        }
+      }
+
+      expect(violations).toEqual([])
+    },
+    10000,
+  )
+
   it('routes the app entry through the new module roots', async () => {
     const mainSource = await readFile(sourcePath('src/main.tsx'), 'utf8')
     const appShellSource = await readFile(sourcePath('src/app/app-shell/AppShell.tsx'), 'utf8')

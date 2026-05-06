@@ -2,7 +2,7 @@
 
 import type { DraftPatch, GeneratedProjectDraft } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
-import type { GameDirectoryInfo } from '@platform/desktop'
+import type { GameDirectoryInfo } from '../model/generatedProjectPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { getWorkspacePlugin } from '@platform/plugins/workspaceRegistry'
 import { PreviewModeShell } from './PreviewModeShell'

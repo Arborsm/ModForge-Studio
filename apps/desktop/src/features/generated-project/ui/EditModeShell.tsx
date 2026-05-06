@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { DraftPatch, GeneratedProjectDraft, WorkspaceId } from '@shared/contracts'
-import type { GameDirectoryInfo } from '@platform/desktop'
+import type { GameDirectoryInfo } from '../model/generatedProjectPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { AddPatchDialog } from './AddPatchDialog'
 import { ConfigSchemaDialog } from './ConfigSchemaDialog'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, FolderOpen } from 'lucide-react'
-import { chooseDirectory } from '@platform/desktop'
+import { useGeneratedProjectPort } from '../model/generatedProjectProvider'
 import type { EditorCopy } from '../../../locales'
 
 interface ExportDialogProps {
@@ -20,7 +20,8 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
   if (!open) return null
 
   async function handleSelectDirectory() {
-    const selected = await chooseDirectory(copy.selectDirectory)
+    const port = useGeneratedProjectPort()
+    const selected = await port.chooseDirectory(copy.selectDirectory)
     if (selected) {
       setOutputPath(selected)
       setError(null)

@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  copyGeneratedProjectDraft,
-  deleteGeneratedProjectDraft,
-  exportGeneratedProjectPack,
-  importGeneratedProjectPack,
-  loadGeneratedProjectDraft,
-  listGeneratedProjectDrafts,
-  saveGeneratedProjectDraft,
-  type GeneratedProjectDraftRecord,
-  type GeneratedProjectExportResult,
-  type GeneratedProjectDraftSummary,
-} from '@platform/desktop'
+import { useGeneratedProjectPort } from '../model/generatedProjectProvider'
+import type { GeneratedProjectPort } from '../model/generatedProjectPort'
 import type {
   ConfigSchemaEntry,
   DraftPatch,
@@ -18,6 +8,11 @@ import type {
   VirtualPreviewAsset,
   WorkspaceId,
 } from '@shared/contracts'
+import type {
+  GeneratedProjectDraftRecord,
+  GeneratedProjectDraftSummary,
+  GeneratedProjectExportResult,
+} from '../model/generatedProjectPort'
 
 // ─── Adapter: backend record ↔ frontend draft ─────────────────────────
 
@@ -153,7 +148,7 @@ function serializeChangeRegistry(patches: DraftPatch[]): Record<string, unknown>
   }
 }
 
-function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjectDraft>>): GeneratedProjectDraft {
+function backendToFrontend(record: GeneratedProjectDraftRecord): GeneratedProjectDraft {
   return {
     draftStorageKey: record.draftStorageKey,
     projectMetadata: {
@@ -167,7 +162,7 @@ function backendToFrontend(record: Awaited<ReturnType<typeof loadGeneratedProjec
       minimumApiVersion: record.projectMetadata.minimumApiVersion ?? undefined,
       updateKeys: record.projectMetadata.updateKeys ?? undefined,
     } as GeneratedProjectDraft['projectMetadata'],
-    overlayTargets: record.overlayTargets.map((t) => ({
+    overlayTargets: record.overlayTargets.map((t: { uniqueId: string; displayName: string | null; required: boolean; source: 'scanned-mod' | 'manual' }) => ({
       uniqueId: t.uniqueId,
       displayName: t.displayName ?? null,
       required: t.required,
@@ -679,6 +674,7 @@ function isSameDefaultPatch(patch: DraftPatch, workspace: WorkspaceId, target: s
 }
 
 export function useGeneratedProject() {
+  const port: GeneratedProjectPort = useGeneratedProjectPort()
   const [drafts, setDrafts] = useState<GeneratedProjectDraftSummary[]>([])
   const [activeDraft, setActiveDraft] = useState<GeneratedProjectDraft | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
@@ -695,12 +691,12 @@ export function useGeneratedProject() {
   // 加载草稿列表
   const refreshDrafts = useCallback(async () => {
     try {
-      const list = await listGeneratedProjectDrafts()
+      const list = await port.listDrafts()
       setDrafts(list)
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
     }
-  }, [])
+  }, [port])
 
   // 初始加载草稿列表
   useEffect(() => {
@@ -712,7 +708,7 @@ export function useGeneratedProject() {
     setDraftLoading(true)
     setDraftError(null)
     try {
-      const record = await loadGeneratedProjectDraft(storageKey)
+      const record = await port.loadDraft(storageKey)
       setActiveDraft(backendToFrontend(record))
       setIsDirty(false)
       setDirtyPatchIds(new Set())
@@ -723,7 +719,7 @@ export function useGeneratedProject() {
     } finally {
       setDraftLoading(false)
     }
-  }, [])
+  }, [port])
 
   // 创建新草稿
   const createDraft = useCallback(async (metadata: Partial<GeneratedProjectDraft['projectMetadata']>) => {
@@ -751,7 +747,7 @@ export function useGeneratedProject() {
         eventSourceSnapshotsByTarget: {},
       }
       const record = frontendToBackend(newDraft)
-      await saveGeneratedProjectDraft(record)
+      await port.saveDraft(record)
       setActiveDraft(newDraft)
       setIsDirty(false)
       setDirtyPatchIds(new Set())
@@ -761,7 +757,7 @@ export function useGeneratedProject() {
     } finally {
       setDraftLoading(false)
     }
-  }, [refreshDrafts])
+  }, [port, refreshDrafts])
 
   // 保存草稿
   const saveDraft = useCallback(async () => {
@@ -770,7 +766,7 @@ export function useGeneratedProject() {
     setDraftError(null)
     try {
       const record = frontendToBackend(activeDraft)
-      await saveGeneratedProjectDraft(record)
+      await port.saveDraft(record)
       setIsDirty(false)
       setDirtyPatchIds(new Set())
       await refreshDrafts()
@@ -779,12 +775,12 @@ export function useGeneratedProject() {
     } finally {
       setDraftLoading(false)
     }
-  }, [activeDraft, refreshDrafts])
+  }, [activeDraft, port, refreshDrafts])
 
   // 删除草稿
   const deleteDraft = useCallback(async (storageKey: string) => {
     try {
-      await deleteGeneratedProjectDraft(storageKey)
+      await port.deleteDraft(storageKey)
       if (activeDraft?.draftStorageKey === storageKey) {
         setActiveDraft(null)
         setIsDirty(false)
@@ -794,15 +790,13 @@ export function useGeneratedProject() {
     } catch (error) {
       setDraftError(error instanceof Error ? error.message : String(error))
     }
-  }, [activeDraft, refreshDrafts])
+  }, [activeDraft, port, refreshDrafts])
 
   // 复制草稿
   const copyDraft = useCallback(async (storageKey: string) => {
     setDraftLoading(true)
     try {
-      const record = await copyGeneratedProjectDraft({
-        source_draft_storage_key: storageKey,
-      })
+      const record = await port.copyDraft(storageKey)
       const copied = backendToFrontend(record)
       setActiveDraft(copied)
       setIsDirty(false)
@@ -813,7 +807,7 @@ export function useGeneratedProject() {
     } finally {
       setDraftLoading(false)
     }
-  }, [refreshDrafts])
+  }, [port, refreshDrafts])
 
   // ── Patch 管理 ──
 
@@ -1012,7 +1006,7 @@ export function useGeneratedProject() {
     setDraftLoading(true)
     setDraftError(null)
     try {
-      const record = await importGeneratedProjectPack(modDirectoryPath)
+      const record = await port.importPack(modDirectoryPath)
       const draft = backendToFrontend(record)
       setActiveDraft(draft)
       setIsDirty(false)
@@ -1025,7 +1019,7 @@ export function useGeneratedProject() {
     } finally {
       setDraftLoading(false)
     }
-  }, [refreshDrafts])
+  }, [port, refreshDrafts])
 
   // ── Export ──
 
@@ -1049,14 +1043,14 @@ export function useGeneratedProject() {
         ? [buildConfigJsonAsset(activeDraft.configSchema)]
         : []
 
-      return exportGeneratedProjectPack({
+      return port.exportPack({
         output_path: outputPath,
         manifest_json: manifestJson,
         content_json: contentJson,
         virtual_assets: [...activeDraft.virtualAssets, ...includeAssets, ...configAssets],
       })
     },
-    [activeDraft],
+    [activeDraft, port],
   )
 
   // ── Derived ──

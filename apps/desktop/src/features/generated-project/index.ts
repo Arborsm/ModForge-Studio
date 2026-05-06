@@ -43,3 +43,10 @@ export { StudioDeskMainStage } from './ui/StudioDeskMainStage'
 export { StudioDeskProjectGallery } from './ui/StudioDeskProjectGallery'
 export { StudioDeskStoryboard } from './ui/StudioDeskStoryboard'
 export { StudioDeskWorldBible } from './ui/StudioDeskWorldBible'
+
+export {
+  GeneratedProjectProvider,
+  useGeneratedProjectPort,
+  type GeneratedProjectProviderProps,
+} from './model/generatedProjectProvider'
+export type { GeneratedProjectPort } from './model/generatedProjectPort'
