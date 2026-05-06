@@ -1,18 +1,22 @@
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SOURCE_PATH = new URL('../../components/launcher/LauncherShell.tsx', import.meta.url)
+const SOURCE_PATH = resolve(process.cwd(), 'src/pages/launcher/ui/LauncherShell.tsx')
 
 describe('LauncherShell code splitting', () => {
   it('lazy-loads non-library launcher pages instead of statically importing them', async () => {
     const source = await readFile(SOURCE_PATH, 'utf8')
 
-    expect(source).not.toContain("import { LauncherDiscoverPage } from './pages/LauncherDiscoverPage'")
-    expect(source).not.toContain("import { LauncherUpdatesPage } from './pages/LauncherUpdatesPage'")
-    expect(source).not.toContain("import { LauncherDebugPage } from './pages/LauncherDebugPage'")
+    expect(source).not.toContain("import { LauncherDiscoverPage } from './LauncherDiscoverPage'")
+    expect(source).not.toContain("import { LauncherUpdatesPage } from './LauncherUpdatesPage'")
+    expect(source).not.toContain("import { LauncherDebugPage } from './LauncherDebugPage'")
 
-    expect(source).toContain("lazy(() => import('./pages/LauncherDiscoverPage')")
-    expect(source).toContain("lazy(() => import('./pages/LauncherUpdatesPage')")
-    expect(source).toContain("lazy(() => import('./pages/LauncherDebugPage')")
+    expect(source).toContain("const LauncherDiscoverPage = lazy(() =>")
+    expect(source).toContain("import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage }))")
+    expect(source).toContain("const LauncherUpdatesPage = lazy(() =>")
+    expect(source).toContain("import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage }))")
+    expect(source).toContain("const LauncherDebugPage = lazy(() =>")
+    expect(source).toContain("import('./LauncherDebugPage').then((module) => ({ default: module.LauncherDebugPage }))")
   })
 })

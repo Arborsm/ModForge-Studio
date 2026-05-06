@@ -1,0 +1,336 @@
+import { useState } from 'react'
+import { X, ChevronRight } from 'lucide-react'
+import type { DraftPatch } from '@shared/contracts'
+import type { WorkspaceId } from '@shared/contracts'
+
+type ActionType = DraftPatch['action']
+
+const ACTION_OPTIONS: { value: ActionType; label: string; description: string }[] = [
+  { value: 'EditData', label: 'Edit Data', description: 'Modify JSON data files (events, items, NPCs...)' },
+  { value: 'EditImage', label: 'Edit Image', description: 'Replace or patch image assets (textures, portraits...)' },
+  { value: 'EditMap', label: 'Edit Map', description: 'Modify map properties and tile data' },
+  { value: 'Load', label: 'Load', description: 'Replace entire asset files' },
+  { value: 'Include', label: 'Include', description: 'Include changes from another content file' },
+]
+
+const WORKSPACE_ACTIONS: Record<WorkspaceId, ActionType[]> = {
+  map: ['EditMap', 'EditData', 'Load'],
+  events: ['EditData', 'Load'],
+  characters: ['EditImage', 'EditData', 'Load'],
+  buildings: ['EditMap', 'EditData', 'Load'],
+  items: ['EditData', 'EditImage', 'Load'],
+  mods: ['EditData', 'EditImage', 'EditMap', 'Load', 'Include'],
+}
+
+const WORKSPACE_TARGET_PREFIXES: Record<WorkspaceId, string[]> = {
+  map: ['Maps/', 'Data/Locations', 'Data/Buildings', 'Data/MineCarts'],
+  events: ['Data/Events'],
+  characters: ['Portraits/', 'Characters/', 'Data/NPC'],
+  buildings: ['Maps/', 'Data/Buildings', 'Data/Locations'],
+  items: ['Data/Objects', 'Data/Crops', 'Data/FruitTrees', 'Data/CookingRecipes', 'Data/CraftingRecipes', 'Data/BigCraftablesInformation', 'Data/Furniture', 'Data/ClothingInformation', 'Data/Boots', 'Data/Hats', 'Data/Weapons', 'Data/Tools', 'TileSheets/', 'LooseSprites/'],
+  mods: [],
+}
+
+function filterTargetsByWorkspace(targets: string[], workspaceId: WorkspaceId): string[] {
+  const prefixes = WORKSPACE_TARGET_PREFIXES[workspaceId]
+  if (!prefixes || prefixes.length === 0) return targets
+  return targets.filter((t) => prefixes.some((prefix) => t.startsWith(prefix)))
+}
+
+const COMMON_TARGETS: Record<Exclude<ActionType, 'Include'>, string[]> = {
+  EditData: [
+    // Events
+    'Data/Events/Town',
+    'Data/Events/Beach',
+    'Data/Events/Mountain',
+    'Data/Events/Forest',
+    'Data/Events/Farm',
+    'Data/Events/BusStop',
+    'Data/Events/SeedShop',
+    'Data/Events/Saloon',
+    'Data/Events/Hospital',
+    'Data/Events/ArchaeologyHouse',
+    'Data/Events/BeachNightMarket',
+    'Data/Events/IslandSouth',
+    // Objects & Items
+    'Data/Objects',
+    'Data/Crops',
+    'Data/FruitTrees',
+    'Data/CookingRecipes',
+    'Data/CraftingRecipes',
+    'Data/BigCraftablesInformation',
+    'Data/Furniture',
+    'Data/ClothingInformation',
+    'Data/Boots',
+    'Data/Hats',
+    'Data/Weapons',
+    'Data/Tools',
+    // NPCs & Dialogue
+    'Data/NPCDispositions',
+    'Data/NPCGiftTastes',
+    'Data/NPCGiftTastes',
+    'Data/EngagementDialogue',
+    // Buildings & Locations
+    'Data/Buildings',
+    'Data/Locations',
+    'Data/MineCarts',
+    // Game Systems
+    'Data/Quests',
+    'Data/Mail',
+    'Data/SecretNotes',
+    'Data/Achievements',
+    'Data/BundleSets',
+    'Data/Bundles',
+  ],
+  EditImage: [
+    // Portraits
+    'Portraits/Abigail',
+    'Portraits/Alex',
+    'Portraits/Elliott',
+    'Portraits/Emily',
+    'Portraits/Haley',
+    'Portraits/Harvey',
+    'Portraits/Leah',
+    'Portraits/Maru',
+    'Portraits/Penny',
+    'Portraits/Sam',
+    'Portraits/Sebastian',
+    'Portraits/Shane',
+    // Characters (sprites)
+    'Characters/Abigail',
+    'Characters/Alex',
+    'Characters/Elliott',
+    'Characters/Emily',
+    'Characters/Haley',
+    'Characters/Harvey',
+    'Characters/Leah',
+    'Characters/Maru',
+    'Characters/Penny',
+    'Characters/Sam',
+    'Characters/Sebastian',
+    'Characters/Shane',
+    // TileSheets
+    'TileSheets/crops',
+    'TileSheets/craftables',
+    'TileSheets/furniture',
+    'TileSheets/junimo',
+    'TileSheets/tools',
+    'TileSheets/weapons',
+    'TileSheets/animals',
+    'TileSheets/buildings',
+    'LooseSprites/Cursors',
+  ],
+  EditMap: [
+    'Maps/Town',
+    'Maps/Farm',
+    'Maps/FarmHouse',
+    'Maps/FarmCave',
+    'Maps/Mountain',
+    'Maps/Beach',
+    'Maps/Forest',
+    'Maps/BusStop',
+    'Maps/SeedShop',
+    'Maps/Saloon',
+    'Maps/Hospital',
+    'Maps/ArchaeologyHouse',
+    'Maps/Blacksmith',
+    'Maps/AnimalShop',
+    'Maps/Trailer_Big',
+    'Maps/ScienceHouse',
+    'Maps/ManorHouse',
+    'Maps/Backwoods',
+    'Maps/Railroad',
+    'Maps/Desert',
+    'Maps/IslandSouth',
+    'Maps/IslandWest',
+    'Maps/IslandEast',
+    'Maps/IslandNorth',
+    'Maps/Cellar',
+  ],
+  Load: [
+    'Maps/Town',
+    'Maps/Farm',
+    'TileSheets/crops',
+    'TileSheets/craftables',
+    'Portraits/Abigail',
+    'Characters/Abigail',
+    'LooseSprites/Cursors',
+  ],
+}
+
+interface AddPatchDialogProps {
+  open: boolean
+  workspaceId: WorkspaceId
+  onClose: () => void
+  onAdd: (action: ActionType, target: string, fromFile?: string) => void
+}
+
+export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDialogProps) {
+  const allowedActions = WORKSPACE_ACTIONS[workspaceId] ?? ACTION_OPTIONS.map((a) => a.value)
+  const actionOptions = ACTION_OPTIONS.filter((a) => allowedActions.includes(a.value))
+  const [step, setStep] = useState<1 | 2>(1)
+  const [selectedAction, setSelectedAction] = useState<ActionType | null>(null)
+  const [selectedTarget, setSelectedTarget] = useState<string>('')
+  const [customTarget, setCustomTarget] = useState('')
+  const [fromFile, setFromFile] = useState('')
+
+  if (!open) return null
+
+  const targetToUse = customTarget.trim() || selectedTarget
+  const isInclude = selectedAction === 'Include'
+
+  function handleAdd() {
+    if (!selectedAction) return
+    if (isInclude) {
+      const file = fromFile.trim()
+      if (!file) return
+      onAdd(selectedAction, file, file)
+    } else {
+      if (!targetToUse) return
+      onAdd(selectedAction, targetToUse)
+    }
+    // Reset
+    setStep(1)
+    setSelectedAction(null)
+    setSelectedTarget('')
+    setCustomTarget('')
+    setFromFile('')
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+      <div className="w-[440px] max-w-[90vw] max-h-[85vh] flex flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
+        <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
+          <span className="text-sm font-semibold text-[var(--text-primary)]">
+            {step === 1 ? 'Select Action' : isInclude ? 'Include File' : 'Select Target'}
+          </span>
+          <button type="button" className="icon-button h-7 w-7" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {step === 1 ? (
+          <div className="space-y-1 overflow-auto px-4 py-3">
+            {actionOptions.map((action) => (
+              <button
+                key={action.value}
+                type="button"
+                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  selectedAction === action.value
+                    ? 'border-[color-mix(in_srgb,var(--accent)_30%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent)_6%,var(--bg-panel))]'
+                    : 'border-transparent hover:bg-[var(--bg-panel-muted)]'
+                }`}
+                onClick={() => {
+                  setSelectedAction(action.value)
+                  setStep(2)
+                }}
+              >
+                <div className="flex-1">
+                  <div className="text-xs font-medium text-[var(--text-primary)]">{action.label}</div>
+                  <div className="mt-0.5 text-[10px] text-[var(--text-secondary)]">{action.description}</div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[var(--text-secondary)]" />
+              </button>
+            ))}
+          </div>
+        ) : isInclude ? (
+          <div className="space-y-2 overflow-auto px-4 py-3">
+            <button
+              type="button"
+              className="mb-2 text-xs text-[var(--accent)] hover:underline"
+              onClick={() => setStep(1)}
+            >
+              ← Back
+            </button>
+
+            <div>
+              <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">FromFile</span>
+              <input
+                type="text"
+                className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                value={fromFile}
+                onChange={(e) => setFromFile(e.target.value)}
+                placeholder="e.g. assets/sub-content.json"
+              />
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                Relative path to the content file to include.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" className="control-button text-xs" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary text-xs"
+                disabled={!fromFile.trim()}
+                onClick={handleAdd}
+              >
+                Add Patch
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-col">
+            <div className="overflow-auto px-4 py-3">
+              <button
+                type="button"
+                className="mb-2 text-xs text-[var(--accent)] hover:underline"
+                onClick={() => setStep(1)}
+              >
+                ← Back
+              </button>
+
+              <div className="space-y-1">
+                {selectedAction &&
+                  filterTargetsByWorkspace(
+                    COMMON_TARGETS[selectedAction as Exclude<ActionType, 'Include'>],
+                    workspaceId,
+                  ).map((target) => (
+                    <button
+                      key={target}
+                      type="button"
+                      className={`w-full rounded-md px-3 py-2 text-left text-xs transition-colors ${
+                        selectedTarget === target
+                          ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)]'
+                      }`}
+                      onClick={() => setSelectedTarget(target)}
+                    >
+                      {target}
+                    </button>
+                  ))}
+              </div>
+
+              <div className="pt-2">
+                <span className="mb-1 block text-[10px] text-[var(--text-secondary)]">Custom Target</span>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                  value={customTarget}
+                  onChange={(e) => setCustomTarget(e.target.value)}
+                  placeholder="e.g. Data/Events/Custom"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-[var(--border-color)] px-4 py-3">
+              <button type="button" className="control-button text-xs" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary text-xs"
+                disabled={!targetToUse}
+                onClick={handleAdd}
+              >
+                Add Patch
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

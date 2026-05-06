@@ -9,6 +9,17 @@ async function loadViteConfig() {
   return module.default
 }
 
+async function loadManualChunks() {
+  const config = await loadViteConfig()
+  const output = config.build?.rollupOptions?.output
+
+  if (!output || Array.isArray(output) || typeof output.manualChunks !== 'function') {
+    throw new Error('Expected vite config to expose build.rollupOptions.output.manualChunks')
+  }
+
+  return output.manualChunks
+}
+
 afterEach(() => {
   for (const key of Object.keys(process.env)) {
     if (!(key in ORIGINAL_ENV)) {
@@ -49,5 +60,25 @@ describe('vite config', () => {
     const config = await loadViteConfig()
 
     expect(config.server?.warmup).toBeUndefined()
+  })
+
+  it('splits event workspace runtime and authoring models into focused manual chunks', async () => {
+    const manualChunks = await loadManualChunks()
+    const context = { getModuleInfo: () => null }
+
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStageTemporarySprites.ts', context)).toBe('event-stage-runtime')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStagePlayback.ts', context)).toBe('event-stage-runtime')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/ui/EventStageWorkspace.tsx', context)).toBe('event-stage-runtime')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/parser.ts', context)).toBe('event-authoring-model')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/commandCatalog.ts', context)).toBe('event-authoring-model')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/preconditionSemantics.ts', context)).toBe('event-condition-model')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/gameStateQueryCatalog.ts', context)).toBe('event-condition-model')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/gameStateQuerySemantics.ts', context)).toBe('event-condition-model')
+    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/patchHub.ts', context)).toBe('event-authoring-model')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/item/ui/ItemWorkspace.tsx', context)).toBe('item-workspace')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/character/ui/CharacterWorkspace.tsx', context)).toBe('character-workspace')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/ui/BuildingWorkspace.tsx', context)).toBe('building-workspace')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx', context)).toBe('mod-workspace')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/map/model/useMapWorkspace.ts', context)).toBe('map-workspace')
   })
 })

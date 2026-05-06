@@ -1,10 +1,10 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '../../lib/editor-shell'
+import { editorCopy } from '@locales/editor-shell'
 import { renderWithLocale } from '../renderWithLocale'
-import { DiagnosticsPanel } from '../../components/panels/right/DiagnosticsPanel'
-import { InspectorPanel } from '../../components/panels/right/InspectorPanel'
-import { LayersPanel } from '../../components/panels/right/LayersPanel'
+import { DiagnosticsPanel } from '@pages/workbench/ui/workspace-panels/right/DiagnosticsPanel.tsx'
+import { InspectorPanel } from '@pages/workbench/ui/workspace-panels/right/InspectorPanel.tsx'
+import { LayersPanel } from '@pages/workbench/ui/workspace-panels/right/LayersPanel.tsx'
 
 describe('right panels localization ownership', () => {
   it('reads shell copy from LocaleProvider instead of requiring copy props', () => {

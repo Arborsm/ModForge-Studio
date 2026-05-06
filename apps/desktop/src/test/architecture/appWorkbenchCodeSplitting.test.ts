@@ -1,13 +1,14 @@
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const SOURCE_PATH = new URL('../../App.tsx', import.meta.url)
+const SOURCE_PATH = resolve(process.cwd(), 'src/app/app-shell/AppShell.tsx')
 
 describe('App workbench code splitting', () => {
-  it('lazy-loads the workbench experience instead of statically importing heavy workspace modules', async () => {
+  it('lazy-loads the workbench page instead of statically importing heavy workspace modules', async () => {
     const source = await readFile(SOURCE_PATH, 'utf8')
 
-    expect(source).toContain("lazy(() => import('./components/workbench/WorkbenchExperience'))")
+    expect(source).toContain("lazy(() => import('@pages/workbench')")
 
     expect(source).not.toContain("import { WorkspaceLayout")
     expect(source).not.toContain("import InitializationOverlay")

@@ -1,0 +1,1 @@
+export { createResourceCache } from './resourceCache'

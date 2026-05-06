@@ -7,7 +7,7 @@ import {
   getSettingsMenuCopy,
   getViewMenuCopy,
   getWorkspaceModeLabel,
-} from '../lib/editor-shell'
+} from '@locales/editor-shell'
 
 describe('typed locale bundles', () => {
   it('exposes locale copy through typed bundle accessors', () => {

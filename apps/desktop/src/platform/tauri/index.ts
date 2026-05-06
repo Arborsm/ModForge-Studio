@@ -1,0 +1,106 @@
+import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow } from '@tauri-apps/api/window'
+import { open } from '@tauri-apps/plugin-dialog'
+import type { OpenDialogOptions, PlatformPorts } from '@shared/contracts'
+
+function canUseTauriHost() {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+}
+
+function assertTauriHost() {
+  if (!canUseTauriHost()) {
+    throw new Error('This feature is only available in the Tauri desktop host.')
+  }
+}
+
+function createBrowserStorage() {
+  return {
+    getItem(key: string) {
+      return typeof window === 'undefined' ? null : window.localStorage.getItem(key)
+    },
+    setItem(key: string, value: string) {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, value)
+      }
+    },
+    removeItem(key: string) {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(key)
+      }
+    },
+  }
+}
+
+async function openDialog(options?: OpenDialogOptions) {
+  assertTauriHost()
+
+  return open({
+    ...options,
+    filters: options?.filters?.map((filter) => ({
+      name: filter.name,
+      extensions: [...filter.extensions],
+    })),
+  })
+}
+
+export function createTauriPlatformPorts(): PlatformPorts {
+  return {
+    fileSystem: {
+      invokeCommand<T>(command: string, args?: Record<string, unknown>) {
+        assertTauriHost()
+        return invoke<T>(command, args)
+      },
+      toAssetUrl(filePath: string, protocol?: string) {
+        return convertFileSrc(filePath, protocol)
+      },
+    },
+    desktopWindow: {
+      async minimize() {
+        if (canUseTauriHost()) {
+          await getCurrentWindow().minimize()
+        }
+      },
+      async toggleMaximize() {
+        if (canUseTauriHost()) {
+          await getCurrentWindow().toggleMaximize()
+        }
+      },
+      async close() {
+        if (canUseTauriHost()) {
+          await getCurrentWindow().close()
+        }
+      },
+      async isFullscreen() {
+        return canUseTauriHost() ? getCurrentWindow().isFullscreen() : false
+      },
+      async setFullscreen(fullscreen: boolean) {
+        if (canUseTauriHost()) {
+          await getCurrentWindow().setFullscreen(fullscreen)
+        }
+      },
+      async toggleFullscreen() {
+        if (!canUseTauriHost()) {
+          return false
+        }
+
+        const currentWindow = getCurrentWindow()
+        const fullscreen = await currentWindow.isFullscreen()
+        const nextFullscreen = !fullscreen
+        await currentWindow.setFullscreen(nextFullscreen)
+        return nextFullscreen
+      },
+    },
+    storage: createBrowserStorage(),
+    dialog: {
+      open: openDialog,
+      async chooseDirectory(title?: string) {
+        const selected = await openDialog({ title, directory: true, multiple: false })
+        return typeof selected === 'string' ? selected : null
+      },
+      async chooseFile(options?: OpenDialogOptions) {
+        const selected = await openDialog({ ...options, directory: false, multiple: false })
+        return typeof selected === 'string' ? selected : null
+      },
+    },
+  }
+}

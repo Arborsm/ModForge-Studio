@@ -1,0 +1,656 @@
+import { useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Grid2x2 } from 'lucide-react'
+import { formatPoint, formatRect } from '@shared/lib/geometryFormatting'
+import { getSpringObjectsSourceRect } from '@entities/event'
+import { useBuildingsCopy } from '@locales/localeContext'
+import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../entities/building'
+import type { LocaleCode, ThemeMode, ViewportLabels, BuildingsPanelCopy } from '@locales/editor-shell'
+import type { MapDocument } from '@shared/contracts'
+import type { ViewportWorldPoint } from '@shared/contracts'
+import { cx } from '@shared/lib/cx'
+import { MapViewport, type MapViewportHandle } from '@entities/map'
+
+type BuildingWorkspaceProps = {
+  locale: LocaleCode
+  viewportLabels: ViewportLabels
+  theme: ThemeMode
+  accentColor: string
+  building: BuildingWorkspaceEntry | null
+  upgradeChain: BuildingWorkspaceEntry[]
+  activeTextureState: BuildingTextureAssetState | null
+  chainTextureStates: Record<string, BuildingTextureAssetState>
+  activeIndoorMapDocument: MapDocument | null
+  activeIndoorMapPath: string | null
+  activeIndoorMapMessage: string
+  activeExteriorMapDocument: MapDocument | null
+  activeExteriorMapPath: string | null
+  activeExteriorMapMessage: string
+  activeExteriorFocusPoint: ViewportWorldPoint | null
+  springObjectsState: BuildingTextureAssetState
+  onSelectBuildingStage: (buildingKey: string) => void
+}
+
+function buildAbsoluteSpriteLayerStyle({
+  url,
+  sheetWidth,
+  sheetHeight,
+  sourceX,
+  sourceY,
+  width,
+  height,
+}: {
+  url: string
+  sheetWidth: number
+  sheetHeight: number
+  sourceX: number
+  sourceY: number
+  width: number
+  height: number
+}): CSSProperties {
+  return {
+    width: `${width}px`,
+    height: `${height}px`,
+    backgroundImage: `url("${url}")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: `-${sourceX}px -${sourceY}px`,
+    backgroundSize: `${sheetWidth}px ${sheetHeight}px`,
+    imageRendering: 'pixelated',
+  }
+}
+
+function getResolvedSourceRect(entry: BuildingWorkspaceEntry, textureState: BuildingTextureAssetState | null) {
+  if (entry.sourceRect) {
+    return entry.sourceRect
+  }
+
+  if (textureState?.width && textureState?.height) {
+    return {
+      X: 0,
+      Y: 0,
+      Width: textureState.width,
+      Height: textureState.height,
+    }
+  }
+
+  return null
+}
+
+function getStageBadge(copy: BuildingsPanelCopy, stage: BuildingWorkspaceEntry, currentKey: string | null) {
+  if (stage.key === currentKey) {
+    return copy.currentBadge
+  }
+
+  if (stage.stageIndex === 0) {
+    return copy.baseBadge
+  }
+
+  if (stage.stageIndex === stage.stageCount - 1) {
+    return copy.finalBadge
+  }
+
+  return copy.upgradeBadge
+}
+
+function getVisibleLayerIds(document: MapDocument | null) {
+  return document?.layers.filter((layer) => layer.visible).map((layer) => layer.id) ?? []
+}
+
+function getVisibleObjectGroupIds(document: MapDocument | null) {
+  return document?.objectGroups.filter((group) => group.visible).map((group) => group.id) ?? []
+}
+
+function MaterialChip({
+  label,
+  amount,
+  objectIndex,
+  springObjectsState,
+}: {
+  label: string
+  amount: number
+  objectIndex: number | null
+  springObjectsState: BuildingTextureAssetState
+}) {
+  const sourceRect = objectIndex != null ? getSpringObjectsSourceRect(objectIndex) : null
+
+  return (
+    <div className="panel-list-card flex items-center gap-2 px-3 py-2">
+      <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
+        {sourceRect && springObjectsState.url && springObjectsState.width && springObjectsState.height ? (
+          <div
+            className="absolute left-1/2 top-1/2"
+            style={{
+              ...buildAbsoluteSpriteLayerStyle({
+                url: springObjectsState.url,
+                sheetWidth: springObjectsState.width,
+                sheetHeight: springObjectsState.height,
+                sourceX: sourceRect.x,
+                sourceY: sourceRect.y,
+                width: sourceRect.width,
+                height: sourceRect.height,
+              }),
+              transform: 'translate(-50%, -50%) scale(2)',
+              transformOrigin: 'center center',
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase text-[var(--text-secondary)]">
+            {label.slice(0, 1)}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{label}</p>
+        <p className="text-xs text-[var(--text-secondary)]">x{amount}</p>
+      </div>
+    </div>
+  )
+}
+
+function StageCard({
+  stage,
+  textureState,
+  isActive,
+  onSelect,
+}: {
+  stage: BuildingWorkspaceEntry
+  textureState: BuildingTextureAssetState | null
+  isActive: boolean
+  onSelect: () => void
+}) {
+  const copy = useBuildingsCopy()
+  const sourceRect = getResolvedSourceRect(stage, textureState)
+  const previewScale =
+    sourceRect && sourceRect.Width > 0 && sourceRect.Height > 0
+      ? Math.max(1, Math.min(3.2, Math.min(184 / sourceRect.Width, 132 / sourceRect.Height)))
+      : 1
+
+  return (
+    <button
+      type="button"
+      className={cx(
+        'panel-list-card panel-list-card-interactive w-[240px] shrink-0 p-3 text-left',
+        isActive
+          ? 'panel-list-card-active'
+          : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
+      )}
+      onClick={onSelect}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{stage.displayName}</p>
+          <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{stage.internalName}</p>
+        </div>
+        <span className="dock-chip shrink-0">{getStageBadge(copy, stage, isActive ? stage.key : null)}</span>
+      </div>
+
+      <div className="panel-canvas-soft mt-3 flex min-h-[152px] items-center justify-center px-3 py-4">
+        {sourceRect && textureState?.url && textureState.width && textureState.height ? (
+          <div
+            style={{
+              ...buildAbsoluteSpriteLayerStyle({
+                url: textureState.url,
+                sheetWidth: textureState.width,
+                sheetHeight: textureState.height,
+                sourceX: sourceRect.X,
+                sourceY: sourceRect.Y,
+                width: sourceRect.Width,
+                height: sourceRect.Height,
+              }),
+              transform: `scale(${previewScale})`,
+              transformOrigin: 'center center',
+            }}
+          />
+        ) : (
+          <p className="text-sm text-[var(--text-secondary)]">{copy.noTexture}</p>
+        )}
+      </div>
+
+      <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
+        <p>{copy.indoorMapLabel}: {stage.indoorMapAssetName ? stage.indoorMapPathLabel : copy.noneLabel}</p>
+        <p>{copy.buildCostLabel}: {stage.buildCost}</p>
+        <p>{copy.materialCountLabel}: {stage.buildMaterials.length}</p>
+      </div>
+    </button>
+  )
+}
+
+function WorldEntranceCard({
+  entrance,
+}: {
+  entrance: WorldBuildingEntrance
+}) {
+  const copy = useBuildingsCopy()
+  return (
+    <div className="panel-list-card px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{entrance.sourceMapName}</p>
+          <p className="truncate text-xs text-[var(--text-secondary)]">{entrance.sourceMapPathLabel}</p>
+        </div>
+        <span className="dock-chip shrink-0">{entrance.trigger}</span>
+      </div>
+      <div className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
+        <p>{copy.sourceTileLabel}: {formatPoint(entrance.sourceTile, copy.noneLabel)}</p>
+        <p>{copy.targetTileLabel}: {formatPoint(entrance.targetTile, copy.noneLabel)}</p>
+      </div>
+    </div>
+  )
+}
+
+export default function BuildingWorkspace({
+  locale,
+  viewportLabels,
+  theme,
+  accentColor,
+  building,
+  upgradeChain,
+  activeTextureState,
+  chainTextureStates,
+  activeIndoorMapDocument,
+  activeIndoorMapPath,
+  activeIndoorMapMessage,
+  activeExteriorMapDocument,
+  activeExteriorMapPath,
+  activeExteriorMapMessage,
+  activeExteriorFocusPoint,
+  springObjectsState,
+  onSelectBuildingStage,
+}: BuildingWorkspaceProps) {
+  const copy = useBuildingsCopy()
+  const [showGrid, setShowGrid] = useState(true)
+
+  if (!building) {
+    return (
+      <div className="panel-surface panel-surface-flat h-full">
+        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
+          {copy.inspectorEmpty}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <BuildingWorkspaceContent
+      key={building.key}
+      locale={locale}
+      viewportLabels={viewportLabels}
+      theme={theme}
+      accentColor={accentColor}
+      building={building}
+      upgradeChain={upgradeChain}
+      activeTextureState={activeTextureState}
+      chainTextureStates={chainTextureStates}
+      activeIndoorMapDocument={activeIndoorMapDocument}
+      activeIndoorMapPath={activeIndoorMapPath}
+      activeIndoorMapMessage={activeIndoorMapMessage}
+      activeExteriorMapDocument={activeExteriorMapDocument}
+      activeExteriorMapPath={activeExteriorMapPath}
+      activeExteriorMapMessage={activeExteriorMapMessage}
+      activeExteriorFocusPoint={activeExteriorFocusPoint}
+      springObjectsState={springObjectsState}
+      onSelectBuildingStage={onSelectBuildingStage}
+      showGrid={showGrid}
+      onToggleGrid={() => setShowGrid((current) => !current)}
+    />
+  )
+}
+
+type BuildingWorkspaceContentProps = Omit<BuildingWorkspaceProps, 'building'> & {
+  building: BuildingWorkspaceEntry
+  showGrid: boolean
+  onToggleGrid: () => void
+}
+
+function BuildingWorkspaceContent({
+  locale,
+  viewportLabels,
+  theme,
+  accentColor,
+  building,
+  upgradeChain,
+  activeTextureState,
+  chainTextureStates,
+  activeIndoorMapDocument,
+  activeIndoorMapPath,
+  activeIndoorMapMessage,
+  activeExteriorMapDocument,
+  activeExteriorMapPath,
+  activeExteriorMapMessage,
+  activeExteriorFocusPoint,
+  springObjectsState,
+  onSelectBuildingStage,
+  showGrid,
+  onToggleGrid,
+}: BuildingWorkspaceContentProps) {
+  const copy = useBuildingsCopy()
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const viewportRef = useRef<MapViewportHandle | null>(null)
+  const zoomLabel = viewportLabels.zoomLabel(zoomLevel)
+  const indoorVisibleLayerIds = useMemo(() => getVisibleLayerIds(activeIndoorMapDocument), [activeIndoorMapDocument])
+  const indoorVisibleObjectGroupIds = useMemo(
+    () => getVisibleObjectGroupIds(activeIndoorMapDocument),
+    [activeIndoorMapDocument],
+  )
+  const exteriorVisibleLayerIds = useMemo(() => getVisibleLayerIds(activeExteriorMapDocument), [activeExteriorMapDocument])
+  const exteriorVisibleObjectGroupIds = useMemo(
+    () => getVisibleObjectGroupIds(activeExteriorMapDocument),
+    [activeExteriorMapDocument],
+  )
+
+  const isConstructible = building.sourceKind === 'constructible'
+  const sourceRect = getResolvedSourceRect(building, activeTextureState)
+  const previewScale =
+    sourceRect && sourceRect.Width > 0 && sourceRect.Height > 0
+      ? Math.max(1.2, Math.min(4, Math.min(420 / sourceRect.Width, 280 / sourceRect.Height)))
+      : 1
+
+  return (
+    <div className="panel-surface h-full">
+      <div className="panel-header">
+        <div>
+          <p className="panel-title">{copy.workspaceTitle}</p>
+          <p className="panel-subtitle">
+            {building.displayName} / {copy.workspaceSubtitle}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="dock-chip">{isConstructible ? copy.sourceConstructibleLabel : copy.sourceWorldLabel}</span>
+          <span className="dock-chip">{isConstructible ? (building.builder ?? copy.noneLabel) : (building.exteriorMapName ?? copy.noneLabel)}</span>
+          <span className="dock-chip">
+            {isConstructible
+              ? copy.stageLabel.replace('{current}', String(building.stageIndex + 1)).replace('{total}', String(building.stageCount))
+              : `${copy.entranceCountLabel}: ${building.worldEntrances.length}`}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid h-[calc(100%-58px)] min-h-0 gap-3 p-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <section className="grid min-h-0 gap-3">
+          <div className="panel-surface panel-surface-muted min-h-0">
+            <div className="panel-header">
+              <div>
+                <p className="panel-title">{isConstructible ? copy.bodyTitle : copy.exteriorTitle}</p>
+                <p className="panel-subtitle">
+                  {isConstructible ? building.texturePathLabel : (activeExteriorMapPath ?? building.exteriorMapPathLabel ?? copy.noneLabel)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isConstructible ? (
+                  <>
+                    <span className="dock-chip">{copy.sizeLabel}: {building.size ? `${building.size.X} x ${building.size.Y}` : copy.noneLabel}</span>
+                    <span className="dock-chip">{copy.sourceRectLabel}: {formatRect(sourceRect, copy.noneLabel)}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="dock-chip">{copy.exteriorEntryLabel}: {formatPoint(building.exteriorEntryTile, copy.noneLabel)}</span>
+                    <span className="dock-chip">{copy.entranceCountLabel}: {building.worldEntrances.length}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="panel-body flex min-h-0 flex-col gap-3 p-3">
+              <div className="panel-canvas flex min-h-[340px] flex-1 items-center justify-center p-6">
+                {isConstructible ? (
+                  sourceRect && activeTextureState?.url && activeTextureState.width && activeTextureState.height ? (
+                    <div
+                      style={{
+                        ...buildAbsoluteSpriteLayerStyle({
+                          url: activeTextureState.url,
+                          sheetWidth: activeTextureState.width,
+                          sheetHeight: activeTextureState.height,
+                          sourceX: sourceRect.X,
+                          sourceY: sourceRect.Y,
+                          width: sourceRect.Width,
+                          height: sourceRect.Height,
+                        }),
+                        transform: `scale(${previewScale})`,
+                        transformOrigin: 'center center',
+                      }}
+                    />
+                  ) : (
+                    <div className="panel-canvas-empty">
+                      {copy.noTexture}
+                    </div>
+                  )
+                ) : activeExteriorMapDocument ? (
+                  <div className="h-full min-h-[340px] w-full">
+                    <MapViewport
+                      key={`${building.key}:${activeExteriorMapDocument.relativePath}`}
+                      locale={locale}
+                      mapDocument={activeExteriorMapDocument}
+                      visibleLayerIds={exteriorVisibleLayerIds}
+                      visibleObjectGroupIds={exteriorVisibleObjectGroupIds}
+                      labels={viewportLabels}
+                      theme={theme}
+                      accentColor={accentColor}
+                      showGrid={showGrid}
+                      showStatsChips
+                      focusWorldPoint={activeExteriorFocusPoint}
+                    />
+                  </div>
+                ) : (
+                  <div className="panel-canvas-empty">
+                    {activeExteriorMapMessage}
+                  </div>
+                )}
+              </div>
+
+              {isConstructible ? (
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.builderLabel}</p>
+                    <p className="mt-1 text-sm text-[var(--text-primary)]">{building.builder ?? copy.noneLabel}</p>
+                  </div>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.humanDoorLabel}</p>
+                    <p className="mt-1 text-sm text-[var(--text-primary)]">{formatPoint(building.humanDoor, copy.noneLabel)}</p>
+                  </div>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.animalDoorLabel}</p>
+                    <p className="mt-1 text-sm text-[var(--text-primary)]">{formatRect(building.animalDoor, copy.noneLabel)}</p>
+                  </div>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.occupantsLabel}</p>
+                    <p className="mt-1 text-sm text-[var(--text-primary)]">{building.maxOccupants}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.exteriorMapLabel}</p>
+                    <p className="mt-1 truncate text-sm text-[var(--text-primary)]">{building.exteriorMapName ?? copy.noneLabel}</p>
+                  </div>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.exteriorEntryLabel}</p>
+                    <p className="mt-1 text-sm text-[var(--text-primary)]">{formatPoint(building.exteriorEntryTile, copy.noneLabel)}</p>
+                  </div>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.indoorMapLabel}</p>
+                    <p className="mt-1 truncate text-sm text-[var(--text-primary)]">{activeIndoorMapPath ?? building.indoorMapPathLabel}</p>
+                  </div>
+                  <div className="panel-section p-3">
+                    <p className="panel-section-title">{copy.entranceCountLabel}</p>
+                    <p className="mt-1 text-sm text-[var(--text-primary)]">{building.worldEntrances.length}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
+            <div className="panel-surface panel-surface-muted min-h-0">
+              <div className="panel-header">
+                <div>
+                  <p className="panel-title">{isConstructible ? copy.materialsTitle : copy.worldEntrancesTitle}</p>
+                  <p className="panel-subtitle">
+                    {isConstructible ? `${copy.materialCountLabel}: ${building.buildMaterials.length}` : `${copy.entranceCountLabel}: ${building.worldEntrances.length}`}
+                  </p>
+                </div>
+              </div>
+              <div className="panel-body min-h-[180px] overflow-auto p-3">
+                {isConstructible ? (
+                  building.buildMaterials.length ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {building.buildMaterials.map((material) => (
+                        <MaterialChip
+                          key={`${building.key}:${material.itemId}`}
+                          label={material.displayName}
+                          amount={material.amount}
+                          objectIndex={material.objectIndex}
+                          springObjectsState={springObjectsState}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="panel-empty-state">
+                      {copy.materialsEmpty}
+                    </div>
+                  )
+                ) : building.worldEntrances.length ? (
+                    <div className="space-y-2">
+                      {building.worldEntrances.map((entrance, index) => (
+                      <WorldEntranceCard key={`${building.key}:${index}`} entrance={entrance} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="panel-empty-state">
+                    {copy.worldEntrancesEmpty}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="panel-surface panel-surface-muted min-h-0">
+              <div className="panel-header">
+                <div>
+                  <p className="panel-title">{isConstructible ? copy.skinsTitle : copy.exteriorDataTitle}</p>
+                  <p className="panel-subtitle">
+                    {isConstructible ? `${copy.skinCountLabel}: ${building.skins.length}` : (activeExteriorMapPath ?? building.exteriorMapPathLabel ?? copy.noneLabel)}
+                  </p>
+                </div>
+              </div>
+              <div className="panel-body min-h-[180px] overflow-auto p-3">
+                {isConstructible ? (
+                  building.skins.length ? (
+                    <div className="space-y-2">
+                      {building.skins.map((skin) => (
+                        <div key={`${building.key}:${skin.id}`} className="panel-list-card px-3 py-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{skin.displayName}</p>
+                              <p className="truncate text-xs text-[var(--text-secondary)]">{skin.texturePathLabel}</p>
+                            </div>
+                            {skin.showAsSeparateConstructionEntry ? <span className="dock-chip">{copy.separateBuildBadge}</span> : null}
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-secondary)]">
+                            {skin.description ?? skin.condition ?? copy.noneLabel}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="panel-empty-state">
+                      {copy.skinsEmpty}
+                    </div>
+                  )
+                ) : (
+                  <div className="panel-section p-3">
+                    <div className="space-y-2 text-sm text-[var(--text-primary)]">
+                      <p>{copy.sourceMapLabel}: {building.exteriorMapName ?? copy.noneLabel}</p>
+                      <p>{copy.exteriorMapLabel}: {activeExteriorMapPath ?? building.exteriorMapPathLabel ?? copy.noneLabel}</p>
+                      <p>{copy.exteriorEntryLabel}: {formatPoint(building.exteriorEntryTile, copy.noneLabel)}</p>
+                      <p>{copy.indoorMapLabel}: {activeIndoorMapPath ?? building.indoorMapPathLabel}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {isConstructible ? (
+            <div className="panel-surface panel-surface-muted min-h-0">
+              <div className="panel-header">
+                <div>
+                  <p className="panel-title">{copy.upgradeTitle}</p>
+                  <p className="panel-subtitle">{`${building.rootKey} -> ${building.leafKey}`}</p>
+                </div>
+              </div>
+              <div className="panel-body min-h-[260px] overflow-auto p-3">
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {upgradeChain.map((stage) => (
+                    <StageCard
+                      key={stage.key}
+                      stage={stage}
+                      textureState={chainTextureStates[stage.key] ?? null}
+                      isActive={stage.key === building.key}
+                      onSelect={() => onSelectBuildingStage(stage.key)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <aside className="panel-surface panel-surface-muted min-h-0">
+          <div className="panel-header">
+            <div>
+              <p className="panel-title">{copy.interiorTitle}</p>
+              <p className="panel-subtitle">{activeIndoorMapPath ?? building.indoorMapPathLabel}</p>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
+              <button
+                type="button"
+                className={cx('tool-button', showGrid && 'tool-button-active')}
+                onClick={onToggleGrid}
+                title={showGrid ? 'Hide grid' : 'Show grid'}
+              >
+                <Grid2x2 className="h-4 w-4" />
+              </button>
+              <span className="dock-chip">{zoomLabel}</span>
+            </div>
+          </div>
+
+          <div className="panel-body flex h-full min-h-0 flex-col gap-3 p-3">
+            {activeIndoorMapDocument ? (
+              <div className="relative min-h-[420px] flex-1">
+                <MapViewport
+                  key={`${building.key}:${activeIndoorMapDocument.relativePath}`}
+                  locale={locale}
+                  ref={viewportRef}
+                  mapDocument={activeIndoorMapDocument}
+                  visibleLayerIds={indoorVisibleLayerIds}
+                  visibleObjectGroupIds={indoorVisibleObjectGroupIds}
+                  labels={viewportLabels}
+                  theme={theme}
+                  accentColor={accentColor}
+                  showGrid={showGrid}
+                  showStatsChips
+                  onZoomChange={(nextZoom) => setZoomLevel(nextZoom)}
+                />
+              </div>
+            ) : (
+              <div className="panel-canvas-empty min-h-[420px] flex-1 px-6">
+                {building.indoorMapAssetName || building.nonInstancedIndoorLocation ? activeIndoorMapMessage || copy.noIndoorMap : copy.noIndoorMap}
+              </div>
+            )}
+
+            <div className="panel-section p-3">
+              <p className="panel-section-title">
+                {isConstructible ? copy.indoorDataTitle : copy.exteriorDataTitle}
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
+                <p>{copy.indoorMapLabel}: {building.indoorMapAssetName ? building.indoorMapPathLabel : copy.noneLabel}</p>
+                <p>{copy.indoorTypeLabel}: {building.indoorMapType ?? copy.noneLabel}</p>
+                <p>{copy.nonInstancedIndoorLabel}: {building.nonInstancedIndoorLocation ?? copy.noneLabel}</p>
+                <p>{copy.validOccupantsLabel}: {building.validOccupantTypes.join(', ') || copy.noneLabel}</p>
+                {!isConstructible ? <p>{copy.exteriorMapLabel}: {activeExteriorMapPath ?? building.exteriorMapPathLabel ?? copy.noneLabel}</p> : null}
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  )
+}
