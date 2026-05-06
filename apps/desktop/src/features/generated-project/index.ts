@@ -44,9 +44,7 @@ export { StudioDeskProjectGallery } from './ui/StudioDeskProjectGallery'
 export { StudioDeskStoryboard } from './ui/StudioDeskStoryboard'
 export { StudioDeskWorldBible } from './ui/StudioDeskWorldBible'
 
-export {
-  GeneratedProjectProvider,
-  useGeneratedProjectPort,
-  type GeneratedProjectProviderProps,
-} from './model/generatedProjectProvider'
+export type { GeneratedProjectProviderProps } from './model/generatedProjectProvider'
+export { GeneratedProjectProvider } from './model/generatedProjectProvider'
+export { useGeneratedProjectPort } from './model/useGeneratedProjectPort'
 export type { GeneratedProjectPort } from './model/generatedProjectPort'

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useGeneratedProjectPort } from '../model/generatedProjectProvider'
+import { useGeneratedProjectPort } from '../model/useGeneratedProjectPort'
 import type { GeneratedProjectPort } from '../model/generatedProjectPort'
 import type {
   ConfigSchemaEntry,

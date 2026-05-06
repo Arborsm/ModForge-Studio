@@ -1,8 +1,6 @@
-/* eslint-disable react-refresh/only-export-components -- this file intentionally exports both a component and a hook */
-import { createContext, useContext, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import type { GeneratedProjectPort } from './generatedProjectPort'
-
-const GeneratedProjectPortContext = createContext<GeneratedProjectPort | null>(null)
+import { GeneratedProjectPortContext } from './generatedProjectPortContext'
 
 export type GeneratedProjectProviderProps = {
   children: ReactNode
@@ -15,17 +13,4 @@ export function GeneratedProjectProvider({ children, port }: GeneratedProjectPro
       {children}
     </GeneratedProjectPortContext.Provider>
   )
-}
-
-export function useGeneratedProjectPort(): GeneratedProjectPort {
-  const port = useContext(GeneratedProjectPortContext)
-
-  if (!port) {
-    throw new Error(
-      'useGeneratedProjectPort must be used within a GeneratedProjectProvider. ' +
-        'Ensure the app-level provider is mounted above the workbench shell.',
-    )
-  }
-
-  return port
 }

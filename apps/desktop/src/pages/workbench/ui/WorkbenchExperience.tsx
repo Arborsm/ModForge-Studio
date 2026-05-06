@@ -24,8 +24,7 @@ import { scheduleDeferred } from '@shared/lib/react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import type { SettingsWindowCategory } from '@shared/contracts'
 import { listKnownGameDirectories } from '@platform/desktop'
-import type { AppEvent } from '@shared/contracts'
-import type { WorkbenchViewRegistration } from '@shared/contracts'
+import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import { DevDebugOverlay } from './DevDebugOverlay'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchLayoutHost } from './WorkbenchLayoutHost'
@@ -34,6 +33,7 @@ import { useEditModeNavigation } from '../model/useEditModeNavigation'
 import { usePlayerAppearanceState } from '../model/usePlayerAppearanceState'
 import { useWorkspaceLayoutPersistence } from '../model/useWorkspaceLayoutPersistence'
 import { useWorkbenchModeTransitions } from '../model/useWorkbenchModeTransitions'
+import { useWorkbenchCommandIntent } from '../model/workbenchCommandIntent'
 import { useWorkbenchStatus } from '../model/useWorkbenchStatus'
 
 const PlayerAppearanceWindow = lazy(() => import('./PlayerAppearanceWindow'))
@@ -50,6 +50,8 @@ type WindowWithIdleCallback = Window & {
 }
 
 type WorkbenchExperienceProps = {
+  pendingWorkbenchIntent: PendingWorkbenchCommandIntent | null
+  onClearPendingIntent: () => void
   active: boolean
   appUiStateReady: boolean
   theme: ThemeMode
@@ -68,6 +70,8 @@ type WorkbenchExperienceProps = {
 }
 
 export default function WorkbenchExperience({
+  pendingWorkbenchIntent,
+  onClearPendingIntent,
   active,
   appUiStateReady,
   theme,
@@ -83,8 +87,7 @@ export default function WorkbenchExperience({
   onCloseWindow,
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
-}: WorkbenchExperienceProps) {
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
+}: WorkbenchExperienceProps) {  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
   const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>(() => {
     const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
     return saved === 'edit' || saved === 'preview' ? saved : 'edit'
@@ -101,6 +104,7 @@ export default function WorkbenchExperience({
     canGoBack,
     canGoForward,
   } = useEditModeNavigation(workspaceViewMode === 'edit')
+
   const {
     handleWorkspaceChange,
     handleWorkspaceViewModeChange,
@@ -437,6 +441,15 @@ export default function WorkbenchExperience({
   })
 
   const generatedProject = useGeneratedProject()
+useWorkbenchCommandIntent({
+    pendingIntent: pendingWorkbenchIntent,
+    generatedProject,
+    setWorkspaceMode: (mode: string) => (setWorkspaceMode as (value: string) => void)(mode),
+    setWorkspaceViewMode,
+    navigateToPatch,
+    clearPendingIntent: onClearPendingIntent,
+  })
+
   const studioDeskModel = useMemo(
     () => buildStudioDeskModel({
       activeDraft: generatedProject.activeDraft,

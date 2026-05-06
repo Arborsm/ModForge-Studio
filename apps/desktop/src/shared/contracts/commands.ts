@@ -22,6 +22,11 @@ export type WorkbenchCommand =
 
 export type AppCommand = NavigationCommand | WorkbenchCommand
 
+export type PendingWorkbenchCommandIntent = {
+  id: string
+  command: Extract<AppCommand, { type: 'navigation/open-workbench-view' | 'workbench/open-asset' }>
+}
+
 export interface CommandDispatcher {
   dispatch: (command: AppCommand) => void | Promise<void>
 }

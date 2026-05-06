@@ -1,11 +1,13 @@
 import { lazy, Suspense } from 'react'
-import type { AppEvent, WorkbenchViewRegistration } from '@shared/contracts'
+import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import type { LocaleCode, ThemeMode } from '@locales/editor-shell'
 import type { SettingsWindowCategory } from '@shared/contracts'
 
 const WorkbenchExperience = lazy(() => import('./WorkbenchExperience'))
 
 type WorkbenchPageProps = {
+  pendingWorkbenchIntent: PendingWorkbenchCommandIntent | null
+  onClearPendingIntent: () => void
   active: boolean
   appUiStateReady: boolean
   theme: ThemeMode

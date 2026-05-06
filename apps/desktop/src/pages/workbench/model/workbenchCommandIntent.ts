@@ -1,0 +1,132 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { PendingWorkbenchCommandIntent, AppCommand } from '@shared/contracts'
+import type { UseGeneratedProjectReturn } from '@features/generated-project'
+
+export type WorkbenchCommandIntentDeps = {
+  pendingIntent: PendingWorkbenchCommandIntent | null
+  generatedProject: UseGeneratedProjectReturn
+  setWorkspaceMode: (mode: string) => void
+  setWorkspaceViewMode: (mode: 'edit' | 'preview') => void
+  navigateToPatch: (patchId: string | null) => void
+  clearPendingIntent: () => void
+}
+
+export function resolveWorkbenchOpenAssetTarget(
+  command: Extract<AppCommand, { type: 'workbench/open-asset' }>,
+  generatedProject: UseGeneratedProjectReturn,
+): { workspaceId: string; assetId: string } | null {
+  // Resolve the patch from active draft patches
+  const patch = generatedProject.activeDraft?.patches.find((p) => p.id === command.assetId)
+  if (!patch) {
+    return null
+  }
+
+  return {
+    workspaceId: patch.workspace,
+    assetId: command.assetId,
+  }
+}
+
+export function useWorkbenchCommandIntent({
+  pendingIntent: pendingIntentProp,
+  generatedProject,
+  setWorkspaceMode,
+  setWorkspaceViewMode,
+  navigateToPatch,
+  clearPendingIntent,
+}: WorkbenchCommandIntentDeps) {
+  const [consumedIntentId, setConsumedIntentId] = useState<string | null>(null)
+  const consumedIntentIdsRef = useRef(new Set<string>())
+  const loadAttemptedRef = useRef<Set<string>>(new Set())
+
+  // Track active draft changes to detect load completion
+  const prevDraftKeyRef = useRef<string | null>(null)
+
+  const consume = useCallback(
+    (intent: PendingWorkbenchCommandIntent) => {
+      const cmd = intent.command
+
+      if (cmd.type === 'navigation/open-workbench-view') {
+        if (cmd.viewId === 'studio-desk') {
+          setWorkspaceMode('mods')
+          setWorkspaceViewMode('edit')
+          navigateToPatch(null)
+        } else if (cmd.viewId === 'workspace-editor') {
+          // Preserve current workspace, switch to edit mode
+          setWorkspaceViewMode('edit')
+          navigateToPatch(null)
+        }
+        // Unsupported view ids: safe no-op (just clear intent)
+        clearPendingIntent()
+        setConsumedIntentId(intent.id)
+        return
+      }
+
+      if (cmd.type === 'workbench/open-asset') {
+        // Check if draft needs loading
+        const currentDraftKey: string | undefined = generatedProject.activeDraft?.draftStorageKey
+        const needsLoad = cmd.sourceId && cmd.sourceId !== currentDraftKey
+
+        if (needsLoad && cmd.sourceId && !loadAttemptedRef.current.has(cmd.sourceId)) {
+          loadAttemptedRef.current.add(cmd.sourceId)
+          void generatedProject.loadDraft(cmd.sourceId)
+          // Don't clear intent yet — will retry when draft loads
+          return
+        }
+
+        // Resolve the patch
+        const target = resolveWorkbenchOpenAssetTarget(cmd, generatedProject)
+        if (!target) {
+          // Missing patch: safe failure
+          clearPendingIntent()
+          setConsumedIntentId(intent.id)
+          return
+        }
+
+        setWorkspaceMode(target.workspaceId)
+        setWorkspaceViewMode('edit')
+        navigateToPatch(target.assetId)
+        clearPendingIntent()
+        setConsumedIntentId(intent.id)
+      }
+    },
+    [generatedProject, setWorkspaceMode, setWorkspaceViewMode, navigateToPatch, clearPendingIntent],
+  )
+
+  // Trigger consumption when pending intent changes
+  useEffect(() => {
+    if (!pendingIntentProp) {
+      return
+    }
+
+    // Skip if already consumed
+    if (consumedIntentIdsRef.current.has(pendingIntentProp.id)) {
+      return
+    }
+
+    const id = setTimeout(() => consume(pendingIntentProp), 0)
+    return () => clearTimeout(id)
+  }, [pendingIntentProp, consume])
+
+  // Retry open-asset consumption when activeDraft changes (draft loaded)
+  useEffect(() => {
+    const currentKey = generatedProject.activeDraft?.draftStorageKey ?? null
+    if (currentKey === prevDraftKeyRef.current) {
+      return
+    }
+    prevDraftKeyRef.current = currentKey
+
+    // If we have a pending open-asset intent, retry consumption
+    if (!pendingIntentProp || pendingIntentProp.command.type !== 'workbench/open-asset') {
+      return
+    }
+    if (consumedIntentIdsRef.current.has(pendingIntentProp.id)) {
+      return
+    }
+
+    const id = setTimeout(() => consume(pendingIntentProp), 0)
+    return () => clearTimeout(id)
+  }, [generatedProject.activeDraft, pendingIntentProp, consume])
+
+  return { consumedIntentId }
+}

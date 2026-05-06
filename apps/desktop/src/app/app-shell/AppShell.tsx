@@ -35,10 +35,11 @@ import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shar
 import { loadSettledLauncherNexusDiagnostics, syncLauncherDiagnosticsNotification } from '@features/launcher'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppEventBus } from '../providers/appEventBus'
-import { createCommandDispatcher } from '../providers/commandDispatcher'
+import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { getWorkbenchViewRegistration } from '@app/registry-setup'
+import type { PendingWorkbenchCommandIntent } from '@shared/contracts'
 import type { SettingsWindowCategory } from '@shared/contracts'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
@@ -102,16 +103,16 @@ export default function App() {
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
   const eventBus = useMemo(() => createAppEventBus(), [])
-  const commandDispatcher = useMemo(
+  const [pendingWorkbenchIntent, setPendingWorkbenchIntent] = useState<PendingWorkbenchCommandIntent | null>(null)
+  const appCommandHandler = useMemo(
     () =>
-      createCommandDispatcher((command) => {
-        if (command.type === 'navigation/open-workbench-view' || command.type === 'workbench/open-asset') {
-          setAppMode('workbench')
-        }
+      createAppCommandHandler({
+        setAppMode,
+        onPendingIntent: setPendingWorkbenchIntent,
       }),
     [],
   )
-  const workbenchOrchestration = useMemo(() => createWorkbenchOrchestration({ dispatch: commandDispatcher.dispatch }), [commandDispatcher])
+  const workbenchOrchestration = useMemo(() => createWorkbenchOrchestration({ dispatch: appCommandHandler.handleCommand }), [appCommandHandler])
 
   useEffect(() => {
     if (appMode === 'workbench') {
@@ -387,6 +388,8 @@ export default function App() {
                 onCloseWindow={() => void closeCurrentWindow()}
                 onWorkbenchEvent={eventBus.emit}
                 getWorkbenchViewRegistration={getWorkbenchViewRegistration}
+                pendingWorkbenchIntent={pendingWorkbenchIntent}
+                onClearPendingIntent={appCommandHandler.clearPendingIntent}
               />
             </Suspense>
           ) : null}
