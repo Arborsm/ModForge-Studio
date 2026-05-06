@@ -22,9 +22,10 @@ services/**/obj/
 .tmp-pywinauto-stdout.txt
 .tmp-pywinauto-stderr.txt
 .tmp/
-.tools/
+.tmp/.tools/
 *tmp*
 /obj/
 .devDocs
 .superpowers
 .claude
+.planning

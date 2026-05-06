@@ -1,258 +1,242 @@
 # ModForge Studio
 
-项目代码入口比较分散，先看这份结构地图，避免每次都重新找目录。
+ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Tauri v2 桌面工作台，用于模组创作、资源查看、Content Patcher 项目编辑、模组管理与游戏启动。
 
-## Quick Map
+当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。
+
+本文档描述的是前端重整后的当前目录。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
+
+## 目录总览
 
 ```text
 .
 ├─ apps/
-│  └─ desktop/                     # 当前主产品，桌面端前后端都在这里
-│     ├─ src/                      # React / TypeScript 前端
-│     │  ├─ components/            # UI 组件、页面、窗口
-│     │  ├─ lib/                   # 领域逻辑、状态、桌面桥接、hooks
-│     │  ├─ locales/               # 中英文文案与类型化文案结构
-│     │  ├─ styles/                # 全局样式入口与分层样式系统
-│     │  ├─ assets/                # 静态资源
-│     │  └─ test/                  # 前端共享测试、架构测试、回归测试
-│     └─ src-tauri/                # Tauri / Rust 后端
-│        ├─ src/                   # Rust 源码
-│        └─ tests/                 # Rust 集成/回归测试与共享 support
-├─ AGENTS.md                       # 仓库约束、结构规范、命令约定
-├─ package.json                    # 根脚本入口
-├─ pnpm-workspace.yaml             # pnpm workspace 包范围定义
-└─ ModForge.Studio.slnx            # 解决方案入口
+│  └─ desktop/                         # 主桌面产品
+│     ├─ src/                          # React / TypeScript 前端
+│     │  ├─ app/                       # 应用装配、Provider、全局壳层、registry setup
+│     │  │  ├─ app-shell/              # 全局 App Shell、设置窗口、应用级 chrome
+│     │  │  └─ providers/              # DI Provider、事件总线、命令分发器
+│     │  ├─ pages/                     # 页面骨架与 view 分发
+│     │  │  ├─ launcher/               # 启动器页面入口
+│     │  │  └─ workbench/              # 工作台页面入口与页面级 runtime
+│     │  │     └─ workspaces/          # 各 workspace 的 UI、model、editors、entities
+│     │  ├─ widgets/                   # 复用 smart container 与跨页面区块
+│     │  │  ├─ top-navigation/         # 顶栏与菜单
+│     │  │  └─ status-bar/             # 底部状态栏
+│     │  ├─ features/                  # 业务能力与用户工作流
+│     │  │  ├─ generated-project/      # Content Patcher 草稿构建器与 Edit Mode UI
+│     │  │  └─ launcher/               # 启动器功能 UI 与 feature-owned 行为
+│     │  ├─ entities/                  # headless 领域模型、状态、selector、查询
+│     │  │  ├─ event/
+│     │  │  ├─ map/
+│     │  │  └─ mod/
+│     │  ├─ shared/                    # 合同、纯类型、UI 原语、纯工具
+│     │  │  ├─ contracts/              # registry、events、commands、platform ports
+│     │  │  ├─ ui/                     # 无业务归属的共享 UI 与通用弹窗
+│     │  │  ├─ lib/                    # 纯工具函数
+│     │  │  └─ workspace/              # 工作台布局纯模型与 layout view
+│     │  ├─ platform/                  # 宿主 adapter 与插件注册
+│     │  │  ├─ desktop/                # 前端可见的桌面能力 facade
+│     │  │  ├─ plugins/                # 静态 workspace / editor 注册
+│     │  │  └─ tauri/                  # platform ports 的 Tauri 实现
+│     │  ├─ locales/                   # 类型化中英文文案
+│     │  ├─ styles/                    # CSS 入口与分层样式系统
+│     │  ├─ assets/                    # 静态资源
+│     │  └─ test/                      # 架构测试、回归测试、共享测试辅助
+│     └─ src-tauri/                    # Rust / Tauri 后端
+│        ├─ src/
+│        │  ├─ commands/               # Tauri command wrapper
+│        │  ├─ domain/                 # 业务 / 领域逻辑
+│        │  ├─ infrastructure/         # 格式解析、文件系统等技术细节
+│        │  ├─ support/                # 横向支撑代码
+│        │  └─ tests/                  # Rust 模块 / 单元测试
+│        └─ tests/                     # Rust 集成 / 回归测试
+├─ docs/                              # 长期维护的架构与设计文档
+├─ AGENTS.md                          # 仓库约束与 Agent 工作规则
+├─ package.json                       # 根脚本入口
+└─ pnpm-workspace.yaml                # pnpm workspace 配置
 ```
 
-## Frontend Structure
+## 前端架构方向
 
-`apps/desktop/src` 是日常最常看的目录。
+前端目标结构是 Feature-Sliced Design + Clean Architecture。
 
-- `App.tsx`: 应用总入口，负责 app mode、workspace mode、launcher shell、顶栏和全局窗口协调。
-- `components/`: 纯渲染层和窗口层。
-  - `components/launcher/`: 启动器模式页面、卡片、浮层、共享块。
-  - `components/ui/`: 通用 UI 组件。
-  - `components/WorkspaceLayout*`: 工作台布局骨架。
-- `lib/`: 逻辑层。
-  - `lib/app/`: app shell、workspace orchestration、locale context、共享状态。
-  - `lib/launcher/`: 启动器数据流、设置、下载、库管理、运行时逻辑。
-  - `lib/desktop.ts`: 前端到桌面宿主/Tauri 的桥接调用入口。
-- `locales/`: `en-US.ts`、`zh-CN.ts` 和 schema，所有 UI 文案优先从这里走。
-- `styles/`: 只有 `styles/index.css` 是样式入口。
-  - `styles/primitives/`: 基础变量、tokens、通用原语。
-  - `styles/workspace/`: 工作台、顶栏、布局相关样式。
-  - `styles/features/`: launcher、editor 等功能样式。
-- `test/`:
-  - `test/architecture/`: 架构约束测试。
-  - `test/regressions/`: 跨模块回归测试。
-  - 组件旁边的 `*.test.tsx`: 组件/模块就近测试。
+依赖方向：
 
-## Backend Structure
+```text
+app -> pages -> widgets -> features -> entities -> shared/contracts
+```
 
-`apps/desktop/src-tauri` 是桌面后端。
+`platform` 是外部 adapter 层。平台能力由 `app/providers` 注入；业务层不直接 import Tauri，也不直接调用 `invoke`。`processes` 已不在目标结构中，跨页面 / 跨 feature 的编排放进 `app/` 或对应 `features/`。
 
-- `src/main.rs`: Tauri 程序入口。
-- `src/lib.rs`: Rust 侧总装配入口，负责挂接分层模块与 Tauri handler。
-- `src/commands/`: Tauri command wrapper，仅处理命令入口、参数接线与错误包装。
-- `src/domain/`: 领域逻辑，按业务边界组织，如 launcher、content_patcher、mods、assets、saves、app_ui。
-- `src/infrastructure/`: 技术实现细节，如游戏格式解析、文件系统路径与底层工具。
-- `src/support/`: 横向支撑代码，如 logging。
-- `src/tests/`: 适合拆分出去的 Rust 单元/模块测试。
-- `tests/`: Rust 集成测试、回归测试。
-- `tests/support/`: Rust 单元测试与集成测试共用的辅助模块。
+分层职责：
 
-## Where To Edit
+- `app/`：应用装配、全局 Provider、全局壳层、启动恢复、registry setup、应用级编排。
+- `pages/`：页面骨架、view 分发、只属于单个页面的 runtime。
+- `widgets/`：组合 features、entities、shared UI 的复用 smart container。仅单页使用的复杂区块留在对应 `pages/` slice。
+- `features/`：边界稳定的用户能力，例如启动器页面、生成项目编辑、工作区编辑器。
+- `entities/`：无 UI 依赖的领域逻辑、模型、selector、解析辅助与领域状态。
+- `shared/contracts/`：registry、events、commands、platform ports 等跨层合同。
+- `shared/contracts/types/`：跨层纯类型。
+- `shared/ui/`：无业务归属的 UI 原语。
+- `platform/`：桌面 / Tauri adapter 与静态插件注册。
 
-- 做界面和交互：先看 `apps/desktop/src/components` 和 `apps/desktop/src/styles/features`。
-- 改页面状态流转：先看 `apps/desktop/src/lib/app` 或 `apps/desktop/src/lib/launcher`。
-- 改桌面命令或文件系统行为：先看 `apps/desktop/src/lib/desktop.ts`，再看 `apps/desktop/src-tauri/src`。
-- 改文案：看 `apps/desktop/src/locales/en-US.ts` 和 `apps/desktop/src/locales/zh-CN.ts`。
-- 找测试：
-  - 组件自身测试通常和文件放在一起。
-  - 全局/回归测试在 `apps/desktop/src/test`。
-  - Rust 回归测试在 `apps/desktop/src-tauri/tests`。
+## 公共 API 与 Barrel Hygiene
 
-## Feature Index
+- 优先保留 slice 级 public API，但不要把一个大 slice 的所有内容都堆进单一 `index.ts`。
+- 在已经有 slices 的层里，避免再给 segment 叠 `index.ts`，除非它真的是稳定的对外入口。
+- `shared` 以意图拆分的 segment public API 为主，避免单一巨型 `shared/index.ts`。
+- 大量 barrel 文件会拖慢开发服务器和 tree-shaking，新增出口前先判断它是不是必须的公共边界。
 
-按需求找代码时，优先从这里进，不要全仓库盲搜。
+## 功能索引
+
+### App Shell
+
+- App wrapper：`apps/desktop/src/app/App.tsx`
+- 全局壳层：`apps/desktop/src/app/app-shell/`
+- Platform Provider：`apps/desktop/src/app/providers/PlatformProvider.tsx`
+- 事件总线与命令分发：`apps/desktop/src/app/providers/`
+- 静态 registry：`apps/desktop/src/app/registry-setup.ts`
 
 ### Launcher
 
-- Launcher 总入口：`apps/desktop/src/components/launcher/LauncherShell.tsx`
-- Launcher 页面：
-  - `apps/desktop/src/components/launcher/pages/LauncherLibraryPage.tsx`
-  - `apps/desktop/src/components/launcher/pages/LauncherDiscoverPage.tsx`
-  - `apps/desktop/src/components/launcher/pages/LauncherUpdatesPage.tsx`
-  - `apps/desktop/src/components/launcher/pages/LauncherSettingsPage.tsx`
-- Launcher 卡片/浮层：
-  - `apps/desktop/src/components/launcher/cards/`
-  - `apps/desktop/src/components/launcher/shared/`
-- Launcher 状态和数据：
-  - `apps/desktop/src/lib/launcher/useLauncherRuntime.ts`
-  - `apps/desktop/src/lib/launcher/useLauncherLibrary.ts`
-  - `apps/desktop/src/lib/launcher/useLauncherDownloads.ts`
-  - `apps/desktop/src/lib/launcher/useLauncherSettings.ts`
+- 页面入口：`apps/desktop/src/pages/launcher/LauncherPage.tsx`
+- 页面级 UI：`apps/desktop/src/pages/launcher/ui/`
+- Launcher shell：`apps/desktop/src/pages/launcher/ui/LauncherShell.tsx`
+- Launcher shell 辅助 UI：`apps/desktop/src/pages/launcher/ui/`
+- Launcher feature public API：`apps/desktop/src/features/launcher/index.ts`
+- Launcher 可复用 feature UI：`apps/desktop/src/features/launcher/ui/`
+- Launcher 运行时能力：`apps/desktop/src/features/launcher/model/`
+- 顶栏：`apps/desktop/src/widgets/top-navigation/ui/TopMenuBar.tsx`
+- 状态栏：`apps/desktop/src/widgets/status-bar/ui/StatusBar.tsx`
 - Launcher 样式：`apps/desktop/src/styles/features/launcher/`
 
 ### Workbench
 
-- 顶层布局：`apps/desktop/src/components/WorkspaceLayout.tsx`
-- 顶栏：`apps/desktop/src/components/TopMenuBar.tsx`
-- workspace panel 装配：`apps/desktop/src/lib/app/workspacePanels.tsx`
-- app shell 状态：`apps/desktop/src/lib/app/appShell.ts`
-- 通用 orchestration：`apps/desktop/src/lib/app/`
+- 页面入口：`apps/desktop/src/pages/workbench/ui/WorkbenchPage.tsx`
+- 工作台 runtime 组装：`apps/desktop/src/pages/workbench/model/`
+- view host：`apps/desktop/src/pages/workbench/ui/WorkbenchViewHost.tsx`
+- layout host：`apps/desktop/src/pages/workbench/ui/WorkbenchLayoutHost.tsx`
+- workspace panels：`apps/desktop/src/pages/workbench/model/workspace-panels/` 与 `apps/desktop/src/pages/workbench/ui/workspace-panels/`
+- workspace 目录：`apps/desktop/src/pages/workbench/workspaces/`
+- 顶栏：`apps/desktop/src/widgets/top-navigation/`
+- 状态栏：`apps/desktop/src/widgets/status-bar/`
+- 工作台编排：`apps/desktop/src/app/providers/workbenchOrchestration.ts`
 - 工作台样式：`apps/desktop/src/styles/workspace/`
 
-### Module Workspaces
+### 领域工作区
 
-- Map: `apps/desktop/src/lib/app/useMapWorkspace.ts`
-- Events: `apps/desktop/src/lib/app/useEventWorkspace.ts`
-- Characters: `apps/desktop/src/lib/app/useCharacterWorkspace.ts`
-- Buildings: `apps/desktop/src/lib/app/useBuildingWorkspace.ts`
-- Items: `apps/desktop/src/lib/app/useItemWorkspace.ts`
-- Mods: `apps/desktop/src/lib/app/useModWorkspace.ts`
-
-对应的渲染组件通常在 `apps/desktop/src/components/` 下按功能拆分，先从 workspace hook 找状态入口，再顺着组件引用看 UI。
+- 地图领域：`apps/desktop/src/entities/map/`
+- 事件领域：`apps/desktop/src/entities/event/`
+- 事件工作区：`apps/desktop/src/pages/workbench/workspaces/event-stage/`
+- 地图工作区：`apps/desktop/src/pages/workbench/workspaces/map/`
+- 角色工作区：`apps/desktop/src/pages/workbench/workspaces/character/`
+- 建筑工作区：`apps/desktop/src/pages/workbench/workspaces/building/`
+- 物品工作区：`apps/desktop/src/pages/workbench/workspaces/item/`
+- 模组工作区：`apps/desktop/src/pages/workbench/workspaces/mod/`
+- 图像补丁编辑器：`apps/desktop/src/pages/workbench/workspaces/image-patch/`
+- 模组领域：`apps/desktop/src/entities/mod/`
+- 工作区编辑器：`apps/desktop/src/pages/workbench/workspaces/*/editors/`
+- 工作区 panel 组装：`apps/desktop/src/pages/workbench/model/workspace-panels/` 与 `apps/desktop/src/pages/workbench/ui/workspace-panels/`
 
 ### Generated Project Builder
 
-- Edit Mode UI 设计：`docs/design-edit-mode-redesign.md`
-- Studio Desk 总入口：`apps/desktop/src/components/generated-project/StudioDesk.tsx`
-- Studio Desk 项目大厅：`apps/desktop/src/components/generated-project/StudioDeskProjectGallery.tsx`
-- Studio Desk 左/中/右区域：`StudioDeskStoryboard.tsx`、`StudioDeskMainStage.tsx`、`StudioDeskWorldBible.tsx`
-- Studio Desk 数据选择器：`apps/desktop/src/lib/app/studioDeskModel.ts`
-- Edit Mode 路由判断：`apps/desktop/src/lib/app/editModeRoute.ts`
-- Edit Mode 工作区壳层：`apps/desktop/src/components/generated-project/EditModeShell.tsx`
-- Patch 列表与快捷切换：`PatchListPage.tsx`、`PatchQuickMenu.tsx`、`PatchSummaryCard.tsx`
-- 工作区编辑器注册：`apps/desktop/src/lib/plugins/workspaceRegistry.ts`、`apps/desktop/src/lib/plugins/builtInWorkspaces.ts`
-- 具体编辑器：`apps/desktop/src/components/event-workflow/EventPatchEditor.tsx`、`map-workflow/MapPatchEditor.tsx`、`image-workflow/ImagePatchEditor.tsx`
-- 草稿生命周期与 Content Patcher 输出构建：`apps/desktop/src/lib/app/useGeneratedProject.ts`
-- 生成项目草稿/导出后端：`apps/desktop/src-tauri/src/domain/generated_project/`
-- 生成项目桌面桥接入口：`apps/desktop/src/lib/desktop.ts`
+- feature public API：`apps/desktop/src/features/generated-project/index.ts`
+- 状态与草稿生命周期：`apps/desktop/src/features/generated-project/state/`
+- 路由辅助：`apps/desktop/src/features/generated-project/routing/`
+- Studio Desk、Edit Workspace Content 与 Edit Mode UI：`apps/desktop/src/features/generated-project/ui/`
+- 模型辅助：`apps/desktop/src/features/generated-project/model/`
+- 后端生成项目领域：`apps/desktop/src-tauri/src/domain/generated_project/`
 
-如果要改 generated-project 预览或导出，不要从 `useModWorkspace.ts` 盲跳开始。先看 `useGeneratedProject.ts` 里的 draft、`manifest.json`、`content.json` 构建路径，再看 `components/generated-project/` 的 UI 组合，最后进 `src-tauri/src/domain/generated_project/` 看桌面导出实现。
+### Desktop 与 Platform
 
-### Desktop Bridge
+- platform contracts：`apps/desktop/src/shared/contracts/platform.ts`
+- Tauri adapter：`apps/desktop/src/platform/tauri/`
+- Desktop facade：`apps/desktop/src/platform/desktop/`
+- 插件注册：`apps/desktop/src/platform/plugins/`
+- App 注入入口：`apps/desktop/src/app/providers/`
+- Rust command wrapper：`apps/desktop/src-tauri/src/commands/`
+- Rust domain：`apps/desktop/src-tauri/src/domain/`
 
-- 前端桥接入口：`apps/desktop/src/lib/desktop.ts`
-- Rust Tauri 入口：`apps/desktop/src-tauri/src/main.rs`
-- Rust command wrappers：`apps/desktop/src-tauri/src/commands/`
-- Rust domain 逻辑：
-  - `apps/desktop/src-tauri/src/domain/launcher/`
-  - `apps/desktop/src-tauri/src/domain/content_patcher/`
-  - `apps/desktop/src-tauri/src/domain/mods/`
-  - `apps/desktop/src-tauri/src/domain/assets/`
-- Rust infrastructure：
-  - `apps/desktop/src-tauri/src/infrastructure/game_formats/`
-  - `apps/desktop/src-tauri/src/infrastructure/fs/`
-- Rust support：`apps/desktop/src-tauri/src/support/`
-- Rust test support：`apps/desktop/src-tauri/tests/support/`
+### 文案与样式
 
-### Copy And Locales
-
+- 文案 schema：`apps/desktop/src/locales/schema.ts`
 - 英文文案：`apps/desktop/src/locales/en-US.ts`
 - 中文文案：`apps/desktop/src/locales/zh-CN.ts`
-- 文案类型结构：`apps/desktop/src/locales/schema.ts`
-- locale context：`apps/desktop/src/lib/app/localeContext.tsx`
+- CSS 总入口：`apps/desktop/src/styles/index.css`
+- 基础样式原语：`apps/desktop/src/styles/primitives/`
+- 工作台样式：`apps/desktop/src/styles/workspace/`
+- feature 样式：`apps/desktop/src/styles/features/`
 
-### Styles
+### 测试
 
-- 总入口：`apps/desktop/src/styles/index.css`
-- primitives：基础 token、变量、原语
-- workspace：工作台与公共布局
-- features：按功能页面拆分
+- 架构测试：`apps/desktop/src/test/architecture/`
+- 回归测试：`apps/desktop/src/test/regressions/`
+- 前端共享测试辅助：`apps/desktop/src/test/`
+- Rust 模块测试：`apps/desktop/src-tauri/src/tests/`
+- Rust 集成测试：`apps/desktop/src-tauri/tests/`
 
-如果要改视觉，先确认样式是在 `workspace` 还是 `features`，不要两个目录来回加重复规则。
+## 常见改动路径
 
-### Tests
-
-- 组件就近测试：和组件文件同目录的 `*.test.tsx`
-- 前端架构测试：`apps/desktop/src/test/architecture/`
-- 前端回归测试：`apps/desktop/src/test/regressions/`
-- Rust 测试共享 support：`apps/desktop/src-tauri/tests/support/`
-- Rust 模块/单元测试：`apps/desktop/src-tauri/src/tests/`
-- Rust 集成/回归测试：`apps/desktop/src-tauri/tests/`
-
-## Common Change Paths
-
-下面这些是高频改动的最短路径。
-
-- 改 launcher 顶栏、下载、模式切换：
-  - `apps/desktop/src/components/TopMenuBar.tsx`
-  - `apps/desktop/src/components/launcher/LauncherShell.tsx`
-  - `apps/desktop/src/styles/workspace/top-menu.css`
+- 改应用启动、模式恢复、全局设置、Provider：
+  - `apps/desktop/src/app/app-shell/`
+  - `apps/desktop/src/app/providers/`
+  - `apps/desktop/src/app/App.tsx`
+- 改 registry、view 分发、workspace 注册：
+  - `apps/desktop/src/app/registry-setup.ts`
+  - `apps/desktop/src/shared/contracts/registry.ts`
+  - `apps/desktop/src/platform/plugins/`
+- 改 Launcher UI：
+  - `apps/desktop/src/pages/launcher/`
+  - `apps/desktop/src/features/launcher/`
   - `apps/desktop/src/styles/features/launcher/`
-- 改 launcher library 卡片、详情、筛选、模组包：
-  - `apps/desktop/src/components/launcher/pages/LauncherLibraryPage.tsx`
-  - `apps/desktop/src/components/launcher/cards/LauncherModCard.tsx`
-  - `apps/desktop/src/components/launcher/cards/LauncherModDetailPanel.tsx`
-  - `apps/desktop/src/lib/launcher/useLauncherLibrary.ts`
-- 改 launcher 设置自动检测、目录读写：
-  - `apps/desktop/src/lib/launcher/useLauncherSettings.ts`
-  - `apps/desktop/src/lib/launcher/useLauncherRuntime.ts`
-  - `apps/desktop/src/lib/desktop.ts`
-  - `apps/desktop/src-tauri/src/commands/launcher.rs`
-  - `apps/desktop/src-tauri/src/domain/launcher/`
-- 改 app mode、默认进入页、壳层状态：
-  - `apps/desktop/src/App.tsx`
-  - `apps/desktop/src/lib/app/appShell.ts`
-- 改桌面命令或文件系统行为：
-  - `apps/desktop/src/lib/desktop.ts`
+- 改工作台布局或 panel：
+  - `apps/desktop/src/pages/workbench/`
+  - `apps/desktop/src/shared/workspace/`
+  - `apps/desktop/src/shared/contracts/types/`
+- 改 workspace editor 行为：
+  - `apps/desktop/src/pages/workbench/workspaces/*/editors/`
+  - `apps/desktop/src/pages/workbench/workspaces/*/entities/`
+  - `apps/desktop/src/entities/<domain>/`
+  - `apps/desktop/src/pages/workbench/model/workspace-panels/`
+- 改 generated-project 草稿、编辑、预览、导出：
+  - `apps/desktop/src/features/generated-project/`
+  - `apps/desktop/src-tauri/src/domain/generated_project/`
+- 改平台、文件系统、桌面能力：
+  - `apps/desktop/src/shared/contracts/platform.ts`
+  - `apps/desktop/src/platform/tauri/`
+  - `apps/desktop/src/platform/desktop/`
   - `apps/desktop/src-tauri/src/commands/`
   - `apps/desktop/src-tauri/src/domain/`
-  - `apps/desktop/src-tauri/src/infrastructure/`
-- 改 Studio Desk 项目大厅、世界百科、Edit Mode 项目首页：
-  - `docs/design-edit-mode-redesign.md`
-  - `apps/desktop/src/components/generated-project/StudioDesk.tsx`
-  - `apps/desktop/src/components/generated-project/StudioDeskProjectGallery.tsx`
-  - `apps/desktop/src/components/generated-project/StudioDeskStoryboard.tsx`
-  - `apps/desktop/src/components/generated-project/StudioDeskMainStage.tsx`
-  - `apps/desktop/src/components/generated-project/StudioDeskWorldBible.tsx`
-  - `apps/desktop/src/lib/app/studioDeskModel.ts`
-  - `apps/desktop/src/styles/features/generated-project-edit.css`
-- 改 generated-project patch 编辑、预览、导出、草稿同步：
-  - `apps/desktop/src/components/generated-project/`
-  - `apps/desktop/src/lib/app/studioDeskModel.ts`
-  - `apps/desktop/src/lib/app/useGeneratedProject.ts`
-  - `apps/desktop/src/lib/plugins/workspaceRegistry.ts`
-  - `apps/desktop/src/lib/plugins/builtInWorkspaces.ts`
-  - `apps/desktop/src/lib/desktop.ts`
-  - `apps/desktop/src-tauri/src/domain/generated_project/`
 - 改文案：
+  - `apps/desktop/src/locales/schema.ts`
   - `apps/desktop/src/locales/en-US.ts`
   - `apps/desktop/src/locales/zh-CN.ts`
 
-## Maintenance Rule
-
-如果你新增了：
-
-- 新的顶层目录
-- 新的重要功能目录
-- 会改变开发者“该去哪里找代码”的新文件或文件夹
-
-就同步更新这份 `README.md` 的 `Quick Map`、`Feature Index` 或 `Common Change Paths`，不要让结构文档过期。
-
-## Common Commands
+## 常用命令
 
 从仓库根目录运行。
 
-- `uv run pnpm dev`: 仅前端开发。
-- `uv run pnpm desktop:dev`: 启动完整桌面应用。
-- `uv run pnpm lint`: 前端 lint。
-- `uv run pnpm --filter @modforge/desktop test`: 前端测试。
-- `uv run pnpm build`: 前端构建。
-- `uv run pnpm -r list --depth -1`: 检查 pnpm workspace 是否正确识别根包和各子包。
-- `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`: Rust 检查。
-- `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`: Rust 测试。
+- `uv run pnpm dev`：启动前端开发服务器。
+- `uv run pnpm desktop:dev`：启动完整 Tauri 桌面应用。
+- `uv run pnpm lint`：前端 lint。
+- `uv run pnpm build`：前端构建。
+- `uv run pnpm --filter @modforge/desktop test`：前端测试。
+- `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 检查。
+- `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 测试。
 
-## First Files To Read
-
-如果是第一次接手这个仓库，建议按这个顺序看：
+## 首次接手建议阅读顺序
 
 1. `AGENTS.md`
-2. `README.md`
-3. `apps/desktop/src/App.tsx`
-4. `apps/desktop/src/components/TopMenuBar.tsx`
-5. `apps/desktop/src/components/launcher/LauncherShell.tsx`
-6. `apps/desktop/src/lib/app/`
-7. `apps/desktop/src/lib/launcher/`
+2. `docs/frontend-architecture.md`
+3. `apps/desktop/src/app/App.tsx`
+4. `apps/desktop/src/app/app-shell/`
+5. `apps/desktop/src/app/registry-setup.ts`
+6. `apps/desktop/src/pages/launcher/LauncherPage.tsx`
+7. `apps/desktop/src/pages/workbench/WorkbenchPage.tsx`
+8. `apps/desktop/src/pages/workbench/model/workspace-panels/`
+9. `apps/desktop/src/platform/tauri/`
+
+## 维护规则
+
+新增顶层目录、重要功能目录，或会改变开发者找代码路径的新入口时，同步更新本 README。README 应描述目标架构，不记录迁移期残留入口。
