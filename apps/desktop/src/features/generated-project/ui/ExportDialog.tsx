@@ -13,6 +13,7 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ open, copy, draftName, fileList, onClose, onExport }: ExportDialogProps) {
+  const port = useGeneratedProjectPort()
   const [outputPath, setOutputPath] = useState('')
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +21,6 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
   if (!open) return null
 
   async function handleSelectDirectory() {
-    const port = useGeneratedProjectPort()
     const selected = await port.chooseDirectory(copy.selectDirectory)
     if (selected) {
       setOutputPath(selected)

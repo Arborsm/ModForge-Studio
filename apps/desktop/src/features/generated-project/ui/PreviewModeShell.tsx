@@ -158,7 +158,7 @@ export function PreviewModeShell({
     }
 
     void scanResources()
-  }, [gameRootPath, directoryInfo, locale, workspaceMode])
+  }, [gameRootPath, directoryInfo, locale, workspaceMode, port])
 
   // Load selected resource content
   useEffect(() => {
@@ -260,7 +260,7 @@ export function PreviewModeShell({
     return () => {
       cancelled = true
     }
-  }, [workspaceMode, selectedResource, gameRootPath, directoryInfo, locale])
+  }, [workspaceMode, selectedResource, gameRootPath, directoryInfo, locale, port])
 
   const visibleLayerIds = useMemo(
     () => mapDocument?.layers.map((l) => l.id) ?? [],

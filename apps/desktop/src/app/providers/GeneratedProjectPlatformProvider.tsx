@@ -1,5 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
-import { usePlatformPorts } from './usePlatformPorts'
+import { type ReactNode } from 'react'
 import { createGeneratedProjectPortAdapter } from './generatedProjectPortAdapter'
 import { GeneratedProjectProvider } from '@features/generated-project'
 
@@ -8,12 +7,7 @@ export type GeneratedProjectPlatformProviderProps = {
 }
 
 export function GeneratedProjectPlatformProvider({ children }: GeneratedProjectPlatformProviderProps) {
-  const platformPorts = usePlatformPorts()
-
-  const port = useMemo(
-    () => createGeneratedProjectPortAdapter(platformPorts),
-    [platformPorts],
-  )
+  const port = createGeneratedProjectPortAdapter()
 
   return <GeneratedProjectProvider port={port}>{children}</GeneratedProjectProvider>
 }

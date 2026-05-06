@@ -1,4 +1,3 @@
-import type { PlatformPorts } from '@shared/contracts'
 import type { GeneratedProjectPort } from '@features/generated-project'
 import {
   listGeneratedProjectDrafts,
@@ -17,7 +16,7 @@ import {
   loadImageDataUrl,
 } from '@platform/desktop'
 
-export function createGeneratedProjectPortAdapter(_platformPorts: PlatformPorts): GeneratedProjectPort {
+export function createGeneratedProjectPortAdapter(): GeneratedProjectPort {
   return {
     // Draft CRUD
     listDrafts: () => listGeneratedProjectDrafts(),

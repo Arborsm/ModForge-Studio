@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this file intentionally exports both a component and a hook */
 import { createContext, useContext, type ReactNode } from 'react'
 import type { GeneratedProjectPort } from './generatedProjectPort'
 
