@@ -1,7 +1,7 @@
 import { Activity } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import type { DiagnosticsPanelProps } from './shared'
+import type { DiagnosticsPanelProps } from '../common/rightShared'
 
 export function DiagnosticsPanel({
   directoryInfo,

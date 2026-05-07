@@ -685,6 +685,10 @@ describe('frontend module architecture', () => {
     'pages/workbench/ui/PlayerAppearanceWindow.tsx',
     'pages/workbench/ui/WorkbenchExperience.tsx',
     'pages/workbench/workspaces/building/state/useBuildingWorkspace.ts',
+    'pages/workbench/workspaces/building/state/buildingTextLocalization.ts',
+    'pages/workbench/workspaces/building/state/buildingObjectDisplay.ts',
+    'pages/workbench/workspaces/building/state/buildingWorldEntries.ts',
+    'pages/workbench/workspaces/building/state/buildingTextureAssets.ts',
     'pages/workbench/workspaces/character/state/useCharacterWorkspace.ts',
     'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
     'pages/workbench/workspaces/event-stage/state/audioPreview.ts',
@@ -735,6 +739,42 @@ describe('frontend module architecture', () => {
       expect(unclassified).toEqual([])
     },
     30000,
+  )
+
+
+
+  it(
+    'rejects page-specific workbench panel source files under dock-side folder names',
+    async () => {
+      const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
+      const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
+
+      let panelsDir
+      try {
+        panelsDir = await readdir(panelsRoot, { withFileTypes: true })
+      } catch {
+        return
+      }
+
+      const violations: string[] = []
+
+      for (const entry of panelsDir) {
+        if (!entry.isDirectory()) {
+          continue
+        }
+
+        if (allowedDomainFolders.has(entry.name)) {
+          continue
+        }
+
+        violations.push(
+          'workspace-panels/' + entry.name + ' is not an allowed domain folder. Allowed: ' + Array.from(allowedDomainFolders).join(', '),
+        )
+      }
+
+      expect(violations).toEqual([])
+    },
+    10000,
   )
 
 })

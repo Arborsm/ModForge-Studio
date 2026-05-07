@@ -9,7 +9,7 @@ import {
   rankObjectForPreview,
   type ObjectGroupListItem,
   type ObjectGroupsPanelProps,
-} from './shared'
+} from '../common/rightShared'
 
 export function ObjectGroupsPanel({
   mapDocument,

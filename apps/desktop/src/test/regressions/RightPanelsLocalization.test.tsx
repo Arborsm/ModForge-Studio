@@ -2,9 +2,9 @@ import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import { renderWithLocale } from '../renderWithLocale'
-import { DiagnosticsPanel } from '@pages/workbench/ui/workspace-panels/right/DiagnosticsPanel.tsx'
-import { InspectorPanel } from '@pages/workbench/ui/workspace-panels/right/InspectorPanel.tsx'
-import { LayersPanel } from '@pages/workbench/ui/workspace-panels/right/LayersPanel.tsx'
+import { DiagnosticsPanel } from '@pages/workbench/ui/workspace-panels/map/DiagnosticsPanel.tsx'
+import { InspectorPanel } from '@pages/workbench/ui/workspace-panels/map/InspectorPanel.tsx'
+import { LayersPanel } from '@pages/workbench/ui/workspace-panels/map/LayersPanel.tsx'
 
 describe('right panels localization ownership', () => {
   it('reads shell copy from LocaleProvider instead of requiring copy props', () => {

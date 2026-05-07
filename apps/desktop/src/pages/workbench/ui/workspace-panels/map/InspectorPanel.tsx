@@ -1,7 +1,7 @@
 import { Settings2 } from 'lucide-react'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { useEditorCopy } from '@locales/localeContext'
-import type { InspectorPanelProps } from './shared'
+import type { InspectorPanelProps } from '../common/rightShared'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 
 export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }: InspectorPanelProps) {

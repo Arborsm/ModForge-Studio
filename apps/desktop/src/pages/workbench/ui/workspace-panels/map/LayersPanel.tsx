@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { GroupedVisibilityList } from './VisibilityList'
-import { getVisibilityGroupLabel, type LayersPanelProps, type VisibilityListItem } from './shared'
+import { getVisibilityGroupLabel, type LayersPanelProps, type VisibilityListItem } from '../common/rightShared'
 
 export function LayersPanel({
   mapDocument,

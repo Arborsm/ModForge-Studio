@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import type { FocusedMapObjectTarget } from '@shared/contracts'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
-import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag, type ObjectGroupListItem } from './shared'
+import { formatObjectPreviewMeta, getObjectDisplayName, getObjectInteractionTag, type ObjectGroupListItem } from '../common/rightShared'
 
 type ObjectGroupListVariant = 'panel' | 'dock'
 

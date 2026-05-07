@@ -4,7 +4,7 @@ import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
-import { formatBytes, getAssetGroupLabel, type AssetBrowserPanelProps } from './shared'
+import { formatBytes, getAssetGroupLabel, type AssetBrowserPanelProps } from '../common/leftShared'
 
 export function AssetBrowserPanel({
   mapAssets,

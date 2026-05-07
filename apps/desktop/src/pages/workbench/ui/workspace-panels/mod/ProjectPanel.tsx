@@ -1,7 +1,7 @@
 import { useEditorCopy } from '@locales/localeContext'
 import { getWorkspaceModeLabel } from '@locales/editor-shell'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import type { ProjectPanelProps } from './shared'
+import type { ProjectPanelProps } from '../common/leftShared'
 
 export function ProjectPanel({
   locale,
