@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
-import { resolveLauncherImage, toDesktopAssetUrl } from '@platform/desktop'
 import { createResourceCache } from '@shared/lib/resources'
+import { useLauncherPort } from '@features/launcher'
+import type { LauncherPort } from './launcherPort'
 
 const launcherImageCache = createResourceCache<string>({
   maxEntries: 96,
 })
 
-export async function loadLauncherImageUrl(url: string, refresh = false) {
+export async function loadLauncherImageUrl(url: string, launcherPort: LauncherPort, refresh = false) {
   if (refresh) {
     launcherImageCache.invalidate(url)
   }
 
   return launcherImageCache.load(url, async () => {
-    const result = await resolveLauncherImage({ url, refresh })
+    const result = await launcherPort.resolveImage({ url, refresh })
 
     return {
-      value: toDesktopAssetUrl(result.localPath),
+      value: launcherPort.toDesktopAssetUrl(result.localPath),
     }
   })
 }
@@ -29,48 +30,41 @@ function getCachedLauncherImageUrl(url: string | null) {
 }
 
 export function useLauncherImage(url: string | null) {
+  const launcherPort = useLauncherPort()
   const cachedImageUrl = useMemo(() => getCachedLauncherImageUrl(url), [url])
   const [loadedImage, setLoadedImage] = useState<{ url: string; imageUrl: string } | null>(null)
   const [loadError, setLoadError] = useState<{ url: string; error: string } | null>(null)
 
   useEffect(() => {
     let active = true
+
     if (!url || cachedImageUrl) {
       return () => {
         active = false
       }
     }
 
-    void loadLauncherImageUrl(url)
-      .then((value) => {
-        if (!active) {
-          return
-        }
-        setLoadedImage({ url, imageUrl: value })
-        setLoadError(null)
-      })
-      .catch((nextError) => {
-        if (!active) {
-          return
-        }
-        setLoadError({
-          url,
-          error: nextError instanceof Error ? nextError.message : 'Failed to load image.',
-        })
-      })
+    void loadLauncherImageUrl(url, launcherPort).then((result) => {
+      if (active) {
+        setLoadedImage({ url, imageUrl: result })
+      }
+    }).catch((error: unknown) => {
+      if (active) {
+        setLoadError({ url, error: error instanceof Error ? error.message : 'Image load failed' })
+      }
+    })
 
     return () => {
       active = false
     }
-  }, [cachedImageUrl, url])
+  }, [url, cachedImageUrl, launcherPort])
 
-  const imageUrl = cachedImageUrl ?? (url && loadedImage?.url === url ? loadedImage.imageUrl : null)
-  const error = url && !cachedImageUrl && loadError?.url === url ? loadError.error : null
-  const loading = Boolean(url && !cachedImageUrl && !imageUrl && !error)
+  const imageUrl = cachedImageUrl ?? (loadedImage?.url === url ? loadedImage.imageUrl : null)
+  const error = loadError?.url === url ? loadError : null
 
   return {
-    imageUrl: url ? imageUrl : null,
-    error: url ? error : null,
-    loading: url ? loading : false,
+    imageUrl,
+    loading: url !== null && !cachedImageUrl && !imageUrl && !error,
+    error,
   }
 }

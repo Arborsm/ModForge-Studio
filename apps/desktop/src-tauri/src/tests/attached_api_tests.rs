@@ -1,5 +1,4 @@
 use crate::domain::content_patcher::attached::load_attached_api_registry;
-use crate::domain::modding::attached_api as domain_attached_api;
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 
 #[test]
@@ -47,7 +46,7 @@ fn from_test_descriptors_registers_compatible_ids_and_asset_kinds() {
 
 #[test]
 fn domain_attached_api_registry_preserves_existing_registration_behavior() {
-    let registry = domain_attached_api::AttachedApiRegistry::from_test_descriptors(&[(
+    let registry = AttachedApiRegistry::from_test_descriptors(&[(
         "Arborsm.ScaleUpUnofficial",
         &["Platonymous.ScaleUp"],
         &[("PreviewTexture", "image")],

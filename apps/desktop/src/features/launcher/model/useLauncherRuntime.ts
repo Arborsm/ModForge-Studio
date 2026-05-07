@@ -1,8 +1,8 @@
-import type { LauncherSettings } from '@platform/desktop'
+import type { LauncherSettings } from './launcherContracts'
 import type { LocaleCode } from '@locales/editor-shell'
-import { useLauncherDownloads } from './useLauncherDownloads'
+import { useLauncherDownloads } from '@features/launcher'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
-import { useLauncherSettings } from './useLauncherSettings'
+import { useLauncherSettings } from '@features/launcher'
 
 export type LauncherWarningState = {
   missingGamePath: boolean

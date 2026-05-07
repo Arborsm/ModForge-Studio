@@ -12,15 +12,15 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from 'react'
-import { getObjectInteractionTag } from '../lib/mapObjectHelpers'
+import { getObjectInteractionTag } from '@entities/map'
 import { resolveTilesetImagePath } from '../lib/assets'
 import {
   FLIPPED_DIAGONALLY_FLAG,
   FLIPPED_HORIZONTALLY_FLAG,
   FLIPPED_VERTICALLY_FLAG,
   stripTileGidFlags,
-} from '../lib/tileFlags'
-import { findTilesetForGid } from '../lib/tilesets'
+} from '@entities/map'
+import { findTilesetForGid } from '@entities/map'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '@shared/lib/maps'

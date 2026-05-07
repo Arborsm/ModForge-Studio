@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '../../pages/workbench/workspaces/building'
+import type { BuildingWorkspaceEntry, ConstructibleBuildingGroup } from '@pages/workbench/workspaces/building'
 import { editorCopy } from '@locales/editor-shell'
 import { AssetBrowserPanel } from '@pages/workbench/ui/workspace-panels/left/AssetBrowserPanel.tsx'
 import { BuildingBrowserPanel } from '@pages/workbench/ui/workspace-panels/left/BuildingBrowserPanel.tsx'

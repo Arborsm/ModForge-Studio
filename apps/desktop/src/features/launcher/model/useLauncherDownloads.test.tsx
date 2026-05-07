@@ -1,32 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LauncherSettings } from '@platform/desktop'
-import {
-  checkLauncherUpdates,
-  downloadLauncherMod,
-  installLauncherArchive,
-  loadLauncherDownloadQueue,
-  saveLauncherDownloadQueue,
-} from '@platform/desktop'
-import { useLauncherDownloads } from './useLauncherDownloads'
-
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
-  return {
-    ...actual,
-    checkLauncherUpdates: vi.fn(),
-    loadLauncherDownloadQueue: vi.fn(),
-    saveLauncherDownloadQueue: vi.fn(),
-    downloadLauncherMod: vi.fn(),
-    installLauncherArchive: vi.fn(),
-  }
-})
-
-const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
-const downloadLauncherModMock = vi.mocked(downloadLauncherMod)
-const installLauncherArchiveMock = vi.mocked(installLauncherArchive)
-const loadLauncherDownloadQueueMock = vi.mocked(loadLauncherDownloadQueue)
-const saveLauncherDownloadQueueMock = vi.mocked(saveLauncherDownloadQueue)
+import { useLauncherDownloads } from '@features/launcher'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from './launcherPort'
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -42,6 +21,12 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
   }
 }
 
+function createWrapper(port: LauncherPort) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <LauncherTestWrapper port={port}>{children}</LauncherTestWrapper>
+  }
+}
+
 describe('useLauncherDownloads', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -49,7 +34,8 @@ describe('useLauncherDownloads', () => {
   })
 
   it('loads the persisted launcher queue from desktop storage', async () => {
-    loadLauncherDownloadQueueMock.mockResolvedValue({
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({
       items: [
         {
           id: 'persisted-job',
@@ -66,11 +52,11 @@ describe('useLauncherDownloads', () => {
           completedAt: null,
         },
       ],
+      }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
     })
-    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
 
-    const { result } = renderHook(() => useLauncherDownloads(createSettings()))
-
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.items).toHaveLength(1)
     })
@@ -78,13 +64,14 @@ describe('useLauncherDownloads', () => {
   })
 
   it('persists queue changes through the desktop bridge instead of browser storage', async () => {
-    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
-    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
 
-    const { result } = renderHook(() => useLauncherDownloads(createSettings()))
-
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
     await waitFor(() => {
-      expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
     })
 
     act(() => {
@@ -97,9 +84,9 @@ describe('useLauncherDownloads', () => {
     })
 
     await waitFor(() => {
-      expect(saveLauncherDownloadQueueMock).toHaveBeenCalled()
+      expect(port.saveDownloadQueue).toHaveBeenCalled()
     })
-    expect(saveLauncherDownloadQueueMock).toHaveBeenLastCalledWith({
+    expect(port.saveDownloadQueue).toHaveBeenLastCalledWith({
       items: [
         expect.objectContaining({
           modId: 101,
@@ -114,16 +101,17 @@ describe('useLauncherDownloads', () => {
 
   it('simulates a 10 second debug download at 2 MB/s and exposes aggregate progress', async () => {
     vi.useFakeTimers()
-    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
-    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
 
-    const { result } = renderHook(() => useLauncherDownloads(createSettings()))
-
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
     await act(async () => {
       await Promise.resolve()
     })
 
-    expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+    expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
 
     act(() => {
       result.current.startDebugSimulation()
@@ -171,9 +159,10 @@ describe('useLauncherDownloads', () => {
   })
 
   it('does not reinstall downloads already auto-installed by the desktop bridge', async () => {
-    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
-    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
-    downloadLauncherModMock.mockResolvedValue({
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockResolvedValue({
       modId: 101,
       title: 'NPC Adventures',
       version: '1.2.0',
@@ -181,11 +170,12 @@ describe('useLauncherDownloads', () => {
       archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
       installed: true,
       installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
-    })
-    checkLauncherUpdatesMock.mockResolvedValue({
+      }),
+      checkUpdates: vi.fn().mockResolvedValue({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       checkedAtMs: 1,
       updates: [],
+      }),
     })
 
     const { result } = renderHook(() =>
@@ -195,10 +185,11 @@ describe('useLauncherDownloads', () => {
           autoInstallDownloads: true,
         }),
       ),
+      { wrapper: createWrapper(port) },
     )
 
     await waitFor(() => {
-      expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
     })
 
     act(() => {
@@ -215,22 +206,24 @@ describe('useLauncherDownloads', () => {
       expect(result.current.installedItems).toHaveLength(1)
     })
 
-    expect(installLauncherArchiveMock).not.toHaveBeenCalled()
+    expect(port.installArchive).not.toHaveBeenCalled()
     expect(result.current.installedItems[0]).toEqual(
       expect.objectContaining({
         status: 'installed',
         installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
       }),
     )
-    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+    expect(port.checkUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       forceRefresh: false,
     })
   })
 
   it('marks cookie-only downloads as failed before calling the backend', async () => {
-    loadLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
-    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
 
     const { result } = renderHook(() =>
       useLauncherDownloads(
@@ -238,10 +231,11 @@ describe('useLauncherDownloads', () => {
           nexusCookie: 'sid=abc123',
         }),
       ),
+      { wrapper: createWrapper(port) },
     )
 
     await waitFor(() => {
-      expect(loadLauncherDownloadQueueMock).toHaveBeenCalledTimes(1)
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
     })
 
     act(() => {
@@ -258,7 +252,7 @@ describe('useLauncherDownloads', () => {
       expect(result.current.failedItems).toHaveLength(1)
     })
 
-    expect(downloadLauncherModMock).not.toHaveBeenCalled()
+    expect(port.downloadMod).not.toHaveBeenCalled()
     expect(result.current.failedItems[0]).toEqual(
       expect.objectContaining({
         status: 'failed',
@@ -268,7 +262,8 @@ describe('useLauncherDownloads', () => {
   })
 
   it('captures install failures in queue state and preserves the archive for retrying install', async () => {
-    loadLauncherDownloadQueueMock.mockResolvedValue({
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({
       items: [
         {
           id: 'persisted-job',
@@ -285,9 +280,10 @@ describe('useLauncherDownloads', () => {
           completedAt: 2,
         },
       ],
+      }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      installArchive: vi.fn().mockRejectedValue(new Error('Archive missing')),
     })
-    saveLauncherDownloadQueueMock.mockResolvedValue({ items: [] })
-    installLauncherArchiveMock.mockRejectedValue(new Error('Archive missing'))
 
     const { result } = renderHook(() =>
       useLauncherDownloads(
@@ -295,6 +291,7 @@ describe('useLauncherDownloads', () => {
           nexusApiKey: 'api-key',
         }),
       ),
+      { wrapper: createWrapper(port) },
     )
 
     await waitFor(() => {
@@ -316,6 +313,6 @@ describe('useLauncherDownloads', () => {
         error: 'Archive missing',
       }),
     )
-    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(port.checkUpdates).not.toHaveBeenCalled()
   })
 })

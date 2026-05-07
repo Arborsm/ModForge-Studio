@@ -2,7 +2,9 @@ import { fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { LauncherSettings } from '@platform/desktop'
-import { renderWithLocale } from '../../../../test/renderWithLocale'
+import type { ReactElement } from 'react'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherSettingsForm } from './LauncherSettingsForm'
 
 const copy = editorCopy['zh-CN'].launcher
@@ -40,10 +42,14 @@ describe('LauncherSettingsForm', () => {
     vi.clearAllMocks()
   })
 
+  function renderWithLauncher(ui: ReactElement) {
+    return renderWithLocale(<LauncherTestWrapper>{ui}</LauncherTestWrapper>, 'zh-CN')
+  }
+
   it('renders the launcher controls and localized copy', () => {
     const settingsState = createSettingsState()
 
-    renderWithLocale(<LauncherSettingsForm settingsState={settingsState} />, 'zh-CN')
+    renderWithLauncher(<LauncherSettingsForm settingsState={settingsState} />)
 
     expect(screen.getByText(copy.settings.pathsTitle)).toBeTruthy()
     expect(screen.getByText(copy.settings.nexusAccessTitle)).toBeTruthy()
@@ -62,7 +68,7 @@ describe('LauncherSettingsForm', () => {
   it('calls updateField and save through the provided settings state', () => {
     const settingsState = createSettingsState()
 
-    renderWithLocale(<LauncherSettingsForm settingsState={settingsState} />, 'zh-CN')
+    renderWithLauncher(<LauncherSettingsForm settingsState={settingsState} />)
 
     fireEvent.change(screen.getByLabelText(copy.fields.gamePath), { target: { value: 'C:\\Games' } })
     expect(settingsState.updateField).toHaveBeenCalledWith('gamePath', 'C:\\Games')
@@ -72,7 +78,7 @@ describe('LauncherSettingsForm', () => {
   })
 
   it('uses settings-window control cards for launcher settings items', () => {
-    renderWithLocale(<LauncherSettingsForm settingsState={createSettingsState()} />, 'zh-CN')
+    renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} />)
 
     expect(screen.getByLabelText(copy.fields.gamePath).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByText(copy.fields.nexusApiKey).closest('.settings-window-control-card')).toBeTruthy()

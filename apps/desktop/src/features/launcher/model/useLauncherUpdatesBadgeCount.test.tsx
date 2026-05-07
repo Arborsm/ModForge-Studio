@@ -1,25 +1,11 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  loadCachedLauncherUpdates,
-  subscribeLauncherUpdates,
-  type LauncherSettings,
-  type LauncherUpdateSummary,
-  type LauncherUpdatesResult,
-} from '@platform/desktop'
+import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@platform/desktop'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
-
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
-  return {
-    ...actual,
-    loadCachedLauncherUpdates: vi.fn(),
-    subscribeLauncherUpdates: vi.fn(),
-  }
-})
-
-const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
-const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from './launcherPort'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -68,6 +54,12 @@ function createResult(count: number): LauncherUpdatesResult {
   }
 }
 
+function createWrapper(port: LauncherPort) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <LauncherTestWrapper port={port}>{children}</LauncherTestWrapper>
+  }
+}
+
 describe('useLauncherUpdatesBadgeCount', () => {
   afterEach(() => {
     cleanup()
@@ -76,14 +68,15 @@ describe('useLauncherUpdatesBadgeCount', () => {
 
   it('loads the cached updates count and subscribes to future updates', async () => {
     let subscriptionListener: ((result: LauncherUpdatesResult) => void) | null = null
-    loadCachedLauncherUpdatesMock.mockResolvedValue(createResult(2))
-    subscribeLauncherUpdatesMock.mockImplementation((_modsPath, listener) => {
-      subscriptionListener = listener
-      return () => {}
+    const port = createMockLauncherPort({
+      loadCachedUpdates: vi.fn().mockResolvedValue(createResult(2)),
+      subscribeUpdates: vi.fn().mockImplementation((_modsPath, listener) => {
+        subscriptionListener = listener
+        return () => {}
+      }),
     })
 
-    const { result } = renderHook(() => useLauncherUpdatesBadgeCount(createSettings()))
-
+    const { result } = renderHook(() => useLauncherUpdatesBadgeCount(createSettings()), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current).toBe(2)
     })
@@ -93,10 +86,10 @@ describe('useLauncherUpdatesBadgeCount', () => {
     })
 
     expect(result.current).toBe(5)
-    expect(loadCachedLauncherUpdatesMock).toHaveBeenCalledWith({
+    expect(port.loadCachedUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
-    expect(subscribeLauncherUpdatesMock).toHaveBeenCalledWith(
+    expect(port.subscribeUpdates).toHaveBeenCalledWith(
       'E:\\Games\\Stardew Valley\\Mods',
       expect.any(Function),
     )
@@ -104,14 +97,15 @@ describe('useLauncherUpdatesBadgeCount', () => {
 
   it('does not let a slower cached response overwrite a live replayed snapshot', async () => {
     const deferred = createDeferred<LauncherUpdatesResult | null>()
-    loadCachedLauncherUpdatesMock.mockReturnValue(deferred.promise)
-    subscribeLauncherUpdatesMock.mockImplementation((_modsPath, listener) => {
-      listener(createResult(4))
-      return () => {}
+    const port = createMockLauncherPort({
+      loadCachedUpdates: vi.fn().mockReturnValue(deferred.promise),
+      subscribeUpdates: vi.fn().mockImplementation((_modsPath, listener) => {
+        listener(createResult(4))
+        return () => {}
+      }),
     })
 
-    const { result } = renderHook(() => useLauncherUpdatesBadgeCount(createSettings()))
-
+    const { result } = renderHook(() => useLauncherUpdatesBadgeCount(createSettings()), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current).toBe(4)
     })
@@ -125,10 +119,12 @@ describe('useLauncherUpdatesBadgeCount', () => {
   })
 
   it('returns zero and skips loading when no mods path is configured', () => {
-    const { result } = renderHook(() => useLauncherUpdatesBadgeCount(createSettings({ modsPath: null })))
-
+    const port = createMockLauncherPort()
+    const { result } = renderHook(() => useLauncherUpdatesBadgeCount(createSettings({ modsPath: null })), {
+      wrapper: createWrapper(port),
+    })
     expect(result.current).toBe(0)
-    expect(loadCachedLauncherUpdatesMock).not.toHaveBeenCalled()
-    expect(subscribeLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(port.loadCachedUpdates).not.toHaveBeenCalled()
+    expect(port.subscribeUpdates).not.toHaveBeenCalled()
   })
 })

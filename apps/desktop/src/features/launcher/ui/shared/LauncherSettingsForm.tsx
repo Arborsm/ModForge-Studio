@@ -3,9 +3,9 @@ import { useId } from 'react'
 import type { ReactNode } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
-import { openLauncherPath } from '@platform/desktop'
+import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherSettings } from '@features/launcher'
-import { LauncherStateBlock } from './LauncherStateBlock'
+import { LauncherStateBlock } from '@features/launcher'
 
 type LauncherSettingsFormProps = {
   settingsState: ReturnType<typeof useLauncherSettings>
@@ -139,6 +139,7 @@ function LauncherSettingsSwitch({
 }
 
 export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProps) {
+  const launcherPort = useLauncherPort()
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
   const commonCopy = rootCopy.common
@@ -160,7 +161,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             value={settings.gamePath}
             onChange={(value) => updateField('gamePath', value)}
             onBrowse={() => void pickDirectory('gamePath', copy.fields.gamePath)}
-            onOpen={() => void openLauncherPath({ path: settings.gamePath! })}
+            onOpen={() => void launcherPort.openPath({ path: settings.gamePath! })}
             openLabel={copy.actions.openFolder}
             browseLabel={rootCopy.controls.browse}
           />
@@ -169,7 +170,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             value={settings.modsPath}
             onChange={(value) => updateField('modsPath', value)}
             onBrowse={() => void pickDirectory('modsPath', copy.fields.modsPath)}
-            onOpen={() => void openLauncherPath({ path: settings.modsPath! })}
+            onOpen={() => void launcherPort.openPath({ path: settings.modsPath! })}
             openLabel={copy.actions.openFolder}
             browseLabel={rootCopy.controls.browse}
           />
@@ -178,7 +179,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             value={settings.downloadPath}
             onChange={(value) => updateField('downloadPath', value)}
             onBrowse={() => void pickDirectory('downloadPath', copy.fields.downloadPath)}
-            onOpen={() => void openLauncherPath({ path: settings.downloadPath! })}
+            onOpen={() => void launcherPort.openPath({ path: settings.downloadPath! })}
             openLabel={copy.actions.openFolder}
             browseLabel={rootCopy.controls.browse}
             wide

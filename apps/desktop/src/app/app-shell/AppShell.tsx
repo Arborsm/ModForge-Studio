@@ -8,12 +8,9 @@ import {
   loadImageDataUrl,
   minimizeCurrentWindow,
   patchAppUiState,
-  restartLauncherNexusDiagnostics,
-  setLauncherNexusForceOffline,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
   setDesktopDebugLoggingEnabled,
-  type LauncherNexusDiagnosticsResult,
   writeFrontendLog,
 } from '@platform/desktop'
 import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
@@ -32,7 +29,12 @@ import {
   initializeAppUiState,
 } from '@shared/lib/app-state'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
-import { loadSettledLauncherNexusDiagnostics, syncLauncherDiagnosticsNotification } from '@features/launcher'
+import {
+  loadSettledLauncherNexusDiagnostics,
+  syncLauncherDiagnosticsNotification,
+  useLauncherPort,
+  type LauncherNexusDiagnosticsResult,
+} from '@features/launcher'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
@@ -102,6 +104,7 @@ export default function App() {
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
+  const launcherPort = useLauncherPort()
   const eventBus = useMemo(() => createAppEventBus(), [])
   const [pendingWorkbenchIntent, setPendingWorkbenchIntent] = useState<PendingWorkbenchCommandIntent | null>(null)
   const appCommandHandler = useMemo(
@@ -178,22 +181,26 @@ export default function App() {
         return
       }
 
-      await restartLauncherNexusDiagnostics()
-      handleLauncherDiagnosticsUpdate(await loadSettledLauncherNexusDiagnostics())
+      await launcherPort.restartNexusDiagnostics()
+      handleLauncherDiagnosticsUpdate(
+        await loadSettledLauncherNexusDiagnostics({
+          loadDiagnostics: launcherPort.loadNexusDiagnostics,
+        }),
+      )
     }
 
     return () => {
       launcherDiagnosticsRetryRef.current = null
     }
-  }, [desktopHost, handleLauncherDiagnosticsUpdate])
+  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     if (!desktopHost || !appUiStateReady) {
       return
     }
 
-    void setLauncherNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {})
-  }, [appUiStateReady, desktopHost])
+    void launcherPort.setNexusForceOffline(getAppUiStateSnapshot().launcher.forceOffline).catch(() => {})
+  }, [appUiStateReady, desktopHost, launcherPort])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')

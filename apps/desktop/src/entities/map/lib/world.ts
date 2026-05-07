@@ -13,7 +13,7 @@ import type {
 } from './types'
 import { asMapPropertyString } from './properties'
 import { normalizeMapName } from './mapNames'
-import { getActionTargetMap, getPortalTargetMapFromProperties } from './portalTargets'
+import { getActionTargetMap, getPortalTargetMapFromProperties } from '@entities/map'
 import { extractTileFlags, stripTileGidFlags } from './tileFlags'
 import { findTilesetForGid } from './tilesets'
 import { isExteriorWarp, parseWarpEntries } from './warps'

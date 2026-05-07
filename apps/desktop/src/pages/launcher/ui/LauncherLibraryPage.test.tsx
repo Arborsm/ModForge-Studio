@@ -1,8 +1,8 @@
 import type { ReactElement, ReactNode } from 'react'
-import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { LocaleProvider } from '@locales/localeContext'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { LocaleProvider } from '@locales/localeContext'
 import type {
   InspectLauncherArchiveResult,
   InstallLauncherArchiveResult,
@@ -24,8 +24,10 @@ import {
   setLauncherLibraryCover,
 } from '@platform/desktop'
 import { useLauncherLibrary } from '@features/launcher'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { createMockLauncherPort } from '@test/launcherTestPort.ts'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { LauncherLibraryPage } from './LauncherLibraryPage'
+import type { LauncherPort } from '@features/launcher/model/launcherPort'
 
 const archiveDragDropListeners: Array<
   (payload: { type: string; paths?: string[]; position?: { x: number; y: number } }) => void | Promise<void>
@@ -128,6 +130,24 @@ const setLauncherLibraryCoverMock = vi.mocked(setLauncherLibraryCover)
 const useLauncherLibraryMock = vi.mocked(useLauncherLibrary)
 const dismissNotificationMock = vi.mocked(dismissNotification)
 const publishNotificationMock = vi.mocked(publishNotification)
+let launcherPort: LauncherPort
+
+function createLauncherDiagnosticsResult() {
+  return {
+    routes: [
+      {
+        routeId: 'publicGraphql',
+        label: 'Nexus Public GraphQL',
+        endpoint: 'https://api-router.nexusmods.com/graphql',
+        status: 'success' as const,
+        available: true,
+        message: 'Connected after 1 attempt.',
+        attempts: 1,
+        maxAttempts: 3,
+      },
+    ],
+  }
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -374,7 +394,15 @@ function createLargeLibraryState(count = 80): MockLibraryState {
 
 function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryPage>[0]> = {}) {
   const onLaunchGame = vi.fn()
-  const view = renderWithLocale(
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="en-US">{children}</LocaleProvider>
+      </LauncherTestWrapper>
+    )
+  }
+
+  const view = render(
     <LauncherLibraryPage
       settings={createSettings()}
       launchGameLabel="Launch Game"
@@ -383,7 +411,7 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
       onLaunchGame={onLaunchGame}
       {...overrides}
     />,
-    'en-US',
+    { wrapper: Wrapper },
   )
 
   return {
@@ -397,6 +425,29 @@ describe('LauncherLibraryPage', () => {
     archiveDragDropListeners.length = 0
     cleanup()
     vi.clearAllMocks()
+  })
+
+  beforeEach(() => {
+    launcherPort = createMockLauncherPort({
+      chooseArchiveFile: chooseArchiveFileMock,
+      chooseImageFile: chooseImageFileMock,
+      inspectArchive: inspectLauncherArchiveMock,
+      listInstallBackups: listLauncherInstallBackupsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      openPath: openLauncherPathMock,
+      openUrl: openLauncherUrlMock,
+      resolveImage: resolveLauncherImageMock,
+      restoreInstallBackup: restoreLauncherInstallBackupMock,
+      setLibraryCover: setLauncherLibraryCoverMock,
+      subscribeUpdates: vi.fn().mockReturnValue(() => {}),
+      loadCachedUpdates: vi.fn().mockResolvedValue(null),
+      checkUpdates: vi.fn().mockResolvedValue({
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        checkedAtMs: 0,
+        updates: [],
+      }),
+      loadNexusDiagnostics: vi.fn().mockResolvedValue(createLauncherDiagnosticsResult()),
+    })
   })
 
   it('does not refresh on mount when the library content is already ready for the current mods path', async () => {
@@ -933,15 +984,13 @@ describe('LauncherLibraryPage', () => {
     } as MockLibraryState
 
     view.rerender(
-      <LocaleProvider locale="en-US">
-        <LauncherLibraryPage
-          settings={createSettings()}
-          launchGameLabel="Launch Game"
-          launchGameDisabled={false}
-          launchGameBusy={false}
-          onLaunchGame={vi.fn()}
-        />
-      </LocaleProvider>,
+      <LauncherLibraryPage
+        settings={createSettings()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={vi.fn()}
+      />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))

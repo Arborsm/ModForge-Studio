@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import type { GeneratedProjectPort } from '../model/generatedProjectPort'
-import { GeneratedProjectProvider } from '../model/generatedProjectProvider'
+import type { GeneratedProjectPort } from '@features/generated-project'
+import { GeneratedProjectProvider } from '@features/generated-project'
 import { useGeneratedProject } from './useGeneratedProject'
 
 function createMockPort(): GeneratedProjectPort {

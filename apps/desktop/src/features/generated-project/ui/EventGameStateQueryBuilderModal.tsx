@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { cx } from '@shared/lib/cx'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 import {
   createDefaultGameStateQueryClause,
   GAME_STATE_QUERY_DEFINITIONS,

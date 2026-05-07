@@ -3,7 +3,7 @@ import {
   formatGameStateQueryForHub,
   parseGameStateQuery,
   type ParsedGameStateQuerySet,
-} from './gameStateQuerySemantics'
+} from '@entities/event'
 
 export type EventPreconditionCategory = 'environment' | 'player' | 'progress'
 

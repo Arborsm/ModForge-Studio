@@ -2,8 +2,8 @@ import { cleanup, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { LauncherDownloadQueueItem } from '@features/launcher'
-import { renderWithLocale } from '../../../../test/renderWithLocale'
-import { LauncherDownloadRow } from './LauncherDownloadRow'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
+import { LauncherDownloadRow } from '@features/launcher'
 
 const copy = editorCopy['zh-CN'].launcher
 

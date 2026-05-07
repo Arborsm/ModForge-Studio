@@ -3,7 +3,7 @@ import { cleanup, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import StatusBar from './StatusBar'
 import { editorCopy } from '@locales/editor-shell'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import type { MapAssetSummary, GameDirectoryInfo } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
 

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useLauncherPort } from '@features/launcher'
 import { useEditorCopy } from '@locales/localeContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { loadLauncherRemoteModDetail } from '@platform/desktop'
+
 import type { LauncherDiscoverDetail, LauncherViewState } from './types'
 
 const LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID = 'launcher-remote-mod-detail'
@@ -14,6 +15,7 @@ type RemoteModDetailState = {
 }
 
 export function useLauncherRemoteModDetail(modId: number | null) {
+  const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher
   const [requestState, setRequestState] = useState<RemoteModDetailState>({
     modId: null,
@@ -51,7 +53,7 @@ export function useLauncherRemoteModDetail(modId: number | null) {
       }))
     })
 
-    void loadLauncherRemoteModDetail({ modId })
+    void launcherPort.loadRemoteModDetail({ modId })
       .then((result) => {
         if (cancelled) {
           return
@@ -81,7 +83,7 @@ export function useLauncherRemoteModDetail(modId: number | null) {
       cancelled = true
       dismissNotification(LAUNCHER_REMOTE_MOD_DETAIL_NOTIFICATION_ID)
     }
-  }, [copy.actions.viewDetails, modId])
+  }, [copy.actions.viewDetails, modId, launcherPort])
 
   if (!modId) {
     return {

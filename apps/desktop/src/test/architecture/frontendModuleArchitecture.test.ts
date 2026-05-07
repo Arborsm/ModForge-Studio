@@ -655,4 +655,86 @@ describe('frontend module architecture', () => {
     expect(await readFile(sourcePath('src/shared/contracts/types/viewport.ts'), 'utf8')).toContain('export type FocusedMapObjectTarget')
     expect(await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')).toContain("from '@shared/contracts'")
   })
+
+
+  /**
+   * Platform boundary classification: tracks every production file that imports @platform/desktop
+   * and classifies it as either an approved adapter/app-assembly boundary or a migration target.
+   * A new production file outside both categories fails the test.
+   */
+  const APPROVED_BOUNDARY_PATTERNS = [
+    /^app\/app-shell\/AppShell\.tsx$/,
+    /^platform\/desktop\/index\.ts$/,
+    /^platform\/desktop\/index\.test\.ts$/,
+  ]
+  const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
+  const TEST_SUPPORT_PATTERN = /^test\//
+
+  // Known migration targets - these exact files are documented pending work, not accidental drift.
+  // Keep this as a per-file baseline so new @platform/desktop imports fail until classified.
+  const MIGRATION_TARGET_FILES = new Set([
+    'app/providers/launcherPortAdapter.ts',
+    'entities/event/model/stage/eventStageShared.ts',
+    'features/launcher/model/nexusDiagnostics.ts',
+    'pages/launcher/LauncherPage.tsx',
+    'pages/launcher/ui/LauncherDebugPage.tsx',
+    'pages/launcher/ui/LauncherDiscoverPage.tsx',
+    'pages/launcher/ui/LauncherLibraryPage.tsx',
+    'pages/launcher/ui/LauncherUpdatesPage.tsx',
+    'pages/workbench/ui/DevDebugOverlay.tsx',
+    'pages/workbench/ui/PlayerAppearanceWindow.tsx',
+    'pages/workbench/ui/WorkbenchExperience.tsx',
+    'pages/workbench/workspaces/building/state/useBuildingWorkspace.ts',
+    'pages/workbench/workspaces/character/state/useCharacterWorkspace.ts',
+    'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
+    'pages/workbench/workspaces/event-stage/state/audioPreview.ts',
+    'pages/workbench/workspaces/event-stage/state/useEventStageWorkspace.ts',
+    'pages/workbench/workspaces/event-stage/state/useEventWorkspace.ts',
+    'pages/workbench/workspaces/event-stage/view/EventStageWorkspace.tsx',
+    'pages/workbench/workspaces/item/state/useItemWorkspace.ts',
+    'pages/workbench/workspaces/map/editors/MapPatchEditor.tsx',
+    'pages/workbench/workspaces/map/state/useMapWorkspace.ts',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher.ts',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherDiagnosticsPanel.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherExportPanel.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherNavigator.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherResultPreview.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherTracePanel.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModBrowserPanel.tsx',
+    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModDiagnosticsPanel.tsx',
+    'pages/workbench/workspaces/mod/state/modResultAssets.ts',
+    'pages/workbench/workspaces/mod/state/useModAssetIndex.ts',
+    'pages/workbench/workspaces/mod/state/useModWorkspace.ts',
+  ])
+
+  it(
+    'classifies all production @platform/desktop imports and prevents new unapproved drift',
+    async () => {
+      const allFiles = await collectSourceFiles(sourcePath('src'))
+      const unclassified: string[] = []
+
+      for (const filePath of allFiles) {
+        const source = await readFile(filePath, 'utf8')
+        if (!source.includes('@platform/desktop')) {
+          continue
+        }
+
+        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+        const isTestOnly = TEST_FILE_PATTERN.test(relPath) || TEST_SUPPORT_PATTERN.test(relPath)
+        const isApproved = APPROVED_BOUNDARY_PATTERNS.some((p) => p.test(relPath))
+        const isMigrationTarget = MIGRATION_TARGET_FILES.has(relPath)
+
+        if (isApproved || isMigrationTarget || isTestOnly) {
+          continue
+        }
+
+        unclassified.push(relPath)
+      }
+
+      expect(unclassified).toEqual([])
+    },
+    30000,
+  )
+
 })

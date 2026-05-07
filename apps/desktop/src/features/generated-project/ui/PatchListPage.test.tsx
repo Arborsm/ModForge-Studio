@@ -1,7 +1,7 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import type { DraftPatch, GeneratedProjectDraft } from '@shared/contracts'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { PatchListPage } from './PatchListPage'
 
 function eventPatch(overrides: Partial<DraftPatch> = {}): DraftPatch {
@@ -218,7 +218,7 @@ describe('PatchListPage event hub', () => {
     expect(onRemovePatch).toHaveBeenCalledWith('patch-town')
   })
 
-  test('opens the event condition builder from the event context menu and applies selected chips', () => {
+  test('opens the event condition builder from the event context menu and applies selected chips', async () => {
     const onPatchUpdate = vi.fn()
     renderWithLocale(
       <PatchListPage
@@ -244,8 +244,8 @@ describe('PatchListPage event hub', () => {
     fireEvent.contextMenu(screen.getByRole('button', { name: '进入编辑器 event_square_meeting_1900' }))
     fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
 
-    const dialog = screen.getByRole('dialog', { name: '触发条件设计器' })
-    const dock = screen.getByLabelText('窗口外预览')
+    const dialog = await screen.findByRole('dialog', { name: '触发条件设计器' })
+    const dock = await screen.findByLabelText('窗口外预览')
     expect(dialog).toBeTruthy()
     expect(dock).toBeTruthy()
     expect(dialog.contains(dock)).toBe(false)
@@ -281,7 +281,7 @@ describe('PatchListPage event hub', () => {
     )
   })
 
-  test('uses compact condition chips when the logic chain has many conditions', () => {
+  test('uses compact condition chips when the logic chain has many conditions', async () => {
     const { container } = renderWithLocale(
       <PatchListPage
         patches={[
@@ -317,7 +317,11 @@ describe('PatchListPage event hub', () => {
     fireEvent.contextMenu(treeEventButton!)
     fireEvent.click(screen.getByRole('menuitem', { name: '设计触发条件' }))
 
-    const chain = container.querySelector('.condition-chip-scroll.compact')
+    const chain = await waitFor(() => {
+      const element = container.querySelector('.condition-chip-scroll.compact')
+      expect(element).toBeTruthy()
+      return element
+    })
     expect(chain).toBeTruthy()
     expect(chain?.querySelectorAll('.condition-chip').length).toBeGreaterThanOrEqual(7)
     expect(chain?.querySelector('.condition-chip-compact')?.textContent).toContain('19-23')

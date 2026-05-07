@@ -441,7 +441,7 @@ export default function WorkbenchExperience({
   })
 
   const generatedProject = useGeneratedProject()
-useWorkbenchCommandIntent({
+  useWorkbenchCommandIntent({
     pendingIntent: pendingWorkbenchIntent,
     generatedProject,
     setWorkspaceMode: (mode: string) => (setWorkspaceMode as (value: string) => void)(mode),

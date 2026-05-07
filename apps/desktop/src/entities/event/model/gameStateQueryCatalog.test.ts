@@ -4,8 +4,8 @@ import {
   GAME_STATE_QUERY_DEFINITIONS,
   serializeGameStateQueryClauses,
   type GameStateQueryClauseDraft,
-} from './gameStateQueryCatalog'
-import { GAME_STATE_QUERY_KEYS } from './gameStateQuerySemantics'
+} from '@entities/event'
+import { GAME_STATE_QUERY_KEYS } from '@entities/event'
 import { localeBundles } from '@locales'
 
 describe('EventGameStateQueryCatalog', () => {

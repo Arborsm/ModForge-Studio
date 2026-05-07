@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 import type { StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
 import type { WorkspaceId } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'

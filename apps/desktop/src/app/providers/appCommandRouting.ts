@@ -19,14 +19,6 @@ export function createAppCommandHandler({
   return {
     handleCommand(command: AppCommand) {
       if (command.type === 'navigation/open-workbench-view' || command.type === 'workbench/open-asset') {
-        // Preserve open-asset intent: don't overwrite with a view-only intent
-        if (
-          currentPendingIntent?.command.type === 'workbench/open-asset' &&
-          command.type === 'navigation/open-workbench-view'
-        ) {
-          return
-        }
-
         nextIntentId += 1
         currentPendingIntent = {
           id: `intent-${nextIntentId}-${Date.now()}`,
@@ -37,7 +29,7 @@ export function createAppCommandHandler({
         return
       }
 
-      // navigation/open-page, workbench/focus-panel, unknown: no-op
+      // navigation/open-page, unknown: no-op
     },
 
     clearPendingIntent() {

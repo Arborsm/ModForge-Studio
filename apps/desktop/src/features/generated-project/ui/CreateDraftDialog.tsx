@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 
 interface CreateDraftDialogProps {
   open: boolean
@@ -26,7 +26,7 @@ export function CreateDraftDialog({ open, copy, onClose, onCreate }: CreateDraft
 
   if (!open) return null
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!form.projectName.trim() || !form.projectUniqueId.trim()) return
     onCreate({

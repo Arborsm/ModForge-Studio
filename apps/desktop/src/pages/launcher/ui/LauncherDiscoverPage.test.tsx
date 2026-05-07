@@ -9,7 +9,7 @@ import {
   getAppUiStateSnapshot,
   initializeAppUiState,
 } from '@shared/lib/app-state'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherDiscoverPage } from './LauncherDiscoverPage'
 
 vi.mock('@features/launcher', async () => {

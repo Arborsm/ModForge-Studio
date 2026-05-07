@@ -1,19 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadLauncherNexusDiagnostics, searchLauncherCatalog, type LauncherNexusDiagnosticsResult } from '@platform/desktop'
-import { useLauncherDiscover } from './useLauncherDiscover'
-
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
-  return {
-    ...actual,
-    loadLauncherNexusDiagnostics: vi.fn(),
-    searchLauncherCatalog: vi.fn(),
-  }
-})
-
-const loadLauncherNexusDiagnosticsMock = vi.mocked(loadLauncherNexusDiagnostics)
-const searchLauncherCatalogMock = vi.mocked(searchLauncherCatalog)
+import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import { useLauncherDiscover } from '@features/launcher'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { createMockLauncherPort } from '@test/launcherTestPort.ts'
+import type { LauncherPort } from './launcherPort'
 
 function createLauncherDiagnosticsResult(
   overrides: Partial<Record<string, { status: 'loading' | 'warning' | 'success'; available: boolean; message: string }>> = {},
@@ -56,10 +48,19 @@ function createLauncherDiagnosticsResult(
   }
 }
 
+let launcherPort: LauncherPort
+
+function Wrapper({ children }: { children: ReactNode }) {
+  return <LauncherTestWrapper port={launcherPort}>{children}</LauncherTestWrapper>
+}
+
 describe('useLauncherDiscover', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
+    launcherPort = createMockLauncherPort({
+      loadNexusDiagnostics: vi.fn().mockResolvedValue(createLauncherDiagnosticsResult()),
+      searchCatalog: vi.fn(),
+    })
   })
 
   afterEach(() => {
@@ -68,7 +69,7 @@ describe('useLauncherDiscover', () => {
   })
 
   it('hydrates toolbar preferences from the provided app ui snapshot', async () => {
-    searchLauncherCatalogMock.mockResolvedValue({
+    vi.mocked(launcherPort.searchCatalog).mockResolvedValue({
       page: 1,
       pageSize: 40,
       totalCount: 0,
@@ -77,14 +78,16 @@ describe('useLauncherDiscover', () => {
       results: [],
     })
 
-    const { result } = renderHook(() =>
-      useLauncherDiscover({
-        sort: 'downloads',
-        ascending: true,
-        timeRange: 'week',
-        pageSize: 40,
-        filtersHidden: true,
-      }),
+    const { result } = renderHook(
+      () =>
+        useLauncherDiscover({
+          sort: 'downloads',
+          ascending: true,
+          timeRange: 'week',
+          pageSize: 40,
+          filtersHidden: true,
+        }),
+      { wrapper: Wrapper },
     )
 
     await act(async () => {
@@ -96,7 +99,7 @@ describe('useLauncherDiscover', () => {
     expect(result.current.ascending).toBe(true)
     expect(result.current.timeRange).toBe('week')
     expect(result.current.pageSize).toBe(40)
-    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith(
+    expect(launcherPort.searchCatalog).toHaveBeenLastCalledWith(
       expect.objectContaining({
         sort: 'downloads',
         ascending: true,
@@ -107,7 +110,7 @@ describe('useLauncherDiscover', () => {
   })
 
   it('uses updated toolbar preferences when sorting controls change', async () => {
-    searchLauncherCatalogMock.mockResolvedValue({
+    vi.mocked(launcherPort.searchCatalog).mockResolvedValue({
       page: 1,
       pageSize: 20,
       totalCount: 0,
@@ -116,8 +119,7 @@ describe('useLauncherDiscover', () => {
       results: [],
     })
 
-    const { result } = renderHook(() => useLauncherDiscover())
-
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {
       vi.runOnlyPendingTimers()
       await Promise.resolve()
@@ -135,7 +137,7 @@ describe('useLauncherDiscover', () => {
       await Promise.resolve()
     })
 
-    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith(
+    expect(launcherPort.searchCatalog).toHaveBeenLastCalledWith(
       expect.objectContaining({
         sort: 'downloads',
         ascending: true,
@@ -146,7 +148,7 @@ describe('useLauncherDiscover', () => {
   })
 
   it('re-runs the catalog request when refresh is triggered from the first page', async () => {
-    searchLauncherCatalogMock.mockResolvedValue({
+    vi.mocked(launcherPort.searchCatalog).mockResolvedValue({
       page: 1,
       pageSize: 20,
       totalCount: 0,
@@ -159,14 +161,13 @@ describe('useLauncherDiscover', () => {
       results: [],
     })
 
-    const { result } = renderHook(() => useLauncherDiscover())
-
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {
       vi.runOnlyPendingTimers()
       await Promise.resolve()
     })
 
-    expect(searchLauncherCatalogMock).toHaveBeenCalledTimes(1)
+    expect(launcherPort.searchCatalog).toHaveBeenCalledTimes(1)
 
     act(() => {
       result.current.refresh()
@@ -177,11 +178,11 @@ describe('useLauncherDiscover', () => {
       await Promise.resolve()
     })
 
-    expect(searchLauncherCatalogMock).toHaveBeenCalledTimes(2)
+    expect(launcherPort.searchCatalog).toHaveBeenCalledTimes(2)
   })
 
   it('navigates to an explicit remote page without waiting for the search debounce window', async () => {
-    searchLauncherCatalogMock
+    vi.mocked(launcherPort.searchCatalog)
       .mockResolvedValueOnce({
         page: 1,
         pageSize: 20,
@@ -207,15 +208,14 @@ describe('useLauncherDiscover', () => {
         results: [],
     })
 
-    const { result } = renderHook(() => useLauncherDiscover())
-
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {
       vi.runOnlyPendingTimers()
       await Promise.resolve()
     })
 
-    expect(searchLauncherCatalogMock).toHaveBeenCalledTimes(1)
-    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith({
+    expect(launcherPort.searchCatalog).toHaveBeenCalledTimes(1)
+    expect(launcherPort.searchCatalog).toHaveBeenLastCalledWith({
       query: '',
       titleQuery: '',
       descriptionQuery: '',
@@ -248,8 +248,8 @@ describe('useLauncherDiscover', () => {
       await Promise.resolve()
     })
 
-    expect(searchLauncherCatalogMock).toHaveBeenCalledTimes(2)
-    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith({
+    expect(launcherPort.searchCatalog).toHaveBeenCalledTimes(2)
+    expect(launcherPort.searchCatalog).toHaveBeenLastCalledWith({
       query: '',
       titleQuery: '',
       descriptionQuery: '',
@@ -275,7 +275,7 @@ describe('useLauncherDiscover', () => {
   })
 
   it('resets back to page 1 when page size changes', async () => {
-    searchLauncherCatalogMock
+    vi.mocked(launcherPort.searchCatalog)
       .mockResolvedValueOnce({
         page: 1,
         pageSize: 20,
@@ -301,8 +301,7 @@ describe('useLauncherDiscover', () => {
         results: [],
       })
 
-    const { result } = renderHook(() => useLauncherDiscover())
-
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {
       vi.runOnlyPendingTimers()
       await Promise.resolve()
@@ -329,7 +328,7 @@ describe('useLauncherDiscover', () => {
     })
 
     expect(result.current.page).toBe(1)
-    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith(
+    expect(launcherPort.searchCatalog).toHaveBeenLastCalledWith(
       expect.objectContaining({
         page: 1,
         pageSize: 80,
@@ -338,7 +337,7 @@ describe('useLauncherDiscover', () => {
   })
 
   it('resets back to page 1 when a filter changes and exposes total pages', async () => {
-    searchLauncherCatalogMock
+    vi.mocked(launcherPort.searchCatalog)
       .mockResolvedValueOnce({
         page: 1,
         pageSize: 20,
@@ -364,8 +363,7 @@ describe('useLauncherDiscover', () => {
         results: [],
       })
 
-    const { result } = renderHook(() => useLauncherDiscover())
-
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {
       vi.runOnlyPendingTimers()
       await Promise.resolve()
@@ -394,7 +392,7 @@ describe('useLauncherDiscover', () => {
     })
 
     expect(result.current.page).toBe(1)
-    expect(searchLauncherCatalogMock).toHaveBeenLastCalledWith(
+    expect(launcherPort.searchCatalog).toHaveBeenLastCalledWith(
       expect.objectContaining({
         page: 1,
         category: 'Maps',
@@ -403,7 +401,7 @@ describe('useLauncherDiscover', () => {
   })
 
   it('skips automatic discover searches when all discover routes are unavailable', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(
+    vi.mocked(launcherPort.loadNexusDiagnostics).mockResolvedValue(
       createLauncherDiagnosticsResult({
         publicGraphql: {
           status: 'warning',
@@ -422,7 +420,7 @@ describe('useLauncherDiscover', () => {
         },
       }),
     )
-    searchLauncherCatalogMock.mockResolvedValue({
+    vi.mocked(launcherPort.searchCatalog).mockResolvedValue({
       page: 1,
       pageSize: 20,
       totalCount: 0,
@@ -431,14 +429,13 @@ describe('useLauncherDiscover', () => {
       results: [],
     })
 
-    const { result } = renderHook(() => useLauncherDiscover())
-
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {
       vi.runOnlyPendingTimers()
       await Promise.resolve()
     })
 
-    expect(searchLauncherCatalogMock).not.toHaveBeenCalled()
+    expect(launcherPort.searchCatalog).not.toHaveBeenCalled()
     expect(result.current.blockedReason).toContain('Nexus Public GraphQL')
     expect(result.current.blockedReason).toContain('Forced offline by debug override.')
   })

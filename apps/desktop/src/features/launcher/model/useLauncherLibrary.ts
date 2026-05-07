@@ -1,25 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLauncherPort } from '@features/launcher'
 import { useEditorCopy } from '@locales/localeContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import {
-  checkLauncherUpdates,
-  installLauncherArchive,
-  clearLauncherLibraryReadCaches,
-  loadCachedLauncherUpdates,
-  loadLauncherLibraryCovers,
-  loadLauncherNexusDiagnostics,
-  loadLauncherLibraryState,
-  loadLauncherRemoteModDetail,
-  persistLauncherLibraryRemoteCover,
-  saveLauncherLibraryState,
-  scanLauncherLibrary,
-  setLauncherModEnabled,
-  type LauncherLibraryModSummary,
-  type LauncherLibraryPackPreset,
-  type LauncherLibraryScopeMode,
-  type LauncherLibraryState,
-  type LauncherLibraryStorageFolder,
-} from '@platform/desktop'
+import type { LauncherLibraryModSummary, LauncherLibraryPackPreset, LauncherLibraryScopeMode, LauncherLibraryState, LauncherLibraryStorageFolder } from './launcherContracts'
 import { getLauncherCoverKey, getLauncherCoverKeyCandidates } from './coverKey'
 import { getModKey, includesFilter, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
 import { canAutoCheckLauncherUpdates, canAutoFetchLauncherRemoteCovers } from './nexusDiagnostics'
@@ -212,6 +195,7 @@ async function runWithConcurrency<T>(
 type AutoCoverProgressStage = 'local' | 'apiCover' | 'apiGallery' | 'remoteCover' | 'remoteGallery'
 
 export function useLauncherLibrary(settings: LauncherSettingsDraft) {
+  const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher
   const [mods, setMods] = useState<LauncherLibraryModSummary[]>([])
   const [libraryState, setLibraryState] = useState<LauncherLibraryState>(createDefaultLibraryState())
@@ -228,11 +212,11 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const mountedRef = useRef(true)
 
   const persistLibraryState = useCallback(async (nextState: LauncherLibraryState) => {
-    const persisted = await saveLauncherLibraryState(normalizeLibraryState(nextState))
+    const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
     const normalized = normalizeLibraryState(persisted)
     setLibraryState(normalized)
     return normalized
-  }, [])
+  }, [launcherPort])
 
   const cancelAutoCoverFetch = useCallback(() => {
     if (!autoCoverFetchInFlightRef.current) {
@@ -291,7 +275,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         activeStage = 'apiCover'
         publishAutoCoverNotification(item.name, activeStage, completed)
 
-        const detail = await loadLauncherRemoteModDetail({ modId: item.nexusModId })
+        const detail = await launcherPort.loadRemoteModDetail({ modId: item.nexusModId })
         if (!isTaskActive()) {
           return
         }
@@ -314,7 +298,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         }
 
         const coverKey = getLauncherCoverKey(item)
-        const covers = await persistLauncherLibraryRemoteCover({
+        const covers = await launcherPort.persistLibraryRemoteCover({
           labelKey: coverKey,
           imageUrl,
         })
@@ -350,7 +334,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       autoCoverFetchInFlightRef.current = false
       dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
     })
-  }, [copy.library])
+  }, [copy.library, launcherPort])
 
   useEffect(() => {
     mountedRef.current = true
@@ -367,17 +351,17 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     const isRefreshActive = () => mountedRef.current && refreshRequestTokenRef.current === requestToken
 
     cancelAutoCoverFetch()
-    clearLauncherLibraryReadCaches(settings.modsPath)
+    launcherPort.clearLibraryReadCaches(settings.modsPath)
     setState('loading')
     setError(null)
 
     try {
       const [diagnostics, loadedLibraryState, loadedCovers, scan] = await Promise.all([
-        loadLauncherNexusDiagnostics().catch(() => null),
-        loadLauncherLibraryState(),
-        loadLauncherLibraryCovers(),
+        launcherPort.loadNexusDiagnostics().catch(() => null),
+        launcherPort.loadLibraryState(),
+        launcherPort.loadLibraryCovers(),
         settings.modsPath
-          ? scanLauncherLibrary({ modsPath: settings.modsPath })
+          ? launcherPort.scanLibrary({ modsPath: settings.modsPath })
           : Promise.resolve({
               modsPath: settings.modsPath ?? '',
               mods: [],
@@ -406,12 +390,10 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       }
       const updateModsPath = scan.modsPath || settings.modsPath || ''
       if (
-        settings.autoCheckModUpdates !== false &&
-        scan.mods.length > 0 &&
-        updateModsPath &&
+        settings.autoCheckModUpdates && scan.mods.length > 0 && updateModsPath &&
         canAutoCheckLauncherUpdates(diagnostics)
       ) {
-        void loadCachedLauncherUpdates({ modsPath: updateModsPath })
+        void launcherPort.loadCachedUpdates({ modsPath: updateModsPath })
           .then((cached) => {
             if (!isRefreshActive()) {
               return
@@ -420,7 +402,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
               return
             }
 
-            return checkLauncherUpdates({
+            return launcherPort.checkUpdates({
               modsPath: updateModsPath,
               forceRefresh: false,
             }).then(() => undefined)
@@ -437,7 +419,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setError(nextError instanceof Error ? nextError.message : 'Failed to scan launcher library.')
       setState('error')
     }
-  }, [cancelAutoCoverFetch, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
+  }, [cancelAutoCoverFetch, launcherPort, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
 
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys
@@ -504,23 +486,23 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
   const toggleEnabled = useCallback(
     async (mod: LauncherLibraryModSummary) => {
-      await setLauncherModEnabled({
+      await launcherPort.setModEnabled({
         modPath: mod.absolutePath,
         enabled: !mod.enabled,
       })
       await refresh()
     },
-    [refresh],
+    [launcherPort, refresh],
   )
 
   const installArchive = useCallback(
     async (archivePath: string) => {
-      return installLauncherArchive({
+      return launcherPort.installArchive({
         archivePath,
         modsPath: settings.modsPath,
       })
     },
-    [settings.modsPath],
+    [launcherPort, settings.modsPath],
   )
 
   const toggleModSelection = useCallback((id: string) => {
@@ -945,7 +927,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         if (item.enabled === shouldEnable) {
           return
         }
-        await setLauncherModEnabled({
+        await launcherPort.setModEnabled({
           modPath: item.absolutePath,
           enabled: shouldEnable,
         })
@@ -953,7 +935,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     )
     setSelectedModIds([])
     await refresh()
-  }, [currentPack, mods, refresh])
+  }, [currentPack, launcherPort, mods, refresh])
 
   const setSelectionEnabled = useCallback(
     async (enabled: boolean) => {
@@ -961,7 +943,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         selection
           .filter((item) => item.enabled !== enabled)
           .map((item) =>
-            setLauncherModEnabled({
+            launcherPort.setModEnabled({
               modPath: item.absolutePath,
               enabled,
             }),
@@ -970,7 +952,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       setSelectedModIds([])
       await refresh()
     },
-    [refresh, selection],
+    [launcherPort, refresh, selection],
   )
 
   const setFilterText = useCallback((value: string) => {

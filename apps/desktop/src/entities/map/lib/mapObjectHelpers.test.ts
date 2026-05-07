@@ -7,7 +7,7 @@ import {
   getObjectInteractionTag,
   getObjectPropertyKeys,
   rankObjectForPreview,
-} from './mapObjectHelpers'
+} from '@entities/map'
 
 function createObject(overrides: Partial<MapObject> = {}): MapObject {
   return {

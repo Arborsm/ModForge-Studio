@@ -1,41 +1,28 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { PropsWithChildren } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
-import {
-  checkLauncherUpdates,
-  loadCachedLauncherUpdates,
-  loadLauncherNexusDiagnostics,
-  subscribeLauncherUpdates,
-  type LauncherNexusDiagnosticsResult,
-  type LauncherSettings,
-  type LauncherUpdateSummary,
-  type LauncherUpdatesResult,
+import type {
+  LauncherNexusDiagnosticsResult,
+  LauncherSettings,
+  LauncherUpdateSummary,
+  LauncherUpdatesResult,
 } from '@platform/desktop'
-import { useLauncherUpdates } from './useLauncherUpdates'
+import { useLauncherUpdates } from '@features/launcher'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from './launcherPort'
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
-  return {
-    ...actual,
-    checkLauncherUpdates: vi.fn(),
-    loadCachedLauncherUpdates: vi.fn(),
-    loadLauncherNexusDiagnostics: vi.fn(),
-    subscribeLauncherUpdates: vi.fn(),
-  }
-})
-
-const checkLauncherUpdatesMock = vi.mocked(checkLauncherUpdates)
-const loadCachedLauncherUpdatesMock = vi.mocked(loadCachedLauncherUpdates)
-const loadLauncherNexusDiagnosticsMock = vi.mocked(loadLauncherNexusDiagnostics)
-const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
+let launcherPort: LauncherPort
 
 function Wrapper({ children }: PropsWithChildren) {
   return (
-    <LocaleProvider locale="zh-CN">
-      <NotificationProvider>{children}</NotificationProvider>
-    </LocaleProvider>
+    <LauncherTestWrapper port={launcherPort}>
+      <LocaleProvider locale="zh-CN">
+        <NotificationProvider>{children}</NotificationProvider>
+      </LocaleProvider>
+    </LauncherTestWrapper>
   )
 }
 
@@ -117,6 +104,15 @@ function createLauncherDiagnosticsResult(
 }
 
 describe('useLauncherUpdates', () => {
+  beforeEach(() => {
+    launcherPort = createMockLauncherPort({
+      checkUpdates: vi.fn(),
+      loadCachedUpdates: vi.fn().mockResolvedValue(null),
+      loadNexusDiagnostics: vi.fn().mockResolvedValue(createLauncherDiagnosticsResult()),
+      subscribeUpdates: vi.fn().mockReturnValue(() => {}),
+    })
+  })
+
   afterEach(() => {
     cleanup()
     clearNotifications()
@@ -124,20 +120,17 @@ describe('useLauncherUpdates', () => {
   })
 
   it('uses force refresh only for manual refreshes', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
-    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
-    checkLauncherUpdatesMock
+    vi.mocked(launcherPort.checkUpdates)
       .mockResolvedValueOnce(createResult([createUpdate()]))
       .mockResolvedValueOnce(createResult([createUpdate({ latestVersion: '1.3.0' })]))
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+      expect(launcherPort.checkUpdates).toHaveBeenCalledTimes(1)
     })
 
-    expect(checkLauncherUpdatesMock).toHaveBeenNthCalledWith(1, {
+    expect(launcherPort.checkUpdates).toHaveBeenNthCalledWith(1, {
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       forceRefresh: false,
     })
@@ -146,18 +139,16 @@ describe('useLauncherUpdates', () => {
       await result.current.refresh()
     })
 
-    expect(checkLauncherUpdatesMock).toHaveBeenNthCalledWith(2, {
+    expect(launcherPort.checkUpdates).toHaveBeenNthCalledWith(2, {
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       forceRefresh: true,
     })
   })
 
   it('uses cached updates on mount without starting a new check', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(
+    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(
       createResult([createUpdate({ latestVersion: '1.4.0' })]),
     )
-    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
@@ -165,22 +156,20 @@ describe('useLauncherUpdates', () => {
       expect(result.current.items).toHaveLength(1)
     })
 
-    expect(loadCachedLauncherUpdatesMock).toHaveBeenCalledWith({
+    expect(launcherPort.loadCachedUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
-    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(launcherPort.checkUpdates).not.toHaveBeenCalled()
   })
 
   it('continues the background check when the cached updates snapshot is incomplete', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
     const pending = new Promise<LauncherUpdatesResult>(() => {})
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(
+    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(
       createResult([createUpdate({ latestVersion: '1.4.0' })], {
         isComplete: false,
       }),
     )
-    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
-    checkLauncherUpdatesMock.mockReturnValueOnce(pending)
+    vi.mocked(launcherPort.checkUpdates).mockReturnValueOnce(pending)
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
@@ -193,31 +182,29 @@ describe('useLauncherUpdates', () => {
     })
 
     await waitFor(() => {
-      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+      expect(launcherPort.checkUpdates).toHaveBeenCalledTimes(1)
     })
 
-    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+    expect(launcherPort.checkUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       forceRefresh: false,
     })
   })
 
   it('applies partial update results from the shared subscription before the final check resolves', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
     let subscriptionListener: ((result: LauncherUpdatesResult) => void) | null = null
     const pending = new Promise<LauncherUpdatesResult>(() => {})
 
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
-    subscribeLauncherUpdatesMock.mockImplementation((_modsPath, listener) => {
+    vi.mocked(launcherPort.subscribeUpdates).mockImplementation((_modsPath, listener) => {
       subscriptionListener = listener
       return () => {}
     })
-    checkLauncherUpdatesMock.mockReturnValueOnce(pending)
+    vi.mocked(launcherPort.checkUpdates).mockReturnValueOnce(pending)
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+      expect(launcherPort.checkUpdates).toHaveBeenCalledTimes(1)
     })
 
     await act(async () => {
@@ -238,11 +225,10 @@ describe('useLauncherUpdates', () => {
   })
 
   it('selects newly added update items by default when the current list is fully selected', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
     let subscriptionListener: ((result: LauncherUpdatesResult) => void) | null = null
 
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(createResult([createUpdate()]))
-    subscribeLauncherUpdatesMock.mockImplementation((_modsPath, listener) => {
+    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(createResult([createUpdate()]))
+    vi.mocked(launcherPort.subscribeUpdates).mockImplementation((_modsPath, listener) => {
       subscriptionListener = listener
       return () => {}
     })
@@ -272,7 +258,7 @@ describe('useLauncherUpdates', () => {
   })
 
   it('skips automatic update checks when all update routes are unavailable but still allows manual refresh', async () => {
-    loadLauncherNexusDiagnosticsMock.mockResolvedValue(
+    vi.mocked(launcherPort.loadNexusDiagnostics).mockResolvedValue(
       createLauncherDiagnosticsResult({
         publicGraphql: {
           status: 'warning',
@@ -291,32 +277,28 @@ describe('useLauncherUpdates', () => {
         },
       }),
     )
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
-    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
-    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
+    vi.mocked(launcherPort.checkUpdates).mockResolvedValue(createResult([createUpdate()]))
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
     await waitFor(() => {
-      expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+      expect(launcherPort.loadNexusDiagnostics).toHaveBeenCalledTimes(1)
     })
 
-    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(launcherPort.checkUpdates).not.toHaveBeenCalled()
 
     await act(async () => {
       await result.current.refresh()
     })
 
-    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+    expect(launcherPort.checkUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       forceRefresh: true,
     })
   })
 
   it('skips automatic update checks when automatic update checking is disabled but still allows manual refresh', async () => {
-    loadCachedLauncherUpdatesMock.mockResolvedValueOnce(null)
-    subscribeLauncherUpdatesMock.mockReturnValue(() => {})
-    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
+    vi.mocked(launcherPort.checkUpdates).mockResolvedValue(createResult([createUpdate()]))
 
     const { result } = renderHook(
       () => useLauncherUpdates(createSettings({ autoCheckModUpdates: false })),
@@ -324,18 +306,18 @@ describe('useLauncherUpdates', () => {
     )
 
     await waitFor(() => {
-      expect(subscribeLauncherUpdatesMock).toHaveBeenCalledTimes(1)
+      expect(launcherPort.subscribeUpdates).toHaveBeenCalledTimes(1)
     })
 
-    expect(loadLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
-    expect(loadCachedLauncherUpdatesMock).not.toHaveBeenCalled()
-    expect(checkLauncherUpdatesMock).not.toHaveBeenCalled()
+    expect(launcherPort.loadNexusDiagnostics).not.toHaveBeenCalled()
+    expect(launcherPort.loadCachedUpdates).not.toHaveBeenCalled()
+    expect(launcherPort.checkUpdates).not.toHaveBeenCalled()
 
     await act(async () => {
       await result.current.refresh()
     })
 
-    expect(checkLauncherUpdatesMock).toHaveBeenCalledWith({
+    expect(launcherPort.checkUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
       forceRefresh: true,
     })

@@ -1,5 +1,5 @@
 import { FileArchive, FileJson, FolderTree } from 'lucide-react'
-import type { InspectLauncherArchiveResult, LauncherArchiveTreeNode } from '@platform/desktop'
+import type { InspectLauncherArchiveResult, LauncherArchiveTreeNode } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'

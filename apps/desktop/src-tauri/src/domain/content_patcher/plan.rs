@@ -712,10 +712,10 @@ fn resolve_patch_token(
         };
         let result = rounded / multiplier;
 
-        if digits <= 0 {
-            return Some(format!("{:.0}", result));
+        return if digits <= 0 {
+            Some(format!("{:.0}", result))
         } else {
-            return Some(format!("{:.1$}", result, digits as usize));
+            Some(format!("{:.1$}", result, digits as usize))
         }
     }
 

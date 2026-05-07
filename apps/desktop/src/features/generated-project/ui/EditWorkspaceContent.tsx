@@ -1,7 +1,7 @@
 import type { GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { EditModeShell } from './EditModeShell'
-import type { UseGeneratedProjectReturn } from '../state/useGeneratedProject'
+import type { UseGeneratedProjectReturn } from '@features/generated-project'
 
 type EditWorkspaceContentProps = {
   workspaceMode: WorkspaceId

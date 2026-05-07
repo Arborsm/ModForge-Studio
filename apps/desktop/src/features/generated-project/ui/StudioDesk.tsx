@@ -1,6 +1,6 @@
 import { useCallback, useState, type PointerEvent } from 'react'
 import { BookOpen, MoreHorizontal } from 'lucide-react'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 import type { DraftPatch, GeneratedProjectDraft, WorkspaceId } from '@shared/contracts'
 import type { StudioDeskInspiration, StudioDeskModel } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
@@ -10,7 +10,7 @@ import { StudioDeskStoryboard } from './StudioDeskStoryboard'
 import { StudioDeskMainStage } from './StudioDeskMainStage'
 import { StudioDeskWorldBible } from './StudioDeskWorldBible'
 import { StudioDeskProjectGallery } from './StudioDeskProjectGallery'
-import { formatStudioTimestamp } from '../model/studioDeskFormatting'
+import { formatStudioTimestamp } from '@features/generated-project'
 
 type CreateDraftMetadata = Pick<
   GeneratedProjectDraft['projectMetadata'],

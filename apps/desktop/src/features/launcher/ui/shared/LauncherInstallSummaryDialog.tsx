@@ -1,4 +1,4 @@
-import type { InstallLauncherArchiveResult } from '@platform/desktop'
+import type { InstallLauncherArchiveResult } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/localeContext'
 import { PanelSection } from '@shared/ui/PanelSection'
 

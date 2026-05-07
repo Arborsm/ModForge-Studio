@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  checkLauncherUpdates,
-  downloadLauncherMod,
-  installLauncherArchive,
-  loadLauncherDownloadQueue,
-  saveLauncherDownloadQueue,
-  type DownloadLauncherModResult,
-  type LauncherSettings,
-} from '@platform/desktop'
+import { useLauncherPort } from '@features/launcher'
+import type { DownloadLauncherModResult, LauncherSettings } from './launcherContracts'
 import type { LauncherDownloadQueueItem, LauncherDownloadQueueStatus, QueueLauncherDownloadInput } from './types'
 
 const MAX_CONCURRENT_LAUNCHER_DOWNLOADS = 3
@@ -96,6 +89,7 @@ function mapDownloadResultToQueueState(
 }
 
 export function useLauncherDownloads(settings: LauncherSettings) {
+  const launcherPort = useLauncherPort()
   const [items, setItems] = useState<LauncherDownloadQueueItem[]>([])
   const processingIdsRef = useRef<Set<string>>(new Set())
   const debugSimulationIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
@@ -120,7 +114,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   useEffect(() => {
     let active = true
 
-    void loadLauncherDownloadQueue()
+    void launcherPort.loadDownloadQueue()
       .then((result) => {
         if (!active) {
           return
@@ -138,7 +132,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     return () => {
       active = false
     }
-  }, [])
+  }, [launcherPort])
 
   useEffect(() => {
     return () => {
@@ -151,19 +145,19 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       return
     }
 
-    void saveLauncherDownloadQueue({ items })
-  }, [items])
+    void launcherPort.saveDownloadQueue({ items })
+  }, [items, launcherPort])
 
   const refreshUpdatesAfterInstall = useCallback(() => {
     if (!settings.modsPath) {
       return
     }
 
-    void checkLauncherUpdates({
+    void launcherPort.checkUpdates({
       modsPath: settings.modsPath,
       forceRefresh: false,
     }).catch(() => {})
-  }, [settings.modsPath])
+  }, [launcherPort, settings.modsPath])
 
   const queueDownload = useCallback((input: QueueLauncherDownloadInput) => {
     const credentialError = getDownloadCredentialError(settings)
@@ -266,7 +260,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       }
 
       try {
-        const result = await installLauncherArchive({
+        const result = await launcherPort.installArchive({
           archivePath: target.archivePath,
           modsPath: settings.modsPath,
         })
@@ -292,7 +286,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         )
       }
     },
-    [items, refreshUpdatesAfterInstall, settings.modsPath],
+    [items, launcherPort, refreshUpdatesAfterInstall, settings.modsPath],
   )
 
   const installAllReady = useCallback(async () => {
@@ -317,7 +311,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
         })),
       )
 
-      void downloadLauncherMod({
+      void launcherPort.downloadMod({
         modId: queuedItem.modId,
         version: queuedItem.version,
         title: queuedItem.title,
@@ -333,7 +327,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
 
           if (settings.autoInstallDownloads && result.archivePath) {
             try {
-              const installResult = await installLauncherArchive({
+              const installResult = await launcherPort.installArchive({
                 archivePath: result.archivePath,
                 modsPath: settings.modsPath,
               })
@@ -378,7 +372,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           processingIdsRef.current.delete(queuedItem.id)
         })
     },
-    [refreshUpdatesAfterInstall, settings.autoInstallDownloads, settings.modsPath],
+    [launcherPort, refreshUpdatesAfterInstall, settings.autoInstallDownloads, settings.modsPath],
   )
 
   const startDebugSimulation = useCallback((title = 'Launcher Debug Download') => {

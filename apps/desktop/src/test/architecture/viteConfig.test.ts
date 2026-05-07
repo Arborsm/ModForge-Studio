@@ -11,10 +11,10 @@ async function loadViteConfig() {
 
 async function loadManualChunks() {
   const config = await loadViteConfig()
-  const output = config.build?.rollupOptions?.output
+  const output = config.build?.rolldownOptions?.output
 
   if (!output || Array.isArray(output) || typeof output.manualChunks !== 'function') {
-    throw new Error('Expected vite config to expose build.rollupOptions.output.manualChunks')
+    throw new Error('Expected vite config to expose build.rolldownOptions.output.manualChunks')
   }
 
   return output.manualChunks
@@ -64,7 +64,7 @@ describe('vite config', () => {
 
   it('splits event workspace runtime and authoring models into focused manual chunks', async () => {
     const manualChunks = await loadManualChunks()
-    const context = { getModuleInfo: () => null }
+    const context: Parameters<typeof manualChunks>[1] = { getModuleInfo: () => null }
 
     expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStageTemporarySprites.ts', context)).toBe('event-stage-runtime')
     expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStagePlayback.ts', context)).toBe('event-stage-runtime')

@@ -2,9 +2,11 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 import type { StudioDeskModel } from '../model/studioDeskModel'
-import { formatStudioTimestamp } from '../model/studioDeskFormatting'
-import type { EditorCopy } from '../../../locales'
-import { localeBundles } from '../../../locales'
+import { formatStudioTimestamp } from '@features/generated-project'
+import type { EditorCopy } from '@locales'
+import { localeBundles } from '@locales'
+import { GeneratedProjectProvider } from '@features/generated-project'
+import { createMockGeneratedProjectPort } from '@test/generatedProjectTestPort.ts'
 import { StudioDesk } from './StudioDesk'
 
 function model(): StudioDeskModel {
@@ -132,7 +134,11 @@ function renderDesk(overrides: Partial<ComponentProps<typeof StudioDesk>> = {}) 
     isLoading: false,
     ...overrides,
   }
-  render(<StudioDesk {...props} />)
+  render(
+    <GeneratedProjectProvider port={createMockGeneratedProjectPort()}>
+      <StudioDesk {...props} />
+    </GeneratedProjectProvider>,
+  )
   return props
 }
 

@@ -8,7 +8,7 @@ import {
   buildFarmerSingleAnimationFrames,
   getFarmerEatAnimationId,
   inferFarmerSingleAnimationVisualState,
-} from './farmerEventAnimationData'
+} from '@entities/event'
 import { applyStageEffectCommand, removeStageEffectsByTile } from '@entities/event'
 import {
   createFadeOverlayState,
@@ -1482,7 +1482,7 @@ function continuePlayback(
         }
 
         nextState = { ...nextState, pointer: nextState.pointer + 1 }
-        continue
+        break
       }
       case 'end':
         if (command.dialoguePages?.length && command.actorName) {

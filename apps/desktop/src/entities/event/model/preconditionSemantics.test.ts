@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { localeBundles } from '@locales'
-import { EventPreconditionParser, formatEventPreconditionForHub } from './preconditionSemantics'
+import { EventPreconditionParser, formatEventPreconditionForHub } from '@entities/event'
 
 const builtInSamples = [
   'GameStateQuery "!WEATHER Here Sun"',

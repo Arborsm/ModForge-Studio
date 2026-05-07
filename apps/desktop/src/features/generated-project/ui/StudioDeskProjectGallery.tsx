@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
 import { CheckSquare, Copy, Trash2, X } from 'lucide-react'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 import type { StudioDeskModel, StudioDeskProjectFilter, StudioDeskProjectStatus } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
@@ -8,7 +8,7 @@ import {
   formatStudioTimestamp,
   getStudioProjectStatusLabel,
   handleStudioKeyboardAction,
-} from '../model/studioDeskFormatting'
+} from '@features/generated-project'
 
 type StudioDeskProjectGalleryProps = {
   model: StudioDeskModel

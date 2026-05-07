@@ -5,7 +5,7 @@ import {
   type PublishNotificationRequest,
 } from '@shared/ui/notifications'
 import type { LauncherCopy } from '@locales/editor-shell'
-import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher'
 import {
   canAutoCheckLauncherUpdates,
   canAutoLoadLauncherDiscover,

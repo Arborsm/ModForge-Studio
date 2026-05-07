@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { useLauncherImage } from '@features/launcher'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 
-vi.mock('@features/launcher', () => ({
+vi.mock('../../model/imageLoader', () => ({
   useLauncherImage: vi.fn(),
 }))
 

@@ -42,6 +42,16 @@ export function useWorkbenchCommandIntent({
   // Track active draft changes to detect load completion
   const prevDraftKeyRef = useRef<string | null>(null)
 
+  // Reset retry state when pending intent changes
+  const prevIntentIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    const id = pendingIntentProp?.id ?? null
+    if (id !== prevIntentIdRef.current) {
+      prevIntentIdRef.current = id
+      loadAttemptedRef.current = new Set()
+    }
+  }, [pendingIntentProp?.id])
+
   const consume = useCallback(
     (intent: PendingWorkbenchCommandIntent) => {
       const cmd = intent.command
@@ -56,7 +66,9 @@ export function useWorkbenchCommandIntent({
           setWorkspaceViewMode('edit')
           navigateToPatch(null)
         }
+
         // Unsupported view ids: safe no-op (just clear intent)
+        consumedIntentIdsRef.current.add(intent.id)
         clearPendingIntent()
         setConsumedIntentId(intent.id)
         return
@@ -67,10 +79,15 @@ export function useWorkbenchCommandIntent({
         const currentDraftKey: string | undefined = generatedProject.activeDraft?.draftStorageKey
         const needsLoad = cmd.sourceId && cmd.sourceId !== currentDraftKey
 
-        if (needsLoad && cmd.sourceId && !loadAttemptedRef.current.has(cmd.sourceId)) {
-          loadAttemptedRef.current.add(cmd.sourceId)
-          void generatedProject.loadDraft(cmd.sourceId)
-          // Don't clear intent yet — will retry when draft loads
+        if (needsLoad && cmd.sourceId) {
+          if (!loadAttemptedRef.current.has(cmd.sourceId)) {
+            loadAttemptedRef.current.add(cmd.sourceId)
+            void generatedProject.loadDraft(cmd.sourceId)
+          } else if (!generatedProject.draftLoading && generatedProject.draftError) {
+            consumedIntentIdsRef.current.add(intent.id)
+            clearPendingIntent()
+            setConsumedIntentId(intent.id)
+          }
           return
         }
 
@@ -78,11 +95,13 @@ export function useWorkbenchCommandIntent({
         const target = resolveWorkbenchOpenAssetTarget(cmd, generatedProject)
         if (!target) {
           // Missing patch: safe failure
+          consumedIntentIdsRef.current.add(intent.id)
           clearPendingIntent()
           setConsumedIntentId(intent.id)
           return
         }
 
+        consumedIntentIdsRef.current.add(intent.id)
         setWorkspaceMode(target.workspaceId)
         setWorkspaceViewMode('edit')
         navigateToPatch(target.assetId)
@@ -126,7 +145,7 @@ export function useWorkbenchCommandIntent({
 
     const id = setTimeout(() => consume(pendingIntentProp), 0)
     return () => clearTimeout(id)
-  }, [generatedProject.activeDraft, pendingIntentProp, consume])
+  }, [generatedProject.activeDraft, generatedProject.draftError, generatedProject.draftLoading, pendingIntentProp, consume])
 
   return { consumedIntentId }
 }

@@ -23,7 +23,7 @@ import {
 import { useMemo, useState, type PointerEvent } from 'react'
 import { cx } from '@shared/lib/cx'
 import { splitEventPreconditions } from '@entities/event'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 import { EventGameStateQueryBuilderModal, type GameStateQueryBuilderResult } from './EventGameStateQueryBuilderModal'
 import type { EventPatchHubEvent } from '@entities/event'
 import { EventPreconditionParser, formatEventPreconditionForHub, type ParsedEventPrecondition } from '@entities/event'

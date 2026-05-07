@@ -1,34 +1,17 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  chooseDirectory,
-  detectDefaultGameDirectory,
-  loadLauncherSettings,
-  saveLauncherSettings,
-  type LauncherSettings,
-} from '@platform/desktop'
+import type { LauncherSettings } from '@platform/desktop'
 import { reportAppEvent } from '@shared/lib/observability'
-import { useLauncherSettings } from './useLauncherSettings'
-
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
-  return {
-    ...actual,
-    chooseDirectory: vi.fn(),
-    detectDefaultGameDirectory: vi.fn(),
-    loadLauncherSettings: vi.fn(),
-    saveLauncherSettings: vi.fn(),
-  }
-})
+import { useLauncherSettings } from '@features/launcher'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from './launcherPort'
 
 vi.mock('@shared/lib/observability', () => ({
   reportAppEvent: vi.fn(),
 }))
 
-const loadLauncherSettingsMock = vi.mocked(loadLauncherSettings)
-const detectDefaultGameDirectoryMock = vi.mocked(detectDefaultGameDirectory)
-const saveLauncherSettingsMock = vi.mocked(saveLauncherSettings)
-void vi.mocked(chooseDirectory)
 const reportAppEventMock = vi.mocked(reportAppEvent)
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
@@ -45,6 +28,12 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
   } as LauncherSettings
 }
 
+function createWrapper(port: LauncherPort) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <LauncherTestWrapper port={port}>{children}</LauncherTestWrapper>
+  }
+}
+
 describe('useLauncherSettings', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -52,11 +41,12 @@ describe('useLauncherSettings', () => {
   })
 
   it('hydrates missing launcher paths from the detected game directory', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(createSettings())
-    detectDefaultGameDirectoryMock.mockResolvedValue('E:\\Games\\Stardew Valley')
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue('E:\\Games\\Stardew Valley'),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('ready')
       expect(result.current.settings.gamePath).toBe('E:\\Games\\Stardew Valley')
@@ -67,19 +57,20 @@ describe('useLauncherSettings', () => {
   })
 
   it('persists detected launcher paths after hydration so future sessions keep the scanned library root', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(createSettings())
-    detectDefaultGameDirectoryMock.mockResolvedValue('D:\\Software\\Steam\\steamapps\\common\\Stardew Valley')
-    saveLauncherSettingsMock.mockResolvedValue(
-      createSettings({
-        gamePath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley',
-        modsPath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley\\Mods',
-      }),
-    )
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue('D:\\Software\\Steam\\steamapps\\common\\Stardew Valley'),
+      saveSettings: vi.fn().mockResolvedValue(
+        createSettings({
+          gamePath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley',
+          modsPath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley\\Mods',
+        }),
+      ),
+    })
 
-    renderHook(() => useLauncherSettings())
-
+    renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
-      expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
+      expect(port.saveSettings).toHaveBeenCalledWith(
         expect.objectContaining({
           gamePath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley',
           modsPath: 'D:\\Software\\Steam\\steamapps\\common\\Stardew Valley\\Mods',
@@ -89,16 +80,17 @@ describe('useLauncherSettings', () => {
   })
 
   it('keeps persisted launcher paths when they are already configured', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(
-      createSettings({
-        gamePath: 'D:\\Portable\\Stardew Valley',
-        modsPath: 'D:\\Portable\\Stardew Valley\\Mods',
-      }),
-    )
-    detectDefaultGameDirectoryMock.mockResolvedValue('E:\\Games\\Stardew Valley')
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(
+        createSettings({
+          gamePath: 'D:\\Portable\\Stardew Valley',
+          modsPath: 'D:\\Portable\\Stardew Valley\\Mods',
+        }),
+      ),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue('E:\\Games\\Stardew Valley'),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('ready')
       expect(result.current.settings.gamePath).toBe('D:\\Portable\\Stardew Valley')
@@ -107,11 +99,12 @@ describe('useLauncherSettings', () => {
   })
 
   it('publishes an error notification when launcher settings fail to load', async () => {
-    loadLauncherSettingsMock.mockRejectedValue(new Error('Settings file not found'))
-    detectDefaultGameDirectoryMock.mockResolvedValue(null)
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockRejectedValue(new Error('Settings file not found')),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('error')
     })
@@ -124,16 +117,17 @@ describe('useLauncherSettings', () => {
   })
 
   it('publishes a success notification after launcher settings are saved', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(createSettings())
-    detectDefaultGameDirectoryMock.mockResolvedValue(null)
-    saveLauncherSettingsMock.mockResolvedValue(
-      createSettings({
-        gamePath: 'E:\\Games\\Stardew Valley',
-      }),
-    )
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+      saveSettings: vi.fn().mockResolvedValue(
+        createSettings({
+          gamePath: 'E:\\Games\\Stardew Valley',
+        }),
+      ),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('ready')
     })
@@ -150,12 +144,13 @@ describe('useLauncherSettings', () => {
   })
 
   it('publishes an error notification when launcher settings save fails', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(createSettings())
-    detectDefaultGameDirectoryMock.mockResolvedValue(null)
-    saveLauncherSettingsMock.mockRejectedValue(new Error('Write denied'))
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+      saveSettings: vi.fn().mockRejectedValue(new Error('Write denied')),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('ready')
     })
@@ -181,16 +176,17 @@ describe('useLauncherSettings', () => {
   })
 
   it('autosaves launcher settings after edits settle', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(createSettings())
-    detectDefaultGameDirectoryMock.mockResolvedValue(null)
-    saveLauncherSettingsMock.mockResolvedValue(
-      createSettings({
-        nexusCookie: 'session-cookie',
-      }),
-    )
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+      saveSettings: vi.fn().mockResolvedValue(
+        createSettings({
+          nexusCookie: 'session-cookie',
+        }),
+      ),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('ready')
     })
@@ -201,19 +197,19 @@ describe('useLauncherSettings', () => {
       result.current.updateField('nexusCookie', 'session-cookie')
     })
 
-    expect(saveLauncherSettingsMock).not.toHaveBeenCalled()
+    expect(port.saveSettings).not.toHaveBeenCalled()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(699)
     })
 
-    expect(saveLauncherSettingsMock).not.toHaveBeenCalled()
+    expect(port.saveSettings).not.toHaveBeenCalled()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1)
     })
 
-    expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
+    expect(port.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         nexusCookie: 'session-cookie',
       }),
@@ -221,16 +217,17 @@ describe('useLauncherSettings', () => {
   })
 
   it('autosaves launcher settings after the automatic update toggle changes', async () => {
-    loadLauncherSettingsMock.mockResolvedValue(createSettings())
-    detectDefaultGameDirectoryMock.mockResolvedValue(null)
-    saveLauncherSettingsMock.mockResolvedValue(
-      createSettings({
-        autoCheckModUpdates: false,
-      }),
-    )
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+      saveSettings: vi.fn().mockResolvedValue(
+        createSettings({
+          autoCheckModUpdates: false,
+        }),
+      ),
+    })
 
-    const { result } = renderHook(() => useLauncherSettings())
-
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
     await waitFor(() => {
       expect(result.current.state).toBe('ready')
     })
@@ -248,7 +245,7 @@ describe('useLauncherSettings', () => {
       await vi.advanceTimersByTimeAsync(700)
     })
 
-    expect(saveLauncherSettingsMock).toHaveBeenCalledWith(
+    expect(port.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         autoCheckModUpdates: false,
       }),

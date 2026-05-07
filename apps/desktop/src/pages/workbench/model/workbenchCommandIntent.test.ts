@@ -207,7 +207,70 @@ describe('useWorkbenchCommandIntent', () => {
     expect(clearPendingIntent).toHaveBeenCalled()
   })
 
-  it('handles unsupported view ids safely', async () => {
+  it('keeps a cross-draft open-asset intent pending while the target draft is loading', async () => {
+    const setWorkspaceMode = vi.fn()
+    const setWorkspaceViewMode = vi.fn()
+    const navigateToPatch = vi.fn()
+    const clearPendingIntent = vi.fn()
+    const loadDraft = vi.fn(() => new Promise<void>(() => {}))
+
+    const gp = createMockGeneratedProject({
+      loadDraft,
+      activeDraft: {
+        draftStorageKey: 'draft-current',
+        projectMetadata: {
+          projectName: 'Current',
+          projectDescription: '',
+          projectAuthor: '',
+          projectVersion: '1.0.0',
+          projectUniqueId: 'Author.Current',
+          gameRootPath: null,
+          contentPackForUniqueId: 'Pathoschild.ContentPatcher',
+        },
+        overlayTargets: [],
+        configSchema: [],
+        patches: [],
+        virtualAssets: [],
+        dynamicTokens: [],
+        customLocations: [],
+        aliasTokenNames: {},
+        eventSourceSnapshotsByTarget: {},
+      } as UseGeneratedProjectReturn['activeDraft'],
+    })
+
+    const intent: PendingWorkbenchCommandIntent = {
+      id: 'intent-cross-draft',
+      command: {
+        type: 'workbench/open-asset',
+        assetId: 'patch-from-target-draft',
+        assetKind: 'event',
+        sourceId: 'draft-target',
+      },
+    }
+
+    renderHook(() =>
+      useWorkbenchCommandIntent({
+        pendingIntent: intent,
+        generatedProject: gp,
+        setWorkspaceMode,
+        setWorkspaceViewMode,
+        navigateToPatch,
+        clearPendingIntent,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(loadDraft).toHaveBeenCalledWith('draft-target')
+    })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(clearPendingIntent).not.toHaveBeenCalled()
+    expect(setWorkspaceMode).not.toHaveBeenCalled()
+    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
+    expect(navigateToPatch).not.toHaveBeenCalled()
+  })
+
+  it('handles workspace-editor view intents safely', async () => {
     const setWorkspaceMode = vi.fn()
     const setWorkspaceViewMode = vi.fn()
     const navigateToPatch = vi.fn()
@@ -215,7 +278,7 @@ describe('useWorkbenchCommandIntent', () => {
 
     const intent: PendingWorkbenchCommandIntent = {
       id: 'intent-3',
-      command: { type: 'navigation/open-workbench-view', viewId: 'unknown-view' },
+      command: { type: 'navigation/open-workbench-view', viewId: 'workspace-editor' },
     }
 
     const { result } = renderHook(() =>
@@ -233,10 +296,48 @@ describe('useWorkbenchCommandIntent', () => {
       expect(result.current.consumedIntentId).toBe('intent-3')
     })
 
-    // Only clearIntent should be called; no mode navigation
     expect(setWorkspaceMode).not.toHaveBeenCalled()
-    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
-    expect(navigateToPatch).not.toHaveBeenCalled()
+    expect(setWorkspaceViewMode).toHaveBeenCalledWith('edit')
+    expect(navigateToPatch).toHaveBeenCalledWith(null)
     expect(clearPendingIntent).toHaveBeenCalled()
+  })
+
+  it('does not replay an already consumed intent when the same id returns after being cleared', async () => {
+    const setWorkspaceMode = vi.fn()
+    const setWorkspaceViewMode = vi.fn()
+    const navigateToPatch = vi.fn()
+    const clearPendingIntent = vi.fn()
+
+    const intent: PendingWorkbenchCommandIntent = {
+      id: 'intent-replay',
+      command: { type: 'navigation/open-workbench-view', viewId: 'studio-desk' },
+    }
+
+    const { result, rerender } = renderHook(
+      ({ pendingIntent }) =>
+        useWorkbenchCommandIntent({
+          pendingIntent,
+          generatedProject: createMockGeneratedProject(),
+          setWorkspaceMode,
+          setWorkspaceViewMode,
+          navigateToPatch,
+          clearPendingIntent,
+        }),
+      { initialProps: { pendingIntent: intent as PendingWorkbenchCommandIntent | null } },
+    )
+
+    await waitFor(() => {
+      expect(result.current.consumedIntentId).toBe('intent-replay')
+    })
+
+    rerender({ pendingIntent: null })
+    rerender({ pendingIntent: intent })
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+
+    expect(setWorkspaceMode).toHaveBeenCalledTimes(1)
+    expect(setWorkspaceViewMode).toHaveBeenCalledTimes(1)
+    expect(navigateToPatch).toHaveBeenCalledTimes(1)
+    expect(clearPendingIntent).toHaveBeenCalledTimes(1)
   })
 })

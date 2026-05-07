@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherDebugPage } from './LauncherDebugPage'
 
 const reportAppEvent = vi.fn()

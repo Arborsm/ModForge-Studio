@@ -15,10 +15,6 @@ export type WorkbenchCommand =
       assetKind: 'event' | 'map' | 'image' | 'data'
       sourceId?: string
     }
-  | {
-      type: 'workbench/focus-panel'
-      panelId: string
-    }
 
 export type AppCommand = NavigationCommand | WorkbenchCommand
 

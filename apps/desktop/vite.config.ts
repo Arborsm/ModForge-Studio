@@ -37,7 +37,7 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           const normalizedId = id.replaceAll('\\', '/')

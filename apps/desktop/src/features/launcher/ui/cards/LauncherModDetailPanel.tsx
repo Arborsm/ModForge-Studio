@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { FolderTree, Link2, ScrollText, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
-import { openLauncherUrl } from '@platform/desktop'
+import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import type { LauncherLibraryItem } from '@features/launcher'
 import { cx } from '@shared/lib/cx'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
@@ -69,6 +69,7 @@ export function LauncherModDetailPanel({
   openModPageLabel,
   packName,
 }: LauncherModDetailPanelProps) {
+  const launcherPort = useLauncherPort()
   const copy = useEditorCopy()
   const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? title)
   const coverWord = getLauncherCardCoverWord(mod?.name ?? title)
@@ -174,7 +175,7 @@ export function LauncherModDetailPanel({
                     rel="noreferrer"
                     onClick={(event) => {
                       event.preventDefault()
-                      void openLauncherUrl({ url: mod.modUrl! })
+                      void launcherPort.openUrl({ url: mod.modUrl! })
                     }}
                   >
                     {openModPageLabel ?? copy.launcher.actions.openModPage}

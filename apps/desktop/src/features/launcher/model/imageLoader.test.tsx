@@ -1,15 +1,16 @@
 import { renderHook, waitFor } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useLauncherImage } from './imageLoader'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { createMockLauncherPort } from '@test/launcherTestPort.ts'
+import type { LauncherPort } from './launcherPort'
 
-vi.mock('@platform/desktop', () => ({
-  resolveLauncherImage: vi.fn(),
-  toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
-}))
-
-import { resolveLauncherImage } from '@platform/desktop'
-
-const resolveLauncherImageMock = vi.mocked(resolveLauncherImage)
+function createWrapper(port: LauncherPort) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return <LauncherTestWrapper port={port}>{children}</LauncherTestWrapper>
+  }
+}
 
 describe('useLauncherImage', () => {
   afterEach(() => {
@@ -18,22 +19,26 @@ describe('useLauncherImage', () => {
 
   it('clears the previous image while a new launcher image is loading', async () => {
     let resolveSecond: (value: { sourceUrl: string; localPath: string; mimeType: string }) => void = () => {}
-    resolveLauncherImageMock.mockImplementation(async (request) => {
-      if (request.url === 'https://example.com/a.png') {
-        return {
-          sourceUrl: request.url,
-          localPath: 'a.png',
-          mimeType: 'image/png',
+    const port = createMockLauncherPort({
+      resolveImage: vi.fn().mockImplementation(async (request) => {
+        if (request.url === 'https://example.com/a.png') {
+          return {
+            sourceUrl: request.url,
+            localPath: 'a.png',
+            mimeType: 'image/png',
+          }
         }
-      }
 
-      return new Promise<{ sourceUrl: string; localPath: string; mimeType: string }>((resolve) => {
-        resolveSecond = resolve
-      })
+        return new Promise<{ sourceUrl: string; localPath: string; mimeType: string }>((resolve) => {
+          resolveSecond = resolve
+        })
+      }),
+      toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
     })
 
     const { result, rerender } = renderHook(({ url }) => useLauncherImage(url), {
       initialProps: { url: 'https://example.com/a.png' as string | null },
+      wrapper: createWrapper(port),
     })
 
     await waitFor(() => {
@@ -59,24 +64,29 @@ describe('useLauncherImage', () => {
   })
 
   it('returns a cached launcher image immediately on remount without re-entering loading', async () => {
-    resolveLauncherImageMock.mockResolvedValue({
-      sourceUrl: 'https://example.com/cached-cover.png',
-      localPath: 'cached-cover.png',
-      mimeType: 'image/png',
+    const port = createMockLauncherPort({
+      resolveImage: vi.fn().mockResolvedValue({
+        sourceUrl: 'https://example.com/cached-cover.png',
+        localPath: 'cached-cover.png',
+        mimeType: 'image/png',
+      }),
+      toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
     })
 
-    const first = renderHook(() => useLauncherImage('https://example.com/cached-cover.png'))
-
+    const first = renderHook(() => useLauncherImage('https://example.com/cached-cover.png'), {
+      wrapper: createWrapper(port),
+    })
     await waitFor(() => {
       expect(first.result.current.imageUrl).toBe('asset:cached-cover.png')
     })
 
     first.unmount()
 
-    const second = renderHook(() => useLauncherImage('https://example.com/cached-cover.png'))
-
+    const second = renderHook(() => useLauncherImage('https://example.com/cached-cover.png'), {
+      wrapper: createWrapper(port),
+    })
     expect(second.result.current.imageUrl).toBe('asset:cached-cover.png')
     expect(second.result.current.loading).toBe(false)
-    expect(resolveLauncherImageMock).toHaveBeenCalledTimes(1)
+    expect(port.resolveImage).toHaveBeenCalledTimes(1)
   })
 })

@@ -4,7 +4,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 
 当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。
 
-本文档描述的是前端重整后的当前目录。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
+当前架构收尾处于 phase 8：`GeneratedProjectPlatformProvider`、`workbench/open-asset` replay protection、launcher port/provider 收口已经稳定，`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 继续作为批准边界保留，而 launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 仍是可见迁移热点。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
 
 ## 目录总览
 
@@ -96,6 +96,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 全局壳层：`apps/desktop/src/app/app-shell/`
 - Platform Provider：`apps/desktop/src/app/providers/PlatformProvider.tsx`
 - 事件总线与命令分发：`apps/desktop/src/app/providers/`
+- Approved platform bridge boundaries：`apps/desktop/src/app/providers/`、`apps/desktop/src/app/app-shell/AppShell.tsx`、`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
 - 静态 registry：`apps/desktop/src/app/registry-setup.ts`
 
 ### Launcher
@@ -107,6 +108,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - Launcher feature public API：`apps/desktop/src/features/launcher/index.ts`
 - Launcher 可复用 feature UI：`apps/desktop/src/features/launcher/ui/`
 - Launcher 运行时能力：`apps/desktop/src/features/launcher/model/`
+- Launcher adapter/provider：`apps/desktop/src/app/providers/launcherPortAdapter.ts`
 - 顶栏：`apps/desktop/src/widgets/top-navigation/ui/TopMenuBar.tsx`
 - 状态栏：`apps/desktop/src/widgets/status-bar/ui/StatusBar.tsx`
 - Launcher 样式：`apps/desktop/src/styles/features/launcher/`
@@ -153,6 +155,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - platform contracts：`apps/desktop/src/shared/contracts/platform.ts`
 - Tauri adapter：`apps/desktop/src/platform/tauri/`
 - Desktop facade：`apps/desktop/src/platform/desktop/`
+- Approved desktop facade entrypoints：`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
 - 插件注册：`apps/desktop/src/platform/plugins/`
 - App 注入入口：`apps/desktop/src/app/providers/`
 - Rust command wrapper：`apps/desktop/src-tauri/src/commands/`
@@ -208,6 +211,11 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src/platform/desktop/`
   - `apps/desktop/src-tauri/src/commands/`
   - `apps/desktop/src-tauri/src/domain/`
+- 改批准桥接边界：
+  - `apps/desktop/src/app/providers/`
+  - `apps/desktop/src/app/app-shell/AppShell.tsx`
+  - `apps/desktop/src/platform/desktop/index.ts`
+  - `apps/desktop/src/platform/desktop/index.test.ts`
 - 改文案：
   - `apps/desktop/src/locales/schema.ts`
   - `apps/desktop/src/locales/en-US.ts`

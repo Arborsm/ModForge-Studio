@@ -1,4 +1,4 @@
-import type { LauncherInstallBackupSummary } from '@platform/desktop'
+import type { LauncherInstallBackupSummary } from '../../model/launcherContracts'
 import { useEditorCopy } from '@locales/localeContext'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 

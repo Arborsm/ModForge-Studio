@@ -3,7 +3,7 @@ import {
   parseGameStateQuery,
   type GameStateQueryKey,
   type ParsedGameStateQueryClause,
-} from './gameStateQuerySemantics'
+} from '@entities/event'
 
 export {
   GAME_STATE_QUERY_KEYS,

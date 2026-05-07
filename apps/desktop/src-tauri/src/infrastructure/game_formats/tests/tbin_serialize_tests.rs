@@ -9,10 +9,6 @@ fn push_i32(bytes: &mut Vec<u8>, value: i32) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
-fn push_f32(bytes: &mut Vec<u8>, value: f32) {
-    bytes.extend_from_slice(&value.to_le_bytes());
-}
-
 fn push_string(bytes: &mut Vec<u8>, value: &str) {
     push_i32(bytes, value.len() as i32);
     bytes.extend_from_slice(value.as_bytes());
@@ -30,10 +26,6 @@ fn push_properties(bytes: &mut Vec<u8>, properties: &[(&str, PropertySeed)]) {
             PropertySeed::Integer(value) => {
                 push_u8(bytes, 1);
                 push_i32(bytes, *value);
-            }
-            PropertySeed::Float(value) => {
-                push_u8(bytes, 2);
-                push_f32(bytes, *value);
             }
             PropertySeed::String(value) => {
                 push_u8(bytes, 3);
@@ -178,7 +170,6 @@ fn assert_documents_match(
 enum PropertySeed<'a> {
     Bool(bool),
     Integer(i32),
-    Float(f32),
     String(&'a str),
 }
 

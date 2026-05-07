@@ -26,7 +26,7 @@ fn merge_json_value(base: &mut Value, patch: &Value) {
 }
 
 fn parse_target_field_segments(
-    patch: &serde_json::Map<String, Value>,
+    patch: &Map<String, Value>,
 ) -> Result<Vec<TargetFieldSegment>, String> {
     let Some(target_field) = patch.get("TargetField") else {
         return Ok(Vec::new());
@@ -166,7 +166,7 @@ fn resolve_conditional_entry(
         _ => return Some(value.clone()),
     };
     let status = evaluate_patch_status(
-        &Value::Object(serde_json::Map::from_iter(when_obj.iter().map(|(k, v)| (k.clone(), v.clone())))),
+        &Value::Object(Map::from_iter(when_obj.iter().map(|(k, v)| (k.clone(), v.clone())))),
         context,
         project_root_path,
     );
@@ -733,7 +733,7 @@ fn apply_text_operations(
 
 pub fn apply_edit_data_patch(
     base: &mut Value,
-    patch: &serde_json::Map<String, Value>,
+    patch: &Map<String, Value>,
     context: &SimulationContext,
     project_root_path: Option<&str>,
 ) -> Result<String, String> {

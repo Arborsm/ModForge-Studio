@@ -9,7 +9,7 @@ import type {
   LauncherLibraryStorageFolder,
   LauncherSettings,
   LauncherUpdateSummary,
-} from '@platform/desktop'
+} from './launcherContracts'
 
 export type LauncherViewState = 'idle' | 'loading' | 'ready' | 'error'
 

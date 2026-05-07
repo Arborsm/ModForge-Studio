@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
+import { useLauncherPort } from '@features/launcher'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { listenToLauncherUpdateProgress, type LauncherUpdateProgressPayload } from '@platform/desktop'
+import type { LauncherUpdateProgressPayload } from './launcherContracts'
 import { getLauncherCopy, type LocaleCode } from '@locales/editor-shell'
 
 export const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID = 'launcher-updates-progress'
@@ -34,12 +35,13 @@ export function publishLauncherUpdateProgressNotification(
 }
 
 export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
+  const launcherPort = useLauncherPort()
   useEffect(() => {
     const copy = getLauncherCopy(locale).updates
     let active = true
     let unlisten: (() => void) | null = null
 
-    void listenToLauncherUpdateProgress((payload) => {
+    void launcherPort.listenToUpdateProgress((payload) => {
       if (!active) {
         return
       }
@@ -64,5 +66,5 @@ export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
       unlisten?.()
       dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
     }
-  }, [locale])
+  }, [launcherPort, locale])
 }

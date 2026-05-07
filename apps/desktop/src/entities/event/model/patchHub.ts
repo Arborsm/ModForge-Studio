@@ -1,7 +1,7 @@
 import type { DraftPatch } from '@shared/contracts'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup, splitEventPreconditions } from './parser'
 import type { EventCommand, EventSceneActor } from './types'
-import { EventPreconditionParser, type EventPreconditionGroups } from './preconditionSemantics'
+import { EventPreconditionParser, type EventPreconditionGroups } from '@entities/event'
 
 export type EventHubStatus = 'done' | 'draft' | 'error' | 'disabled'
 export type EventHubSeverity = 'ok' | 'warn' | 'error'

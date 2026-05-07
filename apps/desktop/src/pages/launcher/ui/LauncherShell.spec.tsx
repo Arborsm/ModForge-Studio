@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import { useRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 
 const settingsPageSpy = vi.fn()
 let libraryPageInstanceCounter = 0

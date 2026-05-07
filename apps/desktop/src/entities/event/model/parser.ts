@@ -1,5 +1,5 @@
 import type { EventAssetSummary } from '@shared/contracts'
-import { getEventCommandKind, getEventCommandTitle, isKnownEventCommand } from './commandCatalog'
+import { getEventCommandKind, getEventCommandTitle, isKnownEventCommand } from '@entities/event'
 import type {
   EventBranchChoice,
   EventCommand,

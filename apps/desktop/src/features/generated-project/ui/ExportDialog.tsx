@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, FolderOpen } from 'lucide-react'
-import { useGeneratedProjectPort } from '../model/useGeneratedProjectPort'
-import type { EditorCopy } from '../../../locales'
+import { useGeneratedProjectPort } from '@features/generated-project'
+import type { EditorCopy } from '@locales'
 
 interface ExportDialogProps {
   open: boolean

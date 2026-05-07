@@ -18,6 +18,7 @@ export {
 export { getModKey, includesLibraryFilter, normalizeLookupKey } from './model/libraryHelpers'
 export { loadSettledLauncherNexusDiagnostics } from './model/nexusDiagnostics'
 export { syncLauncherDiagnosticsNotification } from './model/nexusDiagnosticsNotifications'
+export { useLauncherPort } from './model/launcherPortContext'
 export { useLauncherDiscover } from './model/useLauncherDiscover'
 export { useLauncherDownloads } from './model/useLauncherDownloads'
 export { useLauncherLibrary } from './model/useLauncherLibrary'
@@ -34,3 +35,4 @@ export type {
   QueueLauncherDownloadInput,
 } from './model/types'
 export type { LauncherDiscoverToolbarState } from './model/launcherDiscoverToolbarState'
+export type { LauncherNexusDiagnosticsResult } from './model/launcherContracts'

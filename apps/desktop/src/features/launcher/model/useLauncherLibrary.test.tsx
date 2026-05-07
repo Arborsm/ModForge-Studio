@@ -14,7 +14,10 @@ import type {
 } from '@platform/desktop'
 import * as desktop from '@platform/desktop'
 import { getLauncherCopy } from '@locales/editor-shell'
-import { useLauncherLibrary } from './useLauncherLibrary'
+import { useLauncherLibrary } from '@features/launcher'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from './launcherPort'
 
 vi.mock('@platform/desktop', async () => {
   const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
@@ -58,6 +61,7 @@ const publishNotificationMock = vi.mocked(publishNotification)
 const dismissNotificationMock = vi.mocked(dismissNotification)
 const launcherCopy = getLauncherCopy('zh-CN')
 type AutoCoverStageKey = keyof typeof launcherCopy.library.loadingMissingCoversStages
+let launcherPort: LauncherPort
 
 function createAutoCoverNotification(modName: string, stage: AutoCoverStageKey, completed: number, total: number) {
   return {
@@ -76,9 +80,9 @@ function createAutoCoverNotification(modName: string, stage: AutoCoverStageKey, 
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
-    <LocaleProvider locale="zh-CN">
-      {children}
-    </LocaleProvider>
+    <LauncherTestWrapper port={launcherPort}>
+      <LocaleProvider locale="zh-CN">{children}</LocaleProvider>
+    </LauncherTestWrapper>
   )
 }
 
@@ -266,6 +270,19 @@ describe('useLauncherLibrary', () => {
     })
     loadCachedLauncherUpdatesMock.mockResolvedValue(null)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
+    launcherPort = createMockLauncherPort({
+      checkUpdates: checkLauncherUpdatesMock,
+      installArchive: installLauncherArchiveMock,
+      loadCachedUpdates: loadCachedLauncherUpdatesMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      saveLibraryState: saveLauncherLibraryStateMock,
+      scanLibrary: scanLauncherLibraryMock,
+      setModEnabled: setLauncherModEnabledMock,
+    })
   })
 
   afterEach(() => {

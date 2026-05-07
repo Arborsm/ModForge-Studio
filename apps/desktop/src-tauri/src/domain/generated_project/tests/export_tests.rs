@@ -20,7 +20,7 @@ fn virtual_asset(relative_path: &str, bytes: &[u8]) -> VirtualPreviewAsset {
     }
 }
 
-fn assert_export_paths(result: &GeneratedProjectExportResult, output_dir: &std::path::Path) {
+fn assert_export_paths(result: &GeneratedProjectExportResult, output_dir: &Path) {
     assert_eq!(result.output_path, normalize_path(output_dir));
     assert_eq!(
         result.manifest_path,

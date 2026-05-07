@@ -501,7 +501,7 @@ pub(crate) fn find_sound_entry_for_simple_cue<'a>(
 
     let sound_table_len = header
         .simple_cues_offset
-        .saturating_sub(header.sounds_offset) as u32;
+        .saturating_sub(header.sounds_offset);
 
     if sound_offset < sound_table_len {
         if let Some(entry) = find_sound_entry_by_offset(sound_entries, sound_offset) {

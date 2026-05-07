@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
@@ -438,6 +438,7 @@ vi.mock('@pages/workbench/model/workspace-panels', () => ({
 }))
 
 vi.mock('@features/generated-project', () => ({
+  GeneratedProjectProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   useGeneratedProject: () => useGeneratedProjectMock(),
   buildStudioDeskModel: () => ({
     heroProject: null,

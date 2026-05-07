@@ -1,10 +1,13 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import { loadLauncherRemoteModDetail } from '@platform/desktop'
 import { useLauncherRemoteModDetail } from './useLauncherRemoteModDetail'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from './launcherPort'
 
 vi.mock('@platform/desktop', async () => {
   const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
@@ -15,6 +18,7 @@ vi.mock('@platform/desktop', async () => {
 })
 
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
+let launcherPort: LauncherPort
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void
@@ -28,9 +32,11 @@ function createDeferred<T>() {
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
-    <LocaleProvider locale="zh-CN">
-      <NotificationProvider>{children}</NotificationProvider>
-    </LocaleProvider>
+    <LauncherTestWrapper port={launcherPort}>
+      <LocaleProvider locale="zh-CN">
+        <NotificationProvider>{children}</NotificationProvider>
+      </LocaleProvider>
+    </LauncherTestWrapper>
   )
 }
 
@@ -45,6 +51,12 @@ function HookProbe({ modId }: { modId: number | null }) {
 }
 
 describe('useLauncherRemoteModDetail', () => {
+  beforeEach(() => {
+    launcherPort = createMockLauncherPort({
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+    })
+  })
+
   afterEach(() => {
     cleanup()
     clearNotifications()

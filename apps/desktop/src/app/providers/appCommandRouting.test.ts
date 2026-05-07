@@ -46,7 +46,7 @@ describe('createAppCommandHandler', () => {
     )
   })
 
-  it('does not overwrite pending open-asset intent with a view intent', () => {
+  it('allows a later view intent to replace a pending open-asset intent', () => {
     const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
 
     handler.handleCommand({
@@ -66,11 +66,12 @@ describe('createAppCommandHandler', () => {
       viewId: 'studio-desk',
     })
 
-    // Should NOT have called onPendingIntent again (preserved original intent)
-    expect(onPendingIntent).not.toHaveBeenCalled()
-    const stillPending = handler.getCurrentPendingIntent()
-    expect(stillPending?.command.type).toBe('workbench/open-asset')
-    expect((stillPending?.command as Extract<AppCommand, { type: 'workbench/open-asset' }>).assetId).toBe('patch-456')
+    expect(onPendingIntent).toHaveBeenCalledTimes(1)
+    const nextPending = handler.getCurrentPendingIntent()
+    expect(nextPending?.command).toEqual({
+      type: 'navigation/open-workbench-view',
+      viewId: 'studio-desk',
+    })
   })
 
   it('allows overwriting after pending intent is cleared', () => {
@@ -97,15 +98,6 @@ describe('createAppCommandHandler', () => {
     const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
 
     handler.handleCommand({ type: 'navigation/open-page', pageId: 'library' })
-
-    expect(setAppMode).not.toHaveBeenCalled()
-    expect(onPendingIntent).not.toHaveBeenCalled()
-  })
-
-  it('does nothing for workbench/focus-panel', () => {
-    const handler = createAppCommandHandler({ setAppMode, onPendingIntent })
-
-    handler.handleCommand({ type: 'workbench/focus-panel', panelId: 'assets' })
 
     expect(setAppMode).not.toHaveBeenCalled()
     expect(onPendingIntent).not.toHaveBeenCalled()

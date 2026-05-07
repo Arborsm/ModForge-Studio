@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useGeneratedProjectPort } from '../model/useGeneratedProjectPort'
-import type { GeneratedProjectPort } from '../model/generatedProjectPort'
+import { useGeneratedProjectPort } from '@features/generated-project'
+import type { GeneratedProjectPort } from '@features/generated-project'
 import type {
   ConfigSchemaEntry,
   DraftPatch,

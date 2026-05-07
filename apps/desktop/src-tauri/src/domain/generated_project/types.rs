@@ -47,7 +47,7 @@ pub struct DynamicToken {
     pub name: String,
     pub value: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<serde_json::Map<String, serde_json::Value>>,
+    pub when: Option<Map<String, Value>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

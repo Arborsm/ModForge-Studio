@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import type { DraftPatch, GeneratedProjectDraft } from '@shared/contracts'
-import { renderWithLocale } from '../../../test/renderWithLocale'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { EditModeShell } from './EditModeShell'
 
 function eventPatch(): DraftPatch {

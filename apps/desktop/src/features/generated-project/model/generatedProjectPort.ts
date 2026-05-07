@@ -1,12 +1,6 @@
-import type { VirtualPreviewAsset } from '@shared/contracts'
+import type { GameDirectoryInfo, VirtualPreviewAsset } from '@shared/contracts'
 
-/** @internal Re-export of desktop GameDirectoryInfo for generated-project internal use */
-export type GameDirectoryInfo = {
-  rootPath: string
-  executablePath: string
-  mapsPath: string | null
-  mapCount: number
-}
+export type { GameDirectoryInfo }
 
 export type GeneratedProjectDraftSummary = {
   draftStorageKey: string

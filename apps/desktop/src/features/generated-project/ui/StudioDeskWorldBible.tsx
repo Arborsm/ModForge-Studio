@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
-import type { EditorCopy } from '../../../locales'
+import type { EditorCopy } from '@locales'
 import type { StudioDeskModel, StudioDeskWorldBible, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
 

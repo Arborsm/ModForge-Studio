@@ -1,7 +1,7 @@
 import { AlertCircle, CheckCircle2, Clock3, DownloadCloud, Trash2 } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
 import type { LauncherDownloadQueueItem } from '@features/launcher'
-import { ProgressRing } from '../../../../shared/ui/ProgressRing'
+import { ProgressRing } from '@shared/ui/ProgressRing.tsx'
 
 type LauncherDownloadRowProps = {
   item: LauncherDownloadQueueItem

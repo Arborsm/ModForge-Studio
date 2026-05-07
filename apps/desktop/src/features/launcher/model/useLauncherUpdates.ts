@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLauncherPort } from '@features/launcher'
 import { useEditorCopy } from '@locales/localeContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import {
-  checkLauncherUpdates,
-  loadCachedLauncherUpdates,
-  loadLauncherNexusDiagnostics,
-  subscribeLauncherUpdates,
-  type LauncherSettings,
-} from '@platform/desktop'
+import type { LauncherSettings } from './launcherContracts'
 import type { LauncherUpdateItem, LauncherViewState } from './types'
 import {
   LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
@@ -22,6 +17,7 @@ function getSelectionKey(item: LauncherUpdateItem) {
 }
 
 export function useLauncherUpdates(settings: LauncherSettings) {
+  const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher
   const [items, setItems] = useState<LauncherUpdateItem[]>([])
   const [selectedKeys, setSelectedKeys] = useState<string[]>([])
@@ -77,7 +73,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       return
     }
 
-    if (!forceRefresh && settings.autoCheckModUpdates === false) {
+    if (!forceRefresh && !settings.autoCheckModUpdates) {
       if (isRequestActive()) {
         setState('ready')
         setError(null)
@@ -92,16 +88,16 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       let canRunAutomaticCheck = forceRefresh
       let unavailableReason: string | null = null
       if (!forceRefresh) {
-        const diagnostics = await loadLauncherNexusDiagnostics().catch(() => null)
+        const diagnostics = await launcherPort.loadNexusDiagnostics().catch(() => null)
         unavailableReason =
           diagnostics && !canAutoCheckLauncherUpdates(diagnostics)
             ? getLauncherUpdateUnavailableReason(diagnostics)
             : null
-        canRunAutomaticCheck = unavailableReason ? false : true
+        canRunAutomaticCheck = !unavailableReason
       }
 
       if (!forceRefresh) {
-        const cached = await loadCachedLauncherUpdates({
+        const cached = await launcherPort.loadCachedUpdates({
           modsPath: settings.modsPath,
         })
         if (cached) {
@@ -142,7 +138,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
         }),
       })
 
-      const result = await checkLauncherUpdates({
+      const result = await launcherPort.checkUpdates({
         modsPath: settings.modsPath,
         forceRefresh,
       })
@@ -170,7 +166,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
         dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
       }
     }
-  }, [applyUpdateResult, copy.updates, settings.autoCheckModUpdates, settings.modsPath])
+  }, [applyUpdateResult, copy.updates, launcherPort, settings.autoCheckModUpdates, settings.modsPath])
 
   const refresh = useCallback(async () => {
     await loadUpdates(true)
@@ -204,7 +200,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
     mountedRef.current = true
     const unsubscribe =
       settings.modsPath
-        ? subscribeLauncherUpdates(settings.modsPath, (result) => {
+        ? launcherPort.subscribeUpdates(settings.modsPath, (result) => {
             if (!mountedRef.current) {
               return
             }
@@ -221,7 +217,7 @@ export function useLauncherUpdates(settings: LauncherSettings) {
       window.clearTimeout(handle)
       unsubscribe()
     }
-  }, [applyUpdateResult, loadUpdates, settings.modsPath])
+  }, [applyUpdateResult, launcherPort, loadUpdates, settings.modsPath])
 
   return {
     items,

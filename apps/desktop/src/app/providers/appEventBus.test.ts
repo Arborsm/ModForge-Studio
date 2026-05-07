@@ -48,8 +48,8 @@ describe('app event bus and command dispatcher', () => {
       handled.push(command)
     })
     const handled: AppCommand[] = []
-    expect(dispatch.dispatch({ type: 'workbench/focus-panel', panelId: 'viewport' })).toBeUndefined()
-    expect(handled).toEqual([{ type: 'workbench/focus-panel', panelId: 'viewport' }])
+    expect(dispatch.dispatch({ type: 'navigation/open-page', pageId: 'launcher' })).toBeUndefined()
+    expect(handled).toEqual([{ type: 'navigation/open-page', pageId: 'launcher' }])
   })
 
   it('can be used with a no-op handler during setup', () => {

@@ -19,6 +19,9 @@ import {
 } from '@platform/desktop'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { useLauncherUpdateProgressNotifications } from '@features/launcher'
 import { LauncherUpdatesPage } from './LauncherUpdatesPage'
 
@@ -64,6 +67,7 @@ const loadLauncherNexusDiagnosticsMock = vi.mocked(loadLauncherNexusDiagnostics)
 const loadLauncherRemoteModDetailMock = vi.mocked(loadLauncherRemoteModDetail)
 const loadLauncherUpdateChangelogMock = vi.mocked(loadLauncherUpdateChangelog)
 const subscribeLauncherUpdatesMock = vi.mocked(subscribeLauncherUpdates)
+let launcherPort: LauncherPort
 
 function UpdateProgressNotificationBridge() {
   useLauncherUpdateProgressNotifications('zh-CN')
@@ -72,12 +76,14 @@ function UpdateProgressNotificationBridge() {
 
 function renderWithProviders(ui: ReactElement) {
   return render(
-    <LocaleProvider locale="zh-CN">
-      <NotificationProvider>
-        <UpdateProgressNotificationBridge />
-        {ui}
-      </NotificationProvider>
-    </LocaleProvider>,
+    <LauncherTestWrapper port={launcherPort}>
+      <LocaleProvider locale="zh-CN">
+        <NotificationProvider>
+          <UpdateProgressNotificationBridge />
+          {ui}
+        </NotificationProvider>
+      </LocaleProvider>
+    </LauncherTestWrapper>,
   )
 }
 
@@ -215,6 +221,22 @@ describe('LauncherUpdatesPage', () => {
     loadCachedLauncherUpdatesMock.mockResolvedValue(null)
     loadLauncherNexusDiagnosticsMock.mockResolvedValue(createLauncherDiagnosticsResult())
     subscribeLauncherUpdatesMock.mockReturnValue(() => {})
+    launcherPort = createMockLauncherPort({
+      checkUpdates: checkLauncherUpdatesMock,
+      loadCachedUpdates: loadCachedLauncherUpdatesMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      loadUpdateChangelog: loadLauncherUpdateChangelogMock,
+      listenToUpdateProgress: vi.fn(async (listener: (payload: unknown) => void) => {
+        eventListeners.set('launcher://update-check-progress', (event: { payload: unknown }) => {
+          listener(event.payload)
+        })
+        return () => {
+          eventListeners.delete('launcher://update-check-progress')
+        }
+      }),
+      subscribeUpdates: subscribeLauncherUpdatesMock,
+    })
   })
 
   it('expands update rows without loading remote content until the fetch buttons are clicked', async () => {
@@ -522,12 +544,14 @@ describe('LauncherUpdatesPage', () => {
     checkLauncherUpdatesMock.mockImplementation(() => new Promise(() => {}))
 
     const { container, rerender } = render(
-      <LocaleProvider locale="zh-CN">
-        <NotificationProvider>
-          <UpdateProgressNotificationBridge />
-          <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />
-        </NotificationProvider>
-      </LocaleProvider>,
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="zh-CN">
+          <NotificationProvider>
+            <UpdateProgressNotificationBridge />
+            <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />
+          </NotificationProvider>
+        </LocaleProvider>
+      </LauncherTestWrapper>,
     )
 
     await waitFor(() => {
@@ -549,12 +573,14 @@ describe('LauncherUpdatesPage', () => {
     expect(screen.getByText(/NPC Adventures/)).toBeTruthy()
 
     rerender(
-      <LocaleProvider locale="zh-CN">
-        <NotificationProvider>
-          <UpdateProgressNotificationBridge />
-          <div>Another page</div>
-        </NotificationProvider>
-      </LocaleProvider>,
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="zh-CN">
+          <NotificationProvider>
+            <UpdateProgressNotificationBridge />
+            <div>Another page</div>
+          </NotificationProvider>
+        </LocaleProvider>
+      </LauncherTestWrapper>,
     )
 
     expect(screen.getByText('Another page')).toBeTruthy()

@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  loadLauncherNexusDiagnostics,
-  searchLauncherCatalog,
-  type LauncherCatalogFacets,
-  type SearchLauncherCatalogRequest,
-} from '@platform/desktop'
+import { useLauncherPort } from '@features/launcher'
+import type { LauncherCatalogFacets, SearchLauncherCatalogRequest } from './launcherContracts'
 import {
   normalizeLauncherDiscoverToolbarState,
   type LauncherDiscoverToolbarState,
-} from './launcherDiscoverToolbarState'
+} from '@features/launcher'
 import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'
 import type { LauncherDiscoverItem, LauncherViewState } from './types'
 
@@ -65,6 +61,7 @@ function parseOptionalNumber(value: string) {
 }
 
 export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscoverToolbarState> | null) {
+  const launcherPort = useLauncherPort()
   const normalizedToolbarState = normalizeLauncherDiscoverToolbarState(initialToolbarState)
   const [items, setItems] = useState<LauncherDiscoverItem[]>([])
   const [query, setQuery] = useState('')
@@ -123,7 +120,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
 
       void (bypassDiagnostics
         ? Promise.resolve(null)
-        : loadLauncherNexusDiagnostics().catch(() => null))
+        : launcherPort.loadNexusDiagnostics().catch(() => null))
         .then((diagnostics) => {
           if (requestIdRef.current !== requestId) {
             return null
@@ -143,7 +140,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
             return null
           }
 
-          return searchLauncherCatalog(requestPayload)
+          return launcherPort.searchCatalog(requestPayload)
         })
         .then((result) => {
           if (!result || requestIdRef.current !== requestId) {
@@ -171,7 +168,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
     return () => {
       window.clearTimeout(handle)
     }
-  }, [ascending, filters, page, pageSize, query, refreshToken, requestDelayMs, sort, timeRange])
+  }, [ascending, filters, page, pageSize, query, refreshToken, requestDelayMs, sort, timeRange, launcherPort])
 
   const resetToFirstPage = () => {
     setPageState(1)

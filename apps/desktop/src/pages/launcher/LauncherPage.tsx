@@ -3,12 +3,10 @@ import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
 import StatusBar from '@widgets/status-bar'
-import { launchLauncherGame, type LauncherNexusDiagnosticsResult } from '@platform/desktop'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
 import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
-import { useLauncherRuntime } from '@features/launcher'
-import { useLauncherUpdateProgressNotifications } from '@features/launcher'
+import { useLauncherPort, useLauncherRuntime, useLauncherUpdateProgressNotifications, type LauncherNexusDiagnosticsResult } from '@features/launcher'
 import type { LocaleCode } from '@locales'
 
 type LauncherPageProps = {
@@ -64,6 +62,7 @@ export function LauncherPage({
   const launcherRuntime = useLauncherRuntime(locale)
   useLauncherUpdateProgressNotifications(locale)
   const [launchBusy, setLaunchBusy] = useState(false)
+  const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = !debugEnabled && page === 'debug' ? 'library' : page
   const availableLauncherPages = debugEnabled
     ? (['library', 'discover', 'updates', 'debug'] as const)
@@ -82,13 +81,13 @@ export function LauncherPage({
 
     setLaunchBusy(true)
     try {
-      await launchLauncherGame()
+      await launcherPort.launchGame()
     } catch {
       onOpenSettings('launcher')
     } finally {
       setLaunchBusy(false)
     }
-  }, [desktopHost, launchBusy, launcherRuntime.settingsState.settings.gamePath, onOpenSettings])
+  }, [desktopHost, launchBusy, launcherPort, launcherRuntime.settingsState.settings.gamePath, onOpenSettings])
 
   return (
     <div className="flex h-full flex-col">

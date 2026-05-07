@@ -3,9 +3,9 @@ import { useEditorCopy } from '@locales/localeContext'
 import { useLauncherDownloads } from '@features/launcher'
 import { PanelSection } from '@shared/ui/PanelSection'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { LauncherDownloadRow } from '../cards/LauncherDownloadRow'
+import { LauncherDownloadRow } from '@features/launcher'
 import { LauncherEmptyState } from '../shared/LauncherEmptyState'
-import { orderLauncherDownloadItems } from '../shared/orderLauncherDownloadItems'
+import { orderLauncherDownloadItems } from '@features/launcher'
 
 type LauncherDownloadsPageProps = {
   downloads: ReturnType<typeof useLauncherDownloads>

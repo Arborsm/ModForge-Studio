@@ -1,8 +1,4 @@
-import {
-  loadLauncherNexusDiagnostics,
-  type LauncherNexusDiagnosticsResult,
-  type LauncherNexusRouteSnapshot,
-} from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult, LauncherNexusRouteSnapshot } from './launcherContracts'
 
 const AUTO_REMOTE_COVER_DETAIL_ROUTE_IDS = ['publicGraphql', 'publicHtml'] as const
 const AUTO_DISCOVER_GRAPHQL_ROUTE_IDS = ['privateGraphql', 'publicGraphql'] as const
@@ -21,7 +17,7 @@ export function getLauncherNexusRoute(
 }
 
 export function getLauncherNexusWarningRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
-  return (diagnostics?.routes ?? []).filter((route) => route.status === 'warning' || route.available === false)
+  return (diagnostics?.routes ?? []).filter((route) => !route.available)
 }
 
 export function hasLoadingLauncherNexusRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
@@ -50,7 +46,7 @@ function getUnavailableRouteMessages(
   }
 
   const unavailableRoutes = getRelevantRoutes(diagnostics, routeIds).filter(
-    (route) => route.status === 'warning' || route.available === false,
+    (route) => route.status === 'warning' || !route.available,
   )
   return unavailableRoutes.length ? getRouteMessages(unavailableRoutes) : null
 }
@@ -107,20 +103,20 @@ export function getLauncherUpdateUnavailableReason(diagnostics: LauncherNexusDia
 }
 
 type LoadSettledLauncherNexusDiagnosticsOptions = {
+  loadDiagnostics: () => Promise<LauncherNexusDiagnosticsResult>
   delayMs?: number
   maxAttempts?: number
 }
 
-export async function loadSettledLauncherNexusDiagnostics(
-  options: LoadSettledLauncherNexusDiagnosticsOptions = {},
-) {
+export async function loadSettledLauncherNexusDiagnostics(options: LoadSettledLauncherNexusDiagnosticsOptions) {
+  const loadDiagnostics = options.loadDiagnostics
   const delayMs = options.delayMs ?? 1000
   const maxAttempts = options.maxAttempts ?? 12
-  let diagnostics = await loadLauncherNexusDiagnostics()
+  let diagnostics = await loadDiagnostics()
 
   for (let attempt = 1; attempt < maxAttempts && hasLoadingLauncherNexusRoutes(diagnostics); attempt += 1) {
     await new Promise((resolve) => window.setTimeout(resolve, delayMs))
-    diagnostics = await loadLauncherNexusDiagnostics()
+    diagnostics = await loadDiagnostics()
   }
 
   return diagnostics

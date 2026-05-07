@@ -1,5 +1,5 @@
-import type { MapDocument, MapLayer, MapTileset } from '@shared/contracts'
-import type { EventActorState } from '@entities/event'
+import type {MapDocument, MapLayer, MapTileset} from '@shared/contracts'
+import type {EventActorState} from '@entities/event'
 
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
 const FLIPPED_VERTICALLY_FLAG = 0x40000000
@@ -47,8 +47,7 @@ export function deriveMapDrivenFarmerBedState(mapDocument: MapDocument | null, a
   const previousTimeWentToBed = actor.farmerRenderState?.timeWentToBed ?? 0
   const tileX = Math.floor(actor.tileX)
   const tileY = Math.floor(actor.tileY)
-  const hasBedTile = mapDocument ? getTileProperty(mapDocument, 'Back', tileX, tileY, 'Bed') != null : false
-  const isInBed = hasBedTile
+  const isInBed = mapDocument ? getTileProperty(mapDocument, 'Back', tileX, tileY, 'Bed') != null : false
 
   return {
     isInBed,

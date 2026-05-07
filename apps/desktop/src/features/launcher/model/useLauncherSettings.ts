@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  chooseDirectory,
-  detectDefaultGameDirectory,
-  loadLauncherSettings,
-  saveLauncherSettings,
-  type LauncherSettings,
-} from '@platform/desktop'
+import { useLauncherPort } from '@features/launcher'
+import type { LauncherSettings } from './launcherContracts'
 import { getLauncherCopy, type LocaleCode } from '@locales/editor-shell'
 import { reportAppEvent } from '@shared/lib/observability'
 import type { LauncherViewState } from './types'
@@ -83,6 +78,7 @@ type UseLauncherSettingsOptions = {
 }
 
 export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOptions = {}) {
+  const launcherPort = useLauncherPort()
   const launcherCopy = getLauncherCopy(locale)
   const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS)
   const [state, setState] = useState<LauncherViewState>('idle')
@@ -95,11 +91,11 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     setError(null)
 
     try {
-      const persisted = normalizePersistedLauncherSettings(await loadLauncherSettings())
+      const persisted = normalizePersistedLauncherSettings(await launcherPort.loadSettings())
       const nextSettings = { ...persisted }
       if (!nextSettings.gamePath?.trim()) {
         try {
-          const detectedGamePath = await detectDefaultGameDirectory()
+          const detectedGamePath = await launcherPort.detectDefaultGameDirectory()
           if (detectedGamePath?.trim()) {
             nextSettings.gamePath = detectedGamePath
             if (!nextSettings.modsPath?.trim()) {
@@ -128,7 +124,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
         },
       })
     }
-  }, [launcherCopy.settings.loadFailed])
+  }, [launcherCopy.settings.loadFailed, launcherPort])
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -167,7 +163,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
       })
 
       try {
-        const persisted = resolveLauncherSettings(await saveLauncherSettings(nextSettings))
+        const persisted = resolveLauncherSettings(await launcherPort.saveSettings(nextSettings))
         setSettings(persisted)
         setLastPersistedSettings(persisted)
         setSaveMessage('saved')
@@ -201,7 +197,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
         throw nextError
       }
     },
-    [launcherCopy.settings.saveFailed, launcherCopy.settings.saved],
+    [launcherCopy.settings.saveFailed, launcherCopy.settings.saved, launcherPort],
   )
 
   const save = useCallback(async (options?: { notifySuccess?: boolean }) => {
@@ -224,7 +220,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
 
   const pickDirectory = useCallback(
     async (field: 'gamePath' | 'modsPath' | 'downloadPath', title: string) => {
-      const selected = await chooseDirectory(title)
+      const selected = await launcherPort.chooseDirectory(title)
       if (!selected) {
         return null
       }
@@ -235,7 +231,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
       }
       return selected
     },
-    [resolvedSettings.modsPath, updateField],
+    [resolvedSettings.modsPath, updateField, launcherPort],
   )
 
   return {
