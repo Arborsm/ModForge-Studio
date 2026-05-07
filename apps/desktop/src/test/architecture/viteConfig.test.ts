@@ -62,7 +62,7 @@ describe('vite config', () => {
     expect(config.server?.warmup).toBeUndefined()
   })
 
-  it('splits event workspace runtime and authoring models into focused manual chunks', async () => {
+  it('splits event and building workspace code into focused manual chunks', async () => {
     const manualChunks = await loadManualChunks()
     const context: Parameters<typeof manualChunks>[1] = { getModuleInfo: () => null }
 
@@ -77,7 +77,14 @@ describe('vite config', () => {
     expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/patchHub.ts', context)).toBe('event-authoring-model')
     expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/item/ui/ItemWorkspace.tsx', context)).toBe('item-workspace')
     expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/character/ui/CharacterWorkspace.tsx', context)).toBe('character-workspace')
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/ui/BuildingWorkspace.tsx', context)).toBe('building-workspace')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/state/useBuildingWorkspace.ts', context)).toBe('building-workspace-state')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/state/buildingWorldEntries.ts', context)).toBe('building-workspace-state')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/view/BuildingWorkspace.tsx', context)).toBe('building-workspace-view')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/view/buildingViewHelpers.ts', context)).toBe('building-workspace-view')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingBrowserPanel.tsx', context)).toBe('building-workspace-panels')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingInspectorPanel.tsx', context)).toBe('building-workspace-panels')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingDetailsPanel.tsx', context)).toBe('building-workspace-panels')
+    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/index.ts', context)).toBe('building-workspace')
     expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx', context)).toBe('mod-workspace')
     expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/map/model/useMapWorkspace.ts', context)).toBe('map-workspace')
   })

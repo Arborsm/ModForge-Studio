@@ -94,16 +94,31 @@ export default defineConfig({
             return 'event-stage-runtime'
           }
 
+          if (
+            normalizedId.includes('/src/pages/workbench/workspaces/building/state/') ||
+            normalizedId.includes('/src/pages/workbench/workspaces/building/entities/building/')
+          ) {
+            return 'building-workspace-state'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/building/view/')) {
+            return 'building-workspace-view'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/ui/workspace-panels/building/')) {
+            return 'building-workspace-panels'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/building/')) {
+            return 'building-workspace'
+          }
+
           if (normalizedId.includes('/src/pages/workbench/workspaces/item/')) {
             return 'item-workspace'
           }
 
           if (normalizedId.includes('/src/pages/workbench/workspaces/character/')) {
             return 'character-workspace'
-          }
-
-          if (normalizedId.includes('/src/pages/workbench/workspaces/building/')) {
-            return 'building-workspace'
           }
 
           if (normalizedId.includes('/src/pages/workbench/workspaces/mod/')) {
