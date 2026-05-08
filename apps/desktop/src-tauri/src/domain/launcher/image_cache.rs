@@ -116,11 +116,10 @@ pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), Str
 }
 
 pub(crate) fn resolve_launcher_image_blocking(
-    app: &tauri::AppHandle,
+    _app: &tauri::AppHandle,
     request: &ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
     let request = request;
-    let app = app;
     (|| {
         let url = request.url.trim();
         if url.is_empty() {
@@ -136,7 +135,7 @@ pub(crate) fn resolve_launcher_image_blocking(
             });
         }
 
-        let cache_dir = launcher_image_cache_dir(&app)?;
+        let cache_dir = launcher_image_cache_dir()?;
         fs::create_dir_all(&cache_dir).map_err(|error| {
             format!(
                 "Failed to create launcher image cache directory {}: {error}",
@@ -215,11 +214,11 @@ pub async fn resolve_launcher_image(
     )
 }
 
-pub fn clear_launcher_image_cache(app: tauri::AppHandle) -> Result<(), String> {
+pub fn clear_launcher_image_cache(_app: tauri::AppHandle) -> Result<(), String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "clear_launcher_image_cache",
         (|| {
-            let cache_dir = launcher_image_cache_dir(&app)?;
+            let cache_dir = launcher_image_cache_dir()?;
             clear_launcher_image_cache_dir(&cache_dir)
         })(),
     )

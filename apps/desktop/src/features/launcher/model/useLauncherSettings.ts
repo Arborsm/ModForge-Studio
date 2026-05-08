@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from '@features/launcher'
 import type { LauncherSettings } from './launcherContracts'
 import { getLauncherCopy, type LocaleCode } from '@locales/editor-shell'
@@ -85,6 +85,11 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
   const [error, setError] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [lastPersistedSettings, setLastPersistedSettings] = useState<LauncherSettings | null>(null)
+  const stateRef = useRef(state)
+  const resolvedSettingsRef = useRef<LauncherSettings>(DEFAULT_SETTINGS)
+  const lastPersistedSettingsRef = useRef(lastPersistedSettings)
+  const saveSettingsRef = useRef(launcherPort.saveSettings)
+  const exitFlushRequestedRef = useRef(false)
 
   const refresh = useCallback(async () => {
     setState('loading')
@@ -137,6 +142,13 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
   }, [refresh])
 
   const resolvedSettings = useMemo<LauncherSettings>(() => resolveLauncherSettings(settings), [settings])
+
+  useLayoutEffect(() => {
+    stateRef.current = state
+    resolvedSettingsRef.current = resolvedSettings
+    lastPersistedSettingsRef.current = lastPersistedSettings
+    saveSettingsRef.current = launcherPort.saveSettings
+  }, [lastPersistedSettings, launcherPort.saveSettings, resolvedSettings, state])
 
   const updateField = useCallback(<TKey extends keyof LauncherSettings>(field: TKey, value: LauncherSettings[TKey]) => {
     setSettings((current) => ({
@@ -200,6 +212,26 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     [launcherCopy.settings.saveFailed, launcherCopy.settings.saved, launcherPort],
   )
 
+  const flushPendingSettings = useCallback(async () => {
+    if (exitFlushRequestedRef.current || stateRef.current !== 'ready') {
+      return
+    }
+
+    const currentResolved = resolvedSettingsRef.current
+    const currentPersisted = lastPersistedSettingsRef.current
+    if (launcherSettingsEqual(currentResolved, currentPersisted)) {
+      return
+    }
+
+    exitFlushRequestedRef.current = true
+
+    try {
+      await saveSettingsRef.current(currentResolved)
+    } catch {
+      // Exit-time flush is best effort; the normal autosave path still reports save errors.
+    }
+  }, [])
+
   const save = useCallback(async (options?: { notifySuccess?: boolean }) => {
     return persistSettings(resolvedSettings, options)
   }, [persistSettings, resolvedSettings])
@@ -217,6 +249,21 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
       window.clearTimeout(handle)
     }
   }, [lastPersistedSettings, persistSettings, resolvedSettings, state])
+
+  useEffect(() => {
+    const handlePageExit = () => {
+      void flushPendingSettings()
+    }
+
+    window.addEventListener('beforeunload', handlePageExit)
+    window.addEventListener('pagehide', handlePageExit)
+
+    return () => {
+      window.removeEventListener('beforeunload', handlePageExit)
+      window.removeEventListener('pagehide', handlePageExit)
+      void flushPendingSettings()
+    }
+  }, [flushPendingSettings])
 
   const pickDirectory = useCallback(
     async (field: 'gamePath' | 'modsPath' | 'downloadPath', title: string) => {

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
-use tauri::Manager;
+use std::path::Path;
+
+use crate::domain::app_paths::app_ui_state_path;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -244,14 +245,6 @@ impl Default for AppUiDiscoverToolbarState {
             filters_hidden: false,
         }
     }
-}
-
-pub(crate) fn app_ui_state_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let config_dir = app
-        .path()
-        .app_config_dir()
-        .map_err(|error| format!("Failed to resolve app config directory: {error}"))?;
-    Ok(config_dir.join("app").join("ui-state.json"))
 }
 
 fn normalize_app_mode(value: &str) -> String {
@@ -512,16 +505,13 @@ pub(crate) fn patch_app_ui_state_at_path(
     Ok(normalized)
 }
 
-pub(crate) fn load_app_ui_state(app: tauri::AppHandle) -> Result<AppUiState, String> {
-    let path = app_ui_state_path(&app)?;
+pub(crate) fn load_app_ui_state() -> Result<AppUiState, String> {
+    let path = app_ui_state_path()?;
     load_or_create_app_ui_state_at_path(&path)
 }
 
-pub(crate) fn patch_app_ui_state(
-    app: tauri::AppHandle,
-    request: AppUiStatePatch,
-) -> Result<AppUiState, String> {
-    let path = app_ui_state_path(&app)?;
+pub(crate) fn patch_app_ui_state(request: AppUiStatePatch) -> Result<AppUiState, String> {
+    let path = app_ui_state_path()?;
     patch_app_ui_state_at_path(&path, request)
 }
 

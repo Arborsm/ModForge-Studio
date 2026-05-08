@@ -131,24 +131,24 @@ fn default_download_path() -> Option<PathBuf> {
     None
 }
 
-pub fn load_launcher_settings(app: tauri::AppHandle) -> Result<LauncherSettings, String> {
+pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_settings",
         (|| {
-            let settings_path = launcher_settings_path(&app)?;
+            let settings_path = launcher_settings_path()?;
             load_or_create_settings_at_path(&settings_path)
         })(),
     )
 }
 
 pub fn save_launcher_settings(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "save_launcher_settings",
         (|| {
-            let settings_path = launcher_settings_path(&app)?;
+            let settings_path = launcher_settings_path()?;
             let existing = load_or_create_settings_at_path(&settings_path)?;
             let merged = LauncherSettings {
                 game_path: request.game_path.or(existing.game_path),

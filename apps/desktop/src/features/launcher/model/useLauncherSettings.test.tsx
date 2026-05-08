@@ -251,4 +251,37 @@ describe('useLauncherSettings', () => {
       }),
     )
   })
+
+  it('flushes unsaved launcher settings before the page unloads', async () => {
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+      saveSettings: vi.fn().mockResolvedValue(
+        createSettings({
+          nexusCookie: 'exit-cookie',
+        }),
+      ),
+    })
+
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+    })
+
+    act(() => {
+      result.current.updateField('nexusCookie', 'exit-cookie')
+    })
+
+    expect(port.saveSettings).not.toHaveBeenCalled()
+
+    act(() => {
+      window.dispatchEvent(new Event('beforeunload'))
+    })
+
+    expect(port.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nexusCookie: 'exit-cookie',
+      }),
+    )
+  })
 })

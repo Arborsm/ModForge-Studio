@@ -105,12 +105,12 @@ fn spawn_launcher_process(path: &Path) -> Result<(), String> {
 }
 
 pub fn launch_launcher_game(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error_with_message(
         "launch_launcher_game",
         (|| {
-            let settings_path = launcher_settings_path(&app).map_err(|message| {
+            let settings_path = launcher_settings_path().map_err(|message| {
                 launcher_launch_error(LauncherGameLaunchErrorCode::LaunchFailed, message)
             })?;
             let settings = load_or_create_settings_at_path(&settings_path).map_err(|message| {
@@ -122,11 +122,11 @@ pub fn launch_launcher_game(
     )
 }
 
-pub fn get_launcher_backup_directory(app: tauri::AppHandle) -> Result<String, String> {
+pub fn get_launcher_backup_directory(_app: tauri::AppHandle) -> Result<String, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "get_launcher_backup_directory",
         (|| {
-            let backup_dir = launcher_backup_dir(&app)?;
+            let backup_dir = launcher_backup_dir()?;
             fs::create_dir_all(&backup_dir).map_err(|error| {
                 format!(
                     "Failed to create launcher backup directory {}: {error}",

@@ -712,13 +712,13 @@ fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
 }
 
 pub fn install_launcher_archive(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "install_launcher_archive",
         (|| {
-            let settings_path = launcher_settings_path(&app)?;
+            let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
             let result = install_archive_at_path(
                 &clean_input_path(request.archive_path.trim()),
@@ -727,14 +727,14 @@ pub fn install_launcher_archive(
                     .as_deref()
                     .filter(|value| !value.trim().is_empty())
                     .or(settings.mods_path.as_deref()),
-                Some(launcher_backup_dir(&app)?.as_path()),
+                Some(launcher_backup_dir()?.as_path()),
             )?;
 
             if let Some(mods_path) = clean_input_path(&result.target_path)
                 .parent()
                 .map(normalize_path)
             {
-                let cache_path = launcher_updates_cache_path(&app)?;
+                let cache_path = launcher_updates_cache_path()?;
                 invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
             }
 
@@ -760,13 +760,13 @@ pub fn inspect_launcher_archive(
 }
 
 pub fn list_launcher_install_backups(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: ListLauncherInstallBackupsRequest,
 ) -> Result<Vec<LauncherInstallBackupSummary>, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "list_launcher_install_backups",
         (|| {
-            let settings_path = launcher_settings_path(&app)?;
+            let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
             let mods_path = request
                 .mods_path
@@ -774,7 +774,7 @@ pub fn list_launcher_install_backups(
                 .filter(|value| !value.trim().is_empty())
                 .or(settings.mods_path.as_deref())
                 .map(clean_input_path);
-            let backup_root = launcher_backup_dir(&app)?;
+            let backup_root = launcher_backup_dir()?;
             let sessions = list_backup_sessions_at_root(&backup_root, mods_path.as_deref())?;
             Ok(sessions
                 .into_iter()
@@ -788,13 +788,13 @@ pub fn list_launcher_install_backups(
 }
 
 pub fn restore_launcher_install_backup(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: RestoreLauncherInstallBackupRequest,
 ) -> Result<RestoreLauncherInstallBackupResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "restore_launcher_install_backup",
         (|| {
-            let settings_path = launcher_settings_path(&app)?;
+            let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
             let mods_path = request
                 .mods_path
@@ -802,11 +802,11 @@ pub fn restore_launcher_install_backup(
                 .filter(|value| !value.trim().is_empty())
                 .or(settings.mods_path.as_deref())
                 .map(clean_input_path);
-            let backup_root = launcher_backup_dir(&app)?;
+            let backup_root = launcher_backup_dir()?;
             let backup_path = resolve_backup_session_path(&backup_root, &request.backup_id)?;
             let result = restore_backup_session_at_path(&backup_path, mods_path.as_deref())?;
 
-            let cache_path = launcher_updates_cache_path(&app)?;
+            let cache_path = launcher_updates_cache_path()?;
             let mut invalidated = BTreeSet::new();
             for restored_path in &result.restored_paths {
                 if let Some(mods_path) = clean_input_path(restored_path).parent().map(normalize_path) {

@@ -689,8 +689,8 @@ fn start_launcher_nexus_diagnostics_with_settings(
     thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation));
 }
 
-pub(crate) fn prime_launcher_nexus_diagnostics(app: &AppHandle) -> Result<(), String> {
-    let settings_path = launcher_settings_path(app)?;
+pub(crate) fn prime_launcher_nexus_diagnostics(_app: &AppHandle) -> Result<(), String> {
+    let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     start_launcher_nexus_diagnostics_with_settings(settings, false);
     Ok(())
@@ -739,10 +739,10 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings(
 }
 
 pub(crate) fn set_launcher_nexus_force_offline(
-    app: &AppHandle,
+    _app: &AppHandle,
     force_offline: bool,
 ) -> Result<LauncherNexusDiagnosticsResult, String> {
-    let settings_path = launcher_settings_path(app)?;
+    let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     Ok(set_launcher_nexus_force_offline_with_settings(
         &settings,
@@ -758,9 +758,9 @@ pub(crate) fn load_launcher_nexus_diagnostics(
 }
 
 pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
-    app: &AppHandle,
+    _app: &AppHandle,
 ) -> Result<LauncherNexusDiagnosticsResult, String> {
-    let settings_path = launcher_settings_path(app)?;
+    let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     restart_launcher_nexus_diagnostics(&settings);
     Ok(snapshot_launcher_nexus_diagnostics())

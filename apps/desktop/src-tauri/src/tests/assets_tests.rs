@@ -53,7 +53,8 @@ fn cache_file_path_uses_lower_hex_sha256_file_names() {
         "image",
         Path::new(r"C:\Game\Content\Maps\Town.xnb"),
         Some("zh-CN"),
-    );
+    )
+    .expect("cache path");
     let file_name = cache_path
         .file_name()
         .and_then(|value| value.to_str())

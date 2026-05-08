@@ -58,7 +58,7 @@ pub fn run() {
         .plugin(build_logging_plugin(debug_logging_state))
         .setup(|app| {
             app.state::<DebugLoggingState>().set_enabled(false);
-            let diagnostics_start_result = domain::app_ui::load_app_ui_state(app.handle().clone())
+            let diagnostics_start_result = domain::app_ui::load_app_ui_state()
                 .map(|state| state.launcher.force_offline)
                 .and_then(|force_offline| {
                     if force_offline {
@@ -68,9 +68,7 @@ pub fn run() {
                         )
                         .map(|_| ())
                     } else {
-                        domain::launcher::http::prime_launcher_nexus_diagnostics(
-                            &app.handle(),
-                        )
+                        domain::launcher::http::prime_launcher_nexus_diagnostics(&app.handle())
                     }
                 });
             if let Err(error) = diagnostics_start_result {

@@ -946,7 +946,7 @@ fn emit_update_check_progress(
 }
 
 pub fn load_cached_launcher_updates(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: LoadCachedLauncherUpdatesRequest,
 ) -> Result<Option<LauncherUpdatesResult>, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -957,7 +957,7 @@ pub fn load_cached_launcher_updates(
                 return Err("modsPath is required.".to_string());
             }
 
-            let cache_path = launcher_updates_cache_path(&app)?;
+            let cache_path = launcher_updates_cache_path()?;
             let now_ms = current_timestamp_ms();
             let had_active_check = is_launcher_update_check_active(mods_path);
             let inspection_before_clear =
@@ -1030,7 +1030,7 @@ fn check_launcher_updates_blocking(
         .ok_or_else(|| "sessionId is required.".to_string())?;
 
     let force_refresh = request.force_refresh.unwrap_or(false);
-    let cache_path = launcher_updates_cache_path(app)?;
+    let cache_path = launcher_updates_cache_path()?;
     if !force_refresh {
         let now_ms = current_timestamp_ms();
         let inspection = inspect_launcher_updates_cache_at_path(&cache_path, mods_path, now_ms)?;
@@ -1084,7 +1084,7 @@ fn check_launcher_updates_blocking(
             &[("sessionId", session_id.to_string())],
         );
 
-        let settings_path = launcher_settings_path(app)?;
+        let settings_path = launcher_settings_path()?;
         let settings = load_or_create_settings_at_path(&settings_path)?;
         let scan = scan_library_at_path(&clean_input_path(mods_path))?;
         let candidates = scan

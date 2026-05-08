@@ -17,60 +17,69 @@ use self::types::{
     GeneratedProjectDraftOperation, GeneratedProjectDraftRecord, GeneratedProjectDraftSummary,
 };
 
-use std::path::PathBuf;
-use tauri::Manager;
+use crate::domain::app_paths::generated_project_drafts_dir;
 
-pub fn list_generated_project_drafts(
-    app: tauri::AppHandle,
-) -> Result<Vec<GeneratedProjectDraftSummary>, GeneratedProjectDraftError> {
-    let drafts_dir = generated_project_drafts_dir(&app, GeneratedProjectDraftOperation::List)?;
+pub fn list_generated_project_drafts() -> Result<Vec<GeneratedProjectDraftSummary>, GeneratedProjectDraftError> {
+    let drafts_dir = generated_project_drafts_dir().map_err(|error| {
+        GeneratedProjectDraftError::new(
+            GeneratedProjectDraftErrorCode::ReadFailed,
+            GeneratedProjectDraftOperation::List,
+            error,
+        )
+    })?;
     list_generated_project_drafts_at_dir(&drafts_dir)
 }
 
 pub fn load_generated_project_draft(
-    app: tauri::AppHandle,
     draft_storage_key: String,
 ) -> Result<GeneratedProjectDraftRecord, GeneratedProjectDraftError> {
-    let drafts_dir = generated_project_drafts_dir(&app, GeneratedProjectDraftOperation::Load)?;
+    let drafts_dir = generated_project_drafts_dir().map_err(|error| {
+        GeneratedProjectDraftError::new(
+            GeneratedProjectDraftErrorCode::ReadFailed,
+            GeneratedProjectDraftOperation::Load,
+            error,
+        )
+    })?;
     load_generated_project_draft_at_dir(&drafts_dir, &draft_storage_key)
 }
 
 pub fn save_generated_project_draft(
-    app: tauri::AppHandle,
     draft: GeneratedProjectDraftRecord,
 ) -> Result<GeneratedProjectDraftRecord, GeneratedProjectDraftError> {
-    let drafts_dir = generated_project_drafts_dir(&app, GeneratedProjectDraftOperation::Save)?;
+    let drafts_dir = generated_project_drafts_dir().map_err(|error| {
+        GeneratedProjectDraftError::new(
+            GeneratedProjectDraftErrorCode::ReadFailed,
+            GeneratedProjectDraftOperation::Save,
+            error,
+        )
+    })?;
     save_generated_project_draft_at_dir(&drafts_dir, draft)
 }
 
 pub fn delete_generated_project_draft(
-    app: tauri::AppHandle,
     draft_storage_key: String,
 ) -> Result<(), GeneratedProjectDraftError> {
-    let drafts_dir = generated_project_drafts_dir(&app, GeneratedProjectDraftOperation::Delete)?;
+    let drafts_dir = generated_project_drafts_dir().map_err(|error| {
+        GeneratedProjectDraftError::new(
+            GeneratedProjectDraftErrorCode::ReadFailed,
+            GeneratedProjectDraftOperation::Delete,
+            error,
+        )
+    })?;
     delete_generated_project_draft_at_dir(&drafts_dir, &draft_storage_key)
 }
 
 pub fn copy_generated_project_draft(
-    app: tauri::AppHandle,
     request: CopyGeneratedProjectDraftRequest,
 ) -> Result<GeneratedProjectDraftRecord, GeneratedProjectDraftError> {
-    let drafts_dir = generated_project_drafts_dir(&app, GeneratedProjectDraftOperation::Copy)?;
-    copy_generated_project_draft_at_dir(&drafts_dir, request)
-}
-
-fn generated_project_drafts_dir(
-    app: &tauri::AppHandle,
-    operation: GeneratedProjectDraftOperation,
-) -> Result<PathBuf, GeneratedProjectDraftError> {
-    let config_dir = app.path().app_config_dir().map_err(|error| {
+    let drafts_dir = generated_project_drafts_dir().map_err(|error| {
         GeneratedProjectDraftError::new(
             GeneratedProjectDraftErrorCode::ReadFailed,
-            operation,
-            format!("Failed to resolve app config directory: {error}"),
+            GeneratedProjectDraftOperation::Copy,
+            error,
         )
     })?;
-    Ok(config_dir.join("generated-project").join("drafts"))
+    copy_generated_project_draft_at_dir(&drafts_dir, request)
 }
 
 #[cfg(test)]

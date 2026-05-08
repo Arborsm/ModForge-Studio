@@ -1,3 +1,4 @@
+pub mod app_paths;
 pub mod app_ui;
 pub mod assets;
 pub mod content_patcher;
