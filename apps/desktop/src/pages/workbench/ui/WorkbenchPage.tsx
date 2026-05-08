@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import type { LocaleCode, ThemeMode } from '@locales/editor-shell'
 import type { SettingsWindowCategory } from '@shared/contracts'
+import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 
 const WorkbenchExperience = lazy(() => import('./WorkbenchExperience'))
 
@@ -27,7 +28,7 @@ type WorkbenchPageProps = {
 
 export function WorkbenchPage(props: WorkbenchPageProps) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingMotionFallback className="workbench-lazy-fallback" />}>
       <WorkbenchExperience {...props} />
     </Suspense>
   )

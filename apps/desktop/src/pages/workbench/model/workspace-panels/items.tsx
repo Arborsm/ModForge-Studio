@@ -1,4 +1,6 @@
 import { ItemCatalogPanel, ItemDetailPanel, ItemNavigationPanel } from '../../workspaces/item'
+import type { ReactNode } from 'react'
+import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 import type { WorkspacePanelConfig } from '@shared/contracts'
 import type { BuildWorkspacePanelsOptions } from './types'
 
@@ -24,7 +26,13 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
     itemStatusMessage,
   } = options
 
-  return [
+  const withPreviewReveal = (itemId: string, index: number, content: ReactNode) => (
+    <LoadingMotionReveal itemId={itemId} index={index} className="h-full min-h-0">
+      {content}
+    </LoadingMotionReveal>
+  )
+
+  const panels: WorkspacePanelConfig[] = [
     {
       id: 'item-navigation',
       title: copy.itemsPanel.filtersTitle,
@@ -119,5 +127,10 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
       ),
     },
   ]
+
+  return panels.map((panel, index) => ({
+    ...panel,
+    content: withPreviewReveal(`workbench-items-${panel.id}`, index, panel.content),
+  }))
 }
 

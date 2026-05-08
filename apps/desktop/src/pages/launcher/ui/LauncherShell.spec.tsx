@@ -10,7 +10,11 @@ let libraryPageInstanceCounter = 0
 vi.mock('./LauncherLibraryPage', () => ({
   LauncherLibraryPageContent: ({ launchGameLabel }: { launchGameLabel: string }) => {
     const instanceId = useRef(++libraryPageInstanceCounter)
-    return <div>{`library-page:${launchGameLabel}:${instanceId.current}`}</div>
+    return (
+      <div data-loading-section="launcher-library-test">
+        {`library-page:${launchGameLabel}:${instanceId.current}`}
+      </div>
+    )
   },
 }))
 

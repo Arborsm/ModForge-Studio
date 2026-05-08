@@ -3,6 +3,7 @@ import { CheckSquare, Copy, Trash2, X } from 'lucide-react'
 import type { EditorCopy } from '@locales'
 import type { StudioDeskModel, StudioDeskProjectFilter, StudioDeskProjectStatus } from '../model/studioDeskModel'
 import { cx } from '@shared/lib/cx'
+import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import {
   formatStudioTimestamp,
@@ -177,41 +178,52 @@ export function StudioDeskProjectGallery({
         <section className="studio-project-grid-panel" aria-label={desk.projectGrid}>
           {filteredProjects.length ? (
             <div className="studio-project-grid">
-              {filteredProjects.map((project) => (
-                <article
-                  key={project.draftStorageKey}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${desk.openProject} ${project.title}`}
-                  className={cx('studio-project-card', project.isCurrent && 'is-current', selectedProjectKeys.has(project.draftStorageKey) && 'is-selected')}
-                  onClick={() => openDraft(project.draftStorageKey)}
-                  onContextMenu={(event) => handleProjectContextMenu(event, project.draftStorageKey)}
-                  onKeyDown={(event) => handleStudioKeyboardAction(event, () => openDraft(project.draftStorageKey))}
-                >
-                  <label className="studio-project-select" onClick={(event) => event.stopPropagation()}>
-                    <span className="sr-only">{desk.selectProject(project.title)}</span>
-                    <input
-                      type="checkbox"
-                      aria-label={desk.selectProject(project.title)}
-                      checked={selectedProjectKeys.has(project.draftStorageKey)}
-                      onChange={() => toggleSelectedProject(project.draftStorageKey)}
-                    />
-                  </label>
-                  <div className={cx('studio-cover-art', `studio-cover-${project.coverTone}`)}>
-                    {project.isCurrent ? <span className="studio-current-label">{desk.currentActive}</span> : null}
-                    <div className="studio-status-badges" aria-label={desk.patchCatalog.status}>
-                      {project.statuses.filter((status) => status !== 'active').map((status) => (
-                        <span key={status} className={cx('studio-status-badge', `studio-status-badge-${status}`)} aria-label={getStudioProjectStatusLabel(desk, status)} />
-                      ))}
+              {filteredProjects.map((project, index) => {
+                const revealProps = getLoadingMotionChildRevealProps({
+                  index,
+                  className: cx(
+                    'studio-project-card',
+                    project.isCurrent && 'is-current',
+                    selectedProjectKeys.has(project.draftStorageKey) && 'is-selected',
+                  ),
+                })
+
+                return (
+                  <article
+                    key={project.draftStorageKey}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${desk.openProject} ${project.title}`}
+                    {...revealProps}
+                    onClick={() => openDraft(project.draftStorageKey)}
+                    onContextMenu={(event) => handleProjectContextMenu(event, project.draftStorageKey)}
+                    onKeyDown={(event) => handleStudioKeyboardAction(event, () => openDraft(project.draftStorageKey))}
+                  >
+                    <label className="studio-project-select" onClick={(event) => event.stopPropagation()}>
+                      <span className="sr-only">{desk.selectProject(project.title)}</span>
+                      <input
+                        type="checkbox"
+                        aria-label={desk.selectProject(project.title)}
+                        checked={selectedProjectKeys.has(project.draftStorageKey)}
+                        onChange={() => toggleSelectedProject(project.draftStorageKey)}
+                      />
+                    </label>
+                    <div className={cx('studio-cover-art', `studio-cover-${project.coverTone}`)}>
+                      {project.isCurrent ? <span className="studio-current-label">{desk.currentActive}</span> : null}
+                      <div className="studio-status-badges" aria-label={desk.patchCatalog.status}>
+                        {project.statuses.filter((status) => status !== 'active').map((status) => (
+                          <span key={status} className={cx('studio-status-badge', `studio-status-badge-${status}`)} aria-label={getStudioProjectStatusLabel(desk, status)} />
+                        ))}
+                      </div>
+                      <div className="studio-cover-fingerprint" aria-hidden="true">
+                        {Array.from({ length: 10 }).map((_, index) => <span key={index} />)}
+                      </div>
+                      <div className="studio-cover-name">{project.title}</div>
+                      <div className="studio-current-note">{formatStudioTimestamp(desk, project.lastEditedAt)}</div>
                     </div>
-                    <div className="studio-cover-fingerprint" aria-hidden="true">
-                      {Array.from({ length: 10 }).map((_, index) => <span key={index} />)}
-                    </div>
-                    <div className="studio-cover-name">{project.title}</div>
-                    <div className="studio-current-note">{formatStudioTimestamp(desk, project.lastEditedAt)}</div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                )
+              })}
             </div>
           ) : (
             <section className="studio-gallery-empty-state" aria-label={desk.searchEmpty}>

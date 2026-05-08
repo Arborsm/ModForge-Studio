@@ -150,6 +150,9 @@ describe('StudioDesk', () => {
     expect(screen.getByText('2 个项目')).toBeTruthy()
     expect(screen.getByText('星露谷夏日祭扩展')).toBeTruthy()
     expect(screen.getByText('海风旅店')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /星露谷夏日祭扩展/ })).toHaveClass('loading-motion-child-reveal')
+    expect(screen.getByRole('button', { name: /星露谷夏日祭扩展/ }).style.getPropertyValue('--loading-motion-child-index')).toBe('0')
+    expect(screen.getByRole('button', { name: /海风旅店/ }).style.getPropertyValue('--loading-motion-child-index')).toBe('1')
     expect(screen.queryByText('山脊夜市')).toBeNull()
   })
 

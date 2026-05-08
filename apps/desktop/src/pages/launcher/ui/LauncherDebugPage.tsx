@@ -4,6 +4,7 @@ import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-sta
 import { cx } from '@shared/lib/cx'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/localeContext'
 import { reportAppEvent, type AppEventLevel } from '@shared/lib/observability'
+import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 import {
   canUseDesktopHost,
   clearLauncherImageCache,
@@ -414,100 +415,116 @@ export function LauncherDebugPage({
   return (
     <section className="launcher-debug-page">
       <div className="launcher-debug-canvas">
-        <header className="launcher-debug-page-header">
-          <h1 className="launcher-debug-page-title">{copy.debug.title}</h1>
-          <p className="launcher-debug-page-subtitle">{copy.debug.subtitle}</p>
-        </header>
+        <LoadingMotionReveal itemId="launcher-debug-header" index={0}>
+          <header className="launcher-debug-page-header">
+            <h1 className="launcher-debug-page-title">{copy.debug.title}</h1>
+            <p className="launcher-debug-page-subtitle">{copy.debug.subtitle}</p>
+          </header>
+        </LoadingMotionReveal>
 
-        <section className="launcher-debug-overview-card" aria-label={copy.debug.title}>
-          <div className="launcher-debug-overview-cell">
-            <span className="launcher-debug-overview-label">{copy.debug.notificationsOverviewTitle}</span>
-            <strong className="launcher-debug-overview-value">5</strong>
-          </div>
-          <div className="launcher-debug-overview-divider" aria-hidden="true" />
-          <div className="launcher-debug-overview-cell">
-            <span className="launcher-debug-overview-label">{copy.debug.logsOverviewTitle}</span>
-            <strong className="launcher-debug-overview-value">4</strong>
-          </div>
-        </section>
+        <LoadingMotionReveal itemId="launcher-debug-overview" index={1}>
+          <section className="launcher-debug-overview-card" aria-label={copy.debug.title}>
+            <div className="launcher-debug-overview-cell">
+              <span className="launcher-debug-overview-label">{copy.debug.notificationsOverviewTitle}</span>
+              <strong className="launcher-debug-overview-value">5</strong>
+            </div>
+            <div className="launcher-debug-overview-divider" aria-hidden="true" />
+            <div className="launcher-debug-overview-cell">
+              <span className="launcher-debug-overview-label">{copy.debug.logsOverviewTitle}</span>
+              <strong className="launcher-debug-overview-value">4</strong>
+            </div>
+          </section>
+        </LoadingMotionReveal>
 
         <div className="launcher-debug-stack">
-          <DebugModeSwitch
-            checked={debugEnabled}
-            title={copy.debug.debugOnlyTitle}
-            description={copy.debug.debugOnlyDescription}
-            enabledLabel={settingsCopy.enableDebugModeLabel}
-            disabledLabel={settingsCopy.disableDebugModeLabel}
-            onToggle={onToggleDebugMode}
-          />
+          <LoadingMotionReveal itemId="launcher-debug-mode" index={2}>
+            <DebugModeSwitch
+              checked={debugEnabled}
+              title={copy.debug.debugOnlyTitle}
+              description={copy.debug.debugOnlyDescription}
+              enabledLabel={settingsCopy.enableDebugModeLabel}
+              disabledLabel={settingsCopy.disableDebugModeLabel}
+              onToggle={onToggleDebugMode}
+            />
+          </LoadingMotionReveal>
 
-          <DebugActionCard
-            title={copy.debug.notificationsTitle}
-            description={copy.debug.notificationsSubtitle}
-            icon={<MessageSquare className="h-4 w-4" />}
-          >
-            <NotificationTestButtons labels={copy.debug.notificationButtons} debugEnabled={debugEnabled} />
-          </DebugActionCard>
+          <LoadingMotionReveal itemId="launcher-debug-notifications" index={3}>
+            <DebugActionCard
+              title={copy.debug.notificationsTitle}
+              description={copy.debug.notificationsSubtitle}
+              icon={<MessageSquare className="h-4 w-4" />}
+            >
+              <NotificationTestButtons labels={copy.debug.notificationButtons} debugEnabled={debugEnabled} />
+            </DebugActionCard>
+          </LoadingMotionReveal>
 
-          <DebugActionCard
-            title={copy.debug.logsTitle}
-            description={copy.debug.logsSubtitle}
-            icon={<ScrollText className="h-4 w-4" />}
-          >
-            <LogTestButtons labels={copy.debug.logButtons} debugEnabled={debugEnabled} />
-          </DebugActionCard>
+          <LoadingMotionReveal itemId="launcher-debug-logs" index={4}>
+            <DebugActionCard
+              title={copy.debug.logsTitle}
+              description={copy.debug.logsSubtitle}
+              icon={<ScrollText className="h-4 w-4" />}
+            >
+              <LogTestButtons labels={copy.debug.logButtons} debugEnabled={debugEnabled} />
+            </DebugActionCard>
+          </LoadingMotionReveal>
 
-          <LauncherNexusDiagnosticsCard
-            title={copy.debug.nexusDiagnosticsTitle}
-            description={copy.debug.nexusDiagnosticsSubtitle}
-            loadingLabel={copy.debug.nexusDiagnosticsLoading}
-            emptyLabel={copy.debug.nexusDiagnosticsEmpty}
-            endpointLabel={copy.debug.nexusDiagnosticsEndpointLabel}
-            attemptsLabel={copy.debug.nexusDiagnosticsAttemptsLabel}
-            routeLabel={copy.debug.nexusDiagnosticsRouteLabel}
-            observedLabel={copy.debug.nexusDiagnosticsObservedLabel}
-            availabilityLabel={copy.debug.nexusDiagnosticsAvailabilityLabel}
-            availableState={copy.debug.nexusDiagnosticsAvailableState}
-            unavailableState={copy.debug.nexusDiagnosticsUnavailableState}
-            loadingState={copy.debug.nexusDiagnosticsLoadingState}
-            forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
-            forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
-            forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
-            forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
-            onDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
-          />
+          <LoadingMotionReveal itemId="launcher-debug-diagnostics" index={5}>
+            <LauncherNexusDiagnosticsCard
+              title={copy.debug.nexusDiagnosticsTitle}
+              description={copy.debug.nexusDiagnosticsSubtitle}
+              loadingLabel={copy.debug.nexusDiagnosticsLoading}
+              emptyLabel={copy.debug.nexusDiagnosticsEmpty}
+              endpointLabel={copy.debug.nexusDiagnosticsEndpointLabel}
+              attemptsLabel={copy.debug.nexusDiagnosticsAttemptsLabel}
+              routeLabel={copy.debug.nexusDiagnosticsRouteLabel}
+              observedLabel={copy.debug.nexusDiagnosticsObservedLabel}
+              availabilityLabel={copy.debug.nexusDiagnosticsAvailabilityLabel}
+              availableState={copy.debug.nexusDiagnosticsAvailableState}
+              unavailableState={copy.debug.nexusDiagnosticsUnavailableState}
+              loadingState={copy.debug.nexusDiagnosticsLoadingState}
+              forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
+              forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
+              forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
+              forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
+              onDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
+            />
+          </LoadingMotionReveal>
 
-          <DebugActionCard
-            title={copy.debug.clearImageCacheTitle}
-            description={copy.debug.clearImageCacheSubtitle}
-            icon={<ScrollText className="h-4 w-4" />}
-            headerActions={
-              <div className="launcher-toolbar">
-                <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
-                  {copy.debug.clearImageCacheButton}
-                </button>
-              </div>
-            }
-          />
+          <LoadingMotionReveal itemId="launcher-debug-image-cache" index={6}>
+            <DebugActionCard
+              title={copy.debug.clearImageCacheTitle}
+              description={copy.debug.clearImageCacheSubtitle}
+              icon={<ScrollText className="h-4 w-4" />}
+              headerActions={
+                <div className="launcher-toolbar">
+                  <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
+                    {copy.debug.clearImageCacheButton}
+                  </button>
+                </div>
+              }
+            />
+          </LoadingMotionReveal>
 
-          <DebugActionCard
-            title={copy.debug.simulationTitle}
-            description={copy.debug.simulationSubtitle}
-            icon={<Download className="h-4 w-4" />}
-            headerActions={
-              <div className="launcher-toolbar">
-                <button
-                  type="button"
-                  className="control-button control-button-primary"
-                  onClick={() => downloads.startDebugSimulation(copy.debug.simulationTitle)}
-                  disabled={debugSimulationActive}
-                >
-                  {debugSimulationActive ? copy.debug.simulationButtonRunning : copy.debug.simulationButtonIdle}
-                </button>
-                <span className="dock-chip">2 MB/s · 10s · 20 MB</span>
-              </div>
-            }
-          />
+          <LoadingMotionReveal itemId="launcher-debug-simulation" index={7}>
+            <DebugActionCard
+              title={copy.debug.simulationTitle}
+              description={copy.debug.simulationSubtitle}
+              icon={<Download className="h-4 w-4" />}
+              headerActions={
+                <div className="launcher-toolbar">
+                  <button
+                    type="button"
+                    className="control-button control-button-primary"
+                    onClick={() => downloads.startDebugSimulation(copy.debug.simulationTitle)}
+                    disabled={debugSimulationActive}
+                  >
+                    {debugSimulationActive ? copy.debug.simulationButtonRunning : copy.debug.simulationButtonIdle}
+                  </button>
+                  <span className="dock-chip">2 MB/s · 10s · 20 MB</span>
+                </div>
+              }
+            />
+          </LoadingMotionReveal>
         </div>
       </div>
     </section>

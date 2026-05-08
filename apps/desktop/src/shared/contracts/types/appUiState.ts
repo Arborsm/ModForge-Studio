@@ -1,3 +1,10 @@
+import type {
+  LoadingMotionIntensityId,
+  LoadingMotionSpeedId,
+  LoadingMotionSpeedMode,
+  LoadingMotionStyleId,
+} from './loadingMotion'
+
 export type AppUiShellState = {
   appMode: string
   launcherPage: string
@@ -12,6 +19,13 @@ export type AppUiAppearanceState = {
   playerAppearance: {
     profiles: unknown[]
     activeProfileId: string | null
+  }
+  loadingMotion: {
+    styleId: LoadingMotionStyleId
+    intensityId: LoadingMotionIntensityId
+    speedMode: LoadingMotionSpeedMode
+    speedId: LoadingMotionSpeedId
+    speedMultiplier: number
   }
 }
 
@@ -48,6 +62,7 @@ export type PatchAppUiStateRequest = {
   shell?: AppUiShellState
   appearance?: Partial<AppUiAppearanceState> & {
     playerAppearance?: AppUiAppearanceState['playerAppearance']
+    loadingMotion?: AppUiAppearanceState['loadingMotion']
   }
   workspace?: {
     layouts?: Record<string, Record<string, unknown> | null>

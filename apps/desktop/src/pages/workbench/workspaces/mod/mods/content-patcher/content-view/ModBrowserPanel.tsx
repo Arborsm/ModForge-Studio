@@ -2,6 +2,7 @@ import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
 import type { ModProjectSummary } from '@platform/desktop'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
+import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type ModBrowserPanelProps = {
   projects: ModProjectSummary[]
@@ -49,10 +50,12 @@ function getProjectStatusBadge(project: ModProjectSummary, copy: ReturnType<type
 function ProjectRow({
   project,
   active,
+  index,
   onSelect,
 }: {
   project: ModProjectSummary
   active: boolean
+  index: number
   onSelect: () => void
 }) {
   const copy = useModWorkspaceCopy()
@@ -60,18 +63,23 @@ function ProjectRow({
   const statusBadge = getProjectStatusBadge(project, copy)
   const isIncompatible = project.status === 'incompatible'
 
+  const revealProps = getLoadingMotionChildRevealProps({
+    index,
+    className: cx(
+      'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
+      isIncompatible
+        ? 'cursor-not-allowed border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_58%,var(--bg-panel))] opacity-90'
+        : active
+        ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
+        : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+    ),
+  })
+
   return (
     <button
       type="button"
       disabled={isIncompatible}
-      className={cx(
-        'w-full rounded-[20px] border px-4 py-3 text-left transition-all',
-        isIncompatible
-          ? 'cursor-not-allowed border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_58%,var(--bg-panel))] opacity-90'
-          : active
-          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
-          : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
-      )}
+      {...revealProps}
       onClick={onSelect}
     >
       <div className="flex items-start justify-between gap-3">
@@ -223,11 +231,12 @@ export function ModBrowserPanel({
 
         <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-auto pr-1">
           {filteredProjects.length ? (
-            filteredProjects.map((project) => (
+            filteredProjects.map((project, index) => (
               <ProjectRow
                 key={project.absolutePath}
                 project={project}
                 active={activeProjectPath === project.absolutePath}
+                index={index}
                 onSelect={() => onSelectProject(project.absolutePath)}
               />
             ))

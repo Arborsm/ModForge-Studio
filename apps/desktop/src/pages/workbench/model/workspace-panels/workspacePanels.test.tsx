@@ -10,6 +10,7 @@ import { buildWorkspacePanels } from './buildWorkspacePanels'
 import { buildCoreWorkspacePanels } from './core'
 import { buildItemsWorkspacePanels } from './items'
 import { buildModsWorkspacePanels } from './mods'
+import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
 type BuildOptions = Parameters<typeof buildWorkspacePanels>[0]
 
@@ -252,6 +253,22 @@ describe('workspacePanels mode builders', () => {
     })
   })
 
+  it('wraps concrete preview panels with loading reveal hooks', () => {
+    const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
+
+    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+
+    expect(document.querySelector('[data-loading-section="workbench-map-browser"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="workbench-map-viewport"]')).toHaveAttribute(
+      'data-loading-style',
+      DEFAULT_LOADING_MOTION_PREFERENCE.styleId,
+    )
+    expect(document.querySelector('[data-loading-section="workbench-map-layers"]')).toHaveAttribute(
+      'data-loading-intensity',
+      DEFAULT_LOADING_MOTION_PREFERENCE.intensityId,
+    )
+  })
+
   it('builds event panels via the core builder', () => {
     const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'events' }))
     expectPanelLayout(panels, ['assets', 'viewport', 'inspector', 'layers', 'diagnostics'], {
@@ -294,6 +311,16 @@ describe('workspacePanels mode builders', () => {
     })
   })
 
+  it('wraps item preview panels with loading reveal hooks', () => {
+    const panels = buildItemsWorkspacePanels(buildOptions({ workspaceMode: 'items' }))
+
+    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+
+    expect(document.querySelector('[data-loading-section="workbench-items-item-navigation"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="workbench-items-item-catalog"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="workbench-items-item-details"]')).toBeTruthy()
+  })
+
   it('uses the locale bundle title for the items navigation panel', () => {
     const zhCopy = editorCopy['zh-CN']
     const panels = buildItemsWorkspacePanels(buildOptions({ workspaceMode: 'items', copy: zhCopy, locale: 'zh-CN' }))
@@ -311,6 +338,54 @@ describe('workspacePanels mode builders', () => {
       'mods-target-diagnostics': 'right-bottom',
       'mods-export': 'right-bottom',
     })
+  })
+
+  it('wraps mods preview panels and content patcher sections with loading reveal hooks', () => {
+    const panels = buildModsWorkspacePanels(
+      buildOptions({
+        workspaceMode: 'mods',
+        activeModProjectDetail: {
+          pluginKind: 'content-patcher',
+          capabilities: ['edit', 'save', 'export', 'validate'],
+          summary: {
+            id: 'cp-pack',
+            name: 'CP Pack',
+            author: null,
+            version: '1.0.0',
+            description: null,
+            uniqueId: 'ModForge.CPPack',
+            contentPackFor: 'Pathoschild.ContentPatcher',
+            folderName: 'CPPack',
+            absolutePath: 'E:\\Mods\\CPPack',
+            manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+            contentPath: 'E:\\Mods\\CPPack\\content.json',
+            pluginKind: 'content-patcher',
+            status: 'ready',
+            missingRequiredDependencies: [],
+          },
+          diagnostics: [],
+          contentPatcher: {
+            manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+            contentPath: 'E:\\Mods\\CPPack\\content.json',
+            manifestJson: '{\n  "Name": "CP Pack"\n}\n',
+            contentJson: '{\n  "Format": "2.0.0",\n  "Changes": []\n}\n',
+            format: '2.0.0',
+            changeCount: 0,
+            includeCount: 0,
+            dynamicTokenCount: 0,
+            configKeys: [],
+            hasI18n: false,
+            patches: [],
+          },
+        },
+      }),
+    )
+
+    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+
+    expect(document.querySelector('[data-loading-section="workbench-mods-mods-browser"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="mod-workspace-header"]')).toBeTruthy()
+    expect(document.querySelector('[data-loading-section="mod-workspace-preview-panel"]')).toBeTruthy()
   })
 })
 

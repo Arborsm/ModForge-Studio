@@ -22,6 +22,7 @@ import {
   type LauncherInstallBackupSummary,
 } from '@platform/desktop'
 import { cx } from '@shared/lib/cx'
+import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { useLauncherImage } from '@features/launcher'
 import { getLauncherCoverKey } from '@features/launcher'
 import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher'
@@ -208,9 +209,10 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
 
   return (
     <div className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}>
-      <div className="launcher-library-grid">
-        {items.map((item) => (
-          <LauncherModCard
+        <div className="launcher-library-grid">
+        {items.map((item, index) => (
+          <LoadingMotionRevealItem key={item.id} index={index + 3} className="launcher-library-grid-reveal">
+            <LauncherModCard
             key={item.id}
             title={item.name}
             titleTooltip={item.name}
@@ -231,6 +233,7 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
             }}
             contextActions={editMode ? undefined : getContextActions(item)}
           />
+          </LoadingMotionRevealItem>
         ))}
       </div>
     </div>

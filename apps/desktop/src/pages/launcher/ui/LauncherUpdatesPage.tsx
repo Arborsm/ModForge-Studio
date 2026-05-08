@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy, useLocale, useSettingsMenuCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
+import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
@@ -284,7 +285,6 @@ export function LauncherUpdatesPage({
     !updatesBlocked && !updatesCheckFailed && updates.items.length
       ? copy.updates.selectionSummary(updates.selectedCount, updates.items.length)
       : copy.updates.subtitle
-
   const handleStatusRetry = async () => {
     if (statusRetryPending) {
       return
@@ -303,7 +303,8 @@ export function LauncherUpdatesPage({
 
   return (
     <section className="launcher-updates-page">
-      <header className="launcher-updates-console panel-surface">
+      <LoadingMotionReveal itemId="launcher-updates-console" index={0} className="launcher-updates-console panel-surface">
+      <header>
         <div className="launcher-updates-console-copy">
           <div className="launcher-updates-console-title-row">
             <h1 className="launcher-updates-console-title">{copy.updates.title}</h1>
@@ -341,8 +342,10 @@ export function LauncherUpdatesPage({
           </div>
         ) : null}
       </header>
+      </LoadingMotionReveal>
 
-      <div className={cx('launcher-updates-shell panel-surface', stateCardVisible && 'launcher-updates-shell-state')}>
+      <LoadingMotionReveal itemId="launcher-updates-content" index={1} className={cx('launcher-updates-shell panel-surface', stateCardVisible && 'launcher-updates-shell-state')}>
+      <div>
         {updatesBlocked ? (
           <div className="launcher-updates-content launcher-updates-content-blocked">
             <LauncherBlockedState
@@ -440,7 +443,7 @@ export function LauncherUpdatesPage({
 
         {!stateCardVisible ? (
           <div className="launcher-updates-list" aria-busy={updates.state === 'loading' ? 'true' : undefined}>
-            {updates.items.map((item) => {
+            {updates.items.map((item, index) => {
               const key = getUpdateKey(item.modId, item.absolutePath)
               const isExpanded = expandedKey === key
               const detail = detailByKey[key] ?? null
@@ -457,7 +460,12 @@ export function LauncherUpdatesPage({
               const detailSize = formatFileSize(detail?.fileSize ?? item.fileSize ?? null, copy.updates.sizeUnknown)
 
               return (
-                <article key={key} className={cx('launcher-updates-item', isExpanded && 'launcher-updates-item-expanded')}>
+              <LoadingMotionRevealItem
+                  key={key}
+                  index={index + 2}
+                  as="article"
+                  className={cx('launcher-updates-item', isExpanded && 'launcher-updates-item-expanded')}
+                >
                   <div className="launcher-updates-row">
                     <label className="launcher-updates-row-check">
                       <input
@@ -602,12 +610,13 @@ export function LauncherUpdatesPage({
                       ) : null}
                     </div>
                   </div>
-                </article>
+                </LoadingMotionRevealItem>
               )
             })}
           </div>
         ) : null}
       </div>
+      </LoadingMotionReveal>
     </section>
   )
 }

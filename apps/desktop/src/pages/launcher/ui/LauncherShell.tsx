@@ -1,6 +1,7 @@
 import { Suspense, lazy, useMemo } from 'react'
 import type { LauncherPage } from '@locales/editor-shell'
 import type { LauncherNexusDiagnosticsResult } from '@shared/contracts'
+import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { useLauncherDownloads } from '@features/launcher'
 import { useLauncherLibrary } from '@features/launcher'
 import { useLauncherSettings } from '@features/launcher'
@@ -79,7 +80,7 @@ export default function LauncherShell({
           hidden={activePage !== 'discover'}
           className={cx('launcher-shell-route', activePage === 'discover' && 'launcher-shell-route-active')}
         >
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingMotionFallback />}>
             {activePage === 'discover' ? (
               <LauncherDiscoverPage
                 settings={settingsState.settings}
@@ -96,7 +97,7 @@ export default function LauncherShell({
           hidden={activePage !== 'updates'}
           className={cx('launcher-shell-route', activePage === 'updates' && 'launcher-shell-route-active')}
         >
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingMotionFallback />}>
             {activePage === 'updates' ? (
               <LauncherUpdatesPage
                 settings={settingsState.settings}
@@ -113,7 +114,7 @@ export default function LauncherShell({
           hidden={activePage !== 'debug' || !debugEnabled}
           className={cx('launcher-shell-route', activePage === 'debug' && debugEnabled && 'launcher-shell-route-active')}
         >
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoadingMotionFallback />}>
             {activePage === 'debug' && debugEnabled ? (
               <LauncherDebugPage
                 debugEnabled={debugEnabled}

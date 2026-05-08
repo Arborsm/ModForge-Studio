@@ -1,4 +1,6 @@
 import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
+import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
+import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 
 type AppUiStatePersistence = {
   canPersist: () => boolean
@@ -14,6 +16,9 @@ let appUiStatePersistence: AppUiStatePersistence = {
 
 export function configureAppUiStatePersistence(persistence: AppUiStatePersistence) {
   appUiStatePersistence = persistence
+  snapshot = createDefaultAppUiState()
+  initializePromise = null
+  patchQueue = Promise.resolve(snapshot)
 }
 
 const LEGACY_WORKSPACE_LAYOUT_PREFIX = 'modforge:workspace-layout:'
@@ -64,7 +69,8 @@ export function createDefaultAppUiState(): AppUiState {
       playerAppearance: {
         profiles: [],
         activeProfileId: null,
-      },
+    },
+      loadingMotion: { ...DEFAULT_LOADING_MOTION_PREFERENCE },
     },
     workspace: {
       layouts: {},
@@ -136,6 +142,9 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
           typeof raw?.appearance?.playerAppearance?.activeProfileId === 'string' && raw.appearance.playerAppearance.activeProfileId.trim()
             ? raw.appearance.playerAppearance.activeProfileId
             : null,
+      },
+      loadingMotion: {
+        ...normalizeLoadingMotionPreference(raw?.appearance?.loadingMotion),
       },
     },
     workspace: {
@@ -295,3 +304,4 @@ export function clearLegacyBrowserUiState() {
     }
   }
 }
+

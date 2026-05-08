@@ -177,6 +177,9 @@ describe('ModBrowserPanel', () => {
 
     const activeCard = screen.getByRole('button', { name: /Seasonal Garden/i })
     const inactiveCard = screen.getByRole('button', { name: /Festival Pack/i })
+    expect(activeCard.className).toContain('loading-motion-child-reveal')
+    expect(activeCard.style.getPropertyValue('--loading-motion-child-index')).toBe('0')
+    expect(inactiveCard.style.getPropertyValue('--loading-motion-child-index')).toBe('1')
     expect(activeCard.className).toContain('rounded-[20px]')
     expect(activeCard.className).toContain('px-4')
     expect(activeCard.className).toContain('py-3')

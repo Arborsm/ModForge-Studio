@@ -28,6 +28,13 @@ type MockAppUiState = {
       profiles: unknown[]
       activeProfileId: string | null
     }
+    loadingMotion: {
+      styleId: string
+      intensityId: string
+      speedMode: 'preset' | 'custom'
+      speedId: 'slow' | 'standard' | 'fast'
+      speedMultiplier: number
+    }
   }
   workspace: {
     layouts: Record<string, Record<string, unknown>>
@@ -47,7 +54,8 @@ type MockAppUiState = {
 type MockAppUiStateOverrides = {
   version?: number
   shell?: Partial<MockAppUiState['shell']>
-  appearance?: Partial<Omit<MockAppUiState['appearance'], 'playerAppearance'>> & {
+  appearance?: Partial<Omit<MockAppUiState['appearance'], 'playerAppearance' | 'loadingMotion'>> & {
+    loadingMotion?: MockAppUiState['appearance']['loadingMotion']
     playerAppearance?: Partial<MockAppUiState['appearance']['playerAppearance']>
   }
   workspace?: {
@@ -62,6 +70,7 @@ type MockAppUiStateOverrides = {
 type MockAppUiStatePatch = {
   shell?: MockAppUiState['shell']
   appearance?: Partial<MockAppUiState['appearance']> & {
+    loadingMotion?: MockAppUiState['appearance']['loadingMotion']
     playerAppearance?: MockAppUiState['appearance']['playerAppearance']
   }
   workspace?: {
@@ -92,6 +101,14 @@ function createMockAppUiState(
         profiles: overrides.appearance?.playerAppearance?.profiles ?? [],
         activeProfileId: overrides.appearance?.playerAppearance?.activeProfileId ?? null,
       },
+      loadingMotion:
+        overrides.appearance?.loadingMotion ?? {
+          styleId: 'softFadeIn',
+          intensityId: 'standard',
+          speedMode: 'preset',
+          speedId: 'standard',
+          speedMultiplier: 1,
+        },
     },
     workspace: {
       layouts: overrides.workspace?.layouts ?? {},
@@ -1202,6 +1219,38 @@ describe('App locale ownership', () => {
 
     await waitFor(() => {
       expect(mockAppUiState.shell.notificationSoundEnabled).toBe(false)
+    })
+  })
+
+  it('persists loading motion changes immediately from Settings', async () => {
+    seedAppUiState({
+      shell: { appMode: 'workbench' },
+      appearance: {
+        loadingMotion: {
+          styleId: 'softFadeIn',
+          intensityId: 'standard',
+          speedMode: 'preset',
+          speedId: 'standard',
+          speedMultiplier: 1,
+        },
+      },
+    })
+    const englishSettingsCopy = getSettingsMenuCopy('en-US')
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: englishSettingsCopy.title }))
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.loading}`) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Bounce In' }))
+
+    await waitFor(() => {
+      expect(mockAppUiState.appearance.loadingMotion).toEqual({
+        styleId: 'bounceIn',
+        intensityId: 'standard',
+        speedMode: 'preset',
+        speedId: 'standard',
+        speedMultiplier: 1,
+      })
     })
   })
 

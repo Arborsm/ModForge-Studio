@@ -12,6 +12,7 @@ import type { WorkspacePluginDefinition } from '../content-model/types'
 import { ContentPatcherResultPreview } from './ContentPatcherResultPreview'
 import { ContentPatcherPatchPropertiesPanel } from './ContentPatcherPatchPropertiesPanel'
 import { ContentPatcherScaleUpPanel } from './scaleup/ContentPatcherScaleUpPanel'
+import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 
 type PatchSummary = {
   id: string
@@ -127,53 +128,61 @@ export function ContentPatcherWorkspace({
 
   return (
     <div className="cp-debugger-shell h-full">
-      <header className="cp-debugger-header">
-        <div className="cp-debugger-title-group">
-          <h1 className="cp-debugger-title">{projectDetail.summary.name}</h1>
-        </div>
-        <div className="cp-debugger-chip-row">
-          <span className={`status-pill ${hasUnsavedChanges ? 'status-pill-working' : 'status-pill-ready'}`}>
-            {hasUnsavedChanges ? copy.dirtyLabel : copy.cleanLabel}
-          </span>
-          <span className="dock-chip">{`${contentSummary.changeCount} patches`}</span>
-          <span className="dock-chip">{`${contentPatcherSimulation?.targets.length ?? 0} targets`}</span>
-          <button type="button" className="control-button" disabled={!canPersist} onClick={onSaveProject}>
-            {copy.saveProject}
-          </button>
-          <button type="button" className="control-button" disabled={!canPersist} onClick={onExportProject}>
-            {copy.exportProject}
-          </button>
-        </div>
-      </header>
+      <LoadingMotionReveal itemId="mod-workspace-header" index={0}>
+        <header className="cp-debugger-header">
+          <div className="cp-debugger-title-group">
+            <h1 className="cp-debugger-title">{projectDetail.summary.name}</h1>
+          </div>
+          <div className="cp-debugger-chip-row">
+            <span className={`status-pill ${hasUnsavedChanges ? 'status-pill-working' : 'status-pill-ready'}`}>
+              {hasUnsavedChanges ? copy.dirtyLabel : copy.cleanLabel}
+            </span>
+            <span className="dock-chip">{`${contentSummary.changeCount} patches`}</span>
+            <span className="dock-chip">{`${contentPatcherSimulation?.targets.length ?? 0} targets`}</span>
+            <button type="button" className="control-button" disabled={!canPersist} onClick={onSaveProject}>
+              {copy.saveProject}
+            </button>
+            <button type="button" className="control-button" disabled={!canPersist} onClick={onExportProject}>
+              {copy.exportProject}
+            </button>
+          </div>
+        </header>
+      </LoadingMotionReveal>
 
       <section className="cp-debugger-body" style={{ flexDirection: 'column', gap: 10 }}>
-        <ContentPatcherPatchPropertiesPanel
-          patch={selectedPatch}
-          patchWhenError={patchWhenError}
-          onFieldChange={onPatchFieldChange}
-          onWhenChange={onPatchWhenChange}
-          onAddPatch={onAddPatch}
-          onRemoveSelectedPatch={onRemoveSelectedPatch}
-        />
-        <ContentPatcherResultPreview
-          result={contentPatcherResultAsset}
-          loading={contentPatcherResultLoading}
-          error={contentPatcherResultError}
-          simulationContext={simulationContext}
-          simulationConfigEntries={contentSummary.configEntries ?? contentSummary.configKeys.map((key) => ({ key, defaultValue: null }))}
-          onSimulationContextChange={onSimulationContextChange}
-          dynamicTokens={contentPatcherSimulation?.dynamicTokens}
-        />
-        {activeScaleUpPanel && onScaleUpContentChange && onCloseScaleUpEditor ? (
-          <ContentPatcherScaleUpPanel
-            targetPath={activeScaleUpPanel.result.target.path}
-            focusSection={activeScaleUpPanel.focusSection}
-            content={contentEditor.value}
-            resultImageDataUrl={activeScaleUpPanel.imageDataUrl}
-            originalImageDataUrl={activeScaleUpPanel.result.result.originalImageDataUrl}
-            onContentChange={onScaleUpContentChange}
-            onClose={onCloseScaleUpEditor}
+        <LoadingMotionReveal itemId="mod-workspace-patch-panel" index={1}>
+          <ContentPatcherPatchPropertiesPanel
+            patch={selectedPatch}
+            patchWhenError={patchWhenError}
+            onFieldChange={onPatchFieldChange}
+            onWhenChange={onPatchWhenChange}
+            onAddPatch={onAddPatch}
+            onRemoveSelectedPatch={onRemoveSelectedPatch}
           />
+        </LoadingMotionReveal>
+        <LoadingMotionReveal itemId="mod-workspace-preview-panel" index={2}>
+          <ContentPatcherResultPreview
+            result={contentPatcherResultAsset}
+            loading={contentPatcherResultLoading}
+            error={contentPatcherResultError}
+            simulationContext={simulationContext}
+            simulationConfigEntries={contentSummary.configEntries ?? contentSummary.configKeys.map((key) => ({ key, defaultValue: null }))}
+            onSimulationContextChange={onSimulationContextChange}
+            dynamicTokens={contentPatcherSimulation?.dynamicTokens}
+          />
+        </LoadingMotionReveal>
+        {activeScaleUpPanel && onScaleUpContentChange && onCloseScaleUpEditor ? (
+          <LoadingMotionReveal itemId="mod-workspace-scaleup-panel" index={3}>
+            <ContentPatcherScaleUpPanel
+              targetPath={activeScaleUpPanel.result.target.path}
+              focusSection={activeScaleUpPanel.focusSection}
+              content={contentEditor.value}
+              resultImageDataUrl={activeScaleUpPanel.imageDataUrl}
+              originalImageDataUrl={activeScaleUpPanel.result.result.originalImageDataUrl}
+              onContentChange={onScaleUpContentChange}
+              onClose={onCloseScaleUpEditor}
+            />
+          </LoadingMotionReveal>
         ) : null}
       </section>
     </div>

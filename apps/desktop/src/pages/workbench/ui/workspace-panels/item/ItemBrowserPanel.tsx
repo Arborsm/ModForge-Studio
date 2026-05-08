@@ -4,6 +4,7 @@ import { cx } from '@shared/lib/cx'
 import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../workspaces/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { ItemSprite } from '../../../workspaces/item'
+import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type ItemBrowserPanelProps = {
   items: ItemWorkspaceEntry[]
@@ -56,8 +57,14 @@ export function ItemBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="grid grid-cols-2 gap-2">
-          {stats.map((stat) => (
-            <div key={stat.label} className="rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-3 py-3 text-left">
+          {stats.map((stat, index) => (
+            <div
+              key={stat.label}
+              {...getLoadingMotionChildRevealProps({
+                index,
+                className: 'rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-3 py-3 text-left',
+              })}
+            >
               <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">{stat.label}</p>
               <p className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">{stat.value}</p>
             </div>
@@ -77,8 +84,11 @@ export function ItemBrowserPanel({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
           {items.length ? (
-            grouped.length ? grouped.map((group) => (
-              <section key={group.kind}>
+            grouped.length ? grouped.map((group, groupIndex) => (
+              <section
+                key={group.kind}
+                {...getLoadingMotionChildRevealProps({ index: groupIndex + stats.length })}
+              >
                 <div className="mb-2 flex items-center justify-between gap-3 px-1">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{group.label}</p>
@@ -87,20 +97,24 @@ export function ItemBrowserPanel({
                   <span className="dock-chip">{group.items.length}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  {group.items.map((item) => {
+                  {group.items.map((item, itemIndex) => {
                     const isActive = item.key === activeItemId
                     const textureState = item.textureAssetName ? (textureStatesByAssetName[item.textureAssetName] ?? null) : null
+                    const revealProps = getLoadingMotionChildRevealProps({
+                      index: groupIndex + stats.length + itemIndex + 1,
+                      className: cx(
+                        'flex aspect-square flex-col items-center justify-center rounded-[20px] border p-2 text-center transition-all',
+                        isActive
+                          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] shadow-[0_16px_30px_rgba(79,70,229,0.12)]'
+                          : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+                      ),
+                    })
 
                     return (
                       <button
                         key={item.key}
                         type="button"
-                        className={cx(
-                          'flex aspect-square flex-col items-center justify-center rounded-[20px] border p-2 text-center transition-all',
-                          isActive
-                            ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] shadow-[0_16px_30px_rgba(79,70,229,0.12)]'
-                            : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
-                        )}
+                        {...revealProps}
                         onClick={() => onSelectItem(item.key)}
                       >
                         <ItemSprite item={item} textureState={textureState} scale={getContainedItemSpriteScale(item, 40, 1.55)} className="h-10 w-10 rounded-2xl" />

@@ -35,6 +35,7 @@ import { useWorkspaceLayoutPersistence } from '../model/useWorkspaceLayoutPersis
 import { useWorkbenchModeTransitions } from '../model/useWorkbenchModeTransitions'
 import { useWorkbenchCommandIntent } from '../model/workbenchCommandIntent'
 import { useWorkbenchStatus } from '../model/useWorkbenchStatus'
+import { LoadingMotionFallback, LoadingMotionReveal } from '@shared/ui/loading-motion'
 
 const PlayerAppearanceWindow = lazy(() => import('./PlayerAppearanceWindow'))
 const RESOURCE_PRELOAD_NOTIFICATION_ID = 'app-resource-preload'
@@ -847,7 +848,9 @@ export default function WorkbenchExperience({
         />
 
       {playerAppearanceWindowOpen ? (
-        <Suspense fallback={null}>
+      <Suspense
+          fallback={<LoadingMotionFallback />}
+        >
           <PlayerAppearanceWindow
             key={`player-appearance:${playerAppearanceWindowNonce}`}
             open={playerAppearanceWindowOpen}
@@ -869,37 +872,49 @@ export default function WorkbenchExperience({
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0 min-h-0 overflow-hidden">
           {workspaceViewMode === 'preview' ? (
-            <WorkbenchLayoutHost
-              workspaceLayoutRef={workspaceLayoutRef}
-              workspaceLayoutStorageKey={workspaceLayoutStorageKey}
-              workspaceLayouts={workspaceLayouts}
-              workspacePanels={workspacePanels}
-              onPersistStateChange={handleWorkspacePersistStateChange}
-              onLayoutMetaChange={handleLayoutMetaChange}
-            />
+            <LoadingMotionReveal
+              itemId="workbench-preview-mode"
+              index={0}
+              className="h-full min-h-0"
+            >
+              <WorkbenchLayoutHost
+                workspaceLayoutRef={workspaceLayoutRef}
+                workspaceLayoutStorageKey={workspaceLayoutStorageKey}
+                workspaceLayouts={workspaceLayouts}
+                workspacePanels={workspacePanels}
+                onPersistStateChange={handleWorkspacePersistStateChange}
+                onLayoutMetaChange={handleLayoutMetaChange}
+              />
+            </LoadingMotionReveal>
           ) : (
-            <WorkbenchViewHost
-              editModeView={editModeView}
-              workspaceMode={workspaceMode}
-              copy={copy}
-              locale={locale}
-              theme={theme}
-              accentColor={accentColor}
-              directoryInfo={directoryInfo}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
-              onGoBack={goBack}
-              onGoForward={goForward}
-              generatedProject={generatedProject}
-              studioDeskModel={studioDeskModel}
-              onWorkbenchEvent={onWorkbenchEvent}
-              navigateToPatch={navigateToPatch}
-              onSetWorkspaceMode={setWorkspaceMode}
-              onSetWorkspaceViewMode={setWorkspaceViewMode}
-              studioDeskGalleryOpen={studioDeskGalleryOpen}
-              onStudioDeskGalleryOpenChange={setStudioDeskGalleryOpen}
-              activeEditPatchId={activeEditPatchId}
-            />
+            <LoadingMotionReveal
+              itemId="workbench-project-mode"
+              index={0}
+              className="h-full min-h-0"
+            >
+              <WorkbenchViewHost
+                editModeView={editModeView}
+                workspaceMode={workspaceMode}
+                copy={copy}
+                locale={locale}
+                theme={theme}
+                accentColor={accentColor}
+                directoryInfo={directoryInfo}
+                canGoBack={canGoBack}
+                canGoForward={canGoForward}
+                onGoBack={goBack}
+                onGoForward={goForward}
+                generatedProject={generatedProject}
+                studioDeskModel={studioDeskModel}
+                onWorkbenchEvent={onWorkbenchEvent}
+                navigateToPatch={navigateToPatch}
+                onSetWorkspaceMode={setWorkspaceMode}
+                onSetWorkspaceViewMode={setWorkspaceViewMode}
+                studioDeskGalleryOpen={studioDeskGalleryOpen}
+                onStudioDeskGalleryOpenChange={setStudioDeskGalleryOpen}
+                activeEditPatchId={activeEditPatchId}
+              />
+            </LoadingMotionReveal>
           )}
         </div>
       </div>

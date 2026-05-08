@@ -337,6 +337,29 @@ describe('frontend module architecture', () => {
     expect(mapEntityTypes).toContain("from '@shared/contracts'")
   })
 
+  it('blocks null Suspense fallbacks in covered page-level loading entry points', async () => {
+    const coveredEntryFiles = [
+      'src/app/app-shell/AppShell.tsx',
+      'src/pages/workbench/ui/WorkbenchPage.tsx',
+      'src/pages/workbench/ui/WorkbenchExperience.tsx',
+    ]
+    const violations: string[] = []
+
+    for (const file of coveredEntryFiles) {
+      const source = await readFile(sourcePath(file), 'utf8')
+
+      if (/fallback\s*=\s*\{\s*null\s*\}/.test(source)) {
+        violations.push(`${file} uses fallback={null}`)
+      }
+
+      if (!source.includes('@shared/ui/loading-motion')) {
+        violations.push(`${file} does not consume shared loading-motion UI`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
   it('creates the new root modules and removes obsolete compatibility shims', async () => {
     await expectFile(sourcePath('src/app/app-shell/AppShell.tsx'))
     await expectFile(sourcePath('src/pages/launcher/LauncherPage.tsx'))

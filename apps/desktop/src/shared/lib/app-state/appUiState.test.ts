@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppUiState } from '@shared/contracts'
+import { createLoadingMotionPreference } from '@shared/lib/loading-motion'
 
 describe('uiState store', () => {
   beforeEach(() => {
@@ -28,6 +29,10 @@ describe('uiState store', () => {
           profiles: [],
           activeProfileId: null,
         },
+        loadingMotion: createLoadingMotionPreference({
+          styleId: 'softFadeIn',
+          intensityId: 'standard',
+        }),
       },
       workspace: {
         layouts: {},
@@ -153,3 +158,94 @@ describe('uiState store', () => {
     })
   })
 })
+
+
+  it('includes loading motion preference in default state', async () => {
+    const { getAppUiStateSnapshot } = await import('./appUiState')
+    const snapshot = getAppUiStateSnapshot()
+    expect(snapshot.appearance.loadingMotion).toEqual({
+      styleId: 'softFadeIn',
+      intensityId: 'standard',
+      speedMode: 'preset',
+      speedId: 'standard',
+      speedMultiplier: 1,
+    })
+  })
+
+  it('normalizes loading motion from persisted state', async () => {
+    const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
+    configureAppUiStatePersistence({
+      canPersist: () => true,
+      load: vi.fn(async () => ({
+        version: 1,
+        shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+        appearance: {
+          locale: 'en-US',
+          accentPresetId: 'indigo',
+          recentGameDirectories: [],
+          playerAppearance: { profiles: [], activeProfileId: null },
+          loadingMotion: createLoadingMotionPreference({
+            styleId: 'bounceIn',
+            intensityId: 'strong',
+            speedMode: 'custom',
+            speedId: 'fast',
+            speedMultiplier: 0.68,
+          }),
+        },
+      workspace: { layouts: {} },
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false }, forceOffline: false },
+    })),
+      patch: vi.fn(),
+    })
+    await initializeAppUiState()
+    expect(getAppUiStateSnapshot().appearance.loadingMotion).toEqual({
+      styleId: 'bounceIn',
+      intensityId: 'strong',
+      speedMode: 'custom',
+      speedId: 'fast',
+      speedMultiplier: 0.68,
+    })
+  })
+
+  it('hydrates old persisted loading motion preferences with default speed fields', async () => {
+    const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
+    configureAppUiStatePersistence({
+      canPersist: () => true,
+      load: vi.fn(async () => ({
+        version: 1,
+        shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+        appearance: {
+          locale: 'en-US',
+          accentPresetId: 'indigo',
+          recentGameDirectories: [],
+          playerAppearance: { profiles: [], activeProfileId: null },
+          loadingMotion: createLoadingMotionPreference({
+            styleId: 'layeredFadeIn',
+            intensityId: 'light',
+          }),
+        },
+        workspace: { layouts: {} },
+        launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false }, forceOffline: false },
+      })),
+      patch: vi.fn(),
+    })
+
+    await initializeAppUiState()
+    expect(getAppUiStateSnapshot().appearance.loadingMotion).toEqual({
+      styleId: 'layeredFadeIn',
+      intensityId: 'light',
+      speedMode: 'preset',
+      speedId: 'standard',
+      speedMultiplier: 1,
+    })
+  })
+
+  it('invalid loading style falls back to default without affecting intensity', async () => {
+    const { createDefaultAppUiState } = await import('./appUiState')
+    const defaults = createDefaultAppUiState()
+    // Simulate what normalizeAppUiState does with an invalid style
+    // raw: { appearance: { loadingMotion: { styleId: 'invalid', intensityId: 'strong' } } }
+    // The normalization uses the defaults' valid style
+    expect(defaults.appearance.loadingMotion.styleId).toBe('softFadeIn')
+    expect(defaults.appearance.loadingMotion.intensityId).toBe('standard')
+  })

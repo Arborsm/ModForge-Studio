@@ -5,6 +5,7 @@ import { cx } from '@shared/lib/cx'
 import type { CharacterWorkspaceEntry } from '../../../workspaces/character'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
+import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type CharacterBrowserPanelProps = {
   characters: CharacterWorkspaceEntry[]
@@ -67,10 +68,13 @@ export function CharacterBrowserPanel({
         <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
           {browserSourceMode === 'mod' ? (
             modCharacterGroups.length ? (
-              modCharacterGroups.map((group) => (
+              modCharacterGroups.map((group, groupIndex) => (
                 <section
                   key={group.modPath}
-                  className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                  {...getLoadingMotionChildRevealProps({
+                    index: groupIndex,
+                    className: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+                  })}
                 >
                   <div className="border-b border-[var(--border-color)] px-3 py-2">
                     <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
@@ -79,14 +83,18 @@ export function CharacterBrowserPanel({
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
-                    {group.items.map((entry) => {
+                    {group.items.map((entry, itemIndex) => {
                       const { value: character, targets } = entry
                       const isActive = entry.selectionId === activeModCharacterSelectionId
+                      const revealProps = getLoadingMotionChildRevealProps({
+                        index: groupIndex + itemIndex + 1,
+                        className: cx('asset-row text-left', isActive && 'asset-row-active'),
+                      })
                       return (
                         <button
                           key={`${group.modId}:${character.key}`}
                           type="button"
-                          className={cx('asset-row text-left', isActive && 'asset-row-active')}
+                          {...revealProps}
                           onClick={() => onSelectModCharacter(entry)}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -111,13 +119,17 @@ export function CharacterBrowserPanel({
               </div>
             )
           ) : filteredCharacters.length ? (
-            filteredCharacters.map((character) => {
+            filteredCharacters.map((character, index) => {
               const isActive = character.key === activeCharacterId
+              const revealProps = getLoadingMotionChildRevealProps({
+                index,
+                className: cx('asset-row text-left', isActive && 'asset-row-active'),
+              })
               return (
                 <button
                   key={character.key}
                   type="button"
-                  className={cx('asset-row text-left', isActive && 'asset-row-active')}
+                  {...revealProps}
                   onClick={() => onSelectCharacter(character.key)}
                 >
                   <div className="flex items-start justify-between gap-3">

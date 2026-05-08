@@ -1,1 +1,1 @@
-export type SettingsWindowCategory = 'appearance' | 'view' | 'interaction' | 'launcher' | 'debug'
+export type SettingsWindowCategory = 'appearance' | 'loading' | 'view' | 'interaction' | 'launcher' | 'debug'

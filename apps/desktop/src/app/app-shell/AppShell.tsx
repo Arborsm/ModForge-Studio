@@ -15,6 +15,19 @@ import {
 } from '@platform/desktop'
 import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
 import { normalizeAppShellState } from '@shared/lib/app-state'
+import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
+import {
+  LOADING_MOTION_STYLE_LABELS,
+  LOADING_MOTION_INTENSITY_LABELS,
+  LOADING_MOTION_SPEED_LABELS,
+} from '@shared/contracts/types/loadingMotion'
+import type {
+  LoadingMotionPreference,
+  LoadingMotionStyleId,
+  LoadingMotionIntensityId,
+  LoadingMotionSpeedId,
+} from '@shared/contracts/types/loadingMotion'
+import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { rgbaFromHex } from '@app/app-shell/color'
 import { ACCENT_PRESETS } from './constants'
 import { clearLocalizedStageMetadataCache } from '@entities/event'
@@ -94,6 +107,11 @@ export default function App() {
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
   const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
   const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
+  const [loadingMotionPreference, setLoadingMotionPreference] = useState<LoadingMotionPreference>(
+    () => {
+      return normalizeLoadingMotionPreference(initialAppUiState.appearance?.loadingMotion)
+    },
+  )
   const [appUiStateReady, setAppUiStateReady] = useState(false)
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
@@ -149,6 +167,7 @@ export default function App() {
         setLauncherPage(nextShellState.launcherPage)
         setDebugEnabled(nextShellState.debugEnabled)
         setNotificationSoundEnabledState(nextShellState.notificationSoundEnabled)
+        setLoadingMotionPreference(normalizeLoadingMotionPreference(state.appearance?.loadingMotion))
         setAppUiStateReady(true)
       })
       .catch(() => {
@@ -339,6 +358,97 @@ export default function App() {
     setSettingsWindowOpen(true)
   }, [])
 
+  const handleLoadingMotionChange = useCallback(
+    (nextLoadingMotion: LoadingMotionPreference) => {
+      setLoadingMotionPreference(nextLoadingMotion)
+
+      if (!appUiStateReady) {
+        return
+      }
+
+      void applyAppUiStatePatch({
+        appearance: {
+          loadingMotion: nextLoadingMotion,
+        },
+      })
+    },
+    [appUiStateReady],
+  )
+
+  const handleSelectLoadingStyle = useCallback(
+    (styleId: LoadingMotionStyleId) => {
+      handleLoadingMotionChange({
+        styleId,
+        intensityId: loadingMotionPreference.intensityId,
+        speedMode: loadingMotionPreference.speedMode,
+        speedId: loadingMotionPreference.speedId,
+        speedMultiplier: loadingMotionPreference.speedMultiplier,
+      })
+    },
+    [
+      handleLoadingMotionChange,
+      loadingMotionPreference.intensityId,
+      loadingMotionPreference.speedId,
+      loadingMotionPreference.speedMode,
+      loadingMotionPreference.speedMultiplier,
+    ],
+  )
+
+  const handleSelectLoadingIntensity = useCallback(
+    (intensityId: LoadingMotionIntensityId) => {
+      handleLoadingMotionChange({
+        styleId: loadingMotionPreference.styleId,
+        intensityId,
+        speedMode: loadingMotionPreference.speedMode,
+        speedId: loadingMotionPreference.speedId,
+        speedMultiplier: loadingMotionPreference.speedMultiplier,
+      })
+    },
+    [
+      handleLoadingMotionChange,
+      loadingMotionPreference.speedId,
+      loadingMotionPreference.speedMode,
+      loadingMotionPreference.speedMultiplier,
+      loadingMotionPreference.styleId,
+    ],
+  )
+
+  const handleSelectLoadingSpeed = useCallback(
+    (speedId: LoadingMotionSpeedId) => {
+      handleLoadingMotionChange({
+        styleId: loadingMotionPreference.styleId,
+        intensityId: loadingMotionPreference.intensityId,
+        speedMode: 'preset',
+        speedId,
+        speedMultiplier: loadingMotionPreference.speedMultiplier,
+      })
+    },
+    [
+      handleLoadingMotionChange,
+      loadingMotionPreference.intensityId,
+      loadingMotionPreference.styleId,
+      loadingMotionPreference.speedMultiplier,
+    ],
+  )
+
+  const handleSelectCustomLoadingSpeed = useCallback(
+    (speedMultiplier: number) => {
+      handleLoadingMotionChange({
+        styleId: loadingMotionPreference.styleId,
+        intensityId: loadingMotionPreference.intensityId,
+        speedMode: 'custom',
+        speedId: loadingMotionPreference.speedId,
+        speedMultiplier,
+      })
+    },
+    [
+      handleLoadingMotionChange,
+      loadingMotionPreference.intensityId,
+      loadingMotionPreference.speedId,
+      loadingMotionPreference.styleId,
+    ],
+  )
+
   const settingsMenuCopy = getSettingsMenuCopy(locale)
   const localeOptions =
     locale === 'en-US'
@@ -354,100 +464,132 @@ export default function App() {
   return (
     <LocaleProvider locale={locale}>
       <NotificationProvider>
-        <div className="relative h-screen w-screen overflow-hidden bg-(--bg-app) text-(--text-primary)">
-          {appMode === 'launcher' ? (
-            <LauncherPageView
-              page={launcherPage}
-              debugEnabled={debugEnabled}
-              desktopHost={desktopHost}
-              theme={theme}
-              locale={locale}
-              onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-              onAppModeChange={handleAppModeChange}
-              onWorkspaceChange={() => {}}
-              onLauncherPageChange={handleLauncherPageChange}
-              onMinimizeWindow={() => void minimizeCurrentWindow()}
-              onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
-              onCloseWindow={() => void closeCurrentWindow()}
-              onOpenSettings={openSettingsWindow}
-              onToggleDebugMode={() => setDebugEnabled((current) => !current)}
-              onNavigateToDiagnostics={handleViewLauncherDiagnostics}
-              onRetryDiagnostics={getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()}
-              onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
-            />
-          ) : null}
-
-          {workbenchLoaded ? (
-            <Suspense fallback={null}>
-              <WorkbenchPage
-                active={appMode === 'workbench'}
-                appUiStateReady={appUiStateReady}
-                theme={theme}
-                locale={locale}
-                accentColor={activeAccentPreset.color}
+        <LoadingMotionProvider preference={loadingMotionPreference}>
+          <div className="relative h-screen w-screen overflow-hidden bg-(--bg-app) text-(--text-primary)">
+            {appMode === 'launcher' ? (
+              <LauncherPageView
+                page={launcherPage}
                 debugEnabled={debugEnabled}
                 desktopHost={desktopHost}
+                theme={theme}
+                locale={locale}
                 onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-                onSwitchToLauncher={handleSwitchToLauncher}
-                onOpenSettings={openSettingsWindow}
+                onAppModeChange={handleAppModeChange}
+                onWorkspaceChange={() => {}}
+                onLauncherPageChange={handleLauncherPageChange}
                 onMinimizeWindow={() => void minimizeCurrentWindow()}
                 onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
                 onCloseWindow={() => void closeCurrentWindow()}
-                onWorkbenchEvent={eventBus.emit}
-                getWorkbenchViewRegistration={getWorkbenchViewRegistration}
-                pendingWorkbenchIntent={pendingWorkbenchIntent}
-                onClearPendingIntent={appCommandHandler.clearPendingIntent}
-              />
-            </Suspense>
-          ) : null}
-
-          {settingsWindowOpen ? (
-            <Suspense fallback={null}>
-              <SettingsWindow
-                open={settingsWindowOpen}
-                title={settingsMenuCopy.title}
-                categories={settingsMenuCopy.categories}
-                categoryDescriptions={settingsMenuCopy.categoryDescriptions}
-                accentLabel={settingsMenuCopy.accentLabel}
-                resetAccentLabel={settingsMenuCopy.resetAccentLabel}
-                accentDescription={settingsMenuCopy.accentDescription}
-                languageLabel={settingsMenuCopy.languageLabel}
-                languageDescription={settingsMenuCopy.languageDescription}
-                localeOptions={localeOptions}
-                activeLocale={locale}
-                windowModeLabel={settingsMenuCopy.windowModeLabel}
-                borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
-                borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
-                enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
-                disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
-                borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
-                debugModeLabel={settingsMenuCopy.debugModeLabel}
-                debugModeDescription={settingsMenuCopy.debugModeDescription}
-                enableDebugModeLabel={settingsMenuCopy.enableDebugModeLabel}
-                disableDebugModeLabel={settingsMenuCopy.disableDebugModeLabel}
-                debugModeEnabled={debugEnabled}
-                notificationSoundLabel={settingsMenuCopy.notificationSoundLabel}
-                notificationSoundDescription={settingsMenuCopy.notificationSoundDescription}
-                enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
-                disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
-                notificationSoundEnabled={notificationSoundEnabled}
-                launcherContent={null}
-                activeCategory={settingsWindowCategory}
-                accentOptions={ACCENT_PRESETS}
-                activeAccentId={activeAccentPreset.id}
-                onSelectAccent={setAccentPresetId}
-                onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
-                onSelectLocale={setLocale}
-                onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
-                onToggleNotificationSound={() => setNotificationSoundEnabledState((current) => !current)}
+                onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
-                onActiveCategoryChange={setSettingsWindowCategory}
-                onClose={() => setSettingsWindowOpen(false)}
+                onNavigateToDiagnostics={handleViewLauncherDiagnostics}
+                onRetryDiagnostics={getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()}
+                onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
               />
-            </Suspense>
-          ) : null}
-        </div>
+            ) : null}
+
+            {workbenchLoaded ? (
+              <Suspense fallback={<LoadingMotionFallback />}>
+                <WorkbenchPage
+                  active={appMode === 'workbench'}
+                  appUiStateReady={appUiStateReady}
+                  theme={theme}
+                  locale={locale}
+                  accentColor={activeAccentPreset.color}
+                  debugEnabled={debugEnabled}
+                  desktopHost={desktopHost}
+                  onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+                  onSwitchToLauncher={handleSwitchToLauncher}
+                  onOpenSettings={openSettingsWindow}
+                  onMinimizeWindow={() => void minimizeCurrentWindow()}
+                  onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+                  onCloseWindow={() => void closeCurrentWindow()}
+                  onWorkbenchEvent={eventBus.emit}
+                  getWorkbenchViewRegistration={getWorkbenchViewRegistration}
+                  pendingWorkbenchIntent={pendingWorkbenchIntent}
+                  onClearPendingIntent={appCommandHandler.clearPendingIntent}
+                />
+              </Suspense>
+            ) : null}
+
+            {settingsWindowOpen ? (
+              <Suspense fallback={<LoadingMotionFallback />}>
+                <SettingsWindow
+                  open={settingsWindowOpen}
+                  title={settingsMenuCopy.title}
+                  categories={settingsMenuCopy.categories}
+                  categoryDescriptions={settingsMenuCopy.categoryDescriptions}
+                  accentLabel={settingsMenuCopy.accentLabel}
+                  resetAccentLabel={settingsMenuCopy.resetAccentLabel}
+                  accentDescription={settingsMenuCopy.accentDescription}
+                  languageLabel={settingsMenuCopy.languageLabel}
+                  languageDescription={settingsMenuCopy.languageDescription}
+                  localeOptions={localeOptions}
+                  activeLocale={locale}
+                  windowModeLabel={settingsMenuCopy.windowModeLabel}
+                  borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
+                  borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
+                  enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
+                  disableBorderlessFullscreenLabel={settingsMenuCopy.disableBorderlessFullscreenLabel}
+                  borderlessFullscreenEnabled={desktopHost ? windowIsFullscreen : false}
+                  debugModeLabel={settingsMenuCopy.debugModeLabel}
+                  debugModeDescription={settingsMenuCopy.debugModeDescription}
+                  enableDebugModeLabel={settingsMenuCopy.enableDebugModeLabel}
+                  disableDebugModeLabel={settingsMenuCopy.disableDebugModeLabel}
+                  debugModeEnabled={debugEnabled}
+                  notificationSoundLabel={settingsMenuCopy.notificationSoundLabel}
+                  notificationSoundDescription={settingsMenuCopy.notificationSoundDescription}
+                  enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
+                  disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
+                  notificationSoundEnabled={notificationSoundEnabled}
+                  launcherContent={null}
+                  activeCategory={settingsWindowCategory}
+                  accentOptions={ACCENT_PRESETS}
+                  activeAccentId={activeAccentPreset.id}
+                  onSelectAccent={setAccentPresetId}
+                  onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
+                  onSelectLocale={setLocale}
+                  onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
+                  onToggleNotificationSound={() => setNotificationSoundEnabledState((current) => !current)}
+                  onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                  loadingMotionStyleLabel={settingsMenuCopy.loadingMotionStyleLabel}
+                  loadingMotionStyleDescription={settingsMenuCopy.loadingMotionStyleDescription}
+                  loadingMotionIntensityLabel={settingsMenuCopy.loadingMotionIntensityLabel}
+                  loadingMotionIntensityDescription={settingsMenuCopy.loadingMotionIntensityDescription}
+                  loadingMotionSpeedLabel={settingsMenuCopy.loadingMotionSpeedLabel}
+                  loadingMotionSpeedDescription={settingsMenuCopy.loadingMotionSpeedDescription}
+                  loadingMotionCustomSpeedLabel={settingsMenuCopy.loadingMotionCustomSpeedLabel}
+                  loadingMotionCustomSpeedDescription={settingsMenuCopy.loadingMotionCustomSpeedDescription}
+                  loadingMotionCustomSpeedToggleLabel={settingsMenuCopy.loadingMotionCustomSpeedToggleLabel}
+                  loadingMotionPresetSpeedToggleLabel={settingsMenuCopy.loadingMotionPresetSpeedToggleLabel}
+                  loadingMotionSpeedValueLabel={settingsMenuCopy.loadingMotionSpeedValueLabel}
+                  activeLoadingStyleId={loadingMotionPreference.styleId}
+                  activeLoadingIntensityId={loadingMotionPreference.intensityId}
+                  activeLoadingSpeedMode={loadingMotionPreference.speedMode}
+                  activeLoadingSpeedId={loadingMotionPreference.speedId}
+                  activeLoadingSpeedMultiplier={loadingMotionPreference.speedMultiplier}
+                  onSelectLoadingStyle={handleSelectLoadingStyle}
+                  onSelectLoadingIntensity={handleSelectLoadingIntensity}
+                  onSelectLoadingSpeed={handleSelectLoadingSpeed}
+                  onSelectCustomLoadingSpeed={handleSelectCustomLoadingSpeed}
+                  loadingStyleOptions={LOADING_MOTION_STYLE_LABELS.map(function(e) {
+                    return { id: e.id, label: locale === 'zh-CN' ? e.labelZh : e.labelEn }
+                  })}
+                  loadingIntensityOptions={LOADING_MOTION_INTENSITY_LABELS.map(function(e) {
+                    return { id: e.id, label: locale === 'zh-CN' ? e.labelZh : e.labelEn }
+                  })}
+                  loadingSpeedOptions={LOADING_MOTION_SPEED_LABELS.map(function(e) {
+                    return { id: e.id, label: locale === 'zh-CN' ? e.labelZh : e.labelEn }
+                  })}
+                  onActiveCategoryChange={setSettingsWindowCategory}
+                  onClose={() => setSettingsWindowOpen(false)}
+                />
+              </Suspense>
+            ) : null}
+          </div>
+        </LoadingMotionProvider>
       </NotificationProvider>
     </LocaleProvider>
   )
 }
+

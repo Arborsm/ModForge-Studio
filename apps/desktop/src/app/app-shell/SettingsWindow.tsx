@@ -2,8 +2,15 @@ import { Bug, Maximize2, Palette, Settings2, Volume2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { cx } from '@shared/lib/cx'
+import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import type { LocaleCode } from '@locales/editor-shell'
 import type { SettingsWindowCategory } from '@shared/contracts'
+import type {
+  LoadingMotionIntensityId,
+  LoadingMotionSpeedId,
+  LoadingMotionSpeedMode,
+  LoadingMotionStyleId,
+} from '@shared/contracts/types/loadingMotion'
 
 type AccentOption = {
   id: string
@@ -21,6 +28,7 @@ type SettingsWindowProps = {
   title: string
   categories: {
     appearance: string
+    loading: string
     view: string
     interaction: string
     launcher: string
@@ -28,6 +36,7 @@ type SettingsWindowProps = {
   }
   categoryDescriptions: {
     appearance: string
+    loading: string
     view: string
     interaction: string
     launcher: string
@@ -66,6 +75,29 @@ type SettingsWindowProps = {
   onToggleBorderlessFullscreen: () => void
   onToggleNotificationSound: () => void
   onToggleDebugMode: () => void
+  loadingMotionStyleLabel: string
+  loadingMotionStyleDescription: string
+  loadingMotionIntensityLabel: string
+  loadingMotionIntensityDescription: string
+  loadingMotionSpeedLabel: string
+  loadingMotionSpeedDescription: string
+  loadingMotionCustomSpeedLabel: string
+  loadingMotionCustomSpeedDescription: string
+  loadingMotionCustomSpeedToggleLabel: string
+  loadingMotionPresetSpeedToggleLabel: string
+  loadingMotionSpeedValueLabel: (value: number) => string
+  activeLoadingStyleId: LoadingMotionStyleId
+  activeLoadingIntensityId: LoadingMotionIntensityId
+  activeLoadingSpeedMode: LoadingMotionSpeedMode
+  activeLoadingSpeedId: LoadingMotionSpeedId
+  activeLoadingSpeedMultiplier: number
+  onSelectLoadingStyle: (styleId: LoadingMotionStyleId) => void
+  onSelectLoadingIntensity: (intensityId: LoadingMotionIntensityId) => void
+  onSelectLoadingSpeed: (speedId: LoadingMotionSpeedId) => void
+  onSelectCustomLoadingSpeed: (speedMultiplier: number) => void
+  loadingStyleOptions: Array<{ id: LoadingMotionStyleId; label: string }>
+  loadingIntensityOptions: Array<{ id: LoadingMotionIntensityId; label: string }>
+  loadingSpeedOptions: Array<{ id: LoadingMotionSpeedId; label: string }>
   onActiveCategoryChange?: (category: SettingsWindowCategory) => void
   onClose: () => void
 }
@@ -163,6 +195,29 @@ export default function SettingsWindow({
   onToggleBorderlessFullscreen,
   onToggleNotificationSound,
   onToggleDebugMode,
+  loadingMotionStyleLabel,
+  loadingMotionStyleDescription,
+  loadingMotionIntensityLabel,
+  loadingMotionIntensityDescription,
+  loadingMotionSpeedLabel,
+  loadingMotionSpeedDescription,
+  loadingMotionCustomSpeedLabel,
+  loadingMotionCustomSpeedDescription,
+  loadingMotionCustomSpeedToggleLabel,
+  loadingMotionPresetSpeedToggleLabel,
+  loadingMotionSpeedValueLabel,
+  activeLoadingStyleId,
+  activeLoadingIntensityId,
+  activeLoadingSpeedMode,
+  activeLoadingSpeedId,
+  activeLoadingSpeedMultiplier,
+  onSelectLoadingStyle,
+  onSelectLoadingIntensity,
+  onSelectLoadingSpeed,
+  onSelectCustomLoadingSpeed,
+  loadingStyleOptions,
+  loadingIntensityOptions,
+  loadingSpeedOptions,
   onActiveCategoryChange,
   onClose,
 }: SettingsWindowProps) {
@@ -173,6 +228,10 @@ export default function SettingsWindow({
   const activeLocaleIndex = localeOptions.findIndex((option) => option.id === activeLocale)
   const focusableLocaleIndex = activeLocaleIndex === -1 ? 0 : activeLocaleIndex
   const activeCategory = controlledActiveCategory ?? uncontrolledActiveCategory
+  const effectiveLoadingSpeedMultiplier =
+    typeof activeLoadingSpeedMultiplier === 'number' && Number.isFinite(activeLoadingSpeedMultiplier)
+      ? activeLoadingSpeedMultiplier
+      : 1
 
   const handleCategoryChange = (category: SettingsWindowCategory) => {
     if (controlledActiveCategory === undefined) {
@@ -260,7 +319,7 @@ export default function SettingsWindow({
 
         <div className="settings-window-body">
           <aside className="settings-window-sidebar">
-            {(['appearance', 'view', 'interaction', 'launcher', 'debug'] as const).map((categoryId) => (
+            {(['appearance', 'loading', 'view', 'interaction', 'launcher', 'debug'] as const).map((categoryId) => (
               <button
                 key={categoryId}
                 type="button"
@@ -350,6 +409,121 @@ export default function SettingsWindow({
                     })}
                   </div>
                 </div>
+              </section>
+            ) : null}
+
+            {activeCategory === 'loading' ? (
+              <section className="settings-window-section">
+                <div className="settings-loading-preview">
+                  <LoadingMotionFallback
+                    styleId={activeLoadingStyleId}
+                    intensityId={activeLoadingIntensityId}
+                    speedMode={activeLoadingSpeedMode}
+                    speedId={activeLoadingSpeedId}
+                    speedMultiplier={activeLoadingSpeedMultiplier}
+                    className="settings-loading-preview-stage"
+                  />
+                </div>
+
+                <p className="settings-window-section-title">{loadingMotionStyleLabel}</p>
+                <p className="settings-window-section-copy mt-1">{loadingMotionStyleDescription}</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {loadingStyleOptions.map((option) => {
+                    const active = option.id === activeLoadingStyleId
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={cx('settings-switch', active && 'settings-switch-active')}
+                        onClick={() => onSelectLoadingStyle(option.id)}
+                      >
+                        <span className="settings-switch-copy">{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-6">
+                  <p className="settings-window-section-title">{loadingMotionIntensityLabel}</p>
+                  <p className="settings-window-section-copy mt-1">{loadingMotionIntensityDescription}</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {loadingIntensityOptions.map((option) => {
+                      const active = option.id === activeLoadingIntensityId
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={cx('settings-switch', active && 'settings-switch-active')}
+                          onClick={() => onSelectLoadingIntensity(option.id)}
+                        >
+                          <span className="settings-switch-copy">{option.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="settings-window-section-title">{loadingMotionSpeedLabel}</p>
+                      <p className="settings-window-section-copy mt-1">{loadingMotionSpeedDescription}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="control-button h-8 shrink-0"
+                      onClick={() => {
+                        if (activeLoadingSpeedMode === 'preset') {
+                          onSelectCustomLoadingSpeed(effectiveLoadingSpeedMultiplier)
+                          return
+                        }
+
+                        onSelectLoadingSpeed(activeLoadingSpeedId)
+                      }}
+                    >
+                      {activeLoadingSpeedMode === 'preset'
+                        ? loadingMotionCustomSpeedToggleLabel
+                        : loadingMotionPresetSpeedToggleLabel}
+                    </button>
+                  </div>
+
+                  {activeLoadingSpeedMode === 'preset' ? (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {loadingSpeedOptions.map((option) => {
+                        const active = option.id === activeLoadingSpeedId
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            className={cx('settings-switch', active && 'settings-switch-active')}
+                            onClick={() => onSelectLoadingSpeed(option.id)}
+                          >
+                            <span className="settings-switch-copy">{option.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="settings-loading-speed-slider mt-3">
+                      <div className="settings-loading-speed-slider-meta">
+                        <span className="settings-window-section-copy">{loadingMotionCustomSpeedDescription}</span>
+                        <span className="settings-loading-speed-slider-value">
+                          {loadingMotionSpeedValueLabel(effectiveLoadingSpeedMultiplier)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.25}
+                        max={3}
+                        step={0.05}
+                        value={effectiveLoadingSpeedMultiplier}
+                        aria-label={loadingMotionCustomSpeedLabel}
+                        onChange={(event) => onSelectCustomLoadingSpeed(Number(event.target.value))}
+                      />
+                    </div>
+                  )}
+                </div>
+
               </section>
             ) : null}
 

@@ -6,6 +6,8 @@ import {
   ContentPatcherWorkspace,
   ModBrowserPanel,
 } from '../../workspaces/mod'
+import type { ReactNode } from 'react'
+import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 import type { WorkspacePanelConfig } from '@shared/contracts'
 import type { BuildModsWorkspacePanelsOptions } from './modWorkspaceTypes'
 
@@ -64,7 +66,13 @@ export function buildModsWorkspacePanels({
   onScaleUpContentChange,
   onCloseScaleUpEditor,
 }: BuildModsWorkspacePanelsOptions): WorkspacePanelConfig[] {
-  return [
+  const withPreviewReveal = (itemId: string, index: number, content: ReactNode) => (
+    <LoadingMotionReveal itemId={itemId} index={index} className="h-full min-h-0">
+      {content}
+    </LoadingMotionReveal>
+  )
+
+  const panels: WorkspacePanelConfig[] = [
     {
       id: 'mods-browser',
       title: modCopy.browserTitle,
@@ -209,6 +217,11 @@ export function buildModsWorkspacePanels({
       ),
     },
   ]
+
+  return panels.map((panel, index) => ({
+    ...panel,
+    content: withPreviewReveal(`workbench-mods-${panel.id}`, index, panel.content),
+  }))
 }
 
 export type { BuildModsWorkspacePanelsOptions }

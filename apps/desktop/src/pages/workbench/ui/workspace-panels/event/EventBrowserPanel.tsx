@@ -5,6 +5,7 @@ import { cx } from '@shared/lib/cx'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import { formatBytes } from '@shared/lib/formatting'
+import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 
 type EventBrowserPanelProps = {
   locale: 'zh-CN' | 'en-US'
@@ -81,10 +82,13 @@ export function EventBrowserPanel({
         <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
           {browserSourceMode === 'mod' ? (
             modEventGroups.length ? (
-              modEventGroups.map((group) => (
+              modEventGroups.map((group, groupIndex) => (
                 <section
                   key={group.modPath}
-                  className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
+                  {...getLoadingMotionChildRevealProps({
+                    index: groupIndex,
+                    className: 'overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+                  })}
                 >
                   <div className="border-b border-[var(--border-color)] px-3 py-2">
                     <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
@@ -93,14 +97,18 @@ export function EventBrowserPanel({
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
-                    {group.items.map((entry) => {
+                    {group.items.map((entry, itemIndex) => {
                       const { value: asset, targets } = entry
                       const isActive = entry.selectionId === activeModEventSelectionId
+                      const revealProps = getLoadingMotionChildRevealProps({
+                        index: groupIndex + itemIndex + 1,
+                        className: cx('asset-row text-left', isActive && 'asset-row-active'),
+                      })
                       return (
                         <button
                           key={`${group.modId}:${asset.id}`}
                           type="button"
-                          className={cx('asset-row text-left', isActive && 'asset-row-active')}
+                          {...revealProps}
                           onClick={() => onOpenModAsset(entry)}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -125,14 +133,18 @@ export function EventBrowserPanel({
               </div>
             )
           ) : filteredEventAssets.length ? (
-            filteredEventAssets.map((asset) => {
+            filteredEventAssets.map((asset, index) => {
               const isActive = asset.id === activeEventAssetId
+              const revealProps = getLoadingMotionChildRevealProps({
+                index,
+                className: cx('asset-row text-left', isActive && 'asset-row-active'),
+              })
 
               return (
                 <button
                   key={asset.id}
                   type="button"
-                  className={cx('asset-row text-left', isActive && 'asset-row-active')}
+                  {...revealProps}
                   onClick={() => onOpenAsset(asset)}
                 >
                   <div className="flex items-start justify-between gap-3">

@@ -18,6 +18,7 @@ describe('SettingsWindow', () => {
       title: copy.title,
       categories: {
         appearance: 'Appearance',
+        loading: 'Loading',
         view: 'View',
         interaction: 'Interaction',
         launcher: 'Launcher',
@@ -25,6 +26,7 @@ describe('SettingsWindow', () => {
       },
       categoryDescriptions: {
         appearance: 'Theme, accent color, and overall visual style.',
+        loading: 'Page loading animation style and intensity.',
         view: 'Map display, canvas, and information presentation.',
         interaction: 'Notification sounds and future interaction feedback.',
         launcher: 'Game paths, downloads, and Nexus integration.',
@@ -58,6 +60,43 @@ describe('SettingsWindow', () => {
       enableNotificationSoundLabel: 'Enable notification sounds',
       disableNotificationSoundLabel: 'Disable notification sounds',
       notificationSoundEnabled: true,
+      loadingMotionStyleLabel: 'Loading Animation Style',
+      loadingMotionStyleDescription: 'Choose the entrance animation style.',
+      loadingMotionIntensityLabel: 'Animation Intensity',
+      loadingMotionIntensityDescription: 'Adjust how pronounced the animation feels.',
+      loadingMotionSpeedLabel: 'Animation Speed',
+      loadingMotionSpeedDescription: 'Choose how quickly loading animation timing plays.',
+      loadingMotionCustomSpeedLabel: 'Fine / extreme speed',
+      loadingMotionCustomSpeedDescription: 'Use a slider for precise or dramatic timing.',
+      loadingMotionCustomSpeedToggleLabel: 'Fine / extreme',
+      loadingMotionPresetSpeedToggleLabel: 'Preset speeds',
+      loadingMotionSpeedValueLabel: (value: number) => `${value.toFixed(2)}x`,
+      activeLoadingStyleId: 'softFadeIn',
+      activeLoadingIntensityId: 'standard',
+      activeLoadingSpeedMode: 'preset',
+      activeLoadingSpeedId: 'standard',
+      activeLoadingSpeedMultiplier: 1,
+      onSelectLoadingStyle: vi.fn(),
+      onSelectLoadingIntensity: vi.fn(),
+      onSelectLoadingSpeed: vi.fn(),
+      onSelectCustomLoadingSpeed: vi.fn(),
+      loadingStyleOptions: [
+        { id: 'bounceIn', label: 'Bounce In' },
+        { id: 'layeredFadeIn', label: 'Layered Fade' },
+        { id: 'slideInPush', label: 'Slide In' },
+        { id: 'softFadeIn', label: 'Soft Fade' },
+        { id: 'quietSimplify', label: 'Quiet' },
+      ],
+      loadingIntensityOptions: [
+        { id: 'light', label: 'Light' },
+        { id: 'standard', label: 'Standard' },
+        { id: 'strong', label: 'Strong' },
+      ],
+      loadingSpeedOptions: [
+        { id: 'slow', label: 'Slow' },
+        { id: 'standard', label: 'Standard' },
+        { id: 'fast', label: 'Fast' },
+      ],
       launcherContent: (
         <div>
           <span>Game Path</span>
@@ -150,6 +189,75 @@ describe('SettingsWindow', () => {
 
     fireEvent.click(chineseOption)
     expect(onSelectLocale).toHaveBeenCalledWith('zh-CN')
+  })
+
+  it('renders a live loading motion preview for the selected style and intensity', () => {
+    const { container } = renderWindow({
+      activeLoadingStyleId: 'bounceIn',
+      activeLoadingIntensityId: 'strong',
+      activeLoadingSpeedId: 'fast',
+      activeLoadingSpeedMultiplier: 0.68,
+    })
+
+    expect(container.querySelector('.settings-loading-preview')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Loading/ }))
+
+    const preview = container.querySelector('.settings-loading-preview [data-loading-style]')
+    expect(preview).toBeTruthy()
+    expect(preview?.getAttribute('data-loading-style')).toBe('bounceIn')
+    expect(preview?.getAttribute('data-loading-intensity')).toBe('strong')
+    expect(preview?.getAttribute('data-loading-speed')).toBe('fast')
+    expect(container.querySelectorAll('.settings-loading-preview .loading-motion-layer')).toHaveLength(3)
+  })
+
+  it('offers preset loading speed buttons by default', () => {
+    const onSelectLoadingSpeed = vi.fn()
+    renderWindow({ onSelectLoadingSpeed })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Loading/ }))
+
+    expect(screen.getByText('Animation Speed')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Fast' }))
+    expect(onSelectLoadingSpeed).toHaveBeenCalledWith('fast')
+    expect(screen.queryByRole('slider', { name: 'Fine / extreme speed' })).toBeNull()
+  })
+
+  it('switches to a fine and extreme speed slider', () => {
+    const onSelectCustomLoadingSpeed = vi.fn()
+    renderWindow({
+      activeLoadingSpeedMode: 'custom',
+      activeLoadingSpeedMultiplier: 2.35,
+      onSelectCustomLoadingSpeed,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^Loading/ }))
+
+    const slider = screen.getByRole('slider', { name: 'Fine / extreme speed' })
+    expect(slider).toBeTruthy()
+    expect(slider.getAttribute('min')).toBe('0.25')
+    expect(slider.getAttribute('max')).toBe('3')
+    expect(screen.getByText('2.35x')).toBeTruthy()
+
+    fireEvent.change(slider, { target: { value: '2.6' } })
+    expect(onSelectCustomLoadingSpeed).toHaveBeenCalledWith(2.6)
+  })
+
+  it('does not show apply or cancel actions in the loading category', () => {
+    renderWindow()
+
+    fireEvent.click(screen.getByRole('button', { name: /^Loading/ }))
+
+    expect(screen.queryByRole('button', { name: /Apply/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Cancel/i })).toBeNull()
+  })
+
+  it('keeps loading motion controls out of appearance settings', () => {
+    const { container } = renderWindow()
+
+    expect(screen.getByText(copy.accentLabel)).toBeTruthy()
+    expect(screen.queryByText('Loading Animation Style')).toBeNull()
+    expect(container.querySelector('.settings-loading-preview')).toBeNull()
   })
 
   it('does not render placeholder settings sections in appearance or view', () => {
