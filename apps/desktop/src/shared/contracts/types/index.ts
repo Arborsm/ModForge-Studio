@@ -1,6 +1,6 @@
 export type * from './appUiState'
 export type * from './desktop'
-export type * from './generatedProject'
+export type * from './cpMaker'
 export type * from './maps'
 export type * from './mapOverlay'
 export type * from './modBrowser'

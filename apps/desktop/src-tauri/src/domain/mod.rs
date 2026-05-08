@@ -2,7 +2,7 @@ pub mod app_paths;
 pub mod app_ui;
 pub mod assets;
 pub mod content_patcher;
-pub mod generated_project;
+pub mod cp_maker;
 pub mod launcher;
 pub(crate) mod manifest;
 pub mod modding;

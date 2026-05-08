@@ -86,7 +86,7 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 - **`app/`** — 应用级装配层：全局 Provider、静态 registry 组装、平台 ports 注入、顶层入口。
 - **`pages/`** — 页面层：launcher/workbench 页面骨架与 view 分发。页面不集中拉取所有业务数据。
 - **`widgets/`** — smart container 层：组合 feature/entity hooks 与 shared UI，承担页面内复杂区块组装。
-- **`features/`** — 独立业务能力：generated-project、具体编辑能力、独立交互流程等。
+- **`features/`** — 独立业务能力：cp-maker、具体编辑能力、独立交互流程等。
 - **`entities/`** — headless 领域层：map/event/character/building/item/mod 等领域模型、状态、selectors、queries。
 - **`processes/`** — 跨页面或跨 feature 的长流程编排，如 workbench orchestration。
 - **`shared/contracts/`** — 跨层合同：registry、events、commands、platform ports。
@@ -149,7 +149,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `mods/` / `modding/`：模组项目管理与扫描。
   - `assets/`：游戏资产扫描与加载。
   - `content_patcher/`：Content Patcher 项目解析、模拟、导出。
-  - `generated_project/`：生成项目草稿/导出。
+  - `cp_maker/`：生成项目草稿/导出。
   - `saves/`：存档槽位扫描。
   - `event_project/` / `workbench_project/`：工作台项目领域逻辑。
   - `app_ui/`：应用 UI 状态持久化。

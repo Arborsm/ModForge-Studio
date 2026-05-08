@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2, X } from 'lucide-react'
-import type { DraftPatch, GeneratedProjectDraft } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { VirtualPreviewAsset } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import type { MapDocument } from '@shared/contracts'
-import { buildGeneratedProjectMapAsset, loadMapAsset } from '@platform/desktop'
+import { buildCpMakerMapAsset, loadMapAsset } from '@platform/desktop'
 import { MapViewport } from '@entities/map'
 
 interface MapPatchEditorProps {
   patch: DraftPatch
-  draft: GeneratedProjectDraft
+  draft: CpMakerDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
   onRemoveVirtualAsset?: (relativePath: string) => void
@@ -349,7 +349,7 @@ function BuildAssetDialog({ open, mapDocument, targetMapName, onClose, onAssetBu
     void (async () => {
       try {
         const relativePath = `assets/maps/${targetMapName.replace(/\//g, '_')}.tbin`
-        const asset = await buildGeneratedProjectMapAsset({
+        const asset = await buildCpMakerMapAsset({
           relative_path: relativePath,
           map_document: mapDocument,
         })

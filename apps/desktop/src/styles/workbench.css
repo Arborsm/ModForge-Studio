@@ -3,7 +3,7 @@
 @import "./workspace/layout.css";
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
-@import "./features/generated-project-edit.css";
+@import "./features/cp-maker-edit.css";
 @import "./features/event-patch-hub.css";
 @import "./features/condition-builder.css";
 @import "./features/game-state-query.css";

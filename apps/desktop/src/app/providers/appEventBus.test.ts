@@ -23,7 +23,7 @@ describe('app event bus and command dispatcher', () => {
     })
     unsubscribe()
     bus.emit({
-      type: 'generated-project/draft-selected',
+      type: 'cp-maker/draft-selected',
       draftKey: 'draft-1',
     })
 

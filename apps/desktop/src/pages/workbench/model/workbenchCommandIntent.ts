@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PendingWorkbenchCommandIntent, AppCommand } from '@shared/contracts'
-import type { UseGeneratedProjectReturn } from '@features/generated-project'
+import type { UseCpMakerReturn } from '@features/cp-maker'
 
 export type WorkbenchCommandIntentDeps = {
   pendingIntent: PendingWorkbenchCommandIntent | null
-  generatedProject: UseGeneratedProjectReturn
+  cpMaker: UseCpMakerReturn
   setWorkspaceMode: (mode: string) => void
   setWorkspaceViewMode: (mode: 'edit' | 'preview') => void
   navigateToPatch: (patchId: string | null) => void
@@ -13,10 +13,10 @@ export type WorkbenchCommandIntentDeps = {
 
 export function resolveWorkbenchOpenAssetTarget(
   command: Extract<AppCommand, { type: 'workbench/open-asset' }>,
-  generatedProject: UseGeneratedProjectReturn,
+  cpMaker: UseCpMakerReturn,
 ): { workspaceId: string; assetId: string } | null {
   // Resolve the patch from active draft patches
-  const patch = generatedProject.activeDraft?.patches.find((p) => p.id === command.assetId)
+  const patch = cpMaker.activeDraft?.patches.find((p) => p.id === command.assetId)
   if (!patch) {
     return null
   }
@@ -29,7 +29,7 @@ export function resolveWorkbenchOpenAssetTarget(
 
 export function useWorkbenchCommandIntent({
   pendingIntent: pendingIntentProp,
-  generatedProject,
+  cpMaker,
   setWorkspaceMode,
   setWorkspaceViewMode,
   navigateToPatch,
@@ -76,14 +76,14 @@ export function useWorkbenchCommandIntent({
 
       if (cmd.type === 'workbench/open-asset') {
         // Check if draft needs loading
-        const currentDraftKey: string | undefined = generatedProject.activeDraft?.draftStorageKey
+        const currentDraftKey: string | undefined = cpMaker.activeDraft?.draftStorageKey
         const needsLoad = cmd.sourceId && cmd.sourceId !== currentDraftKey
 
         if (needsLoad && cmd.sourceId) {
           if (!loadAttemptedRef.current.has(cmd.sourceId)) {
             loadAttemptedRef.current.add(cmd.sourceId)
-            void generatedProject.loadDraft(cmd.sourceId)
-          } else if (!generatedProject.draftLoading && generatedProject.draftError) {
+            void cpMaker.loadDraft(cmd.sourceId)
+          } else if (!cpMaker.draftLoading && cpMaker.draftError) {
             consumedIntentIdsRef.current.add(intent.id)
             clearPendingIntent()
             setConsumedIntentId(intent.id)
@@ -92,7 +92,7 @@ export function useWorkbenchCommandIntent({
         }
 
         // Resolve the patch
-        const target = resolveWorkbenchOpenAssetTarget(cmd, generatedProject)
+        const target = resolveWorkbenchOpenAssetTarget(cmd, cpMaker)
         if (!target) {
           // Missing patch: safe failure
           consumedIntentIdsRef.current.add(intent.id)
@@ -109,7 +109,7 @@ export function useWorkbenchCommandIntent({
         setConsumedIntentId(intent.id)
       }
     },
-    [generatedProject, setWorkspaceMode, setWorkspaceViewMode, navigateToPatch, clearPendingIntent],
+    [cpMaker, setWorkspaceMode, setWorkspaceViewMode, navigateToPatch, clearPendingIntent],
   )
 
   // Trigger consumption when pending intent changes
@@ -129,7 +129,7 @@ export function useWorkbenchCommandIntent({
 
   // Retry open-asset consumption when activeDraft changes (draft loaded)
   useEffect(() => {
-    const currentKey = generatedProject.activeDraft?.draftStorageKey ?? null
+    const currentKey = cpMaker.activeDraft?.draftStorageKey ?? null
     if (currentKey === prevDraftKeyRef.current) {
       return
     }
@@ -145,7 +145,7 @@ export function useWorkbenchCommandIntent({
 
     const id = setTimeout(() => consume(pendingIntentProp), 0)
     return () => clearTimeout(id)
-  }, [generatedProject.activeDraft, generatedProject.draftError, generatedProject.draftLoading, pendingIntentProp, consume])
+  }, [cpMaker.activeDraft, cpMaker.draftError, cpMaker.draftLoading, pendingIntentProp, consume])
 
   return { consumedIntentId }
 }

@@ -4,7 +4,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 
 当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。
 
-当前架构收尾处于 phase 8：`GeneratedProjectPlatformProvider`、`workbench/open-asset` replay protection、launcher port/provider 收口已经稳定，`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 继续作为批准边界保留，而 launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 仍是可见迁移热点。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
+当前架构收尾处于 phase 8：`CpMakerPlatformProvider`、`workbench/open-asset` replay protection、launcher port/provider 收口已经稳定，`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 继续作为批准边界保留，而 launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 仍是可见迁移热点。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
 
 ## 目录总览
 
@@ -24,7 +24,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │     │  │  ├─ top-navigation/         # 顶栏与菜单
 │     │  │  └─ status-bar/             # 底部状态栏
 │     │  ├─ features/                  # 业务能力与用户工作流
-│     │  │  ├─ generated-project/      # Content Patcher 草稿构建器与 Edit Mode UI
+│     │  │  ├─ cp-maker/      # Content Patcher 草稿构建器与 Edit Mode UI
 │     │  │  └─ launcher/               # 启动器功能 UI 与 feature-owned 行为
 │     │  ├─ entities/                  # headless 领域模型、状态、selector、查询
 │     │  │  ├─ event/
@@ -141,14 +141,14 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 工作区编辑器：`apps/desktop/src/pages/workbench/workspaces/*/editors/`
 - 工作区 panel 组装：`apps/desktop/src/pages/workbench/model/workspace-panels/` 与 `apps/desktop/src/pages/workbench/ui/workspace-panels/`
 
-### Generated Project Builder
+### Cp Maker Builder
 
-- feature public API：`apps/desktop/src/features/generated-project/index.ts`
-- 状态与草稿生命周期：`apps/desktop/src/features/generated-project/state/`
-- 路由辅助：`apps/desktop/src/features/generated-project/routing/`
-- Studio Desk、Edit Workspace Content 与 Edit Mode UI：`apps/desktop/src/features/generated-project/ui/`
-- 模型辅助：`apps/desktop/src/features/generated-project/model/`
-- 后端生成项目领域：`apps/desktop/src-tauri/src/domain/generated_project/`
+- feature public API：`apps/desktop/src/features/cp-maker/index.ts`
+- 状态与草稿生命周期：`apps/desktop/src/features/cp-maker/state/`
+- 路由辅助：`apps/desktop/src/features/cp-maker/routing/`
+- Studio Desk、Edit Workspace Content 与 Edit Mode UI：`apps/desktop/src/features/cp-maker/ui/`
+- 模型辅助：`apps/desktop/src/features/cp-maker/model/`
+- 后端生成项目领域：`apps/desktop/src-tauri/src/domain/cp_maker/`
 
 ### Desktop 与 Platform
 
@@ -202,9 +202,9 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src/pages/workbench/workspaces/*/entities/`
   - `apps/desktop/src/entities/<domain>/`
   - `apps/desktop/src/pages/workbench/model/workspace-panels/`
-- 改 generated-project 草稿、编辑、预览、导出：
-  - `apps/desktop/src/features/generated-project/`
-  - `apps/desktop/src-tauri/src/domain/generated_project/`
+- 改 cp-maker 草稿、编辑、预览、导出：
+  - `apps/desktop/src/features/cp-maker/`
+  - `apps/desktop/src-tauri/src/domain/cp_maker/`
 - 改平台、文件系统、桌面能力：
   - `apps/desktop/src/shared/contracts/platform.ts`
   - `apps/desktop/src/platform/tauri/`

@@ -1,4 +1,4 @@
-import { EditWorkspaceContent, StudioDesk } from '@features/generated-project'
+import { EditWorkspaceContent, StudioDesk } from '@features/cp-maker'
 import type {
   AppRegistry,
   AppRegistryInput,

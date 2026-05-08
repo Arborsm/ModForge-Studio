@@ -34,7 +34,7 @@ export type WorkspaceViewMode = 'edit' | 'preview'
 export type AppUiWorkspaceState = {
   layouts: Record<string, Record<string, unknown>>
   workspaceViewMode?: WorkspaceViewMode
-  generatedProject?: {
+  cpMaker?: {
     activeGeneratedDraftKey?: string | null
   }
 }
@@ -67,7 +67,7 @@ export type PatchAppUiStateRequest = {
   workspace?: {
     layouts?: Record<string, Record<string, unknown> | null>
     workspaceViewMode?: WorkspaceViewMode
-    generatedProject?: {
+    cpMaker?: {
       activeGeneratedDraftKey?: string | null
     }
   }

@@ -12,8 +12,8 @@ pub(crate) fn app_ui_state_path() -> Result<PathBuf, String> {
     Ok(modforge_data_dir()?.join("app").join("ui-state.json"))
 }
 
-pub(crate) fn generated_project_drafts_dir() -> Result<PathBuf, String> {
-    Ok(modforge_data_dir()?.join("generated-project").join("drafts"))
+pub(crate) fn cp_maker_drafts_dir() -> Result<PathBuf, String> {
+    Ok(modforge_data_dir()?.join("cp-maker").join("drafts"))
 }
 
 pub(crate) fn launcher_settings_path() -> Result<PathBuf, String> {

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Upload, Trash2, ImageIcon } from 'lucide-react'
-import type { DraftPatch, GeneratedProjectDraft, VirtualPreviewAsset } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, VirtualPreviewAsset } from '@shared/contracts'
 
 interface ImagePatchEditorProps {
   patch: DraftPatch
-  draft: GeneratedProjectDraft
+  draft: CpMakerDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: VirtualPreviewAsset) => void
   onRemoveVirtualAsset?: (relativePath: string) => void

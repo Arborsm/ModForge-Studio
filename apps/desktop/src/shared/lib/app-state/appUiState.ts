@@ -75,7 +75,7 @@ export function createDefaultAppUiState(): AppUiState {
     workspace: {
       layouts: {},
       workspaceViewMode: 'edit',
-      generatedProject: {
+      cpMaker: {
         activeGeneratedDraftKey: null,
       },
     },
@@ -152,9 +152,9 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
       workspaceViewMode: raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
         ? raw.workspace.workspaceViewMode
         : defaults.workspace.workspaceViewMode,
-      generatedProject: {
-        activeGeneratedDraftKey: typeof raw?.workspace?.generatedProject?.activeGeneratedDraftKey === 'string' && raw.workspace.generatedProject.activeGeneratedDraftKey.trim()
-          ? raw.workspace.generatedProject.activeGeneratedDraftKey
+      cpMaker: {
+        activeGeneratedDraftKey: typeof raw?.workspace?.cpMaker?.activeGeneratedDraftKey === 'string' && raw.workspace.cpMaker.activeGeneratedDraftKey.trim()
+          ? raw.workspace.cpMaker.activeGeneratedDraftKey
           : null,
       },
     },

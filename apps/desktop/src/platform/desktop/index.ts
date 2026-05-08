@@ -367,16 +367,16 @@ export type ModAssetIndex = {
   mods: ModAssetIndexGroup[]
 }
 
-// ─── Generated Project ─────────────────────────────────────────────────
+// ─── Cp Maker ─────────────────────────────────────────────────
 
-export type GeneratedProjectOverlayTarget = {
+export type CpMakerOverlayTarget = {
   uniqueId: string
   displayName: string | null
   required: boolean
   source: 'scanned-mod' | 'manual'
 }
 
-export type GeneratedProjectDraftSummary = {
+export type CpMakerDraftSummary = {
   draftStorageKey: string
   projectName: string
   projectUniqueId: string
@@ -384,7 +384,7 @@ export type GeneratedProjectDraftSummary = {
   lastExportedAt: number | null
 }
 
-export type GeneratedProjectDraftRecord = {
+export type CpMakerDraftRecord = {
   draftStorageKey: string
   projectMetadata: {
     projectName: string
@@ -397,7 +397,7 @@ export type GeneratedProjectDraftRecord = {
     minimumApiVersion?: string
     updateKeys?: string[]
   }
-  overlayTargets: GeneratedProjectOverlayTarget[]
+  overlayTargets: CpMakerOverlayTarget[]
   configSchemaDraft: Record<string, unknown>
   serializedChangeRegistry: Record<string, unknown>
   dynamicTokens?: Array<{ name: string; value: string; when?: Record<string, unknown> }>
@@ -414,25 +414,25 @@ export type GeneratedProjectDraftRecord = {
   } | null
 }
 
-export type CopyGeneratedProjectDraftRequest = {
+export type CopyCpMakerDraftRequest = {
   source_draft_storage_key: string
 }
 
-export type GeneratedProjectExportRequest = {
+export type CpMakerExportRequest = {
   output_path: string
   manifest_json: string
   content_json: string
   virtual_assets: VirtualPreviewAsset[]
 }
 
-export type GeneratedProjectExportResult = {
+export type CpMakerExportResult = {
   output_path: string
   manifest_path: string
   content_path: string
   virtual_asset_paths: string[]
 }
 
-export type BuildGeneratedProjectMapAssetRequest = {
+export type BuildCpMakerMapAssetRequest = {
   relative_path: string
   map_document: unknown // MapDocument from backend
 }
@@ -1744,49 +1744,49 @@ export async function closeCurrentWindow() {
   await getCurrentWindow().close()
 }
 
-// ─── Generated Project Commands ────────────────────────────────────────
+// ─── Cp Maker Commands ────────────────────────────────────────
 
-const generatedProjectDraftsCache = createPromiseCache<GeneratedProjectDraftSummary[]>()
-const generatedProjectDraftCache = createPromiseCache<GeneratedProjectDraftRecord>()
+const cpMakerDraftsCache = createPromiseCache<CpMakerDraftSummary[]>()
+const cpMakerDraftCache = createPromiseCache<CpMakerDraftRecord>()
 
-export function listGeneratedProjectDrafts() {
-  return readCached(generatedProjectDraftsCache, 'default', () =>
-    invokeDesktop<GeneratedProjectDraftSummary[]>('list_generated_project_drafts'),
+export function listCpMakerDrafts() {
+  return readCached(cpMakerDraftsCache, 'default', () =>
+    invokeDesktop<CpMakerDraftSummary[]>('list_cp_maker_drafts'),
   )
 }
 
-export function loadGeneratedProjectDraft(storageKey: string) {
-  return readPending(generatedProjectDraftCache, storageKey, () =>
-    invokeDesktop<GeneratedProjectDraftRecord>('load_generated_project_draft', { draftStorageKey: storageKey }),
+export function loadCpMakerDraft(storageKey: string) {
+  return readPending(cpMakerDraftCache, storageKey, () =>
+    invokeDesktop<CpMakerDraftRecord>('load_cp_maker_draft', { draftStorageKey: storageKey }),
   )
 }
 
-export function saveGeneratedProjectDraft(draft: GeneratedProjectDraftRecord) {
+export function saveCpMakerDraft(draft: CpMakerDraftRecord) {
   const cacheKey = draft.draftStorageKey
-  generatedProjectDraftCache.delete(cacheKey)
-  generatedProjectDraftsCache.delete('default')
-  return invokeDesktop<GeneratedProjectDraftRecord>('save_generated_project_draft', { draft })
+  cpMakerDraftCache.delete(cacheKey)
+  cpMakerDraftsCache.delete('default')
+  return invokeDesktop<CpMakerDraftRecord>('save_cp_maker_draft', { draft })
 }
 
-export function deleteGeneratedProjectDraft(storageKey: string) {
-  generatedProjectDraftCache.delete(storageKey)
-  generatedProjectDraftsCache.delete('default')
-  return invokeDesktop<void>('delete_generated_project_draft', { draftStorageKey: storageKey })
+export function deleteCpMakerDraft(storageKey: string) {
+  cpMakerDraftCache.delete(storageKey)
+  cpMakerDraftsCache.delete('default')
+  return invokeDesktop<void>('delete_cp_maker_draft', { draftStorageKey: storageKey })
 }
 
-export function copyGeneratedProjectDraft(request: CopyGeneratedProjectDraftRequest) {
-  generatedProjectDraftsCache.delete('default')
-  return invokeDesktop<GeneratedProjectDraftRecord>('copy_generated_project_draft', { request })
+export function copyCpMakerDraft(request: CopyCpMakerDraftRequest) {
+  cpMakerDraftsCache.delete('default')
+  return invokeDesktop<CpMakerDraftRecord>('copy_cp_maker_draft', { request })
 }
 
-export function exportGeneratedProjectPack(request: GeneratedProjectExportRequest) {
-  return invokeDesktop<GeneratedProjectExportResult>('export_generated_project_pack', { request })
+export function exportCpMakerPack(request: CpMakerExportRequest) {
+  return invokeDesktop<CpMakerExportResult>('export_cp_maker_pack', { request })
 }
 
-export function buildGeneratedProjectMapAsset(request: BuildGeneratedProjectMapAssetRequest) {
-  return invokeDesktop<VirtualPreviewAsset>('build_generated_project_map_asset', { request })
+export function buildCpMakerMapAsset(request: BuildCpMakerMapAssetRequest) {
+  return invokeDesktop<VirtualPreviewAsset>('build_cp_maker_map_asset', { request })
 }
 
-export function importGeneratedProjectPack(modDirectoryPath: string) {
-  return invokeDesktop<GeneratedProjectDraftRecord>('import_generated_project_pack', { modDirectoryPath })
+export function importCpMakerPack(modDirectoryPath: string) {
+  return invokeDesktop<CpMakerDraftRecord>('import_cp_maker_pack', { modDirectoryPath })
 }

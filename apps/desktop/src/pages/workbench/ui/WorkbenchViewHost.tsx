@@ -1,10 +1,10 @@
 import { createElement, type ComponentType } from 'react'
 import type { AppEvent } from '@shared/contracts'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
-import type { DraftPatch, GeneratedProjectDraft, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, EditorCopy } from '@locales/editor-shell'
-import type { StudioDeskModel, UseGeneratedProjectReturn } from '@features/generated-project'
+import type { StudioDeskModel, UseCpMakerReturn } from '@features/cp-maker'
 import type { WorkspaceMode } from '@locales/editor-shell'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 
@@ -20,7 +20,7 @@ type WorkbenchViewHostProps = {
   canGoForward: boolean
   onGoBack: () => void
   onGoForward: () => void
-  generatedProject: UseGeneratedProjectReturn
+  cpMaker: UseCpMakerReturn
   studioDeskModel: StudioDeskModel
   onWorkbenchEvent: (event: AppEvent) => void
   navigateToPatch: (patchId: string | null) => void
@@ -43,7 +43,7 @@ export function WorkbenchViewHost({
   canGoForward,
   onGoBack,
   onGoForward,
-  generatedProject,
+  cpMaker,
   studioDeskModel,
   onWorkbenchEvent,
   navigateToPatch,
@@ -64,20 +64,20 @@ export function WorkbenchViewHost({
           {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
             model: studioDeskModel,
             copy,
-            onCreateDraft: (metadata: Pick<GeneratedProjectDraft['projectMetadata'], 'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'>) => {
-              void generatedProject.createDraft({
+            onCreateDraft: (metadata: Pick<CpMakerDraft['projectMetadata'], 'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'>) => {
+              void cpMaker.createDraft({
                 ...metadata,
                 gameRootPath: directoryInfo?.rootPath ?? null,
               })
             },
             onCreatePatch: (action: DraftPatch['action'], nextWorkspace: WorkspaceId) => {
-              if (!generatedProject.activeDraft) {
+              if (!cpMaker.activeDraft) {
                 return
               }
-              const id = generatedProject.addPatch(nextWorkspace, '', action)
+              const id = cpMaker.addPatch(nextWorkspace, '', action)
               onWorkbenchEvent({
-                type: 'generated-project/asset-selected',
-                draftKey: generatedProject.activeDraft.draftStorageKey,
+                type: 'cp-maker/asset-selected',
+                draftKey: cpMaker.activeDraft.draftStorageKey,
                 assetId: id,
                 assetKind: nextWorkspace === 'map' ? 'map' : nextWorkspace === 'events' ? 'event' : 'data',
               })
@@ -93,13 +93,13 @@ export function WorkbenchViewHost({
               navigateToPatch(null)
             },
             onOpenPatch: (patchId: string) => {
-              const patch = generatedProject.activeDraft?.patches.find((candidate) => candidate.id === patchId)
+              const patch = cpMaker.activeDraft?.patches.find((candidate) => candidate.id === patchId)
               if (!patch) {
                 return
               }
               onWorkbenchEvent({
-                type: 'generated-project/asset-selected',
-                draftKey: generatedProject.activeDraft?.draftStorageKey ?? '',
+                type: 'cp-maker/asset-selected',
+                draftKey: cpMaker.activeDraft?.draftStorageKey ?? '',
                 assetId: patchId,
                 assetKind: patch.workspace === 'map' ? 'map' : patch.workspace === 'events' ? 'event' : 'data',
               })
@@ -108,9 +108,9 @@ export function WorkbenchViewHost({
               navigateToPatch(patchId)
             },
             onOpenDraft: (draftStorageKey: string) => {
-              void generatedProject.loadDraft(draftStorageKey)
+              void cpMaker.loadDraft(draftStorageKey)
               onWorkbenchEvent({
-                type: 'generated-project/draft-selected',
+                type: 'cp-maker/draft-selected',
                 draftKey: draftStorageKey,
               })
               onSetWorkspaceMode('mods')
@@ -118,16 +118,16 @@ export function WorkbenchViewHost({
               navigateToPatch(null)
             },
             onCopyDraft: (draftStorageKey: string) => {
-              void generatedProject.copyDraft(draftStorageKey)
+              void cpMaker.copyDraft(draftStorageKey)
             },
             onDeleteDraft: (draftStorageKey: string) => {
-              void generatedProject.deleteDraft(draftStorageKey)
+              void cpMaker.deleteDraft(draftStorageKey)
             },
             onExportPack: async (outputPath: string) => {
-              const result = await generatedProject.exportPack(outputPath)
+              const result = await cpMaker.exportPack(outputPath)
               void result
             },
-            isLoading: generatedProject.draftLoading,
+            isLoading: cpMaker.draftLoading,
             galleryOpen: studioDeskGalleryOpen,
             onGalleryOpenChange: onStudioDeskGalleryOpenChange,
           })}
@@ -140,7 +140,7 @@ export function WorkbenchViewHost({
         >
           {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
             workspaceMode,
-            generatedProject,
+            cpMaker,
             activeEditPatchId,
             onSelectPatch: navigateToPatch,
             locale,

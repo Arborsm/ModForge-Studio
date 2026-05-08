@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, test, vi } from 'vitest'
 import type { ComponentProps } from 'react'
-import type { DraftPatch, GeneratedProjectDraft } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { EventPatchEditor } from './EventPatchEditor'
 
@@ -36,7 +36,7 @@ function patch(): DraftPatch {
   }
 }
 
-function draft(): GeneratedProjectDraft {
+function draft(): CpMakerDraft {
   return {
     draftStorageKey: 'draft-1',
     projectMetadata: {

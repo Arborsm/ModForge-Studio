@@ -15,7 +15,7 @@ import { useBuildingWorkspace } from '../workspaces/building'
 import { useItemWorkspace } from '../workspaces/item'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useModWorkspace } from '../workspaces/mod'
-import { useGeneratedProject, getEditModeRoute, buildStudioDeskModel } from '@features/generated-project'
+import { useCpMaker, getEditModeRoute, buildStudioDeskModel } from '@features/cp-maker'
 import { buildWorkspacePanels } from '../model/workspace-panels/buildWorkspacePanels'
 import StatusBar from '@widgets/status-bar'
 import TopMenuBar from '@widgets/top-navigation'
@@ -441,10 +441,10 @@ export default function WorkbenchExperience({
     locale,
   })
 
-  const generatedProject = useGeneratedProject()
+  const cpMaker = useCpMaker()
   useWorkbenchCommandIntent({
     pendingIntent: pendingWorkbenchIntent,
-    generatedProject,
+    cpMaker,
     setWorkspaceMode: (mode: string) => (setWorkspaceMode as (value: string) => void)(mode),
     setWorkspaceViewMode,
     navigateToPatch,
@@ -453,21 +453,21 @@ export default function WorkbenchExperience({
 
   const studioDeskModel = useMemo(
     () => buildStudioDeskModel({
-      activeDraft: generatedProject.activeDraft,
-      drafts: generatedProject.drafts,
-      patchCountByWorkspace: generatedProject.patchCountByWorkspace,
-      dirtyPatchIds: generatedProject.dirtyPatchIds,
-      isDirty: generatedProject.isDirty,
+      activeDraft: cpMaker.activeDraft,
+      drafts: cpMaker.drafts,
+      patchCountByWorkspace: cpMaker.patchCountByWorkspace,
+      dirtyPatchIds: cpMaker.dirtyPatchIds,
+      isDirty: cpMaker.isDirty,
     }),
     [
-      generatedProject.activeDraft,
-      generatedProject.drafts,
-      generatedProject.patchCountByWorkspace,
-      generatedProject.dirtyPatchIds,
-      generatedProject.isDirty,
+      cpMaker.activeDraft,
+      cpMaker.drafts,
+      cpMaker.patchCountByWorkspace,
+      cpMaker.dirtyPatchIds,
+      cpMaker.isDirty,
     ],
   )
-  const editModeRoute = getEditModeRoute(workspaceMode, Boolean(generatedProject.activeDraft))
+  const editModeRoute = getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
   const editModeView = getWorkbenchViewRegistration(editModeRoute)
 
   const moduleBlueprint =
@@ -520,13 +520,13 @@ export default function WorkbenchExperience({
   useEffect(() => () => dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID), [])
 
   useEffect(() => {
-    if (generatedProject.activeDraft) {
+    if (cpMaker.activeDraft) {
       onWorkbenchEvent({
-        type: 'generated-project/draft-selected',
-        draftKey: generatedProject.activeDraft.draftStorageKey,
+        type: 'cp-maker/draft-selected',
+        draftKey: cpMaker.activeDraft.draftStorageKey,
       })
     }
-  }, [generatedProject.activeDraft, onWorkbenchEvent])
+  }, [cpMaker.activeDraft, onWorkbenchEvent])
 
   useEffect(() => {
     if (workspaceMode !== 'events' || !currentEventCommandId) {
@@ -904,7 +904,7 @@ export default function WorkbenchExperience({
                 canGoForward={canGoForward}
                 onGoBack={goBack}
                 onGoForward={goForward}
-                generatedProject={generatedProject}
+                cpMaker={cpMaker}
                 studioDeskModel={studioDeskModel}
                 onWorkbenchEvent={onWorkbenchEvent}
                 navigateToPatch={navigateToPatch}
@@ -941,8 +941,8 @@ export default function WorkbenchExperience({
           actorCount={selectedEvent?.scene.actors.length ?? 0}
           contextSectionLabel="Workspace"
           contextMetrics={[
-            ['Draft', generatedProject.activeDraft?.projectMetadata.projectName ?? 'none'],
-            ['Patches', String(generatedProject.activeDraft?.patches.length ?? 0)],
+            ['Draft', cpMaker.activeDraft?.projectMetadata.projectName ?? 'none'],
+            ['Patches', String(cpMaker.activeDraft?.patches.length ?? 0)],
             ['View', workspaceViewMode],
           ]}
         />

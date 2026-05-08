@@ -98,7 +98,7 @@ Rules:
 
 Examples:
 
-- `generated-project`
+- `cp-maker`
 - concrete patch editors
 - import/export flows
 - feature-specific command palettes or builders
@@ -197,7 +197,7 @@ Cross-feature communication uses two channels:
 
 Example flow:
 
-1. `generated-project` emits `GeneratedProjectAssetSelected`.
+1. `cp-maker` emits `CpMakerAssetSelected`.
 2. `app/providers/workbenchOrchestration` listens to that event.
 3. The process dispatches `OpenWorkspaceAsset`.
 4. Workbench command handling changes workspace, opens the asset, and focuses the correct view.

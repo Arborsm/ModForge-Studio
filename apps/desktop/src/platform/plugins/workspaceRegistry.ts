@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import type { DraftPatch, GeneratedProjectDraft, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 
 export interface PatchListField {
@@ -21,7 +21,7 @@ export type TargetPickerComponent = ComponentType<{
 
 export type EditorComponent = ComponentType<{
   patch: DraftPatch
-  draft: GeneratedProjectDraft
+  draft: CpMakerDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: {
     relativePath: string

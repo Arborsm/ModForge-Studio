@@ -64,12 +64,12 @@ pub(crate) struct AppUiWorkspaceState {
     #[serde(default = "default_workspace_view_mode")]
     pub(crate) workspace_view_mode: String,
     #[serde(default)]
-    pub(crate) generated_project: AppUiGeneratedProjectWorkspaceState,
+    pub(crate) cp_maker: AppUiCpMakerWorkspaceState,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiGeneratedProjectWorkspaceState {
+pub(crate) struct AppUiCpMakerWorkspaceState {
     #[serde(default)]
     pub(crate) active_generated_draft_key: Option<String>,
 }
@@ -132,12 +132,12 @@ pub(crate) struct AppUiWorkspaceStatePatch {
     #[serde(default)]
     pub(crate) workspace_view_mode: Option<String>,
     #[serde(default)]
-    pub(crate) generated_project: Option<AppUiGeneratedProjectWorkspaceStatePatch>,
+    pub(crate) cp_maker: Option<AppUiCpMakerWorkspaceStatePatch>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AppUiGeneratedProjectWorkspaceStatePatch {
+pub(crate) struct AppUiCpMakerWorkspaceStatePatch {
     #[serde(default)]
     pub(crate) active_generated_draft_key: Option<String>,
 }
@@ -230,7 +230,7 @@ impl Default for AppUiWorkspaceState {
         Self {
             layouts: BTreeMap::new(),
             workspace_view_mode: default_workspace_view_mode(),
-            generated_project: AppUiGeneratedProjectWorkspaceState::default(),
+            cp_maker: AppUiCpMakerWorkspaceState::default(),
         }
     }
 }
@@ -347,10 +347,10 @@ fn normalize_workspace_view_mode(value: &str) -> String {
     }
 }
 
-fn normalize_generated_project_workspace_state(
-    state: AppUiGeneratedProjectWorkspaceState,
-) -> AppUiGeneratedProjectWorkspaceState {
-    AppUiGeneratedProjectWorkspaceState {
+fn normalize_cp_maker_workspace_state(
+    state: AppUiCpMakerWorkspaceState,
+) -> AppUiCpMakerWorkspaceState {
+    AppUiCpMakerWorkspaceState {
         active_generated_draft_key: state
             .active_generated_draft_key
             .map(|value| value.trim().to_string())
@@ -378,8 +378,8 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
             workspace_view_mode: normalize_workspace_view_mode(
                 &state.workspace.workspace_view_mode,
             ),
-            generated_project: normalize_generated_project_workspace_state(
-                state.workspace.generated_project,
+            cp_maker: normalize_cp_maker_workspace_state(
+                state.workspace.cp_maker,
             ),
         },
         launcher: AppUiLauncherState {
@@ -478,10 +478,10 @@ pub(crate) fn patch_app_ui_state_at_path(
             state.workspace.workspace_view_mode =
                 normalize_workspace_view_mode(&workspace_view_mode);
         }
-        if let Some(generated_project) = workspace.generated_project {
-            state.workspace.generated_project = normalize_generated_project_workspace_state(
-                AppUiGeneratedProjectWorkspaceState {
-                    active_generated_draft_key: generated_project.active_generated_draft_key,
+        if let Some(cp_maker) = workspace.cp_maker {
+            state.workspace.cp_maker = normalize_cp_maker_workspace_state(
+                AppUiCpMakerWorkspaceState {
+                    active_generated_draft_key: cp_maker.active_generated_draft_key,
                 },
             );
         }

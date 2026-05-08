@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Database, Map, Plus, Trash2 } from 'lucide-react'
-import type { DraftPatch, GeneratedProjectDraft } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
 import { serializeRaw } from '../workflow-model/rawSerializer'
@@ -21,7 +21,7 @@ const EMPTY_ENTRIES: Record<string, unknown> = {}
 
 interface EventPatchEditorProps {
   patch: DraftPatch
-  draft: GeneratedProjectDraft
+  draft: CpMakerDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
   onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
   locale?: LocaleCode

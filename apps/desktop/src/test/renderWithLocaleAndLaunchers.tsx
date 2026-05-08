@@ -4,8 +4,8 @@ import { LocaleProvider } from '@locales/localeContext'
 import type { LocaleCode } from '@locales'
 import { LauncherTestWrapper } from './launcherTestWrapper'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
-import { GeneratedProjectProvider } from '@features/generated-project/model/generatedProjectProvider'
-import type { GeneratedProjectPort } from '@features/generated-project/model/generatedProjectPort'
+import { CpMakerProvider } from '@features/cp-maker/model/cpMakerProvider'
+import type { CpMakerPort } from '@features/cp-maker/model/cpMakerPort'
 import { createMockLauncherPort } from './launcherTestPort'
 
 export function renderWithLocaleAndLaunchers(
@@ -13,7 +13,7 @@ export function renderWithLocaleAndLaunchers(
   locale: LocaleCode = 'en-US',
   options?: Omit<RenderOptions, 'wrapper'>,
   port?: LauncherPort,
-  generatedProjectPort?: GeneratedProjectPort,
+  cpMakerPort?: CpMakerPort,
 ) {
   const launcherPort = port ?? createMockLauncherPort()
 
@@ -22,7 +22,7 @@ export function renderWithLocaleAndLaunchers(
 
     return (
       <LauncherTestWrapper port={launcherPort}>
-        {generatedProjectPort ? <GeneratedProjectProvider port={generatedProjectPort}>{content}</GeneratedProjectProvider> : content}
+        {cpMakerPort ? <CpMakerProvider port={cpMakerPort}>{content}</CpMakerProvider> : content}
       </LauncherTestWrapper>
     )
   }

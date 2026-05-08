@@ -195,7 +195,7 @@ const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDia
   async () => createLauncherNexusDiagnosticsResult(),
 )
 
-const useGeneratedProjectMock = vi.fn(() => ({
+const useCpMakerMock = vi.fn(() => ({
   activeDraft: null,
   drafts: [],
   patchCountByWorkspace: {
@@ -454,9 +454,9 @@ vi.mock('@pages/workbench/model/workspace-panels', () => ({
   buildWorkspacePanels: () => [],
 }))
 
-vi.mock('@features/generated-project', () => ({
-  GeneratedProjectProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useGeneratedProject: () => useGeneratedProjectMock(),
+vi.mock('@features/cp-maker', () => ({
+  CpMakerProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  useCpMaker: () => useCpMakerMock(),
   buildStudioDeskModel: () => ({
     heroProject: null,
     recentProjects: [],

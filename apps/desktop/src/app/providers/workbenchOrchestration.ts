@@ -14,7 +14,7 @@ export function createWorkbenchOrchestration({
 }: WorkbenchOrchestrationDependencies): WorkbenchOrchestration {
   return {
     handleEvent(event) {
-      if (event.type === 'generated-project/draft-selected') {
+      if (event.type === 'cp-maker/draft-selected') {
         void dispatch({
           type: 'navigation/open-workbench-view',
           viewId: 'studio-desk',
@@ -22,7 +22,7 @@ export function createWorkbenchOrchestration({
         return
       }
 
-      if (event.type === 'generated-project/asset-selected') {
+      if (event.type === 'cp-maker/asset-selected') {
         void dispatch({
           type: 'workbench/open-asset',
           assetId: event.assetId,

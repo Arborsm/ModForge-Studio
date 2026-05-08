@@ -9,13 +9,13 @@ export type WorkbenchEvent =
       sourceViewId?: string
     }
 
-export type GeneratedProjectEvent =
+export type CpMakerEvent =
   | {
-      type: 'generated-project/draft-selected'
+      type: 'cp-maker/draft-selected'
       draftKey: string
     }
   | {
-      type: 'generated-project/asset-selected'
+      type: 'cp-maker/asset-selected'
       draftKey: string
       assetId: string
       assetKind: 'event' | 'map' | 'image' | 'data'
@@ -23,7 +23,7 @@ export type GeneratedProjectEvent =
 
 export type AppEvent =
   | WorkbenchEvent
-  | GeneratedProjectEvent
+  | CpMakerEvent
   | {
       type: 'app/locale-changed'
       locale: string

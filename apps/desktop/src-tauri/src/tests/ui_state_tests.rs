@@ -1,6 +1,6 @@
 use super::{
     load_or_create_app_ui_state_at_path, patch_app_ui_state_at_path, AppUiAppearanceStatePatch,
-    AppUiDiscoverToolbarState, AppUiGeneratedProjectWorkspaceStatePatch, AppUiLauncherStatePatch,
+    AppUiDiscoverToolbarState, AppUiCpMakerWorkspaceStatePatch, AppUiLauncherStatePatch,
     AppUiStatePatch, AppUiWorkspaceStatePatch,
 };
 use crate::test_support::create_temp_dir;
@@ -25,7 +25,7 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
     assert!(
         state
             .workspace
-            .generated_project
+            .cp_maker
             .active_generated_draft_key
             .is_none()
     );
@@ -57,7 +57,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
         AppUiStatePatch {
             workspace: Some(AppUiWorkspaceStatePatch {
                 workspace_view_mode: Some("project".to_string()),
-                generated_project: Some(AppUiGeneratedProjectWorkspaceStatePatch {
+                cp_maker: Some(AppUiCpMakerWorkspaceStatePatch {
                     active_generated_draft_key: Some("  draft-001  ".to_string()),
                 }),
                 ..Default::default()
@@ -65,12 +65,12 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
             ..Default::default()
         },
     )
-    .expect("save workspace generated-project metadata");
+    .expect("save workspace cp-maker metadata");
     assert_eq!(saved.workspace.workspace_view_mode, "project");
     assert_eq!(
         saved
             .workspace
-            .generated_project
+            .cp_maker
             .active_generated_draft_key
             .as_deref(),
         Some("draft-001")
@@ -102,7 +102,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert_eq!(
         patched
             .workspace
-            .generated_project
+            .cp_maker
             .active_generated_draft_key
             .as_deref(),
         Some("draft-001")
@@ -110,7 +110,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
 
     let mut layouts = BTreeMap::new();
     layouts.insert(
-        "modforge:workspace-layout:v11:mods:generated-project-builder".to_string(),
+        "modforge:workspace-layout:v11:mods:cp-maker-builder".to_string(),
         Some(json!({
             "panels": {}
         })),
@@ -130,7 +130,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert_eq!(
         patched
             .workspace
-            .generated_project
+            .cp_maker
             .active_generated_draft_key
             .as_deref(),
         Some("draft-001")
@@ -156,8 +156,8 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
 }
 
 #[test]
-fn load_app_ui_state_discards_non_session_generated_project_payloads() {
-    let root = create_temp_dir("app-ui-state-generated-project-workspace");
+fn load_app_ui_state_discards_non_session_cp_maker_payloads() {
+    let root = create_temp_dir("app-ui-state-cp-maker-workspace");
     let path = root.join("app").join("ui-state.json");
 
     fs::create_dir_all(path.parent().expect("app dir")).expect("create app dir");
@@ -170,7 +170,7 @@ fn load_app_ui_state_discards_non_session_generated_project_payloads() {
             "workspace": {
                 "layouts": {},
                 "workspaceViewMode": "project",
-                "generatedProject": {
+                "cpMaker": {
                     "activeGeneratedDraftKey": "  draft-002  ",
                     "projectMetadata": {
                         "projectName": "Should be discarded"
@@ -191,7 +191,7 @@ fn load_app_ui_state_discards_non_session_generated_project_payloads() {
     assert_eq!(
         state
             .workspace
-            .generated_project
+            .cp_maker
             .active_generated_draft_key
             .as_deref(),
         Some("draft-002")

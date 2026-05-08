@@ -4,7 +4,7 @@ import type { AppCommand } from '@shared/contracts'
 import type { AppEvent } from '@shared/contracts'
 
 describe('createWorkbenchOrchestration', () => {
-  it('dispatches commands for generated project selection events', () => {
+  it('dispatches commands for cp maker selection events', () => {
     const dispatched: AppCommand[] = []
     const orchestration = createWorkbenchOrchestration({
       dispatch: (command) => {
@@ -13,11 +13,11 @@ describe('createWorkbenchOrchestration', () => {
     })
 
     orchestration.handleEvent({
-      type: 'generated-project/draft-selected',
+      type: 'cp-maker/draft-selected',
       draftKey: 'draft-1',
     } satisfies AppEvent)
     orchestration.handleEvent({
-      type: 'generated-project/asset-selected',
+      type: 'cp-maker/asset-selected',
       draftKey: 'draft-1',
       assetId: 'asset-1',
       assetKind: 'map',

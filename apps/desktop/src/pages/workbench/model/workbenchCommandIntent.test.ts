@@ -5,9 +5,9 @@ import {
   resolveWorkbenchOpenAssetTarget,
   useWorkbenchCommandIntent,
 } from './workbenchCommandIntent'
-import type { UseGeneratedProjectReturn } from '@features/generated-project'
+import type { UseCpMakerReturn } from '@features/cp-maker'
 
-function createMockGeneratedProject(overrides: Partial<UseGeneratedProjectReturn> = {}): UseGeneratedProjectReturn {
+function createMockCpMaker(overrides: Partial<UseCpMakerReturn> = {}): UseCpMakerReturn {
   return {
     drafts: [],
     activeDraft: null,
@@ -42,7 +42,7 @@ function createMockGeneratedProject(overrides: Partial<UseGeneratedProjectReturn
     updateMetadata: vi.fn(),
     importPack: vi.fn(),
     buildManifestJson: vi.fn(),
-    buildContentJson: vi.fn() as unknown as UseGeneratedProjectReturn['buildContentJson'],
+    buildContentJson: vi.fn() as unknown as UseCpMakerReturn['buildContentJson'],
     exportPack: vi.fn(),
     patchCountByWorkspace: {},
     ...overrides,
@@ -51,7 +51,7 @@ function createMockGeneratedProject(overrides: Partial<UseGeneratedProjectReturn
 
 describe('resolveWorkbenchOpenAssetTarget', () => {
   it('returns the patch workspace and asset id when patch exists', () => {
-    const generatedProject = createMockGeneratedProject({
+    const cpMaker = createMockCpMaker({
       activeDraft: {
         draftStorageKey: 'draft-1',
         projectMetadata: {
@@ -73,19 +73,19 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
-      } as UseGeneratedProjectReturn['activeDraft'],
+      } as UseCpMakerReturn['activeDraft'],
     })
 
     const result = resolveWorkbenchOpenAssetTarget(
       { type: 'workbench/open-asset', assetId: 'patch-1', assetKind: 'map' },
-      generatedProject,
+      cpMaker,
     )
 
     expect(result).toEqual({ workspaceId: 'map', assetId: 'patch-1' })
   })
 
   it('returns null when patch does not exist', () => {
-    const generatedProject = createMockGeneratedProject({
+    const cpMaker = createMockCpMaker({
       activeDraft: {
         draftStorageKey: 'draft-1',
         projectMetadata: {
@@ -105,12 +105,12 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
-      } as UseGeneratedProjectReturn['activeDraft'],
+      } as UseCpMakerReturn['activeDraft'],
     })
 
     const result = resolveWorkbenchOpenAssetTarget(
       { type: 'workbench/open-asset', assetId: 'missing-patch', assetKind: 'event', sourceId: 'draft-1' },
-      generatedProject,
+      cpMaker,
     )
 
     expect(result).toBeNull()
@@ -133,7 +133,7 @@ describe('useWorkbenchCommandIntent', () => {
       ({ pendingIntent }) =>
         useWorkbenchCommandIntent({
           pendingIntent,
-          generatedProject: createMockGeneratedProject(),
+          cpMaker: createMockCpMaker(),
           setWorkspaceMode,
           setWorkspaceViewMode,
           navigateToPatch,
@@ -158,7 +158,7 @@ describe('useWorkbenchCommandIntent', () => {
     const navigateToPatch = vi.fn()
     const clearPendingIntent = vi.fn()
 
-    const gp = createMockGeneratedProject({
+    const gp = createMockCpMaker({
       activeDraft: {
         draftStorageKey: 'draft-1',
         projectMetadata: {
@@ -178,7 +178,7 @@ describe('useWorkbenchCommandIntent', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
-      } as UseGeneratedProjectReturn['activeDraft'],
+      } as UseCpMakerReturn['activeDraft'],
     })
 
     const intent: PendingWorkbenchCommandIntent = {
@@ -189,7 +189,7 @@ describe('useWorkbenchCommandIntent', () => {
     const { result } = renderHook(() =>
       useWorkbenchCommandIntent({
         pendingIntent: intent,
-        generatedProject: gp,
+        cpMaker: gp,
         setWorkspaceMode,
         setWorkspaceViewMode,
         navigateToPatch,
@@ -214,7 +214,7 @@ describe('useWorkbenchCommandIntent', () => {
     const clearPendingIntent = vi.fn()
     const loadDraft = vi.fn(() => new Promise<void>(() => {}))
 
-    const gp = createMockGeneratedProject({
+    const gp = createMockCpMaker({
       loadDraft,
       activeDraft: {
         draftStorageKey: 'draft-current',
@@ -235,7 +235,7 @@ describe('useWorkbenchCommandIntent', () => {
         customLocations: [],
         aliasTokenNames: {},
         eventSourceSnapshotsByTarget: {},
-      } as UseGeneratedProjectReturn['activeDraft'],
+      } as UseCpMakerReturn['activeDraft'],
     })
 
     const intent: PendingWorkbenchCommandIntent = {
@@ -251,7 +251,7 @@ describe('useWorkbenchCommandIntent', () => {
     renderHook(() =>
       useWorkbenchCommandIntent({
         pendingIntent: intent,
-        generatedProject: gp,
+        cpMaker: gp,
         setWorkspaceMode,
         setWorkspaceViewMode,
         navigateToPatch,
@@ -284,7 +284,7 @@ describe('useWorkbenchCommandIntent', () => {
     const { result } = renderHook(() =>
       useWorkbenchCommandIntent({
         pendingIntent: intent,
-        generatedProject: createMockGeneratedProject(),
+        cpMaker: createMockCpMaker(),
         setWorkspaceMode,
         setWorkspaceViewMode,
         navigateToPatch,
@@ -317,7 +317,7 @@ describe('useWorkbenchCommandIntent', () => {
       ({ pendingIntent }) =>
         useWorkbenchCommandIntent({
           pendingIntent,
-          generatedProject: createMockGeneratedProject(),
+          cpMaker: createMockCpMaker(),
           setWorkspaceMode,
           setWorkspaceViewMode,
           navigateToPatch,

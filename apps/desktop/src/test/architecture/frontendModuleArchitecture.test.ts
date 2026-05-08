@@ -105,7 +105,7 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/shared/contracts/types/index.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/workspaceLayout.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/workspaceRuntime.ts'))
-    await expectFile(sourcePath('src/shared/contracts/types/generatedProject.ts'))
+    await expectFile(sourcePath('src/shared/contracts/types/cpMaker.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/desktop.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/appUiState.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/modBrowser.ts'))
@@ -141,7 +141,7 @@ describe('frontend module architecture', () => {
     expect(registry).not.toContain('new Map')
     expect(events).toContain('export type AppEvent')
     expect(events).toContain('export type WorkbenchEvent')
-    expect(events).toContain('export type GeneratedProjectEvent')
+    expect(events).toContain('export type CpMakerEvent')
     expect(commands).toContain('export type AppCommand')
     expect(commands).toContain('export interface CommandDispatcher')
     expect(commands).toContain('export type NavigationCommand')
@@ -234,9 +234,9 @@ describe('frontend module architecture', () => {
   })
 
   it(
-    'blocks direct @platform/desktop imports from generated-project production code',
+    'blocks direct @platform/desktop imports from cp-maker production code',
     async () => {
-      const sourceFiles = await collectSourceFiles(sourcePath('src/features/generated-project'))
+      const sourceFiles = await collectSourceFiles(sourcePath('src/features/cp-maker'))
       const violations: string[] = []
 
       for (const filePath of sourceFiles) {
@@ -275,20 +275,20 @@ describe('frontend module architecture', () => {
     const workbenchExperienceSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchExperience.tsx'), 'utf8')
     const workbenchLayoutHostSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchLayoutHost.tsx'), 'utf8')
     const workbenchViewHostSource = await readFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'), 'utf8')
-    const editWorkspaceContentSource = await readFile(sourcePath('src/features/generated-project/ui/EditWorkspaceContent.tsx'), 'utf8')
-    const generatedProjectPublicApiSource = await readFile(sourcePath('src/features/generated-project/index.ts'), 'utf8')
-    const patchListPageSource = await readFile(sourcePath('src/features/generated-project/ui/PatchListPage.tsx'), 'utf8')
+    const editWorkspaceContentSource = await readFile(sourcePath('src/features/cp-maker/ui/EditWorkspaceContent.tsx'), 'utf8')
+    const cpMakerPublicApiSource = await readFile(sourcePath('src/features/cp-maker/index.ts'), 'utf8')
+    const patchListPageSource = await readFile(sourcePath('src/features/cp-maker/ui/PatchListPage.tsx'), 'utf8')
     const workspacePanelsCoreSource = await readFile(sourcePath('src/pages/workbench/model/workspace-panels/core.tsx'), 'utf8')
     const sharedTypesWorkspaceLayout = await readFile(sourcePath('src/shared/contracts/types/workspaceLayout.ts'), 'utf8')
     const sharedTypesWorkspaceRuntime = await readFile(sourcePath('src/shared/contracts/types/workspaceRuntime.ts'), 'utf8')
-    const sharedTypesGeneratedProject = await readFile(sourcePath('src/shared/contracts/types/generatedProject.ts'), 'utf8')
+    const sharedTypesCpMaker = await readFile(sourcePath('src/shared/contracts/types/cpMaker.ts'), 'utf8')
     const sharedTypesModBrowser = await readFile(sourcePath('src/shared/contracts/types/modBrowser.ts'), 'utf8')
     const sharedTypesViewport = await readFile(sourcePath('src/shared/contracts/types/viewport.ts'), 'utf8')
     const mapEntityTypes = await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')
 
     expect(mainSource).toContain("from '@app/App'")
     expect(appShellSource).toContain("import('@pages/workbench')")
-    expect(registrySetupSource).toContain("from '@features/generated-project'")
+    expect(registrySetupSource).toContain("from '@features/cp-maker'")
     expect(registrySetupSource).not.toContain("from '@pages/workbench'")
     await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
     await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
@@ -306,12 +306,12 @@ describe('frontend module architecture', () => {
     expect(workbenchExperienceSource).not.toContain("from '@app/registry-setup'")
     expect(workbenchExperienceSource).toContain('getWorkbenchViewRegistration:')
     expect(workbenchExperienceSource).toContain('getWorkbenchViewRegistration(editModeRoute)')
-    expect(workbenchExperienceSource).not.toContain("from '@features/generated-project/ui/StudioDesk'")
-    expect(workbenchExperienceSource).toContain("from '@features/generated-project'")
-    expect(workbenchExperienceSource).not.toContain("from '@features/generated-project/ui")
-    expect(workbenchExperienceSource).not.toContain("from '@features/generated-project/state")
-    expect(workbenchExperienceSource).not.toContain("from '@features/generated-project/routing")
-    expect(workbenchExperienceSource).not.toContain("from '@features/generated-project/model")
+    expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/ui/StudioDesk'")
+    expect(workbenchExperienceSource).toContain("from '@features/cp-maker'")
+    expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/ui")
+    expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/state")
+    expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/routing")
+    expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/model")
     expect(workbenchExperienceSource).toContain("from '../model/workspace-panels/buildWorkspacePanels'")
     expect(workbenchExperienceSource).toContain("from '@platform/desktop'")
     expect(workbenchExperienceSource).toContain("import '../model/builtInWorkspaces'")
@@ -324,14 +324,14 @@ describe('frontend module architecture', () => {
     expect(workbenchViewHostSource).not.toContain('workspacePanels')
     expect(workbenchViewHostSource).not.toContain('onLayoutMetaChange')
     expect(editWorkspaceContentSource).toContain("from './EditModeShell'")
-    expect(generatedProjectPublicApiSource).not.toContain('EventConditionBuilderModal')
-    expect(generatedProjectPublicApiSource).not.toContain('EventGameStateQueryBuilderModal')
+    expect(cpMakerPublicApiSource).not.toContain('EventConditionBuilderModal')
+    expect(cpMakerPublicApiSource).not.toContain('EventGameStateQueryBuilderModal')
     expect(patchListPageSource).toContain("import('./EventConditionBuilderModal')")
     expect(patchListPageSource).not.toMatch(/import\s+\{\s*EventConditionBuilderModal[\s,}]/)
     expect(workspacePanelsCoreSource).toContain("from '@shared/ui/WorkspaceDeferred'")
     expect(sharedTypesWorkspaceLayout).toContain('export type DockArea')
     expect(sharedTypesWorkspaceRuntime).toContain('export type WorkspaceStatus')
-    expect(sharedTypesGeneratedProject).toContain('export interface GeneratedProjectDraft')
+    expect(sharedTypesCpMaker).toContain('export interface CpMakerDraft')
     expect(sharedTypesModBrowser).toContain('export type ModBrowserEntry')
     expect(sharedTypesViewport).toContain('export type FocusedMapObjectTarget')
     expect(mapEntityTypes).toContain("from '@shared/contracts'")
@@ -378,7 +378,7 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/pages/workbench/ui/PlayerAppearanceWindow.tsx'))
     await expectFile(sourcePath('src/app/app-shell/SettingsWindow.tsx'))
     await expectFile(sourcePath('src/app/App.test.tsx'))
-    await expectFile(sourcePath('src/features/generated-project/ui/EditWorkspaceContent.tsx'))
+    await expectFile(sourcePath('src/features/cp-maker/ui/EditWorkspaceContent.tsx'))
     await expect(access(sourcePath('src/pages/workbench/page.ts'))).rejects.toThrow()
     await expect(access(sourcePath('src/pages/workbench/registry.ts'))).rejects.toThrow()
     await expect(access(sourcePath('src/pages/workbench/ui/EditWorkspaceContent.tsx'))).rejects.toThrow()
@@ -388,13 +388,13 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/entities/event/model/gameStateQuerySemantics.ts'))
     await expectFile(sourcePath('src/entities/event/model/preconditionSemantics.ts'))
     await expectFile(sourcePath('src/entities/event/model/patchHub.ts'))
-    await expectFile(sourcePath('src/features/generated-project/model/studioDeskModel.ts'))
-    await expectFile(sourcePath('src/features/generated-project/routing/editModeRoute.ts'))
-    await expectFile(sourcePath('src/features/generated-project/state/useGeneratedProject.ts'))
-    await expectFile(sourcePath('src/features/generated-project/index.ts'))
-    await expect(access(sourcePath('src/features/generated-project/routing/index.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/generated-project/state/index.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/generated-project/ui/index.ts'))).rejects.toThrow()
+    await expectFile(sourcePath('src/features/cp-maker/model/studioDeskModel.ts'))
+    await expectFile(sourcePath('src/features/cp-maker/routing/editModeRoute.ts'))
+    await expectFile(sourcePath('src/features/cp-maker/state/useCpMaker.ts'))
+    await expectFile(sourcePath('src/features/cp-maker/index.ts'))
+    await expect(access(sourcePath('src/features/cp-maker/routing/index.ts'))).rejects.toThrow()
+    await expect(access(sourcePath('src/features/cp-maker/state/index.ts'))).rejects.toThrow()
+    await expect(access(sourcePath('src/features/cp-maker/ui/index.ts'))).rejects.toThrow()
     await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/buildWorkspacePanels.tsx'))
     await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/core.tsx'))
     await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/items.tsx'))
@@ -403,10 +403,10 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/platform/desktop/index.ts'))
     await expectFile(sourcePath('src/platform/plugins/workspaceRegistry.ts'))
     await expectFile(sourcePath('src/shared/ui/WorkspaceDeferred.tsx'))
-    await expectFile(sourcePath('src/features/generated-project/ui/EventConditionBuilderModal.tsx'))
-    await expectFile(sourcePath('src/features/generated-project/ui/EventGameStateQueryBuilderModal.tsx'))
-    await expect(access(sourcePath('src/shared/ui/generated-project'))).rejects.toThrow()
-    await expectFile(sourcePath('src/shared/contracts/types/generatedProject.ts'))
+    await expectFile(sourcePath('src/features/cp-maker/ui/EventConditionBuilderModal.tsx'))
+    await expectFile(sourcePath('src/features/cp-maker/ui/EventGameStateQueryBuilderModal.tsx'))
+    await expect(access(sourcePath('src/shared/ui/cp-maker'))).rejects.toThrow()
+    await expectFile(sourcePath('src/shared/contracts/types/cpMaker.ts'))
 
     await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
     await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
@@ -424,20 +424,20 @@ describe('frontend module architecture', () => {
     const workspacePanelTypes = await readFile(sourcePath('src/pages/workbench/model/workspace-panels/types.ts'), 'utf8')
     const sharedTypesWorkspaceLayout = await readFile(sourcePath('src/shared/contracts/types/workspaceLayout.ts'), 'utf8')
     const sharedTypesWorkspaceRuntime = await readFile(sourcePath('src/shared/contracts/types/workspaceRuntime.ts'), 'utf8')
-    const sharedTypesGeneratedProject = await readFile(sourcePath('src/shared/contracts/types/generatedProject.ts'), 'utf8')
+    const sharedTypesCpMaker = await readFile(sourcePath('src/shared/contracts/types/cpMaker.ts'), 'utf8')
     const sharedTypesModBrowser = await readFile(sourcePath('src/shared/contracts/types/modBrowser.ts'), 'utf8')
     const sharedTypesViewport = await readFile(sourcePath('src/shared/contracts/types/viewport.ts'), 'utf8')
     const mapEntityTypes = await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')
 
     expect(builtInWorkspaces).not.toContain('/components/')
     expect(workspaceRegistry).toContain("from '@shared/contracts'")
-    expect(workspaceRegistry).not.toContain("from '../app/useGeneratedProject'")
-    expect(workspaceRegistry).not.toContain("from '../../lib/app/useGeneratedProject'")
+    expect(workspaceRegistry).not.toContain("from '../app/useCpMaker'")
+    expect(workspaceRegistry).not.toContain("from '../../lib/app/useCpMaker'")
     expect(workspacePanelTypes).toContain("from '@shared/contracts'")
     expect(workspacePanelTypes).not.toContain("from '@entities/map/ui/MapViewport'")
     expect(sharedTypesWorkspaceLayout).toContain('export type DockArea')
     expect(sharedTypesWorkspaceRuntime).toContain('export type WorkspaceStatus')
-    expect(sharedTypesGeneratedProject).toContain('export interface GeneratedProjectDraft')
+    expect(sharedTypesCpMaker).toContain('export interface CpMakerDraft')
     expect(sharedTypesModBrowser).toContain('export type ModBrowserEntry')
     expect(sharedTypesViewport).toContain('export type FocusedMapObjectTarget')
     expect(mapEntityTypes).toContain("from '@shared/contracts'")
@@ -473,20 +473,20 @@ describe('frontend module architecture', () => {
   )
 
   it(
-    'blocks generated-project segment public APIs outside the slice root',
+    'blocks cp-maker segment public APIs outside the slice root',
     async () => {
       const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/platform']
       const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
       const violations: string[] = []
       const blockedSpecifiers = [
-        '@features/generated-project/model',
-        '@features/generated-project/routing',
-        '@features/generated-project/state',
-        '@features/generated-project/ui',
+        '@features/cp-maker/model',
+        '@features/cp-maker/routing',
+        '@features/cp-maker/state',
+        '@features/cp-maker/ui',
       ]
 
       for (const filePath of sourceFiles.flat()) {
-        if (filePath.includes(`${sourcePath('src/features/generated-project')}\\`) || filePath.includes(`${sourcePath('src/features/generated-project')}/`)) {
+        if (filePath.includes(`${sourcePath('src/features/cp-maker')}\\`) || filePath.includes(`${sourcePath('src/features/cp-maker')}/`)) {
           continue
         }
 
@@ -523,7 +523,7 @@ describe('frontend module architecture', () => {
         'src/lib',
         'components/',
         'components/event-workflow',
-        'components/generated-project',
+        'components/cp-maker',
         'components/map-workflow',
         'components/image-workflow',
         'map-workflow',
@@ -643,7 +643,7 @@ describe('frontend module architecture', () => {
 
     expect(sharedViolations).toEqual([])
 
-    const sharedGeneratedProject = await readFile(sourcePath('src/shared/contracts/types/generatedProject.ts'), 'utf8')
+    const sharedCpMaker = await readFile(sourcePath('src/shared/contracts/types/cpMaker.ts'), 'utf8')
     const sharedWorkspaceDeferred = await readFile(sourcePath('src/shared/ui/WorkspaceDeferred.tsx'), 'utf8')
     const sharedPanelFrame = await readFile(sourcePath('src/shared/ui/PanelFrame.tsx'), 'utf8')
     const sharedPanelSection = await readFile(sourcePath('src/shared/ui/PanelSection.tsx'), 'utf8')
@@ -652,7 +652,7 @@ describe('frontend module architecture', () => {
     const platformDesktop = await readFile(sourcePath('src/platform/desktop/index.ts'), 'utf8')
     const sharedTypesIndex = await readFile(sourcePath('src/shared/contracts/types/index.ts'), 'utf8')
 
-    expect(sharedGeneratedProject).not.toContain('@features/')
+    expect(sharedCpMaker).not.toContain('@features/')
     expect(sharedWorkspaceDeferred).not.toContain('@features/')
     expect(sharedWorkspaceDeferred).toContain("from '@shared/ui/PanelFrame'")
     expect(sharedPanelFrame).not.toContain('../../components')
@@ -662,7 +662,7 @@ describe('frontend module architecture', () => {
     expect(sharedWorkspaceLayout).not.toContain('@features/')
     expect(platformDesktop).not.toContain("export * from '@platform/desktop'")
     expect(sharedTypesIndex).toContain("export type * from './workspaceLayout'")
-    expect(sharedTypesIndex).toContain("export type * from './generatedProject'")
+    expect(sharedTypesIndex).toContain("export type * from './cpMaker'")
     expect(sharedTypesIndex).toContain("export type * from './modBrowser'")
     expect(sharedTypesIndex).not.toContain("export type * from './panelTypes'")
     expect(sharedTypesIndex).toContain("export type * from './viewport'")
@@ -671,7 +671,7 @@ describe('frontend module architecture', () => {
     expect(sharedTypesIndex).toContain("export type * from './desktop'")
     expect(sharedTypesIndex).toContain("export type * from './appUiState'")
     expect(sharedTypesIndex).not.toContain("export type * from '@platform/desktop'")
-    expect(sharedGeneratedProject).toContain('export interface GeneratedProjectDraft')
+    expect(sharedCpMaker).toContain('export interface CpMakerDraft')
     expect(sharedLayoutTypes).toContain('export type DockArea')
     expect(await readFile(sourcePath('src/shared/contracts/types/modBrowser.ts'), 'utf8')).toContain('export type ModBrowserEntry')
     expect(await readFile(sourcePath('src/shared/contracts/types/workspaceRuntime.ts'), 'utf8')).toContain('export type WorkspaceStatus')

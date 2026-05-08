@@ -18,7 +18,7 @@ function renderHost(editModeView: WorkbenchViewRegistration) {
       canGoForward={false}
       onGoBack={vi.fn()}
       onGoForward={vi.fn()}
-      generatedProject={{ activeDraft: null, createDraft: vi.fn(), addPatch: vi.fn() } as never}
+      cpMaker={{ activeDraft: null, createDraft: vi.fn(), addPatch: vi.fn() } as never}
       studioDeskModel={{} as never}
       onWorkbenchEvent={vi.fn()}
       navigateToPatch={vi.fn()}
