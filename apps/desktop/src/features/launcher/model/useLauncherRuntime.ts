@@ -1,0 +1,48 @@
+import type { LauncherSettings } from './launcherContracts'
+import type { LocaleCode } from '@locales/editor-shell'
+import { useLauncherDownloads } from '@features/launcher'
+import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
+import { useLauncherSettings } from '@features/launcher'
+
+export type LauncherWarningState = {
+  missingGamePath: boolean
+  missingModsPath: boolean
+  missingDownloadPath: boolean
+  missingCredentials: boolean
+}
+
+export function hasLauncherCredentials(settings: LauncherSettings) {
+  return Boolean(settings.nexusApiKey?.trim() || settings.nexusCookie?.trim())
+}
+
+export function getLauncherWarningState(settings: LauncherSettings): LauncherWarningState {
+  return {
+    missingGamePath: !settings.gamePath?.trim(),
+    missingModsPath: !settings.modsPath?.trim(),
+    missingDownloadPath: !settings.downloadPath?.trim(),
+    missingCredentials: !hasLauncherCredentials(settings),
+  }
+}
+
+export function useLauncherRuntime(locale: LocaleCode) {
+  const settingsState = useLauncherSettings({ locale })
+  const downloads = useLauncherDownloads(settingsState.settings)
+  const updatesBadgeCount = useLauncherUpdatesBadgeCount(settingsState.settings)
+  const warningState = getLauncherWarningState(settingsState.settings)
+  const downloadsBadgeCount =
+    downloads.counts.failed > 0
+      ? downloads.counts.failed
+      : downloads.counts.queued + downloads.counts.downloading + downloads.counts.readyToInstall
+
+  return {
+    settingsState,
+    downloads,
+    credentialsReady: hasLauncherCredentials(settingsState.settings),
+    warningState,
+    settingsWarning: Object.values(warningState).some(Boolean),
+    updatesBadgeCount,
+    downloadsBadgeCount,
+    downloadsProgressPercent: downloads.downloadProgressPercent,
+    downloadsHasFailure: downloads.counts.failed > 0,
+  }
+}

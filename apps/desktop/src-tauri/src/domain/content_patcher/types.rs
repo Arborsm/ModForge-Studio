@@ -90,7 +90,7 @@ pub enum ContentPatcherPreviewRequest {
         game_root_path: Option<String>,
         simulation_context: Option<SimulationContext>,
     },
-    GeneratedProjectDraft {
+    CpMakerDraft {
         manifest_json: String,
         content_json: String,
         virtual_assets: Vec<VirtualPreviewAsset>,
@@ -132,7 +132,7 @@ impl From<ContentPatcherPreviewRequest> for SimulateContentPatcherRequest {
                 fingerprint: None,
                 context: simulation_context,
             },
-            ContentPatcherPreviewRequest::GeneratedProjectDraft {
+            ContentPatcherPreviewRequest::CpMakerDraft {
                 manifest_json,
                 content_json,
                 virtual_assets,
@@ -298,9 +298,9 @@ mod preview_request_tests {
     }
 
     #[test]
-    fn generated_project_preview_requests_preserve_inline_preview_fields() {
+    fn cp_maker_preview_requests_preserve_inline_preview_fields() {
         let request: ContentPatcherPreviewRequest = serde_json::from_value(json!({
-            "kind": "generated-project-draft",
+            "kind": "cp-maker-draft",
             "manifestJson": "{ \"Name\": \"Builder Draft\" }",
             "contentJson": "{ \"Format\": \"2.0.0\", \"Changes\": [] }",
             "virtualAssets": [

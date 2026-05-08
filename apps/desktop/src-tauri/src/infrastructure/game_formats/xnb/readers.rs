@@ -388,7 +388,7 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
     static CACHE: OnceLock<Mutex<BTreeMap<String, CompiledCustomType>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
 
-    if let Some(existing) = cache.lock().unwrap().get(type_name).cloned() {
+    if let Some(existing) = cache.lock().expect("XNB reader cache mutex should not be poisoned").get(type_name).cloned() {
         return Ok(existing);
     }
 
@@ -420,7 +420,7 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
 
     cache
         .lock()
-        .unwrap()
+        .expect("XNB reader cache mutex should not be poisoned")
         .insert(type_name.to_string(), compiled.clone());
     Ok(compiled)
 }

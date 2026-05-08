@@ -6,7 +6,8 @@
 - Keep shared test setup and render helpers directly under `src/test`.
 
 Examples:
-- `src/components/TopMenuBar.test.tsx`
+- `src/widgets/top-navigation/TopMenuBar.spec.tsx`
+- `src/shared/ui/WorkspaceDeferred.test.tsx`
 - `src/test/regressions/localizationOwnershipRegression.test.ts`
 - `src/test/architecture/styleArchitecture.test.ts`
 - `src/test/renderWithLocale.tsx`

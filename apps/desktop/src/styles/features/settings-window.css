@@ -337,6 +337,70 @@
     border-top: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
   }
 
+  .settings-loading-preview {
+    position: relative;
+    margin-bottom: 20px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 28% 24%, color-mix(in srgb, var(--accent-soft) 88%, transparent), transparent 32%),
+      radial-gradient(circle at 70% 72%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 28%),
+      color-mix(in srgb, var(--bg-panel) 86%, transparent);
+  }
+
+  .settings-loading-preview::after {
+    content: '';
+    position: absolute;
+    inset: auto 18px 14px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 62%, transparent), transparent);
+    opacity: 0.86;
+    animation: settings-loading-preview-scan 1400ms ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .settings-loading-preview-stage {
+    min-height: 160px;
+  }
+
+  .settings-loading-speed-slider {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .settings-loading-speed-slider-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .settings-loading-speed-slider-value {
+    flex: 0 0 auto;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .settings-loading-speed-slider input[type='range'] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+
+  @keyframes settings-loading-preview-scan {
+    0%,
+    100% {
+      transform: translateX(-18px);
+      opacity: 0.28;
+    }
+    50% {
+      transform: translateX(18px);
+      opacity: 0.78;
+    }
+  }
+
   .settings-locale-list {
     margin-top: 12px;
     display: grid;

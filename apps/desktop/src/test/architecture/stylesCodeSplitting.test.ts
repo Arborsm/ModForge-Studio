@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const MAIN_PATH = new URL('../../main.tsx', import.meta.url)
-const APP_PATH = new URL('../../App.tsx', import.meta.url)
-const INDEX_STYLES_PATH = new URL('../../styles/index.css', import.meta.url)
-const WORKBENCH_STYLES_PATH = new URL('../../styles/workbench.css', import.meta.url)
+const MAIN_PATH = resolve(process.cwd(), 'src/main.tsx')
+const APP_PATH = resolve(process.cwd(), 'src/app/app-shell/AppShell.tsx')
+const INDEX_STYLES_PATH = resolve(process.cwd(), 'src/styles/index.css')
+const WORKBENCH_STYLES_PATH = resolve(process.cwd(), 'src/styles/workbench.css')
 
 function expectImportsBeforeSources(source: string) {
   const lines = source.split(/\r?\n/)
@@ -32,10 +33,11 @@ describe('style code splitting', () => {
     ])
 
     expect(mainSource).toContain("import './styles/index.css'")
-    expect(appSource).toContain("import('./styles/workbench.css')")
+    expect(appSource).toContain("import('../../styles/workbench.css')")
 
     expect(indexStyles).toContain('@import "tailwindcss" source(none);')
-    expect(indexStyles).toContain('@source "../components/launcher";')
+    expect(indexStyles).toContain('@source "../widgets";')
+    expect(indexStyles).toContain('@source "../widgets/launcher-shell";')
     expect(indexStyles).not.toContain('@import "./workspace/layout.css";')
     expect(indexStyles).not.toContain('@import "./features/content-patcher.css";')
     expectImportsBeforeSources(indexStyles)

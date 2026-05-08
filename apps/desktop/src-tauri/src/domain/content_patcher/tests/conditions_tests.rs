@@ -206,7 +206,7 @@ fn evaluate_patch_status_supports_combined_input_and_comparison_modifiers() {
 }
 
 #[test]
-fn valueAt_negative_index_counts_from_end() {
+fn value_at_negative_index_counts_from_end() {
     let context = SimulationContext {
         has_flags: vec!["a".to_string(), "b".to_string(), "c".to_string()],
         season: Some("spring,summer,fall".to_string()),
@@ -241,7 +241,7 @@ fn valueAt_negative_index_counts_from_end() {
 }
 
 #[test]
-fn hasValue_modifier_checks_token_presence() {
+fn has_value_modifier_checks_token_presence() {
     let context = SimulationContext {
         season: Some("spring".to_string()),
         ..SimulationContext::default()

@@ -263,7 +263,7 @@ pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec
     match format.format_tag {
         MiniWaveFormat::TAG_PCM => {
             let channels = format.channels as u16;
-            let sample_rate = format.samples_per_sec as u32;
+            let sample_rate = format.samples_per_sec;
             let bits_per_sample = format.bits_per_sample();
             Ok(build_pcm_wav_bytes(
                 channels,
@@ -274,7 +274,7 @@ pub(crate) fn build_wav_bytes(format: MiniWaveFormat, data: &[u8]) -> Result<Vec
         }
         MiniWaveFormat::TAG_ADPCM => {
             let channels = format.channels as usize;
-            let sample_rate = format.samples_per_sec as u32;
+            let sample_rate = format.samples_per_sec;
             let block_align = format.block_align() as usize;
             if block_align == 0 {
                 return Err("Invalid ADPCM block alignment.".to_string());

@@ -47,7 +47,7 @@ describe('style architecture', () => {
   })
 
   it('does not let export center metadata styles override the publish button label', async () => {
-    const source = await readFile(join(STYLES_DIR, 'features/generated-project/studio-world-bible.css'), 'utf8')
+    const source = await readFile(join(STYLES_DIR, 'features/cp-maker/studio-world-bible.css'), 'utf8')
 
     expect(source).not.toMatch(/\.studio-export-center\s+span\s*\{/)
   })

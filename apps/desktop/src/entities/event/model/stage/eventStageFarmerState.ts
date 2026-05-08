@@ -1,0 +1,56 @@
+import type {MapDocument, MapLayer, MapTileset} from '@shared/contracts'
+import type {EventActorState} from '@entities/event'
+
+const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
+const FLIPPED_VERTICALLY_FLAG = 0x40000000
+const FLIPPED_DIAGONALLY_FLAG = 0x20000000
+const FLAG_MASK = (FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG) >>> 0
+const TILE_ID_MASK = (~FLAG_MASK) >>> 0
+
+function findTilesetForGid(tilesets: MapTileset[], gid: number) {
+  return tilesets.find((tileset) => gid >= tileset.firstGid && gid < tileset.firstGid + tileset.tileCount) ?? null
+}
+
+function getLayerByName(mapDocument: MapDocument, layerName: string) {
+  const normalizedLayerName = layerName.trim().toLowerCase()
+  return mapDocument.layers.find((layer) => layer.name.trim().toLowerCase() === normalizedLayerName) ?? null
+}
+
+function getLayerTileGid(layer: MapLayer | null, mapDocument: MapDocument, tileX: number, tileY: number) {
+  if (!layer || tileX < 0 || tileY < 0 || tileX >= mapDocument.width || tileY >= mapDocument.height) {
+    return 0
+  }
+
+  const index = tileY * layer.width + tileX
+  return layer.gids[index] ?? 0
+}
+
+function getTileProperty(mapDocument: MapDocument, layerName: string, tileX: number, tileY: number, propertyName: string) {
+  const layer = getLayerByName(mapDocument, layerName)
+  const rawGid = getLayerTileGid(layer, mapDocument, tileX, tileY)
+  const gid = (rawGid >>> 0) & TILE_ID_MASK
+  if (gid === 0) {
+    return null
+  }
+
+  const tileset = findTilesetForGid(mapDocument.tilesets, gid)
+  if (!tileset) {
+    return null
+  }
+
+  const tileId = gid - tileset.firstGid
+  return tileset.tileProperties[tileId]?.[propertyName] ?? null
+}
+
+export function deriveMapDrivenFarmerBedState(mapDocument: MapDocument | null, actor: EventActorState) {
+  const timeOfDay = actor.farmerRenderState?.timeOfDay ?? 0
+  const previousTimeWentToBed = actor.farmerRenderState?.timeWentToBed ?? 0
+  const tileX = Math.floor(actor.tileX)
+  const tileY = Math.floor(actor.tileY)
+  const isInBed = mapDocument ? getTileProperty(mapDocument, 'Back', tileX, tileY, 'Bed') != null : false
+
+  return {
+    isInBed,
+    timeWentToBed: isInBed ? (previousTimeWentToBed || timeOfDay) : 0,
+  }
+}

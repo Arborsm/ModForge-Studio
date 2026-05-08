@@ -617,24 +617,24 @@ fn set_mod_enabled_at_path(
     })
 }
 
-pub fn load_launcher_library_state(app: tauri::AppHandle) -> Result<LauncherLibraryState, String> {
+pub fn load_launcher_library_state(_app: tauri::AppHandle) -> Result<LauncherLibraryState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_library_state",
         (|| {
-            let state_path = launcher_library_path(&app)?;
+            let state_path = launcher_library_path()?;
             load_or_create_library_state_at_path(&state_path)
         })(),
     )
 }
 
 pub fn save_launcher_library_state(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: LauncherLibraryState,
 ) -> Result<LauncherLibraryState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "save_launcher_library_state",
         (|| {
-            let state_path = launcher_library_path(&app)?;
+            let state_path = launcher_library_path()?;
             let normalized = normalize_library_state(request);
             save_library_state_at_path(&state_path, &normalized)?;
             Ok(normalized)
@@ -643,19 +643,19 @@ pub fn save_launcher_library_state(
 }
 
 pub fn load_launcher_library_covers(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<LauncherLibraryCoversState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_library_covers",
         (|| {
-            let covers_path = launcher_library_covers_path(&app)?;
+            let covers_path = launcher_library_covers_path()?;
             load_or_create_library_covers_at_path(&covers_path)
         })(),
     )
 }
 
 pub fn set_launcher_library_cover(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: SetLauncherLibraryCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -666,7 +666,7 @@ pub fn set_launcher_library_cover(
                 return Err("labelKey is required.".to_string());
             }
 
-            let covers_path = launcher_library_covers_path(&app)?;
+            let covers_path = launcher_library_covers_path()?;
             let current = load_or_create_library_covers_at_path(&covers_path)?;
             let normalized_key = normalize_unique_id(label_key);
             let mut covers = current
@@ -718,7 +718,7 @@ pub async fn persist_launcher_library_remote_cover(
                 return Err("imageUrl is required.".to_string());
             }
 
-            let covers_path = launcher_library_covers_path(&app)?;
+            let covers_path = launcher_library_covers_path()?;
             let current = load_or_create_library_covers_at_path(&covers_path)?;
             let normalized_key = normalize_unique_id(label_key);
             if current
@@ -749,7 +749,7 @@ pub async fn persist_launcher_library_remote_cover(
 }
 
 pub fn scan_launcher_library(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: ScanLauncherLibraryRequest,
 ) -> Result<LauncherLibraryScanResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -761,7 +761,7 @@ pub fn scan_launcher_library(
             }
 
             let mut scan = scan_library_at_path(&clean_input_path(mods_path))?;
-            let covers_path = launcher_library_covers_path(&app)?;
+            let covers_path = launcher_library_covers_path()?;
             let covers = load_or_create_library_covers_at_path(&covers_path)?;
             let cover_map = covers
                 .covers
@@ -801,7 +801,7 @@ pub(crate) fn set_launcher_mod_enabled_blocking(
 }
 
 pub fn set_launcher_mod_enabled(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: SetLauncherModEnabledRequest,
 ) -> Result<SetLauncherModEnabledResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -812,7 +812,7 @@ pub fn set_launcher_mod_enabled(
                 .parent()
                 .map(normalize_path)
             {
-                let cache_path = launcher_updates_cache_path(&app)?;
+                let cache_path = launcher_updates_cache_path()?;
                 invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
             }
 

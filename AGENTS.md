@@ -81,13 +81,45 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 
 ### 前端（`apps/desktop/src`）
 
+前端正在从历史的 `components + lib/app` 组织迁移到 `FSD + Clean Architecture + 静态注册表 + Typed Event/Command + Platform DI`。新代码优先按以下目标层级落位：
+
+- **`app/`** — 应用级装配层：全局 Provider、静态 registry 组装、平台 ports 注入、顶层入口。
+- **`pages/`** — 页面层：launcher/workbench 页面骨架与 view 分发。页面不集中拉取所有业务数据。
+- **`widgets/`** — smart container 层：组合 feature/entity hooks 与 shared UI，承担页面内复杂区块组装。
+- **`features/`** — 独立业务能力：cp-maker、具体编辑能力、独立交互流程等。
+- **`entities/`** — headless 领域层：map/event/character/building/item/mod 等领域模型、状态、selectors、queries。
+- **`processes/`** — 跨页面或跨 feature 的长流程编排，如 workbench orchestration。
+- **`shared/contracts/`** — 跨层合同：registry、events、commands、platform ports。
+- **`platform/tauri/`** — Tauri / 宿主 adapter 实现。
+
+目标依赖方向：
+
+```text
+app -> pages -> widgets -> features -> entities -> shared/contracts
+```
+
+`platform` 是外部 adapter，由 `app/providers` 注入；业务层不直接依赖 Tauri。
+
+#### 前端分层硬规则
+
+- `shared/` 和 `shared/contracts/` 不允许 import `app`、`pages`、`widgets`、`features`、`entities`、`platform`。
+- `entities/` 不允许 import `pages`、`widgets`、`features`，也不允许引用 panel/layout 类型。
+- `features/` 不允许横向 import 其他 feature。跨特性联动必须发 typed event 或 command。
+- `widgets/` 可以调用 `features/entities` 暴露的 hooks/selectors/commands，但不能定义领域数据结构，不能直接调用 Tauri/platform。
+- `pages/` 只做页面骨架、view host、route/view 分发，不要把所有业务状态集中拉上来。
+- `app/registry-setup.ts` 负责静态组合注册表；feature/widget 只能 export registration object，不能运行时自注册。
+- registry 的接口和注册项类型必须放在 `shared/contracts/registry.ts`，实例组合不能放在 shared。
+- typed events 放 `shared/contracts/events.ts`，typed commands 放 `shared/contracts/commands.ts`。
+- 平台 ports 放 `shared/contracts/platform.ts`，Tauri 实现放 `platform/tauri/`，Provider 放 `app/providers/`。
+- 业务层禁止直接 import `@tauri-apps/api`，禁止直接调用 `invoke(`。
+- 新增或迁移模块时，同步补架构测试，防止依赖方向回退。
+
+#### 迁移期旧目录
+
 - **`components/`** — 纯渲染层与窗口层。
-  - `components/launcher/`：启动器页面、卡片、浮层、共享块。
-  - `components/workbench/`：工作台体验主入口（懒加载）。
-  - `components/workbench-project/`：生成项目草稿/导出 UI。
   - `components/ui/`：通用 UI 原语组件。
   - `components/workspace/` / `components/panels/`：工作台布局与面板。
-  - `components/events-editor/` / `components/mods/`：功能页面组件。
+  - `components/mods/`：迁移中的模组功能页面组件。
 - **`lib/`** — 逻辑层，禁止在这里写 JSX。
   - `lib/app/`：app shell、workspace orchestration、locale context、UI 状态、共享状态。
   - `lib/launcher/`：启动器数据流、设置、下载、库管理、运行时逻辑。
@@ -117,7 +149,7 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
   - `mods/` / `modding/`：模组项目管理与扫描。
   - `assets/`：游戏资产扫描与加载。
   - `content_patcher/`：Content Patcher 项目解析、模拟、导出。
-  - `generated_project/`：生成项目草稿/导出。
+  - `cp_maker/`：生成项目草稿/导出。
   - `saves/`：存档槽位扫描。
   - `event_project/` / `workbench_project/`：工作台项目领域逻辑。
   - `app_ui/`：应用 UI 状态持久化。
@@ -169,7 +201,8 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - React 组件与窗口文件使用 **PascalCase**，如 `WorkspaceLayout.tsx`。
 - Hooks 必须以 `use` 开头。
 - 辅助模块与解析器使用语言约定的 camelCase（TS）或 snake_case（Rust）。
-- 视图状态编排放在 `src/lib/app/`，渲染层放在 `src/components/`。
+- 新架构下，视图状态编排优先放 `src/pages`、`src/widgets`、`src/processes` 或对应 `features/entities`；`src/lib/app/` 只作为迁移期 legacy / glue 层。
+- 渲染层优先按职责放 `shared/ui`、`widgets/*`、`features/*/ui` 或迁移期 `components/`。
 - UI 文案通过类型化 locale bundles 与 locale hooks 消费；**禁止**在 React 层通过 `copy` / `locale` props 层层透传。
 - 非 React 逻辑可以显式接收 locale 或 copy 参数。
 - 提交前端改动前必须运行 `pnpm lint`。
@@ -180,6 +213,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - 使用 **Vitest** + jsdom。
 - 组件/模块测试与源码同目录（`*.test.tsx`）。
 - 架构约束测试放在 `src/test/architecture/`（如代码拆分验证、vite 配置测试）。
+- 前端架构迁移必须补充或更新架构测试，覆盖：禁止业务层 import `@tauri-apps/api`、禁止业务层直接 `invoke(`、禁止 `features -> features`、禁止 `entities -> widgets/pages/features`、禁止 `shared -> app/pages/widgets/features/entities/platform`、禁止 `entities` 引用 panel/layout contracts。
 - 跨模块回归测试放在 `src/test/regressions/`。
 - 共享测试辅助放在 `src/test/`。
 - **最低验证要求**：`pnpm lint` → `pnpm build` → `pnpm --filter @modforge/desktop test`。

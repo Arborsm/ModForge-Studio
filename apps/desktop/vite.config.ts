@@ -1,9 +1,12 @@
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolveDevServerHost, resolveDevServerPorts } from './scripts/tauriDevRuntime.mjs'
 
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 const host = resolveDevServerHost()
 const { port, hmrPort } = resolveDevServerPorts()
 
@@ -21,8 +24,20 @@ export default defineConfig({
   clearScreen: false,
   plugins: [react()],
   cacheDir: resolveViteCacheDir(),
+  resolve: {
+    alias: {
+      '@app': path.resolve(__dirname, 'src/app'),
+      '@pages': path.resolve(__dirname, 'src/pages'),
+      '@widgets': path.resolve(__dirname, 'src/widgets'),
+      '@features': path.resolve(__dirname, 'src/features'),
+      '@entities': path.resolve(__dirname, 'src/entities'),
+      '@shared': path.resolve(__dirname, 'src/shared'),
+      '@platform': path.resolve(__dirname, 'src/platform'),
+      '@locales': path.resolve(__dirname, 'src/locales'),
+    },
+  },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         manualChunks(id) {
           const normalizedId = id.replaceAll('\\', '/')
@@ -43,26 +58,77 @@ export default defineConfig({
           }
 
           if (
-            normalizedId.includes('/src/components/PlayerAppearanceWindow') ||
-            normalizedId.includes('/src/lib/app/playerAppearance') ||
-            normalizedId.includes('/src/lib/app/farmerAppearanceRenderer')
+            normalizedId.includes('/src/app/app-shell/PlayerAppearanceWindow') ||
+            normalizedId.includes('/src/entities/event/model/stage/playerAppearance') ||
+            normalizedId.includes('/src/entities/event/model/stage/farmerAppearanceRenderer') ||
+            normalizedId.includes('/src/shared/lib/clothingSprites')
           ) {
             return 'player-appearance'
           }
 
           if (
-            normalizedId.includes('/src/components/EventStageWorkspace') ||
-            normalizedId.includes('/src/lib/events/') ||
-            normalizedId.includes('/src/lib/app/eventStage')
+            normalizedId.includes('/src/entities/event/model/preconditionSemantics') ||
+            normalizedId.includes('/src/entities/event/model/gameStateQueryCatalog') ||
+            normalizedId.includes('/src/entities/event/model/gameStateQuerySemantics')
           ) {
-            return 'event-workspace'
+            return 'event-condition-model'
           }
 
           if (
-            normalizedId.includes('/src/components/MapViewport') ||
-            normalizedId.includes('/src/lib/maps/') ||
-            normalizedId.includes('/src/lib/app/mapWorkspace') ||
-            normalizedId.includes('/src/lib/app/useMapWorkspace')
+            normalizedId.includes('/src/entities/event/model/parser') ||
+            normalizedId.includes('/src/entities/event/model/commandCatalog') ||
+            normalizedId.includes('/src/entities/event/model/patchHub')
+          ) {
+            return 'event-authoring-model'
+          }
+
+          if (
+            normalizedId.includes('/src/pages/workbench/workspaces/event-stage/') ||
+            normalizedId.includes('/src/entities/event/model/stage/eventStageShared') ||
+            normalizedId.includes('/src/entities/event/model/stage/eventStageAssets') ||
+            normalizedId.includes('/src/entities/event/model/stage/eventStagePlayback') ||
+            normalizedId.includes('/src/entities/event/model/stage/eventStageTemporarySprites') ||
+            normalizedId.includes('/src/entities/event/model/stage/eventStageFarmerState') ||
+            normalizedId.includes('/src/entities/event/model/stage/farmerEventAnimationData')
+          ) {
+            return 'event-stage-runtime'
+          }
+
+          if (
+            normalizedId.includes('/src/pages/workbench/workspaces/building/state/') ||
+            normalizedId.includes('/src/pages/workbench/workspaces/building/entities/building/')
+          ) {
+            return 'building-workspace-state'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/building/view/')) {
+            return 'building-workspace-view'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/ui/workspace-panels/building/')) {
+            return 'building-workspace-panels'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/building/')) {
+            return 'building-workspace'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/item/')) {
+            return 'item-workspace'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/character/')) {
+            return 'character-workspace'
+          }
+
+          if (normalizedId.includes('/src/pages/workbench/workspaces/mod/')) {
+            return 'mod-workspace'
+          }
+
+          if (
+            normalizedId.includes('/src/entities/map/ui/MapViewport') ||
+            normalizedId.includes('/src/entities/map/') ||
+            normalizedId.includes('/src/pages/workbench/workspaces/map/')
           ) {
             return 'map-workspace'
           }

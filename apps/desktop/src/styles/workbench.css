@@ -3,7 +3,7 @@
 @import "./workspace/layout.css";
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
-@import "./features/generated-project-edit.css";
+@import "./features/cp-maker-edit.css";
 @import "./features/event-patch-hub.css";
 @import "./features/condition-builder.css";
 @import "./features/game-state-query.css";
@@ -15,7 +15,10 @@
 @import "./features/item-group.css";
 @import "./features/initialization-overlay.css";
 @source "../App.tsx";
-@source "../components";
-@source not "../components/launcher";
-@source "../lib";
-@source not "../lib/launcher";
+@source not "../widgets/launcher-shell";
+@source "../app";
+@source "../pages";
+@source "../features";
+@source "../entities";
+@source "../shared";
+@source "../widgets";

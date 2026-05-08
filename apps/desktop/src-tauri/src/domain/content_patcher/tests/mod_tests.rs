@@ -1102,11 +1102,11 @@ fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
     let result_value = serde_json::to_value(&result.result).expect("serialize result asset");
     let original_data_url = result_value
         .get("originalImageDataUrl")
-        .and_then(serde_json::Value::as_str)
+        .and_then(Value::as_str)
         .expect("original image data url");
     let original_source = result_value
         .get("originalImageSource")
-        .and_then(serde_json::Value::as_str)
+        .and_then(Value::as_str)
         .expect("original image source");
     let original_encoded = original_data_url
         .strip_prefix("data:image/png;base64,")
@@ -1487,7 +1487,7 @@ fn load_content_patcher_result_asset_describes_blank_original_fallback_for_missi
     let result_value = serde_json::to_value(&result.result).expect("serialize result asset");
     let original_source = result_value
         .get("originalImageSource")
-        .and_then(serde_json::Value::as_str)
+        .and_then(Value::as_str)
         .expect("original image source");
 
     assert!(original_source.contains("transparent fallback"));

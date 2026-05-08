@@ -683,7 +683,7 @@ pub async fn search_launcher_catalog(
 }
 
 fn search_launcher_catalog_blocking(
-    app: &tauri::AppHandle,
+    _app: &tauri::AppHandle,
     request: &SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
     let page = request.page.unwrap_or(1).max(1);
@@ -691,7 +691,7 @@ fn search_launcher_catalog_blocking(
     let sort = request.sort.clone().unwrap_or_else(|| "newest".to_string());
     let ascending = request.ascending.unwrap_or(false);
     let query = normalize_optional_text(request.query.clone());
-    let settings_path = launcher_settings_path(app)?;
+    let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     let client = launcher_http_client()?;
     log_launcher_trace(

@@ -132,25 +132,25 @@ pub(crate) fn save_download_queue_at_path(
 }
 
 pub fn load_launcher_download_queue(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
 ) -> Result<LauncherDownloadQueueState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_download_queue",
         (|| {
-            let queue_path = launcher_download_queue_path(&app)?;
+            let queue_path = launcher_download_queue_path()?;
             load_or_create_download_queue_at_path(&queue_path)
         })(),
     )
 }
 
 pub fn save_launcher_download_queue(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: LauncherDownloadQueueState,
 ) -> Result<LauncherDownloadQueueState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "save_launcher_download_queue",
         (|| {
-            let queue_path = launcher_download_queue_path(&app)?;
+            let queue_path = launcher_download_queue_path()?;
             let normalized = normalize_download_queue_state(request);
             save_download_queue_at_path(&queue_path, &normalized)?;
             Ok(normalized)
@@ -354,7 +354,7 @@ fn parse_content_disposition_file_name(value: &str) -> Option<String> {
 }
 
 pub fn download_launcher_mod(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     request: DownloadLauncherModRequest,
 ) -> Result<DownloadLauncherModResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -381,7 +381,7 @@ pub fn download_launcher_mod(
                 ],
             );
 
-            let settings_path = launcher_settings_path(&app)?;
+            let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
             if settings
                 .nexus_api_key
@@ -462,7 +462,7 @@ pub fn download_launcher_mod(
                 let install_result = install_archive_at_path(
                     &archive_path,
                     settings.mods_path.as_deref(),
-                    Some(launcher_backup_dir(&app)?.as_path()),
+                    Some(launcher_backup_dir()?.as_path()),
                 )?;
                 installed = true;
                 installed_target_path = Some(install_result.target_path.clone());

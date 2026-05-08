@@ -25,6 +25,7 @@ export type SettingsMenuCopy = {
   title: string
   categories: {
     appearance: string
+    loading: string
     view: string
     interaction: string
     launcher: string
@@ -49,10 +50,22 @@ export type SettingsMenuCopy = {
   notificationSoundDescription: string
   enableNotificationSoundLabel: string
   disableNotificationSoundLabel: string
+  loadingMotionStyleLabel: string
+  loadingMotionStyleDescription: string
+  loadingMotionIntensityLabel: string
+  loadingMotionIntensityDescription: string
+  loadingMotionSpeedLabel: string
+  loadingMotionSpeedDescription: string
+  loadingMotionCustomSpeedLabel: string
+  loadingMotionCustomSpeedDescription: string
+  loadingMotionCustomSpeedToggleLabel: string
+  loadingMotionPresetSpeedToggleLabel: string
+  loadingMotionSpeedValueLabel: (value: number) => string
   futureLabel: string
   futureDescription: string
   categoryDescriptions: {
     appearance: string
+    loading: string
     view: string
     interaction: string
     launcher: string

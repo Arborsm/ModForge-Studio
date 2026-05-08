@@ -19,6 +19,7 @@ use image::codecs::png::PngEncoder;
 use image::{ColorType, ImageEncoder};
 
 use self::mime::{infer_audio_mime, infer_image_mime};
+use crate::domain::app_paths::app_cache_dir;
 use crate::infrastructure::fs::pathing::{
     audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
     map_source_path, normalize_path,
@@ -161,24 +162,12 @@ fn count_map_files(maps_path: &Path, extension: &str) -> Result<usize, String> {
     Ok(count)
 }
 
-fn cache_root_dir() -> PathBuf {
-    if let Ok(value) = std::env::var("LOCALAPPDATA") {
-        return PathBuf::from(value).join("ModForge Studio").join("cache");
-    }
-
-    if let Ok(value) = std::env::var("XDG_CACHE_HOME") {
-        return PathBuf::from(value).join("modforge-studio");
-    }
-
-    if let Ok(value) = std::env::var("HOME") {
-        return PathBuf::from(value).join(".cache").join("modforge-studio");
-    }
-
-    std::env::temp_dir().join("modforge-studio-cache")
+fn cache_root_dir() -> Result<PathBuf, String> {
+    Ok(app_cache_dir()?)
 }
 
-fn active_file_cache_dir() -> PathBuf {
-    cache_root_dir().join(format!("assets-v{FILE_CACHE_VERSION}"))
+fn active_file_cache_dir() -> Result<PathBuf, String> {
+    Ok(cache_root_dir()?.join(format!("assets-v{FILE_CACHE_VERSION}")))
 }
 
 fn cache_locale_key(locale: Option<&str>) -> String {
@@ -203,7 +192,11 @@ pub(crate) fn encode_hex(bytes: &[u8]) -> String {
     encoded
 }
 
-pub(crate) fn cache_file_path(kind: &str, source_path: &Path, locale: Option<&str>) -> PathBuf {
+pub(crate) fn cache_file_path(
+    kind: &str,
+    source_path: &Path,
+    locale: Option<&str>,
+) -> Result<PathBuf, String> {
     let normalized_source_path = normalize_path(source_path);
     let locale_key = cache_locale_key(locale);
     let mut digest = Sha256::new();
@@ -213,10 +206,7 @@ pub(crate) fn cache_file_path(kind: &str, source_path: &Path, locale: Option<&st
     digest.update(b"\0");
     digest.update(locale_key.as_bytes());
     let hash = encode_hex(&digest.finalize());
-    cache_root_dir()
-        .join(format!("assets-v{FILE_CACHE_VERSION}"))
-        .join(kind)
-        .join(format!("{hash}.json"))
+    Ok(active_file_cache_dir()?.join(kind).join(format!("{hash}.json")))
 }
 
 fn read_cached_string_asset(
@@ -227,7 +217,7 @@ fn read_cached_string_asset(
     let metadata = source_path
         .metadata()
         .map_err(|error| format!("Failed to read file metadata: {error}"))?;
-    let cache_path = cache_file_path(kind, source_path, locale);
+    let cache_path = cache_file_path(kind, source_path, locale)?;
     if !cache_path.exists() {
         return Ok(None);
     }
@@ -282,7 +272,7 @@ fn write_cached_string_asset(
     let metadata = source_path
         .metadata()
         .map_err(|error| format!("Failed to read file metadata: {error}"))?;
-    let cache_path = cache_file_path(kind, source_path, locale);
+    let cache_path = cache_file_path(kind, source_path, locale)?;
     let cache_dir = cache_path
         .parent()
         .ok_or_else(|| format!("Invalid cache path: {}", normalize_path(&cache_path)))?;
@@ -539,7 +529,7 @@ pub(crate) fn list_known_game_directories() -> Vec<String> {
 }
 
 pub(crate) fn get_file_cache_stats() -> Result<FileCacheStats, String> {
-    let root = active_file_cache_dir();
+    let root = active_file_cache_dir()?;
     let (entry_count, total_size_bytes) = collect_directory_size(&root)?;
     Ok(FileCacheStats {
         root_path: normalize_path(&root),
@@ -549,7 +539,7 @@ pub(crate) fn get_file_cache_stats() -> Result<FileCacheStats, String> {
 }
 
 pub(crate) fn clear_file_cache() -> Result<(), String> {
-    let root = active_file_cache_dir();
+    let root = active_file_cache_dir()?;
     if !root.exists() {
         return Ok(());
     }

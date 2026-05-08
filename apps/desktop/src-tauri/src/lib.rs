@@ -22,11 +22,11 @@ use commands::content_patcher::{
     export_content_patcher_asset, load_content_patcher_project, load_content_patcher_result_asset,
     simulate_content_patcher,
 };
-use commands::generated_project::{
-    build_generated_project_map_asset,
-    copy_generated_project_draft, delete_generated_project_draft, list_generated_project_drafts,
-    export_generated_project_pack, import_generated_project_pack, load_generated_project_draft,
-    save_generated_project_draft,
+use commands::cp_maker::{
+    build_cp_maker_map_asset,
+    copy_cp_maker_draft, delete_cp_maker_draft, list_cp_maker_drafts,
+    export_cp_maker_pack, import_cp_maker_pack, load_cp_maker_draft,
+    save_cp_maker_draft,
 };
 use commands::launcher::{
     check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
@@ -58,19 +58,17 @@ pub fn run() {
         .plugin(build_logging_plugin(debug_logging_state))
         .setup(|app| {
             app.state::<DebugLoggingState>().set_enabled(false);
-            let diagnostics_start_result = crate::domain::app_ui::load_app_ui_state(app.handle().clone())
+            let diagnostics_start_result = domain::app_ui::load_app_ui_state()
                 .map(|state| state.launcher.force_offline)
                 .and_then(|force_offline| {
                     if force_offline {
-                        crate::domain::launcher::http::set_launcher_nexus_force_offline(
+                        domain::launcher::http::set_launcher_nexus_force_offline(
                             &app.handle(),
                             true,
                         )
                         .map(|_| ())
                     } else {
-                        crate::domain::launcher::http::prime_launcher_nexus_diagnostics(
-                            &app.handle(),
-                        )
+                        domain::launcher::http::prime_launcher_nexus_diagnostics(&app.handle())
                     }
                 });
             if let Err(error) = diagnostics_start_result {
@@ -90,14 +88,14 @@ pub fn run() {
             scan_mod_asset_index,
             load_mod_project,
             save_mod_project,
-            list_generated_project_drafts,
-            load_generated_project_draft,
-            save_generated_project_draft,
-            delete_generated_project_draft,
-            copy_generated_project_draft,
-            build_generated_project_map_asset,
-            export_generated_project_pack,
-            import_generated_project_pack,
+            list_cp_maker_drafts,
+            load_cp_maker_draft,
+            save_cp_maker_draft,
+            delete_cp_maker_draft,
+            copy_cp_maker_draft,
+            build_cp_maker_map_asset,
+            export_cp_maker_pack,
+            import_cp_maker_pack,
             load_content_patcher_project,
             simulate_content_patcher,
             load_content_patcher_result_asset,
