@@ -14,7 +14,8 @@ use super::shared::{build_mod_page_url, extract_graphql_error, normalize_nexus_u
 use super::trace::log_launcher_trace;
 use super::types::{
     CheckLauncherUpdatesRequest, LauncherSettings, LauncherUpdateProgressPayload,
-    LauncherUpdateSummary, LauncherUpdatesResult, LoadCachedLauncherUpdatesRequest,
+    LauncherSuppressedUpdateModIdsResult, LauncherUpdateSummary, LauncherUpdatesResult,
+    LoadCachedLauncherUpdatesRequest, LoadSuppressedLauncherUpdateModIdsRequest,
 };
 use super::update_cache::{
     clear_launcher_update_auto_failures_at_path, clear_launcher_updates_check_in_progress_at_path,
@@ -726,7 +727,7 @@ fn load_remote_mod_details_batch(
     let mut public_graphql_resolved = 0usize;
     let mut html_resolved = 0usize;
     for candidate in missing_after_graphql {
-        match load_remote_mod_detail_from_public_graphql(client, candidate.mod_id) {
+        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id) {
             Ok(detail) => {
                 public_graphql_resolved += 1;
                 details.insert(candidate.mod_id, detail);
@@ -737,7 +738,7 @@ fn load_remote_mod_details_batch(
                     candidate.mod_id,
                     error = public_error
                 );
-                match load_remote_mod_detail_from_html(client, candidate.mod_id) {
+                match load_remote_mod_detail_from_html(client, settings, candidate.mod_id) {
                     Ok(detail) => {
                         html_resolved += 1;
                         details.insert(candidate.mod_id, detail);
@@ -996,6 +997,43 @@ pub fn load_cached_launcher_updates(
                 &[("hadActiveCheck", had_active_check.to_string())],
             );
             Ok(cached)
+        })(),
+    )
+}
+
+pub(crate) fn load_launcher_suppressed_update_mod_ids_result_at_path(
+    cache_path: &Path,
+    request: LoadSuppressedLauncherUpdateModIdsRequest,
+) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+    let mods_path = request.mods_path.trim();
+    if mods_path.is_empty() {
+        return Err("modsPath is required.".to_string());
+    }
+
+    let mut mod_ids = load_suppressed_launcher_update_mod_ids_at_path(
+        cache_path,
+        mods_path,
+        AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD,
+    )?
+    .into_iter()
+    .collect::<Vec<_>>();
+    mod_ids.sort_unstable();
+
+    Ok(LauncherSuppressedUpdateModIdsResult {
+        mods_path: mods_path.to_string(),
+        mod_ids,
+    })
+}
+
+pub fn load_suppressed_launcher_update_mod_ids(
+    _app: tauri::AppHandle,
+    request: LoadSuppressedLauncherUpdateModIdsRequest,
+) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_suppressed_launcher_update_mod_ids",
+        (|| {
+            let cache_path = launcher_updates_cache_path()?;
+            load_launcher_suppressed_update_mod_ids_result_at_path(&cache_path, request)
         })(),
     )
 }

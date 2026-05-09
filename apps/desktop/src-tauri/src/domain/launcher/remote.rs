@@ -1,14 +1,16 @@
 use super::http::{
     launcher_http_client, probe_blocked_launcher_nexus_route, public_graphql_headers,
-    public_page_headers, send_nexus_json_request, send_nexus_request, LauncherNexusRoute,
-    DEFAULT_GAME_ID,
+    public_page_headers, send_nexus_json_request, send_nexus_public_html_request,
+    LauncherNexusRoute, DEFAULT_GAME_ID,
 };
+use super::paths::launcher_settings_path;
+use super::settings::load_or_create_settings_at_path;
 use super::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
 };
 use super::types::{
-    LauncherRemoteModDetail, LauncherUpdateChangelogResult, LoadLauncherRemoteModDetailRequest,
-    LoadLauncherUpdateChangelogRequest,
+    LauncherRemoteModDetail, LauncherSettings, LauncherUpdateChangelogResult,
+    LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
 };
 use regex::Regex;
 use reqwest::blocking::Client;
@@ -454,9 +456,10 @@ where
 
 pub(super) fn load_remote_mod_detail_from_public_graphql(
     client: &Client,
+    settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<RemoteModDetail, String> {
-    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicGraphql)?;
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicGraphql)?;
     let mod_url = build_mod_page_url(mod_id);
     let headers = public_graphql_headers(&mod_url, PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER)?;
     let payload = json!({
@@ -487,62 +490,41 @@ pub(super) fn load_remote_mod_detail_from_public_graphql(
 
 pub(super) fn load_remote_mod_detail_from_html(
     client: &Client,
+    settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<RemoteModDetail, String> {
-    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicHtml)?;
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicHtml)?;
     let mod_url = build_mod_page_url(mod_id);
     let headers = public_page_headers(None)?;
-    let response = send_nexus_request(|| client.get(&mod_url).headers(headers.clone()).send())?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Failed to fetch launcher mod page for {mod_id}: HTTP {}",
-            response.status()
-        ));
-    }
-
-    let html = response
-        .text()
-        .map_err(|error| format!("Failed to read launcher mod page HTML: {error}"))?;
+    let response = send_nexus_public_html_request(client, &mod_url, headers)?;
+    let html = response.body;
     parse_remote_mod_detail_html(&html, mod_id)
         .ok_or_else(|| format!("Failed to parse launcher mod page HTML for {mod_id}."))
 }
 
 fn load_remote_mod_detail_gallery_from_images_tab(
     client: &Client,
+    settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<Vec<String>, String> {
-    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicHtml)?;
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicHtml)?;
     let images_url = format!("{}?tab=images", build_mod_page_url(mod_id));
     let headers = public_page_headers(None)?;
-    let response = send_nexus_request(|| client.get(&images_url).headers(headers.clone()).send())?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Failed to fetch launcher mod images page for {mod_id}: HTTP {}",
-            response.status()
-        ));
-    }
-
-    let html = response
-        .text()
-        .map_err(|error| format!("Failed to read launcher mod images page HTML: {error}"))?;
+    let response = send_nexus_public_html_request(client, &images_url, headers)?;
+    let html = response.body;
     Ok(parse_remote_mod_images_tab_html(&html))
 }
 
-fn load_remote_mod_files_tab_text(client: &Client, mod_id: i64) -> Result<String, String> {
-    probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicHtml)?;
+fn load_remote_mod_files_tab_text(
+    client: &Client,
+    settings: &LauncherSettings,
+    mod_id: i64,
+) -> Result<String, String> {
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicHtml)?;
     let files_url = format!("{}?tab=files", build_mod_page_url(mod_id));
     let headers = public_page_headers(None)?;
-    let response = send_nexus_request(|| client.get(&files_url).headers(headers.clone()).send())?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Failed to fetch launcher mod files page for {mod_id}: HTTP {}",
-            response.status()
-        ));
-    }
-
-    let html = response
-        .text()
-        .map_err(|error| format!("Failed to read launcher mod files page HTML: {error}"))?;
+    let response = send_nexus_public_html_request(client, &files_url, headers)?;
+    let html = response.body;
     Ok(html_to_multiline_text(&html))
 }
 
@@ -564,17 +546,19 @@ fn enrich_remote_mod_detail_with_file_metadata(
 
 fn load_remote_mod_file_metadata(
     client: &Client,
+    settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<LauncherUpdateFileMetadata, String> {
-    let text = load_remote_mod_files_tab_text(client, mod_id)?;
+    let text = load_remote_mod_files_tab_text(client, settings, mod_id)?;
     Ok(parse_launcher_update_file_metadata_text(&text))
 }
 
 fn load_remote_mod_changelog_from_files_tab(
     client: &Client,
+    settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<ParsedLauncherUpdateChangelog, String> {
-    let text = load_remote_mod_files_tab_text(client, mod_id)?;
+    let text = load_remote_mod_files_tab_text(client, settings, mod_id)?;
     parse_launcher_update_changelog_text(&text).ok_or_else(|| {
         format!("Failed to parse launcher mod changelog from files page for {mod_id}.")
     })
@@ -631,12 +615,14 @@ fn load_launcher_remote_mod_detail_blocking(
     }
 
     let client = launcher_http_client()?;
+    let settings_path = launcher_settings_path()?;
+    let settings = load_or_create_settings_at_path(&settings_path)?;
     let mut detail = load_remote_mod_detail_with_public_graphql_fallback(
-        || load_remote_mod_detail_from_public_graphql(&client, request.mod_id),
-        || load_remote_mod_detail_from_html(&client, request.mod_id),
+        || load_remote_mod_detail_from_public_graphql(&client, &settings, request.mod_id),
+        || load_remote_mod_detail_from_html(&client, &settings, request.mod_id),
     )?;
     if detail.image_url.is_none() && detail.gallery_images.is_empty() {
-        match load_remote_mod_detail_gallery_from_images_tab(&client, request.mod_id) {
+        match load_remote_mod_detail_gallery_from_images_tab(&client, &settings, request.mod_id) {
             Ok(gallery_images) if !gallery_images.is_empty() => {
                 detail = enrich_remote_mod_detail_with_gallery_images(detail, gallery_images);
             }
@@ -649,7 +635,7 @@ fn load_launcher_remote_mod_detail_blocking(
             }
         }
     }
-    match load_remote_mod_file_metadata(&client, request.mod_id) {
+    match load_remote_mod_file_metadata(&client, &settings, request.mod_id) {
         Ok(metadata) => {
             detail = enrich_remote_mod_detail_with_file_metadata(detail, metadata);
         }
@@ -672,7 +658,9 @@ fn load_launcher_update_changelog_blocking(
     }
 
     let client = launcher_http_client()?;
-    let changelog = load_remote_mod_changelog_from_files_tab(&client, request.mod_id)?;
+    let settings_path = launcher_settings_path()?;
+    let settings = load_or_create_settings_at_path(&settings_path)?;
+    let changelog = load_remote_mod_changelog_from_files_tab(&client, &settings, request.mod_id)?;
 
     Ok(LauncherUpdateChangelogResult {
         mod_id: request.mod_id,

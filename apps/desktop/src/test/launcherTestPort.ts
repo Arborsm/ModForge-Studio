@@ -11,6 +11,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
+    disablePublicHtmlRoute: false,
   }
 
   const unimplemented = (method: keyof LauncherPort) =>
@@ -48,6 +49,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     setNexusForceOffline: vi.fn().mockResolvedValue({ routes: [] }),
     resolveImage: unimplemented('resolveImage'),
     loadCachedUpdates: vi.fn().mockResolvedValue(null),
+    loadSuppressedUpdateModIds: vi.fn().mockResolvedValue({ modsPath: '', modIds: [] }),
     checkUpdates: unimplemented('checkUpdates'),
     listenToUpdateProgress: vi.fn().mockResolvedValue(() => {}),
     downloadMod: unimplemented('downloadMod'),

@@ -13,12 +13,15 @@ import {
 } from '@platform/desktop'
 import { useLauncherImage } from '@features/launcher'
 import { useLauncherUpdates } from '@features/launcher'
+import { createLauncherCloudflareChallengeEvent } from '@features/launcher'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher'
 import { getLauncherCardMonogram, LauncherBlockedState, LauncherStateBlock } from '@features/launcher'
+import type { AppEvent } from '@shared/contracts'
 
 type LauncherUpdatesPageProps = {
   settings: LauncherSettingsDraft
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  onLauncherEvent?: (event: AppEvent) => void
   onNavigateToSettings?: () => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
@@ -125,6 +128,7 @@ function UpdateArtwork({
 export function LauncherUpdatesPage({
   settings,
   onQueueDownload,
+  onLauncherEvent,
   onNavigateToSettings,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
@@ -216,6 +220,10 @@ export function LauncherUpdatesPage({
         if (!mountedRef.current) {
           return
         }
+        const challengeEvent = createLauncherCloudflareChallengeEvent('updates-detail', error)
+        if (challengeEvent) {
+          onLauncherEvent?.(challengeEvent)
+        }
         setDetailStateByKey((current) => ({ ...current, [key]: 'error' }))
         setDetailErrorByKey((current) => ({
           ...current,
@@ -248,6 +256,10 @@ export function LauncherUpdatesPage({
         clearRequestNotification(notificationId)
         if (!mountedRef.current) {
           return
+        }
+        const challengeEvent = createLauncherCloudflareChallengeEvent('updates-changelog', error)
+        if (challengeEvent) {
+          onLauncherEvent?.(challengeEvent)
         }
         setChangelogStateByKey((current) => ({ ...current, [key]: 'error' }))
         setChangelogErrorByKey((current) => ({

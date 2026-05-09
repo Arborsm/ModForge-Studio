@@ -517,6 +517,33 @@ describe('LauncherUpdatesPage', () => {
     expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
   })
 
+  it('emits a launcher event when fetching update details hits a Cloudflare challenge', async () => {
+    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
+    loadLauncherRemoteModDetailMock.mockRejectedValue(
+      new Error('CLOUDFLARE_CHALLENGE_REQUIRED:https://www.nexusmods.com/stardewvalley/mods/101'),
+    )
+    const onLauncherEvent = vi.fn()
+
+    renderWithProviders(
+      <LauncherUpdatesPage
+        settings={createSettings()}
+        onQueueDownload={vi.fn()}
+        onLauncherEvent={onLauncherEvent}
+      />,
+    )
+
+    fireEvent.click((await screen.findAllByRole('button', { name: '展开详情' }))[0]!)
+    fireEvent.click(await screen.findByRole('button', { name: '抓取详情' }))
+
+    await waitFor(() => {
+      expect(onLauncherEvent).toHaveBeenCalledWith({
+        type: 'launcher/cloudflare-challenge-required',
+        url: 'https://www.nexusmods.com/stardewvalley/mods/101',
+        source: 'updates-detail',
+      })
+    })
+  })
+
   it('shows update-check progress in the global notification viewport', async () => {
     checkLauncherUpdatesMock.mockImplementation(() => new Promise(() => {}))
 

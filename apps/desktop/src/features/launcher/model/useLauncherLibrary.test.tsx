@@ -356,6 +356,75 @@ describe('useLauncherLibrary', () => {
     })
   })
 
+  it('skips automatic remote cover fetching for mods suppressed by repeated update failures', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    const loadSuppressedUpdateModIdsMock = vi.fn().mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      modIds: [202],
+    })
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-suppressed',
+          labelKey: 'ModForge.Suppressed',
+          uniqueId: 'ModForge.Suppressed',
+          nexusModId: 202,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Suppressed Mod',
+        }),
+        createMod({
+          id: 'mod-eligible',
+          labelKey: 'ModForge.Eligible',
+          uniqueId: 'ModForge.Eligible',
+          nexusModId: 303,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Eligible Mod',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 303,
+        title: 'Eligible Mod',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    launcherPort = Object.assign(createMockLauncherPort(), {
+      loadSuppressedUpdateModIds: loadSuppressedUpdateModIdsMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      scanLibrary: scanLauncherLibraryMock,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadSuppressedUpdateModIdsMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    })
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 303 })
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
+      labelKey: '303',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
+    })
+  })
+
   it('starts a non-forced update check only after the library scan completes', async () => {
     const deferredScan = createDeferred<{
       modsPath: string

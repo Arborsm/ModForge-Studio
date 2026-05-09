@@ -265,6 +265,17 @@ const localeBundle = {
         "blockedTitle": "自动更新检查已暂停",
         "blockedDetail": "更新通路连续失败后，后台自动检查会先暂停，避免反复发送同样会失败的请求。"
       },
+      "cloudflareChallenge": {
+        "title": "需要完成 Nexus 验证",
+        "detail": "Nexus Mods 返回了 Cloudflare 验证页，而不是预期的 HTML 内容。请先在浏览器里完成验证，再回到这里重试当前操作。",
+        "prompt": "现在打开 Nexus Mods 吗？",
+        "openAction": "打开 Nexus Mods",
+        "cancelAction": "取消",
+        "disablePublicHtmlLabel": "后续不再使用 Public HTML 路线",
+        "disablePublicHtmlDescription": "关闭基于 HTML 的 Nexus 路线，后续诊断和请求会尽量只使用其他仍可用的路线。",
+        "disablePublicHtmlEnabledLabel": "已停用 Public HTML 路线",
+        "disablePublicHtmlDisabledLabel": "仍使用 Public HTML 路线"
+      },
       "downloads": {
         "title": "下载",
         "subtitle": "排队中的下载会集中显示在这里，并可把完成的归档安装到 Mods。",

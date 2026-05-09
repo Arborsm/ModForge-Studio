@@ -1,4 +1,5 @@
 export { getLauncherCardMonogram } from './ui/cards/launcherCardPresentation'
+export { createLauncherCloudflareChallengeEvent, extractLauncherCloudflareChallengeUrl } from './model/cloudflareChallenge'
 export { LauncherDownloadRow } from './ui/cards/LauncherDownloadRow'
 export { LauncherModCard } from './ui/cards/LauncherModCard'
 export { LauncherModDetailPanel } from './ui/cards/LauncherModDetailPanel'

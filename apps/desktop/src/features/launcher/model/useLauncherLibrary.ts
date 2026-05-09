@@ -173,6 +173,14 @@ function nextUniqueId(existingIds: string[], rawName: string, fallback: string) 
   return candidate
 }
 
+function normalizeSuppressedModIds(values: number[] | null | undefined) {
+  return new Set(
+    (values ?? [])
+      .map((value) => Math.trunc(value))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  )
+}
+
 async function runWithConcurrency<T>(
   items: T[],
   limit: number,
@@ -356,7 +364,11 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     setError(null)
 
     try {
-      const [diagnostics, loadedLibraryState, loadedCovers, scan] = await Promise.all([
+      const suppressedUpdateModIdsPromise = settings.modsPath
+        ? launcherPort.loadSuppressedUpdateModIds({ modsPath: settings.modsPath }).catch(() => null)
+        : Promise.resolve(null)
+
+      const [diagnostics, loadedLibraryState, loadedCovers, scan, suppressedUpdateModIdsResult] = await Promise.all([
         launcherPort.loadNexusDiagnostics().catch(() => null),
         launcherPort.loadLibraryState(),
         launcherPort.loadLibraryCovers(),
@@ -366,12 +378,15 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
               modsPath: settings.modsPath ?? '',
               mods: [],
             }),
+        suppressedUpdateModIdsPromise,
       ])
 
       const savedCoverLookup = new Set(loadedCovers.covers.map((cover) => normalizeLookupKey(cover.labelKey)))
+      const suppressedUpdateModIds = normalizeSuppressedModIds(suppressedUpdateModIdsResult?.modIds)
       const eligibleMods = scan.mods.filter(
         (item) =>
           item.nexusModId != null &&
+          !suppressedUpdateModIds.has(item.nexusModId) &&
           !item.imageUrl?.trim() &&
           !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value))),
       )

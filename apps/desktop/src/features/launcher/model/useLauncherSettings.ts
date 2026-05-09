@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   autoInstallDownloads: false,
   keepDownloadedArchives: false,
   autoCheckModUpdates: true,
+  disablePublicHtmlRoute: false,
 }
 
 const AUTOSAVE_DELAY_MS = 700
@@ -37,6 +38,7 @@ function normalizePersistedLauncherSettings(settings: LauncherSettings): Launche
     nexusApiKey: settings.nexusApiKey?.trim() ? settings.nexusApiKey : null,
     nexusCookie: settings.nexusCookie?.trim() ? settings.nexusCookie : null,
     autoCheckModUpdates: settings.autoCheckModUpdates ?? true,
+    disablePublicHtmlRoute: settings.disablePublicHtmlRoute ?? false,
   }
 }
 
@@ -69,7 +71,8 @@ function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSet
     left.nexusCookie === right.nexusCookie &&
     left.autoInstallDownloads === right.autoInstallDownloads &&
     left.keepDownloadedArchives === right.keepDownloadedArchives &&
-    left.autoCheckModUpdates === right.autoCheckModUpdates
+    left.autoCheckModUpdates === right.autoCheckModUpdates &&
+    (left.disablePublicHtmlRoute ?? false) === (right.disablePublicHtmlRoute ?? false)
   )
 }
 

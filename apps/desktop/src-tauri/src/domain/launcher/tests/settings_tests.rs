@@ -21,6 +21,7 @@ fn launcher_settings_create_default_and_save_roundtrip() {
         auto_install_downloads: true,
         keep_downloaded_archives: true,
         auto_check_mod_updates: false,
+        disable_public_html_route: true,
     };
     save_settings_at_path(&settings_path, &saved_settings).expect("save settings");
 

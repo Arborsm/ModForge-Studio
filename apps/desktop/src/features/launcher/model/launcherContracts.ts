@@ -7,6 +7,7 @@ export type LauncherSettings = {
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
+  disablePublicHtmlRoute?: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -18,6 +19,7 @@ export type SaveLauncherSettingsRequest = {
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
+  disablePublicHtmlRoute?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -197,6 +199,7 @@ export type LauncherNexusRouteSnapshot = {
   maxAttempts: number
   available: boolean
   message: string
+  challengeRequired?: boolean
 }
 
 export type LauncherNexusDiagnosticsResult = {
@@ -221,6 +224,15 @@ export type CheckLauncherUpdatesRequest = {
 
 export type LoadCachedLauncherUpdatesRequest = {
   modsPath: string
+}
+
+export type LoadSuppressedLauncherUpdateModIdsRequest = {
+  modsPath: string
+}
+
+export type LauncherSuppressedUpdateModIdsResult = {
+  modsPath: string
+  modIds: number[]
 }
 
 export type LauncherUpdateSummary = {

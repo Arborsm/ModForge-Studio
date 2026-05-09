@@ -20,6 +20,7 @@ pub struct LauncherSettings {
     pub keep_downloaded_archives: bool,
     #[serde(default = "default_auto_check_mod_updates")]
     pub auto_check_mod_updates: bool,
+    pub disable_public_html_route: bool,
 }
 
 impl Default for LauncherSettings {
@@ -33,6 +34,7 @@ impl Default for LauncherSettings {
             auto_install_downloads: false,
             keep_downloaded_archives: false,
             auto_check_mod_updates: default_auto_check_mod_updates(),
+            disable_public_html_route: false,
         }
     }
 }
@@ -48,6 +50,7 @@ pub struct SaveLauncherSettingsRequest {
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
+    pub disable_public_html_route: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -329,6 +332,8 @@ pub struct LauncherNexusRouteSnapshot {
     pub max_attempts: u8,
     pub available: bool,
     pub message: String,
+    #[serde(default)]
+    pub challenge_required: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -364,6 +369,19 @@ pub struct CheckLauncherUpdatesRequest {
 #[serde(rename_all = "camelCase")]
 pub struct LoadCachedLauncherUpdatesRequest {
     pub mods_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadSuppressedLauncherUpdateModIdsRequest {
+    pub mods_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherSuppressedUpdateModIdsResult {
+    pub mods_path: String,
+    pub mod_ids: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]

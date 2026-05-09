@@ -14,13 +14,15 @@ use crate::domain::launcher::types::{
     LauncherGameLaunchError, LauncherGameLaunchResult, LauncherInstallBackupSummary,
     LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
     LauncherNexusDiagnosticsResult, LauncherRemoteModDetail, LauncherSettings,
-    LauncherUpdateChangelogResult, LauncherUpdatesResult, ListLauncherInstallBackupsRequest,
-    LoadCachedLauncherUpdatesRequest, LoadLauncherRemoteModDetailRequest,
+    LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
+    ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
+    LoadLauncherRemoteModDetailRequest,
     LoadLauncherUpdateChangelogRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
     PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest, ResolveLauncherImageResult,
     RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
     SaveLauncherSettingsRequest, ScanLauncherLibraryRequest, SearchLauncherCatalogRequest,
     SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
+    LoadSuppressedLauncherUpdateModIdsRequest,
 };
 use crate::domain::launcher::updates;
 
@@ -197,6 +199,14 @@ pub fn load_cached_launcher_updates(
     request: LoadCachedLauncherUpdatesRequest,
 ) -> Result<Option<LauncherUpdatesResult>, String> {
     updates::load_cached_launcher_updates(app, request)
+}
+
+#[tauri::command]
+pub fn load_suppressed_launcher_update_mod_ids(
+    app: tauri::AppHandle,
+    request: LoadSuppressedLauncherUpdateModIdsRequest,
+) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+    updates::load_suppressed_launcher_update_mod_ids(app, request)
 }
 
 #[tauri::command]

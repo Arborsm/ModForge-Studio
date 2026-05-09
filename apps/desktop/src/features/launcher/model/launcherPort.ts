@@ -17,6 +17,8 @@ import type {
   CheckLauncherUpdatesRequest,
   LauncherUpdatesResult,
   LoadCachedLauncherUpdatesRequest,
+  LoadSuppressedLauncherUpdateModIdsRequest,
+  LauncherSuppressedUpdateModIdsResult,
   DownloadLauncherModRequest,
   DownloadLauncherModResult,
   InstallLauncherArchiveRequest,
@@ -57,6 +59,7 @@ export type LauncherPort = {
   setNexusForceOffline(forceOffline: boolean): Promise<LauncherNexusDiagnosticsResult>
   resolveImage(request: ResolveLauncherImageRequest): Promise<ResolveLauncherImageResult>
   loadCachedUpdates(request: LoadCachedLauncherUpdatesRequest): Promise<LauncherUpdatesResult | null>
+  loadSuppressedUpdateModIds(request: LoadSuppressedLauncherUpdateModIdsRequest): Promise<LauncherSuppressedUpdateModIdsResult>
   checkUpdates(request: CheckLauncherUpdatesRequest): Promise<LauncherUpdatesResult>
   listenToUpdateProgress(listener: (payload: LauncherUpdateProgressPayload) => void): Promise<() => void>
   downloadMod(request: DownloadLauncherModRequest): Promise<DownloadLauncherModResult>

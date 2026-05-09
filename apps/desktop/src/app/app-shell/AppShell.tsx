@@ -32,7 +32,7 @@ import { rgbaFromHex } from '@app/app-shell/color'
 import { ACCENT_PRESETS } from './constants'
 import { clearLocalizedStageMetadataCache } from '@entities/event'
 import { LocaleProvider } from '@locales/localeContext'
-import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
+import { NotificationProvider, publishNotification, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
 import {
   applyAppUiStatePatch,
@@ -56,6 +56,8 @@ import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { getWorkbenchViewRegistration } from '@app/registry-setup'
 import type { PendingWorkbenchCommandIntent } from '@shared/contracts'
 import type { SettingsWindowCategory } from '@shared/contracts'
+import type { AppEvent, LauncherCloudflareChallengeSource } from '@shared/contracts'
+import { cx } from '@shared/lib/cx'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
 const WorkbenchPage = lazy(() => import('@pages/workbench').then((module) => ({ default: module.WorkbenchPage })))
@@ -89,6 +91,13 @@ function resolveLocale(value: string | null | undefined): LocaleCode {
   return getNavigatorLocale()
 }
 
+type CloudflareChallengeDialogState = {
+  url: string
+  source: LauncherCloudflareChallengeSource
+  disablePublicHtmlRoute: boolean
+  applying: boolean
+}
+
 export default function App() {
   const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
   if (!initialAppUiStateRef.current) {
@@ -117,8 +126,10 @@ export default function App() {
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
+  const [cloudflareChallengeDialog, setCloudflareChallengeDialog] = useState<CloudflareChallengeDialogState | null>(null)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
+  const publicHtmlChallengeActiveRef = useRef(false)
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
@@ -142,6 +153,32 @@ export default function App() {
   }, [appMode])
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
+
+  useEffect(
+    () =>
+      eventBus.subscribe((event: AppEvent) => {
+        if (event.type !== 'launcher/cloudflare-challenge-required') {
+          return
+        }
+
+        setCloudflareChallengeDialog((current) =>
+          current
+            ? {
+                ...current,
+                url: event.url,
+                source: event.source,
+                applying: false,
+              }
+            : {
+                url: event.url,
+                source: event.source,
+                disablePublicHtmlRoute: false,
+                applying: false,
+              },
+        )
+      }),
+    [eventBus],
+  )
 
   useEffect(() => {
     if (!desktopHost) {
@@ -192,26 +229,68 @@ export default function App() {
       onRetry: getAppUiStateSnapshot().launcher.forceOffline ? null : () => launcherDiagnosticsRetryRef.current?.(),
       onViewDetails: handleViewLauncherDiagnostics,
     })
-  }, [copy.launcher, handleViewLauncherDiagnostics])
+    const publicHtmlChallengeRoute = diagnostics?.routes.find(
+      (route) => route.routeId === 'publicHtml' && route.challengeRequired,
+    )
+    const challengeActive = Boolean(publicHtmlChallengeRoute)
+    if (challengeActive && !publicHtmlChallengeActiveRef.current && publicHtmlChallengeRoute) {
+      eventBus.emit({
+        type: 'launcher/cloudflare-challenge-required',
+        url: publicHtmlChallengeRoute.endpoint,
+        source: 'diagnostics',
+      })
+    }
+    publicHtmlChallengeActiveRef.current = challengeActive
+  }, [copy.launcher, eventBus, handleViewLauncherDiagnostics])
+
+  const refreshLauncherDiagnostics = useCallback(async () => {
+    if (!desktopHost) {
+      return
+    }
+
+    await launcherPort.restartNexusDiagnostics()
+    handleLauncherDiagnosticsUpdate(
+      await loadSettledLauncherNexusDiagnostics({
+        loadDiagnostics: launcherPort.loadNexusDiagnostics,
+      }),
+    )
+  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     launcherDiagnosticsRetryRef.current = async () => {
-      if (!desktopHost || getAppUiStateSnapshot().launcher.forceOffline) {
+      if (getAppUiStateSnapshot().launcher.forceOffline) {
         return
       }
 
-      await launcherPort.restartNexusDiagnostics()
-      handleLauncherDiagnosticsUpdate(
-        await loadSettledLauncherNexusDiagnostics({
-          loadDiagnostics: launcherPort.loadNexusDiagnostics,
-        }),
-      )
+      await refreshLauncherDiagnostics()
     }
 
     return () => {
       launcherDiagnosticsRetryRef.current = null
     }
-  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
+  }, [refreshLauncherDiagnostics])
+
+  useEffect(() => {
+    if (!desktopHost || !appUiStateReady) {
+      return
+    }
+
+    let disposed = false
+
+    void loadSettledLauncherNexusDiagnostics({
+      loadDiagnostics: launcherPort.loadNexusDiagnostics,
+    })
+      .then((diagnostics) => {
+        if (!disposed) {
+          handleLauncherDiagnosticsUpdate(diagnostics)
+        }
+      })
+      .catch(() => {})
+
+    return () => {
+      disposed = true
+    }
+  }, [appUiStateReady, desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     if (!desktopHost || !appUiStateReady) {
@@ -358,6 +437,70 @@ export default function App() {
     setSettingsWindowOpen(true)
   }, [])
 
+  const handleCloudflareChallengePreferenceToggle = useCallback(() => {
+    setCloudflareChallengeDialog((current) =>
+      current
+        ? {
+            ...current,
+            disablePublicHtmlRoute: !current.disablePublicHtmlRoute,
+          }
+        : current,
+    )
+  }, [])
+
+  const handleCloudflareChallengeAction = useCallback(
+    async (openBrowser: boolean) => {
+      if (!cloudflareChallengeDialog || cloudflareChallengeDialog.applying) {
+        return
+      }
+
+      setCloudflareChallengeDialog((current) =>
+        current
+          ? {
+              ...current,
+              applying: true,
+            }
+          : current,
+      )
+
+      if (cloudflareChallengeDialog.disablePublicHtmlRoute) {
+        try {
+          await launcherPort.saveSettings({
+            disablePublicHtmlRoute: true,
+          })
+          await refreshLauncherDiagnostics()
+        } catch (error) {
+          publishNotification({
+            level: 'error',
+            title: copy.launcher.settings.saveFailed,
+            description: error instanceof Error ? error.message : copy.launcher.settings.saveFailed,
+          })
+        }
+      }
+
+      if (openBrowser) {
+        try {
+          await launcherPort.openUrl({ url: cloudflareChallengeDialog.url })
+        } catch (error) {
+          publishNotification({
+            level: 'error',
+            title: copy.launcher.cloudflareChallenge.openAction,
+            description: error instanceof Error ? error.message : copy.launcher.cloudflareChallenge.detail,
+          })
+        }
+      }
+
+      setCloudflareChallengeDialog(null)
+    },
+    [
+      cloudflareChallengeDialog,
+      copy.launcher.cloudflareChallenge,
+      copy.launcher.settings.saveFailed,
+      launcherPort,
+      refreshLauncherDiagnostics,
+    ],
+  )
+
   const handleLoadingMotionChange = useCallback(
     (nextLoadingMotion: LoadingMotionPreference) => {
       setLoadingMotionPreference(nextLoadingMotion)
@@ -482,6 +625,7 @@ export default function App() {
                 onCloseWindow={() => void closeCurrentWindow()}
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
+                onLauncherEvent={eventBus.emit}
                 onNavigateToDiagnostics={handleViewLauncherDiagnostics}
                 onRetryDiagnostics={getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()}
                 onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
@@ -585,6 +729,81 @@ export default function App() {
                   onClose={() => setSettingsWindowOpen(false)}
                 />
               </Suspense>
+            ) : null}
+
+            {cloudflareChallengeDialog ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6">
+                <div className="w-full max-w-lg rounded-lg border border-white/10 bg-(--bg-app) p-5 shadow-2xl">
+                  <section role="dialog" aria-modal="true" aria-label={copy.launcher.cloudflareChallenge.title}>
+                    <div className="space-y-2">
+                      <h2 className="text-lg font-semibold text-(--text-primary)">
+                        {copy.launcher.cloudflareChallenge.title}
+                      </h2>
+                      <p className="text-sm text-(--text-secondary)">
+                        {copy.launcher.cloudflareChallenge.detail}
+                      </p>
+                      <p className="text-sm text-(--text-secondary)">
+                        {copy.launcher.cloudflareChallenge.prompt}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 rounded-md border border-white/10 bg-white/5 p-3">
+                      <button
+                        type="button"
+                        className={cx(
+                          'flex w-full items-center justify-between gap-4 rounded-md px-3 py-2 text-left transition',
+                          cloudflareChallengeDialog.disablePublicHtmlRoute ? 'bg-white/10' : 'bg-transparent',
+                        )}
+                        role="switch"
+                        aria-checked={cloudflareChallengeDialog.disablePublicHtmlRoute}
+                        aria-label={copy.launcher.cloudflareChallenge.disablePublicHtmlLabel}
+                        onClick={handleCloudflareChallengePreferenceToggle}
+                        disabled={cloudflareChallengeDialog.applying}
+                      >
+                        <span className="space-y-1">
+                          <span className="block text-sm font-medium text-(--text-primary)">
+                            {copy.launcher.cloudflareChallenge.disablePublicHtmlLabel}
+                          </span>
+                          <span className="block text-xs text-(--text-secondary)">
+                            {copy.launcher.cloudflareChallenge.disablePublicHtmlDescription}
+                          </span>
+                        </span>
+                        <span
+                          className={cx(
+                            'inline-flex min-w-40 justify-end text-xs',
+                            cloudflareChallengeDialog.disablePublicHtmlRoute
+                              ? 'text-(--text-primary)'
+                              : 'text-(--text-secondary)',
+                          )}
+                        >
+                          {cloudflareChallengeDialog.disablePublicHtmlRoute
+                            ? copy.launcher.cloudflareChallenge.disablePublicHtmlEnabledLabel
+                            : copy.launcher.cloudflareChallenge.disablePublicHtmlDisabledLabel}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        className="control-button"
+                        onClick={() => void handleCloudflareChallengeAction(false)}
+                        disabled={cloudflareChallengeDialog.applying}
+                      >
+                        {copy.launcher.cloudflareChallenge.cancelAction}
+                      </button>
+                      <button
+                        type="button"
+                        className="control-button control-button-primary"
+                        onClick={() => void handleCloudflareChallengeAction(true)}
+                        disabled={cloudflareChallengeDialog.applying}
+                      >
+                        {copy.launcher.cloudflareChallenge.openAction}
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              </div>
             ) : null}
           </div>
         </LoadingMotionProvider>

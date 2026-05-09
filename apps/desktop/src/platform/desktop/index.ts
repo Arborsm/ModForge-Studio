@@ -452,6 +452,7 @@ export type LauncherSettings = {
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
+  disablePublicHtmlRoute?: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -463,6 +464,7 @@ export type SaveLauncherSettingsRequest = {
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
+  disablePublicHtmlRoute?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -642,6 +644,7 @@ export type LauncherNexusRouteSnapshot = {
   maxAttempts: number
   available: boolean
   message: string
+  challengeRequired?: boolean
 }
 
 export type LauncherNexusDiagnosticsResult = {
@@ -666,6 +669,15 @@ export type CheckLauncherUpdatesRequest = {
 
 export type LoadCachedLauncherUpdatesRequest = {
   modsPath: string
+}
+
+export type LoadSuppressedLauncherUpdateModIdsRequest = {
+  modsPath: string
+}
+
+export type LauncherSuppressedUpdateModIdsResult = {
+  modsPath: string
+  modIds: number[]
 }
 
 export type LauncherUpdateSummary = {
@@ -1602,6 +1614,10 @@ export async function loadCachedLauncherUpdates(request: LoadCachedLauncherUpdat
 
   const result = await invokeDesktop<LauncherUpdatesResult | null>('load_cached_launcher_updates', { request })
   return result ? storeLauncherUpdatesResult(result, isLauncherUpdatesResultComplete(result)) : null
+}
+
+export async function loadSuppressedLauncherUpdateModIds(request: LoadSuppressedLauncherUpdateModIdsRequest) {
+  return invokeDesktop<LauncherSuppressedUpdateModIdsResult>('load_suppressed_launcher_update_mod_ids', { request })
 }
 
 export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {

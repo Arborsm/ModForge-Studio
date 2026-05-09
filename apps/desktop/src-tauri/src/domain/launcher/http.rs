@@ -11,6 +11,7 @@ use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, COOKIE, REFE
 use reqwest::{StatusCode, Url};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -22,6 +23,8 @@ pub(crate) const PUBLIC_BROWSER_USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
 pub(crate) const LAUNCHER_APP_NAME: &str = "ModForge Studio";
 pub(crate) const LAUNCHER_APP_VERSION: &str = "0.1";
+pub(crate) const LAUNCHER_CLOUDFLARE_CHALLENGE_REQUIRED_PREFIX: &str =
+    "CLOUDFLARE_CHALLENGE_REQUIRED:";
 
 const NEXUS_REQUEST_INTERVAL_MS: u64 = 650;
 const NEXUS_RETRY_ATTEMPTS: usize = 4;
@@ -103,12 +106,11 @@ impl LauncherNexusRoute {
     }
 
     fn configured_routes(settings: &LauncherSettings) -> Vec<Self> {
-        let mut routes = vec![
-            Self::PublicGraphql,
-            Self::PublicHtml,
-            Self::NexusImages,
-            Self::Smapi,
-        ];
+        let mut routes = vec![Self::PublicGraphql];
+        if !settings.disable_public_html_route {
+            routes.push(Self::PublicHtml);
+        }
+        routes.extend([Self::NexusImages, Self::Smapi]);
         if can_use_nexus_graphql(settings) {
             routes.push(Self::PrivateGraphql);
         }
@@ -194,6 +196,7 @@ fn launcher_nexus_route_loading_snapshot(route: LauncherNexusRoute) -> LauncherN
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: true,
         message: "loading".to_string(),
+        challenge_required: false,
     }
 }
 
@@ -223,6 +226,7 @@ fn launcher_nexus_success_snapshot(
         } else {
             format!("Connected after {attempts} attempts.")
         },
+        challenge_required: false,
     }
 }
 
@@ -231,6 +235,7 @@ fn launcher_nexus_warning_snapshot(
     attempts: u8,
     error: &str,
 ) -> LauncherNexusRouteSnapshot {
+    let challenge_required = is_launcher_cloudflare_challenge_required_error(error);
     LauncherNexusRouteSnapshot {
         route_id: route.id().to_string(),
         label: route.label().to_string(),
@@ -239,7 +244,15 @@ fn launcher_nexus_warning_snapshot(
         attempts,
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: false,
-        message: format!("Failed after {attempts} attempts: {error}"),
+        message: if challenge_required {
+            format!(
+                "Failed after {attempts} attempts: Cloudflare verification is required before {} requests can continue.",
+                route.label()
+            )
+        } else {
+            format!("Failed after {attempts} attempts: {error}")
+        },
+        challenge_required,
     }
 }
 
@@ -253,6 +266,7 @@ fn launcher_nexus_force_offline_snapshot(route: LauncherNexusRoute) -> LauncherN
         max_attempts: LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
         available: false,
         message: LAUNCHER_NEXUS_FORCE_OFFLINE_MESSAGE.to_string(),
+        challenge_required: false,
     }
 }
 
@@ -280,6 +294,9 @@ where
             Ok(()) => return launcher_nexus_success_snapshot(route, attempt),
             Err(error) => {
                 last_error = error;
+                if is_launcher_cloudflare_challenge_required_error(&last_error) {
+                    return launcher_nexus_warning_snapshot(route, attempt, &last_error);
+                }
                 if attempt < LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS {
                     log::warn!(
                         "launcher nexus startup probe failed for {} (attempt {attempt}/{}): {}",
@@ -414,6 +431,23 @@ pub(crate) fn ensure_launcher_nexus_route_available(
     Ok(())
 }
 
+fn launcher_public_html_route_disabled(settings: Option<&LauncherSettings>) -> bool {
+    settings
+        .map(|value| value.disable_public_html_route)
+        .unwrap_or(false)
+}
+
+fn ensure_launcher_nexus_route_enabled_in_settings(
+    settings: Option<&LauncherSettings>,
+    route: LauncherNexusRoute,
+) -> Result<(), String> {
+    if route == LauncherNexusRoute::PublicHtml && launcher_public_html_route_disabled(settings) {
+        return Err("Launcher Nexus Public HTML route is disabled in launcher settings.".to_string());
+    }
+
+    Ok(())
+}
+
 fn launcher_connectivity_status_is_acceptable(status: StatusCode) -> bool {
     status.is_success()
         || status.is_redirection()
@@ -514,18 +548,7 @@ fn probe_launcher_nexus_public_graphql_route(client: &Client) -> Result<(), Stri
 
 fn probe_launcher_nexus_public_html_route(client: &Client) -> Result<(), String> {
     let headers = public_page_headers(Some(PUBLIC_GRAPHQL_DIAGNOSTIC_REFERER))?;
-    let response = with_nexus_request_slot(|| {
-        client
-            .get(PUBLIC_HTML_DIAGNOSTIC_ENDPOINT)
-            .headers(headers)
-            .send()
-    })
-    .map_err(|error| error.to_string())?;
-    if !response.status().is_success() {
-        return Err(format!("HTTP {}", response.status()));
-    }
-
-    Ok(())
+    send_nexus_public_html_request(client, PUBLIC_HTML_DIAGNOSTIC_ENDPOINT, headers).map(|_| ())
 }
 
 fn probe_launcher_nexus_images_route(client: &Client) -> Result<(), String> {
@@ -624,6 +647,8 @@ pub(crate) fn probe_blocked_launcher_nexus_route(
     settings: Option<&LauncherSettings>,
     route: LauncherNexusRoute,
 ) -> Result<(), String> {
+    ensure_launcher_nexus_route_enabled_in_settings(settings, route)?;
+
     if is_launcher_nexus_route_blocked(route) {
         probe_blocked_launcher_nexus_route_with_runner(
             route,
@@ -892,6 +917,142 @@ where
     }
 
     Err(last_error.unwrap_or_else(|| "Nexus request failed without an error message.".to_string()))
+}
+
+fn launcher_public_html_accelerated_client(ip: IpAddr) -> Result<Client, String> {
+    let addr = SocketAddr::new(ip, 0);
+    Client::builder()
+        .cookie_store(true)
+        .timeout(Duration::from_secs(30))
+        .resolve("www.nexusmods.com", addr)
+        .resolve("nexusmods.com", addr)
+        .build()
+        .map_err(|error| {
+            format!("Failed to create launcher accelerated Nexus HTML client: {error}")
+        })
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct NexusPublicHtmlDocument {
+    pub(crate) status: StatusCode,
+    pub(crate) body: String,
+}
+
+pub(crate) fn launcher_cloudflare_challenge_required_error(url: &str) -> String {
+    format!("{LAUNCHER_CLOUDFLARE_CHALLENGE_REQUIRED_PREFIX}{url}")
+}
+
+pub(crate) fn is_launcher_cloudflare_challenge_required_error(error: &str) -> bool {
+    error
+        .trim()
+        .starts_with(LAUNCHER_CLOUDFLARE_CHALLENGE_REQUIRED_PREFIX)
+}
+
+pub(crate) fn nexus_public_html_response_requires_accelerated_fallback(body: &str) -> bool {
+    let normalized = body.trim().to_ascii_lowercase();
+    normalized.contains("just a moment")
+        || normalized.contains("enable javascript and cookies to continue")
+        || normalized.contains("_cf_chl_opt")
+        || normalized.contains("challenge-platform")
+}
+
+fn send_nexus_public_html_document<F>(send: F) -> Result<NexusPublicHtmlDocument, String>
+where
+    F: FnMut() -> Result<Response, reqwest::Error>,
+{
+    let mut request_send = send;
+    let mut status = StatusCode::OK;
+    let body = read_nexus_response_body_with_retry(|| {
+        let response = send_nexus_request(&mut request_send)?;
+        status = response.status();
+        response
+            .bytes()
+            .map(|bytes| bytes.to_vec())
+            .map_err(|error| format!("error decoding response body: {error}"))
+    })?;
+
+    Ok(NexusPublicHtmlDocument {
+        status,
+        body: String::from_utf8_lossy(&body).to_string(),
+    })
+}
+
+pub(crate) fn send_nexus_public_html_request(
+    client: &Client,
+    url: &str,
+    headers: HeaderMap,
+) -> Result<NexusPublicHtmlDocument, String> {
+    run_public_html_with_accelerated_fallback(
+        || {
+            let document = send_nexus_public_html_document(|| {
+                client.get(url).headers(headers.clone()).send()
+            })?;
+            if nexus_public_html_response_requires_accelerated_fallback(&document.body) {
+                return Err(launcher_cloudflare_challenge_required_error(url));
+            }
+            if !document.status.is_success() {
+                return Err(format!("HTTP {}", document.status));
+            }
+
+            Ok(document)
+        },
+        super::accelerater::resolve_accelerater_nexus_accelerated_ip,
+        |ip| {
+            let accelerated_client = launcher_public_html_accelerated_client(ip)?;
+            let document = send_nexus_public_html_document(|| {
+                accelerated_client
+                    .get(url)
+                    .headers(headers.clone())
+                    .send()
+            })?;
+            if nexus_public_html_response_requires_accelerated_fallback(&document.body) {
+                return Err(launcher_cloudflare_challenge_required_error(url));
+            }
+            if !document.status.is_success() {
+                return Err(format!("HTTP {}", document.status));
+            }
+
+            Ok(document)
+        },
+    )
+}
+
+pub(crate) fn run_public_html_with_accelerated_fallback<T, P, R, A>(
+    mut send_primary: P,
+    mut resolve_accelerated_ip: R,
+    mut send_accelerated: A,
+) -> Result<T, String>
+where
+    P: FnMut() -> Result<T, String>,
+    R: FnMut() -> Result<IpAddr, String>,
+    A: FnMut(IpAddr) -> Result<T, String>,
+{
+    let primary_error = match send_primary() {
+        Ok(response) => return Ok(response),
+        Err(error) => error,
+    };
+
+    if is_launcher_cloudflare_challenge_required_error(&primary_error) {
+        return Err(primary_error);
+    }
+
+    log::warn!(
+        "launcher Nexus Public HTML request failed, retrying through Accelerater accelerated IP: {primary_error}"
+    );
+    let ip = resolve_accelerated_ip().map_err(|fallback_error| {
+        format!(
+            "{primary_error}; Accelerater accelerated fallback could not resolve an IP: {fallback_error}"
+        )
+    })?;
+    send_accelerated(ip).map_err(|fallback_error| {
+        if is_launcher_cloudflare_challenge_required_error(&fallback_error) {
+            fallback_error
+        } else {
+            format!(
+                "{primary_error}; Accelerater accelerated fallback through {ip} failed: {fallback_error}"
+            )
+        }
+    })
 }
 
 fn read_nexus_response_body_with_retry<F>(mut read_body: F) -> Result<Vec<u8>, String>

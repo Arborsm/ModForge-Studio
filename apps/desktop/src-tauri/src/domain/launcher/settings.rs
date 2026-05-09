@@ -27,6 +27,7 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
         auto_install_downloads: settings.auto_install_downloads,
         keep_downloaded_archives: settings.keep_downloaded_archives,
         auto_check_mod_updates: settings.auto_check_mod_updates,
+        disable_public_html_route: settings.disable_public_html_route,
     }
 }
 
@@ -165,6 +166,9 @@ pub fn save_launcher_settings(
                 auto_check_mod_updates: request
                     .auto_check_mod_updates
                     .unwrap_or(existing.auto_check_mod_updates),
+                disable_public_html_route: request
+                    .disable_public_html_route
+                    .unwrap_or(existing.disable_public_html_route),
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;

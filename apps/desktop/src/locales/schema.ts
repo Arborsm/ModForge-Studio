@@ -718,6 +718,17 @@ export type LauncherCopy = {
     blockedTitle: string
     blockedDetail: string
   }
+  cloudflareChallenge: {
+    title: string
+    detail: string
+    prompt: string
+    openAction: string
+    cancelAction: string
+    disablePublicHtmlLabel: string
+    disablePublicHtmlDescription: string
+    disablePublicHtmlEnabledLabel: string
+    disablePublicHtmlDisabledLabel: string
+  }
   downloads: {
     title: string
     subtitle: string

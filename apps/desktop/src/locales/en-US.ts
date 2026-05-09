@@ -263,6 +263,17 @@ const localeBundle: LocaleBundle = {
         "blockedTitle": "Automatic Update Checks Are Paused",
         "blockedDetail": "The update routes failed repeatedly, so automatic background checks are paused to avoid sending the same failing requests over and over."
       },
+      "cloudflareChallenge": {
+        "title": "Nexus verification required",
+        "detail": "Nexus Mods returned a Cloudflare verification page instead of the expected HTML content. Complete the verification in your browser, then return here and retry the action.",
+        "prompt": "Open Nexus Mods now?",
+        "openAction": "Open Nexus Mods",
+        "cancelAction": "Cancel",
+        "disablePublicHtmlLabel": "Stop using the Public HTML route",
+        "disablePublicHtmlDescription": "Turn off the HTML-based Nexus route for later requests and diagnostics. GraphQL and other routes will keep working when available.",
+        "disablePublicHtmlEnabledLabel": "Public HTML route disabled",
+        "disablePublicHtmlDisabledLabel": "Public HTML route enabled"
+      },
       "downloads": {
         "title": "Downloads",
         "subtitle": "Queued downloads continue here and can install completed archives into Mods.",

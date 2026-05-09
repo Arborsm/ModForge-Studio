@@ -7,6 +7,7 @@ import { useLauncherLibrary } from '@features/launcher'
 import { useLauncherSettings } from '@features/launcher'
 import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/cx'
+import type { AppEvent } from '@shared/contracts'
 
 const LauncherDiscoverPage = lazy(() =>
   import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })),
@@ -22,6 +23,7 @@ type LauncherShellProps = {
   page: LauncherPage
   debugEnabled: boolean
   onToggleDebugMode: () => void
+  onLauncherEvent?: (event: AppEvent) => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
@@ -38,6 +40,7 @@ export default function LauncherShell({
   page,
   debugEnabled,
   onToggleDebugMode,
+  onLauncherEvent,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
   onLauncherDiagnosticsUpdate,
@@ -60,9 +63,10 @@ export default function LauncherShell({
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
+        onLauncherEvent={onLauncherEvent}
       />
     ),
-    [library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
+    [library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame, onLauncherEvent],
   )
 
   return (
@@ -102,6 +106,7 @@ export default function LauncherShell({
               <LauncherUpdatesPage
                 settings={settingsState.settings}
                 onQueueDownload={downloads.queueDownload}
+                onLauncherEvent={onLauncherEvent}
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}

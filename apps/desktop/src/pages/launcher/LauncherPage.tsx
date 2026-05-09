@@ -5,7 +5,7 @@ import TopMenuBar from '@widgets/top-navigation'
 import StatusBar from '@widgets/status-bar'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
-import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
+import type { AppEvent, SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
 import { useLauncherPort, useLauncherRuntime, useLauncherUpdateProgressNotifications, type LauncherNexusDiagnosticsResult } from '@features/launcher'
 import type { LocaleCode } from '@locales'
 
@@ -24,6 +24,7 @@ type LauncherPageProps = {
   onCloseWindow: () => void
   onOpenSettings: (category?: SettingsWindowCategory) => void
   onToggleDebugMode: () => void
+  onLauncherEvent?: (event: AppEvent) => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
@@ -54,6 +55,7 @@ export function LauncherPage({
   onCloseWindow,
   onOpenSettings,
   onToggleDebugMode,
+  onLauncherEvent,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
   onLauncherDiagnosticsUpdate,
@@ -126,6 +128,7 @@ export function LauncherPage({
             page={activeLauncherPage}
             debugEnabled={debugEnabled}
             onToggleDebugMode={onToggleDebugMode}
+            onLauncherEvent={onLauncherEvent}
             onNavigateToDiagnostics={onNavigateToDiagnostics}
             onRetryDiagnostics={onRetryDiagnostics}
             onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}

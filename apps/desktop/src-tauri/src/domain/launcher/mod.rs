@@ -15,6 +15,7 @@ pub mod trace;
 pub mod types;
 pub mod update_cache;
 pub mod updates;
+pub mod accelerater;
 
 use types::LauncherSettings;
 

@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import { openLauncherUrl, type LauncherNexusDiagnosticsResult } from '@platform/desktop'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/editor-shell'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
 
@@ -194,6 +194,18 @@ const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promis
 const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
   async () => createLauncherNexusDiagnosticsResult(),
 )
+const saveLauncherSettingsMock = vi.fn(async (request: Record<string, unknown>) => ({
+  gamePath: 'C:/Games/Stardew Valley',
+  modsPath: 'C:/Games/Stardew Valley/Mods',
+  downloadPath: 'C:/Downloads',
+  nexusApiKey: null,
+  nexusCookie: null,
+  autoInstallDownloads: false,
+  keepDownloadedArchives: false,
+  autoCheckModUpdates: true,
+  disablePublicHtmlRoute: Boolean(request.disablePublicHtmlRoute),
+}))
+const openLauncherUrlMock = vi.mocked(openLauncherUrl)
 
 const useCpMakerMock = vi.fn(() => ({
   activeDraft: null,
@@ -393,8 +405,10 @@ vi.mock('@platform/desktop', () => ({
   listLauncherInstallBackups: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
+  openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
+  saveLauncherSettings: (request: Record<string, unknown>) => saveLauncherSettingsMock(request),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
   setLauncherLibraryCover: vi.fn(async () => undefined),
@@ -430,8 +444,10 @@ vi.mock('@platform/desktop', () => ({
   listLauncherInstallBackups: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
+  openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
+  saveLauncherSettings: (request: Record<string, unknown>) => saveLauncherSettingsMock(request),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
   setLauncherLibraryCover: vi.fn(async () => undefined),
@@ -479,6 +495,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
     onAppModeChange,
     onOpenSettings,
     onLauncherPageChange,
+    onLauncherEvent,
     onLauncherDiagnosticsUpdate,
   }: {
     page: 'library' | 'discover' | 'updates' | 'debug'
@@ -487,6 +504,11 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
     onAppModeChange: (mode: 'launcher' | 'workbench') => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
     onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'debug') => void
+    onLauncherEvent?: (event: {
+      type: 'launcher/cloudflare-challenge-required'
+      url: string
+      source: 'diagnostics' | 'library-gallery-cover' | 'updates-detail' | 'updates-changelog'
+    }) => void
     onNavigateToDiagnostics?: () => void
     onRetryDiagnostics?: (() => Promise<void> | void) | null
     onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
@@ -551,6 +573,18 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
           {labels.updates}
         </button>
         <button type="button">{labels.downloads}</button>
+        <button
+          type="button"
+          onClick={() =>
+            onLauncherEvent?.({
+              type: 'launcher/cloudflare-challenge-required',
+              url: 'https://www.nexusmods.com/stardewvalley/mods/101',
+              source: 'updates-detail',
+            })
+          }
+        >
+          Trigger Cloudflare Request
+        </button>
         {debugEnabled ? (
           <button
             type="button"
@@ -789,6 +823,20 @@ describe('App locale ownership', () => {
     setLauncherNexusForceOfflineMock.mockResolvedValue({ routes: [] })
     restartLauncherNexusDiagnosticsMock.mockReset()
     restartLauncherNexusDiagnosticsMock.mockResolvedValue({ routes: [] })
+    saveLauncherSettingsMock.mockReset()
+    saveLauncherSettingsMock.mockImplementation(async (request: Record<string, unknown>) => ({
+      gamePath: 'C:/Games/Stardew Valley',
+      modsPath: 'C:/Games/Stardew Valley/Mods',
+      downloadPath: 'C:/Downloads',
+      nexusApiKey: null,
+      nexusCookie: null,
+      autoInstallDownloads: false,
+      keepDownloadedArchives: false,
+      autoCheckModUpdates: true,
+      disablePublicHtmlRoute: Boolean(request.disablePublicHtmlRoute),
+    }))
+    openLauncherUrlMock.mockReset()
+    openLauncherUrlMock.mockResolvedValue(undefined)
     initializeAppUiStateMock.mockClear()
     initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
     applyAppUiStatePatchMock.mockClear()
@@ -1142,6 +1190,57 @@ describe('App locale ownership', () => {
 
     await waitFor(() => {
       expect(restartLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('opens the Cloudflare dialog when startup diagnostics detect a Public HTML challenge', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    loadLauncherNexusDiagnosticsMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicHtml',
+          label: 'Nexus Public HTML',
+          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Cloudflare verification is required before Nexus Public HTML requests can continue.',
+          challengeRequired: true,
+        },
+      ],
+    })
+
+    render(<App />)
+
+    expect(await screen.findByRole('dialog', { name: /Nexus verification required/i })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: /Stop using the Public HTML route/i })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('opens Nexus and persists disabling Public HTML when the Cloudflare dialog switch is enabled', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Trigger Cloudflare Request' }))
+
+    const dialog = await screen.findByRole('dialog', { name: /Nexus verification required/i })
+    fireEvent.click(within(dialog).getByRole('switch', { name: /Stop using the Public HTML route/i }))
+    fireEvent.click(within(dialog).getByRole('button', { name: /Open Nexus Mods/i }))
+
+    await waitFor(() => {
+      expect(saveLauncherSettingsMock).toHaveBeenCalledWith({
+        disablePublicHtmlRoute: true,
+      })
+      expect(restartLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+      expect(openLauncherUrlMock).toHaveBeenCalledWith({
+        url: 'https://www.nexusmods.com/stardewvalley/mods/101',
+      })
     })
   })
 

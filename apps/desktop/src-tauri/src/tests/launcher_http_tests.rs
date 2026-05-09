@@ -1,12 +1,16 @@
 use super::{
     ensure_launcher_nexus_route_available, launcher_nexus_route_for_url,
+    launcher_cloudflare_challenge_required_error,
+    nexus_public_html_response_requires_accelerated_fallback,
     probe_blocked_launcher_nexus_route_with_runner, probe_launcher_nexus_route_with_runner,
     read_nexus_response_body_with_retry, reset_launcher_nexus_diagnostics_for_test,
+    run_public_html_with_accelerated_fallback,
     set_launcher_nexus_force_offline_with_settings_for_test,
     set_launcher_nexus_route_snapshot_for_test, LauncherNexusRoute,
     LauncherNexusRouteSnapshot, LauncherNexusRouteStatus, snapshot_launcher_nexus_diagnostics_for_test,
 };
 use crate::domain::launcher::types::LauncherSettings;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Mutex, OnceLock};
 
 fn launcher_http_test_guard() -> &'static Mutex<()> {
@@ -24,6 +28,7 @@ fn launcher_settings(api_key: Option<&str>, cookie: Option<&str>) -> LauncherSet
         auto_install_downloads: false,
         keep_downloaded_archives: false,
         auto_check_mod_updates: true,
+        disable_public_html_route: false,
     }
 }
 
@@ -94,6 +99,131 @@ fn launcher_nexus_route_probe_marks_success_after_first_successful_attempt() {
 }
 
 #[test]
+fn public_html_response_requires_fallback_for_cloudflare_challenge_pages() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    let challenge_html = r#"
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Just a moment...</title>
+  </head>
+  <body>
+    <div>Enable JavaScript and cookies to continue</div>
+    <script>window._cf_chl_opt = { cZone: 'www.nexusmods.com' };</script>
+  </body>
+</html>
+"#;
+
+    let normal_html = r#"
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta property="og:title" content="Joja Civic Center" />
+  </head>
+  <body>real page</body>
+</html>
+"#;
+
+    assert!(nexus_public_html_response_requires_accelerated_fallback(
+        challenge_html
+    ));
+    assert!(!nexus_public_html_response_requires_accelerated_fallback(
+        normal_html
+    ));
+}
+
+#[test]
+fn public_html_fallback_retries_when_primary_body_is_not_usable_html() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    let mut accelerated_attempts = 0;
+
+    let result = run_public_html_with_accelerated_fallback(
+        || Err("Received Nexus HTML interstitial instead of page content.".to_string()),
+        || Ok(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))),
+        |ip| {
+            accelerated_attempts += 1;
+            Ok(format!("ok via {ip}"))
+        },
+    )
+    .expect("accelerated fallback should recover from unusable primary html");
+
+    assert_eq!(accelerated_attempts, 1);
+    assert_eq!(result, "ok via 1.1.1.1");
+}
+
+#[test]
+fn public_html_fallback_skips_accelerated_retry_when_primary_reports_challenge() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    let mut accelerated_attempts = 0;
+
+    let error = run_public_html_with_accelerated_fallback(
+        || Err(launcher_cloudflare_challenge_required_error("https://www.nexusmods.com/stardewvalley")),
+        || {
+            accelerated_attempts += 1;
+            Ok(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)))
+        },
+        |_ip| Ok("unused".to_string()),
+    )
+    .expect_err("challenge should short-circuit before accelerated fallback");
+
+    assert_eq!(accelerated_attempts, 0);
+    assert!(error.contains("CLOUDFLARE_CHALLENGE_REQUIRED"));
+}
+
+#[test]
+fn public_html_response_detects_cloudflare_challenge_even_on_http_error() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    assert!(nexus_public_html_response_requires_accelerated_fallback(
+        r#"
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Just a moment...</title>
+  </head>
+  <body>
+    <div>Enable JavaScript and cookies to continue</div>
+  </body>
+</html>
+"#
+    ));
+}
+
+#[test]
+fn launcher_nexus_route_probe_stops_retrying_when_cloudflare_challenge_is_required() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    let mut attempts = 0;
+
+    let snapshot = probe_launcher_nexus_route_with_runner(
+        LauncherNexusRoute::PublicHtml,
+        || {
+            attempts += 1;
+            Err(launcher_cloudflare_challenge_required_error(
+                "https://www.nexusmods.com/stardewvalley",
+            ))
+        },
+        true,
+    );
+
+    assert_eq!(attempts, 1);
+    assert_eq!(snapshot.status, LauncherNexusRouteStatus::Warning);
+    assert!(!snapshot.available);
+    assert_eq!(snapshot.attempts, 1);
+    assert!(snapshot.challenge_required);
+}
+
+#[test]
 fn blocked_launcher_nexus_route_returns_fast_error() {
     let _guard = launcher_http_test_guard()
         .lock()
@@ -108,6 +238,7 @@ fn blocked_launcher_nexus_route_returns_fast_error() {
         max_attempts: 3,
         available: false,
         message: "Failed after 3 attempts: timeout".to_string(),
+        challenge_required: false,
     });
 
     let error = ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
@@ -132,6 +263,7 @@ fn blocked_launcher_nexus_route_can_be_recovered_by_reprobe() {
         max_attempts: 3,
         available: false,
         message: "Failed after 3 attempts: timeout".to_string(),
+        challenge_required: false,
     });
 
     let mut attempts = 0;
