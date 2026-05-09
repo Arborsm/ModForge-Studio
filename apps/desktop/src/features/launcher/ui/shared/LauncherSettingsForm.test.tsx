@@ -19,6 +19,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     autoInstallDownloads: true,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
+    disablePublicHtmlRoute: false,
     ...overrides,
   } as LauncherSettings
 }
@@ -63,6 +64,7 @@ describe('LauncherSettingsForm', () => {
     expect(screen.getByText(copy.toggles.autoInstallDownloads)).toBeTruthy()
     expect(screen.getByText(copy.toggles.keepDownloadedArchives)).toBeTruthy()
     expect(screen.getByText(copy.toggles.autoCheckModUpdates)).toBeTruthy()
+    expect(screen.getByText(copy.toggles.disablePublicHtmlRoute)).toBeTruthy()
   })
 
   it('calls updateField and save through the provided settings state', () => {
@@ -75,6 +77,9 @@ describe('LauncherSettingsForm', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }))
     expect(settingsState.updateField).toHaveBeenCalledWith('autoCheckModUpdates', false)
+
+    fireEvent.click(screen.getByRole('switch', { name: copy.toggles.disablePublicHtmlRoute }))
+    expect(settingsState.updateField).toHaveBeenCalledWith('disablePublicHtmlRoute', true)
   })
 
   it('uses settings-window control cards for launcher settings items', () => {
@@ -85,5 +90,6 @@ describe('LauncherSettingsForm', () => {
     expect(screen.getByRole('switch', { name: copy.toggles.autoInstallDownloads }).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.keepDownloadedArchives }).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }).closest('.settings-window-control-card')).toBeTruthy()
+    expect(screen.getByRole('switch', { name: copy.toggles.disablePublicHtmlRoute }).closest('.settings-window-control-card')).toBeTruthy()
   })
 })

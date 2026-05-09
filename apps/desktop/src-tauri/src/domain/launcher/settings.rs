@@ -1,4 +1,3 @@
-use super::http::restart_launcher_nexus_diagnostics;
 use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
@@ -143,7 +142,7 @@ pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings
 }
 
 pub fn save_launcher_settings(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -172,10 +171,21 @@ pub fn save_launcher_settings(
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;
-            restart_launcher_nexus_diagnostics(&normalized);
+            super::public_html_webview::sync_disable_public_html_route(
+                Some(&app),
+                normalized.disable_public_html_route,
+            );
+            restart_launcher_nexus_diagnostics_with_app(&app, &normalized);
             Ok(normalized)
         })(),
     )
+}
+
+pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
+    app: &tauri::AppHandle,
+    settings: &LauncherSettings,
+) {
+    super::http::restart_launcher_nexus_diagnostics_with_handle(Some(app), settings);
 }
 
 #[cfg(test)]

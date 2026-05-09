@@ -188,7 +188,7 @@ export type LauncherUpdateChangelogResult = {
   changelog: string | null
 }
 
-export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
+export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success' | 'verifying'
 
 export type LauncherNexusRouteSnapshot = {
   routeId: string
@@ -384,3 +384,35 @@ export type InspectLauncherArchiveResult = {
   modRoots: string[]
   tree: LauncherArchiveTreeNode[]
 }
+
+
+
+export type LauncherPublicHtmlVerificationReason =
+  | 'diagnostics'
+  | 'remote-mod-detail'
+  | 'remote-mod-images'
+  | 'remote-mod-files'
+
+export type LauncherPublicHtmlVerificationState =
+  | 'idle'
+  | 'opening'
+  | 'waitingForUser'
+  | 'verified'
+  | 'disabled'
+  | 'cancelled'
+  | 'failed'
+
+export type LauncherPublicHtmlVerificationSnapshot = {
+  state: LauncherPublicHtmlVerificationState
+  targetUrl: string | null
+  reason: LauncherPublicHtmlVerificationReason | null
+  disablePublicHtmlRoute: boolean
+  lastVerifiedAtMs: number | null
+  message: string | null
+}
+
+export type LauncherPublicHtmlVerificationRequest = {
+  targetUrl: string
+  reason: LauncherPublicHtmlVerificationReason
+}
+

@@ -317,6 +317,7 @@ pub struct LauncherUpdateChangelogResult {
 #[serde(rename_all = "lowercase")]
 pub enum LauncherNexusRouteStatus {
     Loading,
+    Verifying,
     Warning,
     Success,
 }
@@ -583,4 +584,60 @@ fn default_unsorted_storage_folder() -> LauncherLibraryStorageFolder {
         name: UNSORTED_STORAGE_FOLDER_NAME.to_string(),
         mod_keys: Vec::new(),
     }
+}
+
+// ---- PublicHtml Webview Verification Types ----
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PublicHtmlVerificationReason {
+    Diagnostics,
+    RemoteModDetail,
+    RemoteModImages,
+    RemoteModFiles,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PublicHtmlVerificationStage {
+    Idle,
+    Opening,
+    Waiting,
+    Verified,
+    Disabled,
+    Failed,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicHtmlVerificationSnapshot {
+    pub stage: PublicHtmlVerificationStage,
+    pub reason: Option<PublicHtmlVerificationReason>,
+    pub url: Option<String>,
+    pub message: Option<String>,
+    #[serde(default)]
+    pub disable_public_html_route: bool,
+    #[serde(default)]
+    pub last_verified_at_ms: Option<u128>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicHtmlVerificationEventPayload {
+    pub stage: PublicHtmlVerificationStage,
+    pub reason: Option<PublicHtmlVerificationReason>,
+    pub url: Option<String>,
+    pub message: Option<String>,
+    #[serde(default)]
+    pub disable_public_html_route: bool,
+    #[serde(default)]
+    pub last_verified_at_ms: Option<u128>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublicHtmlVerificationRequest {
+    pub target_url: String,
+    pub reason: PublicHtmlVerificationReason,
 }

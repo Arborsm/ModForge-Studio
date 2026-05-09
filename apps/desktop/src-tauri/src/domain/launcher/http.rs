@@ -16,6 +16,8 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
+use super::public_html_webview;
+use super::types::PublicHtmlVerificationReason;
 
 pub(crate) const DEFAULT_GAME_ID: i64 = 1303;
 pub(crate) const LAUNCHER_USER_AGENT: &str = "ModForge Studio/0.1";
@@ -546,8 +548,14 @@ fn probe_launcher_nexus_public_graphql_route(client: &Client) -> Result<(), Stri
     validate_launcher_nexus_graphql_probe_response(response)
 }
 
-fn probe_launcher_nexus_public_html_route(client: &Client) -> Result<(), String> {
-    let headers = public_page_headers(Some(PUBLIC_GRAPHQL_DIAGNOSTIC_REFERER))?;
+fn probe_launcher_nexus_public_html_route(
+    client: &Client,
+    settings: Option<&LauncherSettings>,
+) -> Result<(), String> {
+    let headers = public_page_headers(
+        Some(PUBLIC_GRAPHQL_DIAGNOSTIC_REFERER),
+        settings.and_then(|value| value.nexus_cookie.as_deref()),
+    )?;
     send_nexus_public_html_request(client, PUBLIC_HTML_DIAGNOSTIC_ENDPOINT, headers).map(|_| ())
 }
 
@@ -624,7 +632,7 @@ fn probe_launcher_nexus_route_once(
 ) -> Result<(), String> {
     match route {
         LauncherNexusRoute::PublicGraphql => probe_launcher_nexus_public_graphql_route(client),
-        LauncherNexusRoute::PublicHtml => probe_launcher_nexus_public_html_route(client),
+        LauncherNexusRoute::PublicHtml => probe_launcher_nexus_public_html_route(client, settings),
         LauncherNexusRoute::NexusImages => probe_launcher_nexus_images_route(client),
         LauncherNexusRoute::Smapi => probe_launcher_smapi_route(client),
         LauncherNexusRoute::PrivateGraphql => probe_launcher_nexus_private_graphql_route(
@@ -660,7 +668,11 @@ pub(crate) fn probe_blocked_launcher_nexus_route(
     ensure_launcher_nexus_route_available(route)
 }
 
-fn run_launcher_nexus_diagnostics(settings: LauncherSettings, generation: u64) {
+fn run_launcher_nexus_diagnostics(
+    settings: LauncherSettings,
+    generation: u64,
+    app: Option<AppHandle>,
+) {
     let client = match launcher_http_client() {
         Ok(client) => client,
         Err(error) => {
@@ -684,13 +696,123 @@ fn run_launcher_nexus_diagnostics(settings: LauncherSettings, generation: u64) {
             || probe_launcher_nexus_route_once(&client, Some(&settings), route),
             true,
         );
-        update_launcher_nexus_route_snapshot_for_generation(generation, snapshot);
+
+        // For PublicHtml: intercept Cloudflare challenge and attempt webview verification
+        let final_snapshot = if route == LauncherNexusRoute::PublicHtml
+            && snapshot.challenge_required
+            && !settings.disable_public_html_route
+        {
+            handle_diagnostics_challenge_with_verification(
+                app.as_ref(),
+                &settings,
+                &client,
+                generation,
+                route,
+                &snapshot,
+            )
+        } else {
+            snapshot
+        };
+
+        update_launcher_nexus_route_snapshot_for_generation(generation, final_snapshot);
     }
+}
+
+/// Handle a Cloudflare challenge during diagnostics by requesting webview verification.
+/// If the user completes verification, the diagnostic is retried for this route.
+/// Returns the final snapshot (verified success, or warning if failed/cancelled).
+fn handle_diagnostics_challenge_with_verification(
+    app: Option<&AppHandle>,
+    settings: &LauncherSettings,
+    client: &Client,
+    generation: u64,
+    route: LauncherNexusRoute,
+    challenge_snapshot: &LauncherNexusRouteSnapshot,
+) -> LauncherNexusRouteSnapshot {
+    // Set route to Verifying so the frontend can show the verification UI
+    let verifying_snapshot = LauncherNexusRouteSnapshot {
+        status: LauncherNexusRouteStatus::Verifying,
+        message: "Cloudflare challenge detected -- launching browser verification.".to_string(),
+        ..challenge_snapshot.clone()
+    };
+    update_launcher_nexus_route_snapshot_for_generation(generation, verifying_snapshot);
+
+    let url = challenge_snapshot.endpoint.clone();
+    if let Some(app) = app {
+        if let Err(error) = public_html_webview::request_verification_with_app(
+            app,
+            PublicHtmlVerificationReason::Diagnostics,
+            url,
+        ) {
+            log::warn!("failed to open public html verification windows: {error}");
+            return challenge_snapshot.clone();
+        }
+    } else {
+        let accepted = public_html_webview::request_verification(
+            PublicHtmlVerificationReason::Diagnostics,
+            url,
+        );
+        if !accepted {
+            log::warn!("public html verification request rejected (another session in progress)");
+            return challenge_snapshot.clone();
+        }
+        public_html_webview::signal_verification_opened();
+    }
+
+    match public_html_webview::wait_for_verification() {
+        Ok(cookie) => {
+            // Save cookie if provided, then retry diagnostics for this route
+            if let Some(cookie_value) = cookie {
+                if let Err(err) = save_nexus_cookie_to_settings(&cookie_value) {
+                    log::warn!("failed to save nexus cookie from verification: {err}");
+                }
+            }
+            public_html_webview::reset_verification();
+
+            let refreshed_settings = match launcher_settings_path()
+                .and_then(|path| load_or_create_settings_at_path(&path))
+            {
+                Ok(value) => value,
+                Err(error) => {
+                    log::warn!("failed to reload launcher settings after browser verification: {error}");
+                    settings.clone()
+                }
+            };
+
+            // Retry the route probe now that verification (hopefully) completed
+            let retry = probe_launcher_nexus_route_with_runner(
+                route,
+                || probe_launcher_nexus_route_once(client, Some(&refreshed_settings), route),
+                true,
+            );
+            retry
+        }
+        Err((_stage, message)) => {
+            log::warn!("public html verification did not complete: {message}");
+            public_html_webview::reset_verification();
+
+            // Return a warning snapshot -- verification did not succeed
+            LauncherNexusRouteSnapshot {
+                status: LauncherNexusRouteStatus::Warning,
+                message: format!("Cloudflare challenge verification failed: {message}"),
+                ..challenge_snapshot.clone()
+            }
+        }
+    }
+}
+
+pub(crate) fn save_nexus_cookie_to_settings(cookie: &str) -> Result<(), String> {
+    let settings_path = launcher_settings_path()?;
+    let mut settings = load_or_create_settings_at_path(&settings_path)?;
+    settings.nexus_cookie = Some(cookie.trim().to_string());
+    super::settings::save_settings_at_path(&settings_path, &settings)?;
+    Ok(())
 }
 
 fn start_launcher_nexus_diagnostics_with_settings(
     settings: LauncherSettings,
     force_restart: bool,
+    app: Option<AppHandle>,
 ) {
     let generation = {
         let mut state = launcher_nexus_diagnostics_state()
@@ -711,18 +833,21 @@ fn start_launcher_nexus_diagnostics_with_settings(
         state.generation
     };
 
-    thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation));
+    thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation, app));
 }
 
 pub(crate) fn prime_launcher_nexus_diagnostics(_app: &AppHandle) -> Result<(), String> {
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
-    start_launcher_nexus_diagnostics_with_settings(settings, false);
+    start_launcher_nexus_diagnostics_with_settings(settings, false, Some(_app.clone()));
     Ok(())
 }
 
-pub(crate) fn restart_launcher_nexus_diagnostics(settings: &LauncherSettings) {
-    start_launcher_nexus_diagnostics_with_settings(settings.clone(), true);
+pub(crate) fn restart_launcher_nexus_diagnostics_with_handle(
+    app: Option<&AppHandle>,
+    settings: &LauncherSettings,
+) {
+    start_launcher_nexus_diagnostics_with_settings(settings.clone(), true, app.cloned());
 }
 
 pub(crate) fn set_launcher_nexus_force_offline_with_settings(
@@ -757,7 +882,7 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings(
     };
 
     if should_restart {
-        start_launcher_nexus_diagnostics_with_settings(settings.clone(), true);
+        start_launcher_nexus_diagnostics_with_settings(settings.clone(), true, None);
     }
 
     snapshot_launcher_nexus_diagnostics()
@@ -787,7 +912,7 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
 ) -> Result<LauncherNexusDiagnosticsResult, String> {
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
-    restart_launcher_nexus_diagnostics(&settings);
+    restart_launcher_nexus_diagnostics_with_handle(Some(_app), &settings);
     Ok(snapshot_launcher_nexus_diagnostics())
 }
 
@@ -935,6 +1060,7 @@ fn launcher_public_html_accelerated_client(ip: IpAddr) -> Result<Client, String>
 #[derive(Debug, Clone)]
 pub(crate) struct NexusPublicHtmlDocument {
     pub(crate) status: StatusCode,
+    pub(crate) headers: HeaderMap,
     pub(crate) body: String,
 }
 
@@ -962,9 +1088,11 @@ where
 {
     let mut request_send = send;
     let mut status = StatusCode::OK;
+    let mut headers = HeaderMap::new();
     let body = read_nexus_response_body_with_retry(|| {
         let response = send_nexus_request(&mut request_send)?;
         status = response.status();
+        headers = response.headers().clone();
         response
             .bytes()
             .map(|bytes| bytes.to_vec())
@@ -973,29 +1101,68 @@ where
 
     Ok(NexusPublicHtmlDocument {
         status,
+        headers,
         body: String::from_utf8_lossy(&body).to_string(),
     })
 }
 
-pub(crate) fn send_nexus_public_html_request(
+pub(crate) fn nexus_public_html_document_requires_verification(
+    document: &NexusPublicHtmlDocument,
+) -> bool {
+    if nexus_public_html_response_requires_accelerated_fallback(&document.body) {
+        return true;
+    }
+
+    let cf_mitigated_challenge = document
+        .headers
+        .get("cf-mitigated")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.eq_ignore_ascii_case("challenge"))
+        .unwrap_or(false);
+    if cf_mitigated_challenge {
+        return true;
+    }
+
+    let cloudflare_server = document
+        .headers
+        .get("server")
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.to_ascii_lowercase().contains("cloudflare"))
+        .unwrap_or(false);
+    let has_cf_bm_cookie = document
+        .headers
+        .get_all("set-cookie")
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .any(|value| value.contains("__cf_bm="));
+
+    document.status == StatusCode::FORBIDDEN && cloudflare_server && has_cf_bm_cookie
+}
+
+fn send_nexus_public_html_request_internal(
     client: &Client,
     url: &str,
     headers: HeaderMap,
+    allow_accelerated_fallback: bool,
 ) -> Result<NexusPublicHtmlDocument, String> {
-    run_public_html_with_accelerated_fallback(
-        || {
-            let document = send_nexus_public_html_document(|| {
-                client.get(url).headers(headers.clone()).send()
-            })?;
-            if nexus_public_html_response_requires_accelerated_fallback(&document.body) {
-                return Err(launcher_cloudflare_challenge_required_error(url));
-            }
-            if !document.status.is_success() {
-                return Err(format!("HTTP {}", document.status));
-            }
+    let send_primary = || {
+        let document = send_nexus_public_html_document(|| client.get(url).headers(headers.clone()).send())?;
+        if nexus_public_html_document_requires_verification(&document) {
+            return Err(launcher_cloudflare_challenge_required_error(url));
+        }
+        if !document.status.is_success() {
+            return Err(format!("HTTP {}", document.status));
+        }
 
-            Ok(document)
-        },
+        Ok(document)
+    };
+
+    if !allow_accelerated_fallback {
+        return send_primary();
+    }
+
+    run_public_html_with_accelerated_fallback(
+        send_primary,
         super::accelerater::resolve_accelerater_nexus_accelerated_ip,
         |ip| {
             let accelerated_client = launcher_public_html_accelerated_client(ip)?;
@@ -1005,7 +1172,7 @@ pub(crate) fn send_nexus_public_html_request(
                     .headers(headers.clone())
                     .send()
             })?;
-            if nexus_public_html_response_requires_accelerated_fallback(&document.body) {
+            if nexus_public_html_document_requires_verification(&document) {
                 return Err(launcher_cloudflare_challenge_required_error(url));
             }
             if !document.status.is_success() {
@@ -1015,6 +1182,60 @@ pub(crate) fn send_nexus_public_html_request(
             Ok(document)
         },
     )
+}
+
+pub(crate) fn send_nexus_public_html_request(
+    client: &Client,
+    url: &str,
+    headers: HeaderMap,
+) -> Result<NexusPublicHtmlDocument, String> {
+    send_nexus_public_html_request_internal(client, url, headers, true)
+}
+
+pub(crate) fn send_nexus_public_html_request_with_verification(
+    app: &AppHandle,
+    client: &Client,
+    settings: &LauncherSettings,
+    url: &str,
+    referer: Option<&str>,
+    reason: PublicHtmlVerificationReason,
+) -> Result<NexusPublicHtmlDocument, String> {
+    let initial_headers = public_page_headers(referer, settings.nexus_cookie.as_deref())?;
+    match send_nexus_public_html_request_internal(client, url, initial_headers.clone(), false) {
+        Ok(document) => Ok(document),
+        Err(error) if is_launcher_cloudflare_challenge_required_error(&error) => {
+            let verifying_snapshot = public_html_webview::request_verification_with_app(
+                app,
+                reason,
+                url.to_string(),
+            )?;
+            log::warn!(
+                "launcher public html request requires browser verification for {} (stage={:?})",
+                url,
+                verifying_snapshot.stage
+            );
+
+            let cookie = match public_html_webview::wait_for_verification() {
+                Ok(cookie) => cookie,
+                Err((_stage, message)) => {
+                    return Err(format!(
+                        "Public HTML browser verification did not complete for {url}: {message}"
+                    ));
+                }
+            };
+
+            if let Some(cookie_value) = cookie {
+                save_nexus_cookie_to_settings(&cookie_value)?;
+            }
+            public_html_webview::reset_verification();
+
+            let refreshed_settings = load_or_create_settings_at_path(&launcher_settings_path()?)?;
+            let retry_headers =
+                public_page_headers(referer, refreshed_settings.nexus_cookie.as_deref())?;
+            send_nexus_public_html_request(client, url, retry_headers)
+        }
+        Err(_error) => send_nexus_public_html_request(client, url, initial_headers),
+    }
 }
 
 pub(crate) fn run_public_html_with_accelerated_fallback<T, P, R, A>(
@@ -1165,7 +1386,10 @@ pub(crate) fn graphql_headers(
     Ok(headers)
 }
 
-pub(crate) fn public_page_headers(referer: Option<&str>) -> Result<HeaderMap, String> {
+pub(crate) fn public_page_headers(
+    referer: Option<&str>,
+    cookie: Option<&str>,
+) -> Result<HeaderMap, String> {
     let mut headers = HeaderMap::new();
     headers.insert(
         USER_AGENT,
@@ -1203,6 +1427,14 @@ pub(crate) fn public_page_headers(referer: Option<&str>) -> Result<HeaderMap, St
             REFERER,
             HeaderValue::from_str(referer).map_err(|error| {
                 format!("Failed to encode launcher public page referer header: {error}")
+            })?,
+        );
+    }
+    if let Some(cookie) = cookie.map(str::trim).filter(|value| !value.is_empty()) {
+        headers.insert(
+            COOKIE,
+            HeaderValue::from_str(cookie).map_err(|error| {
+                format!("Failed to encode launcher public page cookie header: {error}")
             })?,
         );
     }

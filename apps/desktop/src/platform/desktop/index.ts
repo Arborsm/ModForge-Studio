@@ -633,7 +633,7 @@ export type LauncherUpdateChangelogResult = {
   changelog: string | null
 }
 
-export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
+export type LauncherNexusRouteStatus = 'loading' | 'verifying' | 'warning' | 'success'
 
 export type LauncherNexusRouteSnapshot = {
   routeId: string
@@ -1760,6 +1760,173 @@ export async function closeCurrentWindow() {
   await getCurrentWindow().close()
 }
 
+// ─── Cp Maker Commands ────────────────────────────────────────
+
+// ─── Public Html Verification ─────────────────────────────────
+
+export type LauncherPublicHtmlVerificationReason =
+  | 'diagnostics'
+  | 'remote-mod-detail'
+  | 'remote-mod-images'
+  | 'remote-mod-files'
+
+export type LauncherPublicHtmlVerificationState =
+  | 'idle'
+  | 'opening'
+  | 'waitingForUser'
+  | 'verified'
+  | 'disabled'
+  | 'cancelled'
+  | 'failed'
+
+export type LauncherPublicHtmlVerificationSnapshot = {
+  state: LauncherPublicHtmlVerificationState
+  targetUrl: string | null
+  reason: LauncherPublicHtmlVerificationReason | null
+  disablePublicHtmlRoute: boolean
+  lastVerifiedAtMs: number | null
+  message: string | null
+}
+
+export type LauncherPublicHtmlVerificationRequest = {
+  targetUrl: string
+  reason: LauncherPublicHtmlVerificationReason
+}
+
+type RawLauncherPublicHtmlVerificationReason =
+  | LauncherPublicHtmlVerificationReason
+  | 'Diagnostics'
+  | 'RemoteModDetail'
+  | 'RemoteModImages'
+  | 'RemoteModFiles'
+
+type RawLauncherPublicHtmlVerificationSnapshot = {
+  stage?: string | null
+  state?: string | null
+  url?: string | null
+  targetUrl?: string | null
+  reason?: RawLauncherPublicHtmlVerificationReason | null
+  message?: string | null
+  disablePublicHtmlRoute?: boolean | null
+  lastVerifiedAtMs?: number | null
+}
+
+const LAUNCHER_PUBLIC_HTML_VERIFICATION_EVENT = 'launcher://public-html-verify-state'
+
+function normalizeLauncherPublicHtmlVerificationReason(
+  value: RawLauncherPublicHtmlVerificationReason | null | undefined,
+): LauncherPublicHtmlVerificationReason | null {
+  if (!value) {
+    return null
+  }
+  const normalized = value.toLowerCase()
+  return normalized === 'diagnostics' ||
+    normalized === 'remote-mod-detail' ||
+    normalized === 'remote-mod-images' ||
+    normalized === 'remote-mod-files'
+    ? normalized
+    : null
+}
+
+function normalizeLauncherPublicHtmlVerificationSnapshot(
+  value: RawLauncherPublicHtmlVerificationSnapshot | null | undefined,
+): LauncherPublicHtmlVerificationSnapshot {
+  const rawState = value?.state ?? value?.stage ?? 'idle'
+  const normalizedState =
+    rawState === 'challenge' || rawState === 'Challenge'
+      ? 'waitingForUser'
+      : rawState === 'complete' || rawState === 'Complete'
+        ? 'verified'
+        : rawState === 'Opening'
+          ? 'opening'
+          : rawState === 'Waiting'
+            ? 'waitingForUser'
+            : rawState === 'Verified'
+              ? 'verified'
+              : rawState === 'Cancelled'
+                ? 'cancelled'
+                : rawState === 'Failed'
+                  ? 'failed'
+                  : rawState === 'Disabled'
+                    ? 'disabled'
+                    : rawState === 'waiting'
+                      ? 'waitingForUser'
+                      : rawState === 'opening'
+                        ? 'opening'
+                        : rawState === 'verified'
+                          ? 'verified'
+                          : rawState === 'cancelled'
+                            ? 'cancelled'
+                            : rawState === 'failed'
+                              ? 'failed'
+                              : rawState === 'disabled'
+                                ? 'disabled'
+                                : 'idle'
+
+  return {
+    state: normalizedState,
+    targetUrl: value?.targetUrl ?? value?.url ?? null,
+    reason: normalizeLauncherPublicHtmlVerificationReason(value?.reason),
+    disablePublicHtmlRoute: value?.disablePublicHtmlRoute ?? false,
+    lastVerifiedAtMs: value?.lastVerifiedAtMs ?? null,
+    message: value?.message ?? null,
+  }
+}
+
+export async function openLauncherPublicHtmlVerification(request: LauncherPublicHtmlVerificationRequest) {
+  return normalizeLauncherPublicHtmlVerificationSnapshot(
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_open_verify', { request }).catch(async () =>
+      invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_verify_status'),
+    ),
+  )
+}
+
+export async function loadLauncherPublicHtmlVerificationState() {
+  return normalizeLauncherPublicHtmlVerificationSnapshot(
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_verify_status'),
+  )
+}
+
+export function listenToLauncherPublicHtmlVerificationState(
+  listener: (state: LauncherPublicHtmlVerificationSnapshot) => void,
+) {
+  return listen<RawLauncherPublicHtmlVerificationSnapshot>(
+    LAUNCHER_PUBLIC_HTML_VERIFICATION_EVENT,
+    (event) => {
+      listener(normalizeLauncherPublicHtmlVerificationSnapshot(event.payload))
+    },
+  )
+}
+
+export async function signalLauncherPublicHtmlVerificationOpened() {
+  return normalizeLauncherPublicHtmlVerificationSnapshot(
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_signal_opened'),
+  )
+}
+
+export async function submitLauncherPublicHtmlVerificationCookie(cookie: string) {
+  return normalizeLauncherPublicHtmlVerificationSnapshot(
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_submit_cookie', { cookie }),
+  )
+}
+
+export async function cancelLauncherPublicHtmlVerification() {
+  return normalizeLauncherPublicHtmlVerificationSnapshot(
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_cancel_verify'),
+  )
+}
+
+export async function refreshLauncherPublicHtmlVerification() {
+  await invokeDesktop('public_html_nexus_refresh_verify')
+}
+
+export async function closeLauncherPublicHtmlVerification() {
+  await invokeDesktop('public_html_nexus_close_verify')
+}
+
+export async function clearLauncherPublicHtmlVerificationSession() {
+  await invokeDesktop('public_html_nexus_clear_session')
+}
 // ─── Cp Maker Commands ────────────────────────────────────────
 
 const cpMakerDraftsCache = createPromiseCache<CpMakerDraftSummary[]>()

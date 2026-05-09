@@ -21,7 +21,7 @@ export function getLauncherNexusWarningRoutes(diagnostics: LauncherNexusDiagnost
 }
 
 export function hasLoadingLauncherNexusRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
-  return (diagnostics?.routes ?? []).some((route) => route.status === 'loading')
+  return (diagnostics?.routes ?? []).some((route) => route.status === 'loading' || route.status === 'verifying')
 }
 
 function getRouteMessages(routes: LauncherNexusRouteSnapshot[]) {

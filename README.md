@@ -15,6 +15,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │     ├─ src/                          # React / TypeScript 前端
 │     │  ├─ app/                       # 应用装配、Provider、全局壳层、registry setup
 │     │  │  ├─ app-shell/              # 全局 App Shell、设置窗口、应用级 chrome
+│     │  │  ├─ launcher-public-html-verification/ # Public HTML 验证专用窗口
 │     │  │  └─ providers/              # DI Provider、事件总线、命令分发器
 │     │  ├─ pages/                     # 页面骨架与 view 分发
 │     │  │  ├─ launcher/               # 启动器页面入口
@@ -94,6 +95,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 
 - App wrapper：`apps/desktop/src/app/App.tsx`
 - 全局壳层：`apps/desktop/src/app/app-shell/`
+- Public HTML 验证窗口：`apps/desktop/src/app/launcher-public-html-verification/`
 - Platform Provider：`apps/desktop/src/app/providers/PlatformProvider.tsx`
 - 事件总线与命令分发：`apps/desktop/src/app/providers/`
 - Approved platform bridge boundaries：`apps/desktop/src/app/providers/`、`apps/desktop/src/app/app-shell/AppShell.tsx`、`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
@@ -183,6 +185,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 
 - 改应用启动、模式恢复、全局设置、Provider：
   - `apps/desktop/src/app/app-shell/`
+  - `apps/desktop/src/app/launcher-public-html-verification/`
   - `apps/desktop/src/app/providers/`
   - `apps/desktop/src/app/App.tsx`
 - 改 registry、view 分发、workspace 注册：

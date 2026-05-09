@@ -38,6 +38,8 @@ import type {
   LauncherUpdateProgressPayload,
   SaveLauncherSettingsRequest,
   LauncherGameLaunchResult,
+  LauncherPublicHtmlVerificationRequest,
+  LauncherPublicHtmlVerificationSnapshot,
 } from './launcherContracts'
 
 export type LauncherPort = {
@@ -79,4 +81,13 @@ export type LauncherPort = {
   detectDefaultGameDirectory(): Promise<string | null>
   toDesktopAssetUrl(path: string, protocol?: string): string
   subscribeUpdates(modsPath: string, listener: (result: LauncherUpdatesResult) => void): () => void
+  openPublicHtmlVerification(request: LauncherPublicHtmlVerificationRequest): Promise<LauncherPublicHtmlVerificationSnapshot>
+  loadPublicHtmlVerificationState(): Promise<LauncherPublicHtmlVerificationSnapshot>
+  listenToPublicHtmlVerificationState(listener: (state: LauncherPublicHtmlVerificationSnapshot) => void): Promise<() => void>
+  signalPublicHtmlVerificationOpened(): Promise<LauncherPublicHtmlVerificationSnapshot>
+  submitPublicHtmlVerificationCookie(cookie: string): Promise<LauncherPublicHtmlVerificationSnapshot>
+  cancelPublicHtmlVerification(): Promise<LauncherPublicHtmlVerificationSnapshot>
+  refreshPublicHtmlVerification(): Promise<void>
+  closePublicHtmlVerification(): Promise<void>
+  clearPublicHtmlVerificationSession(): Promise<void>
 }

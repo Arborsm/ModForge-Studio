@@ -6,7 +6,7 @@ use super::http::{
 use super::library::scan_library_at_path;
 use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::remote::{
-    load_remote_mod_detail_from_html, load_remote_mod_detail_from_public_graphql,
+    load_remote_mod_detail_from_public_graphql,
     parse_remote_mod_detail_node, RemoteModDetail,
 };
 use super::settings::load_or_create_settings_at_path;
@@ -36,6 +36,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 use tauri::Emitter;
+use tauri::AppHandle;
 
 const UPDATE_BATCH_SIZE: usize = 24;
 const GRAPHQL_ENDPOINT: &str = "https://graphql.nexusmods.com/";
@@ -608,6 +609,7 @@ fn load_remote_mod_details_from_smapi(
 }
 
 fn load_remote_mod_details_batch(
+    app: &AppHandle,
     client: &Client,
     settings: &LauncherSettings,
     candidates: &[UpdateCheckCandidate],
@@ -738,7 +740,12 @@ fn load_remote_mod_details_batch(
                     candidate.mod_id,
                     error = public_error
                 );
-                match load_remote_mod_detail_from_html(client, settings, candidate.mod_id) {
+                match super::remote::load_remote_mod_detail_from_html_with_app(
+                    Some(app),
+                    client,
+                    settings,
+                    candidate.mod_id,
+                ) {
                     Ok(detail) => {
                         html_resolved += 1;
                         details.insert(candidate.mod_id, detail);
@@ -1194,7 +1201,7 @@ fn check_launcher_updates_blocking(
                 ],
             );
             let remote_details =
-                load_remote_mod_details_batch(&client, &settings, batch, &smapi_versions)?;
+                load_remote_mod_details_batch(app, &client, &settings, batch, &smapi_versions)?;
             let resolved_mod_ids = batch
                 .iter()
                 .filter(|candidate| remote_details.contains_key(&candidate.mod_id))

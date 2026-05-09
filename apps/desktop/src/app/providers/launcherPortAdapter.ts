@@ -38,6 +38,15 @@ import {
   detectDefaultGameDirectory,
   subscribeLauncherUpdates,
   toDesktopAssetUrl,
+  openLauncherPublicHtmlVerification,
+  loadLauncherPublicHtmlVerificationState,
+  listenToLauncherPublicHtmlVerificationState,
+  signalLauncherPublicHtmlVerificationOpened,
+  submitLauncherPublicHtmlVerificationCookie,
+  cancelLauncherPublicHtmlVerification,
+  refreshLauncherPublicHtmlVerification,
+  closeLauncherPublicHtmlVerification,
+  clearLauncherPublicHtmlVerificationSession,
 } from '@platform/desktop'
 
 export function createLauncherPortAdapter(): LauncherPort {
@@ -80,5 +89,14 @@ export function createLauncherPortAdapter(): LauncherPort {
     detectDefaultGameDirectory: () => detectDefaultGameDirectory(),
     toDesktopAssetUrl: (path, protocol) => toDesktopAssetUrl(path, protocol),
     subscribeUpdates: (modsPath, listener) => subscribeLauncherUpdates(modsPath, listener),
+    openPublicHtmlVerification: (request) => openLauncherPublicHtmlVerification(request),
+    loadPublicHtmlVerificationState: () => loadLauncherPublicHtmlVerificationState(),
+    listenToPublicHtmlVerificationState: (listener) => listenToLauncherPublicHtmlVerificationState(listener),
+    signalPublicHtmlVerificationOpened: () => signalLauncherPublicHtmlVerificationOpened(),
+    submitPublicHtmlVerificationCookie: (cookie) => submitLauncherPublicHtmlVerificationCookie(cookie),
+    cancelPublicHtmlVerification: () => cancelLauncherPublicHtmlVerification(),
+    refreshPublicHtmlVerification: () => refreshLauncherPublicHtmlVerification(),
+    closePublicHtmlVerification: () => closeLauncherPublicHtmlVerification(),
+    clearPublicHtmlVerificationSession: () => clearLauncherPublicHtmlVerificationSession(),
   }
 }

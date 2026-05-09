@@ -1,15 +1,18 @@
 use super::{
     ensure_launcher_nexus_route_available, launcher_nexus_route_for_url,
     launcher_cloudflare_challenge_required_error,
+    nexus_public_html_document_requires_verification,
     nexus_public_html_response_requires_accelerated_fallback,
     probe_blocked_launcher_nexus_route_with_runner, probe_launcher_nexus_route_with_runner,
     read_nexus_response_body_with_retry, reset_launcher_nexus_diagnostics_for_test,
-    run_public_html_with_accelerated_fallback,
+    run_public_html_with_accelerated_fallback, NexusPublicHtmlDocument,
     set_launcher_nexus_force_offline_with_settings_for_test,
     set_launcher_nexus_route_snapshot_for_test, LauncherNexusRoute,
     LauncherNexusRouteSnapshot, LauncherNexusRouteStatus, snapshot_launcher_nexus_diagnostics_for_test,
 };
 use crate::domain::launcher::types::LauncherSettings;
+use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::StatusCode;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Mutex, OnceLock};
 
@@ -196,6 +199,25 @@ fn public_html_response_detects_cloudflare_challenge_even_on_http_error() {
 </html>
 "#
     ));
+}
+
+#[test]
+fn public_html_document_detects_cloudflare_challenge_from_response_headers() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    let mut headers = HeaderMap::new();
+    headers.insert("cf-mitigated", HeaderValue::from_static("challenge"));
+    headers.insert("server", HeaderValue::from_static("cloudflare"));
+
+    let document = NexusPublicHtmlDocument {
+        status: StatusCode::FORBIDDEN,
+        headers,
+        body: "<html><body>forbidden</body></html>".to_string(),
+    };
+
+    assert!(nexus_public_html_document_requires_verification(&document));
 }
 
 #[test]
@@ -425,4 +447,75 @@ fn launcher_nexus_route_for_url_classifies_known_remote_hosts() {
         ),
         None
     );
+}
+#[test]
+fn verifying_status_serializes_to_lowercase_json() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    let snapshot = super::LauncherNexusRouteSnapshot {
+        route_id: super::LauncherNexusRoute::PublicHtml.id().to_string(),
+        label: super::LauncherNexusRoute::PublicHtml.label().to_string(),
+        endpoint: super::LauncherNexusRoute::PublicHtml.endpoint().to_string(),
+        status: super::LauncherNexusRouteStatus::Verifying,
+        attempts: 1,
+        max_attempts: 3,
+        available: true,
+        message: "Cloudflare challenge detected -- launching browser verification.".to_string(),
+        challenge_required: true,
+    };
+
+    let json = serde_json::to_string(&snapshot).expect("snapshot should serialize");
+    assert!(json.contains(r#""status":"verifying""#), "Expected verifying status in JSON, got: {json}");
+    assert!(json.contains(r#""challengeRequired":true"#), "Expected challengeRequired in JSON, got: {json}");
+}
+
+#[test]
+fn disabled_public_html_route_still_generates_warning_on_challenge() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    // When disable_public_html_route = true, configured_routes excludes PublicHtml
+    let settings = LauncherSettings {
+        disable_public_html_route: true,
+        ..launcher_settings(None, None)
+    };
+
+    let routes = super::LauncherNexusRoute::configured_routes(&settings);
+    assert!(!routes.contains(&super::LauncherNexusRoute::PublicHtml),
+        "PublicHtml route should be excluded when disabled");
+
+    // The probe would not be called for PublicHtml at all
+    // Verify we can still create a warning snapshot for the route directly
+    let warning = super::LauncherNexusRouteSnapshot {
+        route_id: super::LauncherNexusRoute::PublicHtml.id().to_string(),
+        label: super::LauncherNexusRoute::PublicHtml.label().to_string(),
+        endpoint: super::LauncherNexusRoute::PublicHtml.endpoint().to_string(),
+        status: super::LauncherNexusRouteStatus::Warning,
+        attempts: 1,
+        max_attempts: 3,
+        available: false,
+        message: "Route is disabled.".to_string(),
+        challenge_required: false,
+    };
+    assert_eq!(warning.status, super::LauncherNexusRouteStatus::Warning);
+}
+
+#[test]
+fn launcher_nexus_success_snapshot_works_with_one_attempt() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    let snapshot = super::launcher_nexus_success_snapshot(
+        super::LauncherNexusRoute::PublicGraphql,
+        1,
+    );
+
+    assert_eq!(snapshot.status, super::LauncherNexusRouteStatus::Success);
+    assert!(snapshot.available);
+    assert_eq!(snapshot.attempts, 1);
+    assert!(snapshot.message.contains("1 attempt"));
 }

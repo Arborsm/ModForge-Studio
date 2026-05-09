@@ -123,4 +123,62 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
     await vi.advanceTimersByTimeAsync(300)
     expect(loadDiagnostics).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps polling while a route is waiting for Public HTML verification', async () => {
+    vi.useFakeTimers()
+    const loadDiagnostics = vi
+      .fn()
+      .mockResolvedValueOnce({
+        routes: [
+          {
+            routeId: 'publicHtml',
+            label: 'Nexus Public HTML',
+            endpoint: 'https://www.nexusmods.com/stardewvalley',
+            status: 'verifying' as never,
+            attempts: 1,
+            maxAttempts: 3,
+            available: true,
+            message: 'Waiting for browser verification to complete.',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        routes: [
+          {
+            routeId: 'publicHtml',
+            label: 'Nexus Public HTML',
+            endpoint: 'https://www.nexusmods.com/stardewvalley',
+            status: 'success' as const,
+            attempts: 2,
+            maxAttempts: 3,
+            available: true,
+            message: 'Connected after verification.',
+          },
+        ],
+      })
+
+    const pending = loadSettledLauncherNexusDiagnostics({
+      loadDiagnostics,
+      delayMs: 100,
+      maxAttempts: 3,
+    })
+
+    await vi.advanceTimersByTimeAsync(100)
+    await expect(pending).resolves.toEqual({
+      routes: [
+        {
+          routeId: 'publicHtml',
+          label: 'Nexus Public HTML',
+          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          status: 'success',
+          attempts: 2,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after verification.',
+        },
+      ],
+    })
+
+    expect(loadDiagnostics).toHaveBeenCalledTimes(2)
+  })
 })

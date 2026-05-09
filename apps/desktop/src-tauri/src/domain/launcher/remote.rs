@@ -1,6 +1,6 @@
 use super::http::{
     launcher_http_client, probe_blocked_launcher_nexus_route, public_graphql_headers,
-    public_page_headers, send_nexus_json_request, send_nexus_public_html_request,
+    send_nexus_json_request, send_nexus_public_html_request_with_verification,
     LauncherNexusRoute, DEFAULT_GAME_ID,
 };
 use super::paths::launcher_settings_path;
@@ -15,6 +15,7 @@ use super::types::{
 use regex::Regex;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
+use tauri::AppHandle;
 
 const PUBLIC_GRAPHQL_ENDPOINT: &str = "https://api-router.nexusmods.com/graphql";
 const PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER: &str = "LauncherPublicModDetail";
@@ -488,42 +489,69 @@ pub(super) fn load_remote_mod_detail_from_public_graphql(
     parse_public_mod_detail_graphql_response(&response_payload, mod_id)
 }
 
-pub(super) fn load_remote_mod_detail_from_html(
+pub(super) fn load_remote_mod_detail_from_html_with_app(
+    app: Option<&AppHandle>,
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<RemoteModDetail, String> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicHtml)?;
     let mod_url = build_mod_page_url(mod_id);
-    let headers = public_page_headers(None)?;
-    let response = send_nexus_public_html_request(client, &mod_url, headers)?;
+    let response = match app {
+        Some(app) => send_nexus_public_html_request_with_verification(
+            app,
+            client,
+            settings,
+            &mod_url,
+            None,
+            super::types::PublicHtmlVerificationReason::RemoteModDetail,
+        )?,
+        None => {
+            let headers = super::http::public_page_headers(None, settings.nexus_cookie.as_deref())?;
+            super::http::send_nexus_public_html_request(client, &mod_url, headers)?
+        }
+    };
     let html = response.body;
     parse_remote_mod_detail_html(&html, mod_id)
         .ok_or_else(|| format!("Failed to parse launcher mod page HTML for {mod_id}."))
 }
 
 fn load_remote_mod_detail_gallery_from_images_tab(
+    app: &AppHandle,
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<Vec<String>, String> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicHtml)?;
     let images_url = format!("{}?tab=images", build_mod_page_url(mod_id));
-    let headers = public_page_headers(None)?;
-    let response = send_nexus_public_html_request(client, &images_url, headers)?;
+    let response = send_nexus_public_html_request_with_verification(
+        app,
+        client,
+        settings,
+        &images_url,
+        None,
+        super::types::PublicHtmlVerificationReason::RemoteModImages,
+    )?;
     let html = response.body;
     Ok(parse_remote_mod_images_tab_html(&html))
 }
 
 fn load_remote_mod_files_tab_text(
+    app: &AppHandle,
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<String, String> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicHtml)?;
     let files_url = format!("{}?tab=files", build_mod_page_url(mod_id));
-    let headers = public_page_headers(None)?;
-    let response = send_nexus_public_html_request(client, &files_url, headers)?;
+    let response = send_nexus_public_html_request_with_verification(
+        app,
+        client,
+        settings,
+        &files_url,
+        None,
+        super::types::PublicHtmlVerificationReason::RemoteModFiles,
+    )?;
     let html = response.body;
     Ok(html_to_multiline_text(&html))
 }
@@ -545,20 +573,22 @@ fn enrich_remote_mod_detail_with_file_metadata(
 }
 
 fn load_remote_mod_file_metadata(
+    app: &AppHandle,
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<LauncherUpdateFileMetadata, String> {
-    let text = load_remote_mod_files_tab_text(client, settings, mod_id)?;
+    let text = load_remote_mod_files_tab_text(app, client, settings, mod_id)?;
     Ok(parse_launcher_update_file_metadata_text(&text))
 }
 
 fn load_remote_mod_changelog_from_files_tab(
+    app: &AppHandle,
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
 ) -> Result<ParsedLauncherUpdateChangelog, String> {
-    let text = load_remote_mod_files_tab_text(client, settings, mod_id)?;
+    let text = load_remote_mod_files_tab_text(app, client, settings, mod_id)?;
     parse_launcher_update_changelog_text(&text).ok_or_else(|| {
         format!("Failed to parse launcher mod changelog from files page for {mod_id}.")
     })
@@ -582,12 +612,13 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
 }
 
 pub async fn load_launcher_remote_mod_detail(
+    app: AppHandle,
     request: LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_remote_mod_detail",
         tauri::async_runtime::spawn_blocking(move || {
-            load_launcher_remote_mod_detail_blocking(&request)
+            load_launcher_remote_mod_detail_blocking(&app, &request)
         })
         .await
         .map_err(|error| format!("Failed to join launcher mod detail task: {error}"))?,
@@ -595,12 +626,13 @@ pub async fn load_launcher_remote_mod_detail(
 }
 
 pub async fn load_launcher_update_changelog(
+    app: AppHandle,
     request: LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_update_changelog",
         tauri::async_runtime::spawn_blocking(move || {
-            load_launcher_update_changelog_blocking(&request)
+            load_launcher_update_changelog_blocking(&app, &request)
         })
         .await
         .map_err(|error| format!("Failed to join launcher update changelog task: {error}"))?,
@@ -608,6 +640,7 @@ pub async fn load_launcher_update_changelog(
 }
 
 fn load_launcher_remote_mod_detail_blocking(
+    app: &AppHandle,
     request: &LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
     if request.mod_id <= 0 {
@@ -619,10 +652,10 @@ fn load_launcher_remote_mod_detail_blocking(
     let settings = load_or_create_settings_at_path(&settings_path)?;
     let mut detail = load_remote_mod_detail_with_public_graphql_fallback(
         || load_remote_mod_detail_from_public_graphql(&client, &settings, request.mod_id),
-        || load_remote_mod_detail_from_html(&client, &settings, request.mod_id),
+        || load_remote_mod_detail_from_html_with_app(Some(app), &client, &settings, request.mod_id),
     )?;
     if detail.image_url.is_none() && detail.gallery_images.is_empty() {
-        match load_remote_mod_detail_gallery_from_images_tab(&client, &settings, request.mod_id) {
+        match load_remote_mod_detail_gallery_from_images_tab(app, &client, &settings, request.mod_id) {
             Ok(gallery_images) if !gallery_images.is_empty() => {
                 detail = enrich_remote_mod_detail_with_gallery_images(detail, gallery_images);
             }
@@ -635,7 +668,7 @@ fn load_launcher_remote_mod_detail_blocking(
             }
         }
     }
-    match load_remote_mod_file_metadata(&client, &settings, request.mod_id) {
+    match load_remote_mod_file_metadata(app, &client, &settings, request.mod_id) {
         Ok(metadata) => {
             detail = enrich_remote_mod_detail_with_file_metadata(detail, metadata);
         }
@@ -651,6 +684,7 @@ fn load_launcher_remote_mod_detail_blocking(
 }
 
 fn load_launcher_update_changelog_blocking(
+    app: &AppHandle,
     request: &LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {
     if request.mod_id <= 0 {
@@ -660,7 +694,7 @@ fn load_launcher_update_changelog_blocking(
     let client = launcher_http_client()?;
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
-    let changelog = load_remote_mod_changelog_from_files_tab(&client, &settings, request.mod_id)?;
+    let changelog = load_remote_mod_changelog_from_files_tab(app, &client, &settings, request.mod_id)?;
 
     Ok(LauncherUpdateChangelogResult {
         mod_id: request.mod_id,

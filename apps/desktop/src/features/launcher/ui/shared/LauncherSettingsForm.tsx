@@ -1,4 +1,4 @@
-import { ArrowUpRight, FolderOpen, KeyRound } from 'lucide-react'
+import { ArrowUpRight, ExternalLink, FolderOpen, KeyRound, Trash2 } from 'lucide-react'
 import { useId } from 'react'
 import type { ReactNode } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
@@ -145,6 +145,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
   const commonCopy = rootCopy.common
   const settingsCopy = copy.settings
   const { settings, updateField, pickDirectory, error } = settingsState
+  const disablePublicHtmlRoute = settings.disablePublicHtmlRoute ?? false
 
   return (
     <div className="launcher-settings-stack">
@@ -242,6 +243,45 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             disabledLabel={commonCopy.no}
             onToggle={() => updateField('keepDownloadedArchives', !settings.keepDownloadedArchives)}
           />
+        </div>
+      </section>
+      <section className="launcher-settings-subsection">
+        <div>
+          <p className="settings-window-section-title">{settingsCopy.verificationTitle}</p>
+          <p className="settings-window-section-copy">{settingsCopy.verificationHint}</p>
+        </div>
+        <div className="launcher-settings-toggle-list">
+          <LauncherSettingsSwitch
+            label={copy.toggles.disablePublicHtmlRoute}
+            description={copy.cloudflareChallenge.disablePublicHtmlDescription}
+            checked={disablePublicHtmlRoute}
+            enabledLabel={commonCopy.yes}
+            disabledLabel={commonCopy.no}
+            onToggle={() => updateField('disablePublicHtmlRoute', !disablePublicHtmlRoute)}
+          />
+        </div>
+        <div className="launcher-form-grid launcher-settings-path-grid mt-2">
+          <button
+            type="button"
+            className="control-button"
+            onClick={() =>
+              void launcherPort.openPublicHtmlVerification({
+                targetUrl: 'https://www.nexusmods.com/stardewvalley',
+                reason: 'diagnostics',
+              })
+            }
+          >
+            <ExternalLink className="h-4 w-4" />
+            {settingsCopy.openVerificationAction}
+          </button>
+          <button
+            type="button"
+            className="control-button"
+            onClick={() => void launcherPort.clearPublicHtmlVerificationSession()}
+          >
+            <Trash2 className="h-4 w-4" />
+            {settingsCopy.clearVerificationSessionAction}
+          </button>
         </div>
       </section>
     </div>

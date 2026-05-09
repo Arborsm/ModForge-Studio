@@ -1,4 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-nocheck
 import type { LocaleBundle } from './schema'
 
@@ -100,7 +100,8 @@ const localeBundle = {
         "ascending": "升序",
         "autoCheckModUpdates": "自动检查模组更新",
         "autoInstallDownloads": "下载完成后自动安装",
-        "keepDownloadedArchives": "保留已下载归档"
+        "keepDownloadedArchives": "保留已下载归档",
+        "disablePublicHtmlRoute": "禁用 Public HTML 路由"
       },
       "library": {
         "title": "本地模组库",
@@ -294,7 +295,11 @@ const localeBundle = {
         "keepArchivesHint": "安装完成后保留 zip 归档，便于回滚或手动复用。",
         "loadFailed": "启动器设置加载失败。",
         "saved": "启动器设置已保存。",
-        "saveFailed": "启动器设置保存失败。"
+        "saveFailed": "启动器设置保存失败。",
+        "verificationTitle": "Public HTML 验证",
+        "verificationHint": "打开验证窗口并保持其中的 Nexus 页面已加载。如果你看到的已经是正常的 Nexus 页面而不是挑战页，也没问题；启动器会尝试同步这份浏览器会话。",
+        "openVerificationAction": "打开验证窗口",
+        "clearVerificationSessionAction": "清除验证会话"
       },
       "sortOptions": {
         "newest": "最新发布",
@@ -2127,6 +2132,7 @@ localeBundle.settingsMenu.categoryDescriptions = {
 }
 
 export default localeBundle as LocaleBundle
+
 
 
 

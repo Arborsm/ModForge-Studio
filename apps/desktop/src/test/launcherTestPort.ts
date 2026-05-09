@@ -1,4 +1,4 @@
-import { vi } from 'vitest'
+﻿import { vi } from 'vitest'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 
 export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): LauncherPort {
@@ -68,6 +68,50 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     chooseDirectory: unimplemented('chooseDirectory'),
     detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
     toDesktopAssetUrl: vi.fn().mockReturnValue(''),
+    openPublicHtmlVerification: vi.fn().mockImplementation(async (request: { targetUrl: string; reason: string }) => ({
+      state: 'opening' as const,
+      targetUrl: request.targetUrl,
+      reason: request.reason as 'diagnostics' | 'remote-mod-detail' | 'remote-mod-images' | 'remote-mod-files',
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: null,
+    })),
+    loadPublicHtmlVerificationState: vi.fn().mockResolvedValue({
+      state: 'idle' as const,
+      targetUrl: null,
+      reason: null,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: null,
+    }),
+    listenToPublicHtmlVerificationState: vi.fn().mockResolvedValue(() => {}),
+    signalPublicHtmlVerificationOpened: vi.fn().mockResolvedValue({
+      state: 'waitingForUser' as const,
+      targetUrl: null,
+      reason: 'diagnostics' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: null,
+    }),
+    submitPublicHtmlVerificationCookie: vi.fn().mockImplementation(async () => ({
+      state: 'verified' as const,
+      targetUrl: null,
+      reason: 'diagnostics' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: Date.now(),
+      message: 'Verification successful.',
+    })),
+    cancelPublicHtmlVerification: vi.fn().mockResolvedValue({
+      state: 'cancelled' as const,
+      targetUrl: null,
+      reason: null,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: null,
+    }),
+    refreshPublicHtmlVerification: vi.fn().mockResolvedValue(undefined),
+    closePublicHtmlVerification: vi.fn().mockResolvedValue(undefined),
+    clearPublicHtmlVerificationSession: vi.fn().mockResolvedValue(undefined),
     subscribeUpdates: vi.fn().mockReturnValue(() => {}),
     ...overrides,
   }

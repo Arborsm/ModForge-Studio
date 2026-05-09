@@ -559,6 +559,7 @@ export type LauncherCopy = {
     autoInstallDownloads: string
     keepDownloadedArchives: string
     autoCheckModUpdates: string
+    disablePublicHtmlRoute: string
   }
   library: {
     title: string
@@ -748,6 +749,10 @@ export type LauncherCopy = {
     loadFailed: string
     saved: string
     saveFailed: string
+    verificationTitle: string
+    verificationHint: string
+    openVerificationAction: string
+    clearVerificationSessionAction: string
   }
   debug: {
     title: string
@@ -1568,3 +1573,4 @@ export type LocaleBundle = {
   settingsMenu: SettingsMenuCopy
   worldAtlasViews: Record<WorldAtlasViewId, string>
 }
+

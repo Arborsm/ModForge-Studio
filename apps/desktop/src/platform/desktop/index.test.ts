@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
@@ -326,6 +326,85 @@ describe('launcher bridge helpers', () => {
     expect(invoke).toHaveBeenCalledWith('set_launcher_nexus_force_offline', {
       forceOffline: true,
     })
+  })
+
+  it('opens, refreshes, closes, and clears the Public HTML verification flow through tauri commands', async () => {
+    const raw = {
+      state: 'Waiting',
+      targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+      reason: 'diagnostics' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: 'Open the verification page.',
+    }
+    const normalized = {
+      state: 'waitingForUser' as const,
+      targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+      reason: 'diagnostics' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: 'Open the verification page.',
+    }
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(raw)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+    const desktop = (await import('@platform/desktop')) as unknown as Record<string, (...args: unknown[]) => unknown>
+
+    await expect(
+      desktop.openLauncherPublicHtmlVerification?.({
+        targetUrl: normalized.targetUrl,
+        reason: normalized.reason,
+      }),
+    ).resolves.toEqual(normalized)
+    await expect(desktop.refreshLauncherPublicHtmlVerification?.()).resolves.toBeUndefined()
+    await expect(desktop.closeLauncherPublicHtmlVerification?.()).resolves.toBeUndefined()
+    await expect(desktop.clearLauncherPublicHtmlVerificationSession?.()).resolves.toBeUndefined()
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'public_html_nexus_open_verify', {
+      request: {
+        targetUrl: normalized.targetUrl,
+        reason: normalized.reason,
+      },
+    })
+    expect(invoke).toHaveBeenNthCalledWith(2, 'public_html_nexus_refresh_verify', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(3, 'public_html_nexus_close_verify', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(4, 'public_html_nexus_clear_session', undefined)
+  })
+
+  it('loads and listens to Public HTML verification state updates', async () => {
+    const raw = {
+      state: 'Verified' as const,
+      targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+      reason: 'diagnostics' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: 123456,
+      message: 'Verification completed.',
+    }
+    const normalized = {
+      state: 'verified' as const,
+      targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+      reason: 'diagnostics' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: 123456,
+      message: 'Verification completed.',
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(raw)
+    const desktop = (await import('@platform/desktop')) as unknown as Record<string, (...args: unknown[]) => unknown>
+    const listener = vi.fn()
+
+    await expect(desktop.loadLauncherPublicHtmlVerificationState?.()).resolves.toEqual(normalized)
+    expect(invoke).toHaveBeenCalledWith('public_html_nexus_verify_status', undefined)
+
+    const unlisten = await desktop.listenToLauncherPublicHtmlVerificationState?.(listener)
+
+    eventListeners.get('launcher://public-html-verify-state')?.({
+      payload: raw,
+    })
+
+    expect(listener).toHaveBeenCalledWith(normalized)
+    expect(typeof unlisten).toBe('function')
   })
 
   it('reloads launcher library state on repeated requests', async () => {

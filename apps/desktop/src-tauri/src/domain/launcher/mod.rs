@@ -16,6 +16,7 @@ pub mod types;
 pub mod update_cache;
 pub mod updates;
 pub mod accelerater;
+pub mod public_html_webview;
 
 use types::LauncherSettings;
 

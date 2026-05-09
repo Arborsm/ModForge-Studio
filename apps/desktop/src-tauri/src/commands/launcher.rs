@@ -18,6 +18,7 @@ use crate::domain::launcher::types::{
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherRemoteModDetailRequest,
     LoadLauncherUpdateChangelogRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    PublicHtmlVerificationRequest,
     PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest, ResolveLauncherImageResult,
     RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
     SaveLauncherSettingsRequest, ScanLauncherLibraryRequest, SearchLauncherCatalogRequest,
@@ -25,6 +26,7 @@ use crate::domain::launcher::types::{
     LoadSuppressedLauncherUpdateModIdsRequest,
 };
 use crate::domain::launcher::updates;
+use crate::domain::launcher::types::PublicHtmlVerificationSnapshot;
 
 #[tauri::command]
 pub fn load_launcher_settings(app: tauri::AppHandle) -> Result<LauncherSettings, String> {
@@ -146,16 +148,18 @@ pub async fn search_launcher_catalog(
 
 #[tauri::command]
 pub async fn load_launcher_remote_mod_detail(
+    app: tauri::AppHandle,
     request: LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
-    remote::load_launcher_remote_mod_detail(request).await
+    remote::load_launcher_remote_mod_detail(app, request).await
 }
 
 #[tauri::command]
 pub async fn load_launcher_update_changelog(
+    app: tauri::AppHandle,
     request: LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {
-    remote::load_launcher_update_changelog(request).await
+    remote::load_launcher_update_changelog(app, request).await
 }
 
 #[tauri::command]
@@ -246,4 +250,66 @@ pub fn inspect_launcher_archive(
     request: InspectLauncherArchiveRequest,
 ) -> Result<InspectLauncherArchiveResult, String> {
     archive::inspect_launcher_archive(request)
+}
+
+
+#[tauri::command]
+pub fn public_html_nexus_verify_status(
+    app: tauri::AppHandle,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    let settings = crate::domain::launcher::settings::load_launcher_settings(app.clone())?;
+    Ok(crate::domain::launcher::public_html_webview::refresh_disable_public_html_route_flag(
+        settings.disable_public_html_route,
+    ))
+}
+
+#[tauri::command]
+pub async fn public_html_nexus_open_verify(
+    app: tauri::AppHandle,
+    request: PublicHtmlVerificationRequest,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    crate::domain::launcher::public_html_webview::request_verification_with_app(
+        &app,
+        request.reason,
+        request.target_url,
+    )?;
+    crate::domain::launcher::public_html_webview::open_verification_window_with_app(&app)
+}
+
+#[tauri::command]
+pub fn public_html_nexus_signal_opened() -> Result<PublicHtmlVerificationSnapshot, String> {
+    Ok(crate::domain::launcher::public_html_webview::signal_verification_opened())
+}
+
+#[tauri::command]
+pub fn public_html_nexus_submit_cookie(
+    cookie: String,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    Ok(crate::domain::launcher::public_html_webview::submit_verification(cookie))
+}
+
+#[tauri::command]
+pub fn public_html_nexus_cancel_verify() -> Result<PublicHtmlVerificationSnapshot, String> {
+    Ok(crate::domain::launcher::public_html_webview::cancel_verification())
+}
+
+#[tauri::command]
+pub fn public_html_nexus_refresh_verify(
+    app: tauri::AppHandle,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    crate::domain::launcher::public_html_webview::refresh_verification_with_app(&app)
+}
+
+#[tauri::command]
+pub fn public_html_nexus_close_verify(
+    app: tauri::AppHandle,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    crate::domain::launcher::public_html_webview::close_verification_with_app(&app)
+}
+
+#[tauri::command]
+pub fn public_html_nexus_clear_session(
+    app: tauri::AppHandle,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    crate::domain::launcher::public_html_webview::clear_verification_session_with_app(&app)
 }

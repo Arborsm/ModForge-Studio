@@ -40,6 +40,14 @@ use commands::launcher::{
     resolve_launcher_image, restore_launcher_install_backup, save_launcher_download_queue,
     save_launcher_library_state, save_launcher_settings, scan_launcher_library, search_launcher_catalog,
     set_launcher_nexus_force_offline,
+    public_html_nexus_open_verify,
+    public_html_nexus_verify_status,
+    public_html_nexus_signal_opened,
+    public_html_nexus_submit_cookie,
+    public_html_nexus_cancel_verify,
+    public_html_nexus_refresh_verify,
+    public_html_nexus_close_verify,
+    public_html_nexus_clear_session,
     set_launcher_library_cover, set_launcher_mod_enabled,
 };
 use commands::logging::{set_debug_logging_enabled, write_frontend_log};
@@ -143,7 +151,15 @@ pub fn run() {
             load_app_ui_state,
             patch_app_ui_state,
             set_debug_logging_enabled,
-            write_frontend_log
+            write_frontend_log,
+            public_html_nexus_open_verify,
+            public_html_nexus_verify_status,
+            public_html_nexus_signal_opened,
+            public_html_nexus_submit_cookie,
+            public_html_nexus_cancel_verify,
+            public_html_nexus_refresh_verify,
+            public_html_nexus_close_verify,
+            public_html_nexus_clear_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

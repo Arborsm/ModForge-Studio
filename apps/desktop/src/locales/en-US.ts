@@ -98,7 +98,8 @@ const localeBundle: LocaleBundle = {
         "ascending": "Ascending",
         "autoCheckModUpdates": "Automatically check for mod updates",
         "autoInstallDownloads": "Auto-install completed downloads",
-        "keepDownloadedArchives": "Keep downloaded archives"
+        "keepDownloadedArchives": "Keep downloaded archives",
+        "disablePublicHtmlRoute": "Disable Public HTML route"
       },
       "library": {
         "title": "Installed Library",
@@ -292,7 +293,11 @@ const localeBundle: LocaleBundle = {
         "keepArchivesHint": "Preserve downloaded zip files after install for rollback or manual reuse.",
         "loadFailed": "Failed to load launcher settings.",
         "saved": "Launcher settings saved.",
-        "saveFailed": "Failed to save launcher settings."
+        "saveFailed": "Failed to save launcher settings.",
+        "verificationTitle": "Public HTML Verification",
+        "verificationHint": "Open the verification window and keep the Nexus page loaded there. If you already see the normal Nexus page instead of a challenge page, that is fine; the launcher is syncing that browser session.",
+        "openVerificationAction": "Open Verification Window",
+        "clearVerificationSessionAction": "Clear Verification Session"
       },
       "debug": {
         "title": "Launcher Debug",
@@ -2107,3 +2112,4 @@ const localeBundle: LocaleBundle = {
 }
 
 export default localeBundle
+
