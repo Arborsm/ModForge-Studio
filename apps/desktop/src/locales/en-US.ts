@@ -266,14 +266,23 @@ const localeBundle: LocaleBundle = {
       },
       "cloudflareChallenge": {
         "title": "Nexus verification required",
-        "detail": "Nexus Mods returned a Cloudflare verification page instead of the expected HTML content. Complete the verification in your browser, then return here and retry the action.",
+        "detail": "Public HTML is paused until you open the verification window.",
         "prompt": "Open Nexus Mods now?",
         "openAction": "Open Nexus Mods",
         "cancelAction": "Cancel",
-        "disablePublicHtmlLabel": "Stop using the Public HTML route",
-        "disablePublicHtmlDescription": "Turn off the HTML-based Nexus route for later requests and diagnostics. GraphQL and other routes will keep working when available.",
+        "disablePublicHtmlLabel": "Disable Public HTML",
+        "disablePublicHtmlDescription": "Skip the HTML route and prefer other Nexus routes.",
         "disablePublicHtmlEnabledLabel": "Public HTML route disabled",
-        "disablePublicHtmlDisabledLabel": "Public HTML route enabled"
+        "disablePublicHtmlDisabledLabel": "Public HTML route enabled",
+        "routeStatusLabel": "Route status",
+        "cleanBrowserLabel": "Clean browser session",
+        "cleanBrowserDescription": "This pane does not inject scripts into Nexus. Complete the page normally, then check the saved session.",
+        "browserStepLabel": "Verify in the browser",
+        "browserStepDescription": "Use the Nexus page on the left until it loads normally.",
+        "checkStepLabel": "Check the session",
+        "checkStepDescription": "After the page is open, let ModForge read the browser session and retry Public HTML.",
+        "sessionReadyLabel": "Session ready",
+        "sessionWaitingLabel": "Waiting for verification"
       },
       "downloads": {
         "title": "Downloads",
@@ -295,8 +304,10 @@ const localeBundle: LocaleBundle = {
         "saved": "Launcher settings saved.",
         "saveFailed": "Failed to save launcher settings.",
         "verificationTitle": "Public HTML Verification",
-        "verificationHint": "Open the verification window and keep the Nexus page loaded there. If you already see the normal Nexus page instead of a challenge page, that is fine; the launcher is syncing that browser session.",
+        "verificationHint": "Complete Nexus verification in the browser pane, then check the session.",
         "openVerificationAction": "Open Verification Window",
+        "checkVerificationStatusAction": "Check Verification",
+        "checkingVerificationStatusAction": "Checking Session",
         "clearVerificationSessionAction": "Clear Verification Session"
       },
       "debug": {
@@ -325,7 +336,7 @@ const localeBundle: LocaleBundle = {
         "nexusDiagnosticsNotificationTitle": "Nexus Route Diagnostics Failed",
         "nexusDiagnosticsNotificationImpact": (targets) => `Impact: ${targets} paused.`,
         "nexusDiagnosticsNotificationLimitedImpact": "Impact: some Nexus-dependent requests are limited.",
-        "nexusDiagnosticsNotificationBody": (count) => `${count} routes did not pass verification.`,
+        "nexusDiagnosticsNotificationBody": (count) => `${count} routes did not pass connectivity checks.`,
         "nexusDiagnosticsNotificationNote": "You can retry now, or open diagnostics to inspect the exact failures.",
         "nexusMessagePreviewTitle": "Message Preview",
         "nexusMessagePreviewSubtitle": "Preview the aggregated diagnostics message without repeating the full route list.",

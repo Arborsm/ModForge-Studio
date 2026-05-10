@@ -14,6 +14,7 @@ import {
   loadLauncherUpdateChangelog,
   loadLauncherNexusDiagnostics,
   restartLauncherNexusDiagnostics,
+  retryLauncherNexusDiagnosticsRoute,
   setLauncherNexusForceOffline,
   resolveLauncherImage,
   loadCachedLauncherUpdates,
@@ -45,6 +46,7 @@ import {
   submitLauncherPublicHtmlVerificationCookie,
   cancelLauncherPublicHtmlVerification,
   refreshLauncherPublicHtmlVerification,
+  checkLauncherPublicHtmlVerification,
   closeLauncherPublicHtmlVerification,
   clearLauncherPublicHtmlVerificationSession,
 } from '@platform/desktop'
@@ -66,6 +68,7 @@ export function createLauncherPortAdapter(): LauncherPort {
     loadUpdateChangelog: (request) => loadLauncherUpdateChangelog(request),
     loadNexusDiagnostics: () => loadLauncherNexusDiagnostics(),
     restartNexusDiagnostics: () => restartLauncherNexusDiagnostics(),
+    retryNexusDiagnosticsRoute: (routeId) => retryLauncherNexusDiagnosticsRoute(routeId),
     setNexusForceOffline: (forceOffline) => setLauncherNexusForceOffline(forceOffline),
     resolveImage: (request) => resolveLauncherImage(request),
     loadCachedUpdates: (request) => loadCachedLauncherUpdates(request),
@@ -96,6 +99,7 @@ export function createLauncherPortAdapter(): LauncherPort {
     submitPublicHtmlVerificationCookie: (cookie) => submitLauncherPublicHtmlVerificationCookie(cookie),
     cancelPublicHtmlVerification: () => cancelLauncherPublicHtmlVerification(),
     refreshPublicHtmlVerification: () => refreshLauncherPublicHtmlVerification(),
+    checkPublicHtmlVerification: () => checkLauncherPublicHtmlVerification(),
     closePublicHtmlVerification: () => closeLauncherPublicHtmlVerification(),
     clearPublicHtmlVerificationSession: () => clearLauncherPublicHtmlVerificationSession(),
   }

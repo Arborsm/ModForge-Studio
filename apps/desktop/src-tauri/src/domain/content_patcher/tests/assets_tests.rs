@@ -5,7 +5,11 @@ use crate::domain::content_patcher::types::{
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use base64::Engine;
 
-fn virtual_preview_asset(relative_path: &str, media_type: &str, bytes: &[u8]) -> VirtualPreviewAsset {
+fn virtual_preview_asset(
+    relative_path: &str,
+    media_type: &str,
+    bytes: &[u8],
+) -> VirtualPreviewAsset {
     VirtualPreviewAsset {
         relative_path: relative_path.to_string(),
         media_type: media_type.to_string(),

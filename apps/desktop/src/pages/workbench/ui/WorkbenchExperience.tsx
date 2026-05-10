@@ -11,7 +11,7 @@ import {
 import { useEventWorkspace } from '../workspaces/event-stage'
 import { useMapWorkspace } from '../workspaces/map'
 import { useCharacterWorkspace } from '../workspaces/character'
-import { useBuildingWorkspace } from '../workspaces/building'
+import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWorkspace'
 import { useItemWorkspace } from '../workspaces/item'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useModWorkspace } from '../workspaces/mod'

@@ -1,7 +1,7 @@
 use super::http::{
     launcher_http_client, probe_blocked_launcher_nexus_route, public_graphql_headers,
-    send_nexus_json_request, send_nexus_public_html_request_with_verification,
-    LauncherNexusRoute, DEFAULT_GAME_ID,
+    send_nexus_json_request, send_nexus_public_html_request_with_verification, LauncherNexusRoute,
+    DEFAULT_GAME_ID,
 };
 use super::paths::launcher_settings_path;
 use super::settings::load_or_create_settings_at_path;
@@ -14,6 +14,7 @@ use super::types::{
 };
 use regex::Regex;
 use reqwest::blocking::Client;
+use scraper::{Html, Selector};
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
@@ -80,55 +81,59 @@ pub(super) fn parse_remote_mod_detail_node(node: &Value) -> Option<RemoteModDeta
 }
 
 pub(crate) fn parse_remote_mod_detail_html(html: &str, mod_id: i64) -> Option<RemoteModDetail> {
-    let title_regex =
-        Regex::new(r#"<meta property=["']og:title["'] content=["'](?P<title>[^"']+)["']"#)
-            .expect("valid mod title regex");
-    let summary_regex =
-        Regex::new(r#"<meta property=["']og:description["'] content=["'](?P<summary>[^"']+)["']"#)
-            .expect("valid mod summary regex");
-    let image_regex =
-        Regex::new(r#"<meta property=["']og:image["'] content=["'](?P<src>[^"']+)["']"#)
-            .expect("valid mod image regex");
-    let version_regex = Regex::new(
-        r#"twitter:label1["'][^>]*content=["']Version["'][^>]*>\s*<meta property=["']twitter:data1["'] content=["'](?P<version>[^"']+)["']"#,
-    )
-    .expect("valid mod version regex");
-    let gallery_regex =
-        Regex::new(r#"data-src=["'](?P<src>https://[^"']+)["']"#).expect("valid mod gallery regex");
+    let document = Html::parse_document(html);
 
-    let title = title_regex
-        .captures(html)
-        .and_then(|captures| captures.name("title"))
-        .map(|value| decode_html(value.as_str()).trim().to_string())
-        .filter(|value| !value.is_empty())?;
-    let summary = summary_regex
-        .captures(html)
-        .and_then(|captures| captures.name("summary"))
-        .map(|value| decode_html(value.as_str()).trim().to_string())
-        .filter(|value| !value.is_empty());
-    let image_url = image_regex
-        .captures(html)
-        .and_then(|captures| captures.name("src"))
-        .map(|value| normalize_nexus_url(value.as_str()));
-    let version = version_regex
-        .captures(html)
-        .and_then(|captures| captures.name("version"))
-        .map(|value| {
-            decode_html(value.as_str())
-                .trim()
-                .trim_start_matches('v')
-                .to_string()
-        })
-        .filter(|value| !value.is_empty());
+    let og_title_sel = Selector::parse(r#"meta[property="og:title"]"#).ok()?;
+    let og_desc_sel = Selector::parse(r#"meta[property="og:description"]"#).ok()?;
+    let og_image_sel = Selector::parse(r#"meta[property="og:image"]"#).ok()?;
+    let twitter_label_sel = Selector::parse(r#"meta[property="twitter:label1"]"#).ok()?;
+    let twitter_data_sel = Selector::parse(r#"meta[property="twitter:data1"]"#).ok()?;
+    let gallery_sel = Selector::parse(r#"img[data-src]"#).ok()?;
+
+    let title = document
+        .select(&og_title_sel)
+        .next()
+        .and_then(|e| e.value().attr("content"))
+        .map(|v| decode_html(v).trim().to_string())
+        .filter(|v| !v.is_empty())?;
+
+    let summary = document
+        .select(&og_desc_sel)
+        .next()
+        .and_then(|e| e.value().attr("content"))
+        .map(|v| decode_html(v).trim().to_string())
+        .filter(|v| !v.is_empty());
+
+    let image_url = document
+        .select(&og_image_sel)
+        .next()
+        .and_then(|e| e.value().attr("content"))
+        .map(|v| normalize_nexus_url(v));
+
+    let has_version_label = document.select(&twitter_label_sel).any(|e| {
+        e.value()
+            .attr("content")
+            .map_or(false, |c| c.trim() == "Version")
+    });
+
+    let version = if has_version_label {
+        document
+            .select(&twitter_data_sel)
+            .next()
+            .and_then(|e| e.value().attr("content"))
+            .map(|v| decode_html(v).trim().trim_start_matches('v').to_string())
+            .filter(|v| !v.is_empty())
+    } else {
+        None
+    };
 
     let mut gallery_images = Vec::new();
-    for captures in gallery_regex.captures_iter(html) {
-        let Some(src) = captures.name("src") else {
-            continue;
-        };
-        let normalized = normalize_nexus_url(src.as_str());
-        if !gallery_images.iter().any(|value| value == &normalized) {
-            gallery_images.push(normalized);
+    for elem in document.select(&gallery_sel) {
+        if let Some(src) = elem.value().attr("data-src") {
+            let normalized = normalize_nexus_url(src);
+            if !gallery_images.iter().any(|v| v == &normalized) {
+                gallery_images.push(normalized);
+            }
         }
     }
 
@@ -147,23 +152,37 @@ pub(crate) fn parse_remote_mod_detail_html(html: &str, mod_id: i64) -> Option<Re
 }
 
 pub(crate) fn parse_remote_mod_images_tab_html(html: &str) -> Vec<String> {
-    let image_regex = Regex::new(
-        r#"href=["'](?P<src>https://staticdelivery\.nexusmods\.com/mods/\d+/images/[^"'?#]+)["']"#,
-    )
-    .expect("valid mod images tab regex");
+    let document = Html::parse_document(html);
+
+    let link_sel = Selector::parse("a[href]").ok();
+    let img_sel = Selector::parse("img[src]").ok();
+
     let mut images = Vec::new();
-    for captures in image_regex.captures_iter(html) {
-        let Some(src) = captures.name("src") else {
-            continue;
-        };
-        let normalized = normalize_nexus_url(src.as_str());
-        if normalized.contains("/images/thumbnails/") {
-            continue;
-        }
-        if !images.iter().any(|value| value == &normalized) {
-            images.push(normalized);
+
+    if let Some(ref sel) = link_sel {
+        for elem in document.select(sel) {
+            if let Some(href) = elem.value().attr("href") {
+                if let Some(cleaned) = clean_nexus_image_url(href) {
+                    if !images.iter().any(|v| v == &cleaned) {
+                        images.push(cleaned);
+                    }
+                }
+            }
         }
     }
+
+    if let Some(ref sel) = img_sel {
+        for elem in document.select(sel) {
+            if let Some(src) = elem.value().attr("src") {
+                if let Some(cleaned) = clean_nexus_image_url(src) {
+                    if !images.iter().any(|v| v == &cleaned) {
+                        images.push(cleaned);
+                    }
+                }
+            }
+        }
+    }
+
     images
 }
 
@@ -178,6 +197,28 @@ pub(crate) fn enrich_remote_mod_detail_with_gallery_images(
         detail.image_url = gallery_images.first().cloned();
     }
     detail
+}
+
+fn clean_nexus_image_url(url: &str) -> Option<String> {
+    if !url.contains("staticdelivery.nexusmods.com/mods/") {
+        return None;
+    }
+    let cleaned = url
+        .split('?')
+        .next()
+        .unwrap_or(url)
+        .split('#')
+        .next()
+        .unwrap_or(url);
+    if cleaned.contains("/images/thumbnails/") {
+        return None;
+    }
+    let normalized = normalize_nexus_url(cleaned);
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized)
+    }
 }
 
 fn collapse_whitespace(value: &str) -> String {
@@ -478,7 +519,9 @@ pub(super) fn load_remote_mod_detail_from_public_graphql(
             .json(&payload)
             .send()
     })
-    .map_err(|error| format!("Public Nexus mod detail GraphQL response failed for {mod_id}: {error}"))?;
+    .map_err(|error| {
+        format!("Public Nexus mod detail GraphQL response failed for {mod_id}: {error}")
+    })?;
     if !status.is_success() {
         return Err(format!(
             "Public Nexus mod detail GraphQL request failed for {mod_id}: HTTP {}",
@@ -507,7 +550,13 @@ pub(super) fn load_remote_mod_detail_from_html_with_app(
             super::types::PublicHtmlVerificationReason::RemoteModDetail,
         )?,
         None => {
-            let headers = super::http::public_page_headers(None, settings.nexus_cookie.as_deref())?;
+            let parsed_url = reqwest::Url::parse(&mod_url)
+                .map_err(|error| format!("Failed to parse launcher mod page URL: {error}"))?;
+            let headers = super::http::public_page_headers(
+                None,
+                settings.nexus_cookie.as_deref(),
+                &parsed_url,
+            )?;
             super::http::send_nexus_public_html_request(client, &mod_url, headers)?
         }
     };
@@ -655,7 +704,12 @@ fn load_launcher_remote_mod_detail_blocking(
         || load_remote_mod_detail_from_html_with_app(Some(app), &client, &settings, request.mod_id),
     )?;
     if detail.image_url.is_none() && detail.gallery_images.is_empty() {
-        match load_remote_mod_detail_gallery_from_images_tab(app, &client, &settings, request.mod_id) {
+        match load_remote_mod_detail_gallery_from_images_tab(
+            app,
+            &client,
+            &settings,
+            request.mod_id,
+        ) {
             Ok(gallery_images) if !gallery_images.is_empty() => {
                 detail = enrich_remote_mod_detail_with_gallery_images(detail, gallery_images);
             }
@@ -694,7 +748,8 @@ fn load_launcher_update_changelog_blocking(
     let client = launcher_http_client()?;
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
-    let changelog = load_remote_mod_changelog_from_files_tab(app, &client, &settings, request.mod_id)?;
+    let changelog =
+        load_remote_mod_changelog_from_files_tab(app, &client, &settings, request.mod_id)?;
 
     Ok(LauncherUpdateChangelogResult {
         mod_id: request.mod_id,

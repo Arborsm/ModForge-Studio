@@ -17,8 +17,9 @@ export {
   normalizeLauncherDiscoverToolbarState,
 } from './model/launcherDiscoverToolbarState'
 export { getModKey, includesLibraryFilter, normalizeLookupKey } from './model/libraryHelpers'
-export { loadSettledLauncherNexusDiagnostics } from './model/nexusDiagnostics'
+export { getLauncherNexusWarningRoutes, loadSettledLauncherNexusDiagnostics } from './model/nexusDiagnostics'
 export { syncLauncherDiagnosticsNotification } from './model/nexusDiagnosticsNotifications'
+export { syncPublicHtmlVerificationNotification } from './model/publicHtmlVerificationNotifications'
 export { useLauncherPort } from './model/launcherPortContext'
 export { useLauncherDiscover } from './model/useLauncherDiscover'
 export { useLauncherDownloads } from './model/useLauncherDownloads'

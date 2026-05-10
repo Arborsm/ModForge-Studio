@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "public-html-verification-controls",
+  "description": "Allows the embedded Public HTML verification controls webview to invoke local launcher verification commands.",
+  "webviews": [
+    "public-html-verification-controls"
+  ],
+  "permissions": [
+    "core:default"
+  ]
+}

@@ -1,4 +1,4 @@
-import { Bug, Download, MessageSquare, ScrollText, Wifi } from 'lucide-react'
+import { Bug, Download, MessageSquare, RefreshCw, ScrollText, Wifi } from 'lucide-react'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/cx'
@@ -10,6 +10,7 @@ import {
   clearLauncherImageCache,
   type LauncherNexusDiagnosticsResult,
   loadLauncherNexusDiagnostics,
+  retryLauncherNexusDiagnosticsRoute,
   setLauncherNexusForceOffline,
   type LauncherNexusRouteSnapshot,
 } from '@platform/desktop'
@@ -218,6 +219,7 @@ function LauncherNexusDiagnosticsCard({
   forceOfflineDisableButton,
   forceOfflineEnabledLabel,
   forceOfflineDisabledLabel,
+  retryRouteLabel,
   onDiagnosticsUpdate,
 }: {
   title: string
@@ -236,12 +238,14 @@ function LauncherNexusDiagnosticsCard({
   forceOfflineDisableButton: string
   forceOfflineEnabledLabel: string
   forceOfflineDisabledLabel: string
+  retryRouteLabel: string
   onDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
 }) {
   const [routes, setRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
   const [loading, setLoading] = useState(() => canUseDesktopHost())
   const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
   const [toggleBusy, setToggleBusy] = useState(false)
+  const [retryingRouteIds, setRetryingRouteIds] = useState<Set<string>>(() => new Set())
   const [pollNonce, setPollNonce] = useState(0)
 
   useEffect(() => {
@@ -311,6 +315,29 @@ function LauncherNexusDiagnosticsCard({
     }
   }
 
+  const handleRetryRoute = async (routeId: string) => {
+    setRetryingRouteIds((value) => {
+      const next = new Set(value)
+      next.add(routeId)
+      return next
+    })
+
+    try {
+      const diagnostics = await retryLauncherNexusDiagnosticsRoute(routeId)
+      setRoutes(diagnostics.routes)
+      onDiagnosticsUpdate?.(diagnostics)
+      setLoading(false)
+    } catch {
+      // Debug-only control: keep the last route snapshot visible if the bridge fails.
+    } finally {
+      setRetryingRouteIds((value) => {
+        const next = new Set(value)
+        next.delete(routeId)
+        return next
+      })
+    }
+  }
+
   return (
     <DebugActionCard
       title={title}
@@ -336,26 +363,46 @@ function LauncherNexusDiagnosticsCard({
       {!loading && !routes.length ? <p className="launcher-debug-route-loading">{emptyLabel}</p> : null}
       {!loading && routes.length ? (
         <div className="launcher-debug-route-list">
-          {routes.map((route) => (
-            <section
-              key={route.routeId}
-              className={cx(
-                'launcher-debug-route-row',
-                `launcher-debug-route-row-${route.status}`,
-              )}
-            >
+          {routes.map((route) => {
+            const retrying = retryingRouteIds.has(route.routeId)
+            const canRetryRoute = !forceOffline && (route.status === 'warning' || !route.available)
+
+            return (
+              <section
+                key={route.routeId}
+                className={cx(
+                  'launcher-debug-route-row',
+                  `launcher-debug-route-row-${route.status}`,
+                )}
+              >
               <div className="launcher-debug-route-top">
                 <div className="launcher-debug-route-copy">
                   <h3 className="launcher-debug-route-title">{route.label}</h3>
                 </div>
-                <span
-                  className={cx(
-                    'launcher-debug-route-status',
-                    `launcher-debug-route-status-${route.status}`,
-                  )}
-                >
-                  {route.status}
-                </span>
+                <div className="launcher-toolbar">
+                  {canRetryRoute ? (
+                    <button
+                      type="button"
+                      className="control-button"
+                      disabled={retrying}
+                      aria-label={`${retryRouteLabel} ${route.label}`}
+                      onClick={() => {
+                        void handleRetryRoute(route.routeId)
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                      <span>{retryRouteLabel}</span>
+                    </button>
+                  ) : null}
+                  <span
+                    className={cx(
+                      'launcher-debug-route-status',
+                      `launcher-debug-route-status-${route.status}`,
+                    )}
+                  >
+                    {route.status}
+                  </span>
+                </div>
               </div>
 
               <div className="launcher-debug-route-meta">
@@ -389,8 +436,9 @@ function LauncherNexusDiagnosticsCard({
                   </div>
                 </div>
               </div>
-            </section>
-          ))}
+              </section>
+            )
+          })}
         </div>
       ) : null}
     </DebugActionCard>
@@ -486,6 +534,7 @@ export function LauncherDebugPage({
               forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
               forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
               forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
+              retryRouteLabel={copy.actions.retry}
               onDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
             />
           </LoadingMotionReveal>

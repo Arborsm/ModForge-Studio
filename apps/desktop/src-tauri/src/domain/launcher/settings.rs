@@ -171,7 +171,7 @@ pub fn save_launcher_settings(
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;
-            super::public_html_webview::sync_disable_public_html_route(
+            super::public_html_verification::sync_disable_public_html_route(
                 Some(&app),
                 normalized.disable_public_html_route,
             );

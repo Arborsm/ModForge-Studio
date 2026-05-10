@@ -1,9 +1,9 @@
-#[allow(dead_code, unused_imports)]
-#[path = "../src/domain/assets/mod.rs"]
-mod assets;
 #[allow(dead_code)]
 #[path = "../src/domain/app_paths.rs"]
 mod app_paths;
+#[allow(dead_code, unused_imports)]
+#[path = "../src/domain/assets/mod.rs"]
+mod assets;
 mod domain {
     pub(crate) use crate::app_paths;
 }

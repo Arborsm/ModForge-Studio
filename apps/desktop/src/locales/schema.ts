@@ -729,6 +729,15 @@ export type LauncherCopy = {
     disablePublicHtmlDescription: string
     disablePublicHtmlEnabledLabel: string
     disablePublicHtmlDisabledLabel: string
+    routeStatusLabel: string
+    cleanBrowserLabel: string
+    cleanBrowserDescription: string
+    browserStepLabel: string
+    browserStepDescription: string
+    checkStepLabel: string
+    checkStepDescription: string
+    sessionReadyLabel: string
+    sessionWaitingLabel: string
   }
   downloads: {
     title: string
@@ -752,6 +761,8 @@ export type LauncherCopy = {
     verificationTitle: string
     verificationHint: string
     openVerificationAction: string
+    checkVerificationStatusAction: string
+    checkingVerificationStatusAction: string
     clearVerificationSessionAction: string
   }
   debug: {

@@ -125,13 +125,15 @@ function NotificationToast({
     setHovering(false)
   }
 
-  const handleActionClick = (callback: (() => void | Promise<void>) | undefined) => {
-    if (!callback) {
+  const handleActionClick = (action: NonNullable<PublishedNotification['action']> | undefined) => {
+    if (!action) {
       return
     }
 
-    void callback()
-    requestClose()
+    void action.callback()
+    if (action.closeOnClick) {
+      requestClose()
+    }
   }
 
   const levelClassName = `level-${notification.level}`
@@ -187,7 +189,7 @@ function NotificationToast({
                 key={`${notification.id}-${action.label}`}
                 type="button"
                 className={getNotificationActionButtonClassName(action.tone)}
-                onClick={() => handleActionClick(action.callback)}
+                onClick={() => handleActionClick(action)}
                 title={actionHint}
               >
                 {action.label}
@@ -199,7 +201,7 @@ function NotificationToast({
           <button
             type="button"
             className="notification-toast-action"
-            onClick={() => handleActionClick(notification.action?.callback)}
+            onClick={() => handleActionClick(notification.action)}
             title={actionHint}
           >
             {notification.action.label}

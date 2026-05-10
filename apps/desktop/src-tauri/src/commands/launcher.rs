@@ -7,6 +7,7 @@ use crate::domain::launcher::library;
 use crate::domain::launcher::remote;
 use crate::domain::launcher::runtime;
 use crate::domain::launcher::settings;
+use crate::domain::launcher::types::PublicHtmlVerificationSnapshot;
 use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
@@ -16,17 +17,15 @@ use crate::domain::launcher::types::{
     LauncherNexusDiagnosticsResult, LauncherRemoteModDetail, LauncherSettings,
     LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
-    LoadLauncherRemoteModDetailRequest,
-    LoadLauncherUpdateChangelogRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
-    PublicHtmlVerificationRequest,
-    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest, ResolveLauncherImageResult,
-    RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
-    SaveLauncherSettingsRequest, ScanLauncherLibraryRequest, SearchLauncherCatalogRequest,
-    SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest, SetLauncherModEnabledResult,
-    LoadSuppressedLauncherUpdateModIdsRequest,
+    LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
+    LoadSuppressedLauncherUpdateModIdsRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    PersistLauncherLibraryRemoteCoverRequest, PublicHtmlVerificationRequest,
+    ResolveLauncherImageRequest, ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
+    RestoreLauncherInstallBackupResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
+    SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
+    SetLauncherModEnabledResult,
 };
 use crate::domain::launcher::updates;
-use crate::domain::launcher::types::PublicHtmlVerificationSnapshot;
 
 #[tauri::command]
 pub fn load_launcher_settings(app: tauri::AppHandle) -> Result<LauncherSettings, String> {
@@ -190,6 +189,14 @@ pub fn restart_launcher_nexus_diagnostics(
 }
 
 #[tauri::command]
+pub fn retry_launcher_nexus_diagnostics_route(
+    app: tauri::AppHandle,
+    route_id: String,
+) -> Result<LauncherNexusDiagnosticsResult, String> {
+    http::retry_launcher_nexus_diagnostics_route(&app, route_id)
+}
+
+#[tauri::command]
 pub fn set_launcher_nexus_force_offline(
     app: tauri::AppHandle,
     force_offline: bool,
@@ -252,15 +259,16 @@ pub fn inspect_launcher_archive(
     archive::inspect_launcher_archive(request)
 }
 
-
 #[tauri::command]
 pub fn public_html_nexus_verify_status(
     app: tauri::AppHandle,
 ) -> Result<PublicHtmlVerificationSnapshot, String> {
     let settings = crate::domain::launcher::settings::load_launcher_settings(app.clone())?;
-    Ok(crate::domain::launcher::public_html_webview::refresh_disable_public_html_route_flag(
-        settings.disable_public_html_route,
-    ))
+    Ok(
+        crate::domain::launcher::public_html_verification::refresh_disable_public_html_route_flag(
+            settings.disable_public_html_route,
+        ),
+    )
 }
 
 #[tauri::command]
@@ -268,48 +276,91 @@ pub async fn public_html_nexus_open_verify(
     app: tauri::AppHandle,
     request: PublicHtmlVerificationRequest,
 ) -> Result<PublicHtmlVerificationSnapshot, String> {
-    crate::domain::launcher::public_html_webview::request_verification_with_app(
-        &app,
+    log::info!(
+        "launcher Public HTML verification open command received reason={:?} url={}",
         request.reason,
-        request.target_url,
-    )?;
-    crate::domain::launcher::public_html_webview::open_verification_window_with_app(&app)
+        request.target_url
+    );
+    let snapshot = tauri::async_runtime::spawn_blocking(move || {
+        crate::domain::launcher::public_html_verification::restart_verification_with_app(
+            &app,
+            request.reason,
+            request.target_url,
+        )
+    })
+    .await
+    .map_err(|error| format!("Failed to join Public HTML verification open task: {error}"))??;
+    log::info!(
+        "launcher Public HTML verification open command completed stage={:?} url={:?}",
+        snapshot.stage,
+        snapshot.url
+    );
+    Ok(snapshot)
 }
 
 #[tauri::command]
 pub fn public_html_nexus_signal_opened() -> Result<PublicHtmlVerificationSnapshot, String> {
-    Ok(crate::domain::launcher::public_html_webview::signal_verification_opened())
+    Ok(crate::domain::launcher::public_html_verification::signal_verification_opened())
 }
 
 #[tauri::command]
 pub fn public_html_nexus_submit_cookie(
     cookie: String,
 ) -> Result<PublicHtmlVerificationSnapshot, String> {
-    Ok(crate::domain::launcher::public_html_webview::submit_verification(cookie))
+    Ok(crate::domain::launcher::public_html_verification::submit_verification(cookie))
 }
 
 #[tauri::command]
 pub fn public_html_nexus_cancel_verify() -> Result<PublicHtmlVerificationSnapshot, String> {
-    Ok(crate::domain::launcher::public_html_webview::cancel_verification())
+    log::info!("launcher Public HTML verification cancel command received");
+    Ok(crate::domain::launcher::public_html_verification::cancel_verification())
 }
 
 #[tauri::command]
-pub fn public_html_nexus_refresh_verify(
+pub async fn public_html_nexus_refresh_verify(
     app: tauri::AppHandle,
 ) -> Result<PublicHtmlVerificationSnapshot, String> {
-    crate::domain::launcher::public_html_webview::refresh_verification_with_app(&app)
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::domain::launcher::public_html_verification::refresh_verification_with_app(&app)
+    })
+    .await
+    .map_err(|error| format!("Failed to join Public HTML verification refresh task: {error}"))?
 }
 
 #[tauri::command]
-pub fn public_html_nexus_close_verify(
+pub async fn public_html_nexus_check_verify(
     app: tauri::AppHandle,
 ) -> Result<PublicHtmlVerificationSnapshot, String> {
-    crate::domain::launcher::public_html_webview::close_verification_with_app(&app)
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::domain::launcher::public_html_verification::complete_verification_from_browser_with_app(
+            &app,
+        )
+    })
+    .await
+    .map_err(|error| format!("Failed to join Public HTML session check task: {error}"))?
 }
 
 #[tauri::command]
-pub fn public_html_nexus_clear_session(
+pub async fn public_html_nexus_close_verify(
     app: tauri::AppHandle,
 ) -> Result<PublicHtmlVerificationSnapshot, String> {
-    crate::domain::launcher::public_html_webview::clear_verification_session_with_app(&app)
+    log::info!("launcher Public HTML verification close command received");
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::domain::launcher::public_html_verification::close_verification_with_app(&app)
+    })
+    .await
+    .map_err(|error| format!("Failed to join Public HTML verification close task: {error}"))?
+}
+
+#[tauri::command]
+pub async fn public_html_nexus_clear_session(
+    app: tauri::AppHandle,
+) -> Result<PublicHtmlVerificationSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::domain::launcher::public_html_verification::clear_verification_session_with_app(&app)
+    })
+    .await
+    .map_err(|error| {
+        format!("Failed to join Public HTML verification session clear task: {error}")
+    })?
 }

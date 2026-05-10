@@ -268,14 +268,23 @@ const localeBundle = {
       },
       "cloudflareChallenge": {
         "title": "需要完成 Nexus 验证",
-        "detail": "Nexus Mods 返回了 Cloudflare 验证页，而不是预期的 HTML 内容。请先在浏览器里完成验证，再回到这里重试当前操作。",
+        "detail": "Public HTML 已暂停，请打开验证窗口完成验证。",
         "prompt": "现在打开 Nexus Mods 吗？",
         "openAction": "打开 Nexus Mods",
         "cancelAction": "取消",
-        "disablePublicHtmlLabel": "后续不再使用 Public HTML 路线",
-        "disablePublicHtmlDescription": "关闭基于 HTML 的 Nexus 路线，后续诊断和请求会尽量只使用其他仍可用的路线。",
+        "disablePublicHtmlLabel": "停用 Public HTML",
+        "disablePublicHtmlDescription": "跳过 HTML 路线，优先使用其他 Nexus 通路。",
         "disablePublicHtmlEnabledLabel": "已停用 Public HTML 路线",
-        "disablePublicHtmlDisabledLabel": "仍使用 Public HTML 路线"
+        "disablePublicHtmlDisabledLabel": "仍使用 Public HTML 路线",
+        "routeStatusLabel": "路线状态",
+        "cleanBrowserLabel": "干净浏览器会话",
+        "cleanBrowserDescription": "此面板不会向 Nexus 页面注入脚本。先正常完成页面验证，再检查保存的会话。",
+        "browserStepLabel": "在浏览器中验证",
+        "browserStepDescription": "使用左侧 Nexus 页面，直到它正常加载。",
+        "checkStepLabel": "检查会话",
+        "checkStepDescription": "页面打开后，让 ModForge 读取浏览器会话并重试 Public HTML。",
+        "sessionReadyLabel": "会话可用",
+        "sessionWaitingLabel": "等待验证"
       },
       "downloads": {
         "title": "下载",
@@ -297,8 +306,10 @@ const localeBundle = {
         "saved": "启动器设置已保存。",
         "saveFailed": "启动器设置保存失败。",
         "verificationTitle": "Public HTML 验证",
-        "verificationHint": "打开验证窗口并保持其中的 Nexus 页面已加载。如果你看到的已经是正常的 Nexus 页面而不是挑战页，也没问题；启动器会尝试同步这份浏览器会话。",
+        "verificationHint": "先在浏览器区域完成 Nexus 验证，再检查会话。",
         "openVerificationAction": "打开验证窗口",
+        "checkVerificationStatusAction": "检查验证状态",
+        "checkingVerificationStatusAction": "正在检查会话",
         "clearVerificationSessionAction": "清除验证会话"
       },
       "sortOptions": {
@@ -2079,7 +2090,7 @@ localeBundle.editor.launcher.debug = {
   nexusDiagnosticsNotificationTitle: 'Nexus 通路诊断异常',
   nexusDiagnosticsNotificationImpact: (targets) => `影响范围：${targets} 已暂停`,
   nexusDiagnosticsNotificationLimitedImpact: '影响范围：部分依赖 Nexus 的请求已受限',
-  nexusDiagnosticsNotificationBody: (count) => `经检测，共有 ${count} 个通路未通过验证。`,
+  nexusDiagnosticsNotificationBody: (count) => `经检测，共有 ${count} 个通路不可用。`,
   nexusDiagnosticsNotificationNote: '你可以立即重试，或打开诊断页查看详细失败原因。',
   nexusMessagePreviewTitle: '消息预览',
   nexusMessagePreviewSubtitle: '预览聚合后的诊断消息，不再把整套通路明细重复展开一次。',

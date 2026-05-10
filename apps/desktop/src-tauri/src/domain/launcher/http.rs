@@ -1,11 +1,14 @@
 use super::can_use_nexus_graphql;
 use super::paths::launcher_settings_path;
+use super::public_html_verification;
 use super::settings::load_or_create_settings_at_path;
 use super::shared::extract_graphql_error;
+use super::types::PublicHtmlVerificationReason;
 use super::types::{
     LauncherNexusDiagnosticsResult, LauncherNexusRouteSnapshot, LauncherNexusRouteStatus,
     LauncherSettings,
 };
+use cookie_store::CookieStore;
 use reqwest::blocking::{Client, Response};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, COOKIE, REFERER, USER_AGENT};
 use reqwest::{StatusCode, Url};
@@ -16,8 +19,6 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
-use super::public_html_webview;
-use super::types::PublicHtmlVerificationReason;
 
 pub(crate) const DEFAULT_GAME_ID: i64 = 1303;
 pub(crate) const LAUNCHER_USER_AGENT: &str = "ModForge Studio/0.1";
@@ -316,11 +317,7 @@ where
         }
     }
 
-    launcher_nexus_warning_snapshot(
-        route,
-        LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS,
-        &last_error,
-    )
+    launcher_nexus_warning_snapshot(route, LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS, &last_error)
 }
 
 fn is_launcher_nexus_route_blocked(route: LauncherNexusRoute) -> bool {
@@ -370,15 +367,15 @@ where
 
     let snapshot =
         probe_launcher_nexus_route_with_runner(route, run_attempt, sleep_between_attempts);
-    let recovery_error = if snapshot.status == LauncherNexusRouteStatus::Warning && !snapshot.available
-    {
-        Some(format!(
-            "Launcher Nexus route {} is disabled after startup diagnostics: {}",
-            snapshot.label, snapshot.message
-        ))
-    } else {
-        None
-    };
+    let recovery_error =
+        if snapshot.status == LauncherNexusRouteStatus::Warning && !snapshot.available {
+            Some(format!(
+                "Launcher Nexus route {} is disabled after startup diagnostics: {}",
+                snapshot.label, snapshot.message
+            ))
+        } else {
+            None
+        };
     set_launcher_nexus_route_snapshot(snapshot);
 
     match recovery_error {
@@ -444,7 +441,9 @@ fn ensure_launcher_nexus_route_enabled_in_settings(
     route: LauncherNexusRoute,
 ) -> Result<(), String> {
     if route == LauncherNexusRoute::PublicHtml && launcher_public_html_route_disabled(settings) {
-        return Err("Launcher Nexus Public HTML route is disabled in launcher settings.".to_string());
+        return Err(
+            "Launcher Nexus Public HTML route is disabled in launcher settings.".to_string(),
+        );
     }
 
     Ok(())
@@ -555,6 +554,8 @@ fn probe_launcher_nexus_public_html_route(
     let headers = public_page_headers(
         Some(PUBLIC_GRAPHQL_DIAGNOSTIC_REFERER),
         settings.and_then(|value| value.nexus_cookie.as_deref()),
+        &Url::parse(PUBLIC_HTML_DIAGNOSTIC_ENDPOINT)
+            .map_err(|error| format!("Failed to parse Public HTML diagnostic URL: {error}"))?,
     )?;
     send_nexus_public_html_request(client, PUBLIC_HTML_DIAGNOSTIC_ENDPOINT, headers).map(|_| ())
 }
@@ -739,7 +740,7 @@ fn handle_diagnostics_challenge_with_verification(
 
     let url = challenge_snapshot.endpoint.clone();
     if let Some(app) = app {
-        if let Err(error) = public_html_webview::request_verification_with_app(
+        if let Err(error) = public_html_verification::request_verification_with_app(
             app,
             PublicHtmlVerificationReason::Diagnostics,
             url,
@@ -748,7 +749,7 @@ fn handle_diagnostics_challenge_with_verification(
             return challenge_snapshot.clone();
         }
     } else {
-        let accepted = public_html_webview::request_verification(
+        let accepted = public_html_verification::request_verification(
             PublicHtmlVerificationReason::Diagnostics,
             url,
         );
@@ -756,10 +757,10 @@ fn handle_diagnostics_challenge_with_verification(
             log::warn!("public html verification request rejected (another session in progress)");
             return challenge_snapshot.clone();
         }
-        public_html_webview::signal_verification_opened();
+        public_html_verification::signal_verification_opened();
     }
 
-    match public_html_webview::wait_for_verification() {
+    match public_html_verification::wait_for_verification_with_app(app) {
         Ok(cookie) => {
             // Save cookie if provided, then retry diagnostics for this route
             if let Some(cookie_value) = cookie {
@@ -767,14 +768,16 @@ fn handle_diagnostics_challenge_with_verification(
                     log::warn!("failed to save nexus cookie from verification: {err}");
                 }
             }
-            public_html_webview::reset_verification();
+            public_html_verification::reset_verification();
 
             let refreshed_settings = match launcher_settings_path()
                 .and_then(|path| load_or_create_settings_at_path(&path))
             {
                 Ok(value) => value,
                 Err(error) => {
-                    log::warn!("failed to reload launcher settings after browser verification: {error}");
+                    log::warn!(
+                        "failed to reload launcher settings after browser verification: {error}"
+                    );
                     settings.clone()
                 }
             };
@@ -789,7 +792,7 @@ fn handle_diagnostics_challenge_with_verification(
         }
         Err((_stage, message)) => {
             log::warn!("public html verification did not complete: {message}");
-            public_html_webview::reset_verification();
+            public_html_verification::reset_verification();
 
             // Return a warning snapshot -- verification did not succeed
             LauncherNexusRouteSnapshot {
@@ -907,6 +910,13 @@ pub(crate) fn load_launcher_nexus_diagnostics(
     Ok(snapshot_launcher_nexus_diagnostics())
 }
 
+pub(crate) fn retry_launcher_nexus_diagnostics_route(
+    app: &AppHandle,
+    _route_id: String,
+) -> Result<LauncherNexusDiagnosticsResult, String> {
+    restart_launcher_nexus_diagnostics_with_app(app)
+}
+
 pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     _app: &AppHandle,
 ) -> Result<LauncherNexusDiagnosticsResult, String> {
@@ -938,9 +948,7 @@ pub(crate) fn set_launcher_nexus_force_offline_with_settings_for_test(
 }
 
 #[cfg(test)]
-pub(crate) fn set_launcher_nexus_route_snapshot_for_test(
-    snapshot: LauncherNexusRouteSnapshot,
-) {
+pub(crate) fn set_launcher_nexus_route_snapshot_for_test(snapshot: LauncherNexusRouteSnapshot) {
     let Some(route) = LauncherNexusRoute::from_route_id(&snapshot.route_id) else {
         return;
     };
@@ -1146,7 +1154,8 @@ fn send_nexus_public_html_request_internal(
     allow_accelerated_fallback: bool,
 ) -> Result<NexusPublicHtmlDocument, String> {
     let send_primary = || {
-        let document = send_nexus_public_html_document(|| client.get(url).headers(headers.clone()).send())?;
+        let document =
+            send_nexus_public_html_document(|| client.get(url).headers(headers.clone()).send())?;
         if nexus_public_html_document_requires_verification(&document) {
             return Err(launcher_cloudflare_challenge_required_error(url));
         }
@@ -1167,10 +1176,7 @@ fn send_nexus_public_html_request_internal(
         |ip| {
             let accelerated_client = launcher_public_html_accelerated_client(ip)?;
             let document = send_nexus_public_html_document(|| {
-                accelerated_client
-                    .get(url)
-                    .headers(headers.clone())
-                    .send()
+                accelerated_client.get(url).headers(headers.clone()).send()
             })?;
             if nexus_public_html_document_requires_verification(&document) {
                 return Err(launcher_cloudflare_challenge_required_error(url));
@@ -1200,11 +1206,15 @@ pub(crate) fn send_nexus_public_html_request_with_verification(
     referer: Option<&str>,
     reason: PublicHtmlVerificationReason,
 ) -> Result<NexusPublicHtmlDocument, String> {
-    let initial_headers = public_page_headers(referer, settings.nexus_cookie.as_deref())?;
+    let parsed_url = Url::parse(url)
+        .map_err(|error| format!("Failed to parse launcher Public HTML URL '{url}': {error}"))?;
+
+    let initial_headers =
+        public_page_headers(referer, settings.nexus_cookie.as_deref(), &parsed_url)?;
     match send_nexus_public_html_request_internal(client, url, initial_headers.clone(), false) {
         Ok(document) => Ok(document),
         Err(error) if is_launcher_cloudflare_challenge_required_error(&error) => {
-            let verifying_snapshot = public_html_webview::request_verification_with_app(
+            let verifying_snapshot = public_html_verification::request_verification_with_app(
                 app,
                 reason,
                 url.to_string(),
@@ -1215,7 +1225,7 @@ pub(crate) fn send_nexus_public_html_request_with_verification(
                 verifying_snapshot.stage
             );
 
-            let cookie = match public_html_webview::wait_for_verification() {
+            let cookie = match public_html_verification::wait_for_verification_with_app(Some(app)) {
                 Ok(cookie) => cookie,
                 Err((_stage, message)) => {
                     return Err(format!(
@@ -1227,11 +1237,14 @@ pub(crate) fn send_nexus_public_html_request_with_verification(
             if let Some(cookie_value) = cookie {
                 save_nexus_cookie_to_settings(&cookie_value)?;
             }
-            public_html_webview::reset_verification();
+            public_html_verification::reset_verification();
 
             let refreshed_settings = load_or_create_settings_at_path(&launcher_settings_path()?)?;
-            let retry_headers =
-                public_page_headers(referer, refreshed_settings.nexus_cookie.as_deref())?;
+            let retry_headers = public_page_headers(
+                referer,
+                refreshed_settings.nexus_cookie.as_deref(),
+                &parsed_url,
+            )?;
             send_nexus_public_html_request(client, url, retry_headers)
         }
         Err(_error) => send_nexus_public_html_request(client, url, initial_headers),
@@ -1286,8 +1299,7 @@ where
         match read_body() {
             Ok(body) => return Ok(body),
             Err(error)
-                if attempt < NEXUS_RETRY_ATTEMPTS
-                    && should_retry_body_read_error(&error) =>
+                if attempt < NEXUS_RETRY_ATTEMPTS && should_retry_body_read_error(&error) =>
             {
                 let delay = retry_delay(None, attempt);
                 log::warn!(
@@ -1306,7 +1318,8 @@ where
         }
     }
 
-    Err(last_error.unwrap_or_else(|| "Nexus response body read failed without an error message.".to_string()))
+    Err(last_error
+        .unwrap_or_else(|| "Nexus response body read failed without an error message.".to_string()))
 }
 
 fn should_retry_body_read_error(error: &str) -> bool {
@@ -1386,9 +1399,69 @@ pub(crate) fn graphql_headers(
     Ok(headers)
 }
 
+fn normalize_cookies_for_url(raw: &str, url: &Url) -> String {
+    let mut store = CookieStore::default();
+
+    // The saved raw cookie string may mix name=value pairs with Set-Cookie attributes.
+    // Split by semicolon and keep only segments that look like name=value cookies.
+    for segment in raw.split(';') {
+        let trimmed = segment.trim();
+        if let Some((name, value)) = trimmed.split_once('=') {
+            let name = name.trim();
+            if name.is_empty() || is_cookie_attribute_name(name) {
+                continue;
+            }
+            // Insert as a synthetic Set-Cookie so cookie_store can do domain/path matching.
+            let set_cookie = format!(
+                "{name}={value}; Path=/; Domain={}",
+                url.host_str().unwrap_or("nexusmods.com")
+            );
+            if let Ok(raw_cookie) = cookie_store::RawCookie::parse(set_cookie) {
+                let _ = store.insert_raw(&raw_cookie, url);
+            }
+        }
+    }
+
+    let cookies = store.get_request_values(url);
+    cookies
+        .map(|(name, value)| format!("{name}={value}"))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn cookie_header_names(raw: &str) -> Vec<String> {
+    raw.split(';')
+        .filter_map(|segment| {
+            let (name, _value) = segment.trim().split_once('=')?;
+            let name = name.trim();
+            if name.is_empty() || is_cookie_attribute_name(name) {
+                None
+            } else {
+                Some(name.to_string())
+            }
+        })
+        .collect()
+}
+
+fn is_cookie_attribute_name(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "path"
+            | "domain"
+            | "expires"
+            | "max-age"
+            | "secure"
+            | "httponly"
+            | "samesite"
+            | "priority"
+            | "partitioned"
+    )
+}
+
 pub(crate) fn public_page_headers(
     referer: Option<&str>,
     cookie: Option<&str>,
+    url: &Url,
 ) -> Result<HeaderMap, String> {
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -1431,11 +1504,31 @@ pub(crate) fn public_page_headers(
         );
     }
     if let Some(cookie) = cookie.map(str::trim).filter(|value| !value.is_empty()) {
-        headers.insert(
-            COOKIE,
-            HeaderValue::from_str(cookie).map_err(|error| {
-                format!("Failed to encode launcher public page cookie header: {error}")
-            })?,
+        let normalized = normalize_cookies_for_url(cookie, url);
+        if !normalized.is_empty() {
+            log::info!(
+                "launcher public page cookie header prepared host={} raw_names=[{}] normalized_names=[{}]",
+                url.host_str().unwrap_or_default(),
+                cookie_header_names(cookie).join(", "),
+                cookie_header_names(&normalized).join(", ")
+            );
+            headers.insert(
+                COOKIE,
+                HeaderValue::from_str(&normalized).map_err(|error| {
+                    format!("Failed to encode launcher public page cookie header: {error}")
+                })?,
+            );
+        } else {
+            log::warn!(
+                "launcher public page cookie header normalization dropped all cookies host={} raw_names=[{}]",
+                url.host_str().unwrap_or_default(),
+                cookie_header_names(cookie).join(", ")
+            );
+        }
+    } else {
+        log::info!(
+            "launcher public page request has no saved cookie host={}",
+            url.host_str().unwrap_or_default()
         );
     }
     Ok(headers)

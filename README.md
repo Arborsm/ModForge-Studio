@@ -15,8 +15,8 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │     ├─ src/                          # React / TypeScript 前端
 │     │  ├─ app/                       # 应用装配、Provider、全局壳层、registry setup
 │     │  │  ├─ app-shell/              # 全局 App Shell、设置窗口、应用级 chrome
-│     │  │  ├─ launcher-public-html-verification/ # Public HTML 验证专用窗口
 │     │  │  └─ providers/              # DI Provider、事件总线、命令分发器
+│     │  │  └─ webview-surfaces/       # 子 webview 承载的本地应用 surface
 │     │  ├─ pages/                     # 页面骨架与 view 分发
 │     │  │  ├─ launcher/               # 启动器页面入口
 │     │  │  └─ workbench/              # 工作台页面入口与页面级 runtime
@@ -48,7 +48,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │        ├─ src/
 │        │  ├─ commands/               # Tauri command wrapper
 │        │  ├─ domain/                 # 业务 / 领域逻辑
-│        │  ├─ infrastructure/         # 格式解析、文件系统等技术细节
+│        │  ├─ infrastructure/         # 格式解析、文件系统、webview 抽象等技术细节
 │        │  ├─ support/                # 横向支撑代码
 │        │  └─ tests/                  # Rust 模块 / 单元测试
 │        └─ tests/                     # Rust 集成 / 回归测试
@@ -95,7 +95,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 
 - App wrapper：`apps/desktop/src/app/App.tsx`
 - 全局壳层：`apps/desktop/src/app/app-shell/`
-- Public HTML 验证窗口：`apps/desktop/src/app/launcher-public-html-verification/`
+- 子 webview surface：`apps/desktop/src/app/webview-surfaces/`
 - Platform Provider：`apps/desktop/src/app/providers/PlatformProvider.tsx`
 - 事件总线与命令分发：`apps/desktop/src/app/providers/`
 - Approved platform bridge boundaries：`apps/desktop/src/app/providers/`、`apps/desktop/src/app/app-shell/AppShell.tsx`、`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
@@ -162,6 +162,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - App 注入入口：`apps/desktop/src/app/providers/`
 - Rust command wrapper：`apps/desktop/src-tauri/src/commands/`
 - Rust domain：`apps/desktop/src-tauri/src/domain/`
+- Rust webview 基础设施：`apps/desktop/src-tauri/src/infrastructure/webview/`
 
 ### 文案与样式
 
@@ -185,8 +186,8 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 
 - 改应用启动、模式恢复、全局设置、Provider：
   - `apps/desktop/src/app/app-shell/`
-  - `apps/desktop/src/app/launcher-public-html-verification/`
   - `apps/desktop/src/app/providers/`
+  - `apps/desktop/src/app/webview-surfaces/`
   - `apps/desktop/src/app/App.tsx`
 - 改 registry、view 分发、workspace 注册：
   - `apps/desktop/src/app/registry-setup.ts`
@@ -214,6 +215,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src/platform/desktop/`
   - `apps/desktop/src-tauri/src/commands/`
   - `apps/desktop/src-tauri/src/domain/`
+  - `apps/desktop/src-tauri/src/infrastructure/webview/`
 - 改批准桥接边界：
   - `apps/desktop/src/app/providers/`
   - `apps/desktop/src/app/app-shell/AppShell.tsx`
@@ -233,6 +235,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - `uv run pnpm lint`：前端 lint。
 - `uv run pnpm build`：前端构建。
 - `uv run pnpm --filter @modforge/desktop test`：前端测试。
+- `uv run cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`：格式化 Rust 后端。
 - `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 检查。
 - `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 测试。
 

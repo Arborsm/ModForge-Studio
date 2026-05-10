@@ -83,7 +83,11 @@ pub struct ContentPatcherPreviewFingerprint {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
 pub enum ContentPatcherPreviewRequest {
     ExistingProjectPath {
         project_path: String,
@@ -294,7 +298,10 @@ mod preview_request_tests {
             request.game_root_path.as_deref(),
             Some("E:\\Games\\Stardew Valley")
         );
-        assert_eq!(request.context.and_then(|value| value.season), Some("winter".to_string()));
+        assert_eq!(
+            request.context.and_then(|value| value.season),
+            Some("winter".to_string())
+        );
     }
 
     #[test]
@@ -328,7 +335,10 @@ mod preview_request_tests {
         let request: SimulateContentPatcherRequest = request.into();
 
         assert_eq!(request.path, None);
-        assert_eq!(request.manifest_json.as_deref(), Some("{ \"Name\": \"Builder Draft\" }"));
+        assert_eq!(
+            request.manifest_json.as_deref(),
+            Some("{ \"Name\": \"Builder Draft\" }")
+        );
         assert_eq!(
             request.content_json.as_deref(),
             Some("{ \"Format\": \"2.0.0\", \"Changes\": [] }")
@@ -345,7 +355,10 @@ mod preview_request_tests {
                 .map(|value| value.draft_fingerprint.as_str()),
             Some("draft:1")
         );
-        assert_eq!(request.context.and_then(|value| value.season), Some("spring".to_string()));
+        assert_eq!(
+            request.context.and_then(|value| value.season),
+            Some("spring".to_string())
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
 import AppShell from '@app/app-shell/AppShell'
-import { LauncherPublicHtmlVerificationApp } from '@app/launcher-public-html-verification/LauncherPublicHtmlVerificationApp'
+import { PublicHtmlVerificationControlsSurface } from '@app/webview-surfaces/PublicHtmlVerificationControlsSurface'
 import { PlatformProvider } from '@app/providers/PlatformProvider'
 import { CpMakerPlatformProvider } from '@app/providers/CpMakerPlatformProvider'
 import { LauncherPlatformProvider } from '@app/providers/LauncherPlatformProvider'
@@ -25,8 +25,8 @@ function getCurrentWebviewLabel() {
 export default function App() {
   const currentWebviewLabel = getCurrentWebviewLabel()
   const surface =
-    currentWebviewLabel === 'launcher-public-html-toolbar' ? (
-      <LauncherPublicHtmlVerificationApp />
+    currentWebviewLabel === 'public-html-verification-controls' ? (
+      <PublicHtmlVerificationControlsSurface />
     ) : (
       <AppShell />
     )

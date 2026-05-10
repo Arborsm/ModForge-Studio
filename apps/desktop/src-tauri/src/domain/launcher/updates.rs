@@ -1,20 +1,19 @@
 use super::can_use_nexus_graphql;
 use super::http::{
-    graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route,
-    send_nexus_request, LauncherNexusRoute,
+    graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route, send_nexus_request,
+    LauncherNexusRoute,
 };
 use super::library::scan_library_at_path;
 use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
 use super::remote::{
-    load_remote_mod_detail_from_public_graphql,
-    parse_remote_mod_detail_node, RemoteModDetail,
+    load_remote_mod_detail_from_public_graphql, parse_remote_mod_detail_node, RemoteModDetail,
 };
 use super::settings::load_or_create_settings_at_path;
 use super::shared::{build_mod_page_url, extract_graphql_error, normalize_nexus_url};
 use super::trace::log_launcher_trace;
 use super::types::{
-    CheckLauncherUpdatesRequest, LauncherSettings, LauncherUpdateProgressPayload,
-    LauncherSuppressedUpdateModIdsResult, LauncherUpdateSummary, LauncherUpdatesResult,
+    CheckLauncherUpdatesRequest, LauncherSettings, LauncherSuppressedUpdateModIdsResult,
+    LauncherUpdateProgressPayload, LauncherUpdateSummary, LauncherUpdatesResult,
     LoadCachedLauncherUpdatesRequest, LoadSuppressedLauncherUpdateModIdsRequest,
 };
 use super::update_cache::{
@@ -35,8 +34,8 @@ use std::path::{Path, PathBuf};
 #[cfg(target_os = "windows")]
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
-use tauri::Emitter;
 use tauri::AppHandle;
+use tauri::Emitter;
 
 const UPDATE_BATCH_SIZE: usize = 24;
 const GRAPHQL_ENDPOINT: &str = "https://graphql.nexusmods.com/";
@@ -346,11 +345,7 @@ fn load_remote_mod_details_from_graphql(
     if !can_use_nexus_graphql(settings) {
         return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
     }
-    probe_blocked_launcher_nexus_route(
-        client,
-        Some(settings),
-        LauncherNexusRoute::PrivateGraphql,
-    )?;
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
     let headers = graphql_headers(
         settings.nexus_api_key.as_deref(),

@@ -172,7 +172,9 @@ fn fetch_mod_files_payload(
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Configure a Nexus API key before fetching launcher mod files.".to_string())?;
+        .ok_or_else(|| {
+            "Configure a Nexus API key before fetching launcher mod files.".to_string()
+        })?;
     let headers = api_headers(api_key)?;
     let response = send_nexus_request(|| {
         response

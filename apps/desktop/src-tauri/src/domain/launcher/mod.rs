@@ -1,3 +1,4 @@
+pub mod accelerater;
 pub mod archive;
 pub mod discovery;
 pub mod downloads;
@@ -7,6 +8,7 @@ pub mod image_cache;
 pub mod install_manager;
 pub mod library;
 pub mod paths;
+pub mod public_html_verification;
 pub mod remote;
 pub mod runtime;
 pub mod settings;
@@ -15,8 +17,6 @@ pub mod trace;
 pub mod types;
 pub mod update_cache;
 pub mod updates;
-pub mod accelerater;
-pub mod public_html_webview;
 
 use types::LauncherSettings;
 

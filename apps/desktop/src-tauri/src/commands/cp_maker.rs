@@ -1,9 +1,8 @@
-use crate::domain::cp_maker as domain_cp_maker;
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
+use crate::domain::cp_maker as domain_cp_maker;
 use crate::domain::cp_maker::types::{
-    BuildCpMakerMapAssetRequest, CopyCpMakerDraftRequest,
-    CpMakerDraftError, CpMakerDraftRecord, CpMakerDraftSummary,
-    CpMakerExportRequest, CpMakerExportResult,
+    BuildCpMakerMapAssetRequest, CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftRecord,
+    CpMakerDraftSummary, CpMakerExportRequest, CpMakerExportResult,
 };
 
 #[tauri::command]
@@ -35,9 +34,7 @@ pub fn save_cp_maker_draft(
 }
 
 #[tauri::command]
-pub fn delete_cp_maker_draft(
-    draft_storage_key: String,
-) -> Result<(), CpMakerDraftError> {
+pub fn delete_cp_maker_draft(draft_storage_key: String) -> Result<(), CpMakerDraftError> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "delete_cp_maker_draft",
         domain_cp_maker::delete_cp_maker_draft(draft_storage_key),

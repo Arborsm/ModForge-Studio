@@ -198,6 +198,9 @@ const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promis
 const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
   async () => createLauncherNexusDiagnosticsResult(),
 )
+const retryLauncherNexusDiagnosticsRouteMock = vi.fn<(routeId: string) => Promise<LauncherNexusDiagnosticsResult>>(
+  async () => createLauncherNexusDiagnosticsResult(),
+)
 const loadLauncherPublicHtmlVerificationStateMock = vi.fn<() => Promise<LauncherPublicHtmlVerificationSnapshot>>(async () => ({
   state: 'idle',
   targetUrl: null,
@@ -439,6 +442,7 @@ vi.mock('@platform/desktop', () => ({
   listenToLauncherPublicHtmlVerificationState: (listener: (payload: LauncherPublicHtmlVerificationSnapshot) => void) =>
     listenToLauncherPublicHtmlVerificationStateMock(listener),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
+  retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
   listKnownGameDirectories: vi.fn(async () => []),
@@ -486,6 +490,7 @@ vi.mock('@platform/desktop', () => ({
   listenToLauncherPublicHtmlVerificationState: (listener: (payload: LauncherPublicHtmlVerificationSnapshot) => void) =>
     listenToLauncherPublicHtmlVerificationStateMock(listener),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
+  retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
   listKnownGameDirectories: vi.fn(async () => []),
@@ -876,6 +881,8 @@ describe('App locale ownership', () => {
     setLauncherNexusForceOfflineMock.mockResolvedValue({ routes: [] })
     restartLauncherNexusDiagnosticsMock.mockReset()
     restartLauncherNexusDiagnosticsMock.mockResolvedValue({ routes: [] })
+    retryLauncherNexusDiagnosticsRouteMock.mockReset()
+    retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({ routes: [] })
     saveLauncherSettingsMock.mockReset()
     saveLauncherSettingsMock.mockImplementation(async (request: Record<string, unknown>) => ({
       gamePath: 'C:/Games/Stardew Valley',
@@ -1217,7 +1224,7 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('restarts Nexus diagnostics from the diagnostics notification retry button', async () => {
+  it('retries only failed Nexus diagnostics routes from the diagnostics notification retry button', async () => {
     seedAppUiState({
       shell: { appMode: 'launcher' },
     })
@@ -1225,28 +1232,38 @@ describe('App locale ownership', () => {
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({
       routes: [
         {
-          routeId: 'publicGraphql',
-          label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          routeId: 'privateGraphql',
+          label: 'Nexus Private GraphQL',
+          endpoint: 'https://graphql.nexusmods.com/',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
           available: false,
           message: 'Failed after 3 attempts: timeout',
         },
-      ],
-    })
-    restartLauncherNexusDiagnosticsMock.mockResolvedValue({
-      routes: [
         {
-          routeId: 'publicGraphql',
-          label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
-          status: 'loading',
+          routeId: 'publicHtml',
+          label: 'Nexus Public HTML',
+          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          status: 'success',
           attempts: 1,
           maxAttempts: 3,
           available: true,
-          message: 'Attempt 1 of 3 is in progress.',
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'privateGraphql',
+          label: 'Nexus Private GraphQL',
+          endpoint: 'https://graphql.nexusmods.com/',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
         },
       ],
     })
@@ -1256,8 +1273,10 @@ describe('App locale ownership', () => {
     fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.retry }))
 
     await waitFor(() => {
-      expect(restartLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+      expect(retryLauncherNexusDiagnosticsRouteMock).toHaveBeenCalledWith('privateGraphql')
     })
+    expect(restartLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
+    expect(retryLauncherNexusDiagnosticsRouteMock).not.toHaveBeenCalledWith('publicHtml')
   })
 
   it('loads and subscribes to Public HTML verification state instead of showing the legacy Cloudflare dialog', async () => {
@@ -1281,7 +1300,9 @@ describe('App locale ownership', () => {
       expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
     })
     expect(screen.queryByRole('dialog', { name: /Nexus verification required/i })).toBeNull()
-    expect(screen.getByTestId('public-html-verification-card')).toBeTruthy()
+    expect(screen.queryByTestId('public-html-verification-card')).toBeNull()
+    const notification = screen.getByText(editorCopy['en-US'].launcher.cloudflareChallenge.title).closest('.notification-toast')
+    expect(notification?.className).toContain('notification-toast-variant-diagnostic')
     expect(screen.queryByRole('button', { name: /Refresh/i })).toBeNull()
     expect(screen.queryByRole('button', { name: /Clear Verification Session/i })).toBeNull()
     expect(openLauncherPublicHtmlVerificationMock).not.toHaveBeenCalled()
@@ -1311,10 +1332,12 @@ describe('App locale ownership', () => {
     })
 
     expect(screen.queryByRole('dialog', { name: /Nexus verification required/i })).toBeNull()
-    expect(screen.getByTestId('public-html-verification-card')).toBeTruthy()
+    expect(screen.queryByTestId('public-html-verification-card')).toBeNull()
+    const notification = screen.getByText(editorCopy['en-US'].launcher.cloudflareChallenge.title).closest('.notification-toast')
+    expect(notification?.className).toContain('notification-toast-variant-diagnostic')
   })
 
-  it('opens the verification webview only after the user clicks the card action', async () => {
+  it('opens the verification webview only after the user clicks the notification action', async () => {
     seedAppUiState({
       shell: { appMode: 'launcher' },
     })
@@ -1331,7 +1354,7 @@ describe('App locale ownership', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('public-html-verification-card')).toBeTruthy()
+      expect(screen.getByText(editorCopy['en-US'].launcher.cloudflareChallenge.title)).toBeTruthy()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /Open Verification Window/i }))
@@ -1342,6 +1365,81 @@ describe('App locale ownership', () => {
         reason: 'remote-mod-detail',
       })
     })
+  })
+
+  it('does not reload all Nexus diagnostics when Public HTML verification toggles the route setting', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalled()
+    })
+    const diagnosticsCallsBeforeVerificationUpdate = loadLauncherNexusDiagnosticsMock.mock.calls.length
+
+    act(() => {
+      appPublicHtmlVerificationStateListener?.({
+        state: 'disabled',
+        targetUrl: 'https://www.nexusmods.com/stardewvalley',
+        reason: 'diagnostics',
+        disablePublicHtmlRoute: true,
+        lastVerifiedAtMs: null,
+        message: 'Public HTML route disabled by user.',
+      })
+    })
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+
+    expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(diagnosticsCallsBeforeVerificationUpdate)
+  })
+
+  it('retries only the Public HTML diagnostics route after browser verification completes', async () => {
+    seedAppUiState({
+      shell: { appMode: 'launcher' },
+    })
+    canUseDesktopHostMock.mockReturnValue(true)
+    retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicHtml',
+          label: 'Nexus Public HTML',
+          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      appPublicHtmlVerificationStateListener?.({
+        state: 'verified',
+        targetUrl: 'https://www.nexusmods.com/stardewvalley',
+        reason: 'diagnostics',
+        disablePublicHtmlRoute: false,
+        lastVerifiedAtMs: 12345,
+        message: 'Verification completed successfully.',
+      })
+    })
+
+    await waitFor(() => {
+      expect(retryLauncherNexusDiagnosticsRouteMock).toHaveBeenCalledWith('publicHtml')
+    })
+    expect(restartLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
   })
 
   it('applies the persisted launcher force-offline override during startup hydration', async () => {

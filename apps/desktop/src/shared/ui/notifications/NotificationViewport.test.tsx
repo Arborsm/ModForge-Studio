@@ -229,6 +229,29 @@ describe('NotificationProvider', () => {
     expect(screen.queryByText('Export failed')).toBeNull()
   })
 
+  it('can keep a persistent notification open after running an action', () => {
+    const onOpen = vi.fn()
+    renderNotifications()
+
+    act(() => {
+      publishNotification({
+        level: 'warning',
+        title: 'Nexus verification required',
+        action: {
+          label: 'Open Verification Window',
+          callback: onOpen,
+          closeOnClick: false,
+        },
+        autoDismissMs: null,
+      })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Verification Window' }))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+
+    expect(screen.getByText('Nexus verification required')).toBeTruthy()
+  })
+
   it('stacks newer notifications above older ones with queue offsets', () => {
     renderNotifications()
 

@@ -1,6 +1,6 @@
-use super::apply_edit_map_patch;
 use super::super::super::assets::LoadedMapAsset;
 use super::super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
+use super::apply_edit_map_patch;
 use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
@@ -18,39 +18,35 @@ fn empty_map_document() -> MapDocument {
         orientation: "orthogonal".to_string(),
         render_order: "right-down".to_string(),
         properties: HashMap::new(),
-        tilesets: vec![
-            crate::infrastructure::game_formats::tbin::MapTileset {
-                first_gid: 1,
-                name: "spring_outdoorsTileSheet".to_string(),
-                tile_width: 16,
-                tile_height: 16,
-                tile_count: 100,
-                columns: 10,
-                image_source: None,
-                image_path: None,
-                image_width: None,
-                image_height: None,
-                properties: HashMap::new(),
-                tile_properties: HashMap::new(),
-                animations: HashMap::new(),
-            },
-        ],
-        layers: vec![
-            MapLayer {
-                id: 1,
-                name: "Back".to_string(),
-                kind: "TileLayer".to_string(),
-                width: 4,
-                height: 4,
-                visible: true,
-                opacity: 1.0,
-                offset_x: 0.0,
-                offset_y: 0.0,
-                properties: HashMap::new(),
-                gids: vec![0; 16],
-                non_empty_tiles: 0,
-            },
-        ],
+        tilesets: vec![crate::infrastructure::game_formats::tbin::MapTileset {
+            first_gid: 1,
+            name: "spring_outdoorsTileSheet".to_string(),
+            tile_width: 16,
+            tile_height: 16,
+            tile_count: 100,
+            columns: 10,
+            image_source: None,
+            image_path: None,
+            image_width: None,
+            image_height: None,
+            properties: HashMap::new(),
+            tile_properties: HashMap::new(),
+            animations: HashMap::new(),
+        }],
+        layers: vec![MapLayer {
+            id: 1,
+            name: "Back".to_string(),
+            kind: "TileLayer".to_string(),
+            width: 4,
+            height: 4,
+            visible: true,
+            opacity: 1.0,
+            offset_x: 0.0,
+            offset_y: 0.0,
+            properties: HashMap::new(),
+            gids: vec![0; 16],
+            non_empty_tiles: 0,
+        }],
         object_groups: Vec::new(),
     }
 }
@@ -92,10 +88,7 @@ fn apply_map_properties_adds_and_updates() {
         props.get("Music"),
         Some(&MapPropertyValue::String("spring1".to_string()))
     );
-    assert_eq!(
-        props.get("Outdoors"),
-        Some(&MapPropertyValue::Bool(true))
-    );
+    assert_eq!(props.get("Outdoors"), Some(&MapPropertyValue::Bool(true)));
 }
 
 #[test]
@@ -117,8 +110,14 @@ fn apply_warps_adds_warp_entries() {
         MapPropertyValue::String(s) => s.as_str(),
         other => panic!("Expected string warp property, got {:?}", other),
     };
-    assert!(warp_str.contains("5 10 Farm 20 25"), "first warp missing: {warp_str}");
-    assert!(warp_str.contains("6 11 Town 30 35"), "second warp missing: {warp_str}");
+    assert!(
+        warp_str.contains("5 10 Farm 20 25"),
+        "first warp missing: {warp_str}"
+    );
+    assert!(
+        warp_str.contains("6 11 Town 30 35"),
+        "second warp missing: {warp_str}"
+    );
 }
 
 #[test]
@@ -138,7 +137,10 @@ fn apply_map_tiles_sets_tile_index() {
     }));
     let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
     assert!(result.is_ok(), "{result:?}");
-    let layer = map.document.layers.iter()
+    let layer = map
+        .document
+        .layers
+        .iter()
         .find(|l| l.name == "Back")
         .unwrap();
     // width=4, so (1,2) is index 1 + 2*4 = 9
@@ -152,7 +154,10 @@ fn apply_map_tiles_removes_tile() {
     let mut map = loaded_map();
     // Pre-set a tile
     {
-        let layer = map.document.layers.iter_mut()
+        let layer = map
+            .document
+            .layers
+            .iter_mut()
             .find(|l| l.name == "Back")
             .unwrap();
         layer.gids[5] = 100;
@@ -168,9 +173,12 @@ fn apply_map_tiles_removes_tile() {
     }));
     let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
     assert!(result.is_ok(), "{result:?}");
-    let layer = map.document.layers.iter()
+    let layer = map
+        .document
+        .layers
+        .iter()
         .find(|l| l.name == "Back")
-            .unwrap();
+        .unwrap();
     // width=4, so (1,1) is index 1 + 1*4 = 5
     assert_eq!(layer.gids[5], 0);
 }
@@ -198,7 +206,10 @@ fn apply_combined_map_properties_and_tiles() {
         map.document.properties.get("Music"),
         Some(&MapPropertyValue::String("summer1".to_string()))
     );
-    let layer = map.document.layers.iter()
+    let layer = map
+        .document
+        .layers
+        .iter()
         .find(|l| l.name == "Back")
         .unwrap();
     // tileset first_gid=1 + SetIndex 1 = 2
@@ -229,8 +240,18 @@ fn apply_remove_layer_removes_existing_layer() {
     }));
     let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
     assert!(result.is_ok(), "{result:?}");
-    assert!(map.document.layers.iter().find(|l| l.name == "Back").is_none());
-    assert!(map.document.layers.iter().find(|l| l.name == "Front").is_some());
+    assert!(map
+        .document
+        .layers
+        .iter()
+        .find(|l| l.name == "Back")
+        .is_none());
+    assert!(map
+        .document
+        .layers
+        .iter()
+        .find(|l| l.name == "Front")
+        .is_some());
 }
 
 #[test]
@@ -257,6 +278,16 @@ fn apply_remove_layer_and_add_layer_combined() {
     }));
     let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
     assert!(result.is_ok(), "{result:?}");
-    assert!(map.document.layers.iter().find(|l| l.name == "Back").is_none());
-    assert!(map.document.layers.iter().find(|l| l.name == "Buildings").is_some());
+    assert!(map
+        .document
+        .layers
+        .iter()
+        .find(|l| l.name == "Back")
+        .is_none());
+    assert!(map
+        .document
+        .layers
+        .iter()
+        .find(|l| l.name == "Buildings")
+        .is_some());
 }

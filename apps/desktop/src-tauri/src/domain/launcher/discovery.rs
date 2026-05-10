@@ -614,11 +614,7 @@ fn load_catalog_page_from_graphql(
     if !can_use_nexus_graphql(settings) {
         return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
     }
-    probe_blocked_launcher_nexus_route(
-        client,
-        Some(settings),
-        LauncherNexusRoute::PrivateGraphql,
-    )?;
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
     let headers = graphql_headers(
         settings.nexus_api_key.as_deref(),
@@ -659,10 +655,7 @@ fn load_trending_catalog_page(
     })
     .map_err(|error| format!("Nexus trending response failed: {error}"))?;
     if !status.is_success() {
-        return Err(format!(
-            "Nexus trending request failed: HTTP {}",
-            status
-        ));
+        return Err(format!("Nexus trending request failed: HTTP {}", status));
     }
 
     parse_trending_catalog_response(&response_payload, page, ascending)

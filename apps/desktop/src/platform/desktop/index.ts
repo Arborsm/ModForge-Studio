@@ -1578,6 +1578,10 @@ export function restartLauncherNexusDiagnostics() {
   return invokeDesktop<LauncherNexusDiagnosticsResult>('restart_launcher_nexus_diagnostics')
 }
 
+export function retryLauncherNexusDiagnosticsRoute(routeId: string) {
+  return invokeDesktop<LauncherNexusDiagnosticsResult>('retry_launcher_nexus_diagnostics_route', { routeId })
+}
+
 export function setLauncherNexusForceOffline(forceOffline: boolean) {
   return invokeDesktop<LauncherNexusDiagnosticsResult>('set_launcher_nexus_force_offline', { forceOffline })
 }
@@ -1799,6 +1803,9 @@ type RawLauncherPublicHtmlVerificationReason =
   | 'RemoteModDetail'
   | 'RemoteModImages'
   | 'RemoteModFiles'
+  | 'remoteModDetail'
+  | 'remoteModImages'
+  | 'remoteModFiles'
 
 type RawLauncherPublicHtmlVerificationSnapshot = {
   stage?: string | null
@@ -1819,13 +1826,40 @@ function normalizeLauncherPublicHtmlVerificationReason(
   if (!value) {
     return null
   }
-  const normalized = value.toLowerCase()
-  return normalized === 'diagnostics' ||
-    normalized === 'remote-mod-detail' ||
-    normalized === 'remote-mod-images' ||
-    normalized === 'remote-mod-files'
-    ? normalized
-    : null
+  switch (value) {
+    case 'diagnostics':
+    case 'Diagnostics':
+      return 'diagnostics'
+    case 'remote-mod-detail':
+    case 'remoteModDetail':
+    case 'RemoteModDetail':
+      return 'remote-mod-detail'
+    case 'remote-mod-images':
+    case 'remoteModImages':
+    case 'RemoteModImages':
+      return 'remote-mod-images'
+    case 'remote-mod-files':
+    case 'remoteModFiles':
+    case 'RemoteModFiles':
+      return 'remote-mod-files'
+    default:
+      return null
+  }
+}
+
+function toRawLauncherPublicHtmlVerificationReason(
+  value: LauncherPublicHtmlVerificationReason,
+): 'diagnostics' | 'remoteModDetail' | 'remoteModImages' | 'remoteModFiles' {
+  switch (value) {
+    case 'diagnostics':
+      return 'diagnostics'
+    case 'remote-mod-detail':
+      return 'remoteModDetail'
+    case 'remote-mod-images':
+      return 'remoteModImages'
+    case 'remote-mod-files':
+      return 'remoteModFiles'
+  }
 }
 
 function normalizeLauncherPublicHtmlVerificationSnapshot(
@@ -1874,10 +1908,12 @@ function normalizeLauncherPublicHtmlVerificationSnapshot(
 }
 
 export async function openLauncherPublicHtmlVerification(request: LauncherPublicHtmlVerificationRequest) {
+  const rawRequest = {
+    ...request,
+    reason: toRawLauncherPublicHtmlVerificationReason(request.reason),
+  }
   return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_open_verify', { request }).catch(async () =>
-      invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_verify_status'),
-    ),
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_open_verify', { request: rawRequest }),
   )
 }
 
@@ -1918,6 +1954,12 @@ export async function cancelLauncherPublicHtmlVerification() {
 
 export async function refreshLauncherPublicHtmlVerification() {
   await invokeDesktop('public_html_nexus_refresh_verify')
+}
+
+export async function checkLauncherPublicHtmlVerification() {
+  return normalizeLauncherPublicHtmlVerificationSnapshot(
+    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_check_verify'),
+  )
 }
 
 export async function closeLauncherPublicHtmlVerification() {

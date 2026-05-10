@@ -48,10 +48,8 @@ pub fn write_result_asset(
                 .json
                 .as_ref()
                 .ok_or_else(|| "missing map result".to_string())?;
-            let document: MapDocument =
-                serde_json::from_value(map_json.clone()).map_err(|err| {
-                    format!("Failed to deserialize map export payload: {err}")
-                })?;
+            let document: MapDocument = serde_json::from_value(map_json.clone())
+                .map_err(|err| format!("Failed to deserialize map export payload: {err}"))?;
             let bytes = serialize_tbin_map(&document)
                 .map_err(|err| format!("Failed to serialize map export payload: {err}"))?;
             fs::write(output_path, bytes).map_err(|err| err.to_string())?;

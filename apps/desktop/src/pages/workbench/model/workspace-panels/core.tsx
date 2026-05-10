@@ -3,11 +3,11 @@ import {
   DeferredWorkspacePlaceholder,
   DeferredWorkspaceReveal,
 } from '@shared/ui/WorkspaceDeferred'
-import type { ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { EventStageWorkspace } from '../../workspaces/event-stage'
 import { CentralWorkspace } from '../../workspaces/map'
 import { CharacterWorkspace } from '../../workspaces/character'
-import { BuildingWorkspace } from '../../workspaces/building'
+import { BuildingWorkspace } from './LazyBuildingWorkspace'
 import { EventTimelinePanel } from '../../ui/workspace-panels/event/EventTimelinePanel'
 import { EventBrowserPanel } from '../../ui/workspace-panels/event/EventBrowserPanel'
 import { EventDirectoryPanel } from '../../ui/workspace-panels/event/EventDirectoryPanel'
@@ -303,29 +303,39 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
       ) : workspaceMode === 'buildings' ? (
-        withPreviewReveal(
-          'workbench-buildings-viewport',
-          1,
-          <BuildingWorkspace
-            locale={locale}
-            viewportLabels={copy.viewportLabels}
-            theme={theme}
-            accentColor={accentColor}
-            building={activeBuilding}
-            upgradeChain={activeUpgradeChain}
-            activeTextureState={activeBuildingTextureState}
-            chainTextureStates={activeBuildingChainTextureStates}
-            activeIndoorMapDocument={activeBuildingIndoorMapDocument}
-            activeIndoorMapPath={activeBuildingIndoorMapPath}
-            activeIndoorMapMessage={activeBuildingIndoorMapMessage}
-            activeExteriorMapDocument={activeBuildingExteriorMapDocument}
-            activeExteriorMapPath={activeBuildingExteriorMapPath}
-            activeExteriorMapMessage={activeBuildingExteriorMapMessage}
-            activeExteriorFocusPoint={activeBuildingExteriorFocusPoint}
-            springObjectsState={buildingSpringObjectsState}
-            onSelectBuildingStage={onSelectBuilding}
-          />,
-        )
+        <Suspense
+          fallback={
+            <DeferredWorkspacePlaceholder
+              title={copy.buildingsPanel.workspaceTitle}
+              subtitle={copy.buildingsPanel.workspaceSubtitle}
+              lines={5}
+            />
+          }
+        >
+          {withPreviewReveal(
+            'workbench-buildings-viewport',
+            1,
+            <BuildingWorkspace
+              locale={locale}
+              viewportLabels={copy.viewportLabels}
+              theme={theme}
+              accentColor={accentColor}
+              building={activeBuilding}
+              upgradeChain={activeUpgradeChain}
+              activeTextureState={activeBuildingTextureState}
+              chainTextureStates={activeBuildingChainTextureStates}
+              activeIndoorMapDocument={activeBuildingIndoorMapDocument}
+              activeIndoorMapPath={activeBuildingIndoorMapPath}
+              activeIndoorMapMessage={activeBuildingIndoorMapMessage}
+              activeExteriorMapDocument={activeBuildingExteriorMapDocument}
+              activeExteriorMapPath={activeBuildingExteriorMapPath}
+              activeExteriorMapMessage={activeBuildingExteriorMapMessage}
+              activeExteriorFocusPoint={activeBuildingExteriorFocusPoint}
+              springObjectsState={buildingSpringObjectsState}
+              onSelectBuildingStage={onSelectBuilding}
+            />,
+          )}
+        </Suspense>
       ) : workspaceMode === 'map' ? (
         <DeferredWorkspaceCrossfade
           ready={heavyWorkspaceReady}

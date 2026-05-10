@@ -7,6 +7,7 @@ import { LauncherDebugPage } from './LauncherDebugPage'
 const reportAppEvent = vi.fn()
 const clearLauncherImageCache = vi.fn()
 const loadLauncherNexusDiagnostics = vi.fn()
+const retryLauncherNexusDiagnosticsRoute = vi.fn()
 const setLauncherNexusForceOffline = vi.fn()
 const applyAppUiStatePatch = vi.fn()
 const getAppUiStateSnapshot = vi.fn(() => ({
@@ -37,6 +38,7 @@ vi.mock('@platform/desktop', () => ({
   canUseDesktopHost: () => true,
   clearLauncherImageCache: (...args: unknown[]) => clearLauncherImageCache(...args),
   loadLauncherNexusDiagnostics: (...args: unknown[]) => loadLauncherNexusDiagnostics(...args),
+  retryLauncherNexusDiagnosticsRoute: (...args: unknown[]) => retryLauncherNexusDiagnosticsRoute(...args),
   setLauncherNexusForceOffline: (...args: unknown[]) => setLauncherNexusForceOffline(...args),
 }))
 
@@ -56,6 +58,7 @@ describe('LauncherDebugPage', () => {
     reportAppEvent.mockReset()
     clearLauncherImageCache.mockReset()
     loadLauncherNexusDiagnostics.mockReset()
+    retryLauncherNexusDiagnosticsRoute.mockReset()
     setLauncherNexusForceOffline.mockReset()
     applyAppUiStatePatch.mockReset()
     getAppUiStateSnapshot.mockReset()
@@ -187,6 +190,88 @@ describe('LauncherDebugPage', () => {
     expect(screen.getByText('warning')).toBeTruthy()
     expect(screen.getByText('success')).toBeTruthy()
     expect(screen.getByText('Failed after 3 attempts: timeout')).toBeTruthy()
+  })
+
+  it('retries only the selected Nexus diagnostics route from the debug page', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+        {
+          routeId: 'publicHtml',
+          label: 'Nexus Public HTML',
+          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    retryLauncherNexusDiagnosticsRoute.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'publicHtml',
+          label: 'Nexus Public HTML',
+          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    const onDiagnosticsUpdate = vi.fn()
+
+    renderWithLocale(
+      <LauncherDebugPage
+        debugEnabled={true}
+        onToggleDebugMode={vi.fn()}
+        onLauncherDiagnosticsUpdate={onDiagnosticsUpdate}
+        downloads={downloads as never}
+      />,
+      'zh-CN',
+    )
+
+    const retryButton = await screen.findByRole('button', { name: `${copy.actions.retry} Nexus Public GraphQL` })
+    fireEvent.click(retryButton)
+
+    await waitFor(() => {
+      expect(retryLauncherNexusDiagnosticsRoute).toHaveBeenCalledWith('publicGraphql')
+    })
+    expect(loadLauncherNexusDiagnostics).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(screen.queryByText('Failed after 3 attempts: timeout')).toBeNull()
+    })
+    expect(onDiagnosticsUpdate).toHaveBeenLastCalledWith({
+      routes: expect.arrayContaining([
+        expect.objectContaining({
+          routeId: 'publicGraphql',
+          status: 'success',
+          available: true,
+        }),
+      ]),
+    })
   })
 
   it('renders route status labels directly in the pill without an extra clipping wrapper', async () => {

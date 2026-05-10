@@ -54,7 +54,7 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 │  │  ├─ src/                      # Rust 源码
 │  │  │  ├─ commands/              # Tauri command wrapper（仅入口与错误包装）
 │  │  │  ├─ domain/                # 领域逻辑（launcher、mods、assets、saves…）
-│  │  │  ├─ infrastructure/        # 技术实现（game_formats、fs…）
+│  │  │  ├─ infrastructure/        # 技术实现（game_formats、fs、webview…）
 │  │  │  ├─ support/               # 横向支撑（logging）
 │  │  │  └─ tests/                 # Rust 模块/单元测试（ sibling 文件）
 │  │  ├─ tests/                    # Rust 集成/回归测试
@@ -157,6 +157,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `game_formats/xnb/`：XNB 格式解析。
   - `game_formats/xact/`：XACT 音频格式解析。
   - `fs/`：文件系统路径与底层工具。
+  - `webview/`：Tauri webview/window 基础设施抽象；业务模块通过配置使用，不在这里写 launcher / Nexus 领域逻辑。
 - **`support/`** — 横向支撑代码，如 logging。
 - **`tests/`**（`src/tests/`）— 适合从实现文件中拆分出去的 Rust 模块/单元测试。优先使用 sibling `tests/*.rs` 而非在 `.rs` 文件里写大型 `#[cfg(test)] mod tests { ... }`。
 
@@ -184,6 +185,9 @@ pnpm --filter @modforge/desktop test
 
 ### 后端（Rust）
 ```bash
+# 格式化 Rust 后端
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml
+
 # 校验 Rust 后端
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
@@ -225,6 +229,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - 功能专属的测试辅助仅在真正领域相关时才放在测试模块旁边。
 - **优先提取重复测试 setup**，再追加新用例。
 - **禁止**在 Tauri 源文件里新增大型内联 `#[cfg(test)] mod tests { ... }` 块；同样覆盖率应放到 sibling `tests/*.rs`。
+- 提交 Rust 改动前先运行 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再运行对应 `cargo check` / `cargo test`。
 
 ## 国际化与文案
 

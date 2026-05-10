@@ -474,9 +474,7 @@ fn resolve_patch_token(
         return context.roommate.clone();
     }
     if name.eq_ignore_ascii_case("Hearts") {
-        return arg.and_then(|npc| {
-            context.hearts.get(npc).map(|v| v.to_string())
-        });
+        return arg.and_then(|npc| context.hearts.get(npc).map(|v| v.to_string()));
     }
     if name.eq_ignore_ascii_case("IsMainPlayer") {
         return context.is_main_player.map(|v| v.to_string());
@@ -489,85 +487,171 @@ fn resolve_patch_token(
     }
     if name.eq_ignore_ascii_case("HasFlag") {
         if let Some(flag) = arg {
-            return Some(context.has_flags.iter().any(|f| f.eq_ignore_ascii_case(flag)).to_string());
+            return Some(
+                context
+                    .has_flags
+                    .iter()
+                    .any(|f| f.eq_ignore_ascii_case(flag))
+                    .to_string(),
+            );
         }
         return Some(context.has_flags.join(", "));
     }
     if name.eq_ignore_ascii_case("HasSeenEvent") {
         if let Some(event) = arg {
-            return Some(context.has_seen_events.iter().any(|e| e.eq_ignore_ascii_case(event)).to_string());
+            return Some(
+                context
+                    .has_seen_events
+                    .iter()
+                    .any(|e| e.eq_ignore_ascii_case(event))
+                    .to_string(),
+            );
         }
         return Some(context.has_seen_events.join(", "));
     }
     if name.eq_ignore_ascii_case("HasCaughtFish") {
         if let Some(fish) = arg {
-            return Some(context.has_caught_fish.iter().any(|f| f.eq_ignore_ascii_case(fish)).to_string());
+            return Some(
+                context
+                    .has_caught_fish
+                    .iter()
+                    .any(|f| f.eq_ignore_ascii_case(fish))
+                    .to_string(),
+            );
         }
         return Some(context.has_caught_fish.join(", "));
     }
     if name.eq_ignore_ascii_case("HasReadLetter") {
         if let Some(letter) = arg {
-            return Some(context.has_read_letters.iter().any(|l| l.eq_ignore_ascii_case(letter)).to_string());
+            return Some(
+                context
+                    .has_read_letters
+                    .iter()
+                    .any(|l| l.eq_ignore_ascii_case(letter))
+                    .to_string(),
+            );
         }
         return Some(context.has_read_letters.join(", "));
     }
     if name.eq_ignore_ascii_case("HasVisitedLocation") {
         if let Some(location) = arg {
-            return Some(context.has_visited_locations.iter().any(|l| l.eq_ignore_ascii_case(location)).to_string());
+            return Some(
+                context
+                    .has_visited_locations
+                    .iter()
+                    .any(|l| l.eq_ignore_ascii_case(location))
+                    .to_string(),
+            );
         }
         return Some(context.has_visited_locations.join(", "));
     }
     if name.eq_ignore_ascii_case("HasWalletItem") {
         if let Some(item) = arg {
-            return Some(context.has_wallet_items.iter().any(|i| i.eq_ignore_ascii_case(item)).to_string());
+            return Some(
+                context
+                    .has_wallet_items
+                    .iter()
+                    .any(|i| i.eq_ignore_ascii_case(item))
+                    .to_string(),
+            );
         }
         return Some(context.has_wallet_items.join(", "));
     }
     if name.eq_ignore_ascii_case("HasProfession") {
         if let Some(profession) = arg {
-            return Some(context.has_professions.iter().any(|p| p.eq_ignore_ascii_case(profession)).to_string());
+            return Some(
+                context
+                    .has_professions
+                    .iter()
+                    .any(|p| p.eq_ignore_ascii_case(profession))
+                    .to_string(),
+            );
         }
         return Some(context.has_professions.join(", "));
     }
     if name.eq_ignore_ascii_case("HasConversationTopic") {
         if let Some(topic) = arg {
-            return Some(context.has_conversation_topics.iter().any(|t| t.eq_ignore_ascii_case(topic)).to_string());
+            return Some(
+                context
+                    .has_conversation_topics
+                    .iter()
+                    .any(|t| t.eq_ignore_ascii_case(topic))
+                    .to_string(),
+            );
         }
         return Some(context.has_conversation_topics.join(", "));
     }
-    if name.eq_ignore_ascii_case("HasDialogueAnswer") || name.eq_ignore_ascii_case("HasDialogueQuestionAnswered") {
+    if name.eq_ignore_ascii_case("HasDialogueAnswer")
+        || name.eq_ignore_ascii_case("HasDialogueQuestionAnswered")
+    {
         if let Some(answer) = arg {
-            return Some(context.has_dialogue_answers.iter().any(|a| a.eq_ignore_ascii_case(answer)).to_string());
+            return Some(
+                context
+                    .has_dialogue_answers
+                    .iter()
+                    .any(|a| a.eq_ignore_ascii_case(answer))
+                    .to_string(),
+            );
         }
         return Some(context.has_dialogue_answers.join(", "));
     }
     if name.eq_ignore_ascii_case("HasCraftingRecipe") {
         if let Some(recipe) = arg {
-            return Some(context.has_crafting_recipes.iter().any(|r| r.eq_ignore_ascii_case(recipe)).to_string());
+            return Some(
+                context
+                    .has_crafting_recipes
+                    .iter()
+                    .any(|r| r.eq_ignore_ascii_case(recipe))
+                    .to_string(),
+            );
         }
         return Some(context.has_crafting_recipes.join(", "));
     }
     if name.eq_ignore_ascii_case("HasCookingRecipe") {
         if let Some(recipe) = arg {
-            return Some(context.has_cooking_recipes.iter().any(|r| r.eq_ignore_ascii_case(recipe)).to_string());
+            return Some(
+                context
+                    .has_cooking_recipes
+                    .iter()
+                    .any(|r| r.eq_ignore_ascii_case(recipe))
+                    .to_string(),
+            );
         }
         return Some(context.has_cooking_recipes.join(", "));
     }
     if name.eq_ignore_ascii_case("HasActiveQuest") {
         if let Some(quest) = arg {
-            return Some(context.has_active_quests.iter().any(|q| q.eq_ignore_ascii_case(quest)).to_string());
+            return Some(
+                context
+                    .has_active_quests
+                    .iter()
+                    .any(|q| q.eq_ignore_ascii_case(quest))
+                    .to_string(),
+            );
         }
         return Some(context.has_active_quests.join(", "));
     }
     if name.eq_ignore_ascii_case("HasCompletedQuest") {
         if let Some(quest) = arg {
-            return Some(context.has_completed_quests.iter().any(|q| q.eq_ignore_ascii_case(quest)).to_string());
+            return Some(
+                context
+                    .has_completed_quests
+                    .iter()
+                    .any(|q| q.eq_ignore_ascii_case(quest))
+                    .to_string(),
+            );
         }
         return Some(context.has_completed_quests.join(", "));
     }
     if name.eq_ignore_ascii_case("HasItem") {
         if let Some(item) = arg {
-            return Some(context.has_items.iter().any(|i| i.eq_ignore_ascii_case(item)).to_string());
+            return Some(
+                context
+                    .has_items
+                    .iter()
+                    .any(|i| i.eq_ignore_ascii_case(item))
+                    .to_string(),
+            );
         }
         return Some(context.has_items.join(", "));
     }
@@ -665,7 +749,10 @@ fn resolve_patch_token(
         }
         let min = parts[0].parse::<i32>().ok()?;
         let max = parts[1].parse::<i32>().ok()?;
-        let step = parts.get(2).and_then(|s| s.parse::<i32>().ok()).unwrap_or(1);
+        let step = parts
+            .get(2)
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or(1);
         if max > 5000 {
             return Some(String::new());
         }
@@ -700,7 +787,10 @@ fn resolve_patch_token(
             return Some(String::new());
         }
         let value = parts[0].parse::<f64>().ok()?;
-        let digits = parts.get(1).and_then(|s| s.parse::<i32>().ok()).unwrap_or(0);
+        let digits = parts
+            .get(1)
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or(0);
         let direction = parts.get(2).map(|s| s.to_lowercase()).unwrap_or_default();
 
         let multiplier = 10f64.powi(digits);
@@ -716,7 +806,7 @@ fn resolve_patch_token(
             Some(format!("{:.0}", result))
         } else {
             Some(format!("{:.1$}", result, digits as usize))
-        }
+        };
     }
 
     if name.eq_ignore_ascii_case("Render") {
@@ -1135,7 +1225,11 @@ pub fn resolve_dynamic_tokens_for_snapshot(
         .ok_or_else(|| "Snapshot sources are missing content.json.".to_string())?;
     let effective_context = with_config_defaults(context, root_source);
 
-    Ok(resolve_dynamic_tokens(snapshot, &source_values, &effective_context))
+    Ok(resolve_dynamic_tokens(
+        snapshot,
+        &source_values,
+        &effective_context,
+    ))
 }
 
 pub fn build_patch_plan_with_context(
@@ -1153,8 +1247,7 @@ pub fn build_patch_plan_with_context(
         .ok_or_else(|| "Snapshot sources are missing content.json.".to_string())?;
     let mut effective_context = with_config_defaults(context, root_source);
 
-    let dynamic_tokens =
-        resolve_dynamic_tokens(snapshot, &source_values, &effective_context);
+    let dynamic_tokens = resolve_dynamic_tokens(snapshot, &source_values, &effective_context);
     for (key, value) in dynamic_tokens {
         effective_context.custom_tokens.insert(key, value);
     }

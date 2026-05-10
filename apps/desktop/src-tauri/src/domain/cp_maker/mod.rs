@@ -8,13 +8,12 @@ pub use self::builder::import_cp_maker_pack;
 pub use self::export::export_cp_maker_pack;
 pub use self::map_asset::build_cp_maker_map_asset;
 use self::storage::{
-    copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir,
-    list_cp_maker_drafts_at_dir, load_cp_maker_draft_at_dir,
-    save_cp_maker_draft_at_dir,
+    copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir, list_cp_maker_drafts_at_dir,
+    load_cp_maker_draft_at_dir, save_cp_maker_draft_at_dir,
 };
 use self::types::{
-    CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftErrorCode,
-    CpMakerDraftOperation, CpMakerDraftRecord, CpMakerDraftSummary,
+    CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation,
+    CpMakerDraftRecord, CpMakerDraftSummary,
 };
 
 use crate::domain::app_paths::cp_maker_drafts_dir;
@@ -56,9 +55,7 @@ pub fn save_cp_maker_draft(
     save_cp_maker_draft_at_dir(&drafts_dir, draft)
 }
 
-pub fn delete_cp_maker_draft(
-    draft_storage_key: String,
-) -> Result<(), CpMakerDraftError> {
+pub fn delete_cp_maker_draft(draft_storage_key: String) -> Result<(), CpMakerDraftError> {
     let drafts_dir = cp_maker_drafts_dir().map_err(|error| {
         CpMakerDraftError::new(
             CpMakerDraftErrorCode::ReadFailed,

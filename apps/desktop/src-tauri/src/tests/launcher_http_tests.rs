@@ -1,18 +1,18 @@
 use super::{
-    ensure_launcher_nexus_route_available, launcher_nexus_route_for_url,
-    launcher_cloudflare_challenge_required_error,
-    nexus_public_html_document_requires_verification,
+    ensure_launcher_nexus_route_available, launcher_cloudflare_challenge_required_error,
+    launcher_nexus_route_for_url, nexus_public_html_document_requires_verification,
     nexus_public_html_response_requires_accelerated_fallback,
     probe_blocked_launcher_nexus_route_with_runner, probe_launcher_nexus_route_with_runner,
-    read_nexus_response_body_with_retry, reset_launcher_nexus_diagnostics_for_test,
-    run_public_html_with_accelerated_fallback, NexusPublicHtmlDocument,
+    public_page_headers, read_nexus_response_body_with_retry,
+    reset_launcher_nexus_diagnostics_for_test, run_public_html_with_accelerated_fallback,
     set_launcher_nexus_force_offline_with_settings_for_test,
-    set_launcher_nexus_route_snapshot_for_test, LauncherNexusRoute,
-    LauncherNexusRouteSnapshot, LauncherNexusRouteStatus, snapshot_launcher_nexus_diagnostics_for_test,
+    set_launcher_nexus_route_snapshot_for_test, snapshot_launcher_nexus_diagnostics_for_test,
+    LauncherNexusRoute, LauncherNexusRouteSnapshot, LauncherNexusRouteStatus,
+    NexusPublicHtmlDocument,
 };
 use crate::domain::launcher::types::LauncherSettings;
-use reqwest::header::{HeaderMap, HeaderValue};
-use reqwest::StatusCode;
+use reqwest::header::{HeaderMap, HeaderValue, COOKIE, USER_AGENT};
+use reqwest::{StatusCode, Url};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::{Mutex, OnceLock};
 
@@ -167,7 +167,11 @@ fn public_html_fallback_skips_accelerated_retry_when_primary_reports_challenge()
     let mut accelerated_attempts = 0;
 
     let error = run_public_html_with_accelerated_fallback(
-        || Err(launcher_cloudflare_challenge_required_error("https://www.nexusmods.com/stardewvalley")),
+        || {
+            Err(launcher_cloudflare_challenge_required_error(
+                "https://www.nexusmods.com/stardewvalley",
+            ))
+        },
         || {
             accelerated_attempts += 1;
             Ok(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)))
@@ -218,6 +222,35 @@ fn public_html_document_detects_cloudflare_challenge_from_response_headers() {
     };
 
     assert!(nexus_public_html_document_requires_verification(&document));
+}
+
+#[test]
+fn public_page_headers_preserve_verification_cookie_and_browser_user_agent() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+
+    let url = Url::parse("https://www.nexusmods.com/stardewvalley/mods/101")
+        .expect("test URL should parse");
+    let headers = public_page_headers(
+        Some("https://www.nexusmods.com/stardewvalley"),
+        Some("cf_clearance=clearance-token; __cf_bm=bm-token"),
+        &url,
+    )
+    .expect("public page headers should be built");
+
+    let cookie = headers
+        .get(COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    assert!(cookie.contains("cf_clearance=clearance-token"));
+    assert!(cookie.contains("__cf_bm=bm-token"));
+    assert_eq!(
+        headers
+            .get(USER_AGENT)
+            .and_then(|value| value.to_str().ok()),
+        Some(super::PUBLIC_BROWSER_USER_AGENT)
+    );
 }
 
 #[test]
@@ -442,9 +475,7 @@ fn launcher_nexus_route_for_url_classifies_known_remote_hosts() {
         Some(LauncherNexusRoute::Smapi)
     );
     assert_eq!(
-        launcher_nexus_route_for_url(
-            r"E:\Games\Stardew Valley\Mods\Some Mod\assets\cover.png"
-        ),
+        launcher_nexus_route_for_url(r"E:\Games\Stardew Valley\Mods\Some Mod\assets\cover.png"),
         None
     );
 }
@@ -467,8 +498,14 @@ fn verifying_status_serializes_to_lowercase_json() {
     };
 
     let json = serde_json::to_string(&snapshot).expect("snapshot should serialize");
-    assert!(json.contains(r#""status":"verifying""#), "Expected verifying status in JSON, got: {json}");
-    assert!(json.contains(r#""challengeRequired":true"#), "Expected challengeRequired in JSON, got: {json}");
+    assert!(
+        json.contains(r#""status":"verifying""#),
+        "Expected verifying status in JSON, got: {json}"
+    );
+    assert!(
+        json.contains(r#""challengeRequired":true"#),
+        "Expected challengeRequired in JSON, got: {json}"
+    );
 }
 
 #[test]
@@ -484,8 +521,10 @@ fn disabled_public_html_route_still_generates_warning_on_challenge() {
     };
 
     let routes = super::LauncherNexusRoute::configured_routes(&settings);
-    assert!(!routes.contains(&super::LauncherNexusRoute::PublicHtml),
-        "PublicHtml route should be excluded when disabled");
+    assert!(
+        !routes.contains(&super::LauncherNexusRoute::PublicHtml),
+        "PublicHtml route should be excluded when disabled"
+    );
 
     // The probe would not be called for PublicHtml at all
     // Verify we can still create a warning snapshot for the route directly
@@ -509,10 +548,8 @@ fn launcher_nexus_success_snapshot_works_with_one_attempt() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let snapshot = super::launcher_nexus_success_snapshot(
-        super::LauncherNexusRoute::PublicGraphql,
-        1,
-    );
+    let snapshot =
+        super::launcher_nexus_success_snapshot(super::LauncherNexusRoute::PublicGraphql, 1);
 
     assert_eq!(snapshot.status, super::LauncherNexusRouteStatus::Success);
     assert!(snapshot.available);

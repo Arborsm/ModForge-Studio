@@ -434,10 +434,7 @@ fn checked_i32_from_usize(label: &str, value: usize) -> Result<i32, String> {
 }
 
 fn push_string(bytes: &mut Vec<u8>, value: &str) -> Result<(), String> {
-    push_i32(
-        bytes,
-        checked_i32_from_usize("String length", value.len())?,
-    );
+    push_i32(bytes, checked_i32_from_usize("String length", value.len())?);
     bytes.extend_from_slice(value.as_bytes());
     Ok(())
 }
@@ -454,7 +451,10 @@ fn write_properties(
     let mut entries = properties.iter().collect::<Vec<_>>();
     entries.sort_by(|(left_key, _), (right_key, _)| left_key.cmp(right_key));
 
-    push_i32(bytes, checked_i32_from_usize("Property count", entries.len())?);
+    push_i32(
+        bytes,
+        checked_i32_from_usize("Property count", entries.len())?,
+    );
     for (key, value) in entries {
         push_string(bytes, key)?;
         match value {
@@ -464,13 +464,12 @@ fn write_properties(
             }
             MapPropertyValue::Number(value) => {
                 if !value.is_finite() {
-                    return Err(format!("Property '{key}' has unsupported non-finite number {value}."));
+                    return Err(format!(
+                        "Property '{key}' has unsupported non-finite number {value}."
+                    ));
                 }
 
-                if value.fract() == 0.0
-                    && *value >= i32::MIN as f64
-                    && *value <= i32::MAX as f64
-                {
+                if value.fract() == 0.0 && *value >= i32::MIN as f64 && *value <= i32::MAX as f64 {
                     push_u8(bytes, 1);
                     push_i32(bytes, *value as i32);
                 } else if *value >= f32::MIN as f64 && *value <= f32::MAX as f64 {
@@ -608,7 +607,10 @@ fn write_animated_tile(
         )
     })?;
 
-    if frames.iter().any(|frame| frame.duration != first_frame.duration) {
+    if frames
+        .iter()
+        .any(|frame| frame.duration != first_frame.duration)
+    {
         return Err(format!(
             "Tileset '{}' tile {} has mixed-duration animation frames.",
             tileset.name, local_tile_id
@@ -639,7 +641,10 @@ fn write_animated_tile(
 
     for frame in frames {
         push_u8(bytes, b'S');
-        push_i32(bytes, checked_i32_from_u32("Animation frame tile id", frame.tile_id)?);
+        push_i32(
+            bytes,
+            checked_i32_from_u32("Animation frame tile id", frame.tile_id)?,
+        );
         push_u8(bytes, 0);
         push_i32(bytes, 0);
     }
@@ -882,8 +887,7 @@ pub fn serialize_tbin_map(document: &MapDocument) -> Result<Vec<u8>, String> {
                 let gid = row[column_index];
                 if gid == 0 {
                     let mut zero_run = 1usize;
-                    while column_index + zero_run < row.len() && row[column_index + zero_run] == 0
-                    {
+                    while column_index + zero_run < row.len() && row[column_index + zero_run] == 0 {
                         zero_run += 1;
                     }
 

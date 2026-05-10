@@ -174,7 +174,6 @@ pub fn set_debug_logging_enabled(state: &DebugLoggingState, enabled: bool) {
     );
 }
 
-
 #[cfg(test)]
 #[path = "tests/logging_tests.rs"]
 mod tests;

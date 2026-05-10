@@ -218,6 +218,30 @@ describe('launcher bridge helpers', () => {
     expect(invoke).toHaveBeenCalledWith('restart_launcher_nexus_diagnostics', undefined)
   })
 
+  it('retries one launcher Nexus diagnostics route through the tauri backend', async () => {
+    const expected = {
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(expected)
+    const { retryLauncherNexusDiagnosticsRoute } = await import('@platform/desktop')
+
+    await expect(retryLauncherNexusDiagnosticsRoute('publicGraphql')).resolves.toEqual(expected)
+    expect(invoke).toHaveBeenCalledWith('retry_launcher_nexus_diagnostics_route', {
+      routeId: 'publicGraphql',
+    })
+  })
+
   it('loads app ui state from the tauri backend', async () => {
     const expected = {
       version: 1,
@@ -348,6 +372,7 @@ describe('launcher bridge helpers', () => {
     vi.mocked(invoke)
       .mockResolvedValueOnce(raw)
       .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(raw)
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined)
     const desktop = (await import('@platform/desktop')) as unknown as Record<string, (...args: unknown[]) => unknown>
@@ -359,6 +384,7 @@ describe('launcher bridge helpers', () => {
       }),
     ).resolves.toEqual(normalized)
     await expect(desktop.refreshLauncherPublicHtmlVerification?.()).resolves.toBeUndefined()
+    await expect(desktop.checkLauncherPublicHtmlVerification?.()).resolves.toEqual(normalized)
     await expect(desktop.closeLauncherPublicHtmlVerification?.()).resolves.toBeUndefined()
     await expect(desktop.clearLauncherPublicHtmlVerificationSession?.()).resolves.toBeUndefined()
 
@@ -369,8 +395,9 @@ describe('launcher bridge helpers', () => {
       },
     })
     expect(invoke).toHaveBeenNthCalledWith(2, 'public_html_nexus_refresh_verify', undefined)
-    expect(invoke).toHaveBeenNthCalledWith(3, 'public_html_nexus_close_verify', undefined)
-    expect(invoke).toHaveBeenNthCalledWith(4, 'public_html_nexus_clear_session', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(3, 'public_html_nexus_check_verify', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(4, 'public_html_nexus_close_verify', undefined)
+    expect(invoke).toHaveBeenNthCalledWith(5, 'public_html_nexus_clear_session', undefined)
   })
 
   it('loads and listens to Public HTML verification state updates', async () => {
@@ -405,6 +432,35 @@ describe('launcher bridge helpers', () => {
 
     expect(listener).toHaveBeenCalledWith(normalized)
     expect(typeof unlisten).toBe('function')
+  })
+
+  it('normalizes Rust camelCase Public HTML verification reasons and sends camelCase requests', async () => {
+    const raw = {
+      state: 'Waiting',
+      targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+      reason: 'remoteModDetail' as const,
+      disablePublicHtmlRoute: false,
+      lastVerifiedAtMs: null,
+      message: 'Open the verification page.',
+    }
+    vi.mocked(invoke).mockResolvedValueOnce(raw)
+    const desktop = (await import('@platform/desktop')) as unknown as Record<string, (...args: unknown[]) => unknown>
+
+    await expect(
+      desktop.openLauncherPublicHtmlVerification?.({
+        targetUrl: raw.targetUrl,
+        reason: 'remote-mod-detail',
+      }),
+    ).resolves.toMatchObject({
+      reason: 'remote-mod-detail',
+    })
+
+    expect(invoke).toHaveBeenCalledWith('public_html_nexus_open_verify', {
+      request: {
+        targetUrl: raw.targetUrl,
+        reason: 'remoteModDetail',
+      },
+    })
   })
 
   it('reloads launcher library state on repeated requests', async () => {

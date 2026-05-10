@@ -1,5 +1,4 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ExternalLink, ShieldAlert, X } from 'lucide-react'
 import {
   canUseDesktopHost,
   clearDesktopLocaleCache,
@@ -45,8 +44,10 @@ import {
 } from '@shared/lib/app-state'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
 import {
+  getLauncherNexusWarningRoutes,
   loadSettledLauncherNexusDiagnostics,
   syncLauncherDiagnosticsNotification,
+  syncPublicHtmlVerificationNotification,
   useLauncherPort,
   useLauncherRuntime,
   type LauncherNexusDiagnosticsResult,
@@ -101,73 +102,6 @@ const IDLE_PUBLIC_HTML_VERIFICATION_STATE: LauncherPublicHtmlVerificationSnapsho
   message: null,
 }
 
-const DEFAULT_PUBLIC_HTML_VERIFICATION_URL = 'https://www.nexusmods.com/stardewvalley'
-
-function PublicHtmlVerificationCard({
-  launcherCopy,
-  verificationState,
-  onOpen,
-  onDisableRoute,
-  onClose,
-}: {
-  launcherCopy: typeof editorCopy['en-US']['launcher']
-  verificationState: LauncherPublicHtmlVerificationSnapshot
-  onOpen: () => void
-  onDisableRoute: () => void
-  onClose: () => void
-}) {
-  const targetUrl = verificationState.targetUrl ?? DEFAULT_PUBLIC_HTML_VERIFICATION_URL
-  const message =
-    verificationState.state === 'opening' || verificationState.state === 'waitingForUser'
-      ? launcherCopy.settings.verificationHint
-      : verificationState.message ?? launcherCopy.cloudflareChallenge.detail
-
-  return (
-    <section
-      data-testid="public-html-verification-card"
-      className="absolute right-4 bottom-4 z-40 w-[min(420px,calc(100vw-32px))] border border-(--line-subtle) bg-(--bg-elevated) shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
-    >
-      <header className="flex items-start justify-between gap-3 border-b border-(--line-subtle) px-4 py-3">
-        <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="settings-window-control-icon" aria-hidden="true">
-              <ShieldAlert className="h-4 w-4" />
-            </span>
-            <p className="settings-window-section-title">{launcherCopy.cloudflareChallenge.title}</p>
-          </div>
-          <p className="settings-window-section-copy">{message}</p>
-        </div>
-        <button
-          type="button"
-          className="workspace-panel-action h-8 w-8 shrink-0"
-          title={launcherCopy.actions.closeDialog}
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </header>
-
-      <div className="flex flex-col gap-3 px-4 py-3">
-        <div className="settings-window-control-card">
-          <p className="settings-window-section-title">{launcherCopy.settings.verificationTitle}</p>
-          <p className="settings-window-section-copy break-all">{targetUrl}</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" className="control-button h-9" onClick={onOpen}>
-            <ExternalLink className="h-4 w-4" />
-            {launcherCopy.settings.openVerificationAction}
-          </button>
-          <button type="button" className="control-button h-9" onClick={onDisableRoute}>
-            <X className="h-4 w-4" />
-            {launcherCopy.cloudflareChallenge.disablePublicHtmlLabel}
-          </button>
-        </div>
-      </div>
-    </section>
-  )
-}
-
 export default function App() {
   const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
   if (!initialAppUiStateRef.current) {
@@ -200,8 +134,11 @@ export default function App() {
   const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
   const [publicHtmlVerificationState, setPublicHtmlVerificationState] =
     useState<LauncherPublicHtmlVerificationSnapshot>(IDLE_PUBLIC_HTML_VERIFICATION_STATE)
+  const publicHtmlVerificationStateRef = useRef<LauncherPublicHtmlVerificationSnapshot>(IDLE_PUBLIC_HTML_VERIFICATION_STATE)
+  const lastRetriedPublicHtmlVerificationAtRef = useRef<number | null>(null)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
+  const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
@@ -229,6 +166,10 @@ export default function App() {
   }, [appMode])
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
+
+  useEffect(() => {
+    publicHtmlVerificationStateRef.current = publicHtmlVerificationState
+  }, [publicHtmlVerificationState])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -276,6 +217,7 @@ export default function App() {
 
   const handleLauncherDiagnosticsUpdate = useCallback(
     (diagnostics: LauncherNexusDiagnosticsResult | null | undefined) => {
+      latestLauncherDiagnosticsRef.current = diagnostics ?? null
       syncLauncherDiagnosticsNotification(copy.launcher, diagnostics, {
         onRetry: getAppUiStateSnapshot().launcher.forceOffline ? null : () => launcherDiagnosticsRetryRef.current?.(),
         onViewDetails: handleViewLauncherDiagnostics,
@@ -284,7 +226,7 @@ export default function App() {
       const publicHtmlVerifyingRoute = diagnostics?.routes.find(
         (route) => route.routeId === 'publicHtml' && route.status === 'verifying',
       )
-      if (publicHtmlVerifyingRoute && publicHtmlVerificationState.state === 'idle') {
+      if (publicHtmlVerifyingRoute && publicHtmlVerificationStateRef.current.state === 'idle') {
         setPublicHtmlVerificationState({
           state: 'waitingForUser',
           targetUrl: publicHtmlVerifyingRoute.endpoint,
@@ -295,8 +237,32 @@ export default function App() {
         })
       }
     },
-    [copy.launcher, handleViewLauncherDiagnostics, publicHtmlVerificationState.state],
+    [copy.launcher, handleViewLauncherDiagnostics],
   )
+
+  useEffect(() => {
+    if (!desktopHost || !appUiStateReady || publicHtmlVerificationState.state !== 'verified') {
+      return
+    }
+
+    const verifiedAt = publicHtmlVerificationState.lastVerifiedAtMs
+    if (verifiedAt === null || lastRetriedPublicHtmlVerificationAtRef.current === verifiedAt) {
+      return
+    }
+
+    lastRetriedPublicHtmlVerificationAtRef.current = verifiedAt
+    void launcherPort
+      .retryNexusDiagnosticsRoute('publicHtml')
+      .then(handleLauncherDiagnosticsUpdate)
+      .catch(() => {})
+  }, [
+    appUiStateReady,
+    desktopHost,
+    handleLauncherDiagnosticsUpdate,
+    launcherPort,
+    publicHtmlVerificationState.lastVerifiedAtMs,
+    publicHtmlVerificationState.state,
+  ])
 
   const refreshLauncherDiagnostics = useCallback(async () => {
     if (!desktopHost) {
@@ -317,13 +283,25 @@ export default function App() {
         return
       }
 
-      await refreshLauncherDiagnostics()
+      const warningRoutes = getLauncherNexusWarningRoutes(latestLauncherDiagnosticsRef.current)
+      if (!warningRoutes.length) {
+        await refreshLauncherDiagnostics()
+        return
+      }
+
+      let latestDiagnostics: LauncherNexusDiagnosticsResult | null = null
+      for (const route of warningRoutes) {
+        latestDiagnostics = await launcherPort.retryNexusDiagnosticsRoute(route.routeId)
+      }
+      if (latestDiagnostics) {
+        handleLauncherDiagnosticsUpdate(latestDiagnostics)
+      }
     }
 
     return () => {
       launcherDiagnosticsRetryRef.current = null
     }
-  }, [refreshLauncherDiagnostics])
+  }, [handleLauncherDiagnosticsUpdate, launcherPort, refreshLauncherDiagnostics])
 
   useEffect(() => {
     if (!desktopHost || !appUiStateReady) {
@@ -626,27 +604,23 @@ export default function App() {
     ],
   )
 
-  const settingsMenuCopy = getSettingsMenuCopy(locale)
-  const showPublicHtmlVerificationCard =
-    appUiStateReady &&
-    !publicHtmlVerificationState.disablePublicHtmlRoute &&
-    ['opening', 'waitingForUser'].includes(publicHtmlVerificationState.state)
+  useEffect(() => {
+    if (!appUiStateReady) {
+      return
+    }
 
-  const handleOpenPublicHtmlVerification = useCallback(() => {
-    void launcherPort.openPublicHtmlVerification({
-      targetUrl: publicHtmlVerificationState.targetUrl ?? DEFAULT_PUBLIC_HTML_VERIFICATION_URL,
-      reason: publicHtmlVerificationState.reason ?? 'diagnostics',
+    syncPublicHtmlVerificationNotification(copy.launcher, publicHtmlVerificationState, {
+      openPublicHtmlVerification: async (request) => {
+        const snapshot = await launcherPort.openPublicHtmlVerification(request)
+        setPublicHtmlVerificationState(snapshot)
+        return snapshot
+      },
+      saveSettings: launcherPort.saveSettings,
+      closePublicHtmlVerification: launcherPort.closePublicHtmlVerification,
     })
-  }, [launcherPort, publicHtmlVerificationState.reason, publicHtmlVerificationState.targetUrl])
+  }, [appUiStateReady, copy.launcher, launcherPort, publicHtmlVerificationState])
 
-  const handleDisablePublicHtmlRoute = useCallback(() => {
-    void launcherPort.saveSettings({ disablePublicHtmlRoute: true })
-  }, [launcherPort])
-
-  const handleClosePublicHtmlVerification = useCallback(() => {
-    void launcherPort.closePublicHtmlVerification()
-  }, [launcherPort])
-
+  const settingsMenuCopy = getSettingsMenuCopy(locale)
   const localeOptions =
     locale === 'en-US'
       ? [
@@ -790,15 +764,6 @@ export default function App() {
               </Suspense>
             ) : null}
 
-            {showPublicHtmlVerificationCard ? (
-              <PublicHtmlVerificationCard
-                launcherCopy={copy.launcher}
-                verificationState={publicHtmlVerificationState}
-                onOpen={handleOpenPublicHtmlVerification}
-                onDisableRoute={handleDisablePublicHtmlRoute}
-                onClose={handleClosePublicHtmlVerification}
-              />
-            ) : null}
           </div>
         </LoadingMotionProvider>
       </NotificationProvider>

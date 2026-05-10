@@ -58,6 +58,7 @@ export type LauncherPort = {
   loadUpdateChangelog(request: LoadLauncherUpdateChangelogRequest): Promise<LauncherUpdateChangelogResult>
   loadNexusDiagnostics(): Promise<LauncherNexusDiagnosticsResult>
   restartNexusDiagnostics(): Promise<LauncherNexusDiagnosticsResult>
+  retryNexusDiagnosticsRoute(routeId: string): Promise<LauncherNexusDiagnosticsResult>
   setNexusForceOffline(forceOffline: boolean): Promise<LauncherNexusDiagnosticsResult>
   resolveImage(request: ResolveLauncherImageRequest): Promise<ResolveLauncherImageResult>
   loadCachedUpdates(request: LoadCachedLauncherUpdatesRequest): Promise<LauncherUpdatesResult | null>
@@ -88,6 +89,7 @@ export type LauncherPort = {
   submitPublicHtmlVerificationCookie(cookie: string): Promise<LauncherPublicHtmlVerificationSnapshot>
   cancelPublicHtmlVerification(): Promise<LauncherPublicHtmlVerificationSnapshot>
   refreshPublicHtmlVerification(): Promise<void>
+  checkPublicHtmlVerification(): Promise<LauncherPublicHtmlVerificationSnapshot>
   closePublicHtmlVerification(): Promise<void>
   clearPublicHtmlVerificationSession(): Promise<void>
 }

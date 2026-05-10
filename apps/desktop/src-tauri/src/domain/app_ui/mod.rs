@@ -378,9 +378,7 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
             workspace_view_mode: normalize_workspace_view_mode(
                 &state.workspace.workspace_view_mode,
             ),
-            cp_maker: normalize_cp_maker_workspace_state(
-                state.workspace.cp_maker,
-            ),
+            cp_maker: normalize_cp_maker_workspace_state(state.workspace.cp_maker),
         },
         launcher: AppUiLauncherState {
             discover_toolbar: AppUiDiscoverToolbarState {
@@ -479,11 +477,10 @@ pub(crate) fn patch_app_ui_state_at_path(
                 normalize_workspace_view_mode(&workspace_view_mode);
         }
         if let Some(cp_maker) = workspace.cp_maker {
-            state.workspace.cp_maker = normalize_cp_maker_workspace_state(
-                AppUiCpMakerWorkspaceState {
+            state.workspace.cp_maker =
+                normalize_cp_maker_workspace_state(AppUiCpMakerWorkspaceState {
                     active_generated_draft_key: cp_maker.active_generated_draft_key,
-                },
-            );
+                });
         }
     }
     if let Some(launcher) = patch.launcher {

@@ -596,7 +596,7 @@ describe('frontend module architecture', () => {
     expect(workbenchExperienceSource).toContain("from '../workspaces/event-stage'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/map'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/character'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/building'")
+    expect(workbenchExperienceSource).toContain("from '../workspaces/building/state/useBuildingWorkspace'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/item'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/mod'")
 
@@ -687,6 +687,7 @@ describe('frontend module architecture', () => {
    */
   const APPROVED_BOUNDARY_PATTERNS = [
     /^app\/app-shell\/AppShell\.tsx$/,
+    /^app\/webview-surfaces\/PublicHtmlVerificationControlsSurface\.tsx$/,
     /^platform\/desktop\/index\.ts$/,
     /^platform\/desktop\/index\.test\.ts$/,
   ]
