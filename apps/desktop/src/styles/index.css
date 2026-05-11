@@ -12,7 +12,6 @@
 @import "./workspace/status-bar.css";
 @import "./features/settings-window.css";
 @import "./features/notifications.css";
-@import "./features/public-html-verification-controls.css";
 @import "./features/launcher/index.css";
 @source "../app";
 @source "../pages";

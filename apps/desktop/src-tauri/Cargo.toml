@@ -24,6 +24,8 @@ serde = { version = "1.0.228", features = ["derive"] }
 log = "0.4.29"
 base64 = "0.22"
 brotli = "8.0.2"
+thiserror = "2.0.12"
+tungstenite = { version = "0.26", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
 tauri = { version = "2.10.3", features = ["protocol-asset", "unstable"] }
 tauri-plugin-dialog = "2.7.0"
 tauri-plugin-log = "2.8.0"
@@ -34,7 +36,6 @@ image = { version = "0.25.10", default-features = false, features = ["png"] }
 sha2 = "0.11.0"
 regex = "1.12.3"
 reqwest = { version = "0.13.2", default-features = false, features = ["blocking", "cookies", "form", "json", "rustls"] }
-scraper = "0.26.0"
 cookie_store = "0.22.1"
 semver = "1.0.28"
 sevenz-rust = { version = "0.6.1", features = ["compress"] }

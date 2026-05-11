@@ -1,4 +1,4 @@
-﻿import { vi } from 'vitest'
+import { vi } from 'vitest'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 
 export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): LauncherPort {
@@ -7,11 +7,9 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     modsPath: null,
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
-    disablePublicHtmlRoute: false,
   }
 
   const unimplemented = (method: keyof LauncherPort) =>
@@ -44,7 +42,20 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     searchCatalog: unimplemented('searchCatalog'),
     loadRemoteModDetail: unimplemented('loadRemoteModDetail'),
     loadUpdateChangelog: unimplemented('loadUpdateChangelog'),
-    loadNexusDiagnostics: vi.fn().mockResolvedValue({ routes: [] }),
+    loadNexusDiagnostics: vi.fn().mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    }),
     restartNexusDiagnostics: vi.fn().mockResolvedValue({ routes: [] }),
     retryNexusDiagnosticsRoute: vi.fn().mockResolvedValue({ routes: [] }),
     setNexusForceOffline: vi.fn().mockResolvedValue({ routes: [] }),
@@ -69,58 +80,25 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     chooseDirectory: unimplemented('chooseDirectory'),
     detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
     toDesktopAssetUrl: vi.fn().mockReturnValue(''),
-    openPublicHtmlVerification: vi.fn().mockImplementation(async (request: { targetUrl: string; reason: string }) => ({
-      state: 'opening' as const,
-      targetUrl: request.targetUrl,
-      reason: request.reason as 'diagnostics' | 'remote-mod-detail' | 'remote-mod-images' | 'remote-mod-files',
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: null,
-    })),
-    loadPublicHtmlVerificationState: vi.fn().mockResolvedValue({
-      state: 'idle' as const,
-      targetUrl: null,
-      reason: null,
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: null,
+    validateNexusApiKey: vi.fn().mockResolvedValue({
+      userName: 'TestUser',
+      isPremium: true,
+      dailyRemaining: 950,
+      hourlyRemaining: 450,
+      dailyResetAt: null,
+      hourlyResetAt: null,
     }),
-    listenToPublicHtmlVerificationState: vi.fn().mockResolvedValue(() => {}),
-    signalPublicHtmlVerificationOpened: vi.fn().mockResolvedValue({
-      state: 'waitingForUser' as const,
-      targetUrl: null,
-      reason: 'diagnostics' as const,
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: null,
+    startNexusSso: vi.fn().mockResolvedValue({ ssoId: 'test-sso-id', status: 'connecting' as const }),
+    getNexusSsoStatus: vi.fn().mockResolvedValue({
+      status: 'idle' as const,
+      errorKind: null,
+      errorMessage: null,
+      userName: null,
+      isPremium: false,
+      ssoId: null,
     }),
-    submitPublicHtmlVerificationCookie: vi.fn().mockImplementation(async () => ({
-      state: 'verified' as const,
-      targetUrl: null,
-      reason: 'diagnostics' as const,
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: Date.now(),
-      message: 'Verification successful.',
-    })),
-    cancelPublicHtmlVerification: vi.fn().mockResolvedValue({
-      state: 'cancelled' as const,
-      targetUrl: null,
-      reason: null,
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: null,
-    }),
-    refreshPublicHtmlVerification: vi.fn().mockResolvedValue(undefined),
-    checkPublicHtmlVerification: vi.fn().mockResolvedValue({
-      state: 'waitingForUser' as const,
-      targetUrl: null,
-      reason: null,
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: null,
-    }),
-    closePublicHtmlVerification: vi.fn().mockResolvedValue(undefined),
-    clearPublicHtmlVerificationSession: vi.fn().mockResolvedValue(undefined),
+    cancelNexusSso: vi.fn().mockResolvedValue(undefined),
+
     subscribeUpdates: vi.fn().mockReturnValue(() => {}),
     ...overrides,
   }

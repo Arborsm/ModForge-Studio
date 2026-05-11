@@ -65,7 +65,6 @@ type SettingsWindowProps = {
   enableNotificationSoundLabel: string
   disableNotificationSoundLabel: string
   notificationSoundEnabled: boolean
-  launcherContent?: ReactNode
   activeCategory?: SettingsWindowCategory
   accentOptions: AccentOption[]
   activeAccentId: string
@@ -185,7 +184,6 @@ export default function SettingsWindow({
   enableNotificationSoundLabel,
   disableNotificationSoundLabel,
   notificationSoundEnabled,
-  launcherContent,
   activeCategory: controlledActiveCategory,
   accentOptions,
   activeAccentId,
@@ -319,7 +317,7 @@ export default function SettingsWindow({
 
         <div className="settings-window-body">
           <aside className="settings-window-sidebar">
-            {(['appearance', 'loading', 'view', 'interaction', 'launcher', 'debug'] as const).map((categoryId) => (
+            {(['appearance', 'loading', 'view', 'interaction', 'debug'] as const).map((categoryId) => (
               <button
                 key={categoryId}
                 type="button"
@@ -540,14 +538,6 @@ export default function SettingsWindow({
                   disabledLabel={disableBorderlessFullscreenLabel}
                   onToggle={onToggleBorderlessFullscreen}
                 />
-              </section>
-            ) : null}
-
-            {activeCategory === 'launcher' ? (
-              <section className="settings-window-section">
-                <p className="settings-window-section-title">{categories.launcher}</p>
-                <p className="settings-window-section-copy mt-2">{categoryDescriptions.launcher}</p>
-                <div className="mt-4">{launcherContent}</div>
               </section>
             ) : null}
 

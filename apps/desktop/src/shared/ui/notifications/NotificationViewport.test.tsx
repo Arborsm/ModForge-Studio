@@ -476,6 +476,65 @@ describe('NotificationProvider', () => {
     expect(first?.getAttribute('style')).toContain('bottom: 272px')
   })
 
+  it('matches the hover region width to the rendered notification stack width', () => {
+    renderNotifications()
+
+    act(() => {
+      publishNotification({
+        level: 'info',
+        title: 'Narrow notification',
+      })
+      publishNotification({
+        level: 'warning',
+        title: 'Wide notification',
+      })
+    })
+
+    const viewport = screen.getByRole('region', { name: 'Notifications' })
+    const hoverRegion = viewport.querySelector('.notification-hover-region') as HTMLElement
+    const narrowToast = screen.getByText('Narrow notification').closest('.notification-toast') as HTMLElement
+    const wideToast = screen.getByText('Wide notification').closest('.notification-toast') as HTMLElement
+
+    Object.defineProperty(narrowToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 320,
+        height: 72,
+        top: 0,
+        right: 0,
+        bottom: 72,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(wideToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 460,
+        height: 84,
+        top: 0,
+        right: 0,
+        bottom: 84,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+
+    expect(hoverRegion.getAttribute('style')).toContain('width: 460px')
+
+    fireEvent.mouseEnter(viewport)
+
+    expect(hoverRegion.getAttribute('style')).toContain('width: 460px')
+  })
+
   it('applies collapsed shared width immediately from synchronous measurements', () => {
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this instanceof HTMLElement && this.classList.contains('notification-toast')) {

@@ -255,7 +255,7 @@ export type SaveModProjectResult = {
   diagnostics: ModProjectDiagnostic[]
 }
 
-export type LauncherNexusRouteStatus = 'loading' | 'verifying' | 'warning' | 'success'
+export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
 
 export type LauncherNexusRouteSnapshot = {
   routeId: string

@@ -3,11 +3,9 @@ export type LauncherSettings = {
   modsPath: string | null
   downloadPath: string | null
   nexusApiKey: string | null
-  nexusCookie: string | null
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
-  disablePublicHtmlRoute?: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -15,11 +13,9 @@ export type SaveLauncherSettingsRequest = {
   modsPath?: string | null
   downloadPath?: string | null
   nexusApiKey?: string | null
-  nexusCookie?: string | null
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
-  disablePublicHtmlRoute?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -188,7 +184,7 @@ export type LauncherUpdateChangelogResult = {
   changelog: string | null
 }
 
-export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success' | 'verifying'
+export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
 
 export type LauncherNexusRouteSnapshot = {
   routeId: string
@@ -199,11 +195,31 @@ export type LauncherNexusRouteSnapshot = {
   maxAttempts: number
   available: boolean
   message: string
-  challengeRequired?: boolean
 }
 
 export type LauncherNexusDiagnosticsResult = {
   routes: LauncherNexusRouteSnapshot[]
+}
+export type ValidateApiKeyResult = {
+  userName: string
+  isPremium: boolean
+  dailyRemaining: number | null
+  hourlyRemaining: number | null
+  dailyResetAt: number | null
+  hourlyResetAt: number | null
+}
+
+export type SsoConnectionStatus = 'idle' | 'connecting' | 'awaitingAuthorization' | 'authorized' | 'failed'
+
+export type SsoErrorKind = 'connectionTimeout' | 'authorizationTimeout' | 'connectionRefused' | 'networkError' | 'cancelled'
+
+export type SsoSnapshot = {
+  status: SsoConnectionStatus
+  errorKind?: SsoErrorKind | null
+  errorMessage?: string | null
+  userName?: string | null
+  isPremium: boolean
+  ssoId?: string | null
 }
 
 export type ResolveLauncherImageRequest = {
@@ -383,36 +399,5 @@ export type InspectLauncherArchiveResult = {
   totalFiles: number
   modRoots: string[]
   tree: LauncherArchiveTreeNode[]
-}
-
-
-
-export type LauncherPublicHtmlVerificationReason =
-  | 'diagnostics'
-  | 'remote-mod-detail'
-  | 'remote-mod-images'
-  | 'remote-mod-files'
-
-export type LauncherPublicHtmlVerificationState =
-  | 'idle'
-  | 'opening'
-  | 'waitingForUser'
-  | 'verified'
-  | 'disabled'
-  | 'cancelled'
-  | 'failed'
-
-export type LauncherPublicHtmlVerificationSnapshot = {
-  state: LauncherPublicHtmlVerificationState
-  targetUrl: string | null
-  reason: LauncherPublicHtmlVerificationReason | null
-  disablePublicHtmlRoute: boolean
-  lastVerifiedAtMs: number | null
-  message: string | null
-}
-
-export type LauncherPublicHtmlVerificationRequest = {
-  targetUrl: string
-  reason: LauncherPublicHtmlVerificationReason
 }
 

@@ -1,13 +1,9 @@
 use crate::domain::launcher::archive;
-use crate::domain::launcher::discovery;
 use crate::domain::launcher::downloads;
-use crate::domain::launcher::http;
 use crate::domain::launcher::image_cache;
 use crate::domain::launcher::library;
-use crate::domain::launcher::remote;
 use crate::domain::launcher::runtime;
 use crate::domain::launcher::settings;
-use crate::domain::launcher::types::PublicHtmlVerificationSnapshot;
 use crate::domain::launcher::types::{
     CheckLauncherUpdatesRequest, DownloadLauncherModRequest, DownloadLauncherModResult,
     InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
@@ -19,13 +15,19 @@ use crate::domain::launcher::types::{
     ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
     LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
     LoadSuppressedLauncherUpdateModIdsRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
-    PersistLauncherLibraryRemoteCoverRequest, PublicHtmlVerificationRequest,
-    ResolveLauncherImageRequest, ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
+    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
+    ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
     RestoreLauncherInstallBackupResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
     SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
     SetLauncherModEnabledResult,
 };
 use crate::domain::launcher::updates;
+use crate::domain::nexusmods::catalog;
+use crate::domain::nexusmods::http;
+use crate::domain::nexusmods::mod_detail;
+use crate::domain::nexusmods::rest_api;
+use crate::domain::nexusmods::sso::{SsoConnectionStatus, SsoSnapshot};
+use serde::{Deserialize, Serialize};
 
 #[tauri::command]
 pub fn load_launcher_settings(app: tauri::AppHandle) -> Result<LauncherSettings, String> {
@@ -142,7 +144,7 @@ pub async fn search_launcher_catalog(
     app: tauri::AppHandle,
     request: SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
-    discovery::search_launcher_catalog(app, request).await
+    catalog::search_launcher_catalog(app, request).await
 }
 
 #[tauri::command]
@@ -150,7 +152,7 @@ pub async fn load_launcher_remote_mod_detail(
     app: tauri::AppHandle,
     request: LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
-    remote::load_launcher_remote_mod_detail(app, request).await
+    mod_detail::load_launcher_remote_mod_detail(app, request).await
 }
 
 #[tauri::command]
@@ -158,7 +160,7 @@ pub async fn load_launcher_update_changelog(
     app: tauri::AppHandle,
     request: LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {
-    remote::load_launcher_update_changelog(app, request).await
+    mod_detail::load_launcher_update_changelog(app, request).await
 }
 
 #[tauri::command]
@@ -259,108 +261,58 @@ pub fn inspect_launcher_archive(
     archive::inspect_launcher_archive(request)
 }
 
-#[tauri::command]
-pub fn public_html_nexus_verify_status(
-    app: tauri::AppHandle,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    let settings = crate::domain::launcher::settings::load_launcher_settings(app.clone())?;
-    Ok(
-        crate::domain::launcher::public_html_verification::refresh_disable_public_html_route_flag(
-            settings.disable_public_html_route,
-        ),
-    )
+// ---- REST API v1 Commands ----
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidateApiKeyResult {
+    pub user_name: String,
+    pub is_premium: bool,
+    pub daily_remaining: Option<u64>,
+    pub hourly_remaining: Option<u64>,
+    pub daily_reset_at: Option<u64>,
+    pub hourly_reset_at: Option<u64>,
 }
 
 #[tauri::command]
-pub async fn public_html_nexus_open_verify(
-    app: tauri::AppHandle,
-    request: PublicHtmlVerificationRequest,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    log::info!(
-        "launcher Public HTML verification open command received reason={:?} url={}",
-        request.reason,
-        request.target_url
-    );
-    let snapshot = tauri::async_runtime::spawn_blocking(move || {
-        crate::domain::launcher::public_html_verification::restart_verification_with_app(
-            &app,
-            request.reason,
-            request.target_url,
-        )
+pub fn validate_nexus_api_key(app: tauri::AppHandle) -> Result<ValidateApiKeyResult, String> {
+    let settings = settings::load_launcher_settings(app)?;
+    let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
+    let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
+    Ok(ValidateApiKeyResult {
+        user_name: user_info.name,
+        is_premium: user_info.is_premium,
+        daily_remaining: rest_api::daily_quota_remaining(),
+        hourly_remaining: rest_api::hourly_quota_remaining(),
+        daily_reset_at: rest_api::daily_quota_reset_at(),
+        hourly_reset_at: rest_api::hourly_quota_reset_at(),
     })
-    .await
-    .map_err(|error| format!("Failed to join Public HTML verification open task: {error}"))??;
-    log::info!(
-        "launcher Public HTML verification open command completed stage={:?} url={:?}",
-        snapshot.stage,
-        snapshot.url
-    );
-    Ok(snapshot)
+}
+
+// ---- SSO Commands ----
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SsoStartResult {
+    pub sso_id: String,
+    pub status: SsoConnectionStatus,
 }
 
 #[tauri::command]
-pub fn public_html_nexus_signal_opened() -> Result<PublicHtmlVerificationSnapshot, String> {
-    Ok(crate::domain::launcher::public_html_verification::signal_verification_opened())
+pub fn start_nexus_sso(app: tauri::AppHandle) -> Result<SsoStartResult, String> {
+    let sso_id = crate::domain::nexusmods::sso::start_sso(&app)?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let status = crate::domain::nexusmods::sso::get_sso_status().status;
+    Ok(SsoStartResult { sso_id, status })
 }
 
 #[tauri::command]
-pub fn public_html_nexus_submit_cookie(
-    cookie: String,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    Ok(crate::domain::launcher::public_html_verification::submit_verification(cookie))
+pub fn get_nexus_sso_status() -> Result<SsoSnapshot, String> {
+    Ok(crate::domain::nexusmods::sso::get_sso_status())
 }
 
 #[tauri::command]
-pub fn public_html_nexus_cancel_verify() -> Result<PublicHtmlVerificationSnapshot, String> {
-    log::info!("launcher Public HTML verification cancel command received");
-    Ok(crate::domain::launcher::public_html_verification::cancel_verification())
-}
-
-#[tauri::command]
-pub async fn public_html_nexus_refresh_verify(
-    app: tauri::AppHandle,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::domain::launcher::public_html_verification::refresh_verification_with_app(&app)
-    })
-    .await
-    .map_err(|error| format!("Failed to join Public HTML verification refresh task: {error}"))?
-}
-
-#[tauri::command]
-pub async fn public_html_nexus_check_verify(
-    app: tauri::AppHandle,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::domain::launcher::public_html_verification::complete_verification_from_browser_with_app(
-            &app,
-        )
-    })
-    .await
-    .map_err(|error| format!("Failed to join Public HTML session check task: {error}"))?
-}
-
-#[tauri::command]
-pub async fn public_html_nexus_close_verify(
-    app: tauri::AppHandle,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    log::info!("launcher Public HTML verification close command received");
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::domain::launcher::public_html_verification::close_verification_with_app(&app)
-    })
-    .await
-    .map_err(|error| format!("Failed to join Public HTML verification close task: {error}"))?
-}
-
-#[tauri::command]
-pub async fn public_html_nexus_clear_session(
-    app: tauri::AppHandle,
-) -> Result<PublicHtmlVerificationSnapshot, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::domain::launcher::public_html_verification::clear_verification_session_with_app(&app)
-    })
-    .await
-    .map_err(|error| {
-        format!("Failed to join Public HTML verification session clear task: {error}")
-    })?
+pub fn cancel_nexus_sso() -> Result<(), String> {
+    crate::domain::nexusmods::sso::cancel_sso();
+    Ok(())
 }

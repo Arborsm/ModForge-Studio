@@ -17,6 +17,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@floating-ui/react": "^0.27.19",
+    "@nexusmods/nexus-api": "1.1.5",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@tailwindcss/postcss": "^4.2.2",
     "@tanstack/react-virtual": "^3.13.23",

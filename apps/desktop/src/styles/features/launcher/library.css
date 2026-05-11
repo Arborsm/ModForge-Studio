@@ -489,38 +489,6 @@
       justify-content: flex-start;
     }
 
-    .launcher-debug-page {
-      padding: 28px 16px 40px;
-    }
-
-    .launcher-debug-page-title {
-      font-size: 28px;
-    }
-
-    .launcher-debug-overview-card {
-      grid-template-columns: 1fr;
-    }
-
-    .launcher-debug-overview-divider {
-      width: 100%;
-      height: 1px;
-    }
-
-    .launcher-debug-card {
-      padding: 18px;
-    }
-
-    .launcher-debug-card-header,
-    .launcher-debug-card-header-center {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .launcher-debug-card .settings-switch {
-      min-width: 0;
-      width: 100%;
-    }
-
     .launcher-download-row {
       grid-template-columns: 1fr;
       align-items: stretch;

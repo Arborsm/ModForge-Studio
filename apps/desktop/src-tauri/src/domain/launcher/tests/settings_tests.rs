@@ -17,11 +17,9 @@ fn launcher_settings_create_default_and_save_roundtrip() {
         mods_path: Some(r"C:\Games\Stardew Valley\Mods".to_string()),
         download_path: Some(r"C:\Users\Example\Downloads\ModForge Studio".to_string()),
         nexus_api_key: Some("nexus-key".to_string()),
-        nexus_cookie: Some("cookie=value".to_string()),
         auto_install_downloads: true,
         keep_downloaded_archives: true,
         auto_check_mod_updates: false,
-        disable_public_html_route: true,
     };
     save_settings_at_path(&settings_path, &saved_settings).expect("save settings");
 

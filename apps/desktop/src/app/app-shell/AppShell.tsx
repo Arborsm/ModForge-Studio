@@ -12,7 +12,6 @@ import {
   toggleMaximizeCurrentWindow,
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
-  type LauncherPublicHtmlVerificationSnapshot,
 } from '@platform/desktop'
 import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
 import { normalizeAppShellState } from '@shared/lib/app-state'
@@ -46,13 +45,11 @@ import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shar
 import {
   getLauncherNexusWarningRoutes,
   loadSettledLauncherNexusDiagnostics,
+  mergeLauncherNexusDiagnostics,
   syncLauncherDiagnosticsNotification,
-  syncPublicHtmlVerificationNotification,
   useLauncherPort,
-  useLauncherRuntime,
   type LauncherNexusDiagnosticsResult,
 } from '@features/launcher'
-import { LauncherSettingsForm } from '@features/launcher/ui/shared/LauncherSettingsForm'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
@@ -93,15 +90,6 @@ function resolveLocale(value: string | null | undefined): LocaleCode {
   return getNavigatorLocale()
 }
 
-const IDLE_PUBLIC_HTML_VERIFICATION_STATE: LauncherPublicHtmlVerificationSnapshot = {
-  state: 'idle',
-  targetUrl: null,
-  reason: null,
-  disablePublicHtmlRoute: false,
-  lastVerifiedAtMs: null,
-  message: null,
-}
-
 export default function App() {
   const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
   if (!initialAppUiStateRef.current) {
@@ -132,10 +120,6 @@ export default function App() {
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
-  const [publicHtmlVerificationState, setPublicHtmlVerificationState] =
-    useState<LauncherPublicHtmlVerificationSnapshot>(IDLE_PUBLIC_HTML_VERIFICATION_STATE)
-  const publicHtmlVerificationStateRef = useRef<LauncherPublicHtmlVerificationSnapshot>(IDLE_PUBLIC_HTML_VERIFICATION_STATE)
-  const lastRetriedPublicHtmlVerificationAtRef = useRef<number | null>(null)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
@@ -143,7 +127,6 @@ export default function App() {
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
   const launcherPort = useLauncherPort()
-  const launcherRuntime = useLauncherRuntime(locale)
   const eventBus = useMemo(() => createAppEventBus(), [])
   const [pendingWorkbenchIntent, setPendingWorkbenchIntent] = useState<PendingWorkbenchCommandIntent | null>(null)
   const appCommandHandler = useMemo(
@@ -166,10 +149,6 @@ export default function App() {
   }, [appMode])
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
-
-  useEffect(() => {
-    publicHtmlVerificationStateRef.current = publicHtmlVerificationState
-  }, [publicHtmlVerificationState])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -222,47 +201,9 @@ export default function App() {
         onRetry: getAppUiStateSnapshot().launcher.forceOffline ? null : () => launcherDiagnosticsRetryRef.current?.(),
         onViewDetails: handleViewLauncherDiagnostics,
       })
-
-      const publicHtmlVerifyingRoute = diagnostics?.routes.find(
-        (route) => route.routeId === 'publicHtml' && route.status === 'verifying',
-      )
-      if (publicHtmlVerifyingRoute && publicHtmlVerificationStateRef.current.state === 'idle') {
-        setPublicHtmlVerificationState({
-          state: 'waitingForUser',
-          targetUrl: publicHtmlVerifyingRoute.endpoint,
-          reason: 'diagnostics',
-          disablePublicHtmlRoute: false,
-          lastVerifiedAtMs: null,
-          message: copy.launcher.cloudflareChallenge.detail,
-        })
-      }
     },
     [copy.launcher, handleViewLauncherDiagnostics],
   )
-
-  useEffect(() => {
-    if (!desktopHost || !appUiStateReady || publicHtmlVerificationState.state !== 'verified') {
-      return
-    }
-
-    const verifiedAt = publicHtmlVerificationState.lastVerifiedAtMs
-    if (verifiedAt === null || lastRetriedPublicHtmlVerificationAtRef.current === verifiedAt) {
-      return
-    }
-
-    lastRetriedPublicHtmlVerificationAtRef.current = verifiedAt
-    void launcherPort
-      .retryNexusDiagnosticsRoute('publicHtml')
-      .then(handleLauncherDiagnosticsUpdate)
-      .catch(() => {})
-  }, [
-    appUiStateReady,
-    desktopHost,
-    handleLauncherDiagnosticsUpdate,
-    launcherPort,
-    publicHtmlVerificationState.lastVerifiedAtMs,
-    publicHtmlVerificationState.state,
-  ])
 
   const refreshLauncherDiagnostics = useCallback(async () => {
     if (!desktopHost) {
@@ -289,9 +230,12 @@ export default function App() {
         return
       }
 
-      let latestDiagnostics: LauncherNexusDiagnosticsResult | null = null
+      let latestDiagnostics: LauncherNexusDiagnosticsResult | null = latestLauncherDiagnosticsRef.current
       for (const route of warningRoutes) {
-        latestDiagnostics = await launcherPort.retryNexusDiagnosticsRoute(route.routeId)
+        const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(route.routeId)
+        latestDiagnostics = {
+          routes: mergeLauncherNexusDiagnostics(latestDiagnostics?.routes ?? [], diagnostics.routes),
+        }
       }
       if (latestDiagnostics) {
         handleLauncherDiagnosticsUpdate(latestDiagnostics)
@@ -334,46 +278,6 @@ export default function App() {
   }, [appUiStateReady, desktopHost, launcherPort])
 
   useEffect(() => {
-    if (!desktopHost || !appUiStateReady) {
-      return
-    }
-
-    let disposed = false
-    let unlisten: (() => void) | null = null
-
-    void launcherPort
-      .loadPublicHtmlVerificationState()
-      .then((state) => {
-        if (!disposed) {
-          setPublicHtmlVerificationState(state)
-        }
-      })
-      .catch(() => {})
-
-    void launcherPort
-      .listenToPublicHtmlVerificationState((state) => {
-        if (disposed) {
-          return
-        }
-
-        setPublicHtmlVerificationState(state)
-      })
-      .then((unlistenFn) => {
-        if (disposed) {
-          unlistenFn()
-          return
-        }
-        unlisten = unlistenFn
-      })
-      .catch(() => {})
-
-    return () => {
-      disposed = true
-      unlisten?.()
-    }
-  }, [appUiStateReady, desktopHost, launcherPort])
-
-  useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.lang = locale
   }, [locale, theme])
@@ -409,12 +313,6 @@ export default function App() {
       },
     })
   }, [appMode, appUiStateReady, debugEnabled, launcherPage, notificationSoundEnabled])
-
-  useEffect(() => {
-    if (!debugEnabled && launcherPage === 'debug') {
-      setLauncherPage('library')
-    }
-  }, [debugEnabled, launcherPage])
 
   useEffect(() => {
     void syncDebugDiagnosticsEnabled(debugEnabled)
@@ -499,16 +397,19 @@ export default function App() {
 
   const handleLauncherPageChange = useCallback(
     (nextPage: LauncherPage) => {
-      if (nextPage === 'debug' && !debugEnabled) {
-        return
-      }
-
       setLauncherPage(nextPage)
     },
-    [debugEnabled],
+    [],
   )
 
   const openSettingsWindow = useCallback((category: SettingsWindowCategory = 'appearance') => {
+    if (category === 'launcher') {
+      setAppMode('launcher')
+      setLauncherPage('debug')
+      setSettingsWindowOpen(false)
+      return
+    }
+
     setSettingsWindowCategory(category)
     setSettingsWindowOpen(true)
   }, [])
@@ -604,22 +505,6 @@ export default function App() {
     ],
   )
 
-  useEffect(() => {
-    if (!appUiStateReady) {
-      return
-    }
-
-    syncPublicHtmlVerificationNotification(copy.launcher, publicHtmlVerificationState, {
-      openPublicHtmlVerification: async (request) => {
-        const snapshot = await launcherPort.openPublicHtmlVerification(request)
-        setPublicHtmlVerificationState(snapshot)
-        return snapshot
-      },
-      saveSettings: launcherPort.saveSettings,
-      closePublicHtmlVerification: launcherPort.closePublicHtmlVerification,
-    })
-  }, [appUiStateReady, copy.launcher, launcherPort, publicHtmlVerificationState])
-
   const settingsMenuCopy = getSettingsMenuCopy(locale)
   const localeOptions =
     locale === 'en-US'
@@ -653,7 +538,6 @@ export default function App() {
                 onCloseWindow={() => void closeCurrentWindow()}
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
-                onLauncherEvent={eventBus.emit}
                 onNavigateToDiagnostics={handleViewLauncherDiagnostics}
                 onRetryDiagnostics={
                   getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()
@@ -716,7 +600,6 @@ export default function App() {
                   enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
                   disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
                   notificationSoundEnabled={notificationSoundEnabled}
-                  launcherContent={<LauncherSettingsForm settingsState={launcherRuntime.settingsState} />}
                   activeCategory={settingsWindowCategory}
                   accentOptions={ACCENT_PRESETS}
                   activeAccentId={activeAccentPreset.id}

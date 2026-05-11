@@ -1,5 +1,9 @@
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import {
+  startNexusSso,
+  getNexusSsoStatus,
+  cancelNexusSso,
+  validateNexusApiKey,
   loadLauncherSettings,
   saveLauncherSettings,
   loadLauncherLibraryState,
@@ -39,16 +43,6 @@ import {
   detectDefaultGameDirectory,
   subscribeLauncherUpdates,
   toDesktopAssetUrl,
-  openLauncherPublicHtmlVerification,
-  loadLauncherPublicHtmlVerificationState,
-  listenToLauncherPublicHtmlVerificationState,
-  signalLauncherPublicHtmlVerificationOpened,
-  submitLauncherPublicHtmlVerificationCookie,
-  cancelLauncherPublicHtmlVerification,
-  refreshLauncherPublicHtmlVerification,
-  checkLauncherPublicHtmlVerification,
-  closeLauncherPublicHtmlVerification,
-  clearLauncherPublicHtmlVerificationSession,
 } from '@platform/desktop'
 
 export function createLauncherPortAdapter(): LauncherPort {
@@ -92,15 +86,9 @@ export function createLauncherPortAdapter(): LauncherPort {
     detectDefaultGameDirectory: () => detectDefaultGameDirectory(),
     toDesktopAssetUrl: (path, protocol) => toDesktopAssetUrl(path, protocol),
     subscribeUpdates: (modsPath, listener) => subscribeLauncherUpdates(modsPath, listener),
-    openPublicHtmlVerification: (request) => openLauncherPublicHtmlVerification(request),
-    loadPublicHtmlVerificationState: () => loadLauncherPublicHtmlVerificationState(),
-    listenToPublicHtmlVerificationState: (listener) => listenToLauncherPublicHtmlVerificationState(listener),
-    signalPublicHtmlVerificationOpened: () => signalLauncherPublicHtmlVerificationOpened(),
-    submitPublicHtmlVerificationCookie: (cookie) => submitLauncherPublicHtmlVerificationCookie(cookie),
-    cancelPublicHtmlVerification: () => cancelLauncherPublicHtmlVerification(),
-    refreshPublicHtmlVerification: () => refreshLauncherPublicHtmlVerification(),
-    checkPublicHtmlVerification: () => checkLauncherPublicHtmlVerification(),
-    closePublicHtmlVerification: () => closeLauncherPublicHtmlVerification(),
-    clearPublicHtmlVerificationSession: () => clearLauncherPublicHtmlVerificationSession(),
+    validateNexusApiKey: () => validateNexusApiKey(),
+    startNexusSso: () => startNexusSso(),
+    getNexusSsoStatus: () => getNexusSsoStatus(),
+    cancelNexusSso: () => cancelNexusSso(),
   }
 }

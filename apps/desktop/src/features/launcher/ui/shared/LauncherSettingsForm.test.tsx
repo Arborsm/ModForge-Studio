@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { LauncherSettings } from '@platform/desktop'
 import type { ReactElement } from 'react'
+import { createMockLauncherPort } from '@test/launcherTestPort'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherSettingsForm } from './LauncherSettingsForm'
@@ -15,11 +16,9 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: 'E:\\Downloads\\Stardew',
     nexusApiKey: 'api-key',
-    nexusCookie: 'cookie',
     autoInstallDownloads: true,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
-    disablePublicHtmlRoute: false,
     ...overrides,
   } as LauncherSettings
 }
@@ -43,11 +42,11 @@ describe('LauncherSettingsForm', () => {
     vi.clearAllMocks()
   })
 
-  function renderWithLauncher(ui: ReactElement) {
-    return renderWithLocale(<LauncherTestWrapper>{ui}</LauncherTestWrapper>, 'zh-CN')
+  function renderWithLauncher(ui: ReactElement, port = createMockLauncherPort()) {
+    return renderWithLocale(<LauncherTestWrapper port={port}>{ui}</LauncherTestWrapper>, 'zh-CN')
   }
 
-  it('renders the launcher controls and localized copy', () => {
+  it('renders the launcher controls and localized copy', async () => {
     const settingsState = createSettingsState()
 
     renderWithLauncher(<LauncherSettingsForm settingsState={settingsState} />)
@@ -59,12 +58,11 @@ describe('LauncherSettingsForm', () => {
     expect(screen.getByText(copy.fields.gamePath)).toBeTruthy()
     expect(screen.getByText(copy.fields.modsPath)).toBeTruthy()
     expect(screen.getByText(copy.fields.downloadPath)).toBeTruthy()
-    expect(screen.getByText(copy.fields.nexusApiKey)).toBeTruthy()
-    expect(screen.getByText(copy.fields.nexusCookie)).toBeTruthy()
+    expect(screen.getByDisplayValue('api-key')).toBeTruthy()
+    expect(await screen.findByText(copy.diagnostics.sectionTitle)).toBeTruthy()
     expect(screen.getByText(copy.toggles.autoInstallDownloads)).toBeTruthy()
     expect(screen.getByText(copy.toggles.keepDownloadedArchives)).toBeTruthy()
     expect(screen.getByText(copy.toggles.autoCheckModUpdates)).toBeTruthy()
-    expect(screen.getByText(copy.toggles.disablePublicHtmlRoute)).toBeTruthy()
   })
 
   it('calls updateField and save through the provided settings state', () => {
@@ -77,19 +75,65 @@ describe('LauncherSettingsForm', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }))
     expect(settingsState.updateField).toHaveBeenCalledWith('autoCheckModUpdates', false)
-
-    fireEvent.click(screen.getByRole('switch', { name: copy.toggles.disablePublicHtmlRoute }))
-    expect(settingsState.updateField).toHaveBeenCalledWith('disablePublicHtmlRoute', true)
   })
 
-  it('uses settings-window control cards for launcher settings items', () => {
+  it('uses settings-window control cards for launcher settings items', async () => {
     renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} />)
 
     expect(screen.getByLabelText(copy.fields.gamePath).closest('.settings-window-control-card')).toBeTruthy()
-    expect(screen.getByText(copy.fields.nexusApiKey).closest('.settings-window-control-card')).toBeTruthy()
+    expect(screen.getByDisplayValue('api-key').closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.autoInstallDownloads }).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.keepDownloadedArchives }).closest('.settings-window-control-card')).toBeTruthy()
     expect(screen.getByRole('switch', { name: copy.toggles.autoCheckModUpdates }).closest('.settings-window-control-card')).toBeTruthy()
-    expect(screen.getByRole('switch', { name: copy.toggles.disablePublicHtmlRoute }).closest('.settings-window-control-card')).toBeTruthy()
+    expect(await screen.findByText('Nexus Public GraphQL')).toBeTruthy()
+  })
+
+  it('renders path fields as full-width rows and keeps a visible download path value', () => {
+    renderWithLauncher(
+      <LauncherSettingsForm
+        settingsState={createSettingsState(
+          createSettings({
+            downloadPath: 'C:\\Users\\Example\\Downloads\\ModForge Studio',
+          }),
+        )}
+        showDiagnostics={false}
+      />,
+    )
+
+    expect(screen.getByLabelText(copy.fields.gamePath).closest('.launcher-settings-control-card-wide')).toBeTruthy()
+    expect(screen.getByLabelText(copy.fields.modsPath).closest('.launcher-settings-control-card-wide')).toBeTruthy()
+    expect(screen.getByLabelText(copy.fields.downloadPath).closest('.launcher-settings-control-card-wide')).toBeTruthy()
+    expect(screen.getByDisplayValue('C:\\Users\\Example\\Downloads\\ModForge Studio')).toBeTruthy()
+  })
+
+  it('loads Nexus route diagnostics from the launcher port in settings', async () => {
+    const launcherPort = createMockLauncherPort()
+
+    renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} />, launcherPort)
+
+    expect(await screen.findByText('Nexus Public GraphQL')).toBeTruthy()
+    expect(launcherPort.loadNexusDiagnostics).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows localized recovery guidance when Nexus API key validation fails', async () => {
+    const launcherPort = createMockLauncherPort({
+      validateNexusApiKey: vi.fn().mockRejectedValue(new Error('Invalid API Key: HTTP 401')),
+    })
+
+    renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} />, launcherPort)
+
+    expect(await screen.findByText('API Key 无法使用')).toBeTruthy()
+    expect(screen.getByText('请检查保存的 Nexus API Key，或重新通过 Nexus 登录连接账号。')).toBeTruthy()
+    expect(screen.queryByText('Invalid API Key: HTTP 401')).toBeNull()
+  })
+
+  it('can render without the route diagnostics block when embedded in the Configuration page', () => {
+    const launcherPort = createMockLauncherPort()
+
+    renderWithLauncher(<LauncherSettingsForm settingsState={createSettingsState()} showDiagnostics={false} />, launcherPort)
+
+    expect(screen.queryByText(copy.diagnostics.sectionTitle)).toBeNull()
+    expect(screen.queryByText('Nexus Public GraphQL')).toBeNull()
+    expect(launcherPort.loadNexusDiagnostics).not.toHaveBeenCalled()
   })
 })

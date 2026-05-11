@@ -43,6 +43,31 @@ function formatMegabytes(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function classifyDownloadError(message: string | null) {
+  if (!message) {
+    return null
+  }
+
+  const normalized = message.toLowerCase()
+  if (normalized.includes('premium') || normalized.includes('403') || normalized.includes('forbidden')) {
+    return 'premiumRequired' as const
+  }
+  if (normalized.includes('429') || normalized.includes('rate limited') || normalized.includes('rate limit')) {
+    return 'rateLimited' as const
+  }
+  if (normalized.includes('503') || normalized.includes('service unavailable')) {
+    return 'serviceUnavailable' as const
+  }
+  if (normalized.includes('network') || normalized.includes('timed out') || normalized.includes('timeout') || normalized.includes('connection')) {
+    return 'network' as const
+  }
+  if (normalized.includes('401') || normalized.includes('api key') || normalized.includes('not authenticated')) {
+    return 'invalidApiKey' as const
+  }
+
+  return null
+}
+
 export function LauncherDownloadRow({
   item,
   statusLabel,
@@ -62,6 +87,8 @@ export function LauncherDownloadRow({
   const progressRateLabel = formatMegabytes(item.bytesPerSecond)
   const progressDownloadedLabel = formatMegabytes(item.downloadedBytes)
   const progressTotalLabel = formatMegabytes(item.totalBytes)
+  const localizedErrorKind = classifyDownloadError(item.error)
+  const localizedError = localizedErrorKind ? copy.diagnostics.errors[localizedErrorKind] : null
   const progressLabel =
     item.status === 'downloading' && progressPercent !== null
       ? [
@@ -109,7 +136,17 @@ export function LauncherDownloadRow({
             </span>
           </div>
 
-          {item.error ? <p className="launcher-download-row-detailline launcher-download-row-error">{item.error}</p> : null}
+          {localizedError ? (
+            <div className="launcher-alert-card launcher-alert-card-error launcher-nexus-message-card" role="alert">
+              <div className="launcher-alert-card-copy">
+                <p className="launcher-alert-card-eyebrow">{copy.diagnostics.errorCardLabel}</p>
+                <p className="launcher-alert-card-title">{localizedError.title}</p>
+                <p className="launcher-alert-card-subtitle">{localizedError.detail}</p>
+              </div>
+            </div>
+          ) : item.error ? (
+            <p className="launcher-download-row-detailline launcher-download-row-error">{item.error}</p>
+          ) : null}
           {!item.error && progressLabel ? (
             <p className="launcher-download-row-detailline launcher-download-row-progress-copy">{progressLabel}</p>
           ) : null}

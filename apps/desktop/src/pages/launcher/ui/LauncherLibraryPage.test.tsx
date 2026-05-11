@@ -175,7 +175,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: 'E:\\Downloads\\Mods',
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -1278,30 +1277,6 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(screen.queryByRole('dialog', { name: 'Gallery Images' })).toBeNull()
-  })
-
-  it('emits a launcher event when loading gallery images hits a Cloudflare challenge', async () => {
-    const library = createLibraryState()
-    useLauncherLibraryMock.mockReturnValue(library)
-    loadLauncherRemoteModDetailMock.mockRejectedValue(
-      new Error('CLOUDFLARE_CHALLENGE_REQUIRED:https://www.nexusmods.com/stardewvalley/mods/101?tab=images'),
-    )
-    const onLauncherEvent = vi.fn()
-
-    renderLibraryPage({
-      onLauncherEvent,
-    })
-
-    fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
-    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Choose Gallery Cover' })[0]!)
-
-    await waitFor(() => {
-      expect(onLauncherEvent).toHaveBeenCalledWith({
-        type: 'launcher/cloudflare-challenge-required',
-        url: 'https://www.nexusmods.com/stardewvalley/mods/101?tab=images',
-        source: 'library-gallery-cover',
-      })
-    })
   })
 
   it('inspects and installs an archive from the install mod action', async () => {

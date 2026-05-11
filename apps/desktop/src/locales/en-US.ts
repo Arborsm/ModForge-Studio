@@ -19,13 +19,13 @@ const localeBundle: LocaleBundle = {
         "library": "Library",
         "discover": "Discover",
         "updates": "Updates",
-        "debug": "Debug"
+        "debug": "Configuration"
       },
       "descriptions": {
         "library": "Your installed and pinned mods will appear here.",
         "discover": "Browse recommended packs and community highlights.",
         "updates": "Review pending updates before applying changes.",
-        "debug": "Debug-only tools for validating notifications and persistent logs."
+        "debug": "Launcher paths, Nexus access, diagnostics, and optional debug utilities."
       },
       "overview": {
         "installedMods": "Installed Mods",
@@ -91,15 +91,13 @@ const localeBundle: LocaleBundle = {
         "modsPath": "Mods Path",
         "downloadPath": "Download Path",
         "nexusApiKey": "Nexus API Key",
-        "nexusCookie": "Nexus Cookie"
       },
       "toggles": {
         "enabledOnly": "Enabled Only",
         "ascending": "Ascending",
         "autoCheckModUpdates": "Automatically check for mod updates",
         "autoInstallDownloads": "Auto-install completed downloads",
-        "keepDownloadedArchives": "Keep downloaded archives",
-        "disablePublicHtmlRoute": "Disable Public HTML route"
+        "keepDownloadedArchives": "Keep downloaded archives"
       },
       "library": {
         "title": "Installed Library",
@@ -204,7 +202,7 @@ const localeBundle: LocaleBundle = {
         "title": "Discover",
         "subtitle": "Search Nexus and queue direct downloads into the launcher pipeline.",
         "empty": "No discover results matched the current query.",
-        "credentialsHint": "Configure your Nexus API key or cookie in Settings before queueing downloads.",
+        "credentialsHint": "Configure your Nexus API key in Settings before queueing downloads.",
         "loadingResults": "Loading Nexus results...",
         "loadingPage": (page) => `Loading Nexus results for page ${page}...`,
         "loadingCover": "Loading cover...",
@@ -264,25 +262,82 @@ const localeBundle: LocaleBundle = {
         "blockedTitle": "Automatic Update Checks Are Paused",
         "blockedDetail": "The update routes failed repeatedly, so automatic background checks are paused to avoid sending the same failing requests over and over."
       },
-      "cloudflareChallenge": {
-        "title": "Nexus verification required",
-        "detail": "Public HTML is paused until you open the verification window.",
-        "prompt": "Open Nexus Mods now?",
-        "openAction": "Open Nexus Mods",
-        "cancelAction": "Cancel",
-        "disablePublicHtmlLabel": "Disable Public HTML",
-        "disablePublicHtmlDescription": "Skip the HTML route and prefer other Nexus routes.",
-        "disablePublicHtmlEnabledLabel": "Public HTML route disabled",
-        "disablePublicHtmlDisabledLabel": "Public HTML route enabled",
-        "routeStatusLabel": "Route status",
-        "cleanBrowserLabel": "Clean browser session",
-        "cleanBrowserDescription": "This pane does not inject scripts into Nexus. Complete the page normally, then check the saved session.",
-        "browserStepLabel": "Verify in the browser",
-        "browserStepDescription": "Use the Nexus page on the left until it loads normally.",
-        "checkStepLabel": "Check the session",
-        "checkStepDescription": "After the page is open, let ModForge read the browser session and retry Public HTML.",
-        "sessionReadyLabel": "Session ready",
-        "sessionWaitingLabel": "Waiting for verification"
+      "diagnostics": {
+        "title": "Network Diagnostics",
+        "sectionTitle": "Nexus Mods Network",
+        "sectionSubtitle": "Route health and authentication status for Nexus Mods services.",
+        "apiKeyTitle": "Nexus API Key",
+        "apiKeySubtitle": "Validate the saved API key or finish Nexus login to refresh access.",
+        "apiKeyBadge": "API",
+        "apiKeyMissing": "No API key configured",
+        "apiKeyUnchecked": "API key saved, not validated yet",
+        "premiumActive": "Premium",
+        "premiumFree": "Free",
+        "quotaRemaining": (remaining) => `${remaining} requests remaining today`,
+        "hourlyQuotaRemaining": (remaining) => `${remaining} requests remaining this hour`,
+        "quotaResetAt": (time) => `Resets at ${time}`,
+        "lastRefresh": (time) => `Last refreshed: ${time}`,
+        "staleWarning": "Data may be stale",
+        "loading": "Loading diagnostics...",
+        "empty": "No route diagnostics available.",
+        "justNow": "just now",
+        "secondsAgo": (seconds) => `${seconds}s ago`,
+        "minutesAgo": (minutes) => `${minutes}m ago`,
+        "hoursAgo": (hours) => `${hours}h ago`,
+        "retryRouteAction": (routeLabel) => `Retry ${routeLabel}`,
+        "validateApiKeyAction": "Validate API Key",
+        "startSsoAction": "Sign in with Nexus",
+        "cancelSsoAction": "Cancel sign-in",
+        "ssoWaiting": "Waiting for authorization",
+        "ssoAuthorized": "Nexus sign-in completed.",
+        "errorCardLabel": "Nexus issue",
+        "errors": {
+          "invalidApiKey": {
+            "title": "API key cannot be used",
+            "detail": "Check the saved Nexus API key, or sign in with Nexus again to reconnect the account.",
+            "action": "Edit key or reconnect"
+          },
+          "premiumRequired": {
+            "title": "Direct download requires Premium",
+            "detail": "Use manual download on the mod page, or connect a Nexus Premium account for direct API downloads.",
+            "action": "Open mod page or upgrade"
+          },
+          "rateLimited": {
+            "title": "Nexus rate limit reached",
+            "detail": "Nexus asked ModForge to slow down. Try again after the shown reset time, or wait a few minutes before retrying.",
+            "action": "Retry later"
+          },
+          "serviceUnavailable": {
+            "title": "Nexus service is unavailable",
+            "detail": "The Nexus API is temporarily unavailable. Keep your current settings and retry after the service recovers.",
+            "action": "Retry later"
+          },
+          "network": {
+            "title": "Network connection failed",
+            "detail": "Check your connection or proxy settings, then retry the Nexus request.",
+            "action": "Check network"
+          },
+          "ssoCancelled": {
+            "title": "Nexus sign-in cancelled",
+            "detail": "The sign-in flow was cancelled before Nexus returned an API key.",
+            "action": "Start sign-in again"
+          },
+          "ssoTimeout": {
+            "title": "Nexus sign-in timed out",
+            "detail": "The browser authorization did not finish in time. Start sign-in again when you are ready to approve it.",
+            "action": "Start sign-in again"
+          },
+          "ssoDenied": {
+            "title": "Nexus sign-in was denied",
+            "detail": "Nexus did not authorize this connection. Start sign-in again and approve ModForge Studio when prompted.",
+            "action": "Reconnect"
+          },
+          "unknown": {
+            "title": "Nexus request failed",
+            "detail": "The request did not complete. Retry, or check route diagnostics if this keeps happening.",
+            "action": "Retry or diagnose"
+          }
+        }
       },
       "downloads": {
         "title": "Downloads",
@@ -302,17 +357,15 @@ const localeBundle: LocaleBundle = {
         "keepArchivesHint": "Preserve downloaded zip files after install for rollback or manual reuse.",
         "loadFailed": "Failed to load launcher settings.",
         "saved": "Launcher settings saved.",
-        "saveFailed": "Failed to save launcher settings.",
-        "verificationTitle": "Public HTML Verification",
-        "verificationHint": "Complete Nexus verification in the browser pane, then check the session.",
-        "openVerificationAction": "Open Verification Window",
-        "checkVerificationStatusAction": "Check Verification",
-        "checkingVerificationStatusAction": "Checking Session",
-        "clearVerificationSessionAction": "Clear Verification Session"
+        "saveFailed": "Failed to save launcher settings."
       },
       "debug": {
-        "title": "Launcher Debug",
-        "subtitle": "Only visible when debug mode is enabled. Use it to validate global notifications and persistent logs.",
+        "title": "Configuration",
+        "subtitle": "Configure launcher paths, Nexus access, download defaults, and diagnostics from one place.",
+        "moreToolsTitle": "Debug Utilities",
+        "moreToolsSubtitle": "Notification, log, cache, and download simulation tools stay tucked away until you need them.",
+        "moreToolsAction": "More",
+        "lessToolsAction": "Less",
         "debugOnlyTitle": "Debug Only",
         "debugOnlyDescription": "This page only appears when global debug mode is enabled. Use it to validate notifications, logs, and future launcher diagnostics in one place.",
         "notificationsOverviewTitle": "Notification Test Records",
@@ -322,8 +375,8 @@ const localeBundle: LocaleBundle = {
         "logsTitle": "Persistent Log Tests",
         "logsSubtitle": "Write persistent test logs without showing a toast so the local logging pipeline can be verified.",
         "nexusDiagnosticsTitle": "Nexus Route Diagnostics",
-        "nexusDiagnosticsSubtitle": "Shows startup connectivity probes for public GraphQL, public HTML, the Nexus image CDN, SMAPI, and any configured credentialed Nexus API routes. Routes that fail three times are marked warning and disabled in the backend until a manual reprobe succeeds.",
-        "nexusDiagnosticsLoading": "loading",
+        "nexusDiagnosticsSubtitle": "Checks Nexus and SMAPI routes. Failed routes can be retried individually or temporarily forced offline.",
+        "nexusDiagnosticsLoading": "Checking routes...",
         "nexusDiagnosticsEmpty": "No Nexus diagnostics routes are available right now.",
         "nexusDiagnosticsEndpointLabel": "Endpoint",
         "nexusDiagnosticsAttemptsLabel": "Attempts",
@@ -343,7 +396,7 @@ const localeBundle: LocaleBundle = {
         "nexusMessagePreviewHealthyDetail": "All detected routes are healthy. Discover and automatic update checks can continue normally.",
         "nexusMessagePreviewUnavailableDetail": (targets) => `Some Nexus routes did not pass detection. ${targets} are currently paused until a manual retry succeeds.`,
         "nexusMessagePreviewLimitedDetail": "Some routes did not pass detection. Route-dependent requests are currently limited until a manual retry succeeds.",
-        "nexusMessagePreviewNote": "You can still retry manually. See Launcher Debug > Nexus Route Diagnostics for route-level details.",
+        "nexusMessagePreviewNote": "You can still retry manually. See Configuration > Nexus Route Diagnostics for route-level details.",
         "nexusMessagePreviewDiscoverTarget": "Discover",
         "nexusMessagePreviewUpdatesTarget": "automatic updates",
         "forceOfflineEnableButton": "Force All Offline",
@@ -2123,4 +2176,3 @@ const localeBundle: LocaleBundle = {
 }
 
 export default localeBundle
-

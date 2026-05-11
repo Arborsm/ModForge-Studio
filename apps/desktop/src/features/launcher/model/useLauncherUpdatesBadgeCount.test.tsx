@@ -23,7 +23,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,

@@ -359,7 +359,6 @@ export default function TopMenuBar({
                 <nav className="contents" aria-label={copy.launcher.navigation}>
                     {launcherNav.visiblePages.map((page) => {
                       const active = launcherNav.page === page
-                      const warning = page === 'debug' && launcherNav.settingsWarning
                       const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
 
                       return (
@@ -368,7 +367,7 @@ export default function TopMenuBar({
                           type="button"
                           aria-current={active ? 'page' : undefined}
                           data-active={active}
-                          title={warning ? launcherNav.settingsWarningLabel : copy.launcher.descriptions[page]}
+                          title={copy.launcher.descriptions[page]}
                           className={cx(
                             'top-menu-module-button top-menu-launcher-nav-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
                             active
@@ -382,13 +381,6 @@ export default function TopMenuBar({
                             <span className="top-menu-launcher-nav-badge" aria-hidden="true">
                               {updatesBadge}
                             </span>
-                          ) : null}
-                          {warning ? (
-                            <span
-                              className="top-menu-warning-dot"
-                              aria-hidden="true"
-                              title={launcherNav.settingsWarningLabel}
-                            />
                           ) : null}
                         </button>
                       )

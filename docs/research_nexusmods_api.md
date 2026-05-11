@@ -15,7 +15,7 @@
 6. [速率限制与使用条款](#6-速率限制与使用条款)
 7. [社区开源库与工具](#7-社区开源库与工具)
 8. [页面结构分析](#8-页面结构分析)
-9. [Cloudflare 问题与解决方案](#9-cloudflare-问题与解决方案)
+9. [网页端访问保护与 v0.3 取舍](#9-网页端访问保护与-v03-取舍)
 10. [下载链接获取注意事项](#10-下载链接获取注意事项)
 11. [推荐方案与代码示例](#11-推荐方案与代码示例)
 12. [参考资源链接](#12-参考资源链接)
@@ -33,7 +33,7 @@ Nexus Mods 提供**三种官方 API**，分别是：
 | **v2** | GraphQL | 实验性/WIP | `https://api.nexusmods.com/v2/graphql` |
 
 ### 关键发现
-- **API 端点不受 Cloudflare 保护**：与网页不同，API 请求直接发送到 `api.nexusmods.com`，**无需经过 Cloudflare Challenge**
+- **v0.3 方向**：Nexus 集成使用官方 API / Public GraphQL，不依赖网页抓取或浏览器挑战状态
 - 所有 API 请求都需要认证（API Key 或 OAuth/JWT Token）
 - API 支持获取 mod 元数据、文件列表、游戏列表、用户信息等
 - **实际文件下载**有额外限制（见第 10 节）
@@ -424,20 +424,17 @@ console.log(mods);
 
 **关键结论**：
 - API 端点 (`api.nexusmods.com`) **与网页端 (`www.nexusmods.com`) 完全分离**
-- API 请求**不经过 Cloudflare**
-- 网页端受 Cloudflare 保护，API 端点不受保护
-- **使用 API Key 直接请求 API 是绕过 Cloudflare 的最佳方式**
+- API 请求走 Nexus 官方 API 入口，不依赖网页端会话或浏览器挑战状态
+- 网页端可能受额外访问保护影响，因此 v0.3 不再把网页抓取作为产品数据路径
+- **使用官方 API / Public GraphQL 是 v0.3 后唯一支持的 Nexus 集成方向**
 
 ---
 
-## 9. Cloudflare 问题与解决方案
+## 9. 网页端访问保护与 v0.3 取舍
 
 ### 9.1 问题描述
 
-Nexus Mods 网站使用 Cloudflare 进行保护，导致：
-- 直接抓取网页会遇到 Cloudflare Challenge 页面
-- 需要 JavaScript 执行和 Cookie 管理
-- 频繁的请求可能导致 IP 被封禁
+Nexus Mods 网站页面可能受到访问保护影响，直接抓取网页会带来挑战页面、脚本执行、Cookie 管理和策略风险。
 
 ### 9.2 解决方案对比
 
@@ -445,16 +442,16 @@ Nexus Mods 网站使用 Cloudflare 进行保护，导致：
 |------|--------|------|------|--------|
 | **使用官方 API** | ✅ 高 | 低 | 极低 | ⭐⭐⭐⭐⭐ |
 | **API + Premium** | ✅ 高 | 低 | 低 | ⭐⭐⭐⭐⭐ |
-| **浏览器自动化** | ✅ 中 | 高 | 高 | ⭐⭐ |
-| **Cloudflare 绕过服务** | ⚠️ 中 | 中 | 高 | ⭐ |
+| **浏览器自动化** | 不采用 | 高 | 高 | v0.3 移除 |
+| **挑战处理服务** | 不采用 | 中 | 高 | v0.3 移除 |
 | **直接网页抓取** | ❌ 低 | 极高 | 极高 | ❌ 不推荐 |
 
 ### 9.3 推荐方案：使用官方 API
 
-**为什么 API 不受 Cloudflare 影响**：
+**为什么选择 API**：
 - API 使用独立的子域名 `api.nexusmods.com`
-- 该域名不在 Cloudflare 保护范围内
 - 只需要 API Key 即可访问
+- 与 Nexus 官方支持的第三方集成方向一致
 
 **最佳实践**：
 1. 注册 Nexus Mods 账号
@@ -520,16 +517,16 @@ curl -X GET "https://api.nexusmods.com/v1/games/skyrimspecialedition/mods/19456/
 
 ### 11.1 推荐方案总结
 
-#### 🥇 首选方案：使用官方 v1 API + API Key
+#### 首选方案：使用官方 v1 API + API Key
 
 **适用场景**：获取 mod 元数据、文件列表、搜索 mod
 **优点**：
-- 不受 Cloudflare 影响
+- 不依赖网页端会话或浏览器挑战状态
 - 稳定可靠，长期支持
 - 速率限制合理（2500次/天）
 - 社区有大量封装库
 
-#### 🥈 次选方案：使用 GraphQL API v2
+#### 次选方案：使用 GraphQL API v2
 
 **适用场景**：需要灵活查询特定字段
 **优点**：

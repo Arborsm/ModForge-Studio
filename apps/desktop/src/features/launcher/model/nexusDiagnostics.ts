@@ -1,9 +1,9 @@
 import type { LauncherNexusDiagnosticsResult, LauncherNexusRouteSnapshot } from './launcherContracts'
 
-const AUTO_REMOTE_COVER_DETAIL_ROUTE_IDS = ['publicGraphql', 'publicHtml'] as const
+const AUTO_REMOTE_COVER_DETAIL_ROUTE_IDS = ['publicGraphql'] as const
 const AUTO_DISCOVER_GRAPHQL_ROUTE_IDS = ['privateGraphql', 'publicGraphql'] as const
 const AUTO_DISCOVER_TRENDING_ROUTE_IDS = ['nexusApi', ...AUTO_DISCOVER_GRAPHQL_ROUTE_IDS] as const
-const AUTO_UPDATE_ROUTE_IDS = ['smapi', 'privateGraphql', 'publicGraphql', 'publicHtml'] as const
+const AUTO_UPDATE_ROUTE_IDS = ['smapi', 'privateGraphql', 'publicGraphql'] as const
 
 function isSuccessfulRoute(route: LauncherNexusRouteSnapshot | null | undefined) {
   return route?.available === true && route.status === 'success'
@@ -17,11 +17,31 @@ export function getLauncherNexusRoute(
 }
 
 export function getLauncherNexusWarningRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
-  return (diagnostics?.routes ?? []).filter((route) => !route.available)
+  return (diagnostics?.routes ?? []).filter((route) => route.status === 'warning' || !route.available)
 }
 
 export function hasLoadingLauncherNexusRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined) {
-  return (diagnostics?.routes ?? []).some((route) => route.status === 'loading' || route.status === 'verifying')
+  return (diagnostics?.routes ?? []).some((route) => route.status === 'loading')
+}
+
+export function mergeLauncherNexusDiagnostics(
+  currentRoutes: LauncherNexusRouteSnapshot[],
+  nextRoutes: LauncherNexusRouteSnapshot[],
+) {
+  if (!currentRoutes.length) {
+    return nextRoutes
+  }
+
+  const nextByRouteId = new Map(nextRoutes.map((route) => [route.routeId, route]))
+  const mergedRoutes = currentRoutes.map((route) => nextByRouteId.get(route.routeId) ?? route)
+  const currentRouteIds = new Set(currentRoutes.map((route) => route.routeId))
+  for (const route of nextRoutes) {
+    if (!currentRouteIds.has(route.routeId)) {
+      mergedRoutes.push(route)
+    }
+  }
+
+  return mergedRoutes
 }
 
 function getRouteMessages(routes: LauncherNexusRouteSnapshot[]) {
@@ -77,7 +97,10 @@ export function canAutoCheckLauncherUpdates(diagnostics: LauncherNexusDiagnostic
     return false
   }
 
-  return AUTO_UPDATE_ROUTE_IDS.some((routeId) => isSuccessfulRoute(getLauncherNexusRoute(diagnostics, routeId)))
+  return AUTO_UPDATE_ROUTE_IDS.some((routeId) => {
+    const route = getLauncherNexusRoute(diagnostics, routeId)
+    return isSuccessfulRoute(route)
+  })
 }
 
 export function canAutoLoadLauncherDiscover(
@@ -88,7 +111,10 @@ export function canAutoLoadLauncherDiscover(
     return false
   }
 
-  return getDiscoverRouteIds(options).some((routeId) => isSuccessfulRoute(getLauncherNexusRoute(diagnostics, routeId)))
+  return getDiscoverRouteIds(options).some((routeId) => {
+    const route = getLauncherNexusRoute(diagnostics, routeId)
+    return isSuccessfulRoute(route)
+  })
 }
 
 export function getLauncherDiscoverUnavailableReason(

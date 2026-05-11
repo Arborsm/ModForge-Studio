@@ -93,15 +93,13 @@ const localeBundle = {
         "modsPath": "Mods 路径",
         "downloadPath": "下载路径",
         "nexusApiKey": "Nexus API Key",
-        "nexusCookie": "Nexus Cookie"
       },
       "toggles": {
         "enabledOnly": "仅显示已启用",
         "ascending": "升序",
         "autoCheckModUpdates": "自动检查模组更新",
         "autoInstallDownloads": "下载完成后自动安装",
-        "keepDownloadedArchives": "保留已下载归档",
-        "disablePublicHtmlRoute": "禁用 Public HTML 路由"
+        "keepDownloadedArchives": "保留已下载归档"
       },
       "library": {
         "title": "本地模组库",
@@ -206,7 +204,7 @@ const localeBundle = {
         "title": "发现",
         "subtitle": "搜索 Nexus 并把下载任务加入启动器流水线。",
         "empty": "当前搜索条件下没有匹配结果。",
-        "credentialsHint": "请先在设置中配置 Nexus API Key 或 Cookie，再加入直接下载任务。",
+        "credentialsHint": "请先在设置中配置 Nexus API Key，再加入直接下载任务。",
         "loadingResults": "正在加载 Nexus 结果...",
         "loadingPage": (page) => `正在加载第 ${page} 页 Nexus 结果...`,
         "loadingCover": "封面加载中...",
@@ -266,25 +264,82 @@ const localeBundle = {
         "blockedTitle": "自动更新检查已暂停",
         "blockedDetail": "更新通路连续失败后，后台自动检查会先暂停，避免反复发送同样会失败的请求。"
       },
-      "cloudflareChallenge": {
-        "title": "需要完成 Nexus 验证",
-        "detail": "Public HTML 已暂停，请打开验证窗口完成验证。",
-        "prompt": "现在打开 Nexus Mods 吗？",
-        "openAction": "打开 Nexus Mods",
-        "cancelAction": "取消",
-        "disablePublicHtmlLabel": "停用 Public HTML",
-        "disablePublicHtmlDescription": "跳过 HTML 路线，优先使用其他 Nexus 通路。",
-        "disablePublicHtmlEnabledLabel": "已停用 Public HTML 路线",
-        "disablePublicHtmlDisabledLabel": "仍使用 Public HTML 路线",
-        "routeStatusLabel": "路线状态",
-        "cleanBrowserLabel": "干净浏览器会话",
-        "cleanBrowserDescription": "此面板不会向 Nexus 页面注入脚本。先正常完成页面验证，再检查保存的会话。",
-        "browserStepLabel": "在浏览器中验证",
-        "browserStepDescription": "使用左侧 Nexus 页面，直到它正常加载。",
-        "checkStepLabel": "检查会话",
-        "checkStepDescription": "页面打开后，让 ModForge 读取浏览器会话并重试 Public HTML。",
-        "sessionReadyLabel": "会话可用",
-        "sessionWaitingLabel": "等待验证"
+      "diagnostics": {
+        "title": "网络诊断",
+        "sectionTitle": "Nexus Mods 网络",
+        "sectionSubtitle": "Nexus Mods 服务的路由健康状态与认证状态。",
+        "apiKeyTitle": "Nexus API Key",
+        "apiKeySubtitle": "校验 API Key，或通过 Nexus 登录补齐访问凭据。",
+        "apiKeyBadge": "API",
+        "apiKeyMissing": "尚未配置 API Key",
+        "apiKeyUnchecked": "API Key 已保存，尚未校验",
+        "premiumActive": "Premium",
+        "premiumFree": "免费用户",
+        "quotaRemaining": (remaining) => `今日剩余 ${remaining} 次请求`,
+        "hourlyQuotaRemaining": (remaining) => `本小时剩余 ${remaining} 次请求`,
+        "quotaResetAt": (time) => `重置时间：${time}`,
+        "lastRefresh": (time) => `最后刷新：${time}`,
+        "staleWarning": "数据可能已过时",
+        "loading": "正在加载诊断信息...",
+        "empty": "当前没有可展示的通路诊断。",
+        "justNow": "刚刚",
+        "secondsAgo": (seconds) => `${seconds} 秒前`,
+        "minutesAgo": (minutes) => `${minutes} 分钟前`,
+        "hoursAgo": (hours) => `${hours} 小时前`,
+        "retryRouteAction": (routeLabel) => `重试 ${routeLabel}`,
+        "validateApiKeyAction": "校验 API Key",
+        "startSsoAction": "使用 Nexus 登录",
+        "cancelSsoAction": "取消登录",
+        "ssoWaiting": "等待授权",
+        "ssoAuthorized": "Nexus 登录已完成。",
+        "errorCardLabel": "Nexus 问题",
+        "errors": {
+          "invalidApiKey": {
+            "title": "API Key 无法使用",
+            "detail": "请检查保存的 Nexus API Key，或重新通过 Nexus 登录连接账号。",
+            "action": "编辑 Key 或重新连接"
+          },
+          "premiumRequired": {
+            "title": "直接下载需要 Premium",
+            "detail": "请在模组页面手动下载，或连接 Nexus Premium 账号以使用直接 API 下载。",
+            "action": "打开页面或升级"
+          },
+          "rateLimited": {
+            "title": "Nexus 请求已限流",
+            "detail": "Nexus 要求 ModForge 暂缓请求。请等到显示的重置时间后再试，或稍后重试。",
+            "action": "稍后重试"
+          },
+          "serviceUnavailable": {
+            "title": "Nexus 服务暂不可用",
+            "detail": "Nexus API 当前暂时不可用。请保留当前设置，等待服务恢复后重试。",
+            "action": "稍后重试"
+          },
+          "network": {
+            "title": "网络连接失败",
+            "detail": "请检查网络或代理设置，然后重新尝试 Nexus 请求。",
+            "action": "检查网络"
+          },
+          "ssoCancelled": {
+            "title": "Nexus 登录已取消",
+            "detail": "登录流程在 Nexus 返回 API Key 前被取消。",
+            "action": "重新登录"
+          },
+          "ssoTimeout": {
+            "title": "Nexus 登录超时",
+            "detail": "浏览器授权没有在限定时间内完成。准备好授权后，请重新开始登录。",
+            "action": "重新登录"
+          },
+          "ssoDenied": {
+            "title": "Nexus 登录被拒绝",
+            "detail": "Nexus 没有授权本次连接。请重新登录，并在提示时允许 ModForge Studio。",
+            "action": "重新连接"
+          },
+          "unknown": {
+            "title": "Nexus 请求失败",
+            "detail": "本次请求未完成。请重试；如果持续失败，请检查通路诊断。",
+            "action": "重试或诊断"
+          }
+        }
       },
       "downloads": {
         "title": "下载",
@@ -304,13 +359,7 @@ const localeBundle = {
         "keepArchivesHint": "安装完成后保留 zip 归档，便于回滚或手动复用。",
         "loadFailed": "启动器设置加载失败。",
         "saved": "启动器设置已保存。",
-        "saveFailed": "启动器设置保存失败。",
-        "verificationTitle": "Public HTML 验证",
-        "verificationHint": "先在浏览器区域完成 Nexus 验证，再检查会话。",
-        "openVerificationAction": "打开验证窗口",
-        "checkVerificationStatusAction": "检查验证状态",
-        "checkingVerificationStatusAction": "正在检查会话",
-        "clearVerificationSessionAction": "清除验证会话"
+        "saveFailed": "启动器设置保存失败。"
       },
       "sortOptions": {
         "newest": "最新发布",
@@ -2062,11 +2111,15 @@ const localeBundle = {
   }
 }
 
-localeBundle.editor.launcher.pages.debug = '调试'
-localeBundle.editor.launcher.descriptions.debug = '仅供调试使用的消息与日志验证工具。'
+localeBundle.editor.launcher.pages.debug = '配置'
+localeBundle.editor.launcher.descriptions.debug = '启动器路径、Nexus 访问、诊断与可选调试工具。'
 localeBundle.editor.launcher.debug = {
-  title: '启动器调试',
-  subtitle: '仅在开启 debug 时显示，用于验证全局通知与持久化日志。',
+  title: '配置',
+  subtitle: '集中配置启动器路径、Nexus 访问、下载默认值与诊断能力。',
+  moreToolsTitle: '调试工具',
+  moreToolsSubtitle: '通知、日志、缓存和下载模拟工具默认收起，需要时再展开。',
+  moreToolsAction: '更多',
+  lessToolsAction: '收起',
   debugOnlyTitle: '仅限调试使用',
   debugOnlyDescription: '该页只在全局 debug 开关启用时可见，用于集中验证通知、日志以及后续启动器诊断能力。',
   notificationsOverviewTitle: '消息测试记录',
@@ -2076,16 +2129,16 @@ localeBundle.editor.launcher.debug = {
   logsTitle: '持久化日志测试',
   logsSubtitle: '写入仅持久化的测试日志，不弹出通知，用于验证本地日志链路和后续诊断留痕。',
   nexusDiagnosticsTitle: 'Nexus 通路诊断',
-  nexusDiagnosticsSubtitle: '展示启动时对公共 GraphQL、公共 HTML、Nexus 图片 CDN、SMAPI 以及已配置凭据的 Nexus API 通路的连通性探测结果。失败三次的通路会标记为 warning，并在后端停用，直到手动触发重探测恢复。',
-  nexusDiagnosticsLoading: 'loading',
+  nexusDiagnosticsSubtitle: '检查 Nexus 与 SMAPI 相关通路。失败通路可单独重试，也可临时强制离线。',
+  nexusDiagnosticsLoading: '正在探测通路...',
   nexusDiagnosticsEmpty: '当前没有可展示的 Nexus 诊断通路。',
-  nexusDiagnosticsEndpointLabel: 'Endpoint',
-  nexusDiagnosticsAttemptsLabel: 'Attempts',
-  nexusDiagnosticsRouteLabel: 'Route',
-  nexusDiagnosticsObservedLabel: 'Observed',
-  nexusDiagnosticsAvailabilityLabel: 'Availability',
-  nexusDiagnosticsAvailableState: '当前可用于相关请求。',
-  nexusDiagnosticsUnavailableState: '当前已停用，需要手动重探测恢复。',
+  nexusDiagnosticsEndpointLabel: '端点',
+  nexusDiagnosticsAttemptsLabel: '尝试',
+  nexusDiagnosticsRouteLabel: '通路',
+  nexusDiagnosticsObservedLabel: '结果',
+  nexusDiagnosticsAvailabilityLabel: '可用性',
+  nexusDiagnosticsAvailableState: '可用于相关请求。',
+  nexusDiagnosticsUnavailableState: '已停用，需重试恢复。',
   nexusDiagnosticsLoadingState: '探测仍在进行中。',
   nexusDiagnosticsNotificationTitle: 'Nexus 通路诊断异常',
   nexusDiagnosticsNotificationImpact: (targets) => `影响范围：${targets} 已暂停`,
@@ -2097,7 +2150,7 @@ localeBundle.editor.launcher.debug = {
   nexusMessagePreviewHealthyDetail: '当前探测到的通路都可用，发现页和自动更新检查可以继续正常工作。',
   nexusMessagePreviewUnavailableDetail: (targets) => `Nexus 公共通路未通过检测，${targets} 已暂停。`,
   nexusMessagePreviewLimitedDetail: '部分通路未通过检测，依赖这些通路的请求会暂时受限，直到手动重试恢复。',
-  nexusMessagePreviewNote: '你仍可手动重试，详细原因见“启动器调试 > Nexus 通路诊断”。',
+  nexusMessagePreviewNote: '你仍可手动重试，详细原因见“配置 > Nexus 通路诊断”。',
   nexusMessagePreviewDiscoverTarget: '发现页',
   nexusMessagePreviewUpdatesTarget: '自动更新',
   forceOfflineEnableButton: '强制全部断开',
@@ -2143,8 +2196,3 @@ localeBundle.settingsMenu.categoryDescriptions = {
 }
 
 export default localeBundle as LocaleBundle
-
-
-
-
-

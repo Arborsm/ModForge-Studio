@@ -1,4 +1,7 @@
 import type {
+  SsoConnectionStatus,
+  SsoSnapshot,
+  ValidateApiKeyResult,
   LauncherSettings,
   ScanLauncherLibraryRequest,
   LauncherLibraryScanResult,
@@ -38,8 +41,6 @@ import type {
   LauncherUpdateProgressPayload,
   SaveLauncherSettingsRequest,
   LauncherGameLaunchResult,
-  LauncherPublicHtmlVerificationRequest,
-  LauncherPublicHtmlVerificationSnapshot,
 } from './launcherContracts'
 
 export type LauncherPort = {
@@ -82,14 +83,8 @@ export type LauncherPort = {
   detectDefaultGameDirectory(): Promise<string | null>
   toDesktopAssetUrl(path: string, protocol?: string): string
   subscribeUpdates(modsPath: string, listener: (result: LauncherUpdatesResult) => void): () => void
-  openPublicHtmlVerification(request: LauncherPublicHtmlVerificationRequest): Promise<LauncherPublicHtmlVerificationSnapshot>
-  loadPublicHtmlVerificationState(): Promise<LauncherPublicHtmlVerificationSnapshot>
-  listenToPublicHtmlVerificationState(listener: (state: LauncherPublicHtmlVerificationSnapshot) => void): Promise<() => void>
-  signalPublicHtmlVerificationOpened(): Promise<LauncherPublicHtmlVerificationSnapshot>
-  submitPublicHtmlVerificationCookie(cookie: string): Promise<LauncherPublicHtmlVerificationSnapshot>
-  cancelPublicHtmlVerification(): Promise<LauncherPublicHtmlVerificationSnapshot>
-  refreshPublicHtmlVerification(): Promise<void>
-  checkPublicHtmlVerification(): Promise<LauncherPublicHtmlVerificationSnapshot>
-  closePublicHtmlVerification(): Promise<void>
-  clearPublicHtmlVerificationSession(): Promise<void>
+  validateNexusApiKey(): Promise<ValidateApiKeyResult>
+  startNexusSso(): Promise<{ ssoId: string; status: SsoConnectionStatus }>
+  getNexusSsoStatus(): Promise<SsoSnapshot>
+  cancelNexusSso(): Promise<void>
 }

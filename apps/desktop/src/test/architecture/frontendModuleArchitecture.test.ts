@@ -687,7 +687,6 @@ describe('frontend module architecture', () => {
    */
   const APPROVED_BOUNDARY_PATTERNS = [
     /^app\/app-shell\/AppShell\.tsx$/,
-    /^app\/webview-surfaces\/PublicHtmlVerificationControlsSurface\.tsx$/,
     /^platform\/desktop\/index\.ts$/,
     /^platform\/desktop\/index\.test\.ts$/,
   ]
@@ -761,6 +760,102 @@ describe('frontend module architecture', () => {
       }
 
       expect(unclassified).toEqual([])
+    },
+    30000,
+  )
+
+  it(
+    'blocks active Nexus Public HTML and Cloudflare verification paths',
+    async () => {
+      const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/shared', 'src/platform']
+      const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+      const blockedPatterns = [
+        /publicHtml/i,
+        /Public HTML/,
+        /Cloudflare/,
+        /cloudflare/,
+        /cf_clearance/,
+        /launcher\/cloudflare-challenge-required/,
+        /public_html_nexus_/,
+      ]
+      const violations: string[] = []
+
+      for (const filePath of sourceFiles.flat()) {
+        const source = await readFile(filePath, 'utf8')
+        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+
+        for (const pattern of blockedPatterns) {
+          if (pattern.test(source)) {
+            violations.push(`${relPath} contains ${pattern}`)
+          }
+        }
+      }
+
+      await expect(access(sourcePath('src/app/webview-surfaces/PublicHtmlVerificationControlsSurface.tsx'))).rejects.toThrow()
+      expect(violations).toEqual([])
+    },
+    30000,
+  )
+
+  it(
+    'keeps the official Nexus SDK isolated behind a platform adapter',
+    async () => {
+      const allFiles = await collectSourceFiles(sourcePath('src'))
+      const violations: string[] = []
+      const allowed = new Set([
+        'platform/nexus/officialSdkAdapter.ts',
+      ])
+
+      for (const filePath of allFiles) {
+        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+        if (TEST_FILE_PATTERN.test(relPath)) {
+          continue
+        }
+
+        const source = await readFile(filePath, 'utf8')
+        if (!source.includes('@nexusmods/nexus-api')) {
+          continue
+        }
+
+        if (!allowed.has(relPath)) {
+          violations.push(relPath)
+        }
+      }
+
+      expect(violations).toEqual([])
+    },
+    30000,
+  )
+
+  it(
+    'keeps NexusMods provider code outside the launcher Rust domain',
+    async () => {
+      const launcherFiles = await collectSourceFiles(sourcePath('src-tauri/src/domain/launcher'))
+      const blockedPatterns = [
+        /api-router\.nexusmods\.com/,
+        /api\.nexusmods\.com/,
+        /graphql\.nexusmods\.com/,
+        /staticdelivery\.nexusmods\.com/,
+        /send_nexus_(json_)?request/,
+        /api_headers/,
+        /graphql_headers/,
+        /public_graphql_headers/,
+        /^pub mod (catalog|discovery|downloads_provider|http|mod_detail|remote|rest_api|session|shared|sso);/m,
+      ]
+      const violations: string[] = []
+
+      for (const filePath of launcherFiles) {
+        const source = await readFile(filePath, 'utf8')
+        const relPath = relative(sourcePath('src-tauri/src/domain/launcher'), filePath).replace(/\\/g, '/')
+
+        for (const pattern of blockedPatterns) {
+          if (pattern.test(source)) {
+            violations.push(`${relPath} contains ${pattern}`)
+          }
+        }
+      }
+
+      expect(violations).toEqual([])
     },
     30000,
   )

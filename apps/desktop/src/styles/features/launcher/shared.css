@@ -779,6 +779,23 @@
     color: var(--danger);
   }
 
+  .launcher-nexus-message-card {
+    border-radius: 10px;
+    padding: 12px;
+    box-shadow: none;
+  }
+
+  .launcher-nexus-message-card .launcher-alert-card-title {
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .launcher-nexus-message-card .launcher-alert-card-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+  }
+
   .launcher-blocked-state {
     width: min(100%, 760px);
     display: grid;

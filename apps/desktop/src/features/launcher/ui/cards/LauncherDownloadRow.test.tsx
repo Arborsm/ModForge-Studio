@@ -71,4 +71,27 @@ describe('LauncherDownloadRow', () => {
     expect(screen.getByRole('button', { name: copy.actions.retry })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.actions.install })).toBeTruthy()
   })
+
+  it('shows localized Premium guidance for restricted Nexus download links', () => {
+    renderWithLocale(
+      <LauncherDownloadRow
+        item={createItem({
+          status: 'failed',
+          error: 'Nexus Premium is required for direct API download links.',
+          totalBytes: null,
+          downloadedBytes: null,
+          bytesPerSecond: null,
+        })}
+        statusLabel="下载失败"
+        onRetry={vi.fn()}
+        onRemove={vi.fn()}
+        onInstall={vi.fn()}
+      />,
+      'zh-CN',
+    )
+
+    expect(screen.getByText('直接下载需要 Premium')).toBeTruthy()
+    expect(screen.getByText('请在模组页面手动下载，或连接 Nexus Premium 账号以使用直接 API 下载。')).toBeTruthy()
+    expect(screen.queryByText('Nexus Premium is required for direct API download links.')).toBeNull()
+  })
 })

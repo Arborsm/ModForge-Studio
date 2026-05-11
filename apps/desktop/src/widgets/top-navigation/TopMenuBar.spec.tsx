@@ -179,7 +179,7 @@ describe('TopMenuBar', () => {
     expect(badge?.textContent).toBe('99+')
   })
 
-  it('hides the launcher debug page tab when debug mode is disabled', () => {
+  it('keeps the launcher tools page tab visible when debug mode is disabled', () => {
     const launcherChrome = buildProps().launcherChrome!
     renderWithLocale(
       <TopMenuBar
@@ -187,13 +187,13 @@ describe('TopMenuBar', () => {
           appMode: 'launcher',
           launcherChrome: {
             ...launcherChrome,
-            visiblePages: ['library', 'discover', 'updates'],
+            visiblePages: ['library', 'discover', 'updates', 'debug'],
           },
         })}
       />,
     )
 
-    expect(screen.queryByRole('button', { name: copy.launcher.pages.debug })).toBeNull()
+    expect(screen.getByRole('button', { name: copy.launcher.pages.debug })).toBeTruthy()
   })
 
   it('opens the downloads popup as a non-modal launcher popover', () => {
@@ -242,7 +242,7 @@ describe('TopMenuBar', () => {
     expect(progressRing.getAttribute('aria-valuenow')).toBe('50')
   })
 
-  it('renders an orange warning marker on settings when launcher setup is incomplete', () => {
+  it('does not render the launcher setup warning marker beside the tools page label', () => {
     const launcherChrome = buildProps().launcherChrome!
     renderWithLocale(
       <TopMenuBar
@@ -257,6 +257,6 @@ describe('TopMenuBar', () => {
     )
 
     const settingsButton = screen.getAllByRole('button', { name: copy.launcher.pages.debug }).at(-1)
-    expect(settingsButton?.querySelector('.top-menu-warning-dot')).toBeTruthy()
+    expect(settingsButton?.querySelector('.top-menu-warning-dot')).toBeNull()
   })
 })

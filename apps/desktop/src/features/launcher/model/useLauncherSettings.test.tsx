@@ -20,7 +20,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: null,
     downloadPath: 'E:\\Downloads\\Mods',
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -181,7 +180,7 @@ describe('useLauncherSettings', () => {
       detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
       saveSettings: vi.fn().mockResolvedValue(
         createSettings({
-          nexusCookie: 'session-cookie',
+          nexusApiKey: 'updated-api-key',
         }),
       ),
     })
@@ -194,7 +193,7 @@ describe('useLauncherSettings', () => {
     vi.useFakeTimers()
 
     act(() => {
-      result.current.updateField('nexusCookie', 'session-cookie')
+      result.current.updateField('nexusApiKey', 'updated-api-key')
     })
 
     expect(port.saveSettings).not.toHaveBeenCalled()
@@ -211,7 +210,7 @@ describe('useLauncherSettings', () => {
 
     expect(port.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
-        nexusCookie: 'session-cookie',
+        nexusApiKey: 'updated-api-key',
       }),
     )
   })
@@ -258,7 +257,7 @@ describe('useLauncherSettings', () => {
       detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
       saveSettings: vi.fn().mockResolvedValue(
         createSettings({
-          nexusCookie: 'exit-cookie',
+          nexusApiKey: 'updated-api-key',
         }),
       ),
     })
@@ -269,7 +268,7 @@ describe('useLauncherSettings', () => {
     })
 
     act(() => {
-      result.current.updateField('nexusCookie', 'exit-cookie')
+      result.current.updateField('nexusApiKey', 'updated-api-key')
     })
 
     expect(port.saveSettings).not.toHaveBeenCalled()
@@ -280,7 +279,7 @@ describe('useLauncherSettings', () => {
 
     expect(port.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
-        nexusCookie: 'exit-cookie',
+        nexusApiKey: 'updated-api-key',
       }),
     )
   })

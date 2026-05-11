@@ -1,37 +1,32 @@
 use super::{
-    ensure_launcher_nexus_route_available, launcher_cloudflare_challenge_required_error,
-    launcher_nexus_route_for_url, nexus_public_html_document_requires_verification,
-    nexus_public_html_response_requires_accelerated_fallback,
+    ensure_launcher_nexus_route_available, launcher_nexus_route_for_url,
     probe_blocked_launcher_nexus_route_with_runner, probe_launcher_nexus_route_with_runner,
-    public_page_headers, read_nexus_response_body_with_retry,
-    reset_launcher_nexus_diagnostics_for_test, run_public_html_with_accelerated_fallback,
+    read_nexus_response_body_with_retry, reset_launcher_nexus_diagnostics_for_test,
     set_launcher_nexus_force_offline_with_settings_for_test,
-    set_launcher_nexus_route_snapshot_for_test, snapshot_launcher_nexus_diagnostics_for_test,
-    LauncherNexusRoute, LauncherNexusRouteSnapshot, LauncherNexusRouteStatus,
-    NexusPublicHtmlDocument,
+    set_launcher_nexus_route_snapshot_for_test,
+    set_launcher_nexus_route_snapshot_from_probe_for_test,
+    snapshot_launcher_nexus_diagnostics_for_test, LauncherNexusRoute, LauncherNexusRouteSnapshot,
+    LauncherNexusRouteStatus,
 };
 use crate::domain::launcher::types::LauncherSettings;
-use reqwest::header::{HeaderMap, HeaderValue, COOKIE, USER_AGENT};
-use reqwest::{StatusCode, Url};
-use std::net::{IpAddr, Ipv4Addr};
+use reqwest::header::{HeaderMap, HeaderValue};
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 fn launcher_http_test_guard() -> &'static Mutex<()> {
     static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
     GUARD.get_or_init(|| Mutex::new(()))
 }
 
-fn launcher_settings(api_key: Option<&str>, cookie: Option<&str>) -> LauncherSettings {
+fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
     LauncherSettings {
         game_path: None,
         mods_path: None,
         download_path: None,
         nexus_api_key: api_key.map(str::to_string),
-        nexus_cookie: cookie.map(str::to_string),
         auto_install_downloads: false,
         keep_downloaded_archives: false,
         auto_check_mod_updates: true,
-        disable_public_html_route: false,
     }
 }
 
@@ -87,7 +82,7 @@ fn launcher_nexus_route_probe_marks_success_after_first_successful_attempt() {
     let mut attempts = 0;
 
     let snapshot = probe_launcher_nexus_route_with_runner(
-        LauncherNexusRoute::PublicHtml,
+        LauncherNexusRoute::PublicGraphql,
         || {
             attempts += 1;
             Ok(())
@@ -102,180 +97,31 @@ fn launcher_nexus_route_probe_marks_success_after_first_successful_attempt() {
 }
 
 #[test]
-fn public_html_response_requires_fallback_for_cloudflare_challenge_pages() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
+fn nexus_request_delay_for_test_stays_within_expected_range() {
+    let min = super::nexus_request_delay_for_test(1);
+    let max = super::nexus_request_delay_for_test(u64::MAX - 1);
 
-    let challenge_html = r#"
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Just a moment...</title>
-  </head>
-  <body>
-    <div>Enable JavaScript and cookies to continue</div>
-    <script>window._cf_chl_opt = { cZone: 'www.nexusmods.com' };</script>
-  </body>
-</html>
-"#;
-
-    let normal_html = r#"
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta property="og:title" content="Joja Civic Center" />
-  </head>
-  <body>real page</body>
-</html>
-"#;
-
-    assert!(nexus_public_html_response_requires_accelerated_fallback(
-        challenge_html
-    ));
-    assert!(!nexus_public_html_response_requires_accelerated_fallback(
-        normal_html
-    ));
+    assert!(min >= Duration::from_millis(45));
+    assert!(min <= Duration::from_millis(80));
+    assert!(max >= Duration::from_millis(45));
+    assert!(max <= Duration::from_millis(80));
 }
 
 #[test]
-fn public_html_fallback_retries_when_primary_body_is_not_usable_html() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-    let mut accelerated_attempts = 0;
+fn nexus_request_delay_for_test_stays_below_twenty_five_requests_per_second() {
+    let min = super::nexus_request_delay_for_test(1);
 
-    let result = run_public_html_with_accelerated_fallback(
-        || Err("Received Nexus HTML interstitial instead of page content.".to_string()),
-        || Ok(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))),
-        |ip| {
-            accelerated_attempts += 1;
-            Ok(format!("ok via {ip}"))
-        },
-    )
-    .expect("accelerated fallback should recover from unusable primary html");
-
-    assert_eq!(accelerated_attempts, 1);
-    assert_eq!(result, "ok via 1.1.1.1");
+    assert!(min >= Duration::from_millis(40));
 }
 
 #[test]
-fn public_html_fallback_skips_accelerated_retry_when_primary_reports_challenge() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-    let mut accelerated_attempts = 0;
-
-    let error = run_public_html_with_accelerated_fallback(
-        || {
-            Err(launcher_cloudflare_challenge_required_error(
-                "https://www.nexusmods.com/stardewvalley",
-            ))
-        },
-        || {
-            accelerated_attempts += 1;
-            Ok(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)))
-        },
-        |_ip| Ok("unused".to_string()),
-    )
-    .expect_err("challenge should short-circuit before accelerated fallback");
-
-    assert_eq!(accelerated_attempts, 0);
-    assert!(error.contains("CLOUDFLARE_CHALLENGE_REQUIRED"));
-}
-
-#[test]
-fn public_html_response_detects_cloudflare_challenge_even_on_http_error() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-
-    assert!(nexus_public_html_response_requires_accelerated_fallback(
-        r#"
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Just a moment...</title>
-  </head>
-  <body>
-    <div>Enable JavaScript and cookies to continue</div>
-  </body>
-</html>
-"#
-    ));
-}
-
-#[test]
-fn public_html_document_detects_cloudflare_challenge_from_response_headers() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-
+fn retry_delay_prefers_retry_after_header() {
     let mut headers = HeaderMap::new();
-    headers.insert("cf-mitigated", HeaderValue::from_static("challenge"));
-    headers.insert("server", HeaderValue::from_static("cloudflare"));
+    headers.insert("retry-after", HeaderValue::from_static("7"));
 
-    let document = NexusPublicHtmlDocument {
-        status: StatusCode::FORBIDDEN,
-        headers,
-        body: "<html><body>forbidden</body></html>".to_string(),
-    };
+    let delay = super::retry_delay_from_headers(&headers, 0);
 
-    assert!(nexus_public_html_document_requires_verification(&document));
-}
-
-#[test]
-fn public_page_headers_preserve_verification_cookie_and_browser_user_agent() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-
-    let url = Url::parse("https://www.nexusmods.com/stardewvalley/mods/101")
-        .expect("test URL should parse");
-    let headers = public_page_headers(
-        Some("https://www.nexusmods.com/stardewvalley"),
-        Some("cf_clearance=clearance-token; __cf_bm=bm-token"),
-        &url,
-    )
-    .expect("public page headers should be built");
-
-    let cookie = headers
-        .get(COOKIE)
-        .and_then(|value| value.to_str().ok())
-        .unwrap_or_default();
-    assert!(cookie.contains("cf_clearance=clearance-token"));
-    assert!(cookie.contains("__cf_bm=bm-token"));
-    assert_eq!(
-        headers
-            .get(USER_AGENT)
-            .and_then(|value| value.to_str().ok()),
-        Some(super::PUBLIC_BROWSER_USER_AGENT)
-    );
-}
-
-#[test]
-fn launcher_nexus_route_probe_stops_retrying_when_cloudflare_challenge_is_required() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-    let mut attempts = 0;
-
-    let snapshot = probe_launcher_nexus_route_with_runner(
-        LauncherNexusRoute::PublicHtml,
-        || {
-            attempts += 1;
-            Err(launcher_cloudflare_challenge_required_error(
-                "https://www.nexusmods.com/stardewvalley",
-            ))
-        },
-        true,
-    );
-
-    assert_eq!(attempts, 1);
-    assert_eq!(snapshot.status, LauncherNexusRouteStatus::Warning);
-    assert!(!snapshot.available);
-    assert_eq!(snapshot.attempts, 1);
-    assert!(snapshot.challenge_required);
+    assert_eq!(delay, Duration::from_secs(7));
 }
 
 #[test]
@@ -293,7 +139,6 @@ fn blocked_launcher_nexus_route_returns_fast_error() {
         max_attempts: 3,
         available: false,
         message: "Failed after 3 attempts: timeout".to_string(),
-        challenge_required: false,
     });
 
     let error = ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
@@ -318,7 +163,6 @@ fn blocked_launcher_nexus_route_can_be_recovered_by_reprobe() {
         max_attempts: 3,
         available: false,
         message: "Failed after 3 attempts: timeout".to_string(),
-        challenge_required: false,
     });
 
     let mut attempts = 0;
@@ -338,16 +182,67 @@ fn blocked_launcher_nexus_route_can_be_recovered_by_reprobe() {
 }
 
 #[test]
+fn retrying_one_launcher_nexus_route_keeps_other_route_snapshots_unchanged() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    reset_launcher_nexus_diagnostics_for_test();
+    set_launcher_nexus_route_snapshot_for_test(LauncherNexusRouteSnapshot {
+        route_id: LauncherNexusRoute::PublicGraphql.id().to_string(),
+        label: LauncherNexusRoute::PublicGraphql.label().to_string(),
+        endpoint: LauncherNexusRoute::PublicGraphql.endpoint().to_string(),
+        status: LauncherNexusRouteStatus::Warning,
+        attempts: 3,
+        max_attempts: 3,
+        available: false,
+        message: "Failed after 3 attempts: timeout".to_string(),
+    });
+    set_launcher_nexus_route_snapshot_for_test(LauncherNexusRouteSnapshot {
+        route_id: LauncherNexusRoute::NexusImages.id().to_string(),
+        label: LauncherNexusRoute::NexusImages.label().to_string(),
+        endpoint: LauncherNexusRoute::NexusImages.endpoint().to_string(),
+        status: LauncherNexusRouteStatus::Success,
+        attempts: 1,
+        max_attempts: 3,
+        available: true,
+        message: "Connected after 1 attempt.".to_string(),
+    });
+
+    set_launcher_nexus_route_snapshot_from_probe_for_test(
+        LauncherNexusRoute::PublicGraphql,
+        || Ok(()),
+        false,
+    );
+
+    let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
+    let public_graphql = diagnostics
+        .routes
+        .iter()
+        .find(|route| route.route_id == LauncherNexusRoute::PublicGraphql.id())
+        .expect("public GraphQL route should exist");
+    let image_route = diagnostics
+        .routes
+        .iter()
+        .find(|route| route.route_id == LauncherNexusRoute::NexusImages.id())
+        .expect("image route should exist");
+
+    assert_eq!(public_graphql.status, LauncherNexusRouteStatus::Success);
+    assert_eq!(public_graphql.attempts, 1);
+    assert_eq!(image_route.status, LauncherNexusRouteStatus::Success);
+    assert_eq!(image_route.message, "Connected after 1 attempt.");
+}
+
+#[test]
 fn force_offline_override_blocks_all_configured_routes() {
     let _guard = launcher_http_test_guard()
         .lock()
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
 
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None, None), true);
+    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), true);
 
     let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
-    assert_eq!(diagnostics.routes.len(), 4);
+    assert_eq!(diagnostics.routes.len(), 3);
     assert!(diagnostics.routes.iter().all(|route| {
         route.status == LauncherNexusRouteStatus::Warning
             && !route.available
@@ -366,7 +261,7 @@ fn force_offline_override_prevents_blocked_route_reprobe_recovery() {
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
 
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None, None), true);
+    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), true);
 
     let mut attempts = 0;
     let error = probe_blocked_launcher_nexus_route_with_runner(
@@ -400,8 +295,8 @@ fn clearing_force_offline_override_unblocks_routes() {
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
 
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None, None), true);
-    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None, None), false);
+    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), true);
+    set_launcher_nexus_force_offline_with_settings_for_test(&launcher_settings(None), false);
 
     ensure_launcher_nexus_route_available(LauncherNexusRoute::PublicGraphql)
         .expect("public GraphQL should be available again after clearing force offline");
@@ -415,13 +310,12 @@ fn launcher_nexus_configured_routes_include_smapi_and_image_routes_without_crede
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let routes = LauncherNexusRoute::configured_routes(&launcher_settings(None, None));
+    let routes = LauncherNexusRoute::configured_routes(&launcher_settings(None));
 
     assert_eq!(
         routes,
         vec![
             LauncherNexusRoute::PublicGraphql,
-            LauncherNexusRoute::PublicHtml,
             LauncherNexusRoute::NexusImages,
             LauncherNexusRoute::Smapi,
         ]
@@ -434,16 +328,12 @@ fn launcher_nexus_configured_routes_include_private_graphql_and_api_when_availab
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let routes = LauncherNexusRoute::configured_routes(&launcher_settings(
-        Some("nexus-api-key"),
-        Some("sid=session"),
-    ));
+    let routes = LauncherNexusRoute::configured_routes(&launcher_settings(Some("nexus-api-key")));
 
     assert_eq!(
         routes,
         vec![
             LauncherNexusRoute::PublicGraphql,
-            LauncherNexusRoute::PublicHtml,
             LauncherNexusRoute::NexusImages,
             LauncherNexusRoute::Smapi,
             LauncherNexusRoute::PrivateGraphql,
@@ -458,6 +348,10 @@ fn launcher_nexus_route_for_url_classifies_known_remote_hosts() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
+    assert_eq!(
+        launcher_nexus_route_for_url("https://api-router.nexusmods.com/graphql"),
+        Some(LauncherNexusRoute::PublicGraphql)
+    );
     assert_eq!(
         launcher_nexus_route_for_url(
             "https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/541/541-cover.png"
@@ -478,68 +372,6 @@ fn launcher_nexus_route_for_url_classifies_known_remote_hosts() {
         launcher_nexus_route_for_url(r"E:\Games\Stardew Valley\Mods\Some Mod\assets\cover.png"),
         None
     );
-}
-#[test]
-fn verifying_status_serializes_to_lowercase_json() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-
-    let snapshot = super::LauncherNexusRouteSnapshot {
-        route_id: super::LauncherNexusRoute::PublicHtml.id().to_string(),
-        label: super::LauncherNexusRoute::PublicHtml.label().to_string(),
-        endpoint: super::LauncherNexusRoute::PublicHtml.endpoint().to_string(),
-        status: super::LauncherNexusRouteStatus::Verifying,
-        attempts: 1,
-        max_attempts: 3,
-        available: true,
-        message: "Cloudflare challenge detected -- launching browser verification.".to_string(),
-        challenge_required: true,
-    };
-
-    let json = serde_json::to_string(&snapshot).expect("snapshot should serialize");
-    assert!(
-        json.contains(r#""status":"verifying""#),
-        "Expected verifying status in JSON, got: {json}"
-    );
-    assert!(
-        json.contains(r#""challengeRequired":true"#),
-        "Expected challengeRequired in JSON, got: {json}"
-    );
-}
-
-#[test]
-fn disabled_public_html_route_still_generates_warning_on_challenge() {
-    let _guard = launcher_http_test_guard()
-        .lock()
-        .expect("launcher http test guard should not be poisoned");
-
-    // When disable_public_html_route = true, configured_routes excludes PublicHtml
-    let settings = LauncherSettings {
-        disable_public_html_route: true,
-        ..launcher_settings(None, None)
-    };
-
-    let routes = super::LauncherNexusRoute::configured_routes(&settings);
-    assert!(
-        !routes.contains(&super::LauncherNexusRoute::PublicHtml),
-        "PublicHtml route should be excluded when disabled"
-    );
-
-    // The probe would not be called for PublicHtml at all
-    // Verify we can still create a warning snapshot for the route directly
-    let warning = super::LauncherNexusRouteSnapshot {
-        route_id: super::LauncherNexusRoute::PublicHtml.id().to_string(),
-        label: super::LauncherNexusRoute::PublicHtml.label().to_string(),
-        endpoint: super::LauncherNexusRoute::PublicHtml.endpoint().to_string(),
-        status: super::LauncherNexusRouteStatus::Warning,
-        attempts: 1,
-        max_attempts: 3,
-        available: false,
-        message: "Route is disabled.".to_string(),
-        challenge_required: false,
-    };
-    assert_eq!(warning.status, super::LauncherNexusRouteStatus::Warning);
 }
 
 #[test]

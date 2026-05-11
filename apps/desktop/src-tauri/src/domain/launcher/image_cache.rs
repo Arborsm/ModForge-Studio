@@ -1,8 +1,8 @@
-use super::http::{
-    launcher_http_client, launcher_nexus_route_for_url, probe_blocked_launcher_nexus_route,
-};
 use super::paths::launcher_image_cache_dir;
 use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
+use crate::domain::nexusmods::http::{
+    launcher_http_client, launcher_nexus_route_for_url, probe_blocked_launcher_nexus_route,
+};
 use crate::infrastructure::fs::pathing::normalize_path;
 use reqwest::header::CONTENT_TYPE;
 use sha2::{Digest, Sha256};

@@ -22,11 +22,9 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
         mods_path,
         download_path: normalize_optional_path(settings.download_path),
         nexus_api_key: normalize_optional_text(settings.nexus_api_key),
-        nexus_cookie: normalize_optional_text(settings.nexus_cookie),
         auto_install_downloads: settings.auto_install_downloads,
         keep_downloaded_archives: settings.keep_downloaded_archives,
         auto_check_mod_updates: settings.auto_check_mod_updates,
-        disable_public_html_route: settings.disable_public_html_route,
     }
 }
 
@@ -155,7 +153,6 @@ pub fn save_launcher_settings(
                 mods_path: request.mods_path.or(existing.mods_path),
                 download_path: request.download_path.or(existing.download_path),
                 nexus_api_key: request.nexus_api_key.or(existing.nexus_api_key),
-                nexus_cookie: request.nexus_cookie.or(existing.nexus_cookie),
                 auto_install_downloads: request
                     .auto_install_downloads
                     .unwrap_or(existing.auto_install_downloads),
@@ -165,16 +162,9 @@ pub fn save_launcher_settings(
                 auto_check_mod_updates: request
                     .auto_check_mod_updates
                     .unwrap_or(existing.auto_check_mod_updates),
-                disable_public_html_route: request
-                    .disable_public_html_route
-                    .unwrap_or(existing.disable_public_html_route),
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;
-            super::public_html_verification::sync_disable_public_html_route(
-                Some(&app),
-                normalized.disable_public_html_route,
-            );
             restart_launcher_nexus_diagnostics_with_app(&app, &normalized);
             Ok(normalized)
         })(),
@@ -185,7 +175,10 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &tauri::AppHandle,
     settings: &LauncherSettings,
 ) {
-    super::http::restart_launcher_nexus_diagnostics_with_handle(Some(app), settings);
+    crate::domain::nexusmods::http::restart_launcher_nexus_diagnostics_with_handle(
+        Some(app),
+        settings,
+    );
 }
 
 #[cfg(test)]

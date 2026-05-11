@@ -28,8 +28,6 @@ function getLauncherDiagnosticsChipLabel(routeId: string, fallbackLabel: string)
       return 'GraphQL'
     case 'privateGraphql':
       return 'Private GraphQL'
-    case 'publicHtml':
-      return 'HTML'
     case 'nexusImages':
       return 'Image CDN'
     case 'nexusApi':

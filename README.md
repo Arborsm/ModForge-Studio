@@ -53,6 +53,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │        │  └─ tests/                  # Rust 模块 / 单元测试
 │        └─ tests/                     # Rust 集成 / 回归测试
 ├─ docs/                              # 长期维护的架构与设计文档
+├─ .cargo/                            # Cargo 环境配置与 Windows Tauri 测试兼容项
 ├─ AGENTS.md                          # 仓库约束与 Agent 工作规则
 ├─ package.json                       # 根脚本入口
 └─ pnpm-workspace.yaml                # pnpm workspace 配置

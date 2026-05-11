@@ -2,11 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type {
-  LauncherNexusDiagnosticsResult,
-  LauncherPublicHtmlVerificationRequest,
-  LauncherPublicHtmlVerificationSnapshot,
-} from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/editor-shell'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
 
@@ -201,51 +197,15 @@ const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDia
 const retryLauncherNexusDiagnosticsRouteMock = vi.fn<(routeId: string) => Promise<LauncherNexusDiagnosticsResult>>(
   async () => createLauncherNexusDiagnosticsResult(),
 )
-const loadLauncherPublicHtmlVerificationStateMock = vi.fn<() => Promise<LauncherPublicHtmlVerificationSnapshot>>(async () => ({
-  state: 'idle',
-  targetUrl: null,
-  reason: null,
-  disablePublicHtmlRoute: false,
-  lastVerifiedAtMs: null,
-  message: null,
-}))
-const listenToLauncherPublicHtmlVerificationStateMock = vi.fn<
-  (listener: (payload: LauncherPublicHtmlVerificationSnapshot) => void) => Promise<() => void>
->(
-  async (listener) => {
-    appPublicHtmlVerificationStateListener = listener
-    return () => {
-      if (appPublicHtmlVerificationStateListener === listener) {
-        appPublicHtmlVerificationStateListener = null
-      }
-    }
-  },
-)
-const openLauncherPublicHtmlVerificationMock = vi.fn<
-  (request: LauncherPublicHtmlVerificationRequest) => Promise<LauncherPublicHtmlVerificationSnapshot>
->(async () => ({
-  state: 'waitingForUser',
-  targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
-  reason: 'remote-mod-detail',
-  disablePublicHtmlRoute: false,
-  lastVerifiedAtMs: null,
-  message: 'Waiting for browser verification.',
-}))
-const refreshLauncherPublicHtmlVerificationMock = vi.fn(async () => undefined)
-const closeLauncherPublicHtmlVerificationMock = vi.fn(async () => undefined)
-const clearLauncherPublicHtmlVerificationSessionMock = vi.fn(async () => undefined)
-const saveLauncherSettingsMock = vi.fn(async (request: Record<string, unknown>) => ({
+const saveLauncherSettingsMock = vi.fn(async () => ({
   gamePath: 'C:/Games/Stardew Valley',
   modsPath: 'C:/Games/Stardew Valley/Mods',
   downloadPath: 'C:/Downloads',
   nexusApiKey: null,
-  nexusCookie: null,
   autoInstallDownloads: false,
   keepDownloadedArchives: false,
   autoCheckModUpdates: true,
-  disablePublicHtmlRoute: Boolean(request.disablePublicHtmlRoute),
 }))
-let appPublicHtmlVerificationStateListener: ((payload: LauncherPublicHtmlVerificationSnapshot) => void) | null = null
 
 const useCpMakerMock = vi.fn(() => ({
   activeDraft: null,
@@ -370,7 +330,6 @@ vi.mock('@features/launcher', async () => {
         modsPath: 'C:/Games/Stardew Valley/Mods',
         downloadPath: 'C:/Downloads',
         nexusApiKey: null,
-        nexusCookie: null,
         autoInstallDownloads: false,
         keepDownloadedArchives: false,
         autoCheckModUpdates: true,
@@ -437,10 +396,7 @@ vi.mock('@platform/desktop', () => ({
   loadAppUiState: vi.fn(async () => mockAppUiState),
   loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
   loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
-  loadLauncherPublicHtmlVerificationState: () => loadLauncherPublicHtmlVerificationStateMock(),
   listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
-  listenToLauncherPublicHtmlVerificationState: (listener: (payload: LauncherPublicHtmlVerificationSnapshot) => void) =>
-    listenToLauncherPublicHtmlVerificationStateMock(listener),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
   retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
@@ -449,17 +405,12 @@ vi.mock('@platform/desktop', () => ({
   listLauncherInstallBackups: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
-  openLauncherPublicHtmlVerification: (request: LauncherPublicHtmlVerificationRequest) =>
-    openLauncherPublicHtmlVerificationMock(request),
   openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
-  refreshLauncherPublicHtmlVerification: () => refreshLauncherPublicHtmlVerificationMock(),
-  saveLauncherSettings: (request: Record<string, unknown>) => saveLauncherSettingsMock(request),
+  saveLauncherSettings: () => saveLauncherSettingsMock(),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
-  clearLauncherPublicHtmlVerificationSession: () => clearLauncherPublicHtmlVerificationSessionMock(),
-  closeLauncherPublicHtmlVerification: () => closeLauncherPublicHtmlVerificationMock(),
   setLauncherLibraryCover: vi.fn(async () => undefined),
   setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
   subscribeLauncherUpdates: vi.fn(() => () => {}),
@@ -485,10 +436,7 @@ vi.mock('@platform/desktop', () => ({
   loadAppUiState: vi.fn(async () => mockAppUiState),
   loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
   loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
-  loadLauncherPublicHtmlVerificationState: () => loadLauncherPublicHtmlVerificationStateMock(),
   listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
-  listenToLauncherPublicHtmlVerificationState: (listener: (payload: LauncherPublicHtmlVerificationSnapshot) => void) =>
-    listenToLauncherPublicHtmlVerificationStateMock(listener),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
   retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
@@ -497,17 +445,12 @@ vi.mock('@platform/desktop', () => ({
   listLauncherInstallBackups: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
-  openLauncherPublicHtmlVerification: (request: LauncherPublicHtmlVerificationRequest) =>
-    openLauncherPublicHtmlVerificationMock(request),
   openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
-  refreshLauncherPublicHtmlVerification: () => refreshLauncherPublicHtmlVerificationMock(),
-  saveLauncherSettings: (request: Record<string, unknown>) => saveLauncherSettingsMock(request),
+  saveLauncherSettings: () => saveLauncherSettingsMock(),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
-  clearLauncherPublicHtmlVerificationSession: () => clearLauncherPublicHtmlVerificationSessionMock(),
-  closeLauncherPublicHtmlVerification: () => closeLauncherPublicHtmlVerificationMock(),
   setLauncherLibraryCover: vi.fn(async () => undefined),
   setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
   subscribeLauncherUpdates: vi.fn(() => () => {}),
@@ -548,12 +491,10 @@ vi.mock('@features/cp-maker', () => ({
 vi.mock('@pages/launcher/LauncherPage', () => ({
   LauncherPage: ({
     page,
-    debugEnabled,
     locale,
     onAppModeChange,
     onOpenSettings,
     onLauncherPageChange,
-    onLauncherEvent,
     onLauncherDiagnosticsUpdate,
   }: {
     page: 'library' | 'discover' | 'updates' | 'debug'
@@ -562,20 +503,15 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
     onAppModeChange: (mode: 'launcher' | 'workbench') => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
     onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'debug') => void
-    onLauncherEvent?: (event: {
-      type: 'launcher/cloudflare-challenge-required'
-      url: string
-      source: 'diagnostics' | 'library-gallery-cover' | 'updates-detail' | 'updates-changelog'
-    }) => void
     onNavigateToDiagnostics?: () => void
     onRetryDiagnostics?: (() => Promise<void> | void) | null
     onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   }) => {
-    const activePage = !debugEnabled && page === 'debug' ? 'library' : page
+    const activePage = page
     const labels =
       locale === 'zh-CN'
         ? {
-            debug: '调试',
+            debug: '配置',
             discover: '发现',
             downloads: '下载',
             launchGame: '启动游戏',
@@ -585,7 +521,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
             workbench: '工作台',
           }
         : {
-            debug: 'Debug',
+            debug: 'Configuration',
             discover: 'Discover',
             downloads: 'Downloads',
             launchGame: 'Launch Game',
@@ -633,25 +569,11 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
         <button type="button">{labels.downloads}</button>
         <button
           type="button"
-          onClick={() =>
-            onLauncherEvent?.({
-              type: 'launcher/cloudflare-challenge-required',
-              url: 'https://www.nexusmods.com/stardewvalley/mods/101',
-              source: 'updates-detail',
-            })
-          }
+          aria-current={activePage === 'debug' ? 'page' : undefined}
+          onClick={() => onLauncherPageChange('debug')}
         >
-          Trigger Cloudflare Request
+          {labels.debug}
         </button>
-        {debugEnabled ? (
-          <button
-            type="button"
-            aria-current={activePage === 'debug' ? 'page' : undefined}
-            onClick={() => onLauncherPageChange('debug')}
-          >
-            {labels.debug}
-          </button>
-        ) : null}
         {activePage === 'library' ? <button type="button">{labels.launchGame}</button> : null}
       </div>
     )
@@ -884,32 +806,15 @@ describe('App locale ownership', () => {
     retryLauncherNexusDiagnosticsRouteMock.mockReset()
     retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({ routes: [] })
     saveLauncherSettingsMock.mockReset()
-    saveLauncherSettingsMock.mockImplementation(async (request: Record<string, unknown>) => ({
+    saveLauncherSettingsMock.mockImplementation(async () => ({
       gamePath: 'C:/Games/Stardew Valley',
       modsPath: 'C:/Games/Stardew Valley/Mods',
       downloadPath: 'C:/Downloads',
       nexusApiKey: null,
-      nexusCookie: null,
       autoInstallDownloads: false,
       keepDownloadedArchives: false,
       autoCheckModUpdates: true,
-      disablePublicHtmlRoute: Boolean(request.disablePublicHtmlRoute),
     }))
-    loadLauncherPublicHtmlVerificationStateMock.mockReset()
-    loadLauncherPublicHtmlVerificationStateMock.mockResolvedValue({
-      state: 'idle',
-      targetUrl: null,
-      reason: null,
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: null,
-    })
-    listenToLauncherPublicHtmlVerificationStateMock.mockClear()
-    openLauncherPublicHtmlVerificationMock.mockReset()
-    refreshLauncherPublicHtmlVerificationMock.mockReset()
-    closeLauncherPublicHtmlVerificationMock.mockReset()
-    clearLauncherPublicHtmlVerificationSessionMock.mockReset()
-    appPublicHtmlVerificationStateListener = null
     initializeAppUiStateMock.mockClear()
     initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
     applyAppUiStatePatchMock.mockClear()
@@ -1086,17 +991,19 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('renders launcher settings inside the global settings window', async () => {
+  it('keeps launcher settings out of the global settings window', async () => {
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) }))
+    await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.appearance}`) })
 
-    expect(document.querySelector('.settings-window-content')?.textContent).toContain(englishSettingsCopy.categories.launcher)
+    const settingsSidebar = document.querySelector('.settings-window-sidebar')
+    expect(settingsSidebar).toBeTruthy()
+    expect(within(settingsSidebar as HTMLElement).queryByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) })).toBeNull()
+    expect(document.querySelector('.settings-window-content')?.textContent).not.toContain(englishSettingsCopy.categories.launcher)
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.saveSettings })).toBeNull()
-    expect(screen.getByRole('switch', { name: editorCopy['en-US'].launcher.toggles.disablePublicHtmlRoute })).toBeTruthy()
   })
 
   it('renders global notifications in both workbench and launcher app modes', () => {
@@ -1242,9 +1149,9 @@ describe('App locale ownership', () => {
           message: 'Failed after 3 attempts: timeout',
         },
         {
-          routeId: 'publicHtml',
-          label: 'Nexus Public HTML',
-          endpoint: 'https://www.nexusmods.com/stardewvalley',
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
           status: 'success',
           attempts: 1,
           maxAttempts: 3,
@@ -1276,170 +1183,7 @@ describe('App locale ownership', () => {
       expect(retryLauncherNexusDiagnosticsRouteMock).toHaveBeenCalledWith('privateGraphql')
     })
     expect(restartLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
-    expect(retryLauncherNexusDiagnosticsRouteMock).not.toHaveBeenCalledWith('publicHtml')
-  })
-
-  it('loads and subscribes to Public HTML verification state instead of showing the legacy Cloudflare dialog', async () => {
-    seedAppUiState({
-      shell: { appMode: 'launcher' },
-    })
-    canUseDesktopHostMock.mockReturnValue(true)
-    loadLauncherPublicHtmlVerificationStateMock.mockResolvedValue({
-      state: 'waitingForUser',
-      targetUrl: 'https://www.nexusmods.com/stardewvalley',
-      reason: 'diagnostics',
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: 'Waiting for browser verification.',
-    })
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(loadLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
-      expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
-    })
-    expect(screen.queryByRole('dialog', { name: /Nexus verification required/i })).toBeNull()
-    expect(screen.queryByTestId('public-html-verification-card')).toBeNull()
-    const notification = screen.getByText(editorCopy['en-US'].launcher.cloudflareChallenge.title).closest('.notification-toast')
-    expect(notification?.className).toContain('notification-toast-variant-diagnostic')
-    expect(screen.queryByRole('button', { name: /Refresh/i })).toBeNull()
-    expect(screen.queryByRole('button', { name: /Clear Verification Session/i })).toBeNull()
-    expect(openLauncherPublicHtmlVerificationMock).not.toHaveBeenCalled()
-  })
-
-  it('keeps the legacy Cloudflare dialog closed after a verification-state update arrives', async () => {
-    seedAppUiState({
-      shell: { appMode: 'launcher' },
-    })
-    canUseDesktopHostMock.mockReturnValue(true)
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
-    })
-
-    act(() => {
-      appPublicHtmlVerificationStateListener?.({
-        state: 'waitingForUser',
-        targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
-        reason: 'remote-mod-detail',
-        disablePublicHtmlRoute: false,
-        lastVerifiedAtMs: null,
-        message: 'Waiting for browser verification.',
-      })
-    })
-
-    expect(screen.queryByRole('dialog', { name: /Nexus verification required/i })).toBeNull()
-    expect(screen.queryByTestId('public-html-verification-card')).toBeNull()
-    const notification = screen.getByText(editorCopy['en-US'].launcher.cloudflareChallenge.title).closest('.notification-toast')
-    expect(notification?.className).toContain('notification-toast-variant-diagnostic')
-  })
-
-  it('opens the verification webview only after the user clicks the notification action', async () => {
-    seedAppUiState({
-      shell: { appMode: 'launcher' },
-    })
-    canUseDesktopHostMock.mockReturnValue(true)
-    loadLauncherPublicHtmlVerificationStateMock.mockResolvedValue({
-      state: 'waitingForUser',
-      targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
-      reason: 'remote-mod-detail',
-      disablePublicHtmlRoute: false,
-      lastVerifiedAtMs: null,
-      message: 'Waiting for browser verification.',
-    })
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(screen.getByText(editorCopy['en-US'].launcher.cloudflareChallenge.title)).toBeTruthy()
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /Open Verification Window/i }))
-
-    await waitFor(() => {
-      expect(openLauncherPublicHtmlVerificationMock).toHaveBeenCalledWith({
-        targetUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
-        reason: 'remote-mod-detail',
-      })
-    })
-  })
-
-  it('does not reload all Nexus diagnostics when Public HTML verification toggles the route setting', async () => {
-    seedAppUiState({
-      shell: { appMode: 'launcher' },
-    })
-    canUseDesktopHostMock.mockReturnValue(true)
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
-    })
-    await waitFor(() => {
-      expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalled()
-    })
-    const diagnosticsCallsBeforeVerificationUpdate = loadLauncherNexusDiagnosticsMock.mock.calls.length
-
-    act(() => {
-      appPublicHtmlVerificationStateListener?.({
-        state: 'disabled',
-        targetUrl: 'https://www.nexusmods.com/stardewvalley',
-        reason: 'diagnostics',
-        disablePublicHtmlRoute: true,
-        lastVerifiedAtMs: null,
-        message: 'Public HTML route disabled by user.',
-      })
-    })
-
-    await new Promise((resolve) => window.setTimeout(resolve, 0))
-
-    expect(loadLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(diagnosticsCallsBeforeVerificationUpdate)
-  })
-
-  it('retries only the Public HTML diagnostics route after browser verification completes', async () => {
-    seedAppUiState({
-      shell: { appMode: 'launcher' },
-    })
-    canUseDesktopHostMock.mockReturnValue(true)
-    retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({
-      routes: [
-        {
-          routeId: 'publicHtml',
-          label: 'Nexus Public HTML',
-          endpoint: 'https://www.nexusmods.com/stardewvalley',
-          status: 'success',
-          attempts: 1,
-          maxAttempts: 3,
-          available: true,
-          message: 'Connected after 1 attempt.',
-        },
-      ],
-    })
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(listenToLauncherPublicHtmlVerificationStateMock).toHaveBeenCalledTimes(1)
-    })
-
-    act(() => {
-      appPublicHtmlVerificationStateListener?.({
-        state: 'verified',
-        targetUrl: 'https://www.nexusmods.com/stardewvalley',
-        reason: 'diagnostics',
-        disablePublicHtmlRoute: false,
-        lastVerifiedAtMs: 12345,
-        message: 'Verification completed successfully.',
-      })
-    })
-
-    await waitFor(() => {
-      expect(retryLauncherNexusDiagnosticsRouteMock).toHaveBeenCalledWith('publicHtml')
-    })
-    expect(restartLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
+    expect(retryLauncherNexusDiagnosticsRouteMock).not.toHaveBeenCalledWith('nexusImages')
   })
 
   it('applies the persisted launcher force-offline override during startup hydration', async () => {
@@ -1551,7 +1295,7 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('falls back to the launcher library when the persisted debug page is disabled', () => {
+  it('keeps the launcher tools page available when debug mode is disabled', () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
@@ -1562,14 +1306,13 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe(
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
       'page',
     )
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
   })
 
-  it('returns from the launcher debug page when debug mode is turned off', async () => {
+  it('keeps the launcher tools page active when debug mode is turned off', async () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
@@ -1597,18 +1340,17 @@ describe('App locale ownership', () => {
         expect.objectContaining({
           shell: expect.objectContaining({
             appMode: 'launcher',
-            launcherPage: 'library',
+            launcherPage: 'debug',
             debugEnabled: false,
           }),
         }),
       )
-      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe(
+      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
         'page',
       )
     })
 
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
   })
 
   it('does not re-render App when the workspace layout reports an in-session persist update', async () => {

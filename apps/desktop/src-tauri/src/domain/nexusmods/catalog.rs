@@ -3,11 +3,11 @@ use super::http::{
     api_headers, graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route,
     public_graphql_headers, send_nexus_json_request, LauncherNexusRoute,
 };
-use super::paths::launcher_settings_path;
-use super::settings::{load_or_create_settings_at_path, normalize_optional_text};
 use super::shared::{build_mod_page_url, extract_graphql_error, string_field};
-use super::trace::log_launcher_trace;
-use super::types::{
+use crate::domain::launcher::paths::launcher_settings_path;
+use crate::domain::launcher::settings::{load_or_create_settings_at_path, normalize_optional_text};
+use crate::domain::launcher::trace::log_launcher_trace;
+use crate::domain::launcher::types::{
     LauncherCatalogFacetEntry, LauncherCatalogFacets, LauncherCatalogPageResult,
     LauncherCatalogResult, LauncherSettings, SearchLauncherCatalogRequest,
 };
@@ -612,14 +612,11 @@ fn load_catalog_page_from_graphql(
     page_size: usize,
 ) -> Result<LauncherCatalogPageResult, String> {
     if !can_use_nexus_graphql(settings) {
-        return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
+        return Err("Configure a Nexus API key before querying Nexus Mods.".to_string());
     }
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
-    let headers = graphql_headers(
-        settings.nexus_api_key.as_deref(),
-        settings.nexus_cookie.as_deref(),
-    )?;
+    let headers = graphql_headers(settings.nexus_api_key.as_deref())?;
     let (status, response_payload) = send_nexus_json_request(|| {
         client
             .post(GRAPHQL_ENDPOINT)
@@ -776,5 +773,5 @@ fn search_launcher_catalog_blocking(
 }
 
 #[cfg(test)]
-#[path = "../../tests/launcher_discovery_tests.rs"]
-mod launcher_discovery_tests;
+#[path = "../../tests/nexusmods_catalog_tests.rs"]
+mod nexusmods_catalog_tests;

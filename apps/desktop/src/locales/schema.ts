@@ -551,7 +551,6 @@ export type LauncherCopy = {
     modsPath: string
     downloadPath: string
     nexusApiKey: string
-    nexusCookie: string
   }
   toggles: {
     enabledOnly: string
@@ -559,7 +558,6 @@ export type LauncherCopy = {
     autoInstallDownloads: string
     keepDownloadedArchives: string
     autoCheckModUpdates: string
-    disablePublicHtmlRoute: string
   }
   library: {
     title: string
@@ -719,25 +717,43 @@ export type LauncherCopy = {
     blockedTitle: string
     blockedDetail: string
   }
-  cloudflareChallenge: {
+  diagnostics: {
     title: string
-    detail: string
-    prompt: string
-    openAction: string
-    cancelAction: string
-    disablePublicHtmlLabel: string
-    disablePublicHtmlDescription: string
-    disablePublicHtmlEnabledLabel: string
-    disablePublicHtmlDisabledLabel: string
-    routeStatusLabel: string
-    cleanBrowserLabel: string
-    cleanBrowserDescription: string
-    browserStepLabel: string
-    browserStepDescription: string
-    checkStepLabel: string
-    checkStepDescription: string
-    sessionReadyLabel: string
-    sessionWaitingLabel: string
+    sectionTitle: string
+    sectionSubtitle: string
+    apiKeyTitle: string
+    apiKeySubtitle: string
+    apiKeyBadge: string
+    apiKeyMissing: string
+    apiKeyUnchecked: string
+    premiumActive: string
+    premiumFree: string
+    quotaRemaining: (remaining: string) => string
+    hourlyQuotaRemaining: (remaining: string) => string
+    quotaResetAt: (time: string) => string
+    lastRefresh: (time: string) => string
+    staleWarning: string
+    loading: string
+    empty: string
+    justNow: string
+    secondsAgo: (seconds: string) => string
+    minutesAgo: (minutes: string) => string
+    hoursAgo: (hours: string) => string
+    retryRouteAction: (routeLabel: string) => string
+    validateApiKeyAction: string
+    startSsoAction: string
+    cancelSsoAction: string
+    ssoWaiting: string
+    ssoAuthorized: string
+    errorCardLabel: string
+    errors: Record<
+      'invalidApiKey' | 'premiumRequired' | 'rateLimited' | 'serviceUnavailable' | 'network' | 'ssoCancelled' | 'ssoTimeout' | 'ssoDenied' | 'unknown',
+      {
+        title: string
+        detail: string
+        action: string
+      }
+    >
   }
   downloads: {
     title: string
@@ -758,16 +774,14 @@ export type LauncherCopy = {
     loadFailed: string
     saved: string
     saveFailed: string
-    verificationTitle: string
-    verificationHint: string
-    openVerificationAction: string
-    checkVerificationStatusAction: string
-    checkingVerificationStatusAction: string
-    clearVerificationSessionAction: string
   }
   debug: {
     title: string
     subtitle: string
+    moreToolsTitle: string
+    moreToolsSubtitle: string
+    moreToolsAction: string
+    lessToolsAction: string
     debugOnlyTitle: string
     debugOnlyDescription: string
     notificationsOverviewTitle: string
@@ -1584,4 +1598,3 @@ export type LocaleBundle = {
   settingsMenu: SettingsMenuCopy
   worldAtlasViews: Record<WorldAtlasViewId, string>
 }
-

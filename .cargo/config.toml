@@ -1,0 +1,4 @@
+[env]
+# Work around Windows test binary entrypoint failures in Tauri workspaces.
+# See https://github.com/tauri-apps/tauri/pull/4383#issuecomment-1212221864
+__TAURI_WORKSPACE__ = "true"

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loadSettledLauncherNexusDiagnostics } from './nexusDiagnostics'
+import {
+  canAutoCheckLauncherUpdates,
+  canAutoLoadLauncherDiscover,
+  getLauncherNexusWarningRoutes,
+  loadSettledLauncherNexusDiagnostics,
+  mergeLauncherNexusDiagnostics,
+} from './nexusDiagnostics'
 
 describe('loadSettledLauncherNexusDiagnostics', () => {
   afterEach(() => {
@@ -124,35 +130,36 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
     expect(loadDiagnostics).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps polling while a route is waiting for Public HTML verification', async () => {
+  it('does not poll again when diagnostics settle on a non-loading warning route', async () => {
     vi.useFakeTimers()
+    const warningDiagnostics = {
+      routes: [
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'warning' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 1 attempt: timeout',
+        },
+      ],
+    }
     const loadDiagnostics = vi
       .fn()
+      .mockResolvedValueOnce(warningDiagnostics)
       .mockResolvedValueOnce({
         routes: [
           {
-            routeId: 'publicHtml',
-            label: 'Nexus Public HTML',
-            endpoint: 'https://www.nexusmods.com/stardewvalley',
-            status: 'verifying' as never,
-            attempts: 1,
-            maxAttempts: 3,
-            available: true,
-            message: 'Waiting for browser verification to complete.',
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        routes: [
-          {
-            routeId: 'publicHtml',
-            label: 'Nexus Public HTML',
-            endpoint: 'https://www.nexusmods.com/stardewvalley',
+            routeId: 'nexusImages',
+            label: 'Nexus Image CDN',
+            endpoint: 'https://staticdelivery.nexusmods.com/',
             status: 'success' as const,
             attempts: 2,
             maxAttempts: 3,
             available: true,
-            message: 'Connected after verification.',
+            message: 'Connected after retry.',
           },
         ],
       })
@@ -163,22 +170,134 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
       maxAttempts: 3,
     })
 
-    await vi.advanceTimersByTimeAsync(100)
-    await expect(pending).resolves.toEqual({
+    await expect(pending).resolves.toEqual(warningDiagnostics)
+
+    await vi.advanceTimersByTimeAsync(300)
+    expect(loadDiagnostics).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('Nexus route availability helpers', () => {
+  it('uses unrelated successful routes even when an optional image route is unavailable', () => {
+    const diagnostics = {
       routes: [
         {
-          routeId: 'publicHtml',
-          label: 'Nexus Public HTML',
-          endpoint: 'https://www.nexusmods.com/stardewvalley',
-          status: 'success',
-          attempts: 2,
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api-router.nexusmods.com/graphql',
+          status: 'success' as const,
+          attempts: 1,
           maxAttempts: 3,
           available: true,
-          message: 'Connected after verification.',
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'smapi',
+          label: 'SMAPI',
+          endpoint: 'https://smapi.io/api/v3.0/mods',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'warning' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 1 attempt: timeout',
         },
       ],
-    })
+    }
 
-    expect(loadDiagnostics).toHaveBeenCalledTimes(2)
+    expect(canAutoLoadLauncherDiscover(diagnostics, { sort: 'trending' })).toBe(true)
+    expect(canAutoCheckLauncherUpdates(diagnostics)).toBe(true)
+  })
+
+  it('classifies unavailable non-loading routes as warning routes', () => {
+    const diagnostics = {
+      routes: [
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'warning' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 1 attempt: timeout',
+        },
+      ],
+    }
+
+    expect(getLauncherNexusWarningRoutes(diagnostics)).toEqual(diagnostics.routes)
+  })
+})
+
+describe('mergeLauncherNexusDiagnostics', () => {
+  it('keeps untouched routes when a route retry returns only the retried snapshot', () => {
+    expect(
+      mergeLauncherNexusDiagnostics(
+        [
+          {
+            routeId: 'publicGraphql',
+            label: 'Nexus Public GraphQL',
+            endpoint: 'https://api-router.nexusmods.com/graphql',
+            status: 'warning',
+            attempts: 3,
+            maxAttempts: 3,
+            available: false,
+            message: 'Failed after 3 attempts: timeout',
+          },
+          {
+            routeId: 'nexusImages',
+            label: 'Nexus Image CDN',
+            endpoint: 'https://staticdelivery.nexusmods.com/',
+            status: 'success',
+            attempts: 1,
+            maxAttempts: 3,
+            available: true,
+            message: 'Connected after 1 attempt.',
+          },
+        ],
+        [
+          {
+            routeId: 'publicGraphql',
+            label: 'Nexus Public GraphQL',
+            endpoint: 'https://api-router.nexusmods.com/graphql',
+            status: 'success',
+            attempts: 1,
+            maxAttempts: 3,
+            available: true,
+            message: 'Connected after 1 attempt.',
+          },
+        ],
+      ),
+    ).toEqual([
+      {
+        routeId: 'publicGraphql',
+        label: 'Nexus Public GraphQL',
+        endpoint: 'https://api-router.nexusmods.com/graphql',
+        status: 'success',
+        attempts: 1,
+        maxAttempts: 3,
+        available: true,
+        message: 'Connected after 1 attempt.',
+      },
+      {
+        routeId: 'nexusImages',
+        label: 'Nexus Image CDN',
+        endpoint: 'https://staticdelivery.nexusmods.com/',
+        status: 'success',
+        attempts: 1,
+        maxAttempts: 3,
+        available: true,
+        message: 'Connected after 1 attempt.',
+      },
+    ])
   })
 })

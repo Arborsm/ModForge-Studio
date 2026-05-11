@@ -1,6 +1,6 @@
 use crate::domain::launcher::archive::{inspect_archive_at_path, install_archive_at_path};
-use crate::domain::launcher::can_use_nexus_graphql;
-use crate::domain::launcher::discovery::{
+use crate::domain::nexusmods::can_use_nexus_graphql;
+use crate::domain::nexusmods::catalog::{
     build_catalog_graphql_payload, build_public_catalog_graphql_payload,
     parse_catalog_graphql_response, parse_catalog_results,
 };
@@ -8,7 +8,7 @@ use crate::domain::launcher::downloads::{
     load_or_create_download_queue_at_path, save_download_queue_at_path,
 };
 use crate::domain::launcher::image_cache::clear_launcher_image_cache_dir;
-use crate::domain::launcher::remote::{
+use crate::domain::nexusmods::mod_detail::{
     enrich_remote_mod_detail_with_gallery_images, parse_launcher_update_changelog_text,
     parse_launcher_update_file_metadata_text, parse_public_mod_detail_graphql_response,
     parse_remote_mod_detail_html, parse_remote_mod_images_tab_html, RemoteModDetail,
@@ -35,10 +35,12 @@ use crate::domain::launcher::update_cache::{
 };
 use crate::domain::launcher::updates::{
     build_launcher_update_summary, build_smapi_update_payload,
-    build_smapi_update_payload_with_versions, build_update_batch_graphql_payload,
-    dedupe_update_candidates_by_mod_id, finalize_remote_mod_details_batch,
-    parse_smapi_update_response, parse_update_batch_graphql_response,
+    build_smapi_update_payload_with_versions, dedupe_update_candidates_by_mod_id,
+    finalize_remote_mod_details_batch, parse_smapi_update_response,
     resolve_smapi_runtime_versions_with_reader, SmapiRuntimeVersions, UpdateCheckCandidate,
+};
+use crate::domain::nexusmods::updates::{
+    build_update_batch_graphql_payload, parse_update_batch_graphql_response,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use serde_json::json;
@@ -1581,16 +1583,11 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
 }
 
 #[test]
-fn can_use_nexus_graphql_requires_api_key_or_cookie() {
+fn can_use_nexus_graphql_requires_api_key() {
     assert!(!can_use_nexus_graphql(&LauncherSettings::default()));
 
     assert!(can_use_nexus_graphql(&LauncherSettings {
         nexus_api_key: Some("nexus-key".to_string()),
-        ..LauncherSettings::default()
-    }));
-
-    assert!(can_use_nexus_graphql(&LauncherSettings {
-        nexus_cookie: Some("session=value".to_string()),
         ..LauncherSettings::default()
     }));
 }

@@ -15,12 +15,10 @@ pub struct LauncherSettings {
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
     pub nexus_api_key: Option<String>,
-    pub nexus_cookie: Option<String>,
     pub auto_install_downloads: bool,
     pub keep_downloaded_archives: bool,
     #[serde(default = "default_auto_check_mod_updates")]
     pub auto_check_mod_updates: bool,
-    pub disable_public_html_route: bool,
 }
 
 impl Default for LauncherSettings {
@@ -30,11 +28,9 @@ impl Default for LauncherSettings {
             mods_path: None,
             download_path: None,
             nexus_api_key: None,
-            nexus_cookie: None,
             auto_install_downloads: false,
             keep_downloaded_archives: false,
             auto_check_mod_updates: default_auto_check_mod_updates(),
-            disable_public_html_route: false,
         }
     }
 }
@@ -46,11 +42,9 @@ pub struct SaveLauncherSettingsRequest {
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
     pub nexus_api_key: Option<String>,
-    pub nexus_cookie: Option<String>,
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
-    pub disable_public_html_route: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -317,7 +311,6 @@ pub struct LauncherUpdateChangelogResult {
 #[serde(rename_all = "lowercase")]
 pub enum LauncherNexusRouteStatus {
     Loading,
-    Verifying,
     Warning,
     Success,
 }
@@ -333,8 +326,6 @@ pub struct LauncherNexusRouteSnapshot {
     pub max_attempts: u8,
     pub available: bool,
     pub message: String,
-    #[serde(default)]
-    pub challenge_required: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -584,60 +575,4 @@ fn default_unsorted_storage_folder() -> LauncherLibraryStorageFolder {
         name: UNSORTED_STORAGE_FOLDER_NAME.to_string(),
         mod_keys: Vec::new(),
     }
-}
-
-// ---- PublicHtml Webview Verification Types ----
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PublicHtmlVerificationReason {
-    Diagnostics,
-    RemoteModDetail,
-    RemoteModImages,
-    RemoteModFiles,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum PublicHtmlVerificationStage {
-    Idle,
-    Opening,
-    Waiting,
-    Verified,
-    Disabled,
-    Failed,
-    Cancelled,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublicHtmlVerificationSnapshot {
-    pub stage: PublicHtmlVerificationStage,
-    pub reason: Option<PublicHtmlVerificationReason>,
-    pub url: Option<String>,
-    pub message: Option<String>,
-    #[serde(default)]
-    pub disable_public_html_route: bool,
-    #[serde(default)]
-    pub last_verified_at_ms: Option<u128>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublicHtmlVerificationEventPayload {
-    pub stage: PublicHtmlVerificationStage,
-    pub reason: Option<PublicHtmlVerificationReason>,
-    pub url: Option<String>,
-    pub message: Option<String>,
-    #[serde(default)]
-    pub disable_public_html_route: bool,
-    #[serde(default)]
-    pub last_verified_at_ms: Option<u128>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublicHtmlVerificationRequest {
-    pub target_url: String,
-    pub reason: PublicHtmlVerificationReason,
 }

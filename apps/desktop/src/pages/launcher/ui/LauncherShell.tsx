@@ -7,7 +7,6 @@ import { useLauncherLibrary } from '@features/launcher'
 import { useLauncherSettings } from '@features/launcher'
 import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/cx'
-import type { AppEvent } from '@shared/contracts'
 
 const LauncherDiscoverPage = lazy(() =>
   import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })),
@@ -23,7 +22,6 @@ type LauncherShellProps = {
   page: LauncherPage
   debugEnabled: boolean
   onToggleDebugMode: () => void
-  onLauncherEvent?: (event: AppEvent) => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
@@ -40,7 +38,6 @@ export default function LauncherShell({
   page,
   debugEnabled,
   onToggleDebugMode,
-  onLauncherEvent,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
   onLauncherDiagnosticsUpdate,
@@ -52,7 +49,7 @@ export default function LauncherShell({
   launchGameBusy,
   onLaunchGame,
 }: LauncherShellProps) {
-  const activePage = !debugEnabled && page === 'debug' ? 'library' : page
+  const activePage = page
   const library = useLauncherLibrary(settingsState.settings)
   const libraryPage = useMemo(
     () => (
@@ -63,10 +60,9 @@ export default function LauncherShell({
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
-        onLauncherEvent={onLauncherEvent}
       />
     ),
-    [library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame, onLauncherEvent],
+    [library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
   )
 
   return (
@@ -106,7 +102,6 @@ export default function LauncherShell({
               <LauncherUpdatesPage
                 settings={settingsState.settings}
                 onQueueDownload={downloads.queueDownload}
-                onLauncherEvent={onLauncherEvent}
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
@@ -116,15 +111,16 @@ export default function LauncherShell({
         </div>
         <div
           key="debug"
-          hidden={activePage !== 'debug' || !debugEnabled}
-          className={cx('launcher-shell-route', activePage === 'debug' && debugEnabled && 'launcher-shell-route-active')}
+          hidden={activePage !== 'debug'}
+          className={cx('launcher-shell-route', activePage === 'debug' && 'launcher-shell-route-active')}
         >
           <Suspense fallback={<LoadingMotionFallback />}>
-            {activePage === 'debug' && debugEnabled ? (
+            {activePage === 'debug' ? (
               <LauncherDebugPage
                 debugEnabled={debugEnabled}
                 onToggleDebugMode={onToggleDebugMode}
                 onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
+                settingsState={settingsState}
                 downloads={downloads}
               />
             ) : null}

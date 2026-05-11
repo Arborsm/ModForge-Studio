@@ -12,7 +12,7 @@ export type LauncherWarningState = {
 }
 
 export function hasLauncherCredentials(settings: LauncherSettings) {
-  return Boolean(settings.nexusApiKey?.trim() || settings.nexusCookie?.trim())
+  return Boolean(settings.nexusApiKey?.trim())
 }
 
 export function getLauncherWarningState(settings: LauncherSettings): LauncherWarningState {

@@ -103,7 +103,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -149,9 +148,9 @@ function createLauncherDiagnosticsResult(
       available: true,
       message: 'Connected after 1 attempt.',
     },
-    publicHtml: {
-      label: 'Nexus Public HTML',
-      endpoint: 'https://www.nexusmods.com/stardewvalley',
+    nexusImages: {
+      label: 'Nexus Image CDN',
+      endpoint: 'https://staticdelivery.nexusmods.com/',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
@@ -326,7 +325,7 @@ describe('LauncherUpdatesPage', () => {
             available: false,
             message: 'Forced offline by debug override.',
           },
-          publicHtml: {
+          nexusImages: {
             status: 'warning',
             available: false,
             message: 'Forced offline by debug override.',
@@ -368,7 +367,6 @@ describe('LauncherUpdatesPage', () => {
       const details = container.querySelector('.launcher-blocked-pre')
       expect(details?.textContent ?? '').toContain('SMAPI: Forced offline by debug override.')
       expect(details?.textContent ?? '').toContain('Nexus Public GraphQL: Forced offline by debug override.')
-      expect(details?.textContent ?? '').toContain('Nexus Public HTML: Forced offline by debug override.')
     })
 
     fireEvent.click(screen.getByRole('button', { name: '前往通路诊断' }))
@@ -515,33 +513,6 @@ describe('LauncherUpdatesPage', () => {
     expect(toggle.getAttribute('aria-expanded')).toBe('false')
     expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
     expect(loadLauncherUpdateChangelogMock).not.toHaveBeenCalled()
-  })
-
-  it('emits a launcher event when fetching update details hits a Cloudflare challenge', async () => {
-    checkLauncherUpdatesMock.mockResolvedValue(createResult([createUpdate()]))
-    loadLauncherRemoteModDetailMock.mockRejectedValue(
-      new Error('CLOUDFLARE_CHALLENGE_REQUIRED:https://www.nexusmods.com/stardewvalley/mods/101'),
-    )
-    const onLauncherEvent = vi.fn()
-
-    renderWithProviders(
-      <LauncherUpdatesPage
-        settings={createSettings()}
-        onQueueDownload={vi.fn()}
-        onLauncherEvent={onLauncherEvent}
-      />,
-    )
-
-    fireEvent.click((await screen.findAllByRole('button', { name: '展开详情' }))[0]!)
-    fireEvent.click(await screen.findByRole('button', { name: '抓取详情' }))
-
-    await waitFor(() => {
-      expect(onLauncherEvent).toHaveBeenCalledWith({
-        type: 'launcher/cloudflare-challenge-required',
-        url: 'https://www.nexusmods.com/stardewvalley/mods/101',
-        source: 'updates-detail',
-      })
-    })
   })
 
   it('shows update-check progress in the global notification viewport', async () => {

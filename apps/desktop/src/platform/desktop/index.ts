@@ -448,11 +448,9 @@ export type LauncherSettings = {
   modsPath: string | null
   downloadPath: string | null
   nexusApiKey: string | null
-  nexusCookie: string | null
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
-  disablePublicHtmlRoute?: boolean
 }
 
 export type SaveLauncherSettingsRequest = {
@@ -460,11 +458,9 @@ export type SaveLauncherSettingsRequest = {
   modsPath?: string | null
   downloadPath?: string | null
   nexusApiKey?: string | null
-  nexusCookie?: string | null
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
-  disablePublicHtmlRoute?: boolean
 }
 
 export type ScanLauncherLibraryRequest = {
@@ -633,7 +629,7 @@ export type LauncherUpdateChangelogResult = {
   changelog: string | null
 }
 
-export type LauncherNexusRouteStatus = 'loading' | 'verifying' | 'warning' | 'success'
+export type LauncherNexusRouteStatus = 'loading' | 'warning' | 'success'
 
 export type LauncherNexusRouteSnapshot = {
   routeId: string
@@ -644,11 +640,31 @@ export type LauncherNexusRouteSnapshot = {
   maxAttempts: number
   available: boolean
   message: string
-  challengeRequired?: boolean
 }
 
 export type LauncherNexusDiagnosticsResult = {
   routes: LauncherNexusRouteSnapshot[]
+}
+export type ValidateApiKeyResult = {
+  userName: string
+  isPremium: boolean
+  dailyRemaining: number | null
+  hourlyRemaining: number | null
+  dailyResetAt: number | null
+  hourlyResetAt: number | null
+}
+
+export type SsoConnectionStatus = 'idle' | 'connecting' | 'awaitingAuthorization' | 'authorized' | 'failed'
+
+export type SsoErrorKind = 'connectionTimeout' | 'authorizationTimeout' | 'connectionRefused' | 'networkError' | 'cancelled'
+
+export type SsoSnapshot = {
+  status: SsoConnectionStatus
+  errorKind?: SsoErrorKind | null
+  errorMessage?: string | null
+  userName?: string | null
+  isPremium: boolean
+  ssoId?: string | null
 }
 
 export type ResolveLauncherImageRequest = {
@@ -1585,6 +1601,21 @@ export function retryLauncherNexusDiagnosticsRoute(routeId: string) {
 export function setLauncherNexusForceOffline(forceOffline: boolean) {
   return invokeDesktop<LauncherNexusDiagnosticsResult>('set_launcher_nexus_force_offline', { forceOffline })
 }
+export function validateNexusApiKey() {
+  return invokeDesktop<ValidateApiKeyResult>('validate_nexus_api_key')
+}
+
+export function startNexusSso() {
+  return invokeDesktop<{ ssoId: string; status: SsoConnectionStatus }>('start_nexus_sso')
+}
+
+export function getNexusSsoStatus() {
+  return invokeDesktop<SsoSnapshot>('get_nexus_sso_status')
+}
+
+export function cancelNexusSso() {
+  return invokeDesktop<void>('cancel_nexus_sso')
+}
 
 export function resolveLauncherImage(request: ResolveLauncherImageRequest) {
   return invokeDesktop<ResolveLauncherImageResult>('resolve_launcher_image', { request })
@@ -1764,211 +1795,6 @@ export async function closeCurrentWindow() {
   await getCurrentWindow().close()
 }
 
-// ─── Cp Maker Commands ────────────────────────────────────────
-
-// ─── Public Html Verification ─────────────────────────────────
-
-export type LauncherPublicHtmlVerificationReason =
-  | 'diagnostics'
-  | 'remote-mod-detail'
-  | 'remote-mod-images'
-  | 'remote-mod-files'
-
-export type LauncherPublicHtmlVerificationState =
-  | 'idle'
-  | 'opening'
-  | 'waitingForUser'
-  | 'verified'
-  | 'disabled'
-  | 'cancelled'
-  | 'failed'
-
-export type LauncherPublicHtmlVerificationSnapshot = {
-  state: LauncherPublicHtmlVerificationState
-  targetUrl: string | null
-  reason: LauncherPublicHtmlVerificationReason | null
-  disablePublicHtmlRoute: boolean
-  lastVerifiedAtMs: number | null
-  message: string | null
-}
-
-export type LauncherPublicHtmlVerificationRequest = {
-  targetUrl: string
-  reason: LauncherPublicHtmlVerificationReason
-}
-
-type RawLauncherPublicHtmlVerificationReason =
-  | LauncherPublicHtmlVerificationReason
-  | 'Diagnostics'
-  | 'RemoteModDetail'
-  | 'RemoteModImages'
-  | 'RemoteModFiles'
-  | 'remoteModDetail'
-  | 'remoteModImages'
-  | 'remoteModFiles'
-
-type RawLauncherPublicHtmlVerificationSnapshot = {
-  stage?: string | null
-  state?: string | null
-  url?: string | null
-  targetUrl?: string | null
-  reason?: RawLauncherPublicHtmlVerificationReason | null
-  message?: string | null
-  disablePublicHtmlRoute?: boolean | null
-  lastVerifiedAtMs?: number | null
-}
-
-const LAUNCHER_PUBLIC_HTML_VERIFICATION_EVENT = 'launcher://public-html-verify-state'
-
-function normalizeLauncherPublicHtmlVerificationReason(
-  value: RawLauncherPublicHtmlVerificationReason | null | undefined,
-): LauncherPublicHtmlVerificationReason | null {
-  if (!value) {
-    return null
-  }
-  switch (value) {
-    case 'diagnostics':
-    case 'Diagnostics':
-      return 'diagnostics'
-    case 'remote-mod-detail':
-    case 'remoteModDetail':
-    case 'RemoteModDetail':
-      return 'remote-mod-detail'
-    case 'remote-mod-images':
-    case 'remoteModImages':
-    case 'RemoteModImages':
-      return 'remote-mod-images'
-    case 'remote-mod-files':
-    case 'remoteModFiles':
-    case 'RemoteModFiles':
-      return 'remote-mod-files'
-    default:
-      return null
-  }
-}
-
-function toRawLauncherPublicHtmlVerificationReason(
-  value: LauncherPublicHtmlVerificationReason,
-): 'diagnostics' | 'remoteModDetail' | 'remoteModImages' | 'remoteModFiles' {
-  switch (value) {
-    case 'diagnostics':
-      return 'diagnostics'
-    case 'remote-mod-detail':
-      return 'remoteModDetail'
-    case 'remote-mod-images':
-      return 'remoteModImages'
-    case 'remote-mod-files':
-      return 'remoteModFiles'
-  }
-}
-
-function normalizeLauncherPublicHtmlVerificationSnapshot(
-  value: RawLauncherPublicHtmlVerificationSnapshot | null | undefined,
-): LauncherPublicHtmlVerificationSnapshot {
-  const rawState = value?.state ?? value?.stage ?? 'idle'
-  const normalizedState =
-    rawState === 'challenge' || rawState === 'Challenge'
-      ? 'waitingForUser'
-      : rawState === 'complete' || rawState === 'Complete'
-        ? 'verified'
-        : rawState === 'Opening'
-          ? 'opening'
-          : rawState === 'Waiting'
-            ? 'waitingForUser'
-            : rawState === 'Verified'
-              ? 'verified'
-              : rawState === 'Cancelled'
-                ? 'cancelled'
-                : rawState === 'Failed'
-                  ? 'failed'
-                  : rawState === 'Disabled'
-                    ? 'disabled'
-                    : rawState === 'waiting'
-                      ? 'waitingForUser'
-                      : rawState === 'opening'
-                        ? 'opening'
-                        : rawState === 'verified'
-                          ? 'verified'
-                          : rawState === 'cancelled'
-                            ? 'cancelled'
-                            : rawState === 'failed'
-                              ? 'failed'
-                              : rawState === 'disabled'
-                                ? 'disabled'
-                                : 'idle'
-
-  return {
-    state: normalizedState,
-    targetUrl: value?.targetUrl ?? value?.url ?? null,
-    reason: normalizeLauncherPublicHtmlVerificationReason(value?.reason),
-    disablePublicHtmlRoute: value?.disablePublicHtmlRoute ?? false,
-    lastVerifiedAtMs: value?.lastVerifiedAtMs ?? null,
-    message: value?.message ?? null,
-  }
-}
-
-export async function openLauncherPublicHtmlVerification(request: LauncherPublicHtmlVerificationRequest) {
-  const rawRequest = {
-    ...request,
-    reason: toRawLauncherPublicHtmlVerificationReason(request.reason),
-  }
-  return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_open_verify', { request: rawRequest }),
-  )
-}
-
-export async function loadLauncherPublicHtmlVerificationState() {
-  return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_verify_status'),
-  )
-}
-
-export function listenToLauncherPublicHtmlVerificationState(
-  listener: (state: LauncherPublicHtmlVerificationSnapshot) => void,
-) {
-  return listen<RawLauncherPublicHtmlVerificationSnapshot>(
-    LAUNCHER_PUBLIC_HTML_VERIFICATION_EVENT,
-    (event) => {
-      listener(normalizeLauncherPublicHtmlVerificationSnapshot(event.payload))
-    },
-  )
-}
-
-export async function signalLauncherPublicHtmlVerificationOpened() {
-  return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_signal_opened'),
-  )
-}
-
-export async function submitLauncherPublicHtmlVerificationCookie(cookie: string) {
-  return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_submit_cookie', { cookie }),
-  )
-}
-
-export async function cancelLauncherPublicHtmlVerification() {
-  return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_cancel_verify'),
-  )
-}
-
-export async function refreshLauncherPublicHtmlVerification() {
-  await invokeDesktop('public_html_nexus_refresh_verify')
-}
-
-export async function checkLauncherPublicHtmlVerification() {
-  return normalizeLauncherPublicHtmlVerificationSnapshot(
-    await invokeDesktop<RawLauncherPublicHtmlVerificationSnapshot>('public_html_nexus_check_verify'),
-  )
-}
-
-export async function closeLauncherPublicHtmlVerification() {
-  await invokeDesktop('public_html_nexus_close_verify')
-}
-
-export async function clearLauncherPublicHtmlVerificationSession() {
-  await invokeDesktop('public_html_nexus_clear_session')
-}
 // ─── Cp Maker Commands ────────────────────────────────────────
 
 const cpMakerDraftsCache = createPromiseCache<CpMakerDraftSummary[]>()

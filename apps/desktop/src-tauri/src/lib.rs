@@ -27,22 +27,19 @@ use commands::cp_maker::{
     import_cp_maker_pack, list_cp_maker_drafts, load_cp_maker_draft, save_cp_maker_draft,
 };
 use commands::launcher::{
-    check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
-    get_launcher_backup_directory, inspect_launcher_archive, install_launcher_archive,
-    launch_launcher_game, list_launcher_install_backups, load_cached_launcher_updates,
-    load_launcher_download_queue, load_launcher_library_covers, load_launcher_library_state,
-    load_launcher_nexus_diagnostics, load_launcher_remote_mod_detail, load_launcher_settings,
-    load_launcher_update_changelog, load_suppressed_launcher_update_mod_ids, open_launcher_path,
-    open_launcher_url, persist_launcher_library_remote_cover, public_html_nexus_cancel_verify,
-    public_html_nexus_check_verify, public_html_nexus_clear_session,
-    public_html_nexus_close_verify, public_html_nexus_open_verify,
-    public_html_nexus_refresh_verify, public_html_nexus_signal_opened,
-    public_html_nexus_submit_cookie, public_html_nexus_verify_status, resolve_launcher_image,
+    cancel_nexus_sso, check_launcher_updates, clear_launcher_image_cache, download_launcher_mod,
+    get_launcher_backup_directory, get_nexus_sso_status, inspect_launcher_archive,
+    install_launcher_archive, launch_launcher_game, list_launcher_install_backups,
+    load_cached_launcher_updates, load_launcher_download_queue, load_launcher_library_covers,
+    load_launcher_library_state, load_launcher_nexus_diagnostics, load_launcher_remote_mod_detail,
+    load_launcher_settings, load_launcher_update_changelog,
+    load_suppressed_launcher_update_mod_ids, open_launcher_path, open_launcher_url,
+    persist_launcher_library_remote_cover, resolve_launcher_image,
     restart_launcher_nexus_diagnostics, restore_launcher_install_backup,
     retry_launcher_nexus_diagnostics_route, save_launcher_download_queue,
     save_launcher_library_state, save_launcher_settings, scan_launcher_library,
     search_launcher_catalog, set_launcher_library_cover, set_launcher_mod_enabled,
-    set_launcher_nexus_force_offline,
+    set_launcher_nexus_force_offline, start_nexus_sso, validate_nexus_api_key,
 };
 use commands::logging::{set_debug_logging_enabled, write_frontend_log};
 use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
@@ -65,13 +62,13 @@ pub fn run() {
                 .map(|state| state.launcher.force_offline)
                 .and_then(|force_offline| {
                     if force_offline {
-                        domain::launcher::http::set_launcher_nexus_force_offline(
+                        domain::nexusmods::http::set_launcher_nexus_force_offline(
                             &app.handle(),
                             true,
                         )
                         .map(|_| ())
                     } else {
-                        domain::launcher::http::prime_launcher_nexus_diagnostics(&app.handle())
+                        domain::nexusmods::http::prime_launcher_nexus_diagnostics(&app.handle())
                     }
                 });
             if let Err(error) = diagnostics_start_result {
@@ -147,15 +144,10 @@ pub fn run() {
             patch_app_ui_state,
             set_debug_logging_enabled,
             write_frontend_log,
-            public_html_nexus_open_verify,
-            public_html_nexus_verify_status,
-            public_html_nexus_signal_opened,
-            public_html_nexus_submit_cookie,
-            public_html_nexus_cancel_verify,
-            public_html_nexus_refresh_verify,
-            public_html_nexus_check_verify,
-            public_html_nexus_close_verify,
-            public_html_nexus_clear_session
+            validate_nexus_api_key,
+            start_nexus_sso,
+            get_nexus_sso_status,
+            cancel_nexus_sso,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

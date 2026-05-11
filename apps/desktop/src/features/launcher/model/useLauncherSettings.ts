@@ -10,14 +10,23 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   modsPath: null,
   downloadPath: null,
   nexusApiKey: null,
-  nexusCookie: null,
   autoInstallDownloads: false,
   keepDownloadedArchives: false,
   autoCheckModUpdates: true,
-  disablePublicHtmlRoute: false,
 }
 
 const AUTOSAVE_DELAY_MS = 700
+
+function defaultDownloadPath() {
+  const home =
+    typeof process !== 'undefined' && typeof process.env?.USERPROFILE === 'string'
+      ? process.env.USERPROFILE
+      : typeof process !== 'undefined' && typeof process.env?.HOME === 'string'
+        ? process.env.HOME
+        : null
+
+  return home ? `${home.replace(/[\\/]+$/, '')}\\Downloads\\ModForge Studio` : null
+}
 
 function deriveModsPath(gamePath: string) {
   const trimmedPath = gamePath.trim().replace(/[\\/]+$/, '')
@@ -36,9 +45,7 @@ function normalizePersistedLauncherSettings(settings: LauncherSettings): Launche
     modsPath: settings.modsPath?.trim() ? settings.modsPath : null,
     downloadPath: settings.downloadPath?.trim() ? settings.downloadPath : null,
     nexusApiKey: settings.nexusApiKey?.trim() ? settings.nexusApiKey : null,
-    nexusCookie: settings.nexusCookie?.trim() ? settings.nexusCookie : null,
     autoCheckModUpdates: settings.autoCheckModUpdates ?? true,
-    disablePublicHtmlRoute: settings.disablePublicHtmlRoute ?? false,
   }
 }
 
@@ -46,11 +53,13 @@ function resolveLauncherSettings(settings: LauncherSettings): LauncherSettings {
   const normalized = normalizePersistedLauncherSettings(settings)
   const nextGamePath = normalized.gamePath
   const nextModsPath = normalized.modsPath?.trim() ? normalized.modsPath : nextGamePath ? deriveModsPath(nextGamePath) : null
+  const nextDownloadPath = normalized.downloadPath?.trim() ? normalized.downloadPath : defaultDownloadPath()
 
   return {
     ...normalized,
     gamePath: nextGamePath,
     modsPath: nextModsPath,
+    downloadPath: nextDownloadPath,
   }
 }
 
@@ -68,11 +77,9 @@ function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSet
     left.modsPath === right.modsPath &&
     left.downloadPath === right.downloadPath &&
     left.nexusApiKey === right.nexusApiKey &&
-    left.nexusCookie === right.nexusCookie &&
     left.autoInstallDownloads === right.autoInstallDownloads &&
     left.keepDownloadedArchives === right.keepDownloadedArchives &&
-    left.autoCheckModUpdates === right.autoCheckModUpdates &&
-    (left.disablePublicHtmlRoute ?? false) === (right.disablePublicHtmlRoute ?? false)
+    left.autoCheckModUpdates === right.autoCheckModUpdates
   )
 }
 

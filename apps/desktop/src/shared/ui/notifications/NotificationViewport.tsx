@@ -355,6 +355,7 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
   const frontNotificationHeight = Math.max(toastHeights[frontOrderedNotifications[0]?.id] ?? 0, STACK_HOVER_REGION_MIN_HEIGHT_PX)
   const frontNotificationMeasuredHeight = toastHeights[frontOrderedNotifications[0]?.id] ?? null
   const frontNotificationWidth = toastWidths[frontOrderedNotifications[0]?.id] ?? null
+  const widestNotificationWidth = Math.max(0, ...frontOrderedNotifications.map((notification) => toastWidths[notification.id] ?? 0))
   const topNotification = frontOrderedNotifications[frontOrderedNotifications.length - 1]
   const topNotificationHeight = topNotification ? getExpandedStackHeight(topNotification.id) : STACK_HOVER_REGION_MIN_HEIGHT_PX
   const expandedHoverRegionHeight = Math.max(
@@ -362,6 +363,7 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
     (expandedOffsets[expandedOffsets.length - 1] ?? 0) + topNotificationHeight,
   )
   const hoverRegionHeight = expanded ? expandedHoverRegionHeight : frontNotificationHeight
+  const hoverRegionWidth = widestNotificationWidth || frontNotificationWidth
 
   return (
     <section
@@ -383,7 +385,14 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
         requestCollapse()
       }}
     >
-      <div className="notification-hover-region" aria-hidden="true" style={{ height: `${hoverRegionHeight}px` }} />
+      <div
+        className="notification-hover-region"
+        aria-hidden="true"
+        style={{
+          height: `${hoverRegionHeight}px`,
+          width: hoverRegionWidth ? `${hoverRegionWidth}px` : undefined,
+        }}
+      />
       {visibleNotifications.map((notification, index) => {
         const stackIndex = visibleNotifications.length - 1 - index
         const measuredWidth = toastWidths[notification.id] ?? null

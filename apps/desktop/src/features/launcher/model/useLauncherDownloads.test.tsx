@@ -13,7 +13,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: 'E:\\Downloads\\Mods',
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -219,7 +218,7 @@ describe('useLauncherDownloads', () => {
     })
   })
 
-  it('marks cookie-only downloads as failed before calling the backend', async () => {
+  it('marks downloads without a Nexus API key as failed before calling the backend', async () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
@@ -228,7 +227,6 @@ describe('useLauncherDownloads', () => {
     const { result } = renderHook(() =>
       useLauncherDownloads(
         createSettings({
-          nexusCookie: 'sid=abc123',
         }),
       ),
       { wrapper: createWrapper(port) },

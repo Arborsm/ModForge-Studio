@@ -1,5 +1,5 @@
-import { Bug, Download, MessageSquare, RefreshCw, ScrollText, Wifi } from 'lucide-react'
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { Bug, ChevronDown, Download, MessageSquare, RefreshCw, ScrollText } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/cx'
 import { useEditorCopy, useSettingsMenuCopy } from '@locales/localeContext'
@@ -14,7 +14,9 @@ import {
   setLauncherNexusForceOffline,
   type LauncherNexusRouteSnapshot,
 } from '@platform/desktop'
-import { useLauncherDownloads } from '@features/launcher'
+import { mergeLauncherNexusDiagnostics, useLauncherDownloads, useLauncherSettings } from '@features/launcher'
+import { LauncherSettingsForm } from '@features/launcher/ui/shared/LauncherSettingsForm'
+import { LauncherNexusApiStatusCard } from '@features/launcher/ui/shared/LauncherNexusApiStatusCard'
 
 type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
 type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>
@@ -36,6 +38,23 @@ function getRouteAvailabilityCopy(
   }
 
   return labels.unavailable
+}
+
+function getNexusRouteResponsibility(routeId: string) {
+  switch (routeId) {
+    case 'publicGraphql':
+      return '浏览目录、搜索和公开详情查询'
+    case 'privateGraphql':
+      return '登录态 GraphQL 查询、批量详情和更新补全'
+    case 'nexusApi':
+      return 'API Key 校验、Premium 状态、限额和直接下载'
+    case 'nexusImages':
+      return '模组封面、缩略图和图片缓存'
+    case 'smapi':
+      return 'SMAPI 兼容性、更新元数据和回退查询'
+    default:
+      return '启动器 Nexus 网络通路'
+  }
 }
 
 function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButtonGroup; debugEnabled: boolean }) {
@@ -112,6 +131,7 @@ type LauncherDebugPageProps = {
   debugEnabled: boolean
   onToggleDebugMode: () => void
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
+  settingsState: ReturnType<typeof useLauncherSettings>
   downloads: ReturnType<typeof useLauncherDownloads>
 }
 
@@ -192,9 +212,11 @@ function DebugActionCard({
         </div>
         <div className="launcher-debug-card-header-side">
           {headerActions ? <div className="launcher-debug-card-header-actions">{headerActions}</div> : null}
-          <span className="launcher-debug-card-badge" aria-hidden="true">
-            {icon}
-          </span>
+          {icon ? (
+            <span className="launcher-debug-card-badge" aria-hidden="true">
+              {icon}
+            </span>
+          ) : null}
         </div>
       </div>
       {children != null ? <div className="launcher-debug-card-tray">{children}</div> : null}
@@ -220,6 +242,7 @@ function LauncherNexusDiagnosticsCard({
   forceOfflineEnabledLabel,
   forceOfflineDisabledLabel,
   retryRouteLabel,
+  settingsState,
   onDiagnosticsUpdate,
 }: {
   title: string
@@ -239,14 +262,17 @@ function LauncherNexusDiagnosticsCard({
   forceOfflineEnabledLabel: string
   forceOfflineDisabledLabel: string
   retryRouteLabel: string
+  settingsState: ReturnType<typeof useLauncherSettings>
   onDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
 }) {
   const [routes, setRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
+  const routesRef = useRef<LauncherNexusRouteSnapshot[]>([])
   const [loading, setLoading] = useState(() => canUseDesktopHost())
   const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
   const [toggleBusy, setToggleBusy] = useState(false)
   const [retryingRouteIds, setRetryingRouteIds] = useState<Set<string>>(() => new Set())
   const [pollNonce, setPollNonce] = useState(0)
+  const hasNexusApiRoute = routes.some((route) => route.routeId === 'nexusApi')
 
   useEffect(() => {
     if (!canUseDesktopHost()) {
@@ -263,6 +289,7 @@ function LauncherNexusDiagnosticsCard({
           return
         }
 
+        routesRef.current = diagnostics.routes
         setRoutes(diagnostics.routes)
         onDiagnosticsUpdate?.(diagnostics)
         setLoading(false)
@@ -274,6 +301,7 @@ function LauncherNexusDiagnosticsCard({
       } catch {
         if (!disposed) {
           setLoading(false)
+          routesRef.current = []
           setRoutes([])
         }
       }
@@ -301,6 +329,7 @@ function LauncherNexusDiagnosticsCard({
         },
       })
       setForceOffline(nextForceOffline)
+      routesRef.current = diagnostics.routes
       setRoutes(diagnostics.routes)
       onDiagnosticsUpdate?.(diagnostics as LauncherNexusDiagnosticsResult)
       setLoading(false)
@@ -324,8 +353,10 @@ function LauncherNexusDiagnosticsCard({
 
     try {
       const diagnostics = await retryLauncherNexusDiagnosticsRoute(routeId)
-      setRoutes(diagnostics.routes)
-      onDiagnosticsUpdate?.(diagnostics)
+      const routes = mergeLauncherNexusDiagnostics(routesRef.current, diagnostics.routes)
+      routesRef.current = routes
+      setRoutes(routes)
+      onDiagnosticsUpdate?.({ routes })
       setLoading(false)
     } catch {
       // Debug-only control: keep the last route snapshot visible if the bridge fails.
@@ -342,7 +373,7 @@ function LauncherNexusDiagnosticsCard({
     <DebugActionCard
       title={title}
       description={description}
-      icon={<Wifi className="h-4 w-4" />}
+      icon={null}
       headerActions={
         <div className="launcher-toolbar">
           <button
@@ -361,84 +392,208 @@ function LauncherNexusDiagnosticsCard({
     >
       {loading ? <p className="launcher-debug-route-loading">{loadingLabel}</p> : null}
       {!loading && !routes.length ? <p className="launcher-debug-route-loading">{emptyLabel}</p> : null}
-      {!loading && routes.length ? (
+      {((!loading && routes.length > 0) || !hasNexusApiRoute) ? (
         <div className="launcher-debug-route-list">
-          {routes.map((route) => {
+          {!loading ? routes.map((route) => {
             const retrying = retryingRouteIds.has(route.routeId)
             const canRetryRoute = !forceOffline && (route.status === 'warning' || !route.available)
 
+            if (route.routeId !== 'nexusApi') {
+              return (
+                <section
+                  key={route.routeId}
+                  className={cx(
+                    'launcher-debug-route-row',
+                    `launcher-debug-route-row-${route.status}`,
+                  )}
+                >
+                  <div className="launcher-debug-route-main">
+                    <div className="launcher-debug-route-copy">
+                      <h3 className="launcher-debug-route-title">{route.label}</h3>
+                      <p className="launcher-debug-route-endpoint">
+                        <span>{endpointLabel}</span>
+                        <span>{route.endpoint}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="launcher-debug-route-details">
+                    <div className="launcher-debug-route-result-head">
+                      <span
+                        className={cx(
+                          'launcher-debug-route-status',
+                          `launcher-debug-route-status-${route.status}`,
+                        )}
+                      >
+                        {route.status}
+                      </span>
+                      <span className="launcher-debug-route-result-label">{observedLabel}</span>
+                    </div>
+                    <p className="launcher-debug-route-message">
+                      <span>{route.message}</span>
+                    </p>
+                    <p className="launcher-debug-route-meta">
+                      <span>{getNexusRouteResponsibility(route.routeId)}</span>
+                      <span>{`${attemptsLabel}: ${route.attempts} / ${route.maxAttempts}`}</span>
+                      <span>{`${routeLabel}: ${route.routeId}`}</span>
+                      <span>
+                        {`${availabilityLabel}: ${getRouteAvailabilityCopy(route, {
+                          available: availableState,
+                          unavailable: unavailableState,
+                          loading: loadingState,
+                        })}`}
+                      </span>
+                    </p>
+                    <div className="launcher-debug-route-actions">
+                      {canRetryRoute ? (
+                        <button
+                          type="button"
+                          className="control-button launcher-debug-route-retry"
+                          disabled={retrying}
+                          aria-label={`${retryRouteLabel} ${route.label}`}
+                          onClick={() => {
+                            void handleRetryRoute(route.routeId)
+                          }}
+                        >
+                          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                          <span>{retryRouteLabel}</span>
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
+              )
+            }
+
             return (
-              <section
+              <LauncherNexusApiStatusCard
                 key={route.routeId}
-                className={cx(
-                  'launcher-debug-route-row',
-                  `launcher-debug-route-row-${route.status}`,
-                )}
-              >
-              <div className="launcher-debug-route-top">
-                <div className="launcher-debug-route-copy">
-                  <h3 className="launcher-debug-route-title">{route.label}</h3>
-                </div>
-                <div className="launcher-toolbar">
-                  {canRetryRoute ? (
-                    <button
-                      type="button"
-                      className="control-button"
-                      disabled={retrying}
-                      aria-label={`${retryRouteLabel} ${route.label}`}
-                      onClick={() => {
-                        void handleRetryRoute(route.routeId)
-                      }}
-                    >
-                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                      <span>{retryRouteLabel}</span>
-                    </button>
-                  ) : null}
-                  <span
-                    className={cx(
-                      'launcher-debug-route-status',
-                      `launcher-debug-route-status-${route.status}`,
-                    )}
-                  >
-                    {route.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="launcher-debug-route-meta">
-                <span className="launcher-debug-route-chip">
-                  <strong>{endpointLabel}</strong>
-                  <span>{route.endpoint}</span>
-                </span>
-                <span className="launcher-debug-route-chip">
-                  <strong>{attemptsLabel}</strong>
-                  <span>{`${route.attempts} / ${route.maxAttempts}`}</span>
-                </span>
-                <span className="launcher-debug-route-chip">
-                  <strong>{routeLabel}</strong>
-                  <span>{route.routeId}</span>
-                </span>
-              </div>
-
-              <div className="launcher-debug-route-details">
-                <div className="launcher-debug-route-detail-row">
-                  <div className="launcher-debug-route-detail-label">{observedLabel}</div>
-                  <div className="launcher-debug-route-detail-value">{route.message}</div>
-                </div>
-                <div className="launcher-debug-route-detail-row">
-                  <div className="launcher-debug-route-detail-label">{availabilityLabel}</div>
-                  <div className="launcher-debug-route-detail-value">
-                    {getRouteAvailabilityCopy(route, {
+                settingsState={settingsState}
+                variant="route-row"
+                renderCard={({ actions, status, statusLabel, detail, meta }) => {
+                  const mergedStatus = route.routeId === 'nexusApi' && status !== 'success' ? status : route.status
+                  const mergedMessage = route.routeId === 'nexusApi' && detail ? `${route.message} ${detail}` : route.message
+                  const mergedStatusLabel = mergedStatus === route.status ? route.status : statusLabel
+                  const mergedMeta = [
+                    getNexusRouteResponsibility(route.routeId),
+                    `${attemptsLabel}: ${route.attempts} / ${route.maxAttempts}`,
+                    `${routeLabel}: ${route.routeId}`,
+                    `${availabilityLabel}: ${getRouteAvailabilityCopy(route, {
                       available: availableState,
                       unavailable: unavailableState,
                       loading: loadingState,
-                    })}
-                  </div>
-                </div>
-              </div>
-              </section>
+                    })}`,
+                    ...(route.routeId === 'nexusApi' ? meta : []),
+                  ]
+
+                  return (
+                    <section
+                      className={cx(
+                        'launcher-debug-route-row',
+                        route.routeId === 'nexusApi' && 'launcher-debug-route-row-api',
+                        `launcher-debug-route-row-${mergedStatus}`,
+                      )}
+                    >
+                      <div className="launcher-debug-route-main">
+                        <div className="launcher-debug-route-copy">
+                          <h3 className="launcher-debug-route-title">{route.label}</h3>
+                          <p className="launcher-debug-route-endpoint">
+                            <span>{endpointLabel}</span>
+                            <span>{route.endpoint}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="launcher-debug-route-details">
+                        <div className="launcher-debug-route-result-head">
+                          <span
+                            className={cx(
+                              'launcher-debug-route-status',
+                              `launcher-debug-route-status-${mergedStatus}`,
+                            )}
+                        >
+                            {mergedStatusLabel}
+                          </span>
+                          <span className="launcher-debug-route-result-label">{observedLabel}</span>
+                        </div>
+                        <p className="launcher-debug-route-message">
+                          <span>{mergedMessage}</span>
+                        </p>
+                        <p className="launcher-debug-route-meta">
+                          {mergedMeta.map((item) => (
+                            <span key={item}>{item}</span>
+                          ))}
+                        </p>
+                        <div className={cx('launcher-debug-route-actions', route.routeId === 'nexusApi' && 'launcher-debug-route-actions-wide')}>
+                          {canRetryRoute ? (
+                            <button
+                              type="button"
+                              className="control-button launcher-debug-route-retry"
+                              disabled={retrying}
+                              aria-label={`${retryRouteLabel} ${route.label}`}
+                              onClick={() => {
+                                void handleRetryRoute(route.routeId)
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                              <span>{retryRouteLabel}</span>
+                            </button>
+                          ) : null}
+                          {actions}
+                        </div>
+                      </div>
+                    </section>
+                  )
+                }}
+              />
             )
-          })}
+          }) : null}
+          {!hasNexusApiRoute ? (
+            <LauncherNexusApiStatusCard
+              settingsState={settingsState}
+              variant="route-row"
+              renderCard={({ title, description, actions, status, statusLabel, detail, meta }) => (
+                <section
+                  className={cx(
+                    'launcher-debug-route-row',
+                    'launcher-debug-route-row-api',
+                    `launcher-debug-route-row-${status}`,
+                  )}
+                >
+                  <div className="launcher-debug-route-main">
+                    <div className="launcher-debug-route-copy">
+                      <h3 className="launcher-debug-route-title">{title}</h3>
+                      <p className="launcher-debug-route-endpoint">
+                        <span>{routeLabel}</span>
+                        <span>{description}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="launcher-debug-route-details">
+                    <div className="launcher-debug-route-result-head">
+                      <span className={cx('launcher-debug-route-status', `launcher-debug-route-status-${status}`)}>
+                        {statusLabel}
+                      </span>
+                      <span className="launcher-debug-route-result-label">{observedLabel}</span>
+                    </div>
+                    <p className="launcher-debug-route-message">
+                      <span>{detail}</span>
+                    </p>
+                    {meta.length ? (
+                      <p className="launcher-debug-route-meta">
+                        {meta.map((item) => (
+                          <span key={item}>{item}</span>
+                        ))}
+                      </p>
+                    ) : null}
+                    <div className="launcher-debug-route-actions launcher-debug-route-actions-wide">
+                      {actions}
+                    </div>
+                  </div>
+                </section>
+              )}
+            />
+          ) : null}
         </div>
       ) : null}
     </DebugActionCard>
@@ -449,10 +604,12 @@ export function LauncherDebugPage({
   debugEnabled,
   onToggleDebugMode,
   onLauncherDiagnosticsUpdate,
+  settingsState,
   downloads,
 }: LauncherDebugPageProps) {
   const copy = useEditorCopy().launcher
   const settingsCopy = useSettingsMenuCopy()
+  const [debugToolsExpanded, setDebugToolsExpanded] = useState(false)
   const debugSimulationActive = downloads.activeItems.some((item) => item.source === 'debug' && item.status === 'downloading')
   const handleClearLauncherImageCache = () => {
     void clearLauncherImageCache().catch(() => {
@@ -470,111 +627,156 @@ export function LauncherDebugPage({
           </header>
         </LoadingMotionReveal>
 
-        <LoadingMotionReveal itemId="launcher-debug-overview" index={1}>
-          <section className="launcher-debug-overview-card" aria-label={copy.debug.title}>
-            <div className="launcher-debug-overview-cell">
-              <span className="launcher-debug-overview-label">{copy.debug.notificationsOverviewTitle}</span>
-              <strong className="launcher-debug-overview-value">5</strong>
+        <LoadingMotionReveal itemId="launcher-settings-panel" index={1}>
+          <section className="launcher-config-main" aria-label={copy.settings.title}>
+            <div className="launcher-config-section-header">
+              <div>
+                <h2 className="launcher-debug-card-title">{copy.debug.title}</h2>
+                <p className="launcher-debug-card-description">{copy.debug.subtitle}</p>
+              </div>
             </div>
-            <div className="launcher-debug-overview-divider" aria-hidden="true" />
-            <div className="launcher-debug-overview-cell">
-              <span className="launcher-debug-overview-label">{copy.debug.logsOverviewTitle}</span>
-              <strong className="launcher-debug-overview-value">4</strong>
+            <LauncherSettingsForm settingsState={settingsState} showDiagnostics={false} showApiStatus={false} />
+          </section>
+        </LoadingMotionReveal>
+
+        <LoadingMotionReveal itemId="launcher-config-network" index={2}>
+          <section className="launcher-config-network" aria-label={copy.diagnostics.title}>
+            <div className="launcher-config-section-header">
+              <div>
+                <h2 className="launcher-debug-card-title">{copy.diagnostics.title}</h2>
+                <p className="launcher-debug-card-description">{copy.diagnostics.sectionSubtitle}</p>
+              </div>
+            </div>
+
+            <div className="launcher-config-network-grid">
+              <LauncherNexusDiagnosticsCard
+                title={copy.debug.nexusDiagnosticsTitle}
+                description={copy.debug.nexusDiagnosticsSubtitle}
+                loadingLabel={copy.debug.nexusDiagnosticsLoading}
+                emptyLabel={copy.debug.nexusDiagnosticsEmpty}
+                endpointLabel={copy.debug.nexusDiagnosticsEndpointLabel}
+                attemptsLabel={copy.debug.nexusDiagnosticsAttemptsLabel}
+                routeLabel={copy.debug.nexusDiagnosticsRouteLabel}
+                observedLabel={copy.debug.nexusDiagnosticsObservedLabel}
+                availabilityLabel={copy.debug.nexusDiagnosticsAvailabilityLabel}
+                availableState={copy.debug.nexusDiagnosticsAvailableState}
+                unavailableState={copy.debug.nexusDiagnosticsUnavailableState}
+                loadingState={copy.debug.nexusDiagnosticsLoadingState}
+                forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
+                forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
+                forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
+                forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
+                retryRouteLabel={copy.actions.retry}
+                settingsState={settingsState}
+                onDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
+              />
             </div>
           </section>
         </LoadingMotionReveal>
 
-        <div className="launcher-debug-stack">
-          <LoadingMotionReveal itemId="launcher-debug-mode" index={2}>
-            <DebugModeSwitch
-              checked={debugEnabled}
-              title={copy.debug.debugOnlyTitle}
-              description={copy.debug.debugOnlyDescription}
-              enabledLabel={settingsCopy.enableDebugModeLabel}
-              disabledLabel={settingsCopy.disableDebugModeLabel}
-              onToggle={onToggleDebugMode}
-            />
+        <section className="launcher-config-tools" aria-label={copy.debug.moreToolsTitle}>
+          <LoadingMotionReveal itemId="launcher-debug-tools-toggle" index={3}>
+            <section className="launcher-debug-more-card">
+              <div className="launcher-debug-card-copy">
+                <h2 className="launcher-debug-card-title">{copy.debug.moreToolsTitle}</h2>
+                <p className="launcher-debug-card-description">{copy.debug.moreToolsSubtitle}</p>
+              </div>
+              <button
+                type="button"
+                className="control-button launcher-debug-more-button"
+                aria-expanded={debugToolsExpanded}
+                onClick={() => setDebugToolsExpanded((value) => !value)}
+              >
+                <span>{debugToolsExpanded ? copy.debug.lessToolsAction : copy.debug.moreToolsAction}</span>
+                <ChevronDown className={cx('h-4 w-4', debugToolsExpanded && 'rotate-180')} aria-hidden="true" />
+              </button>
+            </section>
           </LoadingMotionReveal>
 
-          <LoadingMotionReveal itemId="launcher-debug-notifications" index={3}>
-            <DebugActionCard
-              title={copy.debug.notificationsTitle}
-              description={copy.debug.notificationsSubtitle}
-              icon={<MessageSquare className="h-4 w-4" />}
-            >
-              <NotificationTestButtons labels={copy.debug.notificationButtons} debugEnabled={debugEnabled} />
-            </DebugActionCard>
-          </LoadingMotionReveal>
+          {debugToolsExpanded ? (
+            <div className="launcher-debug-tools-stack">
+              <LoadingMotionReveal itemId="launcher-debug-overview" index={4}>
+                <section className="launcher-debug-overview-card" aria-label={copy.debug.moreToolsTitle}>
+                  <div className="launcher-debug-stat-card launcher-debug-stat-card-primary">
+                    <strong className="launcher-debug-overview-value">5</strong>
+                    <span className="launcher-debug-overview-label">{copy.debug.notificationsOverviewTitle}</span>
+                  </div>
+                  <div className="launcher-debug-stat-card launcher-debug-stat-card-neutral">
+                    <strong className="launcher-debug-overview-value">4</strong>
+                    <span className="launcher-debug-overview-label">{copy.debug.logsOverviewTitle}</span>
+                  </div>
+                </section>
+              </LoadingMotionReveal>
 
-          <LoadingMotionReveal itemId="launcher-debug-logs" index={4}>
-            <DebugActionCard
-              title={copy.debug.logsTitle}
-              description={copy.debug.logsSubtitle}
-              icon={<ScrollText className="h-4 w-4" />}
-            >
-              <LogTestButtons labels={copy.debug.logButtons} debugEnabled={debugEnabled} />
-            </DebugActionCard>
-          </LoadingMotionReveal>
+              <LoadingMotionReveal itemId="launcher-debug-mode" index={5}>
+                <DebugModeSwitch
+                  checked={debugEnabled}
+                  title={copy.debug.debugOnlyTitle}
+                  description={copy.debug.debugOnlyDescription}
+                  enabledLabel={settingsCopy.enableDebugModeLabel}
+                  disabledLabel={settingsCopy.disableDebugModeLabel}
+                  onToggle={onToggleDebugMode}
+                />
+              </LoadingMotionReveal>
 
-          <LoadingMotionReveal itemId="launcher-debug-diagnostics" index={5}>
-            <LauncherNexusDiagnosticsCard
-              title={copy.debug.nexusDiagnosticsTitle}
-              description={copy.debug.nexusDiagnosticsSubtitle}
-              loadingLabel={copy.debug.nexusDiagnosticsLoading}
-              emptyLabel={copy.debug.nexusDiagnosticsEmpty}
-              endpointLabel={copy.debug.nexusDiagnosticsEndpointLabel}
-              attemptsLabel={copy.debug.nexusDiagnosticsAttemptsLabel}
-              routeLabel={copy.debug.nexusDiagnosticsRouteLabel}
-              observedLabel={copy.debug.nexusDiagnosticsObservedLabel}
-              availabilityLabel={copy.debug.nexusDiagnosticsAvailabilityLabel}
-              availableState={copy.debug.nexusDiagnosticsAvailableState}
-              unavailableState={copy.debug.nexusDiagnosticsUnavailableState}
-              loadingState={copy.debug.nexusDiagnosticsLoadingState}
-              forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
-              forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
-              forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}
-              forceOfflineDisabledLabel={copy.debug.forceOfflineDisabledLabel}
-              retryRouteLabel={copy.actions.retry}
-              onDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
-            />
-          </LoadingMotionReveal>
+              <LoadingMotionReveal itemId="launcher-debug-notifications" index={6}>
+                <DebugActionCard
+                  title={copy.debug.notificationsTitle}
+                  description={copy.debug.notificationsSubtitle}
+                  icon={<MessageSquare className="h-4 w-4" />}
+                >
+                  <NotificationTestButtons labels={copy.debug.notificationButtons} debugEnabled={debugEnabled} />
+                </DebugActionCard>
+              </LoadingMotionReveal>
 
-          <LoadingMotionReveal itemId="launcher-debug-image-cache" index={6}>
-            <DebugActionCard
-              title={copy.debug.clearImageCacheTitle}
-              description={copy.debug.clearImageCacheSubtitle}
-              icon={<ScrollText className="h-4 w-4" />}
-              headerActions={
-                <div className="launcher-toolbar">
-                  <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
-                    {copy.debug.clearImageCacheButton}
-                  </button>
-                </div>
-              }
-            />
-          </LoadingMotionReveal>
+              <LoadingMotionReveal itemId="launcher-debug-logs" index={7}>
+                <DebugActionCard
+                  title={copy.debug.logsTitle}
+                  description={copy.debug.logsSubtitle}
+                  icon={<ScrollText className="h-4 w-4" />}
+                >
+                  <LogTestButtons labels={copy.debug.logButtons} debugEnabled={debugEnabled} />
+                </DebugActionCard>
+              </LoadingMotionReveal>
 
-          <LoadingMotionReveal itemId="launcher-debug-simulation" index={7}>
-            <DebugActionCard
-              title={copy.debug.simulationTitle}
-              description={copy.debug.simulationSubtitle}
-              icon={<Download className="h-4 w-4" />}
-              headerActions={
-                <div className="launcher-toolbar">
-                  <button
-                    type="button"
-                    className="control-button control-button-primary"
-                    onClick={() => downloads.startDebugSimulation(copy.debug.simulationTitle)}
-                    disabled={debugSimulationActive}
-                  >
-                    {debugSimulationActive ? copy.debug.simulationButtonRunning : copy.debug.simulationButtonIdle}
-                  </button>
-                  <span className="dock-chip">2 MB/s · 10s · 20 MB</span>
-                </div>
-              }
-            />
-          </LoadingMotionReveal>
-        </div>
+              <LoadingMotionReveal itemId="launcher-debug-image-cache" index={8}>
+                <DebugActionCard
+                  title={copy.debug.clearImageCacheTitle}
+                  description={copy.debug.clearImageCacheSubtitle}
+                  icon={<ScrollText className="h-4 w-4" />}
+                  headerActions={
+                    <div className="launcher-toolbar">
+                      <button type="button" className="control-button" onClick={handleClearLauncherImageCache}>
+                        {copy.debug.clearImageCacheButton}
+                      </button>
+                    </div>
+                  }
+                />
+              </LoadingMotionReveal>
+
+              <LoadingMotionReveal itemId="launcher-debug-simulation" index={9}>
+                <DebugActionCard
+                  title={copy.debug.simulationTitle}
+                  description={copy.debug.simulationSubtitle}
+                  icon={<Download className="h-4 w-4" />}
+                  headerActions={
+                    <div className="launcher-toolbar">
+                      <button
+                        type="button"
+                        className="control-button control-button-primary"
+                        onClick={() => downloads.startDebugSimulation(copy.debug.simulationTitle)}
+                        disabled={debugSimulationActive}
+                      >
+                        {debugSimulationActive ? copy.debug.simulationButtonRunning : copy.debug.simulationButtonIdle}
+                      </button>
+                      <span className="dock-chip">2 MB/s · 10s · 20 MB</span>
+                    </div>
+                  }
+                />
+              </LoadingMotionReveal>
+            </div>
+          ) : null}
+        </section>
       </div>
     </section>
   )

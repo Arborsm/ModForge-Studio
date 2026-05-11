@@ -92,7 +92,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: 'E:\\Downloads\\Mods',
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -179,13 +178,6 @@ function createLauncherDiagnosticsResult(
     publicGraphql: {
       label: 'Nexus Public GraphQL',
       endpoint: 'https://api-router.nexusmods.com/graphql',
-      status: 'success',
-      available: true,
-      message: 'Connected after 1 attempt.',
-    },
-    publicHtml: {
-      label: 'Nexus Public HTML',
-      endpoint: 'https://www.nexusmods.com/stardewvalley',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
@@ -583,7 +575,7 @@ describe('useLauncherLibrary', () => {
           available: false,
           message: 'Failed after 3 attempts: timeout',
         },
-        publicHtml: {
+        nexusImages: {
           status: 'warning',
           available: false,
           message: 'Failed after 3 attempts: timeout',

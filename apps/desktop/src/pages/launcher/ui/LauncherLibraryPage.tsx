@@ -24,7 +24,6 @@ import {
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { useLauncherImage } from '@features/launcher'
-import { createLauncherCloudflareChallengeEvent } from '@features/launcher'
 import { getLauncherCoverKey } from '@features/launcher'
 import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft } from '@features/launcher'
@@ -37,7 +36,6 @@ import {
   LauncherModDetailPanel,
   LauncherStateBlock,
 } from '@features/launcher'
-import type { AppEvent } from '@shared/contracts'
 
 type LauncherLibraryPageProps = {
   settings: LauncherSettingsDraft
@@ -45,7 +43,6 @@ type LauncherLibraryPageProps = {
   launchGameDisabled: boolean
   launchGameBusy: boolean
   onLaunchGame: () => void
-  onLauncherEvent?: (event: AppEvent) => void
 }
 
 type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
@@ -279,7 +276,6 @@ export function LauncherLibraryPageContent({
   launchGameDisabled,
   launchGameBusy,
   onLaunchGame,
-  onLauncherEvent,
 }: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
@@ -822,13 +818,6 @@ export function LauncherLibraryPageContent({
         applying: false,
       })
     } catch (nextError) {
-      const challengeEvent = createLauncherCloudflareChallengeEvent(
-        'library-gallery-cover',
-        nextError,
-      )
-      if (challengeEvent) {
-        onLauncherEvent?.(challengeEvent)
-      }
       dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
       publishNotification({
         level: 'error',
@@ -843,7 +832,6 @@ export function LauncherLibraryPageContent({
     copy.library.empty,
     copy.library.galleryCoverEmpty,
     copy.library.galleryCoverLoading,
-    onLauncherEvent,
   ])
 
   const applyGalleryCover = useCallback(async () => {

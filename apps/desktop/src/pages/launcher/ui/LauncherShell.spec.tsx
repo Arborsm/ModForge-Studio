@@ -78,7 +78,7 @@ vi.mock('./LauncherUpdatesPage', () => ({
 }))
 
 vi.mock('./LauncherDebugPage', () => ({
-  LauncherDebugPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown }) => {
+  LauncherDebugPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown; settingsState: unknown }) => {
     settingsPageSpy(props)
     return <div>settings-page</div>
   },
@@ -90,7 +90,6 @@ const settingsState = {
     modsPath: null,
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -262,12 +261,13 @@ describe('LauncherShell', () => {
           debugEnabled: true,
           downloads,
           onToggleDebugMode,
+          settingsState,
         }),
       )
     })
   })
 
-  it('falls back to the library page when the debug page is requested while debug mode is disabled', () => {
+  it('routes the settings page even when debug mode is disabled', async () => {
     renderWithLocale(
       <LauncherShell
         page="debug"
@@ -283,8 +283,8 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.queryByText('settings-page')).toBeNull()
-    expect(screen.getByText('library-page:Launch Game:1')).toBeTruthy()
+    expect(await screen.findByText('settings-page')).toBeTruthy()
+    expect(screen.queryByText('library-page:Launch Game:1')).toBeTruthy()
   })
 
   it('does not render a downloads page entry inside the shell', () => {

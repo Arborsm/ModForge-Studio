@@ -1,9 +1,5 @@
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
-use super::http::{
-    api_headers, launcher_http_client, probe_blocked_launcher_nexus_route, send_nexus_request,
-    LauncherNexusRoute, DEFAULT_GAME_ID, LAUNCHER_USER_AGENT,
-};
 use super::paths::{launcher_backup_dir, launcher_download_queue_path, launcher_settings_path};
 use super::settings::{load_or_create_settings_at_path, resolve_download_dir};
 use super::trace::log_launcher_trace;
@@ -11,20 +7,17 @@ use super::types::{
     DownloadLauncherModRequest, DownloadLauncherModResult, LauncherDownloadQueueItem,
     LauncherDownloadQueueState,
 };
+use crate::domain::nexusmods::downloads::{
+    download_file_response, fetch_mod_files_payload, resolve_download_url,
+    select_download_candidate,
+};
+use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
 use reqwest::blocking::Response;
-use reqwest::header::{CONTENT_DISPOSITION, COOKIE, USER_AGENT};
-use serde_json::Value;
+use reqwest::header::CONTENT_DISPOSITION;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
-
-#[derive(Debug, Clone)]
-struct DownloadCandidate {
-    file_id: i64,
-    file_name: String,
-    version: Option<String>,
-}
 
 fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> LauncherDownloadQueueState {
     LauncherDownloadQueueState {
@@ -158,181 +151,6 @@ pub fn save_launcher_download_queue(
     )
 }
 
-fn fetch_mod_files_payload(
-    client: &reqwest::blocking::Client,
-    settings: &crate::domain::launcher::types::LauncherSettings,
-    mod_id: i64,
-) -> Result<Value, String> {
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
-    let response = client.get(format!(
-        "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files.json"
-    ));
-    let api_key = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            "Configure a Nexus API key before fetching launcher mod files.".to_string()
-        })?;
-    let headers = api_headers(api_key)?;
-    let response = send_nexus_request(|| {
-        response
-            .try_clone()
-            .expect("request clone")
-            .headers(headers.clone())
-            .send()
-    })
-    .map_err(|error| format!("Failed to fetch launcher mod files: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Launcher mod files request failed for {mod_id}: HTTP {}",
-            response.status()
-        ));
-    }
-
-    response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher mod files JSON: {error}"))
-}
-
-fn select_download_candidate(
-    payload: &Value,
-    requested_file_id: Option<i64>,
-    requested_version: Option<&str>,
-) -> Result<DownloadCandidate, String> {
-    let files = payload
-        .get("files")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "Launcher mod files payload did not contain a files array.".to_string())?;
-    if files.is_empty() {
-        return Err("Launcher mod did not contain any downloadable files.".to_string());
-    }
-
-    let selected = if let Some(file_id) = requested_file_id {
-        files
-            .iter()
-            .find(|item| item.get("file_id").and_then(Value::as_i64) == Some(file_id))
-    } else if let Some(version) = requested_version {
-        files.iter().find(|item| {
-            item.get("version")
-                .and_then(Value::as_str)
-                .map(|value| value.trim() == version.trim())
-                .unwrap_or(false)
-        })
-    } else {
-        files.iter().max_by_key(|item| {
-            item.get("uploaded_timestamp")
-                .and_then(Value::as_i64)
-                .unwrap_or_default()
-        })
-    }
-    .ok_or_else(|| "Unable to resolve a launcher download file.".to_string())?;
-
-    let file_id = selected
-        .get("file_id")
-        .and_then(Value::as_i64)
-        .ok_or_else(|| "Launcher download file is missing file_id.".to_string())?;
-    let file_name = selected
-        .get("file_name")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Launcher download file is missing file_name.".to_string())?
-        .to_string();
-
-    Ok(DownloadCandidate {
-        file_id,
-        file_name,
-        version: selected
-            .get("version")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned),
-    })
-}
-
-fn resolve_download_url(
-    client: &reqwest::blocking::Client,
-    settings: &crate::domain::launcher::types::LauncherSettings,
-    mod_id: i64,
-    file_id: i64,
-) -> Result<String, String> {
-    if let Some(api_key) = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
-        let response = client
-            .get(format!(
-                "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files/{file_id}/download_link.json"
-            ));
-        let headers = api_headers(api_key)?;
-        let response = send_nexus_request(|| {
-            response
-                .try_clone()
-                .expect("request clone")
-                .headers(headers.clone())
-                .send()
-        })
-        .map_err(|error| format!("Failed to fetch launcher download links: {error}"))?;
-        if response.status().is_success() {
-            let payload = response.json::<Value>().map_err(|error| {
-                format!("Failed to parse launcher download links JSON: {error}")
-            })?;
-            if let Some(uri) = payload
-                .as_array()
-                .and_then(|items| items.first())
-                .and_then(|item| item.get("URI"))
-                .and_then(Value::as_str)
-            {
-                return Ok(uri.to_string());
-            }
-        }
-    }
-
-    let cookie = settings
-        .nexus_cookie
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            "Unable to resolve a Nexus download link. Configure a Nexus cookie or use a premium API key.".to_string()
-        })?;
-    let response = client
-        .post("https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl");
-    let response = send_nexus_request(|| {
-        response
-            .try_clone()
-            .expect("request clone")
-            .header(USER_AGENT, LAUNCHER_USER_AGENT)
-            .header(COOKIE, cookie)
-            .form(&[
-                ("fid", file_id.to_string()),
-                ("game_id", DEFAULT_GAME_ID.to_string()),
-            ])
-            .send()
-    })
-    .map_err(|error| format!("Failed to fetch launcher web download link: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Launcher web download link request failed for {mod_id}/{file_id}: HTTP {}",
-            response.status()
-        ));
-    }
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher web download link JSON: {error}"))?;
-    payload
-        .get("url")
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| "Launcher web download link response did not include a URL.".to_string())
-}
-
 fn download_file_name(response: &Response, fallback: &str) -> String {
     let fallback_name = sanitize_file_name(fallback);
     response
@@ -420,10 +238,7 @@ pub fn download_launcher_mod(
             );
             let download_url =
                 resolve_download_url(&client, &settings, request.mod_id, candidate.file_id)?;
-            let response = client.get(&download_url);
-            let response =
-                send_nexus_request(|| response.try_clone().expect("request clone").send())
-                    .map_err(|error| format!("Failed to download launcher mod: {error}"))?;
+            let response = download_file_response(&client, &download_url)?;
             if !response.status().is_success() {
                 return Err(format!(
                     "Failed to download launcher mod {}: HTTP {}",

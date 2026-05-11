@@ -104,7 +104,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: null,
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -389,7 +388,7 @@ describe('LauncherDiscoverPage', () => {
       createDiscoverState({
         blockedReason: [
           'Nexus Public GraphQL: Forced offline by debug override.',
-          'Nexus Public HTML: Forced offline by debug override.',
+          'Nexus Image CDN: Forced offline by debug override.',
         ].join('\n'),
         revalidate,
       }),
@@ -410,14 +409,14 @@ describe('LauncherDiscoverPage', () => {
     expect(screen.getByText(copy.discover.blockedTitle)).toBeTruthy()
     expect(screen.getByText(copy.discover.blockedDetail)).toBeTruthy()
     expect(screen.getByText(/Nexus Public GraphQL: Forced offline by debug override\./)).toBeTruthy()
-    expect(screen.queryByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeNull()
+    expect(screen.queryByText(/Nexus Image CDN: Forced offline by debug override\./)).toBeNull()
     expect(screen.getByRole('button', { name: copy.discover.blockedRetryAction })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.discover.blockedDiagnosticsAction })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.discover.blockedCopyLogsAction })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: copy.discover.blockedDetailsExpandAction }))
 
-    expect(screen.getByText(/Nexus Public HTML: Forced offline by debug override\./)).toBeTruthy()
+    expect(screen.getByText(/Nexus Image CDN: Forced offline by debug override\./)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: copy.discover.blockedRetryAction }))
     fireEvent.click(screen.getByRole('button', { name: copy.discover.blockedDiagnosticsAction }))

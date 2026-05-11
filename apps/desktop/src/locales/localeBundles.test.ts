@@ -25,6 +25,12 @@ describe('typed locale bundles', () => {
     )
     expect(getEditorCopy('en-US').shell.launcher).toBeTruthy()
     expect(getEditorCopy('en-US').launcher.pages.library).toBeTruthy()
+    expect(getEditorCopy('zh-CN').launcher.pages.debug).toBe('配置')
+    expect(getEditorCopy('zh-CN').launcher.debug.title).toBe('配置')
+    expect(getEditorCopy('en-US').launcher.pages.debug).toBe('Configuration')
+    expect(getEditorCopy('en-US').launcher.debug.title).toBe('Configuration')
+    expect(getEditorCopy('zh-CN').launcher.diagnostics.apiKeySubtitle).toContain('API Key')
+    expect(getEditorCopy('en-US').launcher.diagnostics.apiKeySubtitle).toContain('Nexus login')
   })
 
   it('keeps localized toolbar labels and panel titles inside the locale bundles', () => {

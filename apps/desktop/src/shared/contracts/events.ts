@@ -21,22 +21,9 @@ export type CpMakerEvent =
       assetKind: 'event' | 'map' | 'image' | 'data'
     }
 
-export type LauncherCloudflareChallengeSource =
-  | 'diagnostics'
-  | 'library-gallery-cover'
-  | 'updates-detail'
-  | 'updates-changelog'
-
-export type LauncherEvent = {
-  type: 'launcher/cloudflare-challenge-required'
-  url: string
-  source: LauncherCloudflareChallengeSource
-}
-
 export type AppEvent =
   | WorkbenchEvent
   | CpMakerEvent
-  | LauncherEvent
   | {
       type: 'app/locale-changed'
       locale: string
