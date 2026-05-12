@@ -1,7 +1,7 @@
-use super::http::{
-    api_headers, probe_blocked_launcher_nexus_route, send_nexus_request, LauncherNexusRoute,
-};
 use crate::domain::launcher::types::LauncherSettings;
+use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
+use crate::domain::nexusmods::http::{api_headers, send_nexus_request};
+use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use reqwest::blocking::{Client, Response};
 use serde_json::Value;
 
@@ -18,9 +18,7 @@ pub(crate) fn fetch_mod_files_payload(
     mod_id: i64,
 ) -> Result<Value, String> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
-    let response = client.get(format!(
-        "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files.json"
-    ));
+    let response = client.get(super::mod_files_endpoint(mod_id));
     let api_key = settings
         .nexus_api_key
         .as_deref()
@@ -121,10 +119,7 @@ pub(crate) fn resolve_download_url(
         .ok_or_else(|| "Nexus API key is required to resolve download links.".to_string())?;
 
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
-    let response = client
-        .get(format!(
-            "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files/{file_id}/download_link.json"
-        ));
+    let response = client.get(super::download_link_endpoint(mod_id, file_id));
     let headers = api_headers(api_key)?;
     let response = send_nexus_request(|| {
         response

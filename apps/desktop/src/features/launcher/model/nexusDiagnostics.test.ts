@@ -22,7 +22,7 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
           {
             routeId: 'publicGraphql',
             label: 'Nexus Public GraphQL',
-            endpoint: 'https://api-router.nexusmods.com/graphql',
+            endpoint: 'https://api.nexusmods.com/v2/graphql',
             status: 'loading',
             attempts: 1,
             maxAttempts: 3,
@@ -36,7 +36,7 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
           {
             routeId: 'publicGraphql',
             label: 'Nexus Public GraphQL',
-            endpoint: 'https://api-router.nexusmods.com/graphql',
+            endpoint: 'https://api.nexusmods.com/v2/graphql',
             status: 'success',
             attempts: 2,
             maxAttempts: 3,
@@ -58,7 +58,7 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'success',
           attempts: 2,
           maxAttempts: 3,
@@ -78,7 +78,7 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'loading' as const,
           attempts: 3,
           maxAttempts: 3,
@@ -107,7 +107,7 @@ describe('loadSettledLauncherNexusDiagnostics', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'success' as const,
           attempts: 1,
           maxAttempts: 3,
@@ -184,7 +184,7 @@ describe('Nexus route availability helpers', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'success' as const,
           attempts: 1,
           maxAttempts: 3,
@@ -246,7 +246,7 @@ describe('mergeLauncherNexusDiagnostics', () => {
           {
             routeId: 'publicGraphql',
             label: 'Nexus Public GraphQL',
-            endpoint: 'https://api-router.nexusmods.com/graphql',
+            endpoint: 'https://api.nexusmods.com/v2/graphql',
             status: 'warning',
             attempts: 3,
             maxAttempts: 3,
@@ -268,7 +268,7 @@ describe('mergeLauncherNexusDiagnostics', () => {
           {
             routeId: 'publicGraphql',
             label: 'Nexus Public GraphQL',
-            endpoint: 'https://api-router.nexusmods.com/graphql',
+            endpoint: 'https://api.nexusmods.com/v2/graphql',
             status: 'success',
             attempts: 1,
             maxAttempts: 3,
@@ -281,7 +281,7 @@ describe('mergeLauncherNexusDiagnostics', () => {
       {
         routeId: 'publicGraphql',
         label: 'Nexus Public GraphQL',
-        endpoint: 'https://api-router.nexusmods.com/graphql',
+        endpoint: 'https://api.nexusmods.com/v2/graphql',
         status: 'success',
         attempts: 1,
         maxAttempts: 3,

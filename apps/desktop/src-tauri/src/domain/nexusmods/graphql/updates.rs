@@ -1,15 +1,17 @@
-use super::can_use_nexus_graphql;
-use super::http::{
-    graphql_headers, probe_blocked_launcher_nexus_route, send_nexus_request, LauncherNexusRoute,
-};
-use super::mod_detail::{parse_remote_mod_detail_node, RemoteModDetail};
-use super::shared::extract_graphql_error;
 use crate::domain::launcher::types::LauncherSettings;
+use crate::domain::nexusmods::can_use_nexus_graphql;
+use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
+use crate::domain::nexusmods::graphql;
+use crate::domain::nexusmods::graphql::mod_detail::{
+    parse_remote_mod_detail_node, RemoteModDetail,
+};
+use crate::domain::nexusmods::http::send_nexus_request;
+use crate::domain::nexusmods::routes::LauncherNexusRoute;
+use crate::domain::nexusmods::shared::extract_graphql_error;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-const GRAPHQL_ENDPOINT: &str = "https://graphql.nexusmods.com/";
 const UPDATE_BATCH_GRAPHQL_QUERY: &str = r#"
 query LauncherUpdateBatch($ids: [CompositeDomainWithIdInput!]!) {
   legacyModsByDomain(ids: $ids) {
@@ -79,11 +81,11 @@ pub(crate) fn load_remote_mod_details_from_graphql(
     }
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
-    let headers = graphql_headers(settings.nexus_api_key.as_deref())?;
+    let headers = graphql::graphql_headers(settings.nexus_api_key.as_deref())?;
     let payload = build_update_batch_graphql_payload(mod_ids)?;
     let response = send_nexus_request(|| {
         client
-            .post(GRAPHQL_ENDPOINT)
+            .post(graphql::GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(&payload)
             .send()

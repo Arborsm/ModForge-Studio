@@ -386,6 +386,14 @@ const localeBundle: LocaleBundle = {
         "nexusDiagnosticsAvailableState": "Available for route-dependent requests.",
         "nexusDiagnosticsUnavailableState": "Unavailable until a manual reprobe succeeds.",
         "nexusDiagnosticsLoadingState": "Probe still in progress.",
+        "nexusDiagnosticsRouteResponsibilities": {
+          "publicGraphql": "Catalog browsing, search, and public detail queries",
+          "privateGraphql": "Signed-in GraphQL queries, bulk details, and update enrichment",
+          "nexusApi": "API key validation, Premium status, quota, and direct downloads",
+          "nexusImages": "Mod covers, thumbnails, and image cache",
+          "smapi": "SMAPI compatibility, update metadata, and fallback queries",
+          "fallback": "Launcher Nexus network route"
+        },
         "nexusDiagnosticsNotificationTitle": "Nexus Route Diagnostics Failed",
         "nexusDiagnosticsNotificationImpact": (targets) => `Impact: ${targets} paused.`,
         "nexusDiagnosticsNotificationLimitedImpact": "Impact: some Nexus-dependent requests are limited.",

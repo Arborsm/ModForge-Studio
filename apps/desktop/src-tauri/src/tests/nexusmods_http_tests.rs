@@ -1,14 +1,18 @@
 use super::{
-    ensure_launcher_nexus_route_available, launcher_nexus_route_for_url,
+    nexus_request_delay_for_test, read_nexus_response_body_with_retry, retry_delay_from_headers,
+};
+use crate::domain::launcher::types::LauncherSettings;
+use crate::domain::nexusmods::diagnostics::{
+    ensure_launcher_nexus_route_available, launcher_nexus_success_snapshot,
     probe_blocked_launcher_nexus_route_with_runner, probe_launcher_nexus_route_with_runner,
-    read_nexus_response_body_with_retry, reset_launcher_nexus_diagnostics_for_test,
+    reset_launcher_nexus_diagnostics_for_test,
     set_launcher_nexus_force_offline_with_settings_for_test,
     set_launcher_nexus_route_snapshot_for_test,
     set_launcher_nexus_route_snapshot_from_probe_for_test,
-    snapshot_launcher_nexus_diagnostics_for_test, LauncherNexusRoute, LauncherNexusRouteSnapshot,
-    LauncherNexusRouteStatus,
+    snapshot_launcher_nexus_diagnostics_for_test,
 };
-use crate::domain::launcher::types::LauncherSettings;
+use crate::domain::nexusmods::routes::{launcher_nexus_route_for_url, LauncherNexusRoute};
+use crate::domain::nexusmods::types::{NexusRouteSnapshot, NexusRouteStatus};
 use reqwest::header::{HeaderMap, HeaderValue};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
@@ -16,6 +20,16 @@ use std::time::Duration;
 fn launcher_http_test_guard() -> &'static Mutex<()> {
     static GUARD: OnceLock<Mutex<()>> = OnceLock::new();
     GUARD.get_or_init(|| Mutex::new(()))
+}
+
+#[test]
+fn nexus_http_module_only_contains_transport_helpers() {
+    let source = include_str!("../domain/nexusmods/http.rs");
+
+    assert!(!source.contains("LauncherNexusDiagnosticsState"));
+    assert!(!source.contains("probe_launcher_nexus_public_graphql_route"));
+    assert!(!source.contains("run_launcher_nexus_diagnostics"));
+    assert!(!source.contains("LauncherNexusRoute"));
 }
 
 fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
@@ -68,7 +82,7 @@ fn launcher_nexus_route_probe_marks_warning_after_three_failed_attempts() {
     );
 
     assert_eq!(attempts, 3);
-    assert_eq!(snapshot.status, LauncherNexusRouteStatus::Warning);
+    assert_eq!(snapshot.status, NexusRouteStatus::Warning);
     assert!(!snapshot.available);
     assert_eq!(snapshot.attempts, 3);
     assert!(snapshot.message.contains("connection reset"));
@@ -91,15 +105,15 @@ fn launcher_nexus_route_probe_marks_success_after_first_successful_attempt() {
     );
 
     assert_eq!(attempts, 1);
-    assert_eq!(snapshot.status, LauncherNexusRouteStatus::Success);
+    assert_eq!(snapshot.status, NexusRouteStatus::Success);
     assert!(snapshot.available);
     assert_eq!(snapshot.attempts, 1);
 }
 
 #[test]
 fn nexus_request_delay_for_test_stays_within_expected_range() {
-    let min = super::nexus_request_delay_for_test(1);
-    let max = super::nexus_request_delay_for_test(u64::MAX - 1);
+    let min = nexus_request_delay_for_test(1);
+    let max = nexus_request_delay_for_test(u64::MAX - 1);
 
     assert!(min >= Duration::from_millis(45));
     assert!(min <= Duration::from_millis(80));
@@ -109,7 +123,7 @@ fn nexus_request_delay_for_test_stays_within_expected_range() {
 
 #[test]
 fn nexus_request_delay_for_test_stays_below_twenty_five_requests_per_second() {
-    let min = super::nexus_request_delay_for_test(1);
+    let min = nexus_request_delay_for_test(1);
 
     assert!(min >= Duration::from_millis(40));
 }
@@ -119,7 +133,7 @@ fn retry_delay_prefers_retry_after_header() {
     let mut headers = HeaderMap::new();
     headers.insert("retry-after", HeaderValue::from_static("7"));
 
-    let delay = super::retry_delay_from_headers(&headers, 0);
+    let delay = retry_delay_from_headers(&headers, 0);
 
     assert_eq!(delay, Duration::from_secs(7));
 }
@@ -130,11 +144,11 @@ fn blocked_launcher_nexus_route_returns_fast_error() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
-    set_launcher_nexus_route_snapshot_for_test(LauncherNexusRouteSnapshot {
+    set_launcher_nexus_route_snapshot_for_test(NexusRouteSnapshot {
         route_id: LauncherNexusRoute::PublicGraphql.id().to_string(),
         label: LauncherNexusRoute::PublicGraphql.label().to_string(),
         endpoint: LauncherNexusRoute::PublicGraphql.endpoint().to_string(),
-        status: LauncherNexusRouteStatus::Warning,
+        status: NexusRouteStatus::Warning,
         attempts: 3,
         max_attempts: 3,
         available: false,
@@ -154,11 +168,11 @@ fn blocked_launcher_nexus_route_can_be_recovered_by_reprobe() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
-    set_launcher_nexus_route_snapshot_for_test(LauncherNexusRouteSnapshot {
+    set_launcher_nexus_route_snapshot_for_test(NexusRouteSnapshot {
         route_id: LauncherNexusRoute::PublicGraphql.id().to_string(),
         label: LauncherNexusRoute::PublicGraphql.label().to_string(),
         endpoint: LauncherNexusRoute::PublicGraphql.endpoint().to_string(),
-        status: LauncherNexusRouteStatus::Warning,
+        status: NexusRouteStatus::Warning,
         attempts: 3,
         max_attempts: 3,
         available: false,
@@ -187,21 +201,21 @@ fn retrying_one_launcher_nexus_route_keeps_other_route_snapshots_unchanged() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
     reset_launcher_nexus_diagnostics_for_test();
-    set_launcher_nexus_route_snapshot_for_test(LauncherNexusRouteSnapshot {
+    set_launcher_nexus_route_snapshot_for_test(NexusRouteSnapshot {
         route_id: LauncherNexusRoute::PublicGraphql.id().to_string(),
         label: LauncherNexusRoute::PublicGraphql.label().to_string(),
         endpoint: LauncherNexusRoute::PublicGraphql.endpoint().to_string(),
-        status: LauncherNexusRouteStatus::Warning,
+        status: NexusRouteStatus::Warning,
         attempts: 3,
         max_attempts: 3,
         available: false,
         message: "Failed after 3 attempts: timeout".to_string(),
     });
-    set_launcher_nexus_route_snapshot_for_test(LauncherNexusRouteSnapshot {
+    set_launcher_nexus_route_snapshot_for_test(NexusRouteSnapshot {
         route_id: LauncherNexusRoute::NexusImages.id().to_string(),
         label: LauncherNexusRoute::NexusImages.label().to_string(),
         endpoint: LauncherNexusRoute::NexusImages.endpoint().to_string(),
-        status: LauncherNexusRouteStatus::Success,
+        status: NexusRouteStatus::Success,
         attempts: 1,
         max_attempts: 3,
         available: true,
@@ -226,9 +240,9 @@ fn retrying_one_launcher_nexus_route_keeps_other_route_snapshots_unchanged() {
         .find(|route| route.route_id == LauncherNexusRoute::NexusImages.id())
         .expect("image route should exist");
 
-    assert_eq!(public_graphql.status, LauncherNexusRouteStatus::Success);
+    assert_eq!(public_graphql.status, NexusRouteStatus::Success);
     assert_eq!(public_graphql.attempts, 1);
-    assert_eq!(image_route.status, LauncherNexusRouteStatus::Success);
+    assert_eq!(image_route.status, NexusRouteStatus::Success);
     assert_eq!(image_route.message, "Connected after 1 attempt.");
 }
 
@@ -244,7 +258,7 @@ fn force_offline_override_blocks_all_configured_routes() {
     let diagnostics = snapshot_launcher_nexus_diagnostics_for_test();
     assert_eq!(diagnostics.routes.len(), 3);
     assert!(diagnostics.routes.iter().all(|route| {
-        route.status == LauncherNexusRouteStatus::Warning
+        route.status == NexusRouteStatus::Warning
             && !route.available
             && route.message.contains("Forced offline")
     }));
@@ -283,7 +297,7 @@ fn force_offline_override_prevents_blocked_route_reprobe_recovery() {
         .iter()
         .find(|route| route.route_id == LauncherNexusRoute::PublicGraphql.id())
         .expect("public GraphQL snapshot should exist");
-    assert_eq!(public_graphql.status, LauncherNexusRouteStatus::Warning);
+    assert_eq!(public_graphql.status, NexusRouteStatus::Warning);
     assert!(!public_graphql.available);
     assert!(public_graphql.message.contains("Forced offline"));
 }
@@ -349,8 +363,20 @@ fn launcher_nexus_route_for_url_classifies_known_remote_hosts() {
         .expect("launcher http test guard should not be poisoned");
 
     assert_eq!(
-        launcher_nexus_route_for_url("https://api-router.nexusmods.com/graphql"),
+        launcher_nexus_route_for_url("https://api.nexusmods.com/v2/graphql"),
         Some(LauncherNexusRoute::PublicGraphql)
+    );
+    assert_eq!(
+        launcher_nexus_route_for_url(&format!("https://graphql.{}{}", "nexusmods.com", "/")),
+        None
+    );
+    assert_eq!(
+        LauncherNexusRoute::PublicGraphql.endpoint(),
+        "https://api.nexusmods.com/v2/graphql"
+    );
+    assert_eq!(
+        LauncherNexusRoute::PrivateGraphql.endpoint(),
+        "https://api.nexusmods.com/v2/graphql"
     );
     assert_eq!(
         launcher_nexus_route_for_url(
@@ -380,10 +406,9 @@ fn launcher_nexus_success_snapshot_works_with_one_attempt() {
         .lock()
         .expect("launcher http test guard should not be poisoned");
 
-    let snapshot =
-        super::launcher_nexus_success_snapshot(super::LauncherNexusRoute::PublicGraphql, 1);
+    let snapshot = launcher_nexus_success_snapshot(LauncherNexusRoute::PublicGraphql, 1);
 
-    assert_eq!(snapshot.status, super::LauncherNexusRouteStatus::Success);
+    assert_eq!(snapshot.status, NexusRouteStatus::Success);
     assert!(snapshot.available);
     assert_eq!(snapshot.attempts, 1);
     assert!(snapshot.message.contains("1 attempt"));

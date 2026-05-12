@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 
-use super::http;
+use crate::domain::nexusmods::http;
 
 fn daily_quota_state() -> &'static AtomicU64 {
     static STATE: OnceLock<AtomicU64> = OnceLock::new();
@@ -168,8 +168,6 @@ pub(crate) struct ModUserInfo {
 
 // ---- Internal helpers ----
 
-const NEXUS_REST_BASE: &str = "https://api.nexusmods.com/v1";
-
 /// Send a GET request to a Nexus REST v1 endpoint and deserialize the response.
 ///
 /// Uses send_nexus_request (which handles throttle + retry internally),
@@ -178,7 +176,7 @@ fn send_rest_request<T: serde::de::DeserializeOwned>(
     api_key: &str,
     endpoint: &str,
 ) -> Result<T, NexusRestError> {
-    let url = format!("{NEXUS_REST_BASE}{endpoint}");
+    let url = format!("{}{endpoint}", super::NEXUS_REST_BASE);
     let headers = http::api_headers(api_key).map_err(|_| NexusRestError::NotAuthenticated)?;
 
     let client = http::launcher_http_client().map_err(|_| NexusRestError::NotAuthenticated)?;

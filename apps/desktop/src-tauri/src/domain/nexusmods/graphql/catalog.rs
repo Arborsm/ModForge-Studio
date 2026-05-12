@@ -1,9 +1,3 @@
-use super::can_use_nexus_graphql;
-use super::http::{
-    api_headers, graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route,
-    public_graphql_headers, send_nexus_json_request, LauncherNexusRoute,
-};
-use super::shared::{build_mod_page_url, extract_graphql_error, string_field};
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::{load_or_create_settings_at_path, normalize_optional_text};
 use crate::domain::launcher::trace::log_launcher_trace;
@@ -11,14 +5,18 @@ use crate::domain::launcher::types::{
     LauncherCatalogFacetEntry, LauncherCatalogFacets, LauncherCatalogPageResult,
     LauncherCatalogResult, LauncherSettings, SearchLauncherCatalogRequest,
 };
+use crate::domain::nexusmods::can_use_nexus_graphql;
+use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
+use crate::domain::nexusmods::graphql;
+use crate::domain::nexusmods::http::{api_headers, launcher_http_client, send_nexus_json_request};
+use crate::domain::nexusmods::routes::LauncherNexusRoute;
+use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 
 const DEFAULT_PAGE_SIZE: usize = 20;
 const MAX_PAGE_SIZE: usize = 80;
-const GRAPHQL_ENDPOINT: &str = "https://graphql.nexusmods.com/";
-const PUBLIC_GRAPHQL_ENDPOINT: &str = "https://api-router.nexusmods.com/graphql";
 const PUBLIC_CATALOG_GRAPHQL_REFERER: &str = "https://www.nexusmods.com/";
 const PUBLIC_CATALOG_GRAPHQL_OPERATION_HEADER: &str = "GameModsListing";
 const TRENDING_ENDPOINT: &str =
@@ -574,14 +572,14 @@ fn load_public_catalog_page_from_graphql(
     probe_blocked_launcher_nexus_route(client, None, LauncherNexusRoute::PublicGraphql)?;
     let page = request.page.unwrap_or(1).max(1);
     let page_size = catalog_page_size(request.page_size);
-    let headers = public_graphql_headers(
+    let headers = graphql::public_graphql_headers(
         PUBLIC_CATALOG_GRAPHQL_REFERER,
         PUBLIC_CATALOG_GRAPHQL_OPERATION_HEADER,
     )?;
     let payload = build_public_catalog_graphql_payload(request)?;
     let (status, response_payload) = send_nexus_json_request(|| {
         client
-            .post(PUBLIC_GRAPHQL_ENDPOINT)
+            .post(graphql::GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(&payload)
             .send()
@@ -616,10 +614,10 @@ fn load_catalog_page_from_graphql(
     }
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PrivateGraphql)?;
 
-    let headers = graphql_headers(settings.nexus_api_key.as_deref())?;
+    let headers = graphql::graphql_headers(settings.nexus_api_key.as_deref())?;
     let (status, response_payload) = send_nexus_json_request(|| {
         client
-            .post(GRAPHQL_ENDPOINT)
+            .post(graphql::GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(payload)
             .send()
@@ -773,5 +771,5 @@ fn search_launcher_catalog_blocking(
 }
 
 #[cfg(test)]
-#[path = "../../tests/nexusmods_catalog_tests.rs"]
+#[path = "../../../tests/nexusmods_catalog_tests.rs"]
 mod nexusmods_catalog_tests;

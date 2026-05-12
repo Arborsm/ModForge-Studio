@@ -17,6 +17,7 @@ import {
 import { mergeLauncherNexusDiagnostics, useLauncherDownloads, useLauncherSettings } from '@features/launcher'
 import { LauncherSettingsForm } from '@features/launcher/ui/shared/LauncherSettingsForm'
 import { LauncherNexusApiStatusCard } from '@features/launcher/ui/shared/LauncherNexusApiStatusCard'
+import type { LauncherCopy } from '@locales/schema'
 
 type DebugButtonGroup = Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
 type DebugLogButtonGroup = Record<'debug' | 'info' | 'warning' | 'error', string>
@@ -40,21 +41,15 @@ function getRouteAvailabilityCopy(
   return labels.unavailable
 }
 
-function getNexusRouteResponsibility(routeId: string) {
-  switch (routeId) {
-    case 'publicGraphql':
-      return '浏览目录、搜索和公开详情查询'
-    case 'privateGraphql':
-      return '登录态 GraphQL 查询、批量详情和更新补全'
-    case 'nexusApi':
-      return 'API Key 校验、Premium 状态、限额和直接下载'
-    case 'nexusImages':
-      return '模组封面、缩略图和图片缓存'
-    case 'smapi':
-      return 'SMAPI 兼容性、更新元数据和回退查询'
-    default:
-      return '启动器 Nexus 网络通路'
+function getNexusRouteResponsibility(
+  routeId: string,
+  routeResponsibilities: LauncherCopy['debug']['nexusDiagnosticsRouteResponsibilities'],
+) {
+  if (routeId in routeResponsibilities) {
+    return routeResponsibilities[routeId as keyof typeof routeResponsibilities]
   }
+
+  return routeResponsibilities.fallback
 }
 
 function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButtonGroup; debugEnabled: boolean }) {
@@ -237,6 +232,7 @@ function LauncherNexusDiagnosticsCard({
   availableState,
   unavailableState,
   loadingState,
+  routeResponsibilities,
   forceOfflineEnableButton,
   forceOfflineDisableButton,
   forceOfflineEnabledLabel,
@@ -257,6 +253,7 @@ function LauncherNexusDiagnosticsCard({
   availableState: string
   unavailableState: string
   loadingState: string
+  routeResponsibilities: LauncherCopy['debug']['nexusDiagnosticsRouteResponsibilities']
   forceOfflineEnableButton: string
   forceOfflineDisableButton: string
   forceOfflineEnabledLabel: string
@@ -433,7 +430,7 @@ function LauncherNexusDiagnosticsCard({
                       <span>{route.message}</span>
                     </p>
                     <p className="launcher-debug-route-meta">
-                      <span>{getNexusRouteResponsibility(route.routeId)}</span>
+                      <span>{getNexusRouteResponsibility(route.routeId, routeResponsibilities)}</span>
                       <span>{`${attemptsLabel}: ${route.attempts} / ${route.maxAttempts}`}</span>
                       <span>{`${routeLabel}: ${route.routeId}`}</span>
                       <span>
@@ -475,7 +472,7 @@ function LauncherNexusDiagnosticsCard({
                   const mergedMessage = route.routeId === 'nexusApi' && detail ? `${route.message} ${detail}` : route.message
                   const mergedStatusLabel = mergedStatus === route.status ? route.status : statusLabel
                   const mergedMeta = [
-                    getNexusRouteResponsibility(route.routeId),
+                    getNexusRouteResponsibility(route.routeId, routeResponsibilities),
                     `${attemptsLabel}: ${route.attempts} / ${route.maxAttempts}`,
                     `${routeLabel}: ${route.routeId}`,
                     `${availabilityLabel}: ${getRouteAvailabilityCopy(route, {
@@ -662,6 +659,7 @@ export function LauncherDebugPage({
                 availableState={copy.debug.nexusDiagnosticsAvailableState}
                 unavailableState={copy.debug.nexusDiagnosticsUnavailableState}
                 loadingState={copy.debug.nexusDiagnosticsLoadingState}
+                routeResponsibilities={copy.debug.nexusDiagnosticsRouteResponsibilities}
                 forceOfflineEnableButton={copy.debug.forceOfflineEnableButton}
                 forceOfflineDisableButton={copy.debug.forceOfflineDisableButton}
                 forceOfflineEnabledLabel={copy.debug.forceOfflineEnabledLabel}

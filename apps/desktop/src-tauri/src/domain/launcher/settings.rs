@@ -175,7 +175,7 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     app: &tauri::AppHandle,
     settings: &LauncherSettings,
 ) {
-    crate::domain::nexusmods::http::restart_launcher_nexus_diagnostics_with_handle(
+    crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
         Some(app),
         settings,
     );

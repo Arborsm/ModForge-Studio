@@ -10,23 +10,23 @@ use crate::domain::launcher::types::{
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
     LauncherGameLaunchError, LauncherGameLaunchResult, LauncherInstallBackupSummary,
     LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
-    LauncherNexusDiagnosticsResult, LauncherRemoteModDetail, LauncherSettings,
-    LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
-    ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
-    LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
-    LoadSuppressedLauncherUpdateModIdsRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
-    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
-    ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
+    LauncherRemoteModDetail, LauncherSettings, LauncherSuppressedUpdateModIdsResult,
+    LauncherUpdateChangelogResult, LauncherUpdatesResult, ListLauncherInstallBackupsRequest,
+    LoadCachedLauncherUpdatesRequest, LoadLauncherRemoteModDetailRequest,
+    LoadLauncherUpdateChangelogRequest, LoadSuppressedLauncherUpdateModIdsRequest,
+    OpenLauncherPathRequest, OpenLauncherUrlRequest, PersistLauncherLibraryRemoteCoverRequest,
+    ResolveLauncherImageRequest, ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
     RestoreLauncherInstallBackupResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
     SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
     SetLauncherModEnabledResult,
 };
 use crate::domain::launcher::updates;
 use crate::domain::nexusmods::catalog;
-use crate::domain::nexusmods::http;
+use crate::domain::nexusmods::diagnostics;
 use crate::domain::nexusmods::mod_detail;
 use crate::domain::nexusmods::rest_api;
 use crate::domain::nexusmods::sso::{SsoConnectionStatus, SsoSnapshot};
+use crate::domain::nexusmods::types::NexusDiagnosticsResult;
 use serde::{Deserialize, Serialize};
 
 #[tauri::command]
@@ -179,31 +179,31 @@ pub fn clear_launcher_image_cache(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn load_launcher_nexus_diagnostics(
     app: tauri::AppHandle,
-) -> Result<LauncherNexusDiagnosticsResult, String> {
-    http::load_launcher_nexus_diagnostics(&app)
+) -> Result<NexusDiagnosticsResult, String> {
+    diagnostics::load_launcher_nexus_diagnostics(&app)
 }
 
 #[tauri::command]
 pub fn restart_launcher_nexus_diagnostics(
     app: tauri::AppHandle,
-) -> Result<LauncherNexusDiagnosticsResult, String> {
-    http::restart_launcher_nexus_diagnostics_with_app(&app)
+) -> Result<NexusDiagnosticsResult, String> {
+    diagnostics::restart_launcher_nexus_diagnostics_with_app(&app)
 }
 
 #[tauri::command]
 pub fn retry_launcher_nexus_diagnostics_route(
     app: tauri::AppHandle,
     route_id: String,
-) -> Result<LauncherNexusDiagnosticsResult, String> {
-    http::retry_launcher_nexus_diagnostics_route(&app, route_id)
+) -> Result<NexusDiagnosticsResult, String> {
+    diagnostics::retry_launcher_nexus_diagnostics_route(&app, route_id)
 }
 
 #[tauri::command]
 pub fn set_launcher_nexus_force_offline(
     app: tauri::AppHandle,
     force_offline: bool,
-) -> Result<LauncherNexusDiagnosticsResult, String> {
-    http::set_launcher_nexus_force_offline(&app, force_offline)
+) -> Result<NexusDiagnosticsResult, String> {
+    diagnostics::set_launcher_nexus_force_offline(&app, force_offline)
 }
 
 #[tauri::command]

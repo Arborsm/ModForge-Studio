@@ -115,6 +115,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 顶栏：`apps/desktop/src/widgets/top-navigation/ui/TopMenuBar.tsx`
 - 状态栏：`apps/desktop/src/widgets/status-bar/ui/StatusBar.tsx`
 - Launcher 样式：`apps/desktop/src/styles/features/launcher/`
+- NexusMods 后端线路：`apps/desktop/src-tauri/src/domain/nexusmods/`，其中 GraphQL 在 `graphql/`，REST API 在 `rest_api/`，线路诊断与共享传输分别在 `diagnostics.rs`、`routes.rs`、`http.rs`
 
 ### Workbench
 
@@ -198,6 +199,11 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src/pages/launcher/`
   - `apps/desktop/src/features/launcher/`
   - `apps/desktop/src/styles/features/launcher/`
+- 改 NexusMods 请求、下载链接、线路诊断：
+  - `apps/desktop/src-tauri/src/domain/nexusmods/graphql/`
+  - `apps/desktop/src-tauri/src/domain/nexusmods/rest_api/`
+  - `apps/desktop/src-tauri/src/domain/nexusmods/diagnostics.rs`
+  - `apps/desktop/src-tauri/src/domain/nexusmods/http.rs`
 - 改工作台布局或 panel：
   - `apps/desktop/src/pages/workbench/`
   - `apps/desktop/src/shared/workspace/`

@@ -1,15 +1,15 @@
-use super::http::{
-    launcher_http_client, probe_blocked_launcher_nexus_route, public_graphql_headers,
-    send_nexus_json_request, LauncherNexusRoute, DEFAULT_GAME_ID,
-};
-use super::shared::{
-    build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
-};
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;
 use crate::domain::launcher::types::{
     LauncherRemoteModDetail, LauncherSettings, LauncherUpdateChangelogResult,
     LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
+};
+use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
+use crate::domain::nexusmods::graphql;
+use crate::domain::nexusmods::http::{launcher_http_client, send_nexus_json_request};
+use crate::domain::nexusmods::routes::LauncherNexusRoute;
+use crate::domain::nexusmods::shared::{
+    build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
 };
 use regex::Regex;
 use reqwest::blocking::Client;
@@ -17,7 +17,6 @@ use serde_json::{json, Value};
 use tauri::AppHandle;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-const PUBLIC_GRAPHQL_ENDPOINT: &str = "https://api-router.nexusmods.com/graphql";
 const PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER: &str = "LauncherPublicModDetail";
 const PUBLIC_MOD_DETAIL_GRAPHQL_QUERY: &str = r#"
 query LauncherPublicModDetail($gameId: ID!, $modId: ID!) {
@@ -234,18 +233,19 @@ pub(crate) fn load_remote_mod_detail_from_public_graphql(
 ) -> Result<RemoteModDetail, String> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicGraphql)?;
     let mod_url = build_mod_page_url(mod_id);
-    let headers = public_graphql_headers(&mod_url, PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER)?;
+    let headers =
+        graphql::public_graphql_headers(&mod_url, PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER)?;
     let payload = json!({
         "operationName": PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER,
         "query": PUBLIC_MOD_DETAIL_GRAPHQL_QUERY,
         "variables": {
-            "gameId": DEFAULT_GAME_ID.to_string(),
+            "gameId": graphql::DEFAULT_GAME_ID.to_string(),
             "modId": mod_id.to_string(),
         }
     });
     let (status, response_payload) = send_nexus_json_request(|| {
         client
-            .post(PUBLIC_GRAPHQL_ENDPOINT)
+            .post(graphql::GRAPHQL_ENDPOINT)
             .headers(headers.clone())
             .json(&payload)
             .send()
@@ -348,5 +348,5 @@ fn load_launcher_update_changelog_blocking(
 }
 
 #[cfg(test)]
-#[path = "../../tests/nexusmods_mod_detail_tests.rs"]
+#[path = "../../../tests/nexusmods_mod_detail_tests.rs"]
 mod nexusmods_mod_detail_tests;

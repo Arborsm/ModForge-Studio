@@ -47,7 +47,7 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'success' as const,
           attempts: 1,
           maxAttempts: 3,

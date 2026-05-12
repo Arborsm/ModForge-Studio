@@ -802,6 +802,10 @@ export type LauncherCopy = {
     nexusDiagnosticsAvailableState: string
     nexusDiagnosticsUnavailableState: string
     nexusDiagnosticsLoadingState: string
+    nexusDiagnosticsRouteResponsibilities: Record<
+      'publicGraphql' | 'privateGraphql' | 'nexusApi' | 'nexusImages' | 'smapi' | 'fallback',
+      string
+    >
     nexusDiagnosticsNotificationTitle: string
     nexusDiagnosticsNotificationImpact: (targets: string) => string
     nexusDiagnosticsNotificationLimitedImpact: string

@@ -15,12 +15,12 @@ use super::update_cache::{
     record_launcher_update_auto_failure_at_path, save_launcher_updates_cache_at_path,
     LauncherUpdatesCacheInspection,
 };
-use crate::domain::nexusmods::http::{
-    launcher_http_client, probe_blocked_launcher_nexus_route, LauncherNexusRoute,
-};
+use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
+use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{
     load_remote_mod_detail_from_public_graphql, RemoteModDetail,
 };
+use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
 use crate::infrastructure::fs::pathing::clean_input_path;

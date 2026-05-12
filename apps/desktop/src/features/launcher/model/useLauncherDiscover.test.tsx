@@ -16,14 +16,14 @@ function createLauncherDiagnosticsResult(
   > = {
     publicGraphql: {
       label: 'Nexus Public GraphQL',
-      endpoint: 'https://api-router.nexusmods.com/graphql',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
     },
     privateGraphql: {
       label: 'Nexus Private GraphQL',
-      endpoint: 'https://graphql.nexusmods.com/',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',

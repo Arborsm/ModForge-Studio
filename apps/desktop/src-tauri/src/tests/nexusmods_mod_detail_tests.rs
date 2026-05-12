@@ -48,18 +48,21 @@ fn graphql_not_found_error_is_returned_without_html_fallback() {
 fn graphql_transport_error_is_returned_without_html_fallback() {
     let result = load_remote_mod_detail_with_api_fallback(
         || Ok(None),
-        || {
-            Err(
-                "error sending request for url (https://api-router.nexusmods.com/graphql)"
-                    .to_string(),
-            )
-        },
+        || Err("error sending request for url (https://api.nexusmods.com/v2/graphql)".to_string()),
     );
 
     assert_eq!(
         result.unwrap_err(),
-        "error sending request for url (https://api-router.nexusmods.com/graphql)"
+        "error sending request for url (https://api.nexusmods.com/v2/graphql)"
     );
+}
+
+#[test]
+fn public_mod_detail_uses_documented_v2_graphql_endpoint() {
+    let source = include_str!("../domain/nexusmods/graphql/mod_detail.rs");
+
+    assert!(source.contains("graphql::GRAPHQL_ENDPOINT"));
+    assert!(!source.contains(&format!("https://api-router.{}", "nexusmods.com/graphql")));
 }
 
 #[test]

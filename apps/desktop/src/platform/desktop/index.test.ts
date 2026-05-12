@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 
@@ -180,7 +180,7 @@ describe('launcher bridge helpers', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'loading',
           attempts: 1,
           maxAttempts: 3,
@@ -202,7 +202,7 @@ describe('launcher bridge helpers', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'loading',
           attempts: 1,
           maxAttempts: 3,
@@ -224,7 +224,7 @@ describe('launcher bridge helpers', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'success',
           attempts: 1,
           maxAttempts: 3,
@@ -334,7 +334,7 @@ describe('launcher bridge helpers', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,

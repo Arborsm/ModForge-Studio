@@ -1049,7 +1049,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1085,7 +1085,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1112,7 +1112,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1141,7 +1141,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'privateGraphql',
           label: 'Nexus Private GraphQL',
-          endpoint: 'https://graphql.nexusmods.com/',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1165,7 +1165,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'privateGraphql',
           label: 'Nexus Private GraphQL',
-          endpoint: 'https://graphql.nexusmods.com/',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'success',
           attempts: 1,
           maxAttempts: 3,

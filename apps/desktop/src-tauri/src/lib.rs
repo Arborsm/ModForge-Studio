@@ -62,13 +62,15 @@ pub fn run() {
                 .map(|state| state.launcher.force_offline)
                 .and_then(|force_offline| {
                     if force_offline {
-                        domain::nexusmods::http::set_launcher_nexus_force_offline(
+                        domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
                             &app.handle(),
                             true,
                         )
                         .map(|_| ())
                     } else {
-                        domain::nexusmods::http::prime_launcher_nexus_diagnostics(&app.handle())
+                        domain::nexusmods::diagnostics::prime_launcher_nexus_diagnostics(
+                            &app.handle(),
+                        )
                     }
                 });
             if let Err(error) = diagnostics_start_result {
