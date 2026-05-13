@@ -3,7 +3,7 @@ export type ThemeMode = 'dark' | 'light'
 export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
 export type WorkspaceMode = CoreWorkspaceMode | 'mods'
 export type AppMode = 'workbench' | 'launcher'
-export type LauncherPage = 'library' | 'discover' | 'updates' | 'debug'
+export type LauncherPage = 'library' | 'discover' | 'updates' | 'configuration'
 export type WorkspaceTone = 'idle' | 'working' | 'ready' | 'error'
 export type WorldAtlasViewId = 'main' | 'remote'
 
@@ -765,8 +765,38 @@ export type LauncherCopy = {
     subtitle: string
     pathsTitle: string
     pathsHint: string
+    gamePathHint: string
+    modsPathHint: string
+    downloadPathHint: string
+    pathNotConfigured: string
     nexusAccessTitle: string
+    nexusAccessHint: string
+    nexusReauthorize: string
+    nexusNormalStatus: string
+    nexusApiSsoMethod: string
+    nexusGuestTitle: string
+    nexusGuestSubtitle: string
+    nexusSignInAction: string
+    nexusPasteApiKeyAction: string
+    nexusClearApiKeyAction: string
+    nexusQuotaDaily: string
+    nexusQuotaHourly: string
+    nexusQuotaDailyLimit: string
+    nexusQuotaHourlyLimit: string
+    nexusQuotaPercent: (percent: number) => string
+    nexusQuotaResetIn: (duration: string) => string
+    nexusQuotaDurationHoursMinutes: (hours: number, minutes: number) => string
+    nexusQuotaDurationMinutes: (minutes: number) => string
+    nexusQuotaDailyResetHint: string
+    nexusQuotaHourlyResetHint: string
+    nexusApiRest: string
+    nexusApiGraphql: string
+    nexusApiImageCdn: string
+    nexusApiAvailable: string
+    nexusApiSlow: string
+    nexusApiUnavailable: string
     downloadBehaviorTitle: string
+    downloadDefaultsTitle: string
     downloadBehaviorHint: string
     autoCheckUpdatesHint: string
     autoInstallHint: string
@@ -774,8 +804,38 @@ export type LauncherCopy = {
     loadFailed: string
     saved: string
     saveFailed: string
+    configurationScoreLabel: string
+    configurationReady: string
+    configurationNeedsReview: string
+    configurationBreadcrumb: string
+    configurationGameTitle: string
+    configurationStatusLine: (status: string, modCount: string, diagnosticsAge: string) => string
+    configurationInstalledMods: (count: number) => string
+    configurationInstalledModsUnknown: string
+    configurationDiagnosticsJustNow: string
+    configurationDiagnosticsMinutesAgo: (minutes: number) => string
+    configurationRunDiagnostics: string
+    configurationViewLogs: string
+    configurationGameVersionTag: (version: string) => string
+    configurationSmapiVersionTag: (version: string) => string
+    configurationVersionUnknown: string
+    configurationIssueSummary: (pending: number) => string
+    configuredPathsSummary: (configured: number, total: number) => string
+    completionTitle: string
+    completionReady: (ready: number, total: number) => string
+    completionPending: (pending: number) => string
+    stepPaths: string
+    stepNexus: string
+    stepDownloads: string
+    stepDiagnostics: string
+    nexusReady: string
+    nexusMissing: string
+    downloadsReady: string
+    downloadsLimited: string
+    diagnosticsHealthy: string
+    diagnosticsReview: string
   }
-  debug: {
+  configuration: {
     title: string
     subtitle: string
     moreToolsTitle: string
@@ -823,12 +883,16 @@ export type LauncherCopy = {
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string
     forceOfflineDisabledLabel: string
-    clearImageCacheTitle: string
-    clearImageCacheSubtitle: string
-    clearImageCacheButton: string
-    simulationTitle: string
-    simulationSubtitle: string
-    simulationButtonIdle: string
+      clearImageCacheTitle: string
+      clearImageCacheSubtitle: string
+      clearImageCacheButton: string
+      bbcodePreviewTitle: string
+      bbcodePreviewSubtitle: string
+      bbcodePreviewExpandAction: string
+      bbcodePreviewCollapseAction: string
+      simulationTitle: string
+      simulationSubtitle: string
+      simulationButtonIdle: string
     simulationButtonRunning: string
     notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
     logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>

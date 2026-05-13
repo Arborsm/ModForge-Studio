@@ -1,0 +1,877 @@
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import type { ComponentProps } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { editorCopy } from '@locales/editor-shell'
+import type { LauncherPort } from '@features/launcher/model/launcherPort'
+import type { LauncherSettings } from '@platform/desktop'
+import { createMockLauncherPort } from '@test/launcherTestPort'
+import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
+import { renderWithLocale } from '@test/renderWithLocale.tsx'
+import { LauncherConfigurationPage } from './LauncherConfigurationPage'
+
+const reportAppEvent = vi.fn()
+const clearLauncherImageCache = vi.fn()
+const loadLauncherNexusDiagnostics = vi.fn()
+const retryLauncherNexusDiagnosticsRoute = vi.fn()
+const setLauncherNexusForceOffline = vi.fn()
+const applyAppUiStatePatch = vi.fn()
+const getAppUiStateSnapshot = vi.fn(() => ({
+  launcher: {
+    forceOffline: false,
+  },
+}))
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
+function createNeverSettledPromise<T>() {
+  return new Promise<T>(() => {})
+}
+
+vi.mock('@shared/lib/observability', () => ({
+  reportAppEvent: (...args: unknown[]) => reportAppEvent(...args),
+}))
+
+vi.mock('@platform/desktop', () => ({
+  canUseDesktopHost: () => true,
+  clearLauncherImageCache: (...args: unknown[]) => clearLauncherImageCache(...args),
+  loadLauncherNexusDiagnostics: (...args: unknown[]) => loadLauncherNexusDiagnostics(...args),
+  retryLauncherNexusDiagnosticsRoute: (...args: unknown[]) => retryLauncherNexusDiagnosticsRoute(...args),
+  setLauncherNexusForceOffline: (...args: unknown[]) => setLauncherNexusForceOffline(...args),
+}))
+
+vi.mock('@shared/lib/app-state', () => ({
+  applyAppUiStatePatch: (...args: unknown[]) => applyAppUiStatePatch(...args),
+  getAppUiStateSnapshot: () => getAppUiStateSnapshot(),
+}))
+const copy = editorCopy['zh-CN'].launcher
+const downloads = {
+  activeItems: [],
+  startDebugSimulation: vi.fn(),
+}
+
+function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
+  return {
+    gamePath: 'E:\\Games\\Stardew Valley',
+    modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    downloadPath: 'E:\\Downloads\\Stardew',
+    nexusApiKey: 'api-key',
+    autoInstallDownloads: true,
+    keepDownloadedArchives: false,
+    autoCheckModUpdates: true,
+    ...overrides,
+  } as LauncherSettings
+}
+
+function createSettingsState(settings: LauncherSettings = createSettings()) {
+  return {
+    settings,
+    state: 'ready' as const,
+    error: null,
+    saveMessage: null,
+    setSettings: vi.fn(),
+    updateField: vi.fn(),
+    save: vi.fn(async () => settings),
+    refresh: vi.fn(async () => {}),
+    pickDirectory: vi.fn(async () => null),
+  }
+}
+
+function renderConfigurationPage(
+  overrides?: Partial<ComponentProps<typeof LauncherConfigurationPage>>,
+  port: LauncherPort = createMockLauncherPort(),
+) {
+  const settingsState = createSettingsState()
+  const props = {
+    debugEnabled: true,
+    onToggleDebugMode: vi.fn(),
+    downloads: downloads as never,
+    settingsState: settingsState as never,
+    ...overrides,
+  }
+
+  return renderWithLocale(
+    <LauncherTestWrapper port={port}>
+      <LauncherConfigurationPage {...props} />
+    </LauncherTestWrapper>,
+    'zh-CN',
+  )
+}
+
+function expandDebugTools() {
+  fireEvent.click(screen.getByRole('button', { name: copy.configuration.moreToolsAction }))
+}
+
+describe('LauncherConfigurationPage', () => {
+  afterEach(() => {
+    cleanup()
+    reportAppEvent.mockReset()
+    clearLauncherImageCache.mockReset()
+    loadLauncherNexusDiagnostics.mockReset()
+    retryLauncherNexusDiagnosticsRoute.mockReset()
+    setLauncherNexusForceOffline.mockReset()
+    applyAppUiStatePatch.mockReset()
+    getAppUiStateSnapshot.mockReset()
+    getAppUiStateSnapshot.mockReturnValue({
+      launcher: {
+        forceOffline: false,
+      },
+    })
+    downloads.startDebugSimulation.mockReset()
+    vi.useRealTimers()
+  })
+
+  it('renders localized debug tool sections', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    expect(document.querySelector('[data-loading-section="launcher-config-completion-rail"]')).toHaveClass('launcher-config-rail-panel')
+    expect(document.querySelector('[data-loading-section="launcher-config-download-defaults"]')).toHaveClass('launcher-config-rail-panel')
+    expect(screen.queryByTestId('launcher-config-summary')).toBeNull()
+    expect(screen.queryByTestId('launcher-config-score-value')).toBeNull()
+    expect(screen.getByRole('heading', { name: copy.settings.configurationGameTitle, level: 1 })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.settings.configurationRunDiagnostics })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.settings.configurationViewLogs })).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-completion-rail')).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-download-defaults')).toBeTruthy()
+    expect(screen.getByRole('region', { name: copy.settings.pathsTitle })).toHaveClass('launcher-config-paths')
+    expect(screen.getByRole('region', { name: copy.settings.nexusAccessTitle })).toHaveClass('launcher-config-nexus')
+    expect(screen.getByRole('region', { name: copy.configuration.moreToolsTitle })).toHaveClass('launcher-config-tools')
+    expect(screen.getByText(copy.settings.pathsTitle)).toBeTruthy()
+    expect(screen.getByText(copy.settings.nexusAccessTitle)).toBeTruthy()
+    expect(screen.queryByRole('region', { name: copy.diagnostics.title })).toBeNull()
+    expect(screen.queryByRole('heading', { name: copy.settings.title, level: 2 })).toBeNull()
+    expect(screen.queryByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })).toBeNull()
+    expect(screen.queryByRole('heading', { name: copy.configuration.logsTitle, level: 2 })).toBeNull()
+    expect(screen.queryByRole('heading', { name: copy.configuration.simulationTitle, level: 2 })).toBeNull()
+  })
+
+  it('renders design-matched path rows and wires them to the launcher settings state', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const settingsState = createSettingsState()
+
+    renderConfigurationPage({ settingsState: settingsState as never })
+
+    const pathsPanel = screen.getByRole('region', { name: copy.settings.pathsTitle })
+    expect(pathsPanel.querySelectorAll('.launcher-config-path-row')).toHaveLength(3)
+    expect(pathsPanel.querySelector('.launcher-config-path-row')).toHaveClass('loading-motion-child-reveal')
+    expect(pathsPanel.textContent).not.toContain(copy.settings.gamePathHint)
+    expect(pathsPanel.textContent).not.toContain(copy.settings.modsPathHint)
+    expect(pathsPanel.textContent).not.toContain(copy.settings.downloadPathHint)
+    expect(screen.getByTestId('launcher-config-gamePath-value').textContent).toContain('E:\\Games\\Stardew Valley')
+
+    fireEvent.click(screen.getByRole('button', { name: `${copy.fields.gamePath} ${editorCopy['zh-CN'].controls.browse}` }))
+    expect(settingsState.pickDirectory).toHaveBeenCalledWith('gamePath', copy.fields.gamePath)
+  })
+
+  it('renders the Nexus account dashboard from API validation data instead of static mock values', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'RealPilot',
+      isPremium: true,
+      dailyRemaining: 18742,
+      hourlyRemaining: 500,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    expect(await screen.findByText('RealPilot')).toBeTruthy()
+    const accountCard = screen.getByTestId('launcher-config-account-card')
+    const completionRail = screen.getByTestId('launcher-config-completion-rail')
+    const downloadDefaults = screen.getByTestId('launcher-config-download-defaults')
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+
+    expect(accountCard.closest('.launcher-config-rail')).toBeTruthy()
+    expect(Boolean(completionRail.compareDocumentPosition(accountCard) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(Boolean(accountCard.compareDocumentPosition(downloadDefaults) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(nexusPanel.querySelector('.launcher-config-account-row')).toBeNull()
+    expect(accountCard.textContent).not.toContain('18,742')
+    expect(accountCard.textContent).not.toContain('500')
+    expect(nexusPanel.textContent).toContain('18,742')
+    expect(nexusPanel.textContent).toContain('500')
+  })
+
+  it('does not round nearly full Nexus quota up to a misleading 100 percent label', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'PrecisePilot',
+      isPremium: true,
+      dailyRemaining: 19_988,
+      hourlyRemaining: 499,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    await waitFor(() => {
+      expect(nexusPanel.textContent).toContain('19,988')
+    })
+    expect(nexusPanel.textContent).toContain('99%')
+    expect(nexusPanel.textContent).not.toContain('100%')
+  })
+
+  it('renders dynamic Nexus quota reset countdowns from API reset timestamps', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'ResetPilot',
+      isPremium: true,
+      dailyRemaining: 19_988,
+      hourlyRemaining: 499,
+      dailyResetAt: nowSeconds + (2 * 60 * 60) + (30 * 60),
+      hourlyResetAt: nowSeconds + (45 * 60),
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    await waitFor(() => {
+      expect(nexusPanel.textContent).toContain('距重置')
+    })
+    expect(nexusPanel.textContent?.match(/距重置/g)).toHaveLength(2)
+    expect(nexusPanel.textContent).not.toContain('00:00 GMT')
+  })
+
+  it('falls back to the next reset window when Nexus does not return reset timestamps', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'FallbackResetPilot',
+      isPremium: true,
+      dailyRemaining: 19_988,
+      hourlyRemaining: 499,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    await waitFor(() => {
+      expect(nexusPanel.textContent).toContain('距重置')
+    })
+    expect(nexusPanel.textContent?.match(/距重置/g)).toHaveLength(2)
+    expect(nexusPanel.textContent).not.toContain('00:00 GMT')
+  })
+
+  it('renders the header as a compact launcher context bar', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const scanLibrary = vi.fn().mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: Array.from({ length: 142 }, (_, index) => ({ id: String(index) })),
+    })
+    const loadRuntimeInfo = vi.fn().mockResolvedValue({
+      gameVersion: '1.6.8',
+      smapiVersion: '4.0.8',
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ scanLibrary, loadRuntimeInfo } as Partial<LauncherPort>))
+
+    expect(screen.queryByTestId('launcher-config-score-value')).toBeNull()
+    expect(document.querySelector('.launcher-config-score-ring')).toBeNull()
+    expect(screen.getByText(copy.settings.configurationBreadcrumb)).toBeTruthy()
+    expect(await screen.findByText(copy.settings.configurationGameVersionTag('1.6.8'))).toBeTruthy()
+    expect(screen.getByText(copy.settings.configurationSmapiVersionTag('4.0.8'))).toBeTruthy()
+    expect(screen.getByText(copy.settings.configurationInstalledMods(142), { exact: false })).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-paths-step').querySelector('.launcher-config-step-mark')).toBeTruthy()
+  })
+
+  it('derives the configuration summary from the provided launcher settings and diagnostics', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    })
+    const settingsState = createSettingsState(
+      createSettings({
+        modsPath: null,
+        downloadPath: null,
+        nexusApiKey: null,
+        autoCheckModUpdates: false,
+        autoInstallDownloads: false,
+        keepDownloadedArchives: true,
+      }),
+    )
+
+    renderConfigurationPage({ settingsState: settingsState as never })
+
+    expect(screen.getByTestId('launcher-config-paths-step').textContent).toContain('1 / 3')
+    expect(screen.getByTestId('launcher-config-nexus-step')).toHaveClass('launcher-config-step-danger')
+    expect(screen.getByTestId('launcher-config-download-defaults').textContent).toContain(copy.toggles.autoCheckModUpdates)
+    expect(screen.getByText(copy.settings.configurationNeedsReview, { exact: false })).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByTestId('launcher-config-diagnostics-step')).toHaveClass('launcher-config-step-warn')
+    })
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    expect(nexusPanel.textContent).toContain(copy.settings.nexusApiGraphql)
+    expect(nexusPanel.textContent).toContain(copy.settings.nexusApiSlow)
+  })
+
+  it('renders Nexus REST status and API key data in the design-matched Nexus panel above More tools', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'nexusApi',
+          label: 'Nexus REST API',
+          endpoint: 'https://api.nexusmods.com/v1/games/stardewvalley/mods/trending.json',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'ApiPilot',
+      isPremium: false,
+      dailyRemaining: 42,
+      hourlyRemaining: 24,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const nexusHeading = screen.getByRole('heading', { name: copy.settings.nexusAccessTitle, level: 2 })
+    const apiHeading = await screen.findByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })
+    const moreButton = screen.getByRole('button', { name: copy.configuration.moreToolsAction })
+    const apiRouteRow = apiHeading.closest('.launcher-config-api-row')
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    const accountCard = screen.getByTestId('launcher-config-account-card')
+
+    expect(Boolean(nexusHeading.compareDocumentPosition(apiHeading) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    expect(Boolean(apiHeading.compareDocumentPosition(moreButton) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+    await waitFor(() => {
+      expect(accountCard.textContent).toContain('ApiPilot')
+      expect(nexusPanel.textContent).toContain('42')
+      expect(nexusPanel.textContent).toContain('24')
+    })
+    expect(apiRouteRow).toHaveClass('launcher-config-api-row-ok')
+    expect(apiRouteRow).toHaveClass('loading-motion-child-reveal')
+    expect(apiRouteRow?.textContent).toContain(copy.settings.nexusApiAvailable)
+    expect(nexusPanel.textContent).not.toContain(copy.settings.nexusApiSsoMethod)
+    expect(screen.queryByRole('heading', { name: copy.diagnostics.apiKeyTitle, level: 3 })).toBeNull()
+    expect(validateNexusApiKey).toHaveBeenCalled()
+  })
+
+  it('clears the configured Nexus API key from the Nexus panel header', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const settingsState = createSettingsState()
+
+    renderConfigurationPage({ settingsState: settingsState as never })
+
+    fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusClearApiKeyAction }))
+
+    expect(settingsState.updateField).toHaveBeenCalledWith('nexusApiKey', null)
+  })
+
+  it('keeps SSO and diagnostics refresh in the Nexus panel header', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    const startNexusSso = vi.fn().mockResolvedValue({ ssoId: 'test-sso-id', status: 'connecting' as const })
+    const getNexusSsoStatus = vi.fn().mockResolvedValue({
+      status: 'authorized' as const,
+      errorKind: null,
+      errorMessage: null,
+      userName: 'SsoPilot',
+      isPremium: true,
+      ssoId: 'test-sso-id',
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ startNexusSso, getNexusSsoStatus }))
+
+    const nexusPanel = screen.getByRole('region', { name: copy.settings.nexusAccessTitle })
+    fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusReauthorize }))
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
+
+    await waitFor(() => {
+      expect(startNexusSso).toHaveBeenCalled()
+    })
+    expect(nexusPanel.textContent).not.toContain(copy.configuration.forceOfflineEnableButton)
+    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+  })
+
+  it('keeps the NexusMods BBCode renderer tucked inside the hidden debug menu until expanded', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+
+    renderConfigurationPage()
+
+    expect(screen.queryByTestId('launcher-debug-bbcode-preview')).toBeNull()
+    expandDebugTools()
+    expect(screen.getByRole('heading', { name: copy.configuration.bbcodePreviewTitle, level: 2 })).toBeTruthy()
+    expect(screen.queryByTestId('launcher-debug-bbcode-preview')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.bbcodePreviewExpandAction }))
+
+    const preview = await screen.findByTestId('launcher-debug-bbcode-preview')
+    expect(preview.textContent).toContain('Basic Bedroom Furniture')
+    expect(preview.querySelector('.nexusmods-bbcode-align-center')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute(
+      'href',
+      'https://www.nexusmods.com/stardewvalley/mods/23073',
+    )
+  })
+
+  it('explains each Nexus route responsibility and keeps raw API error details visible in the Nexus panel', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('HTTP 503: upstream unavailable'))
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    expect(await screen.findByText(copy.settings.nexusApiGraphql)).toBeTruthy()
+    expect(screen.getByText('浏览目录、搜索和公开详情查询')).toBeTruthy()
+    expect(await screen.findByText('Log: HTTP 503: upstream unavailable')).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-account-card').textContent).toContain(copy.diagnostics.premiumActive.toUpperCase())
+    expect(screen.queryByRole('button', { name: copy.settings.nexusSignInAction })).toBeNull()
+  })
+
+  it('renders every diagnostics route in the design-matched Nexus route list', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'nexusApi',
+          label: 'Nexus REST API',
+          endpoint: 'https://api.nexusmods.com/v1/games/stardewvalley/mods/trending.json',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'privateGraphql',
+          label: 'Nexus Private GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'smapi',
+          label: 'SMAPI metadata',
+          endpoint: 'https://smapi.io/api/v3.0/mods',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    expect(await screen.findByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Nexus Private GraphQL', level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'SMAPI metadata', level: 3 })).toBeTruthy()
+    expect(screen.getByText(copy.configuration.nexusDiagnosticsRouteResponsibilities.privateGraphql)).toBeTruthy()
+    expect(screen.getByText(copy.configuration.nexusDiagnosticsRouteResponsibilities.smapi)).toBeTruthy()
+    expect(screen.getByTestId('launcher-config-nexus').querySelectorAll('.launcher-config-api-row')).toHaveLength(3)
+  })
+
+  it('does not mark the Nexus REST row as success when API validation still failed after SSO', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('network timeout'))
+    const port = createMockLauncherPort({
+      validateNexusApiKey,
+      getNexusSsoStatus: vi.fn().mockResolvedValue({
+        status: 'authorized' as const,
+        errorKind: null,
+        errorMessage: null,
+        userName: 'SsoPilot',
+        isPremium: true,
+        ssoId: 'test-sso-id',
+      }),
+    })
+
+    renderConfigurationPage(undefined, port)
+
+    expect(await screen.findByText('Log: network timeout')).toBeTruthy()
+
+    const apiRouteRow = screen
+      .getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })
+      .closest('.launcher-config-api-row')
+    expect(apiRouteRow).not.toHaveClass('launcher-config-api-row-ok')
+    expect(apiRouteRow).toHaveClass('launcher-config-api-row-danger')
+  })
+
+  it('keeps debug utilities collapsed until more is requested', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const { container } = renderConfigurationPage()
+
+    expect(screen.queryByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })).toBeNull()
+    expect(screen.queryByRole('heading', { name: copy.configuration.nexusDiagnosticsTitle, level: 2 })).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.configuration.forceOfflineEnableButton })).toBeNull()
+    expect(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })).toBeTruthy()
+    expect(screen.queryByText('Nexus Public GraphQL')).toBeNull()
+
+    const moreButton = screen.getByRole('button', { name: copy.configuration.moreToolsAction })
+    expect(moreButton.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(moreButton)
+
+    expect(screen.getByRole('button', { name: copy.configuration.lessToolsAction }).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.queryByRole('heading', { name: copy.configuration.nexusDiagnosticsTitle, level: 2 })).toBeNull()
+    expect(screen.getByText(copy.configuration.notificationsOverviewTitle)).toBeTruthy()
+    expect(screen.getByText(copy.configuration.logsOverviewTitle)).toBeTruthy()
+    expect(container.querySelector('.launcher-debug-tool-card')).toBeTruthy()
+    expect(container.querySelectorAll('.launcher-debug-stat-card')).toHaveLength(2)
+    expect(container.querySelector('.launcher-debug-overview-divider')).toBeNull()
+    expect(screen.getByRole('heading', { name: copy.configuration.forceOfflineEnableButton, level: 2 })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.configuration.forceOfflineEnableButton })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.configuration.logsTitle, level: 2 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.configuration.simulationTitle, level: 2 })).toBeTruthy()
+  })
+
+  it('renders a debug mode switch and calls the toggle handler', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const onToggleDebugMode = vi.fn()
+
+    renderConfigurationPage({ onToggleDebugMode })
+    expandDebugTools()
+
+    const toggle = screen.getByRole('switch', { name: copy.configuration.debugOnlyTitle })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(toggle)
+
+    expect(onToggleDebugMode).toHaveBeenCalledTimes(1)
+  })
+
+  it('emits a debug notification test event', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+    expandDebugTools()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.notificationButtons.debug }))
+
+    expect(reportAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'debug',
+        title: copy.configuration.notificationButtons.debug,
+        debugDiagnosticsEnabled: true,
+      }),
+    )
+  })
+
+  it('emits a warning log test event without showing a notification', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+    expandDebugTools()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.logButtons.warning }))
+
+    expect(reportAppEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'warning',
+        title: copy.configuration.logButtons.warning,
+        notify: false,
+      }),
+    )
+  })
+
+  it('starts a simulated launcher download from the configuration page', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+    expandDebugTools()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.simulationButtonIdle }))
+
+    expect(downloads.startDebugSimulation).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the launcher image cache from the configuration page', () => {
+    clearLauncherImageCache.mockResolvedValue(undefined)
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+
+    renderConfigurationPage()
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.moreToolsAction }))
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.clearImageCacheButton }))
+
+    expect(clearLauncherImageCache).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the Nexus header refresh control while diagnostics are still pending', () => {
+    const pending = createDeferred<{ routes: never[] }>()
+    loadLauncherNexusDiagnostics.mockReturnValue(pending.promise)
+
+    renderConfigurationPage()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
+
+    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+  })
+
+  it('renders warning and success statuses for Nexus diagnostics routes', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    await waitFor(() => {
+      expect(screen.getByText(copy.settings.nexusApiGraphql)).toBeTruthy()
+    })
+    const warningRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')
+    const successRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')
+
+    expect(warningRouteRow).toHaveClass('launcher-config-api-row-warn')
+    expect(successRouteRow).toHaveClass('launcher-config-api-row-ok')
+    expect(warningRouteRow?.textContent).toContain(copy.settings.nexusApiSlow)
+    expect(successRouteRow?.textContent).toContain(copy.settings.nexusApiAvailable)
+  })
+
+  it('refreshes Nexus diagnostics from the header control without opening the debug drawer', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    const onDiagnosticsUpdate = vi.fn()
+
+    renderWithLocale(
+      <LauncherTestWrapper port={createMockLauncherPort()}>
+        <LauncherConfigurationPage
+          debugEnabled={true}
+          onToggleDebugMode={vi.fn()}
+          onLauncherDiagnosticsUpdate={onDiagnosticsUpdate}
+          downloads={downloads as never}
+          settingsState={createSettingsState() as never}
+        />
+      </LauncherTestWrapper>,
+      'zh-CN',
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
+
+    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    expect(retryLauncherNexusDiagnosticsRoute).not.toHaveBeenCalled()
+    expect(screen.getByText(copy.settings.nexusApiImageCdn)).toBeTruthy()
+    await waitFor(() => {
+      expect(onDiagnosticsUpdate).toHaveBeenCalledWith({
+        routes: expect.arrayContaining([
+          expect.objectContaining({
+            routeId: 'publicGraphql',
+            status: 'warning',
+            available: false,
+          }),
+          expect.objectContaining({
+            routeId: 'nexusImages',
+            status: 'success',
+            available: true,
+          }),
+        ]),
+      })
+    })
+  })
+
+  it('renders route status labels directly in the pill without an extra clipping wrapper', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    const warningRouteRow = (await screen.findByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })).closest('.launcher-config-api-row')
+    const successRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')
+    const warningLabel = warningRouteRow?.querySelector('.launcher-config-status-tag-warn')
+    const successLabel = successRouteRow?.querySelector('.launcher-config-status-tag-ok')
+
+    expect(warningLabel?.className).toContain('launcher-config-status-tag-warn')
+    expect(successLabel?.className).toContain('launcher-config-status-tag-ok')
+    expect(warningLabel?.querySelector('.launcher-debug-route-status-copy')).toBeNull()
+    expect(successLabel?.querySelector('.launcher-debug-route-status-copy')).toBeNull()
+  })
+
+  it('renders Nexus routes in design-matched API rows inside the Nexus panel', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    const nexusSection = screen.getByRole('region', { name: copy.settings.nexusAccessTitle })
+    const routeTitle = await screen.findByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })
+    const routeRow = routeTitle.closest('.launcher-config-api-row')
+
+    expect(nexusSection).toHaveClass('launcher-config-nexus')
+    expect(routeRow).toBeTruthy()
+    expect(routeRow?.querySelector('.launcher-config-api-name')).toBeTruthy()
+    expect(routeRow?.querySelector('.launcher-config-api-desc')).toBeTruthy()
+    expect(routeRow?.querySelector('.launcher-config-status-tag')).toBeTruthy()
+    expect(routeRow?.querySelector('.launcher-debug-route-detail-row')).toBeNull()
+    expect(routeRow?.querySelector('.launcher-debug-route-chip')).toBeNull()
+  })
+
+  it('groups route status labels with their result details instead of a separate table column', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    const routeTitle = await screen.findByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })
+    const routeRow = routeTitle.closest('.launcher-config-api-row')
+
+    expect(routeRow?.querySelector('.launcher-config-status-tag-ok')?.textContent).toBe(copy.settings.nexusApiAvailable)
+    expect(routeRow?.querySelector('.launcher-config-api-desc')?.textContent).toContain('浏览目录')
+    expect(routeRow?.querySelector(':scope > .launcher-debug-route-status')).toBeNull()
+  })
+
+  it('persists and applies the launcher force-offline override from the configuration page', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    setLauncherNexusForceOffline.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'warning',
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Forced offline by debug override.',
+        },
+      ],
+    })
+    applyAppUiStatePatch.mockResolvedValue(undefined)
+
+    renderConfigurationPage()
+
+    expandDebugTools()
+    fireEvent.click(await screen.findByRole('button', { name: copy.configuration.forceOfflineEnableButton }))
+
+    await waitFor(() => {
+      expect(applyAppUiStatePatch).toHaveBeenCalledWith({
+        launcher: {
+          forceOffline: true,
+        },
+      })
+      expect(setLauncherNexusForceOffline).toHaveBeenCalledWith(true)
+    })
+    await waitFor(() => {
+      expect(screen.getByTestId('launcher-config-diagnostics-step')).toHaveClass('launcher-config-step-warn')
+    })
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-warn')
+  })
+})

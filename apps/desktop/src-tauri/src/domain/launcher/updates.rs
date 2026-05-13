@@ -202,7 +202,7 @@ fn resolve_update_check_game_root(settings: &LauncherSettings, mods_path: &str) 
 }
 
 #[cfg(target_os = "windows")]
-fn read_windows_file_version(path: &Path) -> Option<String> {
+pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
     if !path.is_file() {
         return None;
     }
@@ -229,7 +229,7 @@ fn read_windows_file_version(path: &Path) -> Option<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn read_windows_file_version(_path: &Path) -> Option<String> {
+pub(crate) fn read_windows_file_version(_path: &Path) -> Option<String> {
     None
 }
 
@@ -270,7 +270,7 @@ where
     resolved
 }
 
-fn resolve_smapi_runtime_versions(
+pub(crate) fn resolve_smapi_runtime_versions(
     settings: &LauncherSettings,
     mods_path: &str,
 ) -> SmapiRuntimeVersions {

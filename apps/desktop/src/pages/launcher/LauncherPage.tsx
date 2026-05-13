@@ -64,7 +64,7 @@ export function LauncherPage({
   const [launchBusy, setLaunchBusy] = useState(false)
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
-  const availableLauncherPages = ['library', 'discover', 'updates', 'debug'] as const
+  const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
   const downloadsPopover = <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />
   const handleLaunchGame = useCallback(async () => {
     if (!desktopHost || launchBusy) {
@@ -128,7 +128,7 @@ export function LauncherPage({
             onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
             settingsState={launcherRuntime.settingsState}
             downloads={launcherRuntime.downloads}
-            onNavigateToSettings={() => onLauncherPageChange('debug')}
+            onNavigateToSettings={() => onLauncherPageChange('configuration')}
             launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}
             launchGameBusy={launchBusy}

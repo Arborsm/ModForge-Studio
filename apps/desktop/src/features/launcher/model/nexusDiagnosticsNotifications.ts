@@ -58,24 +58,24 @@ export function buildLauncherDiagnosticsNotificationContent(
 
   const impactedTargets: string[] = []
   if (!canAutoLoadLauncherDiscover(diagnostics, { sort: 'trending' })) {
-    impactedTargets.push(copy.debug.nexusMessagePreviewDiscoverTarget)
+    impactedTargets.push(copy.configuration.nexusMessagePreviewDiscoverTarget)
   }
   if (!canAutoCheckLauncherUpdates(diagnostics)) {
-    impactedTargets.push(copy.debug.nexusMessagePreviewUpdatesTarget)
+    impactedTargets.push(copy.configuration.nexusMessagePreviewUpdatesTarget)
   }
 
   const hasPausedTargets = impactedTargets.length > 0
   const impactSummary = hasPausedTargets
-    ? copy.debug.nexusDiagnosticsNotificationImpact(impactedTargets.join(' / '))
-    : copy.debug.nexusDiagnosticsNotificationLimitedImpact
+    ? copy.configuration.nexusDiagnosticsNotificationImpact(impactedTargets.join(' / '))
+    : copy.configuration.nexusDiagnosticsNotificationLimitedImpact
 
   return {
     level: hasPausedTargets ? 'error' : 'warning',
     variant: 'diagnostic' as const,
-    title: copy.debug.nexusDiagnosticsNotificationTitle,
+    title: copy.configuration.nexusDiagnosticsNotificationTitle,
     summary: impactSummary,
-    description: copy.debug.nexusDiagnosticsNotificationBody(warningRoutes.length),
-    note: copy.debug.nexusDiagnosticsNotificationNote,
+    description: copy.configuration.nexusDiagnosticsNotificationBody(warningRoutes.length),
+    note: copy.configuration.nexusDiagnosticsNotificationNote,
     chips: buildLauncherDiagnosticsNotificationChips(diagnostics),
     secondaryAction: actions.onRetry
       ? {

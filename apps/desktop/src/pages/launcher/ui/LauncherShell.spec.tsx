@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 
-const settingsPageSpy = vi.fn()
+const configurationPageSpy = vi.fn()
 let libraryPageInstanceCounter = 0
 
 vi.mock('./LauncherLibraryPage', () => ({
@@ -77,10 +77,10 @@ vi.mock('./LauncherUpdatesPage', () => ({
   LauncherUpdatesPage: () => <div>updates-page</div>,
 }))
 
-vi.mock('./LauncherDebugPage', () => ({
-  LauncherDebugPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown; settingsState: unknown }) => {
-    settingsPageSpy(props)
-    return <div>settings-page</div>
+vi.mock('./LauncherConfigurationPage', () => ({
+  LauncherConfigurationPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown; settingsState: unknown }) => {
+    configurationPageSpy(props)
+    return <div>configuration-page</div>
   },
 }))
 
@@ -134,7 +134,7 @@ const downloads = {
 describe('LauncherShell', () => {
   afterEach(() => {
     cleanup()
-    settingsPageSpy.mockReset()
+    configurationPageSpy.mockReset()
     libraryPageInstanceCounter = 0
   })
 
@@ -236,12 +236,12 @@ describe('LauncherShell', () => {
     expect(await screen.findByText('updates-page')).toBeTruthy()
   })
 
-  it('routes the settings page', async () => {
+  it('routes the configuration page', async () => {
     const onToggleDebugMode = vi.fn()
 
     renderWithLocale(
       <LauncherShell
-        page="debug"
+        page="configuration"
         debugEnabled={true}
         settingsState={settingsState as never}
         downloads={downloads as never}
@@ -254,9 +254,9 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(await screen.findByText('settings-page')).toBeTruthy()
+    expect(await screen.findByText('configuration-page')).toBeTruthy()
     await waitFor(() => {
-      expect(settingsPageSpy).toHaveBeenCalledWith(
+      expect(configurationPageSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           debugEnabled: true,
           downloads,
@@ -267,10 +267,10 @@ describe('LauncherShell', () => {
     })
   })
 
-  it('routes the settings page even when debug mode is disabled', async () => {
+  it('routes the configuration page even when debug mode is disabled', async () => {
     renderWithLocale(
       <LauncherShell
-        page="debug"
+        page="configuration"
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
@@ -283,7 +283,7 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(await screen.findByText('settings-page')).toBeTruthy()
+    expect(await screen.findByText('configuration-page')).toBeTruthy()
     expect(screen.queryByText('library-page:Launch Game:1')).toBeTruthy()
   })
 

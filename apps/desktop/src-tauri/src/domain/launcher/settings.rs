@@ -1,7 +1,6 @@
 use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -20,7 +19,8 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
     LauncherSettings {
         game_path,
         mods_path,
-        download_path: normalize_optional_path(settings.download_path),
+        download_path: normalize_optional_path(settings.download_path)
+            .or_else(default_launcher_download_path),
         nexus_api_key: normalize_optional_text(settings.nexus_api_key),
         auto_install_downloads: settings.auto_install_downloads,
         keep_downloaded_archives: settings.keep_downloaded_archives,
@@ -69,7 +69,7 @@ pub(crate) fn load_or_create_settings_at_path(
         return Ok(normalize_settings(parsed));
     }
 
-    let defaults = LauncherSettings::default();
+    let defaults = normalize_settings(LauncherSettings::default());
     save_settings_at_path(settings_path, &defaults)?;
     Ok(defaults)
 }
@@ -109,24 +109,12 @@ pub(crate) fn resolve_download_dir(settings: &LauncherSettings) -> Result<PathBu
     })
 }
 
+fn default_launcher_download_path() -> Option<String> {
+    default_download_path().map(|path| normalize_path(&path))
+}
+
 fn default_download_path() -> Option<PathBuf> {
-    if let Ok(user_profile) = env::var("USERPROFILE") {
-        return Some(
-            PathBuf::from(user_profile)
-                .join("Downloads")
-                .join("ModForge Studio"),
-        );
-    }
-
-    if let Ok(home) = env::var("HOME") {
-        return Some(
-            PathBuf::from(home)
-                .join("Downloads")
-                .join("ModForge Studio"),
-        );
-    }
-
-    None
+    dirs::download_dir()
 }
 
 pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings, String> {

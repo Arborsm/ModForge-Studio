@@ -25,7 +25,11 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
       ...defaultSettings,
       ...request,
     })),
-    scanLibrary: unimplemented('scanLibrary'),
+    scanLibrary: vi.fn().mockResolvedValue({ modsPath: '', mods: [] }),
+    loadRuntimeInfo: vi.fn().mockResolvedValue({
+      gameVersion: null,
+      smapiVersion: null,
+    }),
     loadLibraryState: vi.fn().mockResolvedValue({
       storageFolders: [],
       hiddenModKeys: [],

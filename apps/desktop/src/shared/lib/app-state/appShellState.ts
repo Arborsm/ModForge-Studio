@@ -26,15 +26,15 @@ type AppShellStateInput = {
   notificationSoundEnabled?: boolean | string | null
 }
 
-const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'debug']
+const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']
 
 function isAppMode(value: string | null): value is AppMode {
   return value === 'workbench' || value === 'launcher'
 }
 
 function parseLauncherPage(value: string | null): LauncherPage | null {
-  if (value === 'settings') {
-    return 'debug'
+  if (value === 'settings' || value === 'debug') {
+    return 'configuration'
   }
 
   return !!value && launcherPages.includes(value as LauncherPage) ? (value as LauncherPage) : null

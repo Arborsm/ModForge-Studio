@@ -497,12 +497,12 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
     onLauncherPageChange,
     onLauncherDiagnosticsUpdate,
   }: {
-    page: 'library' | 'discover' | 'updates' | 'debug'
+    page: 'library' | 'discover' | 'updates' | 'configuration'
     debugEnabled: boolean
     locale: 'en-US' | 'zh-CN'
     onAppModeChange: (mode: 'launcher' | 'workbench') => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
-    onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'debug') => void
+    onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'configuration') => void
     onNavigateToDiagnostics?: () => void
     onRetryDiagnostics?: (() => Promise<void> | void) | null
     onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
@@ -511,7 +511,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
     const labels =
       locale === 'zh-CN'
         ? {
-            debug: '配置',
+            configuration: '配置',
             discover: '发现',
             downloads: '下载',
             launchGame: '启动游戏',
@@ -521,7 +521,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
             workbench: '工作台',
           }
         : {
-            debug: 'Configuration',
+            configuration: 'Configuration',
             discover: 'Discover',
             downloads: 'Downloads',
             launchGame: 'Launch Game',
@@ -569,10 +569,10 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
         <button type="button">{labels.downloads}</button>
         <button
           type="button"
-          aria-current={activePage === 'debug' ? 'page' : undefined}
-          onClick={() => onLauncherPageChange('debug')}
+          aria-current={activePage === 'configuration' ? 'page' : undefined}
+          onClick={() => onLauncherPageChange('configuration')}
         >
-          {labels.debug}
+          {labels.configuration}
         </button>
         {activePage === 'library' ? <button type="button">{labels.launchGame}</button> : null}
       </div>
@@ -776,7 +776,7 @@ vi.mock('@shared/lib/app-state', () => ({
   normalizeAppShellState: (input?: Partial<MockAppUiState['shell']> | null) => ({
     appMode: input?.appMode === 'workbench' ? 'workbench' : 'launcher',
     launcherPage:
-      input?.launcherPage === 'discover' || input?.launcherPage === 'updates' || input?.launcherPage === 'debug'
+      input?.launcherPage === 'discover' || input?.launcherPage === 'updates' || input?.launcherPage === 'configuration'
         ? input.launcherPage
         : 'library',
     debugEnabled: input?.debugEnabled === true,
@@ -1061,14 +1061,14 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationTitle)).toBeTruthy()
+    expect(await screen.findByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationTitle)).toBeTruthy()
     expect(
       screen.getByText(
-        editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationImpact('Discover / automatic updates'),
+        editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationImpact('Discover / automatic updates'),
       ),
     ).toBeTruthy()
-    expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
-    expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationNote)).toBeTruthy()
+    expect(screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
+    expect(screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationNote)).toBeTruthy()
     expect(screen.queryByText(/Failed after 3 attempts: timeout/)).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeTruthy()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
@@ -1097,12 +1097,12 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationTitle)).toBeTruthy()
+    expect(await screen.findByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationTitle)).toBeTruthy()
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
   })
 
-  it('opens the launcher debug page from the diagnostics notification detail button', async () => {
+  it('opens the launcher configuration page from the diagnostics notification detail button', async () => {
     seedAppUiState({
       shell: { appMode: 'launcher' },
     })
@@ -1127,7 +1127,7 @@ describe('App locale ownership', () => {
     fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe('page')
+      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
     })
   })
 
@@ -1295,28 +1295,28 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('keeps the launcher tools page available when debug mode is disabled', () => {
+  it('keeps the launcher configuration page available when debug mode is disabled', () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
-        launcherPage: 'debug',
+        launcherPage: 'configuration',
         debugEnabled: false,
       },
     })
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
       'page',
     )
     expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
   })
 
-  it('keeps the launcher tools page active when debug mode is turned off', async () => {
+  it('keeps the launcher configuration page active when debug mode is turned off', async () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
-        launcherPage: 'debug',
+        launcherPage: 'configuration',
         debugEnabled: true,
       },
     })
@@ -1324,8 +1324,8 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }))
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }))
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
       'page',
     )
 
@@ -1340,12 +1340,12 @@ describe('App locale ownership', () => {
         expect.objectContaining({
           shell: expect.objectContaining({
             appMode: 'launcher',
-            launcherPage: 'debug',
+            launcherPage: 'configuration',
             debugEnabled: false,
           }),
         }),
       )
-      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
+      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
         'page',
       )
     })

@@ -1,0 +1,134 @@
+@layer components {
+  .nexusmods-bbcode {
+    display: block;
+    min-width: 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .nexusmods-bbcode a {
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .nexusmods-bbcode a:hover {
+    text-decoration: underline;
+  }
+
+  .nexusmods-bbcode ul,
+  .nexusmods-bbcode ol {
+    display: grid;
+    gap: 3px;
+    margin: 8px 0 8px 22px;
+    padding: 0;
+    white-space: normal;
+  }
+
+  .nexusmods-bbcode-list-bulleted {
+    list-style: disc;
+    list-style-position: outside;
+  }
+
+  .nexusmods-bbcode-list-ordered {
+    list-style-position: outside;
+  }
+
+  .nexusmods-bbcode-list-item {
+    display: list-item;
+    padding-left: 2px;
+  }
+
+  .nexusmods-bbcode-section-heading {
+    display: block;
+    margin-top: 1.1em;
+    margin-bottom: 0.25em;
+    font-style: italic;
+    text-decoration: underline;
+  }
+
+  .nexusmods-bbcode-indent {
+    display: inline-block;
+  }
+
+  .nexusmods-bbcode-indent-1 {
+    width: 2.4em;
+  }
+
+  .nexusmods-bbcode-indent-2 {
+    width: 4em;
+  }
+
+  .nexusmods-bbcode-indent-3 {
+    width: 5.6em;
+  }
+
+  .nexusmods-bbcode blockquote {
+    margin: 10px 0;
+    padding: 10px 12px;
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--accent-soft) 42%, var(--bg-panel-muted));
+    color: var(--text-secondary);
+  }
+
+  .nexusmods-bbcode pre {
+    margin: 10px 0;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-panel-muted);
+    overflow: auto;
+    white-space: pre;
+  }
+
+  .nexusmods-bbcode img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 10px auto;
+    border-radius: 10px;
+  }
+
+  .nexusmods-bbcode-align-center {
+    text-align: center;
+  }
+
+  .nexusmods-bbcode-align-left {
+    text-align: left;
+  }
+
+  .nexusmods-bbcode-align-right {
+    text-align: right;
+  }
+
+  .nexusmods-bbcode-align-justify {
+    text-align: justify;
+  }
+
+  .nexusmods-bbcode-underline {
+    text-decoration: underline;
+  }
+
+  .nexusmods-bbcode-spoiler {
+    margin: 10px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-panel);
+  }
+
+  .nexusmods-bbcode-spoiler summary {
+    cursor: pointer;
+    padding: 8px 10px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .nexusmods-bbcode-spoiler > div {
+    padding: 0 10px 10px;
+  }
+}

@@ -191,7 +191,7 @@ export default function App() {
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
     setDebugEnabled(true)
-    setLauncherPage('debug')
+    setLauncherPage('configuration')
   }, [])
 
   const handleLauncherDiagnosticsUpdate = useCallback(
@@ -405,7 +405,7 @@ export default function App() {
   const openSettingsWindow = useCallback((category: SettingsWindowCategory = 'appearance') => {
     if (category === 'launcher') {
       setAppMode('launcher')
-      setLauncherPage('debug')
+      setLauncherPage('configuration')
       setSettingsWindowOpen(false)
       return
     }

@@ -14,8 +14,8 @@ const LauncherDiscoverPage = lazy(() =>
 const LauncherUpdatesPage = lazy(() =>
   import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })),
 )
-const LauncherDebugPage = lazy(() =>
-  import('./LauncherDebugPage').then((module) => ({ default: module.LauncherDebugPage })),
+const LauncherConfigurationPage = lazy(() =>
+  import('./LauncherConfigurationPage').then((module) => ({ default: module.LauncherConfigurationPage })),
 )
 
 type LauncherShellProps = {
@@ -110,13 +110,13 @@ export default function LauncherShell({
           </Suspense>
         </div>
         <div
-          key="debug"
-          hidden={activePage !== 'debug'}
-          className={cx('launcher-shell-route', activePage === 'debug' && 'launcher-shell-route-active')}
+          key="configuration"
+          hidden={activePage !== 'configuration'}
+          className={cx('launcher-shell-route', activePage === 'configuration' && 'launcher-shell-route-active')}
         >
           <Suspense fallback={<LoadingMotionFallback />}>
-            {activePage === 'debug' ? (
-              <LauncherDebugPage
+            {activePage === 'configuration' ? (
+              <LauncherConfigurationPage
                 debugEnabled={debugEnabled}
                 onToggleDebugMode={onToggleDebugMode}
                 onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}

@@ -1,4 +1,7 @@
-use super::{load_or_create_settings_at_path, normalize_settings, save_settings_at_path};
+use super::{
+    default_download_path, load_or_create_settings_at_path, normalize_settings,
+    save_settings_at_path,
+};
 use crate::domain::launcher::types::LauncherSettings;
 use crate::test_support::create_temp_dir;
 use std::fs;
@@ -9,7 +12,18 @@ fn launcher_settings_create_default_and_save_roundtrip() {
     let settings_path = root.join("launcher").join("settings.json");
 
     let default_settings = load_or_create_settings_at_path(&settings_path).expect("load defaults");
-    assert_eq!(default_settings, LauncherSettings::default());
+    assert_eq!(
+        default_settings.download_path,
+        default_download_path().map(|path| path.to_string_lossy().to_string())
+    );
+    assert_eq!(
+        default_settings.game_path,
+        LauncherSettings::default().game_path
+    );
+    assert_eq!(
+        default_settings.mods_path,
+        LauncherSettings::default().mods_path
+    );
     assert!(settings_path.is_file());
 
     let saved_settings = LauncherSettings {
@@ -27,4 +41,17 @@ fn launcher_settings_create_default_and_save_roundtrip() {
     assert_eq!(reloaded, normalize_settings(saved_settings));
 
     fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_settings_backfills_missing_download_path_from_system_downloads() {
+    let settings = normalize_settings(LauncherSettings {
+        download_path: None,
+        ..LauncherSettings::default()
+    });
+
+    assert_eq!(
+        settings.download_path,
+        default_download_path().map(|path| path.to_string_lossy().to_string())
+    );
 }

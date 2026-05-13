@@ -80,6 +80,13 @@ pub struct LauncherLibraryScanResult {
     pub mods: Vec<LauncherLibraryModSummary>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRuntimeInfo {
+    pub game_version: Option<String>,
+    pub smapi_version: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherLibraryStorageFolder {

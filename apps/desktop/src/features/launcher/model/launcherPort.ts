@@ -5,6 +5,7 @@ import type {
   LauncherSettings,
   ScanLauncherLibraryRequest,
   LauncherLibraryScanResult,
+  LauncherRuntimeInfo,
   LauncherLibraryState,
   LauncherLibraryCoversState,
   SetLauncherLibraryCoverRequest,
@@ -47,6 +48,7 @@ export type LauncherPort = {
   loadSettings(): Promise<LauncherSettings>
   saveSettings(request: SaveLauncherSettingsRequest): Promise<LauncherSettings>
   scanLibrary(request: ScanLauncherLibraryRequest): Promise<LauncherLibraryScanResult>
+  loadRuntimeInfo(): Promise<LauncherRuntimeInfo>
   loadLibraryState(): Promise<LauncherLibraryState>
   saveLibraryState(request: LauncherLibraryState): Promise<LauncherLibraryState>
   loadLibraryCovers(): Promise<LauncherLibraryCoversState>

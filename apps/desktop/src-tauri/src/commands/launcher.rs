@@ -10,12 +10,13 @@ use crate::domain::launcher::types::{
     InstallLauncherArchiveResult, LauncherCatalogPageResult, LauncherDownloadQueueState,
     LauncherGameLaunchError, LauncherGameLaunchResult, LauncherInstallBackupSummary,
     LauncherLibraryCoversState, LauncherLibraryScanResult, LauncherLibraryState,
-    LauncherRemoteModDetail, LauncherSettings, LauncherSuppressedUpdateModIdsResult,
-    LauncherUpdateChangelogResult, LauncherUpdatesResult, ListLauncherInstallBackupsRequest,
-    LoadCachedLauncherUpdatesRequest, LoadLauncherRemoteModDetailRequest,
-    LoadLauncherUpdateChangelogRequest, LoadSuppressedLauncherUpdateModIdsRequest,
-    OpenLauncherPathRequest, OpenLauncherUrlRequest, PersistLauncherLibraryRemoteCoverRequest,
-    ResolveLauncherImageRequest, ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
+    LauncherRemoteModDetail, LauncherRuntimeInfo, LauncherSettings,
+    LauncherSuppressedUpdateModIdsResult, LauncherUpdateChangelogResult, LauncherUpdatesResult,
+    ListLauncherInstallBackupsRequest, LoadCachedLauncherUpdatesRequest,
+    LoadLauncherRemoteModDetailRequest, LoadLauncherUpdateChangelogRequest,
+    LoadSuppressedLauncherUpdateModIdsRequest, OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    PersistLauncherLibraryRemoteCoverRequest, ResolveLauncherImageRequest,
+    ResolveLauncherImageResult, RestoreLauncherInstallBackupRequest,
     RestoreLauncherInstallBackupResult, SaveLauncherSettingsRequest, ScanLauncherLibraryRequest,
     SearchLauncherCatalogRequest, SetLauncherLibraryCoverRequest, SetLauncherModEnabledRequest,
     SetLauncherModEnabledResult,
@@ -106,6 +107,33 @@ pub fn scan_launcher_library(
     request: ScanLauncherLibraryRequest,
 ) -> Result<LauncherLibraryScanResult, String> {
     library::scan_launcher_library(app, request)
+}
+
+#[tauri::command]
+pub fn load_launcher_runtime_info(app: tauri::AppHandle) -> Result<LauncherRuntimeInfo, String> {
+    let settings = settings::load_launcher_settings(app)?;
+    let Some(game_path) = settings
+        .game_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(LauncherRuntimeInfo {
+            game_version: None,
+            smapi_version: None,
+        });
+    };
+
+    let game_root = crate::infrastructure::fs::pathing::clean_input_path(game_path);
+    let versions = updates::resolve_smapi_runtime_versions_with_reader(
+        Some(game_root.as_path()),
+        updates::read_windows_file_version,
+    );
+
+    Ok(LauncherRuntimeInfo {
+        game_version: Some(versions.game_version),
+        smapi_version: Some(versions.api_version),
+    })
 }
 
 #[tauri::command]

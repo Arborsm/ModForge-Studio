@@ -367,7 +367,7 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'))
     await expectFile(sourcePath('src/pages/launcher/ui/LauncherDiscoverPage.tsx'))
     await expectFile(sourcePath('src/pages/launcher/ui/LauncherUpdatesPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherDebugPage.tsx'))
+    await expectFile(sourcePath('src/pages/launcher/ui/LauncherConfigurationPage.tsx'))
     await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchPage.tsx'))
     await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'))
     await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchLayoutHost.tsx'))
@@ -413,7 +413,8 @@ describe('frontend module architecture', () => {
     await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherLibraryPage.tsx'))).rejects.toThrow()
     await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherDiscoverPage.tsx'))).rejects.toThrow()
     await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherUpdatesPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherDebugPage.tsx'))).rejects.toThrow()
+    await expect(access(sourcePath('src/pages/launcher/ui/LauncherDebugPage.tsx'))).rejects.toThrow()
+    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherConfigurationPage.tsx'))).rejects.toThrow()
     await expect(access(sourcePath('src/features/launcher/ui/shared/LauncherDownloadsPopover.tsx'))).rejects.toThrow()
     await expect(access(sourcePath('src/features/launcher/ui/shared/LauncherProgressRing.tsx'))).rejects.toThrow()
   })
@@ -700,7 +701,7 @@ describe('frontend module architecture', () => {
     'entities/event/model/stage/eventStageShared.ts',
     'features/launcher/model/nexusDiagnostics.ts',
     'pages/launcher/LauncherPage.tsx',
-    'pages/launcher/ui/LauncherDebugPage.tsx',
+    'pages/launcher/ui/LauncherConfigurationPage.tsx',
     'pages/launcher/ui/LauncherDiscoverPage.tsx',
     'pages/launcher/ui/LauncherLibraryPage.tsx',
     'pages/launcher/ui/LauncherUpdatesPage.tsx',

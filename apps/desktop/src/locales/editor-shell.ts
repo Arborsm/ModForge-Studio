@@ -37,7 +37,7 @@ export type {
 } from '../locales'
 
 export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
-export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'debug']
+export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
   'zh-CN': localeBundles['zh-CN'].editor,

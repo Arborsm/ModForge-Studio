@@ -490,6 +490,11 @@ export type LauncherLibraryScanResult = {
   mods: LauncherLibraryModSummary[]
 }
 
+export type LauncherRuntimeInfo = {
+  gameVersion: string | null
+  smapiVersion: string | null
+}
+
 export type LauncherLibraryStorageFolder = {
   id: string
   name: string
@@ -1534,6 +1539,10 @@ export function scanLauncherLibrary(request: ScanLauncherLibraryRequest) {
   return readPending(scanLauncherLibraryCache, cacheKey, () =>
     invokeDesktop<LauncherLibraryScanResult>('scan_launcher_library', { request }),
   )
+}
+
+export function loadLauncherRuntimeInfo() {
+  return invokeDesktop<LauncherRuntimeInfo>('load_launcher_runtime_info')
 }
 
 export async function setLauncherModEnabled(request: SetLauncherModEnabledRequest) {

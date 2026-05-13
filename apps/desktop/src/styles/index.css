@@ -8,6 +8,7 @@
 @import "./primitives/menu.css";
 @import "./primitives/overlay.css";
 @import "./primitives/loading-motion.css";
+@import "./primitives/nexusmods-bbcode.css";
 @import "./workspace/top-menu.css";
 @import "./workspace/status-bar.css";
 @import "./features/settings-window.css";

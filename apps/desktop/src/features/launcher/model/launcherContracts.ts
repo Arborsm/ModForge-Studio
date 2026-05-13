@@ -45,6 +45,11 @@ export type LauncherLibraryScanResult = {
   mods: LauncherLibraryModSummary[]
 }
 
+export type LauncherRuntimeInfo = {
+  gameVersion: string | null
+  smapiVersion: string | null
+}
+
 export type LauncherLibraryStorageFolder = {
   id: string
   name: string

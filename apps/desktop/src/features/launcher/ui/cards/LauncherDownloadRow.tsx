@@ -78,7 +78,7 @@ export function LauncherDownloadRow({
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
   const sourceLabel =
-    item.source === 'updates' ? copy.pages.updates : item.source === 'debug' ? copy.pages.debug : copy.pages.discover
+    item.source === 'updates' ? copy.pages.updates : item.source === 'debug' ? copy.pages.configuration : copy.pages.discover
   const secondaryLabel = [sourceLabel, item.version ?? rootCopy.common.none].join(' / ')
   const resolvedPath = item.installedTargetPath ?? item.archivePath
   const canRetry = item.status === 'failed'
