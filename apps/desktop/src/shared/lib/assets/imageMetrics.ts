@@ -6,10 +6,12 @@ type ImageDataUrlLoader = (path: string, locale?: string) => Promise<string>
 
 let imageDataUrlLoader: ImageDataUrlLoader | null = null
 
+/** Configures how local image paths are loaded as data URLs. */
 export function configureImageDataUrlLoader(loader: ImageDataUrlLoader) {
   imageDataUrlLoader = loader
 }
 
+/** Decoded browser image plus natural dimensions. */
 export type LoadedImageResource = {
   image: HTMLImageElement
   url: string
@@ -23,6 +25,7 @@ const MAX_PATH_IMAGE_RESOURCE_CACHE_ENTRIES = 128
 const imageResourceCache = new Map<string, Promise<LoadedImageResource>>()
 const pathImageResourceCache = new Map<string, Promise<LoadedImageResource | null>>()
 
+/** Returns locale-specific image path candidates, falling back to the base path. */
 export function getLocalizedImagePathCandidates(path: string, locale?: string) {
   if (!locale || locale === 'en-US') {
     return [path]
@@ -49,6 +52,7 @@ function loadConfiguredImageDataUrl(path: string, locale?: string) {
   return imageDataUrlLoader(path, locale)
 }
 
+/** Decodes an image URL and caches the pending/completed browser image resource. */
 export async function loadImageResource(url: string) {
   const cached = imageResourceCache.get(url)
   if (cached) {
@@ -76,6 +80,7 @@ export async function loadImageResource(url: string) {
   return pending
 }
 
+/** Loads a local image path through the configured data URL loader and decodes it. */
 export async function loadImageResourceFromPath(path: string, locale?: string) {
   const cacheKey = getLocalizedPathCacheKey(path, locale)
   const cached = pathImageResourceCache.get(cacheKey)
@@ -95,10 +100,12 @@ export async function loadImageResourceFromPath(path: string, locale?: string) {
   return pending
 }
 
+/** Loads only the data URL for a local image path without decoding dimensions. */
 export function loadImageUrlFromPath(path: string, locale?: string) {
   return loadConfiguredImageDataUrl(path, locale)
 }
 
+/** Clears localized path image metrics after the active locale changes. */
 export function clearImageMetricsLocaleCache(locale: string) {
   const normalizedLocale = locale.trim()
   if (!normalizedLocale) {
@@ -116,6 +123,7 @@ export function clearImageMetricsLocaleCache(locale: string) {
   imageResourceCache.clear()
 }
 
+/** Measures a decoded image URL using the shared image resource cache. */
 export async function measureImageDimensions(url: string) {
   const resource = await loadImageResource(url)
   return {

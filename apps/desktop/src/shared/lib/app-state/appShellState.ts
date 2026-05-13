@@ -1,5 +1,6 @@
 import type { AppMode, LauncherPage } from '@locales/editor-shell'
 
+/** Minimal app shell state kept for legacy/local callers that do not need full AppUiState. */
 export type AppShellState = {
   appMode: AppMode
   launcherPage: LauncherPage
@@ -7,6 +8,7 @@ export type AppShellState = {
   notificationSoundEnabled: boolean
 }
 
+/** Default shell route and toggle state. */
 export const DEFAULT_APP_SHELL_STATE: AppShellState = {
   appMode: 'launcher',
   launcherPage: 'library',
@@ -51,6 +53,7 @@ function parseStoredBoolean(value: string | null, fallback: boolean) {
   return fallback
 }
 
+/** Normalizes persisted shell state values from booleans or string-backed storage. */
 export function normalizeAppShellState(input?: AppShellStateInput | null): AppShellState {
   const appMode = input?.appMode ?? null
   const launcherPage = input?.launcherPage ?? null

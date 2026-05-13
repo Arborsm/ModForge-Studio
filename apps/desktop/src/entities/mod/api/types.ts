@@ -1,6 +1,7 @@
 export type PluginKind = 'content-patcher' | 'unknown'
 export type PluginDiagnosticSeverity = 'info' | 'warning' | 'error'
 
+/** Lightweight mod project metadata shown in mod workspace browsers. */
 export type ModProjectSummary = {
   id: string
   name: string
@@ -18,12 +19,14 @@ export type ModProjectSummary = {
   missingRequiredDependencies: string[]
 }
 
+/** User-facing diagnostic emitted while scanning, loading, simulating, or saving a mod project. */
 export type ModProjectDiagnostic = {
   severity: PluginDiagnosticSeverity
   message: string
   field: string | null
 }
 
+/** One Content Patcher change entry summarized for navigation and editing. */
 export type ContentPatcherPatchSummary = {
   id: string
   index: number
@@ -36,6 +39,7 @@ export type ContentPatcherPatchSummary = {
   updateKeys: string[]
 }
 
+/** Editable Content Patcher source data loaded from manifest/content files. */
 export type ContentPatcherProjectData = {
   manifestPath: string
   contentPath: string
@@ -50,6 +54,7 @@ export type ContentPatcherProjectData = {
   patches: ContentPatcherPatchSummary[]
 }
 
+/** Full mod project payload with plugin-specific editable data when supported. */
 export type ModProjectDetail = {
   pluginKind: PluginKind
   capabilities: string[]
@@ -58,6 +63,7 @@ export type ModProjectDetail = {
   contentPatcher: ContentPatcherProjectData | null
 }
 
+/** Stable identity and path metadata for a Content Patcher project snapshot. */
 export type ContentPatcherProjectSummary = {
   name: string | null
   uniqueId: string | null
@@ -67,17 +73,20 @@ export type ContentPatcherProjectSummary = {
   contentPath: string | null
 }
 
+/** Raw Content Patcher source file included in a snapshot. */
 export type ContentPatcherSourceFile = {
   path: string
   absolutePath: string
   rawJson: string
 }
 
+/** Include relationship between Content Patcher source files. */
 export type ContentPatcherIncludeEdge = {
   sourcePath: string
   includedPath: string
 }
 
+/** Complete Content Patcher source snapshot used for unsaved simulation. */
 export type ContentPatcherProjectSnapshot = {
   summary: ContentPatcherProjectSummary
   sources: ContentPatcherSourceFile[]
@@ -85,6 +94,7 @@ export type ContentPatcherProjectSnapshot = {
   diagnostics: ModProjectDiagnostic[]
 }
 
+/** Planned Content Patcher change after conditions and includes are evaluated. */
 export type ContentPatcherPlannedPatch = {
   id: string
   action: string
@@ -97,10 +107,12 @@ export type ContentPatcherPlannedPatch = {
   update: string[]
 }
 
+/** Ordered Content Patcher simulation plan. */
 export type ContentPatcherPatchPlan = {
   patches: ContentPatcherPlannedPatch[]
 }
 
+/** Simulated game state and mod context used to evaluate Content Patcher conditions. */
 export type ContentPatcherSimulationContext = {
   season?: string
   weather?: string
@@ -162,6 +174,7 @@ export type ContentPatcherSimulationContext = {
   ignoreEntryWhenConditions?: boolean
 }
 
+/** Request to simulate Content Patcher output from disk or an unsaved editor snapshot. */
 export type SimulateContentPatcherRequest = {
   path?: string | null
   gameRootPath?: string | null
@@ -171,12 +184,14 @@ export type SimulateContentPatcherRequest = {
   context?: ContentPatcherSimulationContext | null
 }
 
+/** Per-patch condition result from a Content Patcher simulation. */
 export type ContentPatcherPatchStatus = {
   patchId: string | null
   status: 'applied' | 'skipped' | 'indeterminate'
   reasons: string[]
 }
 
+/** Asset target touched by a Content Patcher simulation. */
 export type ContentPatcherTargetSummary = {
   path: string
   assetKind: 'json' | 'image' | 'map' | string
@@ -185,6 +200,7 @@ export type ContentPatcherTargetSummary = {
   patchIds: string[]
 }
 
+/** Trace entry explaining how one patch affected a simulated target. */
 export type ContentPatcherTraceEntry = {
   patchId: string
   logName: string
@@ -196,6 +212,7 @@ export type ContentPatcherTraceEntry = {
   diagnostics: ModProjectDiagnostic[]
 }
 
+/** Preview payload for one simulated Content Patcher target. */
 export type ContentPatcherResultAssetPayload = {
   kind: 'json' | 'image' | 'map' | string
   json: unknown | null
@@ -205,10 +222,12 @@ export type ContentPatcherResultAssetPayload = {
   mapDebug: Record<string, unknown> | null
 }
 
+/** Request to materialize one simulated target for preview. */
 export type LoadContentPatcherResultAssetRequest = SimulateContentPatcherRequest & {
   target: string
 }
 
+/** Materialized preview result for one simulated Content Patcher target. */
 export type LoadContentPatcherResultAssetResult = {
   target: ContentPatcherTargetSummary
   trace: ContentPatcherTraceEntry[]
@@ -217,11 +236,13 @@ export type LoadContentPatcherResultAssetResult = {
   exportable: boolean
 }
 
+/** Request to export one simulated target to disk. */
 export type ExportContentPatcherAssetRequest = SimulateContentPatcherRequest & {
   target: string
   outputPath: string
 }
 
+/** Result of exporting one simulated Content Patcher target. */
 export type ExportContentPatcherAssetResult = {
   target: string
   outputPath: string
@@ -229,6 +250,7 @@ export type ExportContentPatcherAssetResult = {
   diagnostics: ModProjectDiagnostic[]
 }
 
+/** Complete Content Patcher simulation result for navigation, diagnostics, and previews. */
 export type ContentPatcherSimulationResult = {
   plan: ContentPatcherPatchPlan
   targets: ContentPatcherTargetSummary[]
@@ -237,6 +259,7 @@ export type ContentPatcherSimulationResult = {
   dynamicTokens: Record<string, unknown>
 }
 
+/** Request to save editable mod project files, optionally to a new output path. */
 export type SaveModProjectRequest = {
   sourcePath: string
   outputPath?: string | null
@@ -244,6 +267,7 @@ export type SaveModProjectRequest = {
   contentJson: string
 }
 
+/** Paths and diagnostics returned after saving a mod project. */
 export type SaveModProjectResult = {
   pluginKind: PluginKind
   targetPath: string
@@ -252,6 +276,7 @@ export type SaveModProjectResult = {
   diagnostics: ModProjectDiagnostic[]
 }
 
+/** Reference to an asset touched by one or more installed content packs. */
 export type ModAssetReference = {
   key: string
   label: string
@@ -259,6 +284,7 @@ export type ModAssetReference = {
   patchIds: string[]
 }
 
+/** Asset references grouped by installed mod. */
 export type ModAssetIndexGroup = {
   modId: string
   modName: string
@@ -271,6 +297,7 @@ export type ModAssetIndexGroup = {
   items: ModAssetReference[]
 }
 
+/** Cross-mod index used by workbench source browsers. */
 export type ModAssetIndex = {
   mods: ModAssetIndexGroup[]
 }

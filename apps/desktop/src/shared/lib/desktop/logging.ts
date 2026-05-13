@@ -2,6 +2,7 @@ import { canUseDesktopHost, invokeDesktop } from './runtime'
 
 export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'
 
+/** Structured frontend log entry forwarded to the desktop logger. */
 export type FrontendLogRequest = {
   level: FrontendLogLevel
   message: string
@@ -41,6 +42,7 @@ function mirrorFrontendLogToConsole(request: FrontendLogRequest) {
   logMethod(request.message, Object.fromEntries(entries))
 }
 
+/** Mirrors a frontend log to the browser console and forwards it to the desktop logger when available. */
 export async function writeFrontendLog(request: FrontendLogRequest) {
   mirrorFrontendLogToConsole(request)
 
@@ -51,6 +53,7 @@ export async function writeFrontendLog(request: FrontendLogRequest) {
   await invokeDesktop<void>('write_frontend_log', { request })
 }
 
+/** Enables or disables verbose desktop-side debug logging. */
 export async function setDesktopDebugLoggingEnabled(enabled: boolean) {
   if (!canUseDesktopHost()) {
     return

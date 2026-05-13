@@ -14,6 +14,7 @@ let appUiStatePersistence: AppUiStatePersistence = {
   patch: async (request) => mergePatchIntoSnapshot(snapshot, request),
 }
 
+/** Configures the persistence adapter used by app UI state helpers. */
 export function configureAppUiStatePersistence(persistence: AppUiStatePersistence) {
   appUiStatePersistence = persistence
   snapshot = createDefaultAppUiState()
@@ -29,6 +30,7 @@ function defaultLocale() {
   return 'en-US'
 }
 
+/** Creates a normalized default UI state for first launch or non-desktop fallback. */
 export function createDefaultAppUiState(): AppUiState {
   return {
     version: 1,
@@ -197,10 +199,12 @@ let snapshot = createDefaultAppUiState()
 let initializePromise: Promise<AppUiState> | null = null
 let patchQueue = Promise.resolve(snapshot)
 
+/** Returns the current in-memory app UI state snapshot. */
 export function getAppUiStateSnapshot() {
   return snapshot
 }
 
+/** Loads persisted UI state once, normalizes it, and caches the initialized snapshot. */
 export async function initializeAppUiState() {
   if (initializePromise) {
     return initializePromise
@@ -250,6 +254,7 @@ function mergePatchIntoSnapshot(current: AppUiState, patch: PatchAppUiStateReque
   })
 }
 
+/** Serializes UI state patches so concurrent callers cannot overwrite each other. */
 export async function applyAppUiStatePatch(patch: PatchAppUiStateRequest) {
   patchQueue = patchQueue.then(async () => {
     if (!appUiStatePersistence.canPersist()) {

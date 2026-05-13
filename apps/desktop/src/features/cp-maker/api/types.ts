@@ -2,6 +2,7 @@ import type { GameDirectoryInfo } from '@entities/game/api/types'
 
 export type { GameDirectoryInfo }
 
+/** Content pack target dependency selected from scanned mods or manual entry. */
 export type CpMakerOverlayTarget = {
   uniqueId: string
   displayName: string | null
@@ -9,6 +10,7 @@ export type CpMakerOverlayTarget = {
   source: 'scanned-mod' | 'manual'
 }
 
+/** Lightweight CP Maker draft metadata for draft lists. */
 export type CpMakerDraftSummary = {
   draftStorageKey: string
   projectName: string
@@ -17,6 +19,7 @@ export type CpMakerDraftSummary = {
   lastExportedAt: number | null
 }
 
+/** Complete persisted CP Maker draft payload. */
 export type CpMakerDraftRecord = {
   draftStorageKey: string
   projectMetadata: {
@@ -47,10 +50,12 @@ export type CpMakerDraftRecord = {
   } | null
 }
 
+/** Request to duplicate an existing draft by storage key. */
 export type CopyCpMakerDraftRequest = {
   source_draft_storage_key: string
 }
 
+/** Request to export a generated Content Patcher pack to disk. */
 export type CpMakerExportRequest = {
   output_path: string
   manifest_json: string
@@ -58,6 +63,7 @@ export type CpMakerExportRequest = {
   virtual_assets: VirtualPreviewAsset[]
 }
 
+/** Paths written by a CP Maker export operation. */
 export type CpMakerExportResult = {
   output_path: string
   manifest_path: string
@@ -65,11 +71,13 @@ export type CpMakerExportResult = {
   virtual_asset_paths: string[]
 }
 
+/** Request to build a previewable map asset from an in-memory map document. */
 export type BuildCpMakerMapAssetRequest = {
   relative_path: string
   map_document: unknown // MapDocument from backend
 }
 
+/** Virtual asset bundled into preview/export flows before it exists on disk. */
 export type VirtualPreviewAsset = {
   relativePath: string
   mediaType: string

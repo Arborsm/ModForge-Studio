@@ -58,14 +58,17 @@ export function isValidIntensityId(value: unknown): value is LoadingMotionIntens
   return LOADING_MOTION_INTENSITY_IDS.includes(value as LoadingMotionIntensityId)
 }
 
+/** Returns true when the given value is a valid LoadingMotionSpeedId. */
 export function isValidSpeedId(value: unknown): value is LoadingMotionSpeedId {
   return LOADING_MOTION_SPEED_IDS.includes(value as LoadingMotionSpeedId)
 }
 
+/** Returns true when the given value is a supported speed mode. */
 export function isValidSpeedMode(value: unknown): value is LoadingMotionSpeedMode {
   return value === 'preset' || value === 'custom'
 }
 
+/** Resolves a preset loading motion speed into its numeric multiplier. */
 export function getLoadingMotionSpeedMultiplier(speedId: LoadingMotionSpeedId): number {
   switch (speedId) {
     case 'slow':
@@ -77,6 +80,7 @@ export function getLoadingMotionSpeedMultiplier(speedId: LoadingMotionSpeedId): 
   }
 }
 
+/** Clamps and rounds a custom loading motion speed multiplier. */
 export function normalizeLoadingMotionSpeedMultiplier(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 1
@@ -115,6 +119,7 @@ export function normalizeLoadingMotionPreference(
   }
 }
 
+/** Creates a normalized loading motion preference from partial persisted input. */
 export function createLoadingMotionPreference(
   raw: Partial<LoadingMotionPreference> | null | undefined,
 ): LoadingMotionPreference {
@@ -159,6 +164,7 @@ export function resolveLoadingMotionConfig(
   }
 }
 
+/** Extracts the speed-only state from a full loading motion preference. */
 export function getLoadingMotionSpeedState(preference: LoadingMotionPreference) {
   return {
     speedMode: preference.speedMode,
@@ -273,6 +279,7 @@ export function getIntensityLabel(id: LoadingMotionIntensityId, locale: 'zh-CN' 
   return locale === 'zh-CN' ? entry.labelZh : entry.labelEn
 }
 
+/** Looks up the product-facing label for a loading motion speed id. */
 export function getSpeedLabel(id: LoadingMotionSpeedId, locale: 'zh-CN' | 'en-US'): string {
   const entry = LOADING_MOTION_SPEED_LABELS.find((e) => e.id === id)
   if (!entry) {

@@ -23,6 +23,7 @@ const loadContentPatcherProjectCache = createPromiseCache<ContentPatcherProjectS
 const simulateContentPatcherCache = createPromiseCache<ContentPatcherSimulationResult>()
 const loadContentPatcherResultAssetCache = createPromiseCache<LoadContentPatcherResultAssetResult>()
 
+/** Returns cache sizes for mod and Content Patcher desktop APIs. */
 export function getModApiCacheStats() {
   return {
     scanModProjects: scanModProjectsCache.size(),
@@ -34,6 +35,7 @@ export function getModApiCacheStats() {
   }
 }
 
+/** Scans a Mods folder for supported and unsupported mod projects. */
 export function scanModProjects(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
   return readCached(scanModProjectsCache, cacheKey, () =>
@@ -41,6 +43,7 @@ export function scanModProjects(rootPath: string) {
   )
 }
 
+/** Builds a cross-mod index of assets touched by installed content packs. */
 export function scanModAssetIndex(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
   return readCached(scanModAssetIndexCache, cacheKey, () =>
@@ -48,11 +51,13 @@ export function scanModAssetIndex(rootPath: string) {
   )
 }
 
+/** Loads a mod project summary, diagnostics, and plugin-specific editable data. */
 export function loadModProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadModProjectCache, cacheKey, () => invokeDesktop<ModProjectDetail>('load_mod_project', { path }))
 }
 
+/** Loads a Content Patcher project snapshot including included source files. */
 export function loadContentPatcherProject(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
   return readPending(loadContentPatcherProjectCache, cacheKey, () =>
@@ -60,6 +65,7 @@ export function loadContentPatcherProject(path: string) {
   )
 }
 
+/** Simulates Content Patcher changes for a project or unsaved editor snapshot. */
 export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(simulateContentPatcherCache, cacheKey, () =>
@@ -67,6 +73,7 @@ export function simulateContentPatcher(request: SimulateContentPatcherRequest) {
   )
 }
 
+/** Materializes one simulated Content Patcher target for preview in the UI. */
 export function loadContentPatcherResultAsset(request: LoadContentPatcherResultAssetRequest) {
   const cacheKey = JSON.stringify(request)
   return readPending(loadContentPatcherResultAssetCache, cacheKey, () =>
@@ -74,10 +81,12 @@ export function loadContentPatcherResultAsset(request: LoadContentPatcherResultA
   )
 }
 
+/** Exports one simulated Content Patcher result asset to disk. */
 export function exportContentPatcherAsset(request: ExportContentPatcherAssetRequest) {
   return invokeDesktop<ExportContentPatcherAssetResult>('export_content_patcher_asset', { request })
 }
 
+/** Saves a mod project, then clears project and mod index caches affected by the write. */
 export async function saveModProject(request: SaveModProjectRequest) {
   const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', request)
   const normalizedSource = normalizeCachePathSegment(request.sourcePath)

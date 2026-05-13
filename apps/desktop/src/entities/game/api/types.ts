@@ -1,3 +1,4 @@
+/** Validated Stardew Valley game directory metadata used by workbench editors. */
 export type GameDirectoryInfo = {
   rootPath: string
   executablePath: string
@@ -5,6 +6,7 @@ export type GameDirectoryInfo = {
   mapCount: number
 }
 
+/** Lightweight map asset entry shown in map pickers and search results. */
 export type MapAssetSummary = {
   id: string
   name: string
@@ -15,6 +17,7 @@ export type MapAssetSummary = {
   sizeBytes: number
 }
 
+/** Lightweight event asset entry shown in event workspace pickers. */
 export type EventAssetSummary = {
   id: string
   name: string
@@ -24,6 +27,7 @@ export type EventAssetSummary = {
   sizeBytes: number
 }
 
+/** Full map asset payload returned for editor loading and preview. */
 export type MapAssetContent = {
   name: string
   format: 'tmx' | 'tbin' | 'xnb'
@@ -32,17 +36,20 @@ export type MapAssetContent = {
   content: string
 }
 
+/** Full text/data asset payload returned for editor loading and preview. */
 export type TextAssetContent = {
   absolutePath: string
   relativePath: string
   content: string
 }
 
+/** Local text file payload loaded outside the Stardew asset tree. */
 export type LocalTextFileContent = {
   absolutePath: string
   content: string
 }
 
+/** Save slot discovered from the default Stardew Valley save directory. */
 export type DefaultSaveSlotSummary = {
   slotName: string
   folderPath: string
@@ -50,6 +57,7 @@ export type DefaultSaveSlotSummary = {
   modifiedTimeMs: number
 }
 
+/** Audio cue or file summary used by event preview playback. */
 export type AudioAssetSummary = {
   cue: string
   kind: 'music' | 'sound'

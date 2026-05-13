@@ -253,6 +253,19 @@ Rules:
 - For `shared`, split exports by intent (`shared/ui`, `shared/lib`, `shared/contracts`, `shared/types`) rather than creating one giant barrel.
 - If a project grows beyond one sensible root, split it into multiple packages or roots instead of accumulating more barrel layers.
 
+## Public API Comments
+
+Public and cross-layer APIs must carry concise JSDoc so call sites can understand the boundary from editor hover text.
+
+Required:
+
+- `features/*/api` and `entities/*/api` request/result functions and DTOs.
+- Stable exports from `features/*/index.ts`, `entities/*/index.ts`, and `shared/*/index.ts` when they are intended for other layers.
+- Shared utilities under `shared/lib/*` that are consumed by app/pages/widgets/features/entities.
+- Core contracts under `shared/contracts/*`, especially registry, commands, events, platform ports, and workspace/runtime types.
+
+Comments should describe purpose, owner boundary, important cache behavior, and side effects. Avoid comments that restate the implementation line-by-line. When an API is removed, delete its comments with it; do not leave compatibility or migration notes in code.
+
 ## Boundary Debt
 
 The main legacy roots are gone. Remaining frontend architecture debt should be tracked as explicit, shrinking baselines rather than compatibility shims.

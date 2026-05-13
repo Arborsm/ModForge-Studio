@@ -1,3 +1,4 @@
+/** Loader result accepted by resource caches, with optional size and disposer metadata. */
 type CacheLoaderResult<TValue> = {
   value: TValue
   size?: number
@@ -18,12 +19,14 @@ type InflightCacheEntry<TValue> = {
 
 type CacheEntry<TValue> = CompletedCacheEntry<TValue> | InflightCacheEntry<TValue>
 
+/** Resource cache limits and optional value size estimator. */
 type CreateResourceCacheOptions<TValue> = {
   maxEntries: number
   maxBytes?: number
   getSize?: (value: TValue) => number
 }
 
+/** Runtime cache statistics for debug panels and tests. */
 type ResourceCacheStats = {
   entries: number
   inflight: number
@@ -34,6 +37,7 @@ function isCompletedEntry<TValue>(entry: CacheEntry<TValue> | undefined): entry 
   return entry?.kind === 'completed'
 }
 
+/** Creates a small LRU-style async cache that deduplicates in-flight loads. */
 export function createResourceCache<TValue>({
   maxEntries,
   maxBytes = Number.POSITIVE_INFINITY,

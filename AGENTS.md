@@ -200,6 +200,8 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - 渲染层优先按职责放 `shared/ui`、`widgets/*`、`features/*/ui` 或页面私有 `pages/*/ui`；不要新增迁移期 `components/`。
 - UI 文案通过类型化 locale bundles 与 locale hooks 消费；**禁止**在 React 层通过 `copy` / `locale` props 层层透传。
 - 非 React 逻辑可以显式接收 locale 或 copy 参数。
+- 公共 API 必须有简洁 JSDoc：包括 slice/entity 的 `index.ts` 对外导出、`features/*/api`、`entities/*/api`、`shared/lib/*` 的跨层工具、`shared/contracts/*` 的核心类型，以及会被多个模块复用的 hook / helper。注释说明“用途、边界、缓存或副作用”，不要写实现逐行复述。
+- 新增或迁移 API 时，同步补注释；如果删除旧 API，也删除过期注释，不保留兼容说明或迁移历史。
 - 提交前端改动前必须运行 `pnpm lint`。
 
 ## 测试策略

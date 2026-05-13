@@ -88,6 +88,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 在已经有 slices 的层里，避免再给 segment 叠 `index.ts`，除非它真的是稳定的对外入口。
 - `shared` 以意图拆分的 segment public API 为主，避免单一巨型 `shared/index.ts`。
 - 大量 barrel 文件会拖慢开发服务器和 tree-shaking，新增出口前先判断它是不是必须的公共边界。
+- 跨层公共 API 需要简洁 JSDoc，覆盖用途、归属边界、缓存或副作用；不要写逐行解释，也不要保留迁移/兼容注释。
 
 ## 功能索引
 
