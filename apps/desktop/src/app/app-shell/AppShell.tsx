@@ -36,7 +36,6 @@ import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/no
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
 import {
   applyAppUiStatePatch,
-  clearLegacyBrowserUiState,
   configureAppUiStatePersistence,
   getAppUiStateSnapshot,
   initializeAppUiState,
@@ -167,7 +166,6 @@ export default function App() {
         const nextShellState = normalizeAppShellState(state.shell)
         const nextLocale = resolveLocale(state.appearance.locale)
 
-        clearLegacyBrowserUiState()
         setLocale(nextLocale)
         setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
         setAppMode(nextShellState.appMode)

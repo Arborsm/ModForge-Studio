@@ -6,8 +6,8 @@ use super::paths::{
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherLibraryCover, LauncherLibraryCoversState, LauncherLibraryModSummary,
-    LauncherLibraryPackPreset, LauncherLibraryScanResult, LauncherLibraryScopeMode,
-    LauncherLibraryState, LauncherLibraryStorageFolder, PersistLauncherLibraryRemoteCoverRequest,
+    LauncherLibraryPackPreset, LauncherLibraryScanResult, LauncherLibraryState,
+    LauncherLibraryStorageFolder, PersistLauncherLibraryRemoteCoverRequest,
     ResolveLauncherImageRequest, ScanLauncherLibraryRequest, SetLauncherLibraryCoverRequest,
     SetLauncherModEnabledRequest, SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID,
     UNSORTED_STORAGE_FOLDER_NAME,
@@ -18,7 +18,6 @@ use crate::domain::manifest::{
     string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -29,23 +28,6 @@ struct ScannedLauncherMod {
     project_path: PathBuf,
     manifest: Value,
     enabled: bool,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LegacyLauncherLibraryLabel {
-    pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub hidden: bool,
-    #[serde(default)]
-    pub mod_keys: Vec<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct LegacyLauncherLibraryLabelsState {
-    pub labels: Vec<LegacyLauncherLibraryLabel>,
 }
 
 fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState {
@@ -170,32 +152,6 @@ fn normalize_library_state(state: LauncherLibraryState) -> LauncherLibraryState 
     }
 }
 
-fn migrate_legacy_library_labels(
-    legacy_state: LegacyLauncherLibraryLabelsState,
-) -> LauncherLibraryState {
-    let mut storage_folders = Vec::new();
-    let mut hidden_mod_keys = Vec::new();
-    for label in legacy_state.labels {
-        if label.hidden {
-            hidden_mod_keys.extend(label.mod_keys);
-            continue;
-        }
-        storage_folders.push(LauncherLibraryStorageFolder {
-            id: label.id,
-            name: label.name,
-            mod_keys: label.mod_keys,
-        });
-    }
-
-    normalize_library_state(LauncherLibraryState {
-        storage_folders,
-        hidden_mod_keys,
-        pack_presets: Vec::new(),
-        current_pack_id: None,
-        scope_mode: LauncherLibraryScopeMode::All,
-    })
-}
-
 fn normalize_library_covers(state: LauncherLibraryCoversState) -> LauncherLibraryCoversState {
     let mut seen = BTreeSet::new();
 
@@ -247,13 +203,6 @@ pub(crate) fn load_or_create_library_state_at_path(
         if let Ok(parsed) = serde_json::from_str::<LauncherLibraryState>(&content) {
             return Ok(normalize_library_state(parsed));
         }
-        if let Ok(legacy_state) = serde_json::from_str::<LegacyLauncherLibraryLabelsState>(&content)
-        {
-            let migrated = migrate_legacy_library_labels(legacy_state);
-            save_library_state_at_path(state_path, &migrated)?;
-            return Ok(migrated);
-        }
-
         return Err(format!(
             "Launcher library state {} is invalid JSON.",
             normalize_path(state_path)

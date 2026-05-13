@@ -118,8 +118,6 @@ describe('frontend module architecture', () => {
     const appEntry = await readFile(sourcePath('src/app/App.tsx'), 'utf8')
     const appShellBridge = await readFile(sourcePath('src/app/app-shell/index.ts'), 'utf8')
 
-    await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
     expect(mainEntry).toContain("from '@app/App'")
     expect(mainEntry).not.toContain("from './App'")
     expect(appEntry).toContain("from '@app/app-shell/AppShell'")
@@ -290,8 +288,6 @@ describe('frontend module architecture', () => {
     expect(appShellSource).toContain("import('@pages/workbench')")
     expect(registrySetupSource).toContain("from '@features/cp-maker'")
     expect(registrySetupSource).not.toContain("from '@pages/workbench'")
-    await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
     expect(launcherSource).toContain("from './ui/LauncherShell'")
     expect(launcherSource).toContain('useLauncherRuntime(locale)')
     expect(launcherSource).toContain('useLauncherUpdateProgressNotifications(locale)')
@@ -360,66 +356,7 @@ describe('frontend module architecture', () => {
     expect(violations).toEqual([])
   })
 
-  it('creates the new root modules and removes obsolete compatibility shims', async () => {
-    await expectFile(sourcePath('src/app/app-shell/AppShell.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/LauncherPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherShell.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherDiscoverPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherUpdatesPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherConfigurationPage.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchPage.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchLayoutHost.tsx'))
-    await expectFile(sourcePath('src/widgets/top-navigation/ui/TopMenuBar.tsx'))
-    await expectFile(sourcePath('src/widgets/status-bar/ui/StatusBar.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/DevDebugOverlay.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/InitializationOverlay.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/PlayerAppearanceWindow.tsx'))
-    await expectFile(sourcePath('src/app/app-shell/SettingsWindow.tsx'))
-    await expectFile(sourcePath('src/app/App.test.tsx'))
-    await expectFile(sourcePath('src/features/cp-maker/ui/EditWorkspaceContent.tsx'))
-    await expect(access(sourcePath('src/pages/workbench/page.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/pages/workbench/registry.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/pages/workbench/ui/EditWorkspaceContent.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/components'))).rejects.toThrow()
-    await expect(access(sourcePath('src/lib'))).rejects.toThrow()
-    await expectFile(sourcePath('src/entities/event/model/gameStateQueryCatalog.ts'))
-    await expectFile(sourcePath('src/entities/event/model/gameStateQuerySemantics.ts'))
-    await expectFile(sourcePath('src/entities/event/model/preconditionSemantics.ts'))
-    await expectFile(sourcePath('src/entities/event/model/patchHub.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/model/studioDeskModel.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/routing/editModeRoute.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/state/useCpMaker.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/index.ts'))
-    await expect(access(sourcePath('src/features/cp-maker/routing/index.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/cp-maker/state/index.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/cp-maker/ui/index.ts'))).rejects.toThrow()
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/buildWorkspacePanels.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/core.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/items.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/mods.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/types.ts'))
-    await expectFile(sourcePath('src/platform/desktop/index.ts'))
-    await expectFile(sourcePath('src/platform/plugins/workspaceRegistry.ts'))
-    await expectFile(sourcePath('src/shared/ui/WorkspaceDeferred.tsx'))
-    await expectFile(sourcePath('src/features/cp-maker/ui/EventConditionBuilderModal.tsx'))
-    await expectFile(sourcePath('src/features/cp-maker/ui/EventGameStateQueryBuilderModal.tsx'))
-    await expect(access(sourcePath('src/shared/ui/cp-maker'))).rejects.toThrow()
-    await expectFile(sourcePath('src/shared/contracts/types/cpMaker.ts'))
-
-    await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherLibraryPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherDiscoverPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherUpdatesPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/pages/launcher/ui/LauncherDebugPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherConfigurationPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/shared/LauncherDownloadsPopover.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/shared/LauncherProgressRing.tsx'))).rejects.toThrow()
-  })
-
-  it('keeps platform plugin modules decoupled from legacy component paths', async () => {
+  it('keeps platform plugin modules decoupled from removed component paths', async () => {
     const builtInWorkspaces = await readFile(sourcePath('src/pages/workbench/model/builtInWorkspaces.ts'), 'utf8')
     const workspaceRegistry = await readFile(sourcePath('src/platform/plugins/workspaceRegistry.ts'), 'utf8')
     const workspacePanelTypes = await readFile(sourcePath('src/pages/workbench/model/workspace-panels/types.ts'), 'utf8')
@@ -507,7 +444,7 @@ describe('frontend module architecture', () => {
   )
 
   it(
-    'blocks removed legacy path references',
+    'blocks removed component and lib path references',
     async () => {
       const scannedRoots = [
         'src/app',
@@ -565,7 +502,7 @@ describe('frontend module architecture', () => {
     30000,
   )
 
-  it('blocks legacy workspace paths and confirms page-owned workspace consumers', async () => {
+  it('blocks removed workspace paths and confirms page-owned workspace consumers', async () => {
     const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared', 'src/platform']
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
     const workspaceViolations: string[] = []
@@ -575,7 +512,7 @@ describe('frontend module architecture', () => {
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
       if (source.includes('@features/workspaces') || source.includes('features/workspaces')) {
-        workspaceViolations.push(`${relativePath} contains legacy workspace path reference`)
+        workspaceViolations.push(`${relativePath} contains removed workspace path reference`)
       }
     }
 
@@ -683,7 +620,7 @@ describe('frontend module architecture', () => {
 
   /**
    * Platform boundary classification: tracks every production file that imports @platform/desktop
-   * and classifies it as either an approved adapter/app-assembly boundary or a migration target.
+   * and classifies it as either an approved adapter/app-assembly boundary or a known platform debt file.
    * A new production file outside both categories fails the test.
    */
   const APPROVED_BOUNDARY_PATTERNS = [
@@ -694,13 +631,11 @@ describe('frontend module architecture', () => {
   const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
   const TEST_SUPPORT_PATTERN = /^test\//
 
-  // Known migration targets - these exact files are documented pending work, not accidental drift.
+  // Known platform boundary debt - these exact files are documented pending work, not accidental drift.
   // Keep this as a per-file baseline so new @platform/desktop imports fail until classified.
-  const MIGRATION_TARGET_FILES = new Set([
+  const PLATFORM_BOUNDARY_DEBT_FILES = new Set([
     'app/providers/launcherPortAdapter.ts',
     'entities/event/model/stage/eventStageShared.ts',
-    'features/launcher/model/nexusDiagnostics.ts',
-    'pages/launcher/LauncherPage.tsx',
     'pages/launcher/ui/LauncherConfigurationPage.tsx',
     'pages/launcher/ui/LauncherDiscoverPage.tsx',
     'pages/launcher/ui/LauncherLibraryPage.tsx',
@@ -710,9 +645,6 @@ describe('frontend module architecture', () => {
     'pages/workbench/ui/WorkbenchExperience.tsx',
     'pages/workbench/workspaces/building/state/useBuildingWorkspace.ts',
     'pages/workbench/workspaces/building/state/buildingTextLocalization.ts',
-    'pages/workbench/workspaces/building/state/buildingObjectDisplay.ts',
-    'pages/workbench/workspaces/building/state/buildingWorldEntries.ts',
-    'pages/workbench/workspaces/building/state/buildingTextureAssets.ts',
     'pages/workbench/workspaces/character/state/useCharacterWorkspace.ts',
     'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
     'pages/workbench/workspaces/event-stage/state/audioPreview.ts',
@@ -741,6 +673,15 @@ describe('frontend module architecture', () => {
     async () => {
       const allFiles = await collectSourceFiles(sourcePath('src'))
       const unclassified: string[] = []
+      const stalePlatformBoundaryDebt: string[] = []
+
+      for (const relPath of PLATFORM_BOUNDARY_DEBT_FILES) {
+        const source = await readFile(sourcePath(`src/${relPath}`), 'utf8')
+
+        if (!source.includes('@platform/desktop')) {
+          stalePlatformBoundaryDebt.push(relPath)
+        }
+      }
 
       for (const filePath of allFiles) {
         const source = await readFile(filePath, 'utf8')
@@ -751,9 +692,9 @@ describe('frontend module architecture', () => {
         const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
         const isTestOnly = TEST_FILE_PATTERN.test(relPath) || TEST_SUPPORT_PATTERN.test(relPath)
         const isApproved = APPROVED_BOUNDARY_PATTERNS.some((p) => p.test(relPath))
-        const isMigrationTarget = MIGRATION_TARGET_FILES.has(relPath)
+        const isPlatformBoundaryDebt = PLATFORM_BOUNDARY_DEBT_FILES.has(relPath)
 
-        if (isApproved || isMigrationTarget || isTestOnly) {
+        if (isApproved || isPlatformBoundaryDebt || isTestOnly) {
           continue
         }
 
@@ -761,6 +702,7 @@ describe('frontend module architecture', () => {
       }
 
       expect(unclassified).toEqual([])
+      expect(stalePlatformBoundaryDebt).toEqual([])
     },
     30000,
   )

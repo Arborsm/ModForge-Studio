@@ -44,8 +44,8 @@ function draft(patches: DraftPatch[]): CpMakerDraft {
   }
 }
 
-describe('EditModeShell event patch hub toolbar replacement', () => {
-  test('uses the event patch workspace header instead of the old edit toolbar', () => {
+describe('EditModeShell event patch hub header', () => {
+  test('renders event patch workspace actions in the header', () => {
     const patches = [eventPatch()]
     const onSaveDraft = vi.fn()
     const { container } = renderWithLocale(
@@ -71,7 +71,6 @@ describe('EditModeShell event patch hub toolbar replacement', () => {
       'zh-CN',
     )
 
-    expect(container.querySelector('.edit-mode-toolbar')).toBeNull()
     expect(container.querySelector('.event-patch-workspace-header')).not.toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Patch 设置' }))

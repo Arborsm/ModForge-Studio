@@ -21,30 +21,6 @@ export function configureAppUiStatePersistence(persistence: AppUiStatePersistenc
   patchQueue = Promise.resolve(snapshot)
 }
 
-const LEGACY_WORKSPACE_LAYOUT_PREFIX = 'modforge:workspace-layout:'
-const APP_MODE_STORAGE_KEY = 'modforge:app-mode'
-const LAUNCHER_PAGE_STORAGE_KEY = 'modforge:launcher-page'
-const DEBUG_ENABLED_STORAGE_KEY = 'modforge:debug-enabled'
-const NOTIFICATION_SOUND_ENABLED_STORAGE_KEY = 'modforge:notification-sound-enabled'
-const ACCENT_STORAGE_KEY = 'modforge:accent-preset:v1'
-const PLAYER_APPEARANCE_PROFILES_STORAGE_KEY = 'modforge:player-appearance-profiles:v1'
-const PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY = 'modforge:player-appearance-active:v1'
-const RECENT_GAME_DIRECTORIES_STORAGE_KEY = 'modforge:recent-game-directories:v1'
-const LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY = 'modforge:launcher-discover-toolbar:v1'
-
-const LEGACY_UI_STATE_KEYS = [
-  'modforge:locale',
-  APP_MODE_STORAGE_KEY,
-  LAUNCHER_PAGE_STORAGE_KEY,
-  DEBUG_ENABLED_STORAGE_KEY,
-  NOTIFICATION_SOUND_ENABLED_STORAGE_KEY,
-  ACCENT_STORAGE_KEY,
-  PLAYER_APPEARANCE_PROFILES_STORAGE_KEY,
-  PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY,
-  RECENT_GAME_DIRECTORIES_STORAGE_KEY,
-  LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY,
-] as const
-
 function defaultLocale() {
   if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
     return 'zh-CN'
@@ -289,19 +265,4 @@ export async function applyAppUiStatePatch(patch: PatchAppUiStateRequest) {
   return patchQueue
 }
 
-export function clearLegacyBrowserUiState() {
-  if (appUiStatePersistence.canPersist() || typeof window === 'undefined') {
-    return
-  }
-
-  for (const key of LEGACY_UI_STATE_KEYS) {
-    window.localStorage.removeItem(key)
-  }
-
-  for (const key of Object.keys(window.localStorage)) {
-    if (key.startsWith(LEGACY_WORKSPACE_LAYOUT_PREFIX)) {
-      window.localStorage.removeItem(key)
-    }
-  }
-}
 

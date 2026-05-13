@@ -2,7 +2,7 @@
 
 This document defines the target frontend architecture for ModForge Studio.
 
-The goal is to move from the historical `components + lib/app` structure to a stricter architecture suitable for a complex desktop workbench:
+The frontend has completed its main migration away from the historical `components + lib/app` structure. The target architecture is suitable for a complex desktop workbench:
 
 - Feature-Sliced boundaries for ownership.
 - Clean Architecture dependency direction.
@@ -230,16 +230,17 @@ Rules:
 
 This keeps entities/features testable and prevents Tauri from leaking into business code.
 
-## Migration Rules
+## Cleanup Rules
 
-The historical folders are migration sources:
+The historical frontend roots have been removed and must not be recreated:
 
 - `components`
-- `lib/app`
-- `lib/desktop.ts`
-- `processes` is deprecated; move remaining orchestration into `app/` or the owning `features/` slice.
+- `lib`
+- `processes`
 
-New or migrated code should prefer the target layers.
+New and migrated code must use the target layers. Do not add re-export shims or compatibility directories for old import paths. If a short-lived compatibility layer is unavoidable, document the deletion condition and remove the shim as soon as the migration lands.
+
+Architecture tests should guard durable boundaries, not one-off migration milestones. Keep rules that prevent dependency drift or removed roots from being referenced again; delete tests that only assert a specific old filename no longer exists once the change is complete.
 
 ## Barrel Hygiene
 
@@ -252,18 +253,18 @@ Rules:
 - For `shared`, split exports by intent (`shared/ui`, `shared/lib`, `shared/contracts`, `shared/types`) rather than creating one giant barrel.
 - If a project grows beyond one sensible root, split it into multiple packages or roots instead of accumulating more barrel layers.
 
-Migration order:
+## Boundary Debt
 
-1. Create contracts, providers, registry interfaces, and architecture guards.
-2. Establish workbench registry and view host.
-3. Move workspace panel assembly into widgets.
-4. Move domain hooks and models into entities.
-5. Move feature-owned UI/state/model under features.
-6. Shrink app shell and remove legacy shims.
+The main legacy roots are gone. Remaining frontend architecture debt should be tracked as explicit, shrinking baselines rather than compatibility shims.
 
-Do not parallelize subsystem migrations until the foundation is stable.
+Current priority order:
 
-After the foundation is stable, subsystem migrations can be split across subagents with disjoint write sets.
+1. Remove direct `@platform/desktop` imports from entities/features/pages by routing capabilities through `shared/contracts/platform.ts` ports and app providers.
+2. Keep `platform` imports limited to platform adapters, app provider assembly, and explicitly documented boundary files.
+3. Prefer page-owned workspace code until a module is reused by multiple pages or widgets.
+4. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
+
+Do not preserve old internal request shapes, localStorage keys, route ids, or import paths for compatibility while the product is unreleased. Finish the change, update callers, and delete temporary code immediately.
 
 ## Architecture Tests
 
@@ -277,4 +278,4 @@ Architecture tests should guard these rules:
 - `entities` do not import panel/layout contracts.
 - Registry interfaces and registry instances stay separated.
 
-These tests are mandatory for the migration because documentation alone will not stop architectural drift.
+These tests are mandatory because documentation alone will not stop architectural drift.

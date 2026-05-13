@@ -4,7 +4,6 @@ export {
 export type { AppShellState as NormalizedAppShellState } from './appShellState'
 export {
   applyAppUiStatePatch,
-  clearLegacyBrowserUiState,
   configureAppUiStatePersistence,
   getAppUiStateSnapshot,
   initializeAppUiState,

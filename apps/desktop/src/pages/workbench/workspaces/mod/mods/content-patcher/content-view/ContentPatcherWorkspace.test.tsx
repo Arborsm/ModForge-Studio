@@ -177,16 +177,10 @@ describe('ContentPatcherWorkspace', () => {
     expect(screen.getByText(copy.noProject)).toBeTruthy()
   })
 
-  it('renders debugger layout and removes old canvas UI', async () => {
+  it('renders the debugger layout for the selected target', async () => {
     const { container } = renderWithLocale(<ContentPatcherWorkspace {...buildProps()} />)
     const workspaceShell = container.querySelector('.cp-debugger-shell')
 
-    expect(screen.queryByText('Patches')).toBeNull()
-    expect(screen.queryByText('Targets')).toBeNull()
-    expect(screen.queryByText('Node Canvas')).toBeNull()
-    expect(screen.queryByText('Node Inspector')).toBeNull()
-    expect(screen.queryByText('content.json Preview')).toBeNull()
-    expect(screen.queryByText('Raw Patch JSON')).toBeNull()
     expect(workspaceShell).toBeTruthy()
     expect(workspaceShell?.className).toContain('h-full')
     expect(workspaceShell?.querySelector('.cp-debugger-header')).toBeTruthy()
@@ -196,7 +190,6 @@ describe('ContentPatcherWorkspace', () => {
       expect(screen.getByText('Target: Data/Objects')).toBeTruthy()
     })
     expect(workspaceShell?.querySelector('.cp-debugger-preview')).toBeTruthy()
-    expect(screen.queryByText('Simulation Context')).toBeNull()
   })
 
   it('does not render target navigation cards inside the center workspace', () => {
@@ -282,14 +275,12 @@ describe('ContentPatcherWorkspace', () => {
     })
   })
 
-  it('keeps simulation controls in the center workspace and removes the old right rail', async () => {
+  it('keeps simulation controls in the center workspace', async () => {
     const { container } = renderWithLocale(<ContentPatcherWorkspace {...buildProps()} />)
 
     await waitFor(() => {
       expect(container.querySelector('.cp-debugger-preview')).toBeTruthy()
     })
-    expect(container.querySelector('.cp-debugger-context-strip')).toBeNull()
-    expect(container.querySelector('.cp-debugger-rail')).toBeNull()
   })
 
   it('renders a dedicated scroll wrapper for the navigator list', async () => {

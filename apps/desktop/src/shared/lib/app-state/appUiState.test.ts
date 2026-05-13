@@ -207,39 +207,6 @@ describe('uiState store', () => {
     })
   })
 
-  it('hydrates old persisted loading motion preferences with default speed fields', async () => {
-    const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
-    configureAppUiStatePersistence({
-      canPersist: () => true,
-      load: vi.fn(async () => ({
-        version: 1,
-        shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
-        appearance: {
-          locale: 'en-US',
-          accentPresetId: 'indigo',
-          recentGameDirectories: [],
-          playerAppearance: { profiles: [], activeProfileId: null },
-          loadingMotion: createLoadingMotionPreference({
-            styleId: 'layeredFadeIn',
-            intensityId: 'light',
-          }),
-        },
-        workspace: { layouts: {} },
-        launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false }, forceOffline: false },
-      })),
-      patch: vi.fn(),
-    })
-
-    await initializeAppUiState()
-    expect(getAppUiStateSnapshot().appearance.loadingMotion).toEqual({
-      styleId: 'layeredFadeIn',
-      intensityId: 'light',
-      speedMode: 'preset',
-      speedId: 'standard',
-      speedMultiplier: 1,
-    })
-  })
-
   it('invalid loading style falls back to default without affecting intensity', async () => {
     const { createDefaultAppUiState } = await import('./appUiState')
     const defaults = createDefaultAppUiState()

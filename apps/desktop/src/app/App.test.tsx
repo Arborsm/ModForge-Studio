@@ -176,7 +176,6 @@ let mockAppUiState = createMockAppUiState()
 const initializeAppUiStateMock = vi.fn(async () => mockAppUiState)
 const applyAppUiStatePatchMock = vi.fn(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
 const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
-const clearLegacyBrowserUiStateMock = vi.fn()
 const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
 const canUseDesktopHostMock = vi.fn(() => false)
 function createLauncherNexusDiagnosticsResult(
@@ -785,7 +784,6 @@ vi.mock('@shared/lib/app-state', () => ({
   initializeAppUiState: () => initializeAppUiStateMock(),
   applyAppUiStatePatch: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
   getAppUiStateSnapshot: () => getAppUiStateSnapshotMock(),
-  clearLegacyBrowserUiState: () => clearLegacyBrowserUiStateMock(),
   configureAppUiStatePersistence: vi.fn(),
 }))
 
@@ -821,7 +819,6 @@ describe('App locale ownership', () => {
     applyAppUiStatePatchMock.mockImplementation(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
     getAppUiStateSnapshotMock.mockClear()
     getAppUiStateSnapshotMock.mockImplementation(() => mockAppUiState)
-    clearLegacyBrowserUiStateMock.mockClear()
     workspaceLayoutMock.mockClear()
     vi.stubGlobal(
       'matchMedia',

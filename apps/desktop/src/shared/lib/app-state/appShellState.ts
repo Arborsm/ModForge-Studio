@@ -1,10 +1,5 @@
 import type { AppMode, LauncherPage } from '@locales/editor-shell'
 
-export const APP_MODE_STORAGE_KEY = 'modforge:app-mode'
-export const LAUNCHER_PAGE_STORAGE_KEY = 'modforge:launcher-page'
-export const DEBUG_ENABLED_STORAGE_KEY = 'modforge:debug-enabled'
-export const NOTIFICATION_SOUND_ENABLED_STORAGE_KEY = 'modforge:notification-sound-enabled'
-
 export type AppShellState = {
   appMode: AppMode
   launcherPage: LauncherPage
@@ -33,10 +28,6 @@ function isAppMode(value: string | null): value is AppMode {
 }
 
 function parseLauncherPage(value: string | null): LauncherPage | null {
-  if (value === 'settings' || value === 'debug') {
-    return 'configuration'
-  }
-
   return !!value && launcherPages.includes(value as LauncherPage) ? (value as LauncherPage) : null
 }
 

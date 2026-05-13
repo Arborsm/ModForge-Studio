@@ -177,17 +177,6 @@ describe('normalizeLoadingMotionPreference', () => {
     })
   })
 
-  it('fills speed defaults for old persisted preferences without speed fields', () => {
-    const result = normalizeLoadingMotionPreference({ styleId: 'layeredFadeIn', intensityId: 'light' })
-    expect(result).toEqual({
-      styleId: 'layeredFadeIn',
-      intensityId: 'light',
-      speedMode: 'preset',
-      speedId: 'standard',
-      speedMultiplier: 1,
-    })
-  })
-
   it('clamps custom speed multiplier to the supported fine and extreme range', () => {
     const tooSlow = normalizeLoadingMotionPreference({
       styleId: 'softFadeIn',

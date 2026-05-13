@@ -4,7 +4,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 
 当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。
 
-当前架构收尾处于 phase 8：`CpMakerPlatformProvider`、`workbench/open-asset` replay protection、launcher port/provider 收口已经稳定，`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 继续作为批准边界保留，而 launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 仍是可见迁移热点。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
+当前前端主结构已经收敛到 FSD + Clean Architecture：`components/`、`lib/`、`processes/` 不再作为源码根存在。剩余架构债务集中在平台边界：`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 是批准边界，launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 中仍有需要继续收口的 `@platform/desktop` 直连。后续新增代码、查找入口、重构清理，都优先按下面的目标结构定位。
 
 ## 目录总览
 

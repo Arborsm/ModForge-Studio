@@ -11,7 +11,6 @@ describe('LauncherShell code splitting', () => {
     expect(source).not.toContain("import { LauncherDiscoverPage } from './LauncherDiscoverPage'")
     expect(source).not.toContain("import { LauncherUpdatesPage } from './LauncherUpdatesPage'")
     expect(source).not.toContain("import { LauncherConfigurationPage } from './LauncherConfigurationPage'")
-    expect(source).not.toContain("LauncherDebugPage")
 
     expect(source).toContain("const LauncherDiscoverPage = lazy(() =>")
     expect(source).toContain("import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage }))")
