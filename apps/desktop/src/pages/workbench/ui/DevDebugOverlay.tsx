@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { getStageMetadataCacheStats } from '@entities/event'
-import { canUseDesktopHost, clearFileCache, getDesktopCacheStats, getFileCacheStats, type FileCacheStats } from '@platform/desktop'
+import { getGameAssetCacheStats } from '@entities/game/api'
+import { getModApiCacheStats } from '@entities/mod/api'
+import { clearFileCache, canUseDesktopHost, getFileCacheStats, type FileCacheStats } from '@shared/lib/desktop'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
 import type { WorkspaceMode } from '@locales/editor-shell'
 import { formatBytes } from '@shared/lib/formatting'
@@ -35,6 +37,13 @@ const debugOverlayPrecision = (_size: number, value: number, unit: string) => {
   }
 
   return 1
+}
+
+function getDesktopCacheStats() {
+  return {
+    ...getGameAssetCacheStats(),
+    ...getModApiCacheStats(),
+  }
 }
 
 function formatOverlayBytes(value: number) {

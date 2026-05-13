@@ -4,23 +4,25 @@ import { ChevronDown, Folder, FolderArchive, FolderOpen, LayoutGrid, Menu, MoreH
 import { useEditorCopy } from '@locales/localeContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import {
-  LAUNCHER_ARCHIVE_FILE_SUFFIXES,
-  chooseArchiveFile,
-  chooseImageFile,
   inspectLauncherArchive,
-  isSupportedLauncherArchivePath,
-  listenToLauncherArchiveDragDrop,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherPath,
   resolveLauncherImage,
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
-  type UnlistenFn,
   type InspectLauncherArchiveResult,
   type InstallLauncherArchiveResult,
   type LauncherInstallBackupSummary,
-} from '@platform/desktop'
+} from '@features/launcher/api'
+import {
+  LAUNCHER_ARCHIVE_FILE_SUFFIXES,
+  chooseArchiveFile,
+  chooseImageFile,
+  isSupportedLauncherArchivePath,
+  listenToLauncherArchiveDragDrop,
+  type UnlistenFn,
+} from '@shared/lib/desktop'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { useLauncherImage } from '@features/launcher'

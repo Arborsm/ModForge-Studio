@@ -3,13 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import { useCharacterWorkspace } from './useCharacterWorkspace'
 
-vi.mock('@platform/desktop', () => ({
+vi.mock('@entities/game/api', () => ({
   loadTextAsset: vi.fn(),
+}))
+
+vi.mock('@entities/mod/api', () => ({
   scanModAssetIndex: vi.fn(),
   loadContentPatcherResultAsset: vi.fn(),
 }))
 
-import { loadContentPatcherResultAsset, loadTextAsset, scanModAssetIndex } from '@platform/desktop'
+import { loadTextAsset } from '@entities/game/api'
+import { loadContentPatcherResultAsset, scanModAssetIndex } from '@entities/mod/api'
 
 const copy = editorCopy['en-US'].charactersPanel
 

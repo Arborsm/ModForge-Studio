@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
-import type { LauncherSettings } from '@platform/desktop'
+import type { LauncherSettings } from '@features/launcher/api'
 import type { ReactElement } from 'react'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'

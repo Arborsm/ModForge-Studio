@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@platform/desktop'
+import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort'

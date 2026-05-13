@@ -1,7 +1,5 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  canUseDesktopHost,
-  chooseGameDirectory,
   detectDefaultGameDirectory,
   loadImageDataUrl,
   loadMapAsset,
@@ -10,7 +8,8 @@ import {
   validateGameDirectory,
   type GameDirectoryInfo,
   type MapAssetSummary,
-} from '@platform/desktop'
+} from '@entities/game/api'
+import { canUseDesktopHost, chooseGameDirectory } from '@shared/lib/desktop'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '@shared/contracts'
 import type { EditorCopy, LocaleCode } from '@locales'
 import { resolveTilesetImagePath } from '@entities/map'

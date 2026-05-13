@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
-import type { LauncherSettings } from '@platform/desktop'
+import type { LauncherSettings } from '@features/launcher/api'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
@@ -39,12 +39,15 @@ vi.mock('@shared/lib/observability', () => ({
   reportAppEvent: (...args: unknown[]) => reportAppEvent(...args),
 }))
 
-vi.mock('@platform/desktop', () => ({
-  canUseDesktopHost: () => true,
+vi.mock('@features/launcher/api', () => ({
   clearLauncherImageCache: (...args: unknown[]) => clearLauncherImageCache(...args),
   loadLauncherNexusDiagnostics: (...args: unknown[]) => loadLauncherNexusDiagnostics(...args),
   retryLauncherNexusDiagnosticsRoute: (...args: unknown[]) => retryLauncherNexusDiagnosticsRoute(...args),
   setLauncherNexusForceOffline: (...args: unknown[]) => setLauncherNexusForceOffline(...args),
+}))
+
+vi.mock('@shared/lib/desktop', () => ({
+  canUseDesktopHost: () => true,
 }))
 
 vi.mock('@shared/lib/app-state', () => ({

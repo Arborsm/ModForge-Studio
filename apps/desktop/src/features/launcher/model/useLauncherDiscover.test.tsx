@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { useLauncherDiscover } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'

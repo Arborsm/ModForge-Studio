@@ -11,16 +11,16 @@ import type {
   LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
   LauncherSettings,
-} from '@platform/desktop'
-import * as desktop from '@platform/desktop'
+} from '@features/launcher/api'
+import * as desktop from '@features/launcher/api'
 import { getLauncherCopy } from '@locales/editor-shell'
 import { useLauncherLibrary } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import type { LauncherPort } from './launcherPort'
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),

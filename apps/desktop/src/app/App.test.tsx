@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/editor-shell'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
 
@@ -379,84 +379,53 @@ vi.mock('@features/launcher', async () => {
   }
 })
 
-vi.mock('@platform/desktop', () => ({
+vi.mock('@shared/lib/desktop', () => ({
   LAUNCHER_ARCHIVE_FILE_SUFFIXES: ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'],
   canUseDesktopHost: () => canUseDesktopHostMock(),
-  checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
-  clearLauncherLibraryReadCaches: vi.fn(),
   clearDesktopLocaleCache: vi.fn(),
   closeCurrentWindow: vi.fn(),
+  configureDesktopPlatformPorts: vi.fn(),
   chooseArchiveFile: vi.fn(async () => null),
   chooseImageFile: vi.fn(async () => null),
   isCurrentWindowFullscreen: vi.fn(async () => false),
-  inspectLauncherArchive: vi.fn(),
   isSupportedLauncherArchivePath: vi.fn(() => false),
-  loadCachedLauncherUpdates: vi.fn(async () => null),
   loadAppUiState: vi.fn(async () => mockAppUiState),
-  loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
-  loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
   listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
-  restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
-  retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
-  setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
-  listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
-  listKnownGameDirectories: vi.fn(async () => []),
-  listLauncherInstallBackups: vi.fn(async () => []),
-  launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
-  openLauncherUrl: vi.fn(async () => undefined),
-  openLauncherPath: vi.fn(async () => {}),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
-  saveLauncherSettings: () => saveLauncherSettingsMock(),
-  resolveLauncherImage: vi.fn(async () => null),
-  restoreLauncherInstallBackup: vi.fn(async () => undefined),
-  setLauncherLibraryCover: vi.fn(async () => undefined),
   setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
-  subscribeLauncherUpdates: vi.fn(() => () => {}),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
   toggleMaximizeCurrentWindow: vi.fn(),
   toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
   writeFrontendLog: vi.fn(async () => undefined),
 }))
 
-vi.mock('@platform/desktop', () => ({
-  LAUNCHER_ARCHIVE_FILE_SUFFIXES: ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'],
-  canUseDesktopHost: () => canUseDesktopHostMock(),
+vi.mock('@features/launcher/api', () => ({
   checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
   clearLauncherLibraryReadCaches: vi.fn(),
-  clearDesktopLocaleCache: vi.fn(),
-  closeCurrentWindow: vi.fn(),
-  chooseArchiveFile: vi.fn(async () => null),
-  chooseImageFile: vi.fn(async () => null),
-  isCurrentWindowFullscreen: vi.fn(async () => false),
   inspectLauncherArchive: vi.fn(),
-  isSupportedLauncherArchivePath: vi.fn(() => false),
   loadCachedLauncherUpdates: vi.fn(async () => null),
-  loadAppUiState: vi.fn(async () => mockAppUiState),
-  loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
   loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
-  listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
   retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
-  listKnownGameDirectories: vi.fn(async () => []),
   listLauncherInstallBackups: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
-  minimizeCurrentWindow: vi.fn(),
   openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
-  patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
   saveLauncherSettings: () => saveLauncherSettingsMock(),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
   setLauncherLibraryCover: vi.fn(async () => undefined),
-  setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
   subscribeLauncherUpdates: vi.fn(() => () => {}),
-  toggleFullscreenCurrentWindow: vi.fn(async () => false),
-  toggleMaximizeCurrentWindow: vi.fn(),
-  toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
-  writeFrontendLog: vi.fn(async () => undefined),
+}))
+
+vi.mock('@entities/game/api', () => ({
+  clearGameAssetLocaleCache: vi.fn(),
+  detectDefaultGameDirectory: vi.fn(async () => null),
+  listKnownGameDirectories: vi.fn(async () => []),
+  loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
 }))
 
 vi.mock('@shared/lib/react', () => ({

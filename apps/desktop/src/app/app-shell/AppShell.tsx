@@ -1,18 +1,17 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   canUseDesktopHost,
-  clearDesktopLocaleCache,
   closeCurrentWindow,
   isCurrentWindowFullscreen,
   loadAppUiState,
-  loadImageDataUrl,
   minimizeCurrentWindow,
   patchAppUiState,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
-} from '@platform/desktop'
+} from '@shared/lib/desktop'
+import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
 import { normalizeAppShellState } from '@shared/lib/app-state'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
@@ -326,7 +325,7 @@ export default function App() {
       return
     }
 
-    clearDesktopLocaleCache(previousLocale)
+    clearGameAssetLocaleCache(previousLocale)
     clearLocalizedStageMetadataCache(previousLocale)
     clearImageMetricsLocaleCache(previousLocale)
     clearMapViewportLocaleCache(previousLocale)

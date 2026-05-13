@@ -1,4 +1,4 @@
-import { loadContentPatcherResultAsset } from '@platform/desktop'
+import { loadContentPatcherResultAsset } from '@entities/mod/api'
 import { loadImageResource } from '@shared/lib/assets'
 import type { MapDocument } from '@shared/contracts'
 import type { ModBrowserEntry } from './browser'

@@ -86,6 +86,9 @@ function topLevelFeatureFromSpecifier(filePath: string, specifier: string): stri
   return topLevelFeatureFromPath(resolvedImportPath)
 }
 
+const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
+const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
+
 describe('frontend module architecture', () => {
   it('exposes the FSD foundation roots and mounts app/App directly', async () => {
     await expectFile(sourcePath('src/app/App.tsx'))
@@ -232,7 +235,7 @@ describe('frontend module architecture', () => {
   })
 
   it(
-    'blocks direct @platform/desktop imports from cp-maker production code',
+    'blocks removed desktop platform imports from cp-maker production code',
     async () => {
       const sourceFiles = await collectSourceFiles(sourcePath('src/features/cp-maker'))
       const violations: string[] = []
@@ -245,8 +248,8 @@ describe('frontend module architecture', () => {
         const source = await readFile(filePath, 'utf8')
         const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
-        if (source.includes('@platform/desktop')) {
-          violations.push(`${relativePath} imports @platform/desktop`)
+        if (source.includes(REMOVED_DESKTOP_FACADE_SPECIFIER)) {
+          violations.push(`${relativePath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
         }
 
         if (source.includes('@tauri-apps/api')) {
@@ -309,7 +312,7 @@ describe('frontend module architecture', () => {
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/routing")
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/model")
     expect(workbenchExperienceSource).toContain("from '../model/workspace-panels/buildWorkspacePanels'")
-    expect(workbenchExperienceSource).toContain("from '@platform/desktop'")
+    expect(workbenchExperienceSource).toContain("from '@entities/game/api'")
     expect(workbenchExperienceSource).toContain("import '../model/builtInWorkspaces'")
     expect(workbenchExperienceSource).toContain("from './WorkbenchLayoutHost'")
     expect(workbenchExperienceSource).toContain("from './WorkbenchViewHost'")
@@ -587,7 +590,6 @@ describe('frontend module architecture', () => {
     const sharedPanelSection = await readFile(sourcePath('src/shared/ui/PanelSection.tsx'), 'utf8')
     const sharedLayoutTypes = await readFile(sourcePath('src/shared/contracts/types/workspaceLayout.ts'), 'utf8')
     const sharedWorkspaceLayout = await readFile(sourcePath('src/shared/workspace/layout-view/WorkspaceLayout.tsx'), 'utf8')
-    const platformDesktop = await readFile(sourcePath('src/platform/desktop/index.ts'), 'utf8')
     const sharedTypesIndex = await readFile(sourcePath('src/shared/contracts/types/index.ts'), 'utf8')
 
     expect(sharedCpMaker).not.toContain('@features/')
@@ -598,7 +600,6 @@ describe('frontend module architecture', () => {
     expect(sharedLayoutTypes).not.toContain('@features/')
     expect(sharedLayoutTypes).not.toContain("export * from '../../components/workspace/layoutTypes'")
     expect(sharedWorkspaceLayout).not.toContain('@features/')
-    expect(platformDesktop).not.toContain("export * from '@platform/desktop'")
     expect(sharedTypesIndex).toContain("export type * from './workspaceLayout'")
     expect(sharedTypesIndex).toContain("export type * from './cpMaker'")
     expect(sharedTypesIndex).toContain("export type * from './modBrowser'")
@@ -608,7 +609,7 @@ describe('frontend module architecture', () => {
     expect(sharedTypesIndex).toContain("export type * from './workspaceRuntime'")
     expect(sharedTypesIndex).toContain("export type * from './desktop'")
     expect(sharedTypesIndex).toContain("export type * from './appUiState'")
-    expect(sharedTypesIndex).not.toContain("export type * from '@platform/desktop'")
+    expect(sharedTypesIndex).not.toContain(`export type * from '${REMOVED_DESKTOP_FACADE_SPECIFIER}'`)
     expect(sharedCpMaker).toContain('export interface CpMakerDraft')
     expect(sharedLayoutTypes).toContain('export type DockArea')
     expect(await readFile(sourcePath('src/shared/contracts/types/modBrowser.ts'), 'utf8')).toContain('export type ModBrowserEntry')
@@ -617,92 +618,55 @@ describe('frontend module architecture', () => {
     expect(await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')).toContain("from '@shared/contracts'")
   })
 
+  it('keeps shared desktop exports limited to host infrastructure APIs', async () => {
+    const sharedDesktopIndex = await readFile(sourcePath('src/shared/lib/desktop/index.ts'), 'utf8')
+    const blockedDomainExports = [
+      'LauncherGameLaunchResult',
+      'launchLauncherGame',
+      'loadLauncher',
+      'saveLauncher',
+      'scanLauncher',
+      'ContentPatcher',
+      'CpMaker',
+      'ModProject',
+      'GameDirectoryInfo',
+      'MapAsset',
+      'loadMapAsset',
+      'loadTextAsset',
+      'scanMaps',
+      'scanEvents',
+    ]
+
+    for (const blockedExport of blockedDomainExports) {
+      expect(sharedDesktopIndex).not.toContain(blockedExport)
+    }
+  })
+
 
   /**
-   * Platform boundary classification: tracks every production file that imports @platform/desktop
-   * and classifies it as either an approved adapter/app-assembly boundary or a known platform debt file.
-   * A new production file outside both categories fails the test.
+   * Platform boundary classification: the removed desktop platform facade was a migration facade.
+   * It must not return as a production or test import path.
    */
-  const APPROVED_BOUNDARY_PATTERNS = [
-    /^app\/app-shell\/AppShell\.tsx$/,
-    /^platform\/desktop\/index\.ts$/,
-    /^platform\/desktop\/index\.test\.ts$/,
-  ]
-  const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
-  const TEST_SUPPORT_PATTERN = /^test\//
-
-  // Known platform boundary debt - these exact files are documented pending work, not accidental drift.
-  // Keep this as a per-file baseline so new @platform/desktop imports fail until classified.
-  const PLATFORM_BOUNDARY_DEBT_FILES = new Set([
-    'app/providers/launcherPortAdapter.ts',
-    'entities/event/model/stage/eventStageShared.ts',
-    'pages/launcher/ui/LauncherConfigurationPage.tsx',
-    'pages/launcher/ui/LauncherDiscoverPage.tsx',
-    'pages/launcher/ui/LauncherLibraryPage.tsx',
-    'pages/launcher/ui/LauncherUpdatesPage.tsx',
-    'pages/workbench/ui/DevDebugOverlay.tsx',
-    'pages/workbench/ui/PlayerAppearanceWindow.tsx',
-    'pages/workbench/ui/WorkbenchExperience.tsx',
-    'pages/workbench/workspaces/building/state/useBuildingWorkspace.ts',
-    'pages/workbench/workspaces/building/state/buildingTextLocalization.ts',
-    'pages/workbench/workspaces/character/state/useCharacterWorkspace.ts',
-    'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
-    'pages/workbench/workspaces/event-stage/state/audioPreview.ts',
-    'pages/workbench/workspaces/event-stage/state/useEventStageWorkspace.ts',
-    'pages/workbench/workspaces/event-stage/state/useEventWorkspace.ts',
-    'pages/workbench/workspaces/event-stage/view/EventStageWorkspace.tsx',
-    'pages/workbench/workspaces/item/state/useItemWorkspace.ts',
-    'pages/workbench/workspaces/map/editors/MapPatchEditor.tsx',
-    'pages/workbench/workspaces/map/state/useMapWorkspace.ts',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher.ts',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherDiagnosticsPanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherExportPanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherNavigator.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherResultPreview.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherTracePanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModBrowserPanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModDiagnosticsPanel.tsx',
-    'pages/workbench/workspaces/mod/state/modResultAssets.ts',
-    'pages/workbench/workspaces/mod/state/useModAssetIndex.ts',
-    'pages/workbench/workspaces/mod/state/useModWorkspace.ts',
-  ])
-
   it(
-    'classifies all production @platform/desktop imports and prevents new unapproved drift',
+    'blocks the removed desktop platform facade from returning',
     async () => {
+      await expect(access(sourcePath('src/platform/desktop'))).rejects.toThrow()
+
       const allFiles = await collectSourceFiles(sourcePath('src'))
-      const unclassified: string[] = []
-      const stalePlatformBoundaryDebt: string[] = []
-
-      for (const relPath of PLATFORM_BOUNDARY_DEBT_FILES) {
-        const source = await readFile(sourcePath(`src/${relPath}`), 'utf8')
-
-        if (!source.includes('@platform/desktop')) {
-          stalePlatformBoundaryDebt.push(relPath)
-        }
-      }
+      const violations: string[] = []
 
       for (const filePath of allFiles) {
         const source = await readFile(filePath, 'utf8')
-        if (!source.includes('@platform/desktop')) {
-          continue
-        }
-
         const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
-        const isTestOnly = TEST_FILE_PATTERN.test(relPath) || TEST_SUPPORT_PATTERN.test(relPath)
-        const isApproved = APPROVED_BOUNDARY_PATTERNS.some((p) => p.test(relPath))
-        const isPlatformBoundaryDebt = PLATFORM_BOUNDARY_DEBT_FILES.has(relPath)
 
-        if (isApproved || isPlatformBoundaryDebt || isTestOnly) {
-          continue
+        for (const specifier of extractImportSpecifiers(source)) {
+          if (specifier === REMOVED_DESKTOP_FACADE_SPECIFIER) {
+            violations.push(`${relPath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
+          }
         }
-
-        unclassified.push(relPath)
       }
 
-      expect(unclassified).toEqual([])
-      expect(stalePlatformBoundaryDebt).toEqual([])
+      expect(violations).toEqual([])
     },
     30000,
   )

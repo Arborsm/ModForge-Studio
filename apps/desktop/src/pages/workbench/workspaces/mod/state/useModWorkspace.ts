@@ -1,10 +1,8 @@
 import {useDeferredValue, useEffect, useMemo, useState} from 'react'
 import {
-  chooseDirectory,
   type ContentPatcherPatchSummary,
   type ContentPatcherProjectSnapshot,
   type ContentPatcherSimulationResult,
-  type GameDirectoryInfo,
   loadContentPatcherProject,
   loadContentPatcherResultAsset,
   type LoadContentPatcherResultAssetResult,
@@ -15,7 +13,9 @@ import {
   type SaveModProjectResult,
   scanModProjects,
   simulateContentPatcher,
-} from '@platform/desktop'
+} from '@entities/mod/api'
+import { type GameDirectoryInfo } from '@entities/game/api'
+import { chooseDirectory } from '@shared/lib/desktop'
 import {getModWorkspaceCopy, type LocaleCode} from '@locales/editor-shell'
 import { reportAppEvent } from '@shared/lib/observability'
 import {

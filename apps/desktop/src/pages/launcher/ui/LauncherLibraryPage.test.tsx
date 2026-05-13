@@ -9,12 +9,9 @@ import type {
   LauncherInstallBackupSummary,
   LauncherLibraryModSummary,
   LauncherSettings,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import {
-  chooseArchiveFile,
-  chooseImageFile,
   inspectLauncherArchive,
-  listenToLauncherArchiveDragDrop,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherUrl,
@@ -22,7 +19,12 @@ import {
   resolveLauncherImage,
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
-} from '@platform/desktop'
+} from '@features/launcher/api'
+import {
+  chooseArchiveFile,
+  chooseImageFile,
+  listenToLauncherArchiveDragDrop,
+} from '@shared/lib/desktop'
 import { useLauncherLibrary } from '@features/launcher'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -75,13 +77,27 @@ vi.mock('@radix-ui/react-context-menu', async () => {
   }
 })
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
+  return {
+    ...actual,
+    inspectLauncherArchive: vi.fn(),
+    listLauncherInstallBackups: vi.fn(),
+    loadLauncherRemoteModDetail: vi.fn(),
+    openLauncherUrl: vi.fn(),
+    openLauncherPath: vi.fn(),
+    resolveLauncherImage: vi.fn(),
+    restoreLauncherInstallBackup: vi.fn(),
+    setLauncherLibraryCover: vi.fn(),
+  }
+})
+
+vi.mock('@shared/lib/desktop', async () => {
+  const actual = await vi.importActual<typeof import('@shared/lib/desktop')>('@shared/lib/desktop')
   return {
     ...actual,
     chooseArchiveFile: vi.fn(),
     chooseImageFile: vi.fn(),
-    inspectLauncherArchive: vi.fn(),
     listenToLauncherArchiveDragDrop: vi.fn(async (listener) => {
       archiveDragDropListeners.push(listener)
       return () => {
@@ -91,13 +107,6 @@ vi.mock('@platform/desktop', async () => {
         }
       }
     }),
-    listLauncherInstallBackups: vi.fn(),
-    loadLauncherRemoteModDetail: vi.fn(),
-    openLauncherUrl: vi.fn(),
-    openLauncherPath: vi.fn(),
-    resolveLauncherImage: vi.fn(),
-    restoreLauncherInstallBackup: vi.fn(),
-    setLauncherLibraryCover: vi.fn(),
   }
 })
 

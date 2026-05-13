@@ -1,5 +1,5 @@
 import {useDeferredValue, useEffect, useMemo, useState} from 'react'
-import {type EventAssetSummary, type GameDirectoryInfo, loadTextAsset, scanEvents} from '@platform/desktop'
+import {type EventAssetSummary, type GameDirectoryInfo, loadTextAsset, scanEvents} from '@entities/game/api'
 import type {EditorCopy, LocaleCode} from '@locales'
 import { parseEventAssetContent, EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import { buildModBrowserGroups, buildModEntryLookup, findModBrowserEntry, findModSources, type BrowserSourceMode, type ModBrowserEntry } from '@pages/workbench/workspaces/mod'

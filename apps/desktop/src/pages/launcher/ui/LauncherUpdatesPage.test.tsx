@@ -8,7 +8,7 @@ import type {
   LauncherUpdateChangelogResult,
   LauncherUpdateSummary,
   LauncherUpdatesResult,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import {
   checkLauncherUpdates,
   loadCachedLauncherUpdates,
@@ -16,7 +16,7 @@ import {
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
   subscribeLauncherUpdates,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
@@ -27,8 +27,8 @@ import { LauncherUpdatesPage } from './LauncherUpdatesPage'
 
 const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),

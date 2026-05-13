@@ -1,13 +1,17 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { chooseDirectory, exportContentPatcherAsset, type LoadContentPatcherResultAssetResult } from '@platform/desktop'
+import { exportContentPatcherAsset, type LoadContentPatcherResultAssetResult } from '@entities/mod/api'
+import { chooseDirectory } from '@shared/lib/desktop'
 import { createDefaultContentPatcherSimulationContext } from '../content-model/contentPatcher'
 import { renderWithLocale } from '@test/renderWithLocale'
 import { ContentPatcherExportPanel } from './ContentPatcherExportPanel'
 
-vi.mock('@platform/desktop', () => ({
-  chooseDirectory: vi.fn(),
+vi.mock('@entities/mod/api', () => ({
   exportContentPatcherAsset: vi.fn(),
+}))
+
+vi.mock('@shared/lib/desktop', () => ({
+  chooseDirectory: vi.fn(),
 }))
 
 afterEach(() => {

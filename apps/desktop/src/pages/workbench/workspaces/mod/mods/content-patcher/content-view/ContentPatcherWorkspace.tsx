@@ -5,7 +5,7 @@ import type {
   ModProjectDetail,
   ModProjectDiagnostic,
   SaveModProjectResult,
-} from '@platform/desktop'
+} from '@entities/mod/api'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import type { WorkspacePluginDefinition } from '../content-model/types'

@@ -1,4 +1,4 @@
-import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '@platform/desktop'
+import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '@entities/mod/api'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import type { WorkspacePluginDefinition } from '../content-model/types'
 

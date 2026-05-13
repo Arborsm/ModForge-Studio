@@ -17,7 +17,8 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
-import { canUseDesktopHost, openLauncherUrl, type LauncherSettings } from '@platform/desktop'
+import { openLauncherUrl, type LauncherSettings } from '@features/launcher/api'
+import { canUseDesktopHost } from '@shared/lib/desktop'
 import { useLauncherImage } from '@features/launcher'
 import {
   normalizeLauncherDiscoverToolbarState,

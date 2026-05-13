@@ -1,6 +1,6 @@
 import {useDeferredValue, useEffect, useMemo, useState} from 'react'
 import {deferToAnimationFrame, deferToTimeout} from '@shared/lib/react'
-import {type GameDirectoryInfo, loadTextAsset} from '@platform/desktop'
+import {type GameDirectoryInfo, loadTextAsset} from '@entities/game/api'
 import type {CharactersPanelCopy, LocaleCode} from '@locales'
 import {
   getLocalizedImagePathCandidates,

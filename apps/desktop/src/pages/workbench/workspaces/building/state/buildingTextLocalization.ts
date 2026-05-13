@@ -1,5 +1,5 @@
 import type { LocaleCode } from '@locales'
-import { loadTextAsset } from '@platform/desktop'
+import { loadTextAsset } from '@entities/game/api'
 import type { BuildingWorkspaceEntry } from '../entities/building'
 
 // ── String table cache ────────────────────────────────────────────────────

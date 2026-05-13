@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LoadContentPatcherResultAssetResult } from '@platform/desktop'
+import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { createDefaultContentPatcherSimulationContext } from '../content-model/contentPatcher'
 import { ContentPatcherResultPreview } from './ContentPatcherResultPreview'
 

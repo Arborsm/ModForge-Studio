@@ -1,9 +1,9 @@
-import type { ContentPatcherPatchSummary } from '@platform/desktop'
+import type { ContentPatcherPatchSummary } from '@entities/mod/api'
 import type {
   ContentPatcherProjectSnapshot,
   ContentPatcherSimulationContext as DesktopContentPatcherSimulationContext,
   SimulateContentPatcherRequest,
-} from '@platform/desktop'
+} from '@entities/mod/api'
 
 type JsonObject = Record<string, unknown>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '@platform/desktop'
+import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '@entities/game/api'
 import type { ViewportWorldPoint } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'

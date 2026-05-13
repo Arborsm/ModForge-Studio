@@ -6,13 +6,13 @@ import { useEditorCopy, useSettingsMenuCopy } from '@locales/localeContext'
 import { reportAppEvent, type AppEventLevel } from '@shared/lib/observability'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
-  canUseDesktopHost,
   clearLauncherImageCache,
   type LauncherNexusDiagnosticsResult,
   loadLauncherNexusDiagnostics,
   setLauncherNexusForceOffline,
   type LauncherNexusRouteSnapshot,
-} from '@platform/desktop'
+} from '@features/launcher/api'
+import { canUseDesktopHost } from '@shared/lib/desktop'
 import { getLauncherWarningState, useLauncherDownloads, useLauncherPort, useLauncherSettings } from '@features/launcher'
 import type { LauncherCopy } from '@locales/schema'
 import type { LauncherRuntimeInfo, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'

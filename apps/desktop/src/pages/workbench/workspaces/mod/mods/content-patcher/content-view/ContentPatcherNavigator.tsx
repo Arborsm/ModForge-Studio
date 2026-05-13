@@ -1,5 +1,5 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '@platform/desktop'
+import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '@entities/mod/api'
 import { contentPatcherStatusClass } from '../content-model/presentation'
 
 type ContentPatcherNavigatorProps = {

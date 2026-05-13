@@ -9,7 +9,7 @@ vi.mock('@entities/event', () => ({
   }),
 }))
 
-vi.mock('@platform/desktop', () => ({
+vi.mock('@shared/lib/desktop', () => ({
   canUseDesktopHost: () => false,
   clearFileCache: vi.fn(),
   getDesktopCacheStats: () => ({

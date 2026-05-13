@@ -10,7 +10,7 @@ import {
   openLauncherUrl,
   type LauncherRemoteModDetail,
   type LauncherUpdateChangelogResult,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import { useLauncherImage } from '@features/launcher'
 import { useLauncherUpdates } from '@features/launcher'
 import type { LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher'

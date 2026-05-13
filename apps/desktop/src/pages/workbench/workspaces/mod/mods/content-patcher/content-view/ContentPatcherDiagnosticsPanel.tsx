@@ -1,4 +1,4 @@
-import type { LoadContentPatcherResultAssetResult } from '@platform/desktop'
+import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 import { contentPatcherStatusClass } from '../content-model/presentation'

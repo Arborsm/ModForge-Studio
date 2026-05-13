@@ -1,4 +1,4 @@
-import type { LoadContentPatcherResultAssetResult } from '@platform/desktop'
+import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
 import { ContentPatcherImagePreview } from './ContentPatcherImagePreview'
 

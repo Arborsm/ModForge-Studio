@@ -259,10 +259,11 @@ The main legacy roots are gone. Remaining frontend architecture debt should be t
 
 Current priority order:
 
-1. Remove direct `@platform/desktop` imports from entities/features/pages by routing capabilities through `shared/contracts/platform.ts` ports and app providers.
-2. Keep `platform` imports limited to platform adapters, app provider assembly, and explicitly documented boundary files.
-3. Prefer page-owned workspace code until a module is reused by multiple pages or widgets.
-4. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
+1. Keep `@platform/desktop` deleted. Host infrastructure helpers belong in the port-backed `shared/lib/desktop/` modules; business desktop APIs belong in their owning `entities/*/api` or `features/*/api` slice.
+2. Route host capabilities through `shared/contracts/platform.ts` ports and `app/providers` injection; keep direct Tauri usage inside `platform/tauri/`.
+3. Keep `platform` imports limited to platform adapters, app provider assembly, and explicitly documented boundary files.
+4. Prefer page-owned workspace code until a module is reused by multiple pages or widgets.
+5. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
 
 Do not preserve old internal request shapes, localStorage keys, route ids, or import paths for compatibility while the product is unreleased. Finish the change, update callers, and delete temporary code immediately.
 

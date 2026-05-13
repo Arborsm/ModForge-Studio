@@ -1,4 +1,5 @@
-import { canUseDesktopHost, loadAudioDataUrl, loadXactAudioDataUrl, scanAudioAssets, type AudioAssetSummary } from '@platform/desktop'
+import { loadAudioDataUrl, loadXactAudioDataUrl, scanAudioAssets, type AudioAssetSummary } from '@entities/game/api'
+import { canUseDesktopHost } from '@shared/lib/desktop'
 
 type AudioCueKind = 'music' | 'sound'
 

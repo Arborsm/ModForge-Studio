@@ -1,4 +1,4 @@
-import { loadTextAsset } from '@platform/desktop'
+import { loadTextAsset } from '@entities/game/api'
 import type { LocaleCode } from '@locales/editor-shell'
 import {
   getFarmerDirectionalFrame,

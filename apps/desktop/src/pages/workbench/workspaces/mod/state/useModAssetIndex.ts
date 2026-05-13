@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { scanModAssetIndex, type GameDirectoryInfo, type ModAssetIndex } from '@platform/desktop'
+import { type GameDirectoryInfo } from '@entities/game/api'
+import { scanModAssetIndex, type ModAssetIndex } from '@entities/mod/api'
 
 export function useModAssetIndex(directoryInfo: GameDirectoryInfo | null) {
   const [modIndexState, setModIndexState] = useState<{

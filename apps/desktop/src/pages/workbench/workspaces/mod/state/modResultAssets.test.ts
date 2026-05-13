@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadContentPatcherResultAsset } from '@platform/desktop'
+import { loadContentPatcherResultAsset } from '@entities/mod/api'
 import { loadImageResource } from '@shared/lib/assets'
 import type { MapDocument } from '@shared/contracts'
 import { loadModResultImageState, loadModResultMapDocument } from './modResultAssets'
 import type { ModBrowserEntry } from './browser'
 
-vi.mock('@platform/desktop', () => ({
+vi.mock('@entities/mod/api', () => ({
   loadContentPatcherResultAsset: vi.fn(),
 }))
 

@@ -8,7 +8,7 @@ import type {
   LauncherSettings,
   LauncherUpdateSummary,
   LauncherUpdatesResult,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import { useLauncherUpdates } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'

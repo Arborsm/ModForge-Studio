@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { OpenDialogOptions, PlatformPorts } from '@shared/contracts'
@@ -100,6 +101,23 @@ export function createTauriPlatformPorts(): PlatformPorts {
       async chooseFile(options?: OpenDialogOptions) {
         const selected = await openDialog({ ...options, directory: false, multiple: false })
         return typeof selected === 'string' ? selected : null
+      },
+    },
+    hostEvents: {
+      canUseHost: canUseTauriHost,
+      async listen<T>(event: string, listener: (payload: T) => void) {
+        if (!canUseTauriHost()) {
+          return () => {}
+        }
+
+        return listen<T>(event, (nextEvent) => listener(nextEvent.payload))
+      },
+      async listenWindowDragDrop(listener) {
+        if (!canUseTauriHost()) {
+          return () => {}
+        }
+
+        return getCurrentWindow().onDragDropEvent((event) => listener(event.payload))
       },
     },
   }

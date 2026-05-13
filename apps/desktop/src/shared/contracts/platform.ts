@@ -15,6 +15,23 @@ export interface FileSystemPort {
   toAssetUrl: (filePath: string, protocol?: string) => string
 }
 
+export type PlatformUnlistenFn = () => void
+
+export type PlatformDragDropPayload = {
+  type: string
+  paths?: string[]
+  position?: {
+    x: number
+    y: number
+  }
+}
+
+export interface HostEventPort {
+  canUseHost: () => boolean
+  listen: <T>(event: string, listener: (payload: T) => void) => Promise<PlatformUnlistenFn>
+  listenWindowDragDrop: (listener: (payload: PlatformDragDropPayload) => void) => Promise<PlatformUnlistenFn>
+}
+
 export interface DesktopWindowPort {
   minimize: () => Promise<void>
   toggleMaximize: () => Promise<void>
@@ -41,4 +58,5 @@ export interface PlatformPorts {
   desktopWindow: DesktopWindowPort
   storage: StoragePort
   dialog: DialogPort
+  hostEvents: HostEventPort
 }

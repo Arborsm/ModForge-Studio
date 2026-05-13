@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { chooseDirectory, loadContentPatcherResultAsset, saveModProject, scanModProjects, simulateContentPatcher } from '@platform/desktop'
+import { loadContentPatcherResultAsset, saveModProject, scanModProjects, simulateContentPatcher } from '@entities/mod/api'
+import { chooseDirectory } from '@shared/lib/desktop'
 import { reportAppEvent } from '@shared/lib/observability'
 import useModWorkspace from './useModWorkspace'
 
@@ -17,8 +18,7 @@ vi.mock('@locales/editor-shell', async (importOriginal) => {
   }
 })
 
-vi.mock('@platform/desktop', () => ({
-  chooseDirectory: vi.fn(),
+vi.mock('@entities/mod/api', () => ({
   loadModProject: vi.fn().mockResolvedValue({
     pluginKind: 'content-patcher',
     capabilities: ['edit', 'save', 'export', 'validate'],
@@ -141,6 +141,10 @@ vi.mock('@platform/desktop', () => ({
 
 vi.mock('@shared/lib/observability', () => ({
   reportAppEvent: vi.fn(),
+}))
+
+vi.mock('@shared/lib/desktop', () => ({
+  chooseDirectory: vi.fn(),
 }))
 
 describe('useModWorkspace', () => {

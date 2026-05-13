@@ -5,7 +5,8 @@ import type { VirtualPreviewAsset } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import type { MapDocument } from '@shared/contracts'
-import { buildCpMakerMapAsset, loadMapAsset } from '@platform/desktop'
+import { loadMapAsset } from '@entities/game/api'
+import { buildCpMakerMapAsset } from '@features/cp-maker/api'
 import { MapViewport } from '@entities/map'
 
 interface MapPatchEditorProps {

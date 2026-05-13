@@ -3,14 +3,14 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
-import { loadLauncherRemoteModDetail } from '@platform/desktop'
+import { loadLauncherRemoteModDetail } from '@features/launcher/api'
 import { useLauncherRemoteModDetail } from './useLauncherRemoteModDetail'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import type { LauncherPort } from './launcherPort'
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
     ...actual,
     loadLauncherRemoteModDetail: vi.fn(),

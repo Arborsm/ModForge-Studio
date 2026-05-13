@@ -4,7 +4,7 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 
 当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。
 
-当前前端主结构已经收敛到 FSD + Clean Architecture：`components/`、`lib/`、`processes/` 不再作为源码根存在。剩余架构债务集中在平台边界：`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 是批准边界，launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 中仍有需要继续收口的 `@platform/desktop` 直连。后续新增代码、查找入口、重构清理，都优先按下面的目标结构定位。
+当前前端主结构已经收敛到 FSD + Clean Architecture：`components/`、`lib/`、`processes/` 不再作为源码根存在。桌面能力通过 `shared/contracts/platform.ts` 定义端口、`platform/tauri/` 实现宿主 adapter、`app/providers/` 注入运行时；`shared/lib/desktop/` 只承载宿主基础设施辅助，业务桌面 API 放在对应 `entities/*/api` 或 `features/*/api`。`@platform/desktop` 旧入口已删除，后续新增代码、查找入口、重构清理，都优先按下面的目标结构定位。
 
 ## 目录总览
 
@@ -34,10 +34,9 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │     │  ├─ shared/                    # 合同、纯类型、UI 原语、纯工具
 │     │  │  ├─ contracts/              # registry、events、commands、platform ports
 │     │  │  ├─ ui/                     # 无业务归属的共享 UI 与通用弹窗
-│     │  │  ├─ lib/                    # 纯工具函数
+│     │  │  ├─ lib/                    # 纯工具函数与 port-backed desktop facade
 │     │  │  └─ workspace/              # 工作台布局纯模型与 layout view
 │     │  ├─ platform/                  # 宿主 adapter 与插件注册
-│     │  │  ├─ desktop/                # 前端可见的桌面能力 facade
 │     │  │  ├─ plugins/                # 静态 workspace / editor 注册
 │     │  │  └─ tauri/                  # platform ports 的 Tauri 实现
 │     │  ├─ locales/                   # 类型化中英文文案
@@ -99,7 +98,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 子 webview surface：`apps/desktop/src/app/webview-surfaces/`
 - Platform Provider：`apps/desktop/src/app/providers/PlatformProvider.tsx`
 - 事件总线与命令分发：`apps/desktop/src/app/providers/`
-- Approved platform bridge boundaries：`apps/desktop/src/app/providers/`、`apps/desktop/src/app/app-shell/AppShell.tsx`、`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
+- Approved platform bridge boundaries：`apps/desktop/src/shared/contracts/platform.ts`、`apps/desktop/src/shared/lib/desktop/`、`apps/desktop/src/platform/tauri/`、`apps/desktop/src/app/providers/`
 - 静态 registry：`apps/desktop/src/app/registry-setup.ts`
 
 ### Launcher
@@ -157,9 +156,8 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 ### Desktop 与 Platform
 
 - platform contracts：`apps/desktop/src/shared/contracts/platform.ts`
+- Desktop host infrastructure：`apps/desktop/src/shared/lib/desktop/`
 - Tauri adapter：`apps/desktop/src/platform/tauri/`
-- Desktop facade：`apps/desktop/src/platform/desktop/`
-- Approved desktop facade entrypoints：`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
 - 插件注册：`apps/desktop/src/platform/plugins/`
 - App 注入入口：`apps/desktop/src/app/providers/`
 - Rust command wrapper：`apps/desktop/src-tauri/src/commands/`
@@ -218,16 +216,16 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src-tauri/src/domain/cp_maker/`
 - 改平台、文件系统、桌面能力：
   - `apps/desktop/src/shared/contracts/platform.ts`
+  - `apps/desktop/src/shared/lib/desktop/`（仅宿主基础设施：窗口、dialog、asset URL、日志、app UI、文件缓存；业务 API 放回对应 `entities/*/api` 或 `features/*/api`）
   - `apps/desktop/src/platform/tauri/`
-  - `apps/desktop/src/platform/desktop/`
   - `apps/desktop/src-tauri/src/commands/`
   - `apps/desktop/src-tauri/src/domain/`
   - `apps/desktop/src-tauri/src/infrastructure/webview/`
 - 改批准桥接边界：
+  - `apps/desktop/src/shared/contracts/platform.ts`
+  - `apps/desktop/src/shared/lib/desktop/`
   - `apps/desktop/src/app/providers/`
-  - `apps/desktop/src/app/app-shell/AppShell.tsx`
-  - `apps/desktop/src/platform/desktop/index.ts`
-  - `apps/desktop/src/platform/desktop/index.test.ts`
+  - `apps/desktop/src/platform/tauri/`
 - 改文案：
   - `apps/desktop/src/locales/schema.ts`
   - `apps/desktop/src/locales/en-US.ts`

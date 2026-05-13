@@ -2,7 +2,7 @@ import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRoun
 import { useEffect, useMemo, useState } from 'react'
 import { buildGameContentPath } from '@shared/lib/assets'
 import type { LocaleCode } from '@locales/editor-shell'
-import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '@platform/desktop'
+import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '@entities/game/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import {
   colorToHex,

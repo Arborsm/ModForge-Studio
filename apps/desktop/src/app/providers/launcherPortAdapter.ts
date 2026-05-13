@@ -36,15 +36,12 @@ import {
   scanLauncherLibrary,
   loadLauncherRuntimeInfo,
   clearLauncherLibraryReadCaches,
-  chooseArchiveFile,
-  chooseImageFile,
   getLauncherBackupDirectory,
   setLauncherModEnabled,
-  chooseDirectory,
-  detectDefaultGameDirectory,
   subscribeLauncherUpdates,
-  toDesktopAssetUrl,
-} from '@platform/desktop'
+} from '@features/launcher/api'
+import { detectDefaultGameDirectory } from '@entities/game/api'
+import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@shared/lib/desktop'
 
 export function createLauncherPortAdapter(): LauncherPort {
   return {

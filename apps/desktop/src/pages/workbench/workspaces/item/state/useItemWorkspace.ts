@@ -1,5 +1,5 @@
 import {useCallback, useDeferredValue, useEffect, useMemo, useState} from 'react'
-import {type GameDirectoryInfo, loadTextAsset} from '@platform/desktop'
+import {type GameDirectoryInfo, loadTextAsset} from '@entities/game/api'
 import type {ItemsPanelCopy, LocaleCode} from '@locales'
 import {
   getLocalizedImagePathCandidates,
