@@ -247,7 +247,7 @@ export function PatchListPage({
 
     const state = patchEditorState(patch)
     const entries = eventEntriesFromState(state)
-    let key = ''
+    let key: string
     do {
       nextEventIdRef.current += 1
       key = `event_${nextEventIdRef.current}`

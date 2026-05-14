@@ -17,9 +17,20 @@ export {
 } from './model/launcherDiscoverToolbarState'
 export { getModKey, includesLibraryFilter, normalizeLookupKey } from './model/libraryHelpers'
 export {
+  clearCachedLauncherConfigurationDiagnostics,
   getLauncherNexusWarningRoutes,
   loadSettledLauncherNexusDiagnostics,
   mergeLauncherNexusDiagnostics,
+  readCachedLauncherConfigurationApiKeyStatus,
+  readCachedLauncherConfigurationDiagnostics,
+  readCachedLauncherConfigurationLibraryScan,
+  readCachedLauncherConfigurationRuntimeInfo,
+  readCachedLauncherConfigurationSsoStatus,
+  writeCachedLauncherConfigurationApiKeyStatus,
+  writeCachedLauncherConfigurationDiagnostics,
+  writeCachedLauncherConfigurationLibraryScan,
+  writeCachedLauncherConfigurationRuntimeInfo,
+  writeCachedLauncherConfigurationSsoStatus,
 } from './model/nexusDiagnostics'
 export { syncLauncherDiagnosticsNotification } from './model/nexusDiagnosticsNotifications'
 export { useLauncherPort } from './model/launcherPortContext'

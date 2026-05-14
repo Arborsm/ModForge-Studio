@@ -14,7 +14,22 @@ import {
   type LauncherNexusRouteSnapshot,
 } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
-import { getLauncherWarningState, useLauncherDownloads, useLauncherPort, useLauncherSettings } from '@features/launcher'
+import {
+  getLauncherWarningState,
+  readCachedLauncherConfigurationApiKeyStatus,
+  readCachedLauncherConfigurationDiagnostics,
+  readCachedLauncherConfigurationLibraryScan,
+  readCachedLauncherConfigurationRuntimeInfo,
+  readCachedLauncherConfigurationSsoStatus,
+  useLauncherDownloads,
+  useLauncherPort,
+  useLauncherSettings,
+  writeCachedLauncherConfigurationApiKeyStatus,
+  writeCachedLauncherConfigurationDiagnostics,
+  writeCachedLauncherConfigurationLibraryScan,
+  writeCachedLauncherConfigurationRuntimeInfo,
+  writeCachedLauncherConfigurationSsoStatus,
+} from '@features/launcher'
 import type { LauncherCopy } from '@locales/schema'
 import type { LauncherRuntimeInfo, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'
 import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
@@ -152,6 +167,10 @@ function getDiagnosticsAgeLabel(timestamp: number | null, copy: LauncherCopy) {
 
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000))
   return minutes <= 0 ? copy.settings.configurationDiagnosticsJustNow : copy.settings.configurationDiagnosticsMinutesAgo(minutes)
+}
+
+function getConfigurationDiagnosticsApiKeySignature(settings: ReturnType<typeof useLauncherSettings>['settings']) {
+  return settings.nexusApiKey?.trim() ?? ''
 }
 
 function getRouteTone(route: LauncherNexusRouteSnapshot | undefined): ApiRouteTone {
@@ -496,26 +515,52 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
   const [apiKeyChecking, setApiKeyChecking] = useState(false)
   const [ssoAuthorized, setSsoAuthorized] = useState(false)
   const [ssoStarting, setSsoStarting] = useState(false)
-  const hasApiKey = Boolean(settings.nexusApiKey?.trim())
+  const apiKeySignature = getConfigurationDiagnosticsApiKeySignature(settings)
+  const hasApiKey = Boolean(apiKeySignature)
 
-  const refreshApiKeyStatus = useCallback(async () => {
+  const refreshApiKeyStatus = useCallback(async (options: { force?: boolean } = {}) => {
     if (!hasApiKey) {
       setApiKeyStatus(null)
       setApiKeyError(null)
       return
     }
 
+    if (!options.force) {
+      const cached = readCachedLauncherConfigurationApiKeyStatus({
+        apiKeySignature,
+      })
+      if (cached) {
+        setApiKeyStatus(cached.status)
+        setApiKeyError(cached.error)
+        return
+      }
+    }
+
     setApiKeyChecking(true)
     setApiKeyError(null)
     try {
-      setApiKeyStatus(await launcherPort.validateNexusApiKey())
+      const nextStatus = await launcherPort.validateNexusApiKey()
+      setApiKeyStatus(nextStatus)
+      writeCachedLauncherConfigurationApiKeyStatus({
+        status: nextStatus,
+        error: null,
+      }, {
+        apiKeySignature,
+      })
     } catch (nextError) {
+      const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
       setApiKeyStatus(null)
-      setApiKeyError(nextError instanceof Error ? nextError.message : String(nextError))
+      setApiKeyError(errorMessage)
+      writeCachedLauncherConfigurationApiKeyStatus({
+        status: null,
+        error: errorMessage,
+      }, {
+        apiKeySignature,
+      })
     } finally {
       setApiKeyChecking(false)
     }
-  }, [hasApiKey, launcherPort])
+  }, [apiKeySignature, hasApiKey, launcherPort])
 
   useEffect(() => {
     void refreshApiKeyStatus()
@@ -523,10 +568,18 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
 
   useEffect(() => {
     let cancelled = false
+    const cached = readCachedLauncherConfigurationSsoStatus()
+    if (cached) {
+      setSsoAuthorized(cached.snapshot.status === 'authorized')
+      return () => {
+        cancelled = true
+      }
+    }
 
     const loadSso = async () => {
       try {
         const snapshot = await launcherPort.getNexusSsoStatus()
+        writeCachedLauncherConfigurationSsoStatus(snapshot)
         if (!cancelled) {
           setSsoAuthorized(snapshot.status === 'authorized')
         }
@@ -549,10 +602,11 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
     try {
       await launcherPort.startNexusSso()
       const snapshot = await launcherPort.getNexusSsoStatus()
+      writeCachedLauncherConfigurationSsoStatus(snapshot)
       setSsoAuthorized(snapshot.status === 'authorized')
       if (snapshot.status === 'authorized') {
         await refresh()
-        await refreshApiKeyStatus()
+        await refreshApiKeyStatus({ force: true })
       }
     } catch (nextError) {
       setApiKeyError(nextError instanceof Error ? nextError.message : String(nextError))
@@ -959,6 +1013,7 @@ export function LauncherConfigurationPage({
   const gameVersion = runtimeInfo?.gameVersion ?? null
   const smapiVersion = runtimeInfo?.smapiVersion ?? null
   const debugSimulationActive = downloads.activeItems.some((item) => item.source === 'debug' && item.status === 'downloading')
+  const diagnosticsApiKeySignature = getConfigurationDiagnosticsApiKeySignature(settingsState.settings)
   const handleDiagnosticsUpdate = useCallback((diagnostics: LauncherNexusDiagnosticsResult) => {
     setDiagnosticRoutes(diagnostics.routes)
     setLastDiagnosticsAt(Date.now())
@@ -972,8 +1027,17 @@ export function LauncherConfigurationPage({
       return
     }
 
+    const cached = readCachedLauncherConfigurationLibraryScan({ modsPath })
+    if (cached) {
+      setInstalledModCount(cached.result.mods.length)
+      return () => {
+        disposed = true
+      }
+    }
+
     void launcherPort.scanLibrary({ modsPath })
       .then((result) => {
+        writeCachedLauncherConfigurationLibraryScan(result, { modsPath })
         if (!disposed) {
           setInstalledModCount(result.mods.length)
         }
@@ -990,9 +1054,18 @@ export function LauncherConfigurationPage({
   }, [launcherPort, settingsState.settings.modsPath])
   useEffect(() => {
     let disposed = false
+    const gamePath = settingsState.settings.gamePath?.trim() ?? ''
+    const cached = readCachedLauncherConfigurationRuntimeInfo({ gamePath })
+    if (cached) {
+      setRuntimeInfo(cached.info)
+      return () => {
+        disposed = true
+      }
+    }
 
     void launcherPort.loadRuntimeInfo()
       .then((info) => {
+        writeCachedLauncherConfigurationRuntimeInfo(info, { gamePath })
         if (!disposed) {
           setRuntimeInfo(info)
         }
@@ -1015,6 +1088,21 @@ export function LauncherConfigurationPage({
     let disposed = false
     let timeoutId: number | null = null
     let shouldRestartDiagnostics = diagnosticsRestartNonce > 0
+    const cachedDiagnostics = shouldRestartDiagnostics
+      ? null
+      : readCachedLauncherConfigurationDiagnostics({
+          apiKeySignature: diagnosticsApiKeySignature,
+        })
+
+    if (cachedDiagnostics) {
+      setDiagnosticRoutes(cachedDiagnostics.diagnostics.routes)
+      setLastDiagnosticsAt(cachedDiagnostics.cachedAt)
+      onLauncherDiagnosticsUpdate?.(cachedDiagnostics.diagnostics)
+      if (!cachedDiagnostics.shouldRefresh) {
+        setDiagnosticsRefreshing(false)
+        return
+      }
+    }
 
     const poll = async () => {
       try {
@@ -1025,6 +1113,9 @@ export function LauncherConfigurationPage({
         if (disposed) {
           return
         }
+        writeCachedLauncherConfigurationDiagnostics(diagnostics, {
+          apiKeySignature: diagnosticsApiKeySignature,
+        })
         handleDiagnosticsUpdate(diagnostics)
         setDiagnosticsRefreshing(false)
         if (diagnostics.routes.some((route) => route.status === 'loading')) {
@@ -1049,7 +1140,7 @@ export function LauncherConfigurationPage({
         window.clearTimeout(timeoutId)
       }
     }
-  }, [handleDiagnosticsUpdate, diagnosticsPollNonce, diagnosticsRestartNonce])
+  }, [diagnosticsApiKeySignature, diagnosticsPollNonce, diagnosticsRestartNonce, handleDiagnosticsUpdate, onLauncherDiagnosticsUpdate])
   const handleRefreshDiagnostics = useCallback(() => {
     setDiagnosticsRefreshing(true)
     setDiagnosticRoutes(getDefaultConfigRoutes(copy))
@@ -1076,6 +1167,9 @@ export function LauncherConfigurationPage({
         },
       })
       setForceOffline(nextForceOffline)
+      writeCachedLauncherConfigurationDiagnostics(diagnostics as LauncherNexusDiagnosticsResult, {
+        apiKeySignature: diagnosticsApiKeySignature,
+      })
       handleDiagnosticsUpdate(diagnostics as LauncherNexusDiagnosticsResult)
       if (diagnostics.routes.some((route) => route.status === 'loading')) {
         handleRefreshDiagnostics()
@@ -1085,7 +1179,7 @@ export function LauncherConfigurationPage({
     } finally {
       setForceOfflineBusy(false)
     }
-  }, [forceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
+  }, [diagnosticsApiKeySignature, forceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
   const handleClearLauncherImageCache = () => {
     void clearLauncherImageCache().catch(() => {
       // Debug-only affordance: ignore desktop bridge failures here.

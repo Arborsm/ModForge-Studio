@@ -196,6 +196,39 @@ type VirtualizedLauncherGridProps = {
   getContextActions: (mod: LauncherLibraryItem) => { label: string; onSelect: () => void }[] | undefined
 }
 
+const MAX_LIBRARY_REVEAL_BATCH_SIZE = 4
+const TARGET_LIBRARY_REVEAL_WAVES = 4
+const FALLBACK_LIBRARY_REVEAL_BATCH_SIZE = 2
+
+function clampLibraryRevealBatchSize(value: number, itemCount: number) {
+  if (itemCount <= 0) return 1
+  return Math.max(1, Math.min(MAX_LIBRARY_REVEAL_BATCH_SIZE, itemCount, value))
+}
+
+function computeLibraryRevealBatchSize({
+  itemCount,
+  viewportWidth,
+  viewportHeight,
+  cardWidth,
+  cardHeight,
+}: {
+  itemCount: number
+  viewportWidth: number
+  viewportHeight: number
+  cardWidth: number
+  cardHeight: number
+}) {
+  if (itemCount <= 0) return 1
+  if (viewportWidth <= 0 || viewportHeight <= 0 || cardWidth <= 0 || cardHeight <= 0) {
+    return clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, itemCount)
+  }
+
+  const visibleColumns = Math.max(1, Math.floor(viewportWidth / cardWidth))
+  const visibleRows = Math.max(1, Math.ceil(viewportHeight / cardHeight))
+  const visibleItemCount = Math.min(itemCount, visibleColumns * visibleRows)
+  return clampLibraryRevealBatchSize(Math.ceil(visibleItemCount / TARGET_LIBRARY_REVEAL_WAVES), itemCount)
+}
+
 const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   items,
   editMode,
@@ -207,34 +240,79 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   onSelectMod,
   getContextActions,
 }: VirtualizedLauncherGridProps) {
+  const viewportRef = useRef<HTMLDivElement | null>(null)
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const [revealBatchSize, setRevealBatchSize] = useState(() =>
+    clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length),
+  )
   const selectedIdLookup = useMemo(() => new Set(editingSelectionIds), [editingSelectionIds])
 
+  useEffect(() => {
+    const viewport = viewportRef.current
+    const grid = gridRef.current
+    if (!viewport || !grid) {
+      setRevealBatchSize(clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length))
+      return
+    }
+
+    const updateRevealBatchSize = () => {
+      const firstCard = grid.querySelector<HTMLElement>('.launcher-library-grid-reveal')
+      const viewportRect = viewport.getBoundingClientRect()
+      const cardRect = firstCard?.getBoundingClientRect()
+      const nextBatchSize = computeLibraryRevealBatchSize({
+        itemCount: items.length,
+        viewportWidth: viewportRect.width,
+        viewportHeight: viewportRect.height,
+        cardWidth: cardRect?.width ?? 0,
+        cardHeight: cardRect?.height ?? 0,
+      })
+      setRevealBatchSize((current) => (current === nextBatchSize ? current : nextBatchSize))
+    }
+
+    updateRevealBatchSize()
+
+    if (typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const resizeObserver = new ResizeObserver(updateRevealBatchSize)
+    resizeObserver.observe(viewport)
+    resizeObserver.observe(grid)
+    return () => resizeObserver.disconnect()
+  }, [items.length])
+
   return (
-    <div className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}>
-        <div className="launcher-library-grid">
+    <div
+      ref={viewportRef}
+      className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}
+    >
+      <div ref={gridRef} className="launcher-library-grid">
         {items.map((item, index) => (
-          <LoadingMotionRevealItem key={item.id} index={index + 3} className="launcher-library-grid-reveal">
-            <LauncherModCard
+          <LoadingMotionRevealItem
             key={item.id}
-            title={item.name}
-            titleTooltip={item.name}
-            meta={buildLibraryCardMeta(item, noneLabel)}
-            imageUrl={item.imageUrl}
-            enabled={item.enabled}
-            draggable
-            onDragStart={(event) => onDragStart(item.id, event)}
-            onDragEnd={onDragEnd}
-            selectionMode={editMode}
-            selected={selectedIdLookup.has(item.id)}
-            onSelect={() => {
-              if (editMode) {
-                onToggleSelection(item.id)
-                return
-              }
-              onSelectMod(item.id)
-            }}
-            contextActions={editMode ? undefined : getContextActions(item)}
-          />
+            index={Math.floor(index / revealBatchSize) + 3}
+            className="launcher-library-grid-reveal"
+          >
+            <LauncherModCard
+              title={item.name}
+              titleTooltip={item.name}
+              meta={buildLibraryCardMeta(item, noneLabel)}
+              imageUrl={item.imageUrl}
+              enabled={item.enabled}
+              draggable
+              onDragStart={(event) => onDragStart(item.id, event)}
+              onDragEnd={onDragEnd}
+              selectionMode={editMode}
+              selected={selectedIdLookup.has(item.id)}
+              onSelect={() => {
+                if (editMode) {
+                  onToggleSelection(item.id)
+                  return
+                }
+                onSelectMod(item.id)
+              }}
+              contextActions={editMode ? undefined : getContextActions(item)}
+            />
           </LoadingMotionRevealItem>
         ))}
       </div>
@@ -1067,7 +1145,7 @@ export function LauncherLibraryPageContent({
       <>
         <section className="launcher-library-page">
         {!editMode ? (
-          <section className="launcher-library-console">
+          <LoadingMotionRevealItem index={0} as="section" className="launcher-library-console">
             <div className="launcher-library-console-top">
               <div className="launcher-library-console-heading">
                 <button
@@ -1245,9 +1323,9 @@ export function LauncherLibraryPageContent({
                 </div>
               </div>
             </div>
-          </section>
+          </LoadingMotionRevealItem>
         ) : (
-          <section className="launcher-library-edit-bar">
+          <LoadingMotionRevealItem index={0} as="section" className="launcher-library-edit-bar">
             <div className="launcher-library-edit-bar-left">
               <button
                 type="button"
@@ -1278,7 +1356,7 @@ export function LauncherLibraryPageContent({
                 {copy.library.saveChanges}
               </button>
             </div>
-          </section>
+          </LoadingMotionRevealItem>
         )}
 
         <div

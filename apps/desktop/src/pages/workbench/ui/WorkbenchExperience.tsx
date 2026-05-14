@@ -932,7 +932,7 @@ export default function WorkbenchExperience({
         />
       ) : null}
 
-      {debugEnabled ? (
+      {active && debugEnabled ? (
         <DevDebugOverlay
           workspaceMode={workspaceMode}
           mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}

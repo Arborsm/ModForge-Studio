@@ -18,15 +18,6 @@ function parsePort(value) {
   return parsed
 }
 
-function isEnabledFlag(value) {
-  if (!value) {
-    return false
-  }
-
-  const normalized = value.trim().toLowerCase()
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on'
-}
-
 function hasExplicitAppPortOverride(env) {
   return (
     parsePort(env.MODFORGE_DEV_PORT) !== null ||
@@ -38,10 +29,6 @@ function hasExplicitAppPortOverride(env) {
 
 function hasExplicitHmrPortOverride(env) {
   return parsePort(env.MODFORGE_DEV_HMR_PORT) !== null || parsePort(env.TAURI_DEV_HMR_PORT) !== null
-}
-
-function hasDynamicPortResolutionEnabled(env) {
-  return isEnabledFlag(env.MODFORGE_DEV_DYNAMIC_PORTS) || isEnabledFlag(env.TAURI_DEV_DYNAMIC_PORTS)
 }
 
 export function resolveDevServerPorts(env = process.env) {
@@ -119,14 +106,13 @@ export async function resolveTauriDevRuntime(env = process.env, isPortAvailable 
   const host = resolveDevServerHost(env)
   const explicitAppPort = hasExplicitAppPortOverride(env)
   const explicitHmrPort = hasExplicitHmrPortOverride(env)
-  const dynamicPortsEnabled = hasDynamicPortResolutionEnabled(env)
   let { port, hmrPort } = resolveDevServerPorts(env)
 
-  if (dynamicPortsEnabled && !explicitAppPort && !(await isPortAvailable(port, host))) {
+  if (!explicitAppPort && !(await isPortAvailable(port, host))) {
     port = await findNextAvailablePort(port + 1, host, isPortAvailable)
   }
 
-  if (dynamicPortsEnabled && !explicitHmrPort) {
+  if (!explicitHmrPort) {
     const requestedHmrPort = hmrPort === port ? port + 1 : hmrPort
     const hmrIsAvailable = requestedHmrPort !== port && (await isPortAvailable(requestedHmrPort, host))
 

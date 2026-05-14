@@ -67,15 +67,25 @@ describe('TopMenuBar', () => {
   })
 
   it('labels the workspace module navigation and marks the active module', () => {
-    renderWithLocale(<TopMenuBar {...buildProps()} />)
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
+    const gooeyNav = container.querySelector('.top-menu-gooey-nav')
 
-    const activeModule = within(moduleNav).getByRole('button', { name: copy.nav.map })
-    const inactiveModule = within(moduleNav).getByRole('button', { name: copy.nav.characters })
+    const activeModule = within(moduleNav).getByRole('link', { name: copy.nav.map })
+    const inactiveModule = within(moduleNav).getByRole('link', { name: copy.nav.characters })
 
+    expect(gooeyNav?.getAttribute('data-variant')).toBe('dark')
     expect(activeModule.getAttribute('aria-current')).toBe('page')
     expect(inactiveModule.getAttribute('aria-current')).toBeNull()
+  })
+
+  it('uses the light GooeyNav variant when the shell theme is light', () => {
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps({ theme: 'light' })} />)
+
+    const gooeyNav = container.querySelector('.top-menu-gooey-nav')
+
+    expect(gooeyNav?.getAttribute('data-variant')).toBe('light')
   })
 
   it('opens the view menu with expanded state and a labeled menu', () => {
@@ -150,12 +160,16 @@ describe('TopMenuBar', () => {
   })
 
   it('renders launcher page navigation in the title bar without a downloads page tab', () => {
-    renderWithLocale(<TopMenuBar {...buildProps({ appMode: 'launcher' })} />)
+    const { container } = renderWithLocale(<TopMenuBar {...buildProps({ appMode: 'launcher', theme: 'light' })} />)
 
-    expect(screen.getByRole('button', { name: copy.launcher.pages.library })).toBeTruthy()
-    expect(screen.getByRole('button', { name: copy.launcher.pages.discover })).toBeTruthy()
-    expect(screen.getByRole('button', { name: copy.launcher.pages.updates })).toBeTruthy()
-    expect(screen.getByRole('button', { name: copy.launcher.pages.configuration })).toBeTruthy()
+    const launcherNav = screen.getByRole('navigation', { name: copy.launcher.navigation })
+    const gooeyNav = container.querySelector('.top-menu-gooey-nav')
+
+    expect(gooeyNav?.getAttribute('data-variant')).toBe('light')
+    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.library })).toBeTruthy()
+    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.discover })).toBeTruthy()
+    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.updates })).toBeTruthy()
+    expect(within(launcherNav).getByRole('link', { name: copy.launcher.pages.configuration })).toBeTruthy()
     expect(screen.queryByRole('button', { name: copy.launcher.downloads.title })?.getAttribute('aria-current')).not.toBe('page')
   })
 
@@ -173,10 +187,12 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    const updatesButton = screen.getByRole('button', { name: copy.launcher.pages.updates })
-    const badge = updatesButton.querySelector('.top-menu-launcher-nav-badge')
+    const updatesLink = screen.getByRole('link', { name: copy.launcher.pages.updates })
+    const badge = updatesLink.querySelector('.gooey-nav-item-badge')
+    const overlayText = document.querySelector('.top-menu-gooey-nav .effect.text')
 
     expect(badge?.textContent).toBe('99+')
+    expect(overlayText?.textContent).not.toContain('99+')
   })
 
   it('keeps the launcher configuration page tab visible when debug mode is disabled', () => {
@@ -193,7 +209,7 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    expect(screen.getByRole('button', { name: copy.launcher.pages.configuration })).toBeTruthy()
+    expect(screen.getByRole('link', { name: copy.launcher.pages.configuration })).toBeTruthy()
   })
 
   it('opens the downloads popup as a non-modal launcher popover', () => {
@@ -256,7 +272,7 @@ describe('TopMenuBar', () => {
       />,
     )
 
-    const settingsButton = screen.getAllByRole('button', { name: copy.launcher.pages.configuration }).at(-1)
-    expect(settingsButton?.querySelector('.top-menu-warning-dot')).toBeNull()
+    const settingsLink = screen.getAllByRole('link', { name: copy.launcher.pages.configuration }).at(-1)
+    expect(settingsLink?.querySelector('.top-menu-warning-dot')).toBeNull()
   })
 })

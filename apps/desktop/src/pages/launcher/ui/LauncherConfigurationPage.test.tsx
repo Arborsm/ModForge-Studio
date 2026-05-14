@@ -3,7 +3,15 @@ import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
-import type { LauncherSettings } from '@features/launcher/api'
+import type { LauncherLibraryModSummary, LauncherSettings } from '@features/launcher/api'
+import {
+  clearCachedLauncherConfigurationDiagnostics,
+  writeCachedLauncherConfigurationApiKeyStatus,
+  writeCachedLauncherConfigurationDiagnostics,
+  writeCachedLauncherConfigurationLibraryScan,
+  writeCachedLauncherConfigurationRuntimeInfo,
+  writeCachedLauncherConfigurationSsoStatus,
+} from '@features/launcher'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
@@ -75,6 +83,27 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
   } as LauncherSettings
 }
 
+function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): LauncherLibraryModSummary {
+  return {
+    id: 'mod-1',
+    labelKey: 'ModForge.CachedMod',
+    name: 'Cached Mod',
+    author: 'ModForge',
+    version: '1.0.0',
+    description: 'Cached mod.',
+    uniqueId: 'ModForge.CachedMod',
+    folderName: 'Cached Mod',
+    absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Cached Mod',
+    enabled: true,
+    nexusModId: 101,
+    updateKeys: ['Nexus:101'],
+    modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+    imageUrl: null,
+    missingRequiredDependencies: [],
+    ...overrides,
+  }
+}
+
 function createSettingsState(settings: LauncherSettings = createSettings()) {
   return {
     settings,
@@ -123,6 +152,7 @@ describe('LauncherConfigurationPage', () => {
     restartLauncherNexusDiagnostics.mockReset()
     retryLauncherNexusDiagnosticsRoute.mockReset()
     setLauncherNexusForceOffline.mockReset()
+    clearCachedLauncherConfigurationDiagnostics()
     applyAppUiStatePatch.mockReset()
     getAppUiStateSnapshot.mockReset()
     getAppUiStateSnapshot.mockReturnValue({
@@ -204,6 +234,31 @@ describe('LauncherConfigurationPage', () => {
     expect(accountCard.textContent).not.toContain('500')
     expect(nexusPanel.textContent).toContain('18,742')
     expect(nexusPanel.textContent).toContain('500')
+  })
+
+  it('reuses cached Nexus API key validation when re-entering configuration', async () => {
+    writeCachedLauncherConfigurationApiKeyStatus({
+      status: {
+        userName: 'CachedPilot',
+        isPremium: true,
+        dailyRemaining: 321,
+        hourlyRemaining: 123,
+        dailyResetAt: null,
+        hourlyResetAt: null,
+      },
+      error: null,
+    }, {
+      apiKeySignature: 'api-key',
+    })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('should not validate on cached entry'))
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    expect(await screen.findByText('CachedPilot')).toBeTruthy()
+    expect(validateNexusApiKey).not.toHaveBeenCalled()
+    expect(screen.getByTestId('launcher-config-nexus').textContent).toContain('321')
+    expect(screen.getByTestId('launcher-config-nexus').textContent).toContain('123')
   })
 
   it('does not round nearly full Nexus quota up to a misleading 100 percent label', async () => {
@@ -330,6 +385,124 @@ describe('LauncherConfigurationPage', () => {
     const nexusPanel = screen.getByTestId('launcher-config-nexus')
     expect(nexusPanel.textContent).toContain(copy.settings.nexusApiGraphql)
     expect(nexusPanel.textContent).toContain(copy.settings.nexusApiSlow)
+  })
+
+  it('uses cached configuration diagnostics when all cached routes are healthy', async () => {
+    const cachedDiagnostics = {
+      routes: [
+        {
+          routeId: 'publicGraphql',
+          label: 'Nexus Public GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    }
+    writeCachedLauncherConfigurationDiagnostics(cachedDiagnostics, {
+      apiKeySignature: 'api-key',
+    })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+
+    renderConfigurationPage()
+
+    expect(await screen.findByText(copy.settings.nexusApiGraphql)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+    expect(loadLauncherNexusDiagnostics).not.toHaveBeenCalled()
+    expect(restartLauncherNexusDiagnostics).not.toHaveBeenCalled()
+  })
+
+  it('reuses cached configuration summary data when re-entering configuration', async () => {
+    writeCachedLauncherConfigurationLibraryScan({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: Array.from({ length: 9 }, (_, index) => createLibraryMod({ id: `cached-mod-${index}` })),
+    }, {
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    })
+    writeCachedLauncherConfigurationRuntimeInfo({
+      gameVersion: '1.6.9',
+      smapiVersion: '4.1.0',
+    }, {
+      gamePath: 'E:\\Games\\Stardew Valley',
+    })
+    writeCachedLauncherConfigurationSsoStatus({
+      status: 'authorized',
+      errorKind: null,
+      errorMessage: null,
+      userName: 'CachedSso',
+      isPremium: true,
+      ssoId: 'cached-sso-id',
+    })
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const scanLibrary = vi.fn().mockRejectedValue(new Error('should not scan on cached entry'))
+    const loadRuntimeInfo = vi.fn().mockRejectedValue(new Error('should not load runtime on cached entry'))
+    const getNexusSsoStatus = vi.fn().mockRejectedValue(new Error('should not load sso on cached entry'))
+
+    renderConfigurationPage(undefined, createMockLauncherPort({
+      scanLibrary,
+      loadRuntimeInfo,
+      getNexusSsoStatus,
+    } as Partial<LauncherPort>))
+
+    expect(screen.getByText(copy.settings.configurationGameVersionTag('1.6.9'))).toBeTruthy()
+    expect(screen.getByText(copy.settings.configurationSmapiVersionTag('4.1.0'))).toBeTruthy()
+    expect(screen.getByText(copy.settings.configurationInstalledMods(9), { exact: false })).toBeTruthy()
+    expect(scanLibrary).not.toHaveBeenCalled()
+    expect(loadRuntimeInfo).not.toHaveBeenCalled()
+    expect(getNexusSsoStatus).not.toHaveBeenCalled()
+  })
+
+  it('refreshes configuration diagnostics when a cached non-API route previously failed', async () => {
+    writeCachedLauncherConfigurationDiagnostics({
+      routes: [
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'warning' as const,
+          attempts: 3,
+          maxAttempts: 3,
+          available: false,
+          message: 'Failed after 3 attempts: timeout',
+        },
+      ],
+    }, {
+      apiKeySignature: 'api-key',
+    })
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'success' as const,
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+    })
   })
 
   it('renders Nexus REST status and API key data in the design-matched Nexus panel above More tools', async () => {

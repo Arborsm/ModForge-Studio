@@ -21,6 +21,9 @@
 
   .top-menu-center {
     min-width: 0;
+    position: relative;
+    z-index: 2;
+    overflow: visible;
   }
 
   .top-menu-drag-spacer {
@@ -34,16 +37,31 @@
 
   .top-menu-workspace {
     align-items: center;
-    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
-    border-radius: 16px;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bg-panel-muted) 94%, transparent),
-        color-mix(in srgb, var(--bg-panel) 88%, transparent)
-      );
-    overflow: hidden;
-    padding: 6px;
+    border: 0;
+    background: transparent;
+    overflow: visible;
+    padding: 0;
+  }
+
+  /* GooeyNav integration inside the top-menu workspace */
+  .top-menu-gooey-nav.gooey-nav-container {
+    flex-shrink: 0;
+    margin: -18px -24px;
+    padding: 18px 24px;
+    z-index: 3;
+  }
+
+  .top-menu-gooey-nav .gooey-nav-container nav ul,
+  .top-menu-gooey-nav nav ul {
+    gap: 2em;
+    padding: 0 1em;
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+  }
+
+  .top-menu-gooey-nav nav ul li a {
+    padding: 0.6em 1em;
   }
 
   .top-menu-workspace-label {
@@ -60,9 +78,8 @@
     align-items: center;
     gap: 8px;
     min-width: 0;
-    overflow-x: auto;
-    padding: 0 2px;
-    scrollbar-width: thin;
+    overflow: visible;
+    padding: 0;
   }
 
   .top-menu-module-button {

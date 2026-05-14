@@ -19,6 +19,11 @@
     height: 100%;
     min-height: 0;
     overflow: auto;
+    pointer-events: none;
+  }
+
+  .launcher-shell-route-active {
+    pointer-events: auto;
   }
 
   .launcher-configuration-page {

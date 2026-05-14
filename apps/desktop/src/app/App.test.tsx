@@ -935,7 +935,7 @@ describe('App locale ownership', () => {
     expect(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.launchGame })).toBeTruthy()
   })
 
-  it('persists the active launcher page only when switching back to workbench', async () => {
+  it('keeps launcher page switches in memory and persists the page with the next shell write', async () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
@@ -947,7 +947,7 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }))
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
-    expect(mockAppUiState.shell.launcherPage).toBe('updates')
+    expect(mockAppUiState.shell.launcherPage).toBe('library')
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
 

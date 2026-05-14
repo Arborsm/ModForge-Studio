@@ -119,6 +119,7 @@ export default function App() {
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
   const previousLocaleRef = useRef<LocaleCode>(locale)
+  const launcherPageRef = useRef<LauncherPage>(launcherPage)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
 
@@ -145,6 +146,10 @@ export default function App() {
       setWorkbenchLoaded(true)
     }
   }, [appMode])
+
+  useEffect(() => {
+    launcherPageRef.current = launcherPage
+  }, [launcherPage])
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
@@ -304,12 +309,12 @@ export default function App() {
     void applyAppUiStatePatch({
       shell: {
         appMode,
-        launcherPage,
+        launcherPage: launcherPageRef.current,
         debugEnabled,
         notificationSoundEnabled,
       },
     })
-  }, [appMode, appUiStateReady, debugEnabled, launcherPage, notificationSoundEnabled])
+  }, [appMode, appUiStateReady, debugEnabled, notificationSoundEnabled])
 
   useEffect(() => {
     void syncDebugDiagnosticsEnabled(debugEnabled)

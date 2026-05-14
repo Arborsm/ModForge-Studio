@@ -6,6 +6,12 @@
     align-items: start;
   }
 
+  .launcher-library-grid-reveal {
+    min-width: 0;
+    content-visibility: auto;
+    contain-intrinsic-size: 212px 260px;
+  }
+
   .launcher-mod-card-stack {
     position: relative;
     display: grid;
@@ -31,10 +37,10 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
-    filter: blur(18px) saturate(1.08);
-    transform: scale(1.06);
+    filter: blur(10px) saturate(1.04);
+    transform: scale(1.03);
     transform-origin: center;
-    opacity: 0.82;
+    opacity: 0.64;
     pointer-events: none;
   }
 
@@ -1701,7 +1707,7 @@
   }
 
   .launcher-mod-card-cover-has-image {
-    background: rgba(15, 23, 42, 0.18);
+    background: color-mix(in srgb, var(--launcher-cover-base, var(--accent)) 28%, var(--launcher-surface-base));
   }
 
   .launcher-mod-card-cover-aura {
@@ -1731,16 +1737,16 @@
   .launcher-mod-card-cover-image-blur-clone,
   .launcher-mod-card-cover-gradient {
     transition:
-      opacity 180ms ease,
-      filter 180ms ease;
+      opacity 90ms ease,
+      filter 90ms ease;
   }
 
   .launcher-mod-card-cover-image,
   .launcher-mod-card-cover-fallback {
     transition:
-      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 180ms ease,
-      filter 180ms ease;
+      transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 90ms ease,
+      filter 90ms ease;
   }
 
   .launcher-mod-card:hover .launcher-mod-card-cover-image,

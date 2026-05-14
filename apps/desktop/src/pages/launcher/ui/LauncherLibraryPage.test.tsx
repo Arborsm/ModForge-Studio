@@ -1545,6 +1545,57 @@ describe('LauncherLibraryPage', () => {
     expect((await screen.findAllByRole('menuitem', { name: 'View Details' })).length).toBeGreaterThan(0)
   })
 
+  it('spreads library card reveal batches across roughly four visible-screen waves', () => {
+    const library = createLargeLibraryState(12)
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return { width: 560, height: 420, top: 0, left: 0, bottom: 420, right: 560, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const revealItems = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
+    expect(revealItems).toHaveLength(library.mods.length)
+    expect(
+      revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index')),
+    ).toEqual(['3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'])
+
+    boundsSpy.mockRestore()
+  })
+
+  it('caps large-screen library reveal batches at four cards', () => {
+    const library = createLargeLibraryState(16)
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return { width: 1120, height: 840, top: 0, left: 0, bottom: 840, right: 1120, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const revealItems = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
+    expect(
+      revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index')),
+    ).toEqual(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5', '6', '6', '6', '6'])
+
+    boundsSpy.mockRestore()
+  })
+
   it('shows the real empty-library message when no installed mods were found', () => {
     const library = createLibraryState()
     library.mods = []

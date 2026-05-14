@@ -28,6 +28,7 @@ import { useEditorCopy, useLocale, useSettingsMenuCopy, useViewMenuCopy } from '
 import { cx } from '@shared/lib/cx'
 import type { WorkspacePanelMeta } from '@shared/contracts'
 import { ProgressRing } from '@shared/ui/ProgressRing'
+import GooeyNav, { type GooeyNavItem } from '@shared/ui/GooeyNav'
 
 type TopMenuBarProps = {
   appMode: AppMode
@@ -298,30 +299,21 @@ export default function TopMenuBar({
           <div className="top-menu-workspace pointer-events-auto">
             <div className="top-menu-workspace-list">
               {!launcherNav ? (
-                <nav className="contents" aria-label={copy.center.moduleWorkspace}>
-                  {visibleNavEntries.map(([typedMode, label]) => {
-                    const Icon = MODULE_ICONS[typedMode]
-                    const active = workspaceMode === typedMode
-
-                    return (
-                      <button
-                        key={typedMode}
-                        type="button"
-                        aria-current={active ? 'page' : undefined}
-                        data-active={active}
-                        className={cx(
-                          'top-menu-module-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
-                          active
-                            ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                        )}
-                        onClick={() => onWorkspaceChange(typedMode)}
-                      >
-                        <Icon className={cx('h-4 w-4', active && 'text-[var(--accent)]')} />
-                        <span>{label}</span>
-                      </button>
-                    )
-                  })}
+                <>
+                  <GooeyNav
+                    items={visibleNavEntries.map(([mode, label]) => {
+                      const Icon = MODULE_ICONS[mode]
+                      return {
+                        label,
+                        icon: <Icon className="h-4 w-4" />,
+                      } satisfies GooeyNavItem
+                    })}
+                    activeIndex={orderedNavModes.indexOf(workspaceMode)}
+                    onChange={(index) => onWorkspaceChange(orderedNavModes[index])}
+                    ariaLabel={copy.center.moduleWorkspace}
+                    className="top-menu-gooey-nav"
+                    variant={theme}
+                  />
                   {workspaceViewMode && onWorkspaceViewModeChange ? (
                     <div className="mx-1 h-4 w-px bg-[var(--border-color)]" />
                   ) : null}
@@ -353,41 +345,22 @@ export default function TopMenuBar({
                       </button>
                     </div>
                   ) : null}
-                </nav>
-              ) : (
-                <>
-                <nav className="contents" aria-label={copy.launcher.navigation}>
-                    {launcherNav.visiblePages.map((page) => {
-                      const active = launcherNav.page === page
-                      const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
-
-                      return (
-                        <button
-                          key={page}
-                          type="button"
-                          aria-current={active ? 'page' : undefined}
-                          data-active={active}
-                          title={copy.launcher.descriptions[page]}
-                          className={cx(
-                            'top-menu-module-button top-menu-launcher-nav-button inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-medium transition-colors',
-                            active
-                              ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-active)] hover:text-[var(--text-primary)]',
-                          )}
-                          onClick={() => launcherNav.onPageChange(page)}
-                        >
-                          <span>{copy.launcher.pages[page]}</span>
-                          {updatesBadge ? (
-                            <span className="top-menu-launcher-nav-badge" aria-hidden="true">
-                              {updatesBadge}
-                            </span>
-                          ) : null}
-                        </button>
-                      )
-                    })}
-                  </nav>
-
                 </>
+              ) : (
+                <GooeyNav
+                  items={launcherNav.visiblePages.map((page) => {
+                    const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
+                    return {
+                      label: copy.launcher.pages[page],
+                      badge: updatesBadge ?? undefined,
+                    } satisfies GooeyNavItem
+                  })}
+                  activeIndex={launcherNav.visiblePages.indexOf(launcherNav.page)}
+                  onChange={(index) => launcherNav.onPageChange(launcherNav.visiblePages[index])}
+                  ariaLabel={copy.launcher.navigation}
+                  className="top-menu-gooey-nav"
+                  variant={theme}
+                />
               )}
             </div>
           </div>
