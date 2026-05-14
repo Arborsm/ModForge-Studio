@@ -1,5 +1,6 @@
 use super::{
     nexus_request_delay_for_test, read_nexus_response_body_with_retry, retry_delay_from_headers,
+    with_nexus_request_slot,
 };
 use crate::domain::launcher::types::LauncherSettings;
 use crate::domain::nexusmods::diagnostics::{
@@ -14,7 +15,7 @@ use crate::domain::nexusmods::diagnostics::{
 use crate::domain::nexusmods::routes::{launcher_nexus_route_for_url, LauncherNexusRoute};
 use crate::domain::nexusmods::types::{NexusRouteSnapshot, NexusRouteStatus};
 use reqwest::header::{HeaderMap, HeaderValue};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{mpsc, Mutex, OnceLock};
 use std::time::Duration;
 
 fn launcher_http_test_guard() -> &'static Mutex<()> {
@@ -30,6 +31,22 @@ fn nexus_http_module_only_contains_transport_helpers() {
     assert!(!source.contains("probe_launcher_nexus_public_graphql_route"));
     assert!(!source.contains("run_launcher_nexus_diagnostics"));
     assert!(!source.contains("LauncherNexusRoute"));
+}
+
+#[test]
+fn launcher_nexus_api_key_validation_command_runs_off_the_webview_thread() {
+    let source = include_str!("../commands/launcher.rs");
+    let command_start = source
+        .find("pub async fn validate_nexus_api_key")
+        .expect("validate_nexus_api_key command should exist");
+    let command_source = &source[command_start..];
+    let command_end = command_source
+        .find("// ---- SSO Commands ----")
+        .expect("validate_nexus_api_key command should stay above SSO commands");
+    let command_source = &command_source[..command_end];
+
+    assert!(command_source.contains("tauri::async_runtime::spawn_blocking"));
+    assert!(command_source.contains("validate_nexus_api_key_blocking"));
 }
 
 fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
@@ -63,6 +80,51 @@ fn read_nexus_response_body_with_retry_retries_after_decode_error() {
 
     assert_eq!(attempts, 2);
     assert_eq!(body, br#"{"data":{"ok":true}}"#.to_vec());
+}
+
+#[test]
+fn nexus_request_throttle_does_not_hold_lock_while_request_runs() {
+    let _guard = launcher_http_test_guard()
+        .lock()
+        .expect("launcher http test guard should not be poisoned");
+    let (first_started_tx, first_started_rx) = mpsc::channel();
+    let (release_first_tx, release_first_rx) = mpsc::channel();
+    let (second_started_tx, second_started_rx) = mpsc::channel();
+
+    let first = std::thread::spawn(move || {
+        with_nexus_request_slot(|| {
+            first_started_tx
+                .send(())
+                .expect("first request should signal start");
+            release_first_rx
+                .recv()
+                .expect("first request should be released");
+        });
+    });
+
+    first_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("first request should enter the throttled operation");
+
+    let second = std::thread::spawn(move || {
+        with_nexus_request_slot(|| {
+            second_started_tx
+                .send(())
+                .expect("second request should signal start");
+        });
+    });
+
+    let second_started = second_started_rx.recv_timeout(Duration::from_millis(300));
+    release_first_tx
+        .send(())
+        .expect("first request release should be sent");
+    first.join().expect("first request thread should finish");
+    second.join().expect("second request thread should finish");
+
+    assert!(
+        second_started.is_ok(),
+        "Nexus request throttle should not hold its mutex while the HTTP request is running",
+    );
 }
 
 #[test]

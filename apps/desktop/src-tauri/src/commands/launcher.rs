@@ -205,33 +205,47 @@ pub fn clear_launcher_image_cache(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn load_launcher_nexus_diagnostics(
+pub async fn load_launcher_nexus_diagnostics(
     app: tauri::AppHandle,
 ) -> Result<NexusDiagnosticsResult, String> {
-    diagnostics::load_launcher_nexus_diagnostics(&app)
+    tauri::async_runtime::spawn_blocking(move || diagnostics::load_launcher_nexus_diagnostics(&app))
+        .await
+        .map_err(|error| format!("launcher nexus diagnostics task failed: {error}"))?
 }
 
 #[tauri::command]
-pub fn restart_launcher_nexus_diagnostics(
+pub async fn restart_launcher_nexus_diagnostics(
     app: tauri::AppHandle,
 ) -> Result<NexusDiagnosticsResult, String> {
-    diagnostics::restart_launcher_nexus_diagnostics_with_app(&app)
+    tauri::async_runtime::spawn_blocking(move || {
+        diagnostics::restart_launcher_nexus_diagnostics_with_app(&app)
+    })
+    .await
+    .map_err(|error| format!("launcher nexus diagnostics restart task failed: {error}"))?
 }
 
 #[tauri::command]
-pub fn retry_launcher_nexus_diagnostics_route(
+pub async fn retry_launcher_nexus_diagnostics_route(
     app: tauri::AppHandle,
     route_id: String,
 ) -> Result<NexusDiagnosticsResult, String> {
-    diagnostics::retry_launcher_nexus_diagnostics_route(&app, route_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        diagnostics::retry_launcher_nexus_diagnostics_route(&app, route_id)
+    })
+    .await
+    .map_err(|error| format!("launcher nexus diagnostics retry task failed: {error}"))?
 }
 
 #[tauri::command]
-pub fn set_launcher_nexus_force_offline(
+pub async fn set_launcher_nexus_force_offline(
     app: tauri::AppHandle,
     force_offline: bool,
 ) -> Result<NexusDiagnosticsResult, String> {
-    diagnostics::set_launcher_nexus_force_offline(&app, force_offline)
+    tauri::async_runtime::spawn_blocking(move || {
+        diagnostics::set_launcher_nexus_force_offline(&app, force_offline)
+    })
+    .await
+    .map_err(|error| format!("launcher nexus force-offline task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -303,7 +317,13 @@ pub struct ValidateApiKeyResult {
 }
 
 #[tauri::command]
-pub fn validate_nexus_api_key(app: tauri::AppHandle) -> Result<ValidateApiKeyResult, String> {
+pub async fn validate_nexus_api_key(app: tauri::AppHandle) -> Result<ValidateApiKeyResult, String> {
+    tauri::async_runtime::spawn_blocking(move || validate_nexus_api_key_blocking(app))
+        .await
+        .map_err(|error| format!("launcher Nexus API key validation task failed: {error}"))?
+}
+
+fn validate_nexus_api_key_blocking(app: tauri::AppHandle) -> Result<ValidateApiKeyResult, String> {
     let settings = settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
     let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;

@@ -1,4 +1,8 @@
-use super::{log_tauri_command_error_with, COMMAND_LOG_TARGET};
+use super::{
+    log_file_config, log_tauri_command_error_with, COMMAND_LOG_TARGET, LOG_FILE_COUNT,
+    LOG_FILE_NAME, LOG_FILE_SIZE_BYTES,
+};
+use crate::domain::app_paths::app_logs_dir;
 
 #[test]
 fn command_error_logging_helper_skips_successful_results() {
@@ -36,4 +40,14 @@ fn command_error_logging_helper_formats_failed_results() {
         Some("Tauri command `scan_maps` failed: content pipeline exploded")
     );
     assert_eq!(COMMAND_LOG_TARGET, "tauri_command");
+}
+
+#[test]
+fn log_file_config_writes_to_rotating_app_log_file() {
+    let config = log_file_config().expect("log file config");
+
+    assert_eq!(config.directory, app_logs_dir().expect("app logs dir"));
+    assert_eq!(config.file_name, LOG_FILE_NAME);
+    assert_eq!(config.max_file_size_bytes, LOG_FILE_SIZE_BYTES);
+    assert_eq!(config.retained_file_count, LOG_FILE_COUNT);
 }

@@ -49,3 +49,7 @@ pub(crate) fn launcher_image_cache_dir() -> Result<PathBuf, String> {
 pub(crate) fn app_cache_dir() -> Result<PathBuf, String> {
     Ok(modforge_data_dir()?.join("cache"))
 }
+
+pub(crate) fn app_logs_dir() -> Result<PathBuf, String> {
+    Ok(modforge_data_dir()?.join("logs"))
+}

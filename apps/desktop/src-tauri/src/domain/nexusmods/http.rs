@@ -26,7 +26,8 @@ struct NexusThrottleState {
 
 pub(crate) fn launcher_http_client() -> Result<Client, String> {
     Client::builder()
-        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(12))
         .build()
         .map_err(|error| format!("Failed to create launcher HTTP client: {error}"))
 }
@@ -83,17 +84,20 @@ pub(crate) fn with_nexus_request_slot<T, F>(operation: F) -> T
 where
     F: FnOnce() -> T,
 {
-    let mut state = nexus_throttle_state()
-        .lock()
-        .expect("launcher nexus throttle mutex should not be poisoned");
-    if let Some(previous_started_at) = state.last_request_started_at {
-        let elapsed = previous_started_at.elapsed();
-        let minimum_interval = nexus_request_delay_for_seed(next_nexus_request_delay_seed());
-        if elapsed < minimum_interval {
-            thread::sleep(minimum_interval - elapsed);
+    {
+        let mut state = nexus_throttle_state()
+            .lock()
+            .expect("launcher nexus throttle mutex should not be poisoned");
+        if let Some(previous_started_at) = state.last_request_started_at {
+            let elapsed = previous_started_at.elapsed();
+            let minimum_interval = nexus_request_delay_for_seed(next_nexus_request_delay_seed());
+            if elapsed < minimum_interval {
+                thread::sleep(minimum_interval - elapsed);
+            }
         }
+        state.last_request_started_at = Some(Instant::now());
     }
-    state.last_request_started_at = Some(Instant::now());
+
     operation()
 }
 

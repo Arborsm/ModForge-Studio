@@ -12,6 +12,7 @@ import { LauncherConfigurationPage } from './LauncherConfigurationPage'
 const reportAppEvent = vi.fn()
 const clearLauncherImageCache = vi.fn()
 const loadLauncherNexusDiagnostics = vi.fn()
+const restartLauncherNexusDiagnostics = vi.fn()
 const retryLauncherNexusDiagnosticsRoute = vi.fn()
 const setLauncherNexusForceOffline = vi.fn()
 const applyAppUiStatePatch = vi.fn()
@@ -42,6 +43,7 @@ vi.mock('@shared/lib/observability', () => ({
 vi.mock('@features/launcher/api', () => ({
   clearLauncherImageCache: (...args: unknown[]) => clearLauncherImageCache(...args),
   loadLauncherNexusDiagnostics: (...args: unknown[]) => loadLauncherNexusDiagnostics(...args),
+  restartLauncherNexusDiagnostics: (...args: unknown[]) => restartLauncherNexusDiagnostics(...args),
   retryLauncherNexusDiagnosticsRoute: (...args: unknown[]) => retryLauncherNexusDiagnosticsRoute(...args),
   setLauncherNexusForceOffline: (...args: unknown[]) => setLauncherNexusForceOffline(...args),
 }))
@@ -118,6 +120,7 @@ describe('LauncherConfigurationPage', () => {
     reportAppEvent.mockReset()
     clearLauncherImageCache.mockReset()
     loadLauncherNexusDiagnostics.mockReset()
+    restartLauncherNexusDiagnostics.mockReset()
     retryLauncherNexusDiagnosticsRoute.mockReset()
     setLauncherNexusForceOffline.mockReset()
     applyAppUiStatePatch.mockReset()
@@ -377,6 +380,43 @@ describe('LauncherConfigurationPage', () => {
     expect(validateNexusApiKey).toHaveBeenCalled()
   })
 
+  it('keeps all Nexus route rows visible while diagnostics are still loading', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+
+    renderConfigurationPage()
+
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    expect(nexusPanel.querySelectorAll('.launcher-config-api-row')).toHaveLength(5)
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'SMAPI', level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Nexus Private GraphQL', level: 3 })).toBeTruthy()
+  })
+
+  it('adds a left-to-right resolution sweep when a route finishes probing', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'nexusApi',
+          label: 'Nexus REST API',
+          endpoint: 'https://api.nexusmods.com/v1/games/stardewvalley/mods/trending.json',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+
+    renderConfigurationPage()
+
+    const apiRouteRow = await screen.findByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })
+    expect(apiRouteRow.closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-resolved')
+    expect(apiRouteRow.closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+  })
+
   it('clears the configured Nexus API key from the Nexus panel header', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const settingsState = createSettingsState()
@@ -390,6 +430,7 @@ describe('LauncherConfigurationPage', () => {
 
   it('keeps SSO and diagnostics refresh in the Nexus panel header', async () => {
     loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    restartLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
     const startNexusSso = vi.fn().mockResolvedValue({ ssoId: 'test-sso-id', status: 'connecting' as const })
     const getNexusSsoStatus = vi.fn().mockResolvedValue({
       status: 'authorized' as const,
@@ -410,7 +451,20 @@ describe('LauncherConfigurationPage', () => {
       expect(startNexusSso).toHaveBeenCalled()
     })
     expect(nexusPanel.textContent).not.toContain(copy.configuration.forceOfflineEnableButton)
-    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
+  })
+
+  it('restarts diagnostics asynchronously when the header refresh action is clicked', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    restartLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+
+    renderConfigurationPage()
+
+    fireEvent.click(screen.getByRole('button', { name: copy.settings.configurationRunDiagnostics }))
+
+    await waitFor(() => {
+      expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
+    })
   })
 
   it('keeps the NexusMods BBCode renderer tucked inside the hidden debug menu until expanded', async () => {
@@ -503,7 +557,11 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByRole('heading', { name: 'SMAPI metadata', level: 3 })).toBeTruthy()
     expect(screen.getByText(copy.configuration.nexusDiagnosticsRouteResponsibilities.privateGraphql)).toBeTruthy()
     expect(screen.getByText(copy.configuration.nexusDiagnosticsRouteResponsibilities.smapi)).toBeTruthy()
-    expect(screen.getByTestId('launcher-config-nexus').querySelectorAll('.launcher-config-api-row')).toHaveLength(3)
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-loading')
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-loading')
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+    expect(screen.getByTestId('launcher-config-nexus').querySelectorAll('.launcher-config-api-row')).toHaveLength(5)
   })
 
   it('does not mark the Nexus REST row as success when API validation still failed after SSO', async () => {
@@ -631,15 +689,19 @@ describe('LauncherConfigurationPage', () => {
     expect(clearLauncherImageCache).toHaveBeenCalledTimes(1)
   })
 
-  it('uses the Nexus header refresh control while diagnostics are still pending', () => {
+  it('uses the Nexus header refresh control while diagnostics are still pending', async () => {
     const pending = createDeferred<{ routes: never[] }>()
     loadLauncherNexusDiagnostics.mockReturnValue(pending.promise)
+    restartLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
 
     renderConfigurationPage()
 
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
 
     expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
+    })
   })
 
   it('renders warning and success statuses for Nexus diagnostics routes', async () => {
@@ -683,7 +745,7 @@ describe('LauncherConfigurationPage', () => {
   })
 
   it('refreshes Nexus diagnostics from the header control without opening the debug drawer', async () => {
-    loadLauncherNexusDiagnostics.mockResolvedValue({
+    const diagnosticResult = {
       routes: [
         {
           routeId: 'publicGraphql',
@@ -706,7 +768,9 @@ describe('LauncherConfigurationPage', () => {
           message: 'Connected after 1 attempt.',
         },
       ],
-    })
+    }
+    loadLauncherNexusDiagnostics.mockResolvedValue(diagnosticResult)
+    restartLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
     const onDiagnosticsUpdate = vi.fn()
 
     renderWithLocale(
@@ -725,24 +789,12 @@ describe('LauncherConfigurationPage', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
 
     expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
+    })
     expect(retryLauncherNexusDiagnosticsRoute).not.toHaveBeenCalled()
     expect(screen.getByText(copy.settings.nexusApiImageCdn)).toBeTruthy()
-    await waitFor(() => {
-      expect(onDiagnosticsUpdate).toHaveBeenCalledWith({
-        routes: expect.arrayContaining([
-          expect.objectContaining({
-            routeId: 'publicGraphql',
-            status: 'warning',
-            available: false,
-          }),
-          expect.objectContaining({
-            routeId: 'nexusImages',
-            status: 'success',
-            available: true,
-          }),
-        ]),
-      })
-    })
+    expect(onDiagnosticsUpdate).toHaveBeenCalledWith({ routes: [] })
   })
 
   it('renders route status labels directly in the pill without an extra clipping wrapper', async () => {

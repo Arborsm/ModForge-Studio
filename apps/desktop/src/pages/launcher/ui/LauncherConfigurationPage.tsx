@@ -9,6 +9,7 @@ import {
   clearLauncherImageCache,
   type LauncherNexusDiagnosticsResult,
   loadLauncherNexusDiagnostics,
+  restartLauncherNexusDiagnostics,
   setLauncherNexusForceOffline,
   type LauncherNexusRouteSnapshot,
 } from '@features/launcher/api'
@@ -28,6 +29,7 @@ type ConfigStep = {
   tone: ConfigStepTone
 }
 type ApiRouteTone = 'ok' | 'warn' | 'danger' | 'loading'
+type ConfigRouteId = 'nexusApi' | 'publicGraphql' | 'nexusImages' | 'smapi' | 'privateGraphql'
 type NexusApiAccountStatus = {
   apiKeyStatus: ValidateApiKeyResult | null
   apiKeyError: string | null
@@ -35,6 +37,34 @@ type NexusApiAccountStatus = {
   ssoAuthorized: boolean
   ssoStarting: boolean
   startSso: () => Promise<void>
+}
+
+function createLoadingRoute(routeId: ConfigRouteId, label: string): LauncherNexusRouteSnapshot {
+  return {
+    routeId,
+    label,
+    endpoint: '',
+    status: 'loading',
+    attempts: 0,
+    maxAttempts: 0,
+    available: false,
+    message: '',
+  }
+}
+
+function getDefaultConfigRoutes(copy: LauncherCopy): LauncherNexusRouteSnapshot[] {
+  return [
+    createLoadingRoute('publicGraphql', copy.settings.nexusApiGraphql),
+    createLoadingRoute('nexusImages', copy.settings.nexusApiImageCdn),
+    createLoadingRoute('smapi', 'SMAPI'),
+    createLoadingRoute('privateGraphql', 'Nexus Private GraphQL'),
+    createLoadingRoute('nexusApi', copy.settings.nexusApiRest),
+  ]
+}
+
+function getDisplayedConfigRoutes(routes: LauncherNexusRouteSnapshot[], copy: LauncherCopy) {
+  const routesById = new Map(routes.map((route) => [route.routeId, route]))
+  return getDefaultConfigRoutes(copy).map((fallbackRoute) => routesById.get(fallbackRoute.routeId) ?? fallbackRoute)
 }
 
 const nexusModsBbcodeSample = '[font=Georgia][center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b] [i][color=#a2c4c9]by orangeblossom[/color][/i][/center] [center][color=#ffd966]⋆[/color][color=#fce5cd]｡[/color][color=#a4c2f4]‧[/color][color=#b4a7d6]˚[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#9fc5e8]˚[/color][color=#fce5cd]‧[/color][color=#ead1dc]｡[/color][color=#ffd966]⋆[/color][/center] I took inspiration from ikea furniture when drawing the sprites for this mod, specifically their BJÖRKSNÄS bed frame and PAX wardrobe frames because it looks light, modern, airy and cozy [s]and [i]totally [/i]not because of the blazing summer heat where i live.[/s] [size=2]You can get this furniture if you have my [/size][url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][size=2] which you can buy from Robin. [/size][/font][font=Georgia][font=Georgia][color=#ffd966][url=https://buymeacoffee.com/orangeblossom] [/url][/color][/font] Translation Credits: [list] [*][font=Georgia][i]Keluoluooo[/i] for the Chinese translation[/font] [*][font=Georgia][i]Nitropicc[/i] for the Spanish translation[/font] [/list] [center][color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ Content Patcher Version Section [color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆[/color][/color][/center][size=1][center](aka 1.6 section)[/center] [/size][u]legend:[/u] [list] [*]green = [color=#93c47d]NEW[/color] [*]red = [color=#e06666]rotate[/color] [/list][size=2] [left][u][color=#6d9eeb]This mod contains:[/color][/u][/left] [/size][i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- [color=#93c47d]blocky double bed[/color] ﻿2. single bed ﻿ ﻿- single bed ﻿ ﻿- [color=#93c47d]blocky single bed[/color] [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table ﻿2. glass end table ﻿3. [color=#93c47d]blocky end table[/color] [i][u]ꕥ console table [/u][/i] ﻿1. wooden console table [size=1](extendable; [color=#e06666]rotate[/color])[/size] [size=2] ﻿2. glass console table [/size][size=1](extendable; [color=#e06666]rotate[/color])[/size] [i][u]ꕥ plants[/u][/i] ﻿1. baby\'s breath on a vase ﻿2. carnations on a vase [i][u]ꕥ wall decor[/u][/i] ﻿1. shelf ﻿2. abstract painting ﻿3. hanging dress [i][u]ꕥ floor decor[/u][/i] ﻿ ﻿1. standing mirror ﻿2. hamper ﻿3. divider[size=1] (2 versions; [color=#e06666]rotate[/color]) [/size] [i][u]ꕥ misc decor [/u][/i] ﻿1. bag clutter ﻿[size=1](2 versions; [color=#e06666]rotate[/color])[/size] ﻿2. makeup clutter [size=1](4 versions; [color=#e06666]rotate[/color])[/size] [i][u]ꕥ lamps[/u][/i] ﻿1. candle lamp [s]﻿2. wooden end table w/ candles and flower vase ﻿3. wooden end table w/ star lamp and flower vase[/s] [s]﻿﻿4. glass end table w/ candles and flower vase ﻿5. glass end table w/ star lamp and flower vase[/s] ﻿2. 3 orbs floor lamp ﻿3. [color=#93c47d]nightlight and flowers[/color] ﻿4. [color=#93c47d]tea candle and flowers[/color] [i][u]ꕥ sconce[/u][/i] ﻿1. globe sconce [i][u]ꕥ modular wardrobe [/u][/i] ﻿1. end piece (2 versions) [size=1]- functions as a dresser; [color=#e06666]rotate[/color] to get left and right pieces[/size] ﻿2. mirror end piece (left and right) [size=1]- [color=#e06666]rotate[/color] to get left and right pieces[/size] ﻿3. double wardrobe (2 versions) [size=1]- functions as a dresser[/size] ﻿4. corner end piece (left and right) ﻿5. corner extension end piece (left and right) [i][u]ꕥ ottoman[/u][/i] ﻿1. cushioned ottoman[size=1] ([color=#e06666]rotate[/color] to get extendable pieces + corner pieces)[/size] ﻿2. wooden ottoman[size=1] ([color=#e06666]rotate[/color] to get extendable pieces + corner pieces)[/size] [u][i][i][u]ꕥ [/u][/i]rugs[/i][/u] (4 patterns each) ﻿1. 3x3 rug ﻿2. 4x3 rug ﻿3. 5x4 square rug ﻿4. 5x4 rectangle rug [center][color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ Alternative Textures Version Section [color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ [/color][/color][size=1](aka pre-1.6 section)[/size][/center] [u] [color=#6d9eeb]Textures can be found in the following:[/color][/u] [/font][list] [*][font=Georgia]artist bookcase[/font] [*][font=Georgia]bed[/font] [*][font=Georgia]box lamp[/font] [*][font=Georgia]ceramic pillar[/font] [*][font=Georgia]double bed[/font] [*][font=Georgia]funky rug[/font] [*][font=Georgia]globe[/font] [*][font=Georgia]green stool[/font] [*][font=Georgia]house plant[/font] [*][font=Georgia]jade hills[/font] [*][font=Georgia]needlepoint flower[/font] [*][font=Georgia]old world rug[/font] [*][font=Georgia]sandy rug[/font] [*][font=Georgia]wall sconce[/font] [*][font=Georgia]walnut end table[/font] [/list][font=Georgia] [color=#6d9eeb]NOTES:[/color] [list] [*][font=Georgia]I wasn\'t able to include the wardrobe corners and extensions because of vanilla furniture limitations. The ottomans also don\'t have corner pieces but you can place them together and still get that \'connected\' look.[/font] [*][font=Georgia]Wardrobes in this version do not function as dressers.[/font] [/list][/font]'
@@ -204,6 +234,10 @@ function getRouteRowTone(route: LauncherNexusRouteSnapshot | undefined, account:
   }
 
   const routeTone = getRouteTone(route)
+  if (routeTone === 'loading') {
+    return 'loading'
+  }
+
   if (route?.routeId === 'nexusImages') {
     return routeTone === 'ok' ? 'ok' : 'warn'
   }
@@ -571,6 +605,7 @@ function ConfigApiRow({
   description,
   statusLabel,
   tone,
+  resolved,
   children,
 }: {
   index: number
@@ -578,10 +613,11 @@ function ConfigApiRow({
   description: string
   statusLabel: string
   tone: ApiRouteTone
+  resolved: boolean
   children: ReactNode
 }) {
   return (
-    <LoadingMotionRevealItem index={index} as="div" className={cx('launcher-config-api-row', `launcher-config-api-row-${tone}`)}>
+    <LoadingMotionRevealItem index={index} as="div" className={cx('launcher-config-api-row', `launcher-config-api-row-${tone}`, resolved && 'launcher-config-api-row-resolved')}>
       <div className="launcher-config-api-name">
         <span className={cx('launcher-config-api-icon', `launcher-config-api-icon-${tone}`)} aria-hidden="true">
           {children}
@@ -615,40 +651,7 @@ function ConfigNexusPanel({
   const hourlyPercent = getPercent(account.apiKeyStatus?.hourlyRemaining, 500)
   const dailyLimit = getQuotaDetail(copy.settings.nexusQuotaDailyLimit, account.apiKeyStatus?.dailyResetAt, getNextUtcMidnightTimestampSeconds, copy)
   const hourlyLimit = getQuotaDetail(copy.settings.nexusQuotaHourlyLimit, account.apiKeyStatus?.hourlyResetAt, getNextHourTimestampSeconds, copy)
-  const displayedRoutes = routes.length
-    ? routes
-    : ([
-        {
-          routeId: 'nexusApi',
-          label: copy.settings.nexusApiRest,
-          endpoint: '',
-          status: 'loading',
-          attempts: 0,
-          maxAttempts: 0,
-          available: false,
-          message: '',
-        },
-        {
-          routeId: 'publicGraphql',
-          label: copy.settings.nexusApiGraphql,
-          endpoint: '',
-          status: 'loading',
-          attempts: 0,
-          maxAttempts: 0,
-          available: false,
-          message: '',
-        },
-        {
-          routeId: 'nexusImages',
-          label: copy.settings.nexusApiImageCdn,
-          endpoint: '',
-          status: 'loading',
-          attempts: 0,
-          maxAttempts: 0,
-          available: false,
-          message: '',
-        },
-      ] satisfies LauncherNexusRouteSnapshot[])
+  const displayedRoutes = getDisplayedConfigRoutes(routes, copy)
 
   return (
     <section className="launcher-config-panel launcher-config-nexus" aria-label={copy.settings.nexusAccessTitle} data-testid="launcher-config-nexus">
@@ -663,7 +666,7 @@ function ConfigNexusPanel({
             <button type="button" className="launcher-config-button" disabled={!hasApiKey} onClick={() => settingsState.updateField('nexusApiKey', null)}>
               {copy.settings.nexusClearApiKeyAction}
             </button>
-            <button type="button" className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button" disabled={diagnosticsRefreshing} aria-label={copy.configuration.nexusDiagnosticsTitle} title={copy.configuration.nexusDiagnosticsTitle} onClick={onRefreshDiagnostics}>
+            <button type="button" className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button" aria-busy={diagnosticsRefreshing} aria-label={copy.configuration.nexusDiagnosticsTitle} title={copy.configuration.nexusDiagnosticsTitle} onClick={onRefreshDiagnostics}>
               <RefreshCw className={cx('h-3.5 w-3.5', diagnosticsRefreshing && 'animate-spin')} aria-hidden="true" />
             </button>
             <span className="launcher-config-help" title={copy.settings.nexusAccessHint}>
@@ -721,6 +724,7 @@ function ConfigNexusPanel({
               description={getRouteDescription(route, copy)}
               tone={tone}
               statusLabel={getRouteStatusLabel(tone, copy)}
+              resolved={route.status !== 'loading'}
             >
               {getRouteIcon(route.routeId)}
             </ConfigApiRow>
@@ -910,7 +914,8 @@ export function LauncherConfigurationPage({
   const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false)
   const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
   const [forceOfflineBusy, setForceOfflineBusy] = useState(false)
-  const [diagnosticsPollNonce, setDiagnosticsPollNonce] = useState(0)
+  const [diagnosticsPollNonce] = useState(0)
+  const [diagnosticsRestartNonce, setDiagnosticsRestartNonce] = useState(0)
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
   const [runtimeInfo, setRuntimeInfo] = useState<LauncherRuntimeInfo | null>(null)
   const launcherPort = useLauncherPort()
@@ -1009,10 +1014,14 @@ export function LauncherConfigurationPage({
 
     let disposed = false
     let timeoutId: number | null = null
+    let shouldRestartDiagnostics = diagnosticsRestartNonce > 0
 
     const poll = async () => {
       try {
-        const diagnostics = await loadLauncherNexusDiagnostics()
+        const diagnostics = shouldRestartDiagnostics
+          ? await restartLauncherNexusDiagnostics()
+          : await loadLauncherNexusDiagnostics()
+        shouldRestartDiagnostics = false
         if (disposed) {
           return
         }
@@ -1040,11 +1049,12 @@ export function LauncherConfigurationPage({
         window.clearTimeout(timeoutId)
       }
     }
-  }, [handleDiagnosticsUpdate, diagnosticsPollNonce])
+  }, [handleDiagnosticsUpdate, diagnosticsPollNonce, diagnosticsRestartNonce])
   const handleRefreshDiagnostics = useCallback(() => {
     setDiagnosticsRefreshing(true)
-    setDiagnosticsPollNonce((value) => value + 1)
-  }, [])
+    setDiagnosticRoutes(getDefaultConfigRoutes(copy))
+    setDiagnosticsRestartNonce((value) => value + 1)
+  }, [copy])
   const handleViewLogs = useCallback(() => {
     setDebugToolsExpanded(true)
     window.requestAnimationFrame(() => {
@@ -1098,7 +1108,7 @@ export function LauncherConfigurationPage({
                 <span className="launcher-config-env-tag">{smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}</span>
               </div>
               <div className="launcher-config-header-button-group">
-                <button type="button" className="launcher-config-button launcher-config-button-brand" disabled={diagnosticsRefreshing} onClick={handleRefreshDiagnostics}>
+                <button type="button" className="launcher-config-button launcher-config-button-brand" aria-busy={diagnosticsRefreshing} onClick={handleRefreshDiagnostics}>
                   {copy.settings.configurationRunDiagnostics}
                 </button>
                 <button type="button" className="launcher-config-button" onClick={handleViewLogs}>

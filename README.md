@@ -164,6 +164,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - Rust command wrapper：`apps/desktop/src-tauri/src/commands/`
 - Rust domain：`apps/desktop/src-tauri/src/domain/`
 - Rust webview 基础设施：`apps/desktop/src-tauri/src/infrastructure/webview/`
+- Rust 日志：`apps/desktop/src-tauri/src/support/logging/`，后端日志与前端 `writeFrontendLog` 会同时输出到 stdout 和项目统一 data dir 的 `logs/` 轮转日志文件。
 
 ### 文案与样式
 

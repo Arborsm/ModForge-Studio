@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 
+use crate::domain::app_paths::app_logs_dir;
 use log::RecordBuilder;
 use serde::Deserialize;
 use tauri::{plugin::TauriPlugin, Runtime};
@@ -15,6 +17,23 @@ const LOG_FILE_SIZE_BYTES: u128 = 1_000_000;
 const LOG_FILE_COUNT: usize = 10;
 const FRONTEND_LOG_TARGET: &str = "webview";
 const COMMAND_LOG_TARGET: &str = "tauri_command";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LogFileConfig {
+    pub directory: PathBuf,
+    pub file_name: &'static str,
+    pub max_file_size_bytes: u128,
+    pub retained_file_count: usize,
+}
+
+pub fn log_file_config() -> Result<LogFileConfig, String> {
+    Ok(LogFileConfig {
+        directory: app_logs_dir()?,
+        file_name: LOG_FILE_NAME,
+        max_file_size_bytes: LOG_FILE_SIZE_BYTES,
+        retained_file_count: LOG_FILE_COUNT,
+    })
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,13 +93,15 @@ impl DebugLoggingState {
 
 pub fn build_logging_plugin<R: Runtime>(state: DebugLoggingState) -> TauriPlugin<R> {
     let filter_state = state.filter_enabled();
+    let file_config = log_file_config().expect("failed to resolve ModForge Studio log directory");
 
     tauri_plugin_log::Builder::default()
         .clear_targets()
         .targets([
             Target::new(TargetKind::Stdout),
-            Target::new(TargetKind::LogDir {
-                file_name: Some(LOG_FILE_NAME.into()),
+            Target::new(TargetKind::Folder {
+                path: file_config.directory,
+                file_name: Some(file_config.file_name.into()),
             }),
         ])
         .level(LevelFilter::Debug)
@@ -88,8 +109,8 @@ pub fn build_logging_plugin<R: Runtime>(state: DebugLoggingState) -> TauriPlugin
             log::Level::Debug | log::Level::Trace => filter_state.load(Ordering::Relaxed),
             _ => true,
         })
-        .rotation_strategy(RotationStrategy::KeepSome(LOG_FILE_COUNT))
-        .max_file_size(LOG_FILE_SIZE_BYTES)
+        .rotation_strategy(RotationStrategy::KeepSome(file_config.retained_file_count))
+        .max_file_size(file_config.max_file_size_bytes)
         .timezone_strategy(TimezoneStrategy::UseLocal)
         .build()
 }
