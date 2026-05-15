@@ -499,7 +499,9 @@ describe('LauncherConfigurationPage', () => {
 
     renderConfigurationPage()
 
-    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    })
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
     })
@@ -871,7 +873,9 @@ describe('LauncherConfigurationPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
 
-    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    })
     await waitFor(() => {
       expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
     })
@@ -961,7 +965,9 @@ describe('LauncherConfigurationPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
 
-    expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    await waitFor(() => {
+      expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
+    })
     await waitFor(() => {
       expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
     })

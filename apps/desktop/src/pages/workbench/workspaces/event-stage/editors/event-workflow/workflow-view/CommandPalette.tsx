@@ -50,21 +50,17 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
   const resultsRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   const onSelectRef = useRef(onSelect)
-  onCloseRef.current = onClose
-  onSelectRef.current = onSelect
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+    onSelectRef.current = onSelect
+  }, [onClose, onSelect])
 
   useEffect(() => {
     if (open) {
-      setSearch('')
-      setActiveCategory(null)
-      setHighlightedIndex(0)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [open])
-
-  useEffect(() => {
-    setHighlightedIndex(0)
-  }, [search, activeCategory])
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -181,13 +177,20 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
             placeholder={locale === 'zh-CN' ? '搜索命令或按分类浏览...' : 'Search commands or browse by category...'}
             className="min-w-0 flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setHighlightedIndex(0)
+            }}
           />
           {search && (
             <button
               type="button"
               className="rounded p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]"
-              onClick={() => { setSearch(''); inputRef.current?.focus() }}
+              onClick={() => {
+                setSearch('')
+                setHighlightedIndex(0)
+                inputRef.current?.focus()
+              }}
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -212,7 +215,10 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                 ? 'bg-[var(--accent)] text-[var(--text-inverse)]'
                 : 'bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
             )}
-            onClick={() => setActiveCategory(null)}
+            onClick={() => {
+              setActiveCategory(null)
+              setHighlightedIndex(0)
+            }}
           >
             {locale === 'zh-CN' ? '全部' : 'All'}
           </button>
@@ -229,7 +235,10 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
                     ? 'bg-[var(--accent)] text-[var(--text-inverse)]'
                     : 'bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
                 )}
-                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                onClick={() => {
+                  setActiveCategory(activeCategory === cat ? null : cat)
+                  setHighlightedIndex(0)
+                }}
               >
                 {CATEGORY_LABELS[cat]}
               </button>

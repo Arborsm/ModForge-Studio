@@ -582,12 +582,6 @@ export default function PlayerAppearanceWindow({
   const currentPage = Math.min(page, pageCount - 1)
   const pagedItems = sectionItems.slice(currentPage * OPTION_PAGE_SIZE, currentPage * OPTION_PAGE_SIZE + OPTION_PAGE_SIZE)
 
-  useEffect(() => {
-    if (page > pageCount - 1) {
-      setPage(0)
-    }
-  }, [page, pageCount])
-
   async function handleOpenSaveBrowser() {
     setSaveBrowserOpen(true)
     setSaveLoading(true)

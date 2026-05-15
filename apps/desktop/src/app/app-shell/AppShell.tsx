@@ -89,12 +89,7 @@ function resolveLocale(value: string | null | undefined): LocaleCode {
 }
 
 export default function App() {
-  const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
-  if (!initialAppUiStateRef.current) {
-    initialAppUiStateRef.current = getAppUiStateSnapshot()
-  }
-
-  const initialAppUiState = initialAppUiStateRef.current
+  const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
 
   const [theme, setTheme] = useState<ThemeMode>(() =>
@@ -113,11 +108,11 @@ export default function App() {
   const [loadingMotionPreference, setLoadingMotionPreference] = useState<LoadingMotionPreference>(() =>
     normalizeLoadingMotionPreference(initialAppUiState.appearance?.loadingMotion),
   )
-  const [appUiStateReady, setAppUiStateReady] = useState(false)
+  const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
-  const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
@@ -131,7 +126,12 @@ export default function App() {
   const appCommandHandler = useMemo(
     () =>
       createAppCommandHandler({
-        setAppMode,
+        setAppMode: (nextMode) => {
+          if (nextMode === 'workbench') {
+            setWorkbenchHasOpened(true)
+          }
+          setAppMode(nextMode)
+        },
         onPendingIntent: setPendingWorkbenchIntent,
       }),
     [],
@@ -142,12 +142,6 @@ export default function App() {
   )
 
   useEffect(() => {
-    if (appMode === 'workbench') {
-      setWorkbenchLoaded(true)
-    }
-  }, [appMode])
-
-  useEffect(() => {
     launcherPageRef.current = launcherPage
   }, [launcherPage])
 
@@ -155,7 +149,6 @@ export default function App() {
 
   useEffect(() => {
     if (!desktopHost) {
-      setAppUiStateReady(true)
       return
     }
 
@@ -172,6 +165,9 @@ export default function App() {
 
         setLocale(nextLocale)
         setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+        if (nextShellState.appMode === 'workbench') {
+          setWorkbenchHasOpened(true)
+        }
         setAppMode(nextShellState.appMode)
         setLauncherPage(nextShellState.launcherPage)
         setDebugEnabled(nextShellState.debugEnabled)
@@ -338,6 +334,7 @@ export default function App() {
   }, [locale])
 
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
+  const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
 
   useEffect(() => {
     const root = document.documentElement
@@ -390,6 +387,9 @@ export default function App() {
   }, [])
 
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
+    if (nextMode === 'workbench') {
+      setWorkbenchHasOpened(true)
+    }
     setAppMode(nextMode)
   }, [])
 

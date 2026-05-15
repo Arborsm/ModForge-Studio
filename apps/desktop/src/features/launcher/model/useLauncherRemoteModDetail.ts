@@ -40,19 +40,6 @@ export function useLauncherRemoteModDetail(modId: number | null) {
       progress: 18,
     })
 
-    queueMicrotask(() => {
-      if (cancelled) {
-        return
-      }
-
-      setRequestState((current) => ({
-        modId,
-        detail: current.modId === modId ? current.detail : null,
-        state: 'loading',
-        error: null,
-      }))
-    })
-
     void launcherPort.loadRemoteModDetail({ modId })
       .then((result) => {
         if (cancelled) {

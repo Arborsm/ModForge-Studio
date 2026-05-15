@@ -36,23 +36,42 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
   const [routes, setRoutes] = useState<LauncherNexusRouteSnapshot[]>([])
   const [loading, setLoading] = useState(true)
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null)
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
   const [retryingRouteIds, setRetryingRouteIds] = useState<Set<string>>(new Set())
   const retryTimestamps = useRef<Map<string, number>>(new Map())
 
-  const loadDiagnostics = useCallback(async () => {
-    try {
-      const diagnostics: LauncherNexusDiagnosticsResult = await launcherPort.loadNexusDiagnostics()
-      setRoutes(diagnostics.routes)
-      setLastRefreshedAt(Date.now())
-      setLoading(false)
-    } catch {
-      setLoading(false)
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const diagnostics: LauncherNexusDiagnosticsResult = await launcherPort.loadNexusDiagnostics()
+        if (!cancelled) {
+          setRoutes(diagnostics.routes)
+          setLastRefreshedAt(Date.now())
+          setLoading(false)
+        }
+      } catch {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
     }
   }, [launcherPort])
 
   useEffect(() => {
-    void loadDiagnostics()
-  }, [loadDiagnostics])
+    const refreshClock = window.setInterval(() => {
+      setCurrentTime(Date.now())
+    }, 60_000)
+
+    return () => {
+      window.clearInterval(refreshClock)
+    }
+  }, [])
 
   const handleRetryRoute = useCallback(async (routeId: string) => {
     const now = Date.now()
@@ -81,7 +100,7 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
     }
   }, [launcherPort])
 
-  const isStale = lastRefreshedAt != null && (Date.now() - lastRefreshedAt) > 5 * 60 * 1000
+  const isStale = lastRefreshedAt != null && (currentTime - lastRefreshedAt) > 5 * 60 * 1000
 
   if (loading) {
     return (

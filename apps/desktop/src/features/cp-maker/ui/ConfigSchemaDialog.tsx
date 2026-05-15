@@ -96,11 +96,6 @@ export function ConfigSchemaDialog({
     })
   }, [patch])
 
-  // Sync schema entries when configSchema changes
-  useEffect(() => {
-    setSchemaEntries(configSchema)
-  }, [configSchema])
-
   if (!open) return null
 
   function toggleRow(index: number) {

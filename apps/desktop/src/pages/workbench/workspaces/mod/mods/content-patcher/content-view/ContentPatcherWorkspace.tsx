@@ -174,6 +174,7 @@ export function ContentPatcherWorkspace({
         {activeScaleUpPanel && onScaleUpContentChange && onCloseScaleUpEditor ? (
           <LoadingMotionReveal itemId="mod-workspace-scaleup-panel" index={3}>
             <ContentPatcherScaleUpPanel
+              key={`${activeScaleUpPanel.result.target.path}:${activeScaleUpPanel.focusSection}:${contentEditor.value}`}
               targetPath={activeScaleUpPanel.result.target.path}
               focusSection={activeScaleUpPanel.focusSection}
               content={contentEditor.value}

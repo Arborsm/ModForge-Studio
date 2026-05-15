@@ -95,14 +95,13 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
     selectedEventKey,
     selectedEvent,
     selectedTimelineEntryId,
-    timelineJumpRequestId,
     currentEventCommandId,
     eventStatusMessage,
     onSelectEvent,
     onSelectTimelineEntry,
     onActivateTimelineEntry,
-    onTimelineJumpHandled,
     onPlaybackCommandChange,
+    onStageSeekReady,
     activePlayerAppearanceProfile,
     onOpenPlayerAppearanceWindow,
     characters,
@@ -263,6 +262,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           'workbench-events-viewport',
           1,
           <EventStageWorkspace
+            key={`${selectedEvent?.key ?? 'none'}:${parsedEventAsset?.asset.relativePath ?? 'none'}`}
             locale={locale}
             directoryInfo={directoryInfo}
             viewportLabels={copy.viewportLabels}
@@ -272,10 +272,9 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
             selectedEvent={selectedEvent}
             eventStatusMessage={eventStatusMessage}
             playerAppearanceProfile={activePlayerAppearanceProfile}
-            timelineJumpRequestId={timelineJumpRequestId}
-            onTimelineJumpHandled={onTimelineJumpHandled}
             onSelectTimelineEntry={onSelectTimelineEntry}
             onPlaybackCommandChange={onPlaybackCommandChange}
+            onStageSeekReady={onStageSeekReady}
             onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
           />,
         )

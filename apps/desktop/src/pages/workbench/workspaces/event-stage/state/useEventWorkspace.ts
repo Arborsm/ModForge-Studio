@@ -30,7 +30,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   const [parsedEventAsset, setParsedEventAsset] = useState<ReturnType<typeof parseEventAssetContent> | null>(null)
   const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null)
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] = useState<string>(EVENT_SETUP_ENTRY_ID)
-  const [timelineJumpRequestId, setTimelineJumpRequestId] = useState<string | null>(null)
   const [eventStatusMessage, setEventStatusMessage] = useState('')
   const { modIndex } = useModAssetIndex(directoryInfo)
 
@@ -84,7 +83,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-        setTimelineJumpRequestId(null)
         setEventStatusMessage('')
       })
     }
@@ -125,7 +123,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-        setTimelineJumpRequestId(null)
       })
     }
     const rootPath = directoryInfo.rootPath
@@ -156,7 +153,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
             setParsedEventAsset(parsed)
             setSelectedEventKey(parsed.events[0]?.key ?? null)
             setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-            setTimelineJumpRequestId(null)
             setEventStatusMessage(`${asset.name} loaded from ${modEntry.modName}.`)
             return
           }
@@ -185,7 +181,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
           setParsedEventAsset(parsed)
           setSelectedEventKey(parsed.events[0]?.key ?? null)
           setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-          setTimelineJumpRequestId(null)
           setEventStatusMessage(`${asset.name} loaded with ${parsed.events.length} events.`)
           return
         } catch (error) {
@@ -197,7 +192,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-        setTimelineJumpRequestId(null)
         setEventStatusMessage(`Failed to load event file. ${lastError instanceof Error ? lastError.message : String(lastError)}`)
       }
     }
@@ -253,16 +247,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   function handleSelectEvent(eventKey: string) {
     setSelectedEventKey(eventKey)
     setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-    setTimelineJumpRequestId(null)
-  }
-
-  function requestTimelineJump(entryId: string) {
-    setSelectedTimelineEntryId(entryId)
-    setTimelineJumpRequestId(entryId)
-  }
-
-  function clearTimelineJumpRequest() {
-    setTimelineJumpRequestId(null)
   }
 
   return {
@@ -282,9 +266,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
     selectedEvent,
     selectedTimelineEntryId,
     setSelectedTimelineEntryId,
-    timelineJumpRequestId,
-    requestTimelineJump,
-    clearTimelineJumpRequest,
     eventStatusMessage,
     handleOpenEventAsset,
     handleOpenModEventAsset,

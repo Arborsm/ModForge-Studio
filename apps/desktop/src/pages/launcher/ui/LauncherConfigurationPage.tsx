@@ -563,20 +563,72 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
   }, [apiKeySignature, hasApiKey, launcherPort])
 
   useEffect(() => {
-    void refreshApiKeyStatus()
-  }, [refreshApiKeyStatus])
+    let cancelled = false
+
+    void (async () => {
+      if (!hasApiKey) {
+        if (!cancelled) {
+          setApiKeyStatus(null)
+          setApiKeyError(null)
+        }
+        return
+      }
+
+      const cached = readCachedLauncherConfigurationApiKeyStatus({
+        apiKeySignature,
+      })
+      if (cached) {
+        if (!cancelled) {
+          setApiKeyStatus(cached.status)
+          setApiKeyError(cached.error)
+        }
+        return
+      }
+
+      try {
+        const nextStatus = await launcherPort.validateNexusApiKey()
+        writeCachedLauncherConfigurationApiKeyStatus({
+          status: nextStatus,
+          error: null,
+        }, {
+          apiKeySignature,
+        })
+        if (!cancelled) {
+          setApiKeyStatus(nextStatus)
+          setApiKeyError(null)
+        }
+      } catch (nextError) {
+        const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
+        writeCachedLauncherConfigurationApiKeyStatus({
+          status: null,
+          error: errorMessage,
+        }, {
+          apiKeySignature,
+        })
+        if (!cancelled) {
+          setApiKeyStatus(null)
+          setApiKeyError(errorMessage)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [apiKeySignature, hasApiKey, launcherPort])
 
   useEffect(() => {
     let cancelled = false
-    const cached = readCachedLauncherConfigurationSsoStatus()
-    if (cached) {
-      setSsoAuthorized(cached.snapshot.status === 'authorized')
-      return () => {
-        cancelled = true
-      }
-    }
 
     const loadSso = async () => {
+      const cached = readCachedLauncherConfigurationSsoStatus()
+      if (cached) {
+        if (!cancelled) {
+          setSsoAuthorized(cached.snapshot.status === 'authorized')
+        }
+        return
+      }
+
       try {
         const snapshot = await launcherPort.getNexusSsoStatus()
         writeCachedLauncherConfigurationSsoStatus(snapshot)
@@ -1022,31 +1074,37 @@ export function LauncherConfigurationPage({
   useEffect(() => {
     let disposed = false
     const modsPath = settingsState.settings.modsPath?.trim()
-    if (!modsPath) {
-      setInstalledModCount(null)
-      return
-    }
 
-    const cached = readCachedLauncherConfigurationLibraryScan({ modsPath })
-    if (cached) {
-      setInstalledModCount(cached.result.mods.length)
-      return () => {
-        disposed = true
+    const loadInstalledModCount = async () => {
+      if (!modsPath) {
+        if (!disposed) {
+          setInstalledModCount(null)
+        }
+        return
       }
-    }
 
-    void launcherPort.scanLibrary({ modsPath })
-      .then((result) => {
+      const cached = readCachedLauncherConfigurationLibraryScan({ modsPath })
+      if (cached) {
+        if (!disposed) {
+          setInstalledModCount(cached.result.mods.length)
+        }
+        return
+      }
+
+      try {
+        const result = await launcherPort.scanLibrary({ modsPath })
         writeCachedLauncherConfigurationLibraryScan(result, { modsPath })
         if (!disposed) {
           setInstalledModCount(result.mods.length)
         }
-      })
-      .catch(() => {
+      } catch {
         if (!disposed) {
           setInstalledModCount(null)
         }
-      })
+      }
+    }
+
+    void loadInstalledModCount()
 
     return () => {
       disposed = true
@@ -1055,26 +1113,30 @@ export function LauncherConfigurationPage({
   useEffect(() => {
     let disposed = false
     const gamePath = settingsState.settings.gamePath?.trim() ?? ''
-    const cached = readCachedLauncherConfigurationRuntimeInfo({ gamePath })
-    if (cached) {
-      setRuntimeInfo(cached.info)
-      return () => {
-        disposed = true
-      }
-    }
 
-    void launcherPort.loadRuntimeInfo()
-      .then((info) => {
+    const loadRuntimeInfo = async () => {
+      const cached = readCachedLauncherConfigurationRuntimeInfo({ gamePath })
+      if (cached) {
+        if (!disposed) {
+          setRuntimeInfo(cached.info)
+        }
+        return
+      }
+
+      try {
+        const info = await launcherPort.loadRuntimeInfo()
         writeCachedLauncherConfigurationRuntimeInfo(info, { gamePath })
         if (!disposed) {
           setRuntimeInfo(info)
         }
-      })
-      .catch(() => {
+      } catch {
         if (!disposed) {
           setRuntimeInfo(null)
         }
-      })
+      }
+    }
+
+    void loadRuntimeInfo()
 
     return () => {
       disposed = true
@@ -1094,17 +1156,17 @@ export function LauncherConfigurationPage({
           apiKeySignature: diagnosticsApiKeySignature,
         })
 
-    if (cachedDiagnostics) {
-      setDiagnosticRoutes(cachedDiagnostics.diagnostics.routes)
-      setLastDiagnosticsAt(cachedDiagnostics.cachedAt)
-      onLauncherDiagnosticsUpdate?.(cachedDiagnostics.diagnostics)
-      if (!cachedDiagnostics.shouldRefresh) {
-        setDiagnosticsRefreshing(false)
-        return
-      }
-    }
-
     const poll = async () => {
+      if (cachedDiagnostics) {
+        setDiagnosticRoutes(cachedDiagnostics.diagnostics.routes)
+        setLastDiagnosticsAt(cachedDiagnostics.cachedAt)
+        onLauncherDiagnosticsUpdate?.(cachedDiagnostics.diagnostics)
+        if (!cachedDiagnostics.shouldRefresh) {
+          setDiagnosticsRefreshing(false)
+          return
+        }
+      }
+
       try {
         const diagnostics = shouldRestartDiagnostics
           ? await restartLauncherNexusDiagnostics()
@@ -1131,7 +1193,6 @@ export function LauncherConfigurationPage({
       }
     }
 
-    setDiagnosticsRefreshing(true)
     void poll()
 
     return () => {

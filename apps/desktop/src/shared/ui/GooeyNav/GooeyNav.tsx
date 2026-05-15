@@ -54,6 +54,8 @@ const getXY = (distance: number, pointIndex: number, totalPoints: number): [numb
   return [distance * Math.cos(angle), distance * Math.sin(angle)]
 }
 
+const pickRandomColor = (colors: number[]) => colors[Math.floor(Math.random() * colors.length)]
+
 interface Particle {
   start: [number, number]
   end: [number, number]
@@ -102,7 +104,7 @@ export default function GooeyNav({
       end: getXY(d[1] + noise(7), particleCount - i, particleCount),
       time: t,
       scale: 1 + noise(0.2),
-      color: colors[Math.floor(Math.random() * colors.length)],
+      color: pickRandomColor(colors),
       rotate: rotate > 0 ? (rotate + r / 20) * 10 : (rotate - r / 20) * 10,
     }
   }

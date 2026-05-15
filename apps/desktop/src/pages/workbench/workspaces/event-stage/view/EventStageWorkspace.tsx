@@ -1,5 +1,5 @@
 import { Grid2x2, Pause, Play, RotateCcw, Route, SkipForward, UserRound } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import {
   EFFECT_VIEWPORT_BASE_HEIGHT,
   EFFECT_VIEWPORT_BASE_WIDTH,
@@ -34,10 +34,9 @@ type EventStageWorkspaceProps = {
   selectedEvent: EventScript | null
   eventStatusMessage: string
   playerAppearanceProfile: PlayerAppearanceProfile | null
-  timelineJumpRequestId: string | null
-  onTimelineJumpHandled: () => void
   onSelectTimelineEntry: (entryId: string) => void
   onPlaybackCommandChange: (commandId: string | null) => void
+  onStageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
   onOpenPlayerAppearanceWindow: () => void
 }
 
@@ -51,10 +50,9 @@ export default function EventStageWorkspace({
   selectedEvent,
   eventStatusMessage,
   playerAppearanceProfile,
-  timelineJumpRequestId,
-  onTimelineJumpHandled,
   onSelectTimelineEntry,
   onPlaybackCommandChange,
+  onStageSeekReady,
   onOpenPlayerAppearanceWindow,
 }: EventStageWorkspaceProps) {
   const copy = useEventStageCopy()
@@ -78,6 +76,7 @@ export default function EventStageWorkspace({
     playbackStatusChips,
     playNextFrame,
     resetPlayback,
+    seekTimelineEntry,
     setShowGrid,
     setShowMapPaths,
     showGrid,
@@ -95,11 +94,11 @@ export default function EventStageWorkspace({
     parsedEventAsset,
     selectedEvent,
     playerAppearanceProfile,
-    timelineJumpRequestId,
-    onTimelineJumpHandled,
     onSelectTimelineEntry,
     onPlaybackCommandChange,
   })
+
+  useEffect(() => onStageSeekReady(seekTimelineEntry), [onStageSeekReady, seekTimelineEntry])
 
   const worldStageEffects = useMemo(
     () => playbackState.stageEffects.filter((effect) => effect.space === 'world'),

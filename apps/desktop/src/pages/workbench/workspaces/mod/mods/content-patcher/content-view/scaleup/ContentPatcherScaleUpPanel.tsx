@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   getScaleUpEditorState,
@@ -235,9 +235,8 @@ export function ContentPatcherScaleUpPanel({
       }),
     [content, images.originalImage, images.resultImage, targetPath],
   )
-  const editorStateKey = useMemo(() => JSON.stringify(editorState), [editorState])
-  const [draft, setDraft] = useState<ScaleUpDraft>(() => cloneDraft(editorState.draft))
-  const lastSyncedEditorStateKeyRef = useRef(editorStateKey)
+  const [editedDraft, setEditedDraft] = useState<ScaleUpDraft | null>(null)
+  const draft = editedDraft ?? editorState.draft
   const preview = useMemo(
     () =>
       buildScaleUpPreviewModel(draft, {
@@ -246,10 +245,6 @@ export function ContentPatcherScaleUpPanel({
       }),
     [draft, images.originalImage, images.resultImage],
   )
-
-  useEffect(() => {
-    setActiveSection(focusSection)
-  }, [focusSection])
 
   useEffect(() => {
     let cancelled = false
@@ -271,17 +266,8 @@ export function ContentPatcherScaleUpPanel({
     }
   }, [originalImageDataUrl, resultImageDataUrl])
 
-  useEffect(() => {
-    if (lastSyncedEditorStateKeyRef.current === editorStateKey) {
-      return
-    }
-
-    lastSyncedEditorStateKeyRef.current = editorStateKey
-    setDraft(cloneDraft(editorState.draft))
-  }, [editorState.draft, editorStateKey])
-
   function emitDraft(nextDraft: ScaleUpDraft) {
-    setDraft(nextDraft)
+    setEditedDraft(nextDraft)
     onContentChange(upsertScaleUpEntry(content, nextDraft))
   }
 

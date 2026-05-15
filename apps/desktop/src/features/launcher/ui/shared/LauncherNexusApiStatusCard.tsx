@@ -123,8 +123,38 @@ export function LauncherNexusApiStatusCard({
   }, [hasApiKey, launcherPort])
 
   useEffect(() => {
-    void refreshApiKeyStatus()
-  }, [refreshApiKeyStatus])
+    let cancelled = false
+
+    void (async () => {
+      if (!hasApiKey) {
+        setApiKeyStatus(null)
+        setApiKeyError(null)
+        return
+      }
+
+      setApiKeyChecking(true)
+      setApiKeyError(null)
+      try {
+        const nextStatus = await launcherPort.validateNexusApiKey()
+        if (!cancelled) {
+          setApiKeyStatus(nextStatus)
+        }
+      } catch (nextError) {
+        if (!cancelled) {
+          setApiKeyStatus(null)
+          setApiKeyError(nextError instanceof Error ? nextError.message : String(nextError))
+        }
+      } finally {
+        if (!cancelled) {
+          setApiKeyChecking(false)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [hasApiKey, launcherPort])
 
   useEffect(() => {
     let cancelled = false

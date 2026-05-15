@@ -201,6 +201,7 @@ export function ScriptEditor({
 
       {/* Command Palette */}
       <CommandPalette
+        key={commandPaletteOpen ? 'open' : 'closed'}
         open={commandPaletteOpen}
         onClose={() => useEditorStore.getState().setCommandPaletteOpen(false)}
         onSelect={(key) => {

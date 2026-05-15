@@ -24,9 +24,7 @@ export function useWorkspaceLayoutPersistence(appUiStateReady: boolean, workspac
     const state = getAppUiStateSnapshot()
     const nextLayouts = normalizeWorkspaceLayouts(state.workspace.layouts)
     workspaceLayoutsRef.current = nextLayouts
-    queueMicrotask(() => {
-      setWorkspaceLayouts(nextLayouts)
-    })
+    setWorkspaceLayouts(nextLayouts)
     hydratedWorkspaceStateRef.current = true
   }, [appUiStateReady])
 

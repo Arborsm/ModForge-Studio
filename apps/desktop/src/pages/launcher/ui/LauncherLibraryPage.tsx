@@ -436,17 +436,11 @@ export function LauncherLibraryPageContent({
     [hiddenModKeyLookup, library.mods],
   )
   const visibleLibraryModsCount = library.mods.length - hiddenMods.length
-  const detailMod = useMemo(
+  const selectedDetailMod = useMemo(
     () => (detailModId ? library.mods.find((item) => item.id === detailModId) ?? null : null),
     [detailModId, library.mods],
   )
-
-  useEffect(() => {
-    if (!detailModId || detailMod) {
-      return
-    }
-    setDetailModId(null)
-  }, [detailMod, detailModId])
+  const detailMod = detailModId ? selectedDetailMod : null
 
   useEffect(() => {
     const enteredEditMode = editMode && !lastEditSeedRef.current.editMode

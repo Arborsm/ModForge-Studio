@@ -37,7 +37,9 @@ describe('useCpMaker', () => {
       wrapper: createWrapper(port),
     })
 
-    expect(port.listDrafts).toHaveBeenCalledOnce()
+    await vi.waitFor(() => {
+      expect(port.listDrafts).toHaveBeenCalledOnce()
+    })
     // Initial state before async resolution
     expect(result.current.drafts).toEqual([])
     expect(result.current.activeDraft).toBeNull()

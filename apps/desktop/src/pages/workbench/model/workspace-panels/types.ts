@@ -85,14 +85,13 @@ export type BuildWorkspacePanelsOptions = Omit<BuildModWorkspacePanelsOptions, '
   selectedEventKey: string | null
   selectedEvent: EventScript | null
   selectedTimelineEntryId: string
-  timelineJumpRequestId: string | null
   currentEventCommandId: string | null
   eventStatusMessage: string
   onSelectEvent: (eventKey: string) => void
   onSelectTimelineEntry: (entryId: string) => void
   onActivateTimelineEntry: (entryId: string) => void
-  onTimelineJumpHandled: () => void
   onPlaybackCommandChange: (commandId: string | null) => void
+  onStageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
   activePlayerAppearanceProfile: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow: () => void
   characters: CharacterWorkspaceEntry[]

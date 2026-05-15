@@ -287,9 +287,6 @@ export default function WorkbenchExperience({
     selectedEvent,
     selectedTimelineEntryId,
     setSelectedTimelineEntryId,
-    timelineJumpRequestId,
-    requestTimelineJump,
-    clearTimelineJumpRequest,
     eventStatusMessage,
     handleOpenEventAsset,
     handleOpenModEventAsset,
@@ -580,6 +577,14 @@ export default function WorkbenchExperience({
     setPlayerAppearanceWindowNonce((current) => current + 1)
     setPlayerAppearanceWindowOpen(true)
   }, [])
+  const [stageSeek, setStageSeek] = useState<((entryId: string) => void) | null>(null)
+  const registerStageSeek = useCallback((seekTimelineEntry: (entryId: string) => void) => {
+    setStageSeek(() => seekTimelineEntry)
+    return () => setStageSeek(null)
+  }, [])
+  const handleActivateTimelineEntry = useCallback((entryId: string) => {
+    stageSeek?.(entryId)
+  }, [stageSeek])
 
   const workspacePanels = buildWorkspacePanels({
     copy,
@@ -645,14 +650,13 @@ export default function WorkbenchExperience({
     selectedEventKey,
     selectedEvent,
     selectedTimelineEntryId,
-    timelineJumpRequestId,
     currentEventCommandId,
     eventStatusMessage,
     onSelectEvent: handleSelectEvent,
     onSelectTimelineEntry: setSelectedTimelineEntryId,
-    onActivateTimelineEntry: requestTimelineJump,
-    onTimelineJumpHandled: clearTimelineJumpRequest,
+    onActivateTimelineEntry: handleActivateTimelineEntry,
     onPlaybackCommandChange: setCurrentEventCommandId,
+    onStageSeekReady: registerStageSeek,
     activePlayerAppearanceProfile,
     onOpenPlayerAppearanceWindow: openAppearanceWindow,
     characters,

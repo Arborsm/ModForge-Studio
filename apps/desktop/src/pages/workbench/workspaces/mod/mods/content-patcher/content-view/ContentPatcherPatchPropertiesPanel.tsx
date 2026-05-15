@@ -54,23 +54,14 @@ export function ContentPatcherPatchPropertiesPanel({
 
   // Local draft for When to preserve user input on parse errors
   const whenText = useMemo(() => stringifyWhen(patch?.When), [patch?.When])
-  const [whenDraft, setWhenDraft] = useState(whenText)
+  const [editedWhenDraft, setEditedWhenDraft] = useState<string | null>(null)
   const prevWhenTextRef = useRef(whenText)
+  const whenDraft = editedWhenDraft ?? whenText
 
   useEffect(() => {
-    let cancelled = false
-
     if (prevWhenTextRef.current !== whenText) {
       prevWhenTextRef.current = whenText
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setWhenDraft(whenText)
-        }
-      })
-    }
-
-    return () => {
-      cancelled = true
+      setEditedWhenDraft(null)
     }
   }, [whenText])
 
@@ -273,7 +264,7 @@ export function ContentPatcherPatchPropertiesPanel({
             <textarea
               value={whenDraft}
               onChange={(event) => {
-                setWhenDraft(event.target.value)
+                setEditedWhenDraft(event.target.value)
                 onWhenChange(event.target.value)
               }}
               aria-label="Patch When"

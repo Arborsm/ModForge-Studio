@@ -35,21 +35,15 @@ export function usePlayerAppearanceState(appUiStateReady: boolean, locale: Local
       return
     }
 
-    queueMicrotask(() => {
-      if (hydratedRef.current) {
-        return
-      }
+    const state = getAppUiStateSnapshot()
+    const nextPlayerAppearanceState = normalizePlayerAppearanceState(
+      state.appearance.playerAppearance.profiles,
+      state.appearance.playerAppearance.activeProfileId,
+    )
 
-      const state = getAppUiStateSnapshot()
-      const nextPlayerAppearanceState = normalizePlayerAppearanceState(
-        state.appearance.playerAppearance.profiles,
-        state.appearance.playerAppearance.activeProfileId,
-      )
-
-      setPlayerAppearanceProfiles(nextPlayerAppearanceState.profiles)
-      setActivePlayerAppearanceProfileId(nextPlayerAppearanceState.activeProfileId)
-      hydratedRef.current = true
-    })
+    setPlayerAppearanceProfiles(nextPlayerAppearanceState.profiles)
+    setActivePlayerAppearanceProfileId(nextPlayerAppearanceState.activeProfileId)
+    hydratedRef.current = true
   }, [appUiStateReady])
 
   useEffect(() => {

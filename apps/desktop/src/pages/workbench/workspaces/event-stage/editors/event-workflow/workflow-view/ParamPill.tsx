@@ -76,10 +76,6 @@ export function ParamPill({
   const containerRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
-    setDraft(value)
-  }, [value])
-
-  useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus()
       inputRef.current.select()
@@ -321,7 +317,10 @@ export function ParamPill({
       ref={containerRef}
       className={baseClasses}
       onClick={() => {
-        if (!disabled) setEditing(true)
+        if (!disabled) {
+          setDraft(value)
+          setEditing(true)
+        }
       }}
       title={`${label}${isEmpty ? '' : `: ${value}`}`}
     >

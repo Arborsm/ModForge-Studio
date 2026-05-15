@@ -157,10 +157,6 @@ export function LauncherUpdatesPage({
     }
   }, [])
 
-  useEffect(() => {
-    setStatusDetailsExpanded(false)
-  }, [updates.blockedReason, updates.error])
-
   const queueItem = (item: (typeof updates.items)[number]) =>
     onQueueDownload({
       modId: item.modId,
@@ -281,6 +277,7 @@ export function LauncherUpdatesPage({
   const blockedReasonLines = getStatusReasonLines(updates.blockedReason)
   const blockedIssueSummary = blockedReasonLines[0] ?? null
   const blockedReasonText = blockedReasonLines.join('\n')
+  const effectiveStatusDetailsExpanded = updatesBlocked ? statusDetailsExpanded : false
   const consoleSubtitle =
     !updatesBlocked && !updatesCheckFailed && updates.items.length
       ? copy.updates.selectionSummary(updates.selectedCount, updates.items.length)
@@ -356,9 +353,9 @@ export function LauncherUpdatesPage({
               issueLabel={copy.updates.issueLabel}
               issueSummary={blockedIssueSummary}
               detailsText={blockedReasonText}
-              detailsExpanded={statusDetailsExpanded}
+              detailsExpanded={effectiveStatusDetailsExpanded}
               detailsToggleLabel={
-                statusDetailsExpanded ? copy.updates.detailsCollapseAction : copy.updates.detailsExpandAction
+                effectiveStatusDetailsExpanded ? copy.updates.detailsCollapseAction : copy.updates.detailsExpandAction
               }
               copyLabel={copy.updates.copyLogsAction}
               onToggleDetails={() => setStatusDetailsExpanded((current) => !current)}

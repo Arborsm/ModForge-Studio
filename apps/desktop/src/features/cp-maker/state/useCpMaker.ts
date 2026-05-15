@@ -700,8 +700,25 @@ export function useCpMaker() {
 
   // 初始加载草稿列表
   useEffect(() => {
-    void refreshDrafts()
-  }, [refreshDrafts])
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const list = await port.listDrafts()
+        if (!cancelled) {
+          setDrafts(list)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDraftError(error instanceof Error ? error.message : String(error))
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [port])
 
   // 加载指定草稿
   const loadDraft = useCallback(async (storageKey: string) => {

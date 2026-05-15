@@ -221,6 +221,7 @@ export function EditModeShell({
 
       {configDialogOpen && draft ? (
         <ConfigSchemaDialog
+          key={`config:${activePatch?.id ?? 'world'}:${draft.configSchema.length}`}
           open={configDialogOpen}
           mode="config"
           patch={activePatch}

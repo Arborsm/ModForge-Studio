@@ -559,6 +559,8 @@ function LauncherDiscoverPageContent({
   const blockedReasonText = blockedReasonLines.join('\n')
   const discoverRequestFailed = !discoverBlocked && discover.state === 'error'
   const effectiveFiltersHidden = filtersHidden || discoverBlocked || discoverRequestFailed
+  const effectiveOpenMenuId = discoverBlocked || discoverRequestFailed ? null : openMenuId
+  const effectiveBlockedDetailsExpanded = discoverBlocked ? blockedDetailsExpanded : false
   const resultCount = discover.totalCount || discover.items.length
   const categoryOptions = discover.facets.categories.length
     ? discover.facets.categories
@@ -614,18 +616,6 @@ function LauncherDiscoverPageContent({
     viewport.addEventListener('wheel', preventWheel, { passive: false })
     return () => viewport.removeEventListener('wheel', preventWheel)
   }, [discover.state])
-
-  useEffect(() => {
-    setBlockedDetailsExpanded(false)
-  }, [discover.blockedReason])
-
-  useEffect(() => {
-    if (!discoverBlocked && !discoverRequestFailed) {
-      return
-    }
-
-    setOpenMenuId(null)
-  }, [discoverBlocked, discoverRequestFailed])
 
   useEffect(() => {
     if (!launcherUiStateReady) {
@@ -717,7 +707,7 @@ function LauncherDiscoverPageContent({
                 label="Time range"
                 value={discover.timeRange}
                 options={TIME_RANGE_OPTIONS}
-                open={openMenuId === 'time'}
+                open={effectiveOpenMenuId === 'time'}
                 disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
                 onSelect={(value) => {
@@ -729,7 +719,7 @@ function LauncherDiscoverPageContent({
                 label="Sort"
                 value={discover.sort}
                 options={SORT_OPTIONS}
-                open={openMenuId === 'sort'}
+                open={effectiveOpenMenuId === 'sort'}
                 disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
                 onSelect={(value) => {
@@ -749,7 +739,7 @@ function LauncherDiscoverPageContent({
                 label="Page size"
                 value={discover.pageSize}
                 options={PAGE_SIZE_OPTIONS}
-                open={openMenuId === 'size'}
+                open={effectiveOpenMenuId === 'size'}
                 disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
                 onSelect={(value) => {
@@ -1016,9 +1006,9 @@ function LauncherDiscoverPageContent({
               issueLabel={copy.discover.blockedIssueLabel}
               issueSummary={primaryBlockedReason}
               detailsText={blockedReasonText}
-              detailsExpanded={blockedDetailsExpanded}
+              detailsExpanded={effectiveBlockedDetailsExpanded}
               detailsToggleLabel={
-                blockedDetailsExpanded
+                effectiveBlockedDetailsExpanded
                   ? copy.discover.blockedDetailsCollapseAction
                   : copy.discover.blockedDetailsExpandAction
               }

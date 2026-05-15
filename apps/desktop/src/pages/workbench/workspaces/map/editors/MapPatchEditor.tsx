@@ -30,6 +30,13 @@ type Area = {
   height: number | string
 }
 
+type LoadedMapState = {
+  key: string
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  document: MapDocument | null
+  error: string | null
+}
+
 export function MapPatchEditor({
   patch,
   draft,
@@ -53,22 +60,21 @@ export function MapPatchEditor({
 
   // Tiles tab state
   const gameRootPath = draft.projectMetadata.gameRootPath
-  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
-  const [mapLoading, setMapLoading] = useState(false)
-  const [mapError, setMapError] = useState<string | null>(null)
+  const mapLoadKey = `${activeTab}:${gameRootPath ?? ''}:${patch.target}:${locale}`
+  const [loadedMapState, setLoadedMapState] = useState<LoadedMapState>({
+    key: mapLoadKey,
+    status: activeTab === 'tiles' && gameRootPath ? 'loading' : 'idle',
+    document: null,
+    error: null,
+  })
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
   const [buildDialogOpen, setBuildDialogOpen] = useState(false)
 
   // Load target map for tiles tab
   useEffect(() => {
     if (activeTab !== 'tiles' || !gameRootPath) {
-      setMapDocument(null)
-      setMapError(null)
       return
     }
-
-    setMapLoading(true)
-    setMapError(null)
 
     let cancelled = false
 
@@ -98,28 +104,51 @@ export function MapPatchEditor({
         if (loadedAsset) {
           if (loadedAsset.format === 'xnb' || loadedAsset.format === 'tbin') {
             const doc = JSON.parse(loadedAsset.content) as MapDocument
-            setMapDocument(doc)
+            setLoadedMapState({ key: mapLoadKey, status: 'ready', document: doc, error: null })
           } else {
-            setMapError(`Format ${loadedAsset.format} not yet supported for tile editing.`)
+            setLoadedMapState({
+              key: mapLoadKey,
+              status: 'error',
+              document: null,
+              error: `Format ${loadedAsset.format} not yet supported for tile editing.`,
+            })
           }
         } else if (lastError) {
-          setMapError(lastError.message)
+          setLoadedMapState({ key: mapLoadKey, status: 'error', document: null, error: lastError.message })
         } else {
-          setMapError(`Unable to load map for target "${patch.target}".`)
+          setLoadedMapState({
+            key: mapLoadKey,
+            status: 'error',
+            document: null,
+            error: `Unable to load map for target "${patch.target}".`,
+          })
         }
       } catch (err) {
         if (!cancelled) {
-          setMapError(err instanceof Error ? err.message : String(err))
+          setLoadedMapState({
+            key: mapLoadKey,
+            status: 'error',
+            document: null,
+            error: err instanceof Error ? err.message : String(err),
+          })
         }
-      } finally {
-        if (!cancelled) setMapLoading(false)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [activeTab, gameRootPath, patch.target, locale])
+  }, [activeTab, gameRootPath, patch.target, locale, mapLoadKey])
+
+  const currentMapState = loadedMapState.key === mapLoadKey ? loadedMapState : {
+    key: mapLoadKey,
+    status: activeTab === 'tiles' && gameRootPath ? 'loading' as const : 'idle' as const,
+    document: null,
+    error: null,
+  }
+  const mapDocument = currentMapState.document
+  const mapLoading = currentMapState.status === 'loading'
+  const mapError = currentMapState.error
 
   const visibleLayerIds = useMemo(
     () => mapDocument?.layers.map((l) => l.id) ?? [],
@@ -303,7 +332,7 @@ export function MapPatchEditor({
 
       {buildDialogOpen && mapDocument && (
         <BuildAssetDialog
-          open={buildDialogOpen}
+          key={mapLoadKey}
           mapDocument={mapDocument}
           targetMapName={patch.target.split('/').pop() ?? patch.target}
           onClose={() => setBuildDialogOpen(false)}
@@ -318,7 +347,6 @@ export function MapPatchEditor({
 }
 
 type BuildAssetDialogProps = {
-  open: boolean
   mapDocument: unknown
   targetMapName: string
   onClose: () => void
@@ -326,26 +354,18 @@ type BuildAssetDialogProps = {
 }
 
 type BuildState =
-  | { phase: 'idle' }
   | { phase: 'building'; message: string }
   | { phase: 'done'; asset: VirtualPreviewAsset }
   | { phase: 'error'; message: string }
 
-function BuildAssetDialog({ open, mapDocument, targetMapName, onClose, onAssetBuilt }: BuildAssetDialogProps) {
-  const [buildState, setBuildState] = useState<BuildState>({ phase: 'idle' })
+function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }: BuildAssetDialogProps) {
+  const [buildState, setBuildState] = useState<BuildState>({
+    phase: 'building',
+    message: 'Serializing map to tBIN format...',
+  })
 
   useEffect(() => {
-    if (!open) {
-      return
-    }
-
     let cancelled = false
-
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setBuildState({ phase: 'building', message: 'Serializing map to tBIN format...' })
-      }
-    })
 
     void (async () => {
       try {
@@ -376,17 +396,7 @@ function BuildAssetDialog({ open, mapDocument, targetMapName, onClose, onAssetBu
     return () => {
       cancelled = true
     }
-  }, [mapDocument, onAssetBuilt, open, targetMapName])
-
-  useEffect(() => {
-    if (!open) {
-      queueMicrotask(() => setBuildState({ phase: 'idle' }))
-    }
-  }, [open])
-
-  if (!open) {
-    return null
-  }
+  }, [mapDocument, onAssetBuilt, targetMapName])
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
