@@ -237,19 +237,22 @@ describe('LauncherConfigurationPage', () => {
   })
 
   it('reuses cached Nexus API key validation when re-entering configuration', async () => {
-    writeCachedLauncherConfigurationApiKeyStatus({
-      status: {
-        userName: 'CachedPilot',
-        isPremium: true,
-        dailyRemaining: 321,
-        hourlyRemaining: 123,
-        dailyResetAt: null,
-        hourlyResetAt: null,
+    writeCachedLauncherConfigurationApiKeyStatus(
+      {
+        status: {
+          userName: 'CachedPilot',
+          isPremium: true,
+          dailyRemaining: 321,
+          hourlyRemaining: 123,
+          dailyResetAt: null,
+          hourlyResetAt: null,
+        },
+        error: null,
       },
-      error: null,
-    }, {
-      apiKeySignature: 'api-key',
-    })
+      {
+        apiKeySignature: 'api-key',
+      },
+    )
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockRejectedValue(new Error('should not validate on cached entry'))
 
@@ -290,8 +293,8 @@ describe('LauncherConfigurationPage', () => {
       isPremium: true,
       dailyRemaining: 19_988,
       hourlyRemaining: 499,
-      dailyResetAt: nowSeconds + (2 * 60 * 60) + (30 * 60),
-      hourlyResetAt: nowSeconds + (45 * 60),
+      dailyResetAt: nowSeconds + 2 * 60 * 60 + 30 * 60,
+      hourlyResetAt: nowSeconds + 45 * 60,
     })
 
     renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
@@ -420,24 +423,32 @@ describe('LauncherConfigurationPage', () => {
     renderConfigurationPage()
 
     expect(await screen.findByText(copy.settings.nexusApiGraphql)).toBeTruthy()
-    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
+      'launcher-config-api-row-ok',
+    )
     expect(loadLauncherNexusDiagnostics).not.toHaveBeenCalled()
     expect(restartLauncherNexusDiagnostics).not.toHaveBeenCalled()
   })
 
   it('reuses cached configuration summary data when re-entering configuration', async () => {
-    writeCachedLauncherConfigurationLibraryScan({
-      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
-      mods: Array.from({ length: 9 }, (_, index) => createLibraryMod({ id: `cached-mod-${index}` })),
-    }, {
-      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
-    })
-    writeCachedLauncherConfigurationRuntimeInfo({
-      gameVersion: '1.6.9',
-      smapiVersion: '4.1.0',
-    }, {
-      gamePath: 'E:\\Games\\Stardew Valley',
-    })
+    writeCachedLauncherConfigurationLibraryScan(
+      {
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        mods: Array.from({ length: 9 }, (_, index) => createLibraryMod({ id: `cached-mod-${index}` })),
+      },
+      {
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      },
+    )
+    writeCachedLauncherConfigurationRuntimeInfo(
+      {
+        gameVersion: '1.6.9',
+        smapiVersion: '4.1.0',
+      },
+      {
+        gamePath: 'E:\\Games\\Stardew Valley',
+      },
+    )
     writeCachedLauncherConfigurationSsoStatus({
       status: 'authorized',
       errorKind: null,
@@ -451,11 +462,14 @@ describe('LauncherConfigurationPage', () => {
     const loadRuntimeInfo = vi.fn().mockRejectedValue(new Error('should not load runtime on cached entry'))
     const getNexusSsoStatus = vi.fn().mockRejectedValue(new Error('should not load sso on cached entry'))
 
-    renderConfigurationPage(undefined, createMockLauncherPort({
-      scanLibrary,
-      loadRuntimeInfo,
-      getNexusSsoStatus,
-    } as Partial<LauncherPort>))
+    renderConfigurationPage(
+      undefined,
+      createMockLauncherPort({
+        scanLibrary,
+        loadRuntimeInfo,
+        getNexusSsoStatus,
+      } as Partial<LauncherPort>),
+    )
 
     expect(screen.getByText(copy.settings.configurationGameVersionTag('1.6.9'))).toBeTruthy()
     expect(screen.getByText(copy.settings.configurationSmapiVersionTag('4.1.0'))).toBeTruthy()
@@ -466,22 +480,25 @@ describe('LauncherConfigurationPage', () => {
   })
 
   it('refreshes configuration diagnostics when a cached non-API route previously failed', async () => {
-    writeCachedLauncherConfigurationDiagnostics({
-      routes: [
-        {
-          routeId: 'nexusImages',
-          label: 'Nexus Image CDN',
-          endpoint: 'https://staticdelivery.nexusmods.com/',
-          status: 'warning' as const,
-          attempts: 3,
-          maxAttempts: 3,
-          available: false,
-          message: 'Failed after 3 attempts: timeout',
-        },
-      ],
-    }, {
-      apiKeySignature: 'api-key',
-    })
+    writeCachedLauncherConfigurationDiagnostics(
+      {
+        routes: [
+          {
+            routeId: 'nexusImages',
+            label: 'Nexus Image CDN',
+            endpoint: 'https://staticdelivery.nexusmods.com/',
+            status: 'warning' as const,
+            attempts: 3,
+            maxAttempts: 3,
+            available: false,
+            message: 'Failed after 3 attempts: timeout',
+          },
+        ],
+      },
+      {
+        apiKeySignature: 'api-key',
+      },
+    )
     loadLauncherNexusDiagnostics.mockResolvedValue({
       routes: [
         {
@@ -503,7 +520,9 @@ describe('LauncherConfigurationPage', () => {
       expect(loadLauncherNexusDiagnostics).toHaveBeenCalled()
     })
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+      expect(
+        screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row'),
+      ).toHaveClass('launcher-config-api-row-ok')
     })
   })
 
@@ -657,10 +676,7 @@ describe('LauncherConfigurationPage', () => {
     const preview = await screen.findByTestId('launcher-debug-bbcode-preview')
     expect(preview.textContent).toContain('Basic Bedroom Furniture')
     expect(preview.querySelector('.nexusmods-bbcode-align-center')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute(
-      'href',
-      'https://www.nexusmods.com/stardewvalley/mods/23073',
-    )
+    expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute('href', 'https://www.nexusmods.com/stardewvalley/mods/23073')
   })
 
   it('explains each Nexus route responsibility and keeps raw API error details visible in the Nexus panel', async () => {
@@ -733,9 +749,15 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByText(copy.configuration.nexusDiagnosticsRouteResponsibilities.privateGraphql)).toBeTruthy()
     expect(screen.getByText(copy.configuration.nexusDiagnosticsRouteResponsibilities.smapi)).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-loading')
-    expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-loading')
-    expect(screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-ok')
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
+      'launcher-config-api-row-loading',
+    )
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
+      'launcher-config-api-row-loading',
+    )
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
+      'launcher-config-api-row-ok',
+    )
     expect(screen.getByTestId('launcher-config-nexus').querySelectorAll('.launcher-config-api-row')).toHaveLength(5)
   })
 
@@ -758,9 +780,7 @@ describe('LauncherConfigurationPage', () => {
 
     expect(await screen.findByText('Log: network timeout')).toBeTruthy()
 
-    const apiRouteRow = screen
-      .getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 })
-      .closest('.launcher-config-api-row')
+    const apiRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 }).closest('.launcher-config-api-row')
     expect(apiRouteRow).not.toHaveClass('launcher-config-api-row-ok')
     expect(apiRouteRow).toHaveClass('launcher-config-api-row-danger')
   })
@@ -912,8 +932,12 @@ describe('LauncherConfigurationPage', () => {
     await waitFor(() => {
       expect(screen.getByText(copy.settings.nexusApiGraphql)).toBeTruthy()
     })
-    const warningRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')
-    const successRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')
+    const warningRouteRow = screen
+      .getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })
+      .closest('.launcher-config-api-row')
+    const successRouteRow = screen
+      .getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })
+      .closest('.launcher-config-api-row')
 
     expect(warningRouteRow).toHaveClass('launcher-config-api-row-warn')
     expect(successRouteRow).toHaveClass('launcher-config-api-row-ok')
@@ -1004,8 +1028,12 @@ describe('LauncherConfigurationPage', () => {
 
     renderConfigurationPage()
 
-    const warningRouteRow = (await screen.findByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })).closest('.launcher-config-api-row')
-    const successRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 }).closest('.launcher-config-api-row')
+    const warningRouteRow = (await screen.findByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 })).closest(
+      '.launcher-config-api-row',
+    )
+    const successRouteRow = screen
+      .getByRole('heading', { name: copy.settings.nexusApiImageCdn, level: 3 })
+      .closest('.launcher-config-api-row')
     const warningLabel = warningRouteRow?.querySelector('.launcher-config-status-tag-warn')
     const successLabel = successRouteRow?.querySelector('.launcher-config-status-tag-ok')
 
@@ -1106,6 +1134,8 @@ describe('LauncherConfigurationPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('launcher-config-diagnostics-step')).toHaveClass('launcher-config-step-warn')
     })
-    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass('launcher-config-api-row-warn')
+    expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
+      'launcher-config-api-row-warn',
+    )
   })
 })

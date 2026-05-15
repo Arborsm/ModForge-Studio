@@ -21,7 +21,6 @@ import {
   LOADING_MOTION_STYLE_IDS,
   LOADING_MOTION_INTENSITY_IDS,
   LOADING_MOTION_SPEED_IDS,
-
   LOADING_MOTION_STYLE_LABELS,
   LOADING_MOTION_INTENSITY_LABELS,
   LOADING_MOTION_SPEED_LABELS,
@@ -223,10 +222,9 @@ describe('normalizeLoadingMotionPreference', () => {
 
 describe('resolveLoadingMotionConfig', () => {
   it('uses user preference when reduced motion is off', () => {
-    const config = resolveLoadingMotionConfig(
-      createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }),
-      { prefersReducedMotion: false },
-    )
+    const config = resolveLoadingMotionConfig(createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }), {
+      prefersReducedMotion: false,
+    })
     expect(config.styleId).toBe('bounceIn')
     expect(config.intensityId).toBe('strong')
     expect(config.speedMultiplier).toBe(1)
@@ -235,10 +233,9 @@ describe('resolveLoadingMotionConfig', () => {
 
   it('overrides to quietSimplify / light when reduced motion is preferred', () => {
     // D-09, D-10: reduced-motion fallback silences obvious bounce/translation
-    const config = resolveLoadingMotionConfig(
-      createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }),
-      { prefersReducedMotion: true },
-    )
+    const config = resolveLoadingMotionConfig(createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }), {
+      prefersReducedMotion: true,
+    })
     expect(config.styleId).toBe('quietSimplify')
     expect(config.intensityId).toBe('light')
     expect(config.speedMultiplier).toBe(1)
@@ -257,29 +254,20 @@ describe('resolveLoadingMotionConfig', () => {
 
   it('passes through revealOrder when provided', () => {
     const order = ['header', 'content', 'footer'] as const
-    const config = resolveLoadingMotionConfig(
-      DEFAULT_LOADING_MOTION_PREFERENCE,
-      { prefersReducedMotion: false, revealOrder: order },
-    )
+    const config = resolveLoadingMotionConfig(DEFAULT_LOADING_MOTION_PREFERENCE, { prefersReducedMotion: false, revealOrder: order })
     expect(config.revealOrder).toEqual(order)
   })
 
   it('sets revealOrder to null when not provided', () => {
-    const config = resolveLoadingMotionConfig(
-      DEFAULT_LOADING_MOTION_PREFERENCE,
-      { prefersReducedMotion: false },
-    )
+    const config = resolveLoadingMotionConfig(DEFAULT_LOADING_MOTION_PREFERENCE, { prefersReducedMotion: false })
     expect(config.revealOrder).toBeNull()
   })
 
   it('caps anchors to at most 2', () => {
-    const config = resolveLoadingMotionConfig(
-      DEFAULT_LOADING_MOTION_PREFERENCE,
-      {
-        prefersReducedMotion: false,
-        anchors: { anchorIds: ['a', 'b', 'c'] },
-      },
-    )
+    const config = resolveLoadingMotionConfig(DEFAULT_LOADING_MOTION_PREFERENCE, {
+      prefersReducedMotion: false,
+      anchors: { anchorIds: ['a', 'b', 'c'] },
+    })
     expect(config.anchors).toHaveLength(2)
     expect(config.anchors[0]).toBe('a')
     expect(config.anchors[1]).toBe('b')
@@ -296,11 +284,7 @@ describe('orderRevealItems', () => {
   })
 
   it('preserves original order when no priorities are set (default top-to-bottom)', () => {
-    const items = [
-      { itemId: 'header' },
-      { itemId: 'content' },
-      { itemId: 'footer' },
-    ]
+    const items = [{ itemId: 'header' }, { itemId: 'content' }, { itemId: 'footer' }]
     const result = orderRevealItems(items)
     expect(result.map((r) => r.itemId)).toEqual(['header', 'content', 'footer'])
   })
@@ -469,5 +453,3 @@ describe('product label tables', () => {
     }
   })
 })
-
-

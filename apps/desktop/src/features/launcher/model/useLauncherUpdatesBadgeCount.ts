@@ -31,7 +31,8 @@ export function useLauncherUpdatesBadgeCount(settings: LauncherSettings) {
       applyCount(getUpdatesCount(result))
     })
 
-    void launcherPort.loadCachedUpdates({ modsPath })
+    void launcherPort
+      .loadCachedUpdates({ modsPath })
       .then((result) => {
         if (liveSnapshotSeen) {
           return

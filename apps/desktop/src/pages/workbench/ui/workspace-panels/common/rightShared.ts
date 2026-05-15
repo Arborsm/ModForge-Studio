@@ -73,4 +73,3 @@ export function getVisibilityGroupLabel(name: string, fallbackLabel: string) {
   const separatorIndex = name.indexOf(' / ')
   return separatorIndex >= 0 ? name.slice(0, separatorIndex) : fallbackLabel
 }
-

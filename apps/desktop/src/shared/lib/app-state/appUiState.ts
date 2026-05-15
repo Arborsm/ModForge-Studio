@@ -47,7 +47,7 @@ export function createDefaultAppUiState(): AppUiState {
       playerAppearance: {
         profiles: [],
         activeProfileId: null,
-    },
+      },
       loadingMotion: { ...DEFAULT_LOADING_MOTION_PREFERENCE },
     },
     workspace: {
@@ -91,9 +91,10 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     version: typeof raw?.version === 'number' && Number.isFinite(raw.version) ? Math.max(1, Math.trunc(raw.version)) : defaults.version,
     shell: {
       appMode: raw?.shell?.appMode === 'workbench' ? 'workbench' : defaults.shell.appMode,
-      launcherPage: typeof raw?.shell?.launcherPage === 'string' && raw.shell.launcherPage.trim()
-        ? raw.shell.launcherPage
-        : defaults.shell.launcherPage,
+      launcherPage:
+        typeof raw?.shell?.launcherPage === 'string' && raw.shell.launcherPage.trim()
+          ? raw.shell.launcherPage
+          : defaults.shell.launcherPage,
       debugEnabled: typeof raw?.shell?.debugEnabled === 'boolean' ? raw.shell.debugEnabled : defaults.shell.debugEnabled,
       notificationSoundEnabled:
         typeof raw?.shell?.notificationSoundEnabled === 'boolean'
@@ -102,9 +103,7 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     },
     appearance: {
       locale:
-        raw?.appearance?.locale === 'zh-CN' || raw?.appearance?.locale === 'en-US'
-          ? raw.appearance.locale
-          : defaults.appearance.locale,
+        raw?.appearance?.locale === 'zh-CN' || raw?.appearance?.locale === 'en-US' ? raw.appearance.locale : defaults.appearance.locale,
       accentPresetId:
         typeof raw?.appearance?.accentPresetId === 'string' && raw.appearance.accentPresetId.trim()
           ? raw.appearance.accentPresetId
@@ -127,13 +126,15 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     },
     workspace: {
       layouts: normalizeLayouts(raw?.workspace?.layouts),
-      workspaceViewMode: raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
-        ? raw.workspace.workspaceViewMode
-        : defaults.workspace.workspaceViewMode,
+      workspaceViewMode:
+        raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
+          ? raw.workspace.workspaceViewMode
+          : defaults.workspace.workspaceViewMode,
       cpMaker: {
-        activeGeneratedDraftKey: typeof raw?.workspace?.cpMaker?.activeGeneratedDraftKey === 'string' && raw.workspace.cpMaker.activeGeneratedDraftKey.trim()
-          ? raw.workspace.cpMaker.activeGeneratedDraftKey
-          : null,
+        activeGeneratedDraftKey:
+          typeof raw?.workspace?.cpMaker?.activeGeneratedDraftKey === 'string' && raw.workspace.cpMaker.activeGeneratedDraftKey.trim()
+            ? raw.workspace.cpMaker.activeGeneratedDraftKey
+            : null,
       },
     },
     launcher: {
@@ -159,10 +160,7 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
             ? raw.launcher.discoverToolbar.filtersHidden
             : defaults.launcher.discoverToolbar.filtersHidden,
       },
-      forceOffline:
-        typeof raw?.launcher?.forceOffline === 'boolean'
-          ? raw.launcher.forceOffline
-          : defaults.launcher.forceOffline,
+      forceOffline: typeof raw?.launcher?.forceOffline === 'boolean' ? raw.launcher.forceOffline : defaults.launcher.forceOffline,
     },
   }
 }
@@ -269,5 +267,3 @@ export async function applyAppUiStatePatch(patch: PatchAppUiStateRequest) {
 
   return patchQueue
 }
-
-

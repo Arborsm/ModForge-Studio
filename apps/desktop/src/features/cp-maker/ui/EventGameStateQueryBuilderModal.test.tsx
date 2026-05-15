@@ -28,9 +28,11 @@ describe('EventGameStateQueryBuilderModal', () => {
     fireEvent.click(within(timeCard as HTMLElement).getByRole('button', { name: '加入条件' }))
     fireEvent.click(screen.getByRole('button', { name: '加入查询' }))
 
-    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
-      query: 'TIME 1900 2300',
-    }))
+    expect(onApply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: 'TIME 1900 2300',
+      }),
+    )
   })
 
   test('keeps the upper catalog scoped and leaves ANY grouping in the dock', () => {

@@ -1,8 +1,4 @@
-import {
-  publishNotification,
-  type NotificationAction,
-  type NotificationLevel,
-} from '@shared/ui/notifications'
+import { publishNotification, type NotificationAction, type NotificationLevel } from '@shared/ui/notifications'
 
 /** Event severity used for both notifications and observability routing. */
 export type AppEventLevel = NotificationLevel

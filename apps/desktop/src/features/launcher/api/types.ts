@@ -459,4 +459,3 @@ export type InspectLauncherArchiveResult = {
   modRoots: string[]
   tree: LauncherArchiveTreeNode[]
 }
-

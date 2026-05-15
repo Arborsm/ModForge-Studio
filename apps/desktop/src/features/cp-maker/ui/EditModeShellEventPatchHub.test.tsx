@@ -14,8 +14,7 @@ function eventPatch(): DraftPatch {
     enabled: true,
     editorState: {
       entries: {
-        event_square_meeting_1900:
-          'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/message "今天广场的人比平时多"',
+        event_square_meeting_1900: 'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/message "今天广场的人比平时多"',
       },
     },
   }

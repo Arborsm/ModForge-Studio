@@ -16,10 +16,7 @@ export function buildGameContentPath(rootPath: string, assetName: string | null)
     return null
   }
 
-  const normalizedAssetName = assetName
-    .replaceAll('/', '\\')
-    .replace(CONTENT_PREFIX_PATTERN, '')
-    .replace(XNB_SUFFIX_PATTERN, '')
+  const normalizedAssetName = assetName.replaceAll('/', '\\').replace(CONTENT_PREFIX_PATTERN, '').replace(XNB_SUFFIX_PATTERN, '')
 
   if (!normalizedAssetName) {
     return null

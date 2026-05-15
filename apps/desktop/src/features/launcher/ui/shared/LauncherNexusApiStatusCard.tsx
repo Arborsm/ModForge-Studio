@@ -55,7 +55,12 @@ function classifyApiError(message: string | null): NexusMessageCard | null {
   if (normalized.includes('503') || normalized.includes('service unavailable')) {
     return { kind: 'serviceUnavailable', source: 'api' }
   }
-  if (normalized.includes('network') || normalized.includes('timed out') || normalized.includes('timeout') || normalized.includes('connection')) {
+  if (
+    normalized.includes('network') ||
+    normalized.includes('timed out') ||
+    normalized.includes('timeout') ||
+    normalized.includes('connection')
+  ) {
     return { kind: 'network', source: 'api' }
   }
 
@@ -220,16 +225,19 @@ export function LauncherNexusApiStatusCard({
       ? diagnosticsCopy.apiKeyUnchecked
       : diagnosticsCopy.apiKeyMissing
   const rawErrorLog = apiKeyError ?? ssoError ?? (ssoStatus?.status === 'failed' ? ssoStatus.errorMessage : null)
-  const apiRouteStatus: LauncherNexusApiRouteStatus = apiKeyChecking || ssoStarting || isSsoActive
-    ? 'loading'
-    : apiKeyError || ssoError || ssoStatus?.status === 'failed'
-      ? 'error'
-      : apiKeyStatus || ssoStatus?.status === 'authorized'
-        ? 'success'
-        : 'warning'
+  const apiRouteStatus: LauncherNexusApiRouteStatus =
+    apiKeyChecking || ssoStarting || isSsoActive
+      ? 'loading'
+      : apiKeyError || ssoError || ssoStatus?.status === 'failed'
+        ? 'error'
+        : apiKeyStatus || ssoStatus?.status === 'authorized'
+          ? 'success'
+          : 'warning'
   const apiRouteMeta = [
     apiKeyStatus ? null : apiStatusDetail,
-    apiKeyStatus ? `${diagnosticsCopy.apiKeyBadge}: ${apiKeyStatus.isPremium ? diagnosticsCopy.premiumActive : diagnosticsCopy.premiumFree}` : null,
+    apiKeyStatus
+      ? `${diagnosticsCopy.apiKeyBadge}: ${apiKeyStatus.isPremium ? diagnosticsCopy.premiumActive : diagnosticsCopy.premiumFree}`
+      : null,
     apiKeyStatus?.dailyRemaining != null ? diagnosticsCopy.quotaRemaining(String(apiKeyStatus.dailyRemaining)) : null,
     apiKeyStatus?.hourlyRemaining != null ? diagnosticsCopy.hourlyQuotaRemaining(String(apiKeyStatus.hourlyRemaining)) : null,
     apiKeyStatus?.hourlyResetAt != null ? diagnosticsCopy.quotaResetAt(formatQuotaResetAt(apiKeyStatus.hourlyResetAt)) : null,
@@ -239,30 +247,19 @@ export function LauncherNexusApiStatusCard({
     ssoError,
     rawErrorLog ? `Log: ${rawErrorLog}` : null,
   ].filter((item): item is string => Boolean(item))
-  const messageCards = [
-    classifyApiError(apiKeyError),
-    classifySsoError(ssoStatus, ssoError),
-  ].filter((item): item is NexusMessageCard => Boolean(item))
+  const messageCards = [classifyApiError(apiKeyError), classifySsoError(ssoStatus, ssoError)].filter((item): item is NexusMessageCard =>
+    Boolean(item),
+  )
   const primaryMessageCard = messageCards[0] ?? null
   const primaryMessageCopy = primaryMessageCard ? diagnosticsCopy.errors[primaryMessageCard.kind] : null
 
   const actions = (
     <div className="launcher-toolbar">
-      <button
-        type="button"
-        className="control-button"
-        disabled={!hasApiKey || apiKeyChecking}
-        onClick={() => void refreshApiKeyStatus()}
-      >
+      <button type="button" className="control-button" disabled={!hasApiKey || apiKeyChecking} onClick={() => void refreshApiKeyStatus()}>
         <RefreshCw className={cx('h-4 w-4', apiKeyChecking && 'animate-spin')} />
         <span>{diagnosticsCopy.validateApiKeyAction}</span>
       </button>
-      <button
-        type="button"
-        className="control-button"
-        disabled={ssoStarting || isSsoActive}
-        onClick={() => void startSso()}
-      >
+      <button type="button" className="control-button" disabled={ssoStarting || isSsoActive} onClick={() => void startSso()}>
         <ExternalLink className="h-4 w-4" />
         <span>{isSsoActive ? diagnosticsCopy.ssoWaiting : diagnosticsCopy.startSsoAction}</span>
       </button>
@@ -338,9 +335,7 @@ export function LauncherNexusApiStatusCard({
       status: apiRouteStatus,
       statusLabel: apiRouteStatus,
       detail: primaryMessageCopy?.title ?? apiStatusDetail,
-      meta: primaryMessageCopy
-        ? [primaryMessageCopy.detail, primaryMessageCopy.action, ...apiRouteMeta]
-        : apiRouteMeta,
+      meta: primaryMessageCopy ? [primaryMessageCopy.detail, primaryMessageCopy.action, ...apiRouteMeta] : apiRouteMeta,
     })
   }
 
@@ -361,9 +356,7 @@ export function LauncherNexusApiStatusCard({
         {apiKeyStatus?.hourlyResetAt != null ? (
           <p className="launcher-state-block-detail">{diagnosticsCopy.quotaResetAt(formatQuotaResetAt(apiKeyStatus.hourlyResetAt))}</p>
         ) : null}
-        {ssoStatus?.status === 'authorized' ? (
-          <p className="launcher-state-block-detail">{diagnosticsCopy.ssoAuthorized}</p>
-        ) : null}
+        {ssoStatus?.status === 'authorized' ? <p className="launcher-state-block-detail">{diagnosticsCopy.ssoAuthorized}</p> : null}
         {primaryMessageCopy ? (
           <div className="launcher-alert-card launcher-alert-card-error launcher-nexus-message-card" role="alert">
             <div className="launcher-alert-card-title-row">

@@ -46,13 +46,7 @@ function getPopoverColumnCount(itemCount: number) {
   return 4
 }
 
-export function ItemGroupPopover<T>({
-  groupIcon,
-  items,
-  renderItem,
-  title,
-  subtitle,
-}: ItemGroupPopoverProps<T>) {
+export function ItemGroupPopover<T>({ groupIcon, items, renderItem, title, subtitle }: ItemGroupPopoverProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const hasItems = items.length > 0
   const columnCount = getPopoverColumnCount(items.length)
@@ -103,8 +97,7 @@ export function ItemGroupPopover<T>({
       }
 
       const anchor =
-        node.querySelector<HTMLElement>('[data-gift-anchor="true"]') ??
-        node.querySelector<HTMLElement>('[data-popover-anchor="true"]')
+        node.querySelector<HTMLElement>('[data-gift-anchor="true"]') ?? node.querySelector<HTMLElement>('[data-popover-anchor="true"]')
 
       setPositionReference(anchor ?? node)
     },

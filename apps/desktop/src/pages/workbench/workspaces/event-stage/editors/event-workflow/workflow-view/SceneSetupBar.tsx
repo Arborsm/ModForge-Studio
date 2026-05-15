@@ -25,16 +25,15 @@ export function SceneSetupBar({
   onSceneChange,
   className,
 }: SceneSetupBarProps) {
-  const labels = locale === 'zh-CN'
-    ? { music: '音乐', camera: '镜头', actors: '角色', addActor: '添加角色', pick: '拾取' }
-    : { music: 'Music', camera: 'Camera', actors: 'Actors', addActor: 'Add Actor', pick: 'Pick' }
+  const labels =
+    locale === 'zh-CN'
+      ? { music: '音乐', camera: '镜头', actors: '角色', addActor: '添加角色', pick: '拾取' }
+      : { music: 'Music', camera: 'Camera', actors: 'Actors', addActor: 'Add Actor', pick: 'Pick' }
 
   return (
-    <div className={cx('flex items-center gap-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5', className)}
-    >
+    <div className={cx('flex items-center gap-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5', className)}>
       {/* Music */}
-      <div className="flex items-center gap-1.5"
-      >
+      <div className="flex items-center gap-1.5">
         <Music className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" />
         <input
           type="text"
@@ -46,8 +45,7 @@ export function SceneSetupBar({
       </div>
 
       {/* Camera */}
-      <div className="flex items-center gap-1.5"
-      >
+      <div className="flex items-center gap-1.5">
         <Camera className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" />
         <input
           type="text"
@@ -59,10 +57,9 @@ export function SceneSetupBar({
       </div>
 
       {/* Actors */}
-      <div className="flex items-center gap-1.5 flex-1 min-w-0"
-      >
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <Users className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" />
-        <span className="text-[11px] text-[var(--text-secondary)] shrink-0">{labels.actors}:</span>
+        <span className="shrink-0 text-[11px] text-[var(--text-secondary)]">{labels.actors}:</span>
         <div className="flex items-center gap-1 overflow-x-auto">
           {scene.actors.map((actor, idx) => {
             const isPicking = pickingActorIndex === idx
@@ -70,7 +67,7 @@ export function SceneSetupBar({
               <div
                 key={actor.id}
                 className={cx(
-                  'group flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] cursor-pointer transition-all',
+                  'group flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-all',
                   isPicking
                     ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)] shadow-sm'
                     : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))]',
@@ -79,10 +76,12 @@ export function SceneSetupBar({
                 title={isPicking ? '点击取消拾取' : '点击拾取位置'}
               >
                 <span className="font-medium text-[var(--text-primary)]">{actor.actorName}</span>
-                <span className="text-[var(--text-tertiary)]">{actor.tileX},{actor.tileY}</span>
+                <span className="text-[var(--text-tertiary)]">
+                  {actor.tileX},{actor.tileY}
+                </span>
                 <button
                   type="button"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--text-tertiary)] hover:text-[var(--danger)]"
+                  className="text-[var(--text-tertiary)] opacity-0 transition-opacity group-hover:opacity-100 hover:text-[var(--danger)]"
                   onClick={(e) => {
                     e.stopPropagation()
                     const next = scene.actors.filter((_, i) => i !== idx)
@@ -96,7 +95,7 @@ export function SceneSetupBar({
           })}
           <button
             type="button"
-            className="inline-flex h-5 items-center gap-0.5 rounded-full border border-dashed border-[var(--border-color)] px-1.5 text-[10px] text-[var(--text-tertiary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+            className="inline-flex h-5 items-center gap-0.5 rounded-full border border-dashed border-[var(--border-color)] px-1.5 text-[10px] text-[var(--text-tertiary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             onClick={() => {
               const name = `actor${scene.actors.length + 1}`
               onSceneChange?.({

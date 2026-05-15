@@ -63,15 +63,10 @@ export function normalizeAppShellState(input?: AppShellStateInput | null): AppSh
   return {
     appMode: isAppMode(appMode) ? appMode : DEFAULT_APP_SHELL_STATE.appMode,
     launcherPage: parseLauncherPage(launcherPage) ?? DEFAULT_APP_SHELL_STATE.launcherPage,
-    debugEnabled:
-      typeof debugEnabled === 'boolean'
-        ? debugEnabled
-        : isDebugEnabled(debugEnabled == null ? null : String(debugEnabled)),
+    debugEnabled: typeof debugEnabled === 'boolean' ? debugEnabled : isDebugEnabled(debugEnabled == null ? null : String(debugEnabled)),
     notificationSoundEnabled:
       typeof notificationSoundEnabled === 'boolean'
         ? notificationSoundEnabled
-        : isNotificationSoundEnabled(
-            notificationSoundEnabled == null ? null : String(notificationSoundEnabled),
-          ),
+        : isNotificationSoundEnabled(notificationSoundEnabled == null ? null : String(notificationSoundEnabled)),
   }
 }

@@ -10,10 +10,7 @@ export type AppCommandHandlerDependencies = {
 
 export type AppCommandHandler = ReturnType<typeof createAppCommandHandler>
 
-export function createAppCommandHandler({
-  setAppMode,
-  onPendingIntent,
-}: AppCommandHandlerDependencies) {
+export function createAppCommandHandler({ setAppMode, onPendingIntent }: AppCommandHandlerDependencies) {
   let currentPendingIntent: PendingWorkbenchCommandIntent | null = null
 
   return {

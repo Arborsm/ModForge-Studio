@@ -58,7 +58,12 @@ function classifyDownloadError(message: string | null) {
   if (normalized.includes('503') || normalized.includes('service unavailable')) {
     return 'serviceUnavailable' as const
   }
-  if (normalized.includes('network') || normalized.includes('timed out') || normalized.includes('timeout') || normalized.includes('connection')) {
+  if (
+    normalized.includes('network') ||
+    normalized.includes('timed out') ||
+    normalized.includes('timeout') ||
+    normalized.includes('connection')
+  ) {
     return 'network' as const
   }
   if (normalized.includes('401') || normalized.includes('api key') || normalized.includes('not authenticated')) {
@@ -68,13 +73,7 @@ function classifyDownloadError(message: string | null) {
   return null
 }
 
-export function LauncherDownloadRow({
-  item,
-  statusLabel,
-  onRetry,
-  onRemove,
-  onInstall,
-}: LauncherDownloadRowProps) {
+export function LauncherDownloadRow({ item, statusLabel, onRetry, onRemove, onInstall }: LauncherDownloadRowProps) {
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
   const sourceLabel =

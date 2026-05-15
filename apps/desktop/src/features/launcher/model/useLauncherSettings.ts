@@ -242,9 +242,12 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     }
   }, [])
 
-  const save = useCallback(async (options?: { notifySuccess?: boolean }) => {
-    return persistSettings(resolvedSettings, options)
-  }, [persistSettings, resolvedSettings])
+  const save = useCallback(
+    async (options?: { notifySuccess?: boolean }) => {
+      return persistSettings(resolvedSettings, options)
+    },
+    [persistSettings, resolvedSettings],
+  )
 
   useEffect(() => {
     if (state !== 'ready' || launcherSettingsEqual(resolvedSettings, lastPersistedSettings)) {

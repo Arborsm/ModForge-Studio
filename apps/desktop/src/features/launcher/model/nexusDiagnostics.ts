@@ -55,10 +55,7 @@ function isSuccessfulRoute(route: LauncherNexusRouteSnapshot | null | undefined)
   return route?.available === true && route.status === 'success'
 }
 
-export function getLauncherNexusRoute(
-  diagnostics: LauncherNexusDiagnosticsResult | null | undefined,
-  routeId: string,
-) {
+export function getLauncherNexusRoute(diagnostics: LauncherNexusDiagnosticsResult | null | undefined, routeId: string) {
   return diagnostics?.routes.find((route) => route.routeId === routeId) ?? null
 }
 
@@ -70,10 +67,7 @@ export function hasLoadingLauncherNexusRoutes(diagnostics: LauncherNexusDiagnost
   return (diagnostics?.routes ?? []).some((route) => route.status === 'loading')
 }
 
-export function mergeLauncherNexusDiagnostics(
-  currentRoutes: LauncherNexusRouteSnapshot[],
-  nextRoutes: LauncherNexusRouteSnapshot[],
-) {
+export function mergeLauncherNexusDiagnostics(currentRoutes: LauncherNexusRouteSnapshot[], nextRoutes: LauncherNexusRouteSnapshot[]) {
   if (!currentRoutes.length) {
     return nextRoutes
   }
@@ -98,11 +92,7 @@ function hasLoadingConfigurationRoute(routes: LauncherNexusRouteSnapshot[]) {
   return routes.some((route) => route.status === 'loading')
 }
 
-function hasExpiredConfigurationApiRoute(
-  cached: CachedConfigurationDiagnostics,
-  now: number,
-  apiKeySignature: string,
-) {
+function hasExpiredConfigurationApiRoute(cached: CachedConfigurationDiagnostics, now: number, apiKeySignature: string) {
   if (cached.apiKeySignature !== apiKeySignature) {
     return true
   }
@@ -118,10 +108,12 @@ function hasExpiredConfigurationApiRoute(
  * Caches configuration-page diagnostics so route rows do not re-enter the
  * loading state every time the user opens Settings.
  */
-export function readCachedLauncherConfigurationDiagnostics(options: {
-  now?: number
-  apiKeySignature?: string | null
-} = {}) {
+export function readCachedLauncherConfigurationDiagnostics(
+  options: {
+    now?: number
+    apiKeySignature?: string | null
+  } = {},
+) {
   const cached = cachedConfigurationDiagnostics
   if (!cached) {
     return null
@@ -129,9 +121,10 @@ export function readCachedLauncherConfigurationDiagnostics(options: {
 
   const now = options.now ?? Date.now()
   const apiKeySignature = options.apiKeySignature ?? ''
-  const shouldRefresh = hasLoadingConfigurationRoute(cached.diagnostics.routes)
-    || hasRefreshableFailedRoute(cached.diagnostics.routes)
-    || hasExpiredConfigurationApiRoute(cached, now, apiKeySignature)
+  const shouldRefresh =
+    hasLoadingConfigurationRoute(cached.diagnostics.routes) ||
+    hasRefreshableFailedRoute(cached.diagnostics.routes) ||
+    hasExpiredConfigurationApiRoute(cached, now, apiKeySignature)
 
   return {
     diagnostics: cached.diagnostics,
@@ -171,10 +164,12 @@ export function clearCachedLauncherConfigurationDiagnostics() {
  * Reads cached Nexus API-key validation for the configuration page.
  * The cache is keyed by the API-key signature and expires with API routes.
  */
-export function readCachedLauncherConfigurationApiKeyStatus(options: {
-  now?: number
-  apiKeySignature?: string | null
-} = {}) {
+export function readCachedLauncherConfigurationApiKeyStatus(
+  options: {
+    now?: number
+    apiKeySignature?: string | null
+  } = {},
+) {
   const cached = cachedConfigurationApiKeyStatus
   if (!cached) {
     return null
@@ -216,10 +211,12 @@ function isFreshConfigurationSummaryCache(cachedAt: number, now: number) {
 }
 
 /** Reads cached launcher library scan data for configuration-page summaries. */
-export function readCachedLauncherConfigurationLibraryScan(options: {
-  now?: number
-  modsPath?: string | null
-} = {}) {
+export function readCachedLauncherConfigurationLibraryScan(
+  options: {
+    now?: number
+    modsPath?: string | null
+  } = {},
+) {
   const cached = cachedConfigurationLibraryScan
   const modsPath = options.modsPath?.trim() ?? ''
   if (!cached || cached.modsPath !== modsPath) {
@@ -249,10 +246,12 @@ export function writeCachedLauncherConfigurationLibraryScan(
 }
 
 /** Reads cached launcher runtime version information for configuration summaries. */
-export function readCachedLauncherConfigurationRuntimeInfo(options: {
-  now?: number
-  gamePath?: string | null
-} = {}) {
+export function readCachedLauncherConfigurationRuntimeInfo(
+  options: {
+    now?: number
+    gamePath?: string | null
+  } = {},
+) {
   const cached = cachedConfigurationRuntimeInfo
   const gamePath = options.gamePath?.trim() ?? ''
   if (!cached || cached.gamePath !== gamePath) {
@@ -312,26 +311,18 @@ function getRouteMessages(routes: LauncherNexusRouteSnapshot[]) {
   return routes.map((route) => `${route.label}: ${route.message}`).join('\n')
 }
 
-function getRelevantRoutes(
-  diagnostics: LauncherNexusDiagnosticsResult | null | undefined,
-  routeIds: readonly string[],
-) {
+function getRelevantRoutes(diagnostics: LauncherNexusDiagnosticsResult | null | undefined, routeIds: readonly string[]) {
   return routeIds
     .map((routeId) => getLauncherNexusRoute(diagnostics, routeId))
     .filter((route): route is LauncherNexusRouteSnapshot => route != null)
 }
 
-function getUnavailableRouteMessages(
-  diagnostics: LauncherNexusDiagnosticsResult | null | undefined,
-  routeIds: readonly string[],
-) {
+function getUnavailableRouteMessages(diagnostics: LauncherNexusDiagnosticsResult | null | undefined, routeIds: readonly string[]) {
   if (!diagnostics?.routes.length || hasLoadingLauncherNexusRoutes(diagnostics)) {
     return null
   }
 
-  const unavailableRoutes = getRelevantRoutes(diagnostics, routeIds).filter(
-    (route) => route.status === 'warning' || !route.available,
-  )
+  const unavailableRoutes = getRelevantRoutes(diagnostics, routeIds).filter((route) => route.status === 'warning' || !route.available)
   return unavailableRoutes.length ? getRouteMessages(unavailableRoutes) : null
 }
 

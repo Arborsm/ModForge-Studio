@@ -76,7 +76,9 @@ export function PreviewModeShell({
     items: [],
   })
   const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null)
-  const selectedResourceKey = selectedResource ? `${workspaceMode}:${gameRootPath ?? ''}:${locale}:${selectedResource.id}:${selectedResource.path}` : ''
+  const selectedResourceKey = selectedResource
+    ? `${workspaceMode}:${gameRootPath ?? ''}:${locale}:${selectedResource.id}:${selectedResource.path}`
+    : ''
   const [previewState, setPreviewState] = useState<ResourcePreviewState>({
     key: selectedResourceKey,
     status: selectedResource && gameRootPath ? 'loading' : 'idle',
@@ -172,12 +174,10 @@ export function PreviewModeShell({
   }, [gameRootPath, directoryInfo, locale, workspaceMode, port, resourceListKey])
 
   const resources = resourceListState.key === resourceListKey ? resourceListState.items : []
-  const loading = Boolean(gameRootPath && directoryInfo) && (
-    resourceListState.key !== resourceListKey || resourceListState.status === 'loading'
-  )
-  const currentSelectedResource = selectedResource && resources.some((resource) => resource.id === selectedResource.id)
-    ? selectedResource
-    : null
+  const loading =
+    Boolean(gameRootPath && directoryInfo) && (resourceListState.key !== resourceListKey || resourceListState.status === 'loading')
+  const currentSelectedResource =
+    selectedResource && resources.some((resource) => resource.id === selectedResource.id) ? selectedResource : null
 
   // Load selected resource content
   useEffect(() => {
@@ -189,7 +189,7 @@ export function PreviewModeShell({
 
     void (async () => {
       try {
-      switch (workspaceMode) {
+        switch (workspaceMode) {
           case 'map': {
             if (!directoryInfo?.mapsPath) return
             const mapPath = `${directoryInfo.mapsPath}\\${currentSelectedResource.name}.xnb`
@@ -333,19 +333,19 @@ export function PreviewModeShell({
     }
   }, [workspaceMode, currentSelectedResource, selectedResourceKey, gameRootPath, directoryInfo, locale, port])
 
-  const currentPreviewState = previewState.key === selectedResourceKey ? previewState : {
-    key: selectedResourceKey,
-    status: currentSelectedResource && gameRootPath ? 'loading' as const : 'idle' as const,
-    mapDocument: null,
-    content: null,
-    imageUrl: null,
-    error: null,
-  }
+  const currentPreviewState =
+    previewState.key === selectedResourceKey
+      ? previewState
+      : {
+          key: selectedResourceKey,
+          status: currentSelectedResource && gameRootPath ? ('loading' as const) : ('idle' as const),
+          mapDocument: null,
+          content: null,
+          imageUrl: null,
+          error: null,
+        }
 
-  const visibleLayerIds = useMemo(
-    () => currentPreviewState.mapDocument?.layers.map((l) => l.id) ?? [],
-    [currentPreviewState.mapDocument],
-  )
+  const visibleLayerIds = useMemo(() => currentPreviewState.mapDocument?.layers.map((l) => l.id) ?? [], [currentPreviewState.mapDocument])
 
   if (!gameRootPath || !directoryInfo) {
     return (
@@ -362,32 +362,24 @@ export function PreviewModeShell({
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-2.5">
         <Eye className="h-4 w-4 text-[var(--accent)]" />
-        <span className="text-xs font-semibold text-[var(--text-primary)]">
-          Preview: {WORKSPACE_LABELS[workspaceMode]}
-        </span>
-        <span className="ml-auto text-[10px] text-[var(--text-secondary)] truncate max-w-[50%]">
-          {directoryInfo.rootPath}
-        </span>
+        <span className="text-xs font-semibold text-[var(--text-primary)]">Preview: {WORKSPACE_LABELS[workspaceMode]}</span>
+        <span className="ml-auto max-w-[50%] truncate text-[10px] text-[var(--text-secondary)]">{directoryInfo.rootPath}</span>
       </div>
 
       <div className="flex min-h-0 flex-1">
         {/* Left: Resource List */}
         <div className="flex w-64 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)]">
           <div className="border-b border-[var(--border-color)] px-3 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+            <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
               Resources ({resources.length})
             </span>
           </div>
 
           <div className="flex-1 overflow-auto py-1">
             {loading ? (
-              <div className="px-3 py-4 text-center text-xs text-[var(--text-secondary)]">
-                Scanning...
-              </div>
+              <div className="px-3 py-4 text-center text-xs text-[var(--text-secondary)]">Scanning...</div>
             ) : resources.length === 0 ? (
-              <div className="px-3 py-4 text-center text-[10px] text-[var(--text-secondary)]">
-                No resources found.
-              </div>
+              <div className="px-3 py-4 text-center text-[10px] text-[var(--text-secondary)]">No resources found.</div>
             ) : (
               resources.map((resource) => (
                 <button
@@ -415,9 +407,7 @@ export function PreviewModeShell({
         <div className="min-w-0 flex-1 overflow-hidden">
           {workspaceMode === 'map' && currentSelectedResource ? (
             currentPreviewState.status === 'loading' ? (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
-                Loading map...
-              </div>
+              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">Loading map...</div>
             ) : currentPreviewState.error ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
                 <Map className="h-8 w-8 opacity-30" />
@@ -444,9 +434,7 @@ export function PreviewModeShell({
             )
           ) : currentSelectedResource ? (
             currentPreviewState.status === 'loading' ? (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
-                Loading...
-              </div>
+              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">Loading...</div>
             ) : currentPreviewState.error ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
                 <Eye className="h-8 w-8 opacity-30" />
@@ -465,9 +453,7 @@ export function PreviewModeShell({
             <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-secondary)]">
               <Eye className="h-10 w-10 opacity-30" />
               <p className="text-sm">Select a resource from the left to preview.</p>
-              <p className="text-[10px] opacity-70">
-                Preview shows original game resources, not draft modifications.
-              </p>
+              <p className="text-[10px] opacity-70">Preview shows original game resources, not draft modifications.</p>
             </div>
           )}
         </div>
@@ -496,9 +482,7 @@ function PreviewContent({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             {WORKSPACE_ICONS[workspaceMode]}
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              {resource.name}
-            </h2>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{resource.name}</h2>
             <span className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
               {resource.type}
             </span>
@@ -508,22 +492,22 @@ function PreviewContent({
             <div className="space-y-2 text-xs text-[var(--text-secondary)]">
               {resource.version ? (
                 <div className="flex gap-2">
-                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Version</span>
+                  <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Version</span>
                   <span className="text-[var(--text-primary)]">{resource.version}</span>
                 </div>
               ) : null}
               {resource.author ? (
                 <div className="flex gap-2">
-                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Author</span>
+                  <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Author</span>
                   <span className="text-[var(--text-primary)]">{resource.author}</span>
                 </div>
               ) : null}
               <div className="flex gap-2">
-                <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Path</span>
+                <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Path</span>
                 <span className="font-mono text-[var(--text-primary)]">{resource.path}</span>
               </div>
               <div className="flex gap-2">
-                <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Root</span>
+                <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Root</span>
                 <span className="font-mono text-[var(--text-primary)]">{directoryInfo.rootPath}</span>
               </div>
             </div>
@@ -531,9 +515,7 @@ function PreviewContent({
 
           {resource.description ? (
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                Description
-              </div>
+              <div className="mb-2 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">Description</div>
               <p className="text-xs leading-5 text-[var(--text-primary)]">{resource.description}</p>
             </div>
           ) : (
@@ -552,9 +534,7 @@ function PreviewContent({
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           {WORKSPACE_ICONS[workspaceMode]}
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            {resource.name}
-          </h2>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{resource.name}</h2>
           <span className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
             {resource.type}
           </span>
@@ -563,15 +543,15 @@ function PreviewContent({
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
           <div className="space-y-2 text-xs text-[var(--text-secondary)]">
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wider">Path</span>
+              <span className="w-16 shrink-0 text-[10px] tracking-wider uppercase">Path</span>
               <span className="font-mono text-[var(--text-primary)]">{resource.path}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wider">Type</span>
+              <span className="w-16 shrink-0 text-[10px] tracking-wider uppercase">Type</span>
               <span className="text-[var(--text-primary)]">{resource.type}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wider">Root</span>
+              <span className="w-16 shrink-0 text-[10px] tracking-wider uppercase">Root</span>
               <span className="font-mono text-[var(--text-primary)]">{directoryInfo.rootPath}</span>
             </div>
           </div>
@@ -589,10 +569,8 @@ function PreviewContent({
           </div>
         ) : content ? (
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-              Content Preview
-            </div>
-            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] leading-4 text-[var(--text-primary)]">
+            <div className="mb-2 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">Content Preview</div>
+            <pre className="max-h-[60vh] overflow-auto font-mono text-[10px] leading-4 break-all whitespace-pre-wrap text-[var(--text-primary)]">
               {content.slice(0, 10000)}
               {content.length > 10000 && (
                 <span className="text-[var(--text-secondary)]">\n\n... ({content.length - 10000} more characters)</span>
@@ -602,9 +580,7 @@ function PreviewContent({
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-8">
             <Eye className="h-8 w-8 text-[var(--text-secondary)] opacity-30" />
-            <p className="text-xs text-[var(--text-secondary)]">
-              No preview available for this resource type.
-            </p>
+            <p className="text-xs text-[var(--text-secondary)]">No preview available for this resource type.</p>
           </div>
         )}
       </div>

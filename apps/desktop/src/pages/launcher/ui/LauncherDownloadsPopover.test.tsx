@@ -31,9 +31,7 @@ function createItem(overrides: Partial<LauncherDownloadQueueItem>): LauncherDown
 function createDownloads(items: LauncherDownloadQueueItem[]) {
   const readyToInstall = items.filter((item) => item.status === 'completed' && Boolean(item.archivePath))
   const failedItems = items.filter((item) => item.status === 'failed')
-  const removableItems = items.filter(
-    (item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed',
-  )
+  const removableItems = items.filter((item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed')
 
   return {
     items,

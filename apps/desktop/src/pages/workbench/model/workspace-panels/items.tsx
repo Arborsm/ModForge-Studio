@@ -133,4 +133,3 @@ export function buildItemsWorkspacePanels(options: BuildWorkspacePanelsOptions):
     content: withPreviewReveal(`workbench-items-${panel.id}`, index, panel.content),
   }))
 }
-

@@ -3,12 +3,7 @@ import type { PropsWithChildren } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
-import type {
-  LauncherNexusDiagnosticsResult,
-  LauncherSettings,
-  LauncherUpdateSummary,
-  LauncherUpdatesResult,
-} from '@features/launcher/api'
+import type { LauncherNexusDiagnosticsResult, LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'
 import { useLauncherUpdates } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'
@@ -145,9 +140,7 @@ describe('useLauncherUpdates', () => {
   })
 
   it('uses cached updates on mount without starting a new check', async () => {
-    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(
-      createResult([createUpdate({ latestVersion: '1.4.0' })]),
-    )
+    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(createResult([createUpdate({ latestVersion: '1.4.0' })]))
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
@@ -299,10 +292,7 @@ describe('useLauncherUpdates', () => {
   it('skips automatic update checks when automatic update checking is disabled but still allows manual refresh', async () => {
     vi.mocked(launcherPort.checkUpdates).mockResolvedValue(createResult([createUpdate()]))
 
-    const { result } = renderHook(
-      () => useLauncherUpdates(createSettings({ autoCheckModUpdates: false })),
-      { wrapper: Wrapper },
-    )
+    const { result } = renderHook(() => useLauncherUpdates(createSettings({ autoCheckModUpdates: false })), { wrapper: Wrapper })
 
     await waitFor(() => {
       expect(launcherPort.subscribeUpdates).toHaveBeenCalledTimes(1)

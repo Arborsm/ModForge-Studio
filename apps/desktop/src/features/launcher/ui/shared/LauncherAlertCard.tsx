@@ -71,10 +71,7 @@ export function LauncherAlertCard({
             {chips.map((chip) => (
               <span
                 key={`${chip.label}:${chip.tone ?? 'info'}`}
-                className={cx(
-                  'launcher-alert-card-chip',
-                  `launcher-alert-card-chip-${chip.tone ?? 'info'}`,
-                )}
+                className={cx('launcher-alert-card-chip', `launcher-alert-card-chip-${chip.tone ?? 'info'}`)}
               >
                 {chip.label}
               </span>

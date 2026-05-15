@@ -15,10 +15,8 @@ function eventPatch(overrides: Partial<DraftPatch> = {}): DraftPatch {
     when: { Season: 'spring' },
     editorState: {
       entries: {
-        event_square_meeting_1900:
-          'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/speak Abigail "今天广场的人比平时多"/pause 500',
-        event_market_after:
-          'spring/Farmer 44 57/Sam 44 57 2 Abigail 45 57 2/message "集市收尾"',
+        event_square_meeting_1900: 'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/speak Abigail "今天广场的人比平时多"/pause 500',
+        event_market_after: 'spring/Farmer 44 57/Sam 44 57 2 Abigail 45 57 2/message "集市收尾"',
       },
     },
     ...overrides,
@@ -327,5 +325,4 @@ describe('PatchListPage event hub', () => {
     expect(chain?.querySelector('.condition-chip-compact')?.textContent).toContain('19-23')
     expect(chain?.querySelector('.condition-chip-full')).toBeTruthy()
   })
-
 })

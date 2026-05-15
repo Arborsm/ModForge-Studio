@@ -383,9 +383,7 @@ function buildWarpEdges(mapDocuments: MapDocument[]) {
 }
 
 function buildConnectedLayout(mapDocuments: MapDocument[], rootMapName: string) {
-  const documentsByName = new Map(
-    mapDocuments.map((document) => [normalizeMapName(document.name), document] as const),
-  )
+  const documentsByName = new Map(mapDocuments.map((document) => [normalizeMapName(document.name), document] as const))
   const rootDocument = documentsByName.get(normalizeMapName(rootMapName))
   if (!rootDocument) {
     return null
@@ -597,9 +595,7 @@ function buildConnectedLayout(mapDocuments: MapDocument[], rootMapName: string) 
 }
 
 function buildPlacementComponents(placements: MapPlacement[]) {
-  const placementsByName = new Map(
-    placements.map((placement) => [normalizeMapName(placement.document.name), placement] as const),
-  )
+  const placementsByName = new Map(placements.map((placement) => [normalizeMapName(placement.document.name), placement] as const))
   const adjacency = new Map<string, Set<string>>()
 
   function connect(left: string, right: string) {
@@ -689,14 +685,9 @@ function packPlacementComponents(placements: MapPlacement[]) {
 
   const componentGap = MAP_LAYOUT_GAP * 3
   const totalArea = components.reduce((sum, component) => sum + component.width * component.height, 0)
-  const targetRowWidth = Math.max(
-    ...components.map((component) => component.width),
-    Math.ceil(Math.sqrt(totalArea) * 1.35),
-  )
+  const targetRowWidth = Math.max(...components.map((component) => component.width), Math.ceil(Math.sqrt(totalArea) * 1.35))
   const packedPlacements: MapPlacement[] = []
-  const sortedComponents = [...components].sort(
-    (left, right) => left.anchorX - right.anchorX || left.anchorY - right.anchorY,
-  )
+  const sortedComponents = [...components].sort((left, right) => left.anchorX - right.anchorX || left.anchorY - right.anchorY)
 
   let cursorX = 0
   let cursorY = 0
@@ -727,14 +718,8 @@ function packPlacementComponents(placements: MapPlacement[]) {
   return packedPlacements
 }
 
-function buildLayoutFromWorldMap(
-  mapDocuments: MapDocument[],
-  rootMapName: string,
-  worldMapLayout: WorldMapLayout,
-) {
-  const documentsByName = new Map(
-    mapDocuments.map((document) => [normalizeMapName(document.name), document] as const),
-  )
+function buildLayoutFromWorldMap(mapDocuments: MapDocument[], rootMapName: string, worldMapLayout: WorldMapLayout) {
+  const documentsByName = new Map(mapDocuments.map((document) => [normalizeMapName(document.name), document] as const))
   const rootDocument = documentsByName.get(normalizeMapName(rootMapName))
   const rootArea = worldMapLayout[normalizeMapName(rootMapName)]
   if (!rootDocument || !rootArea) {
@@ -833,24 +818,21 @@ function buildAtlasTilesets(placements: MapPlacement[]) {
     firstGidMaps.set(placement.document.name, localFirstGidMap)
 
     for (const tileset of placement.document.tilesets) {
-      const key = [
-        tileset.name,
-        tileset.imagePath ?? '',
-        tileset.tileWidth,
-        tileset.tileHeight,
-        tileset.tileCount,
-        tileset.columns,
-      ].join('::')
+      const key = [tileset.name, tileset.imagePath ?? '', tileset.tileWidth, tileset.tileHeight, tileset.tileCount, tileset.columns].join(
+        '::',
+      )
 
       const existing = atlasTilesets.find((candidate) => {
-        return [
-          candidate.name,
-          candidate.imagePath ?? '',
-          candidate.tileWidth,
-          candidate.tileHeight,
-          candidate.tileCount,
-          candidate.columns,
-        ].join('::') === key
+        return (
+          [
+            candidate.name,
+            candidate.imagePath ?? '',
+            candidate.tileWidth,
+            candidate.tileHeight,
+            candidate.tileCount,
+            candidate.columns,
+          ].join('::') === key
+        )
       })
 
       if (existing) {
@@ -1261,10 +1243,7 @@ function buildAtlasWarpRoutes(placements: MapPlacement[], worldWidth: number, wo
     }
 
     const targetPoint = getTargetRoutePoint(targetPlacement, edge.targetX, edge.targetY, sourceSide)
-    const ignoredMaps = new Set([
-      normalizeMapName(sourcePlacement.document.name),
-      normalizeMapName(targetPlacement.document.name),
-    ])
+    const ignoredMaps = new Set([normalizeMapName(sourcePlacement.document.name), normalizeMapName(targetPlacement.document.name)])
     const path = doesStraightRouteHitPlacements(sourcePoint, targetPoint, placements, ignoredMaps)
       ? findAtlasRoutePath(blocked, worldWidth, worldHeight, sourcePoint, targetPoint)
       : [sourcePoint, targetPoint]
@@ -1307,13 +1286,7 @@ function buildAtlasPortals(placements: MapPlacement[]) {
     }
   >()
 
-  function addPortalSample(
-    sourceDocument: MapDocument,
-    targetMap: string,
-    sourceX: number,
-    sourceY: number,
-    label = targetMap,
-  ) {
+  function addPortalSample(sourceDocument: MapDocument, targetMap: string, sourceX: number, sourceY: number, label = targetMap) {
     const normalizedTargetMap = normalizeMapName(targetMap)
     const sourceMapName = normalizeMapName(sourceDocument.name)
     if (!normalizedTargetMap || normalizedTargetMap === sourceMapName || placedAliases.has(normalizedTargetMap)) {
@@ -1349,13 +1322,7 @@ function buildAtlasPortals(placements: MapPlacement[]) {
           continue
         }
 
-        addPortalSample(
-          sourceDocument,
-          targetMap,
-          object.x / sourceDocument.tileWidth,
-          object.y / sourceDocument.tileHeight,
-          targetMap,
-        )
+        addPortalSample(sourceDocument, targetMap, object.x / sourceDocument.tileWidth, object.y / sourceDocument.tileHeight, targetMap)
       }
     }
 
@@ -1377,13 +1344,7 @@ function buildAtlasPortals(placements: MapPlacement[]) {
 
         const tileX = index % layer.width
         const tileY = Math.floor(index / layer.width)
-        addPortalSample(
-          sourceDocument,
-          targetMap,
-          tileX,
-          tileY,
-          targetMap,
-        )
+        addPortalSample(sourceDocument, targetMap, tileX, tileY, targetMap)
       }
     }
   }
@@ -1425,9 +1386,7 @@ function normalizePlacements(placements: MapPlacement[]) {
       }))
       .sort(
         (left, right) =>
-          left.offsetY - right.offsetY ||
-          left.offsetX - right.offsetX ||
-          left.document.name.localeCompare(right.document.name),
+          left.offsetY - right.offsetY || left.offsetX - right.offsetX || left.document.name.localeCompare(right.document.name),
       ),
   }
 }
@@ -1446,11 +1405,7 @@ export function getWorldAtlasSeedNames() {
   return ['Town', 'BusStop', 'Forest', 'Mountain', 'Railroad', 'Woods', 'Desert', 'Summit', 'Island_S']
 }
 
-export function buildWorldAtlas(
-  mapDocuments: MapDocument[],
-  rootMapName = 'Town',
-  worldMapLayout?: WorldMapLayout,
-) {
+export function buildWorldAtlas(mapDocuments: MapDocument[], rootMapName = 'Town', worldMapLayout?: WorldMapLayout) {
   const outdoorDocuments = mapDocuments.filter((document) => canBePlacedInWorldAtlas(document))
   const connectedLayout =
     (worldMapLayout ? buildLayoutFromWorldMap(outdoorDocuments, rootMapName, worldMapLayout) : null) ??
@@ -1462,11 +1417,9 @@ export function buildWorldAtlas(
   const normalizedLayout = normalizePlacements(connectedLayout.placements)
   const normalizedPlacements = normalizedLayout.placements
   const worldWidth =
-    Math.max(...normalizedPlacements.map((placement) => placement.offsetX + placement.document.width)) +
-    ATLAS_ROUTE_PADDING
+    Math.max(...normalizedPlacements.map((placement) => placement.offsetX + placement.document.width)) + ATLAS_ROUTE_PADDING
   const worldHeight =
-    Math.max(...normalizedPlacements.map((placement) => placement.offsetY + placement.document.height)) +
-    ATLAS_ROUTE_PADDING
+    Math.max(...normalizedPlacements.map((placement) => placement.offsetY + placement.document.height)) + ATLAS_ROUTE_PADDING
   const { atlasTilesets, firstGidMaps } = buildAtlasTilesets(normalizedPlacements)
   const atlasLayers = buildAtlasLayers(normalizedPlacements, worldWidth, worldHeight, firstGidMaps)
   const atlasObjectGroups = buildAtlasObjectGroups(normalizedPlacements)

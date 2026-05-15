@@ -7,7 +7,9 @@ const repoRoot = path.resolve(desktopRoot, '..', '..')
 const dryRun = process.argv.includes('--dry-run')
 
 function normalize(value) {
-  return String(value ?? '').replaceAll('/', path.sep).toLowerCase()
+  return String(value ?? '')
+    .replaceAll('/', path.sep)
+    .toLowerCase()
 }
 
 function parseWindowsProcesses(output) {
@@ -32,11 +34,10 @@ function listWindowsProcesses() {
     "if ($null -eq $processes) { '' } else { $processes | Select-Object ProcessId, ParentProcessId, Name, CommandLine | ConvertTo-Json -Compress }",
   ].join('; ')
 
-  const output = execFileSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
-    { encoding: 'utf8', windowsHide: true },
-  )
+  const output = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
 
   return parseWindowsProcesses(output)
 }

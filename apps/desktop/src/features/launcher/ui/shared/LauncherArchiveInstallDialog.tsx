@@ -51,8 +51,7 @@ export function LauncherArchiveInstallDialog({
   onSelectArchive,
 }: LauncherArchiveInstallDialogProps) {
   const copy = useEditorCopy().launcher
-  const selectedPreview =
-    previews.find((preview) => preview.archivePath === selectedArchivePath) ?? previews[0] ?? null
+  const selectedPreview = previews.find((preview) => preview.archivePath === selectedArchivePath) ?? previews[0] ?? null
 
   if (!open) {
     return null
@@ -109,10 +108,7 @@ export function LauncherArchiveInstallDialog({
                       <button
                         key={preview.archivePath}
                         type="button"
-                        className={cx(
-                          'launcher-archive-preview-list-item',
-                          selected && 'launcher-archive-preview-list-item-active',
-                        )}
+                        className={cx('launcher-archive-preview-list-item', selected && 'launcher-archive-preview-list-item-active')}
                         onClick={() => onSelectArchive(preview.archivePath)}
                       >
                         <span className="launcher-archive-preview-list-item-title">

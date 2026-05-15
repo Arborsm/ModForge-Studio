@@ -7,8 +7,7 @@ export function useCpMakerPort(): CpMakerPort {
 
   if (!port) {
     throw new Error(
-      'useCpMakerPort must be used within a CpMakerProvider. ' +
-        'Ensure the app-level provider is mounted above the workbench shell.',
+      'useCpMakerPort must be used within a CpMakerProvider. ' + 'Ensure the app-level provider is mounted above the workbench shell.',
     )
   }
 

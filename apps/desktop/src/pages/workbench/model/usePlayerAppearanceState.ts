@@ -9,10 +9,7 @@ import {
 } from '@entities/event'
 import type { LocaleCode } from '@locales/editor-shell'
 
-function normalizePlayerAppearanceState(
-  profiles: unknown[] | null | undefined,
-  activeProfileId: string | null | undefined,
-) {
+function normalizePlayerAppearanceState(profiles: unknown[] | null | undefined, activeProfileId: string | null | undefined) {
   return readStoredPlayerAppearanceState(JSON.stringify(Array.isArray(profiles) ? profiles : []), activeProfileId ?? null)
 }
 

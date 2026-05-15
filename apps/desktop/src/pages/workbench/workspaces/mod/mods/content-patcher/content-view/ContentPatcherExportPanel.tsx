@@ -1,9 +1,5 @@
 import { useMemo, useState } from 'react'
-import {
-  exportContentPatcherAsset,
-  type ContentPatcherProjectSnapshot,
-  type LoadContentPatcherResultAssetResult,
-} from '@entities/mod/api'
+import { exportContentPatcherAsset, type ContentPatcherProjectSnapshot, type LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { chooseDirectory } from '@shared/lib/desktop'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import { buildContentPatcherSimulationRequest, type ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'

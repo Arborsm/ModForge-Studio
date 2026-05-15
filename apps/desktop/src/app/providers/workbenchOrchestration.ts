@@ -9,9 +9,7 @@ export type WorkbenchOrchestrationDependencies = {
   dispatch: (command: AppCommand) => void | Promise<void>
 }
 
-export function createWorkbenchOrchestration({
-  dispatch,
-}: WorkbenchOrchestrationDependencies): WorkbenchOrchestration {
+export function createWorkbenchOrchestration({ dispatch }: WorkbenchOrchestrationDependencies): WorkbenchOrchestration {
   return {
     handleEvent(event) {
       if (event.type === 'cp-maker/draft-selected') {

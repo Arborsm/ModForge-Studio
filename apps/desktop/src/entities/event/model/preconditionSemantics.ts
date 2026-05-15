@@ -1,9 +1,5 @@
 import type { EditorCopy } from '@locales'
-import {
-  formatGameStateQueryForHub,
-  parseGameStateQuery,
-  type ParsedGameStateQuerySet,
-} from '@entities/event'
+import { formatGameStateQueryForHub, parseGameStateQuery, type ParsedGameStateQuerySet } from '@entities/event'
 
 export type EventPreconditionCategory = 'environment' | 'player' | 'progress'
 
@@ -313,9 +309,7 @@ export class EventPreconditionParser {
       negated: definition.negated,
       deprecated: definition.deprecated,
       isKnown: definition.canonicalKey !== 'Custom',
-      gameStateQuery: definition.canonicalKey === 'GameStateQuery'
-        ? parseGameStateQuery(args.join(' '))
-        : undefined,
+      gameStateQuery: definition.canonicalKey === 'GameStateQuery' ? parseGameStateQuery(args.join(' ')) : undefined,
     }
   }
 }

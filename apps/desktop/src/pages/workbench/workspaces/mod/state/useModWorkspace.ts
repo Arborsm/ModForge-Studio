@@ -1,4 +1,4 @@
-import {useDeferredValue, useEffect, useMemo, useState} from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   type ContentPatcherPatchSummary,
   type ContentPatcherProjectSnapshot,
@@ -16,7 +16,7 @@ import {
 } from '@entities/mod/api'
 import { type GameDirectoryInfo } from '@entities/game/api'
 import { chooseDirectory } from '@shared/lib/desktop'
-import {getModWorkspaceCopy, type LocaleCode} from '@locales/editor-shell'
+import { getModWorkspaceCopy, type LocaleCode } from '@locales/editor-shell'
 import { reportAppEvent } from '@shared/lib/observability'
 import {
   addPatch,
@@ -31,9 +31,9 @@ import {
   updatePatchField,
   updatePatchWhen,
 } from '../mods/content-patcher/content-model/contentPatcher'
-import {getWorkspacePluginDefinition} from '../mods/content-patcher/content-model/registry'
-import type {JsonEditorState} from '../mods/content-patcher/content-model/types'
-import {scheduleDeferred} from '@shared/lib/react'
+import { getWorkspacePluginDefinition } from '../mods/content-patcher/content-model/registry'
+import type { JsonEditorState } from '../mods/content-patcher/content-model/types'
+import { scheduleDeferred } from '@shared/lib/react'
 
 type UseModWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -168,9 +168,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   const [contentPatcherResultAsset, setContentPatcherResultAsset] = useState<LoadContentPatcherResultAssetResult | null>(null)
   const [contentPatcherResultLoading, setContentPatcherResultLoading] = useState(false)
   const [contentPatcherResultError, setContentPatcherResultError] = useState<string | null>(null)
-  const [simulationContext, setSimulationContext] = useState<ContentPatcherBackendSimulationContext>(
-    createDefaultSimulationContext,
-  )
+  const [simulationContext, setSimulationContext] = useState<ContentPatcherBackendSimulationContext>(createDefaultSimulationContext)
   const deferredFilter = useDeferredValue(modFilter.trim().toLowerCase())
 
   const filteredModProjects = useMemo(
@@ -188,13 +186,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
           return true
         }
 
-        const haystack = [
-          project.name,
-          project.author ?? '',
-          project.uniqueId ?? '',
-          project.absolutePath,
-          project.folderName,
-        ]
+        const haystack = [project.name, project.author ?? '', project.uniqueId ?? '', project.absolutePath, project.folderName]
           .join(' ')
           .toLowerCase()
         return haystack.includes(deferredFilter)
@@ -255,8 +247,8 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setModProjects([])
         setActiveProjectPath(null)
         setProjectDetail(null)
-        setManifestEditor({text: '', value: null, error: null})
-        setContentEditor({text: '', value: null, error: null})
+        setManifestEditor({ text: '', value: null, error: null })
+        setContentEditor({ text: '', value: null, error: null })
         setSelectedPatchId(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
@@ -301,8 +293,8 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     if (!activeProjectPath) {
       return scheduleDeferred(() => {
         setProjectDetail(null)
-        setManifestEditor({text: '', value: null, error: null})
-        setContentEditor({text: '', value: null, error: null})
+        setManifestEditor({ text: '', value: null, error: null })
+        setContentEditor({ text: '', value: null, error: null })
         setSelectedPatchId(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
@@ -388,11 +380,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     return () => {
       cancelled = true
     }
-  }, [
-    projectDetail?.contentPatcher,
-    projectDetail?.pluginKind,
-    projectDetail?.summary.absolutePath,
-  ])
+  }, [projectDetail?.contentPatcher, projectDetail?.pluginKind, projectDetail?.summary.absolutePath])
 
   useEffect(() => {
     if (!contentPatcherSnapshot) {
@@ -460,7 +448,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       }
 
       setSelectedPatchId((current) =>
-          current && contentSummary.patches.some((patch) => patch.id === current) ? current : contentSummary.patches[0]?.id ?? null,
+        current && contentSummary.patches.some((patch) => patch.id === current) ? current : (contentSummary.patches[0]?.id ?? null),
       )
     })
   }, [contentSummary.patches])
@@ -470,7 +458,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
 
     return scheduleDeferred(() => {
       setSelectedTargetPath((current) =>
-          current && targets.some((target) => target.path === current) ? current : targets[0]?.path ?? null,
+        current && targets.some((target) => target.path === current) ? current : (targets[0]?.path ?? null),
       )
     })
   }, [contentPatcherSimulation?.targets])
@@ -510,7 +498,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         contentJson: contentEditor.text,
       }),
       target: selectedTargetPath,
-      })
+    })
       .then((result) => {
         if (!cancelled) {
           cancelLoadingStart()
@@ -593,9 +581,10 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
 
   function handleManifestFieldChange(field: string, value: string) {
     if (field === 'ContentPackFor') {
-      const manifest = typeof manifestEditor.value === 'object' && manifestEditor.value && !Array.isArray(manifestEditor.value)
-        ? { ...(manifestEditor.value as Record<string, unknown>) }
-        : {}
+      const manifest =
+        typeof manifestEditor.value === 'object' && manifestEditor.value && !Array.isArray(manifestEditor.value)
+          ? { ...(manifestEditor.value as Record<string, unknown>) }
+          : {}
       const trimmed = value.trim()
       if (trimmed) {
         manifest.ContentPackFor = { UniqueID: trimmed }
@@ -883,4 +872,3 @@ export default useModWorkspace
 
 export type ModWorkspaceState = ReturnType<typeof useModWorkspace>
 export type SelectedPatchSummary = ContentPatcherPatchSummary
-

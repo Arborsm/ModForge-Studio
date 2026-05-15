@@ -69,7 +69,10 @@ export function LauncherModCard({
     >
       <div className="launcher-mod-card-stack">
         {selectionMode ? (
-          <span className={cx('launcher-mod-card-selection-toggle', selected && 'launcher-mod-card-selection-toggle-active')} aria-hidden="true">
+          <span
+            className={cx('launcher-mod-card-selection-toggle', selected && 'launcher-mod-card-selection-toggle-active')}
+            aria-hidden="true"
+          >
             <Check className="h-3.5 w-3.5" />
           </span>
         ) : null}

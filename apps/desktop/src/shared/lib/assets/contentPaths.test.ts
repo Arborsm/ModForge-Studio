@@ -8,15 +8,11 @@ describe('contentPaths', () => {
 
   it('strips a leading Content prefix before composing the final path', () => {
     expect(buildGameContentPath('E:\\Game', 'Content\\Data\\Objects')).toBe('E:\\Game\\Content\\Data\\Objects.xnb')
-    expect(buildGameContentPath('E:\\Game', 'content\\Maps\\springobjects')).toBe(
-      'E:\\Game\\Content\\Maps\\springobjects.xnb',
-    )
+    expect(buildGameContentPath('E:\\Game', 'content\\Maps\\springobjects')).toBe('E:\\Game\\Content\\Maps\\springobjects.xnb')
   })
 
   it('normalizes forward slashes and trailing xnb suffixes', () => {
-    expect(buildGameContentPath('E:\\Game', 'Content/Maps/springobjects.xnb')).toBe(
-      'E:\\Game\\Content\\Maps\\springobjects.xnb',
-    )
+    expect(buildGameContentPath('E:\\Game', 'Content/Maps/springobjects.xnb')).toBe('E:\\Game\\Content\\Maps\\springobjects.xnb')
     expect(buildGameContentPath('E:\\Game', 'Maps/FarmHouse.XNB')).toBe('E:\\Game\\Content\\Maps\\FarmHouse.xnb')
   })
 

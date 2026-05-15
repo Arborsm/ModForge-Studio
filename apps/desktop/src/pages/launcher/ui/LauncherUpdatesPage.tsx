@@ -102,15 +102,7 @@ function getStatusReasonLines(reason: string | null | undefined) {
     .filter(Boolean)
 }
 
-function UpdateArtwork({
-  title,
-  imageUrl,
-  className,
-}: {
-  title: string
-  imageUrl: string | null
-  className?: string
-}) {
+function UpdateArtwork({ title, imageUrl, className }: { title: string; imageUrl: string | null; className?: string }) {
   const image = useLauncherImage(imageUrl)
   const monogram = getLauncherCardMonogram(title)
 
@@ -301,318 +293,320 @@ export function LauncherUpdatesPage({
   return (
     <section className="launcher-updates-page">
       <LoadingMotionReveal itemId="launcher-updates-console" index={0} className="launcher-updates-console panel-surface">
-      <header>
-        <div className="launcher-updates-console-copy">
-          <div className="launcher-updates-console-title-row">
-            <h1 className="launcher-updates-console-title">{copy.updates.title}</h1>
-            {!updatesBlocked && !updatesCheckFailed && updates.items.length ? (
-              <span className="launcher-updates-console-count">{copy.updates.availableCount(updates.items.length)}</span>
-            ) : null}
+        <header>
+          <div className="launcher-updates-console-copy">
+            <div className="launcher-updates-console-title-row">
+              <h1 className="launcher-updates-console-title">{copy.updates.title}</h1>
+              {!updatesBlocked && !updatesCheckFailed && updates.items.length ? (
+                <span className="launcher-updates-console-count">{copy.updates.availableCount(updates.items.length)}</span>
+              ) : null}
+            </div>
+            <p className="launcher-updates-console-subtitle">{consoleSubtitle}</p>
           </div>
-          <p className="launcher-updates-console-subtitle">{consoleSubtitle}</p>
-        </div>
-        {!updatesBlocked && !updatesCheckFailed ? (
-          <div className="launcher-updates-console-actions">
-            <button type="button" className="control-button" onClick={() => void updates.refresh()}>
-              <RefreshCw className="h-4 w-4" />
-              <span>{copy.updates.recheck}</span>
-            </button>
-            <button
-              type="button"
-              className="control-button"
-              onClick={updates.allSelected ? updates.clearSelection : updates.selectAll}
-              disabled={!updates.items.length}
-            >
-              <span>{copy.updates.toggleSelection(updates.allSelected)}</span>
-            </button>
-            <button
-              type="button"
-              className="control-button control-button-primary launcher-updates-console-primary"
-              disabled={!updates.hasSelection}
-              onClick={() => {
-                updates.selectedItems.forEach(queueItem)
-              }}
-            >
-              <Download className="h-4 w-4" />
-              <span>{copy.updates.updateSelected}</span>
-            </button>
-          </div>
-        ) : null}
-      </header>
+          {!updatesBlocked && !updatesCheckFailed ? (
+            <div className="launcher-updates-console-actions">
+              <button type="button" className="control-button" onClick={() => void updates.refresh()}>
+                <RefreshCw className="h-4 w-4" />
+                <span>{copy.updates.recheck}</span>
+              </button>
+              <button
+                type="button"
+                className="control-button"
+                onClick={updates.allSelected ? updates.clearSelection : updates.selectAll}
+                disabled={!updates.items.length}
+              >
+                <span>{copy.updates.toggleSelection(updates.allSelected)}</span>
+              </button>
+              <button
+                type="button"
+                className="control-button control-button-primary launcher-updates-console-primary"
+                disabled={!updates.hasSelection}
+                onClick={() => {
+                  updates.selectedItems.forEach(queueItem)
+                }}
+              >
+                <Download className="h-4 w-4" />
+                <span>{copy.updates.updateSelected}</span>
+              </button>
+            </div>
+          ) : null}
+        </header>
       </LoadingMotionReveal>
 
-      <LoadingMotionReveal itemId="launcher-updates-content" index={1} className={cx('launcher-updates-shell panel-surface', stateCardVisible && 'launcher-updates-shell-state')}>
-      <div>
-        {updatesBlocked ? (
-          <div className="launcher-updates-content launcher-updates-content-blocked">
-            <LauncherBlockedState
-              className="launcher-updates-blocked-state"
-              eyebrow={copy.updates.title}
-              title={copy.updates.blockedTitle}
-              detail={copy.updates.blockedDetail}
-              issueLabel={copy.updates.issueLabel}
-              issueSummary={blockedIssueSummary}
-              detailsText={blockedReasonText}
-              detailsExpanded={effectiveStatusDetailsExpanded}
-              detailsToggleLabel={
-                effectiveStatusDetailsExpanded ? copy.updates.detailsCollapseAction : copy.updates.detailsExpandAction
-              }
-              copyLabel={copy.updates.copyLogsAction}
-              onToggleDetails={() => setStatusDetailsExpanded((current) => !current)}
-              onCopyDetails={() => {
-                if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
-                  return
+      <LoadingMotionReveal
+        itemId="launcher-updates-content"
+        index={1}
+        className={cx('launcher-updates-shell panel-surface', stateCardVisible && 'launcher-updates-shell-state')}
+      >
+        <div>
+          {updatesBlocked ? (
+            <div className="launcher-updates-content launcher-updates-content-blocked">
+              <LauncherBlockedState
+                className="launcher-updates-blocked-state"
+                eyebrow={copy.updates.title}
+                title={copy.updates.blockedTitle}
+                detail={copy.updates.blockedDetail}
+                issueLabel={copy.updates.issueLabel}
+                issueSummary={blockedIssueSummary}
+                detailsText={blockedReasonText}
+                detailsExpanded={effectiveStatusDetailsExpanded}
+                detailsToggleLabel={effectiveStatusDetailsExpanded ? copy.updates.detailsCollapseAction : copy.updates.detailsExpandAction}
+                copyLabel={copy.updates.copyLogsAction}
+                onToggleDetails={() => setStatusDetailsExpanded((current) => !current)}
+                onCopyDetails={() => {
+                  if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+                    return
+                  }
+
+                  void navigator.clipboard.writeText(blockedReasonText)
+                }}
+                illustrationAccent={<RefreshCw className="h-4 w-4" />}
+                primaryAction={
+                  <button
+                    type="button"
+                    className="control-button control-button-primary"
+                    onClick={() => void handleStatusRetry()}
+                    disabled={statusRetryPending}
+                    aria-busy={statusRetryPending ? 'true' : undefined}
+                  >
+                    <RefreshCw className={cx('h-4 w-4', statusRetryPending && 'animate-spin')} />
+                    <span>{copy.updates.recheck}</span>
+                  </button>
                 }
+                secondaryAction={
+                  onNavigateToDiagnostics ? (
+                    <button type="button" className="control-button" onClick={onNavigateToDiagnostics}>
+                      <ExternalLink className="h-4 w-4" />
+                      <span>{copy.updates.diagnosticsAction}</span>
+                    </button>
+                  ) : null
+                }
+              />
+            </div>
+          ) : null}
 
-                void navigator.clipboard.writeText(blockedReasonText)
-              }}
-              illustrationAccent={<RefreshCw className="h-4 w-4" />}
-              primaryAction={
-                <button
-                  type="button"
-                  className="control-button control-button-primary"
-                  onClick={() => void handleStatusRetry()}
-                  disabled={statusRetryPending}
-                  aria-busy={statusRetryPending ? 'true' : undefined}
-                >
-                  <RefreshCw className={cx('h-4 w-4', statusRetryPending && 'animate-spin')} />
-                  <span>{copy.updates.recheck}</span>
-                </button>
-              }
-              secondaryAction={
-                onNavigateToDiagnostics ? (
-                  <button type="button" className="control-button" onClick={onNavigateToDiagnostics}>
-                    <ExternalLink className="h-4 w-4" />
-                    <span>{copy.updates.diagnosticsAction}</span>
+          {updatesCheckFailed ? (
+            <div className="launcher-updates-content launcher-updates-content-error">
+              <LauncherBlockedState
+                className="launcher-updates-blocked-state"
+                eyebrow={copy.updates.title}
+                title={copy.updates.checkFailedTitle}
+                detail={copy.updates.checkFailedDetail}
+                issueLabel={copy.updates.issueLabel}
+                issueSummary={null}
+                detailsText={null}
+                detailsExpanded={false}
+                detailsToggleLabel={null}
+                copyLabel={null}
+                onToggleDetails={null}
+                onCopyDetails={null}
+                illustrationAccent={<RefreshCw className="h-4 w-4" />}
+                tone="error"
+                primaryAction={
+                  <button
+                    type="button"
+                    className="control-button control-button-primary"
+                    onClick={() => void handleStatusRetry()}
+                    disabled={statusRetryPending}
+                    aria-busy={statusRetryPending ? 'true' : undefined}
+                  >
+                    <RefreshCw className={cx('h-4 w-4', statusRetryPending && 'animate-spin')} />
+                    <span>{copy.updates.recheck}</span>
                   </button>
-                ) : null
-              }
-            />
-          </div>
-        ) : null}
+                }
+                secondaryAction={
+                  onNavigateToDiagnostics ? (
+                    <button type="button" className="control-button" onClick={onNavigateToDiagnostics}>
+                      <ExternalLink className="h-4 w-4" />
+                      <span>{copy.updates.diagnosticsAction}</span>
+                    </button>
+                  ) : null
+                }
+              />
+            </div>
+          ) : null}
 
-        {updatesCheckFailed ? (
-          <div className="launcher-updates-content launcher-updates-content-error">
-            <LauncherBlockedState
-              className="launcher-updates-blocked-state"
-              eyebrow={copy.updates.title}
-              title={copy.updates.checkFailedTitle}
-              detail={copy.updates.checkFailedDetail}
-              issueLabel={copy.updates.issueLabel}
-              issueSummary={null}
-              detailsText={null}
-              detailsExpanded={false}
-              detailsToggleLabel={null}
-              copyLabel={null}
-              onToggleDetails={null}
-              onCopyDetails={null}
-              illustrationAccent={<RefreshCw className="h-4 w-4" />}
-              tone="error"
-              primaryAction={
-                <button
-                  type="button"
-                  className="control-button control-button-primary"
-                  onClick={() => void handleStatusRetry()}
-                  disabled={statusRetryPending}
-                  aria-busy={statusRetryPending ? 'true' : undefined}
-                >
-                  <RefreshCw className={cx('h-4 w-4', statusRetryPending && 'animate-spin')} />
-                  <span>{copy.updates.recheck}</span>
-                </button>
-              }
-              secondaryAction={
-                onNavigateToDiagnostics ? (
-                  <button type="button" className="control-button" onClick={onNavigateToDiagnostics}>
-                    <ExternalLink className="h-4 w-4" />
-                    <span>{copy.updates.diagnosticsAction}</span>
-                  </button>
-                ) : null
-              }
-            />
-          </div>
-        ) : null}
+          {emptyState ? (
+            <div className="launcher-updates-content launcher-updates-content-empty">
+              <LauncherStateBlock title={copy.updates.empty} detail={copy.updates.subtitle} />
+            </div>
+          ) : null}
 
-        {emptyState ? (
-          <div className="launcher-updates-content launcher-updates-content-empty">
-            <LauncherStateBlock title={copy.updates.empty} detail={copy.updates.subtitle} />
-          </div>
-        ) : null}
+          {!stateCardVisible ? (
+            <div className="launcher-updates-list" aria-busy={updates.state === 'loading' ? 'true' : undefined}>
+              {updates.items.map((item, index) => {
+                const key = getUpdateKey(item.modId, item.absolutePath)
+                const isExpanded = expandedKey === key
+                const detail = detailByKey[key] ?? null
+                const detailState = detailStateByKey[key] ?? 'idle'
+                const detailError = detailErrorByKey[key] ?? null
+                const changelog = changelogByKey[key] ?? null
+                const changelogState = changelogStateByKey[key] ?? 'idle'
+                const changelogError = changelogErrorByKey[key] ?? null
+                const detailDate = formatRelativeUpdateDate(
+                  detail?.updatedAt ?? item.updatedAt ?? null,
+                  locale,
+                  copy.updates.releaseUnknown,
+                )
+                const detailSize = formatFileSize(detail?.fileSize ?? item.fileSize ?? null, copy.updates.sizeUnknown)
 
-        {!stateCardVisible ? (
-          <div className="launcher-updates-list" aria-busy={updates.state === 'loading' ? 'true' : undefined}>
-            {updates.items.map((item, index) => {
-              const key = getUpdateKey(item.modId, item.absolutePath)
-              const isExpanded = expandedKey === key
-              const detail = detailByKey[key] ?? null
-              const detailState = detailStateByKey[key] ?? 'idle'
-              const detailError = detailErrorByKey[key] ?? null
-              const changelog = changelogByKey[key] ?? null
-              const changelogState = changelogStateByKey[key] ?? 'idle'
-              const changelogError = changelogErrorByKey[key] ?? null
-              const detailDate = formatRelativeUpdateDate(
-                detail?.updatedAt ?? item.updatedAt ?? null,
-                locale,
-                copy.updates.releaseUnknown,
-              )
-              const detailSize = formatFileSize(detail?.fileSize ?? item.fileSize ?? null, copy.updates.sizeUnknown)
+                return (
+                  <LoadingMotionRevealItem
+                    key={key}
+                    index={index + 2}
+                    as="article"
+                    className={cx('launcher-updates-item', isExpanded && 'launcher-updates-item-expanded')}
+                  >
+                    <div className="launcher-updates-row">
+                      <label className="launcher-updates-row-check">
+                        <input
+                          type="checkbox"
+                          aria-label={item.name}
+                          checked={updates.isSelected(item)}
+                          onChange={() => updates.toggleSelected(item)}
+                        />
+                      </label>
 
-              return (
-              <LoadingMotionRevealItem
-                  key={key}
-                  index={index + 2}
-                  as="article"
-                  className={cx('launcher-updates-item', isExpanded && 'launcher-updates-item-expanded')}
-                >
-                  <div className="launcher-updates-row">
-                    <label className="launcher-updates-row-check">
-                      <input
-                        type="checkbox"
-                        aria-label={item.name}
-                        checked={updates.isSelected(item)}
-                        onChange={() => updates.toggleSelected(item)}
-                      />
-                    </label>
+                      <UpdateArtwork title={item.name} imageUrl={item.imageUrl} className="launcher-updates-row-artwork" />
 
-                    <UpdateArtwork title={item.name} imageUrl={item.imageUrl} className="launcher-updates-row-artwork" />
+                      <div className="launcher-updates-row-copy">
+                        <p className="launcher-updates-row-title">{item.name}</p>
+                        <p className="launcher-updates-row-author">{item.author?.trim() || `Nexus #${item.modId}`}</p>
+                      </div>
 
-                    <div className="launcher-updates-row-copy">
-                      <p className="launcher-updates-row-title">{item.name}</p>
-                      <p className="launcher-updates-row-author">{item.author?.trim() || `Nexus #${item.modId}`}</p>
+                      <div className="launcher-updates-row-version">
+                        <span className="launcher-updates-row-version-current">{formatVersionLabel(item.currentVersion)}</span>
+                        <span className="launcher-updates-row-version-arrow" aria-hidden="true">
+                          →
+                        </span>
+                        <strong className="launcher-updates-row-version-next">{formatVersionLabel(item.latestVersion)}</strong>
+                      </div>
+
+                      <div className="launcher-updates-row-actions">
+                        <button
+                          type="button"
+                          className="launcher-updates-inline-action"
+                          aria-expanded={isExpanded ? 'true' : 'false'}
+                          onClick={() => {
+                            if (isExpanded) {
+                              setExpandedKey(null)
+                              return
+                            }
+                            loadExpandedContent(item)
+                          }}
+                        >
+                          <span>{copy.updates.expandDetails}</span>
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                        <button type="button" className="control-button" onClick={() => queueItem(item)}>
+                          {copy.updates.updateOne}
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="launcher-updates-row-version">
-                      <span className="launcher-updates-row-version-current">{formatVersionLabel(item.currentVersion)}</span>
-                      <span className="launcher-updates-row-version-arrow" aria-hidden="true">
-                        →
-                      </span>
-                      <strong className="launcher-updates-row-version-next">{formatVersionLabel(item.latestVersion)}</strong>
-                    </div>
+                    <div className={cx('launcher-updates-expander', isExpanded && 'launcher-updates-expander-open')}>
+                      <div className="launcher-updates-expander-inner">
+                        {isExpanded ? (
+                          <div className="launcher-updates-detail">
+                            <UpdateArtwork
+                              title={detail?.title ?? item.name}
+                              imageUrl={detail?.galleryImages[0] ?? detail?.imageUrl ?? item.imageUrl}
+                              className="launcher-updates-detail-artwork"
+                            />
 
-                    <div className="launcher-updates-row-actions">
-                      <button
-                        type="button"
-                        className="launcher-updates-inline-action"
-                        aria-expanded={isExpanded ? 'true' : 'false'}
-                        onClick={() => {
-                          if (isExpanded) {
-                            setExpandedKey(null)
-                            return
-                          }
-                          loadExpandedContent(item)
-                        }}
-                      >
-                        <span>{copy.updates.expandDetails}</span>
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </button>
-                      <button type="button" className="control-button" onClick={() => queueItem(item)}>
-                        {copy.updates.updateOne}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={cx('launcher-updates-expander', isExpanded && 'launcher-updates-expander-open')}>
-                    <div className="launcher-updates-expander-inner">
-                      {isExpanded ? (
-                        <div className="launcher-updates-detail">
-                          <UpdateArtwork
-                            title={detail?.title ?? item.name}
-                            imageUrl={detail?.galleryImages[0] ?? detail?.imageUrl ?? item.imageUrl}
-                            className="launcher-updates-detail-artwork"
-                          />
-
-                          <div className="launcher-updates-detail-copy">
-                            <div className="launcher-updates-detail-section">
-                              <p className="launcher-updates-detail-heading">{copy.updates.overviewTitle}</p>
-                              <div className="launcher-updates-detail-body">
-                                {detailState === 'loading' ? <p>{copy.updates.detailsLoading}</p> : null}
-                                {detailState !== 'loading' && detail?.summary ? <p>{detail.summary}</p> : null}
-                                {detailState === 'error' ? (
-                                  <p className="launcher-updates-detail-error">{detailError ?? copy.updates.detailsEmpty}</p>
-                                ) : null}
-                                {(detailState === 'idle' || (detailState === 'ready' && !detail?.summary)) && (
-                                  <p>{copy.updates.detailsEmpty}</p>
-                                )}
+                            <div className="launcher-updates-detail-copy">
+                              <div className="launcher-updates-detail-section">
+                                <p className="launcher-updates-detail-heading">{copy.updates.overviewTitle}</p>
+                                <div className="launcher-updates-detail-body">
+                                  {detailState === 'loading' ? <p>{copy.updates.detailsLoading}</p> : null}
+                                  {detailState !== 'loading' && detail?.summary ? <p>{detail.summary}</p> : null}
+                                  {detailState === 'error' ? (
+                                    <p className="launcher-updates-detail-error">{detailError ?? copy.updates.detailsEmpty}</p>
+                                  ) : null}
+                                  {(detailState === 'idle' || (detailState === 'ready' && !detail?.summary)) && (
+                                    <p>{copy.updates.detailsEmpty}</p>
+                                  )}
+                                </div>
+                                <div className="launcher-updates-detail-meta">
+                                  <p>
+                                    <span>{copy.updates.releaseLabel}</span>
+                                    <strong>{detailDate}</strong>
+                                  </p>
+                                  <p>
+                                    <span>{copy.updates.sizeLabel}</span>
+                                    <strong>{detailSize}</strong>
+                                  </p>
+                                </div>
                               </div>
-                              <div className="launcher-updates-detail-meta">
-                                <p>
-                                  <span>{copy.updates.releaseLabel}</span>
-                                  <strong>{detailDate}</strong>
+
+                              <div className="launcher-updates-detail-section">
+                                <p className="launcher-updates-detail-heading">
+                                  {copy.updates.changelogTitle(changelog?.version ?? item.latestVersion)}
                                 </p>
-                                <p>
-                                  <span>{copy.updates.sizeLabel}</span>
-                                  <strong>{detailSize}</strong>
-                                </p>
+                                <div className="launcher-updates-detail-body">
+                                  {changelogState === 'loading' ? <p>{copy.updates.changelogLoading}</p> : null}
+                                  {changelogState !== 'loading' && changelog?.changelog ? (
+                                    <p className="launcher-updates-detail-changelog">{changelog.changelog}</p>
+                                  ) : null}
+                                  {changelogState === 'error' ? (
+                                    <p className="launcher-updates-detail-error">{changelogError ?? copy.updates.changelogEmpty}</p>
+                                  ) : null}
+                                  {changelogState === 'ready' && !changelog?.changelog ? <p>{copy.updates.changelogEmpty}</p> : null}
+                                </div>
                               </div>
                             </div>
 
-                            <div className="launcher-updates-detail-section">
-                              <p className="launcher-updates-detail-heading">
-                                {copy.updates.changelogTitle(changelog?.version ?? item.latestVersion)}
-                              </p>
-                              <div className="launcher-updates-detail-body">
-                                {changelogState === 'loading' ? <p>{copy.updates.changelogLoading}</p> : null}
-                                {changelogState !== 'loading' && changelog?.changelog ? (
-                                  <p className="launcher-updates-detail-changelog">{changelog.changelog}</p>
-                                ) : null}
-                                {changelogState === 'error' ? (
-                                  <p className="launcher-updates-detail-error">{changelogError ?? copy.updates.changelogEmpty}</p>
-                                ) : null}
-                                {changelogState === 'ready' && !changelog?.changelog ? <p>{copy.updates.changelogEmpty}</p> : null}
-                              </div>
+                            <div className="launcher-updates-detail-links">
+                              <button
+                                type="button"
+                                className="control-button"
+                                disabled={detailState === 'loading'}
+                                onClick={() => {
+                                  loadExpandedDetail(item)
+                                }}
+                              >
+                                <span>{copy.updates.fetchDetails}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="control-button"
+                                disabled={changelogState === 'loading'}
+                                onClick={() => {
+                                  loadExpandedChangelog(item)
+                                }}
+                              >
+                                <span>{copy.updates.fetchChangelog}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="control-button"
+                                onClick={() => {
+                                  void openLauncherUrl({ url: detail?.modUrl ?? item.modUrl })
+                                }}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                <span>{copy.updates.openHomepage}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="control-button"
+                                onClick={() => {
+                                  void openLauncherUrl({ url: `${detail?.modUrl ?? item.modUrl}?tab=posts` })
+                                }}
+                              >
+                                <span>{copy.updates.openComments}</span>
+                              </button>
                             </div>
                           </div>
-
-                          <div className="launcher-updates-detail-links">
-                            <button
-                              type="button"
-                              className="control-button"
-                              disabled={detailState === 'loading'}
-                              onClick={() => {
-                                loadExpandedDetail(item)
-                              }}
-                            >
-                              <span>{copy.updates.fetchDetails}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="control-button"
-                              disabled={changelogState === 'loading'}
-                              onClick={() => {
-                                loadExpandedChangelog(item)
-                              }}
-                            >
-                              <span>{copy.updates.fetchChangelog}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="control-button"
-                              onClick={() => {
-                                void openLauncherUrl({ url: detail?.modUrl ?? item.modUrl })
-                              }}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                              <span>{copy.updates.openHomepage}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="control-button"
-                              onClick={() => {
-                                void openLauncherUrl({ url: `${detail?.modUrl ?? item.modUrl}?tab=posts` })
-                              }}
-                            >
-                              <span>{copy.updates.openComments}</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </LoadingMotionRevealItem>
-              )
-            })}
-          </div>
-        ) : null}
-      </div>
+                  </LoadingMotionRevealItem>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
       </LoadingMotionReveal>
     </section>
   )

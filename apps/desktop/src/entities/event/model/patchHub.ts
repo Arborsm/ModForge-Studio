@@ -201,14 +201,18 @@ function buildPatchSearchText(patch: DraftPatch, events: EventPatchHubEvent[]) {
     patch.target,
     patch.fromFile ?? '',
     ...events.flatMap((event) => [event.key, event.title, event.location, ...event.actors.map((actor) => actor.name)]),
-  ].join(' ').toLowerCase()
+  ]
+    .join(' ')
+    .toLowerCase()
 }
 
 export function buildEventPatchHubPatches(patches: DraftPatch[]): EventPatchHubPatch[] {
   return patches.map((patch) => {
     const disabledEventKeys = getDisabledEventKeys(patch)
     const eventAliases = getEventAliases(patch)
-    const events = eventEntriesFromPatch(patch).map(([key, rawScript]) => buildHubEvent(patch, key, rawScript, disabledEventKeys, eventAliases))
+    const events = eventEntriesFromPatch(patch).map(([key, rawScript]) =>
+      buildHubEvent(patch, key, rawScript, disabledEventKeys, eventAliases),
+    )
     const conditionSummary = summarizePatchWhen(patch.when)
     const stats: EventPatchHubStats = {
       events: events.length,

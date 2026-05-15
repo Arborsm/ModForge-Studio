@@ -294,17 +294,12 @@ export function useEventStageWorkspace({
         : mapLoadState.requestKey === mapLoadRequestKey
           ? mapLoadState.message
           : copy.stageWaiting
-  const renderedPlaybackState = useMemo(
-    () => deriveMapDrivenPlaybackState(playbackState, mapDocument),
-    [mapDocument, playbackState],
-  )
+  const renderedPlaybackState = useMemo(() => deriveMapDrivenPlaybackState(playbackState, mapDocument), [mapDocument, playbackState])
 
   const visibleLayerIds = useMemo(
     () =>
       mapDocument
-        ? mapDocument.layers
-            .filter((layer) => layer.visible && (showMapPaths || !isPathsLayerName(layer.name)))
-            .map((layer) => layer.id)
+        ? mapDocument.layers.filter((layer) => layer.visible && (showMapPaths || !isPathsLayerName(layer.name))).map((layer) => layer.id)
         : [],
     [mapDocument, showMapPaths],
   )
@@ -480,7 +475,7 @@ export function useEventStageWorkspace({
   useEffect(() => {
     const rootPath = directoryInfo?.rootPath
     const musicCue = playbackState.activeMusicCue
-    const syncKey = `${rootPath ?? ''}::${musicSyncEnabled ? musicCue ?? 'none' : '__disabled__'}`
+    const syncKey = `${rootPath ?? ''}::${musicSyncEnabled ? (musicCue ?? 'none') : '__disabled__'}`
     if (!rootPath || syncKey === lastSyncedMusicCueKeyRef.current) {
       return
     }
@@ -540,11 +535,13 @@ export function useEventStageWorkspace({
         return {
           actorKey: toActorKey(actor.actorName),
           actorName: actor.actorName,
-          requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify({
-            farmerAppearanceProfile:
-              isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
-            characterMetadata: actorMetadata,
-          })}`,
+          requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify(
+            {
+              farmerAppearanceProfile:
+                isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+              characterMetadata: actorMetadata,
+            },
+          )}`,
           spriteTextureCandidates,
           portraitTextureCandidates,
           farmerAppearanceProfile:
@@ -580,7 +577,9 @@ export function useEventStageWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingActorAssetRequests.map(async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale)] as const),
+        pendingActorAssetRequests.map(
+          async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale)] as const,
+        ),
       )
       if (cancelled) {
         return
@@ -675,11 +674,7 @@ export function useEventStageWorkspace({
 
     const waitMs =
       playbackState.waitingMs ??
-      (playbackState.currentEntry?.tone === 'dialogue'
-        ? 1500
-        : playbackState.currentEntry?.tone === 'message'
-          ? 1200
-          : null)
+      (playbackState.currentEntry?.tone === 'dialogue' ? 1500 : playbackState.currentEntry?.tone === 'message' ? 1200 : null)
 
     if (waitMs == null) {
       const timeout = window.setTimeout(() => {
@@ -692,8 +687,7 @@ export function useEventStageWorkspace({
       return () => window.clearTimeout(timeout)
     }
 
-    const elapsedWaitMs =
-      playbackState.waitingStartedAtMs == null ? 0 : Math.max(0, performance.now() - playbackState.waitingStartedAtMs)
+    const elapsedWaitMs = playbackState.waitingStartedAtMs == null ? 0 : Math.max(0, performance.now() - playbackState.waitingStartedAtMs)
     const remainingWaitMs = Math.max(0, waitMs - elapsedWaitMs)
 
     const timeout = window.setTimeout(() => {
@@ -756,7 +750,9 @@ export function useEventStageWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingEffectTextureRequests.map(async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const),
+        pendingEffectTextureRequests.map(
+          async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const,
+        ),
       )
       if (cancelled) {
         return
@@ -788,7 +784,7 @@ export function useEventStageWorkspace({
     renderedPlaybackState.currentEntry?.tone === 'dialogue' && renderedPlaybackState.currentEntry.actorName
       ? getActorByName(renderedPlaybackState.actors, renderedPlaybackState.currentEntry.actorName)
       : null
-  const currentDialogueActorAsset = currentDialogueActor ? currentActorAssets[toActorKey(currentDialogueActor.actorName)] ?? null : null
+  const currentDialogueActorAsset = currentDialogueActor ? (currentActorAssets[toActorKey(currentDialogueActor.actorName)] ?? null) : null
   const currentDialoguePortrait = useMemo(
     () => getPortraitFrameBounds(currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex ?? 0),
     [currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex],
@@ -852,7 +848,9 @@ export function useEventStageWorkspace({
     setMusicSyncEnabled(true)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? preparePlaybackStep(current) : createStageReadyPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended
+          ? preparePlaybackStep(current)
+          : createStageReadyPlaybackState(selectedEvent, initialMapName)
       return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
         objectDrinkIndex: eventObjectDrinkIndex,
       })
@@ -864,7 +862,9 @@ export function useEventStageWorkspace({
     setAutoPlay((current) => !current)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createStageReadyPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended
+          ? current
+          : createStageReadyPlaybackState(selectedEvent, initialMapName)
       const shouldAdvanceImmediately =
         current.rootEventKey !== selectedEvent?.key || current.ended || (!current.currentEntry && !current.pendingChoice)
 
@@ -883,15 +883,18 @@ export function useEventStageWorkspace({
     onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
   }
 
-  const seekTimelineEntry = useCallback((entryId: string) => {
-    setAutoPlay(false)
-    setMusicSyncEnabled(true)
-    setPlaybackState(
-      seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, entryId, initialMapName, copy, {
-        objectDrinkIndex: eventObjectDrinkIndex,
-      }),
-    )
-  }, [copy, eventObjectDrinkIndex, initialMapName, parsedEventAsset?.eventIndex, selectedEvent])
+  const seekTimelineEntry = useCallback(
+    (entryId: string) => {
+      setAutoPlay(false)
+      setMusicSyncEnabled(true)
+      setPlaybackState(
+        seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, entryId, initialMapName, copy, {
+          objectDrinkIndex: eventObjectDrinkIndex,
+        }),
+      )
+    },
+    [copy, eventObjectDrinkIndex, initialMapName, parsedEventAsset?.eventIndex, selectedEvent],
+  )
 
   function handleZoomChange(nextZoom: number) {
     setViewportZoom(nextZoom)
@@ -931,4 +934,3 @@ export function useEventStageWorkspace({
     zoomLabel,
   }
 }
-

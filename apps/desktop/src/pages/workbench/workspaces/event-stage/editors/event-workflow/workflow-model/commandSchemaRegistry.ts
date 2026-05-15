@@ -503,9 +503,7 @@ register({
   category: 'visual',
   color: 'pink',
   icon: 'Zap',
-  template: [
-    { type: 'text', value: '屏幕闪光' },
-  ],
+  template: [{ type: 'text', value: '屏幕闪光' }],
 })
 
 register({
@@ -545,9 +543,7 @@ register({
   category: 'audio',
   color: 'purple',
   icon: 'MusicOff',
-  template: [
-    { type: 'text', value: '停止音乐' },
-  ],
+  template: [{ type: 'text', value: '停止音乐' }],
 })
 
 register({
@@ -570,9 +566,7 @@ register({
   category: 'audio',
   color: 'purple',
   icon: 'VolumeX',
-  template: [
-    { type: 'text', value: '停止音效' },
-  ],
+  template: [{ type: 'text', value: '停止音效' }],
 })
 
 /* ─── Logic / Choice ───────────────────────────────────────── */
@@ -654,9 +648,7 @@ register({
   category: 'logic',
   color: 'yellow',
   icon: 'Timer',
-  template: [
-    { type: 'text', value: '等待所有角色静止' },
-  ],
+  template: [{ type: 'text', value: '等待所有角色静止' }],
 })
 
 register({
@@ -666,9 +658,7 @@ register({
   category: 'logic',
   color: 'yellow',
   icon: 'Timer',
-  template: [
-    { type: 'text', value: '等待其他玩家' },
-  ],
+  template: [{ type: 'text', value: '等待其他玩家' }],
 })
 
 register({
@@ -678,9 +668,7 @@ register({
   category: 'logic',
   color: 'yellow',
   icon: 'Layers',
-  template: [
-    { type: 'text', value: '开始同步执行' },
-  ],
+  template: [{ type: 'text', value: '开始同步执行' }],
 })
 
 register({
@@ -690,9 +678,7 @@ register({
   category: 'logic',
   color: 'yellow',
   icon: 'Layers',
-  template: [
-    { type: 'text', value: '结束同步执行' },
-  ],
+  template: [{ type: 'text', value: '结束同步执行' }],
 })
 
 register({
@@ -702,9 +688,7 @@ register({
   category: 'logic',
   color: 'yellow',
   icon: 'FastForward',
-  template: [
-    { type: 'text', value: '标记以下为可跳过' },
-  ],
+  template: [{ type: 'text', value: '标记以下为可跳过' }],
 })
 
 /* ─── Scene ────────────────────────────────────────────────── */
@@ -1154,9 +1138,7 @@ register({
   category: 'other',
   color: 'gray',
   icon: 'Gamepad2',
-  template: [
-    { type: 'text', value: '切换玩家控制权' },
-  ],
+  template: [{ type: 'text', value: '切换玩家控制权' }],
 })
 
 register({
@@ -1166,9 +1148,7 @@ register({
   category: 'other',
   color: 'gray',
   icon: 'Octagon',
-  template: [
-    { type: 'text', value: '停止脚本执行' },
-  ],
+  template: [{ type: 'text', value: '停止脚本执行' }],
 })
 
 register({
@@ -1236,10 +1216,7 @@ export function getSchemasByCategory(category: CommandCategory): CommandSchema[]
 export function searchSchemas(query: string): CommandSchema[] {
   const q = query.toLowerCase()
   return Array.from(registry.values()).filter(
-    (s) =>
-      s.key.toLowerCase().includes(q) ||
-      s.label.toLowerCase().includes(q) ||
-      s.labelZh.toLowerCase().includes(q),
+    (s) => s.key.toLowerCase().includes(q) || s.label.toLowerCase().includes(q) || s.labelZh.toLowerCase().includes(q),
   )
 }
 

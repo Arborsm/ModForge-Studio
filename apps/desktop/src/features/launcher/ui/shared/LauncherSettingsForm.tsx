@@ -35,12 +35,7 @@ function SettingPathField({
   wide?: boolean
 }) {
   return (
-    <label
-      className={cx(
-        'settings-window-control-card launcher-settings-control-card',
-        wide && 'launcher-settings-control-card-wide',
-      )}
-    >
+    <label className={cx('settings-window-control-card launcher-settings-control-card', wide && 'launcher-settings-control-card-wide')}>
       <div className="launcher-settings-control-meta">
         <p className="settings-window-section-title">{label}</p>
       </div>

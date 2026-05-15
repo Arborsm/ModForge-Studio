@@ -205,7 +205,7 @@ function getDefaultBreathingChestRect(frameWidth: number, frameHeight: number, i
     x: Math.trunc(frameWidth / 4),
     y: Math.trunc(frameHeight / 2 + frameHeight / 32) + (isChild ? Math.trunc(frameHeight / 6) + 1 : isFemale ? 1 : 0),
     width: Math.trunc(frameHeight / 4),
-    height: Math.max(1, Math.trunc((frameWidth / 2) / (isChild || isFemale ? 2 : 1))),
+    height: Math.max(1, Math.trunc(frameWidth / 2 / (isChild || isFemale ? 2 : 1))),
   }
 }
 
@@ -249,7 +249,14 @@ function buildActorBreathingLayerDescriptor(
   }
 
   const breatherEnabled = actor.breatherOverride ?? asset.characterMetadata?.breather ?? true
-  if (frameWidth > 16 || frameHeight > 32 || frame >= 16 || !breatherEnabled || actor.farmerPassesThrough || isActorShakeActive(actor, nowMs)) {
+  if (
+    frameWidth > 16 ||
+    frameHeight > 32 ||
+    frame >= 16 ||
+    !breatherEnabled ||
+    actor.farmerPassesThrough ||
+    isActorShakeActive(actor, nowMs)
+  ) {
     return null
   }
 
@@ -457,7 +464,12 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
       breathingScale,
       moving: progress < 1,
       farmerRenderState: actor.farmerRenderState
-        ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), actor.farmerRenderState.armOffset)
+        ? buildFarmerVisualRenderState(
+            actor.farmerRenderState,
+            nowMs,
+            getFarmerBlinkEyesState(actor, nowMs),
+            actor.farmerRenderState.armOffset,
+          )
         : null,
     }
   }
@@ -478,7 +490,12 @@ function getActorRenderState(actor: EventActorState, nowMs: number) {
     breathingScale,
     moving: false,
     farmerRenderState: actor.farmerRenderState
-      ? buildFarmerVisualRenderState(actor.farmerRenderState, nowMs, getFarmerBlinkEyesState(actor, nowMs), actor.farmerRenderState.armOffset)
+      ? buildFarmerVisualRenderState(
+          actor.farmerRenderState,
+          nowMs,
+          getFarmerBlinkEyesState(actor, nowMs),
+          actor.farmerRenderState.armOffset,
+        )
       : null,
   }
 }
@@ -540,7 +557,9 @@ function getStageEffectPlayback(effect: StageEffectState, nowMs: number) {
       ? Math.sin((elapsedMs / effect.yPeriodicLoopTimeMs) * Math.PI * 2) * effect.yPeriodicRange
       : 0
   const pulseScale =
-    effect.pulse && effect.pulseTimeMs > 0 ? 1 + (Math.sin((elapsedMs / effect.pulseTimeMs) * Math.PI * 2) + 1) * 0.5 * (effect.pulseAmount - 1) : 1
+    effect.pulse && effect.pulseTimeMs > 0
+      ? 1 + (Math.sin((elapsedMs / effect.pulseTimeMs) * Math.PI * 2) + 1) * 0.5 * (effect.pulseAmount - 1)
+      : 1
   const opacity = Math.max(0, effect.alpha - effect.alphaFade * framesElapsed)
   const shakeOffsetX = effect.shakeIntensity > 0 ? Math.sin(elapsedMs / 30) * effect.shakeIntensity * 4 : 0
   const shakeOffsetY = effect.shakeIntensity > 0 ? Math.cos(elapsedMs / 24) * effect.shakeIntensity * 2 : 0
@@ -706,7 +725,7 @@ async function resolveFarmerAppearanceAssets(
   profile: PlayerAppearanceProfile | null,
   locale: LocaleCode,
 ): Promise<FarmerAppearanceAssetState | null> {
-  const isFemale = profile?.isFemale ?? (spriteAsset?.textureName?.includes('girl') ?? false)
+  const isFemale = profile?.isFemale ?? spriteAsset?.textureName?.includes('girl') ?? false
   const [hairAsset, shirtsAsset, pantsAsset, accessoriesAsset, hatsAsset, skinColorsAsset, shoeColorsAsset] = await Promise.all([
     resolveContentImage(rootPath, 'Characters/Farmer/hairstyles'),
     resolveContentImage(rootPath, 'Characters/Farmer/shirts'),
@@ -725,8 +744,7 @@ async function resolveFarmerAppearanceAssets(
   const hatMetadataIndex: Record<string, HatMetadataEntry> = profile?.hatItemId ? await loadHatMetadataIndex(rootPath, locale) : {}
   const hatMetadata = profile?.hatItemId ? hatMetadataIndex[profile.hatItemId] : undefined
   const hairStyleIndex = profile?.hairStyleIndex ?? DEFAULT_FARMER_HAIR_STYLE_INDEX
-  const obscuredHairBaseIndex =
-    hatMetadata?.hairDrawMode === 'cover' ? getFarmerObscuredHairStyleIndex(hairStyleIndex) : hairStyleIndex
+  const obscuredHairBaseIndex = hatMetadata?.hairDrawMode === 'cover' ? getFarmerObscuredHairStyleIndex(hairStyleIndex) : hairStyleIndex
   const obscuredHairMetadata = hairMetadataIndex[String(obscuredHairBaseIndex)] ?? null
   const obscuredHairStyleIndex =
     hatMetadata?.hairDrawMode === 'cover' && obscuredHairMetadata?.coveredIndex != null && obscuredHairMetadata.coveredIndex !== -1
@@ -798,18 +816,17 @@ async function resolveActorAssets(request: ActorAssetRequest, rootPath: string |
   const normalizedActorName = normalizeActorName(request.actorName)
   const farmerAppearance =
     normalizedActorName === 'farmer' || isFarmerActor(normalizedActorName)
-      ? await resolveFarmerAppearanceAssets(
-          rootPath,
-          spriteAsset,
-          request.farmerAppearanceProfile,
-          locale,
-        )
+      ? await resolveFarmerAppearanceAssets(rootPath, spriteAsset, request.farmerAppearanceProfile, locale)
       : null
 
   return {
     requestKey: request.requestKey,
     textureName:
-      spriteAsset?.textureName ?? portraitAsset?.textureName ?? request.portraitTextureCandidates[0] ?? request.spriteTextureCandidates[0] ?? null,
+      spriteAsset?.textureName ??
+      portraitAsset?.textureName ??
+      request.portraitTextureCandidates[0] ??
+      request.spriteTextureCandidates[0] ??
+      null,
     spriteTextureName: spriteAsset?.textureName ?? null,
     portraitTextureName: portraitAsset?.textureName ?? null,
     spritePath: spriteAsset?.path ?? null,
@@ -835,7 +852,6 @@ function areAssetMapsEqual(left: Record<string, ActorAssetState>, right: Record<
   return leftKeys.every((key) => left[key] === right[key])
 }
 
-
 export {
   areAssetMapsEqual,
   buildCharacterTextureIndex,
@@ -851,4 +867,3 @@ export {
   resolveActorAssets,
   resolveEffectAsset,
 }
-

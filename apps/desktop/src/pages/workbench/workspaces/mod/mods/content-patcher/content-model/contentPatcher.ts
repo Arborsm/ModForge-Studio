@@ -160,9 +160,7 @@ function normalizePatchTarget(value: unknown) {
   return ''
 }
 
-function normalizeBackendSimulationContext(
-  context: ContentPatcherBackendSimulationContext,
-): DesktopContentPatcherSimulationContext {
+function normalizeBackendSimulationContext(context: ContentPatcherBackendSimulationContext): DesktopContentPatcherSimulationContext {
   const season = context.season.trim()
   const weather = context.weather.trim()
   const playerName = context.playerName.trim()
@@ -270,7 +268,9 @@ function buildPatchSummary(index: number, patch: JsonObject): ContentPatcherPatc
   const logName = asTrimmedString(patch.LogName) || (target ? `${action} -> ${target}` : `${action} #${index}`)
   const whenKeys = isJsonObject(patch.When) ? Object.keys(patch.When).sort((left, right) => left.localeCompare(right)) : []
   const updateKeys = Array.isArray(patch.Update)
-    ? patch.Update.filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean)
+    ? patch.Update.filter((entry): entry is string => typeof entry === 'string')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
     : []
 
   return {
@@ -327,7 +327,7 @@ export function summarizeContentPatcherContent(value: unknown) {
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, definition]) => ({
           key,
-          defaultValue: isJsonObject(definition) ? definition.Default ?? null : null,
+          defaultValue: isJsonObject(definition) ? (definition.Default ?? null) : null,
         }))
     : []
   const configKeys = configEntries.map((entry) => entry.key)

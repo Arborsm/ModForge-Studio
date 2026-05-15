@@ -54,14 +54,9 @@ function renderValue(value: string | null | undefined, fallback: string) {
   return normalized ? normalized : fallback
 }
 
-export function EventCommandInspectorPanel({
-  locale,
-  selectedEvent,
-  selectedTimelineEntryId,
-}: EventCommandInspectorPanelProps) {
+export function EventCommandInspectorPanel({ locale, selectedEvent, selectedTimelineEntryId }: EventCommandInspectorPanelProps) {
   const labels = buildInspectorLabels(locale)
-  const selectedEntry =
-    buildEventTimelineEntries(selectedEvent, locale).find((entry) => entry.id === selectedTimelineEntryId) ?? null
+  const selectedEntry = buildEventTimelineEntries(selectedEvent, locale).find((entry) => entry.id === selectedTimelineEntryId) ?? null
   const isSetupEntry = selectedEntry?.id === EVENT_SETUP_ENTRY_ID
   const command = selectedEntry?.command ?? null
 
@@ -77,15 +72,15 @@ export function EventCommandInspectorPanel({
           <PanelSection>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.music}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.music}</p>
                 <p className="mt-1 text-sm text-[var(--text-primary)]">{renderValue(selectedEvent.scene.musicCue, labels.none)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.camera}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.camera}</p>
                 <p className="mt-1 text-sm text-[var(--text-primary)]">{renderValue(selectedEvent.scene.cameraInstruction, labels.none)}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.actors}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.actors}</p>
                 <p className="mt-1 text-sm text-[var(--text-primary)]">{selectedEvent.scene.actors.length}</p>
               </div>
             </div>
@@ -96,24 +91,24 @@ export function EventCommandInspectorPanel({
           <PanelSection>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.command}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.command}</p>
                 <p className="mt-1 text-sm text-[var(--text-primary)]">{command.command}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.kind}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.kind}</p>
                 <p className="mt-1 text-sm text-[var(--text-primary)]">{command.kind}</p>
               </div>
 
               {command.actorName ? (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.actor}</p>
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.actor}</p>
                   <p className="mt-1 text-sm text-[var(--text-primary)]">{command.actorName}</p>
                 </div>
               ) : null}
 
               {command.targetEventKey ? (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.target}</p>
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.target}</p>
                   <p className="mt-1 text-sm text-[var(--text-primary)]">{command.targetEventKey}</p>
                 </div>
               ) : null}
@@ -121,21 +116,21 @@ export function EventCommandInspectorPanel({
 
             {command.text ? (
               <div className="mt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.text}</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{command.text}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.text}</p>
+                <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-[var(--text-primary)]">{command.text}</p>
               </div>
             ) : null}
 
             {command.prompt ? (
               <div className="mt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.question}</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[var(--text-primary)]">{command.prompt}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.question}</p>
+                <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-[var(--text-primary)]">{command.prompt}</p>
               </div>
             ) : null}
 
             {command.choices?.length ? (
               <div className="mt-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{labels.choices}</p>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{labels.choices}</p>
                 <div className="mt-2 space-y-2">
                   {command.choices.map((choice, index) => (
                     <div key={choice.id} className="panel-list-card px-3 py-2 text-sm text-[var(--text-primary)]">
@@ -150,18 +145,18 @@ export function EventCommandInspectorPanel({
 
         {!isSetupEntry && command ? (
           <PanelSection title={labels.args} bodyClassName="space-y-2">
-              {command.args.map((arg, index) => (
-                <div key={`${command.id}:arg:${index}`} className="panel-list-card grid grid-cols-[56px_minmax(0,1fr)] gap-3 px-3 py-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">arg {index}</span>
-                  <span className="break-all text-sm text-[var(--text-primary)]">{arg || labels.none}</span>
-                </div>
-              ))}
+            {command.args.map((arg, index) => (
+              <div key={`${command.id}:arg:${index}`} className="panel-list-card grid grid-cols-[56px_minmax(0,1fr)] gap-3 px-3 py-2">
+                <span className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">arg {index}</span>
+                <span className="text-sm break-all text-[var(--text-primary)]">{arg || labels.none}</span>
+              </div>
+            ))}
           </PanelSection>
         ) : null}
 
         {!isSetupEntry && selectedEntry?.command?.raw ? (
           <PanelSection title={labels.raw}>
-            <pre className="mt-2 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-[var(--text-primary)]">
+            <pre className="mt-2 overflow-auto text-xs leading-5 break-all whitespace-pre-wrap text-[var(--text-primary)]">
               {selectedEntry.command.raw}
             </pre>
           </PanelSection>

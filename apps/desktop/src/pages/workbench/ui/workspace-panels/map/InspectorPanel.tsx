@@ -94,7 +94,7 @@ export function InspectorPanel({ mapDocument, modSources = [], moduleBlueprint }
               </div>
             </div>
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Mod Sources</p>
+              <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">Mod Sources</p>
               <div className="mt-3">
                 <ModSourceList sources={modSources} />
               </div>

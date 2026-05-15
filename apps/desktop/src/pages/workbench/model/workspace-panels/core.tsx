@@ -1,8 +1,4 @@
-import {
-  DeferredWorkspaceCrossfade,
-  DeferredWorkspacePlaceholder,
-  DeferredWorkspaceReveal,
-} from '@shared/ui/WorkspaceDeferred'
+import { DeferredWorkspaceCrossfade, DeferredWorkspacePlaceholder, DeferredWorkspaceReveal } from '@shared/ui/WorkspaceDeferred'
 import { Suspense, type ReactNode } from 'react'
 import { EventStageWorkspace } from '../../workspaces/event-stage'
 import { CentralWorkspace } from '../../workspaces/map'
@@ -152,11 +148,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
   } = options
 
   const withPreviewReveal = (itemId: string, index: number, content: ReactNode) => (
-    <LoadingMotionReveal
-      itemId={itemId}
-      index={index}
-      className="h-full min-h-0"
-    >
+    <LoadingMotionReveal itemId={itemId} index={index} className="h-full min-h-0">
       {content}
     </LoadingMotionReveal>
   )
@@ -171,83 +163,82 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       dockMinHeight: 240,
       defaultDock: 'left-top',
       defaultDockHeight: 760,
-      content: workspaceMode === 'events' ? (
-        withPreviewReveal(
-          'workbench-events-browser',
-          0,
-          <EventBrowserPanel
-            locale={locale}
-            eventAssets={eventAssets}
-            filteredEventAssets={filteredEventAssets}
-            browserSourceMode={eventBrowserSourceMode}
-            onBrowserSourceModeChange={onEventBrowserSourceModeChange}
-            modEventGroups={modEventGroups}
-            activeModEventSelectionId={activeModEventSelectionId}
-            activeEventAssetId={activeEventAssetId}
-            assetFilter={eventAssetFilter}
-            onAssetFilterChange={onEventAssetFilterChange}
-            onOpenAsset={onOpenEventAsset}
-            onOpenModAsset={onOpenModEventAsset}
-          />,
-        )
-      ) : workspaceMode === 'characters' ? (
-        withPreviewReveal(
-          'workbench-characters-browser',
-          0,
-          <CharacterBrowserPanel
-            characters={characters}
-            filteredCharacters={filteredCharacters}
-            browserSourceMode={characterBrowserSourceMode}
-            onBrowserSourceModeChange={onCharacterBrowserSourceModeChange}
-            modCharacterGroups={modCharacterGroups}
-            activeModCharacterSelectionId={activeModCharacterSelectionId}
-            activeCharacterId={activeCharacterId}
-            characterFilter={characterFilter}
-            onCharacterFilterChange={onCharacterFilterChange}
-            onSelectCharacter={onSelectCharacter}
-            onSelectModCharacter={onSelectModCharacter}
-          />,
-        )
-      ) : workspaceMode === 'buildings' ? (
-        withPreviewReveal(
-          'workbench-buildings-browser',
-          0,
-          <BuildingBrowserPanel
-            constructibleGroups={constructibleGroups}
-            filteredConstructibleGroups={filteredConstructibleGroups}
-            worldBuildings={worldBuildings}
-            filteredWorldBuildings={filteredWorldBuildings}
-            browserSourceMode={buildingBrowserSourceMode}
-            onBrowserSourceModeChange={onBuildingBrowserSourceModeChange}
-            modBuildingGroups={modBuildingGroups}
-            activeModBuildingSelectionId={activeModBuildingSelectionId}
-            activeBuildingId={activeBuildingId}
-            activeBuildingGroupKey={activeBuilding?.groupKey ?? null}
-            buildingFilter={buildingFilter}
-            onBuildingFilterChange={onBuildingFilterChange}
-            onSelectBuilding={onSelectBuilding}
-            onSelectModBuilding={onSelectModBuilding}
-          />,
-        )
-      ) : (
-        withPreviewReveal(
-          'workbench-map-browser',
-          0,
-          <AssetBrowserPanel
-            mapAssets={mapAssets}
-            filteredAssets={filteredAssets}
-            browserSourceMode={mapBrowserSourceMode}
-            onBrowserSourceModeChange={onMapBrowserSourceModeChange}
-            modMapGroups={modMapGroups}
-            activeModMapSelectionId={activeModMapSelectionId}
-            activeMapId={activeMapId}
-            assetFilter={assetFilter}
-            onAssetFilterChange={onAssetFilterChange}
-            onOpenAsset={onOpenAsset}
-            onOpenModAsset={onOpenModAsset}
-          />,
-        )
-      ),
+      content:
+        workspaceMode === 'events'
+          ? withPreviewReveal(
+              'workbench-events-browser',
+              0,
+              <EventBrowserPanel
+                locale={locale}
+                eventAssets={eventAssets}
+                filteredEventAssets={filteredEventAssets}
+                browserSourceMode={eventBrowserSourceMode}
+                onBrowserSourceModeChange={onEventBrowserSourceModeChange}
+                modEventGroups={modEventGroups}
+                activeModEventSelectionId={activeModEventSelectionId}
+                activeEventAssetId={activeEventAssetId}
+                assetFilter={eventAssetFilter}
+                onAssetFilterChange={onEventAssetFilterChange}
+                onOpenAsset={onOpenEventAsset}
+                onOpenModAsset={onOpenModEventAsset}
+              />,
+            )
+          : workspaceMode === 'characters'
+            ? withPreviewReveal(
+                'workbench-characters-browser',
+                0,
+                <CharacterBrowserPanel
+                  characters={characters}
+                  filteredCharacters={filteredCharacters}
+                  browserSourceMode={characterBrowserSourceMode}
+                  onBrowserSourceModeChange={onCharacterBrowserSourceModeChange}
+                  modCharacterGroups={modCharacterGroups}
+                  activeModCharacterSelectionId={activeModCharacterSelectionId}
+                  activeCharacterId={activeCharacterId}
+                  characterFilter={characterFilter}
+                  onCharacterFilterChange={onCharacterFilterChange}
+                  onSelectCharacter={onSelectCharacter}
+                  onSelectModCharacter={onSelectModCharacter}
+                />,
+              )
+            : workspaceMode === 'buildings'
+              ? withPreviewReveal(
+                  'workbench-buildings-browser',
+                  0,
+                  <BuildingBrowserPanel
+                    constructibleGroups={constructibleGroups}
+                    filteredConstructibleGroups={filteredConstructibleGroups}
+                    worldBuildings={worldBuildings}
+                    filteredWorldBuildings={filteredWorldBuildings}
+                    browserSourceMode={buildingBrowserSourceMode}
+                    onBrowserSourceModeChange={onBuildingBrowserSourceModeChange}
+                    modBuildingGroups={modBuildingGroups}
+                    activeModBuildingSelectionId={activeModBuildingSelectionId}
+                    activeBuildingId={activeBuildingId}
+                    activeBuildingGroupKey={activeBuilding?.groupKey ?? null}
+                    buildingFilter={buildingFilter}
+                    onBuildingFilterChange={onBuildingFilterChange}
+                    onSelectBuilding={onSelectBuilding}
+                    onSelectModBuilding={onSelectModBuilding}
+                  />,
+                )
+              : withPreviewReveal(
+                  'workbench-map-browser',
+                  0,
+                  <AssetBrowserPanel
+                    mapAssets={mapAssets}
+                    filteredAssets={filteredAssets}
+                    browserSourceMode={mapBrowserSourceMode}
+                    onBrowserSourceModeChange={onMapBrowserSourceModeChange}
+                    modMapGroups={modMapGroups}
+                    activeModMapSelectionId={activeModMapSelectionId}
+                    activeMapId={activeMapId}
+                    assetFilter={assetFilter}
+                    onAssetFilterChange={onAssetFilterChange}
+                    onOpenAsset={onOpenAsset}
+                    onOpenModAsset={onOpenModAsset}
+                  />,
+                ),
     },
     {
       id: 'viewport',
@@ -257,39 +248,40 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
       minHeight: 420,
       defaultDock: 'center',
       defaultDockHeight: 760,
-      content: workspaceMode === 'events' ? (
-        withPreviewReveal(
-          'workbench-events-viewport',
-          1,
-          <EventStageWorkspace
-            key={`${selectedEvent?.key ?? 'none'}:${parsedEventAsset?.asset.relativePath ?? 'none'}`}
-            locale={locale}
-            directoryInfo={directoryInfo}
-            viewportLabels={copy.viewportLabels}
-            theme={theme}
-            accentColor={accentColor}
-            parsedEventAsset={parsedEventAsset}
-            selectedEvent={selectedEvent}
-            eventStatusMessage={eventStatusMessage}
-            playerAppearanceProfile={activePlayerAppearanceProfile}
-            onSelectTimelineEntry={onSelectTimelineEntry}
-            onPlaybackCommandChange={onPlaybackCommandChange}
-            onStageSeekReady={onStageSeekReady}
-            onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
-          />,
-        )
-      ) : workspaceMode === 'characters' ? (
-        <DeferredWorkspaceCrossfade
-          ready={heavyWorkspaceReady}
-          placeholder={
-            <DeferredWorkspacePlaceholder
-              title={copy.charactersPanel.workspaceTitle}
-              subtitle={copy.charactersPanel.workspaceSubtitle}
-              lines={4}
-            />
-          }
-        >
-          <DeferredWorkspaceReveal>
+      content:
+        workspaceMode === 'events' ? (
+          withPreviewReveal(
+            'workbench-events-viewport',
+            1,
+            <EventStageWorkspace
+              key={`${selectedEvent?.key ?? 'none'}:${parsedEventAsset?.asset.relativePath ?? 'none'}`}
+              locale={locale}
+              directoryInfo={directoryInfo}
+              viewportLabels={copy.viewportLabels}
+              theme={theme}
+              accentColor={accentColor}
+              parsedEventAsset={parsedEventAsset}
+              selectedEvent={selectedEvent}
+              eventStatusMessage={eventStatusMessage}
+              playerAppearanceProfile={activePlayerAppearanceProfile}
+              onSelectTimelineEntry={onSelectTimelineEntry}
+              onPlaybackCommandChange={onPlaybackCommandChange}
+              onStageSeekReady={onStageSeekReady}
+              onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
+            />,
+          )
+        ) : workspaceMode === 'characters' ? (
+          <DeferredWorkspaceCrossfade
+            ready={heavyWorkspaceReady}
+            placeholder={
+              <DeferredWorkspacePlaceholder
+                title={copy.charactersPanel.workspaceTitle}
+                subtitle={copy.charactersPanel.workspaceSubtitle}
+                lines={4}
+              />
+            }
+          >
+            <DeferredWorkspaceReveal>
               {withPreviewReveal(
                 'workbench-characters-viewport',
                 1,
@@ -301,46 +293,46 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               )}
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
-      ) : workspaceMode === 'buildings' ? (
-        <Suspense
-          fallback={
-            <DeferredWorkspacePlaceholder
-              title={copy.buildingsPanel.workspaceTitle}
-              subtitle={copy.buildingsPanel.workspaceSubtitle}
-              lines={5}
-            />
-          }
-        >
-          {withPreviewReveal(
-            'workbench-buildings-viewport',
-            1,
-            <BuildingWorkspace
-              locale={locale}
-              viewportLabels={copy.viewportLabels}
-              theme={theme}
-              accentColor={accentColor}
-              building={activeBuilding}
-              upgradeChain={activeUpgradeChain}
-              activeTextureState={activeBuildingTextureState}
-              chainTextureStates={activeBuildingChainTextureStates}
-              activeIndoorMapDocument={activeBuildingIndoorMapDocument}
-              activeIndoorMapPath={activeBuildingIndoorMapPath}
-              activeIndoorMapMessage={activeBuildingIndoorMapMessage}
-              activeExteriorMapDocument={activeBuildingExteriorMapDocument}
-              activeExteriorMapPath={activeBuildingExteriorMapPath}
-              activeExteriorMapMessage={activeBuildingExteriorMapMessage}
-              activeExteriorFocusPoint={activeBuildingExteriorFocusPoint}
-              springObjectsState={buildingSpringObjectsState}
-              onSelectBuildingStage={onSelectBuilding}
-            />,
-          )}
-        </Suspense>
-      ) : workspaceMode === 'map' ? (
-        <DeferredWorkspaceCrossfade
-          ready={heavyWorkspaceReady}
-          placeholder={<DeferredWorkspacePlaceholder title={copy.center.viewport} subtitle={copy.center.activeScene} lines={5} />}
-        >
-          <DeferredWorkspaceReveal>
+        ) : workspaceMode === 'buildings' ? (
+          <Suspense
+            fallback={
+              <DeferredWorkspacePlaceholder
+                title={copy.buildingsPanel.workspaceTitle}
+                subtitle={copy.buildingsPanel.workspaceSubtitle}
+                lines={5}
+              />
+            }
+          >
+            {withPreviewReveal(
+              'workbench-buildings-viewport',
+              1,
+              <BuildingWorkspace
+                locale={locale}
+                viewportLabels={copy.viewportLabels}
+                theme={theme}
+                accentColor={accentColor}
+                building={activeBuilding}
+                upgradeChain={activeUpgradeChain}
+                activeTextureState={activeBuildingTextureState}
+                chainTextureStates={activeBuildingChainTextureStates}
+                activeIndoorMapDocument={activeBuildingIndoorMapDocument}
+                activeIndoorMapPath={activeBuildingIndoorMapPath}
+                activeIndoorMapMessage={activeBuildingIndoorMapMessage}
+                activeExteriorMapDocument={activeBuildingExteriorMapDocument}
+                activeExteriorMapPath={activeBuildingExteriorMapPath}
+                activeExteriorMapMessage={activeBuildingExteriorMapMessage}
+                activeExteriorFocusPoint={activeBuildingExteriorFocusPoint}
+                springObjectsState={buildingSpringObjectsState}
+                onSelectBuildingStage={onSelectBuilding}
+              />,
+            )}
+          </Suspense>
+        ) : workspaceMode === 'map' ? (
+          <DeferredWorkspaceCrossfade
+            ready={heavyWorkspaceReady}
+            placeholder={<DeferredWorkspacePlaceholder title={copy.center.viewport} subtitle={copy.center.activeScene} lines={5} />}
+          >
+            <DeferredWorkspaceReveal>
               {withPreviewReveal(
                 'workbench-map-viewport',
                 1,
@@ -371,38 +363,38 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
               )}
             </DeferredWorkspaceReveal>
           </DeferredWorkspaceCrossfade>
-      ) : (
-        <DeferredWorkspaceReveal>
-          {withPreviewReveal(
-            'workbench-preview-view',
-            1,
-            <CentralWorkspace
-              workspaceMode={workspaceMode}
-              tabs={workspaceTabs}
-              activeTabId={activeTabId}
-              onSelectTab={onSelectWorkspaceTab}
-              onCloseTab={onCloseWorkspaceTab}
-              onReorderTabs={onReorderWorkspaceTabs}
-              mapDocument={mapDocument}
-              worldAtlasViews={worldAtlasViews}
-              activeWorldAtlasViewId={activeWorldAtlasViewId}
-              onSelectWorldAtlasView={onSelectWorldAtlasView}
-              onOpenAtlasTarget={onOpenAtlasTarget}
-              theme={theme}
-              accentColor={accentColor}
-              visibleLayerIds={visibleLayerIds}
-              visibleObjectGroupIds={visibleObjectGroupIds}
-              focusedObjectTarget={focusedObjectTarget}
-              showGameWorldAdditions={showGameWorldAdditions}
-              onToggleGameWorldAdditions={onToggleGameWorldAdditions}
-              worldOverlaySprites={worldOverlaySprites}
-              worldOverlayTextureAssets={worldOverlayTextureAssets}
-              onHoverChange={onHoverChange}
-              moduleBlueprint={moduleBlueprint}
-            />,
-          )}
-        </DeferredWorkspaceReveal>
-      ),
+        ) : (
+          <DeferredWorkspaceReveal>
+            {withPreviewReveal(
+              'workbench-preview-view',
+              1,
+              <CentralWorkspace
+                workspaceMode={workspaceMode}
+                tabs={workspaceTabs}
+                activeTabId={activeTabId}
+                onSelectTab={onSelectWorkspaceTab}
+                onCloseTab={onCloseWorkspaceTab}
+                onReorderTabs={onReorderWorkspaceTabs}
+                mapDocument={mapDocument}
+                worldAtlasViews={worldAtlasViews}
+                activeWorldAtlasViewId={activeWorldAtlasViewId}
+                onSelectWorldAtlasView={onSelectWorldAtlasView}
+                onOpenAtlasTarget={onOpenAtlasTarget}
+                theme={theme}
+                accentColor={accentColor}
+                visibleLayerIds={visibleLayerIds}
+                visibleObjectGroupIds={visibleObjectGroupIds}
+                focusedObjectTarget={focusedObjectTarget}
+                showGameWorldAdditions={showGameWorldAdditions}
+                onToggleGameWorldAdditions={onToggleGameWorldAdditions}
+                worldOverlaySprites={worldOverlaySprites}
+                worldOverlayTextureAssets={worldOverlayTextureAssets}
+                onHoverChange={onHoverChange}
+                moduleBlueprint={moduleBlueprint}
+              />,
+            )}
+          </DeferredWorkspaceReveal>
+        ),
     },
     {
       id: 'inspector',
@@ -446,10 +438,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           <DeferredWorkspaceCrossfade
             ready={heavyWorkspaceReady}
             placeholder={
-              <DeferredWorkspacePlaceholder
-                title={copy.charactersPanel.inspectorTitle}
-                subtitle={copy.charactersPanel.inspectorSubtitle}
-              />
+              <DeferredWorkspacePlaceholder title={copy.charactersPanel.inspectorTitle} subtitle={copy.charactersPanel.inspectorSubtitle} />
             }
           >
             <DeferredWorkspaceReveal>
@@ -525,11 +514,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
           withPreviewReveal(
             'workbench-events-command-inspector',
             3,
-            <EventCommandInspectorPanel
-              locale={locale}
-              selectedEvent={selectedEvent}
-              selectedTimelineEntryId={selectedTimelineEntryId}
-            />,
+            <EventCommandInspectorPanel locale={locale} selectedEvent={selectedEvent} selectedTimelineEntryId={selectedTimelineEntryId} />,
           )
         ) : workspaceMode === 'characters' ? (
           <DeferredWorkspaceCrossfade
@@ -636,11 +621,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
             dockAutoHeight: false,
             defaultDock: 'right-bottom',
             defaultDockHeight: 340,
-            content: withPreviewReveal(
-              'workbench-buildings-details',
-              4,
-              <BuildingDetailsPanel building={activeBuilding} />,
-            ),
+            content: withPreviewReveal('workbench-buildings-details', 4, <BuildingDetailsPanel building={activeBuilding} />),
           } satisfies WorkspacePanelConfig,
         ]
       : [
@@ -689,13 +670,7 @@ export function buildCoreWorkspacePanels(options: BuildWorkspacePanelsOptions): 
                   }
                 >
                   <DeferredWorkspaceReveal>
-                    {withPreviewReveal(
-                      'workbench-characters-relations',
-                      4,
-                      <CharacterRelationsPanel
-                        character={activeCharacter}
-                      />,
-                    )}
+                    {withPreviewReveal('workbench-characters-relations', 4, <CharacterRelationsPanel character={activeCharacter} />)}
                   </DeferredWorkspaceReveal>
                 </DeferredWorkspaceCrossfade>
               ) : workspaceMode === 'map' ? (

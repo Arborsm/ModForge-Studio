@@ -33,10 +33,7 @@ function isDiscoverSort(value: unknown): value is LauncherDiscoverToolbarState['
 }
 
 function isDiscoverTimeRange(value: unknown): value is LauncherDiscoverToolbarState['timeRange'] {
-  return (
-    typeof value === 'string' &&
-    DISCOVER_TIME_RANGE_OPTIONS.includes(value as LauncherDiscoverToolbarState['timeRange'])
-  )
+  return typeof value === 'string' && DISCOVER_TIME_RANGE_OPTIONS.includes(value as LauncherDiscoverToolbarState['timeRange'])
 }
 
 function isDiscoverPageSize(value: unknown): value is number {
@@ -72,9 +69,7 @@ function parseDiscoverPageSize(value: number | string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-export function normalizeLauncherDiscoverToolbarState(
-  input?: LauncherDiscoverToolbarStateInput | null,
-): LauncherDiscoverToolbarState {
+export function normalizeLauncherDiscoverToolbarState(input?: LauncherDiscoverToolbarStateInput | null): LauncherDiscoverToolbarState {
   const ascending = parseOptionalBoolean(input?.ascending)
   const filtersHidden = parseOptionalBoolean(input?.filtersHidden)
   const pageSize = parseDiscoverPageSize(input?.pageSize)
@@ -82,9 +77,7 @@ export function normalizeLauncherDiscoverToolbarState(
   return {
     sort: isDiscoverSort(input?.sort) ? input.sort : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.sort,
     ascending: ascending ?? DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.ascending,
-    timeRange: isDiscoverTimeRange(input?.timeRange)
-      ? input.timeRange
-      : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.timeRange,
+    timeRange: isDiscoverTimeRange(input?.timeRange) ? input.timeRange : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.timeRange,
     pageSize: isDiscoverPageSize(pageSize) ? pageSize : DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.pageSize,
     filtersHidden: filtersHidden ?? DEFAULT_LAUNCHER_DISCOVER_TOOLBAR_STATE.filtersHidden,
   }

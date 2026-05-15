@@ -1,9 +1,4 @@
-import type {
-  LoadingMotionIntensityId,
-  LoadingMotionSpeedId,
-  LoadingMotionSpeedMode,
-  LoadingMotionStyleId,
-} from './loadingMotion'
+import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeedMode, LoadingMotionStyleId } from './loadingMotion'
 
 export type AppUiShellState = {
   appMode: string

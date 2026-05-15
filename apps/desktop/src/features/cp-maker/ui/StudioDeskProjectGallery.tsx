@@ -5,11 +5,7 @@ import type { StudioDeskModel, StudioDeskProjectFilter, StudioDeskProjectStatus 
 import { cx } from '@shared/lib/cx'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
-import {
-  formatStudioTimestamp,
-  getStudioProjectStatusLabel,
-  handleStudioKeyboardAction,
-} from '@features/cp-maker'
+import { formatStudioTimestamp, getStudioProjectStatusLabel, handleStudioKeyboardAction } from '@features/cp-maker'
 
 type StudioDeskProjectGalleryProps = {
   model: StudioDeskModel
@@ -55,7 +51,7 @@ export function StudioDeskProjectGallery({
   }, [model.gallery.projects, normalizedProjectQuery, projectFilter])
 
   const contextProject = contextMenu
-    ? model.gallery.projects.find((project) => project.draftStorageKey === contextMenu.draftStorageKey) ?? null
+    ? (model.gallery.projects.find((project) => project.draftStorageKey === contextMenu.draftStorageKey) ?? null)
     : null
 
   function openDraft(draftStorageKey: string) {
@@ -82,9 +78,7 @@ export function StudioDeskProjectGallery({
     setContextMenu(null)
     setPendingDelete({
       keys,
-      message: keys.length === 1
-        ? desk.deleteProjectMessage(names[0] ?? keys[0] ?? '')
-        : desk.deleteProjectsMessage(keys.length),
+      message: keys.length === 1 ? desk.deleteProjectMessage(names[0] ?? keys[0] ?? '') : desk.deleteProjectsMessage(keys.length),
     })
   }
 
@@ -145,9 +139,18 @@ export function StudioDeskProjectGallery({
           <div className="studio-control-block">
             <div className="studio-control-label">{desk.overview}</div>
             <div className="studio-control-stats">
-              <div><strong>{model.gallery.counts.all}</strong><span>{desk.totalProjects}</span></div>
-              <div><strong>{model.gallery.counts.export}</strong><span>{desk.waitingExport}</span></div>
-              <div><strong>{model.gallery.counts.conflict}</strong><span>{desk.needsAttention}</span></div>
+              <div>
+                <strong>{model.gallery.counts.all}</strong>
+                <span>{desk.totalProjects}</span>
+              </div>
+              <div>
+                <strong>{model.gallery.counts.export}</strong>
+                <span>{desk.waitingExport}</span>
+              </div>
+              <div>
+                <strong>{model.gallery.counts.conflict}</strong>
+                <span>{desk.needsAttention}</span>
+              </div>
             </div>
           </div>
 
@@ -158,7 +161,11 @@ export function StudioDeskProjectGallery({
                 <button type="button" className="control-button text-xs" onClick={() => setSelectedProjectKeys(new Set())}>
                   {desk.clearSelection}
                 </button>
-                <button type="button" className="control-button text-xs text-red-400" onClick={() => requestProjectDelete(Array.from(selectedProjectKeys))}>
+                <button
+                  type="button"
+                  className="control-button text-xs text-red-400"
+                  onClick={() => requestProjectDelete(Array.from(selectedProjectKeys))}
+                >
                   {desk.bulkDelete}
                 </button>
               </div>
@@ -211,12 +218,20 @@ export function StudioDeskProjectGallery({
                     <div className={cx('studio-cover-art', `studio-cover-${project.coverTone}`)}>
                       {project.isCurrent ? <span className="studio-current-label">{desk.currentActive}</span> : null}
                       <div className="studio-status-badges" aria-label={desk.patchCatalog.status}>
-                        {project.statuses.filter((status) => status !== 'active').map((status) => (
-                          <span key={status} className={cx('studio-status-badge', `studio-status-badge-${status}`)} aria-label={getStudioProjectStatusLabel(desk, status)} />
-                        ))}
+                        {project.statuses
+                          .filter((status) => status !== 'active')
+                          .map((status) => (
+                            <span
+                              key={status}
+                              className={cx('studio-status-badge', `studio-status-badge-${status}`)}
+                              aria-label={getStudioProjectStatusLabel(desk, status)}
+                            />
+                          ))}
                       </div>
                       <div className="studio-cover-fingerprint" aria-hidden="true">
-                        {Array.from({ length: 10 }).map((_, index) => <span key={index} />)}
+                        {Array.from({ length: 10 }).map((_, index) => (
+                          <span key={index} />
+                        ))}
                       </div>
                       <div className="studio-cover-name">{project.title}</div>
                       <div className="studio-current-note">{formatStudioTimestamp(desk, project.lastEditedAt)}</div>

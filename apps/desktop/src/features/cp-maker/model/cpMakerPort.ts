@@ -73,8 +73,16 @@ export interface CpMakerPort {
   scanMaps(path: string, locale?: string): Promise<CpMakerMapAssetSummary[]>
   scanEvents(path: string): Promise<CpMakerEventAssetSummary[]>
   scanModProjects(rootPath: string): Promise<CpMakerModProjectSummary[]>
-  loadMapAsset(rootPath: string, mapPath: string, locale?: string): Promise<{ name: string; format: string; absolutePath: string; relativePath: string; content: string }>
-  loadTextAsset(rootPath: string, assetPath: string, locale?: string): Promise<{ absolutePath: string; relativePath: string; content: string }>
+  loadMapAsset(
+    rootPath: string,
+    mapPath: string,
+    locale?: string,
+  ): Promise<{ name: string; format: string; absolutePath: string; relativePath: string; content: string }>
+  loadTextAsset(
+    rootPath: string,
+    assetPath: string,
+    locale?: string,
+  ): Promise<{ absolutePath: string; relativePath: string; content: string }>
   loadImageDataUrl(path: string, locale?: string): Promise<string>
 }
 

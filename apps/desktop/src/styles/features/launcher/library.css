@@ -100,7 +100,11 @@
       radial-gradient(circle at 74% 34%, rgba(255, 255, 255, 0.86) 0 0.7px, transparent 1px),
       radial-gradient(circle at 46% 72%, rgba(255, 255, 255, 0.78) 0 0.6px, transparent 1px),
       radial-gradient(circle at 82% 82%, rgba(255, 255, 255, 0.8) 0 0.8px, transparent 1px);
-    background-size: 18px 18px, 22px 22px, 16px 16px, 24px 24px;
+    background-size:
+      18px 18px,
+      22px 22px,
+      16px 16px,
+      24px 24px;
     mix-blend-mode: soft-light;
     pointer-events: none;
   }
@@ -110,13 +114,7 @@
     inset: 0;
     z-index: 2;
     height: 100%;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0) 58%,
-        rgba(0, 0, 0, 0.08) 100%
-      );
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0) 58%, rgba(0, 0, 0, 0.08) 100%);
     pointer-events: none;
   }
 
@@ -179,12 +177,11 @@
     max-height: min(82vh, 920px);
     margin: 0;
     border-radius: 22px;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bg-panel-muted) 94%, white 6%),
-        color-mix(in srgb, var(--bg-panel) 100%, transparent)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel-muted) 94%, white 6%),
+      color-mix(in srgb, var(--bg-panel) 100%, transparent)
+    );
     box-shadow: 0 28px 60px rgba(15, 23, 42, 0.26);
     overflow: hidden;
   }
@@ -1080,7 +1077,7 @@
 
   .launcher-library-pack-row-shell:hover .launcher-library-pack-row-menu-button,
   .launcher-library-pack-row-menu-button:focus-visible,
-  .launcher-library-pack-row-menu-button[aria-expanded='true'] {
+  .launcher-library-pack-row-menu-button[aria-expanded="true"] {
     opacity: 1;
   }
 
@@ -1520,7 +1517,11 @@
     justify-content: center;
     background:
       radial-gradient(circle at top, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
-      linear-gradient(160deg, color-mix(in srgb, var(--bg-panel) 94%, transparent), color-mix(in srgb, var(--bg-panel-muted) 92%, transparent));
+      linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--bg-panel) 94%, transparent),
+        color-mix(in srgb, var(--bg-panel-muted) 92%, transparent)
+      );
   }
 
   .launcher-gallery-cover-image {
@@ -1584,8 +1585,7 @@
     justify-content: center;
     padding: 24px;
     background:
-      linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(15, 23, 42, 0.08)),
-      rgba(248, 250, 252, 0.92);
+      linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), rgba(15, 23, 42, 0.08)), rgba(248, 250, 252, 0.92);
     backdrop-filter: blur(10px);
     pointer-events: none;
   }
@@ -1694,13 +1694,12 @@
     min-height: 0;
     aspect-ratio: 96 / 55;
     border-radius: 10px;
-    background:
-      linear-gradient(
-        180deg,
-        var(--launcher-cover-bright, var(--accent)),
-        var(--launcher-cover-base, var(--accent)),
-        var(--launcher-cover-dark, color-mix(in srgb, var(--accent) 72%, black))
-      );
+    background: linear-gradient(
+      180deg,
+      var(--launcher-cover-bright, var(--accent)),
+      var(--launcher-cover-base, var(--accent)),
+      var(--launcher-cover-dark, color-mix(in srgb, var(--accent) 72%, black))
+    );
     border: 0;
     box-shadow: none;
     overflow: hidden;
@@ -1817,7 +1816,7 @@
   }
 
   .launcher-mod-card-unselected::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background: rgba(255, 255, 255, 0.5);

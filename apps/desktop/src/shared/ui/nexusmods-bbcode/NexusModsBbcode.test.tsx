@@ -5,25 +5,18 @@ import { NexusModsBbcode } from './NexusModsBbcode'
 describe('NexusModsBbcode', () => {
   it('renders NexusMods BBCode as React elements without injecting raw HTML', () => {
     const { container } = render(
-      <NexusModsBbcode
-        source="[center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b][/center] [url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][list][*]green = [color=#93c47d]NEW[/color][/list]"
-      />,
+      <NexusModsBbcode source="[center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b][/center] [url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][list][*]green = [color=#93c47d]NEW[/color][/list]" />,
     )
 
     expect(screen.getByText('Basic Bedroom Furniture')).toHaveStyle({ color: '#f6b26b' })
-    expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute(
-      'href',
-      'https://www.nexusmods.com/stardewvalley/mods/23073',
-    )
+    expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute('href', 'https://www.nexusmods.com/stardewvalley/mods/23073')
     expect(container.querySelector('.nexusmods-bbcode-align-center')).toBeTruthy()
     expect(container.querySelector('ul')).toBeTruthy()
     expect(container.innerHTML).not.toContain('[color=#f6b26b]')
   })
 
   it('does not render unsafe links or unsafe color values as active attributes', () => {
-    const { container } = render(
-      <NexusModsBbcode source="[url=javascript:alert(1)]bad[/url] [color=expression(alert(1))]red[/color]" />,
-    )
+    const { container } = render(<NexusModsBbcode source="[url=javascript:alert(1)]bad[/url] [color=expression(alert(1))]red[/color]" />)
 
     expect(screen.queryByRole('link', { name: 'bad' })).toBeNull()
     expect(screen.getByText('bad')).toBeTruthy()
@@ -48,9 +41,7 @@ describe('NexusModsBbcode', () => {
   })
 
   it('renders decorative furniture section labels as block headings instead of joining the previous line', () => {
-    const { container } = render(
-      <NexusModsBbcode source={'﻿- blocky single bed [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table'} />,
-    )
+    const { container } = render(<NexusModsBbcode source={'﻿- blocky single bed [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table'} />)
 
     const heading = screen.getByText('ꕥ end table')
     expect(heading.closest('.nexusmods-bbcode-section-heading')).toBeTruthy()
@@ -61,11 +52,7 @@ describe('NexusModsBbcode', () => {
   })
 
   it('does not add an empty line between furniture headings and their first copied NexusMods item', () => {
-    const { container } = render(
-      <NexusModsBbcode
-        source={'[i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed'}
-      />,
-    )
+    const { container } = render(<NexusModsBbcode source={'[i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed'} />)
 
     const heading = screen.getByText('ꕥ beds')
     expect(heading.closest('.nexusmods-bbcode-section-heading')).toBeTruthy()
@@ -75,9 +62,7 @@ describe('NexusModsBbcode', () => {
 
   it('maps copied NexusMods furniture item markers to nested visual indentation', () => {
     const { container } = render(
-      <NexusModsBbcode
-        source={'[i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- blocky double bed'}
-      />,
+      <NexusModsBbcode source={'[i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- blocky double bed'} />,
     )
 
     const indents = Array.from(container.querySelectorAll('.nexusmods-bbcode-indent'))
@@ -89,9 +74,7 @@ describe('NexusModsBbcode', () => {
 
   it('does not leave an isolated copied list marker before the next furniture heading', () => {
     const { container } = render(
-      <NexusModsBbcode
-        source={'﻿ ﻿- [color=#93c47d]blocky single bed[/color] [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table'}
-      />,
+      <NexusModsBbcode source={'﻿ ﻿- [color=#93c47d]blocky single bed[/color] [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table'} />,
     )
 
     const heading = screen.getByText('ꕥ end table').closest('.nexusmods-bbcode-section-heading')

@@ -11,6 +11,7 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 ## 技术栈与运行时架构
 
 ### 前端
+
 - **框架**: React 19（函数组件 + Hooks）
 - **语言**: TypeScript 6（严格模式，`verbatimModuleSyntax` 开启）
 - **构建工具**: Vite 8（`configLoader runner` 模式）
@@ -23,6 +24,7 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 - **桌面桥接**: `@tauri-apps/api` + `@tauri-apps/plugin-dialog`
 
 ### 后端
+
 - **框架**: Tauri v2（Rust）
 - **关键依赖**:
   - `serde` / `serde_json` — 序列化
@@ -34,6 +36,7 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
   - `winreg` — Windows 注册表读取（仅 Windows）
 
 ### 构建产物
+
 - 前端静态资源输出到 `apps/desktop/dist`
 - Tauri 在构建/开发时自动将 `dist` 作为 `frontendDist`
 - Rust 编译产物在 `apps/desktop/src-tauri/target`
@@ -63,12 +66,15 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 │  ├─ package.json                 # @modforge/desktop 包脚本与依赖
 │  ├─ vite.config.ts               # Vite 构建与开发服务器配置
 │  ├─ vitest.config.ts             # Vitest 测试配置
-│  ├─ eslint.config.js             # ESLint 配置（typescript-eslint + react-hooks + react-refresh）
+│  ├─ eslint.config.js             # ESLint 配置（typescript-eslint + react-hooks + react-refresh + eslint-config-prettier）
 │  ├─ tsconfig.json                # TypeScript 项目引用根
 │  ├─ tsconfig.app.json            # 前端源码 TS 配置
 │  ├─ tsconfig.node.json           # 构建工具/Node 侧 TS 配置
 │  ├─ postcss.config.cjs           # PostCSS 配置（Tailwind + autoprefixer）
 │  └─ index.html                   # 前端入口 HTML
+├─ .husky/pre-commit               # Git pre-commit hook（lint-staged 格式化暂存文件）
+├─ .prettierrc                     # Prettier 配置与 prettier-plugin-tailwindcss
+├─ .prettierignore                 # Prettier 忽略范围
 ├─ package.json                    # 根脚本入口（委托给 workspace 子包）
 ├─ pnpm-workspace.yaml             # pnpm workspace 包范围定义
 ├─ .editorconfig                   # 编码风格基础约定
@@ -157,6 +163,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 所有命令默认从仓库根目录运行。
 
 ### 前端
+
 ```bash
 # 仅启动前端 Vite 开发服务器
 pnpm dev
@@ -170,11 +177,18 @@ pnpm build
 # 前端 lint
 pnpm lint
 
+# 格式化前端、配置、文档等 Prettier 支持的文件
+pnpm format
+
+# 检查 Prettier 格式，不写入文件
+pnpm format:check
+
 # 运行前端 Vitest 测试套件
 pnpm --filter @modforge/desktop test
 ```
 
 ### 后端（Rust）
+
 ```bash
 # 格式化 Rust 后端
 cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml
@@ -187,12 +201,18 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
 ### 环境管理
+
 - 使用 `uv` 进行包管理和命令运行（`uv run pnpm dev` 等）。
 - 使用 `pnpm@10.30.3`（在 `packageManager` 字段锁定）。
 
 ## 代码风格与命名规范
 
 - 遵循 `.editorconfig`：**UTF-8、LF、空格缩进、`indent_size = 2`**；`*.cs` 文件使用 4 空格。
+- Prettier 是 TypeScript、TSX、CSS、JSON、Markdown 等受支持文件的标准格式化入口；使用 `pnpm format` 写入格式，使用 `pnpm format:check` 做只读检查。
+- Tailwind class 顺序由 `prettier-plugin-tailwindcss` 处理，不要手动维护一套额外排序规则。
+- `eslint-config-prettier` 已在 `apps/desktop/eslint.config.js` 末尾接入，ESLint 负责代码质量与 React Hooks 规则，格式化冲突交给 Prettier。
+- `.husky/pre-commit` 通过 `lint-staged` 对暂存文件运行 `prettier --ignore-unknown --write`；不要把未暂存的大范围格式化误认为 hook 行为。
+- Zed 的 Tailwind CSS IntelliSense 可使用本地 `.zed/settings.json` 配置；`.zed/` 已被忽略，项目共享配置仍以仓库内 Prettier、ESLint、PostCSS/Tailwind 配置为准。
 - React 组件与窗口文件使用 **PascalCase**，如 `WorkspaceLayout.tsx`。
 - Hooks 必须以 `use` 开头。
 - 辅助模块与解析器使用语言约定的 camelCase（TS）或 snake_case（Rust）。
@@ -202,20 +222,22 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - 非 React 逻辑可以显式接收 locale 或 copy 参数。
 - 公共 API 必须有简洁 JSDoc：包括 slice/entity 的 `index.ts` 对外导出、`features/*/api`、`entities/*/api`、`shared/lib/*` 的跨层工具、`shared/contracts/*` 的核心类型，以及会被多个模块复用的 hook / helper。注释说明“用途、边界、缓存或副作用”，不要写实现逐行复述。
 - 新增或迁移 API 时，同步补注释；如果删除旧 API，也删除过期注释，不保留兼容说明或迁移历史。
-- 提交前端改动前必须运行 `pnpm lint`。
+- 提交前端改动前必须运行 `pnpm format:check` 和 `pnpm lint`。
 
 ## 测试策略
 
 ### 前端
+
 - 使用 **Vitest** + jsdom。
 - 组件/模块测试与源码同目录（`*.test.tsx`）。
 - 架构约束测试放在 `src/test/architecture/`（如代码拆分验证、vite 配置测试）。
 - 前端架构迁移必须补充或更新架构测试，覆盖：禁止业务层 import `@tauri-apps/api`、禁止业务层直接 `invoke(`、禁止 `features -> features`、禁止 `entities -> widgets/pages/features`、禁止 `shared -> app/pages/widgets/features/entities/platform`、禁止 `entities` 引用 panel/layout contracts。
 - 跨模块回归测试放在 `src/test/regressions/`。
 - 共享测试辅助放在 `src/test/`。
-- **最低验证要求**：`pnpm lint` → `pnpm build` → `pnpm --filter @modforge/desktop test`。
+- **最低验证要求**：`pnpm format:check` → `pnpm lint` → `pnpm build` → `pnpm --filter @modforge/desktop test`。
 
 ### 后端（Rust）
+
 - 测试以**回归风格**为主，例如 `character_data_regression.rs`、`xact_regression.rs`。
 - 修改资产解码、解析或 fallback 行为时，必须补充或扩展回归测试。
 - 共享测试辅助放在 `apps/desktop/src-tauri/tests/support/`。
@@ -245,6 +267,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 ## Vite 构建优化
 
 `vite.config.ts` 中配置了 `manualChunks`，将以下代码拆分为独立 chunk：
+
 - `react-vendor`：react + react-dom
 - `tauri-vendor`：@tauri-apps 相关
 - `ui-vendor`：lucide-react + @radix-ui

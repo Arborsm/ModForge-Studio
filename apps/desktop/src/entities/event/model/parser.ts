@@ -121,8 +121,7 @@ function stripPortraitCommand(value: string) {
     }
 
     const command = match[1].toLowerCase()
-    const resolvedPortraitIndex =
-      /^\d+$/u.test(command) ? Number.parseInt(command, 10) : (DIALOGUE_PORTRAIT_ALIAS_INDEX[command] ?? null)
+    const resolvedPortraitIndex = /^\d+$/u.test(command) ? Number.parseInt(command, 10) : (DIALOGUE_PORTRAIT_ALIAS_INDEX[command] ?? null)
 
     if (resolvedPortraitIndex == null) {
       return { text, portraitIndex }
@@ -401,7 +400,10 @@ export function parseEventCommand(raw: string, index: number): EventCommand {
     eventCommand.animationFlip = args[2] === 'true'
     eventCommand.animationLoop = args[3] === 'true'
     eventCommand.animationFrameDurationMs = Number.parseInt(args[4] ?? '', 10)
-    eventCommand.animationFrames = args.slice(5).map((value) => Number.parseInt(value, 10)).filter(Number.isFinite)
+    eventCommand.animationFrames = args
+      .slice(5)
+      .map((value) => Number.parseInt(value, 10))
+      .filter(Number.isFinite)
   } else if (command === 'stopAnimation') {
     eventCommand.actorName = args[1]
     const frame = Number.parseInt(args[2] ?? '', 10)
@@ -523,8 +525,7 @@ export function buildEventGraph(rootEvent: EventScript | null, eventIndex: Recor
 
     for (const command of event.commands) {
       const nodeId = `${event.key}::${command.index}`
-      const nextRealNodeId =
-        command.index + 1 < event.commands.length ? `${event.key}::${command.index + 1}` : null
+      const nextRealNodeId = command.index + 1 < event.commands.length ? `${event.key}::${command.index + 1}` : null
 
       nodes.push({
         id: nodeId,
@@ -605,22 +606,12 @@ export function buildEventGraph(rootEvent: EventScript | null, eventIndex: Recor
         if (targetEvent && !activeKeys.has(targetEvent.key)) {
           const targetPlacement = placeEvent(targetEvent, depth + 1, currentY)
           if (targetPlacement.firstNodeId) {
-            addEdge(
-              nodeId,
-              targetPlacement.firstNodeId,
-              command.targetEventKey,
-              command.command === 'switchEvent' ? 'switch' : 'branch',
-            )
+            addEdge(nodeId, targetPlacement.firstNodeId, command.targetEventKey, command.command === 'switchEvent' ? 'switch' : 'branch')
           }
         } else if (targetEvent) {
           const targetPlacement = placedEvents.get(targetEvent.key)
           if (targetPlacement?.firstNodeId) {
-            addEdge(
-              nodeId,
-              targetPlacement.firstNodeId,
-              command.targetEventKey,
-              command.command === 'switchEvent' ? 'switch' : 'branch',
-            )
+            addEdge(nodeId, targetPlacement.firstNodeId, command.targetEventKey, command.command === 'switchEvent' ? 'switch' : 'branch')
           }
         }
       }

@@ -40,9 +40,7 @@ export function isSupportedLauncherArchivePath(path: string) {
 }
 
 /** Subscribes to desktop window archive drag-and-drop events. */
-export function listenToLauncherArchiveDragDrop(
-  listener: (payload: LauncherArchiveDragDropPayload) => void,
-): Promise<UnlistenFn> {
+export function listenToLauncherArchiveDragDrop(listener: (payload: LauncherArchiveDragDropPayload) => void): Promise<UnlistenFn> {
   if (!canUseDesktopHost()) {
     return Promise.resolve(() => {})
   }

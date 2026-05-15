@@ -27,11 +27,7 @@ import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'
 import { useEditorCopy } from '@locales/localeContext'
-import {
-  buildEventPatchHubPatches,
-  type EventPatchHubEvent,
-  type EventPatchHubPatch,
-} from '@entities/event'
+import { buildEventPatchHubPatches, type EventPatchHubEvent, type EventPatchHubPatch } from '@entities/event'
 import type { EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { formatEventPreconditionForHub, type ParsedEventPrecondition } from '@entities/event'
 
@@ -92,20 +88,18 @@ function formatActorAvatar(name: string) {
 
 function patchEditorState(patch: DraftPatch): Record<string, unknown> {
   return typeof patch.editorState === 'object' && patch.editorState !== null && !Array.isArray(patch.editorState)
-    ? patch.editorState as Record<string, unknown>
+    ? (patch.editorState as Record<string, unknown>)
     : {}
 }
 
 function eventEntriesFromState(state: Record<string, unknown>): Record<string, unknown> {
   return typeof state['entries'] === 'object' && state['entries'] !== null && !Array.isArray(state['entries'])
-    ? state['entries'] as Record<string, unknown>
+    ? (state['entries'] as Record<string, unknown>)
     : {}
 }
 
 function disabledEventKeysFromState(state: Record<string, unknown>): string[] {
-  return Array.isArray(state['disabledEventKeys'])
-    ? state['disabledEventKeys'].filter((key): key is string => typeof key === 'string')
-    : []
+  return Array.isArray(state['disabledEventKeys']) ? state['disabledEventKeys'].filter((key): key is string => typeof key === 'string') : []
 }
 
 function eventAliasesFromState(state: Record<string, unknown>): Record<string, string> {
@@ -114,8 +108,9 @@ function eventAliasesFromState(state: Record<string, unknown>): Record<string, s
   }
 
   return Object.fromEntries(
-    Object.entries(state['eventAliases'] as Record<string, unknown>)
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    Object.entries(state['eventAliases'] as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
   )
 }
 
@@ -181,28 +176,41 @@ export function PatchListPage({
   )
 
   const activePatch =
-    (selectedPatchId ? hubPatches.find((patch) => patch.id === selectedPatchId) : null)
-    ?? visiblePatches[0]
-    ?? hubPatches[0]
-    ?? null
+    (selectedPatchId ? hubPatches.find((patch) => patch.id === selectedPatchId) : null) ?? visiblePatches[0] ?? hubPatches[0] ?? null
   const sourcePatch = activePatch?.sourcePatch ?? null
   const selectedEvent =
-    activePatch && selectedEventKey ? activePatch.events.find((event) => event.key === selectedEventKey) ?? null : null
-  const activeEvent = selectedEvent ?? (activePatch?.events[0] ?? null)
+    activePatch && selectedEventKey ? (activePatch.events.find((event) => event.key === selectedEventKey) ?? null) : null
+  const activeEvent = selectedEvent ?? activePatch?.events[0] ?? null
   const shownEvents = activePatch ? filterEvents(activePatch.events, eventFilter) : []
-  const openEventKey = selectedEventKey === null ? activeEvent?.key ?? null : expandedEventKey
-  const conditionBuilderPatch = conditionBuilder ? hubPatches.find((patch) => patch.id === conditionBuilder.patchId) ?? null : null
+  const openEventKey = selectedEventKey === null ? (activeEvent?.key ?? null) : expandedEventKey
+  const conditionBuilderPatch = conditionBuilder ? (hubPatches.find((patch) => patch.id === conditionBuilder.patchId) ?? null) : null
   const conditionBuilderEvent = conditionBuilderPatch?.events.find((event) => event.key === conditionBuilder?.eventKey) ?? null
-  const conditionBuilderAlias = conditionBuilderPatch && conditionBuilderEvent
-    ? eventAliasesFromState(patchEditorState(conditionBuilderPatch.sourcePatch))[conditionBuilderEvent.key] ?? ''
-    : ''
+  const conditionBuilderAlias =
+    conditionBuilderPatch && conditionBuilderEvent
+      ? (eventAliasesFromState(patchEditorState(conditionBuilderPatch.sourcePatch))[conditionBuilderEvent.key] ?? '')
+      : ''
 
   const filterOptions: Array<{ id: EventFilter; label: string; count: number; icon: typeof ListTree }> = activePatch
     ? [
         { id: 'all', label: hub.filters.all, count: activePatch.events.length, icon: ListTree },
-        { id: 'withTriggers', label: hub.filters.withTriggers, count: activePatch.events.filter((event) => event.triggers.length > 0).length, icon: Flag },
-        { id: 'withoutTriggers', label: hub.filters.withoutTriggers, count: activePatch.events.filter((event) => event.triggers.length === 0).length, icon: Eye },
-        { id: 'disabled', label: hub.filters.disabled, count: activePatch.events.filter((event) => event.status === 'disabled').length, icon: AlertTriangle },
+        {
+          id: 'withTriggers',
+          label: hub.filters.withTriggers,
+          count: activePatch.events.filter((event) => event.triggers.length > 0).length,
+          icon: Flag,
+        },
+        {
+          id: 'withoutTriggers',
+          label: hub.filters.withoutTriggers,
+          count: activePatch.events.filter((event) => event.triggers.length === 0).length,
+          icon: Eye,
+        },
+        {
+          id: 'disabled',
+          label: hub.filters.disabled,
+          count: activePatch.events.filter((event) => event.status === 'disabled').length,
+          icon: AlertTriangle,
+        },
       ]
     : []
 
@@ -382,7 +390,7 @@ export function PatchListPage({
 
   function handleEventMenuAction(action: 'edit' | 'conditionBuilder' | 'duplicate' | 'toggle' | 'delete') {
     const menu = contextMenu?.kind === 'event' ? contextMenu : null
-    const patch = menu ? hubPatches.find((item) => item.id === menu.patchId) ?? null : null
+    const patch = menu ? (hubPatches.find((item) => item.id === menu.patchId) ?? null) : null
     const event = patch?.events.find((item) => item.key === menu?.eventKey) ?? null
     setContextMenu(null)
     if (!patch || !event) {
@@ -412,7 +420,7 @@ export function PatchListPage({
 
   function applyConditionBuilder(result: EventConditionBuilderResult) {
     const builder = conditionBuilder
-    const patch = builder ? hubPatches.find((item) => item.id === builder.patchId) ?? null : null
+    const patch = builder ? (hubPatches.find((item) => item.id === builder.patchId) ?? null) : null
     if (!builder || !patch || !onPatchUpdate) {
       setConditionBuilder(null)
       return
@@ -512,7 +520,11 @@ export function PatchListPage({
                           <button
                             key={event.key}
                             type="button"
-                            className={cx('event-patch-tree-event studio-tree-child-item', event.key === activeEvent?.key && 'active', event.status === 'disabled' && 'disabled')}
+                            className={cx(
+                              'event-patch-tree-event studio-tree-child-item',
+                              event.key === activeEvent?.key && 'active',
+                              event.status === 'disabled' && 'disabled',
+                            )}
                             onClick={() => handleSelectEvent(event)}
                             onContextMenu={(contextEvent) => openEventContextMenu(contextEvent, event)}
                           >
@@ -552,7 +564,11 @@ export function PatchListPage({
         </div>
 
         <div className="event-patch-sidebar-footer studio-tree-footer">
-          <button type="button" className="control-button control-button-primary studio-tree-footer-button w-full" onClick={onAddPatchRequest}>
+          <button
+            type="button"
+            className="control-button control-button-primary studio-tree-footer-button w-full"
+            onClick={onAddPatchRequest}
+          >
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span>{catalog.addPatch}</span>
           </button>
@@ -565,15 +581,30 @@ export function PatchListPage({
             <button type="button" className="icon-button h-8 w-8" aria-label={hub.backLabel} onClick={onGoBack} disabled={!canGoBack}>
               <ChevronRight className={cx('h-4 w-4 rotate-180', !canGoBack && 'opacity-35')} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-button h-8 w-8" aria-label={hub.forwardLabel} onClick={onGoForward} disabled={!canGoForward}>
+            <button
+              type="button"
+              className="icon-button h-8 w-8"
+              aria-label={hub.forwardLabel}
+              onClick={onGoForward}
+              disabled={!canGoForward}
+            >
               <ChevronRight className={cx('h-4 w-4', !canGoForward && 'opacity-35')} aria-hidden="true" />
             </button>
             <nav className="event-patch-breadcrumbs" aria-label={hub.breadcrumbLabel}>
-              <span><FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />{draft?.projectMetadata.projectName ?? hub.projectFallback}</span>
+              <span>
+                <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                {draft?.projectMetadata.projectName ?? hub.projectFallback}
+              </span>
               <ChevronRight className="h-3 w-3" aria-hidden="true" />
-              <span><FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />{hub.eventsLabel}</span>
+              <span>
+                <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                {hub.eventsLabel}
+              </span>
               <ChevronRight className="h-3 w-3" aria-hidden="true" />
-              <strong><FileJson className="h-3.5 w-3.5" aria-hidden="true" />{activePatch?.displayName ?? catalog.emptyTitle}</strong>
+              <strong>
+                <FileJson className="h-3.5 w-3.5" aria-hidden="true" />
+                {activePatch?.displayName ?? catalog.emptyTitle}
+              </strong>
             </nav>
           </div>
 
@@ -581,12 +612,7 @@ export function PatchListPage({
             <button type="button" className="icon-button h-8 w-8" aria-label={hub.hubLabel} title={hub.hubLabel}>
               <ListTree className="h-4 w-4" aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              className={cx('event-patch-save-state', isDirty && 'dirty')}
-              onClick={onSaveDraft}
-              disabled={!isDirty}
-            >
+            <button type="button" className={cx('event-patch-save-state', isDirty && 'dirty')} onClick={onSaveDraft} disabled={!isDirty}>
               <span aria-hidden="true" />
               <Save className="h-3.5 w-3.5" aria-hidden="true" />
               {isDirty ? hub.unsavedLabel : hub.savedLabel}
@@ -599,7 +625,13 @@ export function PatchListPage({
             <h1>{activePatch?.displayName ?? catalog.emptyTitle}</h1>
           </div>
           <div className="event-patch-hub-actions">
-            <button type="button" className="icon-button h-8 w-8" aria-label={hub.patchSettingsLabel} title={hub.patchSettingsLabel} onClick={onOpenConfig}>
+            <button
+              type="button"
+              className="icon-button h-8 w-8"
+              aria-label={hub.patchSettingsLabel}
+              title={hub.patchSettingsLabel}
+              onClick={onOpenConfig}
+            >
               <Settings className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
@@ -609,9 +641,16 @@ export function PatchListPage({
               onClick={handleToggleMultiSelect}
             >
               <CheckSquare className="h-4 w-4" aria-hidden="true" />
-              <span>{multiSelect && selectedEventKeys.size > 0 ? hub.selectedCountLabel(selectedEventKeys.size) : hub.multiSelectLabel}</span>
+              <span>
+                {multiSelect && selectedEventKeys.size > 0 ? hub.selectedCountLabel(selectedEventKeys.size) : hub.multiSelectLabel}
+              </span>
             </button>
-            <button type="button" className="control-button control-button-primary" onClick={handleAddEvent} disabled={!activePatch || !onPatchUpdate}>
+            <button
+              type="button"
+              className="control-button control-button-primary"
+              onClick={handleAddEvent}
+              disabled={!activePatch || !onPatchUpdate}
+            >
               <Plus className="h-4 w-4" aria-hidden="true" />
               <span>{hub.addEventLabel}</span>
             </button>
@@ -633,7 +672,16 @@ export function PatchListPage({
                   const expanded = openEventKey === event.key
                   const selected = selectedEventKeys.has(event.key)
                   return (
-                    <article key={event.key} className={cx('event-scene-row', event.status, event.key === activeEvent?.key && 'active', expanded && 'expanded', selected && 'selected')}>
+                    <article
+                      key={event.key}
+                      className={cx(
+                        'event-scene-row',
+                        event.status,
+                        event.key === activeEvent?.key && 'active',
+                        expanded && 'expanded',
+                        selected && 'selected',
+                      )}
+                    >
                       <div
                         className="event-scene-summary"
                         role="button"
@@ -714,18 +762,14 @@ export function PatchListPage({
                                 <Heart className="h-5 w-5" aria-hidden="true" />
                                 {hub.involvedActorsLabel}
                               </h3>
-                              <div className="event-scene-detail-list">
-                                {renderPreconditionRows(event.preconditionGroups.player)}
-                              </div>
+                              <div className="event-scene-detail-list">{renderPreconditionRows(event.preconditionGroups.player)}</div>
                             </div>
                             <div className="event-scene-detail-column">
                               <h3>
                                 <Flag className="h-5 w-5" aria-hidden="true" />
                                 {hub.commandMetricLabel}
                               </h3>
-                              <div className="event-scene-detail-list">
-                                {renderPreconditionRows(event.preconditionGroups.progress)}
-                              </div>
+                              <div className="event-scene-detail-list">{renderPreconditionRows(event.preconditionGroups.progress)}</div>
                             </div>
                           </div>
                         </div>
@@ -787,9 +831,8 @@ export function PatchListPage({
               <button type="button" role="menuitem" onClick={() => handleEventMenuAction('toggle')}>
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>
-                  {hubPatches
-                    .find((patch) => patch.id === contextMenu.patchId)
-                    ?.events.find((event) => event.key === contextMenu.eventKey)?.status === 'disabled'
+                  {hubPatches.find((patch) => patch.id === contextMenu.patchId)?.events.find((event) => event.key === contextMenu.eventKey)
+                    ?.status === 'disabled'
                     ? hub.enableEventAction
                     : hub.disableEventAction}
                 </span>

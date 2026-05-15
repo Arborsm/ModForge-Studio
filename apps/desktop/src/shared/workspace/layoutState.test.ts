@@ -89,15 +89,7 @@ describe('layoutSizing', () => {
     const size: WorkspaceSize = { width: 1200, height: 900 }
     const usable = getHorizontalUsableWidth(size, false, false, true, true)
 
-    const widths = getResolvedSidePanelWidths(
-      panels,
-      chrome,
-      size,
-      false,
-      false,
-      true,
-      true,
-    )
+    const widths = getResolvedSidePanelWidths(panels, chrome, size, false, false, true, true)
 
     expect(widths.left + widths.center + widths.right).toBe(usable)
     expect(widths.center).toBeGreaterThanOrEqual(520)

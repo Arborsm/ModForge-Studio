@@ -60,16 +60,13 @@ export function getMapDocumentPathLabel(mapDocument: MapDocument | null | undefi
 /** Picks the best default scene from scanned map assets, preferring vanilla Town. */
 export function getPreferredScene(assets: MapAssetSummary[]) {
   return (
-    assets.find((asset) => asset.format === 'xnb' && /^town$/i.test(asset.name)) ??
-    assets.find((asset) => asset.format === 'xnb') ??
-    null
+    assets.find((asset) => asset.format === 'xnb' && /^town$/i.test(asset.name)) ?? assets.find((asset) => asset.format === 'xnb') ?? null
   )
 }
 
 /** Adds view metadata and default viewport hints to a generated world atlas document. */
 export function withWorldAtlasViewMetadata(document: MapDocument, viewId: WorldAtlasViewId, label: string): MapDocument {
-  const townPlacement =
-    viewId === 'main' ? document.atlas?.placements.find((placement) => /^town$/i.test(placement.mapName)) : null
+  const townPlacement = viewId === 'main' ? document.atlas?.placements.find((placement) => /^town$/i.test(placement.mapName)) : null
 
   return {
     ...document,
@@ -112,16 +109,9 @@ export function matchesWorldAtlasMapName(left: string, right: string) {
 export function isRemoteWorldAtlasDocument(document: MapDocument) {
   const normalizedName = document.name.trim().toLowerCase()
   const locationContext =
-    typeof document.properties.LocationContext === 'string'
-      ? document.properties.LocationContext.trim().toLowerCase()
-      : ''
+    typeof document.properties.LocationContext === 'string' ? document.properties.LocationContext.trim().toLowerCase() : ''
 
-  return (
-    normalizedName === 'desert' ||
-    normalizedName === 'summit' ||
-    normalizedName.startsWith('island_') ||
-    locationContext === 'island'
-  )
+  return normalizedName === 'desert' || normalizedName === 'summit' || normalizedName.startsWith('island_') || locationContext === 'island'
 }
 
 /** Returns visible tile layer ids for a newly loaded map document. */

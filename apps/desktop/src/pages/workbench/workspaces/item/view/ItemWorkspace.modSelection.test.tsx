@@ -106,4 +106,3 @@ describe('ItemCatalogPanel', () => {
     expect(onSelectItem).not.toHaveBeenCalled()
   })
 })
-

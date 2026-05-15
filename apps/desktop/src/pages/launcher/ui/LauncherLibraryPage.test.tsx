@@ -20,11 +20,7 @@ import {
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
 } from '@features/launcher/api'
-import {
-  chooseArchiveFile,
-  chooseImageFile,
-  listenToLauncherArchiveDragDrop,
-} from '@shared/lib/desktop'
+import { chooseArchiveFile, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
 import { useLauncherLibrary } from '@features/launcher'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -52,15 +48,7 @@ vi.mock('@radix-ui/react-context-menu', async () => {
     return <div role="menu">{children}</div>
   }
 
-  function Item({
-    children,
-    onSelect,
-    className,
-  }: {
-    children: ReactNode
-    onSelect?: () => void
-    className?: string
-  }) {
+  function Item({ children, onSelect, className }: { children: ReactNode; onSelect?: () => void; className?: string }) {
     return (
       <button type="button" role="menuitem" className={className} onClick={onSelect}>
         {children}
@@ -168,11 +156,7 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-async function emitArchiveDragDrop(payload: {
-  type: string
-  paths?: string[]
-  position?: { x: number; y: number }
-}) {
+async function emitArchiveDragDrop(payload: { type: string; paths?: string[]; position?: { x: number; y: number } }) {
   for (const listener of archiveDragDropListeners) {
     await listener(payload)
   }
@@ -191,9 +175,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
   }
 }
 
-function createLibraryMod(
-  overrides: Partial<LauncherLibraryModSummary> = {},
-): LauncherLibraryModSummary {
+function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): LauncherLibraryModSummary {
   return {
     id: 'mod-1',
     labelKey: 'ModForge.NpcAdventures',
@@ -242,9 +224,7 @@ function createArchivePreview(overrides: Partial<InspectLauncherArchiveResult> =
   }
 }
 
-function createInstallArchiveResult(
-  overrides: Partial<InstallLauncherArchiveResult> = {},
-): InstallLauncherArchiveResult {
+function createInstallArchiveResult(overrides: Partial<InstallLauncherArchiveResult> = {}): InstallLauncherArchiveResult {
   return {
     modName: 'Example Pack',
     uniqueId: 'ModForge.ExamplePack',
@@ -276,9 +256,7 @@ function createInstallArchiveResult(
   }
 }
 
-function createInstallBackupSummary(
-  overrides: Partial<LauncherInstallBackupSummary> = {},
-): LauncherInstallBackupSummary {
+function createInstallBackupSummary(overrides: Partial<LauncherInstallBackupSummary> = {}): LauncherInstallBackupSummary {
   return {
     backupId: 'install-123',
     backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
@@ -979,16 +957,8 @@ describe('LauncherLibraryPage', () => {
 
     library = {
       ...library,
-      mods: library.mods.map((mod) =>
-        mod.id === 'mod-1'
-          ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' }
-          : mod,
-      ),
-      filteredMods: library.filteredMods.map((mod) =>
-        mod.id === 'mod-1'
-          ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' }
-          : mod,
-      ),
+      mods: library.mods.map((mod) => (mod.id === 'mod-1' ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' } : mod)),
+      filteredMods: library.filteredMods.map((mod) => (mod.id === 'mod-1' ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' } : mod)),
     } as MockLibraryState
 
     view.rerender(
@@ -1547,9 +1517,7 @@ describe('LauncherLibraryPage', () => {
 
   it('spreads library card reveal batches across roughly four visible-screen waves', () => {
     const library = createLargeLibraryState(12)
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: HTMLElement,
-    ) {
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.classList.contains('launcher-library-grid-viewport')) {
         return { width: 560, height: 420, top: 0, left: 0, bottom: 420, right: 560, x: 0, y: 0, toJSON: () => ({}) }
       }
@@ -1564,18 +1532,27 @@ describe('LauncherLibraryPage', () => {
 
     const revealItems = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
     expect(revealItems).toHaveLength(library.mods.length)
-    expect(
-      revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index')),
-    ).toEqual(['3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'])
+    expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '10',
+      '11',
+      '12',
+      '13',
+      '14',
+    ])
 
     boundsSpy.mockRestore()
   })
 
   it('caps large-screen library reveal batches at four cards', () => {
     const library = createLargeLibraryState(16)
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
-      this: HTMLElement,
-    ) {
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.classList.contains('launcher-library-grid-viewport')) {
         return { width: 1120, height: 840, top: 0, left: 0, bottom: 840, right: 1120, x: 0, y: 0, toJSON: () => ({}) }
       }
@@ -1589,9 +1566,24 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     const revealItems = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
-    expect(
-      revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index')),
-    ).toEqual(['3', '3', '3', '3', '4', '4', '4', '4', '5', '5', '5', '5', '6', '6', '6', '6'])
+    expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
+      '3',
+      '3',
+      '3',
+      '3',
+      '4',
+      '4',
+      '4',
+      '4',
+      '5',
+      '5',
+      '5',
+      '5',
+      '6',
+      '6',
+      '6',
+      '6',
+    ])
 
     boundsSpy.mockRestore()
   })

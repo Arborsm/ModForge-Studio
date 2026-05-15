@@ -106,17 +106,15 @@ export type FarmerWalkAnimationState = {
 }
 
 export const FARMER_FEATURE_Y_OFFSET_PER_FRAME = [
-  1, 2, 2, 0, 5, 6, 1, 2, 2, 1, 0, 2, 0, 1, 1, 0, 2, 2, 3, 3, 2, 2, 1, 1, 0, 0, 2, 2, 4, 4, 0, 0, 1, 2, 1, 1,
-  1, 1, 0, 0, 1, 1, 1, 0, 0, -2, -1, 1, 1, 0, -1, -2, -1, -1, 5, 4, 0, 0, 3, 2, -1, 0, 4, 2, 0, 0, 2, 1, 0,
-  -1, 1, -2, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, -1, -1, -1, -1, 1, 1, 0, 0, 0, 0, 4, 1, 0, 1, 2, 1, 0,
-  1, 0, 1, 2, -3, -4, -1, 0, 0, 2, 1, -4, -1, 0, 0, -3, 0, 0, -1, 0, 0, 2, 1, 1,
+  1, 2, 2, 0, 5, 6, 1, 2, 2, 1, 0, 2, 0, 1, 1, 0, 2, 2, 3, 3, 2, 2, 1, 1, 0, 0, 2, 2, 4, 4, 0, 0, 1, 2, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, -2,
+  -1, 1, 1, 0, -1, -2, -1, -1, 5, 4, 0, 0, 3, 2, -1, 0, 4, 2, 0, 0, 2, 1, 0, -1, 1, -2, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, -1, -1, -1,
+  -1, 1, 1, 0, 0, 0, 0, 4, 1, 0, 1, 2, 1, 0, 1, 0, 1, 2, -3, -4, -1, 0, 0, 2, 1, -4, -1, 0, 0, -3, 0, 0, -1, 0, 0, 2, 1, 1,
 ]
 
 export const FARMER_FEATURE_X_OFFSET_PER_FRAME = [
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, -1, 0,
-  0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]
 
 const baseTextureCache = new Map<string, string>()
@@ -162,7 +160,12 @@ function sameColor(left: { r: number; g: number; b: number; a: number }, right: 
   return left.r === right.r && left.g === right.g && left.b === right.b && left.a === right.a
 }
 
-function applyIndexedColorSwap(data: Uint8ClampedArray, offsets: Record<number, number[]>, sourceColorIndex: number, target: { r: number; g: number; b: number; a: number }) {
+function applyIndexedColorSwap(
+  data: Uint8ClampedArray,
+  offsets: Record<number, number[]>,
+  sourceColorIndex: number,
+  target: { r: number; g: number; b: number; a: number },
+) {
   for (const pixelIndex of offsets[sourceColorIndex] ?? []) {
     const offset = pixelIndex * 4
     data[offset] = target.r
@@ -191,7 +194,10 @@ function getBaseRecolorOffsets(baseAsset: FarmerAppearanceImageAsset) {
   context.clearRect(0, 0, canvas.width, canvas.height)
   context.drawImage(baseAsset.image, 0, 0)
   const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
-  const offsets: Record<number, number[]> = Object.fromEntries(BASE_RECOLOR_SOURCE_INDICES.map((index) => [index, []])) as Record<number, number[]>
+  const offsets: Record<number, number[]> = Object.fromEntries(BASE_RECOLOR_SOURCE_INDICES.map((index) => [index, []])) as Record<
+    number,
+    number[]
+  >
 
   for (const sourceIndex of BASE_RECOLOR_SOURCE_INDICES) {
     const sourceColor = getPixelAtLinearIndex(pixels, sourceIndex)
@@ -217,10 +223,7 @@ function changeBrightness(color: PlayerAppearanceColor, brightness: number): Pla
   }
 }
 
-function multiplyColor(
-  left: { r: number; g: number; b: number; a: number },
-  right: { r: number; g: number; b: number; a: number },
-) {
+function multiplyColor(left: { r: number; g: number; b: number; a: number }, right: { r: number; g: number; b: number; a: number }) {
   return {
     r: Math.round((left.r * right.r) / 255),
     g: Math.round((left.g * right.g) / 255),
@@ -359,7 +362,8 @@ function getFarmerHairSourceRect(
   usingBakedTexture: boolean,
 ) {
   const width = Math.max(16, textureWidth ?? 128)
-  const rowOffset = facingDirection === 0 ? 64 : facingDirection === 2 ? 0 : facingDirection === 3 && metadata?.usesUniqueLeftSprite ? 96 : 32
+  const rowOffset =
+    facingDirection === 0 ? 64 : facingDirection === 2 ? 0 : facingDirection === 3 && metadata?.usesUniqueLeftSprite ? 96 : 32
 
   if (usingBakedTexture) {
     return { sourceX: 0, sourceY: rowOffset }
@@ -418,8 +422,7 @@ function buildFarmerSlingshotLayerDescriptors(
   renderState: FarmerRenderState,
 ): FarmerSpriteLayerDescriptor[] {
   const angle =
-    renderState.slingshotAimRadians ??
-    (facingDirection === 0 ? 1.25 : facingDirection === 1 ? 0.2 : facingDirection === 3 ? -0.2 : 1.1)
+    renderState.slingshotAimRadians ?? (facingDirection === 0 ? 1.25 : facingDirection === 1 ? 0.2 : facingDirection === 3 ? -0.2 : 1.1)
   const backArmDistance = Math.max(0, renderState.slingshotBackArmDistance ?? 8)
 
   switch (facingDirection) {
@@ -440,12 +443,8 @@ function buildFarmerSlingshotLayerDescriptors(
     case 1: {
       const startX = (52 - backArmDistance) / 4
       const startY = -36 / 4
-      const num5 =
-        Math.cos(angle + Math.PI / 2) * (20 - backArmDistance - 8) -
-        Math.sin(angle + Math.PI / 2) * -68
-      const num6 =
-        Math.sin(angle + Math.PI / 2) * (20 - backArmDistance - 8) +
-        Math.cos(angle + Math.PI / 2) * -68
+      const num5 = Math.cos(angle + Math.PI / 2) * (20 - backArmDistance - 8) - Math.sin(angle + Math.PI / 2) * -68
+      const num6 = Math.sin(angle + Math.PI / 2) * (20 - backArmDistance - 8) + Math.cos(angle + Math.PI / 2) * -68
       return [
         {
           key: 'slingshot-body-right',
@@ -477,12 +476,8 @@ function buildFarmerSlingshotLayerDescriptors(
     case 3: {
       const startX = (4 + backArmDistance) / 4
       const startY = -40 / 4
-      const num5 =
-        Math.cos(angle + (Math.PI * 2) / 5) * (20 + backArmDistance - 8) -
-        Math.sin(angle + (Math.PI * 2) / 5) * -68
-      const num6 =
-        Math.sin(angle + (Math.PI * 2) / 5) * (20 + backArmDistance - 8) +
-        Math.cos(angle + (Math.PI * 2) / 5) * -68
+      const num5 = Math.cos(angle + (Math.PI * 2) / 5) * (20 + backArmDistance - 8) - Math.sin(angle + (Math.PI * 2) / 5) * -68
+      const num6 = Math.sin(angle + (Math.PI * 2) / 5) * (20 + backArmDistance - 8) + Math.cos(angle + (Math.PI * 2) / 5) * -68
       return [
         {
           key: 'slingshot-body-left',
@@ -525,20 +520,8 @@ function buildFarmerSlingshotLayerDescriptors(
           sourceY: 244,
           flip: false,
         },
-        createFarmerLineLayerDescriptor(
-          'slingshot-line-down-left',
-          4,
-          -7 - backArmDistance / 8,
-          11 - angle * 2.5,
-          -6,
-        ),
-        createFarmerLineLayerDescriptor(
-          'slingshot-line-down-right',
-          4,
-          -7 - backArmDistance / 8,
-          14 - angle * 2.5,
-          -6,
-        ),
+        createFarmerLineLayerDescriptor('slingshot-line-down-left', 4, -7 - backArmDistance / 8, 11 - angle * 2.5, -6),
+        createFarmerLineLayerDescriptor('slingshot-line-down-right', 4, -7 - backArmDistance / 8, 14 - angle * 2.5, -6),
         {
           key: 'slingshot-head-down',
           url: spriteUrl,
@@ -623,7 +606,7 @@ export function buildFarmerSpriteLayerDescriptors(
   const currentEyes = renderState.currentEyes ?? 0
   const bathingClothes = renderState.bathingClothes ?? false
   const swimming = !renderState.isDrawingForUi && Boolean(renderState.swimming)
-  const swimmingYOffset = swimming ? renderState.swimmingYOffset ?? 0 : 0
+  const swimmingYOffset = swimming ? (renderState.swimmingYOffset ?? 0) : 0
   const swimmingCropHeight = Math.max(1, Math.min(32, 16 - Math.trunc(swimmingYOffset / 4)))
   const verticalOffset = swimming ? 16 : 0
   const armOffset = renderState.armOffset ?? 6
@@ -661,7 +644,11 @@ export function buildFarmerSpriteLayerDescriptors(
 
   if (farmerAppearance.pantsTextureUrl) {
     const pantsUrl = farmerAppearance.bakedPantsTextureUrl ?? farmerAppearance.pantsTextureUrl
-    const pantsSourceRect = getClothingPantsVariantSourceRect(farmerAppearance.pantsTextureWidth ?? 192, farmerAppearance.pantsSpriteIndex, farmerAppearance.isFemale)
+    const pantsSourceRect = getClothingPantsVariantSourceRect(
+      farmerAppearance.pantsTextureWidth ?? 192,
+      farmerAppearance.pantsSpriteIndex,
+      farmerAppearance.isFemale,
+    )
     layers.push({
       key: 'pants',
       url: pantsUrl,
@@ -728,8 +715,7 @@ export function buildFarmerSpriteLayerDescriptors(
           url: farmerAppearance.accessoriesTextureUrl,
           width: 16,
           height: 16,
-          offsetX:
-            (effectiveFacingDirection === 3 ? -featureX : featureX) + rotationAdjustment.x,
+          offsetX: (effectiveFacingDirection === 3 ? -featureX : featureX) + rotationAdjustment.x,
           offsetY:
             verticalOffset +
             (effectiveFacingDirection === 2
@@ -754,7 +740,8 @@ export function buildFarmerSpriteLayerDescriptors(
       activeHairTextureWidth,
       activeHairMetadata,
       effectiveFacingDirection,
-      activeHairTextureUrl === farmerAppearance.bakedHairTextureUrl || activeHairTextureUrl === farmerAppearance.obscuredBakedHairTextureUrl,
+      activeHairTextureUrl === farmerAppearance.bakedHairTextureUrl ||
+        activeHairTextureUrl === farmerAppearance.obscuredBakedHairTextureUrl,
     )
     const hairOffsetX = effectiveFacingDirection === 3 ? -featureX : featureX
     const hairOffsetY = verticalOffset + featureY + hairYOffsetAdjustment + (effectiveFacingDirection === 0 ? 1 : 0)
@@ -776,10 +763,10 @@ export function buildFarmerSpriteLayerDescriptors(
   }
 
   if (!bathingClothes && farmerAppearance.hatsTextureUrl && farmerAppearance.hatSpriteIndex != null) {
-    const hatRowOffset =
-      effectiveFacingDirection === 0 ? 60 : effectiveFacingDirection === 1 ? 20 : effectiveFacingDirection === 3 ? 40 : 0
+    const hatRowOffset = effectiveFacingDirection === 0 ? 60 : effectiveFacingDirection === 1 ? 20 : effectiveFacingDirection === 3 ? 40 : 0
     const hatSourceX = (farmerAppearance.hatSpriteIndex * 20) % Math.max(20, farmerAppearance.hatsTextureWidth ?? 320)
-    const hatSourceY = Math.floor((farmerAppearance.hatSpriteIndex * 20) / Math.max(20, farmerAppearance.hatsTextureWidth ?? 320)) * 80 + hatRowOffset
+    const hatSourceY =
+      Math.floor((farmerAppearance.hatSpriteIndex * 20) / Math.max(20, farmerAppearance.hatsTextureWidth ?? 320)) * 80 + hatRowOffset
     const hatOffsetX = -2 + (bodyFlip ? -featureX : featureX)
     const hatOffsetY = verticalOffset - 3 + featureY + hatHairOffset
 
@@ -863,7 +850,7 @@ export function getFarmerBaseAsset(
   baseMale: FarmerAppearanceImageAsset | null,
   baseFemale: FarmerAppearanceImageAsset | null,
 ) {
-  return profile.isFemale ? baseFemale ?? baseMale : baseMale ?? baseFemale
+  return profile.isFemale ? (baseFemale ?? baseMale) : (baseMale ?? baseFemale)
 }
 
 export function bakeFarmerBaseTexture(
@@ -1087,17 +1074,7 @@ export function bakeFarmerPantsTexture(profile: PlayerAppearanceProfile | null, 
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height)
-    context.drawImage(
-      pantsAsset.image,
-      pantsSourceRect.x,
-      pantsSourceRect.y,
-      pantsSourceRect.width,
-      pantsSourceRect.height,
-      0,
-      0,
-      96,
-      688,
-    )
+    context.drawImage(pantsAsset.image, pantsSourceRect.x, pantsSourceRect.y, pantsSourceRect.width, pantsSourceRect.height, 0, 0, 96, 688)
 
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
     tintOpaquePixels(imageData.data, profile.pantsColor)

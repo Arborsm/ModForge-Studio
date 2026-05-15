@@ -54,7 +54,7 @@
   }
 
   .settings-window-nav-item::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: 10px;
@@ -350,7 +350,7 @@
   }
 
   .settings-loading-preview::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: auto 18px 14px;
     height: 1px;
@@ -384,7 +384,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .settings-loading-speed-slider input[type='range'] {
+  .settings-loading-speed-slider input[type="range"] {
     width: 100%;
     accent-color: var(--accent);
   }

@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import type { PendingWorkbenchCommandIntent } from '@shared/contracts'
-import {
-  resolveWorkbenchOpenAssetTarget,
-  useWorkbenchCommandIntent,
-} from './workbenchCommandIntent'
+import { resolveWorkbenchOpenAssetTarget, useWorkbenchCommandIntent } from './workbenchCommandIntent'
 import type { UseCpMakerReturn } from '@features/cp-maker'
 
 function createMockCpMaker(overrides: Partial<UseCpMakerReturn> = {}): UseCpMakerReturn {
@@ -76,10 +73,7 @@ describe('resolveWorkbenchOpenAssetTarget', () => {
       } as UseCpMakerReturn['activeDraft'],
     })
 
-    const result = resolveWorkbenchOpenAssetTarget(
-      { type: 'workbench/open-asset', assetId: 'patch-1', assetKind: 'map' },
-      cpMaker,
-    )
+    const result = resolveWorkbenchOpenAssetTarget({ type: 'workbench/open-asset', assetId: 'patch-1', assetKind: 'map' }, cpMaker)
 
     expect(result).toEqual({ workspaceId: 'map', assetId: 'patch-1' })
   })
@@ -172,7 +166,17 @@ describe('useWorkbenchCommandIntent', () => {
         },
         overlayTargets: [],
         configSchema: [],
-        patches: [{ id: 'patch-abc', workspace: 'events', target: 'Data/Events/Town', action: 'EditData', logName: 'Event', enabled: true, editorState: {} }],
+        patches: [
+          {
+            id: 'patch-abc',
+            workspace: 'events',
+            target: 'Data/Events/Town',
+            action: 'EditData',
+            logName: 'Event',
+            enabled: true,
+            editorState: {},
+          },
+        ],
         virtualAssets: [],
         dynamicTokens: [],
         customLocations: [],

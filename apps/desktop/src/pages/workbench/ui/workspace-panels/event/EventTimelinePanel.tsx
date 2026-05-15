@@ -257,7 +257,7 @@ export function EventTimelinePanel({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                  <span className="text-[10px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">
                     {entry.id === EVENT_SETUP_ENTRY_ID ? (locale === 'zh-CN' ? '场景' : 'Setup') : entry.kind}
                   </span>
                   {isCurrent ? <span className="dock-chip">{labels.current}</span> : null}

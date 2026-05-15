@@ -52,7 +52,8 @@ export function MapPatchEditor({
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const properties = (editorState['properties'] as Record<string, unknown> | undefined) ?? {}
   const warps = (editorState['warps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
-  const npcWarps = (editorState['npcWarps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
+  const npcWarps =
+    (editorState['npcWarps'] as Array<{ fromX: number; fromY: number; toMap: string; toX: number; toY: number }> | undefined) ?? []
   const mapTiles = (editorState['mapTiles'] as Array<MapTileEdit> | undefined) ?? []
   const patchMode = (editorState['patchMode'] as string | undefined) ?? 'ReplaceByLayer'
   const fromArea = (editorState['fromArea'] as Area | undefined) ?? null
@@ -140,20 +141,20 @@ export function MapPatchEditor({
     }
   }, [activeTab, gameRootPath, patch.target, locale, mapLoadKey])
 
-  const currentMapState = loadedMapState.key === mapLoadKey ? loadedMapState : {
-    key: mapLoadKey,
-    status: activeTab === 'tiles' && gameRootPath ? 'loading' as const : 'idle' as const,
-    document: null,
-    error: null,
-  }
+  const currentMapState =
+    loadedMapState.key === mapLoadKey
+      ? loadedMapState
+      : {
+          key: mapLoadKey,
+          status: activeTab === 'tiles' && gameRootPath ? ('loading' as const) : ('idle' as const),
+          document: null,
+          error: null,
+        }
   const mapDocument = currentMapState.document
   const mapLoading = currentMapState.status === 'loading'
   const mapError = currentMapState.error
 
-  const visibleLayerIds = useMemo(
-    () => mapDocument?.layers.map((l) => l.id) ?? [],
-    [mapDocument],
-  )
+  const visibleLayerIds = useMemo(() => mapDocument?.layers.map((l) => l.id) ?? [], [mapDocument])
 
   function updateEditorState(updates: Record<string, unknown>) {
     onPatchChange(patch.id, {
@@ -199,10 +200,7 @@ export function MapPatchEditor({
       <div className="flex-1 overflow-auto">
         {activeTab === 'properties' ? (
           <div className="p-3">
-            <MapPropertiesEditor
-              properties={properties}
-              onChange={(newProps) => updateEditorState({ properties: newProps })}
-            />
+            <MapPropertiesEditor properties={properties} onChange={(newProps) => updateEditorState({ properties: newProps })} />
           </div>
         ) : activeTab === 'warps' ? (
           <div className="space-y-4 p-3">
@@ -232,9 +230,7 @@ export function MapPatchEditor({
             accentColor={accentColor}
             viewportLabels={viewportLabels}
             gameRootPath={gameRootPath}
-            onBuildAsset={() =>
-              setBuildDialogOpen(true)
-            }
+            onBuildAsset={() => setBuildDialogOpen(true)}
             mapTiles={mapTiles}
             onMapTilesChange={(tiles) => updateEditorState({ mapTiles: tiles })}
           />
@@ -242,7 +238,7 @@ export function MapPatchEditor({
           <div className="space-y-4 p-3">
             {/* FromFile */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                 FromFile
               </label>
               <input
@@ -262,7 +258,7 @@ export function MapPatchEditor({
 
             {/* PatchMode */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                 Patch Mode
               </label>
               <select
@@ -281,13 +277,13 @@ export function MapPatchEditor({
 
             {/* FromArea */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                 From Area (Source Crop)
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['x', 'y', 'width', 'height'] as const).map((field) => (
                   <div key={field}>
-                    <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                    <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
                     <input
                       type="text"
                       className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -305,13 +301,13 @@ export function MapPatchEditor({
 
             {/* ToArea */}
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+              <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                 To Area (Target Position)
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['x', 'y', 'width', 'height'] as const).map((field) => (
                   <div key={field}>
-                    <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                    <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
                     <input
                       type="text"
                       className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -322,9 +318,7 @@ export function MapPatchEditor({
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                Position on the target map. Numbers or tokens like {'{{X}}'}.
-              </p>
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Position on the target map. Numbers or tokens like {'{{X}}'}.</p>
             </div>
           </div>
         )}
@@ -430,9 +424,7 @@ function BuildAssetDialog({ mapDocument, targetMapName, onClose, onAssetBuilt }:
               <CheckCircle2 className="h-8 w-8 text-green-400" />
               <div className="text-center">
                 <p className="text-sm font-medium text-[var(--text-primary)]">Build Complete</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                  Asset saved as {buildState.asset.relativePath}
-                </p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">Asset saved as {buildState.asset.relativePath}</p>
                 <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
                   Size: {Math.round((buildState.asset.bytesBase64.length * 3) / 4 / 1024)} KB
                 </p>
@@ -564,14 +556,17 @@ function MapWarpsEditor({
 }) {
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{title}</div>
+      <div className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">{title}</div>
       <p className="text-[10px] text-[var(--text-secondary)]">{description}</p>
       {warps.map((warp, index) => (
-        <div key={index} className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-2">
-          <div className="grid grid-cols-5 gap-1.5 flex-1">
+        <div
+          key={index}
+          className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-2"
+        >
+          <div className="grid flex-1 grid-cols-5 gap-1.5">
             {(['fromX', 'fromY', 'toMap', 'toX', 'toY'] as const).map((field) => (
               <div key={field}>
-                <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
                 <input
                   type={field === 'toMap' ? 'text' : 'number'}
                   className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -600,9 +595,7 @@ function MapWarpsEditor({
       <button
         type="button"
         className="flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
-        onClick={() =>
-          onChange([...warps, { fromX: 0, fromY: 0, toMap: '', toX: 0, toY: 0 }])
-        }
+        onClick={() => onChange([...warps, { fromX: 0, fromY: 0, toMap: '', toX: 0, toY: 0 }])}
       >
         <Plus className="h-3 w-3" /> Add warp
       </button>
@@ -662,11 +655,7 @@ function MapTilesEditor({
   }
 
   if (mapLoading) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
-        Loading map...
-      </div>
-    )
+    return <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">Loading map...</div>
   }
 
   if (mapError) {
@@ -707,11 +696,13 @@ function MapTilesEditor({
       </div>
 
       {/* Toolbar */}
-      <div className="shrink-0 flex items-center justify-between border-t border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5">
+      <div className="flex shrink-0 items-center justify-between border-t border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-1.5">
         <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
           {hoverInfo ? (
             <>
-              <span className="text-[var(--text-primary)]">Tile: ({hoverInfo.tileX}, {hoverInfo.tileY})</span>
+              <span className="text-[var(--text-primary)]">
+                Tile: ({hoverInfo.tileX}, {hoverInfo.tileY})
+              </span>
               {hoverInfo.layerName && <span>Layer: {hoverInfo.layerName}</span>}
               {hoverInfo.tilesetName && <span>Tileset: {hoverInfo.tilesetName}</span>}
               {hoverInfo.tileId != null && <span>GID: {hoverInfo.tileId}</span>}
@@ -753,16 +744,13 @@ function MapTilesEditor({
 
       {/* MapTiles Editor */}
       {mapTiles.length > 0 && (
-        <div className="shrink-0 max-h-[180px] overflow-auto border-t border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+        <div className="max-h-[180px] shrink-0 overflow-auto border-t border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
+          <div className="mb-1.5 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
             MapTiles Edits ({mapTiles.length})
           </div>
           <div className="space-y-1.5">
             {mapTiles.map((tile, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-1.5 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] p-1.5"
-              >
+              <div key={index} className="flex items-center gap-1.5 rounded border border-[var(--border-color)] bg-[var(--bg-panel)] p-1.5">
                 <input
                   type="text"
                   placeholder="Layer"
@@ -843,7 +831,13 @@ function MapTilesEditor({
                   type="text"
                   placeholder="Props (key=value,...)"
                   className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-1.5 py-0.5 text-[10px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                  value={tile.setProperties ? Object.entries(tile.setProperties).map(([k, v]) => `${k}=${v}`).join(', ') : ''}
+                  value={
+                    tile.setProperties
+                      ? Object.entries(tile.setProperties)
+                          .map(([k, v]) => `${k}=${v}`)
+                          .join(', ')
+                      : ''
+                  }
                   onChange={(e) => {
                     const next = [...mapTiles]
                     const text = e.target.value.trim()

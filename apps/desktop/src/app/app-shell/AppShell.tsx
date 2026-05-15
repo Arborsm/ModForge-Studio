@@ -33,12 +33,7 @@ import { clearLocalizedStageMetadataCache } from '@entities/event'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
-import {
-  applyAppUiStatePatch,
-  configureAppUiStatePersistence,
-  getAppUiStateSnapshot,
-  initializeAppUiState,
-} from '@shared/lib/app-state'
+import { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
 import {
   getLauncherNexusWarningRoutes,
@@ -55,6 +50,7 @@ import { createWorkbenchOrchestration } from '../providers/workbenchOrchestratio
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { getWorkbenchViewRegistration } from '@app/registry-setup'
 import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
+import { WorkbenchShellSkeleton } from './WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
 const WorkbenchPage = lazy(() => import('@pages/workbench').then((module) => ({ default: module.WorkbenchPage })))
@@ -96,15 +92,11 @@ export default function App() {
     typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark',
   )
   const [locale, setLocale] = useState<LocaleCode>(() => resolveLocale(initialAppUiState.appearance.locale))
-  const [accentPresetId, setAccentPresetId] = useState<string>(
-    () => initialAppUiState.appearance.accentPresetId || ACCENT_PRESETS[0].id,
-  )
+  const [accentPresetId, setAccentPresetId] = useState<string>(() => initialAppUiState.appearance.accentPresetId || ACCENT_PRESETS[0].id)
   const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
   const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
-  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(
-    initialShellState.notificationSoundEnabled,
-  )
+  const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
   const [loadingMotionPreference, setLoadingMotionPreference] = useState<LoadingMotionPreference>(() =>
     normalizeLoadingMotionPreference(initialAppUiState.appearance?.loadingMotion),
   )
@@ -397,12 +389,9 @@ export default function App() {
     setAppMode('launcher')
   }, [])
 
-  const handleLauncherPageChange = useCallback(
-    (nextPage: LauncherPage) => {
-      setLauncherPage(nextPage)
-    },
-    [],
-  )
+  const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
+    setLauncherPage(nextPage)
+  }, [])
 
   const openSettingsWindow = useCallback((category: SettingsWindowCategory = 'appearance') => {
     if (category === 'launcher') {
@@ -499,12 +488,7 @@ export default function App() {
         speedMultiplier,
       })
     },
-    [
-      handleLoadingMotionChange,
-      loadingMotionPreference.intensityId,
-      loadingMotionPreference.speedId,
-      loadingMotionPreference.styleId,
-    ],
+    [handleLoadingMotionChange, loadingMotionPreference.intensityId, loadingMotionPreference.speedId, loadingMotionPreference.styleId],
   )
 
   const settingsMenuCopy = getSettingsMenuCopy(locale)
@@ -549,7 +533,7 @@ export default function App() {
             ) : null}
 
             {workbenchLoaded ? (
-              <Suspense fallback={<LoadingMotionFallback />}>
+              <Suspense fallback={<WorkbenchShellSkeleton />}>
                 <WorkbenchPage
                   active={appMode === 'workbench'}
                   appUiStateReady={appUiStateReady}
@@ -648,7 +632,6 @@ export default function App() {
                 />
               </Suspense>
             ) : null}
-
           </div>
         </LoadingMotionProvider>
       </NotificationProvider>

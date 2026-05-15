@@ -85,7 +85,9 @@ function StudioWipStagePanel({
       <aside className="studio-wip-side">
         <span>{desk.wipOpenHint(title)}</span>
         <div className="studio-wip-checklist" aria-label={desk.wipBadge}>
-          {desk.wipChecklist.map((item) => <small key={item}>{item}</small>)}
+          {desk.wipChecklist.map((item) => (
+            <small key={item}>{item}</small>
+          ))}
         </div>
         <button type="button" className="studio-wip-open-button" disabled={!hasActiveDraft} onClick={() => onOpenWorkspace(workspace)}>
           {desk.openWorkspace}
@@ -95,13 +97,7 @@ function StudioWipStagePanel({
   )
 }
 
-function StudioWipMini({
-  copy,
-  title,
-}: {
-  copy: EditorCopy
-  title: string
-}) {
+function StudioWipMini({ copy, title }: { copy: EditorCopy; title: string }) {
   const desk = copy.studioDesk
 
   return (
@@ -110,28 +106,22 @@ function StudioWipMini({
       <strong>{desk.wipTitle(title)}</strong>
       <span>{desk.wipOpenHint(title)}</span>
       <div className="studio-wip-mini-grid" aria-hidden="true">
-        {Array.from({ length: 9 }).map((_, index) => <i key={index} />)}
+        {Array.from({ length: 9 }).map((_, index) => (
+          <i key={index} />
+        ))}
       </div>
     </div>
   )
 }
 
-export function StudioDeskMainStage({
-  copy,
-  model,
-  previewFocus,
-  onCreateDraft,
-  onOpenWorkspace,
-}: StudioDeskMainStageProps) {
+export function StudioDeskMainStage({ copy, model, previewFocus, onCreateDraft, onOpenWorkspace }: StudioDeskMainStageProps) {
   const desk = copy.studioDesk
   const [stagePage, setStagePage] = useState<StudioStagePage>('script')
   const hasActiveDraft = model.hasActiveDraft
   const previewKind = previewFocus?.kind ?? null
   const pulseItems = model.recentInspirations.slice(0, 4)
   const scriptItems = model.recentInspirations.filter((item) => item.kind === 'event')
-  const projectDescription = hasActiveDraft
-    ? model.projectDescription.trim() || desk.heroSubtitle
-    : desk.noActiveDraftSubtitle
+  const projectDescription = hasActiveDraft ? model.projectDescription.trim() || desk.heroSubtitle : desk.noActiveDraftSubtitle
   const openStageWorkspace = () => {
     if (hasActiveDraft) onOpenWorkspace(workspaceForStagePage(stagePage))
   }
@@ -151,17 +141,31 @@ export function StudioDeskMainStage({
           </div>
 
           <div className="studio-live-inspector" aria-label={desk.worldBible}>
-            {model.worldBible.tokens.slice(0, 2).map((entry) => <span key={entry.key}>{entry.key}</span>)}
-            {model.worldBible.configSchema.slice(0, 2).map((entry) => <span key={entry.key}>{entry.key}</span>)}
-            {!model.worldBible.tokens.length && !model.worldBible.configSchema.length ? <span>{hasActiveDraft ? desk.creativeMode : desk.createDraft}</span> : null}
+            {model.worldBible.tokens.slice(0, 2).map((entry) => (
+              <span key={entry.key}>{entry.key}</span>
+            ))}
+            {model.worldBible.configSchema.slice(0, 2).map((entry) => (
+              <span key={entry.key}>{entry.key}</span>
+            ))}
+            {!model.worldBible.tokens.length && !model.worldBible.configSchema.length ? (
+              <span>{hasActiveDraft ? desk.creativeMode : desk.createDraft}</span>
+            ) : null}
           </div>
         </div>
 
         <div className="studio-stat-row">
-          <span><strong>{model.stats.eventCount}</strong> {desk.stats.events}</span>
-          <span><strong>{model.stats.mapCount}</strong> {desk.stats.maps}</span>
-          <span><strong>{model.stats.festivalCount}</strong> {desk.stats.festivals}</span>
-          <span><strong>{model.stats.assetCount}</strong> {desk.stats.assets}</span>
+          <span>
+            <strong>{model.stats.eventCount}</strong> {desk.stats.events}
+          </span>
+          <span>
+            <strong>{model.stats.mapCount}</strong> {desk.stats.maps}
+          </span>
+          <span>
+            <strong>{model.stats.festivalCount}</strong> {desk.stats.festivals}
+          </span>
+          <span>
+            <strong>{model.stats.assetCount}</strong> {desk.stats.assets}
+          </span>
           <span className={model.stats.conflictCount > 0 ? 'studio-stat-alert' : undefined}>
             <strong>{model.stats.conflictCount}</strong> {desk.stats.conflicts}
           </span>
@@ -169,7 +173,13 @@ export function StudioDeskMainStage({
       </header>
 
       <div className="studio-workspace-grid studio-workspace-grid-console">
-        <article className={cx('studio-workspace-card studio-script-card studio-creation-console', !hasActiveDraft && 'studio-workspace-disabled', previewKind === 'event' && 'studio-preview-active')}>
+        <article
+          className={cx(
+            'studio-workspace-card studio-script-card studio-creation-console',
+            !hasActiveDraft && 'studio-workspace-disabled',
+            previewKind === 'event' && 'studio-preview-active',
+          )}
+        >
           <div className="studio-card-header">
             <div>
               <div className="studio-card-kicker">{desk.creationControls}</div>
@@ -199,7 +209,9 @@ export function StudioDeskMainStage({
                       <strong>{scriptItems[0]?.title ?? desk.stageEmpty}</strong>
                       <span>{scriptItems[0]?.target ?? desk.noEntries}</span>
                     </div>
-                    <span>{entryCount(model, 'events')} {desk.stats.events}</span>
+                    <span>
+                      {entryCount(model, 'events')} {desk.stats.events}
+                    </span>
                   </div>
                   <div className="studio-script-command-list">
                     {scriptItems.slice(0, 3).map((item) => (
@@ -213,9 +225,7 @@ export function StudioDeskMainStage({
                 </div>
                 <aside className="studio-script-assets" aria-label={desk.linkedResources}>
                   <h3>{desk.linkedResources}</h3>
-                  <div className="studio-script-asset-grid">
-                    {entryCards(model.worldBible.story, desk.stageEmpty)}
-                  </div>
+                  <div className="studio-script-asset-grid">{entryCards(model.worldBible.story, desk.stageEmpty)}</div>
                 </aside>
               </section>
             ) : null}
@@ -233,17 +243,17 @@ export function StudioDeskMainStage({
             ) : null}
           </div>
 
-          <button
-            type="button"
-            className="studio-primary-action"
-            onClick={hasActiveDraft ? openStageWorkspace : onCreateDraft}
-          >
+          <button type="button" className="studio-primary-action" onClick={hasActiveDraft ? openStageWorkspace : onCreateDraft}>
             {hasActiveDraft ? (stagePage === 'script' ? desk.continueScript : desk.openWorkspace) : desk.createDraft}
           </button>
         </article>
 
         <article
-          className={cx('studio-workspace-card studio-assets-card studio-quick-workspace-card', !hasActiveDraft && 'studio-workspace-disabled', previewKind === 'asset' && 'studio-preview-active')}
+          className={cx(
+            'studio-workspace-card studio-assets-card studio-quick-workspace-card',
+            !hasActiveDraft && 'studio-workspace-disabled',
+            previewKind === 'asset' && 'studio-preview-active',
+          )}
           role="button"
           tabIndex={hasActiveDraft ? 0 : -1}
           aria-disabled={!hasActiveDraft}
@@ -260,7 +270,13 @@ export function StudioDeskMainStage({
           <StudioWipMini copy={copy} title={desk.castAndProps} />
         </article>
 
-        <article className={cx('studio-workspace-card studio-map-card studio-quick-workspace-card', !hasActiveDraft && 'studio-workspace-disabled', previewKind === 'map' && 'studio-preview-active')}>
+        <article
+          className={cx(
+            'studio-workspace-card studio-map-card studio-quick-workspace-card',
+            !hasActiveDraft && 'studio-workspace-disabled',
+            previewKind === 'map' && 'studio-preview-active',
+          )}
+        >
           <div className="studio-card-header">
             <div>
               <div className="studio-card-kicker">{desk.cardKickers.cartographer}</div>

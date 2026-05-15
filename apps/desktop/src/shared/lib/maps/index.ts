@@ -1,6 +1,1 @@
-export {
-  clearMapViewportLocaleCache,
-  getMapViewportCacheStats,
-  viewportImageCache,
-  viewportImagePromiseCache,
-} from './mapViewportCache'
+export { clearMapViewportLocaleCache, getMapViewportCacheStats, viewportImageCache, viewportImagePromiseCache } from './mapViewportCache'

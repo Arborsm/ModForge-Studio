@@ -108,7 +108,7 @@ describe('ContentPatcherScaleUpPanel', () => {
       />,
     )
 
-    expect((await screen.findByLabelText('Scale') as HTMLInputElement).value).toBe('4')
+    expect(((await screen.findByLabelText('Scale')) as HTMLInputElement).value).toBe('4')
 
     fireEvent.change(screen.getByLabelText('Breath Type'), { target: { value: 'Female' } })
 

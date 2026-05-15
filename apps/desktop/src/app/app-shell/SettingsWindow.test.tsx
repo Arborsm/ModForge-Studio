@@ -274,7 +274,6 @@ describe('SettingsWindow', () => {
 
     expect(englishOption.getAttribute('tabindex')).toBe('0')
     expect(chineseOption.getAttribute('tabindex')).toBe('-1')
-
     ;(englishOption as HTMLElement).focus()
     fireEvent.keyDown(englishOption, { key: 'ArrowRight' })
 

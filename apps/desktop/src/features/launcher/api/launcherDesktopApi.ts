@@ -58,10 +58,7 @@ const loadLauncherUpdateChangelogCache = createPromiseCache<LauncherUpdateChange
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
 const LAUNCHER_UPDATES_CACHE_TTL_MS = 30 * 60 * 1000
 const launcherUpdatesPendingRequests = new Map<string, Promise<LauncherUpdatesResult>>()
-const launcherUpdatesSnapshots = new Map<
-  string,
-  { result: LauncherUpdatesResult; isFinal: boolean; sessionId: string | null }
->()
+const launcherUpdatesSnapshots = new Map<string, { result: LauncherUpdatesResult; isFinal: boolean; sessionId: string | null }>()
 const launcherUpdatesListeners = new Map<string, Set<(result: LauncherUpdatesResult) => void>>()
 const launcherUpdatesRequestVersions = new Map<string, number>()
 const launcherUpdatesActiveSessions = new Map<string, string>()
@@ -110,9 +107,7 @@ function getActiveLauncherUpdateProgressSessionId(payload: LauncherUpdateProgres
     return null
   }
 
-  return launcherUpdatesActiveSessions.get(getLauncherUpdatesCacheKey(normalizedModsPath)) === sessionId
-    ? sessionId
-    : null
+  return launcherUpdatesActiveSessions.get(getLauncherUpdatesCacheKey(normalizedModsPath)) === sessionId ? sessionId : null
 }
 
 function storePartialLauncherUpdatesResult(payload: LauncherUpdateProgressPayload) {
@@ -174,12 +169,10 @@ function ensureLauncherUpdatesProgressBridge() {
     return launcherUpdatesProgressBridgePromise
   }
 
-  launcherUpdatesProgressBridgePromise = getPlatformPorts().hostEvents.listen<LauncherUpdateProgressPayload>(
-    LAUNCHER_UPDATE_PROGRESS_EVENT,
-    (payload) => {
+  launcherUpdatesProgressBridgePromise = getPlatformPorts()
+    .hostEvents.listen<LauncherUpdateProgressPayload>(LAUNCHER_UPDATE_PROGRESS_EVENT, (payload) => {
       storePartialLauncherUpdatesResult(payload)
-    },
-  )
+    })
     .then(() => undefined)
     .catch((error) => {
       launcherUpdatesProgressBridgePromise = null
@@ -203,10 +196,7 @@ function parentDirectoryFromPath(path: string) {
 }
 
 /** Subscribes to cached and in-flight update check snapshots for one Mods folder. */
-export function subscribeLauncherUpdates(
-  modsPath: string,
-  listener: (result: LauncherUpdatesResult) => void,
-) {
+export function subscribeLauncherUpdates(modsPath: string, listener: (result: LauncherUpdatesResult) => void) {
   void ensureLauncherUpdatesProgressBridge()
   const cacheKey = getLauncherUpdatesCacheKey(modsPath)
   const listeners = launcherUpdatesListeners.get(cacheKey) ?? new Set<(result: LauncherUpdatesResult) => void>()
@@ -215,9 +205,7 @@ export function subscribeLauncherUpdates(
   const currentSnapshot = launcherUpdatesSnapshots.get(cacheKey)
   const activeSessionId = launcherUpdatesActiveSessions.get(cacheKey)
   const canReplayPartial =
-    !currentSnapshot?.isFinal &&
-    Boolean(currentSnapshot?.sessionId) &&
-    currentSnapshot?.sessionId === activeSessionId
+    !currentSnapshot?.isFinal && Boolean(currentSnapshot?.sessionId) && currentSnapshot?.sessionId === activeSessionId
   if (currentSnapshot && (canReplayPartial || hasFreshLauncherUpdatesResult(currentSnapshot.result))) {
     listener(currentSnapshot.result)
   }
@@ -244,16 +232,12 @@ export async function clearLauncherImageCache() {
 
 /** Loads persisted launcher settings. */
 export function loadLauncherSettings() {
-  return readCached(loadLauncherSettingsCache, 'default', () =>
-    invokeDesktop<LauncherSettings>('load_launcher_settings'),
-  )
+  return readCached(loadLauncherSettingsCache, 'default', () => invokeDesktop<LauncherSettings>('load_launcher_settings'))
 }
 
 /** Loads persisted launcher library organization state. */
 export function loadLauncherLibraryState() {
-  return readPending(loadLauncherLibraryStateCache, 'default', () =>
-    invokeDesktop<LauncherLibraryState>('load_launcher_library_state'),
-  )
+  return readPending(loadLauncherLibraryStateCache, 'default', () => invokeDesktop<LauncherLibraryState>('load_launcher_library_state'))
 }
 
 /** Loads locally assigned or cached launcher library cover images. */
@@ -514,9 +498,7 @@ export function checkLauncherUpdates(request: CheckLauncherUpdatesRequest) {
 }
 
 /** Listens to progress events for the currently active update-check session only. */
-export function listenToLauncherUpdateProgress(
-  listener: (payload: LauncherUpdateProgressPayload) => void,
-): Promise<UnlistenFn> {
+export function listenToLauncherUpdateProgress(listener: (payload: LauncherUpdateProgressPayload) => void): Promise<UnlistenFn> {
   return getPlatformPorts().hostEvents.listen<LauncherUpdateProgressPayload>(LAUNCHER_UPDATE_PROGRESS_EVENT, (payload) => {
     if (!getActiveLauncherUpdateProgressSessionId(payload)) {
       return
@@ -557,4 +539,3 @@ export async function restoreLauncherInstallBackup(request: RestoreLauncherInsta
 export function inspectLauncherArchive(request: InspectLauncherArchiveRequest) {
   return invokeDesktop<InspectLauncherArchiveResult>('inspect_launcher_archive', { request })
 }
-

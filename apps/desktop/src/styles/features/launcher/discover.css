@@ -142,12 +142,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bg-panel) 72%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 84%, transparent)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 72%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 84%, transparent)
+    );
     backdrop-filter: blur(10px);
     color: color-mix(in srgb, var(--warning) 82%, var(--text-primary));
     pointer-events: none;
@@ -170,17 +169,15 @@
   .launcher-discover-content-error {
     place-items: center;
     padding: clamp(20px, 3vw, 32px);
-    background:
-      linear-gradient(180deg, #f8f9fa, color-mix(in srgb, #f8f9fa 76%, var(--bg-panel) 24%));
+    background: linear-gradient(180deg, #f8f9fa, color-mix(in srgb, #f8f9fa 76%, var(--bg-panel) 24%));
   }
 
   .launcher-discover-content-error {
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, #fff1f2 72%, var(--bg-panel) 28%),
-        color-mix(in srgb, #f8fafc 82%, var(--bg-panel) 18%)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, #fff1f2 72%, var(--bg-panel) 28%),
+      color-mix(in srgb, #f8fafc 82%, var(--bg-panel) 18%)
+    );
   }
 
   .launcher-discover-filters-toggle,

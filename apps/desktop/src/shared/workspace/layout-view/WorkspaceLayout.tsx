@@ -32,18 +32,8 @@ import {
   type ReactNode,
 } from 'react'
 import { cx } from '@shared/lib/cx'
-import {
-  RAIL_DRAG_THRESHOLD,
-  ROOT_PADDING,
-  SLOT_IDS,
-  SPLIT_GAP,
-} from '@shared/workspace/layoutConstants'
-import {
-  findDockTarget,
-  getRailSortTarget,
-  type RailButtonBounds,
-  type RailSortTarget,
-} from '@shared/workspace/layoutDragTargets'
+import { RAIL_DRAG_THRESHOLD, ROOT_PADDING, SLOT_IDS, SPLIT_GAP } from '@shared/workspace/layoutConstants'
+import { findDockTarget, getRailSortTarget, type RailButtonBounds, type RailSortTarget } from '@shared/workspace/layoutDragTargets'
 import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
 import {
   buildDefaultSnapshot,
@@ -58,11 +48,7 @@ import {
   sanitizeStoredState,
   sanitizeSnapshot,
 } from '@shared/workspace/layoutState'
-import {
-  clampFloatRect,
-  getHorizontalUsableWidth,
-  getRailEdgeSizeBounds,
-} from '@shared/workspace/layoutSizing'
+import { clampFloatRect, getHorizontalUsableWidth, getRailEdgeSizeBounds } from '@shared/workspace/layoutSizing'
 import type {
   DockArea,
   PanelMode,
@@ -236,9 +222,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
   const interactionRef = useRef<DragInteraction | null>(null)
   const suppressRailClickRef = useRef<string | null>(null)
   const [rootSize, setRootSize] = useState<WorkspaceSize>({ width: 0, height: 0 })
-  const [state, setState] = useState<WorkspaceStoredState>(() =>
-    sanitizeStoredState(persistedState, panels),
-  )
+  const [state, setState] = useState<WorkspaceStoredState>(() => sanitizeStoredState(persistedState, panels))
   const stateRef = useRef(state)
   const persistStateChangeRef = useRef(onPersistStateChange)
   const panelsRef = useRef(panels)
@@ -444,186 +428,194 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     })
   }, [onLayoutMetaChange, panels, state.panels, state.presets])
 
-  const applyRailOrderDrop = useCallback((panelId: string, slot: SlotId, index: number) => {
-    setState((current) => {
-      const currentPanel = current.panels[panelId]
-      if (!currentPanel) {
-        return current
-      }
+  const applyRailOrderDrop = useCallback(
+    (panelId: string, slot: SlotId, index: number) => {
+      setState((current) => {
+        const currentPanel = current.panels[panelId]
+        if (!currentPanel) {
+          return current
+        }
 
-      const nextPanels: Record<string, WorkspacePanelState> = {
-        ...current.panels,
-        [panelId]: {
-          ...currentPanel,
-          mode: 'docked',
-          lastMode: 'docked',
-          dock: slot,
-        },
-      }
+        const nextPanels: Record<string, WorkspacePanelState> = {
+          ...current.panels,
+          [panelId]: {
+            ...currentPanel,
+            mode: 'docked',
+            lastMode: 'docked',
+            dock: slot,
+          },
+        }
 
-      const nextSlots = Object.fromEntries(
-        SLOT_IDS.map((slotId) => {
-          const orderedIds = getOrderedPanelIdsForSlot(panels, nextPanels, current.slots, slotId)
-          const nextOrder =
-            slotId === slot
-              ? movePanelInOrder(orderedIds, panelId, index)
-              : orderedIds.filter((id) => id !== panelId)
+        const nextSlots = Object.fromEntries(
+          SLOT_IDS.map((slotId) => {
+            const orderedIds = getOrderedPanelIdsForSlot(panels, nextPanels, current.slots, slotId)
+            const nextOrder = slotId === slot ? movePanelInOrder(orderedIds, panelId, index) : orderedIds.filter((id) => id !== panelId)
 
-          return [
-            slotId,
-            {
-              ...current.slots[slotId],
-              activePanelId: slotId === slot ? panelId : current.slots[slotId].activePanelId,
-              expanded: slotId === slot ? true : current.slots[slotId].expanded,
-              panelOrder: nextOrder,
-            },
-          ]
-        }),
-      ) as Record<SlotId, WorkspaceSlotState>
-
-      return {
-        ...current,
-        panels: nextPanels,
-        slots: normalizeSlots(panels, nextPanels, nextSlots),
-      }
-    })
-  }, [panels])
-
-  const dock = useCallback((panelId: string, dockArea: DockArea) => {
-    setState((current) => {
-      const currentPanel = current.panels[panelId]
-      if (!currentPanel) {
-        return current
-      }
-
-      const nextPanels: Record<string, WorkspacePanelState> = {
-        ...current.panels,
-        [panelId]: {
-          ...currentPanel,
-          mode: 'docked',
-          lastMode: 'docked',
-          dock: dockArea,
-        },
-      }
-
-      let nextSlots = current.slots
-      if (dockArea !== 'center') {
-        const orderedIds = getOrderedPanelIdsForSlot(panels, nextPanels, current.slots, dockArea)
-        const nextOrder = movePanelInOrder(orderedIds, panelId, orderedIds.length)
-        nextSlots = {
-          ...Object.fromEntries(
-            SLOT_IDS.map((slotId) => [
+            return [
               slotId,
               {
                 ...current.slots[slotId],
-                panelOrder:
-                  slotId === dockArea ? nextOrder : current.slots[slotId].panelOrder.filter((id) => id !== panelId),
+                activePanelId: slotId === slot ? panelId : current.slots[slotId].activePanelId,
+                expanded: slotId === slot ? true : current.slots[slotId].expanded,
+                panelOrder: nextOrder,
               },
-            ]),
-          ),
-          [dockArea]: {
-            ...current.slots[dockArea],
-            activePanelId: panelId,
-            expanded: true,
-            panelOrder: nextOrder,
+            ]
+          }),
+        ) as Record<SlotId, WorkspaceSlotState>
+
+        return {
+          ...current,
+          panels: nextPanels,
+          slots: normalizeSlots(panels, nextPanels, nextSlots),
+        }
+      })
+    },
+    [panels],
+  )
+
+  const dock = useCallback(
+    (panelId: string, dockArea: DockArea) => {
+      setState((current) => {
+        const currentPanel = current.panels[panelId]
+        if (!currentPanel) {
+          return current
+        }
+
+        const nextPanels: Record<string, WorkspacePanelState> = {
+          ...current.panels,
+          [panelId]: {
+            ...currentPanel,
+            mode: 'docked',
+            lastMode: 'docked',
+            dock: dockArea,
           },
-        } as Record<SlotId, WorkspaceSlotState>
+        }
+
+        let nextSlots = current.slots
+        if (dockArea !== 'center') {
+          const orderedIds = getOrderedPanelIdsForSlot(panels, nextPanels, current.slots, dockArea)
+          const nextOrder = movePanelInOrder(orderedIds, panelId, orderedIds.length)
+          nextSlots = {
+            ...Object.fromEntries(
+              SLOT_IDS.map((slotId) => [
+                slotId,
+                {
+                  ...current.slots[slotId],
+                  panelOrder: slotId === dockArea ? nextOrder : current.slots[slotId].panelOrder.filter((id) => id !== panelId),
+                },
+              ]),
+            ),
+            [dockArea]: {
+              ...current.slots[dockArea],
+              activePanelId: panelId,
+              expanded: true,
+              panelOrder: nextOrder,
+            },
+          } as Record<SlotId, WorkspaceSlotState>
+        }
+
+        return {
+          ...current,
+          panels: nextPanels,
+          slots: normalizeSlots(panels, nextPanels, nextSlots),
+        }
+      })
+    },
+    [panels],
+  )
+
+  const undock = useCallback(
+    (panelId: string) => {
+      setState((current) => {
+        const currentPanel = current.panels[panelId]
+        if (!currentPanel) {
+          return current
+        }
+
+        const nextZ = Math.max(...Object.values(current.panels).map((panel) => panel.zIndex), 0) + 1
+        const dockRect = geometry.dockedRects[panelId] ?? {
+          x: 80,
+          y: 80,
+          width: currentPanel.width,
+          height: currentPanel.height,
+        }
+        const nextPanels: Record<string, WorkspacePanelState> = {
+          ...current.panels,
+          [panelId]: {
+            ...currentPanel,
+            mode: 'floating',
+            lastMode: 'floating',
+            x: dockRect.x + 24,
+            y: dockRect.y + 24,
+            width: Math.max(currentPanel.width, dockRect.width),
+            height: Math.max(currentPanel.height, dockRect.height),
+            zIndex: nextZ,
+          },
+        }
+
+        return {
+          ...current,
+          panels: nextPanels,
+          slots: normalizeSlots(panels, nextPanels, current.slots),
+        }
+      })
+    },
+    [geometry.dockedRects, panels],
+  )
+
+  const floatPanelAtPoint = useCallback(
+    (panelId: string, clientX: number, clientY: number) => {
+      const root = rootRef.current
+      const panel = panelMap[panelId]
+      if (!root || !panel) {
+        undock(panelId)
+        return
       }
 
-      return {
-        ...current,
-        panels: nextPanels,
-        slots: normalizeSlots(panels, nextPanels, nextSlots),
-      }
-    })
-  }, [panels])
+      const rootRect = root.getBoundingClientRect()
 
-  const undock = useCallback((panelId: string) => {
-    setState((current) => {
-      const currentPanel = current.panels[panelId]
-      if (!currentPanel) {
-        return current
-      }
+      setState((current) => {
+        const currentPanel = current.panels[panelId]
+        if (!currentPanel) {
+          return current
+        }
 
-      const nextZ = Math.max(...Object.values(current.panels).map((panel) => panel.zIndex), 0) + 1
-      const dockRect = geometry.dockedRects[panelId] ?? {
-        x: 80,
-        y: 80,
-        width: currentPanel.width,
-        height: currentPanel.height,
-      }
-      const nextPanels: Record<string, WorkspacePanelState> = {
-        ...current.panels,
-        [panelId]: {
-          ...currentPanel,
-          mode: 'floating',
-          lastMode: 'floating',
-          x: dockRect.x + 24,
-          y: dockRect.y + 24,
-          width: Math.max(currentPanel.width, dockRect.width),
-          height: Math.max(currentPanel.height, dockRect.height),
-          zIndex: nextZ,
-        },
-      }
+        const nextZ = Math.max(...Object.values(current.panels).map((candidate) => candidate.zIndex), 0) + 1
+        const width = Math.max(currentPanel.width, panel.minWidth)
+        const height = Math.max(currentPanel.height, panel.minHeight)
+        const nextRect = clampFloatRect(
+          {
+            x: clientX - rootRect.left - width / 2,
+            y: clientY - rootRect.top - 22,
+            width,
+            height,
+          },
+          rootSize,
+          panel,
+        )
+        const nextPanels: Record<string, WorkspacePanelState> = {
+          ...current.panels,
+          [panelId]: {
+            ...currentPanel,
+            mode: 'floating',
+            lastMode: 'floating',
+            x: nextRect.x,
+            y: nextRect.y,
+            width: nextRect.width,
+            height: nextRect.height,
+            zIndex: nextZ,
+          },
+        }
 
-      return {
-        ...current,
-        panels: nextPanels,
-        slots: normalizeSlots(panels, nextPanels, current.slots),
-      }
-    })
-  }, [geometry.dockedRects, panels])
-
-  const floatPanelAtPoint = useCallback((panelId: string, clientX: number, clientY: number) => {
-    const root = rootRef.current
-    const panel = panelMap[panelId]
-    if (!root || !panel) {
-      undock(panelId)
-      return
-    }
-
-    const rootRect = root.getBoundingClientRect()
-
-    setState((current) => {
-      const currentPanel = current.panels[panelId]
-      if (!currentPanel) {
-        return current
-      }
-
-      const nextZ = Math.max(...Object.values(current.panels).map((candidate) => candidate.zIndex), 0) + 1
-      const width = Math.max(currentPanel.width, panel.minWidth)
-      const height = Math.max(currentPanel.height, panel.minHeight)
-      const nextRect = clampFloatRect(
-        {
-          x: clientX - rootRect.left - width / 2,
-          y: clientY - rootRect.top - 22,
-          width,
-          height,
-        },
-        rootSize,
-        panel,
-      )
-      const nextPanels: Record<string, WorkspacePanelState> = {
-        ...current.panels,
-        [panelId]: {
-          ...currentPanel,
-          mode: 'floating',
-          lastMode: 'floating',
-          x: nextRect.x,
-          y: nextRect.y,
-          width: nextRect.width,
-          height: nextRect.height,
-          zIndex: nextZ,
-        },
-      }
-
-      return {
-        ...current,
-        panels: nextPanels,
-        slots: normalizeSlots(panels, nextPanels, current.slots),
-      }
-    })
-  }, [panelMap, panels, rootSize, undock])
+        return {
+          ...current,
+          panels: nextPanels,
+          slots: normalizeSlots(panels, nextPanels, current.slots),
+        }
+      })
+    },
+    [panelMap, panels, rootSize, undock],
+  )
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -894,7 +886,21 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('pointercancel', handlePointerUp)
     }
-  }, [applyRailOrderDrop, dock, dockGuides, dragDockTarget, floatPanelAtPoint, geometry.centerRect, geometry.railContainers, panelMap, panels, railSortTarget, rootSize, state.panels, state.slots])
+  }, [
+    applyRailOrderDrop,
+    dock,
+    dockGuides,
+    dragDockTarget,
+    floatPanelAtPoint,
+    geometry.centerRect,
+    geometry.railContainers,
+    panelMap,
+    panels,
+    railSortTarget,
+    rootSize,
+    state.panels,
+    state.slots,
+  ])
 
   function bringToFront(panelId: string) {
     setState((current) => {
@@ -919,10 +925,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
       return
     }
 
-    const targetDock =
-      currentPanel.dock === 'center'
-        ? getForcedDockForPanel() ?? panel.defaultDock ?? 'right-top'
-        : currentPanel.dock
+    const targetDock = currentPanel.dock === 'center' ? (getForcedDockForPanel() ?? panel.defaultDock ?? 'right-top') : currentPanel.dock
 
     dock(panelId, targetDock)
   }
@@ -1387,10 +1390,14 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
                   <div className="workspace-panel-header-main flex min-w-0 items-center gap-2">
                     <div
                       className="workspace-panel-grip cursor-grab active:cursor-grabbing"
-                      onPointerDown={panelState.mode === 'floating' ? (event) => {
-                        event.stopPropagation()
-                        beginRailDrag(panel.id, event, 'floating')
-                      } : undefined}
+                      onPointerDown={
+                        panelState.mode === 'floating'
+                          ? (event) => {
+                              event.stopPropagation()
+                              beginRailDrag(panel.id, event, 'floating')
+                            }
+                          : undefined
+                      }
                     >
                       <Grip className="h-3.5 w-3.5" />
                     </div>
@@ -1464,8 +1471,20 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
                         className="workspace-panel-action"
                         data-panel-no-drag="true"
                         onPointerDown={stopHeaderDrag}
-                        onClick={() => (panelState.mode === 'floating' ? restoreToSidebar(panel.id) : panelState.dock !== 'center' ? collapseDockedPanel(panel.id) : hide(panel.id))}
-                        title={panelState.mode === 'floating' ? 'Restore to sidebar' : panelState.dock !== 'center' ? 'Collapse to sidebar' : 'Hide'}
+                        onClick={() =>
+                          panelState.mode === 'floating'
+                            ? restoreToSidebar(panel.id)
+                            : panelState.dock !== 'center'
+                              ? collapseDockedPanel(panel.id)
+                              : hide(panel.id)
+                        }
+                        title={
+                          panelState.mode === 'floating'
+                            ? 'Restore to sidebar'
+                            : panelState.dock !== 'center'
+                              ? 'Collapse to sidebar'
+                              : 'Hide'
+                        }
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1494,4 +1513,3 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     </div>
   )
 })
-

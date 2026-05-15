@@ -43,10 +43,7 @@ export function AssetBrowserPanel({
       .sort((left, right) => right.items.length - left.items.length || left.label.localeCompare(right.label))
   }, [filteredAssets])
   const visibleCount = useMemo(
-    () =>
-      browserSourceMode === 'mod'
-        ? modMapGroups.reduce((total, group) => total + group.items.length, 0)
-        : filteredAssets.length,
+    () => (browserSourceMode === 'mod' ? modMapGroups.reduce((total, group) => total + group.items.length, 0) : filteredAssets.length),
     [browserSourceMode, filteredAssets.length, modMapGroups],
   )
 
@@ -60,7 +57,7 @@ export function AssetBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             className="control-input pl-9"
             value={assetFilter}
@@ -84,9 +81,7 @@ export function AssetBrowserPanel({
                   })}
                 >
                   <div className="border-b border-[var(--border-color)] px-3 py-2">
-                    <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
-                      {group.modName}
-                    </p>
+                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">{group.modName}</p>
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
@@ -98,12 +93,7 @@ export function AssetBrowserPanel({
                         className: cx('asset-row', isActive && 'asset-row-active'),
                       })
                       return (
-                        <button
-                          key={`${group.modId}:${asset.id}`}
-                          type="button"
-                          {...revealProps}
-                          onClick={() => onOpenModAsset(entry)}
-                        >
+                        <button key={`${group.modId}:${asset.id}`} type="button" {...revealProps} onClick={() => onOpenModAsset(entry)}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
@@ -139,12 +129,7 @@ export function AssetBrowserPanel({
                 })
 
                 return (
-                  <button
-                    key={asset.id}
-                    type="button"
-                    {...revealProps}
-                    onClick={() => onOpenAsset(asset)}
-                  >
+                  <button key={asset.id} type="button" {...revealProps} onClick={() => onOpenAsset(asset)}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>
@@ -179,16 +164,11 @@ export function AssetBrowserPanel({
                     }
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
-                        {group.label}
-                      </p>
+                      <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">{group.label}</p>
                       <p className="text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                     </div>
                     <ChevronDown
-                      className={cx(
-                        'h-4 w-4 text-[var(--text-secondary)] transition-transform',
-                        !isCollapsed && 'rotate-180',
-                      )}
+                      className={cx('h-4 w-4 text-[var(--text-secondary)] transition-transform', !isCollapsed && 'rotate-180')}
                     />
                   </button>
 
@@ -203,12 +183,7 @@ export function AssetBrowserPanel({
                         })
 
                         return (
-                          <button
-                            key={asset.id}
-                            type="button"
-                            {...revealProps}
-                            onClick={() => onOpenAsset(asset)}
-                          >
+                          <button key={asset.id} type="button" {...revealProps} onClick={() => onOpenAsset(asset)}>
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{asset.name}</p>

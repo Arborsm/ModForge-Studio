@@ -41,11 +41,11 @@
     will-change: transform, opacity;
   }
 
-  .item-group-popover[data-placement^='bottom'] {
+  .item-group-popover[data-placement^="bottom"] {
     transform-origin: top center;
   }
 
-  .item-group-popover[data-placement^='top'] {
+  .item-group-popover[data-placement^="top"] {
     transform-origin: bottom center;
   }
 
@@ -63,7 +63,7 @@
     animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
-  .item-group-popover[data-placement^='bottom'] .item-group-popover-inner {
+  .item-group-popover[data-placement^="bottom"] .item-group-popover-inner {
     --item-group-enter-y: -10px;
   }
 

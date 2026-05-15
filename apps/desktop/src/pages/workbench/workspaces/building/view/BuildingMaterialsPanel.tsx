@@ -29,7 +29,7 @@ function MaterialChip({
       <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
         {sourceRect && springObjectsState.url && springObjectsState.width && springObjectsState.height ? (
           <div
-            className="absolute left-1/2 top-1/2"
+            className="absolute top-1/2 left-1/2"
             style={{
               ...buildAbsoluteSpriteLayerStyle({
                 url: springObjectsState.url,
@@ -45,7 +45,7 @@ function MaterialChip({
             }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase text-[var(--text-secondary)]">
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-[var(--text-secondary)] uppercase">
             {label.slice(0, 1)}
           </div>
         )}
@@ -58,11 +58,7 @@ function MaterialChip({
   )
 }
 
-function WorldEntranceCard({
-  entrance,
-}: {
-  entrance: WorldBuildingEntrance
-}) {
+function WorldEntranceCard({ entrance }: { entrance: WorldBuildingEntrance }) {
   const copy = useBuildingsCopy()
   return (
     <div className="panel-list-card px-3 py-2">
@@ -74,8 +70,12 @@ function WorldEntranceCard({
         <span className="dock-chip shrink-0">{entrance.trigger}</span>
       </div>
       <div className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
-        <p>{copy.sourceTileLabel}: {formatPoint(entrance.sourceTile, copy.noneLabel)}</p>
-        <p>{copy.targetTileLabel}: {formatPoint(entrance.targetTile, copy.noneLabel)}</p>
+        <p>
+          {copy.sourceTileLabel}: {formatPoint(entrance.sourceTile, copy.noneLabel)}
+        </p>
+        <p>
+          {copy.targetTileLabel}: {formatPoint(entrance.targetTile, copy.noneLabel)}
+        </p>
       </div>
     </div>
   )
@@ -92,8 +92,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
           <p className="panel-subtitle">
             {isConstructible
               ? `${props.copy.materialCountLabel}: ${props.building.buildMaterials.length}`
-              : `${props.copy.entranceCountLabel}: ${props.building.worldEntrances.length}`
-              }
+              : `${props.copy.entranceCountLabel}: ${props.building.worldEntrances.length}`}
           </p>
         </div>
       </div>
@@ -112,9 +111,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
               ))}
             </div>
           ) : (
-            <div className="panel-empty-state">
-              {props.copy.materialsEmpty}
-            </div>
+            <div className="panel-empty-state">{props.copy.materialsEmpty}</div>
           )
         ) : props.building.worldEntrances.length ? (
           <div className="space-y-2">
@@ -123,9 +120,7 @@ export function BuildingMaterialsPanel(props: BuildingMaterialsPanelProps) {
             ))}
           </div>
         ) : (
-          <div className="panel-empty-state">
-            {props.copy.worldEntrancesEmpty}
-          </div>
+          <div className="panel-empty-state">{props.copy.worldEntrancesEmpty}</div>
         )}
       </div>
     </div>

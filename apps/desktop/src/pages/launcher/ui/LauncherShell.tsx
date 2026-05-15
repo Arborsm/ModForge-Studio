@@ -8,12 +8,8 @@ import { useLauncherSettings } from '@features/launcher'
 import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/cx'
 
-const LauncherDiscoverPage = lazy(() =>
-  import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })),
-)
-const LauncherUpdatesPage = lazy(() =>
-  import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })),
-)
+const LauncherDiscoverPage = lazy(() => import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })))
+const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })))
 const LauncherConfigurationPage = lazy(() =>
   import('./LauncherConfigurationPage').then((module) => ({ default: module.LauncherConfigurationPage })),
 )

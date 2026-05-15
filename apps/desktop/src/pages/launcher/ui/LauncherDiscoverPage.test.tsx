@@ -4,11 +4,7 @@ import { editorCopy } from '@locales/editor-shell'
 import type { LauncherSettings } from '@features/launcher/api'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useLauncherDiscover, useLauncherImage } from '@features/launcher'
-import {
-  applyAppUiStatePatch,
-  getAppUiStateSnapshot,
-  initializeAppUiState,
-} from '@shared/lib/app-state'
+import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherDiscoverPage } from './LauncherDiscoverPage'
 
@@ -131,10 +127,7 @@ describe('LauncherDiscoverPage', () => {
     } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState())
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     expect(screen.queryByText(copy.states.credentialsRequired)).toBeNull()
     expect(screen.getByText('Search Parameters')).toBeTruthy()
@@ -156,22 +149,22 @@ describe('LauncherDiscoverPage', () => {
     useLauncherDiscoverMock.mockReturnValue(
       createDiscoverState({
         items: [
-        {
-          modId: 44722,
-          title: 'Joja Civic Center',
-          summary: 'Welcome to the Joja Civic Center.',
-          author: 'blue704',
-          uploader: 'blue704',
-          modUrl: 'https://www.nexusmods.com/stardewvalley/mods/44722',
-          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png',
-          category: 'Maps',
-          createdAt: null,
-          updatedAt: null,
-          downloads: 12_345,
-          endorsements: 678,
-          fileSize: 512_000,
-          updateAvailable: true,
-        },
+          {
+            modId: 44722,
+            title: 'Joja Civic Center',
+            summary: 'Welcome to the Joja Civic Center.',
+            author: 'blue704',
+            uploader: 'blue704',
+            modUrl: 'https://www.nexusmods.com/stardewvalley/mods/44722',
+            imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/44722/44722-cover.png',
+            category: 'Maps',
+            createdAt: null,
+            updatedAt: null,
+            downloads: 12_345,
+            endorsements: 678,
+            fileSize: 512_000,
+            updateAvailable: true,
+          },
         ],
         totalCount: 28_891,
         totalPages: 1445,
@@ -184,16 +177,11 @@ describe('LauncherDiscoverPage', () => {
       }),
     )
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     expect(screen.getByText('Nexus Mods')).toBeTruthy()
     expect(screen.getByText('Category')).toBeTruthy()
-    expect(
-      screen.getByText((_, element) => element?.textContent === 'Showing 1 - 20 of 28,891 results'),
-    ).toBeTruthy()
+    expect(screen.getByText((_, element) => element?.textContent === 'Showing 1 - 20 of 28,891 results')).toBeTruthy()
     expect(screen.queryByText("Browse the internet's best mods")).toBeNull()
     expect(screen.getByText('Joja Civic Center')).toBeTruthy()
     expect(screen.getByRole('link', { name: new RegExp(copy.actions.openModPage) })).toBeTruthy()
@@ -240,10 +228,7 @@ describe('LauncherDiscoverPage', () => {
     } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ totalCount: 30, totalPages: 2 }))
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     const filtersToggle = screen.getByRole('button', { name: /Show filters/i })
     expect(filtersToggle).toBeTruthy()
@@ -273,10 +258,7 @@ describe('LauncherDiscoverPage', () => {
     } as never)
     useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ state: 'loading' }))
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
     const resultsViewport = container.querySelector('.launcher-discover-results-viewport')
     const loadingOverlay = screen.getByRole('status', { name: 'Loading discover results' })
     const wheelEvent = new WheelEvent('wheel', { bubbles: true, cancelable: true })
@@ -312,18 +294,15 @@ describe('LauncherDiscoverPage', () => {
       }),
     )
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     expect(container.querySelector('.launcher-discover-shell-filters-hidden')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
     expect(screen.getByRole('button', { name: /Show filters/i }).hasAttribute('disabled')).toBe(true)
     expect(
-      applyAppUiStatePatchMock.mock.calls.some(([payload]) =>
-        (payload as { launcher?: { discoverToolbar?: { filtersHidden?: boolean } } }).launcher?.discoverToolbar
-          ?.filtersHidden === true,
+      applyAppUiStatePatchMock.mock.calls.some(
+        ([payload]) =>
+          (payload as { launcher?: { discoverToolbar?: { filtersHidden?: boolean } } }).launcher?.discoverToolbar?.filtersHidden === true,
       ),
     ).toBe(false)
   })
@@ -365,10 +344,7 @@ describe('LauncherDiscoverPage', () => {
       loading: true,
     })
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     expect(screen.getByText(copy.discover.loadingCover)).toBeTruthy()
     expect(container.querySelector('.launcher-discover-wall-cover-fallback')).toBeTruthy()
@@ -446,18 +422,15 @@ describe('LauncherDiscoverPage', () => {
       }),
     )
 
-    const { container } = renderWithLocale(
-      <LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-      'zh-CN',
-    )
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
 
     expect(container.querySelector('.launcher-discover-shell-filters-hidden')).toBeTruthy()
     expect(container.querySelector('.launcher-discover-sidebar')).toBeNull()
     expect(screen.getByRole('button', { name: /Show filters/i }).hasAttribute('disabled')).toBe(true)
     expect(
-      applyAppUiStatePatchMock.mock.calls.some(([payload]) =>
-        (payload as { launcher?: { discoverToolbar?: { filtersHidden?: boolean } } }).launcher?.discoverToolbar
-          ?.filtersHidden === true,
+      applyAppUiStatePatchMock.mock.calls.some(
+        ([payload]) =>
+          (payload as { launcher?: { discoverToolbar?: { filtersHidden?: boolean } } }).launcher?.discoverToolbar?.filtersHidden === true,
       ),
     ).toBe(false)
   })

@@ -55,10 +55,7 @@ function resolveActorFocusTile(actorMap: Record<string, EventActorState>) {
   return primary ? { tileX: primary.tileX, tileY: primary.tileY } : null
 }
 
-function resolveCameraFocus(
-  event: EventScript | null,
-  actorMap: Record<string, EventActorState>,
-) {
+function resolveCameraFocus(event: EventScript | null, actorMap: Record<string, EventActorState>) {
   if (!event) return resolveActorFocusTile(actorMap)
   const raw = event.scene.cameraInstruction?.trim()
   if (!raw || raw === 'continue' || raw === 'follow') {
@@ -199,11 +196,7 @@ export function EventStagePreview({
   const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
   const mapRequestKey = gameRootPath && mapName ? `${gameRootPath}::${mapName}::${locale}` : ''
   const mapDocument = mapState.requestKey === mapRequestKey && mapState.status === 'ready' ? mapState.document : null
-  const mapError = !gameRootPath || mapState.requestKey !== mapRequestKey
-    ? ''
-    : !mapName
-      ? 'No map name provided.'
-      : mapState.error
+  const mapError = !gameRootPath || mapState.requestKey !== mapRequestKey ? '' : !mapName ? 'No map name provided.' : mapState.error
 
   // Build actor map from event script
   const actorMap = useMemo(() => buildActorMap(eventScript, gameRootPath), [eventScript, gameRootPath])
@@ -327,13 +320,7 @@ export function EventStagePreview({
 
     return (
       <>
-        {showPaths && (
-          <StagePathOverlay
-            eventScript={eventScript}
-            mapDocument={mapDocument}
-            selectedCommandIndex={selectedCommandIndex}
-          />
-        )}
+        {showPaths && <StagePathOverlay eventScript={eventScript} mapDocument={mapDocument} selectedCommandIndex={selectedCommandIndex} />}
         {Object.values(actorMap)
           .sort((left, right) => left.tileY - right.tileY)
           .map((actor) => {
@@ -371,7 +358,7 @@ export function EventStagePreview({
     <div className="absolute inset-0">
       <div className="absolute inset-0 flex flex-col justify-between p-4">
         <div className="flex justify-between gap-3">
-          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase shadow-[var(--shadow-panel)]">
             {eventScript?.eventId ?? mapName ?? 'Scene'}
           </div>
         </div>

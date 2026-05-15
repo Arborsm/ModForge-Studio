@@ -83,4 +83,3 @@ export type VirtualPreviewAsset = {
   mediaType: string
   bytesBase64: string
 }
-

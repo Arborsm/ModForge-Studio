@@ -206,11 +206,7 @@ describe('LoadingMotionHost', () => {
 
   it('renders placeholder when stage is loading and placeholder is provided', () => {
     render(
-      <LoadingMotionHost
-        stage="loading"
-        config={defaultConfig}
-        placeholder={<div>Loading...</div>}
-      >
+      <LoadingMotionHost stage="loading" config={defaultConfig} placeholder={<div>Loading...</div>}>
         <div>Content</div>
       </LoadingMotionHost>,
     )
@@ -231,11 +227,7 @@ describe('LoadingMotionHost', () => {
 
   it('renders placeholder when stage is entering and placeholder is provided', () => {
     render(
-      <LoadingMotionHost
-        stage="entering"
-        config={defaultConfig}
-        placeholder={<div>Entering...</div>}
-      >
+      <LoadingMotionHost stage="entering" config={defaultConfig} placeholder={<div>Entering...</div>}>
         <div>Content</div>
       </LoadingMotionHost>,
     )
@@ -243,61 +235,54 @@ describe('LoadingMotionHost', () => {
     expect(screen.getByText('Entering...')).toBeInTheDocument()
   })
 
+  /* ------------------------------------------------------------------ */
+  /*  LoadingMotionFallback tests                                      */
+  /* ------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------ */
-/*  LoadingMotionFallback tests                                      */
-/* ------------------------------------------------------------------ */
+  describe('LoadingMotionFallback', () => {
+    it('renders with data attributes for the given style and intensity', () => {
+      render(
+        <div>
+          <LoadingMotionFallback styleId="bounceIn" intensityId="strong" speedMode="preset" speedId="fast" speedMultiplier={0.72} />
+        </div>,
+      )
+      const el = document.querySelector('[data-loading-style]')
+      expect(el).toBeTruthy()
+      expect(el?.getAttribute('data-loading-style')).toBe('bounceIn')
+      expect(el?.getAttribute('data-loading-intensity')).toBe('strong')
+      expect(el?.getAttribute('data-loading-speed')).toBe('fast')
+      expect((el as HTMLElement | null)?.style.getPropertyValue('--loading-motion-speed-multiplier')).toBe('0.72')
+    })
 
-describe('LoadingMotionFallback', () => {
-  it('renders with data attributes for the given style and intensity', () => {
-    render(
-      <div>
-        <LoadingMotionFallback styleId='bounceIn' intensityId='strong' speedMode="preset" speedId="fast" speedMultiplier={0.72} />
-      </div>
-    )
-    const el = document.querySelector('[data-loading-style]')
-    expect(el).toBeTruthy()
-    expect(el?.getAttribute('data-loading-style')).toBe('bounceIn')
-    expect(el?.getAttribute('data-loading-intensity')).toBe('strong')
-    expect(el?.getAttribute('data-loading-speed')).toBe('fast')
-    expect((el as HTMLElement | null)?.style.getPropertyValue('--loading-motion-speed-multiplier')).toBe('0.72')
+    it('renders a style-addressable layered visual instead of a generic pulse dot', () => {
+      const { container } = render(<LoadingMotionFallback styleId="layeredFadeIn" intensityId="standard" />)
+
+      expect(container.querySelector('.loading-motion-fallback')).toBeTruthy()
+      expect(container.querySelector('.loading-motion-visual')).toBeTruthy()
+      expect(container.querySelectorAll('.loading-motion-layer')).toHaveLength(3)
+      expect(container.querySelector('.animate-pulse')).toBeNull()
+    })
+
+    it('updates data attributes when props change', () => {
+      const { rerender } = render(<LoadingMotionFallback styleId="softFadeIn" intensityId="standard" />)
+      let el = document.querySelector('[data-loading-style]')
+      expect(el?.getAttribute('data-loading-style')).toBe('softFadeIn')
+      expect(el?.getAttribute('data-loading-intensity')).toBe('standard')
+      expect(el?.getAttribute('data-loading-speed')).toBe('standard')
+
+      rerender(<LoadingMotionFallback styleId="bounceIn" intensityId="light" speedMode="custom" speedId="fast" speedMultiplier={2.2} />)
+      el = document.querySelector('[data-loading-style]')
+      expect(el?.getAttribute('data-loading-style')).toBe('bounceIn')
+      expect(el?.getAttribute('data-loading-intensity')).toBe('light')
+      expect(el?.getAttribute('data-loading-speed')).toBe('fast')
+      expect((el as HTMLElement | null)?.style.getPropertyValue('--loading-motion-speed-multiplier')).toBe('2.2')
+    })
+
+    it('renders a visible placeholder element', () => {
+      const { container } = render(<LoadingMotionFallback styleId="quietSimplify" intensityId="light" />)
+      expect(container.querySelector('.loading-motion-layer-primary')).toBeTruthy()
+    })
   })
-
-  it('renders a style-addressable layered visual instead of a generic pulse dot', () => {
-    const { container } = render(
-      <LoadingMotionFallback styleId='layeredFadeIn' intensityId='standard' />
-    )
-
-    expect(container.querySelector('.loading-motion-fallback')).toBeTruthy()
-    expect(container.querySelector('.loading-motion-visual')).toBeTruthy()
-    expect(container.querySelectorAll('.loading-motion-layer')).toHaveLength(3)
-    expect(container.querySelector('.animate-pulse')).toBeNull()
-  })
-
-  it('updates data attributes when props change', () => {
-    const { rerender } = render(
-      <LoadingMotionFallback styleId='softFadeIn' intensityId='standard' />
-    )
-    let el = document.querySelector('[data-loading-style]')
-    expect(el?.getAttribute('data-loading-style')).toBe('softFadeIn')
-    expect(el?.getAttribute('data-loading-intensity')).toBe('standard')
-    expect(el?.getAttribute('data-loading-speed')).toBe('standard')
-
-    rerender(<LoadingMotionFallback styleId='bounceIn' intensityId='light' speedMode="custom" speedId="fast" speedMultiplier={2.2} />)
-    el = document.querySelector('[data-loading-style]')
-    expect(el?.getAttribute('data-loading-style')).toBe('bounceIn')
-    expect(el?.getAttribute('data-loading-intensity')).toBe('light')
-    expect(el?.getAttribute('data-loading-speed')).toBe('fast')
-    expect((el as HTMLElement | null)?.style.getPropertyValue('--loading-motion-speed-multiplier')).toBe('2.2')
-  })
-
-  it('renders a visible placeholder element', () => {
-    const { container } = render(
-      <LoadingMotionFallback styleId='quietSimplify' intensityId='light' />
-    )
-    expect(container.querySelector('.loading-motion-layer-primary')).toBeTruthy()
-  })
-})
   it('renders children when stage is exiting (no exit animation in Phase 2)', () => {
     render(
       <LoadingMotionHost stage="exiting" config={defaultConfig}>

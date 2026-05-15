@@ -155,18 +155,19 @@ function isDraftWaitingForExport(summary: CpMakerDraftSummary, isCurrent: boolea
 
 function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: number): StudioDeskGallery {
   const activeDraftKey = input.activeDraft?.draftStorageKey ?? null
-  const summaries = input.activeDraft && !input.drafts.some((summary) => summary.draftStorageKey === input.activeDraft?.draftStorageKey)
-    ? [
-        {
-          draftStorageKey: input.activeDraft.draftStorageKey,
-          projectName: input.activeDraft.projectMetadata.projectName,
-          projectUniqueId: input.activeDraft.projectMetadata.projectUniqueId,
-          lastDraftSavedAt: null,
-          lastExportedAt: null,
-        },
-        ...input.drafts,
-      ]
-    : input.drafts
+  const summaries =
+    input.activeDraft && !input.drafts.some((summary) => summary.draftStorageKey === input.activeDraft?.draftStorageKey)
+      ? [
+          {
+            draftStorageKey: input.activeDraft.draftStorageKey,
+            projectName: input.activeDraft.projectMetadata.projectName,
+            projectUniqueId: input.activeDraft.projectMetadata.projectUniqueId,
+            lastDraftSavedAt: null,
+            lastExportedAt: null,
+          },
+          ...input.drafts,
+        ]
+      : input.drafts
   const projects = summaries.map((summary, index): StudioDeskGalleryProject => {
     const isCurrent = summary.draftStorageKey === activeDraftKey
     const statuses: StudioDeskProjectStatus[] = ['active']
@@ -190,7 +191,7 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: n
         summary.projectName,
         summary.projectUniqueId,
         summary.draftStorageKey,
-        isCurrent ? input.activeDraft?.projectMetadata.projectDescription ?? '' : '',
+        isCurrent ? (input.activeDraft?.projectMetadata.projectDescription ?? '') : '',
       ].join(' '),
       coverTone: coverTones[index % coverTones.length] ?? 'festival',
       conflictCount: projectConflictCount,
@@ -265,23 +266,15 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
         key: location.name,
         value: location.fromMapFile ?? '',
       })),
-      actors: patches
-        .filter((patch) => patch.workspace === 'characters')
-        .map(getPatchEntry),
-      story: patches
-        .filter((patch) => patch.workspace === 'events')
-        .map(getPatchEntry),
-      items: patches
-        .filter((patch) => patch.workspace === 'items')
-        .map(getPatchEntry),
+      actors: patches.filter((patch) => patch.workspace === 'characters').map(getPatchEntry),
+      story: patches.filter((patch) => patch.workspace === 'events').map(getPatchEntry),
+      items: patches.filter((patch) => patch.workspace === 'items').map(getPatchEntry),
       scenes: [
         ...(activeDraft?.customLocations ?? []).map((location) => ({
           key: location.name,
           value: location.fromMapFile ?? '',
         })),
-        ...patches
-          .filter((patch) => patch.workspace === 'map' || patch.workspace === 'buildings')
-          .map(getPatchEntry),
+        ...patches.filter((patch) => patch.workspace === 'map' || patch.workspace === 'buildings').map(getPatchEntry),
       ],
       conflictCount,
     },

@@ -301,4 +301,3 @@ export type ModAssetIndexGroup = {
 export type ModAssetIndex = {
   mods: ModAssetIndexGroup[]
 }
-

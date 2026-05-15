@@ -56,7 +56,11 @@ export function getClothingShirtMenuMaskSourceRect(textureWidth: number, spriteI
 }
 
 export function getClothingShirtCount(textureWidth: number, textureHeight: number) {
-  return Math.max(0, Math.floor(getClothingShirtSheetWidth(textureWidth) / CLOTHING_SHIRT_ICON_WIDTH) * Math.floor(textureHeight / CLOTHING_SHIRT_STRIP_HEIGHT))
+  return Math.max(
+    0,
+    Math.floor(getClothingShirtSheetWidth(textureWidth) / CLOTHING_SHIRT_ICON_WIDTH) *
+      Math.floor(textureHeight / CLOTHING_SHIRT_STRIP_HEIGHT),
+  )
 }
 
 export function getClothingPantsColumns(textureWidth: number) {

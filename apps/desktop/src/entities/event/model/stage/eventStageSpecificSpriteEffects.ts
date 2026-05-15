@@ -709,7 +709,12 @@ export function buildSpecificTemporarySpriteEffects(command: EventCommand): Spec
         ],
       }
     case 'springOnionPeel':
-      return { effects: [], mode: 'update-replace-source' as const, effectNumericId: 777, sourceRect: { x: 144, y: 327, width: 112, height: 112 } }
+      return {
+        effects: [],
+        mode: 'update-replace-source' as const,
+        effectNumericId: 777,
+        sourceRect: { x: 144, y: 327, width: 112, height: 112 },
+      }
     case 'springOnionRemove':
       return { effects: [], mode: 'remove-by-id' as const, effectNumericId: 777 }
     case 'joshDog':
@@ -1282,9 +1287,19 @@ export function buildSpecificTemporarySpriteEffects(command: EventCommand): Spec
         ],
       }
     case 'BoatParrotLeave':
-      return { effects: [], mode: 'update-replace-source' as const, effectNumericId: 777, sourceRect: { x: 48, y: 0, width: 24, height: 24 } }
+      return {
+        effects: [],
+        mode: 'update-replace-source' as const,
+        effectNumericId: 777,
+        sourceRect: { x: 48, y: 0, width: 24, height: 24 },
+      }
     case 'BoatParrotSquawkStop':
-      return { effects: [], mode: 'update-replace-source' as const, effectNumericId: 777, sourceRect: { x: 0, y: 0, width: 24, height: 24 } }
+      return {
+        effects: [],
+        mode: 'update-replace-source' as const,
+        effectNumericId: 777,
+        sourceRect: { x: 0, y: 0, width: 24, height: 24 },
+      }
     case 'grandpaNight':
       return {
         mode: 'append' as const,
@@ -2186,7 +2201,7 @@ export function buildSpecificTemporarySpriteEffects(command: EventCommand): Spec
               sourceY: 1956,
               sourceWidth: 10,
               sourceHeight: 10,
-              baseX: 64 * 64 + (-16 + (index * 7) % 48),
+              baseX: 64 * 64 + (-16 + ((index * 7) % 48)),
               baseY: 16 * 64,
               space: 'world',
               animationIntervalMs: 99999,

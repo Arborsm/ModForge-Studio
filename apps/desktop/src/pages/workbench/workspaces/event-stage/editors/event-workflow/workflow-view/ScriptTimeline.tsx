@@ -2,18 +2,8 @@
 
 import { useCallback, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable'
+import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { EventCommand } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
@@ -28,13 +18,12 @@ export type ScriptTimelineProps = {
 
 function GapInsertButton({ index, onClick }: { index: number; onClick: (index: number) => void }) {
   return (
-    <div className="group relative flex h-3 items-center justify-center py-0.5 transition-all"
-    >
-      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent group-hover:bg-[color-mix(in_srgb,var(--accent)_30%,transparent)] transition-colors" />
+    <div className="group relative flex h-3 items-center justify-center py-0.5 transition-all">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent transition-colors group-hover:bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]" />
       <button
         type="button"
         onClick={() => onClick(index)}
-        className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] text-[var(--text-tertiary)] opacity-0 shadow-sm transition-all hover:border-[var(--accent)] hover:text-[var(--accent)] group-hover:opacity-100"
+        className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] text-[var(--text-tertiary)] opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:border-[var(--accent)] hover:text-[var(--accent)]"
       >
         <Plus className="h-3 w-3" />
       </button>
@@ -73,14 +62,7 @@ function SortableScriptCard({
   onDelete: () => void
   onInsert: (index: number) => void
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: cmd.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cmd.id })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -88,8 +70,7 @@ function SortableScriptCard({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}
-    >
+    <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
       <GapInsertButton index={index} onClick={onInsert} />
       <ScriptCard
         command={cmd}
@@ -111,12 +92,7 @@ function SortableScriptCard({
   )
 }
 
-export function ScriptTimeline({
-  commands,
-  locale = 'zh-CN',
-  onUpdateArg,
-  onEnterPickMode,
-}: ScriptTimelineProps) {
+export function ScriptTimeline({ commands, locale = 'zh-CN', onUpdateArg, onEnterPickMode }: ScriptTimelineProps) {
   const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
   const expandedCards = useEditorStore((s) => s.expandedCards)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -190,37 +166,25 @@ export function ScriptTimeline({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const handleInsert = useCallback(
-    (index: number) => {
-      const state = useEditorStore.getState()
-      state.setCommandPaletteInsertIndex(index)
-      state.setCommandPaletteOpen(true)
-    },
-    [],
-  )
+  const handleInsert = useCallback((index: number) => {
+    const state = useEditorStore.getState()
+    state.setCommandPaletteInsertIndex(index)
+    state.setCommandPaletteOpen(true)
+  }, [])
 
-  const handleSelect = useCallback(
-    (index: number) => {
-      useEditorStore.getState().setSelectedCommandIndex(index)
-    },
-    [],
-  )
+  const handleSelect = useCallback((index: number) => {
+    useEditorStore.getState().setSelectedCommandIndex(index)
+  }, [])
 
-  const handleDelete = useCallback(
-    (index: number) => {
-      useEditorStore.getState().removeCommandAt(index)
-    },
-    [],
-  )
+  const handleDelete = useCallback((index: number) => {
+    useEditorStore.getState().removeCommandAt(index)
+  }, [])
 
-  const handleDuplicate = useCallback(
-    (index: number) => {
-      const cmd = useEditorStore.getState().currentScript?.commands[index]
-      if (!cmd) return
-      useEditorStore.getState().insertCommandAt(index + 1, cmd.raw)
-    },
-    [],
-  )
+  const handleDuplicate = useCallback((index: number) => {
+    const cmd = useEditorStore.getState().currentScript?.commands[index]
+    if (!cmd) return
+    useEditorStore.getState().insertCommandAt(index + 1, cmd.raw)
+  }, [])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -235,15 +199,11 @@ export function ScriptTimeline({
   const sortableIds = commands.map((c) => c.id)
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}
-    >
-      <div className="flex flex-col gap-0.5 px-3 py-2"
-      >
-        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}
-        >
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="flex flex-col gap-0.5 px-3 py-2">
+        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
           {commands.map((cmd, i) => (
-            <div key={cmd.id} data-cmd-index={i}
-            >
+            <div key={cmd.id} data-cmd-index={i}>
               <SortableScriptCard
                 cmd={cmd}
                 index={i}
@@ -255,9 +215,7 @@ export function ScriptTimeline({
                 onSelect={() => handleSelect(i)}
                 onToggleExpand={() => useEditorStore.getState().toggleCardExpanded(cmd.id)}
                 onUpdateArg={(argIndex, value) => onUpdateArg(i, argIndex, value)}
-                onEnterPickMode={(paramIndex, controlType) =>
-                  onEnterPickMode(i, paramIndex, controlType)
-                }
+                onEnterPickMode={(paramIndex, controlType) => onEnterPickMode(i, paramIndex, controlType)}
                 onDuplicate={() => handleDuplicate(i)}
                 onDelete={() => handleDelete(i)}
                 onInsert={handleInsert}
@@ -270,14 +228,12 @@ export function ScriptTimeline({
         <GapInsertButton index={commands.length} onClick={handleInsert} />
 
         {commands.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--border-color)] py-12 text-[var(--text-tertiary)]"
-          >
-            <p className="text-sm"
-            >暂无命令</p>
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--border-color)] py-12 text-[var(--text-tertiary)]">
+            <p className="text-sm">暂无命令</p>
             <button
               type="button"
               onClick={() => handleInsert(0)}
-              className="mt-2 inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-inverse)] hover:opacity-90 transition-opacity"
+              className="mt-2 inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-inverse)] transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
               添加命令

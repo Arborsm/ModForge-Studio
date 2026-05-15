@@ -179,26 +179,22 @@ function catalogControlKind(key: string): CatalogControlKind {
   if (key === 'Tile') {
     return 'pair'
   }
-  if ([
-    'GoldenWalnuts',
-    'UpcomingFestival',
-    'Year',
-    'EarnedMoney',
-    'FreeInventorySlots',
-    'SawSecretNote',
-    'DaysPlayed',
-    'InUpgradedHouse',
-    'ReachedMineBottom',
-  ].includes(key)) {
+  if (
+    [
+      'GoldenWalnuts',
+      'UpcomingFestival',
+      'Year',
+      'EarnedMoney',
+      'FreeInventorySlots',
+      'SawSecretNote',
+      'DaysPlayed',
+      'InUpgradedHouse',
+      'ReachedMineBottom',
+    ].includes(key)
+  ) {
     return 'number'
   }
-  if ([
-    'ActiveDialogueEvent',
-    'WorldState',
-    'ChoseDialogueAnswers',
-    'HostMail',
-    'HostOrLocalMail',
-  ].includes(key)) {
+  if (['ActiveDialogueEvent', 'WorldState', 'ChoseDialogueAnswers', 'HostMail', 'HostOrLocalMail'].includes(key)) {
     return 'text'
   }
   return 'none'
@@ -374,7 +370,12 @@ function iconForChip(chip: ConditionChip) {
     }
     return Sun
   }
-  if (parsed.canonicalKey === 'Friendship' || parsed.canonicalKey === 'Dating' || parsed.canonicalKey === 'Spouse' || parsed.canonicalKey === 'Roommate') {
+  if (
+    parsed.canonicalKey === 'Friendship' ||
+    parsed.canonicalKey === 'Dating' ||
+    parsed.canonicalKey === 'Spouse' ||
+    parsed.canonicalKey === 'Roommate'
+  ) {
     return Heart
   }
   if (parsed.canonicalKey === 'HasMoney' || parsed.canonicalKey === 'EarnedMoney') {
@@ -419,15 +420,7 @@ function chipNatural(chip: ConditionChip, copy: ConditionBuilderCopy) {
   return chip.negated ? copy.negateLabel(chip.natural) : chip.natural
 }
 
-export function EventConditionBuilderModal({
-  event,
-  allEvents,
-  alias,
-  hubCopy,
-  copy,
-  onApply,
-  onCancel,
-}: EventConditionBuilderModalProps) {
+export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, copy, onApply, onCancel }: EventConditionBuilderModalProps) {
   const [activeCategory, setActiveCategory] = useState<ConditionCategory>('world')
   const [eventId, setEventId] = useState(initialEventId(event))
   const [eventAlias, setEventAlias] = useState(alias)
@@ -467,7 +460,9 @@ export function EventConditionBuilderModal({
 
   const filteredItems = useMemo(() => {
     const normalized = itemQuery.trim().toLowerCase()
-    return ITEM_SUGGESTIONS.filter((item) => !normalized || item.id.includes(normalized) || item.label.toLowerCase().includes(normalized)).slice(0, 4)
+    return ITEM_SUGGESTIONS.filter(
+      (item) => !normalized || item.id.includes(normalized) || item.label.toLowerCase().includes(normalized),
+    ).slice(0, 4)
   }, [itemQuery])
 
   const hasWeatherConflict = selectedWeathers.includes('sunny') && selectedWeathers.includes('rainy')
@@ -477,11 +472,10 @@ export function EventConditionBuilderModal({
     if (!normalizedCategorySearch) {
       return true
     }
-    return [
-      copy.categories[category],
-      copy.categoryDescriptions[category],
-      category,
-    ].join(' ').toLowerCase().includes(normalizedCategorySearch)
+    return [copy.categories[category], copy.categoryDescriptions[category], category]
+      .join(' ')
+      .toLowerCase()
+      .includes(normalizedCategorySearch)
   })
   const eventIdValidation = eventId.trim() ? '' : copy.validationEventIdRequired
   const queryChip = chips.find((chip) => chip.id === 'query')
@@ -490,7 +484,9 @@ export function EventConditionBuilderModal({
   const friendshipPoints = Math.max(0, heartCount * 250)
 
   function upsertChip(chip: ConditionChip) {
-    setChips((current) => (current.some((item) => item.id === chip.id) ? current.map((item) => (item.id === chip.id ? chip : item)) : [...current, chip]))
+    setChips((current) =>
+      current.some((item) => item.id === chip.id) ? current.map((item) => (item.id === chip.id ? chip : item)) : [...current, chip],
+    )
   }
 
   function removeChip(id: string) {
@@ -565,9 +561,9 @@ export function EventConditionBuilderModal({
       return
     }
     const overChipId = chipIdUnderPointer(event.clientX, event.clientY, chipId)
-    setChipDrag((current) => current && current.chipId === chipId
-      ? { ...current, currentX: event.clientX, currentY: event.clientY, overChipId }
-      : current)
+    setChipDrag((current) =>
+      current && current.chipId === chipId ? { ...current, currentX: event.clientX, currentY: event.clientY, overChipId } : current,
+    )
   }
 
   function handleChipPointerEnd(event: PointerEvent<HTMLDivElement>, chipId: string) {
@@ -585,9 +581,7 @@ export function EventConditionBuilderModal({
   }
 
   function handleSeasonToggle(season: SeasonId) {
-    const next = selectedSeasons.includes(season)
-      ? selectedSeasons.filter((item) => item !== season)
-      : [...selectedSeasons, season]
+    const next = selectedSeasons.includes(season) ? selectedSeasons.filter((item) => item !== season) : [...selectedSeasons, season]
     setSelectedSeasons(next)
 
     if (next.length === 0) {
@@ -607,9 +601,7 @@ export function EventConditionBuilderModal({
   }
 
   function handleWeatherToggle(weather: WeatherId) {
-    const next = selectedWeathers.includes(weather)
-      ? selectedWeathers.filter((item) => item !== weather)
-      : [...selectedWeathers, weather]
+    const next = selectedWeathers.includes(weather) ? selectedWeathers.filter((item) => item !== weather) : [...selectedWeathers, weather]
     setSelectedWeathers(next)
 
     if (selectedWeathers.includes(weather)) {
@@ -802,13 +794,13 @@ export function EventConditionBuilderModal({
       <label className="condition-catalog-number">
         <span>{label}</span>
         <div>
-          <button type="button" onClick={() => changeCatalogNumber(definition.key, -1, fallback, min, max)}>-</button>
-          <input
-            value={value}
-            inputMode="numeric"
-            onChange={(event) => setCatalogArg(definition.key, event.target.value)}
-          />
-          <button type="button" onClick={() => changeCatalogNumber(definition.key, 1, fallback, min, max)}>+</button>
+          <button type="button" onClick={() => changeCatalogNumber(definition.key, -1, fallback, min, max)}>
+            -
+          </button>
+          <input value={value} inputMode="numeric" onChange={(event) => setCatalogArg(definition.key, event.target.value)} />
+          <button type="button" onClick={() => changeCatalogNumber(definition.key, 1, fallback, min, max)}>
+            +
+          </button>
         </div>
       </label>
     )
@@ -827,7 +819,10 @@ export function EventConditionBuilderModal({
     )
   }
 
-  function renderCatalogVisualControl(definition: CatalogConditionDefinition, catalogCopy: ConditionBuilderCopy['catalogConditions'][string]) {
+  function renderCatalogVisualControl(
+    definition: CatalogConditionDefinition,
+    catalogCopy: ConditionBuilderCopy['catalogConditions'][string],
+  ) {
     const value = catalogArgValue(definition.key)
     const label = catalogCopy.fieldLabel ?? catalogCopy.title
 
@@ -837,12 +832,21 @@ export function EventConditionBuilderModal({
           <span>{label}</span>
           <div className="condition-catalog-pill-row">
             {DAY_PRESETS.map((day) => (
-              <button key={day} type="button" className={cx(catalogTokens(definition.key).includes(day) && 'active')} onClick={() => toggleCatalogToken(definition.key, day)}>
+              <button
+                key={day}
+                type="button"
+                className={cx(catalogTokens(definition.key).includes(day) && 'active')}
+                onClick={() => toggleCatalogToken(definition.key, day)}
+              >
                 {day}
               </button>
             ))}
           </div>
-          <input value={value} onChange={(event) => setCatalogArg(definition.key, event.target.value)} placeholder={catalogCopy.placeholder} />
+          <input
+            value={value}
+            onChange={(event) => setCatalogArg(definition.key, event.target.value)}
+            placeholder={catalogCopy.placeholder}
+          />
         </div>
       )
     }
@@ -853,7 +857,12 @@ export function EventConditionBuilderModal({
           <span>{label}</span>
           <div className="condition-catalog-week-row">
             {WEEKDAY_CODES.map((day) => (
-              <button key={day} type="button" className={cx(catalogTokens(definition.key).includes(day) && 'active')} onClick={() => toggleCatalogToken(definition.key, day)}>
+              <button
+                key={day}
+                type="button"
+                className={cx(catalogTokens(definition.key).includes(day) && 'active')}
+                onClick={() => toggleCatalogToken(definition.key, day)}
+              >
                 {copy.catalogWeekdayLabels[day]}
               </button>
             ))}
@@ -874,7 +883,9 @@ export function EventConditionBuilderModal({
             max={1}
             step={0.05}
             value={Number.isFinite(chance) ? chance : 0.2}
-            onChange={(event) => setCatalogArg(definition.key, Number(event.target.value).toFixed(2).replace(/0$/u, '').replace(/\.0$/u, ''))}
+            onChange={(event) =>
+              setCatalogArg(definition.key, Number(event.target.value).toFixed(2).replace(/0$/u, '').replace(/\.0$/u, ''))
+            }
           />
         </label>
       )
@@ -891,7 +902,11 @@ export function EventConditionBuilderModal({
               </button>
             ))}
           </div>
-          <input value={value} onChange={(event) => setCatalogArg(definition.key, event.target.value)} placeholder={catalogCopy.placeholder} />
+          <input
+            value={value}
+            onChange={(event) => setCatalogArg(definition.key, event.target.value)}
+            placeholder={catalogCopy.placeholder}
+          />
         </div>
       )
     }
@@ -901,7 +916,9 @@ export function EventConditionBuilderModal({
         <div className="condition-catalog-visual-control">
           <span>{label}</span>
           <div className="condition-catalog-pill-row">
-            <button type="button" className={cx(!value && 'active')} onClick={() => setCatalogArg(definition.key, '')}>{copy.catalogAnyPetLabel}</button>
+            <button type="button" className={cx(!value && 'active')} onClick={() => setCatalogArg(definition.key, '')}>
+              {copy.catalogAnyPetLabel}
+            </button>
             {(['cat', 'dog'] as const).map((pet) => (
               <button key={pet} type="button" className={cx(value === pet && 'active')} onClick={() => setCatalogArg(definition.key, pet)}>
                 {copy.catalogPetLabels[pet]}
@@ -926,7 +943,12 @@ export function EventConditionBuilderModal({
           </label>
           <div className="condition-catalog-pill-row">
             {ITEM_SUGGESTIONS.slice(0, 3).map((item) => (
-              <button key={item.id} type="button" className={cx(itemId === item.id && 'active')} onClick={() => updateCatalogPair(definition.key, 0, item.id)}>
+              <button
+                key={item.id}
+                type="button"
+                className={cx(itemId === item.id && 'active')}
+                onClick={() => updateCatalogPair(definition.key, 0, item.id)}
+              >
                 {item.label}
               </button>
             ))}
@@ -951,7 +973,11 @@ export function EventConditionBuilderModal({
       )
     }
 
-    if (['GoldenWalnuts', 'UpcomingFestival', 'Year', 'EarnedMoney', 'FreeInventorySlots', 'SawSecretNote', 'DaysPlayed'].includes(definition.key)) {
+    if (
+      ['GoldenWalnuts', 'UpcomingFestival', 'Year', 'EarnedMoney', 'FreeInventorySlots', 'SawSecretNote', 'DaysPlayed'].includes(
+        definition.key,
+      )
+    ) {
       return renderCatalogNumberControl(definition, label, DEFAULT_CATALOG_ARGS[definition.key] ?? '1', 0)
     }
 
@@ -992,37 +1018,49 @@ export function EventConditionBuilderModal({
           <small>{copy.catalogCountLabel(definitions.length)}</small>
           <ChevronDown className={cx('h-4 w-4', open && 'open')} aria-hidden="true" />
         </button>
-        {open ? <div className="condition-catalog-grid">
-          {definitions.map((definition) => {
-            const args = catalogArgValue(definition.key)
-            const disabled = definition.requiresArgs === true && !args.trim()
-            const catalogCopy = copy.catalogConditions[definition.key]
-            const controlKind = catalogControlKind(definition.key)
-            const Icon = iconForChip({
-              id: `catalog-preview:${definition.key}`,
-              category: definition.category,
-              label: definition.key,
-              natural: definition.key,
-              code: definition.key,
-              negated: false,
-            })
-            return (
-              <article key={definition.key} className={cx('condition-catalog-option', `catalog-kind-${controlKind}`, controlKind === 'none' && 'no-controls')}>
-                <div className="condition-catalog-option-head">
-                  <span className="condition-catalog-icon"><Icon className="h-4 w-4" aria-hidden="true" /></span>
-                  <span>
-                    <strong>{catalogCopy.title}</strong>
-                    <small>{catalogCopy.description}</small>
-                  </span>
-                  <button type="button" className="condition-catalog-add-button" disabled={disabled} onClick={() => addCatalogChip(definition)}>
-                    {copy.catalogAddLabel}
-                  </button>
-                </div>
-                {renderCatalogVisualControl(definition, catalogCopy)}
-              </article>
-            )
-          })}
-        </div> : null}
+        {open ? (
+          <div className="condition-catalog-grid">
+            {definitions.map((definition) => {
+              const args = catalogArgValue(definition.key)
+              const disabled = definition.requiresArgs === true && !args.trim()
+              const catalogCopy = copy.catalogConditions[definition.key]
+              const controlKind = catalogControlKind(definition.key)
+              const Icon = iconForChip({
+                id: `catalog-preview:${definition.key}`,
+                category: definition.category,
+                label: definition.key,
+                natural: definition.key,
+                code: definition.key,
+                negated: false,
+              })
+              return (
+                <article
+                  key={definition.key}
+                  className={cx('condition-catalog-option', `catalog-kind-${controlKind}`, controlKind === 'none' && 'no-controls')}
+                >
+                  <div className="condition-catalog-option-head">
+                    <span className="condition-catalog-icon">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span>
+                      <strong>{catalogCopy.title}</strong>
+                      <small>{catalogCopy.description}</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="condition-catalog-add-button"
+                      disabled={disabled}
+                      onClick={() => addCatalogChip(definition)}
+                    >
+                      {copy.catalogAddLabel}
+                    </button>
+                  </div>
+                  {renderCatalogVisualControl(definition, catalogCopy)}
+                </article>
+              )
+            })}
+          </div>
+        ) : null}
       </section>
     )
   }
@@ -1037,14 +1075,13 @@ export function EventConditionBuilderModal({
   }
 
   function generateEventId() {
-    const aliasSeed = eventAlias.trim()
+    const aliasSeed = eventAlias
+      .trim()
       .replace(/阿比盖尔/gu, 'Abigail')
       .replace(/秘密/gu, 'Secret')
       .replace(/的/gu, ' ')
     const words = aliasSeed.match(/[A-Za-z0-9]+/gu) ?? []
-    const suffix = words.length > 0
-      ? words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join('_')
-      : initialEventId(event)
+    const suffix = words.length > 0 ? words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join('_') : initialEventId(event)
     setEventId(`{{ModId}}_${suffix}`)
   }
 
@@ -1219,9 +1256,15 @@ export function EventConditionBuilderModal({
             <strong>{copy.specialStatusTitle}</strong>
           </div>
           <div className="condition-checkbox-row">
-            <button type="button" onClick={() => addSimpleSocialChip('dating')}>{copy.datingLabel}</button>
-            <button type="button" onClick={() => addSimpleSocialChip('spouse')}>{copy.spouseLabel}</button>
-            <button type="button" onClick={() => addSimpleSocialChip('present')}>{copy.presentLabel}</button>
+            <button type="button" onClick={() => addSimpleSocialChip('dating')}>
+              {copy.datingLabel}
+            </button>
+            <button type="button" onClick={() => addSimpleSocialChip('spouse')}>
+              {copy.spouseLabel}
+            </button>
+            <button type="button" onClick={() => addSimpleSocialChip('present')}>
+              {copy.presentLabel}
+            </button>
           </div>
         </section>
 
@@ -1248,7 +1291,9 @@ export function EventConditionBuilderModal({
           <label className="condition-builder-field">
             <span>{copy.skillLabel}</span>
             <select value={skillName} onChange={(event) => setSkillName(event.target.value)}>
-              {SKILL_OPTIONS.map((skill) => <option key={skill}>{skill}</option>)}
+              {SKILL_OPTIONS.map((skill) => (
+                <option key={skill}>{skill}</option>
+              ))}
             </select>
           </label>
           <label className="condition-builder-field">
@@ -1313,7 +1358,11 @@ export function EventConditionBuilderModal({
           </label>
           <div className="condition-story-options">
             {eventSuggestions.map((item, index) => (
-              <button key={item.key} type="button" onClick={() => addStoryEventChip(item.eventId, `#${String(index + 1).padStart(2, '0')} ${item.title}`)}>
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => addStoryEventChip(item.eventId, `#${String(index + 1).padStart(2, '0')} ${item.title}`)}
+              >
                 {copy.storyTagPrefix}: #{String(index + 1).padStart(2, '0')} {item.title}
               </button>
             ))}
@@ -1378,56 +1427,59 @@ export function EventConditionBuilderModal({
       <div className={cx('condition-chip-scroll', compactLogicChain && 'compact')}>
         {chips.length === 0 ? (
           <span className="condition-chip-empty">{copy.logicChainEmpty}</span>
-        ) : chips.map((chip) => {
-          const CategoryIcon = iconForChip(chip)
-          const conflict = chip.id === 'weather:sunny' || chip.id === 'weather:rainy' ? hasWeatherConflict : false
-          const compactLabel = compactLabelForChip(chip, hubCopy)
-          const dragOffset = draggedChipId === chip.id && chipDrag
-            ? {
-                x: chipDrag.currentX - chipDrag.startX,
-                y: chipDrag.currentY - chipDrag.startY,
-              }
-            : null
-          return (
-            <div
-              key={chip.id}
-              className={cx(
-                'condition-chip',
-                chip.negated && 'negated',
-                conflict && 'conflict',
-                draggedChipId === chip.id && 'dragging',
-                chipDrag?.overChipId === chip.id && 'drop-target',
-              )}
-              data-condition-chip-id={chip.id}
-              style={dragOffset ? { transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) scale(1.035)` } : undefined}
-              onPointerDown={(pointerEvent) => handleChipPointerDown(pointerEvent, chip.id)}
-              onPointerMove={(pointerEvent) => handleChipPointerMove(pointerEvent, chip.id)}
-              onPointerUp={(pointerEvent) => handleChipPointerEnd(pointerEvent, chip.id)}
-              onPointerCancel={(pointerEvent) => handleChipPointerEnd(pointerEvent, chip.id)}
-            >
-              <button
-                type="button"
-                className="condition-chip-negate"
-                aria-label={copy.negateLabel(chip.label)}
-                onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()}
-                onClick={() => toggleChipNegation(chip.id)}
+        ) : (
+          chips.map((chip) => {
+            const CategoryIcon = iconForChip(chip)
+            const conflict = chip.id === 'weather:sunny' || chip.id === 'weather:rainy' ? hasWeatherConflict : false
+            const compactLabel = compactLabelForChip(chip, hubCopy)
+            const dragOffset =
+              draggedChipId === chip.id && chipDrag
+                ? {
+                    x: chipDrag.currentX - chipDrag.startX,
+                    y: chipDrag.currentY - chipDrag.startY,
+                  }
+                : null
+            return (
+              <div
+                key={chip.id}
+                className={cx(
+                  'condition-chip',
+                  chip.negated && 'negated',
+                  conflict && 'conflict',
+                  draggedChipId === chip.id && 'dragging',
+                  chipDrag?.overChipId === chip.id && 'drop-target',
+                )}
+                data-condition-chip-id={chip.id}
+                style={dragOffset ? { transform: `translate3d(${dragOffset.x}px, ${dragOffset.y}px, 0) scale(1.035)` } : undefined}
+                onPointerDown={(pointerEvent) => handleChipPointerDown(pointerEvent, chip.id)}
+                onPointerMove={(pointerEvent) => handleChipPointerMove(pointerEvent, chip.id)}
+                onPointerUp={(pointerEvent) => handleChipPointerEnd(pointerEvent, chip.id)}
+                onPointerCancel={(pointerEvent) => handleChipPointerEnd(pointerEvent, chip.id)}
               >
-                !
-              </button>
-              <CategoryIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="condition-chip-compact">{compactLabel}</span>
-              <span className="condition-chip-full">{chip.label}</span>
-              <button
-                type="button"
-                aria-label={copy.removeChipLabel(chip.label)}
-                onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()}
-                onClick={() => removeChip(chip.id)}
-              >
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            </div>
-          )
-        })}
+                <button
+                  type="button"
+                  className="condition-chip-negate"
+                  aria-label={copy.negateLabel(chip.label)}
+                  onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()}
+                  onClick={() => toggleChipNegation(chip.id)}
+                >
+                  !
+                </button>
+                <CategoryIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="condition-chip-compact">{compactLabel}</span>
+                <span className="condition-chip-full">{chip.label}</span>
+                <button
+                  type="button"
+                  aria-label={copy.removeChipLabel(chip.label)}
+                  onPointerDown={(pointerEvent) => pointerEvent.stopPropagation()}
+                  onClick={() => removeChip(chip.id)}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            )
+          })
+        )}
       </div>
     )
   }
@@ -1435,95 +1487,106 @@ export function EventConditionBuilderModal({
   return (
     <div className="event-condition-builder-backdrop" role="presentation" onClick={onCancel}>
       <div className="event-condition-builder-stack" onClick={(event) => event.stopPropagation()}>
-      <section
-        className="event-condition-builder-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={copy.title}
-      >
-        <header className="condition-builder-header">
-          <div>
-            <h2>{copy.title}</h2>
-            <p>{copy.subtitle}</p>
-          </div>
-          <button type="button" className="icon-button h-8 w-8" aria-label={copy.closeLabel} onClick={onCancel}>
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </header>
+        <section className="event-condition-builder-modal" role="dialog" aria-modal="true" aria-label={copy.title}>
+          <header className="condition-builder-header">
+            <div>
+              <h2>{copy.title}</h2>
+              <p>{copy.subtitle}</p>
+            </div>
+            <button type="button" className="icon-button h-8 w-8" aria-label={copy.closeLabel} onClick={onCancel}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </header>
 
-        <section className="condition-builder-identity">
-          <div className="condition-builder-field condition-builder-event-id">
-            <span className="condition-builder-field-head">
-              <label htmlFor="condition-builder-event-id">{copy.eventIdLabel}</label>
-              <button type="button" onClick={generateEventId}>
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                {copy.autoGenerateLabel}
-              </button>
-            </span>
-            <input
-              id="condition-builder-event-id"
-              value={eventId}
-              onChange={(changeEvent) => setEventId(changeEvent.target.value)}
-              placeholder={copy.eventIdPlaceholder}
-              aria-invalid={Boolean(eventIdValidation)}
-            />
-          </div>
-          <label className="condition-builder-field">
-            <span>{copy.aliasLabel}</span>
-            <input value={eventAlias} onChange={(changeEvent) => setEventAlias(changeEvent.target.value)} placeholder={copy.aliasPlaceholder} />
-          </label>
-        </section>
-
-        <main className="condition-builder-body">
-          <nav className="condition-builder-rail" aria-label={copy.title}>
-            <label className="condition-builder-category-search">
-              <Search className="h-3.5 w-3.5" aria-hidden="true" />
+          <section className="condition-builder-identity">
+            <div className="condition-builder-field condition-builder-event-id">
+              <span className="condition-builder-field-head">
+                <label htmlFor="condition-builder-event-id">{copy.eventIdLabel}</label>
+                <button type="button" onClick={generateEventId}>
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  {copy.autoGenerateLabel}
+                </button>
+              </span>
               <input
-                value={categorySearch}
-                onChange={(event) => setCategorySearch(event.target.value)}
-                placeholder={copy.categorySearchPlaceholder}
-                aria-label={copy.categorySearchPlaceholder}
+                id="condition-builder-event-id"
+                value={eventId}
+                onChange={(changeEvent) => setEventId(changeEvent.target.value)}
+                placeholder={copy.eventIdPlaceholder}
+                aria-invalid={Boolean(eventIdValidation)}
+              />
+            </div>
+            <label className="condition-builder-field">
+              <span>{copy.aliasLabel}</span>
+              <input
+                value={eventAlias}
+                onChange={(changeEvent) => setEventAlias(changeEvent.target.value)}
+                placeholder={copy.aliasPlaceholder}
               />
             </label>
-            {visibleCategories.map((category) => {
-              const CategoryIcon = CATEGORY_ICONS[category]
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  className={cx(activeCategory === category && 'active')}
-                  aria-pressed={activeCategory === category}
-                  onClick={() => setActiveCategory(category)}
-                >
-                  <CategoryIcon className="h-5 w-5" aria-hidden="true" />
-                  <span>{copy.categories[category]}</span>
-                  <small>{copy.categoryDescriptions[category]}</small>
-                </button>
-              )
-            })}
-          </nav>
-
-          <section className="condition-builder-workbench">
-            {renderActivePanel()}
           </section>
-        </main>
 
-      </section>
+          <main className="condition-builder-body">
+            <nav className="condition-builder-rail" aria-label={copy.title}>
+              <label className="condition-builder-category-search">
+                <Search className="h-3.5 w-3.5" aria-hidden="true" />
+                <input
+                  value={categorySearch}
+                  onChange={(event) => setCategorySearch(event.target.value)}
+                  placeholder={copy.categorySearchPlaceholder}
+                  aria-label={copy.categorySearchPlaceholder}
+                />
+              </label>
+              {visibleCategories.map((category) => {
+                const CategoryIcon = CATEGORY_ICONS[category]
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    className={cx(activeCategory === category && 'active')}
+                    aria-pressed={activeCategory === category}
+                    onClick={() => setActiveCategory(category)}
+                  >
+                    <CategoryIcon className="h-5 w-5" aria-hidden="true" />
+                    <span>{copy.categories[category]}</span>
+                    <small>{copy.categoryDescriptions[category]}</small>
+                  </button>
+                )
+              })}
+            </nav>
+
+            <section className="condition-builder-workbench">{renderActivePanel()}</section>
+          </main>
+        </section>
         <aside className={cx('condition-builder-chain-dock', hasWeatherConflict && 'conflict')} aria-label={copy.logicChainTitle}>
           {renderLogicChain()}
         </aside>
         <aside className={cx('condition-builder-preview-dock', eventIdValidation && 'invalid')} aria-label={copy.previewDockLabel}>
           <div className="condition-builder-previews">
             {eventIdValidation ? (
-              <p className="condition-builder-validation"><strong>{eventIdValidation}</strong></p>
+              <p className="condition-builder-validation">
+                <strong>{eventIdValidation}</strong>
+              </p>
             ) : (
-              <p><strong>{copy.naturalPreviewLabel}</strong>{naturalPreview}</p>
+              <p>
+                <strong>{copy.naturalPreviewLabel}</strong>
+                {naturalPreview}
+              </p>
             )}
-            <p><strong>{copy.codePreviewLabel}</strong><code>{codePreview}</code></p>
+            <p>
+              <strong>{copy.codePreviewLabel}</strong>
+              <code>{codePreview}</code>
+            </p>
           </div>
           <div className="condition-builder-actions">
-            <button type="button" className="control-button" onClick={onCancel}>{copy.cancelAction}</button>
-            <button type="button" className="control-button control-button-primary" onClick={applyBuilder} disabled={Boolean(eventIdValidation)}>
+            <button type="button" className="control-button" onClick={onCancel}>
+              {copy.cancelAction}
+            </button>
+            <button
+              type="button"
+              className="control-button control-button-primary"
+              onClick={applyBuilder}
+              disabled={Boolean(eventIdValidation)}
+            >
               {copy.confirmAction}
             </button>
           </div>

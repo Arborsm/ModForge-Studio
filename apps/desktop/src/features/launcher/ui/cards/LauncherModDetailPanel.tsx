@@ -107,7 +107,12 @@ export function LauncherModDetailPanel({
         tabIndex={open ? 0 : -1}
       />
 
-      <section className="launcher-library-drawer-panel panel-surface panel-surface-muted" role="dialog" aria-modal="true" aria-label={mod?.name ?? title}>
+      <section
+        className="launcher-library-drawer-panel panel-surface panel-surface-muted"
+        role="dialog"
+        aria-modal="true"
+        aria-label={mod?.name ?? title}
+      >
         <header className="launcher-library-drawer-header">
           <div className="launcher-library-drawer-header-copy">
             <p className="launcher-page-shell-eyebrow">{title}</p>
@@ -127,126 +132,132 @@ export function LauncherModDetailPanel({
               <p className="launcher-library-drawer-title">{subtitle}</p>
             )}
           </div>
-          <button type="button" className="icon-button launcher-library-drawer-close" onClick={onClose} aria-label={closeLabel} title={closeLabel}>
+          <button
+            type="button"
+            className="icon-button launcher-library-drawer-close"
+            onClick={onClose}
+            aria-label={closeLabel}
+            title={closeLabel}
+          >
             <X className="h-4 w-4" />
           </button>
         </header>
 
         <div className="launcher-library-drawer-body">
-        {!mod ? (
-          <PanelEmptyState>{empty}</PanelEmptyState>
-        ) : (
-          <>
-            <section className="launcher-detail-hero-card">
-              <div className="launcher-detail-hero">
-                <LauncherArtworkCover
-                  title={mod.name}
-                  imageUrl={mod.imageUrl}
-                  coverStyle={coverStyle}
-                  coverWord={coverWord}
-                  className="launcher-detail-cover"
-                />
+          {!mod ? (
+            <PanelEmptyState>{empty}</PanelEmptyState>
+          ) : (
+            <>
+              <section className="launcher-detail-hero-card">
+                <div className="launcher-detail-hero">
+                  <LauncherArtworkCover
+                    title={mod.name}
+                    imageUrl={mod.imageUrl}
+                    coverStyle={coverStyle}
+                    coverWord={coverWord}
+                    className="launcher-detail-cover"
+                  />
 
-                <div className="launcher-detail-copy min-w-0">
-                  <p className="launcher-detail-summary">{mod.description ?? noSummary}</p>
-                </div>
-              </div>
-
-              <div className="launcher-detail-actions-bar">
-                <button type="button" className="control-button launcher-detail-action-strong" onClick={onToggleEnabled}>
-                  {mod.enabled ? disableLabel : enableLabel}
-                </button>
-                <button type="button" className="control-button launcher-detail-action" onClick={onOpenFolder}>
-                  {openFolderLabel}
-                </button>
-                <button type="button" className="control-button launcher-detail-action" onClick={onSetCover}>
-                  {setCoverLabel}
-                </button>
-                {mod.imageUrl ? (
-                  <button type="button" className="control-button launcher-detail-action" onClick={onClearCover}>
-                    {clearCoverLabel}
-                  </button>
-                ) : null}
-                {mod.modUrl ? (
-                  <a
-                    className="control-button launcher-detail-action"
-                    href={mod.modUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(event) => {
-                      event.preventDefault()
-                      void launcherPort.openUrl({ url: mod.modUrl! })
-                    }}
-                  >
-                    {openModPageLabel ?? copy.launcher.actions.openModPage}
-                  </a>
-                ) : null}
-              </div>
-            </section>
-
-            <section className="launcher-detail-meta-card">
-              <div className="launcher-detail-section-head">
-                <div className="launcher-detail-section-heading">
-                  <ScrollText className="h-4 w-4" />
-                  <p className="launcher-page-shell-eyebrow">{labels.currentVersion}</p>
-                </div>
-                <p className="launcher-library-drawer-subtitle">{labels.pack}</p>
-              </div>
-              <div className="space-y-2">
-                <div className="kv-row compact-kv-row">
-                  <span>{labels.currentVersion}</span>
-                  <span>{mod.version ?? copy.common.none}</span>
-                </div>
-                <div className="kv-row compact-kv-row">
-                  <span>{labels.uniqueId}</span>
-                  <span>{mod.uniqueId ?? copy.common.none}</span>
-                </div>
-                {packName ? (
-                  <div className="kv-row compact-kv-row">
-                    <span>{labels.pack}</span>
-                    <span>{packName}</span>
+                  <div className="launcher-detail-copy min-w-0">
+                    <p className="launcher-detail-summary">{mod.description ?? noSummary}</p>
                   </div>
-                ) : null}
-              </div>
-            </section>
+                </div>
 
-            <section className="launcher-detail-meta-card">
-              <div className="launcher-detail-section-head">
-                <div className="launcher-detail-section-heading">
-                  <FolderTree className="h-4 w-4" />
-                  <p className="launcher-page-shell-eyebrow">{labels.path}</p>
+                <div className="launcher-detail-actions-bar">
+                  <button type="button" className="control-button launcher-detail-action-strong" onClick={onToggleEnabled}>
+                    {mod.enabled ? disableLabel : enableLabel}
+                  </button>
+                  <button type="button" className="control-button launcher-detail-action" onClick={onOpenFolder}>
+                    {openFolderLabel}
+                  </button>
+                  <button type="button" className="control-button launcher-detail-action" onClick={onSetCover}>
+                    {setCoverLabel}
+                  </button>
+                  {mod.imageUrl ? (
+                    <button type="button" className="control-button launcher-detail-action" onClick={onClearCover}>
+                      {clearCoverLabel}
+                    </button>
+                  ) : null}
+                  {mod.modUrl ? (
+                    <a
+                      className="control-button launcher-detail-action"
+                      href={mod.modUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        void launcherPort.openUrl({ url: mod.modUrl! })
+                      }}
+                    >
+                      {openModPageLabel ?? copy.launcher.actions.openModPage}
+                    </a>
+                  ) : null}
                 </div>
-                <p className="launcher-library-drawer-subtitle">{openFolderLabel}</p>
-              </div>
-              <div className="space-y-2">
-                <div className="kv-row compact-kv-row">
-                  <span>{labels.path}</span>
-                  <span>{mod.absolutePath}</span>
-                </div>
-              </div>
-            </section>
+              </section>
 
-            <section className="launcher-detail-meta-card">
-              <div className="launcher-detail-section-head">
-                <div className="launcher-detail-section-heading">
-                  <Link2 className="h-4 w-4" />
-                  <p className="launcher-page-shell-eyebrow">{labels.dependencies}</p>
+              <section className="launcher-detail-meta-card">
+                <div className="launcher-detail-section-head">
+                  <div className="launcher-detail-section-heading">
+                    <ScrollText className="h-4 w-4" />
+                    <p className="launcher-page-shell-eyebrow">{labels.currentVersion}</p>
+                  </div>
+                  <p className="launcher-library-drawer-subtitle">{labels.pack}</p>
                 </div>
-                <p className="launcher-library-drawer-subtitle">{labels.updateKeys}</p>
-              </div>
-              <div className="space-y-2">
-                <div className="kv-row compact-kv-row">
-                  <span>{labels.dependencies}</span>
-                  <span>{mod.missingRequiredDependencies.length ? mod.missingRequiredDependencies.join(', ') : copy.common.none}</span>
+                <div className="space-y-2">
+                  <div className="kv-row compact-kv-row">
+                    <span>{labels.currentVersion}</span>
+                    <span>{mod.version ?? copy.common.none}</span>
+                  </div>
+                  <div className="kv-row compact-kv-row">
+                    <span>{labels.uniqueId}</span>
+                    <span>{mod.uniqueId ?? copy.common.none}</span>
+                  </div>
+                  {packName ? (
+                    <div className="kv-row compact-kv-row">
+                      <span>{labels.pack}</span>
+                      <span>{packName}</span>
+                    </div>
+                  ) : null}
                 </div>
-                <div className="kv-row compact-kv-row">
-                  <span>{labels.updateKeys}</span>
-                  <span>{mod.updateKeys.length ? mod.updateKeys.join(', ') : copy.common.none}</span>
+              </section>
+
+              <section className="launcher-detail-meta-card">
+                <div className="launcher-detail-section-head">
+                  <div className="launcher-detail-section-heading">
+                    <FolderTree className="h-4 w-4" />
+                    <p className="launcher-page-shell-eyebrow">{labels.path}</p>
+                  </div>
+                  <p className="launcher-library-drawer-subtitle">{openFolderLabel}</p>
                 </div>
-              </div>
-            </section>
-          </>
-        )}
+                <div className="space-y-2">
+                  <div className="kv-row compact-kv-row">
+                    <span>{labels.path}</span>
+                    <span>{mod.absolutePath}</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="launcher-detail-meta-card">
+                <div className="launcher-detail-section-head">
+                  <div className="launcher-detail-section-heading">
+                    <Link2 className="h-4 w-4" />
+                    <p className="launcher-page-shell-eyebrow">{labels.dependencies}</p>
+                  </div>
+                  <p className="launcher-library-drawer-subtitle">{labels.updateKeys}</p>
+                </div>
+                <div className="space-y-2">
+                  <div className="kv-row compact-kv-row">
+                    <span>{labels.dependencies}</span>
+                    <span>{mod.missingRequiredDependencies.length ? mod.missingRequiredDependencies.join(', ') : copy.common.none}</span>
+                  </div>
+                  <div className="kv-row compact-kv-row">
+                    <span>{labels.updateKeys}</span>
+                    <span>{mod.updateKeys.length ? mod.updateKeys.join(', ') : copy.common.none}</span>
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </section>
     </aside>

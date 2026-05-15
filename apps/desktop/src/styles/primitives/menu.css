@@ -8,7 +8,7 @@
 
   .context-menu-item {
     color: var(--text-primary);
-    @apply flex h-8 items-center rounded-lg px-3 text-xs outline-none transition-colors;
+    @apply flex h-8 items-center rounded-lg px-3 text-xs transition-colors outline-none;
   }
 
   .context-menu-item[data-highlighted] {

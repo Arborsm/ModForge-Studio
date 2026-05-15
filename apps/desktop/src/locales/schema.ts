@@ -563,101 +563,101 @@ export type LauncherCopy = {
     title: string
     subtitle: string
     empty: string
-      detailsTitle: string
-      detailsSubtitle: string
-      selectionEmpty: string
-      installHint: string
-      previewTitle: string
-      previewSubtitle: string
-      previewEntries: string
-      previewFiles: string
-      previewRoots: string
-      previewArchiveListTitle: string
-      previewArchiveListSubtitle: string
-      previewNoRoots: string
-      previewLoading: string
-      previewError: string
-      dragDropInstallTitle: string
-      dragDropInstallSubtitle: (formats: string) => string
-      dragDropMultipleFiles: string
-      dragDropUnsupportedArchive: (formats: string) => string
-      dragDropMissingPath: string
-      dragDropSkippedUnsupportedArchives: (count: number, formats: string) => string
-      dragDropSkippedMissingPaths: (count: number) => string
-      installSummaryTitle: string
-      installSummarySubtitle: string
-      installSummaryInstalledMods: (count: number) => string
-      installSummaryPreservedConfig: string
-      installSummaryPreservedI18n: string
-      installSummaryBackupSubtitle: string
-      installBackupsTitle: string
-      installBackupsSubtitle: string
-      installBackupsLoading: string
-      installBackupsEmpty: string
-      installBackupsError: string
-      manageInstallBackups: string
-      restoreInstallBackup: string
-      installBackupIdLabel: string
-      filteredEmpty: string
-      scopeTitle: string
-      scopeHint: string
-      scopeAll: string
-      scopeCurrentPack: string
-      packTitle: string
-      packSubtitle: string
-      packButtonLabel: string
-      storageTitle: string
-      storageSubtitle: string
-      storageButtonLabel: string
-      managementTitle: string
-      managementSubtitle: string
-      visibleTitle: string
-      selectedTitle: string
-      currentPackTitle: string
-      allPacks: string
-      hiddenMods: string
-      allStorageFolders: string
-      defaultStorageFolder: string
-      selectionButtonLabel: string
-      newPackPlaceholder: string
-      newStorageFolderPlaceholder: string
-      sortLabel: string
-      sortByName: string
-      sortByEnabled: string
-      sortByPack: string
-      sortByFolder: string
-      storageTargetLabel: string
-      packTargetLabel: string
-      noCover: string
-      packLabel: string
-      storageFolderLabel: string
-      manageCurrentPack: string
-      renameCurrentPack: string
-      deleteCurrentPack: string
-      editCurrentPack: string
-      editingPackLabel: string
-      includedModsCount: (count: number) => string
-      cancelEdit: string
-      saveChanges: string
-      renameCurrentPackPrompt: (name: string) => string
-      deleteCurrentPackConfirm: (name: string) => string
-      loadingMissingCoversTitle: string
-      loadingMissingCoversCurrentMod: (name: string) => string
-      loadingMissingCoversProgress: (completed: number, total: number) => string
-      loadingMissingCoversStageProgress: (stage: string, completed: number, total: number) => string
-      loadingMissingCoversStages: {
-        local: string
-        apiCover: string
-        apiGallery: string
-        remoteCover: string
-        remoteGallery: string
-      }
-      galleryCoverTitle: string
-      galleryCoverSubtitle: string
-      galleryCoverEmpty: string
-      galleryCoverLoading: string
-      galleryCoverImageLabel: (index: number) => string
+    detailsTitle: string
+    detailsSubtitle: string
+    selectionEmpty: string
+    installHint: string
+    previewTitle: string
+    previewSubtitle: string
+    previewEntries: string
+    previewFiles: string
+    previewRoots: string
+    previewArchiveListTitle: string
+    previewArchiveListSubtitle: string
+    previewNoRoots: string
+    previewLoading: string
+    previewError: string
+    dragDropInstallTitle: string
+    dragDropInstallSubtitle: (formats: string) => string
+    dragDropMultipleFiles: string
+    dragDropUnsupportedArchive: (formats: string) => string
+    dragDropMissingPath: string
+    dragDropSkippedUnsupportedArchives: (count: number, formats: string) => string
+    dragDropSkippedMissingPaths: (count: number) => string
+    installSummaryTitle: string
+    installSummarySubtitle: string
+    installSummaryInstalledMods: (count: number) => string
+    installSummaryPreservedConfig: string
+    installSummaryPreservedI18n: string
+    installSummaryBackupSubtitle: string
+    installBackupsTitle: string
+    installBackupsSubtitle: string
+    installBackupsLoading: string
+    installBackupsEmpty: string
+    installBackupsError: string
+    manageInstallBackups: string
+    restoreInstallBackup: string
+    installBackupIdLabel: string
+    filteredEmpty: string
+    scopeTitle: string
+    scopeHint: string
+    scopeAll: string
+    scopeCurrentPack: string
+    packTitle: string
+    packSubtitle: string
+    packButtonLabel: string
+    storageTitle: string
+    storageSubtitle: string
+    storageButtonLabel: string
+    managementTitle: string
+    managementSubtitle: string
+    visibleTitle: string
+    selectedTitle: string
+    currentPackTitle: string
+    allPacks: string
+    hiddenMods: string
+    allStorageFolders: string
+    defaultStorageFolder: string
+    selectionButtonLabel: string
+    newPackPlaceholder: string
+    newStorageFolderPlaceholder: string
+    sortLabel: string
+    sortByName: string
+    sortByEnabled: string
+    sortByPack: string
+    sortByFolder: string
+    storageTargetLabel: string
+    packTargetLabel: string
+    noCover: string
+    packLabel: string
+    storageFolderLabel: string
+    manageCurrentPack: string
+    renameCurrentPack: string
+    deleteCurrentPack: string
+    editCurrentPack: string
+    editingPackLabel: string
+    includedModsCount: (count: number) => string
+    cancelEdit: string
+    saveChanges: string
+    renameCurrentPackPrompt: (name: string) => string
+    deleteCurrentPackConfirm: (name: string) => string
+    loadingMissingCoversTitle: string
+    loadingMissingCoversCurrentMod: (name: string) => string
+    loadingMissingCoversProgress: (completed: number, total: number) => string
+    loadingMissingCoversStageProgress: (stage: string, completed: number, total: number) => string
+    loadingMissingCoversStages: {
+      local: string
+      apiCover: string
+      apiGallery: string
+      remoteCover: string
+      remoteGallery: string
     }
+    galleryCoverTitle: string
+    galleryCoverSubtitle: string
+    galleryCoverEmpty: string
+    galleryCoverLoading: string
+    galleryCoverImageLabel: (index: number) => string
+  }
   discover: {
     title: string
     subtitle: string
@@ -747,7 +747,15 @@ export type LauncherCopy = {
     ssoAuthorized: string
     errorCardLabel: string
     errors: Record<
-      'invalidApiKey' | 'premiumRequired' | 'rateLimited' | 'serviceUnavailable' | 'network' | 'ssoCancelled' | 'ssoTimeout' | 'ssoDenied' | 'unknown',
+      | 'invalidApiKey'
+      | 'premiumRequired'
+      | 'rateLimited'
+      | 'serviceUnavailable'
+      | 'network'
+      | 'ssoCancelled'
+      | 'ssoTimeout'
+      | 'ssoDenied'
+      | 'unknown',
       {
         title: string
         detail: string
@@ -883,16 +891,16 @@ export type LauncherCopy = {
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string
     forceOfflineDisabledLabel: string
-      clearImageCacheTitle: string
-      clearImageCacheSubtitle: string
-      clearImageCacheButton: string
-      bbcodePreviewTitle: string
-      bbcodePreviewSubtitle: string
-      bbcodePreviewExpandAction: string
-      bbcodePreviewCollapseAction: string
-      simulationTitle: string
-      simulationSubtitle: string
-      simulationButtonIdle: string
+    clearImageCacheTitle: string
+    clearImageCacheSubtitle: string
+    clearImageCacheButton: string
+    bbcodePreviewTitle: string
+    bbcodePreviewSubtitle: string
+    bbcodePreviewExpandAction: string
+    bbcodePreviewCollapseAction: string
+    simulationTitle: string
+    simulationSubtitle: string
+    simulationButtonIdle: string
     simulationButtonRunning: string
     notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
     logButtons: Record<'debug' | 'info' | 'warning' | 'error', string>
@@ -981,6 +989,7 @@ export type EditorCopy = {
     showGrid: string
     hideGrid: string
     moduleWorkspace: string
+    moduleWorkspaceDisabled: string
     moduleCanvas: string
     moduleInspector: string
   }
@@ -1402,12 +1411,15 @@ export type EditorCopy = {
         catalogCountLabel: (count: number) => string
         catalogArgumentLabel: string
         catalogAddLabel: string
-        catalogConditions: Record<string, {
-          title: string
-          description: string
-          placeholder?: string
-          fieldLabel?: string
-        }>
+        catalogConditions: Record<
+          string,
+          {
+            title: string
+            description: string
+            placeholder?: string
+            fieldLabel?: string
+          }
+        >
         catalogPresetLabel: string
         catalogWeekdayLabels: Record<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun', string>
         catalogAnyPetLabel: string

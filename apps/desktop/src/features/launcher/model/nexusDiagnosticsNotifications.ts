@@ -1,9 +1,4 @@
-import {
-  dismissNotification,
-  publishNotification,
-  type NotificationChip,
-  type PublishNotificationRequest,
-} from '@shared/ui/notifications'
+import { dismissNotification, publishNotification, type NotificationChip, type PublishNotificationRequest } from '@shared/ui/notifications'
 import type { LauncherCopy } from '@locales/editor-shell'
 import type { LauncherNexusDiagnosticsResult } from '@features/launcher'
 import {
@@ -36,14 +31,16 @@ function getLauncherDiagnosticsChipLabel(routeId: string, fallbackLabel: string)
       return 'SMAPI'
     default:
       return fallbackLabel
-    }
+  }
 }
 
 function buildLauncherDiagnosticsNotificationChips(diagnostics: LauncherNexusDiagnosticsResult) {
-  return getLauncherNexusWarningRoutes(diagnostics).slice(0, 4).map<NotificationChip>((route) => ({
-    label: getLauncherDiagnosticsChipLabel(route.routeId, route.label),
-    tone: 'warning',
-  }))
+  return getLauncherNexusWarningRoutes(diagnostics)
+    .slice(0, 4)
+    .map<NotificationChip>((route) => ({
+      label: getLauncherDiagnosticsChipLabel(route.routeId, route.label),
+      tone: 'warning',
+    }))
 }
 
 export function buildLauncherDiagnosticsNotificationContent(

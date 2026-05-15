@@ -103,9 +103,7 @@ describe('ModDiagnosticsPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Missing manifest name/i }))
 
-    expect(onSelectDiagnostic).toHaveBeenCalledWith(
-      expect.objectContaining({ field: 'manifest.Name' }),
-    )
+    expect(onSelectDiagnostic).toHaveBeenCalledWith(expect.objectContaining({ field: 'manifest.Name' }))
     expect(screen.getByRole('button', { name: /One patch uses a broad target/i })).toBeTruthy()
   })
 })

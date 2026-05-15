@@ -103,7 +103,13 @@ function sanitizeUrl(value: string | undefined) {
 }
 
 function renderInlineStyle(style: CSSProperties, children: ReactNode, key: string) {
-  return Object.keys(style).length > 0 ? <span key={key} style={style}>{children}</span> : <span key={key}>{children}</span>
+  return Object.keys(style).length > 0 ? (
+    <span key={key} style={style}>
+      {children}
+    </span>
+  ) : (
+    <span key={key}>{children}</span>
+  )
 }
 
 function renderText(value: string, keyPrefix: string, suppressLeadingIndentBreak = false): ReactNode[] {
@@ -171,7 +177,11 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
       return renderSectionHeading(node, key)
     }
 
-    return <span key={key} className="nexusmods-bbcode-underline">{children}</span>
+    return (
+      <span key={key} className="nexusmods-bbcode-underline">
+        {children}
+      </span>
+    )
   }
 
   if (node.tag === 's') {
@@ -208,22 +218,40 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
   if (node.tag === 'img') {
     const src = sanitizeUrl(node.attrs.src ?? getNexusModsBbcodeTextContent(node.children))
-    return src == null ? <span key={key}>{children}</span> : <img key={key} src={src} alt={getNexusModsBbcodeTextContent(node.children)} loading="lazy" />
+    return src == null ? (
+      <span key={key}>{children}</span>
+    ) : (
+      <img key={key} src={src} alt={getNexusModsBbcodeTextContent(node.children)} loading="lazy" />
+    )
   }
 
   if (node.tag === 'center' || node.tag === 'left' || node.tag === 'right' || node.tag === 'justify') {
-    return <div key={key} className={`nexusmods-bbcode-align-${node.tag}`}>{children}</div>
+    return (
+      <div key={key} className={`nexusmods-bbcode-align-${node.tag}`}>
+        {children}
+      </div>
+    )
   }
 
   if (node.tag === 'list') {
     const ordered = node.attrs.list === '1' || node.attrs.list?.toLowerCase() === 'decimal'
-    return ordered
-      ? <ol key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-ordered">{children}</ol>
-      : <ul key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-bulleted">{children}</ul>
+    return ordered ? (
+      <ol key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-ordered">
+        {children}
+      </ol>
+    ) : (
+      <ul key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-bulleted">
+        {children}
+      </ul>
+    )
   }
 
   if (node.tag === 'item') {
-    return <li key={key} className="nexusmods-bbcode-list-item">{children}</li>
+    return (
+      <li key={key} className="nexusmods-bbcode-list-item">
+        {children}
+      </li>
+    )
   }
 
   if (node.tag === 'quote') {
@@ -240,7 +268,11 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'code') {
-    return <pre key={key}><code>{getNexusModsBbcodeTextContent(node.children)}</code></pre>
+    return (
+      <pre key={key}>
+        <code>{getNexusModsBbcodeTextContent(node.children)}</code>
+      </pre>
+    )
   }
 
   return <hr key={key} />
@@ -302,9 +334,5 @@ function renderNodes(nodes: NexusModsBbcodeNode[], keyPrefix: string, allowSecti
 export const NexusModsBbcode = memo(function NexusModsBbcode({ source }: NexusModsBbcodeProps) {
   const document = useMemo(() => parseNexusModsBbcode(source), [source])
 
-  return (
-    <div className="nexusmods-bbcode">
-      {renderNodes(document.children, 'bbcode')}
-    </div>
-  )
+  return <div className="nexusmods-bbcode">{renderNodes(document.children, 'bbcode')}</div>
 })

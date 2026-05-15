@@ -23,14 +23,7 @@ const FARM_FARMING_GROUP_KEYS = new Set([
   'Well',
 ])
 
-const FARM_SPECIAL_GROUP_KEYS = new Set([
-  'Desert Obelisk',
-  'Earth Obelisk',
-  'Gold Clock',
-  'Island Obelisk',
-  'Junimo Hut',
-  'Water Obelisk',
-])
+const FARM_SPECIAL_GROUP_KEYS = new Set(['Desert Obelisk', 'Earth Obelisk', 'Gold Clock', 'Island Obelisk', 'Junimo Hut', 'Water Obelisk'])
 
 type BuildingBrowserPanelProps = {
   constructibleGroups: ConstructibleBuildingGroup[]
@@ -128,17 +121,11 @@ function WorldBuildingButton({
   })
 
   return (
-    <button
-      type="button"
-      {...revealProps}
-      onClick={onSelect}
-    >
+    <button type="button" {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{building.displayName}</p>
-          <p className="truncate text-xs text-[var(--text-secondary)]">
-            {building.exteriorMapName ?? building.internalName}
-          </p>
+          <p className="truncate text-xs text-[var(--text-secondary)]">{building.exteriorMapName ?? building.internalName}</p>
         </div>
         <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
           <p>{building.worldEntrances.length}</p>
@@ -167,17 +154,11 @@ function ConstructibleGroupButton({
   })
 
   return (
-    <button
-      type="button"
-      {...revealProps}
-      onClick={onSelect}
-    >
+    <button type="button" {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{group.displayName}</p>
-          <p className="truncate text-xs text-[var(--text-secondary)]">
-            {group.entries.map((entry) => entry.displayName).join(' / ')}
-          </p>
+          <p className="truncate text-xs text-[var(--text-secondary)]">{group.entries.map((entry) => entry.displayName).join(' / ')}</p>
         </div>
         <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
           <p>{group.stageCount}</p>
@@ -191,7 +172,7 @@ function ConstructibleGroupButton({
 function SubsectionTitle({ title, count }: { title: string; count: number }) {
   return (
     <div className="flex items-center justify-between gap-3 px-1">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{title}</p>
+      <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{title}</p>
       <span className="dock-chip shrink-0">{count}</span>
     </div>
   )
@@ -231,15 +212,13 @@ export function BuildingBrowserPanel({
       className="h-full"
       headerAction={
         <span className="dock-chip">
-          {browserSourceMode === 'mod'
-            ? modBuildingGroups.reduce((total, group) => total + group.items.length, 0)
-            : filteredCount}
+          {browserSourceMode === 'mod' ? modBuildingGroups.reduce((total, group) => total + group.items.length, 0) : filteredCount}
         </span>
       }
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             className="control-input pl-9"
             value={buildingFilter}
@@ -266,29 +245,26 @@ export function BuildingBrowserPanel({
                     const { value: building, targets } = entry
                     const revealProps = getLoadingMotionChildRevealProps({
                       index: groupIndex + itemIndex,
-                      className: cx(
-                        'asset-row w-full text-left',
-                        entry.selectionId === activeModBuildingSelectionId && 'asset-row-active',
-                      ),
+                      className: cx('asset-row w-full text-left', entry.selectionId === activeModBuildingSelectionId && 'asset-row-active'),
                     })
                     return (
-                    <button
-                      key={`${group.modId}:${building.key}`}
-                      type="button"
-                      {...revealProps}
-                      onClick={() => onSelectModBuilding(entry)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{building.displayName}</p>
-                          <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? building.internalName}</p>
+                      <button
+                        key={`${group.modId}:${building.key}`}
+                        type="button"
+                        {...revealProps}
+                        onClick={() => onSelectModBuilding(entry)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{building.displayName}</p>
+                            <p className="truncate text-xs text-[var(--text-secondary)]">{targets[0] ?? building.internalName}</p>
+                          </div>
+                          <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
+                            <p>{building.sourceKind === 'constructible' ? copy.browserConstructibleBadge : copy.browserWorldBadge}</p>
+                            <p>{building.stageCount}</p>
+                          </div>
                         </div>
-                        <div className="shrink-0 text-right text-[11px] text-[var(--text-secondary)]">
-                          <p>{building.sourceKind === 'constructible' ? copy.browserConstructibleBadge : copy.browserWorldBadge}</p>
-                          <p>{building.stageCount}</p>
-                        </div>
-                      </div>
-                    </button>
+                      </button>
                     )
                   })}
                 </PanelSection>
@@ -344,11 +320,7 @@ export function BuildingBrowserPanel({
                   subtitle={copy.browserConstructibleSubtitle}
                   action={
                     <span className="dock-chip shrink-0">
-                      {
-                        constructibleSections.farming.length +
-                        constructibleSections.special.length +
-                        constructibleSections.other.length
-                      }
+                      {constructibleSections.farming.length + constructibleSections.special.length + constructibleSections.other.length}
                     </span>
                   }
                   bodyClassName="space-y-3"
@@ -357,7 +329,7 @@ export function BuildingBrowserPanel({
                     <div className="space-y-2">
                       <SubsectionTitle title="Farming" count={constructibleSections.farming.length} />
                       {constructibleSections.farming.map((group, index) => (
-                      <ConstructibleGroupButton
+                        <ConstructibleGroupButton
                           key={group.key}
                           group={group}
                           isActive={group.key === activeBuildingGroupKey}
@@ -371,7 +343,7 @@ export function BuildingBrowserPanel({
                     <div className="space-y-2">
                       <SubsectionTitle title="Special" count={constructibleSections.special.length} />
                       {constructibleSections.special.map((group, index) => (
-                      <ConstructibleGroupButton
+                        <ConstructibleGroupButton
                           key={group.key}
                           group={group}
                           isActive={group.key === activeBuildingGroupKey}
@@ -385,7 +357,7 @@ export function BuildingBrowserPanel({
                     <div className="space-y-2">
                       <SubsectionTitle title="Additional" count={constructibleSections.other.length} />
                       {constructibleSections.other.map((group, index) => (
-                      <ConstructibleGroupButton
+                        <ConstructibleGroupButton
                           key={group.key}
                           group={group}
                           isActive={group.key === activeBuildingGroupKey}
@@ -440,13 +412,10 @@ export function BuildingBrowserPanel({
               ))}
             </>
           ) : (
-            <PanelEmptyState>
-              {totalCount ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}
-            </PanelEmptyState>
+            <PanelEmptyState>{totalCount ? copy.browserFilteredEmpty : copy.browserUnloadedEmpty}</PanelEmptyState>
           )}
         </div>
       </div>
     </PanelFrame>
   )
 }
-

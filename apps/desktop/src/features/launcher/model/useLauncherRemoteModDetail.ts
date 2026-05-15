@@ -40,7 +40,8 @@ export function useLauncherRemoteModDetail(modId: number | null) {
       progress: 18,
     })
 
-    void launcherPort.loadRemoteModDetail({ modId })
+    void launcherPort
+      .loadRemoteModDetail({ modId })
       .then((result) => {
         if (cancelled) {
           return

@@ -1,4 +1,23 @@
-import { AlertTriangle, ArrowUpRight, Bug, Check, ChevronDown, Code2, Crown, Database, Download, FolderOpen, HelpCircle, Image, KeyRound, MessageSquare, Network, RefreshCw, ScrollText, X } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Bug,
+  Check,
+  ChevronDown,
+  Code2,
+  Crown,
+  Database,
+  Download,
+  FolderOpen,
+  HelpCircle,
+  Image,
+  KeyRound,
+  MessageSquare,
+  Network,
+  RefreshCw,
+  ScrollText,
+  X,
+} from 'lucide-react'
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/cx'
@@ -82,7 +101,8 @@ function getDisplayedConfigRoutes(routes: LauncherNexusRouteSnapshot[], copy: La
   return getDefaultConfigRoutes(copy).map((fallbackRoute) => routesById.get(fallbackRoute.routeId) ?? fallbackRoute)
 }
 
-const nexusModsBbcodeSample = '[font=Georgia][center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b] [i][color=#a2c4c9]by orangeblossom[/color][/i][/center] [center][color=#ffd966]⋆[/color][color=#fce5cd]｡[/color][color=#a4c2f4]‧[/color][color=#b4a7d6]˚[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#9fc5e8]˚[/color][color=#fce5cd]‧[/color][color=#ead1dc]｡[/color][color=#ffd966]⋆[/color][/center] I took inspiration from ikea furniture when drawing the sprites for this mod, specifically their BJÖRKSNÄS bed frame and PAX wardrobe frames because it looks light, modern, airy and cozy [s]and [i]totally [/i]not because of the blazing summer heat where i live.[/s] [size=2]You can get this furniture if you have my [/size][url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][size=2] which you can buy from Robin. [/size][/font][font=Georgia][font=Georgia][color=#ffd966][url=https://buymeacoffee.com/orangeblossom] [/url][/color][/font] Translation Credits: [list] [*][font=Georgia][i]Keluoluooo[/i] for the Chinese translation[/font] [*][font=Georgia][i]Nitropicc[/i] for the Spanish translation[/font] [/list] [center][color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ Content Patcher Version Section [color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆[/color][/color][/center][size=1][center](aka 1.6 section)[/center] [/size][u]legend:[/u] [list] [*]green = [color=#93c47d]NEW[/color] [*]red = [color=#e06666]rotate[/color] [/list][size=2] [left][u][color=#6d9eeb]This mod contains:[/color][/u][/left] [/size][i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- [color=#93c47d]blocky double bed[/color] ﻿2. single bed ﻿ ﻿- single bed ﻿ ﻿- [color=#93c47d]blocky single bed[/color] [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table ﻿2. glass end table ﻿3. [color=#93c47d]blocky end table[/color] [i][u]ꕥ console table [/u][/i] ﻿1. wooden console table [size=1](extendable; [color=#e06666]rotate[/color])[/size] [size=2] ﻿2. glass console table [/size][size=1](extendable; [color=#e06666]rotate[/color])[/size] [i][u]ꕥ plants[/u][/i] ﻿1. baby\'s breath on a vase ﻿2. carnations on a vase [i][u]ꕥ wall decor[/u][/i] ﻿1. shelf ﻿2. abstract painting ﻿3. hanging dress [i][u]ꕥ floor decor[/u][/i] ﻿ ﻿1. standing mirror ﻿2. hamper ﻿3. divider[size=1] (2 versions; [color=#e06666]rotate[/color]) [/size] [i][u]ꕥ misc decor [/u][/i] ﻿1. bag clutter ﻿[size=1](2 versions; [color=#e06666]rotate[/color])[/size] ﻿2. makeup clutter [size=1](4 versions; [color=#e06666]rotate[/color])[/size] [i][u]ꕥ lamps[/u][/i] ﻿1. candle lamp [s]﻿2. wooden end table w/ candles and flower vase ﻿3. wooden end table w/ star lamp and flower vase[/s] [s]﻿﻿4. glass end table w/ candles and flower vase ﻿5. glass end table w/ star lamp and flower vase[/s] ﻿2. 3 orbs floor lamp ﻿3. [color=#93c47d]nightlight and flowers[/color] ﻿4. [color=#93c47d]tea candle and flowers[/color] [i][u]ꕥ sconce[/u][/i] ﻿1. globe sconce [i][u]ꕥ modular wardrobe [/u][/i] ﻿1. end piece (2 versions) [size=1]- functions as a dresser; [color=#e06666]rotate[/color] to get left and right pieces[/size] ﻿2. mirror end piece (left and right) [size=1]- [color=#e06666]rotate[/color] to get left and right pieces[/size] ﻿3. double wardrobe (2 versions) [size=1]- functions as a dresser[/size] ﻿4. corner end piece (left and right) ﻿5. corner extension end piece (left and right) [i][u]ꕥ ottoman[/u][/i] ﻿1. cushioned ottoman[size=1] ([color=#e06666]rotate[/color] to get extendable pieces + corner pieces)[/size] ﻿2. wooden ottoman[size=1] ([color=#e06666]rotate[/color] to get extendable pieces + corner pieces)[/size] [u][i][i][u]ꕥ [/u][/i]rugs[/i][/u] (4 patterns each) ﻿1. 3x3 rug ﻿2. 4x3 rug ﻿3. 5x4 square rug ﻿4. 5x4 rectangle rug [center][color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ Alternative Textures Version Section [color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ [/color][/color][size=1](aka pre-1.6 section)[/size][/center] [u] [color=#6d9eeb]Textures can be found in the following:[/color][/u] [/font][list] [*][font=Georgia]artist bookcase[/font] [*][font=Georgia]bed[/font] [*][font=Georgia]box lamp[/font] [*][font=Georgia]ceramic pillar[/font] [*][font=Georgia]double bed[/font] [*][font=Georgia]funky rug[/font] [*][font=Georgia]globe[/font] [*][font=Georgia]green stool[/font] [*][font=Georgia]house plant[/font] [*][font=Georgia]jade hills[/font] [*][font=Georgia]needlepoint flower[/font] [*][font=Georgia]old world rug[/font] [*][font=Georgia]sandy rug[/font] [*][font=Georgia]wall sconce[/font] [*][font=Georgia]walnut end table[/font] [/list][font=Georgia] [color=#6d9eeb]NOTES:[/color] [list] [*][font=Georgia]I wasn\'t able to include the wardrobe corners and extensions because of vanilla furniture limitations. The ottomans also don\'t have corner pieces but you can place them together and still get that \'connected\' look.[/font] [*][font=Georgia]Wardrobes in this version do not function as dressers.[/font] [/list][/font]'
+const nexusModsBbcodeSample =
+  "[font=Georgia][center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b] [i][color=#a2c4c9]by orangeblossom[/color][/i][/center] [center][color=#ffd966]⋆[/color][color=#fce5cd]｡[/color][color=#a4c2f4]‧[/color][color=#b4a7d6]˚[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#9fc5e8]˚[/color][color=#fce5cd]‧[/color][color=#ead1dc]｡[/color][color=#ffd966]⋆[/color][/center] I took inspiration from ikea furniture when drawing the sprites for this mod, specifically their BJÖRKSNÄS bed frame and PAX wardrobe frames because it looks light, modern, airy and cozy [s]and [i]totally [/i]not because of the blazing summer heat where i live.[/s] [size=2]You can get this furniture if you have my [/size][url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][size=2] which you can buy from Robin. [/size][/font][font=Georgia][font=Georgia][color=#ffd966][url=https://buymeacoffee.com/orangeblossom] [/url][/color][/font] Translation Credits: [list] [*][font=Georgia][i]Keluoluooo[/i] for the Chinese translation[/font] [*][font=Georgia][i]Nitropicc[/i] for the Spanish translation[/font] [/list] [center][color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ Content Patcher Version Section [color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆[/color][/color][/center][size=1][center](aka 1.6 section)[/center] [/size][u]legend:[/u] [list] [*]green = [color=#93c47d]NEW[/color] [*]red = [color=#e06666]rotate[/color] [/list][size=2] [left][u][color=#6d9eeb]This mod contains:[/color][/u][/left] [/size][i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- [color=#93c47d]blocky double bed[/color] ﻿2. single bed ﻿ ﻿- single bed ﻿ ﻿- [color=#93c47d]blocky single bed[/color] [i] [u]ꕥ end table[/u][/i] ﻿1. wooden end table ﻿2. glass end table ﻿3. [color=#93c47d]blocky end table[/color] [i][u]ꕥ console table [/u][/i] ﻿1. wooden console table [size=1](extendable; [color=#e06666]rotate[/color])[/size] [size=2] ﻿2. glass console table [/size][size=1](extendable; [color=#e06666]rotate[/color])[/size] [i][u]ꕥ plants[/u][/i] ﻿1. baby's breath on a vase ﻿2. carnations on a vase [i][u]ꕥ wall decor[/u][/i] ﻿1. shelf ﻿2. abstract painting ﻿3. hanging dress [i][u]ꕥ floor decor[/u][/i] ﻿ ﻿1. standing mirror ﻿2. hamper ﻿3. divider[size=1] (2 versions; [color=#e06666]rotate[/color]) [/size] [i][u]ꕥ misc decor [/u][/i] ﻿1. bag clutter ﻿[size=1](2 versions; [color=#e06666]rotate[/color])[/size] ﻿2. makeup clutter [size=1](4 versions; [color=#e06666]rotate[/color])[/size] [i][u]ꕥ lamps[/u][/i] ﻿1. candle lamp [s]﻿2. wooden end table w/ candles and flower vase ﻿3. wooden end table w/ star lamp and flower vase[/s] [s]﻿﻿4. glass end table w/ candles and flower vase ﻿5. glass end table w/ star lamp and flower vase[/s] ﻿2. 3 orbs floor lamp ﻿3. [color=#93c47d]nightlight and flowers[/color] ﻿4. [color=#93c47d]tea candle and flowers[/color] [i][u]ꕥ sconce[/u][/i] ﻿1. globe sconce [i][u]ꕥ modular wardrobe [/u][/i] ﻿1. end piece (2 versions) [size=1]- functions as a dresser; [color=#e06666]rotate[/color] to get left and right pieces[/size] ﻿2. mirror end piece (left and right) [size=1]- [color=#e06666]rotate[/color] to get left and right pieces[/size] ﻿3. double wardrobe (2 versions) [size=1]- functions as a dresser[/size] ﻿4. corner end piece (left and right) ﻿5. corner extension end piece (left and right) [i][u]ꕥ ottoman[/u][/i] ﻿1. cushioned ottoman[size=1] ([color=#e06666]rotate[/color] to get extendable pieces + corner pieces)[/size] ﻿2. wooden ottoman[size=1] ([color=#e06666]rotate[/color] to get extendable pieces + corner pieces)[/size] [u][i][i][u]ꕥ [/u][/i]rugs[/i][/u] (4 patterns each) ﻿1. 3x3 rug ﻿2. 4x3 rug ﻿3. 5x4 square rug ﻿4. 5x4 rectangle rug [center][color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ Alternative Textures Version Section [color=#fff2cc]⋆[/color][color=#cfe2f3]˚[/color][color=#ffe599]‧[/color][color=#ead1dc]｡[/color][color=#fff2cc]⋆[/color][color=#6aa84f]ʚ[/color] [color=#ffe599]❀[/color] [color=#6aa84f]ɞ[/color][color=#ffd966]⋆[/color][color=#cfe2f3]｡[/color][color=#ead1dc]‧[/color][color=#b4a7d6]˚[/color][color=#ffe599]⋆ [/color][/color][size=1](aka pre-1.6 section)[/size][/center] [u] [color=#6d9eeb]Textures can be found in the following:[/color][/u] [/font][list] [*][font=Georgia]artist bookcase[/font] [*][font=Georgia]bed[/font] [*][font=Georgia]box lamp[/font] [*][font=Georgia]ceramic pillar[/font] [*][font=Georgia]double bed[/font] [*][font=Georgia]funky rug[/font] [*][font=Georgia]globe[/font] [*][font=Georgia]green stool[/font] [*][font=Georgia]house plant[/font] [*][font=Georgia]jade hills[/font] [*][font=Georgia]needlepoint flower[/font] [*][font=Georgia]old world rug[/font] [*][font=Georgia]sandy rug[/font] [*][font=Georgia]wall sconce[/font] [*][font=Georgia]walnut end table[/font] [/list][font=Georgia] [color=#6d9eeb]NOTES:[/color] [list] [*][font=Georgia]I wasn't able to include the wardrobe corners and extensions because of vanilla furniture limitations. The ottomans also don't have corner pieces but you can place them together and still get that 'connected' look.[/font] [*][font=Georgia]Wardrobes in this version do not function as dressers.[/font] [/list][/font]"
 
 function hasConfiguredPath(value: string | null | undefined) {
   return Boolean(value?.trim())
@@ -130,7 +150,7 @@ function formatResetCountdown(timestampSeconds: number | null | undefined, copy:
     return null
   }
 
-  const remainingMs = (timestampSeconds * 1000) - Date.now()
+  const remainingMs = timestampSeconds * 1000 - Date.now()
   if (remainingMs <= 0) {
     return copy.settings.nexusQuotaResetIn(copy.settings.nexusQuotaDurationMinutes(0))
   }
@@ -138,9 +158,8 @@ function formatResetCountdown(timestampSeconds: number | null | undefined, copy:
   const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60_000))
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  const duration = hours > 0
-    ? copy.settings.nexusQuotaDurationHoursMinutes(hours, minutes)
-    : copy.settings.nexusQuotaDurationMinutes(minutes)
+  const duration =
+    hours > 0 ? copy.settings.nexusQuotaDurationHoursMinutes(hours, minutes) : copy.settings.nexusQuotaDurationMinutes(minutes)
 
   return copy.settings.nexusQuotaResetIn(duration)
 }
@@ -310,15 +329,15 @@ function getStepIcon(tone: ConfigStepTone) {
   return <Check className="h-3.5 w-3.5" />
 }
 
-function ConfigCompletionRail({
-  title,
-  steps,
-}: {
-  title: string
-  steps: ConfigStep[]
-}) {
+function ConfigCompletionRail({ title, steps }: { title: string; steps: ConfigStep[] }) {
   return (
-    <LoadingMotionReveal itemId="launcher-config-completion-rail" index={3} as="section" className="launcher-config-rail-panel launcher-config-completion-rail" data-testid="launcher-config-completion-rail">
+    <LoadingMotionReveal
+      itemId="launcher-config-completion-rail"
+      index={3}
+      as="section"
+      className="launcher-config-rail-panel launcher-config-completion-rail"
+      data-testid="launcher-config-completion-rail"
+    >
       <div className="launcher-config-rail-title">{title}</div>
       <div className="launcher-config-stepper">
         {steps.map((step, index) => (
@@ -370,13 +389,22 @@ function ConfigDownloadDefaults({
   ]
 
   return (
-    <LoadingMotionReveal itemId="launcher-config-download-defaults" index={5} as="section" className="launcher-config-rail-panel launcher-config-download-defaults" data-testid="launcher-config-download-defaults">
+    <LoadingMotionReveal
+      itemId="launcher-config-download-defaults"
+      index={5}
+      as="section"
+      className="launcher-config-rail-panel launcher-config-download-defaults"
+      data-testid="launcher-config-download-defaults"
+    >
       <div className="launcher-config-rail-title">{copy.settings.downloadDefaultsTitle}</div>
       <div className="launcher-config-defaults">
         {defaults.map((item, index) => (
           <LoadingMotionRevealItem key={item.label} index={index} as="div" className="launcher-config-default-row">
             <span>{item.label}</span>
-            <span className={cx('launcher-config-mini-switch', item.checked && 'launcher-config-mini-switch-active')} aria-label={item.checked ? yesLabel : noLabel}>
+            <span
+              className={cx('launcher-config-mini-switch', item.checked && 'launcher-config-mini-switch-active')}
+              aria-label={item.checked ? yesLabel : noLabel}
+            >
               <span aria-hidden="true" />
             </span>
           </LoadingMotionRevealItem>
@@ -386,27 +414,33 @@ function ConfigDownloadDefaults({
   )
 }
 
-function ConfigAccountCard({
-  account,
-  copy,
-}: {
-  account: NexusApiAccountStatus
-  copy: LauncherCopy
-}) {
+function ConfigAccountCard({ account, copy }: { account: NexusApiAccountStatus; copy: LauncherCopy }) {
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
   const accountStatus = account.apiKeyError ? copy.settings.nexusApiUnavailable : copy.settings.nexusNormalStatus
 
   return (
-    <LoadingMotionReveal itemId="launcher-config-account-card" index={4} as="section" className="launcher-config-account-row" data-testid="launcher-config-account-card">
+    <LoadingMotionReveal
+      itemId="launcher-config-account-card"
+      index={4}
+      as="section"
+      className="launcher-config-account-row"
+      data-testid="launcher-config-account-card"
+    >
       <div className="launcher-config-account-cover" aria-hidden="true" />
       <div className="launcher-config-account-card">
         <div className="launcher-config-avatar-wrap">
           <span className="launcher-config-avatar">{getInitials(accountName)}</span>
-          <span className={cx('launcher-config-online-dot', account.apiKeyError && 'launcher-config-online-dot-danger')} title={accountStatus} />
+          <span
+            className={cx('launcher-config-online-dot', account.apiKeyError && 'launcher-config-online-dot-danger')}
+            title={accountStatus}
+          />
         </div>
         <div className="launcher-config-account-meta">
           <strong>{accountName}</strong>
-          <span className="launcher-config-premium-badge" title={account.apiKeyStatus?.isPremium ? copy.diagnostics.premiumActive : copy.diagnostics.premiumFree}>
+          <span
+            className="launcher-config-premium-badge"
+            title={account.apiKeyStatus?.isPremium ? copy.diagnostics.premiumActive : copy.diagnostics.premiumFree}
+          >
             <Crown className="h-3.5 w-3.5" aria-hidden="true" />
             {copy.diagnostics.premiumActive.toUpperCase()}
           </span>
@@ -416,15 +450,7 @@ function ConfigAccountCard({
   )
 }
 
-function ConfigPanelHeader({
-  title,
-  description,
-  actions,
-}: {
-  title: string
-  description: string
-  actions?: ReactNode
-}) {
+function ConfigPanelHeader({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) {
   return (
     <div className="launcher-config-panel-head">
       <div>
@@ -518,49 +544,58 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
   const apiKeySignature = getConfigurationDiagnosticsApiKeySignature(settings)
   const hasApiKey = Boolean(apiKeySignature)
 
-  const refreshApiKeyStatus = useCallback(async (options: { force?: boolean } = {}) => {
-    if (!hasApiKey) {
-      setApiKeyStatus(null)
-      setApiKeyError(null)
-      return
-    }
-
-    if (!options.force) {
-      const cached = readCachedLauncherConfigurationApiKeyStatus({
-        apiKeySignature,
-      })
-      if (cached) {
-        setApiKeyStatus(cached.status)
-        setApiKeyError(cached.error)
+  const refreshApiKeyStatus = useCallback(
+    async (options: { force?: boolean } = {}) => {
+      if (!hasApiKey) {
+        setApiKeyStatus(null)
+        setApiKeyError(null)
         return
       }
-    }
 
-    setApiKeyChecking(true)
-    setApiKeyError(null)
-    try {
-      const nextStatus = await launcherPort.validateNexusApiKey()
-      setApiKeyStatus(nextStatus)
-      writeCachedLauncherConfigurationApiKeyStatus({
-        status: nextStatus,
-        error: null,
-      }, {
-        apiKeySignature,
-      })
-    } catch (nextError) {
-      const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
-      setApiKeyStatus(null)
-      setApiKeyError(errorMessage)
-      writeCachedLauncherConfigurationApiKeyStatus({
-        status: null,
-        error: errorMessage,
-      }, {
-        apiKeySignature,
-      })
-    } finally {
-      setApiKeyChecking(false)
-    }
-  }, [apiKeySignature, hasApiKey, launcherPort])
+      if (!options.force) {
+        const cached = readCachedLauncherConfigurationApiKeyStatus({
+          apiKeySignature,
+        })
+        if (cached) {
+          setApiKeyStatus(cached.status)
+          setApiKeyError(cached.error)
+          return
+        }
+      }
+
+      setApiKeyChecking(true)
+      setApiKeyError(null)
+      try {
+        const nextStatus = await launcherPort.validateNexusApiKey()
+        setApiKeyStatus(nextStatus)
+        writeCachedLauncherConfigurationApiKeyStatus(
+          {
+            status: nextStatus,
+            error: null,
+          },
+          {
+            apiKeySignature,
+          },
+        )
+      } catch (nextError) {
+        const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
+        setApiKeyStatus(null)
+        setApiKeyError(errorMessage)
+        writeCachedLauncherConfigurationApiKeyStatus(
+          {
+            status: null,
+            error: errorMessage,
+          },
+          {
+            apiKeySignature,
+          },
+        )
+      } finally {
+        setApiKeyChecking(false)
+      }
+    },
+    [apiKeySignature, hasApiKey, launcherPort],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -587,24 +622,30 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
 
       try {
         const nextStatus = await launcherPort.validateNexusApiKey()
-        writeCachedLauncherConfigurationApiKeyStatus({
-          status: nextStatus,
-          error: null,
-        }, {
-          apiKeySignature,
-        })
+        writeCachedLauncherConfigurationApiKeyStatus(
+          {
+            status: nextStatus,
+            error: null,
+          },
+          {
+            apiKeySignature,
+          },
+        )
         if (!cancelled) {
           setApiKeyStatus(nextStatus)
           setApiKeyError(null)
         }
       } catch (nextError) {
         const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
-        writeCachedLauncherConfigurationApiKeyStatus({
-          status: null,
-          error: errorMessage,
-        }, {
-          apiKeySignature,
-        })
+        writeCachedLauncherConfigurationApiKeyStatus(
+          {
+            status: null,
+            error: errorMessage,
+          },
+          {
+            apiKeySignature,
+          },
+        )
         if (!cancelled) {
           setApiKeyStatus(null)
           setApiKeyError(errorMessage)
@@ -723,7 +764,11 @@ function ConfigApiRow({
   children: ReactNode
 }) {
   return (
-    <LoadingMotionRevealItem index={index} as="div" className={cx('launcher-config-api-row', `launcher-config-api-row-${tone}`, resolved && 'launcher-config-api-row-resolved')}>
+    <LoadingMotionRevealItem
+      index={index}
+      as="div"
+      className={cx('launcher-config-api-row', `launcher-config-api-row-${tone}`, resolved && 'launcher-config-api-row-resolved')}
+    >
       <div className="launcher-config-api-name">
         <span className={cx('launcher-config-api-icon', `launcher-config-api-icon-${tone}`)} aria-hidden="true">
           {children}
@@ -755,24 +800,55 @@ function ConfigNexusPanel({
   const isAuthorized = Boolean(account.apiKeyStatus || account.ssoAuthorized || hasApiKey)
   const dailyPercent = getPercent(account.apiKeyStatus?.dailyRemaining, 20_000)
   const hourlyPercent = getPercent(account.apiKeyStatus?.hourlyRemaining, 500)
-  const dailyLimit = getQuotaDetail(copy.settings.nexusQuotaDailyLimit, account.apiKeyStatus?.dailyResetAt, getNextUtcMidnightTimestampSeconds, copy)
-  const hourlyLimit = getQuotaDetail(copy.settings.nexusQuotaHourlyLimit, account.apiKeyStatus?.hourlyResetAt, getNextHourTimestampSeconds, copy)
+  const dailyLimit = getQuotaDetail(
+    copy.settings.nexusQuotaDailyLimit,
+    account.apiKeyStatus?.dailyResetAt,
+    getNextUtcMidnightTimestampSeconds,
+    copy,
+  )
+  const hourlyLimit = getQuotaDetail(
+    copy.settings.nexusQuotaHourlyLimit,
+    account.apiKeyStatus?.hourlyResetAt,
+    getNextHourTimestampSeconds,
+    copy,
+  )
   const displayedRoutes = getDisplayedConfigRoutes(routes, copy)
 
   return (
-    <section className="launcher-config-panel launcher-config-nexus" aria-label={copy.settings.nexusAccessTitle} data-testid="launcher-config-nexus">
+    <section
+      className="launcher-config-panel launcher-config-nexus"
+      aria-label={copy.settings.nexusAccessTitle}
+      data-testid="launcher-config-nexus"
+    >
       <ConfigPanelHeader
         title={copy.settings.nexusAccessTitle}
         description={isAuthorized ? copy.settings.nexusAccessHint : copy.settings.nexusGuestSubtitle}
         actions={
           <div className="launcher-config-actions">
-            <button type="button" className="launcher-config-button launcher-config-button-brand" disabled={account.ssoStarting} onClick={() => void account.startSso()}>
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-brand"
+              disabled={account.ssoStarting}
+              onClick={() => void account.startSso()}
+            >
               {isAuthorized ? copy.settings.nexusReauthorize : copy.settings.nexusSignInAction}
             </button>
-            <button type="button" className="launcher-config-button" disabled={!hasApiKey} onClick={() => settingsState.updateField('nexusApiKey', null)}>
+            <button
+              type="button"
+              className="launcher-config-button"
+              disabled={!hasApiKey}
+              onClick={() => settingsState.updateField('nexusApiKey', null)}
+            >
               {copy.settings.nexusClearApiKeyAction}
             </button>
-            <button type="button" className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button" aria-busy={diagnosticsRefreshing} aria-label={copy.configuration.nexusDiagnosticsTitle} title={copy.configuration.nexusDiagnosticsTitle} onClick={onRefreshDiagnostics}>
+            <button
+              type="button"
+              className="launcher-config-icon-button launcher-config-panel-icon-button launcher-config-refresh-button"
+              aria-busy={diagnosticsRefreshing}
+              aria-label={copy.configuration.nexusDiagnosticsTitle}
+              title={copy.configuration.nexusDiagnosticsTitle}
+              onClick={onRefreshDiagnostics}
+            >
               <RefreshCw className={cx('h-3.5 w-3.5', diagnosticsRefreshing && 'animate-spin')} aria-hidden="true" />
             </button>
             <span className="launcher-config-help" title={copy.settings.nexusAccessHint}>
@@ -809,10 +885,19 @@ function ConfigNexusPanel({
             <p>{copy.settings.nexusGuestSubtitle}</p>
           </div>
           <div className="launcher-config-actions">
-            <button type="button" className="launcher-config-button launcher-config-button-primary" disabled={account.ssoStarting} onClick={() => void account.startSso()}>
+            <button
+              type="button"
+              className="launcher-config-button launcher-config-button-primary"
+              disabled={account.ssoStarting}
+              onClick={() => void account.startSso()}
+            >
               {copy.settings.nexusSignInAction}
             </button>
-            <button type="button" className="launcher-config-button" onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}>
+            <button
+              type="button"
+              className="launcher-config-button"
+              onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
+            >
               {copy.settings.nexusPasteApiKeyAction}
             </button>
           </div>
@@ -860,19 +945,39 @@ function NotificationTestButtons({ labels, debugEnabled }: { labels: DebugButton
 
   return (
     <div className="launcher-toolbar">
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-debug" onClick={() => notify('debug', labels.debug)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-debug"
+        onClick={() => notify('debug', labels.debug)}
+      >
         {labels.debug}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-info" onClick={() => notify('info', labels.info)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-info"
+        onClick={() => notify('info', labels.info)}
+      >
         {labels.info}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-success" onClick={() => notify('success', labels.success)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-success"
+        onClick={() => notify('success', labels.success)}
+      >
         {labels.success}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-warning" onClick={() => notify('warning', labels.warning)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-warning"
+        onClick={() => notify('warning', labels.warning)}
+      >
         {labels.warning}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-error" onClick={() => notify('error', labels.error)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-error"
+        onClick={() => notify('error', labels.error)}
+      >
         {labels.error}
       </button>
     </div>
@@ -897,16 +1002,32 @@ function LogTestButtons({ labels, debugEnabled }: { labels: DebugLogButtonGroup;
 
   return (
     <div className="launcher-toolbar">
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-debug" onClick={() => logOnly('debug', labels.debug)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-debug"
+        onClick={() => logOnly('debug', labels.debug)}
+      >
         {labels.debug}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-info" onClick={() => logOnly('info', labels.info)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-info"
+        onClick={() => logOnly('info', labels.info)}
+      >
         {labels.info}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-warning" onClick={() => logOnly('warning', labels.warning)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-warning"
+        onClick={() => logOnly('warning', labels.warning)}
+      >
         {labels.warning}
       </button>
-      <button type="button" className="control-button launcher-debug-level-button launcher-debug-level-button-error" onClick={() => logOnly('error', labels.error)}>
+      <button
+        type="button"
+        className="control-button launcher-debug-level-button launcher-debug-level-button-error"
+        onClick={() => logOnly('error', labels.error)}
+      >
         {labels.error}
       </button>
     </div>
@@ -1059,18 +1180,24 @@ export function LauncherConfigurationPage({
   const readyStepCount = stepItems.filter((step) => step.tone === 'ok').length
   const issueStepCount = stepItems.length - readyStepCount
   const overallStatus = issueStepCount > 0 ? copy.settings.configurationNeedsReview : copy.settings.configurationReady
-  const modCountLabel = installedModCount == null ? copy.settings.configurationInstalledModsUnknown : copy.settings.configurationInstalledMods(installedModCount)
+  const modCountLabel =
+    installedModCount == null
+      ? copy.settings.configurationInstalledModsUnknown
+      : copy.settings.configurationInstalledMods(installedModCount)
   const diagnosticsAgeLabel = getDiagnosticsAgeLabel(lastDiagnosticsAt, copy)
   const headerStatusLine = copy.settings.configurationStatusLine(overallStatus, modCountLabel, diagnosticsAgeLabel)
   const gameVersion = runtimeInfo?.gameVersion ?? null
   const smapiVersion = runtimeInfo?.smapiVersion ?? null
   const debugSimulationActive = downloads.activeItems.some((item) => item.source === 'debug' && item.status === 'downloading')
   const diagnosticsApiKeySignature = getConfigurationDiagnosticsApiKeySignature(settingsState.settings)
-  const handleDiagnosticsUpdate = useCallback((diagnostics: LauncherNexusDiagnosticsResult) => {
-    setDiagnosticRoutes(diagnostics.routes)
-    setLastDiagnosticsAt(Date.now())
-    onLauncherDiagnosticsUpdate?.(diagnostics)
-  }, [onLauncherDiagnosticsUpdate])
+  const handleDiagnosticsUpdate = useCallback(
+    (diagnostics: LauncherNexusDiagnosticsResult) => {
+      setDiagnosticRoutes(diagnostics.routes)
+      setLastDiagnosticsAt(Date.now())
+      onLauncherDiagnosticsUpdate?.(diagnostics)
+    },
+    [onLauncherDiagnosticsUpdate],
+  )
   useEffect(() => {
     let disposed = false
     const modsPath = settingsState.settings.modsPath?.trim()
@@ -1168,9 +1295,7 @@ export function LauncherConfigurationPage({
       }
 
       try {
-        const diagnostics = shouldRestartDiagnostics
-          ? await restartLauncherNexusDiagnostics()
-          : await loadLauncherNexusDiagnostics()
+        const diagnostics = shouldRestartDiagnostics ? await restartLauncherNexusDiagnostics() : await loadLauncherNexusDiagnostics()
         shouldRestartDiagnostics = false
         if (disposed) {
           return
@@ -1259,11 +1384,20 @@ export function LauncherConfigurationPage({
             </div>
             <div className="launcher-config-header-actions">
               <div className="launcher-config-env-tags" aria-label={copy.settings.configurationGameTitle}>
-                <span className="launcher-config-env-tag">{gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}</span>
-                <span className="launcher-config-env-tag">{smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}</span>
+                <span className="launcher-config-env-tag">
+                  {gameVersion ? copy.settings.configurationGameVersionTag(gameVersion) : copy.settings.configurationVersionUnknown}
+                </span>
+                <span className="launcher-config-env-tag">
+                  {smapiVersion ? copy.settings.configurationSmapiVersionTag(smapiVersion) : copy.settings.configurationVersionUnknown}
+                </span>
               </div>
               <div className="launcher-config-header-button-group">
-                <button type="button" className="launcher-config-button launcher-config-button-brand" aria-busy={diagnosticsRefreshing} onClick={handleRefreshDiagnostics}>
+                <button
+                  type="button"
+                  className="launcher-config-button launcher-config-button-brand"
+                  aria-busy={diagnosticsRefreshing}
+                  onClick={handleRefreshDiagnostics}
+                >
                   {copy.settings.configurationRunDiagnostics}
                 </button>
                 <button type="button" className="launcher-config-button" onClick={handleViewLogs}>
@@ -1293,10 +1427,7 @@ export function LauncherConfigurationPage({
           </main>
 
           <aside className="launcher-config-rail">
-            <ConfigCompletionRail
-              title={copy.settings.completionTitle}
-              steps={stepItems}
-            />
+            <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
             <ConfigAccountCard account={account} copy={copy} />
             <ConfigDownloadDefaults settings={settingsState.settings} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
           </aside>
@@ -1354,7 +1485,10 @@ export function LauncherConfigurationPage({
                     <div className="launcher-toolbar">
                       <button
                         type="button"
-                        className={cx('control-button launcher-config-danger-button', forceOffline && 'launcher-config-danger-button-active')}
+                        className={cx(
+                          'control-button launcher-config-danger-button',
+                          forceOffline && 'launcher-config-danger-button-active',
+                        )}
                         disabled={!canUseDesktopHost() || forceOfflineBusy}
                         onClick={handleToggleForceOffline}
                       >
@@ -1366,19 +1500,13 @@ export function LauncherConfigurationPage({
               </LoadingMotionReveal>
 
               <LoadingMotionReveal itemId="launcher-debug-notifications" index={7}>
-                <DebugToolCard
-                  title={copy.configuration.notificationsTitle}
-                  icon={<MessageSquare className="h-4 w-4" />}
-                >
+                <DebugToolCard title={copy.configuration.notificationsTitle} icon={<MessageSquare className="h-4 w-4" />}>
                   <NotificationTestButtons labels={copy.configuration.notificationButtons} debugEnabled={debugEnabled} />
                 </DebugToolCard>
               </LoadingMotionReveal>
 
               <LoadingMotionReveal itemId="launcher-debug-logs" index={8}>
-                <DebugToolCard
-                  title={copy.configuration.logsTitle}
-                  icon={<ScrollText className="h-4 w-4" />}
-                >
+                <DebugToolCard title={copy.configuration.logsTitle} icon={<ScrollText className="h-4 w-4" />}>
                   <LogTestButtons labels={copy.configuration.logButtons} debugEnabled={debugEnabled} />
                 </DebugToolCard>
               </LoadingMotionReveal>
@@ -1409,7 +1537,9 @@ export function LauncherConfigurationPage({
                         aria-expanded={bbcodePreviewExpanded}
                         onClick={() => setBbcodePreviewExpanded((value) => !value)}
                       >
-                        {bbcodePreviewExpanded ? copy.configuration.bbcodePreviewCollapseAction : copy.configuration.bbcodePreviewExpandAction}
+                        {bbcodePreviewExpanded
+                          ? copy.configuration.bbcodePreviewCollapseAction
+                          : copy.configuration.bbcodePreviewExpandAction}
                       </button>
                     </div>
                   }

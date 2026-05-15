@@ -73,9 +73,7 @@ describe('LauncherArtworkCover', () => {
       loading: false,
     })
 
-    const { container } = render(
-      <LauncherArtworkCover title="NPC Adventures" imageUrl={null} coverStyle={coverStyle} coverWord="NPC" />,
-    )
+    const { container } = render(<LauncherArtworkCover title="NPC Adventures" imageUrl={null} coverStyle={coverStyle} coverWord="NPC" />)
 
     expect(container.querySelector('.launcher-mod-card-cover-image-blur')).toBeNull()
     expect(container.querySelector('.launcher-mod-card-cover-image')).toBeNull()

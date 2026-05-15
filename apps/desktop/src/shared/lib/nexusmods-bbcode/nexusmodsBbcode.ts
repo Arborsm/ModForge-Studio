@@ -72,7 +72,7 @@ function normalizeTag(tag: string): NexusModsBbcodeTag | null {
     return 's'
   }
 
-  return supportedTags.has(lowerTag) ? lowerTag as NexusModsBbcodeTag : null
+  return supportedTags.has(lowerTag) ? (lowerTag as NexusModsBbcodeTag) : null
 }
 
 function createAttributes(tag: NexusModsBbcodeTag, value: string | undefined) {
@@ -185,11 +185,13 @@ export function parseNexusModsBbcode(source: string): NexusModsBbcodeDocument {
 }
 
 export function getNexusModsBbcodeTextContent(nodes: NexusModsBbcodeNode[]): string {
-  return nodes.map((node) => {
-    if (node.type === 'text') {
-      return node.value
-    }
+  return nodes
+    .map((node) => {
+      if (node.type === 'text') {
+        return node.value
+      }
 
-    return getNexusModsBbcodeTextContent(node.children)
-  }).join('')
+      return getNexusModsBbcodeTextContent(node.children)
+    })
+    .join('')
 }

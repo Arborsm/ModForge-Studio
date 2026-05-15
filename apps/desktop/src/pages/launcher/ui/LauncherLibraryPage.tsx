@@ -1,6 +1,18 @@
 import type { DragEvent } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, Folder, FolderArchive, FolderOpen, LayoutGrid, Menu, MoreHorizontal, Play, Plus, RefreshCw, Search } from 'lucide-react'
+import {
+  ChevronDown,
+  Folder,
+  FolderArchive,
+  FolderOpen,
+  LayoutGrid,
+  Menu,
+  MoreHorizontal,
+  Play,
+  Plus,
+  RefreshCw,
+  Search,
+} from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import {
@@ -143,13 +155,9 @@ function sortLibraryMods(
     const leftPacks = packLookup.get(leftKey) ?? []
     const rightPacks = packLookup.get(rightKey) ?? []
     const leftPack =
-      leftPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId ?? ''))?.name ??
-      leftPacks[0]?.name ??
-      ''
+      leftPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId ?? ''))?.name ?? leftPacks[0]?.name ?? ''
     const rightPack =
-      rightPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId ?? ''))?.name ??
-      rightPacks[0]?.name ??
-      ''
+      rightPacks.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(currentPackId ?? ''))?.name ?? rightPacks[0]?.name ?? ''
 
     if (sortMode === 'enabled-first') {
       if (left.enabled !== right.enabled) return left.enabled ? -1 : 1
@@ -282,17 +290,10 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   }, [items.length])
 
   return (
-    <div
-      ref={viewportRef}
-      className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}
-    >
+    <div ref={viewportRef} className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}>
       <div ref={gridRef} className="launcher-library-grid">
         {items.map((item, index) => (
-          <LoadingMotionRevealItem
-            key={item.id}
-            index={Math.floor(index / revealBatchSize) + 3}
-            className="launcher-library-grid-reveal"
-          >
+          <LoadingMotionRevealItem key={item.id} index={Math.floor(index / revealBatchSize) + 3} className="launcher-library-grid-reveal">
             <LauncherModCard
               title={item.name}
               titleTooltip={item.name}
@@ -320,17 +321,7 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   )
 })
 
-function GalleryCoverOption({
-  url,
-  selected,
-  label,
-  onSelect,
-}: {
-  url: string
-  selected: boolean
-  label: string
-  onSelect: () => void
-}) {
+function GalleryCoverOption({ url, selected, label, onSelect }: { url: string; selected: boolean; label: string; onSelect: () => void }) {
   const image = useLauncherImage(url)
 
   return (
@@ -413,8 +404,7 @@ export function LauncherLibraryPageContent({
       lastLoadedModsPathRef.current = nextModsPath
     }
 
-    const shouldRefresh =
-      modsPathChanged || (library.state === 'idle' && library.mods.length === 0 && !library.error)
+    const shouldRefresh = modsPathChanged || (library.state === 'idle' && library.mods.length === 0 && !library.error)
     if (!shouldRefresh) {
       return
     }
@@ -437,7 +427,7 @@ export function LauncherLibraryPageContent({
   )
   const visibleLibraryModsCount = library.mods.length - hiddenMods.length
   const selectedDetailMod = useMemo(
-    () => (detailModId ? library.mods.find((item) => item.id === detailModId) ?? null : null),
+    () => (detailModId ? (library.mods.find((item) => item.id === detailModId) ?? null) : null),
     [detailModId, library.mods],
   )
   const detailMod = detailModId ? selectedDetailMod : null
@@ -463,11 +453,7 @@ export function LauncherLibraryPageContent({
 
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node
-      if (
-        titleMenuRef.current?.contains(target) ||
-        drawerPanelRef.current?.contains(target) ||
-        sortMenuRef.current?.contains(target)
-      ) {
+      if (titleMenuRef.current?.contains(target) || drawerPanelRef.current?.contains(target) || sortMenuRef.current?.contains(target)) {
         return
       }
       setQuickSwitchOpen(false)
@@ -495,15 +481,26 @@ export function LauncherLibraryPageContent({
 
   const visibleMods = useMemo(() => {
     const browseScoped = hiddenViewOpen
-      ? hiddenMods
-          .filter((item) => includesLibraryFilter(item, library.filterText))
-          .filter((item) => !library.enabledOnly || item.enabled)
+      ? hiddenMods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
       : editMode
-        ? library.mods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
+        ? library.mods
+            .filter((item) => includesLibraryFilter(item, library.filterText))
+            .filter((item) => !library.enabledOnly || item.enabled)
         : library.filteredMods
 
     return sortLibraryMods(browseScoped, sortMode, packLookup, library.currentPackId)
-  }, [editMode, hiddenMods, hiddenViewOpen, library.currentPackId, library.enabledOnly, library.filterText, library.filteredMods, library.mods, packLookup, sortMode])
+  }, [
+    editMode,
+    hiddenMods,
+    hiddenViewOpen,
+    library.currentPackId,
+    library.enabledOnly,
+    library.filterText,
+    library.filteredMods,
+    library.mods,
+    packLookup,
+    sortMode,
+  ])
 
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
   const supportedArchiveFormatsLabel = useMemo(() => LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', '), [])
@@ -535,98 +532,113 @@ export function LauncherLibraryPageContent({
     setInstallResult(result)
   }, [])
 
-  const publishArchiveInstallSuccess = useCallback((result: InstallLauncherArchiveResult) => {
-    publishNotification({
-      level: 'success',
-      title: copy.library.installSummaryTitle,
-      summary: result.modName,
-      description: copy.library.installSummaryInstalledMods(result.installedMods.length),
-      action: {
-        label: copy.actions.viewDetails,
-        callback: () => openInstallSummary(result),
-        tone: 'primary',
-      },
-      autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
-    })
-  }, [copy.actions.viewDetails, copy.library, openInstallSummary])
+  const publishArchiveInstallSuccess = useCallback(
+    (result: InstallLauncherArchiveResult) => {
+      publishNotification({
+        level: 'success',
+        title: copy.library.installSummaryTitle,
+        summary: result.modName,
+        description: copy.library.installSummaryInstalledMods(result.installedMods.length),
+        action: {
+          label: copy.actions.viewDetails,
+          callback: () => openInstallSummary(result),
+          tone: 'primary',
+        },
+        autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
+      })
+    },
+    [copy.actions.viewDetails, copy.library, openInstallSummary],
+  )
 
-  const publishArchiveInstallError = useCallback((error: unknown) => {
-    publishNotification({
-      level: 'error',
-      title: copy.actions.installArchive,
-      description: error instanceof Error ? error.message : copy.library.previewError,
-    })
-  }, [copy.actions.installArchive, copy.library.previewError])
+  const publishArchiveInstallError = useCallback(
+    (error: unknown) => {
+      publishNotification({
+        level: 'error',
+        title: copy.actions.installArchive,
+        description: error instanceof Error ? error.message : copy.library.previewError,
+      })
+    },
+    [copy.actions.installArchive, copy.library.previewError],
+  )
 
-  const publishArchiveDropError = useCallback((description: string) => {
-    publishNotification({
-      level: 'error',
-      title: copy.actions.installArchive,
-      description,
-    })
-  }, [copy.actions.installArchive])
+  const publishArchiveDropError = useCallback(
+    (description: string) => {
+      publishNotification({
+        level: 'error',
+        title: copy.actions.installArchive,
+        description,
+      })
+    },
+    [copy.actions.installArchive],
+  )
 
-  const openArchivePreviewForPaths = useCallback(async (paths: string[]) => {
-    setArchivePreviewState('loading')
-    setArchivePreviews([])
-    setSelectedArchivePreviewPath(null)
-    setArchivePreviewError(null)
-
-    const nextPreviews: InspectLauncherArchiveResult[] = []
-    let firstError: string | null = null
-
-    for (const path of paths) {
-      try {
-        nextPreviews.push(await inspectLauncherArchive({ archivePath: path }))
-      } catch (nextError) {
-        const description = nextError instanceof Error ? nextError.message : copy.library.previewError
-        if (!firstError) {
-          firstError = description
-        }
-        publishNotification({
-          level: 'error',
-          title: copy.library.previewTitle,
-          description,
-        })
-      }
-    }
-
-    if (nextPreviews.length) {
-      setArchivePreviews(nextPreviews)
-      setSelectedArchivePreviewPath(nextPreviews[0]?.archivePath ?? null)
-      setArchivePreviewState('ready')
-      return
-    }
-
-    if (firstError) {
-      setArchivePreviewState('idle')
+  const openArchivePreviewForPaths = useCallback(
+    async (paths: string[]) => {
+      setArchivePreviewState('loading')
       setArchivePreviews([])
       setSelectedArchivePreviewPath(null)
-      setArchivePreviewError(firstError)
-      return
-    }
+      setArchivePreviewError(null)
 
-    setArchivePreviewState('idle')
-    setArchivePreviews([])
-    setSelectedArchivePreviewPath(null)
-    setArchivePreviewError(null)
-  }, [copy.library.previewError, copy.library.previewTitle])
+      const nextPreviews: InspectLauncherArchiveResult[] = []
+      let firstError: string | null = null
 
-  const openArchivePreviewForPath = useCallback(async (path: string) => {
-    try {
-      await openArchivePreviewForPaths([path])
-    } catch (nextError) {
+      for (const path of paths) {
+        try {
+          nextPreviews.push(await inspectLauncherArchive({ archivePath: path }))
+        } catch (nextError) {
+          const description = nextError instanceof Error ? nextError.message : copy.library.previewError
+          if (!firstError) {
+            firstError = description
+          }
+          publishNotification({
+            level: 'error',
+            title: copy.library.previewTitle,
+            description,
+          })
+        }
+      }
+
+      if (nextPreviews.length) {
+        setArchivePreviews(nextPreviews)
+        setSelectedArchivePreviewPath(nextPreviews[0]?.archivePath ?? null)
+        setArchivePreviewState('ready')
+        return
+      }
+
+      if (firstError) {
+        setArchivePreviewState('idle')
+        setArchivePreviews([])
+        setSelectedArchivePreviewPath(null)
+        setArchivePreviewError(firstError)
+        return
+      }
+
       setArchivePreviewState('idle')
       setArchivePreviews([])
       setSelectedArchivePreviewPath(null)
       setArchivePreviewError(null)
-      publishNotification({
-        level: 'error',
-        title: copy.library.previewTitle,
-        description: nextError instanceof Error ? nextError.message : copy.library.previewError,
-      })
-    }
-  }, [copy.library.previewError, copy.library.previewTitle, openArchivePreviewForPaths])
+    },
+    [copy.library.previewError, copy.library.previewTitle],
+  )
+
+  const openArchivePreviewForPath = useCallback(
+    async (path: string) => {
+      try {
+        await openArchivePreviewForPaths([path])
+      } catch (nextError) {
+        setArchivePreviewState('idle')
+        setArchivePreviews([])
+        setSelectedArchivePreviewPath(null)
+        setArchivePreviewError(null)
+        publishNotification({
+          level: 'error',
+          title: copy.library.previewTitle,
+          description: nextError instanceof Error ? nextError.message : copy.library.previewError,
+        })
+      }
+    },
+    [copy.library.previewError, copy.library.previewTitle, openArchivePreviewForPaths],
+  )
 
   const closeInstallBackupsDialog = useCallback(() => {
     if (restoringBackupId) {
@@ -678,16 +690,19 @@ export function LauncherLibraryPageContent({
     }
   }, [copy.library.empty, refresh])
 
-  const runLibraryAction = useCallback(async (action: () => Promise<void>) => {
-    setActionError(null)
-    try {
-      await action()
-      return true
-    } catch (nextError) {
-      setActionError(nextError instanceof Error ? nextError.message : copy.library.empty)
-      return false
-    }
-  }, [copy.library.empty])
+  const runLibraryAction = useCallback(
+    async (action: () => Promise<void>) => {
+      setActionError(null)
+      try {
+        await action()
+        return true
+      } catch (nextError) {
+        setActionError(nextError instanceof Error ? nextError.message : copy.library.empty)
+        return false
+      }
+    },
+    [copy.library.empty],
+  )
 
   const inspectArchive = async () => {
     const path = await chooseArchiveFile(copy.actions.chooseArchive)
@@ -729,29 +744,32 @@ export function LauncherLibraryPageContent({
     }
   }
 
-  const handleDroppedArchives = useCallback(async (paths: string[] | undefined) => {
-    const { supportedPaths, missingPathCount, unsupportedCount } = splitDroppedArchivePaths(paths)
+  const handleDroppedArchives = useCallback(
+    async (paths: string[] | undefined) => {
+      const { supportedPaths, missingPathCount, unsupportedCount } = splitDroppedArchivePaths(paths)
 
-    if (!supportedPaths.length) {
-      if (missingPathCount > 0 && unsupportedCount === 0) {
-        publishArchiveDropError(copy.library.dragDropMissingPath)
+      if (!supportedPaths.length) {
+        if (missingPathCount > 0 && unsupportedCount === 0) {
+          publishArchiveDropError(copy.library.dragDropMissingPath)
+          return
+        }
+
+        publishArchiveDropError(copy.library.dragDropUnsupportedArchive(supportedArchiveFormatsLabel))
         return
       }
 
-      publishArchiveDropError(copy.library.dragDropUnsupportedArchive(supportedArchiveFormatsLabel))
-      return
-    }
+      if (missingPathCount > 0) {
+        publishArchiveDropError(copy.library.dragDropSkippedMissingPaths(missingPathCount))
+      }
 
-    if (missingPathCount > 0) {
-      publishArchiveDropError(copy.library.dragDropSkippedMissingPaths(missingPathCount))
-    }
+      if (unsupportedCount > 0) {
+        publishArchiveDropError(copy.library.dragDropSkippedUnsupportedArchives(unsupportedCount, supportedArchiveFormatsLabel))
+      }
 
-    if (unsupportedCount > 0) {
-      publishArchiveDropError(copy.library.dragDropSkippedUnsupportedArchives(unsupportedCount, supportedArchiveFormatsLabel))
-    }
-
-    await openArchivePreviewForPaths(supportedPaths)
-  }, [copy.library, openArchivePreviewForPaths, publishArchiveDropError, supportedArchiveFormatsLabel])
+      await openArchivePreviewForPaths(supportedPaths)
+    },
+    [copy.library, openArchivePreviewForPaths, publishArchiveDropError, supportedArchiveFormatsLabel],
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -791,92 +809,85 @@ export function LauncherLibraryPageContent({
       cancelled = true
       dispose?.()
     }
-  }, [
-    handleDroppedArchives,
-  ])
+  }, [handleDroppedArchives])
 
-  const restoreInstallBackupSession = useCallback(async (backupId: string) => {
-    setInstallBackupsError(null)
-    setRestoringBackupId(backupId)
+  const restoreInstallBackupSession = useCallback(
+    async (backupId: string) => {
+      setInstallBackupsError(null)
+      setRestoringBackupId(backupId)
 
-    try {
-      await restoreLauncherInstallBackup({
-        backupId,
-        modsPath: settings.modsPath,
-      })
-      setInstallResult(null)
-      setInstallBackupsOpen(false)
-      publishNotification({
-        level: 'success',
-        title: copy.library.restoreInstallBackup,
-        description: backupId,
-      })
-      void refreshLibrary()
-    } catch (nextError) {
-      setInstallBackupsError(nextError instanceof Error ? nextError.message : copy.library.installBackupsError)
-    } finally {
-      setRestoringBackupId(null)
-    }
-  }, [copy.library.installBackupsError, copy.library.restoreInstallBackup, refreshLibrary, settings.modsPath])
-
-  const openLibraryRoot = useCallback(() =>
-    runLibraryAction(async () => {
-      if (!settings.modsPath) {
-        throw new Error(copy.states.missingModsPath)
+      try {
+        await restoreLauncherInstallBackup({
+          backupId,
+          modsPath: settings.modsPath,
+        })
+        setInstallResult(null)
+        setInstallBackupsOpen(false)
+        publishNotification({
+          level: 'success',
+          title: copy.library.restoreInstallBackup,
+          description: backupId,
+        })
+        void refreshLibrary()
+      } catch (nextError) {
+        setInstallBackupsError(nextError instanceof Error ? nextError.message : copy.library.installBackupsError)
+      } finally {
+        setRestoringBackupId(null)
       }
-      await openLauncherPath({ path: settings.modsPath })
-    }), [copy.states.missingModsPath, runLibraryAction, settings.modsPath])
+    },
+    [copy.library.installBackupsError, copy.library.restoreInstallBackup, refreshLibrary, settings.modsPath],
+  )
 
-  const openModFolder = useCallback((mod: LauncherLibraryItem) =>
-    runLibraryAction(async () => {
-      await openLauncherPath({ path: mod.absolutePath })
-    }), [runLibraryAction])
+  const openLibraryRoot = useCallback(
+    () =>
+      runLibraryAction(async () => {
+        if (!settings.modsPath) {
+          throw new Error(copy.states.missingModsPath)
+        }
+        await openLauncherPath({ path: settings.modsPath })
+      }),
+    [copy.states.missingModsPath, runLibraryAction, settings.modsPath],
+  )
 
-  const setModCover = useCallback((mod: LauncherLibraryItem) =>
-    runLibraryAction(async () => {
-      const imagePath = await chooseImageFile(copy.actions.setCover)
-      if (!imagePath) {
-        return
-      }
-      await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath })
-      await refresh()
-    }), [copy.actions.setCover, refresh, runLibraryAction])
+  const openModFolder = useCallback(
+    (mod: LauncherLibraryItem) =>
+      runLibraryAction(async () => {
+        await openLauncherPath({ path: mod.absolutePath })
+      }),
+    [runLibraryAction],
+  )
 
-  const clearModCover = useCallback((mod: LauncherLibraryItem) =>
-    runLibraryAction(async () => {
-      await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath: null })
-      await refresh()
-    }), [refresh, runLibraryAction])
+  const setModCover = useCallback(
+    (mod: LauncherLibraryItem) =>
+      runLibraryAction(async () => {
+        const imagePath = await chooseImageFile(copy.actions.setCover)
+        if (!imagePath) {
+          return
+        }
+        await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath })
+        await refresh()
+      }),
+    [copy.actions.setCover, refresh, runLibraryAction],
+  )
+
+  const clearModCover = useCallback(
+    (mod: LauncherLibraryItem) =>
+      runLibraryAction(async () => {
+        await setLauncherLibraryCover({ labelKey: getLauncherCoverKey(mod), imagePath: null })
+        await refresh()
+      }),
+    [refresh, runLibraryAction],
+  )
 
   const closeGalleryCoverDialog = useCallback(() => {
     setGalleryCoverDialog(null)
   }, [])
 
-  const openGalleryCoverDialog = useCallback(async (mod: LauncherLibraryItem) => {
-    setActionError(null)
+  const openGalleryCoverDialog = useCallback(
+    async (mod: LauncherLibraryItem) => {
+      setActionError(null)
 
-    if (!mod.nexusModId) {
-      publishNotification({
-        level: 'warning',
-        title: copy.actions.chooseGalleryCover,
-        description: copy.library.galleryCoverEmpty,
-      })
-      return
-    }
-
-    try {
-      publishNotification({
-        id: LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID,
-        level: 'info',
-        title: copy.actions.chooseGalleryCover,
-        description: copy.library.galleryCoverLoading,
-        autoDismissMs: null,
-      })
-
-      const detail = await loadLauncherRemoteModDetail({ modId: mod.nexusModId })
-      const imageUrls = Array.from(new Set(detail.galleryImages.map((value) => value.trim()).filter(Boolean)))
-      if (!imageUrls.length) {
-        dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+      if (!mod.nexusModId) {
         publishNotification({
           level: 'warning',
           title: copy.actions.chooseGalleryCover,
@@ -885,28 +896,46 @@ export function LauncherLibraryPageContent({
         return
       }
 
-      setGalleryCoverDialog({
-        mod,
-        imageUrls,
-        selectedImageUrl: imageUrls[0]!,
-        applying: false,
-      })
-    } catch (nextError) {
+      try {
+        publishNotification({
+          id: LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID,
+          level: 'info',
+          title: copy.actions.chooseGalleryCover,
+          description: copy.library.galleryCoverLoading,
+          autoDismissMs: null,
+        })
+
+        const detail = await loadLauncherRemoteModDetail({ modId: mod.nexusModId })
+        const imageUrls = Array.from(new Set(detail.galleryImages.map((value) => value.trim()).filter(Boolean)))
+        if (!imageUrls.length) {
+          dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+          publishNotification({
+            level: 'warning',
+            title: copy.actions.chooseGalleryCover,
+            description: copy.library.galleryCoverEmpty,
+          })
+          return
+        }
+
+        setGalleryCoverDialog({
+          mod,
+          imageUrls,
+          selectedImageUrl: imageUrls[0]!,
+          applying: false,
+        })
+      } catch (nextError) {
+        dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
+        publishNotification({
+          level: 'error',
+          title: copy.actions.chooseGalleryCover,
+          description: nextError instanceof Error ? nextError.message : copy.library.empty,
+        })
+        return
+      }
       dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
-      publishNotification({
-        level: 'error',
-        title: copy.actions.chooseGalleryCover,
-        description: nextError instanceof Error ? nextError.message : copy.library.empty,
-      })
-      return
-    }
-    dismissNotification(LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID)
-  }, [
-    copy.actions.chooseGalleryCover,
-    copy.library.empty,
-    copy.library.galleryCoverEmpty,
-    copy.library.galleryCoverLoading,
-  ])
+    },
+    [copy.actions.chooseGalleryCover, copy.library.empty, copy.library.galleryCoverEmpty, copy.library.galleryCoverLoading],
+  )
 
   const applyGalleryCover = useCallback(async () => {
     setActionError(null)
@@ -940,14 +969,20 @@ export function LauncherLibraryPageContent({
     }
   }, [copy.actions.setCover, copy.library.empty, galleryCoverDialog, refresh])
 
-  const openModDetails = useCallback((modId: string) => {
-    setSelectedModId(modId)
-    setDetailModId(modId)
-  }, [setSelectedModId])
+  const openModDetails = useCallback(
+    (modId: string) => {
+      setSelectedModId(modId)
+      setDetailModId(modId)
+    },
+    [setSelectedModId],
+  )
 
-  const selectMod = useCallback((modId: string) => {
-    setSelectedModId(modId)
-  }, [setSelectedModId])
+  const selectMod = useCallback(
+    (modId: string) => {
+      setSelectedModId(modId)
+    },
+    [setSelectedModId],
+  )
 
   const toggleEditSelection = useCallback((modId: string) => {
     setEditingSelectionIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
@@ -981,22 +1016,28 @@ export function LauncherLibraryPageContent({
     }
   }, [])
 
-  const resolveDraggedModIds = useCallback((modId: string) => {
-    if (editMode && editingSelectionIds.includes(modId)) {
-      return editingSelectionIds
-    }
-    if (selectedModIds.includes(modId) && selectedModIds.length) {
-      return selectedModIds
-    }
-    return [modId]
-  }, [editMode, editingSelectionIds, selectedModIds])
+  const resolveDraggedModIds = useCallback(
+    (modId: string) => {
+      if (editMode && editingSelectionIds.includes(modId)) {
+        return editingSelectionIds
+      }
+      if (selectedModIds.includes(modId) && selectedModIds.length) {
+        return selectedModIds
+      }
+      return [modId]
+    },
+    [editMode, editingSelectionIds, selectedModIds],
+  )
 
-  const startDraggingMod = useCallback((modId: string, event: DragEvent<HTMLElement>) => {
-    const nextDraggedIds = resolveDraggedModIds(modId)
-    setDraggedModIds(nextDraggedIds)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', nextDraggedIds.join(','))
-  }, [resolveDraggedModIds])
+  const startDraggingMod = useCallback(
+    (modId: string, event: DragEvent<HTMLElement>) => {
+      const nextDraggedIds = resolveDraggedModIds(modId)
+      setDraggedModIds(nextDraggedIds)
+      event.dataTransfer.effectAllowed = 'move'
+      event.dataTransfer.setData('text/plain', nextDraggedIds.join(','))
+    },
+    [resolveDraggedModIds],
+  )
 
   const stopDraggingMod = useCallback(() => {
     setDraggedModIds([])
@@ -1109,35 +1150,57 @@ export function LauncherLibraryPageContent({
     stopDraggingMod()
   }
 
-  const directActionsForMod = useCallback((mod: LauncherLibraryItem) => {
-    const isHidden = hiddenModKeyLookup.has(normalizeLookupKey(getModKey(mod)))
-    return [
-      { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
-      { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
-      { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void toggleEnabled(mod) },
-      {
-        label: isHidden ? copy.actions.showMod : copy.actions.hideMod,
-        onSelect: () =>
-          void runLibraryAction(async () => {
-            if (isHidden) {
-              await library.showMods([mod.id])
-              return
-            }
-            await library.hideMods([mod.id])
-          }),
-      },
-      { label: copy.actions.setCover, onSelect: () => void setModCover(mod) },
-      ...(mod.nexusModId ? [{ label: copy.actions.chooseGalleryCover, onSelect: () => void openGalleryCoverDialog(mod) }] : []),
-      { label: copy.actions.clearCover, onSelect: () => void clearModCover(mod) },
-    ]
-  }, [clearModCover, copy.actions.chooseGalleryCover, copy.actions.clearCover, copy.actions.disable, copy.actions.enable, copy.actions.hideMod, copy.actions.openFolder, copy.actions.setCover, copy.actions.showMod, copy.actions.viewDetails, hiddenModKeyLookup, library, openGalleryCoverDialog, openModDetails, openModFolder, runLibraryAction, setModCover, toggleEnabled])
+  const directActionsForMod = useCallback(
+    (mod: LauncherLibraryItem) => {
+      const isHidden = hiddenModKeyLookup.has(normalizeLookupKey(getModKey(mod)))
+      return [
+        { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
+        { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
+        { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void toggleEnabled(mod) },
+        {
+          label: isHidden ? copy.actions.showMod : copy.actions.hideMod,
+          onSelect: () =>
+            void runLibraryAction(async () => {
+              if (isHidden) {
+                await library.showMods([mod.id])
+                return
+              }
+              await library.hideMods([mod.id])
+            }),
+        },
+        { label: copy.actions.setCover, onSelect: () => void setModCover(mod) },
+        ...(mod.nexusModId ? [{ label: copy.actions.chooseGalleryCover, onSelect: () => void openGalleryCoverDialog(mod) }] : []),
+        { label: copy.actions.clearCover, onSelect: () => void clearModCover(mod) },
+      ]
+    },
+    [
+      clearModCover,
+      copy.actions.chooseGalleryCover,
+      copy.actions.clearCover,
+      copy.actions.disable,
+      copy.actions.enable,
+      copy.actions.hideMod,
+      copy.actions.openFolder,
+      copy.actions.setCover,
+      copy.actions.showMod,
+      copy.actions.viewDetails,
+      hiddenModKeyLookup,
+      library,
+      openGalleryCoverDialog,
+      openModDetails,
+      openModFolder,
+      runLibraryAction,
+      setModCover,
+      toggleEnabled,
+    ],
+  )
 
   const editCount = editingSelectionIds.length
   const currentPackLabel = hiddenViewOpen ? copy.library.hiddenMods : library.currentPack ? library.currentPack.name : copy.library.allPacks
 
   return (
-      <>
-        <section className="launcher-library-page">
+    <>
+      <section className="launcher-library-page">
         {!editMode ? (
           <LoadingMotionRevealItem index={0} as="section" className="launcher-library-console">
             <div className="launcher-library-console-top">
@@ -1183,7 +1246,10 @@ export function LauncherLibraryPageContent({
                     <div className="launcher-library-title-menu">
                       <button
                         type="button"
-                        className={cx('launcher-library-title-menu-item', !hiddenViewOpen && !library.currentPackId && 'launcher-library-title-menu-item-active')}
+                        className={cx(
+                          'launcher-library-title-menu-item',
+                          !hiddenViewOpen && !library.currentPackId && 'launcher-library-title-menu-item-active',
+                        )}
                         aria-label={copy.library.allPacks}
                         onClick={() => void selectPack(null)}
                       >
@@ -1233,7 +1299,13 @@ export function LauncherLibraryPageContent({
                 >
                   <RefreshCw className="h-4 w-4" />
                 </button>
-                <button type="button" className="launcher-library-icon-button" onClick={() => void openLibraryRoot()} aria-label={copy.actions.openStorageFolder} title={copy.actions.openStorageFolder}>
+                <button
+                  type="button"
+                  className="launcher-library-icon-button"
+                  onClick={() => void openLibraryRoot()}
+                  aria-label={copy.actions.openStorageFolder}
+                  title={copy.actions.openStorageFolder}
+                >
                   <FolderOpen className="h-4 w-4" />
                 </button>
                 <button type="button" className="control-button launcher-library-secondary-action" onClick={() => void inspectArchive()}>
@@ -1244,7 +1316,12 @@ export function LauncherLibraryPageContent({
                   <Folder className="h-4 w-4" />
                   <span>{copy.library.installBackupsTitle}</span>
                 </button>
-                <button type="button" className="control-button control-button-primary launcher-library-primary-action" disabled={launchGameDisabled} onClick={onLaunchGame}>
+                <button
+                  type="button"
+                  className="control-button control-button-primary launcher-library-primary-action"
+                  disabled={launchGameDisabled}
+                  onClick={onLaunchGame}
+                >
                   <Play className="h-4 w-4" />
                   <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
                 </button>
@@ -1257,7 +1334,12 @@ export function LauncherLibraryPageContent({
               <div className="launcher-library-console-left">
                 <label className="launcher-library-search">
                   <Search className="h-4 w-4" />
-                  <input value={library.filterText} onChange={(event) => library.setFilterText(event.target.value)} placeholder={copy.fields.filterLibrary} spellCheck={false} />
+                  <input
+                    value={library.filterText}
+                    onChange={(event) => library.setFilterText(event.target.value)}
+                    placeholder={copy.fields.filterLibrary}
+                    spellCheck={false}
+                  />
                 </label>
               </div>
 
@@ -1300,10 +1382,7 @@ export function LauncherLibraryPageContent({
                           type="button"
                           role="menuitemradio"
                           aria-checked={sortMode === option.value}
-                          className={cx(
-                            'launcher-library-sort-option',
-                            sortMode === option.value && 'launcher-library-sort-option-active',
-                          )}
+                          className={cx('launcher-library-sort-option', sortMode === option.value && 'launcher-library-sort-option-active')}
                           onClick={() => {
                             setSortMode(option.value)
                             setSortMenuOpen(false)
@@ -1346,7 +1425,11 @@ export function LauncherLibraryPageContent({
               <button type="button" className="control-button launcher-library-secondary-action" onClick={cancelEditMode}>
                 {copy.library.cancelEdit}
               </button>
-              <button type="button" className="control-button control-button-primary launcher-library-primary-action" onClick={() => void saveEditMode()}>
+              <button
+                type="button"
+                className="control-button control-button-primary launcher-library-primary-action"
+                onClick={() => void saveEditMode()}
+              >
                 {copy.library.saveChanges}
               </button>
             </div>
@@ -1360,24 +1443,13 @@ export function LauncherLibraryPageContent({
           )}
         >
           <aside
-            className={cx(
-              'launcher-library-sidebar',
-              drawerOpen ? 'launcher-library-sidebar-open' : 'launcher-library-sidebar-collapsed',
-            )}
+            className={cx('launcher-library-sidebar', drawerOpen ? 'launcher-library-sidebar-open' : 'launcher-library-sidebar-collapsed')}
             ref={drawerPanelRef}
           >
-            <div
-              className={cx(
-                'launcher-library-sidebar-inner',
-                !drawerOpen && 'launcher-library-sidebar-inner-collapsed',
-              )}
-            >
+            <div className={cx('launcher-library-sidebar-inner', !drawerOpen && 'launcher-library-sidebar-inner-collapsed')}>
               <div className="launcher-library-sidebar-header">
                 <div
-                  className={cx(
-                    'launcher-library-sidebar-header-meta',
-                    !drawerOpen && 'launcher-library-sidebar-header-meta-hidden',
-                  )}
+                  className={cx('launcher-library-sidebar-header-meta', !drawerOpen && 'launcher-library-sidebar-header-meta-hidden')}
                   aria-hidden={!drawerOpen}
                 >
                   <p className="launcher-library-pack-drawer-title">{copy.library.packTitle}</p>
@@ -1389,10 +1461,7 @@ export function LauncherLibraryPageContent({
               </div>
 
               <div
-                className={cx(
-                  'launcher-library-sidebar-body',
-                  !drawerOpen && 'launcher-library-sidebar-body-hidden',
-                )}
+                className={cx('launcher-library-sidebar-body', !drawerOpen && 'launcher-library-sidebar-body-hidden')}
                 aria-hidden={!drawerOpen}
               >
                 <div className="launcher-library-pack-drawer-divider" />
@@ -1407,7 +1476,10 @@ export function LauncherLibraryPageContent({
                   >
                     <button
                       type="button"
-                      className={cx('launcher-library-pack-row', !hiddenViewOpen && !library.currentPackId && 'launcher-library-pack-row-active')}
+                      className={cx(
+                        'launcher-library-pack-row',
+                        !hiddenViewOpen && !library.currentPackId && 'launcher-library-pack-row-active',
+                      )}
                       aria-label={copy.library.allPacks}
                       onClick={() => void selectPack(null)}
                     >
@@ -1521,10 +1593,18 @@ export function LauncherLibraryPageContent({
                             >
                               {copy.library.editCurrentPack}
                             </button>
-                            <button type="button" className="launcher-library-pack-row-menu-item" onClick={() => openRenamePackDialog(pack)}>
+                            <button
+                              type="button"
+                              className="launcher-library-pack-row-menu-item"
+                              onClick={() => openRenamePackDialog(pack)}
+                            >
                               {copy.library.renameCurrentPack}
                             </button>
-                            <button type="button" className="launcher-library-pack-row-menu-item" onClick={() => openDeletePackDialog(pack)}>
+                            <button
+                              type="button"
+                              className="launcher-library-pack-row-menu-item"
+                              onClick={() => openDeletePackDialog(pack)}
+                            >
                               {copy.library.deleteCurrentPack}
                             </button>
                           </div>
@@ -1538,42 +1618,44 @@ export function LauncherLibraryPageContent({
           </aside>
 
           <div className="launcher-library-content">
-          <div className="launcher-library-browser">
-            {archiveDropActive ? (
-              <div className="launcher-library-drop-overlay" role="status" aria-live="polite">
-                <div className="launcher-library-drop-overlay-card">
-                  <strong>{copy.library.dragDropInstallTitle}</strong>
-                  <span>{copy.library.dragDropInstallSubtitle(supportedArchiveFormatsLabel)}</span>
+            <div className="launcher-library-browser">
+              {archiveDropActive ? (
+                <div className="launcher-library-drop-overlay" role="status" aria-live="polite">
+                  <div className="launcher-library-drop-overlay-card">
+                    <strong>{copy.library.dragDropInstallTitle}</strong>
+                    <span>{copy.library.dragDropInstallSubtitle(supportedArchiveFormatsLabel)}</span>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
-            {library.state === 'error' ? <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" /> : null}
-            {library.state !== 'error' && !visibleMods.length ? (
-              <LauncherStateBlock
-                title={
-                  !settings.modsPath
-                    ? copy.states.missingModsPath
-                    : !library.mods.length
-                      ? copy.library.empty
-                      : copy.library.filteredEmpty
-                }
-                detail={copy.library.subtitle}
-              />
-            ) : (
-              <VirtualizedLauncherGrid
-                items={visibleMods}
-                editMode={editMode}
-                editingSelectionIds={editingSelectionIds}
-                noneLabel={editorCopy.common.none}
-                onDragStart={startDraggingMod}
-                onDragEnd={stopDraggingMod}
-                onToggleSelection={toggleEditSelection}
-                onSelectMod={selectMod}
-                getContextActions={directActionsForMod}
-              />
-            )}
-          </div>
+              ) : null}
+              {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
+              {library.state === 'error' ? (
+                <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" />
+              ) : null}
+              {library.state !== 'error' && !visibleMods.length ? (
+                <LauncherStateBlock
+                  title={
+                    !settings.modsPath
+                      ? copy.states.missingModsPath
+                      : !library.mods.length
+                        ? copy.library.empty
+                        : copy.library.filteredEmpty
+                  }
+                  detail={copy.library.subtitle}
+                />
+              ) : (
+                <VirtualizedLauncherGrid
+                  items={visibleMods}
+                  editMode={editMode}
+                  editingSelectionIds={editingSelectionIds}
+                  noneLabel={editorCopy.common.none}
+                  onDragStart={startDraggingMod}
+                  onDragEnd={stopDraggingMod}
+                  onToggleSelection={toggleEditSelection}
+                  onSelectMod={selectMod}
+                  getContextActions={directActionsForMod}
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -1624,9 +1706,9 @@ export function LauncherLibraryPageContent({
           }}
           packName={
             detailMod
-              ? packLookup.get(normalizeLookupKey(getModKey(detailMod)))?.find(
-                  (pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? ''),
-                )?.name ?? null
+              ? (packLookup
+                  .get(normalizeLookupKey(getModKey(detailMod)))
+                  ?.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? ''))?.name ?? null)
               : null
           }
         />
@@ -1671,7 +1753,12 @@ export function LauncherLibraryPageContent({
             }
           }}
         >
-          <section className="launcher-library-dialog launcher-gallery-cover-dialog" role="dialog" aria-modal="true" aria-label={copy.library.galleryCoverTitle}>
+          <section
+            className="launcher-library-dialog launcher-gallery-cover-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={copy.library.galleryCoverTitle}
+          >
             <div className="launcher-library-dialog-header">
               <h2 className="launcher-library-dialog-title">{copy.library.galleryCoverTitle}</h2>
               <p className="launcher-library-dialog-copy">{copy.library.galleryCoverSubtitle}</p>
@@ -1751,14 +1838,10 @@ export function LauncherLibraryPageContent({
                     : copy.library.deleteCurrentPack}
               </h2>
               {packDialog.kind === 'rename' ? (
-                <p className="launcher-library-dialog-copy">
-                  {copy.library.renameCurrentPackPrompt(packDialog.pack.name)}
-                </p>
+                <p className="launcher-library-dialog-copy">{copy.library.renameCurrentPackPrompt(packDialog.pack.name)}</p>
               ) : null}
               {packDialog.kind === 'delete' ? (
-                <p className="launcher-library-dialog-copy">
-                  {copy.library.deleteCurrentPackConfirm(packDialog.pack.name)}
-                </p>
+                <p className="launcher-library-dialog-copy">{copy.library.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
               ) : null}
             </div>
 
@@ -1767,11 +1850,7 @@ export function LauncherLibraryPageContent({
                 <button type="button" className="control-button launcher-library-secondary-action" onClick={closePackDialog}>
                   {copy.library.cancelEdit}
                 </button>
-                <button
-                  type="button"
-                  className="control-button launcher-library-danger-action"
-                  onClick={() => void submitPackDialog()}
-                >
+                <button type="button" className="control-button launcher-library-danger-action" onClick={() => void submitPackDialog()}>
                   {copy.library.deleteCurrentPack}
                 </button>
               </div>
@@ -1784,9 +1863,7 @@ export function LauncherLibraryPageContent({
                 }}
               >
                 <label className="launcher-library-dialog-field">
-                  <span className="sr-only">
-                    {packDialog.kind === 'create' ? copy.actions.createPack : copy.library.renameCurrentPack}
-                  </span>
+                  <span className="sr-only">{packDialog.kind === 'create' ? copy.actions.createPack : copy.library.renameCurrentPack}</span>
                   <input
                     ref={packDialogInputRef}
                     value={packDialog.value}

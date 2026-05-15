@@ -19,10 +19,14 @@ export function BuildingWorkspaceHeader(props: BuildingWorkspaceHeaderProps) {
       </div>
       <div className="flex items-center gap-2">
         <span className="dock-chip">{isConstructible ? props.copy.sourceConstructibleLabel : props.copy.sourceWorldLabel}</span>
-        <span className="dock-chip">{isConstructible ? (props.building.builder ?? props.copy.noneLabel) : (props.building.exteriorMapName ?? props.copy.noneLabel)}</span>
+        <span className="dock-chip">
+          {isConstructible ? (props.building.builder ?? props.copy.noneLabel) : (props.building.exteriorMapName ?? props.copy.noneLabel)}
+        </span>
         <span className="dock-chip">
           {isConstructible
-            ? props.copy.stageLabel.replace('{current}', String(props.building.stageIndex + 1)).replace('{total}', String(props.building.stageCount))
+            ? props.copy.stageLabel
+                .replace('{current}', String(props.building.stageIndex + 1))
+                .replace('{total}', String(props.building.stageCount))
             : `$''' + '''{props.copy.entranceCountLabel}: $''' + '''{props.building.worldEntrances.length}`}
         </span>
       </div>

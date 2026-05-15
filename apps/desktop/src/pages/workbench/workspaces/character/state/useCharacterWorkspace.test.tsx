@@ -149,10 +149,7 @@ describe('useCharacterWorkspace', () => {
       expect(result.current.activeCharacter?.key).toBe('Emily')
     })
 
-    expect(result.current.activeCharacter?.variants.map((variant) => variant.id)).toEqual([
-      'default',
-      'Vanilla.EmilyWinter',
-    ])
+    expect(result.current.activeCharacter?.variants.map((variant) => variant.id)).toEqual(['default', 'Vanilla.EmilyWinter'])
 
     act(() => {
       result.current.setBrowserSourceMode('mod')

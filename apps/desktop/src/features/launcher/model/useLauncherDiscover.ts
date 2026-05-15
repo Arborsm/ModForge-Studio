@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from '@features/launcher'
 import type { LauncherCatalogFacets, SearchLauncherCatalogRequest } from './launcherContracts'
-import {
-  normalizeLauncherDiscoverToolbarState,
-  type LauncherDiscoverToolbarState,
-} from '@features/launcher'
+import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
 import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'
 import type { LauncherDiscoverItem, LauncherViewState } from './types'
 
@@ -68,9 +65,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
   const [sort, setSort] = useState<NonNullable<SearchLauncherCatalogRequest['sort']>>(normalizedToolbarState.sort)
   const [ascending, setAscending] = useState(normalizedToolbarState.ascending)
   const [timeRange, setTimeRange] = useState<NonNullable<SearchLauncherCatalogRequest['timeRange']>>(normalizedToolbarState.timeRange)
-  const [pageSize, setPageSize] = useState<NonNullable<SearchLauncherCatalogRequest['pageSize']>>(
-    normalizedToolbarState.pageSize,
-  )
+  const [pageSize, setPageSize] = useState<NonNullable<SearchLauncherCatalogRequest['pageSize']>>(normalizedToolbarState.pageSize)
   const [filters, setFilters] = useState<DiscoverFilters>(DEFAULT_FILTERS)
   const [page, setPageState] = useState(1)
   const [refreshToken, setRefreshToken] = useState(0)
@@ -118,9 +113,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
         maxEndorsements: parseOptionalNumber(filters.maxEndorsements),
       } satisfies SearchLauncherCatalogRequest
 
-      void (bypassDiagnostics
-        ? Promise.resolve(null)
-        : launcherPort.loadNexusDiagnostics().catch(() => null))
+      void (bypassDiagnostics ? Promise.resolve(null) : launcherPort.loadNexusDiagnostics().catch(() => null))
         .then((diagnostics) => {
           if (requestIdRef.current !== requestId) {
             return null
@@ -227,8 +220,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
       resetToFirstPage()
     },
     setPageSize: (value: number) => {
-      const normalized: NonNullable<SearchLauncherCatalogRequest['pageSize']> =
-        value === 40 || value === 80 ? value : 20
+      const normalized: NonNullable<SearchLauncherCatalogRequest['pageSize']> = value === 40 || value === 80 ? value : 20
       setRequestDelayMs(0)
       setPageSize(normalized)
       resetToFirstPage()

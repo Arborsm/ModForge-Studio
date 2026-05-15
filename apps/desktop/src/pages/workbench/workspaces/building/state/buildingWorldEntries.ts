@@ -1,11 +1,19 @@
 import type { MapDocument, MapPropertyValue } from '@shared/contracts'
-import { normalizeMapName, getWorldAtlasNameAliases, getPortalTargetMapFromProperties, isExteriorWarp, parseWarpEntries, getActionTargetMap } from '@entities/map'
-import { BUILDING_LOCATION_SEED_GROUP_LABELS, BUILDING_LOCATION_SEED_GROUP_ORDER, BUILDING_LOCATION_SEEDS, type BuildingLocationSeedGroup } from './buildingLocationSeeds'
 import {
-  type BuildingWorkspaceEntry,
-  type WorldBuildingEntrance,
-  buildMapPathLabel,
-} from '../entities/building'
+  normalizeMapName,
+  getWorldAtlasNameAliases,
+  getPortalTargetMapFromProperties,
+  isExteriorWarp,
+  parseWarpEntries,
+  getActionTargetMap,
+} from '@entities/map'
+import {
+  BUILDING_LOCATION_SEED_GROUP_LABELS,
+  BUILDING_LOCATION_SEED_GROUP_ORDER,
+  BUILDING_LOCATION_SEEDS,
+  type BuildingLocationSeedGroup,
+} from './buildingLocationSeeds'
+import { type BuildingWorkspaceEntry, type WorldBuildingEntrance, buildMapPathLabel } from '../entities/building'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -107,10 +115,13 @@ function normalizeMapAssetName(value: string | null | undefined) {
 }
 
 function parsePointLike(
-  value: {
-    X?: number | string | null
-    Y?: number | string | null
-  } | null | undefined,
+  value:
+    | {
+        X?: number | string | null
+        Y?: number | string | null
+      }
+    | null
+    | undefined,
 ) {
   if (!value) {
     return null
@@ -358,10 +369,7 @@ export function buildLocationSeeds(locationsContent: string | null) {
 
 // ── World building entries ────────────────────────────────────────────────
 
-export function buildWorldBuildingEntries(
-  loadedMapDocuments: MapDocument[],
-  locationSeeds: WorldLocationSeed[],
-): BuildingWorkspaceEntry[] {
+export function buildWorldBuildingEntries(loadedMapDocuments: MapDocument[], locationSeeds: WorldLocationSeed[]): BuildingWorkspaceEntry[] {
   const outdoorDocuments: MapDocument[] = []
   const indoorDocuments: MapDocument[] = []
 
@@ -416,8 +424,7 @@ export function buildWorldBuildingEntries(
     targetY: number,
     trigger: string,
   ) {
-    const targetDocument =
-      documentsByAlias.get(normalizeMapName(targetMapName)) ?? null
+    const targetDocument = documentsByAlias.get(normalizeMapName(targetMapName)) ?? null
     if (!targetDocument) {
       return
     }

@@ -29,10 +29,7 @@ export function formatBytes(value: number, options: FormatBytesOptions = {}) {
     return `${Math.round(size)} ${unit}`
   }
 
-  const precisionResult =
-    typeof decimals === 'function'
-      ? decimals(size, value, unit, unitIndex)
-      : decimals
+  const precisionResult = typeof decimals === 'function' ? decimals(size, value, unit, unitIndex) : decimals
   const precisionValue = Number.isFinite(precisionResult) ? Math.max(0, precisionResult) : 0
 
   return `${size.toFixed(precisionValue)} ${unit}`

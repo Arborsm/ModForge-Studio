@@ -8,12 +8,7 @@ type LauncherSplitLayoutProps = {
   className?: string
 }
 
-export function LauncherSplitLayout({
-  primary,
-  secondary,
-  tertiary,
-  className,
-}: LauncherSplitLayoutProps) {
+export function LauncherSplitLayout({ primary, secondary, tertiary, className }: LauncherSplitLayoutProps) {
   const triple = Boolean(secondary && tertiary)
 
   return (

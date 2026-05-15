@@ -114,10 +114,7 @@ describe('getObjectInteractionTag', () => {
 describe('getObjectPropertyKeys', () => {
   it('collects unique property keys from all objects in the group', () => {
     const group = createObjectGroup({
-      objects: [
-        createObject({ properties: { foo: 'a', bar: 'b' } }),
-        createObject({ properties: { bar: 'c', baz: 'd' } }),
-      ],
+      objects: [createObject({ properties: { foo: 'a', bar: 'b' } }), createObject({ properties: { bar: 'c', baz: 'd' } })],
     })
     const keys = getObjectPropertyKeys(group)
     expect(keys.sort()).toEqual(['bar', 'baz', 'foo'])

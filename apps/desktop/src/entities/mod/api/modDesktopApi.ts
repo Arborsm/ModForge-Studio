@@ -38,17 +38,13 @@ export function getModApiCacheStats() {
 /** Scans a Mods folder for supported and unsupported mod projects. */
 export function scanModProjects(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
-  return readCached(scanModProjectsCache, cacheKey, () =>
-    invokeDesktop<ModProjectSummary[]>('scan_mod_projects', { rootPath }),
-  )
+  return readCached(scanModProjectsCache, cacheKey, () => invokeDesktop<ModProjectSummary[]>('scan_mod_projects', { rootPath }))
 }
 
 /** Builds a cross-mod index of assets touched by installed content packs. */
 export function scanModAssetIndex(rootPath: string) {
   const cacheKey = normalizeCachePathSegment(rootPath)
-  return readCached(scanModAssetIndexCache, cacheKey, () =>
-    invokeDesktop<ModAssetIndex>('scan_mod_asset_index', { rootPath }),
-  )
+  return readCached(scanModAssetIndexCache, cacheKey, () => invokeDesktop<ModAssetIndex>('scan_mod_asset_index', { rootPath }))
 }
 
 /** Loads a mod project summary, diagnostics, and plugin-specific editable data. */

@@ -9,12 +9,8 @@ const WORKBENCH_STYLES_PATH = resolve(process.cwd(), 'src/styles/workbench.css')
 
 function expectImportsBeforeSources(source: string) {
   const lines = source.split(/\r?\n/)
-  const importIndexes = lines
-    .map((line, index) => (line.trim().startsWith('@import ') ? index : -1))
-    .filter((index) => index >= 0)
-  const sourceIndexes = lines
-    .map((line, index) => (line.trim().startsWith('@source ') ? index : -1))
-    .filter((index) => index >= 0)
+  const importIndexes = lines.map((line, index) => (line.trim().startsWith('@import ') ? index : -1)).filter((index) => index >= 0)
+  const sourceIndexes = lines.map((line, index) => (line.trim().startsWith('@source ') ? index : -1)).filter((index) => index >= 0)
 
   if (!importIndexes.length || !sourceIndexes.length) {
     return

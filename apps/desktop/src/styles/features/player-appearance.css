@@ -14,14 +14,20 @@
     max-height: min(860px, calc(100vh - 48px));
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
     border-radius: 24px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 96%, transparent), color-mix(in srgb, var(--bg-elevated) 98%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 96%, transparent),
+      color-mix(in srgb, var(--bg-elevated) 98%, transparent)
+    );
   }
 
   .appearance-window-header {
     gap: 18px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, transparent), color-mix(in srgb, var(--bg-panel-muted) 76%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 94%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 76%, transparent)
+    );
   }
 
   .appearance-window-title {
@@ -132,11 +138,15 @@
   }
 
   .appearance-window-stage::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(transparent 0, transparent calc(100% - 1px), color-mix(in srgb, var(--border-color) 50%, transparent) calc(100% - 1px)),
+      linear-gradient(
+        transparent 0,
+        transparent calc(100% - 1px),
+        color-mix(in srgb, var(--border-color) 50%, transparent) calc(100% - 1px)
+      ),
       repeating-linear-gradient(
         90deg,
         transparent 0,
@@ -144,7 +154,9 @@
         color-mix(in srgb, var(--border-color) 40%, transparent) calc(25% - 1px),
         color-mix(in srgb, var(--border-color) 40%, transparent) 25%
       );
-    background-size: 100% 25%, 100% 100%;
+    background-size:
+      100% 25%,
+      100% 100%;
     opacity: 0.28;
     pointer-events: none;
   }
@@ -323,8 +335,11 @@
     align-content: start;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 16px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 92%, transparent), color-mix(in srgb, var(--bg-panel-muted) 84%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 92%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 84%, transparent)
+    );
     padding: 12px;
   }
 
@@ -360,8 +375,11 @@
     gap: 10px;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 16px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, transparent), color-mix(in srgb, var(--bg-panel-muted) 86%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 94%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 86%, transparent)
+    );
     padding: 12px 10px;
     transition:
       border-color 160ms ease,
@@ -600,5 +618,3 @@
     }
   }
 }
-
-

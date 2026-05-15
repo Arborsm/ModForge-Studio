@@ -10,13 +10,7 @@ type LauncherArtworkCoverProps = {
   className?: string
 }
 
-export function LauncherArtworkCover({
-  title,
-  imageUrl,
-  coverStyle,
-  coverWord,
-  className,
-}: LauncherArtworkCoverProps) {
+export function LauncherArtworkCover({ title, imageUrl, coverStyle, coverWord, className }: LauncherArtworkCoverProps) {
   const cover = useLauncherImage(imageUrl)
   const fallbackWord = coverWord.trim() || title.trim().slice(0, 3).toUpperCase() || 'MOD'
 

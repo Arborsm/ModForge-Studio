@@ -206,7 +206,7 @@ describe('useLauncherDiscover', () => {
           tags: [],
         },
         results: [],
-    })
+      })
 
     const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {

@@ -8,11 +8,7 @@ type DeferredWorkspacePlaceholderProps = {
   lines?: number
 }
 
-export function DeferredWorkspacePlaceholder({
-  title,
-  subtitle,
-  lines = 3,
-}: DeferredWorkspacePlaceholderProps) {
+export function DeferredWorkspacePlaceholder({ title, subtitle, lines = 3 }: DeferredWorkspacePlaceholderProps) {
   return (
     <PanelFrame title={title} subtitle={subtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">

@@ -11,15 +11,7 @@ type PanelFrameProps = {
   children: ReactNode
 }
 
-export function PanelFrame({
-  title,
-  subtitle,
-  headerAction,
-  className,
-  bodyClassName,
-  hideHeader,
-  children,
-}: PanelFrameProps) {
+export function PanelFrame({ title, subtitle, headerAction, className, bodyClassName, hideHeader, children }: PanelFrameProps) {
   return (
     <section className={cx('panel-surface h-full', className)}>
       {!hideHeader ? (

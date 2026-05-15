@@ -53,6 +53,9 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │        └─ tests/                     # Rust 集成 / 回归测试
 ├─ docs/                              # 长期维护的架构与设计文档
 ├─ .cargo/                            # Cargo 环境配置与 Windows Tauri 测试兼容项
+├─ .husky/                            # Git hooks；pre-commit 运行 lint-staged
+├─ .prettierrc                        # Prettier 配置与 Tailwind class 排序插件
+├─ .prettierignore                    # Prettier 忽略范围
 ├─ AGENTS.md                          # 仓库约束与 Agent 工作规则
 ├─ package.json                       # 根脚本入口
 └─ pnpm-workspace.yaml                # pnpm workspace 配置
@@ -176,6 +179,16 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 工作台样式：`apps/desktop/src/styles/workspace/`
 - feature 样式：`apps/desktop/src/styles/features/`
 
+### 开发工具链
+
+- 根脚本与 lint-staged：`package.json`
+- Prettier 配置：`.prettierrc`
+- Prettier 忽略范围：`.prettierignore`
+- Tailwind class 排序：`prettier-plugin-tailwindcss`，由 Prettier 自动加载。
+- pre-commit 格式化：`.husky/pre-commit` 运行 `pnpm exec lint-staged`，只格式化已暂存文件。
+- ESLint 与 Prettier 规则衔接：`apps/desktop/eslint.config.js`，末尾接入 `eslint-config-prettier`。
+- Zed Tailwind IntelliSense 可放在本地 `.zed/settings.json`；该目录被 git 忽略，不作为共享项目配置提交。
+
 ### 测试
 
 - 架构测试：`apps/desktop/src/test/architecture/`
@@ -232,6 +245,12 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src/locales/schema.ts`
   - `apps/desktop/src/locales/en-US.ts`
   - `apps/desktop/src/locales/zh-CN.ts`
+- 改格式化、lint、提交前工具链：
+  - `package.json`
+  - `.prettierrc`
+  - `.prettierignore`
+  - `.husky/pre-commit`
+  - `apps/desktop/eslint.config.js`
 
 ## 常用命令
 
@@ -239,6 +258,8 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 
 - `uv run pnpm dev`：启动前端开发服务器。
 - `uv run pnpm desktop:dev`：启动完整 Tauri 桌面应用。
+- `uv run pnpm format`：用 Prettier 格式化仓库内受支持文件，并自动排序 Tailwind class。
+- `uv run pnpm format:check`：检查 Prettier 格式，不写入文件。
 - `uv run pnpm lint`：前端 lint。
 - `uv run pnpm build`：前端构建。
 - `uv run pnpm --filter @modforge/desktop test`：前端测试。

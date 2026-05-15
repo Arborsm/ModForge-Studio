@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { findDockTarget, getRailSortTarget, type RailButtonBounds } from '@shared/workspace/layoutDragTargets'
 import type { DockGuide } from '@shared/workspace/layoutGeometry'
-import type {
-  DockArea,
-  SlotId,
-  WorkspacePanelConfig,
-  WorkspacePanelState,
-  WorkspaceSlotState,
-} from '@shared/contracts'
+import type { DockArea, SlotId, WorkspacePanelConfig, WorkspacePanelState, WorkspaceSlotState } from '@shared/contracts'
 
 const panels: WorkspacePanelConfig[] = [
   { id: 'alpha', title: 'Alpha', subtitle: '', content: null, minWidth: 200, minHeight: 200 },

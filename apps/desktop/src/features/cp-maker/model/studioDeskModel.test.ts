@@ -66,10 +66,7 @@ describe('buildStudioDeskModel', () => {
       isDirty: true,
     })
 
-    expect(model.gallery.projects.map((project) => project.title)).toEqual([
-      '星露谷夏日祭扩展',
-      '海风旅店',
-    ])
+    expect(model.gallery.projects.map((project) => project.title)).toEqual(['星露谷夏日祭扩展', '海风旅店'])
     expect(model.gallery.projects[0]?.statuses).toEqual(['active', 'export', 'conflict'])
     expect(model.gallery.counts).toMatchObject({ all: 2, active: 2, export: 1, conflict: 1, archive: 0 })
   })
@@ -103,10 +100,7 @@ describe('buildStudioDeskModel', () => {
 
   test('models workspaces as independent entries instead of categories', () => {
     const model = buildStudioDeskModel({
-      activeDraft: draft([
-        patch({ id: 'map-1', workspace: 'map' }),
-        patch({ id: 'event-1', workspace: 'events' }),
-      ]),
+      activeDraft: draft([patch({ id: 'map-1', workspace: 'map' }), patch({ id: 'event-1', workspace: 'events' })]),
       drafts: [],
       patchCountByWorkspace: { map: 1, events: 1 },
       dirtyPatchIds: new Set(),
@@ -121,9 +115,7 @@ describe('buildStudioDeskModel', () => {
       'items',
       'mods',
     ])
-    expect(model.workspaceEntrypoints.find((entry) => entry.workspaceId === 'events')?.kind).toBe(
-      'independent-workspace',
-    )
+    expect(model.workspaceEntrypoints.find((entry) => entry.workspaceId === 'events')?.kind).toBe('independent-workspace')
   })
 
   test('exposes world bible entries without reference or drag actions', () => {

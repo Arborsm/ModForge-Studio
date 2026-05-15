@@ -408,15 +408,7 @@ function updateColor(profile: PlayerAppearanceProfile, key: 'hairColor' | 'eyeCo
   }
 }
 
-function FarmerPreviewSprite({
-  profile,
-  assets,
-  scale,
-}: {
-  profile: PlayerAppearanceProfile
-  assets: AppearanceAssets
-  scale: number
-}) {
+function FarmerPreviewSprite({ profile, assets, scale }: { profile: PlayerAppearanceProfile; assets: AppearanceAssets; scale: number }) {
   const layers = buildPreviewLayers(profile, assets)
 
   if (layers.length === 0) {
@@ -514,12 +506,29 @@ export default function PlayerAppearanceWindow({
   const counts = useMemo(() => {
     return {
       hair: Math.max(countFromAtlas(previewAssets.hair, 16, 96), (activeProfile?.hairStyleIndex ?? -1) + 1),
-      shirt: Math.max(previewAssets.shirts ? getClothingShirtCount(previewAssets.shirts.width, previewAssets.shirts.height) : 0, (activeProfile?.shirtSpriteIndex ?? -1) + 1),
-      pants: Math.max(previewAssets.pants ? getClothingPantsCount(previewAssets.pants.width, previewAssets.pants.height) : 0, (activeProfile?.pantsSpriteIndex ?? -1) + 1),
+      shirt: Math.max(
+        previewAssets.shirts ? getClothingShirtCount(previewAssets.shirts.width, previewAssets.shirts.height) : 0,
+        (activeProfile?.shirtSpriteIndex ?? -1) + 1,
+      ),
+      pants: Math.max(
+        previewAssets.pants ? getClothingPantsCount(previewAssets.pants.width, previewAssets.pants.height) : 0,
+        (activeProfile?.pantsSpriteIndex ?? -1) + 1,
+      ),
       accessory: Math.max(countFromAtlas(previewAssets.accessories, 16, 32), (activeProfile?.accessoryIndex ?? -1) + 1),
       hat: Math.max(countFromAtlas(previewAssets.hats, 20, 80), (activeProfile?.hatSpriteIndex ?? -1) + 1),
     }
-  }, [activeProfile?.accessoryIndex, activeProfile?.hairStyleIndex, activeProfile?.hatSpriteIndex, activeProfile?.pantsSpriteIndex, activeProfile?.shirtSpriteIndex, previewAssets.accessories, previewAssets.hair, previewAssets.hats, previewAssets.pants, previewAssets.shirts])
+  }, [
+    activeProfile?.accessoryIndex,
+    activeProfile?.hairStyleIndex,
+    activeProfile?.hatSpriteIndex,
+    activeProfile?.pantsSpriteIndex,
+    activeProfile?.shirtSpriteIndex,
+    previewAssets.accessories,
+    previewAssets.hair,
+    previewAssets.hats,
+    previewAssets.pants,
+    previewAssets.shirts,
+  ])
 
   const sectionItems = useMemo(() => {
     if (!activeProfile || activeSection === 'body') {
@@ -726,14 +735,16 @@ export default function PlayerAppearanceWindow({
 
               <section className="appearance-window-card">
                 <div className="appearance-window-tab-row">
-                  {([
-                    ['body', copy.body],
-                    ['hair', copy.hair],
-                    ['shirt', copy.shirt],
-                    ['pants', copy.pants],
-                    ['accessory', copy.accessory],
-                    ['hat', copy.hat],
-                  ] as const).map(([sectionId, label]) => (
+                  {(
+                    [
+                      ['body', copy.body],
+                      ['hair', copy.hair],
+                      ['shirt', copy.shirt],
+                      ['pants', copy.pants],
+                      ['accessory', copy.accessory],
+                      ['hat', copy.hat],
+                    ] as const
+                  ).map(([sectionId, label]) => (
                     <button
                       key={sectionId}
                       type="button"
@@ -758,10 +769,12 @@ export default function PlayerAppearanceWindow({
                     <div className="appearance-window-body-layout">
                       <div className="appearance-window-inspector-stack">
                         <div className="appearance-window-choice-grid appearance-window-choice-grid-body">
-                          {([
-                            [false, copy.male],
-                            [true, copy.female],
-                          ] as const).map(([isFemale, label]) => (
+                          {(
+                            [
+                              [false, copy.male],
+                              [true, copy.female],
+                            ] as const
+                          ).map(([isFemale, label]) => (
                             <button
                               key={label}
                               type="button"
@@ -778,12 +791,14 @@ export default function PlayerAppearanceWindow({
                         </div>
 
                         <div className="appearance-window-color-grid">
-                          {([
-                            ['hairColor', copy.hairColor],
-                            ['eyeColor', copy.eyeColor],
-                            ['shirtColor', copy.shirtColor],
-                            ['pantsColor', copy.pantsColor],
-                          ] as const).map(([key, label]) => (
+                          {(
+                            [
+                              ['hairColor', copy.hairColor],
+                              ['eyeColor', copy.eyeColor],
+                              ['shirtColor', copy.shirtColor],
+                              ['pantsColor', copy.pantsColor],
+                            ] as const
+                          ).map(([key, label]) => (
                             <label key={key} className="appearance-window-color-card">
                               <span className="player-appearance-label">{label}</span>
                               <span className="appearance-window-color-meta">{colorToHex(activeProfile[key]).toUpperCase()}</span>
@@ -857,19 +872,26 @@ export default function PlayerAppearanceWindow({
                     <div className="appearance-window-section-toolbar">
                       <div>
                         <p className="appearance-window-section-title">
-                          {{
-                            hair: copy.hair,
-                            shirt: copy.shirt,
-                            pants: copy.pants,
-                            accessory: copy.accessory,
-                            hat: copy.hat,
-                            body: copy.body,
-                          }[activeSection]}
+                          {
+                            {
+                              hair: copy.hair,
+                              shirt: copy.shirt,
+                              pants: copy.pants,
+                              accessory: copy.accessory,
+                              hat: copy.hat,
+                              body: copy.body,
+                            }[activeSection]
+                          }
                         </p>
                         <p className="appearance-window-section-copy">{copy.page(currentPage + 1, pageCount)}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button type="button" className="tool-button" disabled={currentPage === 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>
+                        <button
+                          type="button"
+                          className="tool-button"
+                          disabled={currentPage === 0}
+                          onClick={() => setPage((value) => Math.max(0, value - 1))}
+                        >
                           <ChevronLeft className="h-4 w-4" />
                         </button>
                         <button
@@ -911,15 +933,17 @@ export default function PlayerAppearanceWindow({
               <section className="appearance-window-card">
                 <p className="appearance-window-section-title">{copy.importedMeta}</p>
                 <div className="player-appearance-meta-grid">
-                  {([
-                    [copy.saveFolder, activeProfile.sourceSaveFolder],
-                    [copy.sourceFile, activeProfile.sourceFilePath],
-                    [copy.importedAt, activeProfile.importedAt],
-                    [copy.customHair, activeProfile.customHairId],
-                    [copy.customHat, activeProfile.customHatId],
-                    [copy.customShirt, activeProfile.customShirtId],
-                    [copy.customPants, activeProfile.customPantsId],
-                  ] as const).map(([label, value]) => (
+                  {(
+                    [
+                      [copy.saveFolder, activeProfile.sourceSaveFolder],
+                      [copy.sourceFile, activeProfile.sourceFilePath],
+                      [copy.importedAt, activeProfile.importedAt],
+                      [copy.customHair, activeProfile.customHairId],
+                      [copy.customHat, activeProfile.customHatId],
+                      [copy.customShirt, activeProfile.customShirtId],
+                      [copy.customPants, activeProfile.customPantsId],
+                    ] as const
+                  ).map(([label, value]) => (
                     <div key={label} className="player-appearance-meta-card">
                       <p className="player-appearance-label">{label}</p>
                       <p className="player-appearance-meta-value">{value || copy.notSet}</p>

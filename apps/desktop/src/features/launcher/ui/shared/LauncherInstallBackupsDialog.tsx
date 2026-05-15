@@ -37,7 +37,12 @@ export function LauncherInstallBackupsDialog({
         }
       }}
     >
-      <section className="launcher-library-dialog launcher-library-install-dialog" role="dialog" aria-modal="true" aria-label={copy.library.installBackupsTitle}>
+      <section
+        className="launcher-library-dialog launcher-library-install-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={copy.library.installBackupsTitle}
+      >
         <div className="launcher-library-dialog-header">
           <h2 className="launcher-library-dialog-title">{copy.library.installBackupsTitle}</h2>
           <p className="launcher-library-dialog-copy">{copy.library.installBackupsSubtitle}</p>

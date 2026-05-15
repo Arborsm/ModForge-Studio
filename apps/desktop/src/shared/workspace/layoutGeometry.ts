@@ -1,11 +1,4 @@
-import {
-  COLUMN_GAP,
-  MIN_CENTER_HEIGHT,
-  ROOT_PADDING,
-  SPLIT_GAP,
-  TOOL_WINDOW_RAIL_GAP,
-  TOOL_WINDOW_RAIL_WIDTH,
-} from './layoutConstants'
+import { COLUMN_GAP, MIN_CENTER_HEIGHT, ROOT_PADDING, SPLIT_GAP, TOOL_WINDOW_RAIL_GAP, TOOL_WINDOW_RAIL_WIDTH } from './layoutConstants'
 import type {
   DockArea,
   PanelRect,
@@ -15,12 +8,7 @@ import type {
   WorkspaceSize,
   WorkspaceStoredState,
 } from '@shared/contracts'
-import {
-  clamp,
-  getActiveDockedPanel,
-  getDefaultChrome,
-  getDockedPanelIdsForRail,
-} from './layoutState'
+import { clamp, getActiveDockedPanel, getDefaultChrome, getDockedPanelIdsForRail } from './layoutState'
 import { getResolvedSidePanelWidths, splitSpan } from './layoutSizing'
 
 export type DockGuide = {
@@ -95,9 +83,7 @@ export function getWorkspaceGeometry(
   }
 
   const rails: Record<RailId, PanelRect | null> = {
-    left: leftRailVisible
-      ? { x: ROOT_PADDING, y: ROOT_PADDING, width: TOOL_WINDOW_RAIL_WIDTH, height: centerRect.height }
-      : null,
+    left: leftRailVisible ? { x: ROOT_PADDING, y: ROOT_PADDING, width: TOOL_WINDOW_RAIL_WIDTH, height: centerRect.height } : null,
     right: rightRailVisible
       ? { x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH, y: ROOT_PADDING, width: TOOL_WINDOW_RAIL_WIDTH, height: centerRect.height }
       : null,
@@ -105,11 +91,14 @@ export function getWorkspaceGeometry(
   }
 
   const railContainers: Record<RailId, PanelRect | null> = {
-    left: leftPanelVisible
-      ? { x: ROOT_PADDING + leftRailUsed, y: ROOT_PADDING, width: leftPanelWidth, height: centerRect.height }
-      : null,
+    left: leftPanelVisible ? { x: ROOT_PADDING + leftRailUsed, y: ROOT_PADDING, width: leftPanelWidth, height: centerRect.height } : null,
     right: rightPanelVisible
-      ? { x: size.width - ROOT_PADDING - rightRailUsed - rightPanelWidth, y: ROOT_PADDING, width: rightPanelWidth, height: centerRect.height }
+      ? {
+          x: size.width - ROOT_PADDING - rightRailUsed - rightPanelWidth,
+          y: ROOT_PADDING,
+          width: rightPanelWidth,
+          height: centerRect.height,
+        }
       : null,
     bottom: bottomPanelVisible
       ? {
@@ -261,34 +250,27 @@ export function getWorkspaceGeometry(
   }
 }
 
-export function getDockGuideRects(
-  size: WorkspaceSize,
-  geometry: WorkspaceGeometry,
-  panels: WorkspacePanelConfig[],
-): DockGuide[] {
+export function getDockGuideRects(size: WorkspaceSize, geometry: WorkspaceGeometry, panels: WorkspacePanelConfig[]): DockGuide[] {
   const defaults = getDefaultChrome(panels)
   const defaultSideWidths = getResolvedSidePanelWidths(panels, defaults, size, true, true, true, true)
-  const leftContainer =
-    geometry.railContainers.left ?? {
-      x: ROOT_PADDING + TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP,
-      y: ROOT_PADDING,
-      width: defaultSideWidths.left,
-      height: geometry.centerRect.height,
-    }
-  const rightContainer =
-    geometry.railContainers.right ?? {
-      x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH - TOOL_WINDOW_RAIL_GAP - defaultSideWidths.right,
-      y: ROOT_PADDING,
-      width: defaultSideWidths.right,
-      height: geometry.centerRect.height,
-    }
-  const bottomContainer =
-    geometry.railContainers.bottom ?? {
-      x: ROOT_PADDING,
-      y: size.height - ROOT_PADDING - defaults.bottomHeight,
-      width: Math.max(160, size.width - ROOT_PADDING * 2),
-      height: defaults.bottomHeight,
-    }
+  const leftContainer = geometry.railContainers.left ?? {
+    x: ROOT_PADDING + TOOL_WINDOW_RAIL_WIDTH + TOOL_WINDOW_RAIL_GAP,
+    y: ROOT_PADDING,
+    width: defaultSideWidths.left,
+    height: geometry.centerRect.height,
+  }
+  const rightContainer = geometry.railContainers.right ?? {
+    x: size.width - ROOT_PADDING - TOOL_WINDOW_RAIL_WIDTH - TOOL_WINDOW_RAIL_GAP - defaultSideWidths.right,
+    y: ROOT_PADDING,
+    width: defaultSideWidths.right,
+    height: geometry.centerRect.height,
+  }
+  const bottomContainer = geometry.railContainers.bottom ?? {
+    x: ROOT_PADDING,
+    y: size.height - ROOT_PADDING - defaults.bottomHeight,
+    width: Math.max(160, size.width - ROOT_PADDING * 2),
+    height: defaults.bottomHeight,
+  }
   const verticalHalf = Math.max(96, (leftContainer.height - SPLIT_GAP) / 2)
   const rightVerticalHalf = Math.max(96, (rightContainer.height - SPLIT_GAP) / 2)
   const horizontalHalf = Math.max(140, (bottomContainer.width - SPLIT_GAP) / 2)

@@ -24,7 +24,7 @@ function RouteStatusIcon({ status }: { status: LauncherNexusRouteSnapshot['statu
   if (status === 'warning') {
     return <AlertTriangle className="h-4 w-4 text-yellow-500" aria-hidden="true" />
   }
-  return <Loader2 className="h-4 w-4 animate-spin text-muted" aria-hidden="true" />
+  return <Loader2 className="text-muted h-4 w-4 animate-spin" aria-hidden="true" />
 }
 
 type DiagnosticsPanelProps = {
@@ -73,34 +73,37 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
     }
   }, [])
 
-  const handleRetryRoute = useCallback(async (routeId: string) => {
-    const now = Date.now()
-    const lastRetry = retryTimestamps.current.get(routeId) ?? 0
-    if (now - lastRetry < 2000) return // 2s debounce
-    retryTimestamps.current.set(routeId, now)
+  const handleRetryRoute = useCallback(
+    async (routeId: string) => {
+      const now = Date.now()
+      const lastRetry = retryTimestamps.current.get(routeId) ?? 0
+      if (now - lastRetry < 2000) return // 2s debounce
+      retryTimestamps.current.set(routeId, now)
 
-    setRetryingRouteIds((prev) => {
-      const next = new Set(prev)
-      next.add(routeId)
-      return next
-    })
-
-    try {
-      const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(routeId)
-      setRoutes((currentRoutes) => mergeLauncherNexusDiagnostics(currentRoutes, diagnostics.routes))
-      setLastRefreshedAt(Date.now())
-    } catch {
-      // Keep last state on failure
-    } finally {
       setRetryingRouteIds((prev) => {
         const next = new Set(prev)
-        next.delete(routeId)
+        next.add(routeId)
         return next
       })
-    }
-  }, [launcherPort])
 
-  const isStale = lastRefreshedAt != null && (currentTime - lastRefreshedAt) > 5 * 60 * 1000
+      try {
+        const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(routeId)
+        setRoutes((currentRoutes) => mergeLauncherNexusDiagnostics(currentRoutes, diagnostics.routes))
+        setLastRefreshedAt(Date.now())
+      } catch {
+        // Keep last state on failure
+      } finally {
+        setRetryingRouteIds((prev) => {
+          const next = new Set(prev)
+          next.delete(routeId)
+          return next
+        })
+      }
+    },
+    [launcherPort],
+  )
+
+  const isStale = lastRefreshedAt != null && currentTime - lastRefreshedAt > 5 * 60 * 1000
 
   if (loading) {
     return (
@@ -121,13 +124,13 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
       </div>
 
       {lastRefreshedAt != null && (
-        <p className={cx('text-xs mt-1', isStale ? 'italic text-yellow-500' : 'text-muted')}>
+        <p className={cx('mt-1 text-xs', isStale ? 'text-yellow-500 italic' : 'text-muted')}>
           {copy.lastRefresh(formatTimeAgo(lastRefreshedAt, copy))}
           {isStale && ` - ${copy.staleWarning}`}
         </p>
       )}
 
-      <div className="flex flex-col gap-1 mt-2">
+      <div className="mt-2 flex flex-col gap-1">
         {routes.map((route) => {
           const retrying = retryingRouteIds.has(route.routeId)
           const canRetry = route.status === 'warning' || !route.available
@@ -135,18 +138,15 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
           return (
             <div
               key={route.routeId}
-              className={cx(
-                'flex items-center gap-2 rounded px-2 py-1.5 text-xs',
-                'bg-surface/50 hover:bg-surface/80 transition-colors',
-              )}
+              className={cx('flex items-center gap-2 rounded px-2 py-1.5 text-xs', 'bg-surface/50 hover:bg-surface/80 transition-colors')}
             >
               <RouteStatusIcon status={route.status} />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{route.label}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{route.label}</p>
                 <p className="text-muted truncate">{route.endpoint}</p>
                 <p className="text-muted truncate">{route.message}</p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              <div className="flex shrink-0 items-center gap-1">
                 <span className="dock-chip">
                   {route.attempts}/{route.maxAttempts}
                 </span>
@@ -167,9 +167,7 @@ export function DiagnosticsPanel({ launcherPort }: DiagnosticsPanelProps) {
         })}
       </div>
 
-      {routes.length === 0 && (
-        <p className="text-xs text-muted mt-1">{copy.empty}</p>
-      )}
+      {routes.length === 0 && <p className="text-muted mt-1 text-xs">{copy.empty}</p>}
     </section>
   )
 }

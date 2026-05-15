@@ -79,11 +79,7 @@ export const LOADING_MOTION_STYLE_LABELS: LoadingMotionStyleLabelEntry[] = [
 export type LoadingMotionIntensityId = 'light' | 'standard' | 'strong'
 
 /** All valid intensity ids in a stable array. */
-export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = [
-  'light',
-  'standard',
-  'strong',
-] as const
+export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light', 'standard', 'strong'] as const
 
 export type LoadingMotionIntensityLabelEntry = {
   id: LoadingMotionIntensityId
@@ -105,11 +101,7 @@ export type LoadingMotionSpeedId = 'slow' | 'standard' | 'fast'
 
 export type LoadingMotionSpeedMode = 'preset' | 'custom'
 
-export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = [
-  'slow',
-  'standard',
-  'fast',
-] as const
+export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = ['slow', 'standard', 'fast'] as const
 
 export type LoadingMotionSpeedLabelEntry = {
   id: LoadingMotionSpeedId

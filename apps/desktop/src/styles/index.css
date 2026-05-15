@@ -10,6 +10,7 @@
 @import "./primitives/loading-motion.css";
 @import "./primitives/nexusmods-bbcode.css";
 @import "./primitives/gooey-nav.css";
+@import "./workspace/shell-skeleton.css";
 @import "./workspace/top-menu.css";
 @import "./workspace/status-bar.css";
 @import "./features/settings-window.css";

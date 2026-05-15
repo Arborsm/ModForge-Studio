@@ -102,9 +102,7 @@ export default function StatusBar({
               </span>
             </div>
           )}
-          {!hasEditorData && (
-            <span className="text-[10px] text-[var(--text-tertiary)]">{copy.statusBar.noEditItem}</span>
-          )}
+          {!hasEditorData && <span className="text-[10px] text-[var(--text-tertiary)]">{copy.statusBar.noEditItem}</span>}
         </div>
 
         {hasEditorData && (

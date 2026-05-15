@@ -10,11 +10,7 @@ let libraryPageInstanceCounter = 0
 vi.mock('./LauncherLibraryPage', () => ({
   LauncherLibraryPageContent: ({ launchGameLabel }: { launchGameLabel: string }) => {
     const instanceId = useRef(++libraryPageInstanceCounter)
-    return (
-      <div data-loading-section="launcher-library-test">
-        {`library-page:${launchGameLabel}:${instanceId.current}`}
-      </div>
-    )
+    return <div data-loading-section="launcher-library-test">{`library-page:${launchGameLabel}:${instanceId.current}`}</div>
   },
 }))
 
@@ -78,7 +74,12 @@ vi.mock('./LauncherUpdatesPage', () => ({
 }))
 
 vi.mock('./LauncherConfigurationPage', () => ({
-  LauncherConfigurationPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown; settingsState: unknown }) => {
+  LauncherConfigurationPage: (props: {
+    debugEnabled: boolean
+    onToggleDebugMode: () => void
+    downloads: unknown
+    settingsState: unknown
+  }) => {
     configurationPageSpy(props)
     return <div>configuration-page</div>
   },

@@ -88,7 +88,8 @@ export default function WorkbenchExperience({
   onCloseWindow,
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
-}: WorkbenchExperienceProps) {  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
+}: WorkbenchExperienceProps) {
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
   const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>(() => {
     const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
     return saved === 'edit' || saved === 'preview' ? saved : 'edit'
@@ -96,20 +97,11 @@ export default function WorkbenchExperience({
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
-  const {
-    activeEditPatchId,
-    navigateToPatch,
-    goBack,
-    goForward,
-    resetNavigation,
-    canGoBack,
-    canGoForward,
-  } = useEditModeNavigation(workspaceViewMode === 'edit')
+  const { activeEditPatchId, navigateToPatch, goBack, goForward, resetNavigation, canGoBack, canGoForward } = useEditModeNavigation(
+    workspaceViewMode === 'edit',
+  )
 
-  const {
-    handleWorkspaceChange,
-    handleWorkspaceViewModeChange,
-  } = useWorkbenchModeTransitions({
+  const { handleWorkspaceChange, handleWorkspaceViewModeChange } = useWorkbenchModeTransitions({
     workspaceViewMode,
     setWorkspaceMode,
     setWorkspaceViewMode,
@@ -212,11 +204,10 @@ export default function WorkbenchExperience({
     }
   }, [workspaceMode])
 
-  const {
-    workspaceLayouts,
-    workspaceLayoutStorageKey,
-    handleWorkspacePersistStateChange,
-  } = useWorkspaceLayoutPersistence(appUiStateReady, workspaceMode)
+  const { workspaceLayouts, workspaceLayoutStorageKey, handleWorkspacePersistStateChange } = useWorkspaceLayoutPersistence(
+    appUiStateReady,
+    workspaceMode,
+  )
 
   const {
     workspaceStatus,
@@ -449,28 +440,21 @@ export default function WorkbenchExperience({
   })
 
   const studioDeskModel = useMemo(
-    () => buildStudioDeskModel({
-      activeDraft: cpMaker.activeDraft,
-      drafts: cpMaker.drafts,
-      patchCountByWorkspace: cpMaker.patchCountByWorkspace,
-      dirtyPatchIds: cpMaker.dirtyPatchIds,
-      isDirty: cpMaker.isDirty,
-    }),
-    [
-      cpMaker.activeDraft,
-      cpMaker.drafts,
-      cpMaker.patchCountByWorkspace,
-      cpMaker.dirtyPatchIds,
-      cpMaker.isDirty,
-    ],
+    () =>
+      buildStudioDeskModel({
+        activeDraft: cpMaker.activeDraft,
+        drafts: cpMaker.drafts,
+        patchCountByWorkspace: cpMaker.patchCountByWorkspace,
+        dirtyPatchIds: cpMaker.dirtyPatchIds,
+        isDirty: cpMaker.isDirty,
+      }),
+    [cpMaker.activeDraft, cpMaker.drafts, cpMaker.patchCountByWorkspace, cpMaker.dirtyPatchIds, cpMaker.isDirty],
   )
   const editModeRoute = getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
   const editModeView = getWorkbenchViewRegistration(editModeRoute)
 
   const moduleBlueprint =
-    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods'
-      ? undefined
-      : copy.moduleBlueprints[workspaceMode]
+    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const needsInitialization = !directoryInfo
   const interactionLocked = resourcePreloadState.active
@@ -582,9 +566,12 @@ export default function WorkbenchExperience({
     setStageSeek(() => seekTimelineEntry)
     return () => setStageSeek(null)
   }, [])
-  const handleActivateTimelineEntry = useCallback((entryId: string) => {
-    stageSeek?.(entryId)
-  }, [stageSeek])
+  const handleActivateTimelineEntry = useCallback(
+    (entryId: string) => {
+      stageSeek?.(entryId)
+    },
+    [stageSeek],
+  )
 
   const workspacePanels = buildWorkspacePanels({
     copy,
@@ -775,36 +762,33 @@ export default function WorkbenchExperience({
     heavyWorkspaceReady: deferredHeavyWorkspaceMode === workspaceMode,
   })
 
-  const handleLayoutMetaChange = useCallback(
-    ({ panelItems, presetNames }: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => {
-      setViewMenuPanelItems((current) => {
-        if (
-          current.length === panelItems.length &&
-          current.every(
-            (item, index) =>
-              item.id === panelItems[index]?.id &&
-              item.title === panelItems[index]?.title &&
-              item.visible === panelItems[index]?.visible &&
-              item.mode === panelItems[index]?.mode &&
-              item.dock === panelItems[index]?.dock,
-          )
-        ) {
-          return current
-        }
+  const handleLayoutMetaChange = useCallback(({ panelItems, presetNames }: { panelItems: WorkspacePanelMeta[]; presetNames: string[] }) => {
+    setViewMenuPanelItems((current) => {
+      if (
+        current.length === panelItems.length &&
+        current.every(
+          (item, index) =>
+            item.id === panelItems[index]?.id &&
+            item.title === panelItems[index]?.title &&
+            item.visible === panelItems[index]?.visible &&
+            item.mode === panelItems[index]?.mode &&
+            item.dock === panelItems[index]?.dock,
+        )
+      ) {
+        return current
+      }
 
-        return panelItems
-      })
+      return panelItems
+    })
 
-      setViewMenuPresetNames((current) => {
-        if (current.length === presetNames.length && current.every((name, index) => name === presetNames[index])) {
-          return current
-        }
+    setViewMenuPresetNames((current) => {
+      if (current.length === presetNames.length && current.every((name, index) => name === presetNames[index])) {
+        return current
+      }
 
-        return presetNames
-      })
-    },
-    [],
-  )
+      return presetNames
+    })
+  }, [])
 
   const handleAppModeChange = useCallback(
     (nextMode: AppMode) => {
@@ -818,43 +802,42 @@ export default function WorkbenchExperience({
   return (
     <div className={active ? 'flex h-full flex-col' : 'hidden'} aria-busy={interactionLocked} aria-hidden={!active}>
       <TopMenuBar
-          appMode="workbench"
-          onAppModeChange={handleAppModeChange}
-          workspaceMode={workspaceMode}
-          onWorkspaceChange={handleWorkspaceChange}
-          workspaceViewMode={workspaceViewMode}
-          onWorkspaceViewModeChange={handleWorkspaceViewModeChange}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
-          statusTone={currentWorkspaceStatus.tone}
-          desktopHost={desktopHost}
-          onMinimizeWindow={onMinimizeWindow}
-          onToggleMaximizeWindow={onToggleMaximizeWindow}
-          onCloseWindow={onCloseWindow}
-          viewMenu={{
-            panelItems: viewMenuPanelItems,
-            presetNames: viewMenuPresetNames,
-            onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
-            onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
-            onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
-            onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
-            onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
-          }}
-          settingsMenu={{
-            onOpen: () => onOpenSettings('appearance'),
-          }}
-          projectMenu={{
-            highlighted: showProjectOverlay,
-            onOpen: () => {
-              setProjectOverlayOpen(true)
-            },
-          }}
-        />
+        appMode="workbench"
+        onAppModeChange={handleAppModeChange}
+        workspaceMode={workspaceMode}
+        onWorkspaceChange={handleWorkspaceChange}
+        workspaceNavigationDisabled={workspaceViewMode === 'edit' && !cpMaker.activeDraft}
+        workspaceViewMode={workspaceViewMode}
+        onWorkspaceViewModeChange={handleWorkspaceViewModeChange}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        statusTone={currentWorkspaceStatus.tone}
+        desktopHost={desktopHost}
+        onMinimizeWindow={onMinimizeWindow}
+        onToggleMaximizeWindow={onToggleMaximizeWindow}
+        onCloseWindow={onCloseWindow}
+        viewMenu={{
+          panelItems: viewMenuPanelItems,
+          presetNames: viewMenuPresetNames,
+          onTogglePanel: (id, visible) => workspaceLayoutRef.current?.setPanelVisibility(id, visible),
+          onResetLayout: () => workspaceLayoutRef.current?.resetLayout(),
+          onSavePreset: (name) => workspaceLayoutRef.current?.savePreset(name),
+          onLoadPreset: (name) => workspaceLayoutRef.current?.loadPreset(name),
+          onDeletePreset: (name) => workspaceLayoutRef.current?.deletePreset(name),
+        }}
+        settingsMenu={{
+          onOpen: () => onOpenSettings('appearance'),
+        }}
+        projectMenu={{
+          highlighted: showProjectOverlay,
+          onOpen: () => {
+            setProjectOverlayOpen(true)
+          },
+        }}
+      />
 
       {playerAppearanceWindowOpen ? (
-      <Suspense
-          fallback={<LoadingMotionFallback />}
-        >
+        <Suspense fallback={<LoadingMotionFallback />}>
           <PlayerAppearanceWindow
             key={`player-appearance:${playerAppearanceWindowNonce}`}
             open={playerAppearanceWindowOpen}
@@ -876,11 +859,7 @@ export default function WorkbenchExperience({
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <div className="absolute inset-0 min-h-0 overflow-hidden">
           {workspaceViewMode === 'preview' ? (
-            <LoadingMotionReveal
-              itemId="workbench-preview-mode"
-              index={0}
-              className="h-full min-h-0"
-            >
+            <LoadingMotionReveal itemId="workbench-preview-mode" index={0} className="h-full min-h-0">
               <WorkbenchLayoutHost
                 workspaceLayoutRef={workspaceLayoutRef}
                 workspaceLayoutStorageKey={workspaceLayoutStorageKey}
@@ -891,11 +870,7 @@ export default function WorkbenchExperience({
               />
             </LoadingMotionReveal>
           ) : (
-            <LoadingMotionReveal
-              itemId="workbench-project-mode"
-              index={0}
-              className="h-full min-h-0"
-            >
+            <LoadingMotionReveal itemId="workbench-project-mode" index={0} className="h-full min-h-0">
               <WorkbenchViewHost
                 editModeView={editModeView}
                 workspaceMode={workspaceMode}
@@ -972,7 +947,12 @@ export default function WorkbenchExperience({
           currentEventCommandId={currentEventCommandId}
           patchName={activeEditPatchId ?? null}
           scriptLength={selectedEvent?.rawScript.length}
-          isModified={selectedEvent ? selectedEvent.rawScript !== (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript) : false}
+          isModified={
+            selectedEvent
+              ? selectedEvent.rawScript !==
+                (parsedEventAsset?.events.find((e) => e.key === selectedEvent.key)?.rawScript ?? selectedEvent.rawScript)
+              : false
+          }
         />
       ) : null}
     </div>

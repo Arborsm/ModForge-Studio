@@ -199,7 +199,11 @@ const KEY_FIELDS: Partial<Record<GameStateQueryKey, GameStateQueryFieldDefinitio
   PLAYER_MONEY_EARNED: [playerField(), moneyField()],
   PLAYER_SHIPPED_BASIC_ITEM: [playerField(), itemField(), countField()],
   PLAYER_SPECIAL_ORDER_ACTIVE: [playerField(), field('orderId', 'specialOrder', 'text', 'OrderId')],
-  PLAYER_SPECIAL_ORDER_RULE_ACTIVE: [playerField(), field('orderId', 'specialOrder', 'text', 'OrderId'), field('ruleId', 'field', 'text', 'Rule')],
+  PLAYER_SPECIAL_ORDER_RULE_ACTIVE: [
+    playerField(),
+    field('orderId', 'specialOrder', 'text', 'OrderId'),
+    field('ruleId', 'field', 'text', 'Rule'),
+  ],
   PLAYER_SPECIAL_ORDER_COMPLETE: [playerField(), field('orderId', 'specialOrder', 'text', 'OrderId')],
   PLAYER_KILLED_MONSTERS: [playerField(), field('monsterId', 'monster', 'text', 'Green Slime'), countField('10')],
   PLAYER_STAT: [playerField(), field('statId', 'stat', 'text', 'StepsTaken'), valueField('1000')],
@@ -209,8 +213,16 @@ const KEY_FIELDS: Partial<Record<GameStateQueryKey, GameStateQueryFieldDefinitio
   PLAYER_HAS_PET: [playerField(), field('pet', 'pet', 'text', 'Cat')],
   PLAYER_HEARTS: [playerField(), field('npc', 'npc', 'text', 'Abigail'), levelField('4')],
   PLAYER_HAS_MET: [playerField(), field('npc', 'npc', 'text', 'Abigail')],
-  PLAYER_NPC_RELATIONSHIP: [playerField(), field('npc', 'npc', 'text', 'Abigail'), field('relationship', 'relationship', 'choice', 'Dating', RELATIONSHIP_OPTIONS)],
-  PLAYER_PLAYER_RELATIONSHIP: [playerField(), targetField(), field('relationship', 'relationship', 'choice', 'Friend', RELATIONSHIP_OPTIONS)],
+  PLAYER_NPC_RELATIONSHIP: [
+    playerField(),
+    field('npc', 'npc', 'text', 'Abigail'),
+    field('relationship', 'relationship', 'choice', 'Dating', RELATIONSHIP_OPTIONS),
+  ],
+  PLAYER_PLAYER_RELATIONSHIP: [
+    playerField(),
+    targetField(),
+    field('relationship', 'relationship', 'choice', 'Friend', RELATIONSHIP_OPTIONS),
+  ],
   PLAYER_PREFERRED_PET: [playerField(), field('pet', 'pet', 'text', 'Cat')],
   RANDOM: [chanceField()],
   SYNCED_CHOICE: [field('choiceId', 'field', 'text', 'choice_id'), valueField('A')],
@@ -320,10 +332,7 @@ function serializeFieldValues(definition: GameStateQueryDefinition | undefined, 
 export function serializeGameStateQueryClause(clause: GameStateQueryClauseDraft): string {
   const prefix = clause.negated ? '!' : ''
   if (clause.key === 'ANY') {
-    const branches = (clause.branches ?? [])
-      .map(serializeGameStateQueryClause)
-      .filter(Boolean)
-      .map(quoteGameStateQueryToken)
+    const branches = (clause.branches ?? []).map(serializeGameStateQueryClause).filter(Boolean).map(quoteGameStateQueryToken)
     return `${prefix}ANY${branches.length > 0 ? ` ${branches.join(' ')}` : ''}`
   }
 
@@ -336,21 +345,19 @@ export function serializeGameStateQueryClauses(clauses: GameStateQueryClauseDraf
   return clauses.map(serializeGameStateQueryClause).filter(Boolean).join(', ')
 }
 
-function hydrateClauseFromParsed(
-  clause: ParsedGameStateQueryClause,
-  id: string,
-): GameStateQueryClauseDraft {
+function hydrateClauseFromParsed(clause: ParsedGameStateQueryClause, id: string): GameStateQueryClauseDraft {
   const key = GAME_STATE_QUERY_DEFINITION_BY_KEY.has(clause.canonicalKey as GameStateQueryKey)
-    ? clause.canonicalKey as GameStateQueryKey
+    ? (clause.canonicalKey as GameStateQueryKey)
     : 'TRUE'
   const draft = createDefaultGameStateQueryClause(key, id)
   draft.negated = clause.negated
 
   if (key === 'ANY') {
-    draft.branches = clause.alternatives?.flatMap((query, index) => {
-      const branch = query.clauses[0]
-      return branch ? [hydrateClauseFromParsed(branch, `${id}-branch-${index}`)] : []
-    }) ?? []
+    draft.branches =
+      clause.alternatives?.flatMap((query, index) => {
+        const branch = query.clauses[0]
+        return branch ? [hydrateClauseFromParsed(branch, `${id}-branch-${index}`)] : []
+      }) ?? []
     return draft
   }
 

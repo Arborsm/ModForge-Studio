@@ -14,9 +14,7 @@ const cpMakerDraftCache = createPromiseCache<CpMakerDraftRecord>()
 
 /** Lists saved CP Maker drafts without loading their full editor payload. */
 export function listCpMakerDrafts() {
-  return readCached(cpMakerDraftsCache, 'default', () =>
-    invokeDesktop<CpMakerDraftSummary[]>('list_cp_maker_drafts'),
-  )
+  return readCached(cpMakerDraftsCache, 'default', () => invokeDesktop<CpMakerDraftSummary[]>('list_cp_maker_drafts'))
 }
 
 /** Loads one CP Maker draft by its persistent storage key. */

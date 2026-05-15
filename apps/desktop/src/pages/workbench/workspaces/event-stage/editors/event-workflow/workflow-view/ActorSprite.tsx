@@ -162,7 +162,10 @@ function computeActorState(
         state.animationFlip = cmd.args[2] === 'true'
         state.animationLoop = cmd.args[3] === 'true'
         state.animationDuration = Number.parseInt(cmd.args[4] ?? '', 10) || 100
-        state.animationFrames = cmd.args.slice(5).map((v) => Number.parseInt(v, 10)).filter(Number.isFinite)
+        state.animationFrames = cmd.args
+          .slice(5)
+          .map((v) => Number.parseInt(v, 10))
+          .filter(Number.isFinite)
         state.animationFrameIndex = 0
         if (state.animationFrames.length > 0) {
           state.frame = state.animationFrames[0]!
@@ -237,9 +240,18 @@ function computeActorState(
 
 // 表情图标映射（简化版，用 Unicode 表情代替真实表情贴图）
 const EMOTE_ICONS: Record<number, string> = {
-  0: '💭', 1: '❓', 2: '❗', 3: '💢', 4: '💤',
-  8: '💔', 12: '✨', 16: '🎵', 20: '😠', 24: '😊',
-  28: '💰', 32: '🎁',
+  0: '💭',
+  1: '❓',
+  2: '❗',
+  3: '💢',
+  4: '💤',
+  8: '💔',
+  12: '✨',
+  16: '🎵',
+  20: '😠',
+  24: '😊',
+  28: '💰',
+  32: '🎁',
 }
 
 function getEmoteIcon(emoteId: number): string {
@@ -322,7 +334,7 @@ export function ActorSprite({
         </div>
       ) : (
         <div className="flex h-full w-full items-end justify-center">
-          <div className="rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+          <div className="rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase shadow-[var(--shadow-panel)]">
             {label}
           </div>
         </div>
@@ -331,7 +343,7 @@ export function ActorSprite({
       {/* 表情气泡 */}
       {runtime.emoteId != null && (
         <div
-          className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 flex h-6 w-6 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_90%,transparent)] text-xs shadow-[var(--shadow-panel)]"
+          className="pointer-events-none absolute -top-5 left-1/2 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_90%,transparent)] text-xs shadow-[var(--shadow-panel)]"
           style={{ zIndex: runtime.tileY + 1 }}
         >
           {getEmoteIcon(runtime.emoteId)}

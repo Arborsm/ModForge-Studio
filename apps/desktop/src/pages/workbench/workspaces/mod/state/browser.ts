@@ -1,11 +1,5 @@
 import { normalizeLookupKey } from '@shared/lib/lookup'
-import type {
-  ModAssetIndexGroup,
-  ModAssetReference,
-  ModBrowserEntry,
-  ModBrowserGroup,
-  ModSourceEntry,
-} from '@shared/contracts'
+import type { ModAssetIndexGroup, ModAssetReference, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@shared/contracts'
 
 export type { BrowserSourceMode, ModBrowserEntry, ModBrowserGroup, ModSourceEntry } from '@shared/contracts'
 
@@ -35,48 +29,48 @@ export function buildModBrowserGroups<T>({
   const normalizedFilter = filterText.trim().toLowerCase()
 
   const groups: Array<ModBrowserGroup<T> | null> = mods.map((group) => {
-      const items = selectReferences(group)
-        .flatMap((reference) => {
-          const value = entryLookup.get(normalizeLookupKey(reference.key))
-          if (!value) {
-            return []
-          }
+    const items = selectReferences(group)
+      .flatMap((reference) => {
+        const value = entryLookup.get(normalizeLookupKey(reference.key))
+        if (!value) {
+          return []
+        }
 
-          const label = reference.label.trim() || getFallbackLabel(value)
-          const searchText = `${label} ${getSearchText(value)} ${reference.targets.join(' ')}`.toLowerCase()
-          if (normalizedFilter && !searchText.includes(normalizedFilter)) {
-            return []
-          }
+        const label = reference.label.trim() || getFallbackLabel(value)
+        const searchText = `${label} ${getSearchText(value)} ${reference.targets.join(' ')}`.toLowerCase()
+        if (normalizedFilter && !searchText.includes(normalizedFilter)) {
+          return []
+        }
 
-          return [
-            {
-              selectionId: getModBrowserSelectionId(group.modId, reference.key),
-              modId: group.modId,
-              modName: group.modName,
-              modPath: group.modPath,
-              pluginKind: group.pluginKind,
-              key: reference.key,
-              label,
-              value,
-              targets: reference.targets,
-              patchIds: reference.patchIds,
-            } satisfies ModBrowserEntry<T>,
-          ]
-        })
-        .sort((left, right) => left.label.localeCompare(right.label))
+        return [
+          {
+            selectionId: getModBrowserSelectionId(group.modId, reference.key),
+            modId: group.modId,
+            modName: group.modName,
+            modPath: group.modPath,
+            pluginKind: group.pluginKind,
+            key: reference.key,
+            label,
+            value,
+            targets: reference.targets,
+            patchIds: reference.patchIds,
+          } satisfies ModBrowserEntry<T>,
+        ]
+      })
+      .sort((left, right) => left.label.localeCompare(right.label))
 
-      if (!items.length) {
-        return null
-      }
+    if (!items.length) {
+      return null
+    }
 
-      return {
-        modId: group.modId,
-        modName: group.modName,
-        modPath: group.modPath,
-        pluginKind: group.pluginKind,
-        items,
-      } satisfies ModBrowserGroup<T>
-    })
+    return {
+      modId: group.modId,
+      modName: group.modName,
+      modPath: group.modPath,
+      pluginKind: group.pluginKind,
+      items,
+    } satisfies ModBrowserGroup<T>
+  })
 
   return groups.filter((group): group is ModBrowserGroup<T> => group !== null)
 }

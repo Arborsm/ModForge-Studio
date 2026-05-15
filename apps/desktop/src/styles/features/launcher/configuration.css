@@ -154,7 +154,7 @@
   }
 
   .launcher-config-tag::before {
-    content: '';
+    content: "";
     width: 7px;
     height: 7px;
     border-radius: 999px;
@@ -219,7 +219,7 @@
   }
 
   .launcher-config-panel-head::before {
-    content: '';
+    content: "";
     position: absolute;
     left: 0;
     top: 14px;
@@ -461,8 +461,13 @@
     inset: 0 0 auto;
     height: 112px;
     border-bottom: 0;
-    background:
-      radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, color-mix(in srgb, var(--accent) 12%, transparent) 34%, color-mix(in srgb, var(--accent) 4%, transparent) 62%, transparent 100%);
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      color-mix(in srgb, var(--accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent) 34%,
+      color-mix(in srgb, var(--accent) 4%, transparent) 62%,
+      transparent 100%
+    );
     pointer-events: none;
   }
 
@@ -489,8 +494,7 @@
     place-items: center;
     border: 3px solid white;
     border-radius: 28px;
-    background:
-      linear-gradient(145deg, color-mix(in srgb, var(--config-primary) 76%, white), var(--config-primary));
+    background: linear-gradient(145deg, color-mix(in srgb, var(--config-primary) 76%, white), var(--config-primary));
     color: white;
     font-size: 30px;
     font-weight: 900;
@@ -568,7 +572,7 @@
   }
 
   .launcher-config-dash-status::before {
-    content: '';
+    content: "";
     width: 6px;
     height: 6px;
     border-radius: 999px;
@@ -641,7 +645,7 @@
   }
 
   .launcher-config-progress i::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -1px;
     bottom: -1px;
@@ -716,47 +720,44 @@
   }
 
   .launcher-config-api-row-resolved::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     z-index: 0;
     pointer-events: none;
     opacity: 0;
     transform: translateX(-105%);
-    background:
-      linear-gradient(
-        90deg,
-        transparent 0%,
-        color-mix(in srgb, var(--config-primary) 7%, transparent) 26%,
-        color-mix(in srgb, var(--config-primary) 18%, transparent) 48%,
-        color-mix(in srgb, var(--config-primary) 7%, transparent) 72%,
-        transparent 100%
-      );
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--config-primary) 7%, transparent) 26%,
+      color-mix(in srgb, var(--config-primary) 18%, transparent) 48%,
+      color-mix(in srgb, var(--config-primary) 7%, transparent) 72%,
+      transparent 100%
+    );
     animation: launcher-config-route-resolve-sweep 760ms ease-out 80ms 1;
   }
 
   .launcher-config-api-row-danger.launcher-config-api-row-resolved::before {
-    background:
-      linear-gradient(
-        90deg,
-        transparent 0%,
-        color-mix(in srgb, var(--danger) 7%, transparent) 26%,
-        color-mix(in srgb, var(--danger) 18%, transparent) 48%,
-        color-mix(in srgb, var(--danger) 7%, transparent) 72%,
-        transparent 100%
-      );
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--danger) 7%, transparent) 26%,
+      color-mix(in srgb, var(--danger) 18%, transparent) 48%,
+      color-mix(in srgb, var(--danger) 7%, transparent) 72%,
+      transparent 100%
+    );
   }
 
   .launcher-config-api-row-warn.launcher-config-api-row-resolved::before {
-    background:
-      linear-gradient(
-        90deg,
-        transparent 0%,
-        color-mix(in srgb, var(--warning) 8%, transparent) 26%,
-        color-mix(in srgb, var(--warning) 19%, transparent) 48%,
-        color-mix(in srgb, var(--warning) 8%, transparent) 72%,
-        transparent 100%
-      );
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--warning) 8%, transparent) 26%,
+      color-mix(in srgb, var(--warning) 19%, transparent) 48%,
+      color-mix(in srgb, var(--warning) 8%, transparent) 72%,
+      transparent 100%
+    );
   }
 
   .launcher-config-api-name {
@@ -832,7 +833,7 @@
   }
 
   .launcher-config-status-tag-ok::before {
-    content: '';
+    content: "";
     width: 5px;
     height: 5px;
     border-radius: 999px;
@@ -1774,12 +1775,11 @@
     gap: 16px;
     border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border-color));
     border-radius: 22px;
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--bg-panel) 97%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--bg-panel) 97%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
+    );
     padding: 18px 20px;
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
   }
@@ -1870,33 +1870,30 @@
     gap: 12px;
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
     border-radius: 10px;
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--accent-soft) 48%, transparent),
-        color-mix(in srgb, var(--bg-panel) 92%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--accent-soft) 48%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
     padding: 12px;
   }
 
   .launcher-state-block-warning {
     border-color: color-mix(in srgb, var(--warning) 30%, var(--border-color));
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--warning) 12%, transparent),
-        color-mix(in srgb, var(--bg-panel) 92%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--warning) 12%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
   }
 
   .launcher-state-block-success {
     border-color: color-mix(in srgb, var(--success) 28%, var(--border-color));
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--success) 10%, transparent),
-        color-mix(in srgb, var(--bg-panel) 92%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--success) 10%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
   }
 
   .launcher-state-block-compact {
@@ -1965,12 +1962,11 @@
     justify-content: flex-start;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 14px;
-    background:
-      linear-gradient(
-        155deg,
-        color-mix(in srgb, var(--bg-panel) 95%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
-      );
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--bg-panel) 95%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
+    );
     color: var(--text-secondary);
     padding: 10px 12px;
     font-size: 12px;

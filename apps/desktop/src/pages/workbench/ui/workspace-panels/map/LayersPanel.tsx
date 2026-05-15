@@ -4,13 +4,7 @@ import { PanelFrame } from '@shared/ui/PanelFrame'
 import { GroupedVisibilityList } from './VisibilityList'
 import { getVisibilityGroupLabel, type LayersPanelProps, type VisibilityListItem } from '../common/rightShared'
 
-export function LayersPanel({
-  mapDocument,
-  visibleLayerIds,
-  onToggleLayer,
-  onShowAllLayers,
-  onHideAllLayers,
-}: LayersPanelProps) {
+export function LayersPanel({ mapDocument, visibleLayerIds, onToggleLayer, onShowAllLayers, onHideAllLayers }: LayersPanelProps) {
   const copy = useEditorCopy()
   const layerItems = useMemo<VisibilityListItem[]>(() => {
     if (!mapDocument) {
@@ -42,7 +36,7 @@ export function LayersPanel({
       subtitle={copy.rightDock.subtitle}
       className="h-full"
       headerAction={
-        <div className="flex gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <div className="flex gap-2 text-[10px] font-semibold tracking-[0.16em] uppercase">
           <button type="button" onClick={onShowAllLayers}>
             {copy.controls.showAll}
           </button>

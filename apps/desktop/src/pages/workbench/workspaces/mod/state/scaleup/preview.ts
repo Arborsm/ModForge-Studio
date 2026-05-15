@@ -1,9 +1,4 @@
-import type {
-  ScaleUpBreathType,
-  ScaleUpDraft,
-  ScaleUpImageDimensions,
-  ScaleUpSpriteDraft,
-} from './types'
+import type { ScaleUpBreathType, ScaleUpDraft, ScaleUpImageDimensions, ScaleUpSpriteDraft } from './types'
 
 type ScaleUpRect = {
   x: number
@@ -52,15 +47,7 @@ const MINIMAP_SOURCE_SIZE = 32
 
 const BREATH_TYPE_DEFAULTS: Record<
   ScaleUpBreathType,
-  Pick<
-    ScaleUpSpriteDraft,
-    | 'chestSourceX'
-    | 'chestSourceY'
-    | 'chestSourceWidth'
-    | 'chestSourceHeight'
-    | 'chestAdjustX'
-    | 'chestAdjustY'
-  >
+  Pick<ScaleUpSpriteDraft, 'chestSourceX' | 'chestSourceY' | 'chestSourceWidth' | 'chestSourceHeight' | 'chestAdjustX' | 'chestAdjustY'>
 > = {
   None: {
     chestSourceX: null,
@@ -89,9 +76,7 @@ const BREATH_TYPE_DEFAULTS: Record<
 }
 
 function sanitizeDimension(value: number | null | undefined, fallback: number) {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? Math.floor(value)
-    : fallback
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback
 }
 
 function sanitizeCoordinate(value: number | null | undefined) {
@@ -153,21 +138,11 @@ export function buildScaleUpPreviewModel(
   const headshotWidth = Math.max(0, originalWidth - headShotX * 2)
   const unclampedHeadshotHeight = Math.floor(headshotWidth / HEADSHOT_ASPECT_RATIO)
   const headshotHeight = Math.max(0, Math.min(unclampedHeadshotHeight, originalHeight - headShotY))
-  const headshotSourceRect = toRect(
-    headShotX * scale,
-    headShotY * scale,
-    headshotWidth * scale,
-    headshotHeight * scale,
-  )
+  const headshotSourceRect = toRect(headShotX * scale, headShotY * scale, headshotWidth * scale, headshotHeight * scale)
 
   const miniMapX = MINIMAP_SOURCE_X + sanitizeCoordinate(sprite.miniMapXOffset)
   const miniMapY = MINIMAP_SOURCE_Y + sanitizeCoordinate(sprite.miniMapYOffset)
-  const miniMapSourceRect = toRect(
-    miniMapX * scale,
-    miniMapY * scale,
-    MINIMAP_SOURCE_SIZE * scale,
-    MINIMAP_SOURCE_SIZE * scale,
-  )
+  const miniMapSourceRect = toRect(miniMapX * scale, miniMapY * scale, MINIMAP_SOURCE_SIZE * scale, MINIMAP_SOURCE_SIZE * scale)
 
   const chestSourceRect = toRect(
     sanitizeCoordinate(sprite.chestSourceX) * scale,

@@ -234,37 +234,33 @@ describe('frontend module architecture', () => {
     expect(violations).toEqual([])
   })
 
-  it(
-    'blocks removed desktop platform imports from cp-maker production code',
-    async () => {
-      const sourceFiles = await collectSourceFiles(sourcePath('src/features/cp-maker'))
-      const violations: string[] = []
+  it('blocks removed desktop platform imports from cp-maker production code', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src/features/cp-maker'))
+    const violations: string[] = []
 
-      for (const filePath of sourceFiles) {
-        if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
-          continue
-        }
-
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = filePath.replace(`${process.cwd()}/`, '')
-
-        if (source.includes(REMOVED_DESKTOP_FACADE_SPECIFIER)) {
-          violations.push(`${relativePath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
-        }
-
-        if (source.includes('@tauri-apps/api')) {
-          violations.push(`${relativePath} imports @tauri-apps/api`)
-        }
-
-        if (/\binvoke\s*\(/.test(source)) {
-          violations.push(`${relativePath} calls invoke(`)
-        }
+    for (const filePath of sourceFiles) {
+      if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
+        continue
       }
 
-      expect(violations).toEqual([])
-    },
-    10000,
-  )
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+      if (source.includes(REMOVED_DESKTOP_FACADE_SPECIFIER)) {
+        violations.push(`${relativePath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
+      }
+
+      if (source.includes('@tauri-apps/api')) {
+        violations.push(`${relativePath} imports @tauri-apps/api`)
+      }
+
+      if (/\binvoke\s*\(/.test(source)) {
+        violations.push(`${relativePath} calls invoke(`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
 
   it('routes the app entry through the new module roots', async () => {
     const mainSource = await readFile(sourcePath('src/main.tsx'), 'utf8')
@@ -352,7 +348,11 @@ describe('frontend module architecture', () => {
       }
 
       if (!source.includes('@shared/ui/loading-motion')) {
-        violations.push(`${file} does not consume shared loading-motion UI`)
+        const usesApprovedWorkbenchSkeleton = source.includes('@app/app-shell/WorkbenchShellSkeleton')
+
+        if (!usesApprovedWorkbenchSkeleton) {
+          violations.push(`${file} does not consume shared loading-motion UI or the approved workbench shell skeleton`)
+        }
       }
     }
 
@@ -384,126 +384,107 @@ describe('frontend module architecture', () => {
     expect(mapEntityTypes).toContain("from '@shared/contracts'")
   })
 
-  it(
-    'blocks feature-to-feature imports',
-    async () => {
-      const featureFiles = await collectSourceFiles(sourcePath('src/features'))
-      const featureViolations: string[] = []
+  it('blocks feature-to-feature imports', async () => {
+    const featureFiles = await collectSourceFiles(sourcePath('src/features'))
+    const featureViolations: string[] = []
 
-      for (const filePath of featureFiles) {
-        const source = await readFile(filePath, 'utf8')
-        const ownerFeature = topLevelFeatureFromPath(filePath)
+    for (const filePath of featureFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const ownerFeature = topLevelFeatureFromPath(filePath)
 
-        if (!ownerFeature) {
+      if (!ownerFeature) {
+        continue
+      }
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        const importedFeature = topLevelFeatureFromSpecifier(filePath, specifier)
+
+        if (importedFeature && importedFeature !== ownerFeature) {
+          const relativePath = filePath.replace(`${process.cwd()}/`, '')
+          featureViolations.push(`${relativePath} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(featureViolations).toEqual([])
+  }, 10000)
+
+  it('blocks cp-maker segment public APIs outside the slice root', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/platform']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const violations: string[] = []
+    const blockedSpecifiers = [
+      '@features/cp-maker/model',
+      '@features/cp-maker/routing',
+      '@features/cp-maker/state',
+      '@features/cp-maker/ui',
+    ]
+
+    for (const filePath of sourceFiles.flat()) {
+      if (filePath.includes(`${sourcePath('src/features/cp-maker')}\\`) || filePath.includes(`${sourcePath('src/features/cp-maker')}/`)) {
+        continue
+      }
+
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (blockedSpecifiers.some((blockedSpecifier) => specifier === blockedSpecifier || specifier.startsWith(`${blockedSpecifier}/`))) {
+          violations.push(`${relativePath} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('blocks removed component and lib path references', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared', 'src/platform']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const removedPathPatterns = [
+      'src/components',
+      'src/lib',
+      'components/',
+      'components/event-workflow',
+      'components/cp-maker',
+      'components/map-workflow',
+      'components/image-workflow',
+      'map-workflow',
+      'image-workflow',
+    ]
+    const removedPathViolations: string[] = []
+
+    for (const filePath of sourceFiles.flat()) {
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+      for (const pattern of removedPathPatterns) {
+        if (source.includes(pattern)) {
+          removedPathViolations.push(`${relativePath} contains ${pattern}`)
+        }
+      }
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (!specifier.startsWith('.')) {
           continue
         }
 
-        for (const specifier of extractImportSpecifiers(source)) {
-          const importedFeature = topLevelFeatureFromSpecifier(filePath, specifier)
+        const resolvedImportPath = resolve(dirname(filePath), specifier)
+        const relativeToLegacyComponents = relative(sourcePath('src/components'), resolvedImportPath)
+        const relativeToLegacyLib = relative(sourcePath('src/lib'), resolvedImportPath)
+        const importsLegacyComponents =
+          relativeToLegacyComponents === '' || (!relativeToLegacyComponents.startsWith('..') && !relativeToLegacyComponents.startsWith('/'))
+        const importsLegacyLib =
+          relativeToLegacyLib === '' || (!relativeToLegacyLib.startsWith('..') && !relativeToLegacyLib.startsWith('/'))
 
-          if (importedFeature && importedFeature !== ownerFeature) {
-            const relativePath = filePath.replace(`${process.cwd()}/`, '')
-            featureViolations.push(`${relativePath} imports ${specifier}`)
-          }
+        if (importsLegacyComponents || importsLegacyLib) {
+          removedPathViolations.push(`${relativePath} imports ${specifier}`)
         }
       }
+    }
 
-      expect(featureViolations).toEqual([])
-    },
-    10000,
-  )
-
-  it(
-    'blocks cp-maker segment public APIs outside the slice root',
-    async () => {
-      const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/platform']
-      const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-      const violations: string[] = []
-      const blockedSpecifiers = [
-        '@features/cp-maker/model',
-        '@features/cp-maker/routing',
-        '@features/cp-maker/state',
-        '@features/cp-maker/ui',
-      ]
-
-      for (const filePath of sourceFiles.flat()) {
-        if (filePath.includes(`${sourcePath('src/features/cp-maker')}\\`) || filePath.includes(`${sourcePath('src/features/cp-maker')}/`)) {
-          continue
-        }
-
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = filePath.replace(`${process.cwd()}/`, '')
-
-        for (const specifier of extractImportSpecifiers(source)) {
-          if (blockedSpecifiers.some((blockedSpecifier) => specifier === blockedSpecifier || specifier.startsWith(`${blockedSpecifier}/`))) {
-            violations.push(`${relativePath} imports ${specifier}`)
-          }
-        }
-      }
-
-      expect(violations).toEqual([])
-    },
-    30000,
-  )
-
-  it(
-    'blocks removed component and lib path references',
-    async () => {
-      const scannedRoots = [
-        'src/app',
-        'src/pages',
-        'src/widgets',
-        'src/features',
-        'src/entities',
-        'src/shared',
-        'src/platform',
-      ]
-      const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-      const removedPathPatterns = [
-        'src/components',
-        'src/lib',
-        'components/',
-        'components/event-workflow',
-        'components/cp-maker',
-        'components/map-workflow',
-        'components/image-workflow',
-        'map-workflow',
-        'image-workflow',
-      ]
-      const removedPathViolations: string[] = []
-
-      for (const filePath of sourceFiles.flat()) {
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = filePath.replace(`${process.cwd()}/`, '')
-
-        for (const pattern of removedPathPatterns) {
-          if (source.includes(pattern)) {
-            removedPathViolations.push(`${relativePath} contains ${pattern}`)
-          }
-        }
-
-        for (const specifier of extractImportSpecifiers(source)) {
-          if (!specifier.startsWith('.')) {
-            continue
-          }
-
-          const resolvedImportPath = resolve(dirname(filePath), specifier)
-          const relativeToLegacyComponents = relative(sourcePath('src/components'), resolvedImportPath)
-          const relativeToLegacyLib = relative(sourcePath('src/lib'), resolvedImportPath)
-          const importsLegacyComponents =
-            relativeToLegacyComponents === '' || (!relativeToLegacyComponents.startsWith('..') && !relativeToLegacyComponents.startsWith('/'))
-          const importsLegacyLib = relativeToLegacyLib === '' || (!relativeToLegacyLib.startsWith('..') && !relativeToLegacyLib.startsWith('/'))
-
-          if (importsLegacyComponents || importsLegacyLib) {
-            removedPathViolations.push(`${relativePath} imports ${specifier}`)
-          }
-        }
-      }
-
-      expect(removedPathViolations).toEqual([])
-    },
-    30000,
-  )
+    expect(removedPathViolations).toEqual([])
+  }, 30000)
 
   it('blocks removed workspace paths and confirms page-owned workspace consumers', async () => {
     const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared', 'src/platform']
@@ -549,26 +530,26 @@ describe('frontend module architecture', () => {
 
   it('keeps shared modules free of upper-layer imports and desktop bridge calls', async () => {
     const sharedSourceFiles = await collectSourceFiles(sourcePath('src/shared'))
-      const sharedViolations: string[] = []
-      const blockedSharedSpecifiers = [
-        '@app/',
-        '@entities/',
-        '@features/',
-        '@pages/',
-        '@platform/',
-        '@widgets/',
-        '../../app',
-        '../../components',
-        '../../pages',
-        '../../lib/app',
-        '../../lib/desktop',
-        '../../platform',
-        '../app',
-        '../components',
-        '../pages',
-        '../lib/app',
-        '../lib/desktop',
-        '../platform',
+    const sharedViolations: string[] = []
+    const blockedSharedSpecifiers = [
+      '@app/',
+      '@entities/',
+      '@features/',
+      '@pages/',
+      '@platform/',
+      '@widgets/',
+      '../../app',
+      '../../components',
+      '../../pages',
+      '../../lib/app',
+      '../../lib/desktop',
+      '../../platform',
+      '../app',
+      '../components',
+      '../pages',
+      '../lib/app',
+      '../lib/desktop',
+      '../platform',
     ]
 
     for (const filePath of sharedSourceFiles) {
@@ -642,165 +623,139 @@ describe('frontend module architecture', () => {
     }
   })
 
-
   /**
    * Platform boundary classification: the removed desktop platform facade was a migration facade.
    * It must not return as a production or test import path.
    */
-  it(
-    'blocks the removed desktop platform facade from returning',
-    async () => {
-      await expect(access(sourcePath('src/platform/desktop'))).rejects.toThrow()
+  it('blocks the removed desktop platform facade from returning', async () => {
+    await expect(access(sourcePath('src/platform/desktop'))).rejects.toThrow()
 
-      const allFiles = await collectSourceFiles(sourcePath('src'))
-      const violations: string[] = []
+    const allFiles = await collectSourceFiles(sourcePath('src'))
+    const violations: string[] = []
 
-      for (const filePath of allFiles) {
-        const source = await readFile(filePath, 'utf8')
-        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+    for (const filePath of allFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
 
-        for (const specifier of extractImportSpecifiers(source)) {
-          if (specifier === REMOVED_DESKTOP_FACADE_SPECIFIER) {
-            violations.push(`${relPath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
-          }
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (specifier === REMOVED_DESKTOP_FACADE_SPECIFIER) {
+          violations.push(`${relPath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
         }
       }
+    }
 
-      expect(violations).toEqual([])
-    },
-    30000,
-  )
+    expect(violations).toEqual([])
+  }, 30000)
 
-  it(
-    'blocks active Nexus Public HTML and Cloudflare verification paths',
-    async () => {
-      const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/shared', 'src/platform']
-      const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-      const blockedPatterns = [
-        /publicHtml/i,
-        /Public HTML/,
-        /Cloudflare/,
-        /cloudflare/,
-        /cf_clearance/,
-        /launcher\/cloudflare-challenge-required/,
-        /public_html_nexus_/,
-      ]
-      const violations: string[] = []
+  it('blocks active Nexus Public HTML and Cloudflare verification paths', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/shared', 'src/platform']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const blockedPatterns = [
+      /publicHtml/i,
+      /Public HTML/,
+      /Cloudflare/,
+      /cloudflare/,
+      /cf_clearance/,
+      /launcher\/cloudflare-challenge-required/,
+      /public_html_nexus_/,
+    ]
+    const violations: string[] = []
 
-      for (const filePath of sourceFiles.flat()) {
-        const source = await readFile(filePath, 'utf8')
-        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+    for (const filePath of sourceFiles.flat()) {
+      const source = await readFile(filePath, 'utf8')
+      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
 
-        for (const pattern of blockedPatterns) {
-          if (pattern.test(source)) {
-            violations.push(`${relPath} contains ${pattern}`)
-          }
+      for (const pattern of blockedPatterns) {
+        if (pattern.test(source)) {
+          violations.push(`${relPath} contains ${pattern}`)
         }
       }
+    }
 
-      await expect(access(sourcePath('src/app/webview-surfaces/PublicHtmlVerificationControlsSurface.tsx'))).rejects.toThrow()
-      expect(violations).toEqual([])
-    },
-    30000,
-  )
+    await expect(access(sourcePath('src/app/webview-surfaces/PublicHtmlVerificationControlsSurface.tsx'))).rejects.toThrow()
+    expect(violations).toEqual([])
+  }, 30000)
 
-  it(
-    'keeps the official Nexus SDK isolated behind a platform adapter',
-    async () => {
-      const allFiles = await collectSourceFiles(sourcePath('src'))
-      const violations: string[] = []
-      const allowed = new Set([
-        'platform/nexus/officialSdkAdapter.ts',
-      ])
+  it('keeps the official Nexus SDK isolated behind a platform adapter', async () => {
+    const allFiles = await collectSourceFiles(sourcePath('src'))
+    const violations: string[] = []
+    const allowed = new Set(['platform/nexus/officialSdkAdapter.ts'])
 
-      for (const filePath of allFiles) {
-        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
-        if (TEST_FILE_PATTERN.test(relPath)) {
-          continue
-        }
-
-        const source = await readFile(filePath, 'utf8')
-        if (!source.includes('@nexusmods/nexus-api')) {
-          continue
-        }
-
-        if (!allowed.has(relPath)) {
-          violations.push(relPath)
-        }
+    for (const filePath of allFiles) {
+      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+      if (TEST_FILE_PATTERN.test(relPath)) {
+        continue
       }
 
-      expect(violations).toEqual([])
-    },
-    30000,
-  )
-
-  it(
-    'keeps NexusMods provider code outside the launcher Rust domain',
-    async () => {
-      const launcherFiles = await collectSourceFiles(sourcePath('src-tauri/src/domain/launcher'))
-      const blockedPatterns = [
-        /api-router\.nexusmods\.com/,
-        /api\.nexusmods\.com/,
-        /graphql\.nexusmods\.com/,
-        /staticdelivery\.nexusmods\.com/,
-        /send_nexus_(json_)?request/,
-        /api_headers/,
-        /graphql_headers/,
-        /public_graphql_headers/,
-        /^pub mod (catalog|discovery|downloads_provider|http|mod_detail|remote|rest_api|session|shared|sso);/m,
-      ]
-      const violations: string[] = []
-
-      for (const filePath of launcherFiles) {
-        const source = await readFile(filePath, 'utf8')
-        const relPath = relative(sourcePath('src-tauri/src/domain/launcher'), filePath).replace(/\\/g, '/')
-
-        for (const pattern of blockedPatterns) {
-          if (pattern.test(source)) {
-            violations.push(`${relPath} contains ${pattern}`)
-          }
-        }
+      const source = await readFile(filePath, 'utf8')
+      if (!source.includes('@nexusmods/nexus-api')) {
+        continue
       }
 
-      expect(violations).toEqual([])
-    },
-    30000,
-  )
+      if (!allowed.has(relPath)) {
+        violations.push(relPath)
+      }
+    }
 
+    expect(violations).toEqual([])
+  }, 30000)
 
+  it('keeps NexusMods provider code outside the launcher Rust domain', async () => {
+    const launcherFiles = await collectSourceFiles(sourcePath('src-tauri/src/domain/launcher'))
+    const blockedPatterns = [
+      /api-router\.nexusmods\.com/,
+      /api\.nexusmods\.com/,
+      /graphql\.nexusmods\.com/,
+      /staticdelivery\.nexusmods\.com/,
+      /send_nexus_(json_)?request/,
+      /api_headers/,
+      /graphql_headers/,
+      /public_graphql_headers/,
+      /^pub mod (catalog|discovery|downloads_provider|http|mod_detail|remote|rest_api|session|shared|sso);/m,
+    ]
+    const violations: string[] = []
 
-  it(
-    'rejects page-specific workbench panel source files under dock-side folder names',
-    async () => {
-      const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
-      const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
+    for (const filePath of launcherFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relPath = relative(sourcePath('src-tauri/src/domain/launcher'), filePath).replace(/\\/g, '/')
 
-      let panelsDir
-      try {
-        panelsDir = await readdir(panelsRoot, { withFileTypes: true })
-      } catch {
-        return
+      for (const pattern of blockedPatterns) {
+        if (pattern.test(source)) {
+          violations.push(`${relPath} contains ${pattern}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('rejects page-specific workbench panel source files under dock-side folder names', async () => {
+    const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
+    const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
+
+    let panelsDir
+    try {
+      panelsDir = await readdir(panelsRoot, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    const violations: string[] = []
+
+    for (const entry of panelsDir) {
+      if (!entry.isDirectory()) {
+        continue
       }
 
-      const violations: string[] = []
-
-      for (const entry of panelsDir) {
-        if (!entry.isDirectory()) {
-          continue
-        }
-
-        if (allowedDomainFolders.has(entry.name)) {
-          continue
-        }
-
-        violations.push(
-          'workspace-panels/' + entry.name + ' is not an allowed domain folder. Allowed: ' + Array.from(allowedDomainFolders).join(', '),
-        )
+      if (allowedDomainFolders.has(entry.name)) {
+        continue
       }
 
-      expect(violations).toEqual([])
-    },
-    10000,
-  )
+      violations.push(
+        'workspace-panels/' + entry.name + ' is not an allowed domain folder. Allowed: ' + Array.from(allowedDomainFolders).join(', '),
+      )
+    }
 
+    expect(violations).toEqual([])
+  }, 10000)
 })

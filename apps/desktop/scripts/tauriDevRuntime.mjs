@@ -33,16 +33,10 @@ function hasExplicitHmrPortOverride(env) {
 
 export function resolveDevServerPorts(env = process.env) {
   const port =
-    parsePort(env.MODFORGE_DEV_PORT) ??
-    parsePort(env.TAURI_DEV_PORT) ??
-    parsePort(env.VITE_PORT) ??
-    parsePort(env.PORT) ??
-    DEFAULT_PORT
+    parsePort(env.MODFORGE_DEV_PORT) ?? parsePort(env.TAURI_DEV_PORT) ?? parsePort(env.VITE_PORT) ?? parsePort(env.PORT) ?? DEFAULT_PORT
 
   const hmrPort =
-    parsePort(env.MODFORGE_DEV_HMR_PORT) ??
-    parsePort(env.TAURI_DEV_HMR_PORT) ??
-    (port < MAX_PORT ? port + 1 : DEFAULT_HMR_PORT)
+    parsePort(env.MODFORGE_DEV_HMR_PORT) ?? parsePort(env.TAURI_DEV_HMR_PORT) ?? (port < MAX_PORT ? port + 1 : DEFAULT_HMR_PORT)
 
   return { port, hmrPort }
 }

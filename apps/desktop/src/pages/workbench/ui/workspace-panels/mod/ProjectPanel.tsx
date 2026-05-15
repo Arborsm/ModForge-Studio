@@ -25,7 +25,7 @@ export function ProjectPanel({
     <PanelFrame title={copy.leftDock.project} subtitle={copy.leftDock.projectSubtitle} hideHeader>
       <div className="space-y-2.5 p-2.5">
         <div className="grid gap-1.5">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+          <label className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">
             {copy.leftDock.gameDirectory}
           </label>
           <input
@@ -55,9 +55,7 @@ export function ProjectPanel({
         <div className="grid grid-cols-2 gap-1.5">
           <div className="metric-card compact-metric-card">
             <span className="metric-label">{copy.leftDock.hostMode}</span>
-            <strong className="metric-value">
-              {desktopHost ? copy.leftDock.desktopHost : copy.leftDock.browserHost}
-            </strong>
+            <strong className="metric-value">{desktopHost ? copy.leftDock.desktopHost : copy.leftDock.browserHost}</strong>
           </div>
           <div className="metric-card compact-metric-card">
             <span className="metric-label">{copy.leftDock.preferredFormat}</span>

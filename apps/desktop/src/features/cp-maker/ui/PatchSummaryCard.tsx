@@ -1,12 +1,4 @@
-import {
-  AlertCircle,
-  ChevronRight,
-  MoreHorizontal,
-  Pencil,
-  ToggleLeft,
-  ToggleRight,
-  Trash2,
-} from 'lucide-react'
+import { AlertCircle, ChevronRight, MoreHorizontal, Pencil, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react'
 import type { DraftPatch } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'
 import { useEditorCopy } from '@locales/localeContext'
@@ -23,28 +15,21 @@ type PatchSummaryCardProps = {
   onRemove?: () => void
 }
 
-export function PatchSummaryCard({
-  patch,
-  active,
-  compact,
-  onSelect,
-  onEdit,
-  onToggle,
-  onRemove,
-}: PatchSummaryCardProps) {
+export function PatchSummaryCard({ patch, active, compact, onSelect, onEdit, onToggle, onRemove }: PatchSummaryCardProps) {
   const catalog = useEditorCopy().studioDesk.patchCatalog
   const hasWhen = Boolean(patch.when && Object.keys(patch.when).length > 0)
   const buttonLabel = `${patch.logName || patch.target} ${patch.action} ${patch.target}`
 
   return (
-    <article className={cx('edit-patch-card', active && 'edit-patch-card-active', !patch.enabled && 'edit-patch-card-disabled', compact && 'edit-patch-card-compact')}>
-      <button
-        type="button"
-        className="edit-patch-card-main"
-        onClick={onSelect}
-        onDoubleClick={onEdit}
-        aria-label={buttonLabel}
-      >
+    <article
+      className={cx(
+        'edit-patch-card',
+        active && 'edit-patch-card-active',
+        !patch.enabled && 'edit-patch-card-disabled',
+        compact && 'edit-patch-card-compact',
+      )}
+    >
+      <button type="button" className="edit-patch-card-main" onClick={onSelect} onDoubleClick={onEdit} aria-label={buttonLabel}>
         <span className={cx('edit-patch-card-icon', getPatchActionColor(patch.action))}>
           <PatchActionIcon action={patch.action} />
         </span>
@@ -58,13 +43,9 @@ export function PatchSummaryCard({
             <ChevronRight className="h-3 w-3" />
             <span className="truncate">{patch.target}</span>
           </span>
-          {!compact && patch.fromFile ? (
-            <span className="edit-patch-card-path">{patch.fromFile}</span>
-          ) : null}
+          {!compact && patch.fromFile ? <span className="edit-patch-card-path">{patch.fromFile}</span> : null}
         </span>
-        <span className="edit-patch-card-status">
-          {patch.enabled ? catalog.enabled : catalog.disabled}
-        </span>
+        <span className="edit-patch-card-status">{patch.enabled ? catalog.enabled : catalog.disabled}</span>
       </button>
 
       <div className="edit-patch-card-actions">
@@ -85,7 +66,13 @@ export function PatchSummaryCard({
           </button>
         ) : null}
         {onRemove ? (
-          <button type="button" className="icon-button h-7 w-7 text-red-400" onClick={onRemove} title={catalog.deleteAction} aria-label={catalog.deleteAction}>
+          <button
+            type="button"
+            className="icon-button h-7 w-7 text-red-400"
+            onClick={onRemove}
+            title={catalog.deleteAction}
+            aria-label={catalog.deleteAction}
+          >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         ) : (

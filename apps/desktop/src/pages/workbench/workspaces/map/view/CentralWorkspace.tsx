@@ -1,15 +1,4 @@
-import {
-  Grid2x2,
-  Grip,
-  Map as MapIcon,
-  Maximize,
-  MousePointer2,
-  Move,
-  Pin,
-  X,
-  ZoomIn,
-  ZoomOut,
-} from 'lucide-react'
+import { Grid2x2, Grip, Map as MapIcon, Maximize, MousePointer2, Move, Pin, X, ZoomIn, ZoomOut } from 'lucide-react'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { EffectAssetState } from '@entities/event'
 import { useEditorCopy, useLocale } from '@locales/localeContext'
@@ -116,8 +105,8 @@ export default function CentralWorkspace({
     <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-viewport)]">
       <div className="flex h-10 items-end gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-2">
         <div className="flex min-w-0 flex-1 items-end gap-1">
-          {workspaceMode === 'map'
-            ? tabs.map((tab) => {
+          {workspaceMode === 'map' ? (
+            tabs.map((tab) => {
               const isActive = activeTabId === tab.id
               const isDragged = draggedTabId === tab.id
               const isDropTarget = dropTargetTabId === tab.id && draggedTabId !== tab.id
@@ -175,7 +164,7 @@ export default function CentralWorkspace({
                   {tab.closable ? (
                     <button
                       type="button"
-                      className="rounded p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)] group-hover:opacity-100 group-focus-within:opacity-100"
+                      className="rounded p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)]"
                       onClick={() => onCloseTab(tab.id)}
                     >
                       <X className="h-3.5 w-3.5" />
@@ -184,12 +173,12 @@ export default function CentralWorkspace({
                 </div>
               )
             })
-            : (
-              <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4 text-xs text-[var(--text-primary)]">
-                <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
-                <span className="font-semibold">{moduleBlueprint?.title ?? copy.center.viewport}</span>
-              </div>
-              )}
+          ) : (
+            <div className="flex h-9 items-center gap-2 rounded-t-lg border-x border-t border-[var(--border-color)] bg-[var(--bg-active)] px-4 text-xs text-[var(--text-primary)]">
+              <MapIcon className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <span className="font-semibold">{moduleBlueprint?.title ?? copy.center.viewport}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -246,12 +235,7 @@ export default function CentralWorkspace({
               <Grip className="h-4 w-4" />
             </button>
             <div className="min-w-14 px-2 text-center font-mono text-xs text-[var(--text-secondary)]">{zoomLabel}</div>
-            <button
-              type="button"
-              className="tool-button"
-              onClick={() => viewportRef.current?.zoomIn()}
-              title={copy.viewportLabels.zoomIn}
-            >
+            <button type="button" className="tool-button" onClick={() => viewportRef.current?.zoomIn()} title={copy.viewportLabels.zoomIn}>
               <ZoomIn className="h-4 w-4" />
             </button>
             <span className="mx-1 h-4 w-px bg-[var(--border-color)]" />
@@ -291,7 +275,10 @@ export default function CentralWorkspace({
               <div className="workspace-viewport-toolbar-group">
                 <button
                   type="button"
-                  className={cx('workspace-viewport-toolbar-icon-button', toolMode === 'select' && 'workspace-viewport-toolbar-button-active')}
+                  className={cx(
+                    'workspace-viewport-toolbar-icon-button',
+                    toolMode === 'select' && 'workspace-viewport-toolbar-button-active',
+                  )}
                   onClick={() => setToolMode('select')}
                   title={copy.center.selectTool}
                   aria-label={copy.center.selectTool}
@@ -317,7 +304,10 @@ export default function CentralWorkspace({
                     <button
                       key={view.id}
                       type="button"
-                      className={cx('workspace-viewport-toolbar-button', activeWorldAtlasViewId === view.id && 'workspace-viewport-toolbar-button-active')}
+                      className={cx(
+                        'workspace-viewport-toolbar-button',
+                        activeWorldAtlasViewId === view.id && 'workspace-viewport-toolbar-button-active',
+                      )}
                       onClick={() => onSelectWorldAtlasView(view.id)}
                       aria-pressed={activeWorldAtlasViewId === view.id}
                     >
@@ -330,14 +320,29 @@ export default function CentralWorkspace({
               <div className="workspace-viewport-toolbar-group">
                 <button
                   type="button"
-                  className={cx('workspace-viewport-toolbar-icon-button', showGameWorldAdditions && 'workspace-viewport-toolbar-button-active')}
+                  className={cx(
+                    'workspace-viewport-toolbar-icon-button',
+                    showGameWorldAdditions && 'workspace-viewport-toolbar-button-active',
+                  )}
                   onClick={() => {
                     if (mapDocument) {
                       onToggleGameWorldAdditions()
                     }
                   }}
-                  title={mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
-                  aria-label={mapDocument ? (showGameWorldAdditions ? hideGameWorldAdditionsLabel : previewGameWorldAdditionsLabel) : previewGameWorldAdditionsLabel}
+                  title={
+                    mapDocument
+                      ? showGameWorldAdditions
+                        ? hideGameWorldAdditionsLabel
+                        : previewGameWorldAdditionsLabel
+                      : previewGameWorldAdditionsLabel
+                  }
+                  aria-label={
+                    mapDocument
+                      ? showGameWorldAdditions
+                        ? hideGameWorldAdditionsLabel
+                        : previewGameWorldAdditionsLabel
+                      : previewGameWorldAdditionsLabel
+                  }
                   aria-pressed={showGameWorldAdditions}
                   disabled={!mapDocument}
                 >
@@ -409,7 +414,6 @@ export default function CentralWorkspace({
                 </button>
               </div>
             </div>
-
           </div>
         ) : moduleBlueprint ? (
           <div className="panel-surface h-full border-[var(--border-color)] bg-[var(--bg-panel)]">
@@ -460,17 +464,12 @@ export default function CentralWorkspace({
 
                     {moduleBlueprint.nodes.length ? (
                       moduleBlueprint.nodes.map((node, index) => {
-                        const positions = [
-                          'left-8 top-8',
-                          'left-[32%] top-[38%]',
-                          'right-10 top-16',
-                          'right-20 bottom-8',
-                        ]
+                        const positions = ['left-8 top-8', 'left-[32%] top-[38%]', 'right-10 top-16', 'right-20 bottom-8']
 
                         return (
                           <div
                             key={node.title}
-                            className={`panel-section absolute ${positions[index] ?? 'left-10 top-10'} px-4 py-3 shadow-[var(--shadow-panel)]`}
+                            className={`panel-section absolute ${positions[index] ?? 'top-10 left-10'} px-4 py-3 shadow-[var(--shadow-panel)]`}
                           >
                             <p className="text-sm font-semibold text-[var(--text-primary)]">{node.title}</p>
                             <p className="mt-1 text-xs text-[var(--text-secondary)]">{node.detail}</p>
@@ -482,16 +481,13 @@ export default function CentralWorkspace({
                         <div>
                           <p className="text-lg font-semibold text-[var(--text-primary)]">{moduleBlueprint.summary}</p>
                           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-                            {copy.center.moduleInspector} and {copy.center.moduleCanvas.toLowerCase()} stay docked while the workspace
-                            swaps to the selected editor module.
+                            {copy.center.moduleInspector} and {copy.center.moduleCanvas.toLowerCase()} stay docked while the workspace swaps
+                            to the selected editor module.
                           </p>
                         </div>
                         <div className="grid gap-3 md:grid-cols-2">
                           {moduleBlueprint.lanes.map((lane) => (
-                            <div
-                              key={lane}
-                              className="panel-section px-4 py-3 text-sm font-medium text-[var(--text-primary)]"
-                            >
+                            <div key={lane} className="panel-section px-4 py-3 text-sm font-medium text-[var(--text-primary)]">
                               {lane}
                             </div>
                           ))}

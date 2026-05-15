@@ -114,11 +114,12 @@ export function ContentPatcherWorkspace({
     return <div className="panel-empty-state h-full">{copy.noProject}</div>
   }
 
-  const activeScaleUpPanel = scaleUpEditor
-    && selectedTargetPath === scaleUpEditor.targetPath
-    && contentPatcherResultAsset?.target.path === scaleUpEditor.targetPath
-    && contentPatcherResultAsset.result.kind === 'image'
-    && contentPatcherResultAsset.result.imageDataUrl
+  const activeScaleUpPanel =
+    scaleUpEditor &&
+    selectedTargetPath === scaleUpEditor.targetPath &&
+    contentPatcherResultAsset?.target.path === scaleUpEditor.targetPath &&
+    contentPatcherResultAsset.result.kind === 'image' &&
+    contentPatcherResultAsset.result.imageDataUrl
       ? {
           focusSection: scaleUpEditor.focusSection,
           imageDataUrl: contentPatcherResultAsset.result.imageDataUrl,

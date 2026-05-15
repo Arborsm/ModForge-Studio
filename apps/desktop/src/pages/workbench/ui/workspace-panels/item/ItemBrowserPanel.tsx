@@ -33,8 +33,14 @@ export function ItemBrowserPanel({
   const matchedKeys = new Set(filteredItems.map((item) => item.key))
   const stats = [
     { label: copy.statsAllLabel, value: items.length },
-    { label: copy.statsCraftingLabel, value: items.filter((item) => item.recipesProduced.some((recipe) => recipe.kind === 'crafting')).length },
-    { label: copy.statsCookingLabel, value: items.filter((item) => item.recipesProduced.some((recipe) => recipe.kind === 'cooking')).length },
+    {
+      label: copy.statsCraftingLabel,
+      value: items.filter((item) => item.recipesProduced.some((recipe) => recipe.kind === 'crafting')).length,
+    },
+    {
+      label: copy.statsCookingLabel,
+      value: items.filter((item) => item.recipesProduced.some((recipe) => recipe.kind === 'cooking')).length,
+    },
     { label: copy.statsFishLabel, value: items.filter((item) => item.fishData).length },
     { label: copy.statsCropLabel, value: items.filter((item) => item.cropData || item.cropHarvests.length).length },
   ]
@@ -62,17 +68,18 @@ export function ItemBrowserPanel({
               key={stat.label}
               {...getLoadingMotionChildRevealProps({
                 index,
-                className: 'rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-3 py-3 text-left',
+                className:
+                  'rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-3 py-3 text-left',
               })}
             >
-              <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">{stat.label}</p>
+              <p className="text-[10px] tracking-[0.14em] text-[var(--text-secondary)] uppercase">{stat.label}</p>
               <p className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">{stat.value}</p>
             </div>
           ))}
         </div>
 
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             className="control-input pl-9"
             value={itemFilter}
@@ -84,47 +91,48 @@ export function ItemBrowserPanel({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
           {items.length ? (
-            grouped.length ? grouped.map((group, groupIndex) => (
-              <section
-                key={group.kind}
-                {...getLoadingMotionChildRevealProps({ index: groupIndex + stats.length })}
-              >
-                <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">{group.label}</p>
-                    <p className="text-[11px] text-[var(--text-tertiary)]">{group.items.length} / {getCountByKind(items, group.kind)}</p>
+            grouped.length ? (
+              grouped.map((group, groupIndex) => (
+                <section key={group.kind} {...getLoadingMotionChildRevealProps({ index: groupIndex + stats.length })}>
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">{group.label}</p>
+                      <p className="text-[11px] text-[var(--text-tertiary)]">
+                        {group.items.length} / {getCountByKind(items, group.kind)}
+                      </p>
+                    </div>
+                    <span className="dock-chip">{group.items.length}</span>
                   </div>
-                  <span className="dock-chip">{group.items.length}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {group.items.map((item, itemIndex) => {
-                    const isActive = item.key === activeItemId
-                    const textureState = item.textureAssetName ? (textureStatesByAssetName[item.textureAssetName] ?? null) : null
-                    const revealProps = getLoadingMotionChildRevealProps({
-                      index: groupIndex + stats.length + itemIndex + 1,
-                      className: cx(
-                        'flex aspect-square flex-col items-center justify-center rounded-[20px] border p-2 text-center transition-all',
-                        isActive
-                          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] shadow-[0_16px_30px_rgba(79,70,229,0.12)]'
-                          : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
-                      ),
-                    })
+                  <div className="grid grid-cols-3 gap-2">
+                    {group.items.map((item, itemIndex) => {
+                      const isActive = item.key === activeItemId
+                      const textureState = item.textureAssetName ? (textureStatesByAssetName[item.textureAssetName] ?? null) : null
+                      const revealProps = getLoadingMotionChildRevealProps({
+                        index: groupIndex + stats.length + itemIndex + 1,
+                        className: cx(
+                          'flex aspect-square flex-col items-center justify-center rounded-[20px] border p-2 text-center transition-all',
+                          isActive
+                            ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[color-mix(in_srgb,var(--accent)_22%,transparent)] shadow-[0_16px_30px_rgba(79,70,229,0.12)]'
+                            : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+                        ),
+                      })
 
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        {...revealProps}
-                        onClick={() => onSelectItem(item.key)}
-                      >
-                        <ItemSprite item={item} textureState={textureState} scale={getContainedItemSpriteScale(item, 40, 1.55)} className="h-10 w-10 rounded-2xl" />
-                        <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-[var(--text-secondary)]">{item.displayName}</p>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-            )) : (
+                      return (
+                        <button key={item.key} type="button" {...revealProps} onClick={() => onSelectItem(item.key)}>
+                          <ItemSprite
+                            item={item}
+                            textureState={textureState}
+                            scale={getContainedItemSpriteScale(item, 40, 1.55)}
+                            className="h-10 w-10 rounded-2xl"
+                          />
+                          <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-[var(--text-secondary)]">{item.displayName}</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))
+            ) : (
               <div className="rounded-xl border border-dashed border-[var(--border-color)] px-4 py-5 text-sm text-[var(--text-secondary)]">
                 {copy.browserFilteredEmpty}
               </div>

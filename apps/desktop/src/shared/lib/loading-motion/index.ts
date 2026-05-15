@@ -100,15 +100,11 @@ export function normalizeLoadingMotionSpeedMultiplier(value: unknown): number {
  * falls back to the default without overwriting a valid intensity, and
  * vice versa. This keeps the two axes fully independent.
  */
-export function normalizeLoadingMotionPreference(
-  raw: Partial<LoadingMotionPreference> | null | undefined,
-): LoadingMotionPreference {
+export function normalizeLoadingMotionPreference(raw: Partial<LoadingMotionPreference> | null | undefined): LoadingMotionPreference {
   const speedMode = isValidSpeedMode(raw?.speedMode) ? raw.speedMode : DEFAULT_LOADING_MOTION_PREFERENCE.speedMode
   const speedId = isValidSpeedId(raw?.speedId) ? raw.speedId : DEFAULT_LOADING_MOTION_PREFERENCE.speedId
   const speedMultiplier =
-    speedMode === 'custom'
-      ? normalizeLoadingMotionSpeedMultiplier(raw?.speedMultiplier)
-      : getLoadingMotionSpeedMultiplier(speedId)
+    speedMode === 'custom' ? normalizeLoadingMotionSpeedMultiplier(raw?.speedMultiplier) : getLoadingMotionSpeedMultiplier(speedId)
 
   return {
     styleId: isValidStyleId(raw?.styleId) ? raw!.styleId : DEFAULT_LOADING_MOTION_PREFERENCE.styleId,
@@ -120,9 +116,7 @@ export function normalizeLoadingMotionPreference(
 }
 
 /** Creates a normalized loading motion preference from partial persisted input. */
-export function createLoadingMotionPreference(
-  raw: Partial<LoadingMotionPreference> | null | undefined,
-): LoadingMotionPreference {
+export function createLoadingMotionPreference(raw: Partial<LoadingMotionPreference> | null | undefined): LoadingMotionPreference {
   return normalizeLoadingMotionPreference(raw)
 }
 

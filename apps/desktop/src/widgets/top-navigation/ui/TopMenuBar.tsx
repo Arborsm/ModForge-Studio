@@ -35,6 +35,7 @@ type TopMenuBarProps = {
   onAppModeChange: (mode: AppMode) => void
   workspaceMode: WorkspaceMode
   onWorkspaceChange: (mode: WorkspaceMode) => void
+  workspaceNavigationDisabled?: boolean
   workspaceViewMode?: 'edit' | 'preview'
   onWorkspaceViewModeChange?: (mode: 'edit' | 'preview') => void
   theme: ThemeMode
@@ -74,7 +75,7 @@ type TopMenuBarProps = {
   }
 }
 
-const MODULE_ICONS: Record<WorkspaceMode, (typeof Map)> = {
+const MODULE_ICONS: Record<WorkspaceMode, typeof Map> = {
   map: Map,
   characters: Users,
   buildings: Castle,
@@ -96,6 +97,7 @@ export default function TopMenuBar({
   onAppModeChange,
   workspaceMode,
   onWorkspaceChange,
+  workspaceNavigationDisabled = false,
   workspaceViewMode,
   onWorkspaceViewModeChange,
   theme,
@@ -121,18 +123,13 @@ export default function TopMenuBar({
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
   const orderedNavModes: WorkspaceMode[] = ['mods', 'map', 'events', 'characters', 'buildings', 'items']
-  const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map((mode) => [
-    mode,
-    getWorkspaceModeLabel(locale, copy, mode),
-  ] as const)
+  const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map(
+    (mode) => [mode, getWorkspaceModeLabel(locale, copy, mode)] as const,
+  )
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
   const visibleActiveMenu =
-    activeMenu === 'view' && launcherModeActive
-      ? null
-      : activeMenu === 'downloads' && !launcherNav
-        ? null
-        : activeMenu
+    activeMenu === 'view' && launcherModeActive ? null : activeMenu === 'downloads' && !launcherNav ? null : activeMenu
   const viewMenuOpen = visibleActiveMenu === 'view'
   const downloadsMenuOpen = visibleActiveMenu === 'downloads' && Boolean(launcherNav)
   const switchTargetMode: AppMode = launcherModeActive ? 'workbench' : 'launcher'
@@ -177,15 +174,15 @@ export default function TopMenuBar({
   }, [activeMenu])
 
   return (
-    <header className="top-menu-bar relative z-[120]">
+    <header className="top-menu-bar relative z-120">
       <div className="top-menu-drag-layer absolute inset-0" data-tauri-drag-region aria-hidden="true" />
       <div className="top-menu-primary">
         <div className="top-menu-cluster top-menu-cluster-start flex min-w-0 items-center gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="panel-section flex h-8 w-8 items-center justify-center border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent)] text-xs font-black tracking-[0.18em] text-white">
+            <div className="panel-section flex h-8 w-8 items-center justify-center border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-(--accent) text-xs font-black tracking-[0.18em] text-white">
               MF
             </div>
-            <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{copy.brand.name}</p>
+            <p className="truncate text-sm font-semibold text-(--text-primary)">{copy.brand.name}</p>
           </div>
 
           {!launcherModeActive ? (
@@ -306,6 +303,8 @@ export default function TopMenuBar({
                       return {
                         label,
                         icon: <Icon className="h-4 w-4" />,
+                        disabled: workspaceNavigationDisabled,
+                        disabledReason: copy.center.moduleWorkspaceDisabled,
                       } satisfies GooeyNavItem
                     })}
                     activeIndex={orderedNavModes.indexOf(workspaceMode)}
@@ -314,9 +313,7 @@ export default function TopMenuBar({
                     className="top-menu-gooey-nav"
                     variant={theme}
                   />
-                  {workspaceViewMode && onWorkspaceViewModeChange ? (
-                    <div className="mx-1 h-4 w-px bg-[var(--border-color)]" />
-                  ) : null}
+                  {workspaceViewMode && onWorkspaceViewModeChange ? <div className="mx-1 h-4 w-px bg-[var(--border-color)]" /> : null}
                   {workspaceViewMode && onWorkspaceViewModeChange ? (
                     <div className="flex items-center gap-0.5 rounded-lg bg-[var(--bg-panel-muted)] p-0.5">
                       <button
@@ -366,14 +363,18 @@ export default function TopMenuBar({
           </div>
         </div>
 
-        <div className="top-menu-cluster top-menu-controls flex min-w-0 items-center justify-self-end gap-2" role="group" aria-label="Shell controls">
+        <div
+          className="top-menu-cluster top-menu-controls flex min-w-0 items-center gap-2 justify-self-end"
+          role="group"
+          aria-label="Shell controls"
+        >
           <span className={cx('status-pill status-pill-compact', `status-pill-${statusTone}`)}>{copy.statusTone[statusTone]}</span>
           {launcherNav ? (
             <div className="top-menu-launcher-tools pointer-events-auto" ref={downloadsMenuRef}>
               <button
                 type="button"
                 className={cx(
-                  'icon-button pointer-events-auto top-menu-icon-action',
+                  'icon-button top-menu-icon-action pointer-events-auto',
                   downloadsMenuOpen && 'top-menu-icon-action-active',
                   launcherNav.downloadsHasFailure && 'top-menu-icon-action-failure',
                 )}
@@ -397,19 +398,14 @@ export default function TopMenuBar({
                   <Download className="h-4 w-4" />
                 )}
                 {launcherNav.downloadsBadgeCount > 0 ? (
-                  <span
-                    className={cx(
-                      'top-menu-icon-badge',
-                      launcherNav.downloadsHasFailure && 'top-menu-icon-badge-failure',
-                    )}
-                  >
+                  <span className={cx('top-menu-icon-badge', launcherNav.downloadsHasFailure && 'top-menu-icon-badge-failure')}>
                     {launcherNav.downloadsBadgeCount}
                   </span>
                 ) : null}
               </button>
               {downloadsMenuOpen ? (
                 <section
-                  className="top-menu-float-panel launcher-downloads-float pointer-events-auto panel-surface panel-surface-muted"
+                  className="top-menu-float-panel launcher-downloads-float panel-surface panel-surface-muted pointer-events-auto"
                   id={downloadsMenuId}
                   role="dialog"
                   aria-label={copy.launcher.downloads.title}
@@ -484,7 +480,6 @@ export default function TopMenuBar({
           ) : null}
         </div>
       </div>
-
     </header>
   )
 }

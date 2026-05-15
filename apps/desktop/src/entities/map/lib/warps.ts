@@ -20,13 +20,7 @@ export function parseWarpProperty(rawValue: string) {
     const targetX = Number.parseInt(tokens[index + 3] ?? '', 10)
     const targetY = Number.parseInt(tokens[index + 4] ?? '', 10)
 
-    if (
-      !Number.isFinite(sourceX) ||
-      !Number.isFinite(sourceY) ||
-      !Number.isFinite(targetX) ||
-      !Number.isFinite(targetY) ||
-      !targetMap
-    ) {
+    if (!Number.isFinite(sourceX) || !Number.isFinite(sourceY) || !Number.isFinite(targetX) || !Number.isFinite(targetY) || !targetMap) {
       continue
     }
 
@@ -58,10 +52,5 @@ export function parseWarpEntries(mapDocument: MapDocument) {
 }
 
 export function isExteriorWarp(mapDocument: MapDocument, entry: WarpEntry) {
-  return (
-    entry.sourceX < 0 ||
-    entry.sourceY < 0 ||
-    entry.sourceX >= mapDocument.width ||
-    entry.sourceY >= mapDocument.height
-  )
+  return entry.sourceX < 0 || entry.sourceY < 0 || entry.sourceX >= mapDocument.width || entry.sourceY >= mapDocument.height
 }

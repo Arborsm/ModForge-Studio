@@ -30,9 +30,48 @@ function makeDoc(overrides: Partial<MapDocument>): MapDocument {
     properties: {},
     tilesets: [],
     layers: [
-      { id: 1, name: 'Layer1', kind: 'tile', width: 10, height: 10, visible: true, opacity: 1, offsetX: 0, offsetY: 0, properties: {}, gids: new Uint32Array(100), nonEmptyTiles: 50 },
-      { id: 2, name: 'Layer2', kind: 'tile', width: 10, height: 10, visible: false, opacity: 1, offsetX: 0, offsetY: 0, properties: {}, gids: new Uint32Array(100), nonEmptyTiles: 0 },
-      { id: 3, name: 'Layer3', kind: 'tile', width: 10, height: 10, visible: true, opacity: 1, offsetX: 0, offsetY: 0, properties: {}, gids: new Uint32Array(100), nonEmptyTiles: 30 },
+      {
+        id: 1,
+        name: 'Layer1',
+        kind: 'tile',
+        width: 10,
+        height: 10,
+        visible: true,
+        opacity: 1,
+        offsetX: 0,
+        offsetY: 0,
+        properties: {},
+        gids: new Uint32Array(100),
+        nonEmptyTiles: 50,
+      },
+      {
+        id: 2,
+        name: 'Layer2',
+        kind: 'tile',
+        width: 10,
+        height: 10,
+        visible: false,
+        opacity: 1,
+        offsetX: 0,
+        offsetY: 0,
+        properties: {},
+        gids: new Uint32Array(100),
+        nonEmptyTiles: 0,
+      },
+      {
+        id: 3,
+        name: 'Layer3',
+        kind: 'tile',
+        width: 10,
+        height: 10,
+        visible: true,
+        opacity: 1,
+        offsetX: 0,
+        offsetY: 0,
+        properties: {},
+        gids: new Uint32Array(100),
+        nonEmptyTiles: 30,
+      },
     ],
     objectGroups: [
       { id: 1, name: 'Group1', kind: 'object', visible: true, opacity: 1, drawOrder: 'top-down', properties: {}, objects: [] },
@@ -107,19 +146,12 @@ describe('getMapDocumentPathLabel', () => {
 
 describe('getPreferredScene', () => {
   it('returns the "town" xnb asset when available', () => {
-    const assets = [
-      makeAsset({ name: 'forest' }),
-      makeAsset({ name: 'town' }),
-      makeAsset({ name: 'mountain' }),
-    ]
+    const assets = [makeAsset({ name: 'forest' }), makeAsset({ name: 'town' }), makeAsset({ name: 'mountain' })]
     expect(getPreferredScene(assets)?.name).toBe('town')
   })
 
   it('falls back to the first xnb asset when no town exists', () => {
-    const assets = [
-      makeAsset({ name: 'forest' }),
-      makeAsset({ name: 'mountain' }),
-    ]
+    const assets = [makeAsset({ name: 'forest' }), makeAsset({ name: 'mountain' })]
     expect(getPreferredScene(assets)?.name).toBe('forest')
   })
 
@@ -134,11 +166,28 @@ describe('getDefaultVisibleLayerIds', () => {
   })
 
   it('returns empty array when no layers are visible', () => {
-    expect(getDefaultVisibleLayerIds(makeDoc({
-      layers: [
-        { id: 9, name: 'Hidden', kind: 'tile', width: 10, height: 10, visible: false, opacity: 1, offsetX: 0, offsetY: 0, properties: {}, gids: new Uint32Array(100), nonEmptyTiles: 0 },
-      ],
-    }))).toEqual([])
+    expect(
+      getDefaultVisibleLayerIds(
+        makeDoc({
+          layers: [
+            {
+              id: 9,
+              name: 'Hidden',
+              kind: 'tile',
+              width: 10,
+              height: 10,
+              visible: false,
+              opacity: 1,
+              offsetX: 0,
+              offsetY: 0,
+              properties: {},
+              gids: new Uint32Array(100),
+              nonEmptyTiles: 0,
+            },
+          ],
+        }),
+      ),
+    ).toEqual([])
   })
 })
 
@@ -148,11 +197,15 @@ describe('getDefaultVisibleObjectGroupIds', () => {
   })
 
   it('returns empty array when no groups are visible', () => {
-    expect(getDefaultVisibleObjectGroupIds(makeDoc({
-      objectGroups: [
-        { id: 9, name: 'Hidden', kind: 'object', visible: false, opacity: 1, drawOrder: 'top-down', properties: {}, objects: [] },
-      ],
-    }))).toEqual([])
+    expect(
+      getDefaultVisibleObjectGroupIds(
+        makeDoc({
+          objectGroups: [
+            { id: 9, name: 'Hidden', kind: 'object', visible: false, opacity: 1, drawOrder: 'top-down', properties: {}, objects: [] },
+          ],
+        }),
+      ),
+    ).toEqual([])
   })
 })
 
@@ -187,27 +240,17 @@ describe('buildMapWorkspaceTabs', () => {
 
 describe('pickWorldAtlasRootMapName', () => {
   it('picks the first matching candidate from the available maps', () => {
-    const documents = [
-      makeDoc({ name: 'Forest' }),
-      makeDoc({ name: 'Town' }),
-      makeDoc({ name: 'Mountain' }),
-    ]
+    const documents = [makeDoc({ name: 'Forest' }), makeDoc({ name: 'Town' }), makeDoc({ name: 'Mountain' })]
     expect(pickWorldAtlasRootMapName(documents, ['Forest', 'Town'])).toBe('Forest')
   })
 
   it('picks the second candidate if the first is not available', () => {
-    const documents = [
-      makeDoc({ name: 'Mountain' }),
-      makeDoc({ name: 'Town' }),
-    ]
+    const documents = [makeDoc({ name: 'Mountain' }), makeDoc({ name: 'Town' })]
     expect(pickWorldAtlasRootMapName(documents, ['Forest', 'Town'])).toBe('Town')
   })
 
   it('falls back to the first document when no candidate matches', () => {
-    const documents = [
-      makeDoc({ name: 'Desert' }),
-      makeDoc({ name: 'Mountain' }),
-    ]
+    const documents = [makeDoc({ name: 'Desert' }), makeDoc({ name: 'Mountain' })]
     expect(pickWorldAtlasRootMapName(documents, ['Town', 'Forest'])).toBe('Desert')
   })
 
@@ -234,10 +277,14 @@ describe('isRemoteWorldAtlasDocument', () => {
   })
 
   it('returns true when LocationContext is island', () => {
-    expect(isRemoteWorldAtlasDocument(makeDoc({
-      name: 'GingerIsland',
-      properties: { LocationContext: 'Island' },
-    }))).toBe(true)
+    expect(
+      isRemoteWorldAtlasDocument(
+        makeDoc({
+          name: 'GingerIsland',
+          properties: { LocationContext: 'Island' },
+        }),
+      ),
+    ).toBe(true)
   })
 
   it('returns false for normal outdoor maps', () => {
@@ -263,8 +310,24 @@ describe('withWorldAtlasViewMetadata', () => {
         originOffsetX: 0,
         originOffsetY: 0,
         placements: [
-          { mapName: 'Town', sourcePath: 'Maps\\Town.tmx', relativePath: 'Maps\\Town.tmx', offsetX: 10, offsetY: 20, width: 50, height: 30 },
-          { mapName: 'Forest', sourcePath: 'Maps\\Forest.tmx', relativePath: 'Maps\\Forest.tmx', offsetX: 100, offsetY: 50, width: 40, height: 40 },
+          {
+            mapName: 'Town',
+            sourcePath: 'Maps\\Town.tmx',
+            relativePath: 'Maps\\Town.tmx',
+            offsetX: 10,
+            offsetY: 20,
+            width: 50,
+            height: 30,
+          },
+          {
+            mapName: 'Forest',
+            sourcePath: 'Maps\\Forest.tmx',
+            relativePath: 'Maps\\Forest.tmx',
+            offsetX: 100,
+            offsetY: 50,
+            width: 40,
+            height: 40,
+          },
         ],
         warpRoutes: [],
         portals: [],
@@ -283,7 +346,17 @@ describe('withWorldAtlasViewMetadata', () => {
         rootMapName: 'WorldBase',
         originOffsetX: 0,
         originOffsetY: 0,
-        placements: [{ mapName: 'Town', sourcePath: 'Maps\\Town.tmx', relativePath: 'Maps\\Town.tmx', offsetX: 10, offsetY: 20, width: 50, height: 30 }],
+        placements: [
+          {
+            mapName: 'Town',
+            sourcePath: 'Maps\\Town.tmx',
+            relativePath: 'Maps\\Town.tmx',
+            offsetX: 10,
+            offsetY: 20,
+            width: 50,
+            height: 30,
+          },
+        ],
         warpRoutes: [],
         portals: [],
       },

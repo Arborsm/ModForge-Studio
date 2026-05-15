@@ -43,11 +43,7 @@ export function EditorPage({
   const showReferenceTab = Boolean(gameRootPath && directoryInfo && locale && theme)
 
   if (!patch || !draft) {
-    return (
-      <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
-        Patch not found.
-      </div>
-    )
+    return <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">Patch not found.</div>
   }
 
   const plugin = getWorkspacePlugin(workspaceId)
@@ -65,7 +61,7 @@ export function EditorPage({
             locale={locale!}
             theme={theme!}
             accentColor={accentColor ?? '#6366f1'}
-            viewportLabels={viewportLabels ?? {} as ViewportLabels}
+            viewportLabels={viewportLabels ?? ({} as ViewportLabels)}
           />
         ) : Editor ? (
           <Editor

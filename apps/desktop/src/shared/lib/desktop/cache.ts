@@ -37,11 +37,7 @@ export function getLocalizedRootedAssetCacheKey(rootPath: string, assetPath: str
   return `${getRootedAssetCacheKey(rootPath, assetPath)}::${locale?.trim() || 'default'}`
 }
 
-export async function readCached<T>(
-  cache: ReturnType<typeof createPromiseCache<T>>,
-  key: string,
-  loader: () => Promise<T>,
-) {
+export async function readCached<T>(cache: ReturnType<typeof createPromiseCache<T>>, key: string, loader: () => Promise<T>) {
   const cachedValue = cache.get(key)
   if (cachedValue) {
     return cachedValue
@@ -56,11 +52,7 @@ export async function readCached<T>(
   return pendingValue
 }
 
-export async function readPending<T>(
-  cache: ReturnType<typeof createPromiseCache<T>>,
-  key: string,
-  loader: () => Promise<T>,
-) {
+export async function readPending<T>(cache: ReturnType<typeof createPromiseCache<T>>, key: string, loader: () => Promise<T>) {
   const cachedValue = cache.get(key)
   if (cachedValue) {
     return cachedValue
@@ -73,4 +65,3 @@ export async function readPending<T>(
   cache.set(key, pendingValue)
   return pendingValue
 }
-

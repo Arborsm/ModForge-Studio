@@ -318,9 +318,7 @@ describe('StudioDesk', () => {
     expect(screen.getByText('Cartographer')).toBeTruthy()
     expect(screen.getByText('Cast & Props')).toBeTruthy()
     expect(screen.getAllByText('Data/Events/Town').length).toBeGreaterThan(0)
-    expect(
-      screen.getByText(formatStudioTimestamp(props.copy.studioDesk, props.model.exportSummary.lastExportedAt)),
-    ).toBeTruthy()
+    expect(screen.getByText(formatStudioTimestamp(props.copy.studioDesk, props.model.exportSummary.lastExportedAt))).toBeTruthy()
     expect(screen.queryByRole('button', { name: /保存/ })).toBeNull()
     expect(screen.queryByRole('button', { name: /进入工作区/ })).toBeNull()
   })

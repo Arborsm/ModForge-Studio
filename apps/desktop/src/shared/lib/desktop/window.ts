@@ -53,4 +53,3 @@ export async function closeCurrentWindow() {
 
   await getPlatformPorts().desktopWindow.close()
 }
-

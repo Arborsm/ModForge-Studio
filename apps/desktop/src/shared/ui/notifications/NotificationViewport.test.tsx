@@ -188,12 +188,8 @@ describe('NotificationProvider', () => {
     expect(screen.getByText('4 routes did not pass verification.')).toBeTruthy()
     expect(screen.getByText('You can retry now, or open diagnostics to inspect the exact failures.')).toBeTruthy()
 
-    expect(screen.getByText('GraphQL').closest('.notification-toast-chip')?.className).toContain(
-      'notification-toast-chip-warning',
-    )
-    expect(screen.getByText('SMAPI').closest('.notification-toast-chip')?.className).toContain(
-      'notification-toast-chip-warning',
-    )
+    expect(screen.getByText('GraphQL').closest('.notification-toast-chip')?.className).toContain('notification-toast-chip-warning')
+    expect(screen.getByText('SMAPI').closest('.notification-toast-chip')?.className).toContain('notification-toast-chip-warning')
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry now' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
@@ -283,12 +279,10 @@ describe('NotificationProvider', () => {
   })
 
   it('expands the stacked column upward while hovered and only collapses after a short leave delay', () => {
-    const requestAnimationFrameSpy = vi
-      .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation((callback: FrameRequestCallback) => {
-        callback(16)
-        return 1
-      })
+    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      callback(16)
+      return 1
+    })
 
     renderNotifications()
 
@@ -698,5 +692,4 @@ describe('NotificationProvider', () => {
     expect(second?.getAttribute('style')).toContain('bottom: 60px')
     expect(first?.getAttribute('style')).toContain('bottom: 164px')
   })
-
 })

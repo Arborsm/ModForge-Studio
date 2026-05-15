@@ -1,6 +1,13 @@
 import type { SlotId } from '@shared/contracts'
 
-export const SLOT_IDS = ['left-top', 'left-bottom', 'right-top', 'right-bottom', 'bottom-left', 'bottom-right'] as const satisfies readonly SlotId[]
+export const SLOT_IDS = [
+  'left-top',
+  'left-bottom',
+  'right-top',
+  'right-bottom',
+  'bottom-left',
+  'bottom-right',
+] as const satisfies readonly SlotId[]
 export const LEFT_SLOTS = ['left-top', 'left-bottom'] as const satisfies readonly SlotId[]
 export const RIGHT_SLOTS = ['right-top', 'right-bottom'] as const satisfies readonly SlotId[]
 export const BOTTOM_SLOTS = ['bottom-left', 'bottom-right'] as const satisfies readonly SlotId[]

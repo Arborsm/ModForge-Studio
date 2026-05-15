@@ -20,18 +20,11 @@ import { cx } from '@shared/lib/cx'
 import { openLauncherUrl, type LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import { useLauncherImage } from '@features/launcher'
-import {
-  normalizeLauncherDiscoverToolbarState,
-  type LauncherDiscoverToolbarState,
-} from '@features/launcher'
+import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
 import { useLauncherDiscover } from '@features/launcher'
 import type { QueueLauncherDownloadInput } from '@features/launcher'
 import { getLauncherCardMonogram, LauncherBlockedState, LauncherStateBlock } from '@features/launcher'
-import {
-  applyAppUiStatePatch,
-  getAppUiStateSnapshot,
-  initializeAppUiState,
-} from '@shared/lib/app-state'
+import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 
 type LauncherDiscoverPageProps = {
   settings: LauncherSettings
@@ -88,15 +81,7 @@ const PAGE_SIZE_OPTIONS: DiscoverOption<number>[] = [
   { value: 80, label: '80 items' },
 ]
 
-type DiscoverAccordionSection =
-  | 'category'
-  | 'tags'
-  | 'search'
-  | 'language'
-  | 'content'
-  | 'fileSize'
-  | 'downloads'
-  | 'endorsements'
+type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'content' | 'fileSize' | 'downloads' | 'endorsements'
 
 const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
 
@@ -120,7 +105,12 @@ function applyTagSuggestion(currentValue: string, tag: string) {
 
   const parts = currentValue.split(',')
   const currentDraft = parts[parts.length - 1]?.trim() ?? ''
-  const committed = currentDraft ? parts.slice(0, -1).map((item) => item.trim()).filter(Boolean) : tokens
+  const committed = currentDraft
+    ? parts
+        .slice(0, -1)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : tokens
   return [...committed, tag].join(', ')
 }
 
@@ -252,10 +242,7 @@ function DiscoverMenu<T extends string | number>({
             <button
               key={String(option.value)}
               type="button"
-              className={cx(
-                'launcher-discover-menu-option',
-                option.value === value && 'launcher-discover-menu-option-active',
-              )}
+              className={cx('launcher-discover-menu-option', option.value === value && 'launcher-discover-menu-option-active')}
               role="menuitemradio"
               aria-checked={option.value === value ? 'true' : 'false'}
               onClick={() => onSelect(option.value)}
@@ -300,9 +287,7 @@ function DiscoverCard({
             <span className="launcher-discover-wall-cover-monogram" aria-hidden="true">
               {coverMonogram}
             </span>
-            {image.loading ? (
-              <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span>
-            ) : null}
+            {image.loading ? <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span> : null}
           </span>
         ) : null}
         {item.updateAvailable ? <span className="launcher-discover-wall-badge">Update available</span> : null}
@@ -448,12 +433,7 @@ function TagSuggestionField({
           aria-controls={open ? suggestionsId : undefined}
         />
         {open && filteredSuggestions.length ? (
-          <div
-            id={suggestionsId}
-            className="launcher-discover-tag-suggestions"
-            role="listbox"
-            aria-label={suggestionsLabel}
-          >
+          <div id={suggestionsId} className="launcher-discover-tag-suggestions" role="listbox" aria-label={suggestionsLabel}>
             {filteredSuggestions.slice(0, 8).map((tag) => (
               <button
                 key={`${suggestionsId}:${tag.name}`}
@@ -480,15 +460,9 @@ function TagSuggestionField({
   )
 }
 
-export function LauncherDiscoverPage({
-  onQueueDownload,
-  onNavigateToDiagnostics,
-  onRetryDiagnostics,
-}: LauncherDiscoverPageProps) {
+export function LauncherDiscoverPage({ onQueueDownload, onNavigateToDiagnostics, onRetryDiagnostics }: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
-  const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(
-    () => getInitialDiscoverToolbarState(),
-  )
+  const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(() => getInitialDiscoverToolbarState())
   const [launcherUiStateReady, setLauncherUiStateReady] = useState(() => !desktopHost)
 
   useEffect(() => {
@@ -570,9 +544,7 @@ function LauncherDiscoverPageContent({
     : LANGUAGE_OPTIONS.filter((name) => name !== 'Any').map((name) => ({ name, count: 0 }))
   const popularTags = discover.facets.tags.slice(0, 12)
   const loadingDescription =
-    discover.page > 1 || discover.items.length
-      ? copy.discover.loadingPage(discover.page)
-      : copy.discover.loadingResults
+    discover.page > 1 || discover.items.length ? copy.discover.loadingPage(discover.page) : copy.discover.loadingResults
 
   useEffect(() => {
     if (discover.state === 'loading') {
@@ -633,14 +605,7 @@ function LauncherDiscoverPageContent({
         },
       },
     })
-  }, [
-    discover.ascending,
-    discover.pageSize,
-    discover.sort,
-    discover.timeRange,
-    filtersHidden,
-    launcherUiStateReady,
-  ])
+  }, [discover.ascending, discover.pageSize, discover.sort, discover.timeRange, filtersHidden, launcherUiStateReady])
 
   const formattedResultCount = new Intl.NumberFormat('en-US').format(resultCount)
   const rangeStart = resultCount ? (discover.page - 1) * discover.pageSize + 1 : 0
@@ -688,9 +653,7 @@ function LauncherDiscoverPageContent({
             <div className="launcher-discover-console-title-row">
               <h1 className="launcher-discover-console-title">Nexus Mods</h1>
             </div>
-            <p className="launcher-discover-console-subtitle">
-              {`Showing ${rangeStart} - ${rangeEnd} of ${formattedResultCount} results`}
-            </p>
+            <p className="launcher-discover-console-subtitle">{`Showing ${rangeStart} - ${rangeEnd} of ${formattedResultCount} results`}</p>
           </div>
           <div className="launcher-discover-console-toolbar">
             <button
@@ -780,206 +743,196 @@ function LauncherDiscoverPageContent({
           >
             <fieldset className="launcher-discover-sidebar-fieldset" disabled={discoverBlocked}>
               <div className="launcher-discover-sidebar-accordion">
-              <DiscoverRailSection id="category" title="Category" open={openSection === 'category'} onToggle={toggleSection}>
-                <div className="launcher-discover-category-list">
-                  {categoryOptions.map((category) => (
+                <DiscoverRailSection id="category" title="Category" open={openSection === 'category'} onToggle={toggleSection}>
+                  <div className="launcher-discover-category-list">
+                    {categoryOptions.map((category) => (
+                      <label
+                        key={category.name}
+                        className={cx(
+                          'launcher-discover-category-item',
+                          discover.filters.category === category.name && 'launcher-discover-category-item-active',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={discover.filters.category === category.name}
+                          onChange={() =>
+                            discover.updateFilter('category', discover.filters.category === category.name ? '' : category.name)
+                          }
+                        />
+                        <span>
+                          {category.name}
+                          {category.count ? ` (${formatCompactNumber(category.count)})` : ''}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </DiscoverRailSection>
+
+                <DiscoverRailSection id="tags" title="Tags" open={openSection === 'tags'} onToggle={toggleSection}>
+                  <TagSuggestionField
+                    label="Includes"
+                    value={discover.filters.tagsInclude}
+                    placeholder="e.g. expansion, ui"
+                    suggestionsId="launcher-discover-include-suggestions"
+                    suggestionsLabel="Includes suggestions"
+                    suggestions={popularTags}
+                    onChange={(value) => discover.updateFilter('tagsInclude', value)}
+                  />
+                  <TagSuggestionField
+                    label="Excludes"
+                    value={discover.filters.tagsExclude}
+                    placeholder="e.g. nsfw, cheats"
+                    suggestionsId="launcher-discover-exclude-suggestions"
+                    suggestionsLabel="Excludes suggestions"
+                    suggestions={popularTags}
+                    onChange={(value) => discover.updateFilter('tagsExclude', value)}
+                  />
+                </DiscoverRailSection>
+
+                <DiscoverRailSection id="search" title="Search Parameters" open={openSection === 'search'} onToggle={toggleSection}>
+                  <label className="launcher-discover-rail-field">
+                    <span>Title contains</span>
+                    <input
+                      className="control-input"
+                      value={discover.filters.titleQuery}
+                      onChange={(event) => discover.updateFilter('titleQuery', event.target.value)}
+                      placeholder="Search titles"
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="launcher-discover-rail-field">
+                    <span>Description contains</span>
+                    <input
+                      className="control-input"
+                      value={discover.filters.descriptionQuery}
+                      onChange={(event) => discover.updateFilter('descriptionQuery', event.target.value)}
+                      placeholder="Search descriptions"
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="launcher-discover-rail-field">
+                    <span>Author contains</span>
+                    <input
+                      className="control-input"
+                      value={discover.filters.authorQuery}
+                      onChange={(event) => discover.updateFilter('authorQuery', event.target.value)}
+                      placeholder="Search authors"
+                      spellCheck={false}
+                    />
+                  </label>
+                  <label className="launcher-discover-rail-field">
+                    <span>Uploader contains</span>
+                    <input
+                      className="control-input"
+                      value={discover.filters.uploaderQuery}
+                      onChange={(event) => discover.updateFilter('uploaderQuery', event.target.value)}
+                      placeholder="Search uploaders"
+                      spellCheck={false}
+                    />
+                  </label>
+                </DiscoverRailSection>
+
+                <DiscoverRailSection id="language" title="Language Support" open={openSection === 'language'} onToggle={toggleSection}>
+                  <div className="launcher-discover-category-list">
                     <label
-                      key={category.name}
                       className={cx(
                         'launcher-discover-category-item',
-                        discover.filters.category === category.name && 'launcher-discover-category-item-active',
+                        !discover.filters.language && 'launcher-discover-category-item-active',
                       )}
                     >
-                      <input
-                        type="checkbox"
-                        checked={discover.filters.category === category.name}
-                        onChange={() =>
-                          discover.updateFilter(
-                            'category',
-                            discover.filters.category === category.name ? '' : category.name,
-                          )
-                        }
-                      />
-                      <span>
-                        {category.name}
-                        {category.count ? ` (${formatCompactNumber(category.count)})` : ''}
-                      </span>
+                      <input type="checkbox" checked={!discover.filters.language} onChange={() => discover.updateFilter('language', '')} />
+                      <span>Any</span>
                     </label>
-                  ))}
-                </div>
-              </DiscoverRailSection>
+                    {languageOptions.map((language) => (
+                      <label
+                        key={language.name}
+                        className={cx(
+                          'launcher-discover-category-item',
+                          discover.filters.language === language.name && 'launcher-discover-category-item-active',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={discover.filters.language === language.name}
+                          onChange={() =>
+                            discover.updateFilter('language', discover.filters.language === language.name ? '' : language.name)
+                          }
+                        />
+                        {language.name}
+                        {language.count ? ` (${formatCompactNumber(language.count)})` : ''}
+                      </label>
+                    ))}
+                  </div>
+                </DiscoverRailSection>
 
-              <DiscoverRailSection id="tags" title="Tags" open={openSection === 'tags'} onToggle={toggleSection}>
-                <TagSuggestionField
-                  label="Includes"
-                  value={discover.filters.tagsInclude}
-                  placeholder="e.g. expansion, ui"
-                  suggestionsId="launcher-discover-include-suggestions"
-                  suggestionsLabel="Includes suggestions"
-                  suggestions={popularTags}
-                  onChange={(value) => discover.updateFilter('tagsInclude', value)}
-                />
-                <TagSuggestionField
-                  label="Excludes"
-                  value={discover.filters.tagsExclude}
-                  placeholder="e.g. nsfw, cheats"
-                  suggestionsId="launcher-discover-exclude-suggestions"
-                  suggestionsLabel="Excludes suggestions"
-                  suggestions={popularTags}
-                  onChange={(value) => discover.updateFilter('tagsExclude', value)}
-                />
-              </DiscoverRailSection>
-
-              <DiscoverRailSection id="search" title="Search Parameters" open={openSection === 'search'} onToggle={toggleSection}>
-                <label className="launcher-discover-rail-field">
-                  <span>Title contains</span>
-                  <input
-                    className="control-input"
-                    value={discover.filters.titleQuery}
-                    onChange={(event) => discover.updateFilter('titleQuery', event.target.value)}
-                    placeholder="Search titles"
-                    spellCheck={false}
-                  />
-                </label>
-                <label className="launcher-discover-rail-field">
-                  <span>Description contains</span>
-                  <input
-                    className="control-input"
-                    value={discover.filters.descriptionQuery}
-                    onChange={(event) => discover.updateFilter('descriptionQuery', event.target.value)}
-                    placeholder="Search descriptions"
-                    spellCheck={false}
-                  />
-                </label>
-                <label className="launcher-discover-rail-field">
-                  <span>Author contains</span>
-                  <input
-                    className="control-input"
-                    value={discover.filters.authorQuery}
-                    onChange={(event) => discover.updateFilter('authorQuery', event.target.value)}
-                    placeholder="Search authors"
-                    spellCheck={false}
-                  />
-                </label>
-                <label className="launcher-discover-rail-field">
-                  <span>Uploader contains</span>
-                  <input
-                    className="control-input"
-                    value={discover.filters.uploaderQuery}
-                    onChange={(event) => discover.updateFilter('uploaderQuery', event.target.value)}
-                    placeholder="Search uploaders"
-                    spellCheck={false}
-                  />
-                </label>
-              </DiscoverRailSection>
-
-              <DiscoverRailSection id="language" title="Language Support" open={openSection === 'language'} onToggle={toggleSection}>
-                <div className="launcher-discover-category-list">
-                  <label
-                    className={cx(
-                      'launcher-discover-category-item',
-                      !discover.filters.language && 'launcher-discover-category-item-active',
-                    )}
-                  >
+                <DiscoverRailSection id="content" title="Content Options" open={openSection === 'content'} onToggle={toggleSection}>
+                  <label className="launcher-discover-toggle-row">
                     <input
                       type="checkbox"
-                      checked={!discover.filters.language}
-                      onChange={() => discover.updateFilter('language', '')}
+                      checked={discover.filters.includeAdult}
+                      onChange={(event) => discover.updateFilter('includeAdult', event.target.checked)}
                     />
-                    <span>Any</span>
+                    <span>Include adult content</span>
                   </label>
-                  {languageOptions.map((language) => (
-                    <label
-                      key={language.name}
-                      className={cx(
-                        'launcher-discover-category-item',
-                        discover.filters.language === language.name && 'launcher-discover-category-item-active',
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={discover.filters.language === language.name}
-                        onChange={() =>
-                          discover.updateFilter(
-                            'language',
-                            discover.filters.language === language.name ? '' : language.name,
-                          )
-                        }
-                      />
-                      {language.name}
-                      {language.count ? ` (${formatCompactNumber(language.count)})` : ''}
-                    </label>
-                  ))}
-                </div>
-              </DiscoverRailSection>
+                </DiscoverRailSection>
 
-              <DiscoverRailSection id="content" title="Content Options" open={openSection === 'content'} onToggle={toggleSection}>
-                <label className="launcher-discover-toggle-row">
-                  <input
-                    type="checkbox"
-                    checked={discover.filters.includeAdult}
-                    onChange={(event) => discover.updateFilter('includeAdult', event.target.checked)}
-                  />
-                  <span>Include adult content</span>
-                </label>
-              </DiscoverRailSection>
+                <DiscoverRailSection id="fileSize" title="File Size" open={openSection === 'fileSize'} onToggle={toggleSection}>
+                  <div className="launcher-discover-range-row">
+                    <input
+                      className="control-input"
+                      value={discover.filters.minFileSize}
+                      onChange={(event) => discover.updateFilter('minFileSize', event.target.value)}
+                      placeholder="No min"
+                      inputMode="numeric"
+                    />
+                    <input
+                      className="control-input"
+                      value={discover.filters.maxFileSize}
+                      onChange={(event) => discover.updateFilter('maxFileSize', event.target.value)}
+                      placeholder="No max"
+                      inputMode="numeric"
+                    />
+                  </div>
+                </DiscoverRailSection>
 
-              <DiscoverRailSection id="fileSize" title="File Size" open={openSection === 'fileSize'} onToggle={toggleSection}>
-                <div className="launcher-discover-range-row">
-                  <input
-                    className="control-input"
-                    value={discover.filters.minFileSize}
-                    onChange={(event) => discover.updateFilter('minFileSize', event.target.value)}
-                    placeholder="No min"
-                    inputMode="numeric"
-                  />
-                  <input
-                    className="control-input"
-                    value={discover.filters.maxFileSize}
-                    onChange={(event) => discover.updateFilter('maxFileSize', event.target.value)}
-                    placeholder="No max"
-                    inputMode="numeric"
-                  />
-                </div>
-              </DiscoverRailSection>
+                <DiscoverRailSection id="downloads" title="Downloads" open={openSection === 'downloads'} onToggle={toggleSection}>
+                  <div className="launcher-discover-range-row">
+                    <input
+                      className="control-input"
+                      value={discover.filters.minDownloads}
+                      onChange={(event) => discover.updateFilter('minDownloads', event.target.value)}
+                      placeholder="No min"
+                      inputMode="numeric"
+                    />
+                    <input
+                      className="control-input"
+                      value={discover.filters.maxDownloads}
+                      onChange={(event) => discover.updateFilter('maxDownloads', event.target.value)}
+                      placeholder="No max"
+                      inputMode="numeric"
+                    />
+                  </div>
+                </DiscoverRailSection>
 
-              <DiscoverRailSection id="downloads" title="Downloads" open={openSection === 'downloads'} onToggle={toggleSection}>
-                <div className="launcher-discover-range-row">
-                  <input
-                    className="control-input"
-                    value={discover.filters.minDownloads}
-                    onChange={(event) => discover.updateFilter('minDownloads', event.target.value)}
-                    placeholder="No min"
-                    inputMode="numeric"
-                  />
-                  <input
-                    className="control-input"
-                    value={discover.filters.maxDownloads}
-                    onChange={(event) => discover.updateFilter('maxDownloads', event.target.value)}
-                    placeholder="No max"
-                    inputMode="numeric"
-                  />
-                </div>
-              </DiscoverRailSection>
-
-              <DiscoverRailSection id="endorsements" title="Endorsements" open={openSection === 'endorsements'} onToggle={toggleSection}>
-                <div className="launcher-discover-range-row">
-                  <input
-                    className="control-input"
-                    value={discover.filters.minEndorsements}
-                    onChange={(event) => discover.updateFilter('minEndorsements', event.target.value)}
-                    placeholder="No min"
-                    inputMode="numeric"
-                  />
-                  <input
-                    className="control-input"
-                    value={discover.filters.maxEndorsements}
-                    onChange={(event) => discover.updateFilter('maxEndorsements', event.target.value)}
-                    placeholder="No max"
-                    inputMode="numeric"
-                  />
-                </div>
-              </DiscoverRailSection>
+                <DiscoverRailSection id="endorsements" title="Endorsements" open={openSection === 'endorsements'} onToggle={toggleSection}>
+                  <div className="launcher-discover-range-row">
+                    <input
+                      className="control-input"
+                      value={discover.filters.minEndorsements}
+                      onChange={(event) => discover.updateFilter('minEndorsements', event.target.value)}
+                      placeholder="No min"
+                      inputMode="numeric"
+                    />
+                    <input
+                      className="control-input"
+                      value={discover.filters.maxEndorsements}
+                      onChange={(event) => discover.updateFilter('maxEndorsements', event.target.value)}
+                      placeholder="No max"
+                      inputMode="numeric"
+                    />
+                  </div>
+                </DiscoverRailSection>
               </div>
             </fieldset>
             {discoverBlocked ? (
@@ -1008,9 +961,7 @@ function LauncherDiscoverPageContent({
               detailsText={blockedReasonText}
               detailsExpanded={effectiveBlockedDetailsExpanded}
               detailsToggleLabel={
-                effectiveBlockedDetailsExpanded
-                  ? copy.discover.blockedDetailsCollapseAction
-                  : copy.discover.blockedDetailsExpandAction
+                effectiveBlockedDetailsExpanded ? copy.discover.blockedDetailsCollapseAction : copy.discover.blockedDetailsExpandAction
               }
               copyLabel={copy.discover.blockedCopyLogsAction}
               onToggleDetails={() => setBlockedDetailsExpanded((current) => !current)}

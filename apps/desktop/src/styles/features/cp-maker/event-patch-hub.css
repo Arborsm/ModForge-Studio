@@ -1,5 +1,4 @@
 @layer components {
-
   .event-patch-hub {
     --ephub-shell-bg: color-mix(in srgb, var(--bg-app) 94%, var(--bg-panel) 6%);
     --ephub-surface: color-mix(in srgb, var(--bg-panel) 94%, var(--bg-elevated) 6%);
@@ -17,9 +16,11 @@
     overflow: hidden;
     background:
       linear-gradient(90deg, color-mix(in srgb, var(--border-color) 18%, transparent) 0 1px, transparent 1px 64px),
-      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 14%, transparent) 0 1px, transparent 1px 64px),
-      var(--ephub-shell-bg);
-    background-size: 64px 64px, 64px 64px, auto;
+      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 14%, transparent) 0 1px, transparent 1px 64px), var(--ephub-shell-bg);
+    background-size:
+      64px 64px,
+      64px 64px,
+      auto;
     color: var(--text-primary);
   }
 
@@ -120,7 +121,9 @@
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
-    transition: background-color 160ms ease, border-color 160ms ease;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease;
   }
 
   .event-patch-save-state > span {
@@ -362,7 +365,9 @@
     font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
   }
 
   .event-scene-edit-button:hover {
@@ -493,7 +498,9 @@
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
   }
 
   .event-patch-context-menu button:hover {

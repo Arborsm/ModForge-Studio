@@ -230,8 +230,15 @@ describe('EventPreconditionSemantics', () => {
     expect(formatEventPreconditionForHub(parser.parseOne('Friendship Clint 750'), hub)).toBe('Clint 友谊至少 750')
     expect(formatEventPreconditionForHub(parser.parseOne('!Season Winter'), hub)).toBe('非冬季')
     expect(formatEventPreconditionForHub(parser.parseOne('GameStateQuery "!WEATHER Here Sun"'), hub)).toBe('非当前位置天气为晴天')
-    expect(formatEventPreconditionForHub(parser.parseOne('GameStateQuery "SEASON Spring, DAY_OF_WEEK Friday"'), hub)).toBe('春季，且星期为 周五')
-    expect(formatEventPreconditionForHub(parser.parseOne('GameStateQuery "ANY \\"SEASON Winter\\" \\"SEASON Spring, DAY_OF_WEEK Friday\\""'), hub)).toBe('任一满足：冬季；春季，且星期为 周五')
+    expect(formatEventPreconditionForHub(parser.parseOne('GameStateQuery "SEASON Spring, DAY_OF_WEEK Friday"'), hub)).toBe(
+      '春季，且星期为 周五',
+    )
+    expect(
+      formatEventPreconditionForHub(
+        parser.parseOne('GameStateQuery "ANY \\"SEASON Winter\\" \\"SEASON Spring, DAY_OF_WEEK Friday\\""'),
+        hub,
+      ),
+    ).toBe('任一满足：冬季；春季，且星期为 周五')
   })
 
   test('recognizes every built-in GameStateQuery resolver from the game source', () => {

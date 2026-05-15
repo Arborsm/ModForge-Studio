@@ -8,8 +8,8 @@ const WORKSPACE_LAYOUT_PERSIST_DEBOUNCE_MS = 180
 const WORKSPACE_LAYOUT_VERSION = 'v11'
 
 export function useWorkspaceLayoutPersistence(appUiStateReady: boolean, workspaceMode: WorkspaceMode) {
-  const [workspaceLayouts, setWorkspaceLayouts] = useState<Record<string, WorkspaceStoredState>>(
-    () => normalizeWorkspaceLayouts(getAppUiStateSnapshot()?.workspace.layouts),
+  const [workspaceLayouts, setWorkspaceLayouts] = useState<Record<string, WorkspaceStoredState>>(() =>
+    normalizeWorkspaceLayouts(getAppUiStateSnapshot()?.workspace.layouts),
   )
   const workspaceLayoutsRef = useRef<Record<string, WorkspaceStoredState>>(workspaceLayouts)
   const pendingWorkspaceLayoutPatchesRef = useRef<Record<string, WorkspaceStoredState>>({})
@@ -47,9 +47,7 @@ export function useWorkspaceLayoutPersistence(appUiStateReady: boolean, workspac
 
     void applyAppUiStatePatch({
       workspace: {
-        layouts: Object.fromEntries(
-          entries.map(([storageKey, state]) => [storageKey, state as Record<string, unknown>]),
-        ),
+        layouts: Object.fromEntries(entries.map(([storageKey, state]) => [storageKey, state as Record<string, unknown>])),
       },
     })
   }, [appUiStateReady])
@@ -92,10 +90,7 @@ export function useWorkspaceLayoutPersistence(appUiStateReady: boolean, workspac
     [scheduleWorkspaceLayoutPersist],
   )
 
-  const workspaceLayoutStorageKey = useMemo(
-    () => `modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`,
-    [workspaceMode],
-  )
+  const workspaceLayoutStorageKey = useMemo(() => `modforge:workspace-layout:${WORKSPACE_LAYOUT_VERSION}:${workspaceMode}`, [workspaceMode])
 
   return {
     workspaceLayouts,

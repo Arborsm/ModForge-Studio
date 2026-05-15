@@ -61,17 +61,13 @@ export function detectDefaultGameDirectory() {
 
 /** Lists previously discovered or persisted Stardew Valley install directories. */
 export function listKnownGameDirectories() {
-  return readCached(listKnownGameDirectoriesCache, 'default', () =>
-    invokeDesktop<string[]>('list_known_game_directories'),
-  )
+  return readCached(listKnownGameDirectoriesCache, 'default', () => invokeDesktop<string[]>('list_known_game_directories'))
 }
 
 /** Validates a candidate game root and returns normalized paths required by editors. */
 export function validateGameDirectory(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
-  return readCached(validateDirectoryCache, cacheKey, () =>
-    invokeDesktop<GameDirectoryInfo>('validate_game_directory', { path }),
-  )
+  return readCached(validateDirectoryCache, cacheKey, () => invokeDesktop<GameDirectoryInfo>('validate_game_directory', { path }))
 }
 
 /** Scans the game root for map assets and returns localized display metadata when available. */
@@ -89,9 +85,7 @@ export function scanEvents(path: string) {
 /** Loads a map asset body from the game root for editor preview and patching. */
 export function loadMapAsset(rootPath: string, mapPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, mapPath, locale)
-  return readPending(loadMapAssetCache, cacheKey, () =>
-    invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath, locale }),
-  )
+  return readPending(loadMapAssetCache, cacheKey, () => invokeDesktop<MapAssetContent>('load_map_asset', { rootPath, mapPath, locale }))
 }
 
 /** Loads a Stardew text/data asset from the game root. */
@@ -117,9 +111,7 @@ export function loadImageDataUrl(path: string, locale?: string) {
 /** Scans audio cues and files available under the game root. */
 export function scanAudioAssets(path: string) {
   const cacheKey = normalizeCachePathSegment(path)
-  return readCached(scanAudioAssetsCache, cacheKey, () =>
-    invokeDesktop<AudioAssetSummary[]>('scan_audio_assets', { path }),
-  )
+  return readCached(scanAudioAssetsCache, cacheKey, () => invokeDesktop<AudioAssetSummary[]>('scan_audio_assets', { path }))
 }
 
 /** Loads a supported audio file as a browser-playable data URL. */
@@ -131,15 +123,10 @@ export function loadAudioDataUrl(path: string) {
 /** Resolves and decodes a vanilla XACT cue into a browser-playable data URL. */
 export function loadXactAudioDataUrl(rootPath: string, cue: string) {
   const cacheKey = `${normalizeCachePathSegment(rootPath)}::${cue.trim()}`
-  return readPending(loadXactAudioDataUrlCache, cacheKey, () =>
-    invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue }),
-  )
+  return readPending(loadXactAudioDataUrlCache, cacheKey, () => invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue }))
 }
 
 /** Scans the default Stardew Valley save directory for player save slots. */
 export function scanDefaultSaveSlots() {
-  return readCached(scanDefaultSaveSlotsCache, 'default', () =>
-    invokeDesktop<DefaultSaveSlotSummary[]>('scan_default_save_slots'),
-  )
+  return readCached(scanDefaultSaveSlotsCache, 'default', () => invokeDesktop<DefaultSaveSlotSummary[]>('scan_default_save_slots'))
 }
-

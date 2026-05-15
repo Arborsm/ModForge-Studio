@@ -82,9 +82,7 @@ type MockAppUiStatePatch = {
   }
 }
 
-function createMockAppUiState(
-  overrides: MockAppUiStateOverrides = {},
-): MockAppUiState {
+function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppUiState {
   return {
     version: overrides.version ?? 1,
     shell: {
@@ -101,14 +99,13 @@ function createMockAppUiState(
         profiles: overrides.appearance?.playerAppearance?.profiles ?? [],
         activeProfileId: overrides.appearance?.playerAppearance?.activeProfileId ?? null,
       },
-      loadingMotion:
-        overrides.appearance?.loadingMotion ?? {
-          styleId: 'softFadeIn',
-          intensityId: 'standard',
-          speedMode: 'preset',
-          speedId: 'standard',
-          speedMultiplier: 1,
-        },
+      loadingMotion: overrides.appearance?.loadingMotion ?? {
+        styleId: 'softFadeIn',
+        intensityId: 'standard',
+        speedMode: 'preset',
+        speedId: 'standard',
+        speedMultiplier: 1,
+      },
     },
     workspace: {
       layouts: overrides.workspace?.layouts ?? {},
@@ -178,23 +175,21 @@ const applyAppUiStatePatchMock = vi.fn(async (patch: MockAppUiStatePatch) => app
 const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
 const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
 const canUseDesktopHostMock = vi.fn(() => false)
-function createLauncherNexusDiagnosticsResult(
-  routes: LauncherNexusDiagnosticsResult['routes'] = [],
-): LauncherNexusDiagnosticsResult {
+function createLauncherNexusDiagnosticsResult(routes: LauncherNexusDiagnosticsResult['routes'] = []): LauncherNexusDiagnosticsResult {
   return { routes }
 }
 
-const loadLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const loadLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
-const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
-const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
-const retryLauncherNexusDiagnosticsRouteMock = vi.fn<(routeId: string) => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const retryLauncherNexusDiagnosticsRouteMock = vi.fn<(routeId: string) => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
 const saveLauncherSettingsMock = vi.fn(async () => ({
   gamePath: 'C:/Games/Stardew Valley',
@@ -323,58 +318,58 @@ vi.mock('@features/launcher', async () => {
   return {
     ...actual,
     useLauncherRuntime: () => ({
-    settingsState: {
-      settings: {
-        gamePath: 'C:/Games/Stardew Valley',
-        modsPath: 'C:/Games/Stardew Valley/Mods',
-        downloadPath: 'C:/Downloads',
-        nexusApiKey: null,
-        autoInstallDownloads: false,
-        keepDownloadedArchives: false,
-        autoCheckModUpdates: true,
+      settingsState: {
+        settings: {
+          gamePath: 'C:/Games/Stardew Valley',
+          modsPath: 'C:/Games/Stardew Valley/Mods',
+          downloadPath: 'C:/Downloads',
+          nexusApiKey: null,
+          autoInstallDownloads: false,
+          keepDownloadedArchives: false,
+          autoCheckModUpdates: true,
+        },
+        state: 'ready',
+        error: null,
+        saveMessage: null,
+        setSettings: vi.fn(),
+        updateField: vi.fn(),
+        save: vi.fn(async () => null),
+        refresh: vi.fn(async () => {}),
+        pickDirectory: vi.fn(async () => null),
       },
-      state: 'ready',
-      error: null,
-      saveMessage: null,
-      setSettings: vi.fn(),
-      updateField: vi.fn(),
-      save: vi.fn(async () => null),
-      refresh: vi.fn(async () => {}),
-      pickDirectory: vi.fn(async () => null),
-    },
-    downloads: {
-      items: [],
-      queuedItems: [],
-      activeItems: [],
-      readyToInstall: [],
-      installedItems: [],
-      failedItems: [],
-      removableItems: [],
-      counts: {
-        queued: 0,
-        downloading: 0,
-        completed: 0,
-        failed: 0,
-        readyToInstall: 0,
+      downloads: {
+        items: [],
+        queuedItems: [],
+        activeItems: [],
+        readyToInstall: [],
+        installedItems: [],
+        failedItems: [],
+        removableItems: [],
+        counts: {
+          queued: 0,
+          downloading: 0,
+          completed: 0,
+          failed: 0,
+          readyToInstall: 0,
+        },
+        downloadProgressPercent: null,
+        queueDownload: vi.fn(),
+        startDebugSimulation: vi.fn(),
+        retryItem: vi.fn(),
+        retryFailed: vi.fn(),
+        removeItem: vi.fn(),
+        removeCompleted: vi.fn(),
+        installItem: vi.fn(),
+        installAllReady: vi.fn(),
+        clearAll: vi.fn(),
       },
-      downloadProgressPercent: null,
-      queueDownload: vi.fn(),
-      startDebugSimulation: vi.fn(),
-      retryItem: vi.fn(),
-      retryFailed: vi.fn(),
-      removeItem: vi.fn(),
-      removeCompleted: vi.fn(),
-      installItem: vi.fn(),
-      installAllReady: vi.fn(),
-      clearAll: vi.fn(),
-    },
-    credentialsReady: false,
-    settingsWarning: true,
-    settingsWarningLabel: 'Launcher setup incomplete',
-    updatesBadgeCount: 0,
-    downloadsBadgeCount: 0,
-    downloadsProgressPercent: null,
-    downloadsHasFailure: false,
+      credentialsReady: false,
+      settingsWarning: true,
+      settingsWarningLabel: 'Launcher setup incomplete',
+      updatesBadgeCount: 0,
+      downloadsBadgeCount: 0,
+      downloadsProgressPercent: null,
+      downloadsHasFailure: false,
     }),
   }
 })
@@ -513,11 +508,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
         <button type="button" onClick={() => onAppModeChange('workbench')}>
           {labels.workbench}
         </button>
-        <button
-          type="button"
-          aria-current={activePage === 'library' ? 'page' : undefined}
-          onClick={() => onLauncherPageChange('library')}
-        >
+        <button type="button" aria-current={activePage === 'library' ? 'page' : undefined} onClick={() => onLauncherPageChange('library')}>
           {labels.library}
         </button>
         <button
@@ -527,11 +518,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
         >
           {labels.discover}
         </button>
-        <button
-          type="button"
-          aria-current={activePage === 'updates' ? 'page' : undefined}
-          onClick={() => onLauncherPageChange('updates')}
-        >
+        <button type="button" aria-current={activePage === 'updates' ? 'page' : undefined} onClick={() => onLauncherPageChange('updates')}>
           {labels.updates}
         </button>
         <button type="button">{labels.downloads}</button>
@@ -756,7 +743,6 @@ vi.mock('@shared/lib/app-state', () => ({
   configureAppUiStatePersistence: vi.fn(),
 }))
 
-
 describe('App locale ownership', () => {
   beforeEach(() => {
     seedAppUiState()
@@ -812,6 +798,17 @@ describe('App locale ownership', () => {
       configurable: true,
       value: 'en-US',
     })
+  })
+
+  it('uses the workbench shell skeleton instead of the generic loading fallback while the workbench chunk loads', async () => {
+    const { container } = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
+
+    expect(screen.getByTestId('workbench-shell-skeleton')).toBeTruthy()
+    expect(container.querySelector('.loading-motion-fallback')).toBeNull()
+
+    expect(await screen.findByTestId('workspace-layout')).toBeTruthy()
   })
 
   it('updates downstream shell copy immediately when locale changes through Settings', async () => {
@@ -908,9 +905,9 @@ describe('App locale ownership', () => {
 
     expect(screen.queryByTestId('workspace-layout')).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
-    expect(
-      screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current'),
-    ).not.toBe('page')
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current')).not.toBe(
+      'page',
+    )
   })
 
   it('switches app mode to workbench through shell controls and persists it', async () => {
@@ -967,7 +964,9 @@ describe('App locale ownership', () => {
 
     const settingsSidebar = document.querySelector('.settings-window-sidebar')
     expect(settingsSidebar).toBeTruthy()
-    expect(within(settingsSidebar as HTMLElement).queryByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) })).toBeNull()
+    expect(
+      within(settingsSidebar as HTMLElement).queryByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) }),
+    ).toBeNull()
     expect(document.querySelector('.settings-window-content')?.textContent).not.toContain(englishSettingsCopy.categories.launcher)
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.saveSettings })).toBeNull()
   })
@@ -1029,9 +1028,7 @@ describe('App locale ownership', () => {
 
     expect(await screen.findByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationTitle)).toBeTruthy()
     expect(
-      screen.getByText(
-        editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationImpact('Discover / automatic updates'),
-      ),
+      screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationImpact('Discover / automatic updates')),
     ).toBeTruthy()
     expect(screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
     expect(screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationNote)).toBeTruthy()
@@ -1093,7 +1090,9 @@ describe('App locale ownership', () => {
     fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
+      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
+        'page',
+      )
     })
   })
 
@@ -1272,9 +1271,7 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
-      'page',
-    )
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
     expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
   })
 
@@ -1291,9 +1288,7 @@ describe('App locale ownership', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }))
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
-      'page',
-    )
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
     const sidebar = document.querySelector('.settings-window-sidebar')
@@ -1373,5 +1368,4 @@ describe('App locale ownership', () => {
       })
     })
   })
-
 })

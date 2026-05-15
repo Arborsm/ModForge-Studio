@@ -13,12 +13,11 @@
   .launcher-download-row {
     border: 1px solid var(--border-color);
     border-radius: 18px;
-    background:
-      linear-gradient(
-        165deg,
-        color-mix(in srgb, var(--bg-panel) 95%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
-      );
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--bg-panel) 95%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
+    );
     padding: 14px;
     transition:
       transform 160ms ease,
@@ -64,12 +63,11 @@
     justify-content: center;
     flex-shrink: 0;
     border-radius: 16px;
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--accent) 16%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
+    );
     color: var(--text-primary);
   }
 
@@ -271,12 +269,11 @@
     gap: 10px;
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    background:
-      linear-gradient(
-        160deg,
-        color-mix(in srgb, var(--bg-panel) 96%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 92%, transparent)
-      );
+    background: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--bg-panel) 96%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 92%, transparent)
+    );
     padding: 14px;
   }
 
@@ -334,12 +331,11 @@
     gap: 8px;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 999px;
-    background:
-      linear-gradient(
-        160deg,
-        color-mix(in srgb, var(--bg-panel) 96%, transparent),
-        color-mix(in srgb, var(--bg-panel-muted) 92%, transparent)
-      );
+    background: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--bg-panel) 96%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 92%, transparent)
+    );
     color: var(--text-secondary);
     padding: 8px 12px;
     transition:
@@ -357,12 +353,11 @@
   .launcher-label-chip-active {
     color: var(--text-primary);
     border-color: color-mix(in srgb, var(--accent) 42%, var(--border-color));
-    background:
-      linear-gradient(
-        155deg,
-        color-mix(in srgb, var(--accent-soft) 100%, transparent),
-        color-mix(in srgb, var(--bg-panel) 94%, transparent)
-      );
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--accent-soft) 100%, transparent),
+      color-mix(in srgb, var(--bg-panel) 94%, transparent)
+    );
   }
 
   .launcher-label-chip-swatch {
@@ -601,44 +596,40 @@
     gap: 14px;
     border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
     border-radius: 22px;
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--accent-soft) 42%, transparent),
-        color-mix(in srgb, var(--bg-panel) 96%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--accent-soft) 42%, transparent),
+      color-mix(in srgb, var(--bg-panel) 96%, transparent)
+    );
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
     padding: 18px;
   }
 
   .launcher-alert-card-warning {
     border-color: color-mix(in srgb, var(--warning) 30%, var(--border-color));
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--warning) 12%, transparent),
-        color-mix(in srgb, var(--bg-panel) 96%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--warning) 12%, transparent),
+      color-mix(in srgb, var(--bg-panel) 96%, transparent)
+    );
   }
 
   .launcher-alert-card-success {
     border-color: color-mix(in srgb, var(--success) 28%, var(--border-color));
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--success) 10%, transparent),
-        color-mix(in srgb, var(--bg-panel) 96%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--success) 10%, transparent),
+      color-mix(in srgb, var(--bg-panel) 96%, transparent)
+    );
   }
 
   .launcher-alert-card-error {
     border-color: color-mix(in srgb, var(--danger) 30%, var(--border-color));
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--danger) 10%, transparent),
-        color-mix(in srgb, var(--bg-panel) 96%, transparent)
-      );
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--danger) 10%, transparent),
+      color-mix(in srgb, var(--bg-panel) 96%, transparent)
+    );
   }
 
   .launcher-alert-card-head,
@@ -804,12 +795,11 @@
     padding: clamp(24px, 4vw, 36px);
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 28px;
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--bg-panel) 96%, white 4%),
-        color-mix(in srgb, var(--bg-panel-muted) 86%, var(--bg-panel) 14%)
-      );
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel) 96%, white 4%),
+      color-mix(in srgb, var(--bg-panel-muted) 86%, var(--bg-panel) 14%)
+    );
     box-shadow:
       0 24px 48px rgba(15, 23, 42, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.6);

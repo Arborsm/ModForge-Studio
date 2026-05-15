@@ -35,22 +35,22 @@ describe('useLauncherDownloads', () => {
   it('loads the persisted launcher queue from desktop storage', async () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({
-      items: [
-        {
-          id: 'persisted-job',
-          modId: 101,
-          title: 'NPC Adventures',
-          version: '1.0.0',
-          imageUrl: null,
-          source: 'discover',
-          status: 'queued',
-          archivePath: null,
-          installedTargetPath: null,
-          error: null,
-          addedAt: 1,
-          completedAt: null,
-        },
-      ],
+        items: [
+          {
+            id: 'persisted-job',
+            modId: 101,
+            title: 'NPC Adventures',
+            version: '1.0.0',
+            imageUrl: null,
+            source: 'discover',
+            status: 'queued',
+            archivePath: null,
+            installedTargetPath: null,
+            error: null,
+            addedAt: 1,
+            completedAt: null,
+          },
+        ],
       }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
     })
@@ -162,28 +162,29 @@ describe('useLauncherDownloads', () => {
       loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       downloadMod: vi.fn().mockResolvedValue({
-      modId: 101,
-      title: 'NPC Adventures',
-      version: '1.2.0',
-      fileName: 'npc-adventures.zip',
-      archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
-      installed: true,
-      installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+        modId: 101,
+        title: 'NPC Adventures',
+        version: '1.2.0',
+        fileName: 'npc-adventures.zip',
+        archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
+        installed: true,
+        installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
       }),
       checkUpdates: vi.fn().mockResolvedValue({
-      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
-      checkedAtMs: 1,
-      updates: [],
+        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+        checkedAtMs: 1,
+        updates: [],
       }),
     })
 
-    const { result } = renderHook(() =>
-      useLauncherDownloads(
-        createSettings({
-          nexusApiKey: 'api-key',
-          autoInstallDownloads: true,
-        }),
-      ),
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+            autoInstallDownloads: true,
+          }),
+        ),
       { wrapper: createWrapper(port) },
     )
 
@@ -224,13 +225,7 @@ describe('useLauncherDownloads', () => {
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
     })
 
-    const { result } = renderHook(() =>
-      useLauncherDownloads(
-        createSettings({
-        }),
-      ),
-      { wrapper: createWrapper(port) },
-    )
+    const { result } = renderHook(() => useLauncherDownloads(createSettings({})), { wrapper: createWrapper(port) })
 
     await waitFor(() => {
       expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
@@ -262,33 +257,34 @@ describe('useLauncherDownloads', () => {
   it('captures install failures in queue state and preserves the archive for retrying install', async () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({
-      items: [
-        {
-          id: 'persisted-job',
-          modId: 101,
-          title: 'NPC Adventures',
-          version: '1.2.0',
-          imageUrl: null,
-          source: 'updates',
-          status: 'completed',
-          archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
-          installedTargetPath: null,
-          error: null,
-          addedAt: 1,
-          completedAt: 2,
-        },
-      ],
+        items: [
+          {
+            id: 'persisted-job',
+            modId: 101,
+            title: 'NPC Adventures',
+            version: '1.2.0',
+            imageUrl: null,
+            source: 'updates',
+            status: 'completed',
+            archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
+            installedTargetPath: null,
+            error: null,
+            addedAt: 1,
+            completedAt: 2,
+          },
+        ],
       }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       installArchive: vi.fn().mockRejectedValue(new Error('Archive missing')),
     })
 
-    const { result } = renderHook(() =>
-      useLauncherDownloads(
-        createSettings({
-          nexusApiKey: 'api-key',
-        }),
-      ),
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
       { wrapper: createWrapper(port) },
     )
 

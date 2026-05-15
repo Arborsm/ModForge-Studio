@@ -80,6 +80,22 @@ describe('TopMenuBar', () => {
     expect(inactiveModule.getAttribute('aria-current')).toBeNull()
   })
 
+  it('disables workspace module navigation while no project is open', () => {
+    const props = buildProps({
+      workspaceNavigationDisabled: true,
+    })
+    renderWithLocale(<TopMenuBar {...props} />)
+
+    const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
+    const charactersLink = within(moduleNav).getByRole('link', { name: copy.nav.characters })
+
+    expect(charactersLink.getAttribute('aria-disabled')).toBe('true')
+
+    fireEvent.click(charactersLink)
+
+    expect(props.onWorkspaceChange).not.toHaveBeenCalled()
+  })
+
   it('uses the light GooeyNav variant when the shell theme is light', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps({ theme: 'light' })} />)
 

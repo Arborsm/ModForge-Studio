@@ -47,9 +47,7 @@ function getNotificationChipClassName(tone: PublishedNotification['chips'][numbe
   return `notification-toast-chip notification-toast-chip-${tone}`
 }
 
-function getNotificationActionButtonClassName(
-  tone: NonNullable<PublishedNotification['action']>['tone'],
-) {
+function getNotificationActionButtonClassName(tone: NonNullable<PublishedNotification['action']>['tone']) {
   return `notification-toast-action-button notification-toast-action-button-${tone}`
 }
 
@@ -139,11 +137,11 @@ function NotificationToast({
   const levelClassName = `level-${notification.level}`
   const structuredContent = Boolean(
     notification.eyebrow ||
-      notification.subtitle ||
-      notification.summary ||
-      notification.note ||
-      notification.chips.length ||
-      notification.variant === 'diagnostic',
+    notification.subtitle ||
+    notification.summary ||
+    notification.note ||
+    notification.chips.length ||
+    notification.variant === 'diagnostic',
   )
   const actionButtons = [notification.secondaryAction, notification.action].filter(
     (action): action is NonNullable<PublishedNotification['action']> => action != null,
@@ -154,7 +152,7 @@ function NotificationToast({
   return (
     <article
       ref={toastRef}
-      className={`notification-toast ${levelClassName} notification-toast-variant-${notification.variant}${structuredContent ? ' notification-toast-structured' : ''}${closing ? ' is-closing' : ''}`}
+      className={`notification-toast ${levelClassName} notification-toast-variant-${notification.variant}${structuredContent ? 'notification-toast-structured' : ''}${closing ? 'is-closing' : ''}`}
       role="status"
       aria-live={notification.level === 'error' ? 'assertive' : 'polite'}
       aria-label={`${levelLabel}: ${notification.title}`}
@@ -209,13 +207,7 @@ function NotificationToast({
         ) : null}
       </div>
 
-      <button
-        type="button"
-        className="notification-toast-close"
-        aria-label={dismissLabel}
-        title={dismissLabel}
-        onClick={requestClose}
-      >
+      <button type="button" className="notification-toast-close" aria-label={dismissLabel} title={dismissLabel} onClick={requestClose}>
         <X className="h-4 w-4" />
       </button>
 
@@ -347,10 +339,7 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
 
     return frontOrderedNotifications
       .slice(0, index)
-      .reduce(
-        (total, currentNotification) => total + getExpandedStackHeight(currentNotification.id) + STACK_EXPANDED_GAP_PX,
-        0,
-      )
+      .reduce((total, currentNotification) => total + getExpandedStackHeight(currentNotification.id) + STACK_EXPANDED_GAP_PX, 0)
   })
   const frontNotificationHeight = Math.max(toastHeights[frontOrderedNotifications[0]?.id] ?? 0, STACK_HOVER_REGION_MIN_HEIGHT_PX)
   const frontNotificationMeasuredHeight = toastHeights[frontOrderedNotifications[0]?.id] ?? null

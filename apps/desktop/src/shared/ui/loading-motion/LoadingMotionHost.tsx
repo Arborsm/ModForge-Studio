@@ -28,11 +28,7 @@ import {
   type LoadingMotionPreference,
   type LoadingMotionStyleId,
 } from '@shared/contracts/types/loadingMotion'
-import {
-  DEFAULT_LOADING_MOTION_PREFERENCE,
-  normalizeLoadingMotionPreference,
-  resolveLoadingMotionConfig,
-} from '@shared/lib/loading-motion'
+import { DEFAULT_LOADING_MOTION_PREFERENCE, normalizeLoadingMotionPreference, resolveLoadingMotionConfig } from '@shared/lib/loading-motion'
 
 type LoadingMotionContextValue = {
   provided: boolean
@@ -142,15 +138,14 @@ export function LoadingMotionProvider({
   children,
 }: LoadingMotionProviderProps) {
   const value = useMemo(
-    () =>
-      ({
-        ...resolveMotionState(preference ?? null, {
-          prefersReducedMotion,
-          revealOrder,
-          anchors,
-        }),
-        provided: true,
+    () => ({
+      ...resolveMotionState(preference ?? null, {
+        prefersReducedMotion,
+        revealOrder,
+        anchors,
       }),
+      provided: true,
+    }),
     [anchors, prefersReducedMotion, preference, revealOrder],
   )
 
@@ -173,10 +168,7 @@ export function useResolvedLoadingMotion(
       })
     : current.preference
 
-  if (
-    !preferenceOverride &&
-    (prefersReducedMotion === undefined || prefersReducedMotion === current.config.reducedMotion)
-  ) {
+  if (!preferenceOverride && (prefersReducedMotion === undefined || prefersReducedMotion === current.config.reducedMotion)) {
     return current.config
   }
 
@@ -212,11 +204,7 @@ export type LoadingMotionHostProps = {
  * This component is intentionally thin - it delegates animation
  * implementation to the shared CSS primitives.
  */
-export function LoadingMotionHost({
-  stage,
-  children,
-  placeholder,
-}: LoadingMotionHostProps) {
+export function LoadingMotionHost({ stage, children, placeholder }: LoadingMotionHostProps) {
   if (stage === 'ready' || stage === 'idle') {
     return <>{children}</>
   }
@@ -254,16 +242,7 @@ type LoadingMotionChildRevealStyle = CSSProperties & {
   '--loading-motion-child-index'?: number
 }
 
-type LoadingMotionIntrinsicElement =
-  | 'article'
-  | 'aside'
-  | 'button'
-  | 'div'
-  | 'header'
-  | 'li'
-  | 'main'
-  | 'section'
-  | 'span'
+type LoadingMotionIntrinsicElement = 'article' | 'aside' | 'button' | 'div' | 'header' | 'li' | 'main' | 'section' | 'span'
 
 type LoadingMotionElementProps =
   | Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className' | 'type'>
@@ -372,9 +351,7 @@ export function LoadingMotionReveal<T extends LoadingMotionIntrinsicElement = 'd
   const config = useResolvedLoadingMotion(preferenceOverride ?? preference ?? null, prefersReducedMotion)
   const revealProps = buildLoadingMotionRevealProps({ itemId, index, config, className })
   const elementProps =
-    Component === 'button' && !('type' in rest)
-      ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' })
-      : rest
+    Component === 'button' && !('type' in rest) ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' }) : rest
 
   return createElement(Component, { ...elementProps, ...revealProps } as HTMLAttributes<HTMLElement>, children)
 }
@@ -395,9 +372,7 @@ export function LoadingMotionRevealItem<T extends LoadingMotionIntrinsicElement 
 }: LoadingMotionRevealItemProps<T>) {
   const Component = (as ?? 'div') as LoadingMotionIntrinsicElement
   const elementProps =
-    Component === 'button' && !('type' in rest)
-      ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' })
-      : rest
+    Component === 'button' && !('type' in rest) ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' }) : rest
 
   return createElement(
     Component,
@@ -423,11 +398,7 @@ export function LoadingMotionFallback({
   className,
 }: LoadingMotionFallbackProps) {
   const config = useResolvedLoadingMotion(
-    styleId !== undefined ||
-      intensityId !== undefined ||
-      speedMode !== undefined ||
-      speedId !== undefined ||
-      speedMultiplier !== undefined
+    styleId !== undefined || intensityId !== undefined || speedMode !== undefined || speedId !== undefined || speedMultiplier !== undefined
       ? {
           ...(styleId !== undefined ? { styleId } : {}),
           ...(intensityId !== undefined ? { intensityId } : {}),

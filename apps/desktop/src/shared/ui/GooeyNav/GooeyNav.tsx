@@ -9,6 +9,10 @@ export interface GooeyNavItem {
   icon?: ReactNode
   /** Optional badge rendered after the label (e.g. notification count). */
   badge?: ReactNode
+  /** Blocks navigation while keeping the item visible for orientation. */
+  disabled?: boolean
+  /** Tooltip text shown when the item is disabled. */
+  disabledReason?: string
 }
 
 export interface GooeyNavProps {
@@ -172,6 +176,8 @@ export default function GooeyNav({
 
   const handleClick = (e: MouseEvent<HTMLAnchorElement>, index: number) => {
     e.preventDefault()
+    if (items[index]?.disabled) return
+
     const liEl = e.currentTarget.parentElement
     if (!liEl || activeIndex === index) return
 
@@ -236,12 +242,7 @@ export default function GooeyNav({
       <svg className="gooey-nav-svg-filter" aria-hidden="true" focusable="false">
         <filter id={gooeyFilterId}>
           <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur" />
-          <feColorMatrix
-            in="blur"
-            mode="matrix"
-            values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"
-            result="gooey"
-          />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10" result="gooey" />
           <feComposite in="SourceGraphic" in2="gooey" operator="atop" />
         </filter>
       </svg>
@@ -254,10 +255,20 @@ export default function GooeyNav({
                 onClick={(e) => handleClick(e, index)}
                 onKeyDown={(e) => handleKeyDown(e, index)}
                 aria-current={activeIndex === index ? 'page' : undefined}
+                aria-disabled={item.disabled ? true : undefined}
+                title={item.disabled ? item.disabledReason : undefined}
               >
-                {item.icon ? <span className="gooey-nav-item-icon" aria-hidden="true">{item.icon}</span> : null}
+                {item.icon ? (
+                  <span className="gooey-nav-item-icon" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                ) : null}
                 <span className="gooey-nav-item-label">{item.label}</span>
-                {item.badge ? <span className="gooey-nav-item-badge" aria-hidden="true">{item.badge}</span> : null}
+                {item.badge ? (
+                  <span className="gooey-nav-item-badge" aria-hidden="true">
+                    {item.badge}
+                  </span>
+                ) : null}
               </a>
             </li>
           ))}

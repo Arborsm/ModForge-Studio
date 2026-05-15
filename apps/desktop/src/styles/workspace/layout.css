@@ -216,7 +216,9 @@
 
   .workspace-panel-shell:focus-within {
     border-color: color-mix(in srgb, var(--accent) 40%, var(--border-color));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent), var(--shadow-panel);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+      var(--shadow-panel);
   }
 
   .workspace-dock-resizer {
@@ -328,7 +330,9 @@
     transform: scale(1.01);
     border-color: color-mix(in srgb, var(--accent) 42%, transparent);
     background: color-mix(in srgb, var(--accent-soft) 56%, transparent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent), var(--shadow-panel);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+      var(--shadow-panel);
   }
 
   .workspace-drag-preview {
@@ -368,8 +372,14 @@
     height: 18px;
     width: 18px;
     cursor: nwse-resize;
-    background:
-      linear-gradient(135deg, transparent 0 42%, color-mix(in srgb, var(--border-color) 95%, transparent) 42% 54%, transparent 54% 70%, color-mix(in srgb, var(--border-color) 95%, transparent) 70% 82%, transparent 82%);
+    background: linear-gradient(
+      135deg,
+      transparent 0 42%,
+      color-mix(in srgb, var(--border-color) 95%, transparent) 42% 54%,
+      transparent 54% 70%,
+      color-mix(in srgb, var(--border-color) 95%, transparent) 70% 82%,
+      transparent 82%
+    );
   }
 
   .viewport-scroll-hidden {

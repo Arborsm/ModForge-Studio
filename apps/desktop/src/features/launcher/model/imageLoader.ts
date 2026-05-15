@@ -44,15 +44,17 @@ export function useLauncherImage(url: string | null) {
       }
     }
 
-    void loadLauncherImageUrl(url, launcherPort).then((result) => {
-      if (active) {
-        setLoadedImage({ url, imageUrl: result })
-      }
-    }).catch((error: unknown) => {
-      if (active) {
-        setLoadError({ url, error: error instanceof Error ? error.message : 'Image load failed' })
-      }
-    })
+    void loadLauncherImageUrl(url, launcherPort)
+      .then((result) => {
+        if (active) {
+          setLoadedImage({ url, imageUrl: result })
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setLoadError({ url, error: error instanceof Error ? error.message : 'Image load failed' })
+        }
+      })
 
     return () => {
       active = false

@@ -255,7 +255,13 @@ describe('workspacePanels mode builders', () => {
   it('wraps concrete preview panels with loading reveal hooks', () => {
     const panels = buildCoreWorkspacePanels(buildOptions({ workspaceMode: 'map' }))
 
-    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+    renderWithLocale(
+      <>
+        {panels.map((panel) => (
+          <div key={panel.id}>{panel.content}</div>
+        ))}
+      </>,
+    )
 
     expect(document.querySelector('[data-loading-section="workbench-map-browser"]')).toBeTruthy()
     expect(document.querySelector('[data-loading-section="workbench-map-viewport"]')).toHaveAttribute(
@@ -313,7 +319,13 @@ describe('workspacePanels mode builders', () => {
   it('wraps item preview panels with loading reveal hooks', () => {
     const panels = buildItemsWorkspacePanels(buildOptions({ workspaceMode: 'items' }))
 
-    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+    renderWithLocale(
+      <>
+        {panels.map((panel) => (
+          <div key={panel.id}>{panel.content}</div>
+        ))}
+      </>,
+    )
 
     expect(document.querySelector('[data-loading-section="workbench-items-item-navigation"]')).toBeTruthy()
     expect(document.querySelector('[data-loading-section="workbench-items-item-catalog"]')).toBeTruthy()
@@ -329,14 +341,18 @@ describe('workspacePanels mode builders', () => {
 
   it('builds mods panels via the mods builder', () => {
     const panels = buildModsWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
-    expectPanelLayout(panels, ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'], {
-      'mods-browser': 'left-top',
-      'mods-navigator': 'left-bottom',
-      'mods-workspace': 'center',
-      'mods-trace': 'right-top',
-      'mods-target-diagnostics': 'right-bottom',
-      'mods-export': 'right-bottom',
-    })
+    expectPanelLayout(
+      panels,
+      ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'],
+      {
+        'mods-browser': 'left-top',
+        'mods-navigator': 'left-bottom',
+        'mods-workspace': 'center',
+        'mods-trace': 'right-top',
+        'mods-target-diagnostics': 'right-bottom',
+        'mods-export': 'right-bottom',
+      },
+    )
   })
 
   it('wraps mods preview panels and content patcher sections with loading reveal hooks', () => {
@@ -380,7 +396,13 @@ describe('workspacePanels mode builders', () => {
       }),
     )
 
-    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+    renderWithLocale(
+      <>
+        {panels.map((panel) => (
+          <div key={panel.id}>{panel.content}</div>
+        ))}
+      </>,
+    )
 
     expect(document.querySelector('[data-loading-section="workbench-mods-mods-browser"]')).toBeTruthy()
     expect(document.querySelector('[data-loading-section="mod-workspace-header"]')).toBeTruthy()
@@ -451,14 +473,18 @@ describe('buildWorkspacePanels', () => {
   it('locks panel ids and docks for mods mode', () => {
     const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'mods' }))
 
-    expectPanelLayout(panels, ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'], {
-      'mods-browser': 'left-top',
-      'mods-navigator': 'left-bottom',
-      'mods-workspace': 'center',
-      'mods-trace': 'right-top',
-      'mods-target-diagnostics': 'right-bottom',
-      'mods-export': 'right-bottom',
-    })
+    expectPanelLayout(
+      panels,
+      ['mods-browser', 'mods-navigator', 'mods-workspace', 'mods-trace', 'mods-target-diagnostics', 'mods-export'],
+      {
+        'mods-browser': 'left-top',
+        'mods-navigator': 'left-bottom',
+        'mods-workspace': 'center',
+        'mods-trace': 'right-top',
+        'mods-target-diagnostics': 'right-bottom',
+        'mods-export': 'right-bottom',
+      },
+    )
   })
 
   it('does not render canvas-era content patcher inspector text in mods mode', () => {
@@ -502,7 +528,13 @@ describe('buildWorkspacePanels', () => {
       }),
     )
 
-    renderWithLocale(<>{panels.map((panel) => <div key={panel.id}>{panel.content}</div>)}</>)
+    renderWithLocale(
+      <>
+        {panels.map((panel) => (
+          <div key={panel.id}>{panel.content}</div>
+        ))}
+      </>,
+    )
 
     expect(screen.queryByText('Node Canvas')).toBeNull()
     expect(screen.queryByText('Node Inspector')).toBeNull()

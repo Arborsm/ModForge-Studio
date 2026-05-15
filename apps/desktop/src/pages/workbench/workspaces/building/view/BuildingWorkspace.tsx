@@ -40,9 +40,7 @@ export default function BuildingWorkspace(props: BuildingWorkspaceProps) {
   if (!props.building) {
     return (
       <div className="panel-surface panel-surface-flat h-full">
-        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
-          {copy.inspectorEmpty}
-        </div>
+        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">{copy.inspectorEmpty}</div>
       </div>
     )
   }
@@ -107,19 +105,29 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
               <div>
                 <p className="panel-title">{isConstructible ? copy.bodyTitle : copy.exteriorTitle}</p>
                 <p className="panel-subtitle">
-                  {isConstructible ? props.building.texturePathLabel : (props.activeExteriorMapPath ?? props.building.exteriorMapPathLabel ?? copy.noneLabel)}
+                  {isConstructible
+                    ? props.building.texturePathLabel
+                    : (props.activeExteriorMapPath ?? props.building.exteriorMapPathLabel ?? copy.noneLabel)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 {isConstructible ? (
                   <>
-                    <span className="dock-chip">{copy.sizeLabel}: {props.building.size ? `${props.building.size.X} x ${props.building.size.Y}` : copy.noneLabel}</span>
-                    <span className="dock-chip">{copy.sourceRectLabel}: {formatRect(sourceRect, copy.noneLabel)}</span>
+                    <span className="dock-chip">
+                      {copy.sizeLabel}: {props.building.size ? `${props.building.size.X} x ${props.building.size.Y}` : copy.noneLabel}
+                    </span>
+                    <span className="dock-chip">
+                      {copy.sourceRectLabel}: {formatRect(sourceRect, copy.noneLabel)}
+                    </span>
                   </>
                 ) : (
                   <>
-                    <span className="dock-chip">{copy.exteriorEntryLabel}: {formatPoint(props.building.exteriorEntryTile, copy.noneLabel)}</span>
-                    <span className="dock-chip">{copy.entranceCountLabel}: {props.building.worldEntrances.length}</span>
+                    <span className="dock-chip">
+                      {copy.exteriorEntryLabel}: {formatPoint(props.building.exteriorEntryTile, copy.noneLabel)}
+                    </span>
+                    <span className="dock-chip">
+                      {copy.entranceCountLabel}: {props.building.worldEntrances.length}
+                    </span>
                   </>
                 )}
               </div>
@@ -141,25 +149,13 @@ function BuildingWorkspaceContent(props: BuildingWorkspaceContentProps) {
                 exteriorVisibleLayerIds={exteriorVisibleLayerIds}
                 exteriorVisibleObjectGroupIds={exteriorVisibleObjectGroupIds}
               />
-              <BuildingFactGrid
-                building={props.building}
-                activeIndoorMapPath={props.activeIndoorMapPath}
-                copy={copy}
-              />
+              <BuildingFactGrid building={props.building} activeIndoorMapPath={props.activeIndoorMapPath} copy={copy} />
             </div>
           </div>
 
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-            <BuildingMaterialsPanel
-              building={props.building}
-              springObjectsState={props.springObjectsState}
-              copy={copy}
-            />
-            <BuildingSkinsPanel
-              building={props.building}
-              _activeTextureState={props.activeTextureState}
-              copy={copy}
-            />
+            <BuildingMaterialsPanel building={props.building} springObjectsState={props.springObjectsState} copy={copy} />
+            <BuildingSkinsPanel building={props.building} _activeTextureState={props.activeTextureState} copy={copy} />
           </div>
 
           {isConstructible ? (

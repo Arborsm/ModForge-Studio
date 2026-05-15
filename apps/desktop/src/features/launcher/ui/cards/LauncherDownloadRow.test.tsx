@@ -35,13 +35,7 @@ describe('LauncherDownloadRow', () => {
 
   it('renders metadata content for downloads', () => {
     renderWithLocale(
-      <LauncherDownloadRow
-        item={createItem()}
-        statusLabel="下载中"
-        onRetry={vi.fn()}
-        onRemove={vi.fn()}
-        onInstall={vi.fn()}
-      />,
+      <LauncherDownloadRow item={createItem()} statusLabel="下载中" onRetry={vi.fn()} onRemove={vi.fn()} onInstall={vi.fn()} />,
       'zh-CN',
     )
 

@@ -10,4 +10,3 @@ export function loadAppUiState() {
 export function patchAppUiState(request: PatchAppUiStateRequest) {
   return invokeDesktop<AppUiState>('patch_app_ui_state', { request })
 }
-

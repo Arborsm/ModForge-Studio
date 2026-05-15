@@ -1,11 +1,11 @@
-import type {MapDocument, MapLayer, MapTileset} from '@shared/contracts'
-import type {EventActorState} from '@entities/event'
+import type { MapDocument, MapLayer, MapTileset } from '@shared/contracts'
+import type { EventActorState } from '@entities/event'
 
 const FLIPPED_HORIZONTALLY_FLAG = 0x80000000
 const FLIPPED_VERTICALLY_FLAG = 0x40000000
 const FLIPPED_DIAGONALLY_FLAG = 0x20000000
 const FLAG_MASK = (FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG) >>> 0
-const TILE_ID_MASK = (~FLAG_MASK) >>> 0
+const TILE_ID_MASK = ~FLAG_MASK >>> 0
 
 function findTilesetForGid(tilesets: MapTileset[], gid: number) {
   return tilesets.find((tileset) => gid >= tileset.firstGid && gid < tileset.firstGid + tileset.tileCount) ?? null
@@ -51,6 +51,6 @@ export function deriveMapDrivenFarmerBedState(mapDocument: MapDocument | null, a
 
   return {
     isInBed,
-    timeWentToBed: isInBed ? (previousTimeWentToBed || timeOfDay) : 0,
+    timeWentToBed: isInBed ? previousTimeWentToBed || timeOfDay : 0,
   }
 }

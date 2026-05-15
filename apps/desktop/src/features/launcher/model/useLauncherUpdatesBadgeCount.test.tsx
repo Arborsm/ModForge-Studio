@@ -88,10 +88,7 @@ describe('useLauncherUpdatesBadgeCount', () => {
     expect(port.loadCachedUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
-    expect(port.subscribeUpdates).toHaveBeenCalledWith(
-      'E:\\Games\\Stardew Valley\\Mods',
-      expect.any(Function),
-    )
+    expect(port.subscribeUpdates).toHaveBeenCalledWith('E:\\Games\\Stardew Valley\\Mods', expect.any(Function))
   })
 
   it('does not let a slower cached response overwrite a live replayed snapshot', async () => {

@@ -195,8 +195,7 @@ function createChangelog(overrides: Partial<LauncherUpdateChangelogResult> = {})
   return {
     modId: 101,
     version: '1.2.0',
-    changelog:
-      '- 修复了在冬季由于雪地渲染导致的菜单闪烁 Bug\n- 增加了对 SMAPI 4.0 的完美支持',
+    changelog: '- 修复了在冬季由于雪地渲染导致的菜单闪烁 Bug\n- 增加了对 SMAPI 4.0 的完美支持',
     ...overrides,
   }
 }
@@ -387,9 +386,7 @@ describe('LauncherUpdatesPage', () => {
     const onNavigateToDiagnostics = vi.fn()
     const onRetryDiagnostics = vi.fn().mockResolvedValue(undefined)
     const rawError = 'Nexus Public GraphQL: timeout'
-    checkLauncherUpdatesMock
-      .mockRejectedValueOnce(new Error(rawError))
-      .mockResolvedValueOnce(createResult([]))
+    checkLauncherUpdatesMock.mockRejectedValueOnce(new Error(rawError)).mockResolvedValueOnce(createResult([]))
 
     const { container } = renderWithProviders(
       <LauncherUpdatesPage
@@ -518,9 +515,7 @@ describe('LauncherUpdatesPage', () => {
   it('shows update-check progress in the global notification viewport', async () => {
     checkLauncherUpdatesMock.mockImplementation(() => new Promise(() => {}))
 
-    const { container } = renderWithProviders(
-      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-    )
+    const { container } = renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
     await act(async () => {
       eventListeners.get('launcher://update-check-progress')?.({
@@ -605,9 +600,7 @@ describe('LauncherUpdatesPage', () => {
     const pendingCheck = createDeferred<LauncherUpdatesResult>()
     checkLauncherUpdatesMock.mockImplementation(() => pendingCheck.promise)
 
-    const { container } = renderWithProviders(
-      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-    )
+    const { container } = renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
     await waitFor(() => {
       expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)

@@ -20,22 +20,24 @@ export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopover
         </div>
         <div className="launcher-downloads-popover-actions">
           {downloads.counts.readyToInstall ? (
-            <button
-              type="button"
-              className="control-button control-button-primary"
-              onClick={() => void downloads.installAllReady()}
-            >
-              <span>{copy.actions.install} ({downloads.counts.readyToInstall})</span>
+            <button type="button" className="control-button control-button-primary" onClick={() => void downloads.installAllReady()}>
+              <span>
+                {copy.actions.install} ({downloads.counts.readyToInstall})
+              </span>
             </button>
           ) : null}
           {downloads.counts.failed ? (
             <button type="button" className="control-button" onClick={downloads.retryFailed}>
-              <span>{copy.actions.retry} ({downloads.counts.failed})</span>
+              <span>
+                {copy.actions.retry} ({downloads.counts.failed})
+              </span>
             </button>
           ) : null}
           {downloads.removableItems.length ? (
             <button type="button" className="control-button" onClick={downloads.removeCompleted}>
-              <span>{copy.actions.remove} ({downloads.removableItems.length})</span>
+              <span>
+                {copy.actions.remove} ({downloads.removableItems.length})
+              </span>
             </button>
           ) : null}
         </div>
@@ -67,7 +69,9 @@ export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopover
           <div className="launcher-downloads-popover-refresh">
             <span className="dock-chip">
               <RefreshCw className="h-3 w-3" />
-              <span>{downloads.counts.downloading} {copy.overview.activeDownloads}</span>
+              <span>
+                {downloads.counts.downloading} {copy.overview.activeDownloads}
+              </span>
             </span>
             <span className="dock-chip">{orderedItems.length}</span>
           </div>

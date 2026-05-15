@@ -216,10 +216,12 @@ describe('configuration diagnostics cache', () => {
       apiKeySignature: '',
     })
 
-    expect(readCachedLauncherConfigurationDiagnostics({
-      now: 60 * 60 * 1000,
-      apiKeySignature: '',
-    })).toEqual({
+    expect(
+      readCachedLauncherConfigurationDiagnostics({
+        now: 60 * 60 * 1000,
+        apiKeySignature: '',
+      }),
+    ).toEqual({
       diagnostics,
       cachedAt: 1_000,
       shouldRefresh: false,
@@ -242,10 +244,12 @@ describe('configuration diagnostics cache', () => {
       apiKeySignature: 'api-key',
     })
 
-    expect(readCachedLauncherConfigurationDiagnostics({
-      now: 1_000 + (6 * 60 * 1000),
-      apiKeySignature: 'api-key',
-    })?.shouldRefresh).toBe(true)
+    expect(
+      readCachedLauncherConfigurationDiagnostics({
+        now: 1_000 + 6 * 60 * 1000,
+        apiKeySignature: 'api-key',
+      })?.shouldRefresh,
+    ).toBe(true)
   })
 
   it('refreshes non-API routes only when the cached route previously failed', () => {
@@ -266,31 +270,38 @@ describe('configuration diagnostics cache', () => {
       apiKeySignature: '',
     })
 
-    expect(readCachedLauncherConfigurationDiagnostics({
-      now: 2_000,
-      apiKeySignature: '',
-    })?.shouldRefresh).toBe(true)
+    expect(
+      readCachedLauncherConfigurationDiagnostics({
+        now: 2_000,
+        apiKeySignature: '',
+      })?.shouldRefresh,
+    ).toBe(true)
   })
 
   it('refreshes cached loading snapshots instead of freezing the page on stale loading state', () => {
-    writeCachedLauncherConfigurationDiagnostics({
-      routes: [
-        createRoute({
-          routeId: 'publicGraphql',
-          status: 'loading',
-          available: true,
-          message: 'loading',
-        }),
-      ],
-    }, {
-      now: 1_000,
-      apiKeySignature: '',
-    })
+    writeCachedLauncherConfigurationDiagnostics(
+      {
+        routes: [
+          createRoute({
+            routeId: 'publicGraphql',
+            status: 'loading',
+            available: true,
+            message: 'loading',
+          }),
+        ],
+      },
+      {
+        now: 1_000,
+        apiKeySignature: '',
+      },
+    )
 
-    expect(readCachedLauncherConfigurationDiagnostics({
-      now: 2_000,
-      apiKeySignature: '',
-    })?.shouldRefresh).toBe(true)
+    expect(
+      readCachedLauncherConfigurationDiagnostics({
+        now: 2_000,
+        apiKeySignature: '',
+      })?.shouldRefresh,
+    ).toBe(true)
   })
 
   it('refreshes cached authenticated routes when the API key signature changes', () => {
@@ -308,10 +319,12 @@ describe('configuration diagnostics cache', () => {
       apiKeySignature: 'old-key',
     })
 
-    expect(readCachedLauncherConfigurationDiagnostics({
-      now: 1_100,
-      apiKeySignature: 'new-key',
-    })?.shouldRefresh).toBe(true)
+    expect(
+      readCachedLauncherConfigurationDiagnostics({
+        now: 1_100,
+        apiKeySignature: 'new-key',
+      })?.shouldRefresh,
+    ).toBe(true)
   })
 
   it('reuses cached API key validation until it expires or the API key changes', () => {
@@ -324,26 +337,35 @@ describe('configuration diagnostics cache', () => {
       hourlyResetAt: null,
     }
 
-    writeCachedLauncherConfigurationApiKeyStatus({
-      status,
-      error: null,
-    }, {
-      now: 1_000,
-      apiKeySignature: 'api-key',
-    })
+    writeCachedLauncherConfigurationApiKeyStatus(
+      {
+        status,
+        error: null,
+      },
+      {
+        now: 1_000,
+        apiKeySignature: 'api-key',
+      },
+    )
 
-    expect(readCachedLauncherConfigurationApiKeyStatus({
-      now: 1_000 + (4 * 60 * 1000),
-      apiKeySignature: 'api-key',
-    })?.status).toEqual(status)
-    expect(readCachedLauncherConfigurationApiKeyStatus({
-      now: 1_000 + (6 * 60 * 1000),
-      apiKeySignature: 'api-key',
-    })).toBeNull()
-    expect(readCachedLauncherConfigurationApiKeyStatus({
-      now: 1_100,
-      apiKeySignature: 'different-key',
-    })).toBeNull()
+    expect(
+      readCachedLauncherConfigurationApiKeyStatus({
+        now: 1_000 + 4 * 60 * 1000,
+        apiKeySignature: 'api-key',
+      })?.status,
+    ).toEqual(status)
+    expect(
+      readCachedLauncherConfigurationApiKeyStatus({
+        now: 1_000 + 6 * 60 * 1000,
+        apiKeySignature: 'api-key',
+      }),
+    ).toBeNull()
+    expect(
+      readCachedLauncherConfigurationApiKeyStatus({
+        now: 1_100,
+        apiKeySignature: 'different-key',
+      }),
+    ).toBeNull()
   })
 })
 

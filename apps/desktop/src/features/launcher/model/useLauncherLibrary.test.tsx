@@ -209,9 +209,7 @@ function createLauncherDiagnosticsResult(
   }
 }
 
-function createInstallArchiveResult(
-  overrides: Partial<InstallLauncherArchiveResult> = {},
-): InstallLauncherArchiveResult {
+function createInstallArchiveResult(overrides: Partial<InstallLauncherArchiveResult> = {}): InstallLauncherArchiveResult {
   return {
     modName: 'Example Pack',
     uniqueId: 'ModForge.ExamplePack',
@@ -631,10 +629,7 @@ describe('useLauncherLibrary', () => {
       ],
     })
 
-    const { result } = renderHook(
-      () => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })),
-      { wrapper: Wrapper },
-    )
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), { wrapper: Wrapper })
 
     await act(async () => {
       await result.current.refresh()
@@ -814,18 +809,16 @@ describe('useLauncherLibrary', () => {
     vi.setSystemTime(new Date('2000-01-04T00:00:00Z'))
 
     loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
-    loadLauncherLibraryCoversMock
-      .mockResolvedValueOnce(createLibraryCoversState())
-      .mockResolvedValueOnce(
-        createLibraryCoversState({
-          covers: [
-            {
-              labelKey: 'ModForge.MissingA',
-              imagePath: 'E:\\Covers\\missing-a.png',
-            },
-          ],
-        }),
-      )
+    loadLauncherLibraryCoversMock.mockResolvedValueOnce(createLibraryCoversState()).mockResolvedValueOnce(
+      createLibraryCoversState({
+        covers: [
+          {
+            labelKey: 'ModForge.MissingA',
+            imagePath: 'E:\\Covers\\missing-a.png',
+          },
+        ],
+      }),
+    )
     scanLauncherLibraryMock
       .mockResolvedValueOnce({
         modsPath: 'E:\\Games\\Stardew Valley\\Mods',
@@ -905,20 +898,18 @@ describe('useLauncherLibrary', () => {
 
     loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
     loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
-    scanLauncherLibraryMock
-      .mockReturnValueOnce(firstScanRequest.promise)
-      .mockResolvedValueOnce({
-        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
-        mods: [
-          createMod({
-            id: 'mod-new',
-            labelKey: 'ModForge.New',
-            uniqueId: 'ModForge.New',
-            name: 'New Result',
-            nexusModId: null,
-          }),
-        ],
-      })
+    scanLauncherLibraryMock.mockReturnValueOnce(firstScanRequest.promise).mockResolvedValueOnce({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-new',
+          labelKey: 'ModForge.New',
+          uniqueId: 'ModForge.New',
+          name: 'New Result',
+          nexusModId: null,
+        }),
+      ],
+    })
 
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
 
@@ -979,18 +970,14 @@ describe('useLauncherLibrary', () => {
         }),
       ],
     })
-    loadLauncherRemoteModDetailMock
-      .mockReturnValueOnce(detailRequest.promise)
-      .mockResolvedValueOnce(
-        createRemoteModDetail({
-          modId: 202,
-          title: 'Missing Cover B',
-          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
-        }),
-      )
-    persistLauncherLibraryRemoteCoverMock
-      .mockReturnValueOnce(persistRequest.promise)
-      .mockResolvedValueOnce(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockReturnValueOnce(detailRequest.promise).mockResolvedValueOnce(
+      createRemoteModDetail({
+        modId: 202,
+        title: 'Missing Cover B',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockReturnValueOnce(persistRequest.promise).mockResolvedValueOnce(createLibraryCoversState())
 
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
 
@@ -1065,14 +1052,8 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenNthCalledWith(
-        1,
-        createAutoCoverNotification('Missing Cover A', 'local', 0, 1),
-      )
-      expect(publishNotificationMock).toHaveBeenNthCalledWith(
-        2,
-        createAutoCoverNotification('Missing Cover A', 'apiCover', 0, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenNthCalledWith(1, createAutoCoverNotification('Missing Cover A', 'local', 0, 1))
+      expect(publishNotificationMock).toHaveBeenNthCalledWith(2, createAutoCoverNotification('Missing Cover A', 'apiCover', 0, 1))
     })
 
     await act(async () => {
@@ -1087,9 +1068,7 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Missing Cover A', 'remoteCover', 0, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Missing Cover A', 'remoteCover', 0, 1))
     })
 
     await act(async () => {
@@ -1098,9 +1077,7 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Missing Cover A', 'remoteCover', 1, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Missing Cover A', 'remoteCover', 1, 1))
       expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-auto-cover-progress')
     })
   })
@@ -1140,12 +1117,8 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Gallery Cover A', 'apiGallery', 0, 1),
-      )
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 0, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Gallery Cover A', 'apiGallery', 0, 1))
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 0, 1))
     })
 
     await act(async () => {
@@ -1157,9 +1130,7 @@ describe('useLauncherLibrary', () => {
       labelKey: '20599',
       imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-1.png',
     })
-    expect(publishNotificationMock).toHaveBeenCalledWith(
-      createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 1, 1),
-    )
+    expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 1, 1))
   })
 
   it('keeps the auto-cover flow alive across state writes until every eligible mod finishes', async () => {
@@ -1749,9 +1720,7 @@ describe('useLauncherLibrary', () => {
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
 
     await act(async () => {
-      await expect(result.current.installArchive('E:\\Downloads\\example.zip')).resolves.toEqual(
-        createInstallArchiveResult(),
-      )
+      await expect(result.current.installArchive('E:\\Downloads\\example.zip')).resolves.toEqual(createInstallArchiveResult())
     })
 
     expect(installLauncherArchiveMock).toHaveBeenCalledWith({

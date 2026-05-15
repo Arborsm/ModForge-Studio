@@ -1,17 +1,38 @@
 import { describe, expect, it } from 'vitest'
 import type { ResourcePreloadState, SlotId, WorkspaceSlotState } from '@shared/contracts'
-import { areWorkspaceStoredStatesEqual, deriveWorkspaceStatus, getRecentGameDirectories, getResourcePreloadProgress, normalizeWorkspaceLayouts } from './workbenchLogic'
+import {
+  areWorkspaceStoredStatesEqual,
+  deriveWorkspaceStatus,
+  getRecentGameDirectories,
+  getResourcePreloadProgress,
+  normalizeWorkspaceLayouts,
+} from './workbenchLogic'
 
 describe('workbenchLogic', () => {
   it('normalizes workspace layout records before persistence', () => {
     expect(
       normalizeWorkspaceLayouts({
-        valid: { panels: {}, slots: {} as Record<SlotId, WorkspaceSlotState>, chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 }, presets: {} },
-        ' ': { panels: {}, slots: {} as Record<SlotId, WorkspaceSlotState>, chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 }, presets: {} },
+        valid: {
+          panels: {},
+          slots: {} as Record<SlotId, WorkspaceSlotState>,
+          chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 },
+          presets: {},
+        },
+        ' ': {
+          panels: {},
+          slots: {} as Record<SlotId, WorkspaceSlotState>,
+          chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 },
+          presets: {},
+        },
         list: [] as unknown as Record<string, unknown>,
       }),
     ).toEqual({
-      valid: { panels: {}, slots: {} as Record<SlotId, WorkspaceSlotState>, chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 }, presets: {} },
+      valid: {
+        panels: {},
+        slots: {} as Record<SlotId, WorkspaceSlotState>,
+        chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 },
+        presets: {},
+      },
     })
   })
 
@@ -60,7 +81,12 @@ describe('workbenchLogic', () => {
   })
 
   it('compares workspace stored states by JSON equivalence', () => {
-    const state = { panels: {}, slots: {} as Record<SlotId, WorkspaceSlotState>, chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 }, presets: {} }
+    const state = {
+      panels: {},
+      slots: {} as Record<SlotId, WorkspaceSlotState>,
+      chrome: { leftWidth: 240, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 },
+      presets: {},
+    }
 
     expect(areWorkspaceStoredStatesEqual(state, { ...state })).toBe(true)
     expect(areWorkspaceStoredStatesEqual(state, null)).toBe(false)
@@ -68,7 +94,12 @@ describe('workbenchLogic', () => {
     expect(areWorkspaceStoredStatesEqual(null, null)).toBe(true)
     expect(areWorkspaceStoredStatesEqual(undefined, undefined)).toBe(true)
 
-    const differentState = { panels: {}, slots: {} as Record<SlotId, WorkspaceSlotState>, chrome: { leftWidth: 300, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 }, presets: {} }
+    const differentState = {
+      panels: {},
+      slots: {} as Record<SlotId, WorkspaceSlotState>,
+      chrome: { leftWidth: 300, rightWidth: 240, bottomHeight: 220, leftSplit: 0.5, rightSplit: 0.5, bottomSplit: 0.5 },
+      presets: {},
+    }
     expect(areWorkspaceStoredStatesEqual(state, differentState)).toBe(false)
   })
 })

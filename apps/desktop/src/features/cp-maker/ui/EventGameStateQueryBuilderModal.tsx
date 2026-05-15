@@ -1,14 +1,4 @@
-import {
-  Clock,
-  Code2,
-  Compass,
-  Database,
-  Layers3,
-  PackageSearch,
-  Search,
-  UserRound,
-  X,
-} from 'lucide-react'
+import { Clock, Code2, Compass, Database, Layers3, PackageSearch, Search, UserRound, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { cx } from '@shared/lib/cx'
 import type { EditorCopy } from '@locales'
@@ -94,7 +84,11 @@ function compactLabelForClause(clause: GameStateQueryClauseDraft, label: string)
   }
 
   if (clause.key === 'SEASON' && clause.values.season) {
-    return clause.values.season.split(/\s+/u).filter(Boolean).map((season) => season.slice(0, 3)).join('/')
+    return clause.values.season
+      .split(/\s+/u)
+      .filter(Boolean)
+      .map((season) => season.slice(0, 3))
+      .join('/')
   }
 
   if (clause.key === 'WEATHER' && clause.values.weather) {
@@ -104,13 +98,7 @@ function compactLabelForClause(clause: GameStateQueryClauseDraft, label: string)
   return compactText(label)
 }
 
-export function EventGameStateQueryBuilderModal({
-  copy,
-  hubCopy,
-  initialQuery,
-  onApply,
-  onCancel,
-}: EventGameStateQueryBuilderModalProps) {
+export function EventGameStateQueryBuilderModal({ copy, hubCopy, initialQuery, onApply, onCancel }: EventGameStateQueryBuilderModalProps) {
   const [activeCategory, setActiveCategory] = useState<ActiveCategory>('world')
   const [searchText, setSearchText] = useState('')
   const [draftsByKey, setDraftsByKey] = useState<Partial<Record<GameStateQueryKey, GameStateQueryClauseDraft>>>({})
@@ -122,10 +110,11 @@ export function EventGameStateQueryBuilderModal({
     return CATALOG_DEFINITIONS.filter((definition) => {
       const definitionCopy = copyForDefinition(definition, hubCopy)
       const matchesCategory = normalizedSearch.length > 0 || activeCategory === 'all' || definition.category === activeCategory
-      const matchesSearch = !normalizedSearch
-        || definition.key.toLowerCase().includes(normalizedSearch)
-        || definitionCopy.title.toLowerCase().includes(normalizedSearch)
-        || definitionCopy.description.toLowerCase().includes(normalizedSearch)
+      const matchesSearch =
+        !normalizedSearch ||
+        definition.key.toLowerCase().includes(normalizedSearch) ||
+        definitionCopy.title.toLowerCase().includes(normalizedSearch) ||
+        definitionCopy.description.toLowerCase().includes(normalizedSearch)
       return matchesCategory && matchesSearch
     })
   }, [activeCategory, hubCopy, searchText])
@@ -200,11 +189,11 @@ export function EventGameStateQueryBuilderModal({
   }
 
   function toggleClauseNegation(clauseId: string) {
-    setClauses((current) => current.map((clause) => clause.id === clauseId ? { ...clause, negated: !clause.negated } : clause))
+    setClauses((current) => current.map((clause) => (clause.id === clauseId ? { ...clause, negated: !clause.negated } : clause)))
   }
 
   function toggleBranchNegation(clauseId: string) {
-    setAnyBranches((current) => current.map((clause) => clause.id === clauseId ? { ...clause, negated: !clause.negated } : clause))
+    setAnyBranches((current) => current.map((clause) => (clause.id === clauseId ? { ...clause, negated: !clause.negated } : clause)))
   }
 
   function applyQuery() {
@@ -285,7 +274,9 @@ export function EventGameStateQueryBuilderModal({
         className={cx('condition-catalog-option game-state-query-catalog-option', definition.fields.length === 0 && 'no-controls')}
       >
         <div className="condition-catalog-option-head">
-          <span className="condition-catalog-icon"><DefinitionIcon className="h-4 w-4" aria-hidden="true" /></span>
+          <span className="condition-catalog-icon">
+            <DefinitionIcon className="h-4 w-4" aria-hidden="true" />
+          </span>
           <span>
             <strong>{definitionCopy.title}</strong>
             <small>{definitionCopy.description}</small>
@@ -310,9 +301,7 @@ export function EventGameStateQueryBuilderModal({
           </div>
         </div>
         {definition.fields.length > 0 ? (
-          <div className="game-state-query-field-grid">
-            {definition.fields.map((field) => renderField(definition, field))}
-          </div>
+          <div className="game-state-query-field-grid">{definition.fields.map((field) => renderField(definition, field))}</div>
         ) : null}
       </article>
     )
@@ -340,11 +329,7 @@ export function EventGameStateQueryBuilderModal({
         <ClauseIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="condition-chip-compact">{compactLabel}</span>
         <span className="condition-chip-full">{label}</span>
-        <button
-          type="button"
-          aria-label={copy.removeClauseLabel(label)}
-          onClick={() => onRemove(clause.id)}
-        >
+        <button type="button" aria-label={copy.removeClauseLabel(label)} onClick={() => onRemove(clause.id)}>
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
@@ -354,12 +339,7 @@ export function EventGameStateQueryBuilderModal({
   return (
     <div className="game-state-query-backdrop" role="presentation" onClick={onCancel}>
       <div className="game-state-query-stack" onClick={(event) => event.stopPropagation()}>
-        <section
-          className="game-state-query-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label={copy.title}
-        >
+        <section className="game-state-query-modal" role="dialog" aria-modal="true" aria-label={copy.title}>
           <header className="game-state-query-header">
             <div>
               <h2>{copy.title}</h2>
@@ -403,9 +383,7 @@ export function EventGameStateQueryBuilderModal({
 
             <main className="game-state-query-workbench">
               <section className="condition-builder-card condition-catalog-card game-state-query-catalog-card">
-                <div className="condition-catalog-grid game-state-query-catalog-grid">
-                  {filteredDefinitions.map(renderDefinitionCard)}
-                </div>
+                <div className="condition-catalog-grid game-state-query-catalog-grid">{filteredDefinitions.map(renderDefinitionCard)}</div>
               </section>
             </main>
           </div>
@@ -418,9 +396,11 @@ export function EventGameStateQueryBuilderModal({
               <span>{copy.logicAllLabel}</span>
             </div>
             <div className={cx('condition-chip-scroll', clauses.length > 8 && 'compact')}>
-              {clauses.length > 0
-                ? clauses.map((clause) => renderClauseChip(clause, toggleClauseNegation, removeClause))
-                : <span className="condition-chip-empty">{copy.emptyChainLabel}</span>}
+              {clauses.length > 0 ? (
+                clauses.map((clause) => renderClauseChip(clause, toggleClauseNegation, removeClause))
+              ) : (
+                <span className="condition-chip-empty">{copy.emptyChainLabel}</span>
+              )}
             </div>
           </section>
 
@@ -433,20 +413,30 @@ export function EventGameStateQueryBuilderModal({
               </button>
             </div>
             <div className={cx('condition-chip-scroll', anyBranches.length > 8 && 'compact')}>
-              {anyBranches.length > 0
-                ? anyBranches.map((clause) => renderClauseChip(clause, toggleBranchNegation, removeBranch))
-                : <span className="condition-chip-empty">{copy.emptyBranchLabel}</span>}
+              {anyBranches.length > 0 ? (
+                anyBranches.map((clause) => renderClauseChip(clause, toggleBranchNegation, removeBranch))
+              ) : (
+                <span className="condition-chip-empty">{copy.emptyBranchLabel}</span>
+              )}
             </div>
           </section>
         </aside>
 
         <aside className="condition-builder-preview-dock game-state-query-preview-dock" aria-label={copy.naturalPreviewLabel}>
           <div className="condition-builder-previews">
-            <p><strong>{copy.naturalPreviewLabel}</strong>{natural}</p>
-            <p><strong>{copy.codePreviewLabel}</strong><code>{query || copy.emptyPreview}</code></p>
+            <p>
+              <strong>{copy.naturalPreviewLabel}</strong>
+              {natural}
+            </p>
+            <p>
+              <strong>{copy.codePreviewLabel}</strong>
+              <code>{query || copy.emptyPreview}</code>
+            </p>
           </div>
           <div className="condition-builder-actions">
-            <button type="button" className="control-button" onClick={onCancel}>{copy.cancelAction}</button>
+            <button type="button" className="control-button" onClick={onCancel}>
+              {copy.cancelAction}
+            </button>
             <button type="button" className="control-button control-button-primary" disabled={!canApply} onClick={applyQuery}>
               {copy.applyAction}
             </button>

@@ -56,23 +56,29 @@ export function StudioDesk({
   const desk = copy.studioDesk
   const worldBibleId = 'studio-world-bible-panel'
   const galleryOpen = controlledGalleryOpen ?? localGalleryOpen
-  const setGalleryOpen = useCallback((open: boolean) => {
-    if (controlledGalleryOpen === undefined) {
-      setLocalGalleryOpen(open)
-    }
-    onGalleryOpenChange?.(open)
-  }, [controlledGalleryOpen, onGalleryOpenChange])
+  const setGalleryOpen = useCallback(
+    (open: boolean) => {
+      if (controlledGalleryOpen === undefined) {
+        setLocalGalleryOpen(open)
+      }
+      onGalleryOpenChange?.(open)
+    },
+    [controlledGalleryOpen, onGalleryOpenChange],
+  )
 
   const tagList = desk.designTags.map((tag, index) => (
-    <span key={tag}>{index === 0 ? <span className="studio-tag-dot" /> : null}{tag}</span>
+    <span key={tag}>
+      {index === 0 ? <span className="studio-tag-dot" /> : null}
+      {tag}
+    </span>
   ))
 
   function handleDeskPointerMove(event: PointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect()
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
-    const shiftX = ((x / Math.max(rect.width, 1)) - 0.5) * 10
-    const shiftY = ((y / Math.max(rect.height, 1)) - 0.5) * 10
+    const shiftX = (x / Math.max(rect.width, 1) - 0.5) * 10
+    const shiftY = (y / Math.max(rect.height, 1) - 0.5) * 10
 
     event.currentTarget.style.setProperty('--studio-pointer-x', `${x}px`)
     event.currentTarget.style.setProperty('--studio-pointer-y', `${y}px`)
@@ -138,7 +144,12 @@ export function StudioDesk({
                 <span className="studio-save-dot" />
                 <span>{formatStudioTimestamp(desk, model.exportSummary.lastExportedAt)}</span>
               </div>
-              <button className="control-button control-button-primary text-xs" type="button" onClick={() => setExportOpen(true)} disabled={!model.hasActiveDraft}>
+              <button
+                className="control-button control-button-primary text-xs"
+                type="button"
+                onClick={() => setExportOpen(true)}
+                disabled={!model.hasActiveDraft}
+              >
                 {desk.publishPack}
               </button>
             </div>

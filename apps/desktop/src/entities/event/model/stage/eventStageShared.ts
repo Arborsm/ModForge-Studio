@@ -10,7 +10,6 @@ import {
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { EventCommand, EventDialoguePage, EventSceneActor, EventScript } from '@entities/event'
 
-
 type PlaybackLogEntry = {
   id: string
   tone: 'dialogue' | 'message' | 'choice' | 'command' | 'system'
@@ -610,9 +609,10 @@ function createActorState(actor: EventSceneActor): EventActorState {
 }
 
 function buildActorMap(event: EventScript) {
-  return Object.fromEntries(
-    event.scene.actors.map((actor) => [toActorKey(actor.actorName), createActorState(actor)]),
-  ) as Record<string, EventActorState>
+  return Object.fromEntries(event.scene.actors.map((actor) => [toActorKey(actor.actorName), createActorState(actor)])) as Record<
+    string,
+    EventActorState
+  >
 }
 
 function parsePoint(valueA: string | undefined, valueB: string | undefined) {
@@ -648,7 +648,10 @@ function normalizeStageMapName(mapName: string | null | undefined) {
 }
 
 function isPathsLayerName(layerName: string) {
-  const normalized = layerName.trim().toLowerCase().replace(/[^a-z0-9]+/gu, '')
+  const normalized = layerName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '')
   return normalized === 'paths' || normalized.startsWith('paths')
 }
 
@@ -834,12 +837,7 @@ function getSpringObjectsSourceRect(itemIndex: number) {
   }
 }
 
-function createObjectSheetEffect(
-  commandId: string,
-  suffix: string,
-  itemIndex: number,
-  partial: Partial<StageEffectState>,
-) {
+function createObjectSheetEffect(commandId: string, suffix: string, itemIndex: number, partial: Partial<StageEffectState>) {
   const sourceRect = getSpringObjectsSourceRect(itemIndex)
   return createStageEffect(commandId, suffix, {
     textureName: 'Maps\\springobjects',
@@ -851,12 +849,7 @@ function createObjectSheetEffect(
   })
 }
 
-function createAnimationRowEffect(
-  commandId: string,
-  suffix: string,
-  rowInAnimationTexture: number,
-  partial: Partial<StageEffectState>,
-) {
+function createAnimationRowEffect(commandId: string, suffix: string, rowInAnimationTexture: number, partial: Partial<StageEffectState>) {
   return createStageEffect(commandId, suffix, {
     textureName: 'TileSheets\\animations',
     sourceX: 0,
@@ -941,7 +934,7 @@ async function loadHatMetadataIndex(rootPath: string, locale: LocaleCode) {
         }),
       ) as Record<string, HatMetadataEntry>
     })
-    .catch(() => ({} as Record<string, HatMetadataEntry>))
+    .catch(() => ({}) as Record<string, HatMetadataEntry>)
 
   hatMetadataCache.set(cacheKey, pending)
   return pending
@@ -975,7 +968,7 @@ async function loadHairMetadataIndex(rootPath: string, locale: LocaleCode) {
         }),
       ) as Record<string, FarmerHairMetadataEntry>
     })
-    .catch(() => ({} as Record<string, FarmerHairMetadataEntry>))
+    .catch(() => ({}) as Record<string, FarmerHairMetadataEntry>)
 
   hairMetadataCache.set(cacheKey, pending)
   return pending
@@ -1153,4 +1146,3 @@ export type {
   StagePoint,
   StageRectangle,
 }
-

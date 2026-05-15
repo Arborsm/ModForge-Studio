@@ -1,6 +1,12 @@
 function hexToRgb(value: string) {
   const normalized = value.replace('#', '')
-  const hex = normalized.length === 3 ? normalized.split('').map((char) => `${char}${char}`).join('') : normalized
+  const hex =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : normalized
   const parsed = Number.parseInt(hex, 16)
 
   return {

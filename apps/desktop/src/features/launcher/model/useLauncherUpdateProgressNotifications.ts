@@ -20,10 +20,7 @@ function isLauncherUpdateProgressComplete(payload: LauncherUpdateProgressPayload
   return payload.total > 0 && payload.checked >= payload.total
 }
 
-export function publishLauncherUpdateProgressNotification(
-  copy: LauncherUpdatesCopy,
-  payload: LauncherUpdateProgressPayload,
-) {
+export function publishLauncherUpdateProgressNotification(copy: LauncherUpdatesCopy, payload: LauncherUpdateProgressPayload) {
   publishNotification({
     id: LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID,
     level: 'info',
@@ -41,25 +38,27 @@ export function useLauncherUpdateProgressNotifications(locale: LocaleCode) {
     let active = true
     let unlisten: (() => void) | null = null
 
-    void launcherPort.listenToUpdateProgress((payload) => {
-      if (!active) {
-        return
-      }
+    void launcherPort
+      .listenToUpdateProgress((payload) => {
+        if (!active) {
+          return
+        }
 
-      if (isLauncherUpdateProgressComplete(payload)) {
-        dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
-        return
-      }
+        if (isLauncherUpdateProgressComplete(payload)) {
+          dismissNotification(LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID)
+          return
+        }
 
-      publishLauncherUpdateProgressNotification(copy, payload)
-    }).then((dispose) => {
-      if (!active) {
-        dispose()
-        return
-      }
+        publishLauncherUpdateProgressNotification(copy, payload)
+      })
+      .then((dispose) => {
+        if (!active) {
+          dispose()
+          return
+        }
 
-      unlisten = dispose
-    })
+        unlisten = dispose
+      })
 
     return () => {
       active = false

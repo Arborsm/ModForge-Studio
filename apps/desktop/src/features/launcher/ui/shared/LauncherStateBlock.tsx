@@ -22,21 +22,9 @@ function getToneIcon(tone: NonNullable<LauncherStateBlockProps['tone']>) {
   return <Info className="h-4 w-4" />
 }
 
-export function LauncherStateBlock({
-  title,
-  detail,
-  action,
-  tone = 'info',
-  compact = false,
-}: LauncherStateBlockProps) {
+export function LauncherStateBlock({ title, detail, action, tone = 'info', compact = false }: LauncherStateBlockProps) {
   return (
-    <section
-      className={cx(
-        'launcher-state-block',
-        `launcher-state-block-${tone}`,
-        compact && 'launcher-state-block-compact',
-      )}
-    >
+    <section className={cx('launcher-state-block', `launcher-state-block-${tone}`, compact && 'launcher-state-block-compact')}>
       <div className="launcher-state-block-icon">{tone === 'info' ? <Sparkles className="h-4 w-4" /> : getToneIcon(tone)}</div>
       <div className="launcher-state-block-copy">
         <p className="launcher-state-block-title">{title}</p>

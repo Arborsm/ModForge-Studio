@@ -8,9 +8,5 @@ export type CpMakerProviderProps = {
 }
 
 export function CpMakerProvider({ children, port }: CpMakerProviderProps) {
-  return (
-    <CpMakerPortContext.Provider value={port}>
-      {children}
-    </CpMakerPortContext.Provider>
-  )
+  return <CpMakerPortContext.Provider value={port}>{children}</CpMakerPortContext.Provider>
 }

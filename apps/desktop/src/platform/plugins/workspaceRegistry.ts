@@ -23,11 +23,7 @@ export type EditorComponent = ComponentType<{
   patch: DraftPatch
   draft: CpMakerDraft
   onPatchChange: (patchId: string, patch: Partial<DraftPatch>) => void
-  onAddVirtualAsset: (asset: {
-    relativePath: string
-    mediaType: string
-    bytesBase64: string
-  }) => void
+  onAddVirtualAsset: (asset: { relativePath: string; mediaType: string; bytesBase64: string }) => void
   onRemoveVirtualAsset?: (relativePath: string) => void
   locale?: LocaleCode
   theme?: ThemeMode
