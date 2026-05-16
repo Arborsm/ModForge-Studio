@@ -51,7 +51,8 @@ ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Taur
 │        │  ├─ support/                # 横向支撑代码
 │        │  └─ tests/                  # Rust 模块 / 单元测试
 │        └─ tests/                     # Rust 集成 / 回归测试
-├─ docs/                              # 长期维护的架构与设计文档
+├─ docs/                              # 长期维护的架构、设计文档与外部 API 快照
+│  └─ nexusmods-graphql/              # Nexus Mods GraphQL v2 文档的 Markdown 快照与刷新脚本
 ├─ .cargo/                            # Cargo 环境配置与 Windows Tauri 测试兼容项
 ├─ .husky/                            # Git hooks；pre-commit 运行 lint-staged
 ├─ .prettierrc                        # Prettier 配置与 Tailwind class 排序插件
@@ -119,6 +120,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 状态栏：`apps/desktop/src/widgets/status-bar/ui/StatusBar.tsx`
 - Launcher 样式：`apps/desktop/src/styles/features/launcher/`
 - NexusMods 后端线路：`apps/desktop/src-tauri/src/domain/nexusmods/`，其中 GraphQL 在 `graphql/`，REST API 在 `rest_api/`，线路诊断与共享传输分别在 `diagnostics.rs`、`routes.rs`、`http.rs`
+- Nexus Mods GraphQL v2 文档快照：`docs/nexusmods-graphql/SUMMARY.md`，刷新脚本为 `docs/nexusmods-graphql/convert-to-markdown.mjs`
 
 ### Workbench
 
@@ -217,6 +219,8 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
   - `apps/desktop/src-tauri/src/domain/nexusmods/rest_api/`
   - `apps/desktop/src-tauri/src/domain/nexusmods/diagnostics.rs`
   - `apps/desktop/src-tauri/src/domain/nexusmods/http.rs`
+  - `docs/nexusmods-graphql/SUMMARY.md`（官方 GraphQL v2 文档快照）
+  - `docs/nexusmods-graphql/convert-to-markdown.mjs`（刷新并重新切分 Markdown 快照）
 - 改工作台布局或 panel：
   - `apps/desktop/src/pages/workbench/`
   - `apps/desktop/src/shared/workspace/`

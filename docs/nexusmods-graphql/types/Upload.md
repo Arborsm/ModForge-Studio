@@ -1,0 +1,7 @@
+# Upload
+
+## Example
+
+```gql
+Upload
+```
