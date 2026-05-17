@@ -21,7 +21,6 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-pub(crate) const MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE: &str = "Nexus manual download page opened.";
 const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
 
 fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
@@ -43,6 +42,52 @@ fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> R
         ],
     );
     Ok(())
+}
+
+fn download_result_title(request: &DownloadLauncherModRequest) -> String {
+    request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("Nexus Mod {}", request.mod_id))
+}
+
+fn manual_download_page_opened_result(
+    request: &DownloadLauncherModRequest,
+    file_name: String,
+    version: Option<String>,
+) -> DownloadLauncherModResult {
+    DownloadLauncherModResult {
+        mod_id: request.mod_id,
+        title: download_result_title(request),
+        version,
+        file_name,
+        archive_path: String::new(),
+        installed: false,
+        installed_target_path: None,
+        manual_download_page_opened: true,
+    }
+}
+
+fn log_download_result_complete(result: &DownloadLauncherModResult) {
+    log_launcher_trace(
+        "download.complete",
+        &[
+            ("modId", result.mod_id.to_string()),
+            ("archivePath", result.archive_path.clone()),
+            ("installed", result.installed.to_string()),
+            (
+                "installedTargetPath",
+                result.installed_target_path.clone().unwrap_or_default(),
+            ),
+            (
+                "manualDownloadPageOpened",
+                result.manual_download_page_opened.to_string(),
+            ),
+        ],
+    );
 }
 
 fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> LauncherDownloadQueueState {
@@ -273,7 +318,13 @@ pub fn download_launcher_mod(
                     candidate.file_id,
                     NEXUS_STARDEW_VALLEY_GAME_ID,
                 )?;
-                return Err(MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE.to_string());
+                let result = manual_download_page_opened_result(
+                    &request,
+                    candidate.file_name,
+                    candidate.version,
+                );
+                log_download_result_complete(&result);
+                return Ok(result);
             }
 
             let download_url =
@@ -285,7 +336,13 @@ pub fn download_launcher_mod(
                             candidate.file_id,
                             NEXUS_STARDEW_VALLEY_GAME_ID,
                         )?;
-                        return Err(MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE.to_string());
+                        let result = manual_download_page_opened_result(
+                            &request,
+                            candidate.file_name,
+                            candidate.version,
+                        );
+                        log_download_result_complete(&result);
+                        return Ok(result);
                     }
                     Err(ResolveDownloadUrlError::Message(message)) => return Err(message),
                 };
@@ -348,11 +405,7 @@ pub fn download_launcher_mod(
 
             let result = DownloadLauncherModResult {
                 mod_id: request.mod_id,
-                title: request
-                    .title
-                    .map(|value| value.trim().to_string())
-                    .filter(|value| !value.is_empty())
-                    .unwrap_or_else(|| format!("Nexus Mod {}", request.mod_id)),
+                title: download_result_title(&request),
                 version: candidate.version,
                 file_name: archive_path
                     .file_name()
@@ -362,19 +415,9 @@ pub fn download_launcher_mod(
                 archive_path: normalize_path(&archive_path),
                 installed,
                 installed_target_path,
+                manual_download_page_opened: false,
             };
-            log_launcher_trace(
-                "download.complete",
-                &[
-                    ("modId", result.mod_id.to_string()),
-                    ("archivePath", result.archive_path.clone()),
-                    ("installed", result.installed.to_string()),
-                    (
-                        "installedTargetPath",
-                        result.installed_target_path.clone().unwrap_or_default(),
-                    ),
-                ],
-            );
+            log_download_result_complete(&result);
             Ok(result)
         })(),
     )
@@ -382,7 +425,10 @@ pub fn download_launcher_mod(
 
 #[cfg(test)]
 mod tests {
-    use super::{nexus_manual_download_url, NEXUS_STARDEW_VALLEY_GAME_ID};
+    use super::{
+        download_result_title, manual_download_page_opened_result, nexus_manual_download_url,
+        DownloadLauncherModRequest, NEXUS_STARDEW_VALLEY_GAME_ID,
+    };
 
     #[test]
     fn nexus_manual_download_url_targets_file_popup_with_explicit_game_id() {
@@ -390,5 +436,49 @@ mod tests {
             nexus_manual_download_url(167813, NEXUS_STARDEW_VALLEY_GAME_ID),
             "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id=167813&game_id=1303"
         );
+    }
+
+    #[test]
+    fn download_result_title_uses_trimmed_request_title_or_mod_fallback() {
+        let titled = DownloadLauncherModRequest {
+            mod_id: 1915,
+            file_id: Some(160463),
+            version: None,
+            title: Some("  Content Patcher  ".to_string()),
+        };
+        assert_eq!(download_result_title(&titled), "Content Patcher");
+
+        let fallback = DownloadLauncherModRequest {
+            mod_id: 1915,
+            file_id: None,
+            version: None,
+            title: Some("   ".to_string()),
+        };
+        assert_eq!(download_result_title(&fallback), "Nexus Mod 1915");
+    }
+
+    #[test]
+    fn manual_download_page_opened_result_marks_browser_fallback_without_local_archive() {
+        let request = DownloadLauncherModRequest {
+            mod_id: 1915,
+            file_id: Some(160463),
+            version: Some("2.9.1".to_string()),
+            title: Some("Content Patcher".to_string()),
+        };
+
+        let result = manual_download_page_opened_result(
+            &request,
+            "ContentPatcher.zip".to_string(),
+            Some("2.9.1".to_string()),
+        );
+
+        assert_eq!(result.mod_id, 1915);
+        assert_eq!(result.title, "Content Patcher");
+        assert_eq!(result.version.as_deref(), Some("2.9.1"));
+        assert_eq!(result.file_name, "ContentPatcher.zip");
+        assert!(result.archive_path.is_empty());
+        assert!(!result.installed);
+        assert_eq!(result.installed_target_path, None);
+        assert!(result.manual_download_page_opened);
     }
 }

@@ -330,26 +330,4 @@
       opacity: 0;
     }
   }
-
-  /* ------------------------------------------------------------------ */
-  /*  Reduced motion                                                    */
-  /* ------------------------------------------------------------------ */
-
-  @media (prefers-reduced-motion: reduce) {
-    .gooey-nav-container nav ul li,
-    .gooey-nav-container nav ul li::after,
-    .gooey-nav-container .effect.text {
-      transition: none;
-    }
-
-    .gooey-nav-container .effect.active::after {
-      animation: none;
-    }
-
-    .particle,
-    .point {
-      animation: none !important;
-      display: none;
-    }
-  }
 }

@@ -68,8 +68,7 @@
     animation-name: loading-motion-section-slide;
   }
 
-  .loading-motion-reveal[data-loading-style="quietSimplify"],
-  .loading-motion-reveal[data-loading-reduced-motion="true"] {
+  .loading-motion-reveal[data-loading-style="quietSimplify"] {
     --loading-motion-reveal-delay-base: 18ms;
     --loading-motion-reveal-duration: 220ms;
     --loading-motion-reveal-distance: 0px;
@@ -115,8 +114,7 @@
     animation-name: loading-motion-section-slide;
   }
 
-  .loading-motion-reveal[data-loading-style="quietSimplify"] .loading-motion-child-reveal,
-  .loading-motion-reveal[data-loading-reduced-motion="true"] .loading-motion-child-reveal {
+  .loading-motion-reveal[data-loading-style="quietSimplify"] .loading-motion-child-reveal {
     --loading-motion-child-delay-base: 12ms;
     animation-name: loading-motion-section-quiet;
   }
@@ -499,12 +497,6 @@
     50% {
       transform: translate(-50%, -50%) scale(1.02);
       opacity: 0.8;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .loading-motion-fallback:not(.settings-loading-preview-stage) .loading-motion-layer {
-      animation: none !important;
     }
   }
 }

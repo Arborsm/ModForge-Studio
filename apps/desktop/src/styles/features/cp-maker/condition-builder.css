@@ -1526,17 +1526,4 @@
       box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 18%, transparent);
     }
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .condition-chip,
-    .condition-chip button,
-    .condition-chip-full,
-    .condition-chip-compact {
-      transition: none;
-    }
-
-    .condition-chip.conflict {
-      animation: none;
-    }
-  }
 }

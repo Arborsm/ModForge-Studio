@@ -291,18 +291,6 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 18%, transparent);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .top-menu-row,
-    .top-menu-module-button,
-    .top-menu-icon-action {
-      transition: none;
-    }
-
-    .top-menu-dropdown {
-      animation: none;
-    }
-  }
-
   @media (max-width: 900px) {
     .top-menu-primary {
       gap: 10px;

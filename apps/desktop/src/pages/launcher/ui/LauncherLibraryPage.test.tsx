@@ -420,7 +420,16 @@ describe('LauncherLibraryPage', () => {
       chooseImageFile: chooseImageFileMock,
       inspectArchive: inspectLauncherArchiveMock,
       listInstallBackups: listLauncherInstallBackupsMock,
-      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock.mockResolvedValue({
+        modId: 101,
+        title: 'NPC Adventures',
+        summary: 'Remote details for NPC Adventures.',
+        author: 'ModForge',
+        version: '1.0.0',
+        modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+        imageUrl: null,
+        galleryImages: [],
+      }),
       openPath: openLauncherPathMock,
       openUrl: openLauncherUrlMock,
       resolveImage: resolveLauncherImageMock,
@@ -1060,7 +1069,7 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'View Details' })[0]!)
     const dialog = await screen.findByRole('dialog', { name: 'NPC Adventures' })
-    expect(within(dialog).getByText('NPC Adventures')).not.toBeNull()
+    expect(within(dialog).getByRole('heading', { name: 'NPC Adventures' })).not.toBeNull()
 
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'Open Folder' })[0]!)
@@ -1068,7 +1077,7 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'Disable' })[0]!)
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'Set Cover' })[0]!)
-    fireEvent.click(within(dialog).getByRole('link', { name: 'Open Mod Page' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open Mod Page' }))
 
     await waitFor(() => {
       expect(openLauncherUrlMock).toHaveBeenCalledWith({ url: 'https://www.nexusmods.com/stardewvalley/mods/101' })
@@ -1587,6 +1596,116 @@ describe('LauncherLibraryPage', () => {
     ])
 
     boundsSpy.mockRestore()
+  })
+
+  it('only observes the library grid viewport for reveal batch recalculation', () => {
+    const library = createLargeLibraryState(16)
+    const observedElements: Element[] = []
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      observe(target: Element) {
+        observedElements.push(target)
+      }
+
+      unobserve() {}
+
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(observedElements).toHaveLength(1)
+    expect(observedElements[0]).toHaveClass('launcher-library-grid-viewport')
+
+    globalThis.ResizeObserver = OriginalResizeObserver
+  })
+
+  it('keeps the last reveal batch size while the library grid is hidden during route switches', async () => {
+    const library = createLargeLibraryState(16)
+    let hidden = false
+    const resizeCallbacks: ResizeObserverCallback[] = []
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallbacks.push(callback)
+      }
+
+      observe() {}
+
+      unobserve() {}
+
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        if (hidden) {
+          return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+        }
+        return { width: 1120, height: 840, top: 0, left: 0, bottom: 840, right: 1120, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { container } = renderLibraryPage()
+
+    await waitFor(() => {
+      const revealItems = Array.from(container.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
+      expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
+        '3',
+        '3',
+        '3',
+        '3',
+        '4',
+        '4',
+        '4',
+        '4',
+        '5',
+        '5',
+        '5',
+        '5',
+        '6',
+        '6',
+        '6',
+        '6',
+      ])
+    })
+
+    hidden = true
+    act(() => {
+      for (const callback of resizeCallbacks) {
+        callback([], {} as ResizeObserver)
+      }
+    })
+
+    const revealItems = Array.from(container.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
+    expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
+      '3',
+      '3',
+      '3',
+      '3',
+      '4',
+      '4',
+      '4',
+      '4',
+      '5',
+      '5',
+      '5',
+      '5',
+      '6',
+      '6',
+      '6',
+      '6',
+    ])
+
+    boundsSpy.mockRestore()
+    globalThis.ResizeObserver = OriginalResizeObserver
   })
 
   it('shows the real empty-library message when no installed mods were found', () => {

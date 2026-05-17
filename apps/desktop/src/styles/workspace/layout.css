@@ -391,14 +391,4 @@
     width: 0;
     height: 0;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .workspace-tool-button,
-    .workspace-panel-action,
-    .workspace-drop-zone,
-    .workspace-dock-resizer::before,
-    .workspace-split-resizer::before {
-      transition: none;
-    }
-  }
 }

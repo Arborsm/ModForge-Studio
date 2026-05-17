@@ -343,6 +343,7 @@ export type DownloadLauncherModResult = {
   archivePath: string
   installed: boolean
   installedTargetPath: string | null
+  manualDownloadPageOpened: boolean
 }
 
 export type LauncherGameLaunchTarget = 'smapi' | 'game'

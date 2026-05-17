@@ -1129,23 +1129,6 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .studio-inspiration,
-    .studio-workspace-card,
-    .studio-preview-active {
-      transition: none;
-      transform: none;
-    }
-
-    .studio-storyboard,
-    .studio-project-hero,
-    .studio-script-card {
-      animation: none;
-      transform: none;
-      filter: none;
-    }
-  }
-
   @keyframes studio-stage-enter {
     from {
       opacity: 0;

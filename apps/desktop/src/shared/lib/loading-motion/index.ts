@@ -35,15 +35,6 @@ export const DEFAULT_LOADING_MOTION_PREFERENCE: LoadingMotionPreference = {
   speedMultiplier: 1,
 } as const
 
-/** Reduced-motion fallback: `quietSimplify / light` (静默简化 / 轻). */
-export const REDUCED_MOTION_PREFERENCE: LoadingMotionPreference = {
-  styleId: 'quietSimplify',
-  intensityId: 'light',
-  speedMode: 'preset',
-  speedId: 'standard',
-  speedMultiplier: 1,
-} as const
-
 /* ------------------------------------------------------------------ */
 /*  Style / intensity validation                                       */
 /* ------------------------------------------------------------------ */
@@ -120,41 +111,30 @@ export function createLoadingMotionPreference(raw: Partial<LoadingMotionPreferen
   return normalizeLoadingMotionPreference(raw)
 }
 
-/* ------------------------------------------------------------------ */
-/*  Reduced-motion resolution                                          */
-/* ------------------------------------------------------------------ */
-
 /**
  * Resolve the effective loading motion config for a single page load.
  *
- * Applies the user preference, reduced-motion override, and page-specific
- * reveal metadata in a single pass.
- *
- * When `prefersReducedMotion` is `true`, the resolved config always
- * uses `quietSimplify / light` regardless of the user preference.
+ * Applies the user preference and page-specific reveal metadata in a
+ * single pass.
  */
 export function resolveLoadingMotionConfig(
   userPreference: LoadingMotionPreference,
   options: {
-    prefersReducedMotion: boolean
     revealOrder?: readonly string[] | null
     anchors?: PageAnchorDeclaration | null
   },
 ): ResolvedLoadingMotionConfig {
-  const effectivePreference = options.prefersReducedMotion ? REDUCED_MOTION_PREFERENCE : userPreference
-
   const normalizedAnchors = options.anchors?.anchorIds ?? []
   const safeAnchors = normalizedAnchors.slice(0, 2) as [string, string?]
 
   return {
-    styleId: effectivePreference.styleId,
-    intensityId: effectivePreference.intensityId,
-    speedMode: effectivePreference.speedMode,
-    speedId: effectivePreference.speedId,
-    speedMultiplier: effectivePreference.speedMultiplier,
+    styleId: userPreference.styleId,
+    intensityId: userPreference.intensityId,
+    speedMode: userPreference.speedMode,
+    speedId: userPreference.speedId,
+    speedMultiplier: userPreference.speedMultiplier,
     revealOrder: options.revealOrder ?? null,
     anchors: safeAnchors,
-    reducedMotion: options.prefersReducedMotion,
   }
 }
 

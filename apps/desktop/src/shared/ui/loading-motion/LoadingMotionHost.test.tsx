@@ -14,7 +14,6 @@ const defaultConfig = {
   ...DEFAULT_LOADING_MOTION_PREFERENCE,
   revealOrder: null,
   anchors: ['placeholder' as string],
-  reducedMotion: false,
 } as const
 
 /* ------------------------------------------------------------------ */
@@ -29,21 +28,8 @@ describe('useLoadingMotionConfig', () => {
 
     expect(config.styleId).toBe('softFadeIn')
     expect(config.intensityId).toBe('standard')
-    expect(config.reducedMotion).toBe(false)
     expect(config.revealOrder).toBeNull()
     expect(config.anchors).toEqual([])
-  })
-
-  it('resolves to quietSimplify/light when reduced motion is preferred', () => {
-    const { config } = useLoadingMotionConfig({
-      stage: 'loading',
-      preference: { styleId: 'bounceIn', intensityId: 'strong' },
-      prefersReducedMotion: true,
-    })
-
-    expect(config.styleId).toBe('quietSimplify')
-    expect(config.intensityId).toBe('light')
-    expect(config.reducedMotion).toBe(true)
   })
 
   it('passes through reveal order when provided', () => {
@@ -120,23 +106,6 @@ describe('getLoadingMotionRevealProps', () => {
 
     expect(props['data-loading-speed']).toBe('fast')
     expect(props.style?.['--loading-motion-speed-multiplier']).toBe(2.4)
-  })
-
-  it('uses quiet reduced-motion props when requested', () => {
-    const props = getLoadingMotionRevealProps({
-      itemId: 'sidebar',
-      index: 1,
-      preference: {
-        ...DEFAULT_LOADING_MOTION_PREFERENCE,
-        styleId: 'bounceIn',
-        intensityId: 'strong',
-      },
-      prefersReducedMotion: true,
-    })
-
-    expect(props['data-loading-style']).toBe('quietSimplify')
-    expect(props['data-loading-intensity']).toBe('light')
-    expect(props['data-loading-reduced-motion']).toBe('true')
   })
 })
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { publishNotification } from '@shared/ui/notifications'
 import type { DownloadLauncherModResult, LauncherSettings } from './launcherContracts'
@@ -15,7 +15,6 @@ const SAVE_DOWNLOAD_QUEUE_DEBOUNCE_MS = 300
 const DEBUG_SIMULATION_DURATION_SECONDS = 10
 const DEBUG_SIMULATION_BYTES_PER_SECOND = 2 * 1024 * 1024
 const DEBUG_SIMULATION_TOTAL_BYTES = DEBUG_SIMULATION_DURATION_SECONDS * DEBUG_SIMULATION_BYTES_PER_SECOND
-const MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE = 'Nexus manual download page opened.'
 const MANUAL_DOWNLOAD_NOTIFICATION_ID = 'launcher-manual-download-page-opened'
 const MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS = 5_000
 
@@ -135,15 +134,12 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
 }
 
-function isManualDownloadPageOpenedError(error: unknown) {
-  return getErrorMessage(error, '').includes(MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE)
-}
-
 export function useLauncherDownloads(settings: LauncherSettings) {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy().launcher.downloads
   const [items, setItems] = useState<LauncherDownloadQueueItem[]>([])
   const processingIdsRef = useRef<Set<string>>(new Set())
+  const latestItemsRef = useRef<LauncherDownloadQueueItem[]>([])
   const manualDownloadNotificationVisibleRef = useRef(false)
   const manualDownloadNotificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveDownloadQueueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -198,9 +194,13 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       }
       if (saveDownloadQueueTimeoutRef.current) {
         clearTimeout(saveDownloadQueueTimeoutRef.current)
+        saveDownloadQueueTimeoutRef.current = null
+        if (hydratedRef.current) {
+          void launcherPort.saveDownloadQueue({ items: latestItemsRef.current })
+        }
       }
     }
-  }, [clearAllDebugSimulations])
+  }, [clearAllDebugSimulations, launcherPort])
 
   const publishManualDownloadOpenedNotification = useCallback(() => {
     if (manualDownloadNotificationVisibleRef.current) {
@@ -224,6 +224,10 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       manualDownloadNotificationTimeoutRef.current = null
     }, MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS)
   }, [copy.manualDownloadOpenedDetail, copy.manualDownloadOpenedTitle])
+
+  useLayoutEffect(() => {
+    latestItemsRef.current = items
+  }, [items])
 
   useEffect(() => {
     if (!hydratedRef.current) {
@@ -404,6 +408,13 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           title: queuedItem.title,
         })
         .then(async (result) => {
+          if (result.manualDownloadPageOpened) {
+            clearDebugSimulation(queuedItem.id)
+            setItems((current) => current.filter((item) => item.id !== queuedItem.id))
+            publishManualDownloadOpenedNotification()
+            return
+          }
+
           if (result.installed) {
             setItems((current) => updateQueueItem(current, queuedItem.id, (item) => mapDownloadResultToQueueState(item, result)))
             refreshUpdatesAfterInstall()
@@ -441,13 +452,6 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           setItems((current) => updateQueueItem(current, queuedItem.id, (item) => mapDownloadResultToQueueState(item, result)))
         })
         .catch((nextError) => {
-          if (isManualDownloadPageOpenedError(nextError)) {
-            clearDebugSimulation(queuedItem.id)
-            setItems((current) => current.filter((item) => item.id !== queuedItem.id))
-            publishManualDownloadOpenedNotification()
-            return
-          }
-
           setItems((current) =>
             updateQueueItem(current, queuedItem.id, (item) => ({
               ...item,

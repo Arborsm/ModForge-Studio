@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { CSSProperties, DragEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { Check } from 'lucide-react'
@@ -5,6 +6,8 @@ import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
+
+const DETAIL_DOUBLE_CLICK_DELAY_MS = 180
 
 type LauncherModCardAction = {
   label: string
@@ -43,6 +46,7 @@ export function LauncherModCard({
   selected = false,
 }: LauncherModCardProps) {
   const copy = useEditorCopy()
+  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fallbackPalette = getLauncherCardFallbackPalette(title)
   const coverWord = getLauncherCardCoverWord(title)
   const coverStyle = {
@@ -53,6 +57,41 @@ export function LauncherModCard({
     '--launcher-cover-glow': fallbackPalette.glow,
     '--launcher-cover-shadow': fallbackPalette.shadow,
   } as CSSProperties
+
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const handleSelectClick = () => {
+    if (!onSelect) {
+      return
+    }
+
+    if (!onOpenDetails) {
+      onSelect()
+      return
+    }
+
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+    }
+    clickTimeoutRef.current = setTimeout(() => {
+      clickTimeoutRef.current = null
+      onSelect()
+    }, DETAIL_DOUBLE_CLICK_DELAY_MS)
+  }
+
+  const handleOpenDetailsDoubleClick = () => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+    }
+    onOpenDetails?.()
+  }
 
   const card = (
     <article
@@ -82,8 +121,8 @@ export function LauncherModCard({
         <button
           type="button"
           className="launcher-mod-card-main"
-          onClick={onSelect}
-          onDoubleClick={onOpenDetails}
+          onClick={handleSelectClick}
+          onDoubleClick={handleOpenDetailsDoubleClick}
           title={titleTooltip ?? title}
         >
           <LauncherArtworkCover title={title} imageUrl={imageUrl} coverStyle={coverStyle} coverWord={coverWord} />

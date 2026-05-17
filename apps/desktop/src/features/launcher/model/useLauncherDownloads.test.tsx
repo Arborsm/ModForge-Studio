@@ -123,6 +123,40 @@ describe('useLauncherDownloads', () => {
     })
   })
 
+  it('flushes the pending queue save when the hook unmounts before the debounce fires', async () => {
+    vi.useFakeTimers()
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
+
+    const { result, unmount } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 101,
+        title: 'NPC Adventures',
+        imageUrl: null,
+        source: 'discover',
+      })
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(299)
+    })
+    expect(port.saveDownloadQueue).not.toHaveBeenCalled()
+
+    unmount()
+
+    expect(port.saveDownloadQueue).toHaveBeenCalledTimes(1)
+    expect(port.saveDownloadQueue).toHaveBeenLastCalledWith({
+      items: [expect.objectContaining({ modId: 101, status: 'failed' })],
+    })
+  })
+
   it('queues update batches with one state transition and debounced persistence', async () => {
     vi.useFakeTimers()
     const port = createMockLauncherPort({
@@ -247,6 +281,7 @@ describe('useLauncherDownloads', () => {
         archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
         installed: true,
         installedTargetPath: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures',
+        manualDownloadPageOpened: false,
       }),
       checkUpdates: vi.fn().mockResolvedValue({
         modsPath: 'E:\\Games\\Stardew Valley\\Mods',
@@ -309,6 +344,7 @@ describe('useLauncherDownloads', () => {
         archivePath: 'E:\\Downloads\\Mods\\ContentPatcher.zip',
         installed: false,
         installedTargetPath: null,
+        manualDownloadPageOpened: false,
       }),
     })
 
@@ -352,7 +388,16 @@ describe('useLauncherDownloads', () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
-      downloadMod: vi.fn().mockRejectedValue(new Error('Nexus manual download page opened.')),
+      downloadMod: vi.fn().mockResolvedValue({
+        modId: 1915,
+        title: 'Content Patcher',
+        version: '2.9.1',
+        fileName: 'ContentPatcher.zip',
+        archivePath: '',
+        installed: false,
+        installedTargetPath: null,
+        manualDownloadPageOpened: true,
+      }),
     })
 
     const { result } = renderHook(
@@ -417,7 +462,28 @@ describe('useLauncherDownloads', () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
-      downloadMod: vi.fn().mockRejectedValue(new Error('Nexus manual download page opened.')),
+      downloadMod: vi
+        .fn()
+        .mockResolvedValueOnce({
+          modId: 1915,
+          title: 'Content Patcher',
+          version: '2.9.1',
+          fileName: 'ContentPatcher.zip',
+          archivePath: '',
+          installed: false,
+          installedTargetPath: null,
+          manualDownloadPageOpened: true,
+        })
+        .mockResolvedValueOnce({
+          modId: 2400,
+          title: 'Lookup Anything',
+          version: '1.45.0',
+          fileName: 'LookupAnything.zip',
+          archivePath: '',
+          installed: false,
+          installedTargetPath: null,
+          manualDownloadPageOpened: true,
+        }),
     })
 
     const { result } = renderHook(

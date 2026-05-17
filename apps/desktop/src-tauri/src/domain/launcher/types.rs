@@ -503,6 +503,7 @@ pub struct DownloadLauncherModResult {
     pub archive_path: String,
     pub installed: bool,
     pub installed_target_path: Option<String>,
+    pub manual_download_page_opened: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

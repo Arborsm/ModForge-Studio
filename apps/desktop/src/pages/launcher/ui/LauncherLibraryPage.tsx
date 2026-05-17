@@ -270,6 +270,9 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       const firstCard = grid.querySelector<HTMLElement>('.launcher-library-grid-reveal')
       const viewportRect = viewport.getBoundingClientRect()
       const cardRect = firstCard?.getBoundingClientRect()
+      if (viewportRect.width <= 0 || viewportRect.height <= 0 || !cardRect || cardRect.width <= 0 || cardRect.height <= 0) {
+        return
+      }
       const nextBatchSize = computeLibraryRevealBatchSize({
         itemCount: items.length,
         viewportWidth: viewportRect.width,
@@ -288,7 +291,6 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
 
     const resizeObserver = new ResizeObserver(updateRevealBatchSize)
     resizeObserver.observe(viewport)
-    resizeObserver.observe(grid)
     return () => resizeObserver.disconnect()
   }, [items.length])
 

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useId, useState, type ReactNode, type MouseEvent, type KeyboardEvent } from 'react'
+import { useRef, useEffect, useId, useState, useCallback, type ReactNode, type MouseEvent, type KeyboardEvent } from 'react'
 
 export interface GooeyNavItem {
   /** Visible label text. */
@@ -92,6 +92,8 @@ export default function GooeyNav({
   const navRef = useRef<HTMLUListElement>(null)
   const filterRef = useRef<HTMLSpanElement>(null)
   const textRef = useRef<HTMLSpanElement>(null)
+  const particleTimeoutsRef = useRef<Array<ReturnType<typeof setTimeout>>>([])
+  const particleAnimationFrameRef = useRef<number | null>(null)
   const reactId = useId()
   const gooeyFilterId = `gooey-nav-filter-${reactId.replace(/:/g, '')}`
 
@@ -100,6 +102,17 @@ export default function GooeyNav({
   const activeIndex = isControlled ? controlledIndex : internalIndex
 
   /* ---------- particle factory ---------- */
+
+  const clearQueuedParticles = useCallback(() => {
+    for (const timeoutId of particleTimeoutsRef.current) {
+      clearTimeout(timeoutId)
+    }
+    particleTimeoutsRef.current = []
+    if (particleAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(particleAnimationFrameRef.current)
+      particleAnimationFrameRef.current = null
+    }
+  }, [])
 
   const createParticle = (i: number, t: number, d: [number, number], r: number): Particle => {
     const rotate = noise(r / 10)
@@ -124,7 +137,7 @@ export default function GooeyNav({
       const p = createParticle(i, t, d, r)
       element.classList.remove('active')
 
-      setTimeout(() => {
+      const createParticleTimeout = setTimeout(() => {
         const particle = document.createElement('span')
         const point = document.createElement('span')
         particle.classList.add('particle')
@@ -140,17 +153,20 @@ export default function GooeyNav({
         point.classList.add('point')
         particle.appendChild(point)
         element.appendChild(particle)
-        requestAnimationFrame(() => {
+        particleAnimationFrameRef.current = requestAnimationFrame(() => {
+          particleAnimationFrameRef.current = null
           element.classList.add('active')
         })
-        setTimeout(() => {
+        const removeParticleTimeout = setTimeout(() => {
           try {
             element.removeChild(particle)
           } catch {
             // particle already removed
           }
         }, t)
+        particleTimeoutsRef.current.push(removeParticleTimeout)
       }, 30)
+      particleTimeoutsRef.current.push(createParticleTimeout)
     }
   }
 
@@ -189,6 +205,7 @@ export default function GooeyNav({
     updateEffectPosition(liEl)
 
     if (filterRef.current) {
+      clearQueuedParticles()
       const particles = filterRef.current.querySelectorAll('.particle')
       particles.forEach((p) => filterRef.current?.removeChild(p))
     }
@@ -234,6 +251,12 @@ export default function GooeyNav({
     resizeObserver.observe(containerRef.current)
     return () => resizeObserver.disconnect()
   }, [activeIndex])
+
+  useEffect(() => {
+    return () => {
+      clearQueuedParticles()
+    }
+  }, [clearQueuedParticles])
 
   /* ---------- render ---------- */
 

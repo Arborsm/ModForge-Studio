@@ -2589,21 +2589,4 @@
       justify-content: center;
     }
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .launcher-library-sidebar {
-      transition: none;
-    }
-
-    .launcher-shell-nav-button,
-    .launcher-mod-card,
-    .launcher-discover-card,
-    .launcher-update-card,
-    .launcher-download-row,
-    .launcher-library-drawer-panel {
-      transition: none;
-      animation: none;
-      transform: none;
-    }
-  }
 }
