@@ -18,6 +18,7 @@ export type LauncherDownloadQueueStatus = 'queued' | 'downloading' | 'completed'
 export type LauncherDownloadQueueItem = {
   id: string
   modId: number
+  fileId: number | null
   title: string
   version: string | null
   imageUrl: string | null
@@ -34,9 +35,12 @@ export type LauncherDownloadQueueItem = {
 }
 
 export type QueueLauncherDownloadInput = Pick<LauncherCatalogResult, 'modId' | 'title' | 'imageUrl'> & {
+  fileId?: number | null
   version?: string | null
   source: Exclude<LauncherDownloadQueueItem['source'], 'debug'>
 }
+
+export type QueueLauncherDownloadsInput = QueueLauncherDownloadInput[]
 
 export type LauncherDashboardStats = {
   installedMods: number

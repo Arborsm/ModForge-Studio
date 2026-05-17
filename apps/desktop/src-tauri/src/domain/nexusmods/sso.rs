@@ -499,8 +499,12 @@ fn classify_sso_error(err: &str) -> (SsoErrorKind, String) {
 fn open_browser(url: &str) {
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         let _ = std::process::Command::new("cmd")
-            .args(["/c", "start", url])
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["/c", "start", "", url])
             .spawn();
     }
     #[cfg(target_os = "macos")]

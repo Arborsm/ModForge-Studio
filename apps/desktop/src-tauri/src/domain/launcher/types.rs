@@ -70,6 +70,8 @@ pub struct LauncherLibraryModSummary {
     pub update_keys: Vec<String>,
     pub mod_url: Option<String>,
     pub image_url: Option<String>,
+    #[serde(default)]
+    pub required_dependencies: Vec<String>,
     pub missing_required_dependencies: Vec<String>,
 }
 
@@ -146,6 +148,7 @@ pub struct LauncherLibraryCoversState {
 pub struct LauncherDownloadQueueItem {
     pub id: String,
     pub mod_id: i64,
+    pub file_id: Option<i64>,
     pub title: String,
     pub version: Option<String>,
     pub image_url: Option<String>,
@@ -302,6 +305,87 @@ pub struct LauncherRemoteModDetail {
     pub updated_at: Option<String>,
     #[serde(default)]
     pub file_size: Option<u64>,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub downloads: Option<u64>,
+    #[serde(default)]
+    pub endorsements: Option<u64>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub direct_download_enabled: Option<bool>,
+    #[serde(default)]
+    pub supports_vortex: Option<bool>,
+    #[serde(default)]
+    pub primary_file_id: Option<i64>,
+    #[serde(default)]
+    pub primary_file_name: Option<String>,
+    #[serde(default)]
+    pub primary_file_version: Option<String>,
+    #[serde(default)]
+    pub primary_file_category: Option<String>,
+    #[serde(default)]
+    pub primary_file_size: Option<u64>,
+    #[serde(default)]
+    pub primary_file_size_bytes: Option<u64>,
+    #[serde(default)]
+    pub primary_file_scanned: Option<bool>,
+    #[serde(default)]
+    pub primary_file_scan_status: Option<String>,
+    #[serde(default)]
+    pub primary_file_changelog: Vec<String>,
+    #[serde(default)]
+    pub required_loader: Option<String>,
+    #[serde(default)]
+    pub game_version: Option<String>,
+    #[serde(default)]
+    pub archive_type: Option<String>,
+    #[serde(default)]
+    pub update_risk: Option<String>,
+    #[serde(default)]
+    pub requirements: Vec<LauncherRemoteModRequirement>,
+    #[serde(default)]
+    pub files: Vec<LauncherRemoteModFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRemoteModRequirement {
+    pub name: String,
+    #[serde(default)]
+    pub notes: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub external: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRemoteModFile {
+    #[serde(default)]
+    pub file_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub size: Option<u64>,
+    #[serde(default)]
+    pub size_bytes: Option<u64>,
+    #[serde(default)]
+    pub primary: bool,
+    #[serde(default)]
+    pub scanned: Option<bool>,
+    #[serde(default)]
+    pub scan_status: Option<String>,
+    #[serde(default)]
+    pub changelog: Vec<String>,
+    #[serde(default)]
+    pub archive_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

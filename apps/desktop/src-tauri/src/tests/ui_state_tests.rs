@@ -28,6 +28,7 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
         .active_generated_draft_key
         .is_none());
     assert!(!state.launcher.force_offline);
+    assert!(!state.launcher.force_non_premium);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -96,6 +97,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
     assert!(!patched.launcher.force_offline);
+    assert!(!patched.launcher.force_non_premium);
     assert_eq!(patched.workspace.workspace_view_mode, "project");
     assert_eq!(
         patched
@@ -139,6 +141,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
         AppUiStatePatch {
             launcher: Some(AppUiLauncherStatePatch {
                 force_offline: Some(true),
+                force_non_premium: Some(true),
                 ..Default::default()
             }),
             ..Default::default()
@@ -147,6 +150,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     .expect("patch launcher force offline");
 
     assert!(patched.launcher.force_offline);
+    assert!(patched.launcher.force_non_premium);
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
 

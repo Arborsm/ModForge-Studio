@@ -56,9 +56,10 @@ export default function LauncherShell({
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
+        onQueueDownload={downloads.queueDownload}
       />
     ),
-    [library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
+    [downloads.queueDownload, library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
   )
 
   return (
@@ -98,6 +99,7 @@ export default function LauncherShell({
               <LauncherUpdatesPage
                 settings={settingsState.settings}
                 onQueueDownload={downloads.queueDownload}
+                onQueueDownloads={downloads.queueDownloads}
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}

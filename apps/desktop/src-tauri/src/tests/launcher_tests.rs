@@ -442,6 +442,7 @@ fn launcher_download_queue_create_default_and_reset_inflight_items() {
         items: vec![LauncherDownloadQueueItem {
             id: "job-1".to_string(),
             mod_id: 101,
+            file_id: Some(5001),
             title: "NPC Adventures".to_string(),
             version: Some("1.0.0".to_string()),
             image_url: None,
@@ -458,6 +459,7 @@ fn launcher_download_queue_create_default_and_reset_inflight_items() {
 
     let reloaded = load_or_create_download_queue_at_path(&queue_path).expect("reload queue");
     assert_eq!(reloaded.items.len(), 1);
+    assert_eq!(reloaded.items[0].file_id, Some(5001));
     assert_eq!(reloaded.items[0].status, "queued");
 
     fs::remove_dir_all(root).expect("cleanup");

@@ -43,6 +43,7 @@ export type AppUiLauncherState = {
     filtersHidden: boolean
   }
   forceOffline: boolean
+  forceNonPremium: boolean
 }
 
 export type AppUiState = {

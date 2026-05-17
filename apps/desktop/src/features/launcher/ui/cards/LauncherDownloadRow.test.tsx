@@ -11,6 +11,7 @@ function createItem(overrides: Partial<LauncherDownloadQueueItem> = {}): Launche
   return {
     id: 'item-1',
     modId: 101,
+    fileId: null,
     title: 'NPC Adventures',
     version: '1.2.0',
     imageUrl: null,

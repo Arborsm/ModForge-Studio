@@ -11,6 +11,7 @@ function createItem(overrides: Partial<LauncherDownloadQueueItem>): LauncherDown
   return {
     id: 'item-1',
     modId: 101,
+    fileId: null,
     title: 'NPC Adventures',
     version: '1.2.0',
     imageUrl: null,
@@ -50,6 +51,7 @@ function createDownloads(items: LauncherDownloadQueueItem[]) {
     removableItems,
     downloadProgressPercent: null,
     queueDownload: vi.fn(),
+    queueDownloads: vi.fn(),
     startDebugSimulation: vi.fn(),
     retryItem: vi.fn(),
     retryFailed: vi.fn(),

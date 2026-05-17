@@ -29,6 +29,8 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use semver::Version;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "windows")]
 use std::process::Command;
@@ -46,6 +48,8 @@ const SMAPI_DEFAULT_PLATFORM: &str = "Windows";
 const LAUNCHER_UPDATE_PROGRESS_EVENT: &str = "launcher://update-check-progress";
 const LAUNCHER_UPDATES_CACHE_TTL_MS: u128 = 30 * 60 * 1000;
 pub(crate) const AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD: u32 = 3;
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 static ACTIVE_LAUNCHER_UPDATE_CHECKS: OnceLock<Mutex<HashMap<String, u32>>> = OnceLock::new();
 
 fn active_launcher_update_checks() -> &'static Mutex<HashMap<String, u32>> {
@@ -208,7 +212,9 @@ pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
     }
 
     let escaped = path.to_string_lossy().replace('\'', "''");
-    let output = Command::new("powershell")
+    let mut command = Command::new("powershell");
+    command
+        .creation_flags(CREATE_NO_WINDOW)
         .arg("-NoProfile")
         .arg("-Command")
         .arg(format!(
@@ -216,9 +222,8 @@ pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
              $version = $item.VersionInfo.ProductVersion; \
              if ([string]::IsNullOrWhiteSpace($version)) {{ $version = $item.VersionInfo.FileVersion }}; \
              if (-not [string]::IsNullOrWhiteSpace($version)) {{ [Console]::Out.Write($version) }}"
-        ))
-        .output()
-        .ok()?;
+        ));
+    let output = command.output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -444,16 +449,12 @@ pub(crate) fn parse_smapi_update_response(
         details.insert(
             candidate.mod_id,
             RemoteModDetail {
-                mod_id: candidate.mod_id,
                 name,
                 author,
                 summary,
                 version: Some(version),
-                mod_url,
                 image_url,
-                gallery_images: Vec::new(),
-                updated_at: None,
-                file_size: None,
+                ..RemoteModDetail::empty(candidate.mod_id, mod_url)
             },
         );
     }

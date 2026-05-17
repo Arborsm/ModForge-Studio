@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLauncherPort } from '@features/launcher'
+import { useEditorCopy } from '@locales/localeContext'
+import { publishNotification } from '@shared/ui/notifications'
 import type { DownloadLauncherModResult, LauncherSettings } from './launcherContracts'
-import type { LauncherDownloadQueueItem, LauncherDownloadQueueStatus, QueueLauncherDownloadInput } from './types'
+import { useLauncherPort } from './launcherPortContext'
+import type {
+  LauncherDownloadQueueItem,
+  LauncherDownloadQueueStatus,
+  QueueLauncherDownloadInput,
+  QueueLauncherDownloadsInput,
+} from './types'
 
 const MAX_CONCURRENT_LAUNCHER_DOWNLOADS = 3
+const SAVE_DOWNLOAD_QUEUE_DEBOUNCE_MS = 300
 const DEBUG_SIMULATION_DURATION_SECONDS = 10
 const DEBUG_SIMULATION_BYTES_PER_SECOND = 2 * 1024 * 1024
 const DEBUG_SIMULATION_TOTAL_BYTES = DEBUG_SIMULATION_DURATION_SECONDS * DEBUG_SIMULATION_BYTES_PER_SECOND
+const MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE = 'Nexus manual download page opened.'
+const MANUAL_DOWNLOAD_NOTIFICATION_ID = 'launcher-manual-download-page-opened'
+const MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS = 5_000
 
 function getDownloadCredentialError(settings: Pick<LauncherSettings, 'nexusApiKey'>) {
   return settings.nexusApiKey?.trim() ? null : 'Nexus API key is required to download mods.'
@@ -19,6 +30,7 @@ function isQueueStatus(value: string): value is LauncherDownloadQueueStatus {
 function normalizeQueueItem(item: LauncherDownloadQueueItem): LauncherDownloadQueueItem {
   return {
     ...item,
+    fileId: item.fileId ?? null,
     version: item.version ?? null,
     imageUrl: item.imageUrl ?? null,
     archivePath: item.archivePath ?? null,
@@ -81,10 +93,60 @@ function mapDownloadResultToQueueState(item: LauncherDownloadQueueItem, result: 
   }
 }
 
+function createQueueItems(inputs: QueueLauncherDownloadsInput, current: LauncherDownloadQueueItem[], credentialError: string | null) {
+  const seenKeys = new Set(
+    current
+      .filter((item) => item.status !== 'failed')
+      .map((item) => `${item.modId}:${item.fileId ?? 'default'}:${item.version ?? 'latest'}`),
+  )
+  const addedAt = Date.now()
+
+  return inputs.flatMap((input, index): LauncherDownloadQueueItem[] => {
+    const key = `${input.modId}:${input.fileId ?? 'default'}:${input.version ?? 'latest'}`
+    if (seenKeys.has(key)) {
+      return []
+    }
+    seenKeys.add(key)
+
+    return [
+      {
+        id: `${key}:${addedAt}:${index}`,
+        modId: input.modId,
+        fileId: input.fileId ?? null,
+        title: input.title,
+        version: input.version ?? null,
+        imageUrl: input.imageUrl ?? null,
+        source: input.source,
+        status: credentialError ? 'failed' : 'queued',
+        archivePath: null,
+        installedTargetPath: null,
+        error: credentialError,
+        addedAt,
+        completedAt: credentialError ? addedAt : null,
+        totalBytes: null,
+        downloadedBytes: null,
+        bytesPerSecond: null,
+      },
+    ]
+  })
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
+}
+
+function isManualDownloadPageOpenedError(error: unknown) {
+  return getErrorMessage(error, '').includes(MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE)
+}
+
 export function useLauncherDownloads(settings: LauncherSettings) {
   const launcherPort = useLauncherPort()
+  const copy = useEditorCopy().launcher.downloads
   const [items, setItems] = useState<LauncherDownloadQueueItem[]>([])
   const processingIdsRef = useRef<Set<string>>(new Set())
+  const manualDownloadNotificationVisibleRef = useRef(false)
+  const manualDownloadNotificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveDownloadQueueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debugSimulationIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
   const debugSimulationTicksRef = useRef<Map<string, number>>(new Map())
   const hydratedRef = useRef(false)
@@ -131,15 +193,51 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   useEffect(() => {
     return () => {
       clearAllDebugSimulations()
+      if (manualDownloadNotificationTimeoutRef.current) {
+        clearTimeout(manualDownloadNotificationTimeoutRef.current)
+      }
+      if (saveDownloadQueueTimeoutRef.current) {
+        clearTimeout(saveDownloadQueueTimeoutRef.current)
+      }
     }
   }, [clearAllDebugSimulations])
+
+  const publishManualDownloadOpenedNotification = useCallback(() => {
+    if (manualDownloadNotificationVisibleRef.current) {
+      return
+    }
+
+    manualDownloadNotificationVisibleRef.current = true
+    publishNotification({
+      id: MANUAL_DOWNLOAD_NOTIFICATION_ID,
+      level: 'info',
+      title: copy.manualDownloadOpenedTitle,
+      description: copy.manualDownloadOpenedDetail,
+      autoDismissMs: MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS,
+    })
+
+    if (manualDownloadNotificationTimeoutRef.current) {
+      clearTimeout(manualDownloadNotificationTimeoutRef.current)
+    }
+    manualDownloadNotificationTimeoutRef.current = setTimeout(() => {
+      manualDownloadNotificationVisibleRef.current = false
+      manualDownloadNotificationTimeoutRef.current = null
+    }, MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS)
+  }, [copy.manualDownloadOpenedDetail, copy.manualDownloadOpenedTitle])
 
   useEffect(() => {
     if (!hydratedRef.current) {
       return
     }
 
-    void launcherPort.saveDownloadQueue({ items })
+    if (saveDownloadQueueTimeoutRef.current) {
+      clearTimeout(saveDownloadQueueTimeoutRef.current)
+    }
+
+    saveDownloadQueueTimeoutRef.current = setTimeout(() => {
+      saveDownloadQueueTimeoutRef.current = null
+      void launcherPort.saveDownloadQueue({ items })
+    }, SAVE_DOWNLOAD_QUEUE_DEBOUNCE_MS)
   }, [items, launcherPort])
 
   const refreshUpdatesAfterInstall = useCallback(() => {
@@ -155,42 +253,27 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       .catch(() => {})
   }, [launcherPort, settings.modsPath])
 
-  const queueDownload = useCallback(
-    (input: QueueLauncherDownloadInput) => {
+  const queueDownloads = useCallback(
+    (inputs: QueueLauncherDownloadsInput) => {
       const credentialError = getDownloadCredentialError(settings)
+      const normalizedInputs = inputs.filter(Boolean)
+      if (!normalizedInputs.length) {
+        return
+      }
 
       setItems((current) => {
-        const existingIndex = current.findIndex(
-          (item) => item.modId === input.modId && (item.version ?? null) === (input.version ?? null) && item.status !== 'failed',
-        )
-        if (existingIndex >= 0) {
+        const nextItems = createQueueItems(normalizedInputs, current, credentialError)
+        if (!nextItems.length) {
           return current
         }
 
-        return [
-          ...current,
-          {
-            id: `${input.modId}:${input.version ?? 'latest'}:${Date.now()}`,
-            modId: input.modId,
-            title: input.title,
-            version: input.version ?? null,
-            imageUrl: input.imageUrl ?? null,
-            source: input.source,
-            status: credentialError ? 'failed' : 'queued',
-            archivePath: null,
-            installedTargetPath: null,
-            error: credentialError,
-            addedAt: Date.now(),
-            completedAt: credentialError ? Date.now() : null,
-            totalBytes: null,
-            downloadedBytes: null,
-            bytesPerSecond: null,
-          },
-        ]
+        return [...current, ...nextItems]
       })
     },
     [settings],
   )
+
+  const queueDownload = useCallback((input: QueueLauncherDownloadInput) => queueDownloads([input]), [queueDownloads])
 
   const retryItem = useCallback(
     (id: string) => {
@@ -316,6 +399,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       void launcherPort
         .downloadMod({
           modId: queuedItem.modId,
+          fileId: queuedItem.fileId,
           version: queuedItem.version,
           title: queuedItem.title,
         })
@@ -357,11 +441,18 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           setItems((current) => updateQueueItem(current, queuedItem.id, (item) => mapDownloadResultToQueueState(item, result)))
         })
         .catch((nextError) => {
+          if (isManualDownloadPageOpenedError(nextError)) {
+            clearDebugSimulation(queuedItem.id)
+            setItems((current) => current.filter((item) => item.id !== queuedItem.id))
+            publishManualDownloadOpenedNotification()
+            return
+          }
+
           setItems((current) =>
             updateQueueItem(current, queuedItem.id, (item) => ({
               ...item,
               status: 'failed',
-              error: nextError instanceof Error ? nextError.message : 'Failed to download launcher mod.',
+              error: getErrorMessage(nextError, 'Failed to download launcher mod.'),
               completedAt: Date.now(),
               bytesPerSecond: null,
             })),
@@ -371,7 +462,14 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           processingIdsRef.current.delete(queuedItem.id)
         })
     },
-    [launcherPort, refreshUpdatesAfterInstall, settings.autoInstallDownloads, settings.modsPath],
+    [
+      clearDebugSimulation,
+      launcherPort,
+      publishManualDownloadOpenedNotification,
+      refreshUpdatesAfterInstall,
+      settings.autoInstallDownloads,
+      settings.modsPath,
+    ],
   )
 
   const startDebugSimulation = useCallback(
@@ -389,6 +487,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           {
             id: nextId,
             modId: -1,
+            fileId: null,
             title,
             version: 'debug-sim',
             imageUrl: null,
@@ -510,6 +609,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     counts,
     downloadProgressPercent,
     queueDownload,
+    queueDownloads,
     startDebugSimulation,
     retryItem,
     retryFailed,

@@ -566,6 +566,81 @@ export type LauncherCopy = {
     detailsTitle: string
     detailsSubtitle: string
     selectionEmpty: string
+    modDetail: {
+      tabsLabel: string
+      tabs: Record<'overview' | 'description' | 'details' | 'dependencies' | 'files', string>
+      local: string
+      byAuthor: string
+      installedVersionShort: string
+      nexusVersionShort: string
+      status: string
+      metadata: string
+      tags: string
+      reach: string
+      scan: string
+      state: string
+      identity: string
+      nexus: string
+      folder: string
+      category: string
+      updated: string
+      path: string
+      clean: string
+      dependenciesClean: string
+      noNexusLink: string
+      installed: string
+      currentFolder: string
+      version: string
+      updateAvailable: string
+      nexusPrimaryFile: string
+      file: string
+      size: string
+      whatsNew: string
+      primaryFile: string
+      readFullDescription: string
+      installPath: string
+      updateEvidence: string
+      nexusPage: string
+      install: string
+      manifest: string
+      absolutePath: string
+      manifestFile: string
+      installedFile: string
+      requirement: string
+      gameVersion: string
+      download: string
+      directDownload: string
+      vortexSupported: string
+      name: string
+      fileId: string
+      archiveType: string
+      method: string
+      evidence: string
+      confidence: string
+      sizeChange: string
+      risk: string
+      match: string
+      updateKey: string
+      updateKeyEvidence: string
+      exact: string
+      verifiedFile: string
+      exactUpdateKeyMatch: string
+      installedTo: string
+      updateNow: string
+      reinstall: string
+      requirementNotes: string
+      externalRequirement: string
+      fileCategory: string
+      scanStatus: string
+      localRequirement: string
+      remoteRequirement: string
+      missing: string
+      satisfied: string
+      availableFiles: string
+      mainFiles: string
+      optionalFiles: string
+      oldFiles: string
+    }
     installHint: string
     previewTitle: string
     previewSubtitle: string
@@ -767,6 +842,8 @@ export type LauncherCopy = {
     title: string
     subtitle: string
     empty: string
+    manualDownloadOpenedTitle: string
+    manualDownloadOpenedDetail: string
   }
   settings: {
     title: string
@@ -891,6 +968,10 @@ export type LauncherCopy = {
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string
     forceOfflineDisabledLabel: string
+    forceNonPremiumEnableButton: string
+    forceNonPremiumDisableButton: string
+    forceNonPremiumEnabledLabel: string
+    forceNonPremiumDisabledLabel: string
     clearImageCacheTitle: string
     clearImageCacheSubtitle: string
     clearImageCacheButton: string

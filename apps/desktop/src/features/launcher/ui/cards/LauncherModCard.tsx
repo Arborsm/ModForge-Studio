@@ -18,6 +18,7 @@ type LauncherModCardProps = {
   imageUrl: string | null
   enabled?: boolean
   onSelect?: () => void
+  onOpenDetails?: () => void
   contextActions?: LauncherModCardAction[]
   draggable?: boolean
   onDragStart?: (event: DragEvent<HTMLElement>) => void
@@ -33,6 +34,7 @@ export function LauncherModCard({
   imageUrl,
   enabled = true,
   onSelect,
+  onOpenDetails,
   contextActions,
   draggable,
   onDragStart,
@@ -77,7 +79,13 @@ export function LauncherModCard({
           </span>
         ) : null}
 
-        <button type="button" className="launcher-mod-card-main" onClick={onSelect} title={titleTooltip ?? title}>
+        <button
+          type="button"
+          className="launcher-mod-card-main"
+          onClick={onSelect}
+          onDoubleClick={onOpenDetails}
+          title={titleTooltip ?? title}
+        >
           <LauncherArtworkCover title={title} imageUrl={imageUrl} coverStyle={coverStyle} coverWord={coverWord} />
 
           <div className="launcher-mod-card-copy">

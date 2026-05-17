@@ -66,6 +66,7 @@ export function createDefaultAppUiState(): AppUiState {
         filtersHidden: false,
       },
       forceOffline: false,
+      forceNonPremium: false,
     },
   }
 }
@@ -161,6 +162,8 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
             : defaults.launcher.discoverToolbar.filtersHidden,
       },
       forceOffline: typeof raw?.launcher?.forceOffline === 'boolean' ? raw.launcher.forceOffline : defaults.launcher.forceOffline,
+      forceNonPremium:
+        typeof raw?.launcher?.forceNonPremium === 'boolean' ? raw.launcher.forceNonPremium : defaults.launcher.forceNonPremium,
     },
   }
 }

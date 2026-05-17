@@ -46,6 +46,7 @@ describe('uiState store', () => {
           filtersHidden: true,
         },
         forceOffline: true,
+        forceNonPremium: true,
       },
     }
 
@@ -70,6 +71,7 @@ describe('uiState store', () => {
           filtersHidden: true,
         },
         forceOffline: true,
+        forceNonPremium: true,
       },
     })
   })
@@ -137,7 +139,7 @@ describe('uiState store', () => {
     })
   })
 
-  it('keeps the launcher force-offline flag in memory when applying launcher patches locally', async () => {
+  it('keeps launcher debug override flags in memory when applying launcher patches locally', async () => {
     const { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot } = await import('./appUiState')
     configureAppUiStatePersistence({
       canPersist: () => false,
@@ -148,12 +150,14 @@ describe('uiState store', () => {
     await applyAppUiStatePatch({
       launcher: {
         forceOffline: true,
+        forceNonPremium: true,
       },
     })
 
     expect(getAppUiStateSnapshot()).toMatchObject({
       launcher: {
         forceOffline: true,
+        forceNonPremium: true,
       },
     })
   })
@@ -195,6 +199,7 @@ it('normalizes loading motion from persisted state', async () => {
       launcher: {
         discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
         forceOffline: false,
+        forceNonPremium: false,
       },
     })),
     patch: vi.fn(),

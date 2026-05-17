@@ -19,6 +19,7 @@ import { getLauncherCardMonogram, LauncherBlockedState, LauncherStateBlock } fro
 type LauncherUpdatesPageProps = {
   settings: LauncherSettingsDraft
   onQueueDownload: (input: QueueLauncherDownloadInput) => void
+  onQueueDownloads?: (inputs: QueueLauncherDownloadInput[]) => void
   onNavigateToSettings?: () => void
   onNavigateToDiagnostics?: () => void
   onRetryDiagnostics?: (() => Promise<void> | void) | null
@@ -117,6 +118,7 @@ function UpdateArtwork({ title, imageUrl, className }: { title: string; imageUrl
 export function LauncherUpdatesPage({
   settings,
   onQueueDownload,
+  onQueueDownloads,
   onNavigateToSettings,
   onNavigateToDiagnostics,
   onRetryDiagnostics,
@@ -157,6 +159,22 @@ export function LauncherUpdatesPage({
       version: item.latestVersion,
       source: 'updates',
     })
+  const queueItems = (items: (typeof updates.items)[number][]) => {
+    const inputs = items.map((item) => ({
+      modId: item.modId,
+      title: item.name,
+      imageUrl: item.imageUrl,
+      version: item.latestVersion,
+      source: 'updates' as const,
+    }))
+
+    if (onQueueDownloads) {
+      onQueueDownloads(inputs)
+      return
+    }
+
+    inputs.forEach(onQueueDownload)
+  }
 
   const publishRequestNotification = (id: string, title: string, description: string) => {
     activeNotificationIdsRef.current.add(id)
@@ -322,7 +340,7 @@ export function LauncherUpdatesPage({
                 className="control-button control-button-primary launcher-updates-console-primary"
                 disabled={!updates.hasSelection}
                 onClick={() => {
-                  updates.selectedItems.forEach(queueItem)
+                  queueItems(updates.selectedItems)
                 }}
               >
                 <Download className="h-4 w-4" />

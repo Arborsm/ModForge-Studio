@@ -421,7 +421,7 @@ describe('LauncherUpdatesPage', () => {
     })
   })
 
-  it('queues only the checked updates when updating all selected items', async () => {
+  it('queues checked updates as one batch when updating all selected items', async () => {
     checkLauncherUpdatesMock.mockResolvedValue(
       createResult([
         createUpdate(),
@@ -435,8 +435,11 @@ describe('LauncherUpdatesPage', () => {
       ]),
     )
     const onQueueDownload = vi.fn()
+    const onQueueDownloads = vi.fn()
 
-    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} />)
+    renderWithProviders(
+      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} onQueueDownloads={onQueueDownloads} />,
+    )
 
     const firstCheckbox = await screen.findByRole('checkbox', { name: 'NPC Adventures' })
     const secondCheckbox = await screen.findByRole('checkbox', { name: 'Horse Overhaul' })
@@ -449,14 +452,17 @@ describe('LauncherUpdatesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '一键更新所有勾选项' }))
 
-    expect(onQueueDownload).toHaveBeenCalledTimes(1)
-    expect(onQueueDownload).toHaveBeenCalledWith({
-      modId: 101,
-      title: 'NPC Adventures',
-      imageUrl: null,
-      version: '1.2.0',
-      source: 'updates',
-    })
+    expect(onQueueDownload).not.toHaveBeenCalled()
+    expect(onQueueDownloads).toHaveBeenCalledTimes(1)
+    expect(onQueueDownloads).toHaveBeenCalledWith([
+      {
+        modId: 101,
+        title: 'NPC Adventures',
+        imageUrl: null,
+        version: '1.2.0',
+        source: 'updates',
+      },
+    ])
   })
 
   it('toggles between select all and clear selection from the console control', async () => {

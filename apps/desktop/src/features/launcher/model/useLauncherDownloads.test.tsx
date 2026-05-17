@@ -3,9 +3,21 @@ import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LauncherSettings } from '@features/launcher/api'
 import { useLauncherDownloads } from '@features/launcher'
+import { LocaleProvider } from '@locales/localeContext'
+import { clearNotifications, publishNotification } from '@shared/ui/notifications'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import type { LauncherPort } from './launcherPort'
+
+vi.mock('@shared/ui/notifications', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/ui/notifications')>()
+  return {
+    ...actual,
+    publishNotification: vi.fn(actual.publishNotification),
+  }
+})
+
+const publishNotificationMock = vi.mocked(publishNotification)
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
   return {
@@ -22,13 +34,18 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
 
 function createWrapper(port: LauncherPort) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <LauncherTestWrapper port={port}>{children}</LauncherTestWrapper>
+    return (
+      <LocaleProvider locale="en-US">
+        <LauncherTestWrapper port={port}>{children}</LauncherTestWrapper>
+      </LocaleProvider>
+    )
   }
 }
 
 describe('useLauncherDownloads', () => {
   afterEach(() => {
     vi.clearAllMocks()
+    clearNotifications()
     vi.useRealTimers()
   })
 
@@ -39,6 +56,7 @@ describe('useLauncherDownloads', () => {
           {
             id: 'persisted-job',
             modId: 101,
+            fileId: null,
             title: 'NPC Adventures',
             version: '1.0.0',
             imageUrl: null,
@@ -63,15 +81,17 @@ describe('useLauncherDownloads', () => {
   })
 
   it('persists queue changes through the desktop bridge instead of browser storage', async () => {
+    vi.useFakeTimers()
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
     })
 
     const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
-    await waitFor(() => {
-      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      await Promise.resolve()
     })
+    expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
 
     act(() => {
       result.current.queueDownload({
@@ -82,9 +102,14 @@ describe('useLauncherDownloads', () => {
       })
     })
 
-    await waitFor(() => {
-      expect(port.saveDownloadQueue).toHaveBeenCalled()
+    act(() => {
+      vi.advanceTimersByTime(300)
     })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(port.saveDownloadQueue).toHaveBeenCalled()
     expect(port.saveDownloadQueue).toHaveBeenLastCalledWith({
       items: [
         expect.objectContaining({
@@ -95,6 +120,59 @@ describe('useLauncherDownloads', () => {
           error: 'Nexus API key is required to download mods.',
         }),
       ],
+    })
+  })
+
+  it('queues update batches with one state transition and debounced persistence', async () => {
+    vi.useFakeTimers()
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
+
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      result.current.queueDownloads([
+        {
+          modId: 101,
+          title: 'NPC Adventures',
+          imageUrl: null,
+          version: '1.2.0',
+          source: 'updates',
+        },
+        {
+          modId: 202,
+          title: 'Horse Overhaul',
+          imageUrl: null,
+          version: '3.1.0',
+          source: 'updates',
+        },
+      ])
+    })
+
+    expect(result.current.failedItems).toHaveLength(2)
+    expect(port.saveDownloadQueue).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(299)
+    })
+    expect(port.saveDownloadQueue).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(port.saveDownloadQueue).toHaveBeenCalledTimes(1)
+    expect(port.saveDownloadQueue).toHaveBeenLastCalledWith({
+      items: [expect.objectContaining({ modId: 101, status: 'failed' }), expect.objectContaining({ modId: 202, status: 'failed' })],
     })
   })
 
@@ -219,6 +297,183 @@ describe('useLauncherDownloads', () => {
     })
   })
 
+  it('passes the selected Nexus file id through to the desktop download request', async () => {
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockResolvedValue({
+        modId: 1915,
+        title: 'Content Patcher',
+        version: '2.9.1',
+        fileName: 'ContentPatcher.zip',
+        archivePath: 'E:\\Downloads\\Mods\\ContentPatcher.zip',
+        installed: false,
+        installedTargetPath: null,
+      }),
+    })
+
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
+      { wrapper: createWrapper(port) },
+    )
+
+    await waitFor(() => {
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 1915,
+        fileId: 160463,
+        title: 'Content Patcher',
+        imageUrl: null,
+        version: '2.9.1',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(port.downloadMod).toHaveBeenCalled()
+    })
+    expect(port.downloadMod).toHaveBeenCalledWith({
+      modId: 1915,
+      fileId: 160463,
+      version: '2.9.1',
+      title: 'Content Patcher',
+    })
+  })
+
+  it('removes manual browser downloads from the queue and publishes one visible info notification', async () => {
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockRejectedValue(new Error('Nexus manual download page opened.')),
+    })
+
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
+      { wrapper: createWrapper(port) },
+    )
+
+    await waitFor(() => {
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 1915,
+        fileId: 160463,
+        title: 'Content Patcher',
+        imageUrl: null,
+        version: '2.9.1',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(0)
+    })
+    expect(result.current.failedItems).toHaveLength(0)
+    expect(publishNotificationMock).toHaveBeenCalledTimes(1)
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'launcher-manual-download-page-opened',
+        level: 'info',
+        title: 'Manual download page opened',
+      }),
+    )
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 1915,
+        fileId: 160463,
+        title: 'Content Patcher',
+        imageUrl: null,
+        version: '2.9.1',
+        source: 'updates',
+      })
+    })
+
+    await waitFor(() => {
+      expect(port.downloadMod).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(0)
+    })
+    expect(publishNotificationMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps processing queued items when a batch falls back to manual browser downloads', async () => {
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockRejectedValue(new Error('Nexus manual download page opened.')),
+    })
+
+    const { result } = renderHook(
+      () =>
+        useLauncherDownloads(
+          createSettings({
+            nexusApiKey: 'api-key',
+          }),
+        ),
+      { wrapper: createWrapper(port) },
+    )
+
+    await waitFor(() => {
+      expect(port.loadDownloadQueue).toHaveBeenCalledTimes(1)
+    })
+
+    act(() => {
+      result.current.queueDownloads([
+        {
+          modId: 1915,
+          fileId: 160463,
+          title: 'Content Patcher',
+          imageUrl: null,
+          version: '2.9.1',
+          source: 'updates',
+        },
+        {
+          modId: 2400,
+          fileId: 170000,
+          title: 'Lookup Anything',
+          imageUrl: null,
+          version: '1.45.0',
+          source: 'updates',
+        },
+      ])
+    })
+
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(0)
+    })
+    expect(port.downloadMod).toHaveBeenCalledTimes(2)
+    expect(port.downloadMod).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        modId: 1915,
+      }),
+    )
+    expect(port.downloadMod).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        modId: 2400,
+      }),
+    )
+    expect(publishNotificationMock).toHaveBeenCalledTimes(1)
+  })
+
   it('marks downloads without a Nexus API key as failed before calling the backend', async () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
@@ -261,6 +516,7 @@ describe('useLauncherDownloads', () => {
           {
             id: 'persisted-job',
             modId: 101,
+            fileId: null,
             title: 'NPC Adventures',
             version: '1.2.0',
             imageUrl: null,

@@ -41,6 +41,7 @@ export type LauncherLibraryModSummary = {
   updateKeys: string[]
   modUrl: string | null
   imageUrl: string | null
+  requiredDependencies: string[]
   missingRequiredDependencies: string[]
 }
 
@@ -204,6 +205,48 @@ export type LauncherRemoteModDetail = {
   galleryImages: string[]
   updatedAt?: string | null
   fileSize?: number | null
+  category?: string | null
+  downloads?: number | null
+  endorsements?: number | null
+  tags?: string[]
+  directDownloadEnabled?: boolean | null
+  supportsVortex?: boolean | null
+  primaryFileId?: number | null
+  primaryFileName?: string | null
+  primaryFileVersion?: string | null
+  primaryFileCategory?: string | null
+  primaryFileSize?: number | null
+  primaryFileSizeBytes?: number | null
+  primaryFileScanned?: boolean | null
+  primaryFileScanStatus?: string | null
+  primaryFileChangelog?: string[]
+  requiredLoader?: string | null
+  gameVersion?: string | null
+  archiveType?: string | null
+  updateRisk?: string | null
+  requirements?: LauncherRemoteModRequirement[]
+  files?: LauncherRemoteModFile[]
+}
+
+export type LauncherRemoteModRequirement = {
+  name: string
+  notes?: string | null
+  url?: string | null
+  external?: boolean
+}
+
+export type LauncherRemoteModFile = {
+  fileId?: number | null
+  name?: string | null
+  version?: string | null
+  category?: string | null
+  size?: number | null
+  sizeBytes?: number | null
+  primary?: boolean
+  scanned?: boolean | null
+  scanStatus?: string | null
+  changelog?: string[]
+  archiveType?: string | null
 }
 
 /** Remote update changelog result for a mod. */
@@ -353,6 +396,7 @@ export type LauncherGameLaunchResult = {
 export type LauncherDownloadQueueItemRecord = {
   id: string
   modId: number
+  fileId?: number | null
   title: string
   version: string | null
   imageUrl: string | null

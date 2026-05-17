@@ -44,6 +44,7 @@ export { useLauncherUpdates } from './model/useLauncherUpdates'
 
 export type {
   LauncherDownloadQueueItem,
+  LauncherDiscoverDetail,
   LauncherLibraryItem,
   LauncherPackPreset,
   LauncherSettingsDraft,

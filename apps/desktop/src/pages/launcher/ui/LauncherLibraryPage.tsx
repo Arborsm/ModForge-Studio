@@ -40,7 +40,7 @@ import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { useLauncherImage } from '@features/launcher'
 import { getLauncherCoverKey } from '@features/launcher'
 import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher'
-import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft } from '@features/launcher'
+import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher'
 import { useLauncherLibrary } from '@features/launcher'
 import {
   LauncherArchiveInstallDialog,
@@ -57,6 +57,7 @@ type LauncherLibraryPageProps = {
   launchGameDisabled: boolean
   launchGameBusy: boolean
   onLaunchGame: () => void
+  onQueueDownload?: (input: QueueLauncherDownloadInput) => void
 }
 
 type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
@@ -201,6 +202,7 @@ type VirtualizedLauncherGridProps = {
   onDragEnd: () => void
   onToggleSelection: (modId: string) => void
   onSelectMod: (modId: string) => void
+  onOpenModDetails: (modId: string) => void
   getContextActions: (mod: LauncherLibraryItem) => { label: string; onSelect: () => void }[] | undefined
 }
 
@@ -246,6 +248,7 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   onDragEnd,
   onToggleSelection,
   onSelectMod,
+  onOpenModDetails,
   getContextActions,
 }: VirtualizedLauncherGridProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -312,6 +315,11 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                 }
                 onSelectMod(item.id)
               }}
+              onOpenDetails={() => {
+                if (!editMode) {
+                  onOpenModDetails(item.id)
+                }
+              }}
               contextActions={editMode ? undefined : getContextActions(item)}
             />
           </LoadingMotionRevealItem>
@@ -347,6 +355,7 @@ export function LauncherLibraryPageContent({
   launchGameDisabled,
   launchGameBusy,
   onLaunchGame,
+  onQueueDownload,
 }: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
@@ -1652,6 +1661,7 @@ export function LauncherLibraryPageContent({
                   onDragEnd={stopDraggingMod}
                   onToggleSelection={toggleEditSelection}
                   onSelectMod={selectMod}
+                  onOpenModDetails={openModDetails}
                   getContextActions={directActionsForMod}
                 />
               )}
@@ -1689,6 +1699,7 @@ export function LauncherLibraryPageContent({
           setCoverLabel={copy.actions.setCover}
           clearCoverLabel={copy.actions.clearCover}
           openModPageLabel={copy.actions.openModPage}
+          onQueueDownload={onQueueDownload}
           onOpenFolder={() => {
             if (detailMod) {
               void openModFolder(detailMod)

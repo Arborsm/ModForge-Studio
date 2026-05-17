@@ -1,15 +1,17 @@
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
 use super::paths::{launcher_backup_dir, launcher_download_queue_path, launcher_settings_path};
+use super::runtime::open_launcher_url_in_browser;
 use super::settings::{load_or_create_settings_at_path, resolve_download_dir};
 use super::trace::log_launcher_trace;
 use super::types::{
     DownloadLauncherModRequest, DownloadLauncherModResult, LauncherDownloadQueueItem,
     LauncherDownloadQueueState,
 };
+use crate::domain::app_ui::load_app_ui_state;
 use crate::domain::nexusmods::downloads::{
     download_file_response, fetch_mod_files_payload, resolve_download_url,
-    select_download_candidate,
+    select_download_candidate, ResolveDownloadUrlError,
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
@@ -18,6 +20,30 @@ use reqwest::header::CONTENT_DISPOSITION;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+
+pub(crate) const MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE: &str = "Nexus manual download page opened.";
+const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
+
+fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
+    format!(
+        "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id={file_id}&game_id={game_id}"
+    )
+}
+
+fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> Result<(), String> {
+    let url = nexus_manual_download_url(file_id, game_id);
+    open_launcher_url_in_browser(&url)?;
+    log_launcher_trace(
+        "download.manual-page-opened",
+        &[
+            ("modId", mod_id.to_string()),
+            ("fileId", file_id.to_string()),
+            ("gameId", game_id.to_string()),
+            ("url", url),
+        ],
+    );
+    Ok(())
+}
 
 fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> LauncherDownloadQueueState {
     LauncherDownloadQueueState {
@@ -43,6 +69,7 @@ fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> Launcher
                 Some(LauncherDownloadQueueItem {
                     id,
                     mod_id: item.mod_id,
+                    file_id: item.file_id,
                     title,
                     version: item
                         .version
@@ -236,8 +263,32 @@ pub fn download_launcher_mod(
                     ("version", candidate.version.clone().unwrap_or_default()),
                 ],
             );
+
+            if load_app_ui_state()
+                .map(|state| state.launcher.force_non_premium)
+                .unwrap_or(false)
+            {
+                open_nexus_manual_download_page(
+                    request.mod_id,
+                    candidate.file_id,
+                    NEXUS_STARDEW_VALLEY_GAME_ID,
+                )?;
+                return Err(MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE.to_string());
+            }
+
             let download_url =
-                resolve_download_url(&client, &settings, request.mod_id, candidate.file_id)?;
+                match resolve_download_url(&client, &settings, request.mod_id, candidate.file_id) {
+                    Ok(download_url) => download_url,
+                    Err(ResolveDownloadUrlError::PremiumRequired) => {
+                        open_nexus_manual_download_page(
+                            request.mod_id,
+                            candidate.file_id,
+                            NEXUS_STARDEW_VALLEY_GAME_ID,
+                        )?;
+                        return Err(MANUAL_DOWNLOAD_PAGE_OPENED_MESSAGE.to_string());
+                    }
+                    Err(ResolveDownloadUrlError::Message(message)) => return Err(message),
+                };
             let response = download_file_response(&client, &download_url)?;
             if !response.status().is_success() {
                 return Err(format!(
@@ -255,12 +306,12 @@ pub fn download_launcher_mod(
                     normalize_path(&archive_path)
                 )
             })?;
-            let bytes = response
-                .bytes()
-                .map_err(|error| format!("Failed to read launcher download bytes: {error}"))?;
-            archive_file.write_all(&bytes).map_err(|error| {
+            let mut response_reader = response;
+            let bytes_written = std::io::copy(&mut response_reader, &mut archive_file)
+                .map_err(|error| format!("Failed to stream launcher download bytes: {error}"))?;
+            archive_file.flush().map_err(|error| {
                 format!(
-                    "Failed to write launcher archive {}: {error}",
+                    "Failed to flush launcher archive {}: {error}",
                     normalize_path(&archive_path)
                 )
             })?;
@@ -269,7 +320,7 @@ pub fn download_launcher_mod(
                 &[
                     ("modId", request.mod_id.to_string()),
                     ("archivePath", normalize_path(&archive_path)),
-                    ("bytes", bytes.len().to_string()),
+                    ("bytes", bytes_written.to_string()),
                 ],
             );
 
@@ -327,4 +378,17 @@ pub fn download_launcher_mod(
             Ok(result)
         })(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{nexus_manual_download_url, NEXUS_STARDEW_VALLEY_GAME_ID};
+
+    #[test]
+    fn nexus_manual_download_url_targets_file_popup_with_explicit_game_id() {
+        assert_eq!(
+            nexus_manual_download_url(167813, NEXUS_STARDEW_VALLEY_GAME_ID),
+            "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id=167813&game_id=1303"
+        );
+    }
 }

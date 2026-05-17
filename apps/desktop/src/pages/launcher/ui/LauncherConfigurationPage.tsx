@@ -70,6 +70,7 @@ type NexusApiAccountStatus = {
   apiKeyChecking: boolean
   ssoAuthorized: boolean
   ssoStarting: boolean
+  refreshApiKeyStatus: (options?: { force?: boolean; forceNonPremium?: boolean }) => Promise<void>
   startSso: () => Promise<void>
 }
 
@@ -417,6 +418,7 @@ function ConfigDownloadDefaults({
 function ConfigAccountCard({ account, copy }: { account: NexusApiAccountStatus; copy: LauncherCopy }) {
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
   const accountStatus = account.apiKeyError ? copy.settings.nexusApiUnavailable : copy.settings.nexusNormalStatus
+  const premiumLabel = account.apiKeyStatus?.isPremium ? copy.diagnostics.premiumActive : copy.diagnostics.premiumFree
 
   return (
     <LoadingMotionReveal
@@ -437,12 +439,9 @@ function ConfigAccountCard({ account, copy }: { account: NexusApiAccountStatus; 
         </div>
         <div className="launcher-config-account-meta">
           <strong>{accountName}</strong>
-          <span
-            className="launcher-config-premium-badge"
-            title={account.apiKeyStatus?.isPremium ? copy.diagnostics.premiumActive : copy.diagnostics.premiumFree}
-          >
+          <span className="launcher-config-premium-badge" title={premiumLabel}>
             <Crown className="h-3.5 w-3.5" aria-hidden="true" />
-            {copy.diagnostics.premiumActive.toUpperCase()}
+            {premiumLabel.toUpperCase()}
           </span>
         </div>
       </div>
@@ -533,7 +532,11 @@ function ConfigPathPanel({
   )
 }
 
-function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSettings>): NexusApiAccountStatus {
+function applyForcedNonPremiumStatus(status: ValidateApiKeyResult | null, forceNonPremium: boolean) {
+  return status && forceNonPremium ? { ...status, isPremium: false } : status
+}
+
+function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSettings>, forceNonPremium: boolean): NexusApiAccountStatus {
   const launcherPort = useLauncherPort()
   const { settings, refresh } = settingsState
   const [apiKeyStatus, setApiKeyStatus] = useState<ValidateApiKeyResult | null>(null)
@@ -543,9 +546,30 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
   const [ssoStarting, setSsoStarting] = useState(false)
   const apiKeySignature = getConfigurationDiagnosticsApiKeySignature(settings)
   const hasApiKey = Boolean(apiKeySignature)
+  const applyDebugAccountTier = useCallback(
+    (status: ValidateApiKeyResult | null, overrideForceNonPremium = forceNonPremium) =>
+      applyForcedNonPremiumStatus(status, overrideForceNonPremium),
+    [forceNonPremium],
+  )
+
+  const writeApiKeyStatusCache = useCallback(
+    (status: ValidateApiKeyResult | null, error: string | null, overrideForceNonPremium = forceNonPremium) => {
+      writeCachedLauncherConfigurationApiKeyStatus(
+        {
+          status: applyDebugAccountTier(status, overrideForceNonPremium),
+          error,
+        },
+        {
+          apiKeySignature,
+        },
+      )
+    },
+    [apiKeySignature, applyDebugAccountTier, forceNonPremium],
+  )
 
   const refreshApiKeyStatus = useCallback(
-    async (options: { force?: boolean } = {}) => {
+    async (options: { force?: boolean; forceNonPremium?: boolean } = {}) => {
+      const effectiveForceNonPremium = options.forceNonPremium ?? forceNonPremium
       if (!hasApiKey) {
         setApiKeyStatus(null)
         setApiKeyError(null)
@@ -557,7 +581,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
           apiKeySignature,
         })
         if (cached) {
-          setApiKeyStatus(cached.status)
+          setApiKeyStatus(applyDebugAccountTier(cached.status, effectiveForceNonPremium))
           setApiKeyError(cached.error)
           return
         }
@@ -566,35 +590,19 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
       setApiKeyChecking(true)
       setApiKeyError(null)
       try {
-        const nextStatus = await launcherPort.validateNexusApiKey()
+        const nextStatus = applyDebugAccountTier(await launcherPort.validateNexusApiKey(), effectiveForceNonPremium)
         setApiKeyStatus(nextStatus)
-        writeCachedLauncherConfigurationApiKeyStatus(
-          {
-            status: nextStatus,
-            error: null,
-          },
-          {
-            apiKeySignature,
-          },
-        )
+        writeApiKeyStatusCache(nextStatus, null, effectiveForceNonPremium)
       } catch (nextError) {
         const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
         setApiKeyStatus(null)
         setApiKeyError(errorMessage)
-        writeCachedLauncherConfigurationApiKeyStatus(
-          {
-            status: null,
-            error: errorMessage,
-          },
-          {
-            apiKeySignature,
-          },
-        )
+        writeApiKeyStatusCache(null, errorMessage, effectiveForceNonPremium)
       } finally {
         setApiKeyChecking(false)
       }
     },
-    [apiKeySignature, hasApiKey, launcherPort],
+    [apiKeySignature, applyDebugAccountTier, forceNonPremium, hasApiKey, launcherPort, writeApiKeyStatusCache],
   )
 
   useEffect(() => {
@@ -614,38 +622,22 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
       })
       if (cached) {
         if (!cancelled) {
-          setApiKeyStatus(cached.status)
+          setApiKeyStatus(applyDebugAccountTier(cached.status))
           setApiKeyError(cached.error)
         }
         return
       }
 
       try {
-        const nextStatus = await launcherPort.validateNexusApiKey()
-        writeCachedLauncherConfigurationApiKeyStatus(
-          {
-            status: nextStatus,
-            error: null,
-          },
-          {
-            apiKeySignature,
-          },
-        )
+        const nextStatus = applyDebugAccountTier(await launcherPort.validateNexusApiKey())
+        writeApiKeyStatusCache(nextStatus, null)
         if (!cancelled) {
           setApiKeyStatus(nextStatus)
           setApiKeyError(null)
         }
       } catch (nextError) {
         const errorMessage = nextError instanceof Error ? nextError.message : String(nextError)
-        writeCachedLauncherConfigurationApiKeyStatus(
-          {
-            status: null,
-            error: errorMessage,
-          },
-          {
-            apiKeySignature,
-          },
-        )
+        writeApiKeyStatusCache(null, errorMessage)
         if (!cancelled) {
           setApiKeyStatus(null)
           setApiKeyError(errorMessage)
@@ -656,7 +648,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
     return () => {
       cancelled = true
     }
-  }, [apiKeySignature, hasApiKey, launcherPort])
+  }, [apiKeySignature, applyDebugAccountTier, hasApiKey, launcherPort, writeApiKeyStatusCache])
 
   useEffect(() => {
     let cancelled = false
@@ -714,6 +706,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
     apiKeyChecking,
     ssoAuthorized,
     ssoStarting,
+    refreshApiKeyStatus,
     startSso,
   }
 }
@@ -1101,10 +1094,10 @@ function DebugToolCard({
   icon: ReactNode
   headerActions?: ReactNode
   children?: ReactNode
-  tone?: 'danger'
+  tone?: 'danger' | 'warning'
 }) {
   return (
-    <section className={cx('launcher-debug-tool-card', tone === 'danger' && 'launcher-debug-tool-card-danger')}>
+    <section className={cx('launcher-debug-tool-card', (tone === 'danger' || tone === 'warning') && 'launcher-debug-tool-card-danger')}>
       <div className="launcher-debug-tool-header">
         <div className="launcher-debug-tool-copy">
           <h2 className="launcher-debug-tool-title">{title}</h2>
@@ -1141,12 +1134,14 @@ export function LauncherConfigurationPage({
   const [diagnosticsRefreshing, setDiagnosticsRefreshing] = useState(false)
   const [forceOffline, setForceOffline] = useState(() => getAppUiStateSnapshot().launcher.forceOffline)
   const [forceOfflineBusy, setForceOfflineBusy] = useState(false)
+  const [forceNonPremium, setForceNonPremium] = useState(() => getAppUiStateSnapshot().launcher.forceNonPremium)
+  const [forceNonPremiumBusy, setForceNonPremiumBusy] = useState(false)
   const [diagnosticsPollNonce] = useState(0)
   const [diagnosticsRestartNonce, setDiagnosticsRestartNonce] = useState(0)
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
   const [runtimeInfo, setRuntimeInfo] = useState<LauncherRuntimeInfo | null>(null)
   const launcherPort = useLauncherPort()
-  const account = useNexusApiAccountStatus(settingsState)
+  const account = useNexusApiAccountStatus(settingsState, forceNonPremium)
   const warningState = getLauncherWarningState(settingsState.settings)
   const configuredPaths = countConfiguredPaths(settingsState.settings)
   const hasCredentials = !warningState.missingCredentials
@@ -1366,6 +1361,27 @@ export function LauncherConfigurationPage({
       setForceOfflineBusy(false)
     }
   }, [diagnosticsApiKeySignature, forceOffline, handleDiagnosticsUpdate, handleRefreshDiagnostics])
+  const handleToggleForceNonPremium = useCallback(async () => {
+    const nextForceNonPremium = !forceNonPremium
+    setForceNonPremiumBusy(true)
+
+    try {
+      await applyAppUiStatePatch({
+        launcher: {
+          forceNonPremium: nextForceNonPremium,
+        },
+      })
+      setForceNonPremium(nextForceNonPremium)
+      await account.refreshApiKeyStatus({
+        force: true,
+        forceNonPremium: nextForceNonPremium,
+      })
+    } catch {
+      // Debug-only account tier override should keep the current visible state on failure.
+    } finally {
+      setForceNonPremiumBusy(false)
+    }
+  }, [account, forceNonPremium])
   const handleClearLauncherImageCache = () => {
     void clearLauncherImageCache().catch(() => {
       // Debug-only affordance: ignore desktop bridge failures here.
@@ -1499,19 +1515,45 @@ export function LauncherConfigurationPage({
                 />
               </LoadingMotionReveal>
 
-              <LoadingMotionReveal itemId="launcher-debug-notifications" index={7}>
+              <LoadingMotionReveal itemId="launcher-debug-force-non-premium" index={7}>
+                <DebugToolCard
+                  title={copy.configuration.forceNonPremiumEnableButton}
+                  icon={<Crown className="h-4 w-4" />}
+                  tone="warning"
+                  headerActions={
+                    <div className="launcher-toolbar">
+                      <button
+                        type="button"
+                        className={cx(
+                          'control-button launcher-config-danger-button',
+                          forceNonPremium && 'launcher-config-danger-button-active',
+                        )}
+                        disabled={!canUseDesktopHost() || forceNonPremiumBusy}
+                        onClick={handleToggleForceNonPremium}
+                      >
+                        {forceNonPremium ? copy.configuration.forceNonPremiumDisableButton : copy.configuration.forceNonPremiumEnableButton}
+                      </button>
+                      <span className="dock-chip">
+                        {forceNonPremium ? copy.configuration.forceNonPremiumEnabledLabel : copy.configuration.forceNonPremiumDisabledLabel}
+                      </span>
+                    </div>
+                  }
+                />
+              </LoadingMotionReveal>
+
+              <LoadingMotionReveal itemId="launcher-debug-notifications" index={8}>
                 <DebugToolCard title={copy.configuration.notificationsTitle} icon={<MessageSquare className="h-4 w-4" />}>
                   <NotificationTestButtons labels={copy.configuration.notificationButtons} debugEnabled={debugEnabled} />
                 </DebugToolCard>
               </LoadingMotionReveal>
 
-              <LoadingMotionReveal itemId="launcher-debug-logs" index={8}>
+              <LoadingMotionReveal itemId="launcher-debug-logs" index={9}>
                 <DebugToolCard title={copy.configuration.logsTitle} icon={<ScrollText className="h-4 w-4" />}>
                   <LogTestButtons labels={copy.configuration.logButtons} debugEnabled={debugEnabled} />
                 </DebugToolCard>
               </LoadingMotionReveal>
 
-              <LoadingMotionReveal itemId="launcher-debug-image-cache" index={9}>
+              <LoadingMotionReveal itemId="launcher-debug-image-cache" index={10}>
                 <DebugToolCard
                   title={copy.configuration.clearImageCacheTitle}
                   icon={<ScrollText className="h-4 w-4" />}
@@ -1525,7 +1567,7 @@ export function LauncherConfigurationPage({
                 />
               </LoadingMotionReveal>
 
-              <LoadingMotionReveal itemId="launcher-debug-bbcode-preview" index={10}>
+              <LoadingMotionReveal itemId="launcher-debug-bbcode-preview" index={11}>
                 <DebugToolCard
                   title={copy.configuration.bbcodePreviewTitle}
                   icon={<Code2 className="h-4 w-4" />}
@@ -1552,7 +1594,7 @@ export function LauncherConfigurationPage({
                 </DebugToolCard>
               </LoadingMotionReveal>
 
-              <LoadingMotionReveal itemId="launcher-debug-simulation" index={11}>
+              <LoadingMotionReveal itemId="launcher-debug-simulation" index={12}>
                 <DebugToolCard
                   title={copy.configuration.simulationTitle}
                   icon={<Download className="h-4 w-4" />}

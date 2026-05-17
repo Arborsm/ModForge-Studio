@@ -440,7 +440,10 @@ fn build_mod_summary(
         .to_string();
     let update_keys = string_array_field(&project.manifest, "UpdateKeys");
     let nexus_mod_id = extract_nexus_mod_id(&update_keys);
-    let missing_required_dependencies = required_dependency_ids(&project.manifest)
+    let required_dependencies = required_dependency_ids(&project.manifest);
+    let missing_required_dependencies = required_dependencies
+        .iter()
+        .cloned()
         .into_iter()
         .filter(|dependency| !available_enabled_mod_ids.contains(&normalize_unique_id(dependency)))
         .collect::<Vec<_>>();
@@ -464,6 +467,7 @@ fn build_mod_summary(
         update_keys,
         mod_url: nexus_mod_id.map(build_mod_page_url),
         image_url: None,
+        required_dependencies,
         missing_required_dependencies,
     }
 }

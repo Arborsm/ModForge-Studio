@@ -5,6 +5,18 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use reqwest::blocking::{Client, Response};
 use serde_json::Value;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ResolveDownloadUrlError {
+    PremiumRequired,
+    Message(String),
+}
+
+impl From<String> for ResolveDownloadUrlError {
+    fn from(value: String) -> Self {
+        Self::Message(value)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct DownloadCandidate {
     pub(crate) file_id: i64,
@@ -110,17 +122,22 @@ pub(crate) fn resolve_download_url(
     settings: &LauncherSettings,
     mod_id: i64,
     file_id: i64,
-) -> Result<String, String> {
+) -> Result<String, ResolveDownloadUrlError> {
     let api_key = settings
         .nexus_api_key
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Nexus API key is required to resolve download links.".to_string())?;
+        .ok_or_else(|| {
+            ResolveDownloadUrlError::Message(
+                "Nexus API key is required to resolve download links.".to_string(),
+            )
+        })?;
 
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
+    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)
+        .map_err(ResolveDownloadUrlError::Message)?;
     let response = client.get(super::download_link_endpoint(mod_id, file_id));
-    let headers = api_headers(api_key)?;
+    let headers = api_headers(api_key).map_err(ResolveDownloadUrlError::Message)?;
     let response = send_nexus_request(|| {
         response
             .try_clone()
@@ -128,30 +145,37 @@ pub(crate) fn resolve_download_url(
             .headers(headers.clone())
             .send()
     })
-    .map_err(|error| format!("Failed to fetch launcher download links: {error}"))?;
+    .map_err(|error| {
+        ResolveDownloadUrlError::Message(format!(
+            "Failed to fetch launcher download links: {error}"
+        ))
+    })?;
     if response.status() == reqwest::StatusCode::FORBIDDEN {
-        return Err(
-            "Nexus Premium is required for direct API download links. Open the mod page for manual download or connect a Premium account."
-                .to_string(),
-        );
+        return Err(ResolveDownloadUrlError::PremiumRequired);
     }
     if !response.status().is_success() {
-        return Err(format!(
+        return Err(ResolveDownloadUrlError::Message(format!(
             "Launcher download link request failed for {mod_id}/{file_id}: HTTP {}",
             response.status()
-        ));
+        )));
     }
 
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher download links JSON: {error}"))?;
+    let payload = response.json::<Value>().map_err(|error| {
+        ResolveDownloadUrlError::Message(format!(
+            "Failed to parse launcher download links JSON: {error}"
+        ))
+    })?;
     payload
         .as_array()
         .and_then(|items| items.first())
         .and_then(|item| item.get("URI"))
         .and_then(Value::as_str)
         .map(ToOwned::to_owned)
-        .ok_or_else(|| "Launcher download link response did not include a URI.".to_string())
+        .ok_or_else(|| {
+            ResolveDownloadUrlError::Message(
+                "Launcher download link response did not include a URI.".to_string(),
+            )
+        })
 }
 
 pub(crate) fn download_file_response(

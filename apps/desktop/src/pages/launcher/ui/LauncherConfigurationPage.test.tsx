@@ -27,6 +27,7 @@ const applyAppUiStatePatch = vi.fn()
 const getAppUiStateSnapshot = vi.fn(() => ({
   launcher: {
     forceOffline: false,
+    forceNonPremium: false,
   },
 }))
 
@@ -99,6 +100,7 @@ function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): L
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,
   }
@@ -158,6 +160,7 @@ describe('LauncherConfigurationPage', () => {
     getAppUiStateSnapshot.mockReturnValue({
       launcher: {
         forceOffline: false,
+        forceNonPremium: false,
       },
     })
     downloads.startDebugSimulation.mockReset()
@@ -701,7 +704,7 @@ describe('LauncherConfigurationPage', () => {
     expect(await screen.findByText(copy.settings.nexusApiGraphql)).toBeTruthy()
     expect(screen.getByText('浏览目录、搜索和公开详情查询')).toBeTruthy()
     expect(await screen.findByText('Log: HTTP 503: upstream unavailable')).toBeTruthy()
-    expect(screen.getByTestId('launcher-config-account-card').textContent).toContain(copy.diagnostics.premiumActive.toUpperCase())
+    expect(screen.getByTestId('launcher-config-account-card').textContent).toContain(copy.diagnostics.premiumFree.toUpperCase())
     expect(screen.queryByRole('button', { name: copy.settings.nexusSignInAction })).toBeNull()
   })
 
@@ -810,6 +813,8 @@ describe('LauncherConfigurationPage', () => {
     expect(container.querySelector('.launcher-debug-overview-divider')).toBeNull()
     expect(screen.getByRole('heading', { name: copy.configuration.forceOfflineEnableButton, level: 2 })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.configuration.forceOfflineEnableButton })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: copy.configuration.forceNonPremiumEnableButton, level: 2 })).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.configuration.forceNonPremiumEnableButton })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.logsTitle, level: 2 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.simulationTitle, level: 2 })).toBeTruthy()
@@ -1137,5 +1142,33 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByRole('heading', { name: copy.settings.nexusApiGraphql, level: 3 }).closest('.launcher-config-api-row')).toHaveClass(
       'launcher-config-api-row-warn',
     )
+  })
+
+  it('persists the force non-Premium override and refreshes the account as a free user', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'PremiumTester',
+      isPremium: true,
+      dailyRemaining: 12_000,
+      hourlyRemaining: 450,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+    applyAppUiStatePatch.mockResolvedValue(undefined)
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+    expandDebugTools()
+    fireEvent.click(await screen.findByRole('button', { name: copy.configuration.forceNonPremiumEnableButton }))
+
+    await waitFor(() => {
+      expect(applyAppUiStatePatch).toHaveBeenCalledWith({
+        launcher: {
+          forceNonPremium: true,
+        },
+      })
+    })
+    await waitFor(() => {
+      expect(screen.getByText(copy.diagnostics.premiumFree)).toBeTruthy()
+    })
   })
 })
