@@ -1075,6 +1075,7 @@ fn enrich_remote_mod_detail_with_gallery_images_fills_missing_cover_from_images_
         name: Some("Vanilla Plus Professions".to_string()),
         author: Some("KediDili".to_string()),
         summary: Some("Professions expansion.".to_string()),
+        description: None,
         version: Some("1.1.1".to_string()),
         mod_url: "https://www.nexusmods.com/stardewvalley/mods/20054".to_string(),
         image_url: None,
@@ -1126,6 +1127,10 @@ fn parse_public_mod_detail_graphql_response_extracts_author_version_and_descript
     assert_eq!(detail.author.as_deref(), Some("blue704"));
     assert_eq!(
         detail.summary.as_deref(),
+        Some("Short summary.")
+    );
+    assert_eq!(
+        detail.description.as_deref(),
         Some("Full description for the mod.")
     );
     assert_eq!(detail.version.as_deref(), Some("1.0.0"));
@@ -1363,6 +1368,7 @@ fn build_launcher_update_summary_uses_remote_detail_fields_without_file_metadata
             name: Some("Lookup Anything".to_string()),
             author: Some("Pathoschild".to_string()),
             summary: Some("Inspect anything.".to_string()),
+            description: None,
             version: Some("1.44.0".to_string()),
             mod_url: "https://www.nexusmods.com/stardewvalley/mods/541".to_string(),
             image_url: Some(
@@ -1559,6 +1565,7 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
             name: Some("Tractor Mod".to_string()),
             author: Some("Pathoschild".to_string()),
             summary: None,
+            description: None,
             version: Some("4.0.1".to_string()),
             mod_url: "https://www.nexusmods.com/stardewvalley/mods/101".to_string(),
             image_url: None,

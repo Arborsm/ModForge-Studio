@@ -630,7 +630,8 @@ fn load_remote_mod_details_batch(
     let mut unresolved_mod_ids = Vec::new();
     let mut public_graphql_resolved = 0usize;
     for candidate in missing_after_graphql {
-        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id) {
+        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id, false)
+        {
             Ok(detail) => {
                 public_graphql_resolved += 1;
                 details.insert(candidate.mod_id, detail);

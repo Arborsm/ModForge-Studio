@@ -6,6 +6,7 @@
 @import "./primitives/controls.css";
 @import "./primitives/status.css";
 @import "./primitives/menu.css";
+@import "./primitives/tooltip.css";
 @import "./primitives/overlay.css";
 @import "./primitives/loading-motion.css";
 @import "./primitives/nexusmods-bbcode.css";

@@ -278,11 +278,13 @@ function createLibraryState(): MockLibraryState {
     uniqueId: 'ModForge.VintageInterface',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Vintage Interface Redux',
     enabled: false,
+    nexusModId: 202,
   })
 
   return {
     mods: [primaryMod, secondaryMod],
     filteredMods: [primaryMod, secondaryMod],
+    latestVersionByModId: {},
     hiddenModKeys: [],
     selectedMod: primaryMod,
     selectedModId: 'mod-1',
@@ -482,6 +484,22 @@ describe('LauncherLibraryPage', () => {
     expect(container.querySelector('.launcher-library-shell > .launcher-library-sidebar')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-content')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell .launcher-library-console')).toBeNull()
+  })
+
+  it('marks library card versions when a cached update is available', () => {
+    useLauncherLibraryMock.mockReturnValue({
+      ...createLibraryState(),
+      latestVersionByModId: {
+        101: '1.1.0',
+      },
+    })
+
+    renderLibraryPage()
+
+    const updateBadge = screen.getByLabelText('New version v1.1.0 available')
+    expect(updateBadge).toHaveClass('launcher-mod-card-version-update')
+    expect(updateBadge.textContent).toContain('v1.0.0')
+    expect(updateBadge.querySelector('svg')).toBeTruthy()
   })
 
   it('shows an install overlay for multiple supported external archives and hides it on leave', async () => {

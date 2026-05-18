@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { CSSProperties, DragEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { Check } from 'lucide-react'
+import { ArrowUp, Check } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
@@ -18,6 +18,9 @@ type LauncherModCardProps = {
   title: string
   titleTooltip?: string
   meta: string
+  author?: string | null
+  version?: string | null
+  latestVersion?: string | null
   imageUrl: string | null
   enabled?: boolean
   onSelect?: () => void
@@ -32,8 +35,10 @@ type LauncherModCardProps = {
 
 export function LauncherModCard({
   title,
-  titleTooltip,
   meta,
+  author,
+  version,
+  latestVersion,
   imageUrl,
   enabled = true,
   onSelect,
@@ -49,6 +54,16 @@ export function LauncherModCard({
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fallbackPalette = getLauncherCardFallbackPalette(title)
   const coverWord = getLauncherCardCoverWord(title)
+  const normalizedAuthor = author?.trim() ?? ''
+  const normalizedVersion = version?.trim() ?? ''
+  const normalizedLatestVersion = latestVersion?.trim() ?? ''
+  const versionLabel = normalizedVersion ? (normalizedVersion.startsWith('v') ? normalizedVersion : `v${normalizedVersion}`) : ''
+  const latestVersionLabel = normalizedLatestVersion
+    ? normalizedLatestVersion.startsWith('v')
+      ? normalizedLatestVersion
+      : `v${normalizedLatestVersion}`
+    : ''
+  const updateTooltip = latestVersionLabel ? copy.launcher.library.updateAvailableTooltip(latestVersionLabel) : null
   const coverStyle = {
     '--launcher-cover-bright': fallbackPalette.bright,
     '--launcher-cover-base': fallbackPalette.base,
@@ -118,20 +133,33 @@ export function LauncherModCard({
           </span>
         ) : null}
 
-        <button
-          type="button"
-          className="launcher-mod-card-main"
-          onClick={handleSelectClick}
-          onDoubleClick={handleOpenDetailsDoubleClick}
-          title={titleTooltip ?? title}
-        >
+        <button type="button" className="launcher-mod-card-main" onClick={handleSelectClick} onDoubleClick={handleOpenDetailsDoubleClick}>
           <LauncherArtworkCover title={title} imageUrl={imageUrl} coverStyle={coverStyle} coverWord={coverWord} />
 
           <div className="launcher-mod-card-copy">
-            <p className="launcher-mod-card-title" title={titleTooltip ?? title}>
-              {title}
-            </p>
-            <p className="launcher-mod-card-meta">{meta || copy.common.none}</p>
+            <p className="launcher-mod-card-title">{title}</p>
+            {normalizedAuthor || versionLabel ? (
+              <p className="launcher-mod-card-meta">
+                {normalizedAuthor ? <span className="launcher-mod-card-author">{normalizedAuthor}</span> : null}
+                {normalizedAuthor && versionLabel ? <span aria-hidden="true">·</span> : null}
+                {versionLabel ? (
+                  updateTooltip ? (
+                    <span
+                      className="launcher-mod-card-version launcher-mod-card-version-update"
+                      aria-label={updateTooltip}
+                      data-tooltip={updateTooltip}
+                    >
+                      {versionLabel}
+                      <ArrowUp className="h-3 w-3" aria-hidden="true" />
+                    </span>
+                  ) : (
+                    <span className="launcher-mod-card-version">{versionLabel}</span>
+                  )
+                ) : null}
+              </p>
+            ) : (
+              <p className="launcher-mod-card-meta">{meta || copy.common.none}</p>
+            )}
           </div>
         </button>
       </div>

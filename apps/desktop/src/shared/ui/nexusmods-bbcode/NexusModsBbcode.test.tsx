@@ -31,13 +31,15 @@ describe('NexusModsBbcode', () => {
     expect(screen.getByText(/green =/).closest('li')).toHaveClass('nexusmods-bbcode-list-item')
   })
 
-  it('keeps copied NexusMods indent whitespace and visual line starts readable', () => {
+  it('normalizes copied NexusMods hidden indent whitespace into readable text spacing', () => {
     const { container } = render(<NexusModsBbcode source={'[i][u]beds[/u][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- blocky double bed'} />)
 
     const rendered = container.querySelector('.nexusmods-bbcode')?.textContent ?? ''
     expect(rendered).toContain('1. double bed')
     expect(rendered).toContain('- double bed')
-    expect(container.querySelectorAll('br')).toHaveLength(3)
+    expect(rendered).not.toMatch(/\s{3,}/u)
+    expect(container.querySelectorAll('br')).toHaveLength(0)
+    expect(container.querySelector('.nexusmods-bbcode-indent')).toBeNull()
   })
 
   it('renders decorative furniture section labels as block headings instead of joining the previous line', () => {
@@ -46,7 +48,7 @@ describe('NexusModsBbcode', () => {
     const heading = screen.getByText('ꕥ end table')
     expect(heading.closest('.nexusmods-bbcode-section-heading')).toBeTruthy()
     expect(heading.closest('.nexusmods-bbcode-section-heading')?.nextSibling?.nodeName).not.toBe('BR')
-    expect(container.querySelectorAll('br')).toHaveLength(1)
+    expect(container.querySelectorAll('br')).toHaveLength(0)
     expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toContain('bed - ꕥ')
     expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toMatch(/\n?\s-\s*ꕥ/u)
   })
@@ -57,19 +59,17 @@ describe('NexusModsBbcode', () => {
     const heading = screen.getByText('ꕥ beds')
     expect(heading.closest('.nexusmods-bbcode-section-heading')).toBeTruthy()
     expect(heading.closest('.nexusmods-bbcode-section-heading')?.nextSibling?.nodeName).not.toBe('BR')
-    expect(container.querySelectorAll('br')).toHaveLength(1)
+    expect(container.querySelectorAll('br')).toHaveLength(0)
   })
 
-  it('maps copied NexusMods furniture item markers to nested visual indentation', () => {
+  it('collapses copied NexusMods furniture item markers without adding synthetic indentation', () => {
     const { container } = render(
       <NexusModsBbcode source={'[i][size=2][u]ꕥ beds[/u][/size][/i] ﻿1. double bed ﻿ ﻿- double bed ﻿ ﻿- blocky double bed'} />,
     )
 
     const indents = Array.from(container.querySelectorAll('.nexusmods-bbcode-indent'))
-    expect(indents).toHaveLength(3)
-    expect(indents[0]).toHaveClass('nexusmods-bbcode-indent-1')
-    expect(indents[1]).toHaveClass('nexusmods-bbcode-indent-2')
-    expect(indents[2]).toHaveClass('nexusmods-bbcode-indent-2')
+    expect(indents).toHaveLength(0)
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('1. double bed - double bed - blocky double bed')
   })
 
   it('does not leave an isolated copied list marker before the next furniture heading', () => {
@@ -81,5 +81,59 @@ describe('NexusModsBbcode', () => {
     expect(heading).toBeTruthy()
     expect(heading?.previousSibling?.textContent).toBe('blocky single bed')
     expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toMatch(/-\s*ꕥ end table/u)
+  })
+
+  it('renders NexusMods mixed HTML line breaks without showing raw tokens', () => {
+    const { container } = render(<NexusModsBbcode source="<br />[size=3][center]Install Guide[/center][/size]<br>Next line" />)
+
+    expect(screen.getByText('Install Guide')).toBeTruthy()
+    expect(container.querySelectorAll('br')).toHaveLength(1)
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('Next line')
+    expect(container.innerHTML).not.toContain('&lt;br')
+    expect(container.innerHTML).not.toContain('[size=3]')
+  })
+
+  it('caps repeated HTML line breaks to one blank line', () => {
+    const { container } = render(<NexusModsBbcode source="Alpha<br><br><br><br>Beta" />)
+
+    expect(container.querySelectorAll('br')).toHaveLength(1)
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toBe('AlphaBeta')
+  })
+
+  it('renders empty inline wrappers that only contain line breaks as a compact spacer', () => {
+    const { container } = render(
+      <NexusModsBbcode source="[center][url=https://example.com/faq]Click Here![/url][/center][size=3][url=https://example.com/faq]<br><br><br>[/url][/size][center][img]https://example.com/next.png[/img][/center]" />,
+    )
+
+    expect(screen.getByRole('link', { name: 'Click Here!' })).toHaveAttribute('href', 'https://example.com/faq')
+    expect(container.querySelectorAll('br')).toHaveLength(0)
+    expect(container.querySelectorAll('.nexusmods-bbcode-soft-spacer')).toHaveLength(1)
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/next.png')
+    expect(container.querySelectorAll('a')).toHaveLength(1)
+  })
+
+  it('renders NexusMods image tags with dimension attributes instead of showing raw markup', () => {
+    const { container } = render(
+      <NexusModsBbcode source="[img width=425,height=250]https://staticdelivery.nexusmods.com/mods/1303/images/7608/7608-1610385431-1482639146.png[/img]" />,
+    )
+
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://staticdelivery.nexusmods.com/mods/1303/images/7608/7608-1610385431-1482639146.png',
+    )
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toContain('[img width=')
+  })
+
+  it('renders safe mixed HTML tags through the same sanitized React renderer', () => {
+    const { container } = render(
+      <NexusModsBbcode source='<strong>Bold</strong> <a href="https://example.com/path">Link</a> <img src="https://example.com/image.png" /> <div>Body</div>' />,
+    )
+
+    expect(screen.getByText('Bold').closest('strong')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Link' })).toHaveAttribute('href', 'https://example.com/path')
+    expect(container.querySelector('img')).toHaveAttribute('src', 'https://example.com/image.png')
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('Body')
+    expect(container.innerHTML).not.toContain('&lt;div')
+    expect(container.innerHTML).not.toContain('&lt;strong')
   })
 })

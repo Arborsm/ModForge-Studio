@@ -362,7 +362,7 @@ export function searchLauncherCatalog(request: SearchLauncherCatalogRequest) {
 
 /** Loads remote catalog detail for one Nexus mod. */
 export function loadLauncherRemoteModDetail(request: LoadLauncherRemoteModDetailRequest) {
-  const cacheKey = String(request.modId)
+  const cacheKey = `${request.modId}:${(request.includeFiles ?? true) ? 'files' : 'meta'}`
   return readPending(loadLauncherRemoteModDetailCache, cacheKey, () =>
     invokeDesktop<LauncherRemoteModDetail>('load_launcher_remote_mod_detail', { request }),
   )

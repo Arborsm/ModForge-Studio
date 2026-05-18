@@ -1,4 +1,4 @@
-import { memo, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { isValidElement, memo, useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   getNexusModsBbcodeTextContent,
   parseNexusModsBbcode,
@@ -102,7 +102,15 @@ function sanitizeUrl(value: string | undefined) {
   return null
 }
 
-function renderInlineStyle(style: CSSProperties, children: ReactNode, key: string) {
+function renderSoftSpacer(key: string) {
+  return <span key={key} className="nexusmods-bbcode-soft-spacer" aria-hidden="true" />
+}
+
+function renderInlineStyle(style: CSSProperties, children: ReactNode, key: string, preserveEmptySpacing = false) {
+  if (!hasSubstantiveRenderedContent(children)) {
+    return preserveEmptySpacing || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+  }
+
   return Object.keys(style).length > 0 ? (
     <span key={key} style={style}>
       {children}
@@ -112,41 +120,74 @@ function renderInlineStyle(style: CSSProperties, children: ReactNode, key: strin
   )
 }
 
-function renderText(value: string, keyPrefix: string, suppressLeadingIndentBreak = false): ReactNode[] {
-  const parts = value.split(/(\uFEFF[\uFEFF\s]*)/u)
-  let indentRun = 0
-  const nodes: ReactNode[] = []
+function renderText(value: string): ReactNode[] {
+  const normalized = value.replace(/[\u00A0\uFEFF]/gu, ' ').replace(/\s+/gu, ' ')
+  return normalized.trim().length > 0 ? [normalized] : []
+}
 
-  parts.forEach((part, index) => {
-    if (part.length === 0) {
-      return
+function hasSubstantiveRenderedContent(node: ReactNode): boolean {
+  if (node == null || typeof node === 'boolean') {
+    return false
+  }
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node).trim().length > 0
+  }
+
+  if (Array.isArray(node)) {
+    return node.some(hasSubstantiveRenderedContent)
+  }
+
+  if (isValidElement(node)) {
+    if (node.type === 'br') {
+      return false
     }
 
-    if (/^\uFEFF/u.test(part)) {
-      const indentLevel = Math.min(part.match(/\uFEFF/gu)?.length ?? 1, 3)
-      indentRun = indentLevel
-      if (!suppressLeadingIndentBreak || nodes.some((node) => typeof node !== 'string' || node.trim().length > 0)) {
-        nodes.push(<br key={`${keyPrefix}-indent-break-${index}`} />)
-      }
-      nodes.push(
-        <span
-          key={`${keyPrefix}-indent-${index}`}
-          className={`nexusmods-bbcode-indent nexusmods-bbcode-indent-${indentRun}`}
-          aria-hidden="true"
-        />,
-      )
-      return
+    if (node.type === 'img' || node.type === 'hr') {
+      return true
     }
 
-    indentRun = 0
-    nodes.push(part)
-  })
+    return hasSubstantiveRenderedContent((node.props as { children?: ReactNode }).children)
+  }
 
-  return nodes
+  return true
+}
+
+function hasSpacingRenderedContent(node: ReactNode): boolean {
+  if (node == null || typeof node === 'boolean') {
+    return false
+  }
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    return false
+  }
+
+  if (Array.isArray(node)) {
+    return node.some(hasSpacingRenderedContent)
+  }
+
+  if (isValidElement(node)) {
+    if (node.type === 'br') {
+      return true
+    }
+
+    const props = node.props as { children?: ReactNode; className?: string }
+    if (props.className?.split(/\s+/u).includes('nexusmods-bbcode-soft-spacer')) {
+      return true
+    }
+
+    return hasSpacingRenderedContent(props.children)
+  }
+
+  return false
 }
 
 function isFurnitureSectionHeading(node: NexusModsBbcodeElementNode) {
   return getNexusModsBbcodeTextContent(node.children).trim().startsWith('ꕥ')
+}
+
+function hasSourceLineBreak(nodes: NexusModsBbcodeNode[]): boolean {
+  return nodes.some((node) => node.type === 'element' && (node.tag === 'br' || hasSourceLineBreak(node.children)))
 }
 
 function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string) {
@@ -161,12 +202,20 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   const children = renderNodes(node.children, key, allowSectionHeadings)
 
   if (node.tag === 'b') {
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
     return <strong key={key}>{children}</strong>
   }
 
   if (node.tag === 'i') {
     if (allowSectionHeadings && isFurnitureSectionHeading(node)) {
       return renderSectionHeading(node, key)
+    }
+
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
     }
 
     return <em key={key}>{children}</em>
@@ -177,6 +226,10 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
       return renderSectionHeading(node, key)
     }
 
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
     return (
       <span key={key} className="nexusmods-bbcode-underline">
         {children}
@@ -185,26 +238,34 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 's') {
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
     return <del key={key}>{children}</del>
   }
 
   if (node.tag === 'color') {
     const color = sanitizeColor(node.attrs.color)
-    return renderInlineStyle(color == null ? {} : { color }, children, key)
+    return renderInlineStyle(color == null ? {} : { color }, children, key, hasSourceLineBreak(node.children))
   }
 
   if (node.tag === 'size') {
     const fontSize = sanitizeSize(node.attrs.size)
-    return renderInlineStyle(fontSize == null ? {} : { fontSize }, children, key)
+    return renderInlineStyle(fontSize == null ? {} : { fontSize }, children, key, hasSourceLineBreak(node.children))
   }
 
   if (node.tag === 'font') {
     const fontFamily = sanitizeFontFamily(node.attrs.font)
-    return renderInlineStyle(fontFamily == null ? {} : { fontFamily }, children, key)
+    return renderInlineStyle(fontFamily == null ? {} : { fontFamily }, children, key, hasSourceLineBreak(node.children))
   }
 
   if (node.tag === 'url') {
     const href = sanitizeUrl(node.attrs.href ?? getNexusModsBbcodeTextContent(node.children))
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
     if (href == null) {
       return <span key={key}>{children}</span>
     }
@@ -226,6 +287,10 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
   }
 
   if (node.tag === 'center' || node.tag === 'left' || node.tag === 'right' || node.tag === 'justify') {
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
     return (
       <div key={key} className={`nexusmods-bbcode-align-${node.tag}`}>
         {children}
@@ -275,6 +340,10 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
     )
   }
 
+  if (node.tag === 'br') {
+    return <br key={key} />
+  }
+
   return <hr key={key} />
 }
 
@@ -307,9 +376,44 @@ function removeDanglingHeadingPrefix(nodes: ReactNode[]) {
   }
 }
 
+function isLineBreakNode(node: ReactNode) {
+  return isValidElement(node) && node.type === 'br'
+}
+
+function countTrailingLineBreaks(nodes: ReactNode[]) {
+  let count = 0
+  for (let index = nodes.length - 1; index >= 0; index -= 1) {
+    const node = nodes[index]
+    if (!isLineBreakNode(node)) {
+      return count
+    }
+
+    count += 1
+  }
+
+  return count
+}
+
+function appendRenderedNode(nodes: ReactNode[], node: ReactNode) {
+  if (node == null || typeof node === 'boolean') {
+    return
+  }
+
+  if (isLineBreakNode(node)) {
+    if (nodes.length === 0 || countTrailingLineBreaks(nodes) >= 1) {
+      return
+    }
+  }
+
+  nodes.push(node)
+}
+
+function appendRenderedNodes(nodes: ReactNode[], nextNodes: ReactNode[]) {
+  nextNodes.forEach((node) => appendRenderedNode(nodes, node))
+}
+
 function renderNodes(nodes: NexusModsBbcodeNode[], keyPrefix: string, allowSectionHeadings = true): ReactNode[] {
   const renderedNodes: ReactNode[] = []
-  let previousNodeWasSectionHeading = false
 
   nodes.forEach((node, index) => {
     const key = `${keyPrefix}-${index}`
@@ -318,14 +422,11 @@ function renderNodes(nodes: NexusModsBbcodeNode[], keyPrefix: string, allowSecti
     }
 
     if (node.type === 'text') {
-      renderedNodes.push(...renderText(node.value, key, previousNodeWasSectionHeading))
-      previousNodeWasSectionHeading = false
+      appendRenderedNodes(renderedNodes, renderText(node.value))
       return
     }
 
-    const sectionHeading = allowSectionHeadings && isSectionHeadingNode(node)
-    renderedNodes.push(renderElement(node, key, allowSectionHeadings))
-    previousNodeWasSectionHeading = sectionHeading
+    appendRenderedNode(renderedNodes, renderElement(node, key, allowSectionHeadings))
   })
 
   return renderedNodes

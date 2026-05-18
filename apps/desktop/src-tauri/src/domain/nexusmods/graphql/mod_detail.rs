@@ -63,9 +63,58 @@ query LauncherPublicModDetail($gameId: ID!, $modId: ID!) {
       name
     }
   }
+}
+"#;
+
+const PUBLIC_MOD_DETAIL_WITH_FILES_GRAPHQL_QUERY: &str = r#"
+query LauncherPublicModDetail($gameId: ID!, $modId: ID!) {
+  mod(gameId: $gameId, modId: $modId) {
+    modId
+    name
+    summary
+    description
+    category
+    directDownloadEnabled
+    supportsVortex
+    downloads
+    endorsements
+    fileSize
+    version
+    pictureUrl
+    thumbnailUrl
+    author
+    modCategory {
+      name
+    }
+    tags {
+      name
+    }
+    modRequirements {
+      nexusRequirements(offset: 0, count: 8) {
+        nodes {
+          modName
+          notes
+          url
+          externalRequirement
+        }
+      }
+      dlcRequirements {
+        notes
+        gameExpansion {
+          name
+        }
+      }
+    }
+    updatedAt
+    uploader {
+      name
+    }
+  }
   modFiles(gameId: $gameId, modId: $modId) {
     category
     changelogText
+    date
+    description
     fileId
     manager
     name
@@ -74,12 +123,24 @@ query LauncherPublicModDetail($gameId: ID!, $modId: ID!) {
     scannedV2
     size
     sizeInBytes
+    totalDownloads
+    uCount
+    uid
+    uniqueDownloads
     requirementsAlert
     uri
     version
   }
 }
 "#;
+
+fn public_mod_detail_graphql_query(include_files: bool) -> &'static str {
+    if include_files {
+        PUBLIC_MOD_DETAIL_WITH_FILES_GRAPHQL_QUERY
+    } else {
+        PUBLIC_MOD_DETAIL_GRAPHQL_QUERY
+    }
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct RemoteModRequirement {
@@ -95,6 +156,12 @@ pub(crate) struct RemoteModFile {
     pub(crate) name: Option<String>,
     pub(crate) version: Option<String>,
     pub(crate) category: Option<String>,
+    pub(crate) uploaded_at: Option<String>,
+    pub(crate) description: Option<String>,
+    pub(crate) unique_downloads: Option<u64>,
+    pub(crate) total_downloads: Option<u64>,
+    pub(crate) manager_download_enabled: Option<bool>,
+    pub(crate) uid: Option<String>,
     pub(crate) size: Option<u64>,
     pub(crate) size_bytes: Option<u64>,
     pub(crate) primary: bool,
@@ -110,6 +177,7 @@ pub(crate) struct RemoteModDetail {
     pub(crate) name: Option<String>,
     pub(crate) author: Option<String>,
     pub(crate) summary: Option<String>,
+    pub(crate) description: Option<String>,
     pub(crate) version: Option<String>,
     pub(crate) mod_url: String,
     pub(crate) image_url: Option<String>,
@@ -146,6 +214,7 @@ impl RemoteModDetail {
             name: None,
             author: None,
             summary: None,
+            description: None,
             version: None,
             mod_url,
             image_url: None,
@@ -183,6 +252,7 @@ pub(crate) fn parse_remote_mod_detail_node(node: &Value) -> Option<RemoteModDeta
         name: string_field(node, "name"),
         author: None,
         summary: string_field(node, "summary"),
+        description: string_field(node, "description").map(|value| html_to_text(&value)),
         version: string_field(node, "version"),
         image_url: string_field(node, "pictureUrl"),
         category: parse_mod_category(node),
@@ -393,11 +463,30 @@ fn infer_update_risk(scan_status: Option<&str>, requirements_alert: Option<i64>)
 fn parse_mod_file_node(node: &Value) -> RemoteModFile {
     let name = string_field(node, "name");
     let uri = string_field(node, "uri");
+    let manager_download_enabled = node
+        .get("manager")
+        .and_then(Value::as_i64)
+        .map(|value| value != 0)
+        .or_else(|| node.get("manager").and_then(Value::as_bool));
     RemoteModFile {
         file_id: node.get("fileId").and_then(Value::as_i64),
         name: name.clone(),
         version: string_field(node, "version"),
         category: string_field(node, "category"),
+        uploaded_at: node
+            .get("date")
+            .and_then(parse_big_int_like)
+            .and_then(timestamp_to_rfc3339),
+        description: string_field(node, "description")
+            .map(|value| html_to_text(&value))
+            .filter(|value| !value.is_empty()),
+        unique_downloads: node
+            .get("uniqueDownloads")
+            .and_then(parse_big_int_like)
+            .or_else(|| node.get("uCount").and_then(parse_big_int_like)),
+        total_downloads: node.get("totalDownloads").and_then(parse_big_int_like),
+        manager_download_enabled,
+        uid: string_field(node, "uid"),
         size: node.get("size").and_then(Value::as_u64),
         size_bytes: node.get("sizeInBytes").and_then(parse_big_int_like),
         primary: is_primary_mod_file(node),
@@ -553,9 +642,7 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
         .as_deref()
         .map(html_to_text)
         .filter(|value| !value.is_empty());
-    let summary_text = description_text
-        .clone()
-        .or_else(|| string_field(mod_node, "summary"));
+    let summary_text = string_field(mod_node, "summary").or_else(|| description_text.clone());
     let author = string_field(mod_node, "author").or_else(|| {
         mod_node
             .get("uploader")
@@ -574,6 +661,7 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
         name: string_field(mod_node, "name"),
         author,
         summary: summary_text.clone(),
+        description: description_text.clone(),
         version: string_field(mod_node, "version"),
         mod_url: build_mod_page_url(mod_id),
         image_url: string_field(mod_node, "pictureUrl")
@@ -695,6 +783,7 @@ fn load_remote_mod_detail_from_rest_api(
             info.author
         }),
         summary: Some(info.summary).filter(|value| !value.trim().is_empty()),
+        description: None,
         version: None,
         mod_url: if info.mod_url.trim().is_empty() {
             build_mod_page_url(mod_id)
@@ -733,6 +822,7 @@ pub(crate) fn load_remote_mod_detail_from_public_graphql(
     client: &Client,
     settings: &LauncherSettings,
     mod_id: i64,
+    include_files: bool,
 ) -> Result<RemoteModDetail, String> {
     probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::PublicGraphql)?;
     let mod_url = build_mod_page_url(mod_id);
@@ -740,7 +830,7 @@ pub(crate) fn load_remote_mod_detail_from_public_graphql(
         graphql::public_graphql_headers(&mod_url, PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER)?;
     let payload = json!({
         "operationName": PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER,
-        "query": PUBLIC_MOD_DETAIL_GRAPHQL_QUERY,
+        "query": public_mod_detail_graphql_query(include_files),
         "variables": {
             "gameId": graphql::DEFAULT_GAME_ID.to_string(),
             "modId": mod_id.to_string(),
@@ -774,6 +864,7 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
             .clone()
             .unwrap_or_else(|| format!("Nexus #{}", detail.mod_id)),
         summary: detail.summary,
+        description: detail.description,
         author: detail.author,
         version: detail.version,
         mod_url: detail.mod_url,
@@ -818,6 +909,12 @@ fn to_launcher_remote_mod_detail(detail: RemoteModDetail) -> LauncherRemoteModDe
                 name: file.name,
                 version: file.version,
                 category: file.category,
+                uploaded_at: file.uploaded_at,
+                description: file.description,
+                unique_downloads: file.unique_downloads,
+                total_downloads: file.total_downloads,
+                manager_download_enabled: file.manager_download_enabled,
+                uid: file.uid,
                 size: file.size,
                 size_bytes: file.size_bytes,
                 primary: file.primary,
@@ -870,7 +967,14 @@ fn load_launcher_remote_mod_detail_blocking(
     let settings_path = launcher_settings_path()?;
     let settings = load_or_create_settings_at_path(&settings_path)?;
     let mut detail = load_remote_mod_detail_with_graphql_fallback(
-        || load_remote_mod_detail_from_public_graphql(&client, &settings, request.mod_id),
+        || {
+            load_remote_mod_detail_from_public_graphql(
+                &client,
+                &settings,
+                request.mod_id,
+                request.include_files,
+            )
+        },
         || load_remote_mod_detail_from_rest_api(&settings, request.mod_id),
     )?;
     if detail.gallery_images.is_empty() {

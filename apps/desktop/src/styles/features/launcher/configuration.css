@@ -555,6 +555,21 @@
       0 6px 18px color-mix(in srgb, var(--config-primary) 10%, transparent);
   }
 
+  .launcher-config-tier-badge-free {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, #94a3b8 34%, transparent);
+    background: color-mix(in srgb, #f8fafc 82%, white);
+    color: #475569;
+    padding: 0 12px;
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: 0.02em;
+  }
+
   .launcher-config-method,
   .launcher-config-micro {
     color: var(--config-faint);
@@ -788,6 +803,31 @@
     border-radius: 8px;
     background: var(--config-primary-light);
     color: var(--config-brand-ink);
+  }
+
+  .launcher-config-api-icon-publicGraphql {
+    background: color-mix(in srgb, #2563eb 14%, white);
+    color: #2563eb;
+  }
+
+  .launcher-config-api-icon-nexusImages {
+    background: color-mix(in srgb, #14b8a6 16%, white);
+    color: #0f766e;
+  }
+
+  .launcher-config-api-icon-smapi {
+    background: color-mix(in srgb, #22c55e 16%, white);
+    color: #15803d;
+  }
+
+  .launcher-config-api-icon-privateGraphql {
+    background: color-mix(in srgb, #8b5cf6 15%, white);
+    color: #7c3aed;
+  }
+
+  .launcher-config-api-icon-nexusApi {
+    background: color-mix(in srgb, #f59e0b 18%, white);
+    color: #b45309;
   }
 
   .launcher-config-api-icon-warn {
@@ -1335,6 +1375,9 @@
   }
 
   .launcher-configuration-page .dock-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 24px;
     border: 0;
     border-radius: 999px;
@@ -1401,16 +1444,28 @@
   .launcher-debug-stack,
   .launcher-debug-tools-stack {
     display: grid;
-    gap: 16px;
+    gap: 12px;
+  }
+
+  .launcher-debug-section-title {
+    margin: 24px 0 8px;
+    color: var(--config-muted);
+    font-size: 12px;
+    font-weight: 850;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
   }
 
   .launcher-debug-tool-card {
+    border: 1px solid color-mix(in srgb, var(--config-line) 82%, transparent);
+    background: color-mix(in srgb, var(--config-surface) 92%, var(--config-surface-soft));
     padding: 18px 20px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
   }
 
   .launcher-debug-tool-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 14px;
   }
@@ -1424,9 +1479,22 @@
     min-width: 0;
   }
 
-  .launcher-debug-tool-header-side {
+  .launcher-debug-tool-copy {
     display: flex;
     align-items: flex-start;
+    gap: 12px;
+  }
+
+  .launcher-debug-tool-text {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    align-self: center;
+  }
+
+  .launcher-debug-tool-header-side {
+    display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 10px;
     margin-left: auto;
@@ -1445,10 +1513,74 @@
     flex-wrap: wrap;
   }
 
+  .launcher-debug-tool-header-actions .launcher-debug-action-segmented {
+    justify-content: flex-end;
+    width: min(100%, 560px);
+  }
+
+  .launcher-debug-tools-stack .control-button,
+  .launcher-debug-more-button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: color-mix(in srgb, #dbeafe 82%, white);
+    color: #0b73f6;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: none;
+    white-space: nowrap;
+  }
+
+  .launcher-debug-tools-stack .control-button:hover,
+  .launcher-debug-more-button:hover {
+    background: color-mix(in srgb, #bfdbfe 88%, white);
+    color: #075fc7;
+  }
+
+  .launcher-debug-tools-stack .control-button-primary {
+    background: #0b73f6;
+    color: white;
+  }
+
+  .launcher-debug-tools-stack .control-button-primary:hover {
+    background: #075fc7;
+  }
+
+  .launcher-debug-tools-stack .launcher-config-danger-button {
+    background: color-mix(in srgb, #fee2e2 82%, white);
+    color: #b91c1c;
+  }
+
+  .launcher-debug-tools-stack .launcher-config-danger-button:hover,
+  .launcher-debug-tools-stack .launcher-config-danger-button-active {
+    background: #ef4444;
+    color: white;
+  }
+
+  .launcher-debug-tools-stack .dock-chip {
+    min-height: 32px;
+    border-radius: 8px;
+    background: color-mix(in srgb, #e2e8f0 72%, white);
+    color: #475569;
+    padding: 0 11px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
   .launcher-debug-tool-title {
     margin: 0;
     color: var(--config-text);
     font-size: 15px;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+
+  .launcher-debug-tool-subtitle {
+    margin: 0;
+    color: var(--config-faint);
+    font-size: 12px;
     font-weight: 700;
     line-height: 1.35;
     letter-spacing: 0;
@@ -1469,8 +1601,8 @@
     flex: 0 0 auto;
     width: 36px;
     height: 36px;
-    border: 0;
-    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    border-radius: 10px;
     background: var(--config-primary-light);
     color: var(--config-primary);
   }
@@ -1480,8 +1612,49 @@
     color: var(--config-error-text);
   }
 
+  .launcher-debug-icon-debug-mode {
+    background: color-mix(in srgb, #e0e7ff 76%, white);
+    color: #4f46e5;
+  }
+
+  .launcher-debug-icon-offline {
+    background: color-mix(in srgb, #fee2e2 76%, white);
+    color: #dc2626;
+  }
+
+  .launcher-debug-icon-account {
+    background: color-mix(in srgb, #fef3c7 78%, white);
+    color: #b45309;
+  }
+
+  .launcher-debug-icon-notifications {
+    background: color-mix(in srgb, #e0f2fe 76%, white);
+    color: #0284c7;
+  }
+
+  .launcher-debug-icon-logs {
+    background: color-mix(in srgb, #eef2ff 76%, white);
+    color: #64748b;
+  }
+
+  .launcher-debug-icon-cache {
+    background: color-mix(in srgb, #ccfbf1 66%, white);
+    color: #0f766e;
+  }
+
+  .launcher-debug-icon-code {
+    background: color-mix(in srgb, #f3e8ff 72%, white);
+    color: #7e22ce;
+  }
+
+  .launcher-debug-icon-download {
+    background: color-mix(in srgb, #dcfce7 72%, white);
+    color: #15803d;
+  }
+
   .launcher-debug-tool-tray {
-    display: grid;
+    display: flex;
+    justify-content: flex-start;
     gap: 12px;
     margin-top: 16px;
     padding: 0;
@@ -1500,52 +1673,42 @@
   }
 
   .launcher-debug-level-button {
+    flex: 0 0 auto;
+    min-width: 92px;
+    min-height: 34px;
     border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #0b73f6;
+    padding: 0 11px;
+    box-shadow: none;
   }
 
-  .launcher-debug-level-button-debug {
-    background: var(--config-primary-light);
-    color: var(--config-primary);
+  .launcher-debug-action-segmented .launcher-debug-level-button + .launcher-debug-level-button {
+    border-left: 1px solid color-mix(in srgb, #bfdbfe 70%, transparent);
   }
 
-  .launcher-debug-level-button-debug:hover {
-    background: var(--config-primary-light-hover);
+  .launcher-debug-action-segmented .launcher-debug-level-button:hover {
+    background: color-mix(in srgb, #dbeafe 78%, white);
+    color: #075fc7;
   }
 
-  .launcher-debug-level-button-info {
-    background: var(--config-info-bg);
-    color: var(--config-info-text);
-  }
-
-  .launcher-debug-level-button-info:hover {
-    background: #d7e5fd;
-  }
-
-  .launcher-debug-level-button-success {
-    background: var(--config-success-bg);
-    color: var(--config-success-text);
-  }
-
-  .launcher-debug-level-button-success:hover {
-    background: #d4eadb;
-  }
-
-  .launcher-debug-level-button-warning {
-    background: var(--config-warning-bg);
-    color: var(--config-warning-text);
-  }
-
-  .launcher-debug-level-button-warning:hover {
-    background: #fbeec2;
-  }
-
+  .launcher-debug-level-button-debug,
+  .launcher-debug-level-button-info,
+  .launcher-debug-level-button-success,
+  .launcher-debug-level-button-warning,
   .launcher-debug-level-button-error {
-    background: var(--config-error-bg);
-    color: var(--config-error-text);
+    background: transparent;
+    color: #0b73f6;
   }
 
+  .launcher-debug-level-button-debug:hover,
+  .launcher-debug-level-button-info:hover,
+  .launcher-debug-level-button-success:hover,
+  .launcher-debug-level-button-warning:hover,
   .launcher-debug-level-button-error:hover {
-    background: #f8d7d3;
+    background: color-mix(in srgb, #dbeafe 78%, white);
+    color: #075fc7;
   }
 
   .launcher-debug-route-loading {

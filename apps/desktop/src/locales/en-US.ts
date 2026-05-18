@@ -111,6 +111,7 @@ const localeBundle: LocaleBundle = {
           tabs: {
             overview: 'Overview',
             description: 'Description',
+            changelog: 'Changelog',
             details: 'Details',
             dependencies: 'Dependencies',
             files: 'Files',
@@ -186,6 +187,8 @@ const localeBundle: LocaleBundle = {
           mainFiles: 'Main files',
           optionalFiles: 'Optional files',
           oldFiles: 'Old files',
+          oldAndArchivedFiles: 'Old and archived files',
+          changelogEmpty: 'No changelog entries were published for this mod.',
         },
         installHint: 'Install a local archive with config and i18n preservation.',
         previewTitle: 'Archive Preview',
@@ -275,6 +278,7 @@ const localeBundle: LocaleBundle = {
           remoteCover: 'Remote Cover',
           remoteGallery: 'Remote Gallery',
         },
+        updateAvailableTooltip: (version) => `New version ${version.startsWith('v') ? version : `v${version}`} available`,
         galleryCoverTitle: 'Gallery Images',
         galleryCoverSubtitle: 'Choose one image from the Nexus gallery to replace the current cover.',
         galleryCoverEmpty: 'This mod does not expose any gallery images that can be used as a cover.',
@@ -513,7 +517,10 @@ const localeBundle: LocaleBundle = {
         moreToolsSubtitle: 'Notification, log, cache, and download simulation tools stay tucked away until you need them.',
         moreToolsAction: 'More',
         lessToolsAction: 'Less',
-        debugOnlyTitle: 'Debug Only',
+        debugToolsStateGroupTitle: 'Global & State',
+        debugToolsFeedbackGroupTitle: 'UI & Feedback',
+        debugToolsModulesGroupTitle: 'Modules & Simulation',
+        debugOnlyTitle: 'Debug Diagnostics Mode',
         debugOnlyDescription:
           'This page only appears when global debug mode is enabled. Use it to validate notifications, logs, and future launcher diagnostics in one place.',
         notificationsOverviewTitle: 'Notification Test Records',
@@ -575,6 +582,7 @@ const localeBundle: LocaleBundle = {
         simulationTitle: 'Download Simulation',
         simulationSubtitle:
           'Start a launcher-only simulated download at 2 MB/s for 10 seconds to validate progress UI in the title bar and queue.',
+        simulationParametersLabel: 'Parameters: 2 MB/s · 10s · 20 MB',
         simulationButtonIdle: 'Start Simulated Download',
         simulationButtonRunning: 'Simulation Running',
         notificationButtons: {

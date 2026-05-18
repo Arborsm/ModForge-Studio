@@ -568,7 +568,7 @@ export type LauncherCopy = {
     selectionEmpty: string
     modDetail: {
       tabsLabel: string
-      tabs: Record<'overview' | 'description' | 'details' | 'dependencies' | 'files', string>
+      tabs: Record<'overview' | 'description' | 'changelog' | 'details' | 'dependencies' | 'files', string>
       local: string
       byAuthor: string
       installedVersionShort: string
@@ -640,6 +640,8 @@ export type LauncherCopy = {
       mainFiles: string
       optionalFiles: string
       oldFiles: string
+      oldAndArchivedFiles: string
+      changelogEmpty: string
     }
     installHint: string
     previewTitle: string
@@ -727,6 +729,7 @@ export type LauncherCopy = {
       remoteCover: string
       remoteGallery: string
     }
+    updateAvailableTooltip: (version: string) => string
     galleryCoverTitle: string
     galleryCoverSubtitle: string
     galleryCoverEmpty: string
@@ -927,6 +930,9 @@ export type LauncherCopy = {
     moreToolsSubtitle: string
     moreToolsAction: string
     lessToolsAction: string
+    debugToolsStateGroupTitle: string
+    debugToolsFeedbackGroupTitle: string
+    debugToolsModulesGroupTitle: string
     debugOnlyTitle: string
     debugOnlyDescription: string
     notificationsOverviewTitle: string
@@ -981,6 +987,7 @@ export type LauncherCopy = {
     bbcodePreviewCollapseAction: string
     simulationTitle: string
     simulationSubtitle: string
+    simulationParametersLabel: string
     simulationButtonIdle: string
     simulationButtonRunning: string
     notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>

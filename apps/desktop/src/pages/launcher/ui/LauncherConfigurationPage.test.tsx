@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
@@ -237,6 +237,37 @@ describe('LauncherConfigurationPage', () => {
     expect(accountCard.textContent).not.toContain('500')
     expect(nexusPanel.textContent).toContain('18,742')
     expect(nexusPanel.textContent).toContain('500')
+  })
+
+  it('uses a distinct free-account presentation instead of premium chrome', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'FreePilot',
+      isPremium: false,
+      dailyRemaining: 18742,
+      hourlyRemaining: 500,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const accountCard = await screen.findByTestId('launcher-config-account-card')
+    const tierBadge = within(accountCard).getByText(copy.diagnostics.premiumFree)
+
+    expect(tierBadge).toHaveClass('launcher-config-tier-badge-free')
+    expect(tierBadge.querySelector('svg')).toBeNull()
+    expect(accountCard.querySelector('.launcher-config-premium-badge')).toBeNull()
+  })
+
+  it('renders configuration route icons with service-specific color classes', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    const nexusPanel = screen.getByTestId('launcher-config-nexus')
+    for (const routeId of ['publicGraphql', 'nexusImages', 'smapi', 'privateGraphql', 'nexusApi']) {
+      expect(nexusPanel.querySelector(`.launcher-config-api-icon-${routeId}`)).toBeTruthy()
+    }
   })
 
   it('reuses cached Nexus API key validation when re-entering configuration', async () => {
@@ -677,9 +708,17 @@ describe('LauncherConfigurationPage', () => {
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.bbcodePreviewExpandAction }))
 
     const preview = await screen.findByTestId('launcher-debug-bbcode-preview')
-    expect(preview.textContent).toContain('Basic Bedroom Furniture')
+    expect(preview.textContent).toContain('Stardew Valley Expanded')
+    expect(preview.textContent).toContain('I aim to give you, the player')
+    expect(preview.textContent).toContain('Starting a new save file is required')
+    expect(preview.textContent).toContain('Please read the Installation Guide on GitHub!')
+    expect(preview.textContent).toContain('Stardew Valley Expanded Discord Server')
+    expect(preview.textContent).not.toContain('<br')
+    expect(preview.textContent).not.toContain('[size=')
+    expect(preview.textContent).not.toContain('[color=')
+    expect(preview.textContent).not.toContain('[img width=')
     expect(preview.querySelector('.nexusmods-bbcode-align-center')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'catalogue' })).toHaveAttribute('href', 'https://www.nexusmods.com/stardewvalley/mods/23073')
+    expect(preview.querySelector('img')).toBeTruthy()
   })
 
   it('explains each Nexus route responsibility and keeps raw API error details visible in the Nexus panel', async () => {
@@ -814,10 +853,104 @@ describe('LauncherConfigurationPage', () => {
     expect(screen.getByRole('heading', { name: copy.configuration.forceOfflineEnableButton, level: 2 })).toBeTruthy()
     expect(screen.getByRole('button', { name: copy.configuration.forceOfflineEnableButton })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.forceNonPremiumEnableButton, level: 2 })).toBeTruthy()
-    expect(screen.getByRole('button', { name: copy.configuration.forceNonPremiumEnableButton })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: copy.configuration.forceNonPremiumEnableButton })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.logsTitle, level: 2 })).toBeTruthy()
     expect(screen.getByRole('heading', { name: copy.configuration.simulationTitle, level: 2 })).toBeTruthy()
+  })
+
+  it('renders expanded debug utility icons with tool-specific color classes', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const { container } = renderConfigurationPage()
+
+    expandDebugTools()
+
+    for (const iconClassName of [
+      'launcher-debug-icon-debug-mode',
+      'launcher-debug-icon-offline',
+      'launcher-debug-icon-account',
+      'launcher-debug-icon-notifications',
+      'launcher-debug-icon-logs',
+      'launcher-debug-icon-cache',
+      'launcher-debug-icon-code',
+      'launcher-debug-icon-download',
+    ]) {
+      expect(container.querySelector(`.${iconClassName}`)).toBeTruthy()
+    }
+  })
+
+  it('groups expanded debug utilities into state, feedback, and module sections', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    expandDebugTools()
+
+    expect(screen.getByText(copy.configuration.debugToolsStateGroupTitle)).toHaveClass('launcher-debug-section-title')
+    expect(screen.getByText(copy.configuration.debugToolsFeedbackGroupTitle)).toHaveClass('launcher-debug-section-title')
+    expect(screen.getByText(copy.configuration.debugToolsModulesGroupTitle)).toHaveClass('launcher-debug-section-title')
+  })
+
+  it('uses switches for state toggles in expanded debug utilities', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    expandDebugTools()
+
+    expect(screen.getByRole('switch', { name: copy.configuration.debugOnlyTitle })).toBeTruthy()
+    expect(screen.getByRole('switch', { name: copy.configuration.forceNonPremiumEnableButton })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: copy.configuration.forceNonPremiumEnableButton })).toBeNull()
+  })
+
+  it('keeps notification and log test actions in the right-side action layout', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    expandDebugTools()
+
+    const notificationCard = screen
+      .getByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })
+      .closest('.launcher-debug-tool-card')
+    const logCard = screen.getByRole('heading', { name: copy.configuration.logsTitle, level: 2 }).closest('.launcher-debug-tool-card')
+
+    expect(notificationCard?.querySelector('.launcher-debug-tool-header-actions')).toContainElement(
+      screen.getByRole('button', { name: copy.configuration.notificationButtons.debug }),
+    )
+    expect(notificationCard?.querySelector('.launcher-debug-tool-tray')).toBeNull()
+    expect(logCard?.querySelector('.launcher-debug-tool-header-actions')).toContainElement(
+      screen.getByRole('button', { name: copy.configuration.logButtons.debug }),
+    )
+    expect(logCard?.querySelector('.launcher-debug-tool-tray')).toBeNull()
+  })
+
+  it('places debug tool icons beside the title instead of the action controls', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    expandDebugTools()
+
+    const notificationCard = screen
+      .getByRole('heading', { name: copy.configuration.notificationsTitle, level: 2 })
+      .closest('.launcher-debug-tool-card')
+
+    expect(notificationCard?.querySelector('.launcher-debug-tool-copy .launcher-debug-tool-badge')).toBeTruthy()
+    expect(notificationCard?.querySelector('.launcher-debug-tool-header-side .launcher-debug-tool-badge')).toBeNull()
+  })
+
+  it('shows download simulation parameters as card copy instead of a right-side chip', () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    renderConfigurationPage()
+
+    expandDebugTools()
+
+    const simulationCard = screen
+      .getByRole('heading', { name: copy.configuration.simulationTitle, level: 2 })
+      .closest('.launcher-debug-tool-card')
+
+    expect(simulationCard?.querySelector('.launcher-debug-tool-subtitle')?.textContent).toBe(copy.configuration.simulationParametersLabel)
+    expect(simulationCard?.querySelector('.launcher-debug-tool-header-actions')).toContainElement(
+      screen.getByRole('button', { name: copy.configuration.simulationButtonIdle }),
+    )
+    expect(simulationCard?.querySelector('.dock-chip')).toBeNull()
   })
 
   it('renders a debug mode switch and calls the toggle handler', () => {
@@ -1158,7 +1291,7 @@ describe('LauncherConfigurationPage', () => {
 
     renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
     expandDebugTools()
-    fireEvent.click(await screen.findByRole('button', { name: copy.configuration.forceNonPremiumEnableButton }))
+    fireEvent.click(await screen.findByRole('switch', { name: copy.configuration.forceNonPremiumEnableButton }))
 
     await waitFor(() => {
       expect(applyAppUiStatePatch).toHaveBeenCalledWith({

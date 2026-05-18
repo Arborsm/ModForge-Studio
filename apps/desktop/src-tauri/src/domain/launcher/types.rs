@@ -237,6 +237,12 @@ pub struct SearchLauncherCatalogRequest {
 #[serde(rename_all = "camelCase")]
 pub struct LoadLauncherRemoteModDetailRequest {
     pub mod_id: i64,
+    #[serde(default = "default_include_remote_files")]
+    pub include_files: bool,
+}
+
+fn default_include_remote_files() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -296,6 +302,8 @@ pub struct LauncherRemoteModDetail {
     pub mod_id: i64,
     pub title: String,
     pub summary: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
     pub author: Option<String>,
     pub version: Option<String>,
     pub mod_url: String,
@@ -372,6 +380,18 @@ pub struct LauncherRemoteModFile {
     pub version: Option<String>,
     #[serde(default)]
     pub category: Option<String>,
+    #[serde(default)]
+    pub uploaded_at: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub unique_downloads: Option<u64>,
+    #[serde(default)]
+    pub total_downloads: Option<u64>,
+    #[serde(default)]
+    pub manager_download_enabled: Option<bool>,
+    #[serde(default)]
+    pub uid: Option<String>,
     #[serde(default)]
     pub size: Option<u64>,
     #[serde(default)]

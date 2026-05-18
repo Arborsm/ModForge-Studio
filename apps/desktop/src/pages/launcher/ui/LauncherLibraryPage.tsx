@@ -198,6 +198,7 @@ function getPackModIds(pack: LauncherPackPreset | null, mods: LauncherLibraryIte
 
 type VirtualizedLauncherGridProps = {
   items: LauncherLibraryItem[]
+  latestVersionByModId?: Record<number, string>
   editMode: boolean
   editingSelectionIds: string[]
   noneLabel: string
@@ -244,6 +245,7 @@ function computeLibraryRevealBatchSize({
 
 const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   items,
+  latestVersionByModId = {},
   editMode,
   editingSelectionIds,
   noneLabel,
@@ -306,6 +308,9 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
               title={item.name}
               titleTooltip={item.name}
               meta={buildLibraryCardMeta(item, noneLabel)}
+              author={item.author}
+              version={item.version}
+              latestVersion={item.nexusModId == null ? null : latestVersionByModId[item.nexusModId]}
               imageUrl={item.imageUrl}
               enabled={item.enabled}
               draggable
@@ -1659,6 +1664,7 @@ export function LauncherLibraryPageContent({
               ) : (
                 <VirtualizedLauncherGrid
                   items={visibleMods}
+                  latestVersionByModId={library.latestVersionByModId}
                   editMode={editMode}
                   editingSelectionIds={editingSelectionIds}
                   noneLabel={editorCopy.common.none}

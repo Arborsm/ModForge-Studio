@@ -33,6 +33,7 @@ function createRemoteDetail(overrides: Partial<LauncherDiscoverDetail> = {}): La
     modId: 1915,
     title: 'Content Patcher',
     summary: 'Loads Content Patcher packs for Stardew Valley 1.6 and requires SMAPI 4.4.0 or later.',
+    description: 'Full Content Patcher description with a lot more installation notes.',
     author: 'Pathoschild',
     version: '2.9.1',
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/1915',
@@ -62,6 +63,8 @@ function renderPanel(
   remoteDetail: LauncherDiscoverDetail | null = null,
   options: {
     onQueueDownload?: Parameters<typeof LauncherModDetailPanel>[0]['onQueueDownload']
+    remoteLoading?: boolean
+    remoteFilesDeferred?: boolean
   } = {},
 ) {
   const port = createMockLauncherPort({
@@ -99,6 +102,8 @@ function renderPanel(
       openFolderLabel="Open Folder"
       setCoverLabel="Set Cover"
       clearCoverLabel="Clear Cover"
+      remoteLoading={options.remoteLoading}
+      remoteFilesDeferred={options.remoteFilesDeferred}
       onOpenFolder={vi.fn()}
       onSetCover={vi.fn()}
       onClearCover={vi.fn()}
@@ -190,7 +195,10 @@ describe('LauncherModDetailPanel', () => {
     expect(screen.queryByRole('tab', { name: 'Dependencies' })).toBeNull()
     expect(screen.getByRole('tab', { name: 'Files' })).toBeTruthy()
     fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
-    expect(within(screen.getByRole('tabpanel')).getByText('Content Patcher 2.9.1')).toBeTruthy()
+    const filesPanel = screen.getByRole('tabpanel')
+    expect(filesPanel.querySelector('.launcher-mod-detail-rich-head')).toBeNull()
+    expect(within(filesPanel).queryByText('Available files')).toBeNull()
+    expect(within(filesPanel).getByText('Content Patcher 2.9.1')).toBeTruthy()
 
     cleanup()
     renderPanel(createLocalMod({ missingRequiredDependencies: [], nexusModId: null, updateKeys: [], modUrl: null }), null)
@@ -199,11 +207,23 @@ describe('LauncherModDetailPanel', () => {
     expect(screen.queryByRole('tab', { name: 'Files' })).toBeNull()
   })
 
-  it('groups Nexus files like the mod page and expands changelogs on click', () => {
+  it('groups Nexus files like the download page and keeps changelogs in their own tab', () => {
     renderPanel(
       createLocalMod({ missingRequiredDependencies: [] }),
       createRemoteDetail({
         files: [
+          {
+            fileId: 4,
+            name: 'Content Patcher 2.10.0',
+            version: '2.10.0',
+            category: 'ARCHIVED',
+            size: 395,
+            primary: false,
+            scanned: true,
+            scanStatus: 'VERIFIED',
+            changelog: ['Newer archived release notes.'],
+            archiveType: 'ZIP',
+          },
           {
             fileId: 3,
             name: 'Content Patcher 2.8.0',
@@ -222,6 +242,8 @@ describe('LauncherModDetailPanel', () => {
             version: '2.9.1',
             category: 'OPTIONAL',
             size: 12,
+            uniqueDownloads: 1200,
+            totalDownloads: 1800,
             primary: false,
             scanned: true,
             scanStatus: 'VERIFIED',
@@ -234,10 +256,15 @@ describe('LauncherModDetailPanel', () => {
             version: '2.9.1',
             category: 'MAIN',
             size: 381,
+            uploadedAt: '2026-07-02T07:19:00Z',
+            description: '[B]Adds[/B] the latest Stardew Valley support.',
+            uniqueDownloads: 346_000,
+            totalDownloads: 458_500,
+            managerDownloadEnabled: true,
             primary: true,
             scanned: true,
             scanStatus: 'VERIFIED',
-            changelog: ['Compatibility updates and fixes.'],
+            changelog: ['Compatibility updates and fixes.', '[URL=https://example.com/install]Install guide[/URL]'],
             archiveType: 'ZIP',
           },
         ],
@@ -249,15 +276,106 @@ describe('LauncherModDetailPanel', () => {
 
     expect(within(filesPanel).getByText('Main files')).toBeTruthy()
     expect(within(filesPanel).getByText('Optional files')).toBeTruthy()
-    expect(within(filesPanel).getByText('Old files')).toBeTruthy()
+    expect(within(filesPanel).getByRole('button', { name: 'Old and archived files 2' })).toBeTruthy()
     expect(filesPanel.querySelector('.launcher-mod-detail-info-layout.scrollable')).toBeTruthy()
-    expect(within(filesPanel).getByText('Compatibility updates and fixes.')).toBeTruthy()
-    expect(within(filesPanel).getByText('Adds translation files.')).toBeTruthy()
+    expect(within(filesPanel).queryByText('Compatibility updates and fixes.')).toBeNull()
+    expect(within(filesPanel).getByText(/2026-07-02/)).toBeTruthy()
+    expect(within(filesPanel).getByText(/Unique 346K/)).toBeTruthy()
+    expect(within(filesPanel).getByText(/Total 458\.5K/)).toBeTruthy()
+    expect(within(filesPanel).getByText('Adds')).toBeTruthy()
+    expect(within(filesPanel).getByText('the latest Stardew Valley support.')).toBeTruthy()
+    expect(within(filesPanel).queryByRole('link', { name: 'Install guide' })).toBeNull()
+    expect(filesPanel.querySelector('.launcher-mod-detail-data-item.file-item')?.getAttribute('title')).toBeNull()
+    expect(within(filesPanel).queryByText(/\[URL=/)).toBeNull()
+    expect(within(filesPanel).queryByText('Adds translation files.')).toBeNull()
     expect(within(filesPanel).queryByText('Legacy compatibility fixes.')).toBeNull()
 
-    fireEvent.click(within(filesPanel).getByRole('button', { name: /^F Content Patcher 2\.8\.0/ }))
+    fireEvent.click(within(filesPanel).getByRole('button', { name: 'Old and archived files 2' }))
 
-    expect(within(filesPanel).getByText('Legacy compatibility fixes.')).toBeTruthy()
+    expect(within(filesPanel).queryByText('Legacy compatibility fixes.')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Changelog' }))
+    const changelogPanel = screen.getByRole('tabpanel')
+
+    expect(within(changelogPanel).getByText('v2.9.1')).toBeTruthy()
+    expect(within(changelogPanel).getByText('v2.8.0')).toBeTruthy()
+    expect(within(changelogPanel).getByText('v2.10.0')).toBeTruthy()
+    const changelogVersions = Array.from(changelogPanel.querySelectorAll('.launcher-mod-detail-changelog-entry span')).map(
+      (item) => item.textContent,
+    )
+    expect(changelogVersions).toEqual(['v2.10.0', 'v2.9.1', 'v2.8.0'])
+    expect(within(changelogPanel).getByText('Compatibility updates and fixes.')).toBeTruthy()
+    expect(within(changelogPanel).getByRole('link', { name: 'Install guide' })).toHaveAttribute('href', 'https://example.com/install')
+    expect(within(changelogPanel).getByText('Adds translation files.')).toBeTruthy()
+    expect(within(changelogPanel).getByText('Legacy compatibility fixes.')).toBeTruthy()
+  })
+
+  it('shows an overlay while remote mod details are still loading', () => {
+    renderPanel(createLocalMod(), createRemoteDetail(), { remoteLoading: true })
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading mod details...')
+  })
+
+  it('uses the short summary on overview and defers the full description until the description tab is opened', () => {
+    renderPanel(
+      null,
+      createRemoteDetail({
+        summary: 'Short overview summary.',
+        description: 'Full remote description with many sections.',
+      }),
+    )
+
+    expect(screen.getByText('Short overview summary.')).toBeTruthy()
+    expect(screen.queryByText('Full remote description with many sections.')).toBeNull()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Description' }))
+
+    expect(screen.getByText('Full remote description with many sections.')).toBeTruthy()
+  })
+
+  it('loads remote files after opening the changelog or files tab when file data is deferred', async () => {
+    const remoteWithoutFiles = createRemoteDetail({
+      primaryFileId: null,
+      primaryFileName: null,
+      primaryFileVersion: null,
+      primaryFileChangelog: [],
+      files: [],
+    })
+    const remoteWithFiles = createRemoteDetail({
+      files: [
+        {
+          fileId: 160463,
+          name: 'Content Patcher 2.9.1',
+          version: '2.9.1',
+          category: 'MAIN',
+          size: 381,
+          sizeBytes: 389_967,
+          primary: true,
+          scanned: true,
+          scanStatus: 'VERIFIED',
+          changelog: ['Compatibility updates and fixes.'],
+          archiveType: 'ZIP',
+        },
+      ],
+    })
+    const port = renderPanel(null, remoteWithoutFiles, {
+      onQueueDownload: vi.fn(),
+      remoteFilesDeferred: true,
+    })
+    vi.mocked(port.loadRemoteModDetail).mockResolvedValue(remoteWithFiles)
+
+    expect(port.loadRemoteModDetail).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Changelog' }))
+
+    await waitFor(() => {
+      expect(port.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 1915, includeFiles: true })
+    })
+
+    expect(await screen.findByText('Compatibility updates and fixes.')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
+    expect(await screen.findByRole('button', { name: 'Queue Download Content Patcher 2.9.1' })).toBeTruthy()
   })
 
   it('queues the exact file from the file list and lets the backend resolve direct/manual download behavior', () => {

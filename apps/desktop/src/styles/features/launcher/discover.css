@@ -498,9 +498,10 @@
 
   .launcher-discover-wall {
     display: grid;
-    gap: 14px;
+    gap: 16px;
     padding-inline: 0;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    align-items: stretch;
   }
 
   .launcher-discover-wall-card {
@@ -511,6 +512,7 @@
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
     border-radius: 12px;
     background: var(--bg-panel);
+    padding: 0;
     box-shadow: var(--shadow-panel);
     contain: content;
     transition:
@@ -530,11 +532,23 @@
   .launcher-discover-wall-cover {
     position: relative;
     display: block;
+    flex: 0 0 auto;
     width: 100%;
     aspect-ratio: 16 / 9;
+    border: 0;
     overflow: hidden;
     background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+    padding: 0;
     text-decoration: none;
+    text-align: inherit;
+    cursor: pointer;
+  }
+
+  .launcher-discover-card-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
   }
 
   .launcher-discover-wall-cover-fallback {
@@ -620,21 +634,25 @@
 
   .launcher-discover-wall-body {
     flex: 1 1 auto;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) auto;
-    gap: 12px;
-    padding: 12px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 14px 12px;
   }
 
   .launcher-discover-wall-copy {
-    min-height: 0;
+    flex: 0 0 128px;
+    min-height: 128px;
     width: 100%;
-    display: grid;
-    align-content: start;
-    gap: 0;
+    display: flex;
+    flex-direction: column;
+    border: 0;
+    background: transparent;
+    padding: 0;
     text-align: left;
     color: inherit;
     text-decoration: none;
+    cursor: pointer;
   }
 
   .launcher-discover-wall-title,
@@ -650,17 +668,32 @@
     font-size: 16px;
     font-weight: 700;
     line-height: 1.35;
-    display: -webkit-box;
-    line-clamp: 2;
+    display: block;
     overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    white-space: nowrap;
+  }
+
+  .launcher-discover-title-tooltip-anchor {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .launcher-discover-wall-title-text {
+    display: inline-block;
+    min-width: 0;
+  }
+
+  .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
+    padding-right: 24px;
+    animation: launcher-discover-title-marquee var(--launcher-discover-title-duration, 9s) ease-in-out infinite;
+    animation-delay: 900ms;
   }
 
   .launcher-discover-wall-title-slot {
-    min-height: 2.75rem;
+    min-height: 1.35rem;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
   }
 
   .launcher-discover-wall-author {
@@ -687,16 +720,19 @@
   }
 
   .launcher-discover-wall-summary-slot {
-    min-height: 2.5rem;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
-    align-items: center;
-    margin-top: 6px;
+    align-items: flex-start;
+    margin-top: 8px;
   }
 
   .launcher-discover-wall-meta {
+    flex: 1 1 auto;
+    min-width: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 7px 8px;
     color: var(--text-tertiary);
     font-size: 11px;
   }
@@ -706,21 +742,34 @@
     align-items: center;
     gap: 4px;
     min-height: 24px;
+    max-width: 100%;
     border-radius: 999px;
     background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
     padding: 0 8px;
     color: var(--text-secondary);
     font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .launcher-discover-wall-meta-chip span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .launcher-discover-card-footer {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+    margin: 12px -14px -12px;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    padding: 11px 14px 12px;
   }
 
   .launcher-discover-card-quick-action {
+    flex: 0 0 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -794,6 +843,28 @@
   @keyframes launcher-discover-spinner {
     to {
       transform: rotate(360deg);
+    }
+  }
+
+  @keyframes launcher-discover-title-marquee {
+    0%,
+    18% {
+      transform: translateX(0);
+    }
+
+    62%,
+    82% {
+      transform: translateX(calc(-1 * var(--launcher-discover-title-distance, 0px)));
+    }
+
+    100% {
+      transform: translateX(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
+      animation: none;
     }
   }
 

@@ -197,6 +197,14 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
         detail.primary_file_changelog,
         vec!["Compatibility updates and fixes."]
     );
+    assert_eq!(
+        detail.summary.as_deref(),
+        Some("Loads content packs for Stardew Valley 1.6.")
+    );
+    assert_eq!(
+        detail.description.as_deref(),
+        Some("Loads Content Patcher packs for Stardew Valley 1.6.")
+    );
     assert_eq!(detail.requirements.len(), 1);
     assert_eq!(detail.requirements[0].name, "SMAPI");
     assert_eq!(

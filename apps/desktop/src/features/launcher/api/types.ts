@@ -145,6 +145,7 @@ export type SearchLauncherCatalogRequest = {
 /** Request to load remote catalog details for one Nexus mod. */
 export type LoadLauncherRemoteModDetailRequest = {
   modId: number
+  includeFiles?: boolean
 }
 
 /** Request to load the update changelog for one Nexus mod. */
@@ -198,6 +199,7 @@ export type LauncherRemoteModDetail = {
   modId: number
   title: string
   summary: string | null
+  description?: string | null
   author: string | null
   version: string | null
   modUrl: string
@@ -240,6 +242,12 @@ export type LauncherRemoteModFile = {
   name?: string | null
   version?: string | null
   category?: string | null
+  uploadedAt?: string | null
+  description?: string | null
+  uniqueDownloads?: number | null
+  totalDownloads?: number | null
+  managerDownloadEnabled?: boolean | null
+  uid?: string | null
   size?: number | null
   sizeBytes?: number | null
   primary?: boolean

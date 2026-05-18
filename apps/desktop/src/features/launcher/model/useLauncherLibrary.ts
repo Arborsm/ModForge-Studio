@@ -8,6 +8,7 @@ import type {
   LauncherLibraryScopeMode,
   LauncherLibraryState,
   LauncherLibraryStorageFolder,
+  LauncherUpdateSummary,
 } from './launcherContracts'
 import { getLauncherCoverKey, getLauncherCoverKeyCandidates } from './coverKey'
 import { getModKey, includesFilter, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
@@ -210,6 +211,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const [enabledOnly, setEnabledOnly] = useState(false)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [latestVersionByModId, setLatestVersionByModId] = useState<Record<number, string>>({})
   const autoCoverFetchInFlightRef = useRef(false)
   const autoCoverTaskTokenRef = useRef(0)
   const refreshRequestTokenRef = useRef(0)
@@ -360,6 +362,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     launcherPort.clearLibraryReadCaches(settings.modsPath)
     setState('loading')
     setError(null)
+    setLatestVersionByModId({})
 
     try {
       const suppressedUpdateModIdsPromise = settings.modsPath
@@ -403,12 +406,25 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       }
       const updateModsPath = scan.modsPath || settings.modsPath || ''
       if (settings.autoCheckModUpdates && scan.mods.length > 0 && updateModsPath && canAutoCheckLauncherUpdates(diagnostics)) {
+        const applyUpdateHints = (updates: LauncherUpdateSummary[] | null | undefined) => {
+          if (!updates?.length || !isRefreshActive()) {
+            return
+          }
+
+          setLatestVersionByModId(
+            Object.fromEntries(
+              updates.filter((update) => update.latestVersion.trim()).map((update) => [update.modId, update.latestVersion.trim()]),
+            ),
+          )
+        }
+
         void launcherPort
           .loadCachedUpdates({ modsPath: updateModsPath })
           .then((cached) => {
             if (!isRefreshActive()) {
               return
             }
+            applyUpdateHints(cached?.updates)
             if (cached && cached.isComplete !== false) {
               return
             }
@@ -418,7 +434,9 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
                 modsPath: updateModsPath,
                 forceRefresh: false,
               })
-              .then(() => undefined)
+              .then((result) => {
+                applyUpdateHints(result.updates)
+              })
           })
           .catch(() => {
             // Background update cache warming should not interrupt the library page.
@@ -987,6 +1005,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     currentPackId,
     currentPack,
     filteredMods,
+    latestVersionByModId,
     selectedMod,
     selectedModId,
     selectedModIds,

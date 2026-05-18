@@ -168,6 +168,35 @@
     grid-template-rows: 88px minmax(0, 1fr) 64px;
   }
 
+  .launcher-mod-detail-loading-overlay {
+    position: absolute;
+    inset: 88px 0 64px;
+    z-index: 8;
+    display: grid;
+    place-items: center;
+    gap: 10px;
+    background: color-mix(in srgb, var(--bg-panel) 78%, transparent);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 650;
+    backdrop-filter: blur(4px);
+  }
+
+  .launcher-mod-detail-loading-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid color-mix(in srgb, var(--accent) 18%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 999px;
+    animation: launcher-mod-detail-spinner 720ms linear infinite;
+  }
+
+  @keyframes launcher-mod-detail-spinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   .launcher-mod-detail-header {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr) auto auto;
@@ -566,21 +595,17 @@
     gap: 7px;
   }
 
-  .launcher-mod-detail-state-item.changelog ul {
-    display: grid;
-    gap: 5px;
-    margin: 0;
-    padding-left: 16px;
-    color: var(--text-secondary);
-    font-size: 12.5px;
-    line-height: 1.42;
-  }
-
-  .launcher-mod-detail-state-item.changelog li {
+  .launcher-mod-detail-state-bbcode {
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 4;
+  }
+
+  .launcher-mod-detail-state-bbcode .nexusmods-bbcode {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    line-height: 1.42;
   }
 
   .launcher-mod-detail-state-item p {
@@ -620,16 +645,19 @@
     line-height: 1.22;
   }
 
-  .launcher-mod-detail-single-story p {
+  .launcher-mod-detail-single-summary {
     display: -webkit-box;
     overflow: hidden;
     max-width: 620px;
     margin: 9px 0 0;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+  }
+
+  .launcher-mod-detail-single-summary .nexusmods-bbcode {
     color: var(--text-secondary);
     font-size: 13px;
     line-height: 1.5;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
   }
 
   .launcher-mod-detail-single-facts {
@@ -657,15 +685,15 @@
     overflow: hidden;
   }
 
-  .launcher-mod-detail-description p {
-    display: -webkit-box;
-    overflow: hidden;
+  .launcher-mod-detail-description .nexusmods-bbcode {
+    max-height: 100%;
     margin: 0;
     color: var(--text-secondary);
     font-size: 13px;
     line-height: 1.55;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 10;
+    overflow: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
   }
 
   .launcher-mod-detail-description::after {
@@ -711,6 +739,93 @@
   .launcher-mod-detail-info-layout.rich.scrollable {
     overflow: auto;
     scrollbar-gutter: stable;
+  }
+
+  .launcher-mod-detail-changelog-list {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+    padding-bottom: 4px;
+  }
+
+  .launcher-mod-detail-changelog-entry {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 22%, var(--bg-panel));
+    padding: 12px 14px;
+  }
+
+  .launcher-mod-detail-changelog-entry header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-changelog-entry header > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-changelog-entry span {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .launcher-mod-detail-changelog-entry strong,
+  .launcher-mod-detail-changelog-entry p {
+    overflow: hidden;
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-changelog-entry p {
+    max-width: 48%;
+    text-align: right;
+  }
+
+  .launcher-mod-detail-changelog-entry ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .launcher-mod-detail-changelog-entry li {
+    position: relative;
+    min-width: 0;
+    padding-left: 14px;
+  }
+
+  .launcher-mod-detail-changelog-entry li::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    line-height: 1.5;
+    content: "›";
+  }
+
+  .launcher-mod-detail-changelog-entry li .nexusmods-bbcode {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    line-height: 1.5;
   }
 
   .launcher-mod-detail-rich-head {
@@ -870,7 +985,7 @@
 
   .launcher-mod-detail-file-toggle {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
     min-width: 0;
@@ -878,7 +993,6 @@
     background: transparent;
     padding: 8px 11px;
     text-align: left;
-    cursor: pointer;
   }
 
   .launcher-mod-detail-file-row {
@@ -918,8 +1032,7 @@
     white-space: nowrap;
   }
 
-  .launcher-mod-detail-data-copy span,
-  .launcher-mod-detail-data-copy p {
+  .launcher-mod-detail-data-copy span {
     overflow: hidden;
     margin: 0;
     color: var(--text-tertiary);
@@ -927,10 +1040,6 @@
     line-height: 1.28;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .launcher-mod-detail-data-copy p {
-    color: var(--text-secondary);
   }
 
   .launcher-mod-detail-data-pill {
@@ -1004,21 +1113,72 @@
     color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
   }
 
+  .launcher-mod-detail-file-archive-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 42px;
+    border: 1px dashed color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 24%, transparent);
+    color: var(--text-secondary);
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 720;
+    cursor: pointer;
+    transition:
+      border-color 150ms ease,
+      background 150ms ease,
+      color 150ms ease;
+  }
+
+  .launcher-mod-detail-file-archive-toggle:hover {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 28%, var(--bg-panel));
+    color: var(--text-primary);
+  }
+
+  .launcher-mod-detail-file-archive-toggle strong {
+    display: inline-flex;
+    min-width: 24px;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 62%, var(--bg-panel));
+    color: color-mix(in srgb, var(--accent) 74%, var(--text-primary));
+    padding: 2px 7px;
+    font-size: 11px;
+  }
+
   .launcher-mod-detail-file-toggle[aria-expanded="true"] .launcher-mod-detail-file-chevron {
     transform: rotate(-90deg);
   }
 
   .launcher-mod-detail-file-changelog {
-    overflow: hidden;
-    display: -webkit-box;
     margin: 0 12px 9px 49px;
     border-left: 2px solid color-mix(in srgb, var(--accent) 18%, var(--border-color));
     color: var(--text-secondary);
     padding-left: 10px;
     font-size: 11.5px;
     line-height: 1.35;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+  }
+
+  .launcher-mod-detail-file-description {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .launcher-mod-detail-file-description .nexusmods-bbcode {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .launcher-mod-detail-file-changelog .nexusmods-bbcode {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
   }
 
   .launcher-mod-detail-footer {
@@ -2485,13 +2645,103 @@
   }
 
   .launcher-mod-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
     margin: 2px 0 0;
     color: var(--launcher-text-secondary);
     font-size: 11px;
     line-height: 1.3;
     white-space: nowrap;
+    overflow: visible;
+    text-overflow: ellipsis;
+  }
+
+  .launcher-mod-card-author {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .launcher-mod-card-version {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+  }
+
+  .launcher-mod-card-version-update {
+    position: relative;
+    color: #2563eb;
+    font-weight: 800;
+    cursor: help;
+  }
+
+  .launcher-mod-card-version-update svg {
+    stroke-width: 2.4;
+  }
+
+  .launcher-mod-card-version-update::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 9px);
+    z-index: 8;
+    width: max-content;
+    max-width: 220px;
+    transform: translate(-50%, 3px);
+    border: 1px solid color-mix(in srgb, #2563eb 18%, transparent);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--bg-panel) 98%, white 2%);
+    color: var(--text-primary);
+    padding: 5px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease;
+  }
+
+  .launcher-mod-card-version-update::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 4px);
+    z-index: 9;
+    width: 8px;
+    height: 8px;
+    transform: translate(-50%, 3px) rotate(45deg);
+    border-right: 1px solid color-mix(in srgb, #2563eb 18%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, #2563eb 18%, transparent);
+    background: color-mix(in srgb, var(--bg-panel) 98%, white 2%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 120ms ease,
+      transform 120ms ease;
+  }
+
+  .launcher-mod-card-version-update:hover::after,
+  .launcher-mod-card-version-update:focus-visible::after,
+  .launcher-mod-card-version-update:hover::before,
+  .launcher-mod-card-version-update:focus-visible::before {
+    opacity: 1;
+    transform: translate(-50%, 0) rotate(var(--tooltip-arrow-rotation, 0deg));
+  }
+
+  .launcher-mod-card-version-update:hover::after,
+  .launcher-mod-card-version-update:focus-visible::after {
+    --tooltip-arrow-rotation: 0deg;
+  }
+
+  .launcher-mod-card-version-update:hover::before,
+  .launcher-mod-card-version-update:focus-visible::before {
+    --tooltip-arrow-rotation: 45deg;
   }
 
   .launcher-mod-card-disabled .launcher-mod-card-title,
@@ -2516,22 +2766,37 @@
   }
 
   .launcher-mod-card-selection-toggle-active {
-    border-color: var(--launcher-text-accent);
-    background: var(--launcher-surface-strong);
+    border-color: rgba(255, 255, 255, 0.96);
+    background: #2563eb;
     color: var(--launcher-text-inverse);
+    box-shadow:
+      0 6px 14px rgba(37, 99, 235, 0.26),
+      0 0 0 1px color-mix(in srgb, #2563eb 22%, transparent);
   }
 
   .launcher-mod-card-selected {
+    border-color: color-mix(in srgb, #2563eb 72%, transparent);
+    background: var(--launcher-surface-base);
     box-shadow:
-      0 0 0 2px var(--accent),
-      0 1px 3px rgba(0, 0, 0, 0.1);
+      0 10px 22px rgba(15, 23, 42, 0.1),
+      0 0 0 3px color-mix(in srgb, #2563eb 16%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #2563eb 14%, transparent);
+  }
+
+  .launcher-mod-card-selected:hover,
+  .launcher-mod-card-selected:focus-within {
+    border-color: #2563eb;
+    box-shadow:
+      0 14px 26px rgba(15, 23, 42, 0.12),
+      0 0 0 3px color-mix(in srgb, #2563eb 18%, transparent),
+      inset 0 0 0 1px color-mix(in srgb, #2563eb 16%, transparent);
   }
 
   .launcher-mod-card-unselected::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.34);
     pointer-events: none;
   }
 

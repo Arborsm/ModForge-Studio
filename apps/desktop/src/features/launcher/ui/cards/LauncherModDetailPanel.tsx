@@ -5,12 +5,13 @@ import { useEditorCopy } from '@locales/localeContext'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRemoteModDetail } from '@features/launcher/model/useLauncherRemoteModDetail'
 import { cx } from '@shared/lib/cx'
+import { NexusModsBbcode } from '@shared/ui/nexusmods-bbcode'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
-type LauncherDetailTab = 'overview' | 'description' | 'details' | 'dependencies' | 'files'
+type LauncherDetailTab = 'overview' | 'description' | 'changelog' | 'details' | 'dependencies' | 'files'
 
 type LauncherDetailMod = Partial<LauncherLibraryItem> & {
   packName?: string | null
@@ -35,12 +36,19 @@ type FileListItem = {
   name: string
   meta: string
   status: string
-  changelog: string
+  description: string
   fileId: number | null
   version: string | null
   primary: boolean
   group: 'main' | 'optional' | 'old'
-  title: string
+}
+
+type ChangelogListItem = {
+  id: string
+  version: string
+  meta: string
+  source: string
+  lines: string[]
 }
 
 type LauncherModDetailPanelProps = {
@@ -75,6 +83,8 @@ type LauncherModDetailPanelProps = {
   openModPageLabel?: string
   packName?: string | null
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
+  remoteLoading?: boolean
+  remoteFilesDeferred?: boolean
 }
 
 function compactNumber(value: number | null | undefined, noneLabel: string) {
@@ -147,14 +157,6 @@ function truncatePath(value: string | null | undefined, noneLabel: string) {
   return `${root}\\...\\${parts.slice(-2).join('\\')}`
 }
 
-function splitChangelog(lines: string[] | undefined, fallback: string | null | undefined) {
-  const rawLines = lines?.length ? lines : fallback ? fallback.split(/(?<=\.)\s+/) : []
-  return rawLines
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .slice(0, 4)
-}
-
 function hasUpdate(localVersion: string | null | undefined, remoteVersion: string | null | undefined) {
   const local = localVersion?.trim()
   const remote = remoteVersion?.trim()
@@ -187,6 +189,110 @@ function resolveFileGroup(file: { category?: string | null; primary?: boolean })
     return 'main'
   }
   return 'optional'
+}
+
+function normalizeChangelogLines(lines: string[] | undefined) {
+  return (lines ?? []).map((line) => line.trim()).filter(Boolean)
+}
+
+function parseVersionParts(value: string) {
+  const match = value.match(/\d+(?:\.\d+)*/u)
+  return match ? match[0].split('.').map((part) => Number.parseInt(part, 10)) : []
+}
+
+function compareVersionsDesc(left: string, right: string) {
+  const leftParts = parseVersionParts(left)
+  const rightParts = parseVersionParts(right)
+  const partCount = Math.max(leftParts.length, rightParts.length)
+
+  for (let index = 0; index < partCount; index += 1) {
+    const leftPart = leftParts[index] ?? 0
+    const rightPart = rightParts[index] ?? 0
+    if (leftPart !== rightPart) {
+      return rightPart - leftPart
+    }
+  }
+
+  return right.localeCompare(left, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+function buildChangelogItems({
+  primaryLines,
+  primarySource,
+  primaryVersion,
+  files,
+  noneLabel,
+}: {
+  primaryLines: string[] | undefined
+  primarySource: string
+  primaryVersion: string | null | undefined
+  files: LauncherDiscoverDetail['files']
+  noneLabel: string
+}): ChangelogListItem[] {
+  const groups = new Map<
+    string,
+    {
+      version: string
+      sources: Set<string>
+      dates: Set<string>
+      lineKeys: Set<string>
+      lines: string[]
+    }
+  >()
+
+  const append = (
+    version: string | null | undefined,
+    source: string,
+    uploadedAt: string | null | undefined,
+    lines: string[] | undefined,
+  ) => {
+    const cleanLines = normalizeChangelogLines(lines)
+    if (!cleanLines.length) {
+      return
+    }
+
+    const versionLabel = normalizeVersion(version, noneLabel)
+    const groupKey = versionLabel.toLowerCase()
+    const group = groups.get(groupKey) ?? {
+      version: versionLabel,
+      sources: new Set<string>(),
+      dates: new Set<string>(),
+      lineKeys: new Set<string>(),
+      lines: [],
+    }
+
+    if (source.trim()) {
+      group.sources.add(source.trim())
+    }
+    if (uploadedAt) {
+      group.dates.add(formatDate(uploadedAt, noneLabel))
+    }
+
+    cleanLines.forEach((line) => {
+      const lineKey = line.replace(/\s+/gu, ' ').trim().toLowerCase()
+      if (!group.lineKeys.has(lineKey)) {
+        group.lineKeys.add(lineKey)
+        group.lines.push(line)
+      }
+    })
+
+    groups.set(groupKey, group)
+  }
+
+  append(primaryVersion, primarySource, null, primaryLines)
+  ;(files ?? []).forEach((file) => {
+    append(file.version, file.name ?? '', file.uploadedAt, file.changelog)
+  })
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      id: group.version,
+      version: group.version,
+      meta: Array.from(group.dates).slice(0, 1).join(''),
+      source: Array.from(group.sources).slice(0, 3).join(' · '),
+      lines: group.lines,
+    }))
+    .sort((left, right) => compareVersionsDesc(left.version, right.version) || right.meta.localeCompare(left.meta))
 }
 
 function PropertyRow({ row }: { row: DetailRow }) {
@@ -260,83 +366,104 @@ function FileList({
     main: string
     optional: string
     old: string
+    oldAndArchived: string
   }
   actionLabel: string
   onDownloadFile: (item: FileListItem) => void
 }) {
-  const defaultExpandedIds = useMemo(
-    () => new Set(items.filter((item) => item.group !== 'old' && item.changelog).map((item) => item.id)),
-    [items],
-  )
-  const [toggledIds, setToggledIds] = useState<Set<string>>(() => new Set())
+  const [showOldFiles, setShowOldFiles] = useState(false)
+  const renderFileItem = (item: FileListItem) => {
+    return (
+      <div className={cx('launcher-mod-detail-data-item file-item', item.primary && 'is-primary')} key={item.id}>
+        <div className="launcher-mod-detail-file-row">
+          <div className="launcher-mod-detail-file-toggle">
+            <div className="launcher-mod-detail-file-mark">
+              <span>{item.primary ? 'P' : 'F'}</span>
+            </div>
+            <div className="launcher-mod-detail-data-copy">
+              <strong>{item.name}</strong>
+              <span>{item.meta}</span>
+              {item.description ? (
+                <div className="launcher-mod-detail-file-description">
+                  <NexusModsBbcode source={item.description} />
+                </div>
+              ) : null}
+            </div>
+            <span className="launcher-mod-detail-data-pill ready">{item.status}</span>
+          </div>
+          <button
+            type="button"
+            className="launcher-mod-detail-file-action"
+            aria-label={`${actionLabel} ${item.name}`}
+            title={`${actionLabel} ${item.name}`}
+            onClick={() => onDownloadFile(item)}
+          >
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    )
+  }
   const groups = [
     { id: 'main' as const, title: labels.main, items: items.filter((item) => item.group === 'main') },
     { id: 'optional' as const, title: labels.optional, items: items.filter((item) => item.group === 'optional') },
-    { id: 'old' as const, title: labels.old, items: items.filter((item) => item.group === 'old') },
+  ].filter((group) => group.items.length > 0)
+  const oldFiles = items.filter((item) => item.group === 'old')
+  const visibleGroups = [
+    ...groups,
+    ...(showOldFiles && oldFiles.length ? [{ id: 'old' as const, title: labels.old, items: oldFiles }] : []),
   ].filter((group) => group.items.length > 0)
 
   return (
     <div className="launcher-mod-detail-data-list file-list">
-      {groups.map((group) => (
+      {visibleGroups.map((group) => (
         <section className={cx('launcher-mod-detail-file-group', `file-group-${group.id}`)} key={group.id}>
           <div className="launcher-mod-detail-file-group-head">
             <span>{group.title}</span>
             <strong>{group.items.length}</strong>
           </div>
-          <div className="launcher-mod-detail-file-stack">
-            {group.items.map((item) => {
-              const isExpanded = toggledIds.has(item.id) ? !defaultExpandedIds.has(item.id) : defaultExpandedIds.has(item.id)
-              return (
-                <div
-                  className={cx('launcher-mod-detail-data-item file-item', item.primary && 'is-primary', isExpanded && 'is-expanded')}
-                  key={item.id}
-                  title={item.title}
-                >
-                  <div className="launcher-mod-detail-file-row">
-                    <button
-                      type="button"
-                      className="launcher-mod-detail-file-toggle"
-                      aria-expanded={isExpanded}
-                      onClick={() =>
-                        setToggledIds((current) => {
-                          const next = new Set(current)
-                          if (next.has(item.id)) {
-                            next.delete(item.id)
-                          } else {
-                            next.add(item.id)
-                          }
-                          return next
-                        })
-                      }
-                    >
-                      <div className="launcher-mod-detail-file-mark">
-                        <span>{item.primary ? 'P' : 'F'}</span>
-                      </div>
-                      <div className="launcher-mod-detail-data-copy">
-                        <strong>{item.name}</strong>
-                        <span>{item.meta}</span>
-                      </div>
-                      <span className="launcher-mod-detail-data-pill ready">{item.status}</span>
-                      <span className="launcher-mod-detail-file-chevron" aria-hidden="true">
-                        ›
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="launcher-mod-detail-file-action"
-                      aria-label={`${actionLabel} ${item.name}`}
-                      title={`${actionLabel} ${item.name}`}
-                      onClick={() => onDownloadFile(item)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </button>
-                  </div>
-                  {isExpanded && item.changelog ? <p className="launcher-mod-detail-file-changelog">{item.changelog}</p> : null}
-                </div>
-              )
-            })}
-          </div>
+          <div className="launcher-mod-detail-file-stack">{group.items.map(renderFileItem)}</div>
         </section>
+      ))}
+      {oldFiles.length && !showOldFiles ? (
+        <button
+          type="button"
+          className="launcher-mod-detail-file-archive-toggle"
+          aria-label={`${labels.oldAndArchived} ${oldFiles.length}`}
+          onClick={() => setShowOldFiles(true)}
+        >
+          <span>{labels.oldAndArchived}</span>
+          <strong>{oldFiles.length}</strong>
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+function ChangelogList({ items, emptyLabel }: { items: ChangelogListItem[]; emptyLabel: string }) {
+  if (!items.length) {
+    return <PanelEmptyState>{emptyLabel}</PanelEmptyState>
+  }
+
+  return (
+    <div className="launcher-mod-detail-changelog-list">
+      {items.map((item) => (
+        <article className="launcher-mod-detail-changelog-entry" key={item.id}>
+          <header>
+            <div>
+              <span>{item.version}</span>
+              {item.meta ? <strong>{item.meta}</strong> : null}
+            </div>
+            {item.source ? <p title={item.source}>{item.source}</p> : null}
+          </header>
+          <ul>
+            {item.lines.map((line) => (
+              <li key={line}>
+                <NexusModsBbcode source={line} />
+              </li>
+            ))}
+          </ul>
+        </article>
       ))}
     </div>
   )
@@ -367,6 +494,8 @@ export function LauncherModDetailPanel({
   openModPageLabel,
   packName,
   onQueueDownload,
+  remoteLoading = false,
+  remoteFilesDeferred = false,
 }: LauncherModDetailPanelProps) {
   const launcherPort = useLauncherPort()
   const copy = useEditorCopy()
@@ -375,13 +504,24 @@ export function LauncherModDetailPanel({
   const [activeTab, setActiveTab] = useState<LauncherDetailTab>('overview')
   const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? title)
   const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? title)
-  const fetchedRemoteDetail = useLauncherRemoteModDetail(open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null).detail
-  const remote = remoteDetail ?? fetchedRemoteDetail
+  const fetchedRemote = useLauncherRemoteModDetail(open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null)
+  const shouldFetchDeferredFiles =
+    open && remoteFilesDeferred && (activeTab === 'files' || activeTab === 'changelog') && remoteDetail?.modId ? remoteDetail.modId : null
+  const fetchedRemoteWithFiles = useLauncherRemoteModDetail(shouldFetchDeferredFiles, {
+    includeFiles: true,
+    notify: false,
+  })
+  const remote = fetchedRemoteWithFiles.detail ?? remoteDetail ?? fetchedRemote.detail
+  const showRemoteLoading =
+    remoteLoading ||
+    Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading') ||
+    Boolean(shouldFetchDeferredFiles && fetchedRemoteWithFiles.state === 'loading')
   const fallbackRemoteModId = mod?.nexusModId ?? null
   const isLocal = Boolean(mod?.absolutePath)
   const isNexus = Boolean(remote)
   const isCombined = isLocal && isNexus
-  const description = remote?.summary ?? mod?.description ?? noSummary
+  const overviewDescription = remote?.summary ?? mod?.description ?? noSummary
+  const fullDescription = remote?.description ?? remote?.summary ?? mod?.description ?? noSummary
   const latestVersion = remote?.primaryFileVersion ?? remote?.version ?? null
   const updateAvailable = isCombined && hasUpdate(mod?.version, latestVersion)
   const coverStyle = {
@@ -408,7 +548,6 @@ export function LauncherModDetailPanel({
   const primaryFileName = remote?.primaryFileName ?? (remote ? remote.title : null)
   const primaryFileId = remote?.primaryFileId ? `#${remote.primaryFileId}` : copy.common.none
   const primarySize = formatSize(remote?.primaryFileSize ?? remote?.fileSize, remote?.primaryFileSizeBytes, copy.common.none)
-  const changelogLines = splitChangelog(remote?.primaryFileChangelog, remote?.summary)
   const rawLocalDependencies = mod?.requiredDependencies?.length ? mod.requiredDependencies : (mod?.missingRequiredDependencies ?? [])
   const localDependencies = Array.from(new Set(rawLocalDependencies.map((item) => item.trim()).filter(Boolean)))
   const remoteRequirements = useMemo(
@@ -416,10 +555,27 @@ export function LauncherModDetailPanel({
     [remote?.requirements],
   )
   const remoteFiles = useMemo(() => (remote?.files ?? []).filter((file) => (file.name ?? '').trim() !== '' || file.fileId), [remote?.files])
+  const changelogItems = useMemo(
+    () =>
+      buildChangelogItems({
+        primaryLines: remote?.primaryFileChangelog,
+        primarySource: primaryFileName ?? detailCopy.primaryFile,
+        primaryVersion: latestVersion,
+        files: remoteFiles,
+        noneLabel: copy.common.none,
+      }),
+    [copy.common.none, detailCopy.primaryFile, latestVersion, primaryFileName, remote?.primaryFileChangelog, remoteFiles],
+  )
   const hasDependencyData = localDependencies.length > 0 || remoteRequirements.length > 0
-  const hasFileData = isNexus && remoteFiles.length > 0
+  const hasDeferredFileData = Boolean(remoteFilesDeferred && remoteDetail?.modId && onQueueDownload)
+  const hasFileData = isNexus && (remoteFiles.length > 0 || hasDeferredFileData)
+  const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && remoteDetail?.modId))
   const detailTabs = useMemo<LauncherDetailTab[]>(() => {
-    const tabs: LauncherDetailTab[] = ['overview', 'description', 'details']
+    const tabs: LauncherDetailTab[] = ['overview', 'description']
+    if (hasChangelogData) {
+      tabs.push('changelog')
+    }
+    tabs.push('details')
     if (hasDependencyData) {
       tabs.push('dependencies')
     }
@@ -427,7 +583,7 @@ export function LauncherModDetailPanel({
       tabs.push('files')
     }
     return tabs
-  }, [hasDependencyData, hasFileData])
+  }, [hasChangelogData, hasDependencyData, hasFileData])
   const selectedTab = detailTabs.includes(activeTab) ? activeTab : 'overview'
   const tags = useMemo(() => {
     const nextTags = [...(remote?.tags ?? [])]
@@ -565,23 +721,25 @@ export function LauncherModDetailPanel({
     const meta = [
       file.version ? normalizeVersion(file.version, copy.common.none) : null,
       file.category ?? null,
+      file.uploadedAt ? formatDate(file.uploadedAt, copy.common.none) : null,
       formatSize(file.size, file.sizeBytes, copy.common.none),
+      file.uniqueDownloads ? `Unique ${compactNumber(file.uniqueDownloads, copy.common.none)}` : null,
+      file.totalDownloads ? `Total ${compactNumber(file.totalDownloads, copy.common.none)}` : null,
     ]
       .filter(Boolean)
       .join(' · ')
-    const changelog = splitChangelog(file.changelog, null).join(' ')
+    const description = file.description?.trim() ?? ''
     const status = file.scanStatus ?? formatBooleanStatus(file.scanned, detailCopy.verifiedFile, copy.common.none, copy.common.none)
     return {
       id: `${file.fileId ?? fileName}`,
       name: fileName,
-      meta: [meta, file.archiveType].filter(Boolean).join(' · '),
+      meta: [meta, file.archiveType, file.managerDownloadEnabled ? 'Mod manager' : null].filter(Boolean).join(' · '),
       status,
-      changelog,
+      description,
       fileId: file.fileId ?? null,
       version: file.version ?? null,
       primary: Boolean(file.primary),
       group: resolveFileGroup(file),
-      title: [fileName, meta, file.archiveType, status, changelog].filter(Boolean).join(' · '),
     }
   })
 
@@ -632,6 +790,13 @@ export function LauncherModDetailPanel({
       />
 
       <section className="launcher-library-drawer-panel launcher-mod-detail-panel" role="dialog" aria-modal="true" aria-label={displayName}>
+        {showRemoteLoading ? (
+          <div className="launcher-mod-detail-loading-overlay" role="status">
+            <span className="launcher-mod-detail-loading-spinner" aria-hidden="true" />
+            <span>{launcherCopy.updates.detailsLoading}</span>
+          </div>
+        ) : null}
+
         {!mod && !remote ? (
           <div className="launcher-library-drawer-body">
             <PanelEmptyState>{empty}</PanelEmptyState>
@@ -781,18 +946,6 @@ export function LauncherModDetailPanel({
                             <span>{detailCopy.size}</span>
                             <strong>{primarySize}</strong>
                           </div>
-                          <div className="launcher-mod-detail-state-item changelog">
-                            <span>{detailCopy.whatsNew}</span>
-                            {changelogLines.length ? (
-                              <ul title={changelogLines.join(' ')}>
-                                {changelogLines.map((line) => (
-                                  <li key={line}>{line}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p>{copy.common.none}</p>
-                            )}
-                          </div>
                         </div>
                       </section>
                     </div>
@@ -802,7 +955,9 @@ export function LauncherModDetailPanel({
                         <div>
                           <span>{isNexus ? detailCopy.version : detailCopy.installed}</span>
                           <strong title={displayVersion}>{displayVersion}</strong>
-                          <p title={description}>{description}</p>
+                          <div className="launcher-mod-detail-single-summary" aria-label={overviewDescription}>
+                            <NexusModsBbcode source={overviewDescription} />
+                          </div>
                         </div>
                         <div className="launcher-mod-detail-single-facts">
                           {(isNexus
@@ -838,7 +993,7 @@ export function LauncherModDetailPanel({
                   aria-hidden={selectedTab !== 'description'}
                 >
                   <div className="launcher-mod-detail-description">
-                    <p title={description}>{description}</p>
+                    {selectedTab === 'description' ? <NexusModsBbcode source={fullDescription} /> : null}
                     {(remote?.modUrl ?? mod?.modUrl) ? (
                       <button type="button" className="control-button" onClick={openRemotePage}>
                         {detailCopy.readFullDescription}
@@ -846,6 +1001,19 @@ export function LauncherModDetailPanel({
                     ) : null}
                   </div>
                 </section>
+
+                {hasChangelogData ? (
+                  <section
+                    className={cx('launcher-mod-detail-tab-panel', selectedTab === 'changelog' && 'active')}
+                    role="tabpanel"
+                    hidden={selectedTab !== 'changelog'}
+                    aria-hidden={selectedTab !== 'changelog'}
+                  >
+                    <div className="launcher-mod-detail-info-layout rich scrollable">
+                      {selectedTab === 'changelog' ? <ChangelogList items={changelogItems} emptyLabel={detailCopy.changelogEmpty} /> : null}
+                    </div>
+                  </section>
+                ) : null}
 
                 <section
                   className={cx('launcher-mod-detail-tab-panel', selectedTab === 'details' && 'active')}
@@ -896,20 +1064,19 @@ export function LauncherModDetailPanel({
                     aria-hidden={selectedTab !== 'files'}
                   >
                     <div className="launcher-mod-detail-info-layout rich scrollable">
-                      <div className="launcher-mod-detail-rich-head">
-                        <span>{detailCopy.availableFiles}</span>
-                        <strong>{fileItems.length}</strong>
-                      </div>
-                      <FileList
-                        items={fileItems}
-                        labels={{
-                          main: detailCopy.mainFiles,
-                          optional: detailCopy.optionalFiles,
-                          old: detailCopy.oldFiles,
-                        }}
-                        actionLabel={launcherCopy.actions.queueDownload}
-                        onDownloadFile={handleDownloadRemoteFile}
-                      />
+                      {selectedTab === 'files' ? (
+                        <FileList
+                          items={fileItems}
+                          labels={{
+                            main: detailCopy.mainFiles,
+                            optional: detailCopy.optionalFiles,
+                            old: detailCopy.oldFiles,
+                            oldAndArchived: detailCopy.oldAndArchivedFiles,
+                          }}
+                          actionLabel={launcherCopy.actions.queueDownload}
+                          onDownloadFile={handleDownloadRemoteFile}
+                        />
+                      ) : null}
                     </div>
                   </section>
                 ) : null}

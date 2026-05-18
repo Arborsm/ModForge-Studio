@@ -6,7 +6,7 @@
     font-size: 13px;
     line-height: 1.65;
     overflow-wrap: anywhere;
-    white-space: pre-wrap;
+    white-space: normal;
   }
 
   .nexusmods-bbcode a {
@@ -89,8 +89,13 @@
     display: block;
     max-width: 100%;
     height: auto;
-    margin: 10px auto;
-    border-radius: 10px;
+    margin: 6px auto;
+    border-radius: 8px;
+  }
+
+  .nexusmods-bbcode-soft-spacer {
+    display: block;
+    height: 10px;
   }
 
   .nexusmods-bbcode-align-center {

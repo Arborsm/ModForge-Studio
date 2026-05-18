@@ -1,4 +1,7 @@
-use super::{build_catalog_graphql_payload, build_public_catalog_graphql_payload};
+use super::{
+    build_catalog_graphql_payload, build_public_catalog_graphql_payload,
+    parse_catalog_graphql_response,
+};
 use crate::domain::launcher::types::SearchLauncherCatalogRequest;
 use serde_json::Value;
 
@@ -91,4 +94,58 @@ fn build_public_catalog_graphql_payload_applies_time_range_to_created_sort() {
     .expect("build public catalog graphql payload");
 
     assert_catalog_time_range_filter(&payload, "createdAt");
+}
+
+#[test]
+fn parse_catalog_graphql_response_keeps_batch_mod_metadata() {
+    let payload = serde_json::json!({
+        "data": {
+            "mods": {
+                "nodes": [
+                    {
+                        "modId": 101,
+                        "name": "Tractor Mod",
+                        "summary": "Drive around Pelican Town.",
+                        "pictureUrl": "https://static.nexusmods.com/tractor.png",
+                        "createdAt": "2024-05-01T10:00:00Z",
+                        "updatedAt": "2026-05-18T08:30:00Z",
+                        "downloads": "1234567",
+                        "endorsements": 9876,
+                        "fileSize": "13107200",
+                        "modCategory": {
+                            "name": "Gameplay Mechanics"
+                        },
+                        "uploader": {
+                            "name": "Pathoschild"
+                        }
+                    }
+                ],
+                "totalCount": 1,
+                "facetsData": {}
+            }
+        }
+    });
+
+    let page =
+        parse_catalog_graphql_response(&payload, 1, 20).expect("parse catalog graphql response");
+
+    assert_eq!(page.results.len(), 1);
+    assert_eq!(page.results[0].mod_id, 101);
+    assert_eq!(page.results[0].title, "Tractor Mod");
+    assert_eq!(page.results[0].author.as_deref(), Some("Pathoschild"));
+    assert_eq!(
+        page.results[0].created_at.as_deref(),
+        Some("2024-05-01T10:00:00Z")
+    );
+    assert_eq!(
+        page.results[0].updated_at.as_deref(),
+        Some("2026-05-18T08:30:00Z")
+    );
+    assert_eq!(page.results[0].downloads, Some(1_234_567));
+    assert_eq!(page.results[0].endorsements, Some(9_876));
+    assert_eq!(page.results[0].file_size, Some(13_107_200));
+    assert_eq!(
+        page.results[0].category.as_deref(),
+        Some("Gameplay Mechanics")
+    );
 }

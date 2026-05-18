@@ -30,6 +30,14 @@ query CatalogMods($filter: ModsFilter, $sort: [ModsSort!], $offset: Int, $count:
       name
       summary
       pictureUrl
+      createdAt
+      downloads
+      endorsements
+      fileSize
+      modCategory {
+        name
+      }
+      updatedAt
       uploader {
         name
       }
@@ -473,6 +481,18 @@ fn parse_catalog_facets(mods: &Value) -> LauncherCatalogFacets {
     }
 }
 
+fn u64_field(node: &Value, key: &str) -> Option<u64> {
+    node.get(key).and_then(|value| {
+        value.as_u64().or_else(|| {
+            value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .and_then(|value| value.parse::<u64>().ok())
+        })
+    })
+}
+
 fn parse_catalog_graphql_node(node: &Value) -> Option<LauncherCatalogResult> {
     let mod_id = node.get("modId").and_then(Value::as_i64)?;
     let title = string_field(node, "name")?;
@@ -501,9 +521,9 @@ fn parse_catalog_graphql_node(node: &Value) -> Option<LauncherCatalogResult> {
             .map(ToOwned::to_owned),
         created_at: string_field(node, "createdAt"),
         updated_at: string_field(node, "updatedAt"),
-        downloads: node.get("downloads").and_then(Value::as_u64),
-        endorsements: node.get("endorsements").and_then(Value::as_u64),
-        file_size: node.get("fileSize").and_then(Value::as_u64),
+        downloads: u64_field(node, "downloads"),
+        endorsements: u64_field(node, "endorsements"),
+        file_size: u64_field(node, "fileSize"),
         update_available: node
             .get("viewerUpdateAvailable")
             .and_then(Value::as_bool)

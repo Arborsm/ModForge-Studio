@@ -48,4 +48,44 @@ describe('LauncherModCard', () => {
 
     expect(onSelect).not.toHaveBeenCalled()
   })
+
+  it('renders updated versions as a blue affordance with an update tooltip', () => {
+    renderWithLocaleAndLaunchers(
+      <LauncherModCard
+        title="Content Patcher"
+        meta="Pathoschild · v1.0.5"
+        author="Pathoschild"
+        version="1.0.5"
+        latestVersion="1.1.0"
+        imageUrl={null}
+      />,
+      'zh-CN',
+    )
+
+    const updateBadge = screen.getByLabelText('新版本 v1.1.0 可用')
+    expect(updateBadge).toHaveClass('launcher-mod-card-version-update')
+    expect(updateBadge).not.toHaveAttribute('title')
+    expect(updateBadge).toHaveAttribute('data-tooltip', '新版本 v1.1.0 可用')
+    expect(updateBadge.textContent).toContain('v1.0.5')
+    expect(updateBadge.querySelector('svg')).toBeTruthy()
+  })
+
+  it('does not show native browser tooltips for the card or title', () => {
+    renderWithLocaleAndLaunchers(
+      <LauncherModCard
+        title="Content Patcher"
+        titleTooltip="Content Patcher tooltip"
+        meta="Pathoschild · v1.0.5"
+        author="Pathoschild"
+        version="1.0.5"
+        latestVersion="1.1.0"
+        imageUrl={null}
+      />,
+      'zh-CN',
+    )
+
+    expect(screen.getByRole('button', { name: /content patcher/i })).not.toHaveAttribute('title')
+    expect(screen.getByText('Content Patcher')).not.toHaveAttribute('title')
+    expect(screen.getByLabelText('新版本 v1.1.0 可用')).toHaveAttribute('data-tooltip', '新版本 v1.1.0 可用')
+  })
 })

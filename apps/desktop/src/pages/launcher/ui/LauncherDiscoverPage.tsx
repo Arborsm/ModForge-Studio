@@ -13,17 +13,18 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
+import { Tooltip } from '@shared/ui/Tooltip'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { openLauncherUrl, type LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import { useLauncherImage } from '@features/launcher'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
-import { useLauncherDiscover } from '@features/launcher'
-import type { QueueLauncherDownloadInput } from '@features/launcher'
-import { getLauncherCardMonogram, LauncherBlockedState, LauncherStateBlock } from '@features/launcher'
+import { useLauncherDiscover, useLauncherRemoteModDetail } from '@features/launcher'
+import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
+import { getLauncherCardMonogram, LauncherBlockedState, LauncherModDetailPanel, LauncherStateBlock } from '@features/launcher'
 import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 
 type LauncherDiscoverPageProps = {
@@ -82,8 +83,17 @@ const PAGE_SIZE_OPTIONS: DiscoverOption<number>[] = [
 ]
 
 type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'content' | 'fileSize' | 'downloads' | 'endorsements'
+type DiscoverItem = ReturnType<typeof useLauncherDiscover>['items'][number]
+type DiscoverTitleMarqueeStyle = CSSProperties & {
+  '--launcher-discover-title-distance': string
+  '--launcher-discover-title-duration': string
+}
 
+const DISCOVER_CARD_SINGLE_CLICK_DELAY_MS = 180
 const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
+const DISCOVER_TITLE_SCROLL_SPEED_PX_PER_SECOND = 24
+const DISCOVER_TITLE_SCROLL_MIN_DURATION_SECONDS = 7
+const DISCOVER_TITLE_SCROLL_MAX_DURATION_SECONDS = 16
 
 function parseTagTokens(value: string) {
   return value
@@ -118,7 +128,7 @@ const LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID = 'launcher-discover-progress'
 
 function formatCompactNumber(value: number | null) {
   if (!value || value <= 0) {
-    return '0'
+    return 'N/A'
   }
 
   return new Intl.NumberFormat('en-US', {
@@ -129,7 +139,7 @@ function formatCompactNumber(value: number | null) {
 
 function formatFileSize(bytes: number | null) {
   if (!bytes || bytes <= 0) {
-    return '0 KB'
+    return 'N/A'
   }
 
   const units = ['B', 'KB', 'MB', 'GB']
@@ -145,7 +155,7 @@ function formatFileSize(bytes: number | null) {
 
 function formatRelativeDate(value: string | null) {
   if (!value) {
-    return 'Recently updated'
+    return 'N/A'
   }
 
   const date = new Date(value)
@@ -153,23 +163,11 @@ function formatRelativeDate(value: string | null) {
     return value
   }
 
-  const diffMs = Date.now() - date.getTime()
-  const diffDays = Math.round(diffMs / 86_400_000)
-  if (Math.abs(diffDays) < 1) {
-    return 'Today'
-  }
-  if (Math.abs(diffDays) < 7) {
-    return `${Math.abs(diffDays)}d ago`
-  }
-  if (Math.abs(diffDays) < 31) {
-    return `${Math.round(Math.abs(diffDays) / 7)}w ago`
-  }
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
 
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return `${year}.${month}.${day}`
 }
 
 function getDiscoverPaginationItems(page: number, totalPages: number) {
@@ -256,30 +254,115 @@ function DiscoverMenu<T extends string | number>({
   )
 }
 
+function DiscoverCardTitle({ title }: { title: string }) {
+  const frameRef = useRef<HTMLSpanElement | null>(null)
+  const textRef = useRef<HTMLSpanElement | null>(null)
+  const [scrollState, setScrollState] = useState({ enabled: false, distance: 0, duration: DISCOVER_TITLE_SCROLL_MIN_DURATION_SECONDS })
+
+  useEffect(() => {
+    const frame = frameRef.current
+    const text = textRef.current
+    if (!frame || !text) {
+      return undefined
+    }
+
+    const updateScrollState = () => {
+      const distance = Math.ceil(text.scrollWidth - frame.clientWidth)
+      const enabled = distance > 2
+      const duration = Math.min(
+        DISCOVER_TITLE_SCROLL_MAX_DURATION_SECONDS,
+        Math.max(DISCOVER_TITLE_SCROLL_MIN_DURATION_SECONDS, distance / DISCOVER_TITLE_SCROLL_SPEED_PX_PER_SECOND),
+      )
+
+      setScrollState({ enabled, distance: Math.max(0, distance), duration })
+    }
+
+    updateScrollState()
+
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateScrollState)
+    resizeObserver?.observe(frame)
+    resizeObserver?.observe(text)
+    window.addEventListener('resize', updateScrollState)
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', updateScrollState)
+    }
+  }, [title])
+
+  const style: DiscoverTitleMarqueeStyle | undefined = scrollState.enabled
+    ? {
+        '--launcher-discover-title-distance': `${scrollState.distance}px`,
+        '--launcher-discover-title-duration': `${scrollState.duration}s`,
+      }
+    : undefined
+
+  return (
+    <Tooltip label={title} disabled={!scrollState.enabled} className="launcher-discover-title-tooltip-anchor" placement="bottom">
+      <span
+        ref={frameRef}
+        className={cx('launcher-discover-wall-title', scrollState.enabled && 'launcher-discover-wall-title-marquee')}
+        style={style}
+      >
+        <span ref={textRef} className="launcher-discover-wall-title-text">
+          {title}
+        </span>
+      </span>
+    </Tooltip>
+  )
+}
+
 function DiscoverCard({
   item,
+  onOpenDetails,
   onQueueDownload,
 }: {
-  item: ReturnType<typeof useLauncherDiscover>['items'][number]
+  item: DiscoverItem
+  onOpenDetails: () => void
   onQueueDownload: () => void
 }) {
   const copy = useEditorCopy().launcher
   const image = useLauncherImage(item.imageUrl)
   const coverMonogram = getLauncherCardMonogram(item.title)
+  const singleClickTimeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (singleClickTimeoutRef.current !== null) {
+        window.clearTimeout(singleClickTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const scheduleOpenDetails = () => {
+    if (singleClickTimeoutRef.current !== null) {
+      window.clearTimeout(singleClickTimeoutRef.current)
+    }
+
+    singleClickTimeoutRef.current = window.setTimeout(() => {
+      singleClickTimeoutRef.current = null
+      onOpenDetails()
+    }, DISCOVER_CARD_SINGLE_CLICK_DELAY_MS)
+  }
+
+  const openModPage = () => {
+    if (singleClickTimeoutRef.current !== null) {
+      window.clearTimeout(singleClickTimeoutRef.current)
+      singleClickTimeoutRef.current = null
+    }
+
+    void openLauncherUrl({ url: item.modUrl })
+  }
 
   return (
     <article className="launcher-discover-wall-card panel-section">
-      <a
-        href={item.modUrl}
-        target="_blank"
-        rel="noreferrer"
+      <button
+        type="button"
         className="launcher-discover-wall-cover"
-        aria-label={`${copy.actions.openModPage}: ${item.title}`}
+        aria-label={`${copy.library.detailsTitle}: ${item.title}`}
         aria-busy={image.loading ? 'true' : undefined}
-        onClick={(event) => {
-          event.preventDefault()
-          void openLauncherUrl({ url: item.modUrl })
-        }}
+        onClick={scheduleOpenDetails}
+        onDoubleClick={openModPage}
       >
         {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
         {!image.imageUrl ? (
@@ -295,27 +378,18 @@ function DiscoverCard({
           <ExternalLink className="h-4 w-4" />
           <span>{copy.actions.openModPage}</span>
         </div>
-      </a>
+      </button>
       <div className="launcher-discover-wall-body">
-        <a
-          href={item.modUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="launcher-discover-wall-copy"
-          onClick={(event) => {
-            event.preventDefault()
-            void openLauncherUrl({ url: item.modUrl })
-          }}
-        >
+        <button type="button" className="launcher-discover-wall-copy" onClick={scheduleOpenDetails} onDoubleClick={openModPage}>
           <div className="launcher-discover-wall-title-slot">
-            <p className="launcher-discover-wall-title">{item.title}</p>
+            <DiscoverCardTitle title={item.title} />
           </div>
           <p className="launcher-discover-wall-author">{item.author ?? item.uploader ?? `Nexus #${item.modId}`}</p>
           <p className="launcher-discover-wall-category">{item.category ?? 'Stardew Valley Mod'}</p>
           <div className="launcher-discover-wall-summary-slot">
             <p className="launcher-discover-wall-summary">{item.summary ?? copy.states.noSummary}</p>
           </div>
-        </a>
+        </button>
         <div className="launcher-discover-card-footer">
           <div className="launcher-discover-wall-meta">
             <span className="launcher-discover-wall-meta-chip">
@@ -460,6 +534,114 @@ function TagSuggestionField({
   )
 }
 
+function createDiscoverRemoteDetail(item: DiscoverItem): LauncherDiscoverDetail {
+  return {
+    modId: item.modId,
+    title: item.title,
+    summary: item.summary,
+    description: item.summary,
+    author: item.author ?? item.uploader,
+    version: null,
+    modUrl: item.modUrl,
+    imageUrl: item.imageUrl,
+    galleryImages: item.imageUrl ? [item.imageUrl] : [],
+    updatedAt: item.updatedAt,
+    fileSize: item.fileSize,
+    category: item.category,
+    downloads: item.downloads,
+    endorsements: item.endorsements,
+    tags: [],
+    directDownloadEnabled: null,
+    supportsVortex: null,
+    primaryFileId: null,
+    primaryFileName: null,
+    primaryFileVersion: null,
+    primaryFileCategory: null,
+    primaryFileSize: item.fileSize,
+    primaryFileSizeBytes: item.fileSize,
+    primaryFileScanned: null,
+    primaryFileScanStatus: null,
+    primaryFileChangelog: [],
+    requiredLoader: null,
+    gameVersion: null,
+    archiveType: null,
+    updateRisk: null,
+    requirements: [],
+    files: [],
+  }
+}
+
+function mergeDiscoverRemoteDetail(item: DiscoverItem, detail: LauncherDiscoverDetail): LauncherDiscoverDetail {
+  return {
+    ...detail,
+    title: detail.title || item.title,
+    summary: detail.summary ?? item.summary,
+    description: detail.description ?? detail.summary ?? item.summary,
+    author: detail.author ?? item.author ?? item.uploader,
+    modUrl: detail.modUrl || item.modUrl,
+    imageUrl: detail.imageUrl ?? item.imageUrl,
+    updatedAt: detail.updatedAt ?? item.updatedAt,
+    fileSize: detail.fileSize ?? item.fileSize,
+    category: detail.category ?? item.category,
+    downloads: detail.downloads ?? item.downloads,
+    endorsements: detail.endorsements ?? item.endorsements,
+  }
+}
+
+function LauncherDiscoverDetailPanel({
+  item,
+  detailLabels,
+  onClose,
+  onQueueDownload,
+}: {
+  item: DiscoverItem
+  detailLabels: {
+    currentVersion: string
+    uniqueId: string
+    path: string
+    dependencies: string
+    updateKeys: string
+    pack: string
+  }
+  onClose: () => void
+  onQueueDownload: (input: QueueLauncherDownloadInput) => void
+}) {
+  const copy = useEditorCopy().launcher
+  const remoteDetail = useLauncherRemoteModDetail(item.modId, { includeFiles: false })
+  const fallbackDetail = createDiscoverRemoteDetail(item)
+  const displayedDetail = remoteDetail.detail ? mergeDiscoverRemoteDetail(item, remoteDetail.detail) : fallbackDetail
+
+  return (
+    <LauncherModDetailPanel
+      open={true}
+      onClose={onClose}
+      closeLabel={copy.actions.closeDialog}
+      title={copy.library.detailsTitle}
+      subtitle={copy.library.detailsSubtitle}
+      empty={copy.library.selectionEmpty}
+      mod={null}
+      remoteDetail={displayedDetail}
+      remoteFilesDeferred={true}
+      remoteLoading={remoteDetail.state === 'loading'}
+      labels={detailLabels}
+      noSummary={copy.states.noSummary}
+      onToggleEnabled={() => undefined}
+      enableLabel={copy.actions.enable}
+      disableLabel={copy.actions.disable}
+      enabledStateLabel={copy.overview.enabledMods}
+      disabledStateLabel={copy.overview.disabledMods}
+      openFolderLabel={copy.actions.openFolder}
+      setCoverLabel={copy.actions.setCover}
+      clearCoverLabel={copy.actions.clearCover}
+      onOpenFolder={() => undefined}
+      onSetCover={() => undefined}
+      onClearCover={() => undefined}
+      openModPageLabel={copy.actions.openModPage}
+      onQueueDownload={onQueueDownload}
+    />
+  )
+}
+
 export function LauncherDiscoverPage({ onQueueDownload, onNavigateToDiagnostics, onRetryDiagnostics }: LauncherDiscoverPageProps) {
   const desktopHost = canUseDesktopHost()
   const [hydratedToolbarState, setHydratedToolbarState] = useState<LauncherDiscoverToolbarState>(() => getInitialDiscoverToolbarState())
@@ -526,6 +708,7 @@ function LauncherDiscoverPageContent({
   const [blockedRetryPending, setBlockedRetryPending] = useState(false)
   const [jumpPageDraft, setJumpPageDraft] = useState('')
   const [jumpPageDirty, setJumpPageDirty] = useState(false)
+  const [detailItem, setDetailItem] = useState<DiscoverItem | null>(null)
   const resultsViewportRef = useRef<HTMLDivElement | null>(null)
   const discoverBlocked = Boolean(discover.blockedReason && discover.state !== 'loading')
   const blockedReasonLines = getBlockedReasonLines(discover.blockedReason)
@@ -612,6 +795,24 @@ function LauncherDiscoverPageContent({
   const rangeEnd = resultCount ? Math.min(discover.page * discover.pageSize, resultCount) : 0
   const paginationItems = getDiscoverPaginationItems(discover.page, discover.totalPages)
   const jumpPageValue = jumpPageDirty ? jumpPageDraft : String(discover.page)
+  const detailLabels = useMemo(
+    () => ({
+      currentVersion: copy.fields.currentVersion,
+      uniqueId: copy.fields.uniqueId,
+      path: copy.fields.path,
+      dependencies: copy.fields.dependencies,
+      updateKeys: copy.fields.updateKeys,
+      pack: copy.library.modDetail.file,
+    }),
+    [
+      copy.fields.currentVersion,
+      copy.fields.dependencies,
+      copy.fields.path,
+      copy.fields.uniqueId,
+      copy.fields.updateKeys,
+      copy.library.modDetail.file,
+    ],
+  )
 
   const toggleSection = (section: DiscoverAccordionSection) => {
     setOpenSection(section)
@@ -1035,6 +1236,7 @@ function LauncherDiscoverPageContent({
                       <DiscoverCard
                         key={`${item.modId}:${item.modUrl}`}
                         item={item}
+                        onOpenDetails={() => setDetailItem(item)}
                         onQueueDownload={() =>
                           onQueueDownload({
                             modId: item.modId,
@@ -1135,6 +1337,15 @@ function LauncherDiscoverPageContent({
                 </div>
               ) : null}
             </div>
+          ) : null}
+
+          {detailItem ? (
+            <LauncherDiscoverDetailPanel
+              item={detailItem}
+              detailLabels={detailLabels}
+              onClose={() => setDetailItem(null)}
+              onQueueDownload={onQueueDownload}
+            />
           ) : null}
         </div>
       </div>
