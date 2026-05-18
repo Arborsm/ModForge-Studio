@@ -29,31 +29,50 @@ import type {
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { rgbaFromHex } from '@app/app-shell/color'
 import { ACCENT_PRESETS } from './constants'
-import { clearLocalizedStageMetadataCache } from '@entities/event'
+import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
 import { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import {
   getLauncherNexusWarningRoutes,
   loadSettledLauncherNexusDiagnostics,
   mergeLauncherNexusDiagnostics,
-  syncLauncherDiagnosticsNotification,
-  useLauncherPort,
-  type LauncherNexusDiagnosticsResult,
-} from '@features/launcher'
+} from '@features/launcher/model/nexusDiagnostics'
+import { syncLauncherDiagnosticsNotification } from '@features/launcher/model/nexusDiagnosticsNotifications'
+import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
-import { getWorkbenchViewRegistration } from '@app/registry-setup'
 import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from './WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
-const WorkbenchPage = lazy(() => import('@pages/workbench').then((module) => ({ default: module.WorkbenchPage })))
+const WorkbenchPage = lazy(async () => {
+  const [workbenchModule, registryModule, cpMakerProviderModule] = await Promise.all([
+    import('@pages/workbench'),
+    import('@app/registry-setup'),
+    import('../providers/CpMakerPlatformProvider'),
+  ])
+
+  return {
+    default: function WorkbenchPageWithRegistry(
+      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration'>,
+    ) {
+      const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
+
+      return (
+        <CpMakerPlatformProvider>
+          <workbenchModule.WorkbenchPage {...props} getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration} />
+        </CpMakerPlatformProvider>
+      )
+    },
+  }
+})
 
 let workbenchStylesPromise: Promise<unknown> | null = null
 
@@ -549,7 +568,6 @@ export default function App() {
                   onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
                   onCloseWindow={() => void closeCurrentWindow()}
                   onWorkbenchEvent={eventBus.emit}
-                  getWorkbenchViewRegistration={getWorkbenchViewRegistration}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
                   onClearPendingIntent={appCommandHandler.clearPendingIntent}
                 />

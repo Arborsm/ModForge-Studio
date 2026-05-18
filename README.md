@@ -153,6 +153,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 ### Cp Maker Builder
 
 - feature public API：`apps/desktop/src/features/cp-maker/index.ts`
+- 轻量 Provider / port 入口：`apps/desktop/src/features/cp-maker/provider.ts`
 - 状态与草稿生命周期：`apps/desktop/src/features/cp-maker/state/`
 - 路由辅助：`apps/desktop/src/features/cp-maker/routing/`
 - Studio Desk、Edit Workspace Content 与 Edit Mode UI：`apps/desktop/src/features/cp-maker/ui/`

@@ -43,7 +43,7 @@ export function EditorPage({
   const showReferenceTab = Boolean(gameRootPath && directoryInfo && locale && theme)
 
   if (!patch || !draft) {
-    return <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">Patch not found.</div>
+    return <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">Patch not found.</div>
   }
 
   const plugin = getWorkspacePlugin(workspaceId)
@@ -78,7 +78,7 @@ export function EditorPage({
             gameRootPath={gameRootPath}
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-xs text-[var(--text-secondary)]">
+          <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">
             No editor registered for {workspaceId} workspace.
           </div>
         )}

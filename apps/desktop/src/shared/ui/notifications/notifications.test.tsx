@@ -1,5 +1,7 @@
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearNotifications, dismissNotification, publishNotification } from './notifications'
+import { LocaleProvider } from '@locales/localeContext'
+import { clearNotifications, dismissNotification, NotificationProvider, publishNotification } from './notifications'
 import { playNotificationSound } from './notificationSounds'
 
 vi.mock('./notificationSounds', () => ({
@@ -8,6 +10,7 @@ vi.mock('./notificationSounds', () => ({
 
 describe('publishNotification', () => {
   beforeEach(() => {
+    cleanup()
     clearNotifications()
     vi.clearAllMocks()
   })
@@ -59,5 +62,49 @@ describe('publishNotification', () => {
     })
 
     expect(playNotificationSound).toHaveBeenCalledWith('warning')
+  })
+
+  it('does not rerender provider children when updating notification progress', () => {
+    const childRenderSpy = vi.fn()
+
+    function StableChild() {
+      childRenderSpy()
+      return <div>Stable app</div>
+    }
+
+    render(
+      <LocaleProvider locale="en-US">
+        <NotificationProvider>
+          <StableChild />
+        </NotificationProvider>
+      </LocaleProvider>,
+    )
+
+    expect(screen.getByText('Stable app')).toBeTruthy()
+    expect(childRenderSpy).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      publishNotification({
+        id: 'launcher-updates-progress',
+        level: 'info',
+        title: 'Checking updates',
+        description: '1 of 100',
+        autoDismissMs: null,
+        progress: 1,
+      })
+    })
+
+    act(() => {
+      publishNotification({
+        id: 'launcher-updates-progress',
+        level: 'info',
+        title: 'Checking updates',
+        description: '2 of 100',
+        autoDismissMs: null,
+        progress: 2,
+      })
+    })
+
+    expect(childRenderSpy).toHaveBeenCalledTimes(1)
   })
 })

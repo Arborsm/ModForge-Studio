@@ -21,7 +21,7 @@ import {
   setLauncherLibraryCover,
 } from '@features/launcher/api'
 import { chooseArchiveFile, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
-import { useLauncherLibrary } from '@features/launcher'
+import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { LauncherLibraryPage } from './LauncherLibraryPage'
@@ -98,8 +98,10 @@ vi.mock('@shared/lib/desktop', async () => {
   }
 })
 
-vi.mock('@features/launcher', async () => {
-  const actual = await vi.importActual<typeof import('@features/launcher')>('@features/launcher')
+vi.mock('@features/launcher/model/useLauncherLibrary', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/model/useLauncherLibrary')>(
+    '@features/launcher/model/useLauncherLibrary',
+  )
   return {
     ...actual,
     useLauncherLibrary: vi.fn(),

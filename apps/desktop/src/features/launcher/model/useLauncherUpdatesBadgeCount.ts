@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLauncherPort } from '@features/launcher'
+import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings, LauncherUpdatesResult } from './launcherContracts'
 
 function getUpdatesCount(result: LauncherUpdatesResult | null) {

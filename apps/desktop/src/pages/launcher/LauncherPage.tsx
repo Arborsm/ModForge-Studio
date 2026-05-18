@@ -6,12 +6,10 @@ import StatusBar from '@widgets/status-bar'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
 import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
-import {
-  useLauncherPort,
-  useLauncherRuntime,
-  useLauncherUpdateProgressNotifications,
-  type LauncherNexusDiagnosticsResult,
-} from '@features/launcher'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
+import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
+import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
+import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
 import type { LocaleCode } from '@locales'
 
 type LauncherPageProps = {

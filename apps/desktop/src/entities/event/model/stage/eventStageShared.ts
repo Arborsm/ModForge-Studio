@@ -7,6 +7,7 @@ import {
   type FarmerHairMetadataEntry,
   type FarmerSpriteLayerDescriptor,
 } from './farmerAppearanceRenderer'
+import { getLocalizedMetadataCacheKey, hairMetadataCache, hatMetadataCache, type HatMetadataEntry } from './stageMetadataCache'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { EventCommand, EventDialoguePage, EventSceneActor, EventScript } from '@entities/event'
 
@@ -334,11 +335,6 @@ const HAIR_DATA_PATH = 'Content\\Data\\HairData.xnb'
 const HAT_DATA_PATH = 'Content\\Data\\hats.xnb'
 const EFFECT_VIEWPORT_BASE_WIDTH = 1280
 const EFFECT_VIEWPORT_BASE_HEIGHT = 720
-type HatMetadataEntry = {
-  hairDrawMode: 'normal' | 'hide' | 'cover'
-  ignoreHairstyleOffset: boolean
-  isMask: boolean
-}
 const MANUAL_TEXTURE_NAME_ALIASES: Record<string, string[]> = {
   leahex: ['LeahExFemale', 'LeahExMale', 'LeahEx'],
 }
@@ -356,30 +352,6 @@ const NAMED_EFFECT_COLORS: Record<string, string> = {
   lime: '#7cff00',
   deepskyblue: '#00bfff',
 }
-const hatMetadataCache = new Map<string, Promise<Record<string, HatMetadataEntry>>>()
-const hairMetadataCache = new Map<string, Promise<Record<string, FarmerHairMetadataEntry>>>()
-
-export function clearLocalizedStageMetadataCache(locale: LocaleCode) {
-  const suffix = `::${locale}`
-  for (const key of hatMetadataCache.keys()) {
-    if (key.endsWith(suffix)) {
-      hatMetadataCache.delete(key)
-    }
-  }
-  for (const key of hairMetadataCache.keys()) {
-    if (key.endsWith(suffix)) {
-      hairMetadataCache.delete(key)
-    }
-  }
-}
-
-export function getStageMetadataCacheStats() {
-  return {
-    hat: hatMetadataCache.size,
-    hair: hairMetadataCache.size,
-  }
-}
-
 function normalizeActorName(value: string) {
   return value.trim().replace(/\?$/u, '')
 }
@@ -900,10 +872,6 @@ function createItemAboveActorEffect(
     scale: 4,
     layerDepth: ((actor.tileY - 1) * 64) / 10000,
   })
-}
-
-function getLocalizedMetadataCacheKey(rootPath: string, locale: LocaleCode) {
-  return `${rootPath}::${locale}`
 }
 
 async function loadHatMetadataIndex(rootPath: string, locale: LocaleCode) {

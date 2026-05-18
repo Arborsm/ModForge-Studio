@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, FolderOpen } from 'lucide-react'
-import { useCpMakerPort } from '@features/cp-maker'
+import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { EditorCopy } from '@locales'
 
 interface ExportDialogProps {

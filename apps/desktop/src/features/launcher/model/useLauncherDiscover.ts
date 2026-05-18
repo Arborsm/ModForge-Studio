@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLauncherPort } from '@features/launcher'
+import { useLauncherPort } from './launcherPortContext'
 import type { LauncherCatalogFacets, SearchLauncherCatalogRequest } from './launcherContracts'
-import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
+import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from './launcherDiscoverToolbarState'
 import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'
 import type { LauncherDiscoverItem, LauncherViewState } from './types'
 

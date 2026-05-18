@@ -119,12 +119,19 @@ describe('frontend module architecture', () => {
 
     const mainEntry = await readFile(sourcePath('src/main.tsx'), 'utf8')
     const appEntry = await readFile(sourcePath('src/app/App.tsx'), 'utf8')
+    const appShellSource = await readFile(sourcePath('src/app/app-shell/AppShell.tsx'), 'utf8')
     const appShellBridge = await readFile(sourcePath('src/app/app-shell/index.ts'), 'utf8')
 
     expect(mainEntry).toContain("from '@app/App'")
     expect(mainEntry).not.toContain("from './App'")
     expect(appEntry).toContain("from '@app/app-shell/AppShell'")
     expect(appEntry).toContain("from '@app/providers/PlatformProvider'")
+    expect(appEntry).toContain("from '@app/providers/LauncherPlatformProvider'")
+    expect(appEntry).not.toContain('CpMakerPlatformProvider')
+    expect(appShellSource).not.toContain("from '@app/registry-setup'")
+    expect(appShellSource).toContain("import('@app/registry-setup')")
+    expect(appShellSource).not.toContain("from '../providers/CpMakerPlatformProvider'")
+    expect(appShellSource).toContain("import('../providers/CpMakerPlatformProvider')")
     expect(appShellBridge).toContain("from './AppShell'")
   })
 
@@ -162,9 +169,23 @@ describe('frontend module architecture', () => {
 
   it('provides platform ports from the app layer through the Tauri adapter', async () => {
     const provider = await readFile(sourcePath('src/app/providers/PlatformProvider.tsx'), 'utf8')
+    const cpMakerProvider = await readFile(sourcePath('src/app/providers/CpMakerPlatformProvider.tsx'), 'utf8')
+    const cpMakerPortAdapter = await readFile(sourcePath('src/app/providers/cpMakerPortAdapter.ts'), 'utf8')
+    const cpMakerProviderEntry = await readFile(sourcePath('src/features/cp-maker/provider.ts'), 'utf8')
     const tauriAdapter = await readFile(sourcePath('src/platform/tauri/index.ts'), 'utf8')
 
     expect(provider).toContain('PlatformProvider')
+    expect(cpMakerProvider).toContain("from '@features/cp-maker/provider'")
+    expect(cpMakerProvider).not.toContain("from '@features/cp-maker'")
+    expect(cpMakerPortAdapter).toContain("from '@features/cp-maker/provider'")
+    expect(cpMakerPortAdapter).not.toContain("from '@features/cp-maker'")
+    expect(cpMakerProviderEntry).toContain('Lightweight cp-maker provider entry')
+    expect(cpMakerProviderEntry).toContain("from './model/cpMakerProvider'")
+    expect(cpMakerProviderEntry).toContain("from './model/useCpMakerPort'")
+    expect(cpMakerProviderEntry).toContain("from './model/cpMakerPort'")
+    expect(cpMakerProviderEntry).not.toContain("from './ui/")
+    expect(cpMakerProviderEntry).not.toContain("from './state/")
+    expect(cpMakerProviderEntry).not.toContain("from './routing/")
     const platformContext = await readFile(sourcePath('src/app/providers/platformContext.ts'), 'utf8')
     const usePlatformPorts = await readFile(sourcePath('src/app/providers/usePlatformPorts.ts'), 'utf8')
 
@@ -208,7 +229,7 @@ describe('frontend module architecture', () => {
     }
 
     expect(violations).toEqual([])
-  })
+  }, 10000)
 
   it('keeps widgets free of platform adapter imports and direct desktop bridge calls', async () => {
     const sourceFiles = await collectSourceFiles(sourcePath('src/widgets'))
@@ -437,6 +458,29 @@ describe('frontend module architecture', () => {
 
     expect(violations).toEqual([])
   }, 30000)
+
+  it('keeps launcher initial entries off heavy feature and entity barrels', async () => {
+    const initialEntryFiles = [
+      'src/app/app-shell/AppShell.tsx',
+      'src/pages/launcher/LauncherPage.tsx',
+      'src/pages/launcher/ui/LauncherShell.tsx',
+      'src/pages/launcher/ui/LauncherLibraryPage.tsx',
+      'src/pages/launcher/ui/LauncherDownloadsPopover.tsx',
+    ]
+    const blockedSpecifiers = ['@features/launcher', '@features/cp-maker', '@entities/event', '@entities/map']
+    const violations: string[] = []
+
+    for (const file of initialEntryFiles) {
+      const source = await readFile(sourcePath(file), 'utf8')
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (blockedSpecifiers.includes(specifier)) {
+          violations.push(`${file} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
 
   it('blocks removed component and lib path references', async () => {
     const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared', 'src/platform']

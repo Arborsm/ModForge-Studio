@@ -1,4 +1,4 @@
-import type { CpMakerPort } from '@features/cp-maker'
+import type { CpMakerPort } from '@features/cp-maker/provider'
 import type { PlatformPorts } from '@shared/contracts'
 
 export function createCpMakerPortAdapter({ dialog, fileSystem }: PlatformPorts): CpMakerPort {

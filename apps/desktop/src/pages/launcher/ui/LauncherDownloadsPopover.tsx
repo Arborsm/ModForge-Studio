@@ -1,7 +1,9 @@
 import { RefreshCw } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
-import { LauncherDownloadRow, LauncherStateBlock, orderLauncherDownloadItems } from '@features/launcher'
-import { useLauncherDownloads } from '@features/launcher'
+import { useLauncherDownloads } from '@features/launcher/model/useLauncherDownloads'
+import { LauncherDownloadRow } from '@features/launcher/ui/cards/LauncherDownloadRow'
+import { LauncherStateBlock } from '@features/launcher/ui/shared/LauncherStateBlock'
+import { orderLauncherDownloadItems } from '@features/launcher/ui/shared/orderLauncherDownloadItems'
 
 type LauncherDownloadsPopoverProps = {
   downloads: ReturnType<typeof useLauncherDownloads>

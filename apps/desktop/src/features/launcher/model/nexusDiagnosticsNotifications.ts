@@ -1,6 +1,6 @@
 import { dismissNotification, publishNotification, type NotificationChip, type PublishNotificationRequest } from '@shared/ui/notifications'
 import type { LauncherCopy } from '@locales/editor-shell'
-import type { LauncherNexusDiagnosticsResult } from '@features/launcher'
+import type { LauncherNexusDiagnosticsResult } from './launcherContracts'
 import {
   canAutoCheckLauncherUpdates,
   canAutoLoadLauncherDiscover,

@@ -14,7 +14,7 @@ vi.mock('./LauncherLibraryPage', () => ({
   },
 }))
 
-vi.mock('@features/launcher', () => ({
+vi.mock('@features/launcher/model/useLauncherLibrary', () => ({
   useLauncherLibrary: vi.fn(() => ({
     mods: [],
     storageFolders: [],

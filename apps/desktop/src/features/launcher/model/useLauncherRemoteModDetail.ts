@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLauncherPort } from '@features/launcher'
+import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/localeContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 

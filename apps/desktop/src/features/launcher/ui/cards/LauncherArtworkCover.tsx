@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { cx } from '@shared/lib/cx'
-import { useLauncherImage } from '@features/launcher'
+import { useLauncherImage } from '../../model/imageLoader'
 
 type LauncherArtworkCoverProps = {
   title: string

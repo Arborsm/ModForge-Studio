@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createResourceCache } from '@shared/lib/resources'
-import { useLauncherPort } from '@features/launcher'
+import { useLauncherPort } from './launcherPortContext'
 import type { LauncherPort } from './launcherPort'
 
 const launcherImageCache = createResourceCache<string>({

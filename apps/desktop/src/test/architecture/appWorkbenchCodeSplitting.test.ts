@@ -8,7 +8,11 @@ describe('App workbench code splitting', () => {
   it('lazy-loads the workbench page instead of statically importing heavy workspace modules', async () => {
     const source = await readFile(SOURCE_PATH, 'utf8')
 
-    expect(source).toContain("lazy(() => import('@pages/workbench')")
+    expect(source).toContain('const WorkbenchPage = lazy(async () =>')
+    expect(source).toContain("import('@pages/workbench')")
+    expect(source).toContain("import('@app/registry-setup')")
+    expect(source).not.toContain("from '@pages/workbench'")
+    expect(source).not.toContain("from '@app/registry-setup'")
 
     expect(source).not.toContain('import { WorkspaceLayout')
     expect(source).not.toContain('import InitializationOverlay')

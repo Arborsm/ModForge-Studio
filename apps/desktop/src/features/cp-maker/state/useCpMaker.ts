@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useCpMakerPort } from '@features/cp-maker'
-import type { CpMakerPort } from '@features/cp-maker'
+import { useCpMakerPort } from '@features/cp-maker/provider'
+import type { CpMakerPort } from '@features/cp-maker/provider'
 import type { ConfigSchemaEntry, DraftPatch, CpMakerDraft, VirtualPreviewAsset, WorkspaceId } from '@shared/contracts'
 import type { CpMakerDraftRecord, CpMakerDraftSummary, CpMakerExportResult } from '../model/cpMakerPort'
 

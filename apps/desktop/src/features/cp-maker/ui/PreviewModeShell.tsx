@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Eye, Map, Calendar, User, Building2, Package } from 'lucide-react'
-import { useCpMakerPort } from '@features/cp-maker'
+import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { WorkspaceId } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'

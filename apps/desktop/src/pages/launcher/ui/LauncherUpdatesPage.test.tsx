@@ -597,8 +597,11 @@ describe('LauncherUpdatesPage', () => {
       await Promise.resolve()
     })
 
-    expect(screen.queryByText(/NPC Adventures/)).toBeNull()
-    expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.queryByText(/NPC Adventures/)).toBeNull()
+      expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
+    })
+
     expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 75%')
   })
 

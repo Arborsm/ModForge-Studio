@@ -37,19 +37,22 @@ import {
 } from '@shared/lib/desktop'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
-import { useLauncherImage } from '@features/launcher'
-import { getLauncherCoverKey } from '@features/launcher'
-import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher'
-import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft, QueueLauncherDownloadInput } from '@features/launcher'
-import { useLauncherLibrary } from '@features/launcher'
-import {
-  LauncherArchiveInstallDialog,
-  LauncherInstallBackupsDialog,
-  LauncherInstallSummaryDialog,
-  LauncherModCard,
-  LauncherModDetailPanel,
-  LauncherStateBlock,
-} from '@features/launcher'
+import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
+import { useLauncherImage } from '@features/launcher/model/imageLoader'
+import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
+import type {
+  LauncherLibraryItem,
+  LauncherPackPreset,
+  LauncherSettingsDraft,
+  QueueLauncherDownloadInput,
+} from '@features/launcher/model/types'
+import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
+import { LauncherArchiveInstallDialog } from '@features/launcher/ui/shared/LauncherArchiveInstallDialog'
+import { LauncherInstallBackupsDialog } from '@features/launcher/ui/shared/LauncherInstallBackupsDialog'
+import { LauncherInstallSummaryDialog } from '@features/launcher/ui/shared/LauncherInstallSummaryDialog'
+import { LauncherStateBlock } from '@features/launcher/ui/shared/LauncherStateBlock'
+import { LauncherModCard } from '@features/launcher/ui/cards/LauncherModCard'
+import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
 
 type LauncherLibraryPageProps = {
   settings: LauncherSettingsDraft

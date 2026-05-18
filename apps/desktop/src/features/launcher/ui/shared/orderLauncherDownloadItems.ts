@@ -1,4 +1,4 @@
-import type { LauncherDownloadQueueItem } from '@features/launcher'
+import type { LauncherDownloadQueueItem } from '../../model/types'
 
 const DOWNLOAD_STATUS_PRIORITY: Record<LauncherDownloadQueueItem['status'], number> = {
   downloading: 0,
