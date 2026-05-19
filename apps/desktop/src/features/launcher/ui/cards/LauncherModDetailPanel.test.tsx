@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { cleanup } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher'
+import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import { renderWithLocaleAndLaunchers } from '@test/renderWithLocaleAndLaunchers'
 import { LauncherModDetailPanel } from './LauncherModDetailPanel'
@@ -62,13 +63,15 @@ function renderPanel(
   mod: LauncherLibraryItem | null,
   remoteDetail: LauncherDiscoverDetail | null = null,
   options: {
+    open?: boolean
     onQueueDownload?: Parameters<typeof LauncherModDetailPanel>[0]['onQueueDownload']
     remoteLoading?: boolean
     remoteFilesDeferred?: boolean
+    loadRemoteModDetail?: LauncherPort['loadRemoteModDetail']
   } = {},
 ) {
   const port = createMockLauncherPort({
-    loadRemoteModDetail: vi.fn().mockResolvedValue(remoteDetail ?? createRemoteDetail()),
+    loadRemoteModDetail: options.loadRemoteModDetail ?? vi.fn().mockResolvedValue(remoteDetail ?? createRemoteDetail()),
     openPath: vi.fn().mockResolvedValue(undefined),
     openUrl: vi.fn().mockResolvedValue(undefined),
     resolveImage: vi.fn().mockResolvedValue({ sourceUrl: '', localPath: '', mimeType: 'image/png' }),
@@ -77,7 +80,7 @@ function renderPanel(
 
   renderWithLocaleAndLaunchers(
     <LauncherModDetailPanel
-      open
+      open={options.open ?? true}
       onClose={vi.fn()}
       closeLabel="Close"
       title="Mod Details"
@@ -119,6 +122,13 @@ function renderPanel(
 }
 
 describe('LauncherModDetailPanel', () => {
+  it('unmounts the drawer while closed so hidden content cannot retain focus', () => {
+    renderPanel(createLocalMod(), createRemoteDetail(), { open: false })
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.querySelector('.launcher-library-drawer')).toBeNull()
+  })
+
   it('keeps local-only details focused on install and manifest fields', () => {
     renderPanel(createLocalMod({ nexusModId: null, updateKeys: [], modUrl: null }))
 
@@ -133,11 +143,13 @@ describe('LauncherModDetailPanel', () => {
     expect(within(detailsPanel).queryByText('Label Key')).toBeNull()
   })
 
-  it('does not repeat local update keys in the sidebar', () => {
+  it('keeps the combined hero focused on version state instead of raw update keys', () => {
     renderPanel(createLocalMod(), createRemoteDetail())
 
     expect(screen.queryByText('Update Keys')).toBeNull()
-    expect(screen.getAllByText('Nexus').length).toBeGreaterThan(0)
+    expect(screen.getByText('Current folder')).toBeTruthy()
+    expect(screen.getByText('Nexus primary file')).toBeTruthy()
+    expect(screen.queryByText('VERIFIED')).toBeNull()
   })
 
   it('renders combined update evidence and exposes truncated full values through titles', async () => {
@@ -316,7 +328,7 @@ describe('LauncherModDetailPanel', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading mod details...')
   })
 
-  it('uses the short summary on overview and defers the full description until the description tab is opened', () => {
+  it('moves the short summary into the hero and starts tabs from description', () => {
     renderPanel(
       null,
       createRemoteDetail({
@@ -325,12 +337,13 @@ describe('LauncherModDetailPanel', () => {
       }),
     )
 
+    expect(screen.queryByRole('tab', { name: 'Overview' })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Description' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByText('Short overview summary.')).toBeTruthy()
-    expect(screen.queryByText('Full remote description with many sections.')).toBeNull()
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Description' }))
-
     expect(screen.getByText('Full remote description with many sections.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Expand Full Description' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Full Description' }))
+    expect(screen.getByRole('dialog', { name: 'Full Description' })).toBeTruthy()
   })
 
   it('loads remote files after opening the changelog or files tab when file data is deferred', async () => {
@@ -375,6 +388,51 @@ describe('LauncherModDetailPanel', () => {
     expect(await screen.findByText('Compatibility updates and fixes.')).toBeTruthy()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
+    expect(await screen.findByRole('button', { name: 'Queue Download Content Patcher 2.9.1' })).toBeTruthy()
+  })
+
+  it('keeps combined detail file data deferred until files or changelog is opened', async () => {
+    const remoteWithoutFiles = createRemoteDetail({
+      primaryFileId: null,
+      primaryFileName: null,
+      primaryFileVersion: null,
+      primaryFileChangelog: [],
+      files: [],
+    })
+    const remoteWithFiles = createRemoteDetail({
+      files: [
+        {
+          fileId: 160463,
+          name: 'Content Patcher 2.9.1',
+          version: '2.9.1',
+          category: 'MAIN',
+          size: 381,
+          sizeBytes: 389_967,
+          primary: true,
+          scanned: true,
+          scanStatus: 'VERIFIED',
+          changelog: ['Compatibility updates and fixes.'],
+          archiveType: 'ZIP',
+        },
+      ],
+    })
+    const loadRemoteModDetail = vi.fn().mockResolvedValueOnce(remoteWithoutFiles).mockResolvedValueOnce(remoteWithFiles)
+    const port = renderPanel(createLocalMod(), null, {
+      onQueueDownload: vi.fn(),
+      remoteFilesDeferred: true,
+      loadRemoteModDetail,
+    })
+
+    await waitFor(() => {
+      expect(port.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 1915, includeFiles: false })
+    })
+    expect(port.loadRemoteModDetail).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
+
+    await waitFor(() => {
+      expect(port.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 1915, includeFiles: true })
+    })
     expect(await screen.findByRole('button', { name: 'Queue Download Content Patcher 2.9.1' })).toBeTruthy()
   })
 

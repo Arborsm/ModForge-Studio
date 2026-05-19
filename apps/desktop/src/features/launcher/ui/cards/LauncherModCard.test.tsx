@@ -8,9 +8,9 @@ describe('LauncherModCard', () => {
     vi.useRealTimers()
   })
 
-  it('opens details on double click without replacing single-click selection', () => {
+  it('opens details on single click and the direct target on double click', () => {
     vi.useFakeTimers()
-    const onSelect = vi.fn()
+    const onOpenDirectTarget = vi.fn()
     const onOpenDetails = vi.fn()
 
     renderWithLocaleAndLaunchers(
@@ -18,35 +18,71 @@ describe('LauncherModCard', () => {
         title="Content Patcher"
         meta="Pathoschild · v2.9.0"
         imageUrl={null}
-        onSelect={onSelect}
         onOpenDetails={onOpenDetails}
+        onOpenDirectTarget={onOpenDirectTarget}
       />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: /content patcher/i }))
-    expect(onSelect).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(180)
-    expect(onSelect).toHaveBeenCalledTimes(1)
     expect(onOpenDetails).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(180)
+    expect(onOpenDetails).toHaveBeenCalledTimes(1)
+    expect(onOpenDirectTarget).not.toHaveBeenCalled()
 
     fireEvent.doubleClick(screen.getByRole('button', { name: /content patcher/i }))
+    expect(onOpenDirectTarget).toHaveBeenCalledTimes(1)
     expect(onOpenDetails).toHaveBeenCalledTimes(1)
-    expect(onSelect).toHaveBeenCalledTimes(1)
   })
 
-  it('cancels delayed single-click selection when the card unmounts', () => {
+  it('cancels delayed single-click details when the card unmounts', () => {
     vi.useFakeTimers()
-    const onSelect = vi.fn()
+    const onOpenDetails = vi.fn()
 
     const { unmount } = renderWithLocaleAndLaunchers(
-      <LauncherModCard title="Content Patcher" meta="Pathoschild · v2.9.0" imageUrl={null} onSelect={onSelect} onOpenDetails={vi.fn()} />,
+      <LauncherModCard title="Content Patcher" meta="Pathoschild · v2.9.0" imageUrl={null} onOpenDetails={onOpenDetails} />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: /content patcher/i }))
     unmount()
     vi.advanceTimersByTime(180)
 
-    expect(onSelect).not.toHaveBeenCalled()
+    expect(onOpenDetails).not.toHaveBeenCalled()
+  })
+
+  it('uses selected card styling only while selection mode is active', () => {
+    const { rerender } = renderWithLocaleAndLaunchers(
+      <LauncherModCard title="Content Patcher" meta="Pathoschild · v2.9.0" imageUrl={null} selected onSelect={vi.fn()} />,
+    )
+
+    expect(screen.getByRole('article', { name: /content patcher/i })).not.toHaveClass('launcher-mod-card-selected')
+
+    rerender(
+      <LauncherModCard title="Content Patcher" meta="Pathoschild · v2.9.0" imageUrl={null} selectionMode selected onSelect={vi.fn()} />,
+    )
+
+    expect(screen.getByRole('article', { name: /content patcher/i })).toHaveClass('launcher-mod-card-selected')
+  })
+
+  it('toggles selection immediately in selection mode', () => {
+    const onSelect = vi.fn()
+
+    renderWithLocaleAndLaunchers(
+      <LauncherModCard
+        title="Content Patcher"
+        meta="Pathoschild · v2.9.0"
+        imageUrl={null}
+        selectionMode
+        selected={false}
+        onSelect={onSelect}
+        onOpenDetails={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('article', { name: /content patcher/i }))
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: /content patcher/i }))
+    expect(onSelect).toHaveBeenCalledTimes(2)
   })
 
   it('renders updated versions as a blue affordance with an update tooltip', () => {

@@ -598,6 +598,7 @@ export type LauncherCopy = {
       whatsNew: string
       primaryFile: string
       readFullDescription: string
+      fullDescriptionTitle: string
       installPath: string
       updateEvidence: string
       nexusPage: string

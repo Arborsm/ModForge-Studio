@@ -203,7 +203,7 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
     );
     assert_eq!(
         detail.description.as_deref(),
-        Some("Loads Content Patcher packs for Stardew Valley 1.6.")
+        Some("<p>Loads Content Patcher packs for Stardew Valley 1.6.</p>")
     );
     assert_eq!(detail.requirements.len(), 1);
     assert_eq!(detail.requirements[0].name, "SMAPI");
@@ -219,6 +219,48 @@ fn parse_public_mod_detail_graphql_response_extracts_detail_fields_and_primary_f
     );
     assert!(detail.files[0].primary);
     assert_eq!(detail.files[0].archive_type.as_deref(), Some("ZIP"));
+}
+
+#[test]
+fn parse_public_mod_detail_graphql_response_preserves_description_markup_for_renderer() {
+    let payload = json!({
+        "data": {
+            "mod": {
+                "modId": 20289,
+                "name": "Aimon's Bus Interior",
+                "summary": null,
+                "description": "[center][b][color=#ffe599]Mods used on screenshots:[/color][/b]\n<br />----------------------------\n<br />Stardew Foliage Redone\n<br />Stardew Valley Expanded\n<br />----------------------------[/center]",
+                "version": "1.0.0",
+                "pictureUrl": null,
+                "author": "Aimon",
+                "tags": [],
+                "modRequirements": {
+                    "nexusRequirements": { "nodes": [] },
+                    "dlcRequirements": []
+                }
+            },
+            "modFiles": []
+        }
+    });
+
+    let detail = parse_public_mod_detail_graphql_response(&payload, 20289)
+        .expect("graphql detail should parse");
+
+    let description = detail
+        .description
+        .as_deref()
+        .expect("description should be present");
+    assert!(description.contains("[center]"));
+    assert!(description.contains("<br />----------------------------"));
+    assert!(description.contains("\n<br />Stardew Foliage Redone"));
+    assert!(!description
+        .contains("Mods used on screenshots: ---------------------------- Stardew Foliage Redone"));
+    assert_eq!(
+        detail.summary.as_deref(),
+        Some(
+            "Mods used on screenshots: ---------------------------- Stardew Foliage Redone Stardew Valley Expanded ----------------------------"
+        )
+    );
 }
 
 #[test]

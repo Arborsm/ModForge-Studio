@@ -86,10 +86,18 @@ describe('parseNexusModsBbcode', () => {
     ])
   })
 
-  it('strips unsupported HTML tags instead of rendering them as visible text', () => {
+  it('maps safe HTML div tags and strips unsafe tags instead of rendering them as visible text', () => {
     const document = parseNexusModsBbcode('<div>Visible</div><script>alert(1)</script>')
 
-    expect(document.children).toEqual([{ type: 'text', value: 'Visiblealert(1)' }])
+    expect(document.children).toEqual([
+      {
+        type: 'element',
+        tag: 'left',
+        attrs: {},
+        children: [{ type: 'text', value: 'Visible' }],
+      },
+      { type: 'text', value: 'alert(1)' },
+    ])
   })
 
   it('keeps crossed spoiler and center tags from leaking raw closing tokens', () => {

@@ -205,8 +205,8 @@ type VirtualizedLauncherGridProps = {
   onDragStart: (modId: string, event: DragEvent<HTMLElement>) => void
   onDragEnd: () => void
   onToggleSelection: (modId: string) => void
-  onSelectMod: (modId: string) => void
   onOpenModDetails: (modId: string) => void
+  onOpenModFolder: (mod: LauncherLibraryItem) => void
   getContextActions: (mod: LauncherLibraryItem) => { label: string; onSelect: () => void }[] | undefined
 }
 
@@ -252,8 +252,8 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   onDragStart,
   onDragEnd,
   onToggleSelection,
-  onSelectMod,
   onOpenModDetails,
+  onOpenModFolder,
   getContextActions,
 }: VirtualizedLauncherGridProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -318,18 +318,9 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
               onDragEnd={onDragEnd}
               selectionMode={editMode}
               selected={selectedIdLookup.has(item.id)}
-              onSelect={() => {
-                if (editMode) {
-                  onToggleSelection(item.id)
-                  return
-                }
-                onSelectMod(item.id)
-              }}
-              onOpenDetails={() => {
-                if (!editMode) {
-                  onOpenModDetails(item.id)
-                }
-              }}
+              onSelect={editMode ? () => onToggleSelection(item.id) : undefined}
+              onOpenDetails={editMode ? undefined : () => onOpenModDetails(item.id)}
+              onOpenDirectTarget={editMode ? undefined : () => onOpenModFolder(item)}
               contextActions={editMode ? undefined : getContextActions(item)}
             />
           </LoadingMotionRevealItem>
@@ -369,17 +360,8 @@ export function LauncherLibraryPageContent({
 }: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
-  const {
-    refresh,
-    setSelectedModId,
-    selectedModIds,
-    toggleEnabled,
-    addModsToPack,
-    createPackPreset,
-    renamePackPreset,
-    deletePackPreset,
-    replacePackMods,
-  } = library
+  const { refresh, selectedModIds, toggleEnabled, addModsToPack, createPackPreset, renamePackPreset, deletePackPreset, replacePackMods } =
+    library
 
   const [archivePreviewState, setArchivePreviewState] = useState<ArchivePreviewState>('idle')
   const [archivePreviews, setArchivePreviews] = useState<InspectLauncherArchiveResult[]>([])
@@ -988,20 +970,9 @@ export function LauncherLibraryPageContent({
     }
   }, [copy.actions.setCover, copy.library.empty, galleryCoverDialog, refresh])
 
-  const openModDetails = useCallback(
-    (modId: string) => {
-      setSelectedModId(modId)
-      setDetailModId(modId)
-    },
-    [setSelectedModId],
-  )
-
-  const selectMod = useCallback(
-    (modId: string) => {
-      setSelectedModId(modId)
-    },
-    [setSelectedModId],
-  )
+  const openModDetails = useCallback((modId: string) => {
+    setDetailModId(modId)
+  }, [])
 
   const toggleEditSelection = useCallback((modId: string) => {
     setEditingSelectionIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
@@ -1671,8 +1642,8 @@ export function LauncherLibraryPageContent({
                   onDragStart={startDraggingMod}
                   onDragEnd={stopDraggingMod}
                   onToggleSelection={toggleEditSelection}
-                  onSelectMod={selectMod}
                   onOpenModDetails={openModDetails}
+                  onOpenModFolder={(mod) => void openModFolder(mod)}
                   getContextActions={directActionsForMod}
                 />
               )}
@@ -1711,6 +1682,7 @@ export function LauncherLibraryPageContent({
           clearCoverLabel={copy.actions.clearCover}
           openModPageLabel={copy.actions.openModPage}
           onQueueDownload={onQueueDownload}
+          remoteFilesDeferred={Boolean(onQueueDownload)}
           onOpenFolder={() => {
             if (detailMod) {
               void openModFolder(detailMod)

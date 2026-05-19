@@ -1,4 +1,4 @@
-import { isValidElement, memo, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { isValidElement, memo, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   getNexusModsBbcodeTextContent,
   parseNexusModsBbcode,
@@ -106,9 +106,198 @@ function renderSoftSpacer(key: string) {
   return <span key={key} className="nexusmods-bbcode-soft-spacer" aria-hidden="true" />
 }
 
-function renderInlineStyle(style: CSSProperties, children: ReactNode, key: string, preserveEmptySpacing = false) {
+function renderLine(key: string, children: ReactNode[]) {
+  return (
+    <span key={key} className="nexusmods-bbcode-line">
+      {children}
+    </span>
+  )
+}
+
+function NexusModsBbcodeImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed) {
+    return null
+  }
+
+  return <img src={src} alt={alt} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+}
+
+function isHorizontalRuleText(value: string) {
+  return /^-{6,}$/u.test(value.trim())
+}
+
+function hasBlockChildren(nodes: NexusModsBbcodeNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      node.type === 'element' &&
+      (node.tag === 'center' ||
+        node.tag === 'left' ||
+        node.tag === 'right' ||
+        node.tag === 'justify' ||
+        node.tag === 'list' ||
+        node.tag === 'quote' ||
+        node.tag === 'spoiler' ||
+        node.tag === 'code' ||
+        node.tag === 'hr' ||
+        hasBlockChildren(node.children)),
+  )
+}
+
+function canSplitNodeAcrossSourceLines(node: NexusModsBbcodeElementNode) {
+  return (
+    node.tag === 'b' ||
+    node.tag === 'i' ||
+    node.tag === 'u' ||
+    node.tag === 's' ||
+    node.tag === 'color' ||
+    node.tag === 'size' ||
+    node.tag === 'font' ||
+    node.tag === 'url'
+  )
+}
+
+function hasSubstantiveSourceContent(nodes: NexusModsBbcodeNode[]) {
+  return (
+    getNexusModsBbcodeTextContent(nodes).trim().length > 0 ||
+    nodes.some((node) => node.type === 'element' && (node.tag === 'img' || node.tag === 'hr'))
+  )
+}
+
+function splitSourceLines(nodes: NexusModsBbcodeNode[]): NexusModsBbcodeNode[][] {
+  const lines: NexusModsBbcodeNode[][] = [[]]
+
+  const appendToCurrentLine = (node: NexusModsBbcodeNode) => {
+    lines[lines.length - 1]?.push(node)
+  }
+
+  const startNextLine = () => {
+    lines.push([])
+  }
+
+  nodes.forEach((node) => {
+    if (node.type === 'text' && /\r?\n/u.test(node.value)) {
+      const textLines = node.value.split(/\r?\n/u)
+      textLines.forEach((textLine, index) => {
+        if (textLine.trim()) {
+          appendToCurrentLine({ ...node, value: textLine })
+        }
+
+        if (index < textLines.length - 1) {
+          startNextLine()
+        }
+      })
+      return
+    }
+
+    if (node.type === 'element' && node.tag === 'br') {
+      startNextLine()
+      return
+    }
+
+    if (node.type === 'element' && canSplitNodeAcrossSourceLines(node) && hasSourceLineBreak(node.children)) {
+      const childLines = splitSourceLines(node.children)
+      childLines.forEach((childLine, index) => {
+        if (hasSubstantiveSourceContent(childLine)) {
+          appendToCurrentLine({ ...node, children: childLine })
+        }
+
+        if (index < childLines.length - 1) {
+          startNextLine()
+        }
+      })
+      return
+    }
+
+    appendToCurrentLine(node)
+  })
+
+  return lines.filter(hasSubstantiveSourceContent)
+}
+
+function isStandaloneLineBlockNode(node: NexusModsBbcodeNode, nextNode: NexusModsBbcodeNode | undefined) {
+  if (node.type !== 'element') {
+    return false
+  }
+
+  const text = getNexusModsBbcodeTextContent(node.children).trim()
+  if (!text || text.length > 80 || !/[:：]$/u.test(text)) {
+    return false
+  }
+
+  return startsWithLineBlockBoundary(nextNode)
+}
+
+function startsWithLineBlockBoundary(node: NexusModsBbcodeNode | undefined): boolean {
+  if (node == null || node.type !== 'element') {
+    return false
+  }
+
+  if (node.tag === 'br' || node.tag === 'list') {
+    return true
+  }
+
+  if (node.tag !== 'font' && node.tag !== 'size' && node.tag !== 'color') {
+    return false
+  }
+
+  return node.children.some((child) => {
+    if (child.type === 'text') {
+      return child.value.trim().length === 0
+    }
+
+    return startsWithLineBlockBoundary(child)
+  })
+}
+
+function hasRenderedBlockContent(node: ReactNode): boolean {
+  if (node == null || typeof node === 'boolean' || typeof node === 'string' || typeof node === 'number') {
+    return false
+  }
+
+  if (Array.isArray(node)) {
+    return node.some(hasRenderedBlockContent)
+  }
+
+  if (!isValidElement(node)) {
+    return false
+  }
+
+  if (
+    node.type === 'div' ||
+    node.type === 'ul' ||
+    node.type === 'ol' ||
+    node.type === 'blockquote' ||
+    node.type === 'details' ||
+    node.type === 'pre'
+  ) {
+    return true
+  }
+
+  return hasRenderedBlockContent((node.props as { children?: ReactNode }).children)
+}
+
+function renderStyledContainer(
+  style: CSSProperties,
+  children: ReactNode,
+  key: string,
+  options: { block?: boolean; preserveEmptySpacing?: boolean } = {},
+) {
   if (!hasSubstantiveRenderedContent(children)) {
-    return preserveEmptySpacing || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    if (hasSpacingRenderedContent(children)) {
+      return children
+    }
+
+    return options.preserveEmptySpacing ? renderSoftSpacer(key) : null
+  }
+
+  if (options.block || hasRenderedBlockContent(children)) {
+    return (
+      <div key={key} className="nexusmods-bbcode-block" style={style}>
+        {children}
+      </div>
+    )
   }
 
   return Object.keys(style).length > 0 ? (
@@ -120,9 +309,44 @@ function renderInlineStyle(style: CSSProperties, children: ReactNode, key: strin
   )
 }
 
-function renderText(value: string): ReactNode[] {
-  const normalized = value.replace(/[\u00A0\uFEFF]/gu, ' ').replace(/\s+/gu, ' ')
-  return normalized.trim().length > 0 ? [normalized] : []
+function renderText(
+  value: string,
+  keyPrefix: string,
+  options: { wrapHorizontalRule?: boolean } = { wrapHorizontalRule: true },
+): ReactNode[] {
+  const decoded = value
+    .replace(/&#(?:0*92|x0*5c);/giu, '\\')
+    .replace(/&nbsp;/giu, ' ')
+    .replace(/&apos;/giu, "'")
+    .replace(/&quot;/giu, '"')
+    .replace(/&amp;/giu, '&')
+    .replace(/&lt;/giu, '<')
+    .replace(/&gt;/giu, '>')
+  const parts = decoded
+    .replace(/[\u00A0\uFEFF]/gu, ' ')
+    .split(/\r?\n/u)
+    .map((part) => part.replace(/[^\S\r\n]+/gu, ' ').trim())
+
+  return parts.flatMap((part, index) => {
+    const nodes: ReactNode[] = []
+    if (part) {
+      nodes.push(
+        options.wrapHorizontalRule && isHorizontalRuleText(part) ? (
+          <span key={`${keyPrefix}-text-${index}`} className="nexusmods-bbcode-line">
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      )
+    }
+
+    if (index < parts.length - 1) {
+      nodes.push(<br key={`${keyPrefix}-br-${index}`} />)
+    }
+
+    return nodes
+  })
 }
 
 function hasSubstantiveRenderedContent(node: ReactNode): boolean {
@@ -143,7 +367,7 @@ function hasSubstantiveRenderedContent(node: ReactNode): boolean {
       return false
     }
 
-    if (node.type === 'img' || node.type === 'hr') {
+    if (node.type === 'img' || node.type === 'hr' || node.type === NexusModsBbcodeImage) {
       return true
     }
 
@@ -198,12 +422,31 @@ function renderSectionHeading(node: NexusModsBbcodeElementNode, key: string) {
   )
 }
 
+function renderAlignmentLines(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean) {
+  const lines = splitSourceLines(node.children)
+  if (lines.length <= 1) {
+    return renderNodes(node.children, key, allowSectionHeadings)
+  }
+
+  return lines.map((line, index) =>
+    renderLine(`${key}-line-${index}`, renderNodes(line, `${key}-line-${index}`, allowSectionHeadings, { wrapHorizontalRule: false })),
+  )
+}
+
 function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSectionHeadings: boolean): ReactNode {
   const children = renderNodes(node.children, key, allowSectionHeadings)
 
   if (node.tag === 'b') {
     if (!hasSubstantiveRenderedContent(children)) {
       return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
+    if (node.attrs.block === 'true') {
+      return (
+        <div key={key} className="nexusmods-bbcode-block">
+          <strong>{children}</strong>
+        </div>
+      )
     }
 
     return <strong key={key}>{children}</strong>
@@ -247,17 +490,26 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
   if (node.tag === 'color') {
     const color = sanitizeColor(node.attrs.color)
-    return renderInlineStyle(color == null ? {} : { color }, children, key, hasSourceLineBreak(node.children))
+    return renderStyledContainer(color == null ? {} : { color }, children, key, {
+      block: node.attrs.block === 'true' || hasBlockChildren(node.children),
+      preserveEmptySpacing: hasSourceLineBreak(node.children),
+    })
   }
 
   if (node.tag === 'size') {
     const fontSize = sanitizeSize(node.attrs.size)
-    return renderInlineStyle(fontSize == null ? {} : { fontSize }, children, key, hasSourceLineBreak(node.children))
+    return renderStyledContainer(fontSize == null ? {} : { fontSize }, children, key, {
+      block: node.attrs.block === 'true' || hasBlockChildren(node.children),
+      preserveEmptySpacing: hasSourceLineBreak(node.children),
+    })
   }
 
   if (node.tag === 'font') {
     const fontFamily = sanitizeFontFamily(node.attrs.font)
-    return renderInlineStyle(fontFamily == null ? {} : { fontFamily }, children, key, hasSourceLineBreak(node.children))
+    return renderStyledContainer(fontFamily == null ? {} : { fontFamily }, children, key, {
+      block: node.attrs.block === 'true' || hasBlockChildren(node.children),
+      preserveEmptySpacing: hasSourceLineBreak(node.children),
+    })
   }
 
   if (node.tag === 'url') {
@@ -282,7 +534,7 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
     return src == null ? (
       <span key={key}>{children}</span>
     ) : (
-      <img key={key} src={src} alt={getNexusModsBbcodeTextContent(node.children)} loading="lazy" />
+      <NexusModsBbcodeImage key={key} src={src} alt={getNexusModsBbcodeTextContent(node.children)} />
     )
   }
 
@@ -293,12 +545,16 @@ function renderElement(node: NexusModsBbcodeElementNode, key: string, allowSecti
 
     return (
       <div key={key} className={`nexusmods-bbcode-align-${node.tag}`}>
-        {children}
+        {renderAlignmentLines(node, key, allowSectionHeadings)}
       </div>
     )
   }
 
   if (node.tag === 'list') {
+    if (!hasSubstantiveRenderedContent(children)) {
+      return hasSourceLineBreak(node.children) || hasSpacingRenderedContent(children) ? renderSoftSpacer(key) : null
+    }
+
     const ordered = node.attrs.list === '1' || node.attrs.list?.toLowerCase() === 'decimal'
     return ordered ? (
       <ol key={key} className="nexusmods-bbcode-list nexusmods-bbcode-list-ordered">
@@ -412,7 +668,12 @@ function appendRenderedNodes(nodes: ReactNode[], nextNodes: ReactNode[]) {
   nextNodes.forEach((node) => appendRenderedNode(nodes, node))
 }
 
-function renderNodes(nodes: NexusModsBbcodeNode[], keyPrefix: string, allowSectionHeadings = true): ReactNode[] {
+function renderNodes(
+  nodes: NexusModsBbcodeNode[],
+  keyPrefix: string,
+  allowSectionHeadings = true,
+  options: { wrapHorizontalRule?: boolean } = { wrapHorizontalRule: true },
+): ReactNode[] {
   const renderedNodes: ReactNode[] = []
 
   nodes.forEach((node, index) => {
@@ -422,7 +683,12 @@ function renderNodes(nodes: NexusModsBbcodeNode[], keyPrefix: string, allowSecti
     }
 
     if (node.type === 'text') {
-      appendRenderedNodes(renderedNodes, renderText(node.value))
+      appendRenderedNodes(renderedNodes, renderText(node.value, key, options))
+      return
+    }
+
+    if (isStandaloneLineBlockNode(node, nodes[index + 1])) {
+      appendRenderedNode(renderedNodes, renderElement({ ...node, attrs: { ...node.attrs, block: 'true' } }, key, allowSectionHeadings))
       return
     }
 

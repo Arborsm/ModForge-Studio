@@ -42,6 +42,10 @@
     padding-left: 2px;
   }
 
+  .nexusmods-bbcode-line {
+    display: block;
+  }
+
   .nexusmods-bbcode-section-heading {
     display: block;
     margin-top: 1.1em;

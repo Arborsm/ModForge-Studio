@@ -1077,6 +1077,23 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: /npc adventures/i }))
+    expect(library.setSelectedModId).not.toHaveBeenCalled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180)
+    })
+    vi.useRealTimers()
+    const clickDialog = await screen.findByRole('dialog', { name: 'NPC Adventures' })
+    expect(within(clickDialog).getByRole('heading', { name: 'NPC Adventures' })).not.toBeNull()
+    expect(library.setSelectedModId).not.toHaveBeenCalled()
+    fireEvent.click(within(clickDialog).getByRole('button', { name: 'Close' }))
+
+    fireEvent.doubleClick(screen.getByRole('button', { name: /npc adventures/i }))
+    await waitFor(() => {
+      expect(openLauncherPathMock).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures' })
+    })
+
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
 
     expect(screen.getAllByRole('menuitem', { name: 'View Details' }).length).toBeGreaterThan(0)
@@ -1101,7 +1118,7 @@ describe('LauncherLibraryPage', () => {
 
     await waitFor(() => {
       expect(openLauncherUrlMock).toHaveBeenCalledWith({ url: 'https://www.nexusmods.com/stardewvalley/mods/101' })
-      expect(openLauncherPathMock).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures' })
+      expect(openLauncherPathMock).toHaveBeenCalledTimes(2)
       expect(library.toggleEnabled).toHaveBeenCalled()
       expect(setLauncherLibraryCoverMock).toHaveBeenCalledWith({
         labelKey: '101',

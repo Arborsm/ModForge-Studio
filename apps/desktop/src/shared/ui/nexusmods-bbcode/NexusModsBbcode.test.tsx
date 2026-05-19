@@ -1,8 +1,140 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { NexusModsBbcode } from './NexusModsBbcode'
 
 describe('NexusModsBbcode', () => {
+  it('does not reuse generated line break keys across adjacent text nodes', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    render(<NexusModsBbcode source={'Alpha\nBravo[b]Bold[/b]Charlie\nDelta'} />)
+
+    expect(
+      consoleError.mock.calls.some((call) => call.some((part) => String(part).includes('Encountered two children with the same key'))),
+    ).toBe(false)
+    consoleError.mockRestore()
+  })
+
+  it('removes unreachable remote images from rendered BBCode after load failure', () => {
+    const { container } = render(<NexusModsBbcode source="[img]https://i.imgur.com/L2T4Wii.gif[/img]" />)
+
+    const image = container.querySelector('img')
+    expect(image).toHaveAttribute('referrerPolicy', 'no-referrer')
+
+    fireEvent.error(image as HTMLImageElement)
+
+    expect(container.querySelector('img')).toBeNull()
+  })
+
+  it('keeps the real NexusMods 20289 description sections as separate blocks', () => {
+    const source =
+      "[size=3][i][font=Tahoma][color=#ffe599][b]Ever wanted to know what's inside the Bus? Now you can enter and explore it![/b]\n" +
+      '<br />[/color][/font][color=#ffe599]-------------------------------------------[/color][/i]\n' +
+      '<br />[/size][font=Tahoma][center][size=3]This mod adds custom Bus interior map that player can enter and interact with. \n' +
+      "<br />This is just a simple small extra map mod that doesn't add any new game changing stuff.\u00A0\n" +
+      '<br />[/size][/center][size=3][list]\n' +
+      '<br />[color=#ffe599]\n' +
+      '<br />[/color][/list][/size][/font][b]Features:[/b][font=Tahoma][size=3]\n' +
+      '<br />[list]\n' +
+      "<br />[*]\u00A0A couple of new events\u00A0(just to bring a bit more life into the game) (for now it's just one event but I'll add more soon)\n" +
+      '<br />[*]New lootable\u00A0trash can with unique (sometimes rare) drops\n' +
+      '<br />[*]Seasonal and conditional bus interior decor\n' +
+      '<br />[/list][/size][/font][font=Tahoma][size=3][color=#93c47d][b]Compatibility[/b]:[/color]\n' +
+      '<br />[/size][list]\n' +
+      '<br />[*][font=Tahoma][size=3]with any recolor[/size][/font]\n' +
+      '<br />[*][font=Tahoma][size=3]with Stardew Valley Expanded, Ridgeside Valley and most other expansion mods[/size][/font]\n' +
+      '<br />[*][font=Tahoma][size=3]with most mods that change the look of BusStop map[/size][/font]\n' +
+      '<br />[/list][size=3]\n' +
+      '<br />[color=#ffe599][b]Installation:[/b][/color]\n' +
+      '<br />[list]\n' +
+      '<br />[*][size=3]Install SMAPI, Content Patcher, Farm Type Manager[/size]\n' +
+      '<br />[*][size=3](Optional) Install Generic Mod Config Menu\uFEFF[/size]\n' +
+      '<br />[*]Unzip "Aimon\'s Bus Interior" archive into Stardew&#92;Mods folder.\n' +
+      '<br />[*][size=3]Run the game using SMAPI.[/size]\n' +
+      '<br />[*][size=3]Enjoy![/size]\n' +
+      '<br />[/list][/size][/font][font=Tahoma][size=3][color=#ffe599][b]Config:[/b][/color]\n' +
+      '<br />[/size][/font][list]\n' +
+      '<br />[*][font=Tahoma][size=3]Cleaner bus - true&#92;false (if true - removes most of the trash decor from bus map from the start. Else the bus will become cleaner automatically after finishing the CommunityCentre vault bundle.)[/size][/font]\n' +
+      '<br />[*][font=Tahoma][size=3]Lootable Trash Bin\u00A0- true&#92;false (Adds lootable trash bin in bus.)[/size][/font]\n' +
+      '<br />[/list][font=Tahoma][size=3]\n' +
+      '<br />[center][b][color=#ffe599]Mods used on screenshots:[/color][/b]\n' +
+      '<br />----------------------------\n' +
+      '<br />Stardew Foliage Redone\n' +
+      '<br />Stardew Valley Expanded\n' +
+      '<br />----------------------------[/center]\n' +
+      '<br />[/size][/font][center][/center][size=3][font=Tahoma][color=#ffe599]\n' +
+      '<br />[/color][/font][/size]'
+
+    const { container } = render(<NexusModsBbcode source={source} />)
+
+    const features = screen.getByText('Features:')
+    const compatibility = screen.getByText('Compatibility')
+    const installation = screen.getByText('Installation:')
+    const config = screen.getByText('Config:')
+
+    expect(features.closest('li')).toBeNull()
+    expect(compatibility.closest('li')).toBeNull()
+    expect(installation.closest('li')).toBeNull()
+    expect(config.closest('li')).toBeNull()
+    expect(features.closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(compatibility.closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(installation.closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(config.closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(container.querySelectorAll('ul .nexusmods-bbcode-block')).toHaveLength(0)
+    expect(container.querySelectorAll('li ul')).toHaveLength(0)
+    expect(container.querySelectorAll('.nexusmods-bbcode-list-bulleted')).toHaveLength(4)
+    expect(screen.getByText("Ever wanted to know what's inside the Bus? Now you can enter and explore it!").nextSibling?.nodeName).toBe(
+      'BR',
+    )
+    const intro = container.querySelector('.nexusmods-bbcode-align-center')
+    expect(intro?.querySelectorAll('.nexusmods-bbcode-line')).toHaveLength(2)
+    const screenshotMods = screen.getByText('Mods used on screenshots:').closest('.nexusmods-bbcode-align-center')
+    expect(screenshotMods?.querySelectorAll('.nexusmods-bbcode-line')).toHaveLength(5)
+    expect(screen.getByText('-------------------------------------------').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(screen.getAllByText('----------------------------')).toHaveLength(2)
+    expect(screen.getAllByText('----------------------------').every((line) => line.closest('.nexusmods-bbcode-line'))).toBe(true)
+    expect(screen.getByText('Mods used on screenshots:').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(screen.getByText('Stardew Foliage Redone').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(screen.getByText('Stardew Valley Expanded').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain('Stardew\\Mods')
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toContain('&#92;')
+  })
+
+  it('preserves NexusMods generated HTML description blocks and lists', () => {
+    const { container } = render(
+      <NexusModsBbcode source='<font size="3"><em><font style="font-family: Tahoma;"><font style="color: #ffe599;"><strong>Ever wanted to know what&apos;s inside the Bus? Now you can enter and explore it!</strong><br></font></font><font style="color: #ffe599;">-------------------------------------------</font></em><br></font><font style="font-family: Tahoma;"><div align="center"><font size="3">This mod adds custom Bus interior map that player can enter and interact with. <br>This is just a simple small extra map mod that doesn&apos;t add any new game changing stuff.&nbsp;<br></font></div></font><strong>Features:</strong><font style="font-family: Tahoma;"><font size="3"><br><ul class="disc"><li>&nbsp;A couple of new events</li><li>New lootable&nbsp;trash can with unique drops</li><li>Seasonal and conditional bus interior decor<br></li></ul></font></font><font style="font-family: Tahoma;"><font size="3"><font style="color: #93c47d;"><strong>Compatibility</strong>:</font><br></font><ul class="disc"><li><font style="font-family: Tahoma;"><font size="3">with any recolor</font></font></li></ul><font size="3"><br><font style="color: #ffe599;"><strong>Installation:</strong></font><br><ul class="disc"><li><font size="3">Install SMAPI, Content Patcher, Farm Type Manager</font></li></ul></font></font>' />,
+    )
+
+    expect(screen.getByText(/This mod adds custom Bus interior map/).closest('.nexusmods-bbcode-align-center')).toBeTruthy()
+    expect(screen.getByText('Features:').closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(screen.getByText('Compatibility').closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(screen.getByText('Installation:').closest('.nexusmods-bbcode-block')).toBeTruthy()
+    expect(container.querySelectorAll('li ul')).toHaveLength(0)
+    expect(container.querySelectorAll('.nexusmods-bbcode-list-bulleted')).toHaveLength(3)
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).toContain("what's inside")
+    expect(container.querySelector('.nexusmods-bbcode')?.textContent).not.toContain('&nbsp;')
+    expect(container.innerHTML).not.toContain('&lt;ul')
+    expect(container.innerHTML).not.toContain('&lt;font')
+  })
+
+  it('keeps plain copied Nexus line breaks as block lines when HTML breaks were stripped upstream', () => {
+    render(
+      <NexusModsBbcode
+        source={
+          '[center][b][color=#ffe599]Mods used on screenshots:[/color][/b]\n' +
+          '----------------------------\n' +
+          'Stardew Foliage Redone\n' +
+          'Stardew Valley Expanded\n' +
+          '----------------------------[/center]'
+        }
+      />,
+    )
+
+    expect(screen.getByText('Mods used on screenshots:').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(screen.getByText('Stardew Foliage Redone').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(screen.getByText('Stardew Valley Expanded').closest('.nexusmods-bbcode-line')).toBeTruthy()
+    expect(screen.getAllByText('----------------------------')).toHaveLength(2)
+  })
+
   it('renders NexusMods BBCode as React elements without injecting raw HTML', () => {
     const { container } = render(
       <NexusModsBbcode source="[center][b][color=#f6b26b][size=3]Basic Bedroom Furniture[/size][/color][/b][/center] [url=https://www.nexusmods.com/stardewvalley/mods/23073]catalogue[/url][list][*]green = [color=#93c47d]NEW[/color][/list]" />,

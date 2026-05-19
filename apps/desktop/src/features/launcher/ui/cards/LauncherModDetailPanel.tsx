@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { Download, ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRemoteModDetail } from '@features/launcher/model/useLauncherRemoteModDetail'
@@ -11,7 +11,7 @@ import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownload
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
 
-type LauncherDetailTab = 'overview' | 'description' | 'changelog' | 'details' | 'dependencies' | 'files'
+type LauncherDetailTab = 'description' | 'changelog' | 'details' | 'dependencies' | 'files'
 
 type LauncherDetailMod = Partial<LauncherLibraryItem> & {
   packName?: string | null
@@ -49,6 +49,12 @@ type ChangelogListItem = {
   meta: string
   source: string
   lines: string[]
+}
+
+function DependencyIcon({ name }: { name: string }) {
+  const symbol = name.toLowerCase().includes('smapi') ? '⚙' : '🧩'
+
+  return <span>{symbol}</span>
 }
 
 type LauncherModDetailPanelProps = {
@@ -161,16 +167,6 @@ function hasUpdate(localVersion: string | null | undefined, remoteVersion: strin
   const local = localVersion?.trim()
   const remote = remoteVersion?.trim()
   return Boolean(local && remote && local !== remote)
-}
-
-function formatBooleanStatus(value: boolean | null | undefined, trueLabel: string, falseLabel: string, noneLabel: string) {
-  if (value === true) {
-    return trueLabel
-  }
-  if (value === false) {
-    return falseLabel
-  }
-  return noneLabel
 }
 
 function normalizeFileCategory(value: string | null | undefined) {
@@ -389,7 +385,7 @@ function FileList({
                 </div>
               ) : null}
             </div>
-            <span className="launcher-mod-detail-data-pill ready">{item.status}</span>
+            {item.status ? <span className="launcher-mod-detail-data-pill ready">{item.status}</span> : null}
           </div>
           <button
             type="button"
@@ -501,12 +497,16 @@ export function LauncherModDetailPanel({
   const copy = useEditorCopy()
   const launcherCopy = copy.launcher
   const detailCopy = launcherCopy.library.modDetail
-  const [activeTab, setActiveTab] = useState<LauncherDetailTab>('overview')
+  const [activeTab, setActiveTab] = useState<LauncherDetailTab>('description')
+  const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
   const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? title)
   const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? title)
-  const fetchedRemote = useLauncherRemoteModDetail(open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null)
+  const fetchedRemote = useLauncherRemoteModDetail(open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null, {
+    ...(remoteFilesDeferred ? { includeFiles: false } : {}),
+  })
+  const deferredFilesModId = remoteDetail?.modId ?? fetchedRemote.detail?.modId ?? mod?.nexusModId ?? null
   const shouldFetchDeferredFiles =
-    open && remoteFilesDeferred && (activeTab === 'files' || activeTab === 'changelog') && remoteDetail?.modId ? remoteDetail.modId : null
+    open && remoteFilesDeferred && (activeTab === 'files' || activeTab === 'changelog') && deferredFilesModId ? deferredFilesModId : null
   const fetchedRemoteWithFiles = useLauncherRemoteModDetail(shouldFetchDeferredFiles, {
     includeFiles: true,
     notify: false,
@@ -544,7 +544,6 @@ export function LauncherModDetailPanel({
     .join(' · ')
 
   const dependencyText = mod?.missingRequiredDependencies?.length ? mod.missingRequiredDependencies.join(', ') : detailCopy.clean
-  const dependencyTone = mod?.missingRequiredDependencies?.length ? 'status-pill-error' : 'status-pill-ready'
   const primaryFileName = remote?.primaryFileName ?? (remote ? remote.title : null)
   const primaryFileId = remote?.primaryFileId ? `#${remote.primaryFileId}` : copy.common.none
   const primarySize = formatSize(remote?.primaryFileSize ?? remote?.fileSize, remote?.primaryFileSizeBytes, copy.common.none)
@@ -567,11 +566,11 @@ export function LauncherModDetailPanel({
     [copy.common.none, detailCopy.primaryFile, latestVersion, primaryFileName, remote?.primaryFileChangelog, remoteFiles],
   )
   const hasDependencyData = localDependencies.length > 0 || remoteRequirements.length > 0
-  const hasDeferredFileData = Boolean(remoteFilesDeferred && remoteDetail?.modId && onQueueDownload)
+  const hasDeferredFileData = Boolean(remoteFilesDeferred && deferredFilesModId && onQueueDownload)
   const hasFileData = isNexus && (remoteFiles.length > 0 || hasDeferredFileData)
-  const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && remoteDetail?.modId))
+  const hasChangelogData = isNexus && (changelogItems.length > 0 || Boolean(remoteFilesDeferred && deferredFilesModId))
   const detailTabs = useMemo<LauncherDetailTab[]>(() => {
-    const tabs: LauncherDetailTab[] = ['overview', 'description']
+    const tabs: LauncherDetailTab[] = ['description']
     if (hasChangelogData) {
       tabs.push('changelog')
     }
@@ -584,72 +583,23 @@ export function LauncherModDetailPanel({
     }
     return tabs
   }, [hasChangelogData, hasDependencyData, hasFileData])
-  const selectedTab = detailTabs.includes(activeTab) ? activeTab : 'overview'
-  const tags = useMemo(() => {
-    const nextTags = [...(remote?.tags ?? [])]
-    if (isLocal && !isCombined) {
-      nextTags.push(mod?.enabled ? enabledStateLabel : disabledStateLabel)
-      nextTags.push(fallbackRemoteModId ? `Nexus #${fallbackRemoteModId}` : detailCopy.noNexusLink)
-      nextTags.push(mod?.missingRequiredDependencies?.length ? labels.dependencies : detailCopy.dependenciesClean)
-    }
-    if (packName) {
-      nextTags.push(packName)
-    }
-    if (mod?.updateKeys?.some((key) => key.toLowerCase().includes('nexus'))) {
-      nextTags.push('Nexus')
-    }
-    return Array.from(new Set(nextTags.map((item) => item.trim()).filter(Boolean))).slice(0, 6)
-  }, [
-    detailCopy.dependenciesClean,
-    detailCopy.noNexusLink,
-    enabledStateLabel,
-    fallbackRemoteModId,
-    isCombined,
-    isLocal,
-    labels.dependencies,
-    mod?.enabled,
-    mod?.missingRequiredDependencies?.length,
-    mod?.updateKeys,
-    packName,
-    remote?.tags,
-    disabledStateLabel,
-  ])
-
-  const sidebarStats = isNexus
+  const selectedTab = detailTabs.includes(activeTab) ? activeTab : 'description'
+  const showDescriptionReader = open && selectedTab === 'description' && descriptionReaderOpen
+  const localHeroRows: DetailRow[] = isLocal
     ? [
-        {
-          label: detailCopy.reach,
-          value: `${compactNumber(remote?.downloads, copy.common.none)} / ${compactNumber(remote?.endorsements, copy.common.none)}`,
-        },
-        { label: detailCopy.scan, value: remote?.primaryFileScanStatus ?? copy.common.none },
+        { label: detailCopy.installPath, value: truncatePath(mod?.absolutePath, copy.common.none), title: mod?.absolutePath ?? undefined },
+        { label: detailCopy.folder, value: mod?.folderName ?? copy.common.none, title: mod?.folderName ?? undefined },
+        { label: labels.dependencies, value: dependencyText, title: dependencyText },
       ]
-    : isLocal && !isCombined
-      ? []
-      : [
-          { label: detailCopy.state, value: mod?.enabled ? enabledStateLabel : disabledStateLabel },
-          { label: labels.dependencies, value: dependencyText },
-        ]
+    : []
 
-  const sidebarRows: DetailRow[] = [
-    {
-      label: detailCopy.identity,
-      value:
-        mod?.uniqueId ?? ((remote?.modId ?? fallbackRemoteModId) ? `Nexus #${remote?.modId ?? fallbackRemoteModId}` : copy.common.none),
-    },
-    ...(isCombined || (!isLocal && (remote?.modId ?? fallbackRemoteModId))
-      ? [
-          {
-            label: detailCopy.nexus,
-            value: (remote?.modId ?? fallbackRemoteModId) ? `#${remote?.modId ?? fallbackRemoteModId}` : copy.common.none,
-          },
-        ]
-      : []),
-    ...(isLocal ? [{ label: detailCopy.folder, value: mod?.folderName ?? copy.common.none, title: mod?.absolutePath ?? undefined }] : []),
-    ...(isNexus ? [{ label: detailCopy.category, value: remote?.category ?? copy.common.none }] : []),
-    ...(isNexus
-      ? [{ label: detailCopy.updated, value: formatDate(remote?.updatedAt, copy.common.none), title: remote?.updatedAt ?? undefined }]
-      : []),
-  ]
+  const remoteHeroRows: DetailRow[] = isNexus
+    ? [
+        { label: detailCopy.updated, value: formatDate(remote?.updatedAt, copy.common.none), title: remote?.updatedAt ?? undefined },
+        { label: detailCopy.download, value: compactNumber(remote?.downloads, copy.common.none) },
+        { label: launcherCopy.sortOptions.endorsements, value: compactNumber(remote?.endorsements, copy.common.none) },
+      ]
+    : []
 
   const localDetails: DetailRow[] = [
     { label: detailCopy.absolutePath, value: truncatePath(mod?.absolutePath, copy.common.none), title: mod?.absolutePath ?? undefined },
@@ -686,9 +636,7 @@ export function LauncherModDetailPanel({
     { label: detailCopy.sizeChange, value: copy.common.none },
     {
       label: detailCopy.risk,
-      value:
-        remote?.updateRisk ??
-        (remote?.primaryFileScanStatus ? `${detailCopy.verifiedFile}: ${remote.primaryFileScanStatus}` : copy.common.none),
+      value: remote?.updateRisk ?? copy.common.none,
     },
     { label: detailCopy.match, value: fallbackRemoteModId ? detailCopy.exactUpdateKeyMatch : copy.common.none },
   ]
@@ -715,6 +663,17 @@ export function LauncherModDetailPanel({
       title: [requirement.name, requirement.notes, requirement.url].filter(Boolean).join(' · '),
     })),
   ]
+  const keyStatusItems: DependencyListItem[] = dependencyItems.length
+    ? dependencyItems.slice(0, 3)
+    : [
+        {
+          name: labels.dependencies,
+          meta: detailCopy.status,
+          status: dependencyText,
+          missing: Boolean(mod?.missingRequiredDependencies?.length),
+          title: dependencyText,
+        },
+      ]
 
   const fileItems: FileListItem[] = remoteFiles.map((file) => {
     const fileName = file.name ?? (file.fileId ? `#${file.fileId}` : '')
@@ -729,12 +688,11 @@ export function LauncherModDetailPanel({
       .filter(Boolean)
       .join(' · ')
     const description = file.description?.trim() ?? ''
-    const status = file.scanStatus ?? formatBooleanStatus(file.scanned, detailCopy.verifiedFile, copy.common.none, copy.common.none)
     return {
       id: `${file.fileId ?? fileName}`,
       name: fileName,
       meta: [meta, file.archiveType, file.managerDownloadEnabled ? 'Mod manager' : null].filter(Boolean).join(' · '),
-      status,
+      status: '',
       description,
       fileId: file.fileId ?? null,
       version: file.version ?? null,
@@ -743,6 +701,18 @@ export function LauncherModDetailPanel({
     }
   })
 
+  const handleClose = useCallback(() => {
+    setDescriptionReaderOpen(false)
+    onClose()
+  }, [onClose])
+
+  const handleSelectTab = (tab: LauncherDetailTab) => {
+    if (tab !== 'description') {
+      setDescriptionReaderOpen(false)
+    }
+    setActiveTab(tab)
+  }
+
   useEffect(() => {
     if (!open) {
       return
@@ -750,13 +720,17 @@ export function LauncherModDetailPanel({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose()
+        if (showDescriptionReader) {
+          setDescriptionReaderOpen(false)
+          return
+        }
+        handleClose()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, open])
+  }, [handleClose, open, showDescriptionReader])
 
   const openRemotePage = () => {
     const url = remote?.modUrl ?? mod?.modUrl
@@ -779,21 +753,24 @@ export function LauncherModDetailPanel({
     }
   }
 
+  if (!open) {
+    return null
+  }
+
   return (
-    <aside className={cx('launcher-library-drawer', open && 'launcher-library-drawer-open')} aria-hidden={!open}>
-      <button
-        type="button"
-        className="launcher-library-drawer-backdrop"
-        aria-label={closeLabel}
-        onClick={onClose}
-        tabIndex={open ? 0 : -1}
-      />
+    <aside className={cx('launcher-library-drawer', open && 'launcher-library-drawer-open')}>
+      <button type="button" className="launcher-library-drawer-backdrop" aria-label={closeLabel} onClick={handleClose} />
 
       <section className="launcher-library-drawer-panel launcher-mod-detail-panel" role="dialog" aria-modal="true" aria-label={displayName}>
         {showRemoteLoading ? (
           <div className="launcher-mod-detail-loading-overlay" role="status">
-            <span className="launcher-mod-detail-loading-spinner" aria-hidden="true" />
-            <span>{launcherCopy.updates.detailsLoading}</span>
+            <div className="launcher-mod-detail-loading-card">
+              <span className="launcher-mod-detail-loading-bar" aria-hidden="true" />
+              <div>
+                <span>{launcherCopy.updates.detailsLoading}</span>
+                <i aria-hidden="true" />
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -803,188 +780,131 @@ export function LauncherModDetailPanel({
           </div>
         ) : (
           <>
-            <header className="launcher-mod-detail-header">
-              <LauncherArtworkCover
-                title={displayName}
-                imageUrl={mod?.imageUrl ?? remote?.imageUrl ?? null}
-                coverStyle={coverStyle}
-                coverWord={coverWord}
-                className="launcher-mod-detail-cover"
-              />
-
-              <div className="launcher-mod-detail-identity">
-                <div className="launcher-mod-detail-title-line">
-                  <h2 title={displayName}>{displayName}</h2>
-                  <span className="launcher-mod-detail-source-row">
-                    {isLocal ? <span className="launcher-mod-detail-badge green">{detailCopy.local}</span> : null}
-                    {isNexus ? <span className="launcher-mod-detail-badge blue">Nexus</span> : null}
-                  </span>
-                </div>
-                <p title={subtitleText}>{subtitleText}</p>
+            <header className="launcher-mod-detail-hero">
+              <div className="launcher-mod-detail-cover-frame">
+                <LauncherArtworkCover
+                  title={displayName}
+                  imageUrl={mod?.imageUrl ?? remote?.imageUrl ?? null}
+                  coverStyle={coverStyle}
+                  coverWord={coverWord}
+                  className="launcher-mod-detail-cover"
+                />
               </div>
 
-              {isLocal ? (
+              <div className="launcher-mod-detail-hero-main">
                 <button
                   type="button"
-                  className={cx('launcher-mod-detail-switch', !mod?.enabled && 'is-off')}
-                  onClick={onToggleEnabled}
-                  title={mod?.enabled ? disableLabel : enableLabel}
+                  className="icon-button launcher-mod-detail-close-button"
+                  onClick={handleClose}
+                  aria-label={closeLabel}
+                  title={closeLabel}
                 >
-                  {mod?.enabled ? enabledStateLabel : disabledStateLabel}
+                  <X className="h-4 w-4" />
                 </button>
-              ) : null}
 
-              <button type="button" className="icon-button" onClick={onClose} aria-label={closeLabel} title={closeLabel}>
-                <X className="h-4 w-4" />
-              </button>
+                <div className="launcher-mod-detail-status-overview">
+                  <div className="launcher-mod-detail-status-primary">
+                    <div className="launcher-mod-detail-status-heading">
+                      <h2 className="launcher-mod-detail-status-title" title={displayName}>
+                        {displayName}
+                      </h2>
+                      <div className="launcher-mod-detail-status-meta-line">
+                        <span className={cx('launcher-mod-detail-update-badge', updateAvailable && 'is-update')}>
+                          {updateAvailable ? detailCopy.updateAvailable : isLocal ? detailCopy.installed : detailCopy.nexus}
+                        </span>
+                        <p title={subtitleText}>
+                          {displayAuthor ? (
+                            <>
+                              {detailCopy.byAuthor} <strong>{displayAuthor}</strong>
+                            </>
+                          ) : null}
+                          {displayAuthor && category ? ' · ' : null}
+                          {category ? <strong>{category}</strong> : null}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isCombined ? (
+                      <div className="launcher-mod-detail-version-compare">
+                        <div className="launcher-mod-detail-version-node">
+                          <span>{detailCopy.currentFolder}</span>
+                          <strong>{normalizeVersion(mod?.version, copy.common.none)}</strong>
+                          <button
+                            type="button"
+                            className={cx('launcher-mod-detail-version-state', !mod?.enabled && 'is-off')}
+                            onClick={onToggleEnabled}
+                            title={mod?.enabled ? disableLabel : enableLabel}
+                          >
+                            {mod?.enabled ? enabledStateLabel : disabledStateLabel} · {dependencyText}
+                          </button>
+                        </div>
+                        <div className="launcher-mod-detail-version-arrow" aria-hidden="true">
+                          →
+                        </div>
+                        <div className="launcher-mod-detail-version-node">
+                          <span>{detailCopy.nexusPrimaryFile}</span>
+                          <strong className="latest">{normalizeVersion(latestVersion, copy.common.none)}</strong>
+                          <em>
+                            {detailCopy.size}: {primarySize}
+                          </em>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={cx('launcher-mod-detail-version-compare single', isNexus && 'nexus')}>
+                        <div className="launcher-mod-detail-version-node">
+                          <span>{isNexus ? detailCopy.nexusPrimaryFile : detailCopy.installed}</span>
+                          <strong>{displayVersion}</strong>
+                          {isLocal ? (
+                            <button
+                              type="button"
+                              className={cx('launcher-mod-detail-version-state', !mod?.enabled && 'is-off')}
+                              onClick={onToggleEnabled}
+                              title={mod?.enabled ? disableLabel : enableLabel}
+                            >
+                              {mod?.enabled ? enabledStateLabel : disabledStateLabel} · {dependencyText}
+                            </button>
+                          ) : (
+                            <em>
+                              {detailCopy.size}: {primarySize}
+                            </em>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="launcher-mod-detail-hero-summary">
+                      <NexusModsBbcode source={overviewDescription} />
+                    </div>
+                  </div>
+
+                  <aside className="launcher-mod-detail-status-side" aria-label={detailCopy.metadata}>
+                    {localHeroRows.length ? (
+                      <div className="launcher-mod-detail-status-group">
+                        {localHeroRows.map((row) => (
+                          <PropertyRow key={row.label} row={row} />
+                        ))}
+                      </div>
+                    ) : null}
+                    {remoteHeroRows.length ? (
+                      <div className="launcher-mod-detail-status-group">
+                        {remoteHeroRows.map((row) => (
+                          <PropertyRow key={row.label} row={row} />
+                        ))}
+                      </div>
+                    ) : null}
+                  </aside>
+                </div>
+              </div>
             </header>
 
             <div className="launcher-mod-detail-body">
-              <aside className="launcher-mod-detail-sidebar">
-                {sidebarStats.length ? (
-                  <section className="launcher-mod-detail-sidebar-group">
-                    <h3>{detailCopy.status}</h3>
-                    <div className="launcher-mod-detail-stat-row">
-                      {sidebarStats.map((stat) => (
-                        <div className="launcher-mod-detail-stat" key={stat.label} title={stat.value}>
-                          <span>{stat.label}</span>
-                          <strong>{stat.value}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                <section className="launcher-mod-detail-sidebar-group">
-                  <h3>{detailCopy.metadata}</h3>
-                  <div className="launcher-mod-detail-property-list">
-                    {sidebarRows.map((row) => (
-                      <PropertyRow key={row.label} row={row} />
-                    ))}
-                  </div>
-                </section>
-
-                {tags.length ? (
-                  <section className="launcher-mod-detail-sidebar-group">
-                    <h3>{detailCopy.tags}</h3>
-                    <div className="launcher-mod-detail-tags">
-                      {tags.map((tag) => (
-                        <span className="launcher-mod-detail-badge" key={tag} title={tag}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-              </aside>
-
               <main className={cx('launcher-mod-detail-main', !updateAvailable && 'no-status')}>
                 <div className="launcher-mod-detail-tabs" role="tablist" aria-label={detailCopy.tabsLabel}>
                   {detailTabs.map((tab) => (
-                    <button key={tab} type="button" role="tab" aria-selected={selectedTab === tab} onClick={() => setActiveTab(tab)}>
+                    <button key={tab} type="button" role="tab" aria-selected={selectedTab === tab} onClick={() => handleSelectTab(tab)}>
                       {detailCopy.tabs[tab]}
                     </button>
                   ))}
                 </div>
-
-                {updateAvailable ? (
-                  <div className="launcher-mod-detail-update-strip">
-                    <span aria-hidden="true">!</span>
-                    <p>
-                      <strong>{detailCopy.updateAvailable}</strong> {normalizeVersion(mod?.version, copy.common.none)}{' '}
-                      {detailCopy.installedTo} {normalizeVersion(latestVersion, copy.common.none)}
-                    </p>
-                  </div>
-                ) : null}
-
-                <section
-                  className={cx('launcher-mod-detail-tab-panel', selectedTab === 'overview' && 'active')}
-                  role="tabpanel"
-                  hidden={selectedTab !== 'overview'}
-                  aria-hidden={selectedTab !== 'overview'}
-                >
-                  {isCombined ? (
-                    <div className="launcher-mod-detail-overview diff">
-                      <section className="launcher-mod-detail-state-column current">
-                        <div className="launcher-mod-detail-column-head">
-                          <h3>{detailCopy.installed}</h3>
-                          <span>{detailCopy.currentFolder}</span>
-                        </div>
-                        <div className="launcher-mod-detail-state-list">
-                          <div className="launcher-mod-detail-state-item">
-                            <span>{detailCopy.version}</span>
-                            <strong>{normalizeVersion(mod?.version, copy.common.none)}</strong>
-                          </div>
-                          <div className="launcher-mod-detail-state-item">
-                            <span>{labels.dependencies}</span>
-                            <strong className={cx('launcher-mod-detail-status-value', dependencyTone)} title={dependencyText}>
-                              {dependencyText}
-                            </strong>
-                          </div>
-                          <div className="launcher-mod-detail-state-item">
-                            <span>{detailCopy.status}</span>
-                            <strong>{mod?.enabled ? enabledStateLabel : disabledStateLabel}</strong>
-                          </div>
-                        </div>
-                      </section>
-
-                      <section className="launcher-mod-detail-state-column target">
-                        <div className="launcher-mod-detail-column-head">
-                          <h3>{detailCopy.updateAvailable}</h3>
-                          <span>{detailCopy.nexusPrimaryFile}</span>
-                        </div>
-                        <div className="launcher-mod-detail-state-list">
-                          <div className="launcher-mod-detail-state-item">
-                            <span>{detailCopy.version}</span>
-                            <strong>{normalizeVersion(latestVersion, copy.common.none)}</strong>
-                          </div>
-                          <div className="launcher-mod-detail-state-item">
-                            <span>{detailCopy.file}</span>
-                            <strong title={primaryFileName ?? undefined}>{primaryFileName ?? copy.common.none}</strong>
-                          </div>
-                          <div className="launcher-mod-detail-state-item">
-                            <span>{detailCopy.size}</span>
-                            <strong>{primarySize}</strong>
-                          </div>
-                        </div>
-                      </section>
-                    </div>
-                  ) : (
-                    <div className={cx('launcher-mod-detail-overview single', isNexus && 'nexus', isLocal && !isCombined && 'local')}>
-                      <section className="launcher-mod-detail-single-story">
-                        <div>
-                          <span>{isNexus ? detailCopy.version : detailCopy.installed}</span>
-                          <strong title={displayVersion}>{displayVersion}</strong>
-                          <div className="launcher-mod-detail-single-summary" aria-label={overviewDescription}>
-                            <NexusModsBbcode source={overviewDescription} />
-                          </div>
-                        </div>
-                        <div className="launcher-mod-detail-single-facts">
-                          {(isNexus
-                            ? [
-                                { label: detailCopy.primaryFile, value: primaryFileName ?? copy.common.none },
-                                { label: detailCopy.size, value: primarySize },
-                                { label: detailCopy.scan, value: remote?.primaryFileScanStatus ?? copy.common.none },
-                              ]
-                            : [
-                                { label: labels.dependencies, value: dependencyText },
-                                {
-                                  label: detailCopy.path,
-                                  value: truncatePath(mod?.absolutePath, copy.common.none),
-                                  title: mod?.absolutePath ?? undefined,
-                                },
-                              ]
-                          ).map((item) => (
-                            <div className="launcher-mod-detail-single-fact" key={item.label}>
-                              <span>{item.label}</span>
-                              <strong title={item.title ?? item.value}>{item.value}</strong>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    </div>
-                  )}
-                </section>
 
                 <section
                   className={cx('launcher-mod-detail-tab-panel', selectedTab === 'description' && 'active')}
@@ -994,8 +914,8 @@ export function LauncherModDetailPanel({
                 >
                   <div className="launcher-mod-detail-description">
                     {selectedTab === 'description' ? <NexusModsBbcode source={fullDescription} /> : null}
-                    {(remote?.modUrl ?? mod?.modUrl) ? (
-                      <button type="button" className="control-button" onClick={openRemotePage}>
+                    {selectedTab === 'description' ? (
+                      <button type="button" className="control-button" onClick={() => setDescriptionReaderOpen(true)}>
                         {detailCopy.readFullDescription}
                       </button>
                     ) : null}
@@ -1081,7 +1001,48 @@ export function LauncherModDetailPanel({
                   </section>
                 ) : null}
               </main>
+
+              <aside className="launcher-mod-detail-key-card">
+                <h3>{detailCopy.status}</h3>
+                <div className="launcher-mod-detail-key-list">
+                  {keyStatusItems.map((item) => (
+                    <article className={cx('launcher-mod-detail-key-item', item.missing && 'is-missing')} key={`${item.name}-${item.meta}`}>
+                      <span className="launcher-mod-detail-key-icon" aria-hidden="true">
+                        <DependencyIcon name={item.name} />
+                      </span>
+                      <div>
+                        <strong title={item.title}>{item.name}</strong>
+                        <span>{item.meta}</span>
+                      </div>
+                      <em>{item.status}</em>
+                    </article>
+                  ))}
+                </div>
+              </aside>
             </div>
+
+            {showDescriptionReader ? (
+              <div className="launcher-mod-detail-reader" role="dialog" aria-modal="false" aria-label={detailCopy.fullDescriptionTitle}>
+                <div className="launcher-mod-detail-reader-head">
+                  <div>
+                    <h2>{detailCopy.fullDescriptionTitle}</h2>
+                    <p>{displayName}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => setDescriptionReaderOpen(false)}
+                    aria-label={closeLabel}
+                    title={closeLabel}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <article className="launcher-mod-detail-reader-body">
+                  <NexusModsBbcode source={fullDescription} />
+                </article>
+              </div>
+            ) : null}
 
             <footer className="launcher-mod-detail-footer">
               <div className="launcher-mod-detail-tool-group">

@@ -291,6 +291,11 @@ fn html_to_text(value: &str) -> String {
     ))
 }
 
+fn description_markup_to_text(value: &str) -> String {
+    let bbcode_regex = Regex::new(r"(?i)\[/?[a-z*][^\]]*\]").expect("valid bbcode strip regex");
+    collapse_whitespace(bbcode_regex.replace_all(&html_to_text(value), " ").trim())
+}
+
 fn extract_html_image_urls(value: &str) -> Vec<String> {
     let image_regex = Regex::new(r#"(?i)<img[^>]+src=["'](?P<src>https?://[^"']+)["']"#)
         .expect("valid image regex");
@@ -637,10 +642,11 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
         .ok_or_else(|| {
             "Public Nexus mod detail response did not include a mod payload.".to_string()
         })?;
-    let description_html = string_field(mod_node, "description");
-    let description_text = description_html
+    let description_markup =
+        string_field(mod_node, "description").filter(|value| !value.trim().is_empty());
+    let description_text = description_markup
         .as_deref()
-        .map(html_to_text)
+        .map(description_markup_to_text)
         .filter(|value| !value.is_empty());
     let summary_text = string_field(mod_node, "summary").or_else(|| description_text.clone());
     let author = string_field(mod_node, "author").or_else(|| {
@@ -661,12 +667,12 @@ pub(crate) fn parse_public_mod_detail_graphql_response(
         name: string_field(mod_node, "name"),
         author,
         summary: summary_text.clone(),
-        description: description_text.clone(),
+        description: description_markup.clone(),
         version: string_field(mod_node, "version"),
         mod_url: build_mod_page_url(mod_id),
         image_url: string_field(mod_node, "pictureUrl")
             .or_else(|| string_field(mod_node, "thumbnailUrl")),
-        gallery_images: description_html
+        gallery_images: description_markup
             .as_deref()
             .map(extract_html_image_urls)
             .unwrap_or_default(),

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { CSSProperties, DragEvent } from 'react'
+import type { CSSProperties, DragEvent, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowUp, Check } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
@@ -25,6 +25,7 @@ type LauncherModCardProps = {
   enabled?: boolean
   onSelect?: () => void
   onOpenDetails?: () => void
+  onOpenDirectTarget?: () => void
   contextActions?: LauncherModCardAction[]
   draggable?: boolean
   onDragStart?: (event: DragEvent<HTMLElement>) => void
@@ -43,6 +44,7 @@ export function LauncherModCard({
   enabled = true,
   onSelect,
   onOpenDetails,
+  onOpenDirectTarget,
   contextActions,
   draggable,
   onDragStart,
@@ -81,13 +83,14 @@ export function LauncherModCard({
     }
   }, [])
 
-  const handleSelectClick = () => {
-    if (!onSelect) {
+  const handleSelectClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (selectionMode) {
+      event.stopPropagation()
+      onSelect?.()
       return
     }
 
     if (!onOpenDetails) {
-      onSelect()
       return
     }
 
@@ -96,16 +99,16 @@ export function LauncherModCard({
     }
     clickTimeoutRef.current = setTimeout(() => {
       clickTimeoutRef.current = null
-      onSelect()
+      onOpenDetails()
     }, DETAIL_DOUBLE_CLICK_DELAY_MS)
   }
 
-  const handleOpenDetailsDoubleClick = () => {
+  const handleOpenDirectTargetDoubleClick = () => {
     if (clickTimeoutRef.current) {
       clearTimeout(clickTimeoutRef.current)
       clickTimeoutRef.current = null
     }
-    onOpenDetails?.()
+    onOpenDirectTarget?.()
   }
 
   const card = (
@@ -133,7 +136,12 @@ export function LauncherModCard({
           </span>
         ) : null}
 
-        <button type="button" className="launcher-mod-card-main" onClick={handleSelectClick} onDoubleClick={handleOpenDetailsDoubleClick}>
+        <button
+          type="button"
+          className="launcher-mod-card-main"
+          onClick={handleSelectClick}
+          onDoubleClick={handleOpenDirectTargetDoubleClick}
+        >
           <LauncherArtworkCover title={title} imageUrl={imageUrl} coverStyle={coverStyle} coverWord={coverWord} />
 
           <div className="launcher-mod-card-copy">

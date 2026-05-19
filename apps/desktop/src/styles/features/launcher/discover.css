@@ -686,8 +686,13 @@
 
   .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
     padding-right: 24px;
+  }
+
+  .launcher-discover-wall-title-marquee:hover .launcher-discover-wall-title-text,
+  .launcher-discover-title-tooltip-anchor:hover .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text,
+  .launcher-discover-wall-copy:focus-within .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
     animation: launcher-discover-title-marquee var(--launcher-discover-title-duration, 9s) ease-in-out infinite;
-    animation-delay: 900ms;
+    animation-delay: 220ms;
   }
 
   .launcher-discover-wall-title-slot {
@@ -863,7 +868,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
+    .launcher-discover-wall-title-marquee:hover .launcher-discover-wall-title-text,
+    .launcher-discover-title-tooltip-anchor:hover .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text,
+    .launcher-discover-wall-copy:focus-within .launcher-discover-wall-title-marquee .launcher-discover-wall-title-text {
       animation: none;
     }
   }

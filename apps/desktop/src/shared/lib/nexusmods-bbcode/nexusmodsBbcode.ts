@@ -46,6 +46,7 @@ type ParsedHtmlToken =
       closing: boolean
       selfClosing: boolean
       tag: NexusModsBbcodeTag
+      closingTags: NexusModsBbcodeTag[]
       attrs: Record<string, string>
     }
   | {
@@ -85,10 +86,13 @@ const htmlTagMap: Record<string, NexusModsBbcodeTag> = {
   hr: 'hr',
   i: 'i',
   img: 'img',
+  li: 'item',
+  ol: 'list',
   s: 's',
   strike: 's',
   strong: 'b',
   u: 'u',
+  ul: 'list',
 }
 
 function normalizeTag(tag: string): NexusModsBbcodeTag | null {
@@ -152,6 +156,69 @@ function readHtmlAttribute(rawAttributes: string, name: string) {
   return match?.[1] ?? match?.[2] ?? match?.[3] ?? undefined
 }
 
+function readHtmlStyleProperty(rawAttributes: string, name: string) {
+  const style = readHtmlAttribute(rawAttributes, 'style')
+  if (style == null) {
+    return undefined
+  }
+
+  const propertyPattern = new RegExp(`(?:^|;)\\s*${name}\\s*:\\s*([^;]+)`, 'i')
+  return style.match(propertyPattern)?.[1]?.trim()
+}
+
+function createHtmlFontToken(rawAttributes: string): Pick<ParsedHtmlToken & { supported: true }, 'tag' | 'attrs' | 'closingTags'> {
+  const color = readHtmlAttribute(rawAttributes, 'color') ?? readHtmlStyleProperty(rawAttributes, 'color')
+  if (color != null) {
+    return { tag: 'color', attrs: { color }, closingTags: ['font', 'color', 'size'] }
+  }
+
+  const size = readHtmlAttribute(rawAttributes, 'size') ?? readHtmlStyleProperty(rawAttributes, 'font-size')
+  if (size != null) {
+    return { tag: 'size', attrs: { size }, closingTags: ['font', 'color', 'size'] }
+  }
+
+  const fontFamily = readHtmlAttribute(rawAttributes, 'face') ?? readHtmlStyleProperty(rawAttributes, 'font-family')
+  if (fontFamily != null) {
+    return { tag: 'font', attrs: { font: fontFamily }, closingTags: ['font', 'color', 'size'] }
+  }
+
+  return { tag: 'font', attrs: {}, closingTags: ['font', 'color', 'size'] }
+}
+
+function createHtmlDivToken(rawAttributes: string): Pick<ParsedHtmlToken & { supported: true }, 'tag' | 'attrs' | 'closingTags'> {
+  const align = readHtmlAttribute(rawAttributes, 'align')?.trim().toLowerCase()
+  if (align === 'center' || align === 'right' || align === 'justify') {
+    return { tag: align, attrs: {}, closingTags: ['center', 'left', 'right', 'justify'] }
+  }
+
+  return { tag: 'left', attrs: {}, closingTags: ['center', 'left', 'right', 'justify'] }
+}
+
+function createHtmlTokenForTag(
+  rawTag: string,
+  rawAttributes: string,
+): Pick<ParsedHtmlToken & { supported: true }, 'tag' | 'attrs' | 'closingTags'> | null {
+  const lowerTag = rawTag.toLowerCase()
+  if (lowerTag === 'font') {
+    return createHtmlFontToken(rawAttributes)
+  }
+
+  if (lowerTag === 'div') {
+    return createHtmlDivToken(rawAttributes)
+  }
+
+  const tag = htmlTagMap[lowerTag]
+  if (tag == null) {
+    return null
+  }
+
+  if (lowerTag === 'ol') {
+    return { tag, attrs: { list: '1' }, closingTags: [tag] }
+  }
+
+  return { tag, attrs: createHtmlAttributes(tag, rawAttributes), closingTags: [tag] }
+}
+
 function createHtmlAttributes(tag: NexusModsBbcodeTag, rawAttributes: string): Record<string, string> {
   if (tag === 'url') {
     const href = readHtmlAttribute(rawAttributes, 'href')
@@ -178,18 +245,19 @@ function parseHtmlToken(rawToken: string): ParsedHtmlToken {
   }
 
   const [, closingSlash, rawTag, rawAttributes, selfClosingSlash] = match
-  const tag = htmlTagMap[rawTag.toLowerCase()]
-  if (tag == null) {
+  const token = createHtmlTokenForTag(rawTag, rawAttributes)
+  if (token == null) {
     return { supported: false }
   }
 
-  const isVoidTag = tag === 'br' || tag === 'hr' || tag === 'img'
+  const isVoidTag = token.tag === 'br' || token.tag === 'hr' || token.tag === 'img'
   return {
     supported: true,
     closing: Boolean(closingSlash),
     selfClosing: isVoidTag || Boolean(selfClosingSlash),
-    tag,
-    attrs: createHtmlAttributes(tag, rawAttributes),
+    tag: token.tag,
+    closingTags: token.closingTags,
+    attrs: token.attrs,
   }
 }
 
@@ -219,18 +287,14 @@ function hasListAncestor(stack: StackFrame[]) {
   return stack.some((frame) => frame.type === 'element' && frame.tag === 'list')
 }
 
-function closeMatchingTag(stack: StackFrame[], tag: NexusModsBbcodeTag) {
-  const matchingIndex = stack.findLastIndex((frame) => frame.type === 'element' && frame.tag === tag)
+function closeMatchingTag(stack: StackFrame[], tags: NexusModsBbcodeTag | readonly NexusModsBbcodeTag[]) {
+  const closingTags = Array.isArray(tags) ? tags : [tags]
+  const matchingIndex = stack.findLastIndex((frame) => frame.type === 'element' && closingTags.includes(frame.tag))
   if (matchingIndex <= 0) {
     return false
   }
 
-  if (matchingIndex === stack.length - 1) {
-    stack.pop()
-  } else {
-    stack.splice(matchingIndex, 1)
-  }
-
+  stack.splice(matchingIndex)
   return true
 }
 
@@ -253,7 +317,7 @@ export function parseNexusModsBbcode(source: string): NexusModsBbcodeDocument {
       }
 
       if (htmlToken.closing) {
-        closeMatchingTag(stack, htmlToken.tag)
+        closeMatchingTag(stack, htmlToken.closingTags)
         continue
       }
 
