@@ -63,12 +63,27 @@ export type LauncherLibraryPackPreset = {
   modKeys: string[]
 }
 
+export type LauncherLibraryChildModGroup = {
+  parentModKey: string
+  childModKeys: string[]
+}
+
+export type LauncherLibraryFolder = {
+  id: string
+  name: string
+  parentFolderId: string | null
+  modKeys: string[]
+  coverModKeys: string[]
+}
+
 export type LauncherLibraryScopeMode = 'all' | 'current-pack'
 
 export type LauncherLibraryState = {
   storageFolders: LauncherLibraryStorageFolder[]
   hiddenModKeys: string[]
   packPresets: LauncherLibraryPackPreset[]
+  childModGroups: LauncherLibraryChildModGroup[]
+  libraryFolders: LauncherLibraryFolder[]
   currentPackId: string | null
   scopeMode: LauncherLibraryScopeMode
 }

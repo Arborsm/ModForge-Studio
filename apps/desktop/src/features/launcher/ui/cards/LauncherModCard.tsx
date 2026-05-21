@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
-import type { CSSProperties, DragEvent, MouseEvent } from 'react'
+import { memo, useEffect, useRef } from 'react'
+import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { ArrowUp, Check } from 'lucide-react'
+import { ArrowUp, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
@@ -27,14 +27,19 @@ type LauncherModCardProps = {
   onOpenDetails?: () => void
   onOpenDirectTarget?: () => void
   contextActions?: LauncherModCardAction[]
-  draggable?: boolean
-  onDragStart?: (event: DragEvent<HTMLElement>) => void
-  onDragEnd?: () => void
+  dragging?: boolean
+  dropTarget?: boolean
+  childCount?: number
+  childCountLabel?: string
+  expanded?: boolean
+  expandLabel?: string
+  collapseLabel?: string
+  onToggleExpanded?: () => void
   selectionMode?: boolean
   selected?: boolean
 }
 
-export function LauncherModCard({
+function LauncherModCardContent({
   title,
   meta,
   author,
@@ -46,9 +51,14 @@ export function LauncherModCard({
   onOpenDetails,
   onOpenDirectTarget,
   contextActions,
-  draggable,
-  onDragStart,
-  onDragEnd,
+  dragging = false,
+  dropTarget = false,
+  childCount = 0,
+  childCountLabel,
+  expanded = false,
+  expandLabel,
+  collapseLabel,
+  onToggleExpanded,
   selectionMode = false,
   selected = false,
 }: LauncherModCardProps) {
@@ -90,6 +100,11 @@ export function LauncherModCard({
       return
     }
 
+    if (onSelect) {
+      onSelect()
+      return
+    }
+
     if (!onOpenDetails) {
       return
     }
@@ -114,13 +129,12 @@ export function LauncherModCard({
   const card = (
     <article
       aria-label={title}
-      draggable={draggable}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
       onClick={selectionMode ? onSelect : undefined}
       className={cx(
         'panel-list-card panel-list-card-interactive launcher-mod-card',
         !enabled && 'launcher-mod-card-disabled',
+        dragging && 'launcher-mod-card-dragging',
+        dropTarget && 'launcher-mod-card-drop-target',
         selectionMode && 'launcher-mod-card-selection-mode',
         selectionMode && selected && 'launcher-mod-card-selected',
         selectionMode && !selected && 'launcher-mod-card-unselected',
@@ -134,6 +148,26 @@ export function LauncherModCard({
           >
             <Check className="h-3.5 w-3.5" />
           </span>
+        ) : null}
+
+        {childCount > 0 ? (
+          <div className="launcher-mod-card-child-tools">
+            <span className="launcher-mod-card-child-count">{childCountLabel ?? String(childCount)}</span>
+            {onToggleExpanded ? (
+              <button
+                type="button"
+                className="launcher-mod-card-child-toggle"
+                aria-label={expanded ? collapseLabel : expandLabel}
+                aria-expanded={expanded}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onToggleExpanded()
+                }}
+              >
+                {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         <button
@@ -193,3 +227,5 @@ export function LauncherModCard({
     </ContextMenu.Root>
   )
 }
+
+export const LauncherModCard = memo(LauncherModCardContent)

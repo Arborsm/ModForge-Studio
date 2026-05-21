@@ -122,8 +122,11 @@ describe('frontend module architecture', () => {
     const appShellSource = await readFile(sourcePath('src/app/app-shell/AppShell.tsx'), 'utf8')
     const appShellBridge = await readFile(sourcePath('src/app/app-shell/index.ts'), 'utf8')
 
-    expect(mainEntry).toContain("from '@app/App'")
+    expect(mainEntry).toContain("import('@platform/tauri/devLauncherMock')")
+    expect(mainEntry).toContain("import('@app/App')")
     expect(mainEntry).not.toContain("from './App'")
+    expect(mainEntry.indexOf("import('@platform/tauri/devLauncherMock')")).toBeLessThan(mainEntry.indexOf("import('@app/App')"))
+    expect(mainEntry).toContain('import.meta.env.DEV')
     expect(appEntry).toContain("from '@app/app-shell/AppShell'")
     expect(appEntry).toContain("from '@app/providers/PlatformProvider'")
     expect(appEntry).toContain("from '@app/providers/LauncherPlatformProvider'")
@@ -198,6 +201,12 @@ describe('frontend module architecture', () => {
     expect(tauriAdapter).toContain('createTauriPlatformPorts')
   })
 
+  it('keeps launcher library drag measuring out of the always-on layout path', async () => {
+    const launcherLibraryPage = await readFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'), 'utf8')
+
+    expect(launcherLibraryPage).not.toContain('MeasuringStrategy.Always')
+  })
+
   it('keeps new layer path aliases synchronized across TypeScript, Vite, and Vitest', async () => {
     const tsconfig = await readFile(sourcePath('tsconfig.app.json'), 'utf8')
     const viteConfig = await readFile(sourcePath('vite.config.ts'), 'utf8')
@@ -225,6 +234,30 @@ describe('frontend module architecture', () => {
 
       if (/\binvoke\s*\(/.test(source)) {
         violations.push(`${relativePath} calls invoke(`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
+
+  it('keeps Tauri API imports inside approved adapter and test boundaries', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src'))
+    const allowedImportFiles = new Set(['src/platform/tauri/index.ts', 'src/platform/tauri/devLauncherMock.ts'])
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles) {
+      if (TEST_FILE_PATTERN.test(filePath)) {
+        continue
+      }
+
+      const source = await readFile(filePath, 'utf8')
+      if (!source.includes('@tauri-apps/api')) {
+        continue
+      }
+
+      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+      if (!allowedImportFiles.has(relativePath)) {
+        violations.push(`${relativePath} imports @tauri-apps/api outside approved adapter boundary`)
       }
     }
 
@@ -304,7 +337,7 @@ describe('frontend module architecture', () => {
     const sharedTypesViewport = await readFile(sourcePath('src/shared/contracts/types/viewport.ts'), 'utf8')
     const mapEntityTypes = await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')
 
-    expect(mainSource).toContain("from '@app/App'")
+    expect(mainSource).toContain("import('@app/App')")
     expect(appShellSource).toContain("import('@pages/workbench')")
     expect(registrySetupSource).toContain("from '@features/cp-maker'")
     expect(registrySetupSource).not.toContain("from '@pages/workbench'")

@@ -313,7 +313,7 @@ describe('LauncherDiscoverPage', () => {
 
     await waitFor(() => expect(launcherPort.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 44722, includeFiles: false }))
     await waitFor(() => expect(screen.getAllByText('Joja Civic Center 1.1.0').length).toBeGreaterThan(0))
-    expect(screen.getAllByText('VERIFIED').length).toBeGreaterThan(0)
+    expect(screen.queryByText('VERIFIED')).toBeNull()
 
     fireEvent.doubleClick(cardButton)
 

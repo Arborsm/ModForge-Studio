@@ -10,6 +10,15 @@ import type {
   LauncherLibraryStorageFolder,
   LauncherUpdateSummary,
 } from './launcherContracts'
+import {
+  assignChildModsToParent,
+  expandModIdsWithChildren,
+  expandModKeysWithChildren,
+  normalizeChildModGroups,
+  removeChildModsFromGroups,
+  replaceChildModsForParent,
+} from './childModRelations'
+import { addModKeysToLibraryFolder, moveLibraryFolder, normalizeLibraryFolders, removeModKeysFromLibraryFolders } from './libraryFolders'
 import { getLauncherCoverKey, getLauncherCoverKeyCandidates } from './coverKey'
 import { getModKey, includesFilter, normalizeLookupKey, normalizeModKey } from './libraryHelpers'
 import { canAutoCheckLauncherUpdates, canAutoFetchLauncherRemoteCovers } from './nexusDiagnostics'
@@ -31,6 +40,8 @@ function createDefaultLibraryState(): LauncherLibraryState {
     ],
     hiddenModKeys: [],
     packPresets: [],
+    childModGroups: [],
+    libraryFolders: [],
     currentPackId: null,
     scopeMode: 'all',
   }
@@ -148,11 +159,15 @@ function normalizeLibraryState(state: LauncherLibraryState): LauncherLibraryStat
     })
 
   const scopeMode: LauncherLibraryScopeMode = state.scopeMode === 'current-pack' ? 'current-pack' : 'all'
+  const childModGroups = normalizeChildModGroups(state.childModGroups ?? [])
+  const libraryFolders = normalizeLibraryFolders(state.libraryFolders ?? [])
 
   return {
     storageFolders,
     hiddenModKeys,
     packPresets,
+    childModGroups,
+    libraryFolders,
     currentPackId,
     scopeMode,
   }
@@ -455,6 +470,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys
   const packPresets = libraryState.packPresets
+  const childModGroups = libraryState.childModGroups
+  const libraryFolders = libraryState.libraryFolders
   const scopeMode = libraryState.scopeMode
   const currentPackId = libraryState.currentPackId
 
@@ -511,13 +528,20 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
 
   const toggleEnabled = useCallback(
     async (mod: LauncherLibraryModSummary) => {
-      await launcherPort.setModEnabled({
-        modPath: mod.absolutePath,
-        enabled: !mod.enabled,
-      })
+      const nextEnabled = !mod.enabled
+      await Promise.all(
+        expandModIdsWithChildren([mod.id], mods, childModGroups)
+          .filter((item) => item.enabled !== nextEnabled)
+          .map((item) =>
+            launcherPort.setModEnabled({
+              modPath: item.absolutePath,
+              enabled: nextEnabled,
+            }),
+          ),
+      )
       await refresh()
     },
-    [launcherPort, refresh],
+    [childModGroups, launcherPort, mods, refresh],
   )
 
   const installArchive = useCallback(
@@ -685,6 +709,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       const selectedModKeys = Array.from(
         new Map(selection.map(getModKey).map((value) => [normalizeLookupKey(value), value])).values(),
       ).filter(Boolean)
+      const expandedSelectedModKeys = expandModKeysWithChildren(selectedModKeys, childModGroups)
 
       await persistLibraryState({
         ...libraryState,
@@ -694,7 +719,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
           }
           const existing = new Set(pack.modKeys.map((value) => normalizeLookupKey(value)))
           const modKeys = [...pack.modKeys]
-          for (const modKey of selectedModKeys) {
+          for (const modKey of expandedSelectedModKeys) {
             const modLookup = normalizeLookupKey(modKey)
             if (existing.has(modLookup)) {
               continue
@@ -709,7 +734,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         }),
       })
     },
-    [libraryState, packPresets, persistLibraryState, selection],
+    [childModGroups, libraryState, packPresets, persistLibraryState, selection],
   )
 
   const addModsToPack = useCallback(
@@ -719,15 +744,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         return
       }
 
-      const selectedModKeys = Array.from(
-        new Map(
-          modIds
-            .map((id) => mods.find((item) => item.id === id))
-            .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-            .map(getModKey)
-            .map((value) => [normalizeLookupKey(value), value]),
-        ).values(),
-      ).filter(Boolean)
+      const selectedModKeys = expandModIdsWithChildren(modIds, mods, childModGroups).map(getModKey)
 
       if (!selectedModKeys.length) {
         return
@@ -756,20 +773,12 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         }),
       })
     },
-    [libraryState, mods, packPresets, persistLibraryState],
+    [childModGroups, libraryState, mods, packPresets, persistLibraryState],
   )
 
   const hideMods = useCallback(
     async (modIds: string[]) => {
-      const modKeys = Array.from(
-        new Map(
-          modIds
-            .map((id) => mods.find((item) => item.id === id))
-            .filter((item): item is LauncherLibraryModSummary => Boolean(item))
-            .map(getModKey)
-            .map((value) => [normalizeLookupKey(value), value]),
-        ).values(),
-      ).filter(Boolean)
+      const modKeys = expandModIdsWithChildren(modIds, mods, childModGroups).map(getModKey)
 
       if (!modKeys.length) {
         return
@@ -791,15 +800,13 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         hiddenModKeys: nextHiddenModKeys,
       })
     },
-    [hiddenModKeys, libraryState, mods, persistLibraryState],
+    [childModGroups, hiddenModKeys, libraryState, mods, persistLibraryState],
   )
 
   const showMods = useCallback(
     async (modIds: string[]) => {
       const modLookup = new Set(
-        modIds
-          .map((id) => mods.find((item) => item.id === id))
-          .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        expandModIdsWithChildren(modIds, mods, childModGroups)
           .map(getModKey)
           .map((value) => normalizeLookupKey(value)),
       )
@@ -813,7 +820,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         hiddenModKeys: hiddenModKeys.filter((value) => !modLookup.has(normalizeLookupKey(value))),
       })
     },
-    [hiddenModKeys, libraryState, mods, persistLibraryState],
+    [childModGroups, hiddenModKeys, libraryState, mods, persistLibraryState],
   )
 
   const createPackPreset = useCallback(
@@ -899,9 +906,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       }
 
       const uniqueModIds = Array.from(new Set(modIds.map((value) => value.trim()).filter(Boolean)))
-      const replacementKeys = uniqueModIds
-        .map((id) => mods.find((item) => item.id === id))
-        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+      const replacementKeys = expandModIdsWithChildren(uniqueModIds, mods, childModGroups)
         .map(getModKey)
         .map((value) => value.trim())
         .filter(Boolean)
@@ -918,7 +923,132 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         ),
       })
     },
-    [libraryState, mods, packPresets, persistLibraryState],
+    [childModGroups, libraryState, mods, packPresets, persistLibraryState],
+  )
+
+  const setChildMods = useCallback(
+    async (parentModId: string, childModIds: string[]) => {
+      const parentMod = mods.find((item) => item.id === parentModId)
+      if (!parentMod) {
+        return
+      }
+
+      const childModKeys = childModIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+
+      await persistLibraryState({
+        ...libraryState,
+        childModGroups: assignChildModsToParent(childModGroups, getModKey(parentMod), childModKeys),
+      })
+    },
+    [childModGroups, libraryState, mods, persistLibraryState],
+  )
+
+  const removeChildMods = useCallback(
+    async (childModIds: string[]) => {
+      const childModKeys = childModIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+
+      await persistLibraryState({
+        ...libraryState,
+        childModGroups: removeChildModsFromGroups(childModGroups, childModKeys),
+      })
+    },
+    [childModGroups, libraryState, mods, persistLibraryState],
+  )
+
+  const replaceChildMods = useCallback(
+    async (parentModId: string, childModIds: string[]) => {
+      const parentMod = mods.find((item) => item.id === parentModId)
+      if (!parentMod) {
+        return
+      }
+
+      const childModKeys = childModIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+
+      await persistLibraryState({
+        ...libraryState,
+        childModGroups: replaceChildModsForParent(childModGroups, getModKey(parentMod), childModKeys),
+      })
+    },
+    [childModGroups, libraryState, mods, persistLibraryState],
+  )
+
+  const createLibraryFolder = useCallback(
+    async (name?: string) => {
+      const trimmed = name?.trim() || copy.library.newLibraryFolderName
+      const id = nextUniqueId(
+        libraryFolders.map((folder) => folder.id),
+        trimmed,
+        'library-folder',
+      )
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: normalizeLibraryFolders([
+          ...libraryFolders,
+          {
+            id,
+            name: trimmed,
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
+          },
+        ]),
+      })
+      return id
+    },
+    [copy.library.newLibraryFolderName, libraryFolders, libraryState, persistLibraryState],
+  )
+
+  const addModsToLibraryFolder = useCallback(
+    async (folderId: string, modIds: string[]) => {
+      const modKeys = modIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+      if (!modKeys.length) {
+        return
+      }
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: addModKeysToLibraryFolder(libraryFolders, folderId, modKeys),
+      })
+    },
+    [libraryFolders, libraryState, mods, persistLibraryState],
+  )
+
+  const removeModsFromLibraryFolders = useCallback(
+    async (modIds: string[]) => {
+      const modKeys = modIds
+        .map((id) => mods.find((item) => item.id === id))
+        .filter((item): item is LauncherLibraryModSummary => Boolean(item))
+        .map(getModKey)
+      if (!modKeys.length) {
+        return
+      }
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: removeModKeysFromLibraryFolders(libraryFolders, modKeys),
+      })
+    },
+    [libraryFolders, libraryState, mods, persistLibraryState],
+  )
+
+  const moveLibraryFolderToFolder = useCallback(
+    async (folderId: string, parentFolderId: string | null) => {
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: moveLibraryFolder(libraryFolders, folderId, parentFolderId),
+      })
+    },
+    [libraryFolders, libraryState, persistLibraryState],
   )
 
   const setScopeMode = useCallback(
@@ -936,7 +1066,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       return
     }
 
-    const desiredKeys = new Set(currentPack.modKeys.map((value) => normalizeLookupKey(value)))
+    const desiredKeys = new Set(expandModKeysWithChildren(currentPack.modKeys, childModGroups).map((value) => normalizeLookupKey(value)))
     await Promise.all(
       mods.map(async (item) => {
         const modKey = getModKey(item)
@@ -952,7 +1082,7 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     )
     setSelectedModIds([])
     await refresh()
-  }, [currentPack, launcherPort, mods, refresh])
+  }, [childModGroups, currentPack, launcherPort, mods, refresh])
 
   const setSelectionEnabled = useCallback(
     async (enabled: boolean) => {
@@ -1001,6 +1131,8 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     activeStorageFolderId,
     hiddenModKeys,
     packPresets,
+    childModGroups,
+    libraryFolders,
     scopeMode,
     currentPackId,
     currentPack,
@@ -1037,6 +1169,13 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     renamePackPreset,
     deletePackPreset,
     replacePackMods,
+    setChildMods,
+    removeChildMods,
+    replaceChildMods,
+    createLibraryFolder,
+    addModsToLibraryFolder,
+    removeModsFromLibraryFolders,
+    moveLibraryFolderToFolder,
     setCurrentPackId,
     setScopeMode,
     applyCurrentPack,

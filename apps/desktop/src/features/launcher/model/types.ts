@@ -3,6 +3,7 @@ import type {
   LauncherCatalogResult,
   LauncherRemoteModDetail,
   LauncherLibraryModSummary,
+  LauncherLibraryFolder,
   LauncherLibraryPackPreset,
   LauncherLibraryScopeMode,
   LauncherLibraryState,
@@ -52,6 +53,7 @@ export type LauncherDashboardStats = {
 
 export type LauncherSettingsDraft = LauncherSettings
 export type LauncherLibraryItem = LauncherLibraryModSummary
+export type LauncherVirtualFolder = LauncherLibraryFolder
 export type LauncherStorageFolder = LauncherLibraryStorageFolder
 export type LauncherPackPreset = LauncherLibraryPackPreset
 export type LauncherLibraryScope = LauncherLibraryScopeMode

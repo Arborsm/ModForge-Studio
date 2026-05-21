@@ -71,6 +71,21 @@ export type LauncherLibraryPackPreset = {
   modKeys: string[]
 }
 
+/** One parent mod and its direct ModForge-only child mod assignments. */
+export type LauncherLibraryChildModGroup = {
+  parentModKey: string
+  childModKeys: string[]
+}
+
+/** Virtual launcher-only folder used to visually organize library cards. */
+export type LauncherLibraryFolder = {
+  id: string
+  name: string
+  parentFolderId: string | null
+  modKeys: string[]
+  coverModKeys: string[]
+}
+
 export type LauncherLibraryScopeMode = 'all' | 'current-pack'
 
 /** Persisted launcher library organization state. */
@@ -78,6 +93,8 @@ export type LauncherLibraryState = {
   storageFolders: LauncherLibraryStorageFolder[]
   hiddenModKeys: string[]
   packPresets: LauncherLibraryPackPreset[]
+  childModGroups: LauncherLibraryChildModGroup[]
+  libraryFolders: LauncherLibraryFolder[]
   currentPackId: string | null
   scopeMode: LauncherLibraryScopeMode
 }

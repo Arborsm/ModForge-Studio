@@ -107,6 +107,27 @@ pub struct LauncherLibraryPackPreset {
     pub mod_keys: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherLibraryChildModGroup {
+    pub parent_mod_key: String,
+    #[serde(default)]
+    pub child_mod_keys: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherLibraryFolder {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub parent_folder_id: Option<String>,
+    #[serde(default)]
+    pub mod_keys: Vec<String>,
+    #[serde(default)]
+    pub cover_mod_keys: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum LauncherLibraryScopeMode {
@@ -124,6 +145,10 @@ pub struct LauncherLibraryState {
     pub hidden_mod_keys: Vec<String>,
     #[serde(default)]
     pub pack_presets: Vec<LauncherLibraryPackPreset>,
+    #[serde(default)]
+    pub child_mod_groups: Vec<LauncherLibraryChildModGroup>,
+    #[serde(default)]
+    pub library_folders: Vec<LauncherLibraryFolder>,
     #[serde(default)]
     pub current_pack_id: Option<String>,
     #[serde(default)]
@@ -648,6 +673,8 @@ impl Default for LauncherLibraryState {
             storage_folders: vec![default_unsorted_storage_folder()],
             hidden_mod_keys: Vec::new(),
             pack_presets: Vec::new(),
+            child_mod_groups: Vec::new(),
+            library_folders: Vec::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
         }

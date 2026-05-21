@@ -190,6 +190,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - Tailwind class 排序：`prettier-plugin-tailwindcss`，由 Prettier 自动加载。
 - pre-commit 格式化：`.husky/pre-commit` 运行 `pnpm exec lint-staged`，只格式化已暂存文件。
 - ESLint 与 Prettier 规则衔接：`apps/desktop/eslint.config.js`，末尾接入 `eslint-config-prettier`。
+- Launcher 拖拽性能验证：`apps/desktop/scripts/verify-launcher-drag.mjs`，通过 `?mfLauncherMock=1` 启用浏览器端 Tauri mock 数据。
 - Zed Tailwind IntelliSense 可放在本地 `.zed/settings.json`；该目录被 git 忽略，不作为共享项目配置提交。
 
 ### 测试
@@ -268,6 +269,7 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - `uv run pnpm lint`：前端 lint。
 - `uv run pnpm build`：前端构建。
 - `uv run pnpm --filter @modforge/desktop test`：前端测试。
+- `uv run pnpm --filter @modforge/desktop test:launcher-drag`：针对 Launcher library 拖拽交互运行 Playwright 性能验证；默认目标为 `http://127.0.0.1:5175/?mfLauncherMock=1`，可用 `MODFORGE_LAUNCHER_DRAG_URL` 覆盖。
 - `uv run cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`：格式化 Rust 后端。
 - `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 检查。
 - `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 测试。

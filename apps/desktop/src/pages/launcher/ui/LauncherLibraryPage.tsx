@@ -1,9 +1,22 @@
-import type { DragEvent } from 'react'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createContext,
+  Fragment,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
 import {
   ChevronDown,
   Folder,
   FolderArchive,
+  FolderPlus,
   FolderOpen,
   LayoutGrid,
   Menu,
@@ -39,10 +52,12 @@ import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
 import { useLauncherImage } from '@features/launcher/model/imageLoader'
+import { buildChildModLookup, buildParentModLookup } from '@features/launcher/model/childModRelations'
 import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type {
   LauncherLibraryItem,
   LauncherPackPreset,
+  LauncherVirtualFolder,
   LauncherSettingsDraft,
   QueueLauncherDownloadInput,
 } from '@features/launcher/model/types'
@@ -51,6 +66,11 @@ import { LauncherArchiveInstallDialog } from '@features/launcher/ui/shared/Launc
 import { LauncherInstallBackupsDialog } from '@features/launcher/ui/shared/LauncherInstallBackupsDialog'
 import { LauncherInstallSummaryDialog } from '@features/launcher/ui/shared/LauncherInstallSummaryDialog'
 import { LauncherStateBlock } from '@features/launcher/ui/shared/LauncherStateBlock'
+import {
+  LauncherChildModsDialogs,
+  type LauncherChildModManagerState,
+  type LauncherChildModPickerState,
+} from '@features/launcher/ui/shared/LauncherChildModsDialogs'
 import { LauncherModCard } from '@features/launcher/ui/cards/LauncherModCard'
 import { LauncherModDetailPanel } from '@features/launcher/ui/cards/LauncherModDetailPanel'
 
@@ -80,6 +100,13 @@ type GalleryCoverDialogState = {
   selectedImageUrl: string
   applying: boolean
 }
+type LauncherLibraryDisplayItem =
+  | { kind: 'mod'; mod: LauncherLibraryItem; childMods: LauncherLibraryItem[]; isChild: false }
+  | { kind: 'child'; mod: LauncherLibraryItem; parentMod: LauncherLibraryItem }
+  | { kind: 'folder'; folder: LauncherVirtualFolder; mods: LauncherLibraryItem[]; childFolders: LauncherVirtualFolder[] }
+type LauncherFolderPreviewItem =
+  | { kind: 'mod'; id: string; title: string; imageUrl: string | null }
+  | { kind: 'folder'; id: string; title: string }
 
 type DroppedArchivePaths = {
   supportedPaths: string[]
@@ -89,6 +116,64 @@ type DroppedArchivePaths = {
 
 const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-gallery-loading'
 const LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS = 15_000
+const LAUNCHER_LIBRARY_PARENT_DROP_PREFIX = 'launcher-parent:'
+const LAUNCHER_LIBRARY_PACK_DROP_PREFIX = 'launcher-pack:'
+const LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX = 'launcher-folder:'
+const LAUNCHER_LIBRARY_BLANK_DROP_ID = 'launcher-library-blank'
+const LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX = 'launcher-folder-blank:'
+const LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE = 'data-launcher-parent-drop-id'
+const LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX = 2
+const LAUNCHER_LIBRARY_BOX_SELECTING_CLASS = 'launcher-library-draggable-card-box-selecting'
+
+type LauncherPointerDragSource =
+  | {
+      kind: 'mod'
+      modId: string
+      title: string
+      meta: string
+      imageUrl: string | null
+      previewImageUrl: string | null
+      enabled: boolean
+      originFolderId: string | null
+      originParentId: string | null
+    }
+  | {
+      kind: 'folder'
+      folderId: string
+      title: string
+      previewItems: LauncherFolderPreviewItem[]
+    }
+
+type LauncherPointerDragContextValue = {
+  startPointerDrag: (source: LauncherPointerDragSource, event: PointerEvent<HTMLElement>) => void
+  suppressClickAfterDrag: (event: MouseEvent<HTMLElement>) => void
+}
+
+const LauncherPointerDragContext = createContext<LauncherPointerDragContextValue | null>(null)
+
+type LauncherBoxSelectionCardRect = {
+  id: string
+  element: HTMLElement
+  rect: {
+    left: number
+    top: number
+    right: number
+    bottom: number
+  }
+}
+
+type LauncherBoxSelectionState = {
+  startX: number
+  startY: number
+  started: boolean
+  latestX: number
+  latestY: number
+  animationFrame: number | null
+  cardRects: LauncherBoxSelectionCardRect[]
+  selectedIds: string[]
+  highlightedElements: HTMLElement[]
+  rectVisible: boolean
+}
 
 const shortenLibraryPath = (value: string | null | undefined) => {
   if (!value) {
@@ -197,22 +282,66 @@ function getPackModIds(pack: LauncherPackPreset | null, mods: LauncherLibraryIte
 }
 
 type VirtualizedLauncherGridProps = {
-  items: LauncherLibraryItem[]
+  items: LauncherLibraryDisplayItem[]
+  blankDropId?: string
+  openFolder?: LauncherVirtualFolder | null
+  openFolderItems?: LauncherLibraryDisplayItem[]
   latestVersionByModId?: Record<number, string>
   editMode: boolean
   editingSelectionIds: string[]
+  boxSelectionIds: string[]
   noneLabel: string
-  onDragStart: (modId: string, event: DragEvent<HTMLElement>) => void
-  onDragEnd: () => void
+  childCountLabel: (count: number) => string
+  expandLabel: (name: string) => string
+  collapseLabel: (name: string) => string
+  folderCountLabel: (count: number) => string
+  openFolderLabel: (name: string) => string
+  closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
+  onBoxSelectionChange: (modIds: string[]) => void
+  onToggleParentExpanded: (modId: string) => void
+  isParentExpanded: (modId: string) => boolean
   onOpenModDetails: (modId: string) => void
   onOpenModFolder: (mod: LauncherLibraryItem) => void
+  onOpenLibraryFolder: (folderId: string) => void
+  onCloseLibraryFolder?: () => void
   getContextActions: (mod: LauncherLibraryItem) => { label: string; onSelect: () => void }[] | undefined
 }
 
 const MAX_LIBRARY_REVEAL_BATCH_SIZE = 4
 const TARGET_LIBRARY_REVEAL_WAVES = 4
 const FALLBACK_LIBRARY_REVEAL_BATCH_SIZE = 2
+
+function getLauncherFolderIdFromBlankDropId(blankDropId: string) {
+  return blankDropId.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)
+    ? blankDropId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
+    : null
+}
+
+function buildLauncherFolderPreviewItems(mods: LauncherLibraryItem[], childFolders: LauncherVirtualFolder[]): LauncherFolderPreviewItem[] {
+  const previewMods = mods.slice(0, 4).map<LauncherFolderPreviewItem>((mod) => ({
+    kind: 'mod',
+    id: mod.id,
+    title: mod.name,
+    imageUrl: mod.imageUrl,
+  }))
+  const remainingPreviewSlots = Math.max(0, 4 - previewMods.length)
+  const previewFolders = childFolders.slice(0, remainingPreviewSlots).map<LauncherFolderPreviewItem>((childFolder) => ({
+    kind: 'folder',
+    id: childFolder.id,
+    title: childFolder.name,
+  }))
+  return [...previewMods, ...previewFolders]
+}
+
+function getLauncherFolderTone(folderId: string) {
+  const tones = ['blue', 'teal', 'amber', 'rose', 'violet', 'slate'] as const
+  let hash = 0
+  for (const character of folderId) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0
+  }
+  return tones[hash % tones.length]
+}
 
 function clampLibraryRevealBatchSize(value: number, itemCount: number) {
   if (itemCount <= 0) return 1
@@ -243,17 +372,144 @@ function computeLibraryRevealBatchSize({
   return clampLibraryRevealBatchSize(Math.ceil(visibleItemCount / TARGET_LIBRARY_REVEAL_WAVES), itemCount)
 }
 
+function startLauncherGrabPending(event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>, disabled = false) {
+  if (event.button !== 0 || disabled) {
+    return
+  }
+
+  const node = event.currentTarget
+  if (node.classList.contains('launcher-library-card-grab-pending')) {
+    return
+  }
+
+  node.classList.add('launcher-library-card-grab-pending')
+  const clearGrabPending = () => {
+    node.classList.remove('launcher-library-card-grab-pending')
+    window.removeEventListener('pointerup', clearGrabPending)
+    window.removeEventListener('pointercancel', clearGrabPending)
+    window.removeEventListener('mouseup', clearGrabPending)
+    window.removeEventListener('blur', clearGrabPending)
+  }
+
+  window.addEventListener('pointerup', clearGrabPending)
+  window.addEventListener('pointercancel', clearGrabPending)
+  window.addEventListener('mouseup', clearGrabPending)
+  window.addEventListener('blur', clearGrabPending)
+}
+
+function getLauncherDropIdFromPoint(clientX: number, clientY: number) {
+  if (typeof document === 'undefined' || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+    return null
+  }
+
+  const elementsFromPoint =
+    typeof document.elementsFromPoint === 'function'
+      ? document.elementsFromPoint(clientX, clientY)
+      : Array.from(
+          document.querySelectorAll<HTMLElement>(
+            '[data-launcher-folder-drop-id], [data-launcher-pack-drop-id], [data-launcher-parent-drop-id], [data-launcher-blank-drop-id]',
+          ),
+        ).filter((element) => {
+          const rect = element.getBoundingClientRect()
+          return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+        })
+
+  for (const element of elementsFromPoint) {
+    const folderId = element instanceof HTMLElement ? element.getAttribute('data-launcher-folder-drop-id') : null
+    if (folderId) {
+      return `${LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX}${folderId}`
+    }
+
+    const packId = element instanceof HTMLElement ? element.getAttribute('data-launcher-pack-drop-id') : null
+    if (packId) {
+      return `${LAUNCHER_LIBRARY_PACK_DROP_PREFIX}${packId}`
+    }
+
+    const parentId = element instanceof HTMLElement ? element.getAttribute(LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE) : null
+    if (parentId) {
+      return `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}${parentId}`
+    }
+  }
+
+  for (const element of elementsFromPoint) {
+    const blankId = element instanceof HTMLElement ? element.getAttribute('data-launcher-blank-drop-id') : null
+    if (blankId) {
+      return blankId
+    }
+  }
+
+  return null
+}
+
+function getLauncherBlankDropIdFromPoint(clientX: number, clientY: number) {
+  if (typeof document === 'undefined' || !Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+    return null
+  }
+
+  const elementsFromPoint =
+    typeof document.elementsFromPoint === 'function'
+      ? document.elementsFromPoint(clientX, clientY)
+      : Array.from(document.querySelectorAll<HTMLElement>('[data-launcher-blank-drop-id]')).filter((element) => {
+          const rect = element.getBoundingClientRect()
+          return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+        })
+
+  for (const element of elementsFromPoint) {
+    const blankId = element instanceof HTMLElement ? element.getAttribute('data-launcher-blank-drop-id') : null
+    if (blankId) {
+      return blankId
+    }
+  }
+
+  return null
+}
+
+function rectsIntersect(
+  left: { left: number; top: number; right: number; bottom: number },
+  right: { left: number; top: number; right: number; bottom: number },
+) {
+  return left.left < right.right && left.right > right.left && left.top < right.bottom && left.bottom > right.top
+}
+
+function buildLauncherBoxSelectionRect(startX: number, startY: number, currentX: number, currentY: number) {
+  const left = Math.min(startX, currentX)
+  const top = Math.min(startY, currentY)
+  const width = Math.abs(currentX - startX)
+  const height = Math.abs(currentY - startY)
+  return {
+    left,
+    top,
+    right: left + width,
+    bottom: top + height,
+    width,
+    height,
+  }
+}
+
 const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   items,
+  blankDropId = LAUNCHER_LIBRARY_BLANK_DROP_ID,
+  openFolder = null,
+  openFolderItems = [],
   latestVersionByModId = {},
   editMode,
   editingSelectionIds,
+  boxSelectionIds,
   noneLabel,
-  onDragStart,
-  onDragEnd,
+  childCountLabel,
+  expandLabel,
+  collapseLabel,
+  folderCountLabel,
+  openFolderLabel,
+  closeFolderLabel,
   onToggleSelection,
+  onBoxSelectionChange,
+  onToggleParentExpanded,
+  isParentExpanded,
   onOpenModDetails,
   onOpenModFolder,
+  onOpenLibraryFolder,
+  onCloseLibraryFolder,
   getContextActions,
 }: VirtualizedLauncherGridProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null)
@@ -261,7 +517,203 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const [revealBatchSize, setRevealBatchSize] = useState(() =>
     clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length),
   )
-  const selectedIdLookup = useMemo(() => new Set(editingSelectionIds), [editingSelectionIds])
+  const selectedIdLookup = useMemo(
+    () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
+    [boxSelectionIds, editMode, editingSelectionIds],
+  )
+  const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
+  const boxSelectionVisualRef = useRef<HTMLSpanElement | null>(null)
+  const boxSelectRef = useRef<LauncherBoxSelectionState | null>(null)
+  const originFolderId = getLauncherFolderIdFromBlankDropId(blankDropId)
+
+  const clearBoxSelectionHighlights = useCallback((boxSelect: LauncherBoxSelectionState | null) => {
+    if (!boxSelect) {
+      return
+    }
+    for (const element of boxSelect.highlightedElements) {
+      element.classList.remove(LAUNCHER_LIBRARY_BOX_SELECTING_CLASS)
+    }
+    boxSelect.highlightedElements = []
+  }, [])
+
+  const updateBoxSelection = useCallback((clientX: number, clientY: number, options?: { measureCards?: boolean }) => {
+    const boxSelect = boxSelectRef.current
+    const viewport = viewportRef.current
+    const grid = gridRef.current
+    if (!boxSelect || !viewport || !grid) {
+      return
+    }
+
+    const selectionRect = buildLauncherBoxSelectionRect(boxSelect.startX, boxSelect.startY, clientX, clientY)
+    const viewportRect = viewport.getBoundingClientRect()
+    const visualRect = {
+      left: selectionRect.left - viewportRect.left + viewport.scrollLeft,
+      top: selectionRect.top - viewportRect.top + viewport.scrollTop,
+      width: selectionRect.width,
+      height: selectionRect.height,
+    }
+    let visual = boxSelectionVisualRef.current
+    if (!visual) {
+      visual = document.createElement('span')
+      visual.className = 'launcher-library-box-select'
+      visual.dataset.testid = 'launcher-library-box-select'
+      visual.setAttribute('aria-hidden', 'true')
+      viewport.appendChild(visual)
+      boxSelectionVisualRef.current = visual
+      boxSelect.rectVisible = true
+    }
+    visual.style.left = `${visualRect.left}px`
+    visual.style.top = `${visualRect.top}px`
+    visual.style.width = `${visualRect.width}px`
+    visual.style.height = `${visualRect.height}px`
+
+    if (options?.measureCards || boxSelect.cardRects.length === 0) {
+      boxSelect.cardRects = Array.from(grid.querySelectorAll<HTMLElement>('[data-launcher-mod-card-id]'))
+        .map((element) => {
+          const id = element.getAttribute('data-launcher-mod-card-id')
+          if (!id) {
+            return null
+          }
+          const rect = element.getBoundingClientRect()
+          return {
+            id,
+            element,
+            rect: {
+              left: rect.left,
+              top: rect.top,
+              right: rect.right,
+              bottom: rect.bottom,
+            },
+          }
+        })
+        .filter((value): value is LauncherBoxSelectionCardRect => Boolean(value))
+    }
+
+    const selectedCards = boxSelect.cardRects.filter((card) => rectsIntersect(selectionRect, card.rect))
+    boxSelect.selectedIds = selectedCards.map((card) => card.id)
+    const nextElements = selectedCards.map((card) => card.element)
+    const nextElementSet = new Set(nextElements)
+    for (const element of boxSelect.highlightedElements) {
+      if (!nextElementSet.has(element)) {
+        element.classList.remove(LAUNCHER_LIBRARY_BOX_SELECTING_CLASS)
+      }
+    }
+    for (const element of nextElements) {
+      element.classList.add(LAUNCHER_LIBRARY_BOX_SELECTING_CLASS)
+    }
+    boxSelect.highlightedElements = nextElements
+  }, [])
+
+  const finishBoxSelection = useCallback(() => {
+    const boxSelect = boxSelectRef.current
+    if (boxSelect?.animationFrame != null) {
+      window.cancelAnimationFrame(boxSelect.animationFrame)
+    }
+    clearBoxSelectionHighlights(boxSelect)
+    boxSelectRef.current = null
+    boxSelectionVisualRef.current?.remove()
+    boxSelectionVisualRef.current = null
+  }, [clearBoxSelectionHighlights])
+
+  const scheduleBoxSelectionUpdate = useCallback(
+    (clientX: number, clientY: number) => {
+      const boxSelect = boxSelectRef.current
+      if (!boxSelect) {
+        return
+      }
+      boxSelect.latestX = clientX
+      boxSelect.latestY = clientY
+      if (boxSelect.animationFrame != null) {
+        return
+      }
+      boxSelect.animationFrame = window.requestAnimationFrame(() => {
+        const current = boxSelectRef.current
+        if (!current) {
+          return
+        }
+        current.animationFrame = null
+        updateBoxSelection(current.latestX, current.latestY)
+      })
+    },
+    [updateBoxSelection],
+  )
+
+  const handleBoxSelectionPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (editMode || event.button !== 0 || (event.pointerType === 'mouse' && event.buttons !== 1)) {
+        return
+      }
+      const target = event.target
+      if (!(target instanceof HTMLElement) || target.closest('.launcher-library-draggable-card')) {
+        return
+      }
+      boxSelectRef.current = {
+        startX: event.clientX,
+        startY: event.clientY,
+        started: false,
+        latestX: event.clientX,
+        latestY: event.clientY,
+        animationFrame: null,
+        cardRects: [],
+        selectedIds: [],
+        highlightedElements: [],
+        rectVisible: false,
+      }
+      event.currentTarget.setPointerCapture?.(event.pointerId)
+    },
+    [editMode],
+  )
+
+  useEffect(() => {
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const boxSelect = boxSelectRef.current
+      if (!boxSelect) {
+        return
+      }
+      const distance = Math.hypot(event.clientX - boxSelect.startX, event.clientY - boxSelect.startY)
+      if (!boxSelect.started) {
+        if (distance < LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX) {
+          return
+        }
+        boxSelect.started = true
+        updateBoxSelection(event.clientX, event.clientY, { measureCards: true })
+        event.preventDefault()
+        return
+      }
+      scheduleBoxSelectionUpdate(event.clientX, event.clientY)
+      event.preventDefault()
+    }
+    const handlePointerUp = (event: globalThis.PointerEvent) => {
+      if (!boxSelectRef.current) {
+        return
+      }
+      if (!boxSelectRef.current.started) {
+        onBoxSelectionChange([])
+      } else {
+        if (boxSelectRef.current.animationFrame != null) {
+          window.cancelAnimationFrame(boxSelectRef.current.animationFrame)
+          boxSelectRef.current.animationFrame = null
+        }
+        updateBoxSelection(event.clientX, event.clientY)
+        onBoxSelectionChange(boxSelectRef.current.selectedIds)
+      }
+      finishBoxSelection()
+    }
+    const handlePointerCancel = () => {
+      finishBoxSelection()
+    }
+    window.addEventListener('pointermove', handlePointerMove, { passive: false })
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    window.addEventListener('blur', handlePointerCancel)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+      window.removeEventListener('blur', handlePointerCancel)
+      finishBoxSelection()
+    }
+  }, [finishBoxSelection, onBoxSelectionChange, scheduleBoxSelectionUpdate, updateBoxSelection])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -300,35 +752,654 @@ const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   }, [items.length])
 
   return (
-    <div ref={viewportRef} className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}>
+    <div
+      ref={(node) => {
+        viewportRef.current = node
+      }}
+      className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}
+      data-launcher-blank-drop-id={blankDropId}
+      onPointerDownCapture={handleBoxSelectionPointerDown}
+    >
       <div ref={gridRef} className="launcher-library-grid">
-        {items.map((item, index) => (
-          <LoadingMotionRevealItem key={item.id} index={Math.floor(index / revealBatchSize) + 3} className="launcher-library-grid-reveal">
-            <LauncherModCard
-              title={item.name}
-              titleTooltip={item.name}
-              meta={buildLibraryCardMeta(item, noneLabel)}
-              author={item.author}
-              version={item.version}
-              latestVersion={item.nexusModId == null ? null : latestVersionByModId[item.nexusModId]}
-              imageUrl={item.imageUrl}
-              enabled={item.enabled}
-              draggable
-              onDragStart={(event) => onDragStart(item.id, event)}
-              onDragEnd={onDragEnd}
-              selectionMode={editMode}
-              selected={selectedIdLookup.has(item.id)}
-              onSelect={editMode ? () => onToggleSelection(item.id) : undefined}
-              onOpenDetails={editMode ? undefined : () => onOpenModDetails(item.id)}
-              onOpenDirectTarget={editMode ? undefined : () => onOpenModFolder(item)}
-              contextActions={editMode ? undefined : getContextActions(item)}
-            />
-          </LoadingMotionRevealItem>
-        ))}
+        {items.map((displayItem, index) => {
+          if (displayItem.kind === 'folder') {
+            const folderOpen = openFolder?.id === displayItem.folder.id
+            return (
+              <Fragment key={`folder-group-${displayItem.folder.id}`}>
+                {!folderOpen ? (
+                  <LoadingMotionRevealItem
+                    key={`folder-${displayItem.folder.id}`}
+                    index={Math.floor(index / revealBatchSize) + 3}
+                    className="launcher-library-grid-reveal"
+                  >
+                    <DraggableLauncherFolderCard
+                      folder={displayItem.folder}
+                      mods={displayItem.mods}
+                      childFolders={displayItem.childFolders}
+                      countLabel={folderCountLabel(displayItem.mods.length + displayItem.childFolders.length)}
+                      openLabel={openFolderLabel(displayItem.folder.name)}
+                      onOpen={() => onOpenLibraryFolder(displayItem.folder.id)}
+                    />
+                  </LoadingMotionRevealItem>
+                ) : (
+                  <LauncherLibraryFolderPanel
+                    folder={displayItem.folder}
+                    items={openFolderItems}
+                    blankDropId={`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}${displayItem.folder.id}`}
+                    latestVersionByModId={latestVersionByModId}
+                    editMode={editMode}
+                    editingSelectionIds={editingSelectionIds}
+                    boxSelectionIds={boxSelectionIds}
+                    noneLabel={noneLabel}
+                    childCountLabel={childCountLabel}
+                    expandLabel={expandLabel}
+                    collapseLabel={collapseLabel}
+                    folderCountLabel={folderCountLabel}
+                    openFolderLabel={openFolderLabel}
+                    closeFolderLabel={closeFolderLabel}
+                    onToggleSelection={onToggleSelection}
+                    onBoxSelectionChange={onBoxSelectionChange}
+                    onToggleParentExpanded={onToggleParentExpanded}
+                    isParentExpanded={isParentExpanded}
+                    onOpenModDetails={onOpenModDetails}
+                    onOpenModFolder={onOpenModFolder}
+                    onOpenLibraryFolder={onOpenLibraryFolder}
+                    onCloseLibraryFolder={onCloseLibraryFolder}
+                    getContextActions={getContextActions}
+                  />
+                )}
+              </Fragment>
+            )
+          }
+          const item = displayItem.mod
+          const childCount = displayItem.kind === 'mod' ? displayItem.childMods.length : 0
+          const expanded = childCount > 0 && isParentExpanded(item.id)
+          return (
+            <LoadingMotionRevealItem
+              key={`${displayItem.kind}-${item.id}`}
+              index={Math.floor(index / revealBatchSize) + 3}
+              className={cx('launcher-library-grid-reveal', displayItem.kind === 'child' && 'launcher-library-grid-reveal-child')}
+            >
+              {displayItem.kind === 'child' ? <span className="launcher-library-child-branch" aria-hidden="true" /> : null}
+              <DraggableLauncherLibraryCard
+                item={item}
+                noneLabel={noneLabel}
+                latestVersionByModId={latestVersionByModId}
+                dropTarget={false}
+                boxSelected={boxSelectionIdLookup.has(item.id)}
+                originFolderId={originFolderId}
+                originParentId={displayItem.kind === 'child' ? displayItem.parentMod.id : null}
+                selectionMode={editMode}
+                selected={selectedIdLookup.has(item.id)}
+                childCount={childCount}
+                childCountLabel={childCount ? childCountLabel(childCount) : undefined}
+                expanded={expanded}
+                expandLabel={childCount ? expandLabel(item.name) : undefined}
+                collapseLabel={childCount ? collapseLabel(item.name) : undefined}
+                onToggleExpanded={childCount ? () => onToggleParentExpanded(item.id) : undefined}
+                onSelect={editMode ? () => onToggleSelection(item.id) : undefined}
+                onOpenDetails={editMode ? undefined : () => onOpenModDetails(item.id)}
+                onOpenDirectTarget={editMode ? undefined : () => onOpenModFolder(item)}
+                contextActions={editMode ? undefined : getContextActions(item)}
+              />
+            </LoadingMotionRevealItem>
+          )
+        })}
       </div>
     </div>
   )
 })
+
+function DraggableLauncherLibraryCard({
+  item,
+  noneLabel,
+  latestVersionByModId,
+  dropTarget,
+  boxSelected,
+  originFolderId,
+  originParentId,
+  selectionMode,
+  selected,
+  childCount,
+  childCountLabel,
+  expanded,
+  expandLabel,
+  collapseLabel,
+  onToggleExpanded,
+  onSelect,
+  onOpenDetails,
+  onOpenDirectTarget,
+  contextActions,
+}: {
+  item: LauncherLibraryItem
+  noneLabel: string
+  latestVersionByModId: Record<number, string>
+  dropTarget: boolean
+  boxSelected: boolean
+  originFolderId: string | null
+  originParentId: string | null
+  selectionMode: boolean
+  selected: boolean
+  childCount: number
+  childCountLabel?: string
+  expanded: boolean
+  expandLabel?: string
+  collapseLabel?: string
+  onToggleExpanded?: () => void
+  onSelect?: () => void
+  onOpenDetails?: () => void
+  onOpenDirectTarget?: () => void
+  contextActions?: { label: string; onSelect: () => void }[]
+}) {
+  const pointerDrag = useContext(LauncherPointerDragContext)
+  const cover = useLauncherImage(item.imageUrl)
+  const meta = buildLibraryCardMeta(item, noneLabel)
+  return (
+    <div
+      className={cx('launcher-library-draggable-card', boxSelected && 'launcher-library-draggable-card-box-selected')}
+      data-launcher-mod-card-id={item.id}
+      {...(!selectionMode ? { [LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE]: item.id } : {})}
+      onMouseDownCapture={(event) => startLauncherGrabPending(event, selectionMode)}
+      onPointerDownCapture={(event) => {
+        startLauncherGrabPending(event, selectionMode)
+        pointerDrag?.startPointerDrag(
+          {
+            kind: 'mod',
+            modId: item.id,
+            title: item.name,
+            meta,
+            imageUrl: item.imageUrl,
+            previewImageUrl: cover.imageUrl,
+            enabled: item.enabled,
+            originFolderId,
+            originParentId,
+          },
+          event,
+        )
+      }}
+      onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
+    >
+      <LauncherModCard
+        title={item.name}
+        titleTooltip={item.name}
+        meta={meta}
+        author={item.author}
+        version={item.version}
+        latestVersion={item.nexusModId == null ? null : latestVersionByModId[item.nexusModId]}
+        imageUrl={item.imageUrl}
+        enabled={item.enabled}
+        dropTarget={dropTarget}
+        selectionMode={selectionMode}
+        selected={selected || boxSelected}
+        childCount={childCount}
+        childCountLabel={childCountLabel}
+        expanded={expanded}
+        expandLabel={expandLabel}
+        collapseLabel={collapseLabel}
+        onToggleExpanded={onToggleExpanded}
+        onSelect={onSelect}
+        onOpenDetails={onOpenDetails}
+        onOpenDirectTarget={onOpenDirectTarget}
+        contextActions={contextActions}
+      />
+    </div>
+  )
+}
+
+function DraggableLauncherFolderCard({
+  folder,
+  mods,
+  childFolders,
+  countLabel,
+  openLabel,
+  onOpen,
+}: {
+  folder: LauncherVirtualFolder
+  mods: LauncherLibraryItem[]
+  childFolders: LauncherVirtualFolder[]
+  countLabel: string
+  openLabel: string
+  onOpen: () => void
+}) {
+  const pointerDrag = useContext(LauncherPointerDragContext)
+  const previewItems = buildLauncherFolderPreviewItems(mods, childFolders)
+  const previewCount = Math.min(4, previewItems.length)
+  const previewKind = previewCount === 1 ? previewItems[0]?.kind : previewCount === 0 ? 'empty' : 'mixed'
+  const emptyPreviewItems = Array.from({ length: 4 }, (_, index) => index)
+  const tone = getLauncherFolderTone(folder.id)
+
+  return (
+    <button
+      type="button"
+      className="launcher-library-folder-card launcher-library-draggable-card"
+      data-folder-tone={tone}
+      aria-label={openLabel}
+      data-launcher-folder-drop-id={folder.id}
+      onMouseDownCapture={startLauncherGrabPending}
+      onPointerDownCapture={(event) => {
+        startLauncherGrabPending(event)
+        pointerDrag?.startPointerDrag({ kind: 'folder', folderId: folder.id, title: folder.name, previewItems }, event)
+      }}
+      onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
+      onClick={onOpen}
+    >
+      <div className="launcher-library-folder-visual" aria-hidden="true">
+        {previewCount === 0 ? (
+          <span className="launcher-library-folder-preview-shell">
+            <span className="launcher-library-folder-preview" data-preview-count={previewCount} data-preview-kind={previewKind}>
+              {emptyPreviewItems.map((index) => (
+                <span
+                  key={`placeholder-${index}`}
+                  className="launcher-library-folder-preview-item launcher-library-folder-preview-placeholder"
+                />
+              ))}
+            </span>
+          </span>
+        ) : (
+          <span className="launcher-library-folder-preview" data-preview-count={previewCount} data-preview-kind={previewKind}>
+            {previewItems.map((item) => (
+              <LauncherFolderPreviewModItem key={item.id} item={item} />
+            ))}
+          </span>
+        )}
+      </div>
+      <span className="launcher-library-folder-card-name">{folder.name}</span>
+      <span className="launcher-library-folder-card-count">{countLabel}</span>
+    </button>
+  )
+}
+
+function LauncherFolderPreviewModItem({ item }: { item: LauncherFolderPreviewItem }) {
+  const image = useLauncherImage(item.kind === 'mod' ? item.imageUrl : null)
+  const fallbackLabel = item.title.slice(0, 1).toUpperCase()
+
+  if (item.kind === 'mod') {
+    return (
+      <span className="launcher-library-folder-preview-item">
+        {image.imageUrl ? <img src={image.imageUrl} alt="" draggable={false} /> : <span>{fallbackLabel}</span>}
+      </span>
+    )
+  }
+
+  return (
+    <span className="launcher-library-folder-preview-item launcher-library-folder-preview-folder">
+      <Folder className="h-3.5 w-3.5" />
+    </span>
+  )
+}
+
+function LauncherLibraryFolderPanel({
+  folder,
+  items,
+  blankDropId,
+  latestVersionByModId,
+  editMode,
+  editingSelectionIds,
+  boxSelectionIds,
+  noneLabel,
+  childCountLabel,
+  expandLabel,
+  collapseLabel,
+  folderCountLabel,
+  openFolderLabel,
+  closeFolderLabel,
+  onToggleSelection,
+  onBoxSelectionChange,
+  onToggleParentExpanded,
+  isParentExpanded,
+  onOpenModDetails,
+  onOpenModFolder,
+  onOpenLibraryFolder,
+  onCloseLibraryFolder,
+  getContextActions,
+}: {
+  folder: LauncherVirtualFolder
+  items: LauncherLibraryDisplayItem[]
+  blankDropId: string
+  latestVersionByModId: Record<number, string>
+  editMode: boolean
+  editingSelectionIds: string[]
+  boxSelectionIds: string[]
+  noneLabel: string
+  childCountLabel: (count: number) => string
+  expandLabel: (name: string) => string
+  collapseLabel: (name: string) => string
+  folderCountLabel: (count: number) => string
+  openFolderLabel: (name: string) => string
+  closeFolderLabel?: string
+  onToggleSelection: (modId: string) => void
+  onBoxSelectionChange: (modIds: string[]) => void
+  onToggleParentExpanded: (modId: string) => void
+  isParentExpanded: (modId: string) => boolean
+  onOpenModDetails: (modId: string) => void
+  onOpenModFolder: (mod: LauncherLibraryItem) => void
+  onOpenLibraryFolder: (folderId: string) => void
+  onCloseLibraryFolder?: () => void
+  getContextActions: (mod: LauncherLibraryItem) => { label: string; onSelect: () => void }[] | undefined
+}) {
+  return (
+    <section className="launcher-library-folder-panel" role="region" aria-label={folder.name}>
+      <div className="launcher-library-folder-panel-header">
+        <div>
+          <h2 className="launcher-library-folder-panel-title">{folder.name}</h2>
+          <p className="launcher-library-folder-panel-count">{folderCountLabel(items.length)}</p>
+        </div>
+        {onCloseLibraryFolder ? (
+          <button
+            type="button"
+            className="launcher-library-icon-button"
+            aria-label={closeFolderLabel}
+            title={closeFolderLabel}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              onCloseLibraryFolder()
+            }}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      <VirtualizedLauncherGrid
+        items={items}
+        blankDropId={blankDropId}
+        latestVersionByModId={latestVersionByModId}
+        editMode={editMode}
+        editingSelectionIds={editingSelectionIds}
+        boxSelectionIds={boxSelectionIds}
+        noneLabel={noneLabel}
+        childCountLabel={childCountLabel}
+        expandLabel={expandLabel}
+        collapseLabel={collapseLabel}
+        folderCountLabel={folderCountLabel}
+        openFolderLabel={openFolderLabel}
+        closeFolderLabel={closeFolderLabel}
+        onToggleSelection={onToggleSelection}
+        onBoxSelectionChange={onBoxSelectionChange}
+        onToggleParentExpanded={onToggleParentExpanded}
+        isParentExpanded={isParentExpanded}
+        onOpenModDetails={onOpenModDetails}
+        onOpenModFolder={onOpenModFolder}
+        onOpenLibraryFolder={onOpenLibraryFolder}
+        onCloseLibraryFolder={onCloseLibraryFolder}
+        getContextActions={getContextActions}
+      />
+    </section>
+  )
+}
+
+function DroppableLauncherPackRow({ pack, children }: { pack: LauncherPackPreset; children: (isDropTarget: boolean) => ReactNode }) {
+  return (
+    <div className="launcher-library-pack-drop-zone" data-launcher-pack-drop-id={pack.id}>
+      {children(false)}
+    </div>
+  )
+}
+
+function createLauncherPointerDragPreview(source: LauncherPointerDragSource, count: number) {
+  const preview = document.createElement('div')
+  preview.className = 'launcher-library-drag-preview launcher-library-pointer-drag-preview'
+  preview.setAttribute('data-testid', 'launcher-library-drag-preview')
+  preview.setAttribute('aria-hidden', 'true')
+
+  if (source.kind === 'folder') {
+    preview.classList.add('launcher-library-folder-drag-preview')
+    const icon = document.createElement('span')
+    icon.className = 'launcher-library-folder-drag-preview-grid'
+    const previewItems = source.previewItems.slice(0, 4)
+    icon.dataset.previewCount = String(previewItems.length)
+    icon.dataset.previewKind = previewItems.length === 1 ? previewItems[0]?.kind : previewItems.length === 0 ? 'empty' : 'mixed'
+    for (const item of previewItems) {
+      const tile = document.createElement('span')
+      tile.className = cx(
+        'launcher-library-folder-drag-preview-tile',
+        item.kind === 'folder' && 'launcher-library-folder-drag-preview-folder-tile',
+      )
+      if (item.kind === 'mod' && item.imageUrl) {
+        const image = document.createElement('img')
+        image.src = item.imageUrl
+        image.alt = ''
+        image.draggable = false
+        tile.append(image)
+      } else if (item.kind === 'folder') {
+        const folderGlyph = document.createElement('span')
+        folderGlyph.className = 'launcher-library-folder-drag-preview-folder-glyph'
+        tile.append(folderGlyph)
+      } else {
+        tile.textContent = item.title.slice(0, 1).toUpperCase()
+      }
+      icon.append(tile)
+    }
+    if (!previewItems.length) {
+      for (let index = 0; index < 4; index += 1) {
+        const placeholder = document.createElement('span')
+        placeholder.className = 'launcher-library-folder-drag-preview-tile launcher-library-folder-drag-preview-placeholder'
+        icon.append(placeholder)
+      }
+    }
+    const label = document.createElement('span')
+    label.textContent = source.title
+    preview.append(icon, label)
+    return preview
+  }
+
+  const card = document.createElement('div')
+  card.className = cx('launcher-library-mod-drag-preview-card', !source.enabled && 'launcher-library-mod-drag-preview-card-disabled')
+  if (source.previewImageUrl) {
+    const image = document.createElement('img')
+    image.src = source.previewImageUrl
+    image.alt = ''
+    image.draggable = false
+    card.append(image)
+  } else {
+    const fallback = document.createElement('span')
+    fallback.className = 'launcher-library-mod-drag-preview-fallback'
+    fallback.textContent = source.title.slice(0, 1).toUpperCase()
+    card.append(fallback)
+  }
+  const copy = document.createElement('span')
+  copy.className = 'launcher-library-mod-drag-preview-copy'
+  const title = document.createElement('strong')
+  title.textContent = source.title
+  const meta = document.createElement('span')
+  meta.textContent = source.meta
+  copy.append(title, meta)
+  card.append(copy)
+  preview.append(card)
+
+  if (count > 1) {
+    const countBadge = document.createElement('span')
+    countBadge.className = 'launcher-library-drag-preview-count'
+    countBadge.textContent = String(count)
+    preview.append(countBadge)
+  }
+
+  return preview
+}
+
+function positionLauncherPointerDragPreview(preview: HTMLElement, clientX: number, clientY: number) {
+  preview.style.transform = `translate3d(${clientX + 12}px, ${clientY + 12}px, 0)`
+}
+
+function LauncherLibraryDndScope({
+  children,
+  resolveDraggedModIds,
+  onAddModsToPack,
+  onAssignModsToParent,
+  onAssignModsToLibraryFolder,
+  onRemoveChildModsFromParent,
+  onRemoveModsFromLibraryFolders,
+  onReleaseModsFromLibraryFolder,
+  onMoveFolderToFolder,
+}: {
+  children: ReactNode
+  resolveDraggedModIds: (modId: string) => string[]
+  onAddModsToPack: (packId: string, modIds: string[]) => void
+  onAssignModsToParent: (parentModId: string, modIds: string[]) => void
+  onAssignModsToLibraryFolder: (folderId: string, modIds: string[]) => void
+  onRemoveChildModsFromParent: (modIds: string[]) => void
+  onRemoveModsFromLibraryFolders: (modIds: string[]) => void
+  onReleaseModsFromLibraryFolder: (modIds: string[]) => void
+  onMoveFolderToFolder: (folderId: string, parentFolderId: string | null) => void
+}) {
+  const activeDragRef = useRef<{
+    source: LauncherPointerDragSource
+    sourceElement: HTMLElement
+    startX: number
+    startY: number
+    started: boolean
+    preview: HTMLElement | null
+    modIds: string[]
+  } | null>(null)
+  const suppressClickRef = useRef<{ element: HTMLElement; expiresAt: number } | null>(null)
+
+  const finishPointerDrag = useCallback(
+    (clientX: number, clientY: number, cancelled = false) => {
+      const drag = activeDragRef.current
+      activeDragRef.current = null
+      drag?.preview?.remove()
+      if (!drag || cancelled || !drag.started) {
+        return
+      }
+      suppressClickRef.current = { element: drag.sourceElement, expiresAt: Date.now() + 500 }
+
+      const effectiveOverId = getLauncherDropIdFromPoint(clientX, clientY)
+      const modIds = drag.source.kind === 'mod' ? drag.modIds : []
+      const folderDragId = drag.source.kind === 'folder' ? drag.source.folderId : null
+      const originFolderId = drag.source.kind === 'mod' ? drag.source.originFolderId : null
+      const folderBlankId = modIds.length ? getLauncherBlankDropIdFromPoint(clientX, clientY) : null
+      const targetFolderBlankId = folderBlankId?.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)
+        ? folderBlankId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
+        : null
+      const targetDropFolderId = effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX)
+        ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX.length)
+        : effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)
+          ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
+          : null
+
+      if (modIds.length && targetFolderBlankId && targetFolderBlankId !== originFolderId) {
+        onAssignModsToLibraryFolder(targetFolderBlankId, modIds)
+      } else if (drag.source.kind === 'mod' && drag.source.originFolderId) {
+        onReleaseModsFromLibraryFolder(modIds)
+      } else if (drag.source.kind === 'mod' && drag.source.originParentId) {
+        onRemoveChildModsFromParent(modIds)
+      } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
+        onAddModsToPack(effectiveOverId.slice(LAUNCHER_LIBRARY_PACK_DROP_PREFIX.length), modIds)
+      } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
+        onAssignModsToParent(effectiveOverId.slice(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX.length), modIds)
+      } else if (modIds.length && targetDropFolderId) {
+        onAssignModsToLibraryFolder(targetDropFolderId, modIds)
+      } else if (modIds.length && effectiveOverId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
+        onRemoveChildModsFromParent(modIds)
+        onRemoveModsFromLibraryFolders(modIds)
+      } else if (folderDragId && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX)) {
+        const targetFolderId = effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX.length)
+        if (targetFolderId !== folderDragId) {
+          onMoveFolderToFolder(folderDragId, targetFolderId)
+        }
+      } else if (folderDragId && effectiveOverId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
+        onMoveFolderToFolder(folderDragId, null)
+      }
+    },
+    [
+      onAddModsToPack,
+      onAssignModsToLibraryFolder,
+      onAssignModsToParent,
+      onMoveFolderToFolder,
+      onRemoveChildModsFromParent,
+      onRemoveModsFromLibraryFolders,
+      onReleaseModsFromLibraryFolder,
+    ],
+  )
+
+  const suppressClickAfterDrag = useCallback((event: MouseEvent<HTMLElement>) => {
+    const suppressClick = suppressClickRef.current
+    if (!suppressClick || Date.now() > suppressClick.expiresAt) {
+      suppressClickRef.current = null
+      return
+    }
+    if (event.currentTarget !== suppressClick.element) {
+      return
+    }
+    suppressClickRef.current = null
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
+
+  const startPointerDrag = useCallback(
+    (source: LauncherPointerDragSource, event: PointerEvent<HTMLElement>) => {
+      if (event.button !== 0 || (event.pointerType === 'mouse' && event.buttons !== 1)) {
+        return
+      }
+      const modIds = source.kind === 'mod' ? resolveDraggedModIds(source.modId) : []
+      activeDragRef.current = {
+        source,
+        sourceElement: event.currentTarget,
+        startX: event.clientX,
+        startY: event.clientY,
+        started: false,
+        preview: null,
+        modIds,
+      }
+      event.currentTarget.setPointerCapture?.(event.pointerId)
+    },
+    [resolveDraggedModIds],
+  )
+
+  useEffect(() => {
+    const handleWindowBlur = () => finishPointerDrag(0, 0, true)
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const drag = activeDragRef.current
+      if (!drag) {
+        return
+      }
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY)
+      if (!drag.started) {
+        if (distance < LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX) {
+          return
+        }
+        drag.started = true
+        drag.preview = createLauncherPointerDragPreview(drag.source, drag.modIds.length)
+        document.body.append(drag.preview)
+      }
+      if (drag.preview) {
+        positionLauncherPointerDragPreview(drag.preview, event.clientX, event.clientY)
+      }
+      event.preventDefault()
+    }
+    const handlePointerUp = (event: globalThis.PointerEvent) => {
+      finishPointerDrag(event.clientX, event.clientY)
+    }
+    const handlePointerCancel = (event: globalThis.PointerEvent) => {
+      finishPointerDrag(event.clientX, event.clientY, true)
+    }
+    document.addEventListener('pointermove', handlePointerMove, { passive: false })
+    document.addEventListener('pointerup', handlePointerUp)
+    document.addEventListener('pointercancel', handlePointerCancel)
+    window.addEventListener('pointermove', handlePointerMove, { passive: false })
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    window.addEventListener('blur', handleWindowBlur)
+    return () => {
+      document.removeEventListener('pointermove', handlePointerMove)
+      document.removeEventListener('pointerup', handlePointerUp)
+      document.removeEventListener('pointercancel', handlePointerCancel)
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+      window.removeEventListener('blur', handleWindowBlur)
+      finishPointerDrag(0, 0, true)
+    }
+  }, [finishPointerDrag])
+
+  return (
+    <LauncherPointerDragContext.Provider
+      value={useMemo(() => ({ startPointerDrag, suppressClickAfterDrag }), [startPointerDrag, suppressClickAfterDrag])}
+    >
+      {children}
+    </LauncherPointerDragContext.Provider>
+  )
+}
 
 function GalleryCoverOption({ url, selected, label, onSelect }: { url: string; selected: boolean; label: string; onSelect: () => void }) {
   const image = useLauncherImage(url)
@@ -386,9 +1457,12 @@ export function LauncherLibraryPageContent({
   const [hiddenViewOpen, setHiddenViewOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editingSelectionIds, setEditingSelectionIds] = useState<string[]>([])
+  const [boxSelectionIds, setBoxSelectionIds] = useState<string[]>([])
   const [archiveDropActive, setArchiveDropActive] = useState(false)
-  const [draggedModIds, setDraggedModIds] = useState<string[]>([])
-  const [dragOverPackId, setDragOverPackId] = useState<string | null>(null)
+  const [expandedParentIds, setExpandedParentIds] = useState<string[]>([])
+  const [childModManager, setChildModManager] = useState<LauncherChildModManagerState | null>(null)
+  const [childModPicker, setChildModPicker] = useState<LauncherChildModPickerState | null>(null)
+  const [openLibraryFolderId, setOpenLibraryFolderId] = useState<string | null>(null)
   const lastEditSeedRef = useRef<{ editMode: boolean; packId: string | null }>({ editMode: false, packId: null })
 
   const titleMenuRef = useRef<HTMLDivElement | null>(null)
@@ -418,6 +1492,8 @@ export function LauncherLibraryPageContent({
   }, [installBackupsOpen])
 
   const packLookup = useMemo(() => buildPackLookup(library.packPresets), [library.packPresets])
+  const childGroupLookup = useMemo(() => buildChildModLookup(library.childModGroups), [library.childModGroups])
+  const childParentLookup = useMemo(() => buildParentModLookup(library.childModGroups), [library.childModGroups])
   const hiddenModKeyLookup = useMemo(
     () => new Set(library.hiddenModKeys.map((value) => normalizeLookupKey(value))),
     [library.hiddenModKeys],
@@ -452,7 +1528,7 @@ export function LauncherLibraryPageContent({
       return
     }
 
-    const handlePointerDown = (event: MouseEvent) => {
+    const handlePointerDown = (event: globalThis.MouseEvent) => {
       const target = event.target as Node
       if (titleMenuRef.current?.contains(target) || drawerPanelRef.current?.contains(target) || sortMenuRef.current?.contains(target)) {
         return
@@ -502,6 +1578,117 @@ export function LauncherLibraryPageContent({
     packLookup,
     sortMode,
   ])
+
+  const modByKeyLookup = useMemo(() => {
+    const lookup = new Map<string, LauncherLibraryItem>()
+    for (const mod of library.mods) {
+      lookup.set(normalizeLookupKey(getModKey(mod)), mod)
+    }
+    return lookup
+  }, [library.mods])
+
+  const folderByIdLookup = useMemo(() => {
+    const lookup = new Map<string, LauncherVirtualFolder>()
+    for (const folder of library.libraryFolders) {
+      lookup.set(normalizeLookupKey(folder.id), folder)
+    }
+    return lookup
+  }, [library.libraryFolders])
+
+  const libraryFolderModLookup = useMemo(() => {
+    const lookup = new Map<string, string>()
+    for (const folder of library.libraryFolders) {
+      for (const modKey of folder.modKeys) {
+        lookup.set(normalizeLookupKey(modKey), folder.id)
+      }
+    }
+    return lookup
+  }, [library.libraryFolders])
+
+  const buildFolderDisplayItem = useCallback(
+    (folder: LauncherVirtualFolder): LauncherLibraryDisplayItem => ({
+      kind: 'folder',
+      folder,
+      mods: folder.modKeys
+        .map((modKey) => modByKeyLookup.get(normalizeLookupKey(modKey)))
+        .filter((item): item is LauncherLibraryItem => Boolean(item)),
+      childFolders: library.libraryFolders.filter(
+        (childFolder) => normalizeLookupKey(childFolder.parentFolderId ?? '') === normalizeLookupKey(folder.id),
+      ),
+    }),
+    [library.libraryFolders, modByKeyLookup],
+  )
+
+  const visibleDisplayItems = useMemo<LauncherLibraryDisplayItem[]>(() => {
+    const visibleKeyLookup = new Set(visibleMods.map((mod) => normalizeLookupKey(getModKey(mod))))
+    const items: LauncherLibraryDisplayItem[] = []
+    for (const folder of library.libraryFolders) {
+      if (folder.parentFolderId) {
+        continue
+      }
+      items.push(buildFolderDisplayItem(folder))
+    }
+    for (const mod of visibleMods) {
+      const modLookup = normalizeLookupKey(getModKey(mod))
+      if (libraryFolderModLookup.has(modLookup)) {
+        continue
+      }
+      const parentKey = childParentLookup.get(modLookup)
+      if (parentKey && visibleKeyLookup.has(normalizeLookupKey(parentKey))) {
+        continue
+      }
+
+      const childMods = (childGroupLookup.get(modLookup)?.childModKeys ?? [])
+        .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey)))
+        .filter((item): item is LauncherLibraryItem => Boolean(item))
+      items.push({ kind: 'mod', mod, childMods, isChild: false })
+
+      if (!expandedParentIds.includes(mod.id)) {
+        continue
+      }
+
+      for (const childMod of childMods) {
+        items.push({ kind: 'child', mod: childMod, parentMod: mod })
+      }
+    }
+    return items
+  }, [
+    buildFolderDisplayItem,
+    childGroupLookup,
+    childParentLookup,
+    expandedParentIds,
+    library.libraryFolders,
+    libraryFolderModLookup,
+    modByKeyLookup,
+    visibleMods,
+  ])
+
+  const openLibraryFolder = useMemo(
+    () => (openLibraryFolderId ? (folderByIdLookup.get(normalizeLookupKey(openLibraryFolderId)) ?? null) : null),
+    [folderByIdLookup, openLibraryFolderId],
+  )
+
+  const openLibraryFolderItems = useMemo<LauncherLibraryDisplayItem[]>(() => {
+    if (!openLibraryFolder) {
+      return []
+    }
+    const folderModLookup = new Set(openLibraryFolder.modKeys.map((value) => normalizeLookupKey(value)))
+    const childFolders = library.libraryFolders.filter(
+      (folder) => normalizeLookupKey(folder.parentFolderId ?? '') === normalizeLookupKey(openLibraryFolder.id),
+    )
+    const items: LauncherLibraryDisplayItem[] = childFolders.map(buildFolderDisplayItem)
+    for (const mod of visibleMods) {
+      const modLookup = normalizeLookupKey(getModKey(mod))
+      if (!folderModLookup.has(modLookup)) {
+        continue
+      }
+      const childMods = (childGroupLookup.get(modLookup)?.childModKeys ?? [])
+        .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey)))
+        .filter((item): item is LauncherLibraryItem => Boolean(item))
+      items.push({ kind: 'mod', mod, childMods, isChild: false })
+    }
+    return items
+  }, [buildFolderDisplayItem, childGroupLookup, library.libraryFolders, modByKeyLookup, openLibraryFolder, visibleMods])
 
   const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
   const supportedArchiveFormatsLabel = useMemo(() => LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', '), [])
@@ -978,6 +2165,15 @@ export function LauncherLibraryPageContent({
     setEditingSelectionIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
   }, [])
 
+  const updateBoxSelection = useCallback((modIds: string[]) => {
+    setBoxSelectionIds((current) => {
+      if (current.length === modIds.length && current.every((id, index) => id === modIds[index])) {
+        return current
+      }
+      return modIds
+    })
+  }, [])
+
   const selectPack = async (packId: string | null, options?: { closeDrawer?: boolean }) => {
     const success = await runLibraryAction(async () => {
       await library.setCurrentPackId(packId)
@@ -1008,6 +2204,9 @@ export function LauncherLibraryPageContent({
 
   const resolveDraggedModIds = useCallback(
     (modId: string) => {
+      if (!editMode && boxSelectionIds.includes(modId)) {
+        return boxSelectionIds
+      }
       if (editMode && editingSelectionIds.includes(modId)) {
         return editingSelectionIds
       }
@@ -1016,23 +2215,133 @@ export function LauncherLibraryPageContent({
       }
       return [modId]
     },
-    [editMode, editingSelectionIds, selectedModIds],
+    [boxSelectionIds, editMode, editingSelectionIds, selectedModIds],
   )
 
-  const startDraggingMod = useCallback(
-    (modId: string, event: DragEvent<HTMLElement>) => {
-      const nextDraggedIds = resolveDraggedModIds(modId)
-      setDraggedModIds(nextDraggedIds)
-      event.dataTransfer.effectAllowed = 'move'
-      event.dataTransfer.setData('text/plain', nextDraggedIds.join(','))
+  const createLibraryFolder = useCallback(() => {
+    void runLibraryAction(async () => {
+      const folderId = await library.createLibraryFolder()
+      if (folderId) {
+        setOpenLibraryFolderId(folderId)
+      }
+    })
+  }, [library, runLibraryAction])
+
+  const assignDraggedModsToParent = useCallback(
+    async (parentModId: string, childModIds: string[]) => {
+      const nextChildIds = childModIds.filter((id) => id !== parentModId)
+      if (!nextChildIds.length) {
+        return
+      }
+      await runLibraryAction(async () => {
+        await library.setChildMods(parentModId, nextChildIds)
+      })
+      setExpandedParentIds((current) => (current.includes(parentModId) ? current : [...current, parentModId]))
     },
-    [resolveDraggedModIds],
+    [library, runLibraryAction],
   )
 
-  const stopDraggingMod = useCallback(() => {
-    setDraggedModIds([])
-    setDragOverPackId(null)
+  const removeDraggedChildModsFromParent = useCallback(
+    (modIds: string[]) => {
+      const draggedChildIds = modIds.filter((modId) => {
+        const mod = library.mods.find((item) => item.id === modId)
+        return Boolean(mod && childParentLookup.has(normalizeLookupKey(getModKey(mod))))
+      })
+      if (!draggedChildIds.length) {
+        return
+      }
+
+      void runLibraryAction(async () => {
+        await library.removeChildMods(draggedChildIds)
+      })
+    },
+    [childParentLookup, library, runLibraryAction],
+  )
+
+  const assignDraggedModsToLibraryFolder = useCallback(
+    async (folderId: string, modIds: string[]) => {
+      if (!modIds.length) {
+        return
+      }
+      await runLibraryAction(async () => {
+        await library.addModsToLibraryFolder(folderId, modIds)
+      })
+    },
+    [library, runLibraryAction],
+  )
+
+  const removeDraggedModsFromLibraryFolders = useCallback(
+    (modIds: string[]) => {
+      const folderedModIds = modIds.filter((modId) => {
+        const mod = library.mods.find((item) => item.id === modId)
+        return Boolean(mod && libraryFolderModLookup.has(normalizeLookupKey(getModKey(mod))))
+      })
+      if (!folderedModIds.length) {
+        return
+      }
+      void runLibraryAction(async () => {
+        await library.removeModsFromLibraryFolders(folderedModIds)
+      })
+    },
+    [library, libraryFolderModLookup, runLibraryAction],
+  )
+
+  const moveDraggedFolderToFolder = useCallback(
+    (folderId: string, parentFolderId: string | null) => {
+      void runLibraryAction(async () => {
+        await library.moveLibraryFolderToFolder(folderId, parentFolderId)
+      })
+    },
+    [library, runLibraryAction],
+  )
+
+  const toggleParentExpanded = useCallback((modId: string) => {
+    setExpandedParentIds((current) => (current.includes(modId) ? current.filter((item) => item !== modId) : [...current, modId]))
   }, [])
+
+  const removeChildMod = useCallback(
+    (modId: string) => {
+      void runLibraryAction(async () => {
+        await library.removeChildMods([modId])
+      })
+    },
+    [library, runLibraryAction],
+  )
+
+  const openChildModPicker = useCallback(
+    (parentMod: LauncherLibraryItem) => {
+      const parentLookup = normalizeLookupKey(getModKey(parentMod))
+      const selectedModIds = (childGroupLookup.get(parentLookup)?.childModKeys ?? [])
+        .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey))?.id)
+        .filter((id): id is string => Boolean(id))
+      setChildModPicker({ parentMod, selectedModIds })
+    },
+    [childGroupLookup, modByKeyLookup],
+  )
+
+  const toggleChildModPickerSelection = useCallback((modId: string) => {
+    setChildModPicker((current) =>
+      current
+        ? {
+            ...current,
+            selectedModIds: current.selectedModIds.includes(modId)
+              ? current.selectedModIds.filter((id) => id !== modId)
+              : [...current.selectedModIds, modId],
+          }
+        : current,
+    )
+  }, [])
+
+  const submitChildModPicker = useCallback(async () => {
+    if (!childModPicker) {
+      return
+    }
+    await runLibraryAction(async () => {
+      await library.replaceChildMods(childModPicker.parentMod.id, childModPicker.selectedModIds)
+    })
+    setExpandedParentIds((current) => (current.includes(childModPicker.parentMod.id) ? current : [...current, childModPicker.parentMod.id]))
+    setChildModPicker(null)
+  }, [childModPicker, library, runLibraryAction])
 
   const startEditMode = () => {
     if (!library.currentPack) {
@@ -1129,24 +2438,48 @@ export function LauncherLibraryPageContent({
     setPackDialog(null)
   }, [createPackPreset, deletePackPreset, library.currentPack, packDialog, renamePackPreset, runLibraryAction])
 
-  const dropModsIntoPack = async (pack: LauncherPackPreset) => {
-    if (!draggedModIds.length) {
-      return
-    }
+  const isParentExpanded = useCallback((modId: string) => expandedParentIds.includes(modId), [expandedParentIds])
+  const openGridModFolder = useCallback((mod: LauncherLibraryItem) => void openModFolder(mod), [openModFolder])
+  const assignDraggedModsToParentFromDnd = useCallback(
+    (parentModId: string, modIds: string[]) => {
+      void assignDraggedModsToParent(parentModId, modIds)
+    },
+    [assignDraggedModsToParent],
+  )
+  const assignDraggedModsToLibraryFolderFromDnd = useCallback(
+    (folderId: string, modIds: string[]) => {
+      void assignDraggedModsToLibraryFolder(folderId, modIds)
+    },
+    [assignDraggedModsToLibraryFolder],
+  )
 
-    await runLibraryAction(async () => {
-      await addModsToPack(pack.id, draggedModIds)
-    })
-    stopDraggingMod()
-  }
+  const addDraggedModsToPack = useCallback(
+    (packId: string, modIds: string[]) => {
+      void runLibraryAction(async () => {
+        await addModsToPack(packId, modIds)
+      })
+    },
+    [addModsToPack, runLibraryAction],
+  )
 
   const directActionsForMod = useCallback(
     (mod: LauncherLibraryItem) => {
       const isHidden = hiddenModKeyLookup.has(normalizeLookupKey(getModKey(mod)))
+      const isChild = childParentLookup.has(normalizeLookupKey(getModKey(mod)))
+      const childMods = childGroupLookup
+        .get(normalizeLookupKey(getModKey(mod)))
+        ?.childModKeys.map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey)))
+        .filter((item): item is LauncherLibraryItem => Boolean(item))
+      const hasChildren = Boolean(childMods?.length)
       return [
         { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
         { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
         { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void toggleEnabled(mod) },
+        { label: copy.library.setAsChildMod, onSelect: () => openChildModPicker(mod) },
+        ...(isChild ? [{ label: copy.library.removeFromParent, onSelect: () => removeChildMod(mod.id) }] : []),
+        ...(hasChildren
+          ? [{ label: copy.library.manageChildMods, onSelect: () => setChildModManager({ parentMod: mod, childMods: childMods ?? [] }) }]
+          : []),
         {
           label: isHidden ? copy.actions.showMod : copy.actions.hideMod,
           onSelect: () =>
@@ -1165,6 +2498,8 @@ export function LauncherLibraryPageContent({
     },
     [
       clearModCover,
+      childGroupLookup,
+      childParentLookup,
       copy.actions.chooseGalleryCover,
       copy.actions.clearCover,
       copy.actions.disable,
@@ -1174,13 +2509,19 @@ export function LauncherLibraryPageContent({
       copy.actions.setCover,
       copy.actions.showMod,
       copy.actions.viewDetails,
+      copy.library.manageChildMods,
+      copy.library.removeFromParent,
+      copy.library.setAsChildMod,
       hiddenModKeyLookup,
       library,
+      modByKeyLookup,
       openGalleryCoverDialog,
       openModDetails,
       openModFolder,
+      removeChildMod,
       runLibraryAction,
       setModCover,
+      openChildModPicker,
       toggleEnabled,
     ],
   )
@@ -1190,11 +2531,228 @@ export function LauncherLibraryPageContent({
 
   return (
     <>
-      <section className="launcher-library-page">
-        {!editMode ? (
-          <LoadingMotionRevealItem index={0} as="section" className="launcher-library-console">
-            <div className="launcher-library-console-top">
-              <div className="launcher-library-console-heading">
+      <LauncherLibraryDndScope
+        resolveDraggedModIds={resolveDraggedModIds}
+        onAddModsToPack={addDraggedModsToPack}
+        onAssignModsToParent={assignDraggedModsToParentFromDnd}
+        onAssignModsToLibraryFolder={assignDraggedModsToLibraryFolderFromDnd}
+        onRemoveChildModsFromParent={removeDraggedChildModsFromParent}
+        onRemoveModsFromLibraryFolders={removeDraggedModsFromLibraryFolders}
+        onReleaseModsFromLibraryFolder={removeDraggedModsFromLibraryFolders}
+        onMoveFolderToFolder={moveDraggedFolderToFolder}
+      >
+        <section className="launcher-library-page">
+          {!editMode ? (
+            <LoadingMotionRevealItem index={0} as="section" className="launcher-library-console">
+              <div className="launcher-library-console-top">
+                <div className="launcher-library-console-heading">
+                  <button
+                    type="button"
+                    className="launcher-library-icon-button launcher-library-inline-menu-button"
+                    aria-label={copy.library.packTitle}
+                    title={copy.library.packTitle}
+                    onClick={() => {
+                      setDrawerOpen((current) => !current)
+                      setQuickSwitchOpen(false)
+                      setPackActionMenuId(null)
+                      setSortMenuOpen(false)
+                    }}
+                  >
+                    <Menu className="h-4 w-4" />
+                  </button>
+
+                  <div className="launcher-library-console-copy" ref={titleMenuRef}>
+                    <button
+                      type="button"
+                      className="launcher-library-title-button"
+                      onClick={() => {
+                        if (drawerOpen) {
+                          return
+                        }
+                        setQuickSwitchOpen((current) => !current)
+                        setPackActionMenuId(null)
+                        setSortMenuOpen(false)
+                      }}
+                    >
+                      <h1 className="launcher-library-console-title">{currentPackLabel}</h1>
+                      {!drawerOpen ? <ChevronDown className="h-4 w-4" /> : null}
+                    </button>
+                    {shortModsPath ? (
+                      <p className="launcher-library-console-subtitle" title={settings.modsPath ?? undefined}>
+                        {shortModsPath}
+                      </p>
+                    ) : null}
+
+                    {quickSwitchOpen && !drawerOpen ? (
+                      <div className="launcher-library-title-menu">
+                        <button
+                          type="button"
+                          className={cx(
+                            'launcher-library-title-menu-item',
+                            !hiddenViewOpen && !library.currentPackId && 'launcher-library-title-menu-item-active',
+                          )}
+                          aria-label={copy.library.allPacks}
+                          onClick={() => void selectPack(null)}
+                        >
+                          <span>{copy.library.allPacks}</span>
+                          <span>{visibleLibraryModsCount}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className={cx('launcher-library-title-menu-item', hiddenViewOpen && 'launcher-library-title-menu-item-active')}
+                          aria-label={copy.library.hiddenMods}
+                          onClick={() => selectHiddenView()}
+                        >
+                          <span>{copy.library.hiddenMods}</span>
+                          <span>{hiddenMods.length}</span>
+                        </button>
+
+                        {library.packPresets.map((pack) => (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            className={cx(
+                              'launcher-library-title-menu-item',
+                              !hiddenViewOpen &&
+                                normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') &&
+                                'launcher-library-title-menu-item-active',
+                            )}
+                            aria-label={pack.name}
+                            onClick={() => void selectPack(pack.id)}
+                          >
+                            <span>{pack.name}</span>
+                            <span>{pack.modKeys.length}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="launcher-library-console-actions">
+                  <button
+                    type="button"
+                    className="launcher-library-icon-button"
+                    onClick={createLibraryFolder}
+                    aria-label={copy.library.createLibraryFolder}
+                    title={copy.library.createLibraryFolder}
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="launcher-library-icon-button"
+                    onClick={() => void refreshLibrary()}
+                    aria-label={copy.actions.refresh}
+                    title={copy.actions.refresh}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="launcher-library-icon-button"
+                    onClick={() => void openLibraryRoot()}
+                    aria-label={copy.actions.openStorageFolder}
+                    title={copy.actions.openStorageFolder}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                  <button type="button" className="control-button launcher-library-secondary-action" onClick={() => void inspectArchive()}>
+                    <FolderArchive className="h-4 w-4" />
+                    <span>{copy.actions.installArchive}</span>
+                  </button>
+                  <button type="button" className="control-button launcher-library-secondary-action" onClick={openInstallBackupsDialog}>
+                    <Folder className="h-4 w-4" />
+                    <span>{copy.library.installBackupsTitle}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="control-button control-button-primary launcher-library-primary-action"
+                    disabled={launchGameDisabled}
+                    onClick={onLaunchGame}
+                  >
+                    <Play className="h-4 w-4" />
+                    <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="launcher-library-console-divider" />
+
+              <div className="launcher-library-console-bottom">
+                <div className="launcher-library-console-left">
+                  <label className="launcher-library-search">
+                    <Search className="h-4 w-4" />
+                    <input
+                      value={library.filterText}
+                      onChange={(event) => library.setFilterText(event.target.value)}
+                      placeholder={copy.fields.filterLibrary}
+                      spellCheck={false}
+                    />
+                  </label>
+                </div>
+
+                <div className="launcher-library-console-right">
+                  <button
+                    type="button"
+                    className={cx('launcher-library-switch-button', library.enabledOnly && 'launcher-library-switch-button-active')}
+                    role="switch"
+                    aria-checked={library.enabledOnly}
+                    onClick={() => library.setEnabledOnly(!library.enabledOnly)}
+                  >
+                    <span className="launcher-library-switch-track" aria-hidden="true">
+                      <span className="launcher-library-switch-thumb" />
+                    </span>
+                    <span>{copy.toggles.enabledOnly}</span>
+                  </button>
+
+                  <div className="launcher-library-popover-shell" ref={sortMenuRef}>
+                    <button
+                      type="button"
+                      className="launcher-library-sort-trigger"
+                      aria-haspopup="menu"
+                      aria-expanded={sortMenuOpen}
+                      aria-label={copy.library.sortLabel}
+                      onClick={() => {
+                        setSortMenuOpen((current) => !current)
+                        setQuickSwitchOpen(false)
+                        setPackActionMenuId(null)
+                      }}
+                    >
+                      <span>{currentSortLabel}</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+
+                    {sortMenuOpen ? (
+                      <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
+                        {sortOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={sortMode === option.value}
+                            className={cx(
+                              'launcher-library-sort-option',
+                              sortMode === option.value && 'launcher-library-sort-option-active',
+                            )}
+                            onClick={() => {
+                              setSortMode(option.value)
+                              setSortMenuOpen(false)
+                            }}
+                          >
+                            <span>{option.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </LoadingMotionRevealItem>
+          ) : (
+            <LoadingMotionRevealItem index={0} as="section" className="launcher-library-edit-bar">
+              <div className="launcher-library-edit-bar-left">
                 <button
                   type="button"
                   className="launcher-library-icon-button launcher-library-inline-menu-button"
@@ -1209,685 +2767,526 @@ export function LauncherLibraryPageContent({
                 >
                   <Menu className="h-4 w-4" />
                 </button>
-
-                <div className="launcher-library-console-copy" ref={titleMenuRef}>
-                  <button
-                    type="button"
-                    className="launcher-library-title-button"
-                    onClick={() => {
-                      if (drawerOpen) {
-                        return
-                      }
-                      setQuickSwitchOpen((current) => !current)
-                      setPackActionMenuId(null)
-                      setSortMenuOpen(false)
-                    }}
-                  >
-                    <h1 className="launcher-library-console-title">{currentPackLabel}</h1>
-                    {!drawerOpen ? <ChevronDown className="h-4 w-4" /> : null}
-                  </button>
-                  {shortModsPath ? (
-                    <p className="launcher-library-console-subtitle" title={settings.modsPath ?? undefined}>
-                      {shortModsPath}
-                    </p>
-                  ) : null}
-
-                  {quickSwitchOpen && !drawerOpen ? (
-                    <div className="launcher-library-title-menu">
-                      <button
-                        type="button"
-                        className={cx(
-                          'launcher-library-title-menu-item',
-                          !hiddenViewOpen && !library.currentPackId && 'launcher-library-title-menu-item-active',
-                        )}
-                        aria-label={copy.library.allPacks}
-                        onClick={() => void selectPack(null)}
-                      >
-                        <span>{copy.library.allPacks}</span>
-                        <span>{visibleLibraryModsCount}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className={cx('launcher-library-title-menu-item', hiddenViewOpen && 'launcher-library-title-menu-item-active')}
-                        aria-label={copy.library.hiddenMods}
-                        onClick={() => selectHiddenView()}
-                      >
-                        <span>{copy.library.hiddenMods}</span>
-                        <span>{hiddenMods.length}</span>
-                      </button>
-
-                      {library.packPresets.map((pack) => (
-                        <button
-                          key={pack.id}
-                          type="button"
-                          className={cx(
-                            'launcher-library-title-menu-item',
-                            !hiddenViewOpen &&
-                              normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '') &&
-                              'launcher-library-title-menu-item-active',
-                          )}
-                          aria-label={pack.name}
-                          onClick={() => void selectPack(pack.id)}
-                        >
-                          <span>{pack.name}</span>
-                          <span>{pack.modKeys.length}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <span className="launcher-library-edit-label">
+                  {copy.library.editingPackLabel} <strong>{library.currentPack?.name ?? copy.library.allPacks}</strong>
+                </span>
               </div>
-
-              <div className="launcher-library-console-actions">
-                <button
-                  type="button"
-                  className="launcher-library-icon-button"
-                  onClick={() => void refreshLibrary()}
-                  aria-label={copy.actions.refresh}
-                  title={copy.actions.refresh}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="launcher-library-icon-button"
-                  onClick={() => void openLibraryRoot()}
-                  aria-label={copy.actions.openStorageFolder}
-                  title={copy.actions.openStorageFolder}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                </button>
-                <button type="button" className="control-button launcher-library-secondary-action" onClick={() => void inspectArchive()}>
-                  <FolderArchive className="h-4 w-4" />
-                  <span>{copy.actions.installArchive}</span>
-                </button>
-                <button type="button" className="control-button launcher-library-secondary-action" onClick={openInstallBackupsDialog}>
-                  <Folder className="h-4 w-4" />
-                  <span>{copy.library.installBackupsTitle}</span>
+              <div className="launcher-library-edit-bar-center">
+                <span className="launcher-library-edit-label">{copy.library.includedModsCount(editCount)}</span>
+              </div>
+              <div className="launcher-library-edit-bar-right">
+                <button type="button" className="control-button launcher-library-secondary-action" onClick={cancelEditMode}>
+                  {copy.library.cancelEdit}
                 </button>
                 <button
                   type="button"
                   className="control-button control-button-primary launcher-library-primary-action"
-                  disabled={launchGameDisabled}
-                  onClick={onLaunchGame}
+                  onClick={() => void saveEditMode()}
                 >
-                  <Play className="h-4 w-4" />
-                  <span>{launchGameBusy ? `${launchGameLabel}...` : launchGameLabel}</span>
+                  {copy.library.saveChanges}
                 </button>
               </div>
-            </div>
-
-            <div className="launcher-library-console-divider" />
-
-            <div className="launcher-library-console-bottom">
-              <div className="launcher-library-console-left">
-                <label className="launcher-library-search">
-                  <Search className="h-4 w-4" />
-                  <input
-                    value={library.filterText}
-                    onChange={(event) => library.setFilterText(event.target.value)}
-                    placeholder={copy.fields.filterLibrary}
-                    spellCheck={false}
-                  />
-                </label>
-              </div>
-
-              <div className="launcher-library-console-right">
-                <button
-                  type="button"
-                  className={cx('launcher-library-switch-button', library.enabledOnly && 'launcher-library-switch-button-active')}
-                  role="switch"
-                  aria-checked={library.enabledOnly}
-                  onClick={() => library.setEnabledOnly(!library.enabledOnly)}
-                >
-                  <span className="launcher-library-switch-track" aria-hidden="true">
-                    <span className="launcher-library-switch-thumb" />
-                  </span>
-                  <span>{copy.toggles.enabledOnly}</span>
-                </button>
-
-                <div className="launcher-library-popover-shell" ref={sortMenuRef}>
-                  <button
-                    type="button"
-                    className="launcher-library-sort-trigger"
-                    aria-haspopup="menu"
-                    aria-expanded={sortMenuOpen}
-                    aria-label={copy.library.sortLabel}
-                    onClick={() => {
-                      setSortMenuOpen((current) => !current)
-                      setQuickSwitchOpen(false)
-                      setPackActionMenuId(null)
-                    }}
-                  >
-                    <span>{currentSortLabel}</span>
-                    <ChevronDown className="h-4 w-4" />
-                  </button>
-
-                  {sortMenuOpen ? (
-                    <div className="launcher-library-sort-menu" role="menu" aria-label={copy.library.sortLabel}>
-                      {sortOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={sortMode === option.value}
-                          className={cx('launcher-library-sort-option', sortMode === option.value && 'launcher-library-sort-option-active')}
-                          onClick={() => {
-                            setSortMode(option.value)
-                            setSortMenuOpen(false)
-                          }}
-                        >
-                          <span>{option.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </LoadingMotionRevealItem>
-        ) : (
-          <LoadingMotionRevealItem index={0} as="section" className="launcher-library-edit-bar">
-            <div className="launcher-library-edit-bar-left">
-              <button
-                type="button"
-                className="launcher-library-icon-button launcher-library-inline-menu-button"
-                aria-label={copy.library.packTitle}
-                title={copy.library.packTitle}
-                onClick={() => {
-                  setDrawerOpen((current) => !current)
-                  setQuickSwitchOpen(false)
-                  setPackActionMenuId(null)
-                  setSortMenuOpen(false)
-                }}
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-              <span className="launcher-library-edit-label">
-                {copy.library.editingPackLabel} <strong>{library.currentPack?.name ?? copy.library.allPacks}</strong>
-              </span>
-            </div>
-            <div className="launcher-library-edit-bar-center">
-              <span className="launcher-library-edit-label">{copy.library.includedModsCount(editCount)}</span>
-            </div>
-            <div className="launcher-library-edit-bar-right">
-              <button type="button" className="control-button launcher-library-secondary-action" onClick={cancelEditMode}>
-                {copy.library.cancelEdit}
-              </button>
-              <button
-                type="button"
-                className="control-button control-button-primary launcher-library-primary-action"
-                onClick={() => void saveEditMode()}
-              >
-                {copy.library.saveChanges}
-              </button>
-            </div>
-          </LoadingMotionRevealItem>
-        )}
-
-        <div
-          className={cx(
-            'launcher-library-shell',
-            drawerOpen ? 'launcher-library-shell-sidebar-open' : 'launcher-library-shell-sidebar-collapsed',
+            </LoadingMotionRevealItem>
           )}
-        >
-          <aside
-            className={cx('launcher-library-sidebar', drawerOpen ? 'launcher-library-sidebar-open' : 'launcher-library-sidebar-collapsed')}
-            ref={drawerPanelRef}
+
+          <div
+            className={cx(
+              'launcher-library-shell',
+              drawerOpen ? 'launcher-library-shell-sidebar-open' : 'launcher-library-shell-sidebar-collapsed',
+            )}
           >
-            <div className={cx('launcher-library-sidebar-inner', !drawerOpen && 'launcher-library-sidebar-inner-collapsed')}>
-              <div className="launcher-library-sidebar-header">
+            <aside
+              className={cx(
+                'launcher-library-sidebar',
+                drawerOpen ? 'launcher-library-sidebar-open' : 'launcher-library-sidebar-collapsed',
+              )}
+              ref={drawerPanelRef}
+            >
+              <div className={cx('launcher-library-sidebar-inner', !drawerOpen && 'launcher-library-sidebar-inner-collapsed')}>
+                <div className="launcher-library-sidebar-header">
+                  <div
+                    className={cx('launcher-library-sidebar-header-meta', !drawerOpen && 'launcher-library-sidebar-header-meta-hidden')}
+                    aria-hidden={!drawerOpen}
+                  >
+                    <p className="launcher-library-pack-drawer-title">{copy.library.packTitle}</p>
+                    <button type="button" className="launcher-library-drawer-add-button" onClick={openCreatePackDialog}>
+                      <Plus className="h-4 w-4" />
+                      <span>{copy.actions.createPack}</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div
-                  className={cx('launcher-library-sidebar-header-meta', !drawerOpen && 'launcher-library-sidebar-header-meta-hidden')}
+                  className={cx('launcher-library-sidebar-body', !drawerOpen && 'launcher-library-sidebar-body-hidden')}
                   aria-hidden={!drawerOpen}
                 >
-                  <p className="launcher-library-pack-drawer-title">{copy.library.packTitle}</p>
-                  <button type="button" className="launcher-library-drawer-add-button" onClick={openCreatePackDialog}>
-                    <Plus className="h-4 w-4" />
-                    <span>{copy.actions.createPack}</span>
-                  </button>
-                </div>
-              </div>
+                  <div className="launcher-library-pack-drawer-divider" />
 
-              <div
-                className={cx('launcher-library-sidebar-body', !drawerOpen && 'launcher-library-sidebar-body-hidden')}
-                aria-hidden={!drawerOpen}
-              >
-                <div className="launcher-library-pack-drawer-divider" />
-
-                <div className="launcher-library-pack-drawer-list">
-                  <div
-                    className={cx(
-                      'launcher-library-pack-row-shell',
-                      'launcher-library-pack-row-shell-static',
-                      !library.currentPackId && 'launcher-library-pack-row-shell-active',
-                    )}
-                  >
-                    <button
-                      type="button"
+                  <div className="launcher-library-pack-drawer-list">
+                    <div
                       className={cx(
-                        'launcher-library-pack-row',
-                        !hiddenViewOpen && !library.currentPackId && 'launcher-library-pack-row-active',
+                        'launcher-library-pack-row-shell',
+                        'launcher-library-pack-row-shell-static',
+                        !library.currentPackId && 'launcher-library-pack-row-shell-active',
                       )}
-                      aria-label={copy.library.allPacks}
-                      onClick={() => void selectPack(null)}
                     >
-                      <span className="launcher-library-pack-row-main">
-                        <LayoutGrid className="launcher-library-pack-row-icon h-4 w-4" />
-                        <span className="launcher-library-pack-row-name">{copy.library.allPacks}</span>
-                      </span>
-                      <span className="launcher-library-pack-row-trailing">
-                        <span className="launcher-library-pack-row-count-badge">{visibleLibraryModsCount}</span>
-                      </span>
-                    </button>
-                  </div>
-
-                  <div
-                    className={cx(
-                      'launcher-library-pack-row-shell',
-                      'launcher-library-pack-row-shell-static',
-                      hiddenViewOpen && 'launcher-library-pack-row-shell-active',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      className={cx('launcher-library-pack-row', hiddenViewOpen && 'launcher-library-pack-row-active')}
-                      aria-label={copy.library.hiddenMods}
-                      onClick={() => selectHiddenView()}
-                    >
-                      <span className="launcher-library-pack-row-main">
-                        <FolderArchive className="launcher-library-pack-row-icon h-4 w-4" />
-                        <span className="launcher-library-pack-row-name">{copy.library.hiddenMods}</span>
-                      </span>
-                      <span className="launcher-library-pack-row-trailing">
-                        <span className="launcher-library-pack-row-count-badge">{hiddenMods.length}</span>
-                      </span>
-                    </button>
-                  </div>
-
-                  <div className="launcher-library-pack-row-separator" />
-
-                  {library.packPresets.map((pack) => {
-                    const isCurrentPack = !hiddenViewOpen && normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '')
-                    const isActionMenuOpen = packActionMenuId === pack.id
-                    const isDropTarget = dragOverPackId === pack.id
-
-                    return (
-                      <div
-                        key={pack.id}
+                      <button
+                        type="button"
                         className={cx(
-                          'launcher-library-pack-row-shell',
-                          isCurrentPack && 'launcher-library-pack-row-shell-active',
-                          isDropTarget && 'launcher-library-pack-row-shell-drop-target',
+                          'launcher-library-pack-row',
+                          !hiddenViewOpen && !library.currentPackId && 'launcher-library-pack-row-active',
                         )}
-                        onDragOver={(event) => {
-                          if (!draggedModIds.length) {
-                            return
-                          }
-                          event.preventDefault()
-                          event.dataTransfer.dropEffect = 'move'
-                          setDragOverPackId(pack.id)
-                        }}
-                        onDragLeave={() => {
-                          setDragOverPackId((current) => (current === pack.id ? null : current))
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault()
-                          void dropModsIntoPack(pack)
-                        }}
+                        aria-label={copy.library.allPacks}
+                        onClick={() => void selectPack(null)}
                       >
-                        <button
-                          type="button"
-                          className={cx('launcher-library-pack-row', isCurrentPack && 'launcher-library-pack-row-active')}
-                          aria-label={pack.name}
-                          onClick={() => void selectPack(pack.id)}
-                        >
-                          <span className="launcher-library-pack-row-main">
-                            <Folder className="launcher-library-pack-row-icon h-4 w-4" />
-                            <span className="launcher-library-pack-row-name">{pack.name}</span>
-                          </span>
-                          <span className="launcher-library-pack-row-trailing">
-                            <span className="launcher-library-pack-row-count-badge">{pack.modKeys.length}</span>
-                          </span>
-                        </button>
+                        <span className="launcher-library-pack-row-main">
+                          <LayoutGrid className="launcher-library-pack-row-icon h-4 w-4" />
+                          <span className="launcher-library-pack-row-name">{copy.library.allPacks}</span>
+                        </span>
+                        <span className="launcher-library-pack-row-trailing">
+                          <span className="launcher-library-pack-row-count-badge">{visibleLibraryModsCount}</span>
+                        </span>
+                      </button>
+                    </div>
 
-                        <button
-                          type="button"
-                          className="launcher-library-pack-row-menu-button"
-                          aria-label={`${copy.library.manageCurrentPack} ${pack.name}`}
-                          aria-expanded={isActionMenuOpen}
-                          onClick={() => setPackActionMenuId((current) => (current === pack.id ? null : pack.id))}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                    <div
+                      className={cx(
+                        'launcher-library-pack-row-shell',
+                        'launcher-library-pack-row-shell-static',
+                        hiddenViewOpen && 'launcher-library-pack-row-shell-active',
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className={cx('launcher-library-pack-row', hiddenViewOpen && 'launcher-library-pack-row-active')}
+                        aria-label={copy.library.hiddenMods}
+                        onClick={() => selectHiddenView()}
+                      >
+                        <span className="launcher-library-pack-row-main">
+                          <FolderArchive className="launcher-library-pack-row-icon h-4 w-4" />
+                          <span className="launcher-library-pack-row-name">{copy.library.hiddenMods}</span>
+                        </span>
+                        <span className="launcher-library-pack-row-trailing">
+                          <span className="launcher-library-pack-row-count-badge">{hiddenMods.length}</span>
+                        </span>
+                      </button>
+                    </div>
 
-                        {isActionMenuOpen ? (
-                          <div className="launcher-library-pack-row-menu">
-                            <button
-                              type="button"
-                              className="launcher-library-pack-row-menu-item"
-                              onClick={async () => {
-                                if (isCurrentPack) {
-                                  startEditMode()
-                                  return
-                                }
-                                const switched = await selectPack(pack.id)
-                                if (!switched) {
-                                  return
-                                }
-                                setEditingSelectionIds(getPackModIds(pack, library.mods))
-                                setEditMode(true)
-                                setPackActionMenuId(null)
-                              }}
+                    <div className="launcher-library-pack-row-separator" />
+
+                    {library.packPresets.map((pack) => {
+                      const isCurrentPack =
+                        !hiddenViewOpen && normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? '')
+                      const isActionMenuOpen = packActionMenuId === pack.id
+
+                      return (
+                        <DroppableLauncherPackRow key={pack.id} pack={pack}>
+                          {(isDropTarget) => (
+                            <div
+                              className={cx(
+                                'launcher-library-pack-row-shell',
+                                isCurrentPack && 'launcher-library-pack-row-shell-active',
+                                isDropTarget && 'launcher-library-pack-row-shell-drop-target',
+                              )}
                             >
-                              {copy.library.editCurrentPack}
-                            </button>
-                            <button
-                              type="button"
-                              className="launcher-library-pack-row-menu-item"
-                              onClick={() => openRenamePackDialog(pack)}
-                            >
-                              {copy.library.renameCurrentPack}
-                            </button>
-                            <button
-                              type="button"
-                              className="launcher-library-pack-row-menu-item"
-                              onClick={() => openDeletePackDialog(pack)}
-                            >
-                              {copy.library.deleteCurrentPack}
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    )
-                  })}
+                              <button
+                                type="button"
+                                className={cx('launcher-library-pack-row', isCurrentPack && 'launcher-library-pack-row-active')}
+                                aria-label={pack.name}
+                                onClick={() => void selectPack(pack.id)}
+                              >
+                                <span className="launcher-library-pack-row-main">
+                                  <Folder className="launcher-library-pack-row-icon h-4 w-4" />
+                                  <span className="launcher-library-pack-row-name">{pack.name}</span>
+                                </span>
+                                <span className="launcher-library-pack-row-trailing">
+                                  <span className="launcher-library-pack-row-count-badge">{pack.modKeys.length}</span>
+                                </span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="launcher-library-pack-row-menu-button"
+                                aria-label={`${copy.library.manageCurrentPack} ${pack.name}`}
+                                aria-expanded={isActionMenuOpen}
+                                onClick={() => setPackActionMenuId((current) => (current === pack.id ? null : pack.id))}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+
+                              {isActionMenuOpen ? (
+                                <div className="launcher-library-pack-row-menu">
+                                  <button
+                                    type="button"
+                                    className="launcher-library-pack-row-menu-item"
+                                    onClick={async () => {
+                                      if (isCurrentPack) {
+                                        startEditMode()
+                                        return
+                                      }
+                                      const switched = await selectPack(pack.id)
+                                      if (!switched) {
+                                        return
+                                      }
+                                      setEditingSelectionIds(getPackModIds(pack, library.mods))
+                                      setEditMode(true)
+                                      setPackActionMenuId(null)
+                                    }}
+                                  >
+                                    {copy.library.editCurrentPack}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="launcher-library-pack-row-menu-item"
+                                    onClick={() => openRenamePackDialog(pack)}
+                                  >
+                                    {copy.library.renameCurrentPack}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="launcher-library-pack-row-menu-item"
+                                    onClick={() => openDeletePackDialog(pack)}
+                                  >
+                                    {copy.library.deleteCurrentPack}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
+                        </DroppableLauncherPackRow>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
-            </div>
-          </aside>
+            </aside>
 
-          <div className="launcher-library-content">
-            <div className="launcher-library-browser">
-              {archiveDropActive ? (
-                <div className="launcher-library-drop-overlay" role="status" aria-live="polite">
-                  <div className="launcher-library-drop-overlay-card">
-                    <strong>{copy.library.dragDropInstallTitle}</strong>
-                    <span>{copy.library.dragDropInstallSubtitle(supportedArchiveFormatsLabel)}</span>
+            <div className="launcher-library-content">
+              <div className="launcher-library-browser">
+                {archiveDropActive ? (
+                  <div className="launcher-library-drop-overlay" role="status" aria-live="polite">
+                    <div className="launcher-library-drop-overlay-card">
+                      <strong>{copy.library.dragDropInstallTitle}</strong>
+                      <span>{copy.library.dragDropInstallSubtitle(supportedArchiveFormatsLabel)}</span>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-              {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
-              {library.state === 'error' ? (
-                <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" />
-              ) : null}
-              {library.state !== 'error' && !visibleMods.length ? (
-                <LauncherStateBlock
-                  title={
-                    !settings.modsPath
-                      ? copy.states.missingModsPath
-                      : !library.mods.length
-                        ? copy.library.empty
-                        : copy.library.filteredEmpty
-                  }
-                  detail={copy.library.subtitle}
-                />
-              ) : (
-                <VirtualizedLauncherGrid
-                  items={visibleMods}
-                  latestVersionByModId={library.latestVersionByModId}
-                  editMode={editMode}
-                  editingSelectionIds={editingSelectionIds}
-                  noneLabel={editorCopy.common.none}
-                  onDragStart={startDraggingMod}
-                  onDragEnd={stopDraggingMod}
-                  onToggleSelection={toggleEditSelection}
-                  onOpenModDetails={openModDetails}
-                  onOpenModFolder={(mod) => void openModFolder(mod)}
-                  getContextActions={directActionsForMod}
-                />
-              )}
+                ) : null}
+                {actionError ? <LauncherStateBlock title={currentPackLabel} detail={actionError} tone="warning" /> : null}
+                {library.state === 'error' ? (
+                  <LauncherStateBlock title={currentPackLabel} detail={library.error ?? copy.library.empty} tone="warning" />
+                ) : null}
+                {library.state !== 'error' && !visibleDisplayItems.length ? (
+                  <LauncherStateBlock
+                    title={
+                      !settings.modsPath
+                        ? copy.states.missingModsPath
+                        : !library.mods.length
+                          ? copy.library.empty
+                          : copy.library.filteredEmpty
+                    }
+                    detail={copy.library.subtitle}
+                  />
+                ) : (
+                  <VirtualizedLauncherGrid
+                    items={visibleDisplayItems}
+                    latestVersionByModId={library.latestVersionByModId}
+                    openFolder={openLibraryFolder}
+                    openFolderItems={openLibraryFolderItems}
+                    editMode={editMode}
+                    editingSelectionIds={editingSelectionIds}
+                    boxSelectionIds={boxSelectionIds}
+                    noneLabel={editorCopy.common.none}
+                    childCountLabel={copy.library.childModsCount}
+                    expandLabel={copy.library.expandChildMods}
+                    collapseLabel={copy.library.collapseChildMods}
+                    folderCountLabel={copy.library.libraryFolderCount}
+                    openFolderLabel={copy.library.openLibraryFolder}
+                    closeFolderLabel={copy.library.closeLibraryFolder}
+                    onToggleSelection={toggleEditSelection}
+                    onBoxSelectionChange={updateBoxSelection}
+                    onToggleParentExpanded={toggleParentExpanded}
+                    isParentExpanded={isParentExpanded}
+                    onOpenModDetails={openModDetails}
+                    onOpenModFolder={openGridModFolder}
+                    onOpenLibraryFolder={setOpenLibraryFolderId}
+                    onCloseLibraryFolder={() => setOpenLibraryFolderId(null)}
+                    getContextActions={directActionsForMod}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <LauncherModDetailPanel
-          open={Boolean(detailMod)}
-          onClose={() => setDetailModId(null)}
-          closeLabel={copy.actions.closeDialog}
-          title={copy.library.detailsTitle}
-          subtitle={copy.library.detailsSubtitle}
-          empty={copy.library.selectionEmpty}
-          mod={detailMod}
+          <LauncherModDetailPanel
+            open={Boolean(detailMod)}
+            onClose={() => setDetailModId(null)}
+            closeLabel={copy.actions.closeDialog}
+            title={copy.library.detailsTitle}
+            subtitle={copy.library.detailsSubtitle}
+            empty={copy.library.selectionEmpty}
+            mod={detailMod}
+            labels={{
+              currentVersion: copy.fields.currentVersion,
+              uniqueId: copy.fields.uniqueId,
+              path: copy.fields.path,
+              dependencies: copy.fields.dependencies,
+              updateKeys: copy.fields.updateKeys,
+              pack: copy.library.packLabel,
+            }}
+            noSummary={copy.states.noSummary}
+            onToggleEnabled={() => {
+              if (detailMod) {
+                void library.toggleEnabled(detailMod)
+              }
+            }}
+            enableLabel={copy.actions.enable}
+            disableLabel={copy.actions.disable}
+            enabledStateLabel={copy.overview.enabledMods}
+            disabledStateLabel={copy.overview.disabledMods}
+            openFolderLabel={copy.actions.openFolder}
+            setCoverLabel={copy.actions.setCover}
+            clearCoverLabel={copy.actions.clearCover}
+            openModPageLabel={copy.actions.openModPage}
+            onQueueDownload={onQueueDownload}
+            remoteFilesDeferred={Boolean(onQueueDownload)}
+            onOpenFolder={() => {
+              if (detailMod) {
+                void openModFolder(detailMod)
+              }
+            }}
+            onSetCover={() => {
+              if (detailMod) {
+                void setModCover(detailMod)
+              }
+            }}
+            onClearCover={() => {
+              if (detailMod) {
+                void clearModCover(detailMod)
+              }
+            }}
+            packName={
+              detailMod
+                ? (packLookup
+                    .get(normalizeLookupKey(getModKey(detailMod)))
+                    ?.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? ''))?.name ?? null)
+                : null
+            }
+          />
+        </section>
+        <LauncherArchiveInstallDialog
+          open={archivePreviewState !== 'idle'}
+          loading={archivePreviewState === 'loading'}
+          installing={installingArchive}
+          previews={archivePreviews}
+          selectedArchivePath={selectedArchivePreviewPath}
+          error={archivePreviewState === 'error' ? archivePreviewError : null}
+          onClose={closeArchivePreview}
+          onConfirm={() => void confirmArchiveInstall()}
+          onSelectArchive={setSelectedArchivePreviewPath}
+        />
+
+        <LauncherInstallSummaryDialog
+          open={Boolean(installResult)}
+          result={installResult}
+          onClose={closeInstallSummary}
+          onManageBackups={openInstallBackupsFromSummary}
+        />
+
+        <LauncherInstallBackupsDialog
+          open={installBackupsOpen}
+          loading={installBackupsState === 'loading'}
+          backups={installBackups}
+          error={installBackupsState === 'error' ? installBackupsError : null}
+          restoringBackupId={restoringBackupId}
+          onClose={closeInstallBackupsDialog}
+          onRestore={(backupId) => void restoreInstallBackupSession(backupId)}
+        />
+
+        <LauncherChildModsDialogs
+          picker={childModPicker}
+          manager={childModManager}
+          mods={library.mods}
           labels={{
-            currentVersion: copy.fields.currentVersion,
-            uniqueId: copy.fields.uniqueId,
-            path: copy.fields.path,
-            dependencies: copy.fields.dependencies,
-            updateKeys: copy.fields.updateKeys,
-            pack: copy.library.packLabel,
+            chooseChildMods: copy.library.chooseChildMods,
+            chooseChildModsSubtitle: copy.library.chooseChildModsSubtitle,
+            confirmChildMods: copy.library.confirmChildMods,
+            cancelEdit: copy.library.cancelEdit,
+            manageChildMods: copy.library.manageChildMods,
+            parentModLabel: copy.library.parentModLabel,
+            removeFromParent: copy.library.removeFromParent,
+            closeDialog: copy.actions.closeDialog,
           }}
-          noSummary={copy.states.noSummary}
-          onToggleEnabled={() => {
-            if (detailMod) {
-              void library.toggleEnabled(detailMod)
-            }
-          }}
-          enableLabel={copy.actions.enable}
-          disableLabel={copy.actions.disable}
-          enabledStateLabel={copy.overview.enabledMods}
-          disabledStateLabel={copy.overview.disabledMods}
-          openFolderLabel={copy.actions.openFolder}
-          setCoverLabel={copy.actions.setCover}
-          clearCoverLabel={copy.actions.clearCover}
-          openModPageLabel={copy.actions.openModPage}
-          onQueueDownload={onQueueDownload}
-          remoteFilesDeferred={Boolean(onQueueDownload)}
-          onOpenFolder={() => {
-            if (detailMod) {
-              void openModFolder(detailMod)
-            }
-          }}
-          onSetCover={() => {
-            if (detailMod) {
-              void setModCover(detailMod)
-            }
-          }}
-          onClearCover={() => {
-            if (detailMod) {
-              void clearModCover(detailMod)
-            }
-          }}
-          packName={
-            detailMod
-              ? (packLookup
-                  .get(normalizeLookupKey(getModKey(detailMod)))
-                  ?.find((pack) => normalizeLookupKey(pack.id) === normalizeLookupKey(library.currentPackId ?? ''))?.name ?? null)
-              : null
+          onClosePicker={() => setChildModPicker(null)}
+          onTogglePickerSelection={toggleChildModPickerSelection}
+          onSubmitPicker={() => void submitChildModPicker()}
+          onCloseManager={() => setChildModManager(null)}
+          onRemoveChild={removeChildMod}
+          onManagerChildrenChange={(childMods) =>
+            setChildModManager((current) =>
+              current
+                ? {
+                    ...current,
+                    childMods,
+                  }
+                : current,
+            )
           }
         />
-      </section>
 
-      <LauncherArchiveInstallDialog
-        open={archivePreviewState !== 'idle'}
-        loading={archivePreviewState === 'loading'}
-        installing={installingArchive}
-        previews={archivePreviews}
-        selectedArchivePath={selectedArchivePreviewPath}
-        error={archivePreviewState === 'error' ? archivePreviewError : null}
-        onClose={closeArchivePreview}
-        onConfirm={() => void confirmArchiveInstall()}
-        onSelectArchive={setSelectedArchivePreviewPath}
-      />
-
-      <LauncherInstallSummaryDialog
-        open={Boolean(installResult)}
-        result={installResult}
-        onClose={closeInstallSummary}
-        onManageBackups={openInstallBackupsFromSummary}
-      />
-
-      <LauncherInstallBackupsDialog
-        open={installBackupsOpen}
-        loading={installBackupsState === 'loading'}
-        backups={installBackups}
-        error={installBackupsState === 'error' ? installBackupsError : null}
-        restoringBackupId={restoringBackupId}
-        onClose={closeInstallBackupsDialog}
-        onRestore={(backupId) => void restoreInstallBackupSession(backupId)}
-      />
-
-      {galleryCoverDialog ? (
-        <div
-          className="launcher-modal-backdrop launcher-library-dialog-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget && !galleryCoverDialog.applying) {
-              closeGalleryCoverDialog()
-            }
-          }}
-        >
-          <section
-            className="launcher-library-dialog launcher-gallery-cover-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={copy.library.galleryCoverTitle}
+        {galleryCoverDialog ? (
+          <div
+            className="launcher-modal-backdrop launcher-library-dialog-backdrop"
+            role="presentation"
+            onClick={(event) => {
+              if (event.target === event.currentTarget && !galleryCoverDialog.applying) {
+                closeGalleryCoverDialog()
+              }
+            }}
           >
-            <div className="launcher-library-dialog-header">
-              <h2 className="launcher-library-dialog-title">{copy.library.galleryCoverTitle}</h2>
-              <p className="launcher-library-dialog-copy">{copy.library.galleryCoverSubtitle}</p>
-            </div>
-
-            <div className="launcher-gallery-cover-grid">
-              {galleryCoverDialog.imageUrls.map((url, index) => (
-                <GalleryCoverOption
-                  key={url}
-                  url={url}
-                  selected={galleryCoverDialog.selectedImageUrl === url}
-                  label={copy.library.galleryCoverImageLabel(index + 1)}
-                  onSelect={() =>
-                    setGalleryCoverDialog((current) =>
-                      current
-                        ? {
-                            ...current,
-                            selectedImageUrl: url,
-                          }
-                        : current,
-                    )
-                  }
-                />
-              ))}
-            </div>
-
-            <div className="launcher-library-dialog-actions">
-              <button
-                type="button"
-                className="control-button launcher-library-secondary-action"
-                onClick={closeGalleryCoverDialog}
-                disabled={galleryCoverDialog.applying}
-              >
-                {copy.library.cancelEdit}
-              </button>
-              <button
-                type="button"
-                className="control-button control-button-primary"
-                onClick={() => void applyGalleryCover()}
-                disabled={galleryCoverDialog.applying}
-              >
-                {copy.actions.setCover}
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {packDialog ? (
-        <div
-          className="launcher-modal-backdrop launcher-library-dialog-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              closePackDialog()
-            }
-          }}
-        >
-          <section
-            className="launcher-library-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={
-              packDialog.kind === 'create'
-                ? copy.actions.createPack
-                : packDialog.kind === 'rename'
-                  ? copy.library.renameCurrentPack
-                  : copy.library.deleteCurrentPack
-            }
-          >
-            <div className="launcher-library-dialog-header">
-              <h2 className="launcher-library-dialog-title">
-                {packDialog.kind === 'create'
-                  ? copy.actions.createPack
-                  : packDialog.kind === 'rename'
-                    ? copy.library.renameCurrentPack
-                    : copy.library.deleteCurrentPack}
-              </h2>
-              {packDialog.kind === 'rename' ? (
-                <p className="launcher-library-dialog-copy">{copy.library.renameCurrentPackPrompt(packDialog.pack.name)}</p>
-              ) : null}
-              {packDialog.kind === 'delete' ? (
-                <p className="launcher-library-dialog-copy">{copy.library.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
-              ) : null}
-            </div>
-
-            {packDialog.kind === 'delete' ? (
-              <div className="launcher-library-dialog-actions">
-                <button type="button" className="control-button launcher-library-secondary-action" onClick={closePackDialog}>
-                  {copy.library.cancelEdit}
-                </button>
-                <button type="button" className="control-button launcher-library-danger-action" onClick={() => void submitPackDialog()}>
-                  {copy.library.deleteCurrentPack}
-                </button>
+            <section
+              className="launcher-library-dialog launcher-gallery-cover-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label={copy.library.galleryCoverTitle}
+            >
+              <div className="launcher-library-dialog-header">
+                <h2 className="launcher-library-dialog-title">{copy.library.galleryCoverTitle}</h2>
+                <p className="launcher-library-dialog-copy">{copy.library.galleryCoverSubtitle}</p>
               </div>
-            ) : (
-              <form
-                className="launcher-library-dialog-form"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void submitPackDialog()
-                }}
-              >
-                <label className="launcher-library-dialog-field">
-                  <span className="sr-only">{packDialog.kind === 'create' ? copy.actions.createPack : copy.library.renameCurrentPack}</span>
-                  <input
-                    ref={packDialogInputRef}
-                    value={packDialog.value}
-                    onChange={(event) =>
-                      setPackDialog((current) =>
-                        current && current.kind !== 'delete'
+
+              <div className="launcher-gallery-cover-grid">
+                {galleryCoverDialog.imageUrls.map((url, index) => (
+                  <GalleryCoverOption
+                    key={url}
+                    url={url}
+                    selected={galleryCoverDialog.selectedImageUrl === url}
+                    label={copy.library.galleryCoverImageLabel(index + 1)}
+                    onSelect={() =>
+                      setGalleryCoverDialog((current) =>
+                        current
                           ? {
                               ...current,
-                              value: event.target.value,
+                              selectedImageUrl: url,
                             }
                           : current,
                       )
                     }
-                    placeholder={copy.library.newPackPlaceholder}
-                    spellCheck={false}
                   />
-                </label>
+                ))}
+              </div>
+
+              <div className="launcher-library-dialog-actions">
+                <button
+                  type="button"
+                  className="control-button launcher-library-secondary-action"
+                  onClick={closeGalleryCoverDialog}
+                  disabled={galleryCoverDialog.applying}
+                >
+                  {copy.library.cancelEdit}
+                </button>
+                <button
+                  type="button"
+                  className="control-button control-button-primary"
+                  onClick={() => void applyGalleryCover()}
+                  disabled={galleryCoverDialog.applying}
+                >
+                  {copy.actions.setCover}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {packDialog ? (
+          <div
+            className="launcher-modal-backdrop launcher-library-dialog-backdrop"
+            role="presentation"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                closePackDialog()
+              }
+            }}
+          >
+            <section
+              className="launcher-library-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label={
+                packDialog.kind === 'create'
+                  ? copy.actions.createPack
+                  : packDialog.kind === 'rename'
+                    ? copy.library.renameCurrentPack
+                    : copy.library.deleteCurrentPack
+              }
+            >
+              <div className="launcher-library-dialog-header">
+                <h2 className="launcher-library-dialog-title">
+                  {packDialog.kind === 'create'
+                    ? copy.actions.createPack
+                    : packDialog.kind === 'rename'
+                      ? copy.library.renameCurrentPack
+                      : copy.library.deleteCurrentPack}
+                </h2>
+                {packDialog.kind === 'rename' ? (
+                  <p className="launcher-library-dialog-copy">{copy.library.renameCurrentPackPrompt(packDialog.pack.name)}</p>
+                ) : null}
+                {packDialog.kind === 'delete' ? (
+                  <p className="launcher-library-dialog-copy">{copy.library.deleteCurrentPackConfirm(packDialog.pack.name)}</p>
+                ) : null}
+              </div>
+
+              {packDialog.kind === 'delete' ? (
                 <div className="launcher-library-dialog-actions">
                   <button type="button" className="control-button launcher-library-secondary-action" onClick={closePackDialog}>
                     {copy.library.cancelEdit}
                   </button>
-                  <button type="submit" className="control-button control-button-primary launcher-library-primary-action">
-                    {packDialog.kind === 'create' ? copy.actions.createPack : copy.library.saveChanges}
+                  <button type="button" className="control-button launcher-library-danger-action" onClick={() => void submitPackDialog()}>
+                    {copy.library.deleteCurrentPack}
                   </button>
                 </div>
-              </form>
-            )}
-          </section>
-        </div>
-      ) : null}
+              ) : (
+                <form
+                  className="launcher-library-dialog-form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void submitPackDialog()
+                  }}
+                >
+                  <label className="launcher-library-dialog-field">
+                    <span className="sr-only">
+                      {packDialog.kind === 'create' ? copy.actions.createPack : copy.library.renameCurrentPack}
+                    </span>
+                    <input
+                      ref={packDialogInputRef}
+                      value={packDialog.value}
+                      onChange={(event) =>
+                        setPackDialog((current) =>
+                          current && current.kind !== 'delete'
+                            ? {
+                                ...current,
+                                value: event.target.value,
+                              }
+                            : current,
+                        )
+                      }
+                      placeholder={copy.library.newPackPlaceholder}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <div className="launcher-library-dialog-actions">
+                    <button type="button" className="control-button launcher-library-secondary-action" onClick={closePackDialog}>
+                      {copy.library.cancelEdit}
+                    </button>
+                    <button type="submit" className="control-button control-button-primary launcher-library-primary-action">
+                      {packDialog.kind === 'create' ? copy.actions.createPack : copy.library.saveChanges}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
+          </div>
+        ) : null}
+      </LauncherLibraryDndScope>
     </>
   )
 }

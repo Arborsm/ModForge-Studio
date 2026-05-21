@@ -719,6 +719,21 @@ export type LauncherCopy = {
     saveChanges: string
     renameCurrentPackPrompt: (name: string) => string
     deleteCurrentPackConfirm: (name: string) => string
+    setAsChildMod: string
+    chooseChildMods: string
+    chooseChildModsSubtitle: (name: string) => string
+    confirmChildMods: string
+    childModsCount: (count: number) => string
+    expandChildMods: (name: string) => string
+    collapseChildMods: (name: string) => string
+    manageChildMods: string
+    removeFromParent: string
+    parentModLabel: (name: string) => string
+    createLibraryFolder: string
+    newLibraryFolderName: string
+    libraryFolderCount: (count: number) => string
+    openLibraryFolder: (name: string) => string
+    closeLibraryFolder: string
     loadingMissingCoversTitle: string
     loadingMissingCoversCurrentMod: (name: string) => string
     loadingMissingCoversProgress: (completed: number, total: number) => string
