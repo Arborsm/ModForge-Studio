@@ -4,6 +4,7 @@
     gap: 20px;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     align-items: start;
+    padding-top: 6px;
   }
 
   .launcher-library-grid-reveal {
@@ -3132,6 +3133,7 @@
   }
 
   .launcher-library-draggable-card {
+    position: relative;
     cursor: grab;
     touch-action: none;
     user-select: none;
@@ -3143,7 +3145,14 @@
   }
 
   .launcher-library-draggable-card:active {
+    z-index: 4;
     cursor: grabbing;
+  }
+
+  .launcher-library-draggable-card:hover,
+  .launcher-library-draggable-card:focus-within,
+  .launcher-library-card-grab-pending {
+    z-index: 3;
   }
 
   .launcher-library-card-grab-pending {
@@ -3192,6 +3201,11 @@
     left: 0;
     z-index: 80;
     width: auto;
+  }
+
+  .launcher-library-pointer-drag-preview-pending {
+    opacity: 0.78;
+    transform: translate3d(var(--launcher-drag-x, 0px), var(--launcher-drag-y, 0px), 0) scale(0.96);
   }
 
   .launcher-library-drag-preview .launcher-mod-card {
@@ -3291,8 +3305,8 @@
     --launcher-folder-preview-width: min(174px, 68%);
     --launcher-folder-preview-margin-bottom: 13px;
     --launcher-folder-preview-padding: 19px 13px 12px;
-    --launcher-folder-content-preview-width: min(174px, 68%);
-    --launcher-folder-content-preview-margin-bottom: 20px;
+    --launcher-folder-content-preview-width: min(228px, 86%);
+    --launcher-folder-content-preview-margin-bottom: 0px;
     --launcher-folder-tab-top: -12px;
     --launcher-folder-tab-height: 18px;
     position: relative;
@@ -3458,7 +3472,7 @@
     width: 100%;
     aspect-ratio: 96 / 55;
     overflow: visible;
-    place-items: end center;
+    place-items: center;
     border-radius: 10px;
     border: 1px solid color-mix(in srgb, var(--launcher-folder-border) 64%, white);
     background:
@@ -3560,9 +3574,10 @@
   .launcher-library-folder-preview:not([data-preview-count="0"]) {
     display: grid;
     width: var(--launcher-folder-content-preview-width);
+    height: auto;
     aspect-ratio: 1.38 / 1;
     margin-bottom: var(--launcher-folder-content-preview-margin-bottom);
-    align-self: end;
+    align-self: center;
     justify-self: center;
     padding: 0;
   }
@@ -3570,17 +3585,21 @@
   .launcher-library-folder-preview[data-preview-count="1"] {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    padding: 5px 20px 2px;
+    padding: 4px 18px;
   }
 
   .launcher-library-folder-preview[data-preview-count="1"][data-preview-kind="folder"] {
-    padding: 10px 26px 2px;
+    padding: 7px 22px;
   }
 
   .launcher-library-folder-preview[data-preview-count="2"] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 3px 12px 1px;
+    padding: 6px 10px;
+  }
+
+  .launcher-library-folder-preview[data-preview-count="4"] {
+    grid-template-rows: repeat(2, minmax(0, 1fr));
   }
 
   .launcher-library-folder-preview[data-preview-count="3"] {
@@ -3592,6 +3611,7 @@
   .launcher-library-folder-preview-item {
     display: grid;
     min-width: 0;
+    min-height: 0;
     place-items: center;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.84);
@@ -3627,6 +3647,7 @@
     height: 100%;
     width: 100%;
     object-fit: cover;
+    display: block;
   }
 
   .launcher-library-folder-preview-folder {
@@ -3656,14 +3677,14 @@
   }
 
   .launcher-library-folder-preview-folder svg {
-    width: 24px;
-    height: 24px;
+    width: 30px;
+    height: 30px;
     stroke-width: 2.1;
   }
 
   .launcher-library-folder-preview[data-preview-count="1"][data-preview-kind="folder"] .launcher-library-folder-preview-folder svg {
-    width: 34px;
-    height: 34px;
+    width: 42px;
+    height: 42px;
     stroke-width: 1.9;
   }
 
@@ -3876,8 +3897,8 @@
     --launcher-folder-preview-width: min(92px, 50%);
     --launcher-folder-preview-margin-bottom: 17px;
     --launcher-folder-preview-padding: 14px 10px 9px;
-    --launcher-folder-content-preview-width: min(118px, 64%);
-    --launcher-folder-content-preview-margin-bottom: 19px;
+    --launcher-folder-content-preview-width: min(142px, 80%);
+    --launcher-folder-content-preview-margin-bottom: 0px;
     --launcher-folder-tab-top: -9px;
     --launcher-folder-tab-height: 14px;
     box-shadow:

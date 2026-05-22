@@ -41,51 +41,19 @@ ModForge Studio 是一款面向《星露谷物语》（Stardew Valley）的桌�
 - Tauri 在构建/开发时自动将 `dist` 作为 `frontendDist`
 - Rust 编译产物在 `apps/desktop/src-tauri/target`
 
-## 仓库结构与关键配置文件
+## 项目结构索引与关键配置文件
 
-```text
-.
-├─ apps/desktop/                   # 唯一活跃产品工作区
-│  ├─ src/                         # React / TypeScript 前端源码
-│  │  ├─ locales/                  # 中英文文案与类型化文案结构
-│  │  ├─ styles/                   # 全局样式入口与分层样式系统
-│  │  ├─ assets/                   # 静态资源
-│  │  └─ test/                     # 前端共享测试、架构测试、回归测试
-│  ├─ src-tauri/                   # Tauri / Rust 后端
-│  │  ├─ src/                      # Rust 源码
-│  │  │  ├─ commands/              # Tauri command wrapper（仅入口与错误包装）
-│  │  │  ├─ domain/                # 领域逻辑（launcher、mods、assets、saves…）
-│  │  │  ├─ infrastructure/        # 技术实现（game_formats、fs、webview…）
-│  │  │  ├─ support/               # 横向支撑（logging）
-│  │  │  └─ tests/                 # Rust 模块/单元测试（ sibling 文件）
-│  │  ├─ tests/                    # Rust 集成/回归测试
-│  │  │  └─ support/               # 测试共享辅助模块
-│  │  ├─ Cargo.toml                # Rust 依赖与构建配置
-│  │  ├─ tauri.conf.json           # Tauri 应用配置（窗口、安全、打包）
-│  │  └─ build.rs                  # Tauri 构建脚本
-│  ├─ package.json                 # @modforge/desktop 包脚本与依赖
-│  ├─ vite.config.ts               # Vite 构建与开发服务器配置
-│  ├─ vitest.config.ts             # Vitest 测试配置
-│  ├─ eslint.config.js             # ESLint 配置（typescript-eslint + react-hooks + react-refresh + eslint-config-prettier）
-│  ├─ tsconfig.json                # TypeScript 项目引用根
-│  ├─ tsconfig.app.json            # 前端源码 TS 配置
-│  ├─ tsconfig.node.json           # 构建工具/Node 侧 TS 配置
-│  ├─ postcss.config.cjs           # PostCSS 配置（Tailwind + autoprefixer）
-│  └─ index.html                   # 前端入口 HTML
-├─ .husky/pre-commit               # Git pre-commit hook（lint-staged 格式化暂存文件）
-├─ .prettierrc                     # Prettier 配置与 prettier-plugin-tailwindcss
-├─ .prettierignore                 # Prettier 忽略范围
-├─ package.json                    # 根脚本入口（委托给 workspace 子包）
-├─ pnpm-workspace.yaml             # pnpm workspace 包范围定义
-├─ .editorconfig                   # 编码风格基础约定
-└─ AGENTS.md                       # 本文件
-```
+项目结构由 CodeGraph 托管。需要了解文件布局、符号位置、调用关系、影响范围或功能入口时，优先使用 CodeGraph MCP 工具和 `.codegraph/` 索引，不要依赖手写目录树。Codex 使用规则见 `.codex/skills/codegraph/SKILL.md`。
+
+手写文档只保留稳定架构原则、少量关键入口、命令和约束；具体文件清单以 `codegraph_files`、`codegraph_context`、`codegraph_search` 等查询结果为准。
+
+稳定入口仍是：`apps/desktop`（唯一活跃产品工作区）、`README.md`、`AGENTS.md`、`docs/**`、`.devDocs/**`、`.codex/skills/**`。其余结构细节用 CodeGraph 查询。
 
 ## 代码组织与模块划分
 
 ### 前端（`apps/desktop/src`）
 
-前端已经完成从历史 `components + lib/app` 组织向 `FSD + Clean Architecture + 静态注册表 + Typed Event/Command + Platform DI` 的主路径迁移。新代码必须按以下目标层级落位：
+前端采用 `FSD + Clean Architecture + 静态注册表 + Typed Event/Command + Platform DI`。新代码必须按以下目标层级落位：
 
 - **`app/`** — 应用级装配层：全局 Provider、静态 registry 组装、平台 ports 注入、顶层入口。
 - **`pages/`** — 页面层：launcher/workbench 页面骨架与 view 分发。页面不集中拉取所有业务数据。
@@ -115,14 +83,10 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - typed events 放 `shared/contracts/events.ts`，typed commands 放 `shared/contracts/commands.ts`。
 - 平台 ports 放 `shared/contracts/platform.ts`，Tauri 实现放 `platform/tauri/`，Provider 放 `app/providers/`。
 - 业务层禁止直接 import `@tauri-apps/api`，禁止直接调用 `invoke(`。
-- 新增或迁移模块时，同步补架构测试，防止依赖方向回退；迁移完成后必须删除旧入口、兼容 shim 和只服务迁移验收的一次性测试。
-
-#### 已删除旧前端根目录
-
-- `components/`、`lib/`、`processes/` 已从 `apps/desktop/src` 删除，不再作为迁移期落点。
-- 禁止为“兼容旧 import”重建这些目录或新增 re-export shim。调用方必须迁到 canonical 目录。
-- 如果一次改动确实需要短期兼容层，必须在同一 PR/同一任务中记录删除条件，并优先在迁移完成时删除兼容层和对应的一次性迁移测试。
-- 架构测试应优先表达长期边界规则，例如依赖方向、禁止平台泄漏、禁止旧根目录被重新引用；不要长期保留只断言某个旧文件名不存在的迁移验收测试。
+- 新增或移动模块时，同步补架构测试，防止依赖方向回退。
+- 禁止新增 `components/`、`lib/`、`processes/` 这类旧式兜底根目录，也禁止为旧 import 增加 re-export shim。
+- 如果一次改动确实需要短期兼容层，必须在同一任务中记录删除条件，并优先在迁移完成时删除兼容层和对应的一次性验收测试。
+- 架构测试应优先表达长期边界规则，例如依赖方向、禁止平台泄漏、禁止旧根目录被重新引用；不要长期保留只断言某个旧文件名不存在的一次性测试。
 - **`locales/`** — 类型化文案。
   - `en-US.ts`、`zh-CN.ts`：实际文案。
   - `schema.ts`：文案类型结构。
@@ -216,12 +180,12 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - React 组件与窗口文件使用 **PascalCase**，如 `WorkspaceLayout.tsx`。
 - Hooks 必须以 `use` 开头。
 - 辅助模块与解析器使用语言约定的 camelCase（TS）或 snake_case（Rust）。
-- 新架构下，视图状态编排优先放 `src/pages`、`src/widgets` 或对应 `features/entities`；不要新增 `src/processes`、`src/lib/app` 之类迁移期 glue 层。
-- 渲染层优先按职责放 `shared/ui`、`widgets/*`、`features/*/ui` 或页面私有 `pages/*/ui`；不要新增迁移期 `components/`。
+- 视图状态编排优先放 `src/pages`、`src/widgets` 或对应 `features/entities`；不要新增 `src/processes`、`src/lib/app` 之类 glue 层。
+- 渲染层优先按职责放 `shared/ui`、`widgets/*`、`features/*/ui` 或页面私有 `pages/*/ui`；不要新增 `components/`。
 - UI 文案通过类型化 locale bundles 与 locale hooks 消费；**禁止**在 React 层通过 `copy` / `locale` props 层层透传。
 - 非 React 逻辑可以显式接收 locale 或 copy 参数。
 - 公共 API 必须有简洁 JSDoc：包括 slice/entity 的 `index.ts` 对外导出、`features/*/api`、`entities/*/api`、`shared/lib/*` 的跨层工具、`shared/contracts/*` 的核心类型，以及会被多个模块复用的 hook / helper。注释说明“用途、边界、缓存或副作用”，不要写实现逐行复述。
-- 新增或迁移 API 时，同步补注释；如果删除旧 API，也删除过期注释，不保留兼容说明或迁移历史。
+- 新增或移动 API 时，同步补注释；如果删除旧 API，也删除过期注释，不保留兼容说明或迁移历史。
 - 提交前端改动前必须运行 `pnpm format:check` 和 `pnpm lint`。
 
 ## 测试策略
@@ -231,7 +195,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - 使用 **Vitest** + jsdom。
 - 组件/模块测试与源码同目录（`*.test.tsx`）。
 - 架构约束测试放在 `src/test/architecture/`（如代码拆分验证、vite 配置测试）。
-- 前端架构迁移必须补充或更新架构测试，覆盖：禁止业务层 import `@tauri-apps/api`、禁止业务层直接 `invoke(`、禁止 `features -> features`、禁止 `entities -> widgets/pages/features`、禁止 `shared -> app/pages/widgets/features/entities/platform`、禁止 `entities` 引用 panel/layout contracts。
+- 前端架构改动必须补充或更新架构测试，覆盖：禁止业务层 import `@tauri-apps/api`、禁止业务层直接 `invoke(`、禁止 `features -> features`、禁止 `entities -> widgets/pages/features`、禁止 `shared -> app/pages/widgets/features/entities/platform`、禁止 `entities` 引用 panel/layout contracts。
 - 跨模块回归测试放在 `src/test/regressions/`。
 - 共享测试辅助放在 `src/test/`。
 - **最低验证要求**：`pnpm format:check` → `pnpm lint` → `pnpm build` → `pnpm --filter @modforge/desktop test`。
@@ -300,9 +264,6 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 - **只允许向以下位置写入文档**：`AGENTS.md`、`README.md`（仓库根）、`.devDocs/**`、`docs/**`。
 - superpowers 生成的文档必须放在 `.devDocs/superpowers/`。
 - **禁止**将 superpowers 生成的文档提交到 git。
-- 当新增以下任何一种内容时，必须同步更新 `README.md` 的 `Quick Map`、`Feature Index` 或 `Common Change Paths`：
-  - 新的顶层目录
-  - 新的重要功能目录
-  - 会改变开发者“该去哪里找代码”的新文件或文件夹
+- 项目结构由 CodeGraph 托管，README 不再维护完整文件清单。新增目录或移动代码时，优先确保 CodeGraph 索引可更新；只有稳定架构原则、公共入口、开发命令或长期文档位置发生变化时才同步 README。
 - **禁止**让迁移/废弃代码存活超过 2 个版本；迁移完成当场删除旧代码、旧入口、兼容 shim，以及只服务迁移验收的旧架构测试。
 - **禁止**堆叠兼容性技术债（“屎山”）；优先激进重构与清理，而非无限叠加向后兼容层。

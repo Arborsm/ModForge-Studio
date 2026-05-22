@@ -218,13 +218,45 @@ function LauncherModCardContent({
       <ContextMenu.Portal>
         <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
           {contextActions.map((action) => (
-            <ContextMenu.Item key={action.label} className="context-menu-item" onSelect={action.onSelect}>
-              {action.label}
-            </ContextMenu.Item>
+            <LauncherModCardContextMenuItem key={action.label} action={action} />
           ))}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>
+  )
+}
+
+function LauncherModCardContextMenuItem({ action }: { action: LauncherModCardAction }) {
+  const handledRef = useRef(false)
+  const runAction = () => {
+    if (handledRef.current) {
+      return
+    }
+    handledRef.current = true
+    action.onSelect()
+    window.setTimeout(() => {
+      handledRef.current = false
+    }, 250)
+  }
+
+  return (
+    <ContextMenu.Item asChild onSelect={(event) => event.preventDefault()}>
+      <button
+        type="button"
+        className="context-menu-item"
+        role="menuitem"
+        onPointerDown={runAction}
+        onPointerUp={runAction}
+        onClick={runAction}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            runAction()
+          }
+        }}
+      >
+        {action.label}
+      </button>
+    </ContextMenu.Item>
   )
 }
 

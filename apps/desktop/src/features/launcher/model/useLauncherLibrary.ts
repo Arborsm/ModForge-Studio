@@ -1007,6 +1007,24 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     [copy.library.newLibraryFolderName, libraryFolders, libraryState, persistLibraryState],
   )
 
+  const renameLibraryFolder = useCallback(
+    async (folderId: string, name: string) => {
+      const trimmed = name.trim()
+      if (!trimmed) {
+        return
+      }
+      await persistLibraryState({
+        ...libraryState,
+        libraryFolders: normalizeLibraryFolders(
+          libraryFolders.map((folder) =>
+            normalizeLookupKey(folder.id) === normalizeLookupKey(folderId) ? { ...folder, name: trimmed } : folder,
+          ),
+        ),
+      })
+    },
+    [libraryFolders, libraryState, persistLibraryState],
+  )
+
   const addModsToLibraryFolder = useCallback(
     async (folderId: string, modIds: string[]) => {
       const modKeys = modIds
@@ -1049,6 +1067,24 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       })
     },
     [libraryFolders, libraryState, persistLibraryState],
+  )
+
+  const setModsEnabled = useCallback(
+    async (modIds: string[], enabled: boolean) => {
+      const targetIds = new Set(modIds)
+      await Promise.all(
+        mods
+          .filter((item) => targetIds.has(item.id) && item.enabled !== enabled)
+          .map((item) =>
+            launcherPort.setModEnabled({
+              modPath: item.absolutePath,
+              enabled,
+            }),
+          ),
+      )
+      await refresh()
+    },
+    [launcherPort, mods, refresh],
   )
 
   const setScopeMode = useCallback(
@@ -1173,9 +1209,11 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
     removeChildMods,
     replaceChildMods,
     createLibraryFolder,
+    renameLibraryFolder,
     addModsToLibraryFolder,
     removeModsFromLibraryFolders,
     moveLibraryFolderToFolder,
+    setModsEnabled,
     setCurrentPackId,
     setScopeMode,
     applyCurrentPack,

@@ -2,7 +2,7 @@
 
 This document defines the target frontend architecture for ModForge Studio.
 
-The frontend has completed its main migration away from the historical `components + lib/app` structure. The target architecture is suitable for a complex desktop workbench:
+The frontend architecture is suitable for a complex desktop workbench:
 
 - Feature-Sliced boundaries for ownership.
 - Clean Architecture dependency direction.
@@ -12,24 +12,7 @@ The frontend has completed its main migration away from the historical `componen
 
 ## Target Layers
 
-```text
-src/
-├── app/
-│   ├── app-shell/
-│   ├── providers/
-│   ├── registry-setup.ts
-│   └── App.tsx
-├── pages/
-├── widgets/
-├── features/
-├── entities/
-├── platform/
-└── shared/
-    ├── contracts/
-    ├── ui/
-    ├── lib/
-    └── types/
-```
+The durable frontend layers are `app`, `pages`, `widgets`, `features`, `entities`, `shared`, and `platform`. Do not use this document as a file map: project structure is indexed by CodeGraph, and concrete paths should be discovered with `codegraph_files`, `codegraph_context`, and `codegraph_search`.
 
 Target dependency direction:
 
@@ -37,7 +20,7 @@ Target dependency direction:
 app -> pages -> widgets -> features -> entities -> shared/contracts
 ```
 
-`platform` is an external adapter. It is implemented in the platform layer and injected by `app/providers`. Business code should depend on contracts, not on Tauri. The `processes` layer is deprecated in the current architecture; remaining orchestration belongs in `app/` or in the relevant `features/` slice.
+`platform` is an external adapter. It is implemented in the platform layer and injected by `app/providers`. Business code should depend on contracts, not on Tauri. Cross-page or cross-feature orchestration belongs in `app/` or in the relevant feature slice; do not add a separate `processes` layer.
 
 ## Layer Responsibilities
 
@@ -232,13 +215,7 @@ This keeps entities/features testable and prevents Tauri from leaking into busin
 
 ## Cleanup Rules
 
-The historical frontend roots have been removed and must not be recreated:
-
-- `components`
-- `lib`
-- `processes`
-
-New and migrated code must use the target layers. Do not add re-export shims or compatibility directories for old import paths. If a short-lived compatibility layer is unavoidable, document the deletion condition and remove the shim as soon as the migration lands.
+New and moved code must use the target layers. Do not recreate old catch-all roots such as `components`, `lib`, or `processes`, and do not add re-export shims or compatibility directories for old import paths. If a short-lived compatibility layer is unavoidable, document the deletion condition and remove the shim as soon as the change lands.
 
 Architecture tests should guard durable boundaries, not one-off migration milestones. Keep rules that prevent dependency drift or removed roots from being referenced again; delete tests that only assert a specific old filename no longer exists once the change is complete.
 
@@ -268,15 +245,7 @@ Comments should describe purpose, owner boundary, important cache behavior, and 
 
 ## Boundary Debt
 
-The main legacy roots are gone. Remaining frontend architecture debt should be tracked as explicit, shrinking baselines rather than compatibility shims.
-
-Current priority order:
-
-1. Keep `@platform/desktop` deleted. Host infrastructure helpers belong in the port-backed `shared/lib/desktop/` modules; business desktop APIs belong in their owning `entities/*/api` or `features/*/api` slice.
-2. Route host capabilities through `shared/contracts/platform.ts` ports and `app/providers` injection; keep direct Tauri usage inside `platform/tauri/`.
-3. Keep `platform` imports limited to platform adapters, app provider assembly, and explicitly documented boundary files.
-4. Prefer page-owned workspace code until a module is reused by multiple pages or widgets.
-5. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
+Frontend architecture debt should be tracked as explicit, shrinking baselines in tests or task docs, not as compatibility shims in product code. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
 
 Do not preserve old internal request shapes, localStorage keys, route ids, or import paths for compatibility while the product is unreleased. Finish the change, update callers, and delete temporary code immediately.
 

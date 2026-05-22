@@ -48,7 +48,20 @@ vi.mock('@radix-ui/react-context-menu', async () => {
     return <div role="menu">{children}</div>
   }
 
-  function Item({ children, onSelect, className }: { children: ReactNode; onSelect?: () => void; className?: string }) {
+  function Item({
+    asChild,
+    children,
+    onSelect,
+    className,
+  }: {
+    asChild?: boolean
+    children: ReactNode
+    onSelect?: () => void
+    className?: string
+  }) {
+    if (asChild) {
+      return children
+    }
     return (
       <button type="button" role="menuitem" className={className} onClick={onSelect}>
         {children}
@@ -354,9 +367,11 @@ function createLibraryState(): MockLibraryState {
     removeChildMods: vi.fn(async () => {}),
     replaceChildMods: vi.fn(async () => {}),
     createLibraryFolder: vi.fn(async () => 'new-folder'),
+    renameLibraryFolder: vi.fn(async () => {}),
     addModsToLibraryFolder: vi.fn(async () => {}),
     removeModsFromLibraryFolders: vi.fn(async () => {}),
     moveLibraryFolderToFolder: vi.fn(async () => {}),
+    setModsEnabled: vi.fn(async () => {}),
     setCurrentPackId: vi.fn(async () => {}),
     applyCurrentPack: vi.fn(async () => {}),
     setSelectionEnabled: vi.fn(async () => {}),
@@ -496,7 +511,7 @@ describe('LauncherLibraryPage', () => {
     expect(container.querySelector('.launcher-library-shell .launcher-library-console')).toBeNull()
   })
 
-  it('creates a virtual library folder from the header and opens it', async () => {
+  it('creates a virtual library folder from the header without auto-expanding it', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -507,6 +522,7 @@ describe('LauncherLibraryPage', () => {
     await waitFor(() => {
       expect(library.createLibraryFolder).toHaveBeenCalled()
     })
+    expect(screen.queryByRole('region')).toBeNull()
   })
 
   it('renders virtual folders as expandable folder tiles and hides contained mods from the top level', async () => {
@@ -559,6 +575,76 @@ describe('LauncherLibraryPage', () => {
 
     expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
+  })
+
+  it('keeps multiple virtual folders expanded and shows folder context actions', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+        {
+          id: 'gameplay',
+          name: 'Gameplay',
+          parentFolderId: null,
+          modKeys: ['ModForge.VintageInterface'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const visualsFolderButton = screen.getByRole('button', { name: 'Open folder Visuals' })
+    fireEvent.contextMenu(visualsFolderButton)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem', { name: 'Open folder Visuals' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Rename folder' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Enable folder mods' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Disable folder mods' }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Disable folder mods' })[0]!)
+    await waitFor(() => {
+      expect((library as MockLibraryState & { setModsEnabled: ReturnType<typeof vi.fn> }).setModsEnabled).toHaveBeenCalledWith(
+        ['mod-1'],
+        false,
+      )
+    })
+
+    fireEvent.contextMenu(visualsFolderButton)
+    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Rename folder' })[0]!)
+    const renameDialog = screen.getByRole('dialog', { name: 'Rename folder' })
+    expect(renameDialog).not.toBeNull()
+    const renameInput = within(renameDialog).getByRole('textbox')
+    fireEvent.change(renameInput, { target: { value: 'Visual Packs' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+    await waitFor(() => {
+      expect((library as MockLibraryState & { renameLibraryFolder: ReturnType<typeof vi.fn> }).renameLibraryFolder).toHaveBeenCalledWith(
+        'visuals',
+        'Visual Packs',
+      )
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Gameplay' }))
+
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(screen.getByRole('region', { name: 'Gameplay' })).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Open folder Visuals' })).toBeNull()
+
+    fireEvent.contextMenu(screen.getByRole('region', { name: 'Visuals' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem', { name: 'Close folder' }).length).toBeGreaterThan(0)
+    })
   })
 
   it('marks library card versions when a cached update is available', () => {
@@ -1208,6 +1294,30 @@ describe('LauncherLibraryPage', () => {
     }
   })
 
+  it('shows the pointer drag preview immediately on press without dropping until movement starts', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+
+    fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 71 })
+
+    const preview = await screen.findByTestId('launcher-library-drag-preview')
+    expect(preview).toHaveClass('launcher-library-pointer-drag-preview-pending')
+
+    act(() => {
+      fireEvent.pointerUp(document, { clientX: 160, clientY: 160, pointerId: 71 })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull()
+    })
+    expect(library.addModsToPack).not.toHaveBeenCalled()
+    expect(library.addModsToLibraryFolder).not.toHaveBeenCalled()
+  })
+
   it('drops a dragged card onto a virtual folder tile', async () => {
     const library = {
       ...createLibraryState(),
@@ -1376,6 +1486,41 @@ describe('LauncherLibraryPage', () => {
       await waitFor(() => {
         expect(library.addModsToLibraryFolder).toHaveBeenCalledWith('visuals', ['mod-1', 'mod-2'])
       })
+    } finally {
+      boundsSpy.mockRestore()
+    }
+  })
+
+  it('shows the box-selection rectangle immediately on blank pointer down and cancels it on click release', () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const viewport = card.closest('.launcher-library-grid-viewport') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
+        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      fireEvent.pointerDown(viewport, { button: 0, buttons: 1, clientX: 140, clientY: 140, isPrimary: true, pointerId: 81 })
+
+      const selectionBox = screen.getByTestId('launcher-library-box-select')
+      expect(selectionBox).not.toBeNull()
+      expect(selectionBox.style.left).toBe('60px')
+      expect(selectionBox.style.top).toBe('60px')
+      expect(selectionBox.style.width).toBe('2px')
+      expect(selectionBox.style.height).toBe('2px')
+
+      act(() => {
+        fireEvent.pointerUp(window, { clientX: 140, clientY: 140, pointerId: 81 })
+      })
+
+      expect(screen.queryByTestId('launcher-library-box-select')).toBeNull()
     } finally {
       boundsSpy.mockRestore()
     }

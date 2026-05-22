@@ -731,6 +731,10 @@ export type LauncherCopy = {
     parentModLabel: (name: string) => string
     createLibraryFolder: string
     newLibraryFolderName: string
+    renameLibraryFolder: string
+    renameLibraryFolderPrompt: (name: string) => string
+    enableLibraryFolder: string
+    disableLibraryFolder: string
     libraryFolderCount: (count: number) => string
     openLibraryFolder: (name: string) => string
     closeLibraryFolder: string
