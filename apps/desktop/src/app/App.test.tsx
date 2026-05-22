@@ -598,12 +598,6 @@ vi.mock('@pages/workbench', () => ({
         <button type="button">{copy.leftDock.project}</button>
         <button type="button">{viewMenuCopy.title}</button>
         <div data-testid="workspace-layout" data-storage-key={layoutProps.storageKey} />
-        {props.debugEnabled ? (
-          <>
-            <div data-testid="workbench-debug-overlay" />
-            <div data-testid="app-debug-overlay" />
-          </>
-        ) : null}
       </div>
     )
   },
@@ -1176,11 +1170,11 @@ describe('App locale ownership', () => {
     render(<App />)
 
     return waitFor(() => {
-      expect(screen.getByTestId('workbench-debug-overlay')).toBeTruthy()
+      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
     })
   })
 
-  it('keeps the workbench debug overlay out of launcher mode when debug mode is enabled', () => {
+  it('shows the debug overlay in launcher mode when debug mode is enabled', () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
@@ -1190,7 +1184,9 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(screen.queryByTestId('workbench-debug-overlay')).toBeNull()
+    return waitFor(() => {
+      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
+    })
   })
 
   it('toggles debug mode from Settings and persists the flag', async () => {
@@ -1207,7 +1203,7 @@ describe('App locale ownership', () => {
 
     await waitFor(() => {
       expect(mockAppUiState.shell.debugEnabled).toBe(true)
-      expect(screen.getByTestId('workbench-debug-overlay')).toBeTruthy()
+      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
     })
   })
 

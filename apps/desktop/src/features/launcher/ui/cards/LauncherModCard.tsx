@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useRef } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowUp, Check, ChevronDown, ChevronRight } from 'lucide-react'
@@ -6,8 +6,6 @@ import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
-
-const DETAIL_DOUBLE_CLICK_DELAY_MS = 180
 
 type LauncherModCardAction = {
   label: string
@@ -28,7 +26,6 @@ type LauncherModCardProps = {
   onOpenDirectTarget?: () => void
   contextActions?: LauncherModCardAction[]
   dragging?: boolean
-  dropTarget?: boolean
   childCount?: number
   childCountLabel?: string
   expanded?: boolean
@@ -52,7 +49,6 @@ function LauncherModCardContent({
   onOpenDirectTarget,
   contextActions,
   dragging = false,
-  dropTarget = false,
   childCount = 0,
   childCountLabel,
   expanded = false,
@@ -63,7 +59,6 @@ function LauncherModCardContent({
   selected = false,
 }: LauncherModCardProps) {
   const copy = useEditorCopy()
-  const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fallbackPalette = getLauncherCardFallbackPalette(title)
   const coverWord = getLauncherCardCoverWord(title)
   const normalizedAuthor = author?.trim() ?? ''
@@ -85,14 +80,6 @@ function LauncherModCardContent({
     '--launcher-cover-shadow': fallbackPalette.shadow,
   } as CSSProperties
 
-  useEffect(() => {
-    return () => {
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-      }
-    }
-  }, [])
-
   const handleSelectClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (selectionMode) {
       event.stopPropagation()
@@ -105,24 +92,10 @@ function LauncherModCardContent({
       return
     }
 
-    if (!onOpenDetails) {
-      return
-    }
-
-    if (clickTimeoutRef.current) {
-      clearTimeout(clickTimeoutRef.current)
-    }
-    clickTimeoutRef.current = setTimeout(() => {
-      clickTimeoutRef.current = null
-      onOpenDetails()
-    }, DETAIL_DOUBLE_CLICK_DELAY_MS)
+    onOpenDetails?.()
   }
 
   const handleOpenDirectTargetDoubleClick = () => {
-    if (clickTimeoutRef.current) {
-      clearTimeout(clickTimeoutRef.current)
-      clickTimeoutRef.current = null
-    }
     onOpenDirectTarget?.()
   }
 
@@ -134,7 +107,6 @@ function LauncherModCardContent({
         'panel-list-card panel-list-card-interactive launcher-mod-card',
         !enabled && 'launcher-mod-card-disabled',
         dragging && 'launcher-mod-card-dragging',
-        dropTarget && 'launcher-mod-card-drop-target',
         selectionMode && 'launcher-mod-card-selection-mode',
         selectionMode && selected && 'launcher-mod-card-selected',
         selectionMode && !selected && 'launcher-mod-card-unselected',

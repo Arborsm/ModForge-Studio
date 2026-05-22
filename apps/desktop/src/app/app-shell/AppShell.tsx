@@ -48,6 +48,7 @@ import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
+import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from './WorkbenchShellSkeleton'
 
@@ -559,7 +560,6 @@ export default function App() {
                   theme={theme}
                   locale={locale}
                   accentColor={activeAccentPreset.color}
-                  debugEnabled={debugEnabled}
                   desktopHost={desktopHost}
                   onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
                   onSwitchToLauncher={handleSwitchToLauncher}
@@ -572,6 +572,28 @@ export default function App() {
                   onClearPendingIntent={appCommandHandler.clearPendingIntent}
                 />
               </Suspense>
+            ) : null}
+
+            {debugEnabled ? (
+              <DevDebugOverlay
+                workspaceMode={appMode === 'launcher' ? 'launcher' : 'map'}
+                mapName={null}
+                eventName={null}
+                currentEventCommandId={null}
+                actorCount={0}
+                contextSectionLabel={appMode === 'launcher' ? 'Launcher' : 'App'}
+                contextMetrics={
+                  appMode === 'launcher'
+                    ? [
+                        ['Page', launcherPage],
+                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                      ]
+                    : [
+                        ['Mode', appMode],
+                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                      ]
+                }
+              />
             ) : null}
 
             {settingsWindowOpen ? (

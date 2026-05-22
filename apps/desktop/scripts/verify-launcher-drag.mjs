@@ -8,8 +8,23 @@ function percentile(values, p) {
   return sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor((sorted.length - 1) * p)))]
 }
 
+function summarizeFrames(values) {
+  const clean = values.filter((value) => Number.isFinite(value) && value > 0)
+  const totalMs = clean.reduce((sum, value) => sum + value, 0)
+  return {
+    count: clean.length,
+    averageMs: clean.length ? Number((totalMs / clean.length).toFixed(2)) : 0,
+    p95Ms: Number(percentile(clean, 0.95).toFixed(2)),
+    maxMs: clean.length ? Number(Math.max(...clean).toFixed(2)) : 0,
+    effectiveFps: totalMs > 0 ? Number(((clean.length * 1000) / totalMs).toFixed(1)) : 0,
+    below60FpsFrameRate: clean.length ? Number((clean.filter((value) => value > 16.7).length / clean.length).toFixed(3)) : 0,
+    below30FpsFrameRate: clean.length ? Number((clean.filter((value) => value > 33.3).length / clean.length).toFixed(3)) : 0,
+    jankFrameRate: clean.length ? Number((clean.filter((value) => value > 50).length / clean.length).toFixed(3)) : 0,
+  }
+}
+
 const browser = await chromium.launch({
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: true,
 })
 const page = await browser.newPage({ viewport: { width: 1440, height: 980 }, deviceScaleFactor: 1 })
@@ -119,7 +134,9 @@ try {
 
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
-  await page.waitForTimeout(40)
+  const dragFeedbackStartedAt = await page.evaluate(() => performance.now())
+  await page.waitForSelector('.launcher-library-draggable-card.launcher-library-card-grab-pending', { state: 'visible', timeout: 200 })
+  const dragFeedbackLatencyMs = await page.evaluate((startedAt) => performance.now() - startedAt, dragFeedbackStartedAt)
   const immediateFeedback = await page.evaluate(() =>
     Boolean(document.querySelector('.launcher-library-draggable-card.launcher-library-card-grab-pending')),
   )
@@ -163,12 +180,9 @@ try {
   const frames = result.frames.filter((value) => Number.isFinite(value) && value > 0)
   const dragOnlyFrames = dragOnlyMetrics.frames.filter((value) => Number.isFinite(value) && value > 0)
   const dropFrames = result.dropFrames.filter((value) => Number.isFinite(value) && value > 0)
-  const maxFrame = Math.max(...frames)
-  const p95Frame = percentile(frames, 0.95)
-  const averageFrame = frames.reduce((sum, value) => sum + value, 0) / frames.length
-  const dragOnlyMaxFrame = Math.max(...dragOnlyFrames)
-  const dragOnlyP95Frame = percentile(dragOnlyFrames, 0.95)
-  const dropMaxFrame = dropFrames.length ? Math.max(...dropFrames) : 0
+  const allFrameSummary = summarizeFrames(frames)
+  const dragFrameSummary = summarizeFrames(dragOnlyFrames)
+  const dropFrameSummary = summarizeFrames(dropFrames)
   const longTasksDuringDrag = dragOnlyMetrics.longTasks.filter((entry) => entry.duration >= 50)
   const allLongTasks = result.longTasks.filter((entry) => entry.duration >= 50)
   const longTaskCount = longTasksDuringDrag.length
@@ -177,13 +191,14 @@ try {
   const summary = {
     url: targetUrl,
     initial,
-    frameCount: frames.length,
-    averageFrameMs: Number(averageFrame.toFixed(2)),
-    p95FrameMs: Number(p95Frame.toFixed(2)),
-    maxFrameMs: Number(maxFrame.toFixed(2)),
-    dragOnlyP95FrameMs: Number(dragOnlyP95Frame.toFixed(2)),
-    dragOnlyMaxFrameMs: Number(dragOnlyMaxFrame.toFixed(2)),
-    dropMaxFrameMs: Number(dropMaxFrame.toFixed(2)),
+    frames: {
+      all: allFrameSummary,
+      drag: dragFrameSummary,
+      drop: dropFrameSummary,
+    },
+    latencyMs: {
+      dragFeedback: Number(dragFeedbackLatencyMs.toFixed(2)),
+    },
     longTaskCount,
     postDropLongTaskCount,
     longTasksDuringDrag: longTasksDuringDrag.map((entry) => ({
@@ -214,7 +229,7 @@ try {
   if (!immediateFeedback) {
     throw new Error('Drag did not show immediate grab feedback before activation.')
   }
-  if (longTaskCount > 0 || dragOnlyP95Frame > 34 || dragOnlyMaxFrame > 80) {
+  if (longTaskCount > 0 || dragFrameSummary.p95Ms > 34 || dragFrameSummary.maxMs > 80 || dragFeedbackLatencyMs > 40) {
     throw new Error(`Drag was not smooth enough: ${JSON.stringify(summary)}`)
   }
 } finally {

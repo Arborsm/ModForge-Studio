@@ -51,6 +51,10 @@ type ChangelogListItem = {
   lines: string[]
 }
 
+function shouldDeferDetailContent() {
+  return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
+}
+
 function DependencyIcon({ name }: { name: string }) {
   const symbol = name.toLowerCase().includes('smapi') ? '⚙' : '🧩'
 
@@ -499,6 +503,10 @@ export function LauncherModDetailPanel({
   const detailCopy = launcherCopy.library.modDetail
   const [activeTab, setActiveTab] = useState<LauncherDetailTab>('description')
   const [descriptionReaderOpen, setDescriptionReaderOpen] = useState(false)
+  const detailContentKey = `${mod?.id ?? 'empty'}:${remoteDetail?.modId ?? mod?.nexusModId ?? 'local'}`
+  const deferDetailContent = shouldDeferDetailContent()
+  const [readyContentKey, setReadyContentKey] = useState(() => (!deferDetailContent ? detailContentKey : null))
+  const contentReady = !deferDetailContent || readyContentKey === detailContentKey
   const fallbackPalette = getLauncherCardFallbackPalette(mod?.name ?? remoteDetail?.title ?? title)
   const coverWord = getLauncherCardCoverWord(mod?.name ?? remoteDetail?.title ?? title)
   const fetchedRemote = useLauncherRemoteModDetail(open && !remoteDetail && mod?.nexusModId ? mod.nexusModId : null, {
@@ -703,8 +711,11 @@ export function LauncherModDetailPanel({
 
   const handleClose = useCallback(() => {
     setDescriptionReaderOpen(false)
+    if (deferDetailContent) {
+      setReadyContentKey(null)
+    }
     onClose()
-  }, [onClose])
+  }, [deferDetailContent, onClose])
 
   const handleSelectTab = (tab: LauncherDetailTab) => {
     if (tab !== 'description') {
@@ -712,6 +723,19 @@ export function LauncherModDetailPanel({
     }
     setActiveTab(tab)
   }
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    if (!deferDetailContent) {
+      return
+    }
+
+    const frameId = window.requestAnimationFrame(() => setReadyContentKey(detailContentKey))
+    return () => window.cancelAnimationFrame(frameId)
+  }, [deferDetailContent, detailContentKey, open])
 
   useEffect(() => {
     if (!open) {
@@ -774,7 +798,24 @@ export function LauncherModDetailPanel({
           </div>
         ) : null}
 
-        {!mod && !remote ? (
+        {!contentReady ? (
+          <>
+            <button
+              type="button"
+              className="icon-button launcher-mod-detail-close-button launcher-mod-detail-shell-close-button"
+              onClick={handleClose}
+              aria-label={closeLabel}
+              title={closeLabel}
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="launcher-mod-detail-shell-pending" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          </>
+        ) : !mod && !remote ? (
           <div className="launcher-library-drawer-body">
             <PanelEmptyState>{empty}</PanelEmptyState>
           </div>
@@ -922,7 +963,7 @@ export function LauncherModDetailPanel({
                   </div>
                 </section>
 
-                {hasChangelogData ? (
+                {hasChangelogData && selectedTab === 'changelog' ? (
                   <section
                     className={cx('launcher-mod-detail-tab-panel', selectedTab === 'changelog' && 'active')}
                     role="tabpanel"
@@ -935,31 +976,33 @@ export function LauncherModDetailPanel({
                   </section>
                 ) : null}
 
-                <section
-                  className={cx('launcher-mod-detail-tab-panel', selectedTab === 'details' && 'active')}
-                  role="tabpanel"
-                  hidden={selectedTab !== 'details'}
-                  aria-hidden={selectedTab !== 'details'}
-                >
-                  {isCombined ? (
-                    <div className="launcher-mod-detail-info-layout combined">
-                      <DetailSection title={detailCopy.installPath} rows={localDetails} />
-                      <DetailSection title={detailCopy.updateEvidence} rows={updateEvidenceDetails} />
-                    </div>
-                  ) : isNexus ? (
-                    <div className="launcher-mod-detail-info-layout only">
-                      <DetailSection title={detailCopy.nexusPage} rows={nexusPageDetails} tone="graphql" />
-                      <DetailSection title={detailCopy.primaryFile} rows={primaryFileDetails} />
-                    </div>
-                  ) : (
-                    <div className="launcher-mod-detail-info-layout only">
-                      <DetailSection title={detailCopy.install} rows={localDetails} />
-                      <DetailSection title={detailCopy.manifest} rows={manifestDetails} />
-                    </div>
-                  )}
-                </section>
+                {selectedTab === 'details' ? (
+                  <section
+                    className={cx('launcher-mod-detail-tab-panel', selectedTab === 'details' && 'active')}
+                    role="tabpanel"
+                    hidden={selectedTab !== 'details'}
+                    aria-hidden={selectedTab !== 'details'}
+                  >
+                    {isCombined ? (
+                      <div className="launcher-mod-detail-info-layout combined">
+                        <DetailSection title={detailCopy.installPath} rows={localDetails} />
+                        <DetailSection title={detailCopy.updateEvidence} rows={updateEvidenceDetails} />
+                      </div>
+                    ) : isNexus ? (
+                      <div className="launcher-mod-detail-info-layout only">
+                        <DetailSection title={detailCopy.nexusPage} rows={nexusPageDetails} tone="graphql" />
+                        <DetailSection title={detailCopy.primaryFile} rows={primaryFileDetails} />
+                      </div>
+                    ) : (
+                      <div className="launcher-mod-detail-info-layout only">
+                        <DetailSection title={detailCopy.install} rows={localDetails} />
+                        <DetailSection title={detailCopy.manifest} rows={manifestDetails} />
+                      </div>
+                    )}
+                  </section>
+                ) : null}
 
-                {hasDependencyData ? (
+                {hasDependencyData && selectedTab === 'dependencies' ? (
                   <section
                     className={cx('launcher-mod-detail-tab-panel', selectedTab === 'dependencies' && 'active')}
                     role="tabpanel"
@@ -976,7 +1019,7 @@ export function LauncherModDetailPanel({
                   </section>
                 ) : null}
 
-                {hasFileData ? (
+                {hasFileData && selectedTab === 'files' ? (
                   <section
                     className={cx('launcher-mod-detail-tab-panel', selectedTab === 'files' && 'active')}
                     role="tabpanel"

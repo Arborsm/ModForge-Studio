@@ -11,6 +11,8 @@ import type {
   LauncherSuppressedUpdateModIdsResult,
   LauncherUpdatesResult,
 } from '@features/launcher/model/launcherContracts'
+import type { AppUiState, PatchAppUiStateRequest } from '@shared/contracts'
+import { DEFAULT_LOADING_MOTION_PREFERENCE } from '@shared/lib/loading-motion'
 
 const DEV_LAUNCHER_MOCK_QUERY_PARAM = 'mfLauncherMock'
 const DEV_LAUNCHER_MOCK_MODS_PATH = 'E:\\ModForge Dev\\Stardew Valley\\Mods'
@@ -21,6 +23,20 @@ function shouldEnableDevLauncherMock() {
   }
 
   return new URLSearchParams(window.location.search).get(DEV_LAUNCHER_MOCK_QUERY_PARAM) === '1'
+}
+
+function getDevLauncherMockModCount() {
+  if (typeof window === 'undefined') {
+    return 48
+  }
+
+  const rawValue = new URLSearchParams(window.location.search).get('mfLauncherMockMods')
+  const parsed = rawValue ? Number.parseInt(rawValue, 10) : 48
+  if (!Number.isFinite(parsed)) {
+    return 48
+  }
+
+  return Math.max(8, Math.min(800, parsed))
 }
 
 function createMockMod(index: number): LauncherLibraryModSummary {
@@ -47,8 +63,8 @@ function createMockMod(index: number): LauncherLibraryModSummary {
   }
 }
 
-function createMockMods(): LauncherLibraryModSummary[] {
-  return Array.from({ length: 48 }, (_, index) => createMockMod(index + 1))
+function createMockMods(count = getDevLauncherMockModCount()): LauncherLibraryModSummary[] {
+  return Array.from({ length: count }, (_, index) => createMockMod(index + 1))
 }
 
 function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherLibraryState {
@@ -110,6 +126,91 @@ function getMockRequest<TRequest>(payload: unknown): TRequest | null {
   return (payload as { request: TRequest }).request
 }
 
+function createInitialAppUiState(): AppUiState {
+  return {
+    version: 1,
+    shell: {
+      appMode: 'launcher',
+      launcherPage: 'library',
+      debugEnabled: false,
+      notificationSoundEnabled: false,
+    },
+    appearance: {
+      locale: 'en-US',
+      accentPresetId: 'blue',
+      recentGameDirectories: [],
+      playerAppearance: {
+        profiles: [],
+        activeProfileId: null,
+      },
+      loadingMotion: { ...DEFAULT_LOADING_MOTION_PREFERENCE },
+    },
+    workspace: {
+      layouts: {},
+      workspaceViewMode: 'edit',
+      cpMaker: {
+        activeGeneratedDraftKey: null,
+      },
+    },
+    launcher: {
+      discoverToolbar: {
+        sort: 'newest',
+        ascending: false,
+        timeRange: 'all',
+        pageSize: 20,
+        filtersHidden: false,
+      },
+      forceOffline: true,
+      forceNonPremium: false,
+    },
+  }
+}
+
+function applyMockAppUiStatePatch(current: AppUiState, patch: PatchAppUiStateRequest): AppUiState {
+  const nextLayouts = { ...current.workspace.layouts }
+  for (const [key, layout] of Object.entries(patch.workspace?.layouts ?? {})) {
+    if (layout === null) {
+      delete nextLayouts[key]
+    } else {
+      nextLayouts[key] = layout
+    }
+  }
+
+  return {
+    ...current,
+    ...(patch.shell ? { shell: patch.shell } : null),
+    ...(patch.appearance
+      ? {
+          appearance: {
+            ...current.appearance,
+            ...patch.appearance,
+          },
+        }
+      : null),
+    ...(patch.workspace
+      ? {
+          workspace: {
+            ...current.workspace,
+            ...patch.workspace,
+            layouts: nextLayouts,
+          },
+        }
+      : null),
+    ...(patch.launcher
+      ? {
+          launcher: {
+            ...current.launcher,
+            ...patch.launcher,
+            discoverToolbar: {
+              ...current.launcher.discoverToolbar,
+              ...(patch.launcher.discoverToolbar ?? {}),
+            },
+          },
+        }
+      : null),
+  }
+}
+
 /** Installs a query-param gated Tauri IPC mock for browser-only launcher UI debugging. */
 export function installDevLauncherMock() {
   if (!shouldEnableDevLauncherMock()) {
@@ -117,6 +218,7 @@ export function installDevLauncherMock() {
   }
 
   const mods = createMockMods()
+  let appUiState = createInitialAppUiState()
   let settings: LauncherSettings = {
     gamePath: 'E:\\ModForge Dev\\Stardew Valley',
     modsPath: DEV_LAUNCHER_MOCK_MODS_PATH,
@@ -135,35 +237,10 @@ export function installDevLauncherMock() {
     (command, payload) => {
       switch (command) {
         case 'load_app_ui_state':
-          return {
-            shell: {
-              appMode: 'launcher',
-              launcherPage: 'library',
-              debugEnabled: false,
-              notificationSoundEnabled: false,
-            },
-            appearance: {
-              locale: 'en-US',
-              theme: 'dark',
-              accentPresetId: 'blue',
-              loadingMotion: null,
-            },
-            workspace: {
-              layouts: {},
-            },
-            launcher: {
-              discoverToolbar: {
-                sort: 'newest',
-                ascending: false,
-                timeRange: 'all',
-                pageSize: 20,
-                filtersHidden: false,
-              },
-              forceOffline: true,
-            },
-          }
+          return appUiState
         case 'patch_app_ui_state':
-          return null
+          appUiState = applyMockAppUiStatePatch(appUiState, getMockRequest<PatchAppUiStateRequest>(payload) ?? {})
+          return appUiState
         case 'load_launcher_settings':
           return settings
         case 'save_launcher_settings':

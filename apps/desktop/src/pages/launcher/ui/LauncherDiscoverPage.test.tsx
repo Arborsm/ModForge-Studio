@@ -312,6 +312,7 @@ describe('LauncherDiscoverPage', () => {
     expect(screen.getByText('Welcome to the Joja Civic Center.')).toBeTruthy()
 
     await waitFor(() => expect(launcherPort.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 44722, includeFiles: false }))
+    fireEvent.click(screen.getByRole('tab', { name: copy.library.modDetail.tabs.details }))
     await waitFor(() => expect(screen.getAllByText('Joja Civic Center 1.1.0').length).toBeGreaterThan(0))
     expect(screen.queryByText('VERIFIED')).toBeNull()
 

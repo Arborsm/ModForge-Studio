@@ -78,6 +78,26 @@ vi.mock('@radix-ui/react-context-menu', async () => {
   }
 })
 
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const rowSize = estimateSize()
+    const visibleRowCount = Math.min(count, 8)
+    return {
+      getTotalSize: () => count * rowSize,
+      getVirtualItems: () =>
+        Array.from({ length: visibleRowCount }, (_, index) => ({
+          index,
+          key: index,
+          start: index * rowSize,
+          size: rowSize,
+          end: (index + 1) * rowSize,
+          lane: 0,
+        })),
+      measureElement: vi.fn(),
+    }
+  },
+}))
+
 vi.mock('@features/launcher/api', async () => {
   const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
@@ -175,6 +195,22 @@ async function emitArchiveDragDrop(payload: { type: string; paths?: string[]; po
   for (const listener of archiveDragDropListeners) {
     await listener(payload)
   }
+}
+
+function pointerDragDown(target: Element | Document | Window, clientX: number, clientY: number, pointerId = 1) {
+  fireEvent.pointerDown(target, { button: 0, buttons: 1, clientX, clientY, isPrimary: true, pointerId })
+}
+
+function pointerDragMove(target: Element | Document | Window, clientX: number, clientY: number, pointerId = 1) {
+  fireEvent.pointerMove(target, { button: 0, buttons: 1, clientX, clientY, isPrimary: true, pointerId })
+}
+
+function pointerDragUp(target: Element | Document | Window, clientX: number, clientY: number, pointerId = 1) {
+  fireEvent.pointerUp(target, { button: 0, buttons: 0, clientX, clientY, isPrimary: true, pointerId })
+}
+
+function clickAfterPress(target: Element) {
+  fireEvent.click(target)
 }
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
@@ -438,6 +474,10 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
 describe('LauncherLibraryPage', () => {
   afterEach(() => {
     archiveDragDropListeners.length = 0
+    fireEvent.pointerUp(document, { clientX: 0, clientY: 0, pointerId: 0 })
+    fireEvent.mouseUp(document, { button: 0, buttons: 0, clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(window, { clientX: 0, clientY: 0, pointerId: 0 })
+    fireEvent.mouseUp(window, { button: 0, buttons: 0, clientX: 0, clientY: 0 })
     cleanup()
     vi.useRealTimers()
     vi.clearAllMocks()
@@ -545,7 +585,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
     expect(screen.queryByRole('article', { name: /npc adventures/i })).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
 
     const folderRegion = screen.getByRole('region', { name: 'Visuals' })
     expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
@@ -568,7 +608,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
     expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Close folder' }))
@@ -577,7 +617,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
   })
 
-  it('keeps multiple virtual folders expanded and shows folder context actions', async () => {
+  it('keeps one virtual folder expanded and shows folder context actions', async () => {
     const library = {
       ...createLibraryState(),
       libraryFolders: [
@@ -636,11 +676,11 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open folder Gameplay' }))
 
-    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
     expect(screen.getByRole('region', { name: 'Gameplay' })).not.toBeNull()
-    expect(screen.queryByRole('button', { name: 'Open folder Visuals' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
 
-    fireEvent.contextMenu(screen.getByRole('region', { name: 'Visuals' }))
+    fireEvent.contextMenu(screen.getByRole('region', { name: 'Gameplay' }))
 
     await waitFor(() => {
       expect(screen.getAllByRole('menuitem', { name: 'Close folder' }).length).toBeGreaterThan(0)
@@ -1252,48 +1292,6 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('drops a dragged card onto a drawer pack row to add it to that pack', async () => {
-    const library = createLibraryState()
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
-
-    const card = screen.getByRole('article', { name: /npc adventures/i })
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(card)) {
-        return { width: 280, height: 220, top: 100, left: 100, bottom: 320, right: 380, x: 100, y: 100, toJSON: () => ({}) }
-      }
-      if (this.getAttribute('data-launcher-pack-drop-id') === 'challenge-pack') {
-        return { width: 240, height: 42, top: 170, left: 420, bottom: 212, right: 660, x: 420, y: 170, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    try {
-      fireEvent.pointerDown(card, { button: 0, clientX: 160, clientY: 160, isPrimary: true, pointerId: 7 })
-      act(() => {
-        fireEvent.pointerMove(document, { clientX: 520, clientY: 190, pointerId: 7 })
-      })
-
-      await screen.findByTestId('launcher-library-drag-preview')
-
-      act(() => {
-        fireEvent.pointerMove(document, { clientX: 520, clientY: 190, pointerId: 7 })
-      })
-      act(() => {
-        fireEvent.pointerUp(document, { clientX: 520, clientY: 190, pointerId: 7 })
-      })
-
-      await waitFor(() => {
-        expect(library.addModsToPack).toHaveBeenCalledWith('challenge-pack', ['mod-1'])
-      })
-    } finally {
-      boundsSpy.mockRestore()
-    }
-  })
-
   it('shows the pointer drag preview immediately on press without dropping until movement starts', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
@@ -1318,88 +1316,6 @@ describe('LauncherLibraryPage', () => {
     expect(library.addModsToLibraryFolder).not.toHaveBeenCalled()
   })
 
-  it('drops a dragged card onto a virtual folder tile', async () => {
-    const library = {
-      ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    const card = screen.getByRole('article', { name: /npc adventures/i })
-    const folder = screen.getByRole('button', { name: 'Open folder Visuals' })
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(card)) {
-        return { width: 280, height: 220, top: 100, left: 100, bottom: 320, right: 380, x: 100, y: 100, toJSON: () => ({}) }
-      }
-      if (this === folder || this.getAttribute('data-launcher-folder-drop-id') === 'visuals') {
-        return { width: 280, height: 220, top: 100, left: 420, bottom: 320, right: 700, x: 420, y: 100, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    try {
-      fireEvent.pointerDown(card, { button: 0, clientX: 160, clientY: 160, isPrimary: true, pointerId: 12 })
-      act(() => {
-        fireEvent.pointerMove(document, { clientX: 620, clientY: 190, pointerId: 12 })
-      })
-      await screen.findByTestId('launcher-library-drag-preview')
-      act(() => {
-        fireEvent.pointerMove(document, { clientX: 620, clientY: 190, pointerId: 12 })
-      })
-      act(() => {
-        fireEvent.pointerUp(document, { clientX: 620, clientY: 190, pointerId: 12 })
-      })
-
-      await waitFor(() => {
-        expect(library.addModsToLibraryFolder).toHaveBeenCalledWith('visuals', ['mod-1'])
-      })
-    } finally {
-      boundsSpy.mockRestore()
-    }
-  })
-
-  it('does not open the virtual folder popup after dropping a mod onto the folder tile', async () => {
-    const library = {
-      ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    const card = screen.getByRole('article', { name: /npc adventures/i })
-    const folder = screen.getByRole('button', { name: 'Open folder Visuals' })
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(card)) {
-        return { width: 280, height: 220, top: 100, left: 100, bottom: 320, right: 380, x: 100, y: 100, toJSON: () => ({}) }
-      }
-      if (this === folder || this.getAttribute('data-launcher-folder-drop-id') === 'visuals') {
-        return { width: 280, height: 220, top: 100, left: 420, bottom: 320, right: 700, x: 420, y: 100, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    try {
-      fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 52 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 620, clientY: 190, pointerId: 52 })
-      })
-      await screen.findByTestId('launcher-library-drag-preview')
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 620, clientY: 190, pointerId: 52 })
-      })
-
-      await waitFor(() => {
-        expect(library.addModsToLibraryFolder).toHaveBeenCalledWith('visuals', ['mod-1'])
-      })
-      expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
-    } finally {
-      boundsSpy.mockRestore()
-    }
-  })
-
   it('uses the resolved desktop cover image in the pointer drag preview', async () => {
     const library = createLibraryState()
     const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/npc-cover.png' }
@@ -1422,339 +1338,59 @@ describe('LauncherLibraryPage', () => {
     })
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
-    fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 53 })
+    pointerDragDown(card, 160, 160)
     act(() => {
-      fireEvent.pointerMove(window, { clientX: 220, clientY: 220, pointerId: 53 })
+      pointerDragMove(window, 220, 220)
     })
 
     const previewImage = screen.getByTestId('launcher-library-drag-preview').querySelector('img')
     expect(previewImage?.getAttribute('src')).toBe('asset://E:\\Covers\\npc-cover.png')
 
     act(() => {
-      fireEvent.pointerUp(window, { clientX: 220, clientY: 220, pointerId: 53 })
+      pointerDragUp(window, 220, 220)
     })
   })
 
-  it('box-selects mods from blank space and drags the selected batch onto a virtual folder tile', async () => {
-    const library = {
-      ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    const firstCard = screen.getByRole('article', { name: /npc adventures/i })
-    const secondCard = screen.getByRole('article', { name: /vintage interface redux/i })
-    const folder = screen.getByRole('button', { name: 'Open folder Visuals' })
-    const viewport = firstCard.closest('.launcher-library-grid-viewport') as HTMLElement
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
-        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
-      }
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(firstCard)) {
-        return { width: 280, height: 220, top: 120, left: 120, bottom: 340, right: 400, x: 120, y: 120, toJSON: () => ({}) }
-      }
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(secondCard)) {
-        return { width: 280, height: 220, top: 120, left: 430, bottom: 340, right: 710, x: 430, y: 120, toJSON: () => ({}) }
-      }
-      if (this === folder || this.getAttribute('data-launcher-folder-drop-id') === 'visuals') {
-        return { width: 280, height: 220, top: 380, left: 430, bottom: 600, right: 710, x: 430, y: 380, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    try {
-      fireEvent.pointerDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100, isPrimary: true, pointerId: 41 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 760, clientY: 360, pointerId: 41 })
-      })
-      expect(screen.getByTestId('launcher-library-box-select')).not.toBeNull()
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 760, clientY: 360, pointerId: 41 })
-      })
-
-      fireEvent.pointerDown(firstCard, { button: 0, buttons: 1, clientX: 180, clientY: 180, isPrimary: true, pointerId: 42 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 560, clientY: 480, pointerId: 42 })
-      })
-      await screen.findByTestId('launcher-library-drag-preview')
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 560, clientY: 480, pointerId: 42 })
-      })
-
-      await waitFor(() => {
-        expect(library.addModsToLibraryFolder).toHaveBeenCalledWith('visuals', ['mod-1', 'mod-2'])
-      })
-    } finally {
-      boundsSpy.mockRestore()
-    }
-  })
-
-  it('shows the box-selection rectangle immediately on blank pointer down and cancels it on click release', () => {
+  it('uses the drag-to-select package to show a selection rectangle and mark intersecting cards', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
     renderLibraryPage()
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
+    const wrapper = card.closest('[data-launcher-mod-card-id]') as HTMLElement
     const viewport = card.closest('.launcher-library-grid-viewport') as HTMLElement
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
         return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
       }
+      if (this === wrapper || this === card) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
       return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
     })
 
     try {
-      fireEvent.pointerDown(viewport, { button: 0, buttons: 1, clientX: 140, clientY: 140, isPrimary: true, pointerId: 81 })
+      fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+      act(() => {
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 260, clientY: 260 })
+      })
 
-      const selectionBox = screen.getByTestId('launcher-library-box-select')
+      const selectionBox = await screen.findByTestId('launcher-library-box-select')
       expect(selectionBox).not.toBeNull()
-      expect(selectionBox.style.left).toBe('60px')
-      expect(selectionBox.style.top).toBe('60px')
-      expect(selectionBox.style.width).toBe('2px')
-      expect(selectionBox.style.height).toBe('2px')
-
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 140, clientY: 140, pointerId: 81 })
+      await waitFor(() => {
+        expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
       })
 
-      expect(screen.queryByTestId('launcher-library-box-select')).toBeNull()
-    } finally {
-      boundsSpy.mockRestore()
-    }
-  })
-
-  it('keeps box-selected batch dragging when pointer events are dispatched on document', async () => {
-    const library = {
-      ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    const firstCard = screen.getByRole('article', { name: /npc adventures/i })
-    const secondCard = screen.getByRole('article', { name: /vintage interface redux/i })
-    const folder = screen.getByRole('button', { name: 'Open folder Visuals' })
-    const viewport = firstCard.closest('.launcher-library-grid-viewport') as HTMLElement
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
-        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
-      }
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(firstCard)) {
-        return { width: 280, height: 220, top: 120, left: 120, bottom: 340, right: 400, x: 120, y: 120, toJSON: () => ({}) }
-      }
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(secondCard)) {
-        return { width: 280, height: 220, top: 120, left: 430, bottom: 340, right: 710, x: 430, y: 120, toJSON: () => ({}) }
-      }
-      if (this === folder || this.getAttribute('data-launcher-folder-drop-id') === 'visuals') {
-        return { width: 280, height: 220, top: 380, left: 430, bottom: 600, right: 710, x: 430, y: 380, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    try {
-      fireEvent.pointerDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100, isPrimary: true, pointerId: 61 })
       act(() => {
-        fireEvent.pointerMove(document, { clientX: 760, clientY: 360, pointerId: 61 })
-      })
-      act(() => {
-        fireEvent.pointerUp(document, { clientX: 760, clientY: 360, pointerId: 61 })
-      })
-
-      fireEvent.pointerDown(firstCard, { button: 0, buttons: 1, clientX: 180, clientY: 180, isPrimary: true, pointerId: 62 })
-      act(() => {
-        fireEvent.pointerMove(document, { clientX: 560, clientY: 480, pointerId: 62 })
-      })
-
-      expect(await screen.findByTestId('launcher-library-drag-preview')).toHaveTextContent('2')
-
-      act(() => {
-        fireEvent.pointerUp(document, { clientX: 560, clientY: 480, pointerId: 62 })
+        fireEvent.mouseUp(window, { button: 0, clientX: 260, clientY: 260 })
       })
 
       await waitFor(() => {
-        expect(library.addModsToLibraryFolder).toHaveBeenCalledWith('visuals', ['mod-1', 'mod-2'])
+        expect(selectionBox.style.width).toBe('0px')
+        expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
       })
     } finally {
-      boundsSpy.mockRestore()
-    }
-  })
-
-  it('removes a folder-contained mod when dropped onto library blank space without making it a child mod', async () => {
-    const library = {
-      ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: ['ModForge.NpcAdventures'], coverModKeys: [] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
-
-    const folderRegion = screen.getByRole('region', { name: 'Visuals' })
-    const card = await within(folderRegion).findByRole('article', { name: /npc adventures/i })
-    const parentCard = screen.getByRole('article', { name: /vintage interface redux/i })
-    const folderPanel = card.closest('.launcher-library-folder-panel')
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(card)) {
-        return { width: 280, height: 220, top: 160, left: 160, bottom: 380, right: 440, x: 160, y: 160, toJSON: () => ({}) }
-      }
-      if (this.getAttribute('data-launcher-parent-drop-id') === 'mod-2') {
-        return { width: 280, height: 220, top: 160, left: 480, bottom: 380, right: 760, x: 480, y: 160, toJSON: () => ({}) }
-      }
-      if (this === folderPanel || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-folder-blank:visuals') {
-        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    const previousElementsFromPoint = document.elementsFromPoint
-    document.elementsFromPoint = vi.fn((x, y) => {
-      if (x >= 480 && x <= 760 && y >= 160 && y <= 380) {
-        return [parentCard, folderPanel].filter(Boolean) as Element[]
-      }
-      return [folderPanel].filter(Boolean) as Element[]
-    })
-
-    try {
-      fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 220, clientY: 220, isPrimary: true, pointerId: 33 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 620, clientY: 240, pointerId: 33 })
-      })
-      await screen.findByTestId('launcher-library-drag-preview')
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 620, clientY: 240, pointerId: 33 })
-      })
-
-      await waitFor(() => {
-        expect(library.removeModsFromLibraryFolders).toHaveBeenCalledWith(['mod-1'])
-      })
-      expect(library.setChildMods).not.toHaveBeenCalled()
-    } finally {
-      document.elementsFromPoint = previousElementsFromPoint
-      boundsSpy.mockRestore()
-    }
-  })
-
-  it('drops a top-level box-selected batch into an expanded virtual folder', async () => {
-    const library = {
-      ...createLibraryState(),
-      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    const firstCard = screen.getByRole('article', { name: /npc adventures/i })
-    const secondCard = screen.getByRole('article', { name: /vintage interface redux/i })
-    const topViewport = firstCard.closest('.launcher-library-grid-viewport') as HTMLElement
-
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this === topViewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
-        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
-      }
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(firstCard)) {
-        return { width: 280, height: 220, top: 120, left: 120, bottom: 340, right: 400, x: 120, y: 120, toJSON: () => ({}) }
-      }
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(secondCard)) {
-        return { width: 280, height: 220, top: 120, left: 430, bottom: 340, right: 710, x: 430, y: 120, toJSON: () => ({}) }
-      }
-      if (this.getAttribute('data-launcher-blank-drop-id') === 'launcher-folder-blank:visuals') {
-        return { width: 900, height: 260, top: 390, left: 80, bottom: 650, right: 980, x: 80, y: 390, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    const previousElementsFromPoint = document.elementsFromPoint
-    document.elementsFromPoint = vi.fn((x, y) => {
-      if (y >= 390 && x >= 80) {
-        const folderBlank = document.querySelector('[data-launcher-blank-drop-id="launcher-folder-blank:visuals"]')
-        return folderBlank ? [folderBlank] : []
-      }
-      return []
-    })
-
-    try {
-      fireEvent.pointerDown(topViewport, { button: 0, buttons: 1, clientX: 100, clientY: 100, isPrimary: true, pointerId: 71 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 760, clientY: 360, pointerId: 71 })
-      })
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 760, clientY: 360, pointerId: 71 })
-      })
-
-      fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
-
-      fireEvent.pointerDown(firstCard, { button: 0, buttons: 1, clientX: 180, clientY: 180, isPrimary: true, pointerId: 72 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 300, clientY: 460, pointerId: 72 })
-      })
-      await screen.findByTestId('launcher-library-drag-preview')
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 300, clientY: 460, pointerId: 72 })
-      })
-
-      await waitFor(() => {
-        expect(library.addModsToLibraryFolder).toHaveBeenCalledWith('visuals', ['mod-1', 'mod-2'])
-      })
-      expect(library.removeModsFromLibraryFolders).not.toHaveBeenCalled()
-      expect(library.removeChildMods).not.toHaveBeenCalled()
-    } finally {
-      document.elementsFromPoint = previousElementsFromPoint
-      boundsSpy.mockRestore()
-    }
-  })
-
-  it('removes a child mod from its parent when dragged onto another mod instead of reparenting it', async () => {
-    const library = {
-      ...createLibraryState(),
-      childModGroups: [{ parentModKey: 'ModForge.VintageInterface', childModKeys: ['ModForge.NpcAdventures'] }],
-    } as MockLibraryState
-    useLauncherLibraryMock.mockReturnValue(library)
-
-    renderLibraryPage()
-
-    fireEvent.click(screen.getByRole('button', { name: /expand child mods for vintage interface redux/i }))
-
-    const childCard = await screen.findByRole('article', { name: /npc adventures/i })
-    const targetCard = screen.getByRole('article', { name: /vintage interface redux/i })
-    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      if (this.classList.contains('launcher-library-draggable-card') && this.contains(childCard)) {
-        return { width: 280, height: 220, top: 160, left: 160, bottom: 380, right: 440, x: 160, y: 160, toJSON: () => ({}) }
-      }
-      if (this.getAttribute('data-launcher-parent-drop-id') === 'mod-2') {
-        return { width: 280, height: 220, top: 160, left: 480, bottom: 380, right: 760, x: 480, y: 160, toJSON: () => ({}) }
-      }
-      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
-    })
-
-    const previousElementsFromPoint = document.elementsFromPoint
-    document.elementsFromPoint = vi.fn((x, y) => {
-      if (x >= 480 && x <= 760 && y >= 160 && y <= 380) {
-        return [targetCard] as Element[]
-      }
-      return [] as Element[]
-    })
-
-    try {
-      fireEvent.pointerDown(childCard, { button: 0, buttons: 1, clientX: 220, clientY: 220, isPrimary: true, pointerId: 34 })
-      act(() => {
-        fireEvent.pointerMove(window, { clientX: 620, clientY: 240, pointerId: 34 })
-      })
-      await screen.findByTestId('launcher-library-drag-preview')
-      act(() => {
-        fireEvent.pointerUp(window, { clientX: 620, clientY: 240, pointerId: 34 })
-      })
-
-      await waitFor(() => {
-        expect(library.removeChildMods).toHaveBeenCalledWith(['mod-1'])
-      })
-      expect(library.setChildMods).not.toHaveBeenCalled()
-    } finally {
-      document.elementsFromPoint = previousElementsFromPoint
       boundsSpy.mockRestore()
     }
   })
@@ -1767,22 +1403,22 @@ describe('LauncherLibraryPage', () => {
 
     const card = screen.getByRole('article', { name: /npc adventures/i })
 
-    fireEvent.pointerDown(card, { button: 0, clientX: 160, clientY: 220, isPrimary: true, pointerId: 9 })
+    pointerDragDown(card, 160, 220)
     act(() => {
-      fireEvent.pointerMove(document, { clientX: 162, clientY: 222, pointerId: 9 })
+      pointerDragMove(document, 162, 222)
     })
 
     const preview = screen.getByTestId('launcher-library-drag-preview')
     expect(preview.textContent).toContain('NPC Adventures')
 
     act(() => {
-      fireEvent.pointerMove(document, { clientX: 520, clientY: 360, pointerId: 9 })
+      pointerDragMove(document, 520, 360)
     })
 
     expect(screen.getByTestId('launcher-library-drag-preview').textContent).toContain('NPC Adventures')
 
     act(() => {
-      fireEvent.pointerUp(document, { clientX: 520, clientY: 360, pointerId: 9 })
+      pointerDragUp(document, 520, 360)
     })
 
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
@@ -1799,13 +1435,13 @@ describe('LauncherLibraryPage', () => {
 
     const folder = screen.getByRole('button', { name: 'Open folder Visuals' })
 
-    fireEvent.pointerDown(folder, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 35 })
+    pointerDragDown(folder, 160, 160)
     act(() => {
-      fireEvent.pointerMove(window, { clientX: 220, clientY: 220, pointerId: 35 })
+      pointerDragMove(window, 220, 220)
     })
     await screen.findByTestId('launcher-library-drag-preview')
     act(() => {
-      fireEvent.pointerUp(window, { clientX: 220, clientY: 220, pointerId: 35 })
+      pointerDragUp(window, 220, 220)
     })
     fireEvent.click(folder)
 
@@ -1832,21 +1468,13 @@ describe('LauncherLibraryPage', () => {
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
   })
 
-  it('opens mod details and keeps direct actions in the card context menu', async () => {
+  it('opens mod details from the context menu and keeps direct card actions', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
     chooseImageFileMock.mockResolvedValue('E:\\Covers\\npc-adventures.png')
     setLauncherLibraryCoverMock.mockResolvedValue({ covers: [] })
 
     renderLibraryPage()
-
-    fireEvent.pointerDown(screen.getByRole('button', { name: /npc adventures/i }), { button: 0, clientX: 160, clientY: 160, pointerId: 21 })
-    fireEvent.click(screen.getByRole('button', { name: /npc adventures/i }))
-    expect(library.setSelectedModId).not.toHaveBeenCalled()
-    const clickDialog = await screen.findByRole('dialog', { name: 'NPC Adventures' })
-    expect(within(clickDialog).getByRole('heading', { name: 'NPC Adventures' })).not.toBeNull()
-    expect(library.setSelectedModId).not.toHaveBeenCalled()
-    fireEvent.click(within(clickDialog).getByRole('button', { name: 'Close' }))
 
     fireEvent.doubleClick(screen.getByRole('button', { name: /npc adventures/i }))
     await waitFor(() => {
@@ -2307,21 +1935,22 @@ describe('LauncherLibraryPage', () => {
     expect(await screen.findByText('Refresh failed')).not.toBeNull()
   })
 
-  it('renders the full large-library grid directly without virtualization', async () => {
+  it('virtualizes the large-library grid instead of rendering every card', async () => {
     const library = createLargeLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
     renderLibraryPage()
 
     expect(screen.getByRole('article', { name: /^large library mod 1$/i })).not.toBeNull()
-    expect(screen.getByRole('article', { name: /^large library mod 80$/i })).not.toBeNull()
-    expect(screen.getAllByRole('article')).toHaveLength(library.mods.length)
+    expect(screen.queryByRole('article', { name: /^large library mod 80$/i })).toBeNull()
+    expect(screen.getAllByRole('article').length).toBeLessThan(library.mods.length)
+    expect(document.querySelector('.launcher-library-virtual-grid')).toBeTruthy()
 
     fireEvent.contextMenu(screen.getByRole('article', { name: /^large library mod 1$/i }))
     expect((await screen.findAllByRole('menuitem', { name: 'View Details' })).length).toBeGreaterThan(0)
   })
 
-  it('spreads library card reveal batches across roughly four visible-screen waves', () => {
+  it('renders only virtual rows near the viewport', () => {
     const library = createLargeLibraryState(12)
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.classList.contains('launcher-library-grid-viewport')) {
@@ -2336,27 +1965,14 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    const revealItems = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
-    expect(revealItems).toHaveLength(library.mods.length)
-    expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
-      '3',
-      '4',
-      '5',
-      '6',
-      '7',
-      '8',
-      '9',
-      '10',
-      '11',
-      '12',
-      '13',
-      '14',
-    ])
+    const virtualRows = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-virtual-row'))
+    expect(virtualRows.length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
 
     boundsSpy.mockRestore()
   })
 
-  it('caps large-screen library reveal batches at four cards', () => {
+  it('uses multiple columns for a large-screen virtualized library grid', async () => {
     const library = createLargeLibraryState(16)
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.classList.contains('launcher-library-grid-viewport')) {
@@ -2371,30 +1987,15 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    const revealItems = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
-    expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
-      '3',
-      '3',
-      '3',
-      '3',
-      '4',
-      '4',
-      '4',
-      '4',
-      '5',
-      '5',
-      '5',
-      '5',
-      '6',
-      '6',
-      '6',
-      '6',
-    ])
+    await waitFor(() => {
+      const firstRow = document.querySelector<HTMLElement>('.launcher-library-virtual-row')
+      expect(firstRow?.style.gridTemplateColumns).toContain('repeat(4')
+    })
 
     boundsSpy.mockRestore()
   })
 
-  it('only observes the library grid viewport for reveal batch recalculation', () => {
+  it('observes the library grid viewport for virtual column recalculation', () => {
     const library = createLargeLibraryState(16)
     const observedElements: Element[] = []
     const OriginalResizeObserver = globalThis.ResizeObserver
@@ -2412,13 +2013,12 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
-    expect(observedElements).toHaveLength(1)
-    expect(observedElements[0]).toHaveClass('launcher-library-grid-viewport')
+    expect(observedElements.some((element) => element.classList.contains('launcher-library-grid-viewport'))).toBe(true)
 
     globalThis.ResizeObserver = OriginalResizeObserver
   })
 
-  it('keeps the last reveal batch size while the library grid is hidden during route switches', async () => {
+  it('keeps virtual rows mounted while the library grid is hidden during route switches', async () => {
     const library = createLargeLibraryState(16)
     let hidden = false
     const resizeCallbacks: ResizeObserverCallback[] = []
@@ -2452,25 +2052,7 @@ describe('LauncherLibraryPage', () => {
     const { container } = renderLibraryPage()
 
     await waitFor(() => {
-      const revealItems = Array.from(container.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
-      expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
-        '3',
-        '3',
-        '3',
-        '3',
-        '4',
-        '4',
-        '4',
-        '4',
-        '5',
-        '5',
-        '5',
-        '5',
-        '6',
-        '6',
-        '6',
-        '6',
-      ])
+      expect(container.querySelectorAll('.launcher-library-virtual-row').length).toBeGreaterThan(0)
     })
 
     hidden = true
@@ -2480,25 +2062,7 @@ describe('LauncherLibraryPage', () => {
       }
     })
 
-    const revealItems = Array.from(container.querySelectorAll<HTMLElement>('.launcher-library-grid-reveal'))
-    expect(revealItems.map((item) => item.style.getPropertyValue('--loading-motion-child-index'))).toEqual([
-      '3',
-      '3',
-      '3',
-      '3',
-      '4',
-      '4',
-      '4',
-      '4',
-      '5',
-      '5',
-      '5',
-      '5',
-      '6',
-      '6',
-      '6',
-      '6',
-    ])
+    expect(container.querySelectorAll('.launcher-library-virtual-row').length).toBeGreaterThan(0)
 
     boundsSpy.mockRestore()
     globalThis.ResizeObserver = OriginalResizeObserver

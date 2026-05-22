@@ -11,10 +11,12 @@
     "test": "node ./scripts/cleanup-vitest-processes.cjs && vitest run --configLoader runner --pool=threads --maxWorkers=3",
     "test:cleanup": "node ./scripts/cleanup-vitest-processes.cjs",
     "test:launcher-drag": "node ./scripts/verify-launcher-drag.mjs",
+    "test:launcher-performance": "node ./scripts/verify-launcher-performance.mjs",
     "preview": "vite preview --configLoader runner",
     "tauri": "node ./scripts/run-tauri-cli.cjs"
   },
   "dependencies": {
+    "@air/react-drag-to-select": "^5.0.11",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

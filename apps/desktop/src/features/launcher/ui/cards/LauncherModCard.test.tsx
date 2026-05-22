@@ -1,15 +1,10 @@
 import { fireEvent, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { renderWithLocaleAndLaunchers } from '@test/renderWithLocaleAndLaunchers'
 import { LauncherModCard } from './LauncherModCard'
 
 describe('LauncherModCard', () => {
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('opens details on single click and the direct target on double click', () => {
-    vi.useFakeTimers()
     const onOpenDirectTarget = vi.fn()
     const onOpenDetails = vi.fn()
 
@@ -24,29 +19,12 @@ describe('LauncherModCard', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /content patcher/i }))
-    expect(onOpenDetails).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(180)
     expect(onOpenDetails).toHaveBeenCalledTimes(1)
     expect(onOpenDirectTarget).not.toHaveBeenCalled()
 
     fireEvent.doubleClick(screen.getByRole('button', { name: /content patcher/i }))
     expect(onOpenDirectTarget).toHaveBeenCalledTimes(1)
     expect(onOpenDetails).toHaveBeenCalledTimes(1)
-  })
-
-  it('cancels delayed single-click details when the card unmounts', () => {
-    vi.useFakeTimers()
-    const onOpenDetails = vi.fn()
-
-    const { unmount } = renderWithLocaleAndLaunchers(
-      <LauncherModCard title="Content Patcher" meta="Pathoschild · v2.9.0" imageUrl={null} onOpenDetails={onOpenDetails} />,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: /content patcher/i }))
-    unmount()
-    vi.advanceTimersByTime(180)
-
-    expect(onOpenDetails).not.toHaveBeenCalled()
   })
 
   it('uses selected card styling only while selection mode is active', () => {

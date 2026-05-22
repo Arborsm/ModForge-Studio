@@ -25,7 +25,6 @@ import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-sta
 import type { SettingsWindowCategory } from '@shared/contracts'
 import { listKnownGameDirectories } from '@entities/game/api'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
-import { DevDebugOverlay } from './DevDebugOverlay'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchLayoutHost } from './WorkbenchLayoutHost'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
@@ -58,7 +57,6 @@ type WorkbenchExperienceProps = {
   theme: ThemeMode
   locale: LocaleCode
   accentColor: string
-  debugEnabled: boolean
   desktopHost: boolean
   onToggleTheme: () => void
   onSwitchToLauncher: () => void
@@ -78,7 +76,6 @@ export default function WorkbenchExperience({
   theme,
   locale,
   accentColor,
-  debugEnabled,
   desktopHost,
   onToggleTheme,
   onSwitchToLauncher,
@@ -908,22 +905,6 @@ export default function WorkbenchExperience({
           onChooseDirectory={() => void handleChooseDirectory()}
           onScanAndOpenTown={() => void handleScanAndOpenTown()}
           onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
-        />
-      ) : null}
-
-      {active && debugEnabled ? (
-        <DevDebugOverlay
-          workspaceMode={workspaceMode}
-          mapName={activeAssetName ?? worldAtlasDocument?.name ?? null}
-          eventName={selectedEvent?.eventId ?? null}
-          currentEventCommandId={currentEventCommandId}
-          actorCount={selectedEvent?.scene.actors.length ?? 0}
-          contextSectionLabel="Workspace"
-          contextMetrics={[
-            ['Draft', cpMaker.activeDraft?.projectMetadata.projectName ?? 'none'],
-            ['Patches', String(cpMaker.activeDraft?.patches.length ?? 0)],
-            ['View', workspaceViewMode],
-          ]}
         />
       ) : null}
 

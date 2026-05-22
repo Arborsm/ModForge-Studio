@@ -14,7 +14,6 @@ type WorkbenchPageProps = {
   theme: ThemeMode
   locale: LocaleCode
   accentColor: string
-  debugEnabled: boolean
   desktopHost: boolean
   onToggleTheme: () => void
   onSwitchToLauncher: () => void

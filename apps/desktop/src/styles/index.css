@@ -22,6 +22,7 @@
 @source "../app/app-shell/AppShell.tsx";
 @source "../app/app-shell/SettingsWindow.tsx";
 @source "../app/app-shell/WorkbenchShellSkeleton.tsx";
+@source "../pages/workbench/ui/DevDebugOverlay.tsx";
 @source "../pages/launcher";
 @source "../features/launcher";
 @source "../shared/ui/loading-motion/LoadingMotionHost.tsx";
