@@ -154,8 +154,9 @@ function LauncherModCardContent({
             <p className="launcher-mod-card-title">{title}</p>
             {normalizedAuthor || versionLabel ? (
               <p className="launcher-mod-card-meta">
-                {normalizedAuthor ? <span className="launcher-mod-card-author">{normalizedAuthor}</span> : null}
-                {normalizedAuthor && versionLabel ? <span aria-hidden="true">·</span> : null}
+                <span className="launcher-mod-card-author" data-tooltip={normalizedAuthor || undefined}>
+                  {normalizedAuthor || copy.common.none}
+                </span>
                 {versionLabel ? (
                   updateTooltip ? (
                     <span
@@ -167,9 +168,15 @@ function LauncherModCardContent({
                       <ArrowUp className="h-3 w-3" aria-hidden="true" />
                     </span>
                   ) : (
-                    <span className="launcher-mod-card-version">{versionLabel}</span>
+                    <span className="launcher-mod-card-version" data-tooltip={versionLabel}>
+                      {versionLabel}
+                    </span>
                   )
-                ) : null}
+                ) : (
+                  <span className="launcher-mod-card-version" data-tooltip={copy.common.none}>
+                    {copy.common.none}
+                  </span>
+                )}
               </p>
             ) : (
               <p className="launcher-mod-card-meta">{meta || copy.common.none}</p>

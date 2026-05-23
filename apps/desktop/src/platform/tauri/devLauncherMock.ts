@@ -67,6 +67,10 @@ function createMockMods(count = getDevLauncherMockModCount()): LauncherLibraryMo
   return Array.from({ length: count }, (_, index) => createMockMod(index + 1))
 }
 
+function getMockModKey(mod: LauncherLibraryModSummary) {
+  return mod.uniqueId || mod.labelKey || mod.id
+}
+
 function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherLibraryState {
   return {
     storageFolders: [
@@ -81,13 +85,13 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
       {
         id: 'dev-pack',
         name: 'Dev Pack',
-        modKeys: mods.slice(0, 8).map((mod) => mod.labelKey),
+        modKeys: mods.slice(0, 8).map(getMockModKey),
       },
     ],
     childModGroups: [
       {
-        parentModKey: mods[0]?.labelKey ?? '',
-        childModKeys: mods.slice(1, 4).map((mod) => mod.labelKey),
+        parentModKey: mods[0] ? getMockModKey(mods[0]) : '',
+        childModKeys: mods.slice(1, 4).map(getMockModKey),
       },
     ],
     libraryFolders: [
@@ -95,22 +99,22 @@ function createInitialLibraryState(mods: LauncherLibraryModSummary[]): LauncherL
         id: 'visuals',
         name: 'Visuals',
         parentFolderId: null,
-        modKeys: mods.slice(8, 12).map((mod) => mod.labelKey),
-        coverModKeys: mods.slice(8, 12).map((mod) => mod.labelKey),
+        modKeys: mods.slice(8, 12).map(getMockModKey),
+        coverModKeys: mods.slice(8, 12).map(getMockModKey),
       },
       {
         id: 'gameplay',
         name: 'Gameplay',
         parentFolderId: null,
-        modKeys: mods.slice(12, 16).map((mod) => mod.labelKey),
-        coverModKeys: mods.slice(12, 16).map((mod) => mod.labelKey),
+        modKeys: mods.slice(12, 16).map(getMockModKey),
+        coverModKeys: mods.slice(12, 16).map(getMockModKey),
       },
       {
         id: 'interface',
         name: 'Interface',
         parentFolderId: 'visuals',
-        modKeys: mods.slice(16, 18).map((mod) => mod.labelKey),
-        coverModKeys: mods.slice(16, 18).map((mod) => mod.labelKey),
+        modKeys: mods.slice(16, 18).map(getMockModKey),
+        coverModKeys: mods.slice(16, 18).map(getMockModKey),
       },
     ],
     currentPackId: null,

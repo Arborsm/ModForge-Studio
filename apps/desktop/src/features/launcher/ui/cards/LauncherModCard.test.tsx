@@ -84,6 +84,26 @@ describe('LauncherModCard', () => {
     expect(updateBadge.querySelector('svg')).toBeTruthy()
   })
 
+  it('keeps author and version in fixed footer slots with custom hover labels', () => {
+    renderWithLocaleAndLaunchers(
+      <LauncherModCard
+        title="Content Patcher"
+        meta="Pathoschild · v2.9.0"
+        author="A very long author name that should truncate"
+        version="123.456.789-long-build"
+        imageUrl={null}
+      />,
+    )
+
+    const meta = screen.getByText('A very long author name that should truncate').closest('.launcher-mod-card-meta')
+    expect(meta).not.toBeNull()
+    expect(meta?.querySelector('[aria-hidden="true"]')).toBeNull()
+    expect(meta?.querySelector('.launcher-mod-card-author')).toHaveAttribute('data-tooltip', 'A very long author name that should truncate')
+    expect(meta?.querySelector('.launcher-mod-card-version')).toHaveAttribute('data-tooltip', 'v123.456.789-long-build')
+    expect(meta?.querySelector('.launcher-mod-card-author')).not.toHaveAttribute('title')
+    expect(meta?.querySelector('.launcher-mod-card-version')).not.toHaveAttribute('title')
+  })
+
   it('does not show native browser tooltips for the card or title', () => {
     renderWithLocaleAndLaunchers(
       <LauncherModCard

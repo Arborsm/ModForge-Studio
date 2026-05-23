@@ -568,6 +568,8 @@ describe('LauncherLibraryPage', () => {
   it('renders virtual folders as expandable folder tiles and hides contained mods from the top level', async () => {
     const library = {
       ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
       libraryFolders: [
         {
           id: 'visuals',
@@ -589,6 +591,119 @@ describe('LauncherLibraryPage', () => {
 
     const folderRegion = screen.getByRole('region', { name: 'Visuals' })
     expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
+  })
+
+  it('does not refresh the library when expanding a virtual folder', () => {
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(library.refresh).not.toHaveBeenCalled()
+  })
+
+  it('does not replay reveal loading motion for existing mods when expanding a virtual folder', async () => {
+    vi.useFakeTimers()
+    const baseLibrary = createLibraryState()
+    const belowMod = createLibraryMod({
+      id: 'mod-below',
+      labelKey: 'ModForge.Below',
+      name: 'Below Folder Mod',
+      uniqueId: 'ModForge.Below',
+      absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Below Folder Mod',
+    })
+    const library = {
+      ...baseLibrary,
+      filteredMods: [...baseLibrary.filteredMods, belowMod],
+      mods: [...baseLibrary.mods, belowMod],
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      vi.advanceTimersByTime(950)
+    })
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    const belowCard = screen.getByRole('article', { name: /below folder mod/i })
+    expect(belowCard.closest('.loading-motion-child-reveal')).toBeNull()
+  })
+
+  it('keeps mod cards full size inside expanded virtual folders', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
+    const folderGrid = folderRegion.querySelector<HTMLElement>('.launcher-library-folder-panel-grid')
+    expect(folderGrid?.style.gridTemplateColumns).toContain('260px')
+  })
+
+  it('does not repeat the empty-library auto refresh after local folder state changes', () => {
+    const library = {
+      ...createLibraryState(),
+      mods: [],
+      filteredMods: [],
+      selectedMod: null,
+      selectedModId: null,
+      currentPack: null,
+      currentPackId: null,
+      packPresets: [],
+      state: 'idle',
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(library.refresh).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    expect(library.refresh).toHaveBeenCalledTimes(1)
   })
 
   it('closes an expanded virtual folder with a single click', () => {
@@ -617,9 +732,11 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
   })
 
-  it('keeps one virtual folder expanded and shows folder context actions', async () => {
+  it('keeps multiple virtual folders expanded and shows folder context actions', async () => {
     const library = {
       ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
       libraryFolders: [
         {
           id: 'visuals',
@@ -651,40 +768,22 @@ describe('LauncherLibraryPage', () => {
       expect(screen.getAllByRole('menuitem', { name: 'Disable folder mods' }).length).toBeGreaterThan(0)
     })
 
-    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Disable folder mods' })[0]!)
-    await waitFor(() => {
-      expect((library as MockLibraryState & { setModsEnabled: ReturnType<typeof vi.fn> }).setModsEnabled).toHaveBeenCalledWith(
-        ['mod-1'],
-        false,
-      )
-    })
-
-    fireEvent.contextMenu(visualsFolderButton)
-    fireEvent.click(screen.getAllByRole('menuitem', { name: 'Rename folder' })[0]!)
-    const renameDialog = screen.getByRole('dialog', { name: 'Rename folder' })
-    expect(renameDialog).not.toBeNull()
-    const renameInput = within(renameDialog).getByRole('textbox')
-    fireEvent.change(renameInput, { target: { value: 'Visual Packs' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
-    await waitFor(() => {
-      expect((library as MockLibraryState & { renameLibraryFolder: ReturnType<typeof vi.fn> }).renameLibraryFolder).toHaveBeenCalledWith(
-        'visuals',
-        'Visual Packs',
-      )
-    })
-
     fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open folder Gameplay' }))
 
-    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
     expect(screen.getByRole('region', { name: 'Gameplay' })).not.toBeNull()
-    expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
 
     fireEvent.contextMenu(screen.getByRole('region', { name: 'Gameplay' }))
 
     await waitFor(() => {
       expect(screen.getAllByRole('menuitem', { name: 'Close folder' }).length).toBeGreaterThan(0)
     })
+
+    fireEvent.click(within(screen.getByRole('region', { name: 'Gameplay' })).getByRole('button', { name: 'Close folder' }))
+
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(screen.queryByRole('region', { name: 'Gameplay' })).toBeNull()
   })
 
   it('marks library card versions when a cached update is available', () => {

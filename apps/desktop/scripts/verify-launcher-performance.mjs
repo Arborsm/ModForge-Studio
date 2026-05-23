@@ -114,12 +114,26 @@ async function readPerfSummary(page) {
   })
 }
 
+async function resetLibraryScenario(page) {
+  await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+  await page.waitForSelector('.launcher-library-grid-viewport', { state: 'visible', timeout: 30_000 })
+  await page.waitForSelector('.launcher-mod-card', { state: 'visible', timeout: 30_000 })
+  await page.waitForTimeout(300)
+}
+
 async function measureInPage(page, name, fn) {
   const startedAt = await page.evaluate(() => performance.now())
   await fn()
   await page.evaluate(({ measureName, measureStartedAt }) => window.__launcherPerf?.measure?.(measureName, measureStartedAt), {
     measureName: name,
     measureStartedAt: startedAt,
+  })
+}
+
+async function waitForFolderPanelClosed(page) {
+  await page.waitForFunction(() => {
+    const panel = document.querySelector('.launcher-library-folder-panel')
+    return !panel || panel.getAttribute('data-state') === 'closed'
   })
 }
 
@@ -219,12 +233,16 @@ async function runFolderScenario(page) {
   await finishAppearanceMeasure(page, 'folder-open')
   await page.waitForSelector('.launcher-library-folder-panel', { state: 'visible', timeout: 5_000 })
   await page.waitForTimeout(80)
-  const closeButton = page.locator('.launcher-library-folder-panel .launcher-library-icon-button').first()
+  const closeButton = page
+    .locator(
+      '.launcher-library-folder-panel .launcher-library-folder-panel-close, .launcher-library-folder-panel .launcher-library-icon-button',
+    )
+    .first()
   const closeButtonBox = await closeButton.boundingBox()
   if (!closeButtonBox) throw new Error('Missing visible folder close button for folder scenario.')
   await measureInPage(page, 'folder-close', async () => {
     await page.mouse.click(closeButtonBox.x + closeButtonBox.width / 2, closeButtonBox.y + closeButtonBox.height / 2)
-    await page.waitForSelector('.launcher-library-folder-panel', { state: 'detached', timeout: 5_000 })
+    await waitForFolderPanelClosed(page)
   })
 }
 
@@ -321,9 +339,25 @@ try {
   await runScrollScenario(page)
   await runFolderScenario(page)
   await runDetailScenario(page)
+  const beforeDragRaw = await readPerfSummary(page)
+
+  await resetLibraryScenario(page)
+  await installPerfProbe(page)
+  await page.evaluate((errors) => {
+    window.__launcherPerf.consoleErrors = errors
+  }, consoleErrors)
   await runDragScenario(page)
 
-  const raw = await readPerfSummary(page)
+  const dragRaw = await readPerfSummary(page)
+  const raw = {
+    framesByPhase: {
+      ...beforeDragRaw.framesByPhase,
+      ...dragRaw.framesByPhase,
+    },
+    longTasks: [...beforeDragRaw.longTasks, ...dragRaw.longTasks],
+    measures: [...beforeDragRaw.measures, ...dragRaw.measures],
+    consoleErrors: [...beforeDragRaw.consoleErrors, ...dragRaw.consoleErrors],
+  }
   raw.consoleErrors = consoleErrors
   const summary = {
     url: targetUrl,
