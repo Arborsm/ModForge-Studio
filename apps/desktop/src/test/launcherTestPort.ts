@@ -86,6 +86,8 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     toDesktopAssetUrl: vi.fn().mockReturnValue(''),
     validateNexusApiKey: vi.fn().mockResolvedValue({
       userName: 'TestUser',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: true,
       dailyRemaining: 950,
       hourlyRemaining: 450,

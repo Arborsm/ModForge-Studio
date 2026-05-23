@@ -804,6 +804,9 @@ function ConfigDownloadDefaults({
 
 function ConfigAccountCard({ account, copy }: { account: NexusApiAccountStatus; copy: LauncherCopy }) {
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
+  const avatarUrl = account.apiKeyStatus?.avatarUrl?.trim() || null
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)
+  const shouldShowAvatarImage = avatarUrl != null && avatarUrl !== failedAvatarUrl
   const accountStatus = account.apiKeyError ? copy.settings.nexusApiUnavailable : copy.settings.nexusNormalStatus
   const isPremium = account.apiKeyStatus?.isPremium === true
   const tierLabel = isPremium ? copy.diagnostics.premiumActive : copy.diagnostics.premiumFree
@@ -819,7 +822,19 @@ function ConfigAccountCard({ account, copy }: { account: NexusApiAccountStatus; 
       <div className="launcher-config-account-cover" aria-hidden="true" />
       <div className="launcher-config-account-card">
         <div className="launcher-config-avatar-wrap">
-          <span className="launcher-config-avatar">{getInitials(accountName)}</span>
+          {shouldShowAvatarImage ? (
+            <img
+              className="launcher-config-avatar launcher-config-avatar-image"
+              src={avatarUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              onError={() => setFailedAvatarUrl(avatarUrl)}
+            />
+          ) : (
+            <span className="launcher-config-avatar">{getInitials(accountName)}</span>
+          )}
           <span
             className={cx('launcher-config-online-dot', account.apiKeyError && 'launcher-config-online-dot-danger')}
             title={accountStatus}

@@ -825,6 +825,7 @@ describe('LauncherLibraryPage', () => {
 
     renderLibraryPage()
 
+    fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
     fireEvent.click(screen.getAllByText('Set as child mod')[0]!)
     const dialog = screen.getByRole('dialog', { name: 'Choose child mods' })
     expect(dialog).toBeTruthy()
@@ -844,6 +845,7 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    fireEvent.contextMenu(screen.getByRole('article', { name: /vintage interface redux/i }))
     fireEvent.click(screen.getByText('Remove from parent'))
 
     expect(library.removeChildMods).toHaveBeenCalledWith(['mod-2'])

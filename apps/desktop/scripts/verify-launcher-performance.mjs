@@ -118,7 +118,7 @@ async function resetLibraryScenario(page) {
   await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
   await page.waitForSelector('.launcher-library-grid-viewport', { state: 'visible', timeout: 30_000 })
   await page.waitForSelector('.launcher-mod-card', { state: 'visible', timeout: 30_000 })
-  await page.waitForTimeout(300)
+  await page.waitForTimeout(1200)
 }
 
 async function measureInPage(page, name, fn) {
@@ -133,8 +133,13 @@ async function measureInPage(page, name, fn) {
 async function waitForFolderPanelClosed(page) {
   await page.waitForFunction(() => {
     const panel = document.querySelector('.launcher-library-folder-panel')
-    return !panel || panel.getAttribute('data-state') === 'closed'
+    if (!panel) {
+      return true
+    }
+    const rect = panel.getBoundingClientRect()
+    return rect.width <= 0 || rect.height <= 0
   })
+  await page.waitForSelector('[data-launcher-folder-drop-id="visuals"]', { state: 'visible', timeout: 5_000 })
 }
 
 async function prepareAppearanceMeasure(page, selector) {
@@ -157,6 +162,48 @@ async function prepareAppearanceMeasure(page, selector) {
         observer.disconnect()
         resolve(performance.now() - startedAt)
       }, 5_000)
+    })
+  }, selector)
+}
+
+async function prepareDisappearanceMeasure(page, selector) {
+  await page.evaluate((targetSelector) => {
+    const hasVisibleTarget = () =>
+      Array.from(document.querySelectorAll(targetSelector)).some((element) => {
+        const rect = element.getBoundingClientRect()
+        return rect.width > 0 && rect.height > 0
+      })
+
+    window.__launcherAppearanceMeasure = new Promise((resolve) => {
+      const startedAt = performance.now()
+      if (!hasVisibleTarget()) {
+        resolve(0)
+        return
+      }
+
+      let rafId = 0
+      let timeoutId = 0
+      const observer = new MutationObserver(check)
+
+      function finish() {
+        observer.disconnect()
+        window.cancelAnimationFrame(rafId)
+        window.clearTimeout(timeoutId)
+        resolve(performance.now() - startedAt)
+      }
+
+      function check() {
+        window.cancelAnimationFrame(rafId)
+        rafId = window.requestAnimationFrame(() => {
+          if (!hasVisibleTarget()) {
+            finish()
+          }
+        })
+      }
+
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+      timeoutId = window.setTimeout(finish, 5_000)
+      check()
     })
   }, selector)
 }
@@ -240,10 +287,10 @@ async function runFolderScenario(page) {
     .first()
   const closeButtonBox = await closeButton.boundingBox()
   if (!closeButtonBox) throw new Error('Missing visible folder close button for folder scenario.')
-  await measureInPage(page, 'folder-close', async () => {
-    await page.mouse.click(closeButtonBox.x + closeButtonBox.width / 2, closeButtonBox.y + closeButtonBox.height / 2)
-    await waitForFolderPanelClosed(page)
-  })
+  await prepareDisappearanceMeasure(page, '.launcher-library-folder-panel')
+  await page.mouse.click(closeButtonBox.x + closeButtonBox.width / 2, closeButtonBox.y + closeButtonBox.height / 2)
+  await finishAppearanceMeasure(page, 'folder-close')
+  await waitForFolderPanelClosed(page)
 }
 
 async function runDetailScenario(page) {

@@ -214,6 +214,8 @@ describe('LauncherConfigurationPage', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'RealPilot',
+      avatarUrl: 'https://staticdelivery.nexusmods.com/Images/Users/123/avatar.png',
+      profileUrl: 'https://www.nexusmods.com/users/123',
       isPremium: true,
       dailyRemaining: 18742,
       hourlyRemaining: 500,
@@ -230,6 +232,9 @@ describe('LauncherConfigurationPage', () => {
     const nexusPanel = screen.getByTestId('launcher-config-nexus')
 
     expect(accountCard.closest('.launcher-config-rail')).toBeTruthy()
+    expect(accountCard.querySelector<HTMLImageElement>('.launcher-config-avatar-image')?.src).toBe(
+      'https://staticdelivery.nexusmods.com/Images/Users/123/avatar.png',
+    )
     expect(Boolean(completionRail.compareDocumentPosition(accountCard) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
     expect(Boolean(accountCard.compareDocumentPosition(downloadDefaults) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
     expect(nexusPanel.querySelector('.launcher-config-account-row')).toBeNull()
@@ -243,6 +248,8 @@ describe('LauncherConfigurationPage', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'FreePilot',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: false,
       dailyRemaining: 18742,
       hourlyRemaining: 500,
@@ -275,6 +282,8 @@ describe('LauncherConfigurationPage', () => {
       {
         status: {
           userName: 'CachedPilot',
+          avatarUrl: null,
+          profileUrl: null,
           isPremium: true,
           dailyRemaining: 321,
           hourlyRemaining: 123,
@@ -302,6 +311,8 @@ describe('LauncherConfigurationPage', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'PrecisePilot',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: true,
       dailyRemaining: 19_988,
       hourlyRemaining: 499,
@@ -324,6 +335,8 @@ describe('LauncherConfigurationPage', () => {
     const nowSeconds = Math.floor(Date.now() / 1000)
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'ResetPilot',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: true,
       dailyRemaining: 19_988,
       hourlyRemaining: 499,
@@ -345,6 +358,8 @@ describe('LauncherConfigurationPage', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'FallbackResetPilot',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: true,
       dailyRemaining: 19_988,
       hourlyRemaining: 499,
@@ -577,6 +592,8 @@ describe('LauncherConfigurationPage', () => {
     })
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'ApiPilot',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: false,
       dailyRemaining: 42,
       hourlyRemaining: 24,
@@ -1281,6 +1298,8 @@ describe('LauncherConfigurationPage', () => {
     loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
     const validateNexusApiKey = vi.fn().mockResolvedValue({
       userName: 'PremiumTester',
+      avatarUrl: null,
+      profileUrl: null,
       isPremium: true,
       dailyRemaining: 12_000,
       hourlyRemaining: 450,

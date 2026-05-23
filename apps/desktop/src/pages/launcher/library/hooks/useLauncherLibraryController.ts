@@ -42,10 +42,6 @@ import type {
   PackDialogState,
 } from '../model/launcherLibraryDialogs'
 
-function shouldDeferLauncherInteractionContent() {
-  return import.meta.env.MODE !== 'test' && (typeof navigator === 'undefined' || !navigator.userAgent.toLowerCase().includes('jsdom'))
-}
-
 export type LauncherLibraryControllerInput = {
   settings: LauncherSettingsDraft
   library: ReturnType<typeof useLauncherLibrary>
@@ -361,32 +357,6 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
     visibleMods,
   ])
 
-  useEffect(() => {
-    if (!openLibraryFolderIds.length) {
-      return
-    }
-
-    if (!shouldDeferLauncherInteractionContent()) {
-      return
-    }
-
-    const frameId = window.requestAnimationFrame(() => {
-      setReadyLibraryFolderIds((current) => {
-        const currentLookup = new Set(current.map((id) => normalizeLookupKey(id)))
-        const nextIds = [...current]
-        for (const folderId of openLibraryFolderIds) {
-          if (currentLookup.has(normalizeLookupKey(folderId))) {
-            continue
-          }
-          nextIds.push(folderId)
-        }
-        const openLookup = new Set(openLibraryFolderIds.map((id) => normalizeLookupKey(id)))
-        return nextIds.filter((id) => openLookup.has(normalizeLookupKey(id)))
-      })
-    })
-    return () => window.cancelAnimationFrame(frameId)
-  }, [openLibraryFolderIds])
-
   const getLibraryFolderModIds = useCallback(
     (folder: LauncherVirtualFolder) => {
       const folderModLookup = new Set(folder.modKeys.map((value) => normalizeLookupKey(value)))
@@ -453,9 +423,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
           setReadyLibraryFolderIds((ready) => ready.filter((id) => normalizeLookupKey(id) !== folderLookup))
           return current.filter((id) => normalizeLookupKey(id) !== folderLookup)
         }
-        if (!shouldDeferLauncherInteractionContent()) {
-          setReadyLibraryFolderIds((ready) => (ready.some((id) => normalizeLookupKey(id) === folderLookup) ? ready : [...ready, folderId]))
-        }
+        setReadyLibraryFolderIds((ready) => (ready.some((id) => normalizeLookupKey(id) === folderLookup) ? ready : [...ready, folderId]))
         return [...current, folderId]
       })
     },

@@ -302,6 +302,8 @@ export type LauncherNexusDiagnosticsResult = {
 /** Nexus API key account and quota validation result. */
 export type ValidateApiKeyResult = {
   userName: string
+  avatarUrl: string | null
+  profileUrl: string | null
   isPremium: boolean
   dailyRemaining: number | null
   hourlyRemaining: number | null

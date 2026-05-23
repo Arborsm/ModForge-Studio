@@ -24,6 +24,7 @@ use crate::domain::launcher::types::{
 use crate::domain::launcher::updates;
 use crate::domain::nexusmods::catalog;
 use crate::domain::nexusmods::diagnostics;
+use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::mod_detail;
 use crate::domain::nexusmods::rest_api;
 use crate::domain::nexusmods::sso::{SsoConnectionStatus, SsoSnapshot};
@@ -309,6 +310,8 @@ pub fn inspect_launcher_archive(
 #[serde(rename_all = "camelCase")]
 pub struct ValidateApiKeyResult {
     pub user_name: String,
+    pub avatar_url: Option<String>,
+    pub profile_url: Option<String>,
     pub is_premium: bool,
     pub daily_remaining: Option<u64>,
     pub hourly_remaining: Option<u64>,
@@ -327,8 +330,17 @@ fn validate_nexus_api_key_blocking(app: tauri::AppHandle) -> Result<ValidateApiK
     let settings = settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
     let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
+    let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
+        .map_err(|error| {
+            log::warn!("launcher Nexus user avatar lookup failed: {error}");
+            error
+        })
+        .ok()
+        .flatten();
     Ok(ValidateApiKeyResult {
         user_name: user_info.name,
+        avatar_url,
+        profile_url: Some(user_info.profile_url),
         is_premium: user_info.is_premium,
         daily_remaining: rest_api::daily_quota_remaining(),
         hourly_remaining: rest_api::hourly_quota_remaining(),

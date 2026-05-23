@@ -3260,8 +3260,8 @@
   }
 
   .launcher-library-pointer-drag-preview-pending {
-    opacity: 0.78;
-    transform: translate3d(var(--launcher-drag-x, 0px), var(--launcher-drag-y, 0px), 0) scale(0.96);
+    opacity: 1;
+    transform: translate3d(var(--launcher-drag-x, 0px), var(--launcher-drag-y, 0px), 0) scale(1);
   }
 
   .launcher-library-drag-preview .launcher-mod-card {
@@ -3276,29 +3276,30 @@
 
   .launcher-library-mod-drag-preview-card {
     display: grid;
-    width: 272px;
+    width: 320px;
     max-width: calc(100vw - 24px);
-    grid-template-columns: 58px minmax(0, 1fr);
+    grid-template-columns: 82px minmax(0, 1fr);
     align-items: center;
-    gap: 12px;
-    border: 1px solid color-mix(in srgb, #2563eb 42%, white);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--launcher-surface-raised) 94%, white 6%);
-    padding: 10px;
+    gap: 14px;
+    border: 1px solid color-mix(in srgb, #2563eb 58%, white);
+    border-radius: 10px;
+    background: #ffffff;
+    background: color-mix(in srgb, var(--launcher-surface-raised, #ffffff) 98%, white 2%);
+    padding: 12px;
     box-shadow:
-      0 24px 54px rgba(15, 23, 42, 0.24),
-      0 10px 24px rgba(37, 99, 235, 0.14),
-      0 0 0 1px color-mix(in srgb, #2563eb 14%, transparent);
-    transform: rotate(1deg) scale(1.015);
+      0 28px 64px rgba(15, 23, 42, 0.32),
+      0 14px 30px rgba(37, 99, 235, 0.18),
+      0 0 0 2px color-mix(in srgb, #2563eb 18%, transparent);
+    transform: rotate(0.6deg) scale(1.01);
   }
 
   .launcher-library-mod-drag-preview-card img,
   .launcher-library-mod-drag-preview-fallback {
     display: grid;
-    width: 58px;
-    height: 58px;
+    width: 82px;
+    height: 82px;
     place-items: center;
-    border-radius: 8px;
+    border-radius: 10px;
     background: linear-gradient(135deg, #2563eb, #0f766e);
     color: var(--launcher-text-inverse);
     font-size: 22px;
@@ -3321,7 +3322,7 @@
 
   .launcher-library-mod-drag-preview-copy strong {
     color: var(--launcher-text-primary);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 800;
   }
 
@@ -3332,7 +3333,12 @@
   }
 
   .launcher-library-mod-drag-preview-card-disabled {
-    opacity: 0.76;
+    opacity: 0.9;
+  }
+
+  .dark .launcher-library-mod-drag-preview-card {
+    background: #111827;
+    background: color-mix(in srgb, var(--launcher-surface-raised, #111827) 96%, #111827 4%);
   }
 
   .launcher-library-drag-preview-count {
@@ -3903,6 +3909,7 @@
     --launcher-folder-border: rgba(148, 163, 184, 0.34);
     --launcher-folder-accent: #2563eb;
     position: relative;
+    z-index: 2;
     display: grid;
     min-height: 226px;
     overflow: visible;
@@ -4042,9 +4049,9 @@
 
   .launcher-library-folder-panel-close {
     position: absolute;
-    top: -24px;
-    right: -24px;
-    z-index: 5;
+    top: 0;
+    right: 0;
+    z-index: 12;
     display: grid;
     width: 34px;
     height: 34px;
@@ -4059,7 +4066,7 @@
     line-height: 1;
     opacity: 0;
     box-shadow: 0 12px 26px rgba(15, 23, 42, 0.16);
-    transform: scale(0.94);
+    transform: translate(42%, -42%) scale(0.94);
     transition:
       opacity 140ms ease,
       transform 140ms ease,
@@ -4070,7 +4077,7 @@
   .launcher-library-folder-panel:focus-within .launcher-library-folder-panel-close,
   .launcher-library-folder-panel-close:focus-visible {
     opacity: 0.82;
-    transform: scale(1);
+    transform: translate(42%, -42%) scale(1);
   }
 
   .launcher-library-folder-panel-close:hover,
@@ -4344,7 +4351,7 @@
   }
 
   .launcher-mod-card-dragging {
-    opacity: 0.42;
+    opacity: 0.72;
     transform: scale(0.985);
     border-style: dashed;
     border-color: color-mix(in srgb, #2563eb 54%, transparent);
@@ -4355,7 +4362,7 @@
   }
 
   .launcher-mod-card-dragging .launcher-mod-card-stack {
-    filter: saturate(0.72);
+    filter: saturate(0.9);
   }
 
   @keyframes launcher-library-grab-pop {

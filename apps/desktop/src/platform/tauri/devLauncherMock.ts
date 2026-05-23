@@ -293,6 +293,8 @@ export function installDevLauncherMock() {
         case 'validate_nexus_api_key':
           return {
             userName: 'Dev User',
+            avatarUrl: null,
+            profileUrl: null,
             isPremium: true,
             dailyRemaining: null,
             hourlyRemaining: null,

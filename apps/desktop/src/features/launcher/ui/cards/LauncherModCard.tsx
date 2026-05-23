@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react'
+import { memo, useCallback, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { ArrowUp, Check, ChevronDown, ChevronRight } from 'lucide-react'
@@ -25,6 +25,7 @@ type LauncherModCardProps = {
   onOpenDetails?: () => void
   onOpenDirectTarget?: () => void
   contextActions?: LauncherModCardAction[]
+  getContextActions?: () => LauncherModCardAction[] | undefined
   dragging?: boolean
   childCount?: number
   childCountLabel?: string
@@ -48,6 +49,7 @@ function LauncherModCardContent({
   onOpenDetails,
   onOpenDirectTarget,
   contextActions,
+  getContextActions,
   dragging = false,
   childCount = 0,
   childCountLabel,
@@ -71,6 +73,7 @@ function LauncherModCardContent({
       : `v${normalizedLatestVersion}`
     : ''
   const updateTooltip = latestVersionLabel ? copy.launcher.library.updateAvailableTooltip(latestVersionLabel) : null
+  const [resolvedContextActions, setResolvedContextActions] = useState<LauncherModCardAction[] | null>(null)
   const coverStyle = {
     '--launcher-cover-bright': fallbackPalette.bright,
     '--launcher-cover-base': fallbackPalette.base,
@@ -98,11 +101,25 @@ function LauncherModCardContent({
   const handleOpenDirectTargetDoubleClick = () => {
     onOpenDirectTarget?.()
   }
+  const resolveContextActions = useCallback(() => getContextActions?.() ?? contextActions ?? [], [contextActions, getContextActions])
+  const handleContextMenuCapture = useCallback(() => {
+    if (!getContextActions && !contextActions?.length) {
+      return
+    }
+    setResolvedContextActions(resolveContextActions())
+  }, [contextActions?.length, getContextActions, resolveContextActions])
+  const handleContextMenuOpenChange = useCallback(
+    (open: boolean) => {
+      setResolvedContextActions(open ? resolveContextActions() : null)
+    },
+    [resolveContextActions],
+  )
 
   const card = (
     <article
       aria-label={title}
       onClick={selectionMode ? onSelect : undefined}
+      onContextMenuCapture={handleContextMenuCapture}
       className={cx(
         'panel-list-card panel-list-card-interactive launcher-mod-card',
         !enabled && 'launcher-mod-card-disabled',
@@ -187,20 +204,24 @@ function LauncherModCardContent({
     </article>
   )
 
-  if (!contextActions?.length) {
+  if (!getContextActions && !contextActions?.length) {
     return card
   }
 
+  const menuActions = resolvedContextActions ?? (getContextActions ? [] : (contextActions ?? []))
+
   return (
-    <ContextMenu.Root>
+    <ContextMenu.Root onOpenChange={handleContextMenuOpenChange}>
       <ContextMenu.Trigger asChild>{card}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
-          {contextActions.map((action) => (
-            <LauncherModCardContextMenuItem key={action.label} action={action} />
-          ))}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
+      {menuActions.length ? (
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+            {menuActions.map((action) => (
+              <LauncherModCardContextMenuItem key={action.label} action={action} />
+            ))}
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      ) : null}
     </ContextMenu.Root>
   )
 }

@@ -501,6 +501,12 @@
     box-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 9%, transparent);
   }
 
+  .launcher-config-avatar-image {
+    display: block;
+    object-fit: cover;
+    background: color-mix(in srgb, var(--config-primary) 12%, white);
+  }
+
   .launcher-config-online-dot {
     position: absolute;
     right: 4px;

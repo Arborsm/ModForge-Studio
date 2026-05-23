@@ -330,6 +330,8 @@ describe('configuration diagnostics cache', () => {
   it('reuses cached API key validation until it expires or the API key changes', () => {
     const status = {
       userName: 'ApiPilot',
+      avatarUrl: 'https://staticdelivery.nexusmods.com/Images/Users/123/avatar.png',
+      profileUrl: 'https://www.nexusmods.com/users/123',
       isPremium: true,
       dailyRemaining: 42,
       hourlyRemaining: 24,
