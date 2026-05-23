@@ -1,7 +1,9 @@
 use super::{
+    load_launcher_suppressed_update_mod_ids_result_at_path,
     partition_update_candidates_for_request, UpdateCheckCandidate,
     AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD,
 };
+use crate::domain::launcher::types::LoadSuppressedLauncherUpdateModIdsRequest;
 use crate::domain::launcher::update_cache::{
     clear_launcher_update_auto_failures_at_path, load_launcher_update_auto_failures_at_path,
     load_suppressed_launcher_update_mod_ids_at_path, record_launcher_update_auto_failure_at_path,
@@ -174,4 +176,37 @@ fn partitioned_candidates_skip_suppressed_mods_only_for_automatic_checks() {
         vec![22731, 22732]
     );
     assert!(manual_skipped.is_empty());
+}
+
+#[test]
+fn suppressed_mod_ids_result_is_sorted_for_frontend_consumers() {
+    let root = create_temp_dir("launcher-update-auto-failure-public-result");
+    let cache_path = root.join("launcher").join("updates-cache.json");
+    let mods_path = r"C:\Games\Stardew Valley\Mods";
+
+    for mod_id in [300_i64, 100_i64] {
+        for attempt in 1..=AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD {
+            record_launcher_update_auto_failure_at_path(
+                &cache_path,
+                mods_path,
+                mod_id,
+                u128::from(attempt) * 1_000,
+                Some("all fallbacks failed"),
+            )
+            .expect("record suppressed auto failure");
+        }
+    }
+
+    let result = load_launcher_suppressed_update_mod_ids_result_at_path(
+        &cache_path,
+        LoadSuppressedLauncherUpdateModIdsRequest {
+            mods_path: mods_path.to_string(),
+        },
+    )
+    .expect("load public suppressed update mod ids");
+
+    assert_eq!(result.mods_path, mods_path);
+    assert_eq!(result.mod_ids, vec![100, 300]);
+
+    fs::remove_dir_all(root).expect("cleanup");
 }

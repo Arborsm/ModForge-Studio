@@ -1367,7 +1367,9 @@ export function createItemEntryLookup(entries: ItemWorkspaceEntry[]) {
   return new Map(entries.map((entry) => [entry.qualifiedItemId, entry] as const))
 }
 
-export function getItemBrowseCategories(entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>) {
+export function getItemBrowseCategories(
+  entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>,
+) {
   if ('browseCategories' in entry && Array.isArray(entry.browseCategories) && entry.browseCategories.length > 0) {
     return entry.browseCategories
   }
@@ -1376,10 +1378,7 @@ export function getItemBrowseCategories(entry: Pick<ItemWorkspaceEntry, 'kind' |
   const rawType = (entry.rawType ?? '').toLowerCase()
   const tags = entry.contextTags.map((tag) => tag.toLowerCase())
 
-  if (
-    entry.kind === 'object' &&
-    (/mineral|gem|arch/iu.test(rawType) || tags.some((tag) => /gem|mineral|artifact/iu.test(tag)))
-  ) {
+  if (entry.kind === 'object' && (/mineral|gem|arch/iu.test(rawType) || tags.some((tag) => /gem|mineral|artifact/iu.test(tag)))) {
     categories.add('mineral')
   }
 
@@ -1395,7 +1394,12 @@ export function getItemBrowseCategories(entry: Pick<ItemWorkspaceEntry, 'kind' |
     categories.add('crop')
   }
 
-  if (entry.kind === 'weapon' || entry.kind === 'tool' || entry.kind === 'boots' || tags.some((tag) => /ring|weapon|tool|equipment/iu.test(tag))) {
+  if (
+    entry.kind === 'weapon' ||
+    entry.kind === 'tool' ||
+    entry.kind === 'boots' ||
+    tags.some((tag) => /ring|weapon|tool|equipment/iu.test(tag))
+  ) {
     categories.add('equipment')
   }
 
@@ -1414,7 +1418,9 @@ export function getItemBrowseCategories(entry: Pick<ItemWorkspaceEntry, 'kind' |
   return Array.from(categories)
 }
 
-export function getItemCategorySearchTokens(entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>) {
+export function getItemCategorySearchTokens(
+  entry: Pick<ItemWorkspaceEntry, 'kind' | 'rawType' | 'cropData' | 'cropHarvests' | 'fishData' | 'recipesProduced' | 'contextTags'>,
+) {
   if ('categorySearchTokens' in entry && Array.isArray(entry.categorySearchTokens) && entry.categorySearchTokens.length > 0) {
     return entry.categorySearchTokens
   }

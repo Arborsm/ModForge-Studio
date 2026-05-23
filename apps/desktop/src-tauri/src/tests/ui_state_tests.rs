@@ -1,6 +1,6 @@
 use super::{
     load_or_create_app_ui_state_at_path, patch_app_ui_state_at_path, AppUiAppearanceStatePatch,
-    AppUiDiscoverToolbarState, AppUiCpMakerWorkspaceStatePatch, AppUiLauncherStatePatch,
+    AppUiCpMakerWorkspaceStatePatch, AppUiDiscoverToolbarState, AppUiLauncherStatePatch,
     AppUiStatePatch, AppUiWorkspaceStatePatch,
 };
 use crate::test_support::create_temp_dir;
@@ -22,14 +22,13 @@ fn load_app_ui_state_creates_defaults_when_file_is_missing() {
     assert_eq!(state.appearance.accent_preset_id, "indigo");
     assert!(state.workspace.layouts.is_empty());
     assert_eq!(state.workspace.workspace_view_mode, "edit");
-    assert!(
-        state
-            .workspace
-            .cp_maker
-            .active_generated_draft_key
-            .is_none()
-    );
+    assert!(state
+        .workspace
+        .cp_maker
+        .active_generated_draft_key
+        .is_none());
     assert!(!state.launcher.force_offline);
+    assert!(!state.launcher.force_non_premium);
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -98,6 +97,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
     assert!(!patched.launcher.force_offline);
+    assert!(!patched.launcher.force_non_premium);
     assert_eq!(patched.workspace.workspace_view_mode, "project");
     assert_eq!(
         patched
@@ -141,6 +141,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
         AppUiStatePatch {
             launcher: Some(AppUiLauncherStatePatch {
                 force_offline: Some(true),
+                force_non_premium: Some(true),
                 ..Default::default()
             }),
             ..Default::default()
@@ -149,6 +150,7 @@ fn patch_app_ui_state_merges_sections_without_clobbering_existing_values() {
     .expect("patch launcher force offline");
 
     assert!(patched.launcher.force_offline);
+    assert!(patched.launcher.force_non_premium);
     assert_eq!(patched.launcher.discover_toolbar.sort, "downloads");
     assert!(patched.launcher.discover_toolbar.filters_hidden);
 

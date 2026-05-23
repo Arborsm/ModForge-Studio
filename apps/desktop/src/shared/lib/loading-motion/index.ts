@@ -35,15 +35,6 @@ export const DEFAULT_LOADING_MOTION_PREFERENCE: LoadingMotionPreference = {
   speedMultiplier: 1,
 } as const
 
-/** Reduced-motion fallback: `quietSimplify / light` (静默简化 / 轻). */
-export const REDUCED_MOTION_PREFERENCE: LoadingMotionPreference = {
-  styleId: 'quietSimplify',
-  intensityId: 'light',
-  speedMode: 'preset',
-  speedId: 'standard',
-  speedMultiplier: 1,
-} as const
-
 /* ------------------------------------------------------------------ */
 /*  Style / intensity validation                                       */
 /* ------------------------------------------------------------------ */
@@ -58,14 +49,17 @@ export function isValidIntensityId(value: unknown): value is LoadingMotionIntens
   return LOADING_MOTION_INTENSITY_IDS.includes(value as LoadingMotionIntensityId)
 }
 
+/** Returns true when the given value is a valid LoadingMotionSpeedId. */
 export function isValidSpeedId(value: unknown): value is LoadingMotionSpeedId {
   return LOADING_MOTION_SPEED_IDS.includes(value as LoadingMotionSpeedId)
 }
 
+/** Returns true when the given value is a supported speed mode. */
 export function isValidSpeedMode(value: unknown): value is LoadingMotionSpeedMode {
   return value === 'preset' || value === 'custom'
 }
 
+/** Resolves a preset loading motion speed into its numeric multiplier. */
 export function getLoadingMotionSpeedMultiplier(speedId: LoadingMotionSpeedId): number {
   switch (speedId) {
     case 'slow':
@@ -77,6 +71,7 @@ export function getLoadingMotionSpeedMultiplier(speedId: LoadingMotionSpeedId): 
   }
 }
 
+/** Clamps and rounds a custom loading motion speed multiplier. */
 export function normalizeLoadingMotionSpeedMultiplier(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 1
@@ -96,15 +91,11 @@ export function normalizeLoadingMotionSpeedMultiplier(value: unknown): number {
  * falls back to the default without overwriting a valid intensity, and
  * vice versa. This keeps the two axes fully independent.
  */
-export function normalizeLoadingMotionPreference(
-  raw: Partial<LoadingMotionPreference> | null | undefined,
-): LoadingMotionPreference {
+export function normalizeLoadingMotionPreference(raw: Partial<LoadingMotionPreference> | null | undefined): LoadingMotionPreference {
   const speedMode = isValidSpeedMode(raw?.speedMode) ? raw.speedMode : DEFAULT_LOADING_MOTION_PREFERENCE.speedMode
   const speedId = isValidSpeedId(raw?.speedId) ? raw.speedId : DEFAULT_LOADING_MOTION_PREFERENCE.speedId
   const speedMultiplier =
-    speedMode === 'custom'
-      ? normalizeLoadingMotionSpeedMultiplier(raw?.speedMultiplier)
-      : getLoadingMotionSpeedMultiplier(speedId)
+    speedMode === 'custom' ? normalizeLoadingMotionSpeedMultiplier(raw?.speedMultiplier) : getLoadingMotionSpeedMultiplier(speedId)
 
   return {
     styleId: isValidStyleId(raw?.styleId) ? raw!.styleId : DEFAULT_LOADING_MOTION_PREFERENCE.styleId,
@@ -115,50 +106,39 @@ export function normalizeLoadingMotionPreference(
   }
 }
 
-export function createLoadingMotionPreference(
-  raw: Partial<LoadingMotionPreference> | null | undefined,
-): LoadingMotionPreference {
+/** Creates a normalized loading motion preference from partial persisted input. */
+export function createLoadingMotionPreference(raw: Partial<LoadingMotionPreference> | null | undefined): LoadingMotionPreference {
   return normalizeLoadingMotionPreference(raw)
 }
-
-/* ------------------------------------------------------------------ */
-/*  Reduced-motion resolution                                          */
-/* ------------------------------------------------------------------ */
 
 /**
  * Resolve the effective loading motion config for a single page load.
  *
- * Applies the user preference, reduced-motion override, and page-specific
- * reveal metadata in a single pass.
- *
- * When `prefersReducedMotion` is `true`, the resolved config always
- * uses `quietSimplify / light` regardless of the user preference.
+ * Applies the user preference and page-specific reveal metadata in a
+ * single pass.
  */
 export function resolveLoadingMotionConfig(
   userPreference: LoadingMotionPreference,
   options: {
-    prefersReducedMotion: boolean
     revealOrder?: readonly string[] | null
     anchors?: PageAnchorDeclaration | null
   },
 ): ResolvedLoadingMotionConfig {
-  const effectivePreference = options.prefersReducedMotion ? REDUCED_MOTION_PREFERENCE : userPreference
-
   const normalizedAnchors = options.anchors?.anchorIds ?? []
   const safeAnchors = normalizedAnchors.slice(0, 2) as [string, string?]
 
   return {
-    styleId: effectivePreference.styleId,
-    intensityId: effectivePreference.intensityId,
-    speedMode: effectivePreference.speedMode,
-    speedId: effectivePreference.speedId,
-    speedMultiplier: effectivePreference.speedMultiplier,
+    styleId: userPreference.styleId,
+    intensityId: userPreference.intensityId,
+    speedMode: userPreference.speedMode,
+    speedId: userPreference.speedId,
+    speedMultiplier: userPreference.speedMultiplier,
     revealOrder: options.revealOrder ?? null,
     anchors: safeAnchors,
-    reducedMotion: options.prefersReducedMotion,
   }
 }
 
+/** Extracts the speed-only state from a full loading motion preference. */
 export function getLoadingMotionSpeedState(preference: LoadingMotionPreference) {
   return {
     speedMode: preference.speedMode,
@@ -273,6 +253,7 @@ export function getIntensityLabel(id: LoadingMotionIntensityId, locale: 'zh-CN' 
   return locale === 'zh-CN' ? entry.labelZh : entry.labelEn
 }
 
+/** Looks up the product-facing label for a loading motion speed id. */
 export function getSpeedLabel(id: LoadingMotionSpeedId, locale: 'zh-CN' | 'en-US'): string {
   const entry = LOADING_MOTION_SPEED_LABELS.find((e) => e.id === id)
   if (!entry) {

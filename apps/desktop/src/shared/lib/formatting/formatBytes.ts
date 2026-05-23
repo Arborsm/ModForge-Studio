@@ -1,3 +1,4 @@
+/** Options controlling byte formatting base, precision, and unit labels. */
 type FormatBytesOptions = {
   base?: number
   decimals?: number | ((size: number, value: number, unit: string, unitIndex: number) => number)
@@ -6,6 +7,7 @@ type FormatBytesOptions = {
 
 const DEFAULT_UNITS = ['B', 'KB', 'MB', 'GB', 'TB']
 
+/** Formats a byte count using compact binary units by default. */
 export function formatBytes(value: number, options: FormatBytesOptions = {}) {
   const { base = 1024, decimals = 1, units = DEFAULT_UNITS } = options
 
@@ -27,15 +29,13 @@ export function formatBytes(value: number, options: FormatBytesOptions = {}) {
     return `${Math.round(size)} ${unit}`
   }
 
-  const precisionResult =
-    typeof decimals === 'function'
-      ? decimals(size, value, unit, unitIndex)
-      : decimals
+  const precisionResult = typeof decimals === 'function' ? decimals(size, value, unit, unitIndex) : decimals
   const precisionValue = Number.isFinite(precisionResult) ? Math.max(0, precisionResult) : 0
 
   return `${size.toFixed(precisionValue)} ${unit}`
 }
 
+/** Formats a byte count or returns the provided placeholder for null values. */
 export function formatBytesOrPlaceholder(value: number | null, placeholder: string, options?: FormatBytesOptions) {
   if (value == null) {
     return placeholder

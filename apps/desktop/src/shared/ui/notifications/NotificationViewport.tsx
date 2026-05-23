@@ -47,9 +47,7 @@ function getNotificationChipClassName(tone: PublishedNotification['chips'][numbe
   return `notification-toast-chip notification-toast-chip-${tone}`
 }
 
-function getNotificationActionButtonClassName(
-  tone: NonNullable<PublishedNotification['action']>['tone'],
-) {
+function getNotificationActionButtonClassName(tone: NonNullable<PublishedNotification['action']>['tone']) {
   return `notification-toast-action-button notification-toast-action-button-${tone}`
 }
 
@@ -125,23 +123,25 @@ function NotificationToast({
     setHovering(false)
   }
 
-  const handleActionClick = (callback: (() => void | Promise<void>) | undefined) => {
-    if (!callback) {
+  const handleActionClick = (action: NonNullable<PublishedNotification['action']> | undefined) => {
+    if (!action) {
       return
     }
 
-    void callback()
-    requestClose()
+    void action.callback()
+    if (action.closeOnClick) {
+      requestClose()
+    }
   }
 
   const levelClassName = `level-${notification.level}`
   const structuredContent = Boolean(
     notification.eyebrow ||
-      notification.subtitle ||
-      notification.summary ||
-      notification.note ||
-      notification.chips.length ||
-      notification.variant === 'diagnostic',
+    notification.subtitle ||
+    notification.summary ||
+    notification.note ||
+    notification.chips.length ||
+    notification.variant === 'diagnostic',
   )
   const actionButtons = [notification.secondaryAction, notification.action].filter(
     (action): action is NonNullable<PublishedNotification['action']> => action != null,
@@ -152,7 +152,7 @@ function NotificationToast({
   return (
     <article
       ref={toastRef}
-      className={`notification-toast ${levelClassName} notification-toast-variant-${notification.variant}${structuredContent ? ' notification-toast-structured' : ''}${closing ? ' is-closing' : ''}`}
+      className={`notification-toast ${levelClassName} notification-toast-variant-${notification.variant}${structuredContent ? 'notification-toast-structured' : ''}${closing ? 'is-closing' : ''}`}
       role="status"
       aria-live={notification.level === 'error' ? 'assertive' : 'polite'}
       aria-label={`${levelLabel}: ${notification.title}`}
@@ -187,7 +187,7 @@ function NotificationToast({
                 key={`${notification.id}-${action.label}`}
                 type="button"
                 className={getNotificationActionButtonClassName(action.tone)}
-                onClick={() => handleActionClick(action.callback)}
+                onClick={() => handleActionClick(action)}
                 title={actionHint}
               >
                 {action.label}
@@ -199,7 +199,7 @@ function NotificationToast({
           <button
             type="button"
             className="notification-toast-action"
-            onClick={() => handleActionClick(notification.action?.callback)}
+            onClick={() => handleActionClick(notification.action)}
             title={actionHint}
           >
             {notification.action.label}
@@ -207,13 +207,7 @@ function NotificationToast({
         ) : null}
       </div>
 
-      <button
-        type="button"
-        className="notification-toast-close"
-        aria-label={dismissLabel}
-        title={dismissLabel}
-        onClick={requestClose}
-      >
+      <button type="button" className="notification-toast-close" aria-label={dismissLabel} title={dismissLabel} onClick={requestClose}>
         <X className="h-4 w-4" />
       </button>
 
@@ -345,14 +339,12 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
 
     return frontOrderedNotifications
       .slice(0, index)
-      .reduce(
-        (total, currentNotification) => total + getExpandedStackHeight(currentNotification.id) + STACK_EXPANDED_GAP_PX,
-        0,
-      )
+      .reduce((total, currentNotification) => total + getExpandedStackHeight(currentNotification.id) + STACK_EXPANDED_GAP_PX, 0)
   })
   const frontNotificationHeight = Math.max(toastHeights[frontOrderedNotifications[0]?.id] ?? 0, STACK_HOVER_REGION_MIN_HEIGHT_PX)
   const frontNotificationMeasuredHeight = toastHeights[frontOrderedNotifications[0]?.id] ?? null
   const frontNotificationWidth = toastWidths[frontOrderedNotifications[0]?.id] ?? null
+  const widestNotificationWidth = Math.max(0, ...frontOrderedNotifications.map((notification) => toastWidths[notification.id] ?? 0))
   const topNotification = frontOrderedNotifications[frontOrderedNotifications.length - 1]
   const topNotificationHeight = topNotification ? getExpandedStackHeight(topNotification.id) : STACK_HOVER_REGION_MIN_HEIGHT_PX
   const expandedHoverRegionHeight = Math.max(
@@ -360,6 +352,7 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
     (expandedOffsets[expandedOffsets.length - 1] ?? 0) + topNotificationHeight,
   )
   const hoverRegionHeight = expanded ? expandedHoverRegionHeight : frontNotificationHeight
+  const hoverRegionWidth = widestNotificationWidth || frontNotificationWidth
 
   return (
     <section
@@ -381,7 +374,14 @@ export function NotificationViewport({ notifications, onDismiss }: NotificationV
         requestCollapse()
       }}
     >
-      <div className="notification-hover-region" aria-hidden="true" style={{ height: `${hoverRegionHeight}px` }} />
+      <div
+        className="notification-hover-region"
+        aria-hidden="true"
+        style={{
+          height: `${hoverRegionHeight}px`,
+          width: hoverRegionWidth ? `${hoverRegionWidth}px` : undefined,
+        }}
+      />
       {visibleNotifications.map((notification, index) => {
         const stackIndex = visibleNotifications.length - 1 - index
         const measuredWidth = toastWidths[notification.id] ?? null

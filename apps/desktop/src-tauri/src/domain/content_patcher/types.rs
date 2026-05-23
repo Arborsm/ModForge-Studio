@@ -82,24 +82,6 @@ pub struct ContentPatcherPreviewFingerprint {
     pub capability_fingerprint: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", rename_all_fields = "camelCase")]
-pub enum ContentPatcherPreviewRequest {
-    ExistingProjectPath {
-        project_path: String,
-        game_root_path: Option<String>,
-        simulation_context: Option<SimulationContext>,
-    },
-    CpMakerDraft {
-        manifest_json: String,
-        content_json: String,
-        virtual_assets: Vec<VirtualPreviewAsset>,
-        available_capabilities: Vec<String>,
-        fingerprint: ContentPatcherPreviewFingerprint,
-        simulation_context: Option<SimulationContext>,
-    },
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulateContentPatcherRequest {
@@ -112,46 +94,6 @@ pub struct SimulateContentPatcherRequest {
     pub available_capabilities: Option<Vec<String>>,
     pub fingerprint: Option<ContentPatcherPreviewFingerprint>,
     pub context: Option<SimulationContext>,
-}
-
-impl From<ContentPatcherPreviewRequest> for SimulateContentPatcherRequest {
-    fn from(value: ContentPatcherPreviewRequest) -> Self {
-        match value {
-            ContentPatcherPreviewRequest::ExistingProjectPath {
-                project_path,
-                game_root_path,
-                simulation_context,
-            } => Self {
-                path: Some(project_path),
-                game_root_path,
-                snapshot: None,
-                manifest_json: None,
-                content_json: None,
-                virtual_assets: None,
-                available_capabilities: None,
-                fingerprint: None,
-                context: simulation_context,
-            },
-            ContentPatcherPreviewRequest::CpMakerDraft {
-                manifest_json,
-                content_json,
-                virtual_assets,
-                available_capabilities,
-                fingerprint,
-                simulation_context,
-            } => Self {
-                path: None,
-                game_root_path: None,
-                snapshot: None,
-                manifest_json: Some(manifest_json),
-                content_json: Some(content_json),
-                virtual_assets: Some(virtual_assets),
-                available_capabilities: Some(available_capabilities),
-                fingerprint: Some(fingerprint),
-                context: simulation_context,
-            },
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -266,41 +208,12 @@ pub struct SimulateContentPatcherResult {
 
 #[cfg(test)]
 mod preview_request_tests {
-    use super::{
-        ContentPatcherPreviewRequest, ExportContentPatcherAssetRequest,
-        LoadContentPatcherResultAssetRequest, SimulateContentPatcherRequest,
-    };
+    use super::{ExportContentPatcherAssetRequest, SimulateContentPatcherRequest};
     use serde_json::json;
 
     #[test]
-    fn existing_project_preview_requests_convert_into_legacy_simulation_requests() {
-        let request: ContentPatcherPreviewRequest = serde_json::from_value(json!({
-            "kind": "existing-project-path",
-            "projectPath": "E:\\Mods\\SeasonalGarden",
-            "gameRootPath": "E:\\Games\\Stardew Valley",
-            "simulationContext": {
-                "season": "winter",
-                "config": {},
-                "installedMods": [],
-                "customTokens": {}
-            }
-        }))
-        .expect("deserialize preview request");
-
-        let request: SimulateContentPatcherRequest = request.into();
-
-        assert_eq!(request.path.as_deref(), Some("E:\\Mods\\SeasonalGarden"));
-        assert_eq!(
-            request.game_root_path.as_deref(),
-            Some("E:\\Games\\Stardew Valley")
-        );
-        assert_eq!(request.context.and_then(|value| value.season), Some("winter".to_string()));
-    }
-
-    #[test]
-    fn cp_maker_preview_requests_preserve_inline_preview_fields() {
-        let request: ContentPatcherPreviewRequest = serde_json::from_value(json!({
-            "kind": "cp-maker-draft",
+    fn simulation_requests_accept_inline_preview_fields() {
+        let request: SimulateContentPatcherRequest = serde_json::from_value(json!({
             "manifestJson": "{ \"Name\": \"Builder Draft\" }",
             "contentJson": "{ \"Format\": \"2.0.0\", \"Changes\": [] }",
             "virtualAssets": [
@@ -316,7 +229,7 @@ mod preview_request_tests {
                 "environmentFingerprint": "environment:1",
                 "capabilityFingerprint": "capability:1"
             },
-            "simulationContext": {
+            "context": {
                 "season": "spring",
                 "config": {},
                 "installedMods": [],
@@ -325,10 +238,11 @@ mod preview_request_tests {
         }))
         .expect("deserialize preview request");
 
-        let request: SimulateContentPatcherRequest = request.into();
-
         assert_eq!(request.path, None);
-        assert_eq!(request.manifest_json.as_deref(), Some("{ \"Name\": \"Builder Draft\" }"));
+        assert_eq!(
+            request.manifest_json.as_deref(),
+            Some("{ \"Name\": \"Builder Draft\" }")
+        );
         assert_eq!(
             request.content_json.as_deref(),
             Some("{ \"Format\": \"2.0.0\", \"Changes\": [] }")
@@ -345,23 +259,10 @@ mod preview_request_tests {
                 .map(|value| value.draft_fingerprint.as_str()),
             Some("draft:1")
         );
-        assert_eq!(request.context.and_then(|value| value.season), Some("spring".to_string()));
-    }
-
-    #[test]
-    fn legacy_result_asset_requests_remain_backward_compatible() {
-        let request: LoadContentPatcherResultAssetRequest = serde_json::from_value(json!({
-            "path": "E:\\Mods\\SeasonalGarden",
-            "gameRootPath": "E:\\Games\\Stardew Valley",
-            "target": "Data/Objects"
-        }))
-        .expect("deserialize result asset request");
-
-        assert_eq!(request.path.as_deref(), Some("E:\\Mods\\SeasonalGarden"));
-        assert_eq!(request.target, "Data/Objects");
-        assert!(request.virtual_assets.is_none());
-        assert!(request.available_capabilities.is_none());
-        assert!(request.fingerprint.is_none());
+        assert_eq!(
+            request.context.and_then(|value| value.season),
+            Some("spring".to_string())
+        );
     }
 
     #[test]

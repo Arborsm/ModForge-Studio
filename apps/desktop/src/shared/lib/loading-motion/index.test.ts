@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_LOADING_MOTION_PREFERENCE,
-  REDUCED_MOTION_PREFERENCE,
   isValidStyleId,
   isValidIntensityId,
   isValidSpeedId,
@@ -21,7 +20,6 @@ import {
   LOADING_MOTION_STYLE_IDS,
   LOADING_MOTION_INTENSITY_IDS,
   LOADING_MOTION_SPEED_IDS,
-
   LOADING_MOTION_STYLE_LABELS,
   LOADING_MOTION_INTENSITY_LABELS,
   LOADING_MOTION_SPEED_LABELS,
@@ -133,18 +131,6 @@ describe('DEFAULT_LOADING_MOTION_PREFERENCE', () => {
   })
 })
 
-describe('REDUCED_MOTION_PREFERENCE', () => {
-  it('is quietSimplify / light (静默简化 / 轻)', () => {
-    expect(REDUCED_MOTION_PREFERENCE).toEqual({
-      styleId: 'quietSimplify',
-      intensityId: 'light',
-      speedMode: 'preset',
-      speedId: 'standard',
-      speedMultiplier: 1,
-    })
-  })
-})
-
 /* ------------------------------------------------------------------ */
 /*  normalizeLoadingMotionPreference — independence (D-06)             */
 /* ------------------------------------------------------------------ */
@@ -174,17 +160,6 @@ describe('normalizeLoadingMotionPreference', () => {
       speedMode: 'preset',
       speedId: 'fast',
       speedMultiplier: 0.72,
-    })
-  })
-
-  it('fills speed defaults for old persisted preferences without speed fields', () => {
-    const result = normalizeLoadingMotionPreference({ styleId: 'layeredFadeIn', intensityId: 'light' })
-    expect(result).toEqual({
-      styleId: 'layeredFadeIn',
-      intensityId: 'light',
-      speedMode: 'preset',
-      speedId: 'standard',
-      speedMultiplier: 1,
     })
   })
 
@@ -228,38 +203,20 @@ describe('normalizeLoadingMotionPreference', () => {
   })
 })
 
-/* ------------------------------------------------------------------ */
-/*  resolveLoadingMotionConfig — reduced-motion fallback (D-09, D-10)  */
-/* ------------------------------------------------------------------ */
-
 describe('resolveLoadingMotionConfig', () => {
-  it('uses user preference when reduced motion is off', () => {
-    const config = resolveLoadingMotionConfig(
-      createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }),
-      { prefersReducedMotion: false },
-    )
+  it('uses user preference for the resolved style and intensity', () => {
+    const config = resolveLoadingMotionConfig(createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }), {
+      revealOrder: null,
+    })
     expect(config.styleId).toBe('bounceIn')
     expect(config.intensityId).toBe('strong')
     expect(config.speedMultiplier).toBe(1)
-    expect(config.reducedMotion).toBe(false)
-  })
-
-  it('overrides to quietSimplify / light when reduced motion is preferred', () => {
-    // D-09, D-10: reduced-motion fallback silences obvious bounce/translation
-    const config = resolveLoadingMotionConfig(
-      createLoadingMotionPreference({ styleId: 'bounceIn', intensityId: 'strong' }),
-      { prefersReducedMotion: true },
-    )
-    expect(config.styleId).toBe('quietSimplify')
-    expect(config.intensityId).toBe('light')
-    expect(config.speedMultiplier).toBe(1)
-    expect(config.reducedMotion).toBe(true)
   })
 
   it('resolves speed multiplier from custom speed preference', () => {
     const config = resolveLoadingMotionConfig(
       { styleId: 'bounceIn', intensityId: 'strong', speedMode: 'custom', speedId: 'standard', speedMultiplier: 2.25 },
-      { prefersReducedMotion: false },
+      { revealOrder: null },
     )
     expect(config.speedMode).toBe('custom')
     expect(config.speedId).toBe('standard')
@@ -268,29 +225,19 @@ describe('resolveLoadingMotionConfig', () => {
 
   it('passes through revealOrder when provided', () => {
     const order = ['header', 'content', 'footer'] as const
-    const config = resolveLoadingMotionConfig(
-      DEFAULT_LOADING_MOTION_PREFERENCE,
-      { prefersReducedMotion: false, revealOrder: order },
-    )
+    const config = resolveLoadingMotionConfig(DEFAULT_LOADING_MOTION_PREFERENCE, { revealOrder: order })
     expect(config.revealOrder).toEqual(order)
   })
 
   it('sets revealOrder to null when not provided', () => {
-    const config = resolveLoadingMotionConfig(
-      DEFAULT_LOADING_MOTION_PREFERENCE,
-      { prefersReducedMotion: false },
-    )
+    const config = resolveLoadingMotionConfig(DEFAULT_LOADING_MOTION_PREFERENCE, {})
     expect(config.revealOrder).toBeNull()
   })
 
   it('caps anchors to at most 2', () => {
-    const config = resolveLoadingMotionConfig(
-      DEFAULT_LOADING_MOTION_PREFERENCE,
-      {
-        prefersReducedMotion: false,
-        anchors: { anchorIds: ['a', 'b', 'c'] },
-      },
-    )
+    const config = resolveLoadingMotionConfig(DEFAULT_LOADING_MOTION_PREFERENCE, {
+      anchors: { anchorIds: ['a', 'b', 'c'] },
+    })
     expect(config.anchors).toHaveLength(2)
     expect(config.anchors[0]).toBe('a')
     expect(config.anchors[1]).toBe('b')
@@ -307,11 +254,7 @@ describe('orderRevealItems', () => {
   })
 
   it('preserves original order when no priorities are set (default top-to-bottom)', () => {
-    const items = [
-      { itemId: 'header' },
-      { itemId: 'content' },
-      { itemId: 'footer' },
-    ]
+    const items = [{ itemId: 'header' }, { itemId: 'content' }, { itemId: 'footer' }]
     const result = orderRevealItems(items)
     expect(result.map((r) => r.itemId)).toEqual(['header', 'content', 'footer'])
   })
@@ -480,5 +423,3 @@ describe('product label tables', () => {
     }
   })
 })
-
-

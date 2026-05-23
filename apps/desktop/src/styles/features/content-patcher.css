@@ -21,8 +21,11 @@
     gap: 10px 12px;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 18px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 98%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-elevated) 98%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
     box-shadow: var(--shadow-panel);
     padding: 12px 14px;
   }
@@ -64,8 +67,11 @@
     min-height: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
     border-radius: 20px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 98%, transparent), color-mix(in srgb, var(--bg-panel) 92%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-elevated) 98%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
     box-shadow: var(--shadow-panel);
   }
 
@@ -106,7 +112,11 @@
     border-radius: 14px;
     background:
       radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 36%),
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-muted) 76%, transparent), color-mix(in srgb, var(--bg-app) 16%, transparent));
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--bg-panel-muted) 76%, transparent),
+        color-mix(in srgb, var(--bg-app) 16%, transparent)
+      );
     padding: 16px;
   }
 
@@ -292,8 +302,11 @@
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 16px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-panel-muted) 76%, transparent), color-mix(in srgb, var(--bg-app) 16%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-panel-muted) 76%, transparent),
+      color-mix(in srgb, var(--bg-app) 16%, transparent)
+    );
     color: var(--text-primary);
     padding: 14px;
     font-family: var(--font-mono);

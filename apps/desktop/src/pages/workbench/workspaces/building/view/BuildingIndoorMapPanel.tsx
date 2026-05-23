@@ -71,20 +71,32 @@ export function BuildingIndoorMapPanel(props: BuildingIndoorMapPanelProps) {
           </div>
         ) : (
           <div className="panel-canvas-empty min-h-[420px] flex-1 px-6">
-            {props.building.indoorMapAssetName || props.building.nonInstancedIndoorLocation ? props.activeIndoorMapMessage || props.copy.noIndoorMap : props.copy.noIndoorMap}
+            {props.building.indoorMapAssetName || props.building.nonInstancedIndoorLocation
+              ? props.activeIndoorMapMessage || props.copy.noIndoorMap
+              : props.copy.noIndoorMap}
           </div>
         )}
 
         <div className="panel-section p-3">
-          <p className="panel-section-title">
-            {isConstructible ? props.copy.indoorDataTitle : props.copy.exteriorDataTitle}
-          </p>
+          <p className="panel-section-title">{isConstructible ? props.copy.indoorDataTitle : props.copy.exteriorDataTitle}</p>
           <div className="mt-3 space-y-2 text-sm text-[var(--text-primary)]">
-            <p>{props.copy.indoorMapLabel}: {props.building.indoorMapAssetName ? props.building.indoorMapPathLabel : props.copy.noneLabel}</p>
-            <p>{props.copy.indoorTypeLabel}: {props.building.indoorMapType ?? props.copy.noneLabel}</p>
-            <p>{props.copy.nonInstancedIndoorLabel}: {props.building.nonInstancedIndoorLocation ?? props.copy.noneLabel}</p>
-            <p>{props.copy.validOccupantsLabel}: {props.building.validOccupantTypes.join(', ') || props.copy.noneLabel}</p>
-            {!isConstructible ? <p>{props.copy.exteriorMapLabel}: {props.activeExteriorMapPath ?? props.building.exteriorMapPathLabel ?? props.copy.noneLabel}</p> : null}
+            <p>
+              {props.copy.indoorMapLabel}: {props.building.indoorMapAssetName ? props.building.indoorMapPathLabel : props.copy.noneLabel}
+            </p>
+            <p>
+              {props.copy.indoorTypeLabel}: {props.building.indoorMapType ?? props.copy.noneLabel}
+            </p>
+            <p>
+              {props.copy.nonInstancedIndoorLabel}: {props.building.nonInstancedIndoorLocation ?? props.copy.noneLabel}
+            </p>
+            <p>
+              {props.copy.validOccupantsLabel}: {props.building.validOccupantTypes.join(', ') || props.copy.noneLabel}
+            </p>
+            {!isConstructible ? (
+              <p>
+                {props.copy.exteriorMapLabel}: {props.activeExteriorMapPath ?? props.building.exteriorMapPathLabel ?? props.copy.noneLabel}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>

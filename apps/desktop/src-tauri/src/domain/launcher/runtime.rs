@@ -11,6 +11,12 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use url::Url;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 fn launcher_launch_error(
     code: LauncherGameLaunchErrorCode,
     message: impl Into<String>,
@@ -98,7 +104,11 @@ where
 }
 
 fn spawn_launcher_process(path: &Path) -> Result<(), String> {
-    Command::new(path)
+    let mut command = Command::new(path);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(CREATE_NO_WINDOW);
+
+    command
         .spawn()
         .map(|_| ())
         .map_err(|error| format!("Unable to start process: {error}"))
@@ -163,33 +173,35 @@ pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String
 pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> Result<(), String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "open_launcher_url",
-        (|| {
-            let raw_url = request.url.trim();
-            if raw_url.is_empty() {
-                return Err("url is required.".to_string());
-            }
-
-            let parsed = Url::parse(raw_url)
-                .map_err(|error| format!("Invalid launcher URL {raw_url}: {error}"))?;
-            match parsed.scheme() {
-                "http" | "https" => open_url_in_shell(parsed.as_str()),
-                scheme => Err(format!("Unsupported launcher URL scheme: {scheme}.")),
-            }
-        })(),
+        open_launcher_url_in_browser(&request.url),
     )
+}
+
+pub(crate) fn open_launcher_url_in_browser(raw_url: &str) -> Result<(), String> {
+    let raw_url = raw_url.trim();
+    if raw_url.is_empty() {
+        return Err("url is required.".to_string());
+    }
+
+    let parsed =
+        Url::parse(raw_url).map_err(|error| format!("Invalid launcher URL {raw_url}: {error}"))?;
+    match parsed.scheme() {
+        "http" | "https" => open_url_in_shell(parsed.as_str()),
+        scheme => Err(format!("Unsupported launcher URL scheme: {scheme}.")),
+    }
 }
 
 #[cfg(target_os = "windows")]
 fn open_path_in_shell(path: &Path) -> Result<(), String> {
-    let status = Command::new("explorer")
-        .arg(path)
-        .status()
-        .map_err(|error| {
-            format!(
-                "Failed to launch explorer for {}: {error}",
-                normalize_path(path)
-            )
-        })?;
+    let mut command = Command::new("explorer");
+    command.creation_flags(CREATE_NO_WINDOW).arg(path);
+
+    let status = command.status().map_err(|error| {
+        format!(
+            "Failed to launch explorer for {}: {error}",
+            normalize_path(path)
+        )
+    })?;
     if !status.success() {
         return Err(format!("Explorer failed for {}.", normalize_path(path)));
     }
@@ -199,8 +211,12 @@ fn open_path_in_shell(path: &Path) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn open_url_in_shell(url: &str) -> Result<(), String> {
-    let status = Command::new("rundll32")
-        .args(["url.dll,FileProtocolHandler", url])
+    let mut command = Command::new("rundll32");
+    command
+        .creation_flags(CREATE_NO_WINDOW)
+        .args(["url.dll,FileProtocolHandler", url]);
+
+    let status = command
         .status()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
     if !status.success() {

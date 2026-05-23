@@ -59,7 +59,7 @@ export function ObjectGroupsPanel({
       subtitle={copy.rightDock.subtitle}
       className="h-full"
       headerAction={
-        <div className="flex gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]">
+        <div className="flex gap-2 text-[10px] font-semibold tracking-[0.16em] uppercase">
           <button type="button" onClick={onShowAllObjectGroups}>
             {copy.controls.showAll}
           </button>

@@ -1,7 +1,5 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  canUseDesktopHost,
-  chooseGameDirectory,
   detectDefaultGameDirectory,
   loadImageDataUrl,
   loadMapAsset,
@@ -10,7 +8,8 @@ import {
   validateGameDirectory,
   type GameDirectoryInfo,
   type MapAssetSummary,
-} from '@platform/desktop'
+} from '@entities/game/api'
+import { canUseDesktopHost, chooseGameDirectory } from '@shared/lib/desktop'
 import type { FocusedMapObjectTarget, TileHoverInfo } from '@shared/contracts'
 import type { EditorCopy, LocaleCode } from '@locales'
 import { resolveTilesetImagePath } from '@entities/map'
@@ -45,21 +44,20 @@ import {
   buildStageWorldOverlaySprites,
   type StageBuildingDataEntry,
 } from '@entities/map'
-import { buildModBrowserGroups, buildModEntryLookup, findModBrowserEntry, findModSources, type BrowserSourceMode, type ModBrowserEntry } from '@pages/workbench/workspaces/mod'
+import {
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type BrowserSourceMode,
+  type ModBrowserEntry,
+} from '@pages/workbench/workspaces/mod'
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
 import { loadModResultMapDocument } from '@pages/workbench/workspaces/mod'
 import type { ResourcePreloadState, WorldAtlasView, WorkspaceStatus } from '@shared/contracts'
 
 const WORLD_ROOT_MAP_NAME = 'Town'
-const REMOTE_WORLD_ROOT_CANDIDATES = [
-  'Island_S',
-  'Desert',
-  'Summit',
-  'Island_W',
-  'Island_N',
-  'Island_E',
-  'Island_SE',
-] as const
+const REMOTE_WORLD_ROOT_CANDIDATES = ['Island_S', 'Desert', 'Summit', 'Island_W', 'Island_N', 'Island_E', 'Island_SE'] as const
 
 type UseMapWorkspaceOptions = {
   copy: EditorCopy
@@ -85,11 +83,7 @@ const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
   currentLabel: '',
 }
 
-async function runWithConcurrency<T>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T, index: number) => Promise<void>,
-) {
+async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T, index: number) => Promise<void>) {
   let nextIndex = 0
 
   async function consumeNext() {
@@ -114,12 +108,7 @@ function getPathFileStem(path: string) {
   return fileName.replace(/\.[^.]+$/u, '')
 }
 
-function getWorldAtlasCacheKey(
-  rootPath: string,
-  locale: LocaleCode,
-  assets: MapAssetSummary[],
-  worldRootName: string,
-) {
+function getWorldAtlasCacheKey(rootPath: string, locale: LocaleCode, assets: MapAssetSummary[], worldRootName: string) {
   const signature = assets
     .filter((asset) => asset.format === 'xnb')
     .map((asset) => `${asset.absolutePath.replaceAll('/', '\\')}:${asset.sizeBytes}`)
@@ -174,12 +163,11 @@ function formatPreloadLabel(rootPath: string, assetPath: string) {
   return normalizedAssetPath
 }
 
-export function useMapWorkspace({
-  copy,
-  locale,
-  desktopHost,
-  getWorldAtlasViewLabel,
-}: UseMapWorkspaceOptions) {
+function cloneMapDocumentCache(cache: Map<string, MapDocument>) {
+  return new Map(cache)
+}
+
+export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLabel }: UseMapWorkspaceOptions) {
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus>({ tone: 'idle', message: '' })
   const [resourcePreloadState, setResourcePreloadState] = useState<ResourcePreloadState>(EMPTY_RESOURCE_PRELOAD_STATE)
   const [gameDirectory, setGameDirectory] = useState('')
@@ -196,7 +184,10 @@ export function useMapWorkspace({
   const [visibleObjectGroupIds, setVisibleObjectGroupIds] = useState<number[]>([])
   const [focusedObjectTarget, setFocusedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
   const [showGameWorldAdditions, setShowGameWorldAdditions] = useState(false)
-  const [buildingDataIndex, setBuildingDataIndex] = useState<Record<string, StageBuildingDataEntry>>({})
+  const [buildingDataState, setBuildingDataState] = useState<{
+    rootPath: string
+    index: Record<string, StageBuildingDataEntry>
+  }>({ rootPath: '', index: {} })
   const [worldOverlayTextureAssets, setWorldOverlayTextureAssets] = useState<Record<string, EffectAssetState>>({})
   const [assetFilter, setAssetFilter] = useState('')
   const [browserSourceMode, setBrowserSourceMode] = useState<BrowserSourceMode>('original')
@@ -204,7 +195,12 @@ export function useMapWorkspace({
   const parsedMapCacheRef = useRef(new Map<string, MapDocument>())
   const worldAtlasCacheRef = useRef(new Map<string, WorldAtlasCacheEntry>())
   const loadedResourceLocaleRef = useRef<LocaleCode | null>(null)
+  const [parsedMapCacheSnapshot, setParsedMapCacheSnapshot] = useState(() => new Map<string, MapDocument>())
   const { modIndex } = useModAssetIndex(directoryInfo)
+  const buildingDataIndex = useMemo(
+    () => (buildingDataState.rootPath === (directoryInfo?.rootPath ?? '') ? buildingDataState.index : {}),
+    [buildingDataState.index, buildingDataState.rootPath, directoryInfo?.rootPath],
+  )
 
   const deferredAssetFilter = useDeferredValue(assetFilter.trim().toLowerCase())
   const filteredAssets = useMemo(
@@ -246,30 +242,21 @@ export function useMapWorkspace({
     [activeModMapSelectionId, modMapGroups],
   )
   const activeAtlasView =
-    (activeWorldAtlasViewId ? worldAtlasViews.find((view) => view.id === activeWorldAtlasViewId) : null) ??
-    worldAtlasViews[0] ??
-    null
+    (activeWorldAtlasViewId ? worldAtlasViews.find((view) => view.id === activeWorldAtlasViewId) : null) ?? worldAtlasViews[0] ?? null
   const activeAsset = mapAssets.find((asset) => asset.id === activeMapId) ?? null
   const worldAtlasDocument = activeAtlasView?.document ?? null
   const workspaceTabs = useMemo(() => buildMapWorkspaceTabs(worldAtlasDocument, mapTabs), [worldAtlasDocument, mapTabs])
-  const worldOverlaySprites = useMemo(
-    () => {
-      if (!showGameWorldAdditions || !mapDocument) {
-        return []
-      }
+  const worldOverlaySprites = useMemo(() => {
+    if (!showGameWorldAdditions || !mapDocument) {
+      return []
+    }
 
-      if (mapDocument.format === 'atlas') {
-        return buildAtlasWorldOverlaySprites(
-          mapDocument,
-          (sourcePath) => parsedMapCacheRef.current.get(sourcePath) ?? null,
-          buildingDataIndex,
-        )
-      }
+    if (mapDocument.format === 'atlas') {
+      return buildAtlasWorldOverlaySprites(mapDocument, (sourcePath) => parsedMapCacheSnapshot.get(sourcePath) ?? null, buildingDataIndex)
+    }
 
-      return buildStageWorldOverlaySprites(mapDocument, buildingDataIndex)
-    },
-    [buildingDataIndex, mapDocument, showGameWorldAdditions],
-  )
+    return buildStageWorldOverlaySprites(mapDocument, buildingDataIndex)
+  }, [buildingDataIndex, mapDocument, parsedMapCacheSnapshot, showGameWorldAdditions])
 
   function applyMapDocument(nextDocument: MapDocument | null, nextMapId: string | null) {
     setActiveMapId(nextMapId)
@@ -284,6 +271,7 @@ export function useMapWorkspace({
 
   function resetLoadedMaps() {
     parsedMapCacheRef.current.clear()
+    setParsedMapCacheSnapshot(new Map())
     worldAtlasCacheRef.current.clear()
     loadedResourceLocaleRef.current = null
     setMapAssets([])
@@ -297,7 +285,6 @@ export function useMapWorkspace({
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      setBuildingDataIndex({})
       return
     }
 
@@ -307,11 +294,14 @@ export function useMapWorkspace({
       try {
         const buildingsDataAsset = await loadTextAsset(directoryInfo.rootPath, 'Content\\Data\\Buildings.xnb', locale)
         if (!cancelled) {
-          setBuildingDataIndex(buildBuildingDataIndex(buildingsDataAsset.content))
+          setBuildingDataState({
+            rootPath: directoryInfo.rootPath,
+            index: buildBuildingDataIndex(buildingsDataAsset.content),
+          })
         }
       } catch {
         if (!cancelled) {
-          setBuildingDataIndex({})
+          setBuildingDataState({ rootPath: directoryInfo.rootPath, index: {} })
         }
       }
     })()
@@ -323,7 +313,6 @@ export function useMapWorkspace({
 
   useEffect(() => {
     if (!desktopHost) {
-      setWorkspaceStatus({ tone: 'idle', message: copy.messages.browserHostPrompt })
       return
     }
 
@@ -410,6 +399,7 @@ export function useMapWorkspace({
       relativePath: asset.relativePath,
     })
     parsedMapCacheRef.current.set(summary.absolutePath, parsedDocument)
+    setParsedMapCacheSnapshot(cloneMapDocumentCache(parsedMapCacheRef.current))
     return parsedDocument
   }
 
@@ -483,8 +473,7 @@ export function useMapWorkspace({
     const normalizedAliases = new Set(getWorldAtlasNameAliases(mapName))
     return (
       mapAssets.find(
-        (asset) =>
-          asset.format === 'xnb' && getWorldAtlasNameAliases(asset.name).some((alias) => normalizedAliases.has(alias)),
+        (asset) => asset.format === 'xnb' && getWorldAtlasNameAliases(asset.name).some((alias) => normalizedAliases.has(alias)),
       ) ?? null
     )
   }
@@ -523,18 +512,13 @@ export function useMapWorkspace({
         applyMapDocument(existingTab.document, summary.id)
         setWorkspaceStatus({
           tone: 'ready',
-          message: copy.messages.loadedMapAssetsWithActiveMap(
-            knownMapCount,
-            existingTab.document.format,
-            existingTab.document.name,
-          ),
+          message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, existingTab.document.format, existingTab.document.name),
         })
         return
       }
 
       const parsedDocument = await loadParsedMap(summary, info)
-      const reusablePreviewTab =
-        existingTab ?? mapTabs.find((tab) => tab.preview && !tab.dirty) ?? null
+      const reusablePreviewTab = existingTab ?? mapTabs.find((tab) => tab.preview && !tab.dirty) ?? null
       const nextTab = {
         id: reusablePreviewTab?.id ?? MAP_PREVIEW_TAB_ID,
         assetId: summary.id,
@@ -595,16 +579,15 @@ export function useMapWorkspace({
         applyMapDocument(existingTab.document, summary.id)
         setWorkspaceStatus({
           tone: 'ready',
-          message: copy.messages.loadedMapAssetsWithActiveMap(
-            knownMapCount,
-            existingTab.document.format,
-            existingTab.document.name,
-          ),
+          message: copy.messages.loadedMapAssetsWithActiveMap(knownMapCount, existingTab.document.format, existingTab.document.name),
         })
         return
       }
 
-      const preferredTarget = summary.relativePath.replace(/^Content[\\/]/iu, '').replace(/\\/g, '/').replace(/\.xnb$/iu, '')
+      const preferredTarget = summary.relativePath
+        .replace(/^Content[\\/]/iu, '')
+        .replace(/\\/g, '/')
+        .replace(/\.xnb$/iu, '')
       const parsedDocument =
         (await loadModResultMapDocument({
           rootPath: info.rootPath,
@@ -645,11 +628,7 @@ export function useMapWorkspace({
     }
   }
 
-  async function openWorldAtlas(
-    assets: MapAssetSummary[],
-    info: GameDirectoryInfo,
-    worldRootName = WORLD_ROOT_MAP_NAME,
-  ) {
+  async function openWorldAtlas(assets: MapAssetSummary[], info: GameDirectoryInfo, worldRootName = WORLD_ROOT_MAP_NAME) {
     const atlasCacheKey = getWorldAtlasCacheKey(info.rootPath, locale, assets, worldRootName)
 
     setMapTabs((current) => current.filter((tab) => tab.dirty))
@@ -664,6 +643,7 @@ export function useMapWorkspace({
       for (const document of cachedAtlas.sourceDocuments) {
         parsedMapCacheRef.current.set(document.sourcePath, document)
       }
+      setParsedMapCacheSnapshot(cloneMapDocumentCache(parsedMapCacheRef.current))
 
       const nextWorldAtlasView = cachedAtlas.views[0]
       if (!nextWorldAtlasView) {
@@ -917,10 +897,13 @@ export function useMapWorkspace({
   const openWorldAtlasRef = useRef(openWorldAtlas)
   const openMapRef = useRef(openMap)
   const openModMapRef = useRef(openModMapEntry)
-  preloadResourcesRef.current = preloadResources
-  openWorldAtlasRef.current = openWorldAtlas
-  openMapRef.current = openMap
-  openModMapRef.current = openModMapEntry
+
+  useEffect(() => {
+    preloadResourcesRef.current = preloadResources
+    openWorldAtlasRef.current = openWorldAtlas
+    openMapRef.current = openMap
+    openModMapRef.current = openModMapEntry
+  })
 
   useEffect(() => {
     if (!directoryInfo?.rootPath || !mapAssets.length) {
@@ -954,12 +937,10 @@ export function useMapWorkspace({
 
         setMapAssets(assets)
         parsedMapCacheRef.current.clear()
+        setParsedMapCacheSnapshot(new Map())
         worldAtlasCacheRef.current.clear()
         const nextAsset =
-          assets.find((asset) => asset.id === activeMapId) ??
-          assets.find((asset) => asset.name === mapDocument?.name) ??
-          assets[0] ??
-          null
+          assets.find((asset) => asset.id === activeMapId) ?? assets.find((asset) => asset.name === mapDocument?.name) ?? assets[0] ?? null
 
         await preloadResourcesRef.current(assets, info)
         if (cancelled) {
@@ -997,7 +978,17 @@ export function useMapWorkspace({
     return () => {
       cancelled = true
     }
-  }, [activeMapId, activeTabId, copy.messages.preloadingResources, copy.messages.resourcePreloadFailed, directoryInfo, locale, mapAssets.length, mapDocument?.name, worldAtlasViews.length])
+  }, [
+    activeMapId,
+    activeTabId,
+    copy.messages.preloadingResources,
+    copy.messages.resourcePreloadFailed,
+    directoryInfo,
+    locale,
+    mapAssets.length,
+    mapDocument?.name,
+    worldAtlasViews.length,
+  ])
 
   async function handleScanAndOpenTown() {
     const trimmedPath = gameDirectory.trim()
@@ -1083,9 +1074,7 @@ export function useMapWorkspace({
   }
 
   function toggleObjectGroup(id: number) {
-    setVisibleObjectGroupIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    )
+    setVisibleObjectGroupIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
   }
 
   function setAllLayers(visible: boolean) {
@@ -1110,25 +1099,25 @@ export function useMapWorkspace({
     [worldOverlaySprites],
   )
 
-  useEffect(() => {
-    setWorldOverlayTextureAssets((current) =>
+  const currentWorldOverlayTextureAssets = useMemo(
+    () =>
       Object.fromEntries(
         worldOverlayTextureRequests.flatMap((textureName) => {
           const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
-          const asset = current[textureName]
+          const asset = worldOverlayTextureAssets[textureName]
           return asset?.requestKey === requestKey ? [[textureName, asset] as const] : []
         }),
       ),
-    )
-  }, [directoryInfo?.rootPath, worldOverlayTextureRequests])
+    [directoryInfo?.rootPath, worldOverlayTextureAssets, worldOverlayTextureRequests],
+  )
 
   const pendingWorldOverlayTextureRequests = useMemo(
     () =>
       worldOverlayTextureRequests.filter((textureName) => {
         const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
-        return worldOverlayTextureAssets[textureName]?.requestKey !== requestKey
+        return currentWorldOverlayTextureAssets[textureName]?.requestKey !== requestKey
       }),
-    [directoryInfo?.rootPath, worldOverlayTextureAssets, worldOverlayTextureRequests],
+    [currentWorldOverlayTextureAssets, directoryInfo?.rootPath, worldOverlayTextureRequests],
   )
 
   useEffect(() => {
@@ -1140,7 +1129,9 @@ export function useMapWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingWorldOverlayTextureRequests.map(async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const),
+        pendingWorldOverlayTextureRequests.map(
+          async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const,
+        ),
       )
       if (cancelled) {
         return
@@ -1164,9 +1155,7 @@ export function useMapWorkspace({
 
     const nextEntry =
       activeModMapEntry ??
-      modMapGroups
-        .flatMap((group) => group.items)
-        .find((item) => item.value.id === activeMapId) ??
+      modMapGroups.flatMap((group) => group.items).find((item) => item.value.id === activeMapId) ??
       modMapGroups[0]?.items[0] ??
       null
 
@@ -1191,7 +1180,7 @@ export function useMapWorkspace({
   }
 
   return {
-    workspaceStatus,
+    workspaceStatus: desktopHost ? workspaceStatus : ({ tone: 'idle', message: copy.messages.browserHostPrompt } satisfies WorkspaceStatus),
     resourcePreloadState,
     gameDirectory,
     setGameDirectory,
@@ -1220,7 +1209,7 @@ export function useMapWorkspace({
     showGameWorldAdditions,
     setShowGameWorldAdditions,
     worldOverlaySprites,
-    worldOverlayTextureAssets,
+    worldOverlayTextureAssets: currentWorldOverlayTextureAssets,
     worldAtlasDocument,
     openMap,
     handleOpenModMapAsset,
@@ -1240,4 +1229,3 @@ export function useMapWorkspace({
     focusObject,
   }
 }
-

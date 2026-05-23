@@ -6,7 +6,10 @@ import StatusBar from '@widgets/status-bar'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
 import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
-import { useLauncherPort, useLauncherRuntime, useLauncherUpdateProgressNotifications, type LauncherNexusDiagnosticsResult } from '@features/launcher'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
+import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
+import { useLauncherRuntime } from '@features/launcher/model/useLauncherRuntime'
+import { useLauncherUpdateProgressNotifications } from '@features/launcher/model/useLauncherUpdateProgressNotifications'
 import type { LocaleCode } from '@locales'
 
 type LauncherPageProps = {
@@ -63,11 +66,8 @@ export function LauncherPage({
   useLauncherUpdateProgressNotifications(locale)
   const [launchBusy, setLaunchBusy] = useState(false)
   const launcherPort = useLauncherPort()
-  const activeLauncherPage: LauncherPageId = !debugEnabled && page === 'debug' ? 'library' : page
-  const availableLauncherPages = debugEnabled
-    ? (['library', 'discover', 'updates', 'debug'] as const)
-    : (['library', 'discover', 'updates'] as const)
-  const launcherSettingsWarningLabel = copy.launcher.states.settingsIncomplete
+  const activeLauncherPage: LauncherPageId = page
+  const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
   const downloadsPopover = <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />
   const handleLaunchGame = useCallback(async () => {
     if (!desktopHost || launchBusy) {
@@ -114,8 +114,8 @@ export function LauncherPage({
           downloadsBadgeCount: launcherRuntime.downloadsBadgeCount,
           downloadsProgressPercent: launcherRuntime.downloads.downloadProgressPercent,
           downloadsHasFailure: launcherRuntime.downloadsHasFailure,
-          settingsWarning: launcherRuntime.settingsWarning,
-          settingsWarningLabel: launcherSettingsWarningLabel,
+          settingsWarning: false,
+          settingsWarningLabel: '',
           downloadsPopover,
         }}
       />
@@ -131,7 +131,7 @@ export function LauncherPage({
             onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
             settingsState={launcherRuntime.settingsState}
             downloads={launcherRuntime.downloads}
-            onNavigateToSettings={() => onOpenSettings('launcher')}
+            onNavigateToSettings={() => onLauncherPageChange('configuration')}
             launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}
             launchGameBusy={launchBusy}

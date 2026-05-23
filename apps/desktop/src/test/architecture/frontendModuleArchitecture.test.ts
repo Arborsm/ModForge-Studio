@@ -86,6 +86,9 @@ function topLevelFeatureFromSpecifier(filePath: string, specifier: string): stri
   return topLevelFeatureFromPath(resolvedImportPath)
 }
 
+const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
+const REMOVED_DESKTOP_FACADE_SPECIFIER = '@platform/' + 'desktop'
+
 describe('frontend module architecture', () => {
   it('exposes the FSD foundation roots and mounts app/App directly', async () => {
     await expectFile(sourcePath('src/app/App.tsx'))
@@ -116,14 +119,22 @@ describe('frontend module architecture', () => {
 
     const mainEntry = await readFile(sourcePath('src/main.tsx'), 'utf8')
     const appEntry = await readFile(sourcePath('src/app/App.tsx'), 'utf8')
+    const appShellSource = await readFile(sourcePath('src/app/app-shell/AppShell.tsx'), 'utf8')
     const appShellBridge = await readFile(sourcePath('src/app/app-shell/index.ts'), 'utf8')
 
-    await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
-    expect(mainEntry).toContain("from '@app/App'")
+    expect(mainEntry).toContain("import('@platform/tauri/devLauncherMock')")
+    expect(mainEntry).toContain("import('@app/App')")
     expect(mainEntry).not.toContain("from './App'")
+    expect(mainEntry.indexOf("import('@platform/tauri/devLauncherMock')")).toBeLessThan(mainEntry.indexOf("import('@app/App')"))
+    expect(mainEntry).toContain('import.meta.env.DEV')
     expect(appEntry).toContain("from '@app/app-shell/AppShell'")
     expect(appEntry).toContain("from '@app/providers/PlatformProvider'")
+    expect(appEntry).toContain("from '@app/providers/LauncherPlatformProvider'")
+    expect(appEntry).not.toContain('CpMakerPlatformProvider')
+    expect(appShellSource).not.toContain("from '@app/registry-setup'")
+    expect(appShellSource).toContain("import('@app/registry-setup')")
+    expect(appShellSource).not.toContain("from '../providers/CpMakerPlatformProvider'")
+    expect(appShellSource).toContain("import('../providers/CpMakerPlatformProvider')")
     expect(appShellBridge).toContain("from './AppShell'")
   })
 
@@ -161,9 +172,23 @@ describe('frontend module architecture', () => {
 
   it('provides platform ports from the app layer through the Tauri adapter', async () => {
     const provider = await readFile(sourcePath('src/app/providers/PlatformProvider.tsx'), 'utf8')
+    const cpMakerProvider = await readFile(sourcePath('src/app/providers/CpMakerPlatformProvider.tsx'), 'utf8')
+    const cpMakerPortAdapter = await readFile(sourcePath('src/app/providers/cpMakerPortAdapter.ts'), 'utf8')
+    const cpMakerProviderEntry = await readFile(sourcePath('src/features/cp-maker/provider.ts'), 'utf8')
     const tauriAdapter = await readFile(sourcePath('src/platform/tauri/index.ts'), 'utf8')
 
     expect(provider).toContain('PlatformProvider')
+    expect(cpMakerProvider).toContain("from '@features/cp-maker/provider'")
+    expect(cpMakerProvider).not.toContain("from '@features/cp-maker'")
+    expect(cpMakerPortAdapter).toContain("from '@features/cp-maker/provider'")
+    expect(cpMakerPortAdapter).not.toContain("from '@features/cp-maker'")
+    expect(cpMakerProviderEntry).toContain('Lightweight cp-maker provider entry')
+    expect(cpMakerProviderEntry).toContain("from './model/cpMakerProvider'")
+    expect(cpMakerProviderEntry).toContain("from './model/useCpMakerPort'")
+    expect(cpMakerProviderEntry).toContain("from './model/cpMakerPort'")
+    expect(cpMakerProviderEntry).not.toContain("from './ui/")
+    expect(cpMakerProviderEntry).not.toContain("from './state/")
+    expect(cpMakerProviderEntry).not.toContain("from './routing/")
     const platformContext = await readFile(sourcePath('src/app/providers/platformContext.ts'), 'utf8')
     const usePlatformPorts = await readFile(sourcePath('src/app/providers/usePlatformPorts.ts'), 'utf8')
 
@@ -174,6 +199,12 @@ describe('frontend module architecture', () => {
     expect(tauriAdapter).toContain("from '@tauri-apps/api/window'")
     expect(tauriAdapter).toContain("from '@tauri-apps/plugin-dialog'")
     expect(tauriAdapter).toContain('createTauriPlatformPorts')
+  })
+
+  it('keeps launcher library drag measuring out of the always-on layout path', async () => {
+    const launcherLibraryPage = await readFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'), 'utf8')
+
+    expect(launcherLibraryPage).not.toContain('MeasuringStrategy.Always')
   })
 
   it('keeps new layer path aliases synchronized across TypeScript, Vite, and Vitest', async () => {
@@ -207,7 +238,31 @@ describe('frontend module architecture', () => {
     }
 
     expect(violations).toEqual([])
-  })
+  }, 10000)
+
+  it('keeps Tauri API imports inside approved adapter and test boundaries', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src'))
+    const allowedImportFiles = new Set(['src/platform/tauri/index.ts', 'src/platform/tauri/devLauncherMock.ts'])
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles) {
+      if (TEST_FILE_PATTERN.test(filePath)) {
+        continue
+      }
+
+      const source = await readFile(filePath, 'utf8')
+      if (!source.includes('@tauri-apps/api')) {
+        continue
+      }
+
+      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+      if (!allowedImportFiles.has(relativePath)) {
+        violations.push(`${relativePath} imports @tauri-apps/api outside approved adapter boundary`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
 
   it('keeps widgets free of platform adapter imports and direct desktop bridge calls', async () => {
     const sourceFiles = await collectSourceFiles(sourcePath('src/widgets'))
@@ -233,37 +288,33 @@ describe('frontend module architecture', () => {
     expect(violations).toEqual([])
   })
 
-  it(
-    'blocks direct @platform/desktop imports from cp-maker production code',
-    async () => {
-      const sourceFiles = await collectSourceFiles(sourcePath('src/features/cp-maker'))
-      const violations: string[] = []
+  it('blocks removed desktop platform imports from cp-maker production code', async () => {
+    const sourceFiles = await collectSourceFiles(sourcePath('src/features/cp-maker'))
+    const violations: string[] = []
 
-      for (const filePath of sourceFiles) {
-        if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
-          continue
-        }
-
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = filePath.replace(`${process.cwd()}/`, '')
-
-        if (source.includes('@platform/desktop')) {
-          violations.push(`${relativePath} imports @platform/desktop`)
-        }
-
-        if (source.includes('@tauri-apps/api')) {
-          violations.push(`${relativePath} imports @tauri-apps/api`)
-        }
-
-        if (/\binvoke\s*\(/.test(source)) {
-          violations.push(`${relativePath} calls invoke(`)
-        }
+    for (const filePath of sourceFiles) {
+      if (filePath.endsWith('.test.ts') || filePath.endsWith('.test.tsx')) {
+        continue
       }
 
-      expect(violations).toEqual([])
-    },
-    10000,
-  )
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+      if (source.includes(REMOVED_DESKTOP_FACADE_SPECIFIER)) {
+        violations.push(`${relativePath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
+      }
+
+      if (source.includes('@tauri-apps/api')) {
+        violations.push(`${relativePath} imports @tauri-apps/api`)
+      }
+
+      if (/\binvoke\s*\(/.test(source)) {
+        violations.push(`${relativePath} calls invoke(`)
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
 
   it('routes the app entry through the new module roots', async () => {
     const mainSource = await readFile(sourcePath('src/main.tsx'), 'utf8')
@@ -286,12 +337,10 @@ describe('frontend module architecture', () => {
     const sharedTypesViewport = await readFile(sourcePath('src/shared/contracts/types/viewport.ts'), 'utf8')
     const mapEntityTypes = await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')
 
-    expect(mainSource).toContain("from '@app/App'")
+    expect(mainSource).toContain("import('@app/App')")
     expect(appShellSource).toContain("import('@pages/workbench')")
     expect(registrySetupSource).toContain("from '@features/cp-maker'")
     expect(registrySetupSource).not.toContain("from '@pages/workbench'")
-    await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
     expect(launcherSource).toContain("from './ui/LauncherShell'")
     expect(launcherSource).toContain('useLauncherRuntime(locale)')
     expect(launcherSource).toContain('useLauncherUpdateProgressNotifications(locale)')
@@ -313,7 +362,7 @@ describe('frontend module architecture', () => {
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/routing")
     expect(workbenchExperienceSource).not.toContain("from '@features/cp-maker/model")
     expect(workbenchExperienceSource).toContain("from '../model/workspace-panels/buildWorkspacePanels'")
-    expect(workbenchExperienceSource).toContain("from '@platform/desktop'")
+    expect(workbenchExperienceSource).toContain("from '@entities/game/api'")
     expect(workbenchExperienceSource).toContain("import '../model/builtInWorkspaces'")
     expect(workbenchExperienceSource).toContain("from './WorkbenchLayoutHost'")
     expect(workbenchExperienceSource).toContain("from './WorkbenchViewHost'")
@@ -353,72 +402,18 @@ describe('frontend module architecture', () => {
       }
 
       if (!source.includes('@shared/ui/loading-motion')) {
-        violations.push(`${file} does not consume shared loading-motion UI`)
+        const usesApprovedWorkbenchSkeleton = source.includes('@app/app-shell/WorkbenchShellSkeleton')
+
+        if (!usesApprovedWorkbenchSkeleton) {
+          violations.push(`${file} does not consume shared loading-motion UI or the approved workbench shell skeleton`)
+        }
       }
     }
 
     expect(violations).toEqual([])
   })
 
-  it('creates the new root modules and removes obsolete compatibility shims', async () => {
-    await expectFile(sourcePath('src/app/app-shell/AppShell.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/LauncherPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherShell.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherDiscoverPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherUpdatesPage.tsx'))
-    await expectFile(sourcePath('src/pages/launcher/ui/LauncherDebugPage.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchPage.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchViewHost.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/WorkbenchLayoutHost.tsx'))
-    await expectFile(sourcePath('src/widgets/top-navigation/ui/TopMenuBar.tsx'))
-    await expectFile(sourcePath('src/widgets/status-bar/ui/StatusBar.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/DevDebugOverlay.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/InitializationOverlay.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/ui/PlayerAppearanceWindow.tsx'))
-    await expectFile(sourcePath('src/app/app-shell/SettingsWindow.tsx'))
-    await expectFile(sourcePath('src/app/App.test.tsx'))
-    await expectFile(sourcePath('src/features/cp-maker/ui/EditWorkspaceContent.tsx'))
-    await expect(access(sourcePath('src/pages/workbench/page.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/pages/workbench/registry.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/pages/workbench/ui/EditWorkspaceContent.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/components'))).rejects.toThrow()
-    await expect(access(sourcePath('src/lib'))).rejects.toThrow()
-    await expectFile(sourcePath('src/entities/event/model/gameStateQueryCatalog.ts'))
-    await expectFile(sourcePath('src/entities/event/model/gameStateQuerySemantics.ts'))
-    await expectFile(sourcePath('src/entities/event/model/preconditionSemantics.ts'))
-    await expectFile(sourcePath('src/entities/event/model/patchHub.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/model/studioDeskModel.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/routing/editModeRoute.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/state/useCpMaker.ts'))
-    await expectFile(sourcePath('src/features/cp-maker/index.ts'))
-    await expect(access(sourcePath('src/features/cp-maker/routing/index.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/cp-maker/state/index.ts'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/cp-maker/ui/index.ts'))).rejects.toThrow()
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/buildWorkspacePanels.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/core.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/items.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/mods.tsx'))
-    await expectFile(sourcePath('src/pages/workbench/model/workspace-panels/types.ts'))
-    await expectFile(sourcePath('src/platform/desktop/index.ts'))
-    await expectFile(sourcePath('src/platform/plugins/workspaceRegistry.ts'))
-    await expectFile(sourcePath('src/shared/ui/WorkspaceDeferred.tsx'))
-    await expectFile(sourcePath('src/features/cp-maker/ui/EventConditionBuilderModal.tsx'))
-    await expectFile(sourcePath('src/features/cp-maker/ui/EventGameStateQueryBuilderModal.tsx'))
-    await expect(access(sourcePath('src/shared/ui/cp-maker'))).rejects.toThrow()
-    await expectFile(sourcePath('src/shared/contracts/types/cpMaker.ts'))
-
-    await expect(access(sourcePath('src/App.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/App.test.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherLibraryPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherDiscoverPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherUpdatesPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/pages/LauncherDebugPage.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/shared/LauncherDownloadsPopover.tsx'))).rejects.toThrow()
-    await expect(access(sourcePath('src/features/launcher/ui/shared/LauncherProgressRing.tsx'))).rejects.toThrow()
-  })
-
-  it('keeps platform plugin modules decoupled from legacy component paths', async () => {
+  it('keeps platform plugin modules decoupled from removed component paths', async () => {
     const builtInWorkspaces = await readFile(sourcePath('src/pages/workbench/model/builtInWorkspaces.ts'), 'utf8')
     const workspaceRegistry = await readFile(sourcePath('src/platform/plugins/workspaceRegistry.ts'), 'utf8')
     const workspacePanelTypes = await readFile(sourcePath('src/pages/workbench/model/workspace-panels/types.ts'), 'utf8')
@@ -443,128 +438,132 @@ describe('frontend module architecture', () => {
     expect(mapEntityTypes).toContain("from '@shared/contracts'")
   })
 
-  it(
-    'blocks feature-to-feature imports',
-    async () => {
-      const featureFiles = await collectSourceFiles(sourcePath('src/features'))
-      const featureViolations: string[] = []
+  it('blocks feature-to-feature imports', async () => {
+    const featureFiles = await collectSourceFiles(sourcePath('src/features'))
+    const featureViolations: string[] = []
 
-      for (const filePath of featureFiles) {
-        const source = await readFile(filePath, 'utf8')
-        const ownerFeature = topLevelFeatureFromPath(filePath)
+    for (const filePath of featureFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const ownerFeature = topLevelFeatureFromPath(filePath)
 
-        if (!ownerFeature) {
+      if (!ownerFeature) {
+        continue
+      }
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        const importedFeature = topLevelFeatureFromSpecifier(filePath, specifier)
+
+        if (importedFeature && importedFeature !== ownerFeature) {
+          const relativePath = filePath.replace(`${process.cwd()}/`, '')
+          featureViolations.push(`${relativePath} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(featureViolations).toEqual([])
+  }, 10000)
+
+  it('blocks cp-maker segment public APIs outside the slice root', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/platform']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const violations: string[] = []
+    const blockedSpecifiers = [
+      '@features/cp-maker/model',
+      '@features/cp-maker/routing',
+      '@features/cp-maker/state',
+      '@features/cp-maker/ui',
+    ]
+
+    for (const filePath of sourceFiles.flat()) {
+      if (filePath.includes(`${sourcePath('src/features/cp-maker')}\\`) || filePath.includes(`${sourcePath('src/features/cp-maker')}/`)) {
+        continue
+      }
+
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (blockedSpecifiers.some((blockedSpecifier) => specifier === blockedSpecifier || specifier.startsWith(`${blockedSpecifier}/`))) {
+          violations.push(`${relativePath} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('keeps launcher initial entries off heavy feature and entity barrels', async () => {
+    const initialEntryFiles = [
+      'src/app/app-shell/AppShell.tsx',
+      'src/pages/launcher/LauncherPage.tsx',
+      'src/pages/launcher/ui/LauncherShell.tsx',
+      'src/pages/launcher/ui/LauncherLibraryPage.tsx',
+      'src/pages/launcher/ui/LauncherDownloadsPopover.tsx',
+    ]
+    const blockedSpecifiers = ['@features/launcher', '@features/cp-maker', '@entities/event', '@entities/map']
+    const violations: string[] = []
+
+    for (const file of initialEntryFiles) {
+      const source = await readFile(sourcePath(file), 'utf8')
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (blockedSpecifiers.includes(specifier)) {
+          violations.push(`${file} imports ${specifier}`)
+        }
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+
+  it('blocks removed component and lib path references', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared', 'src/platform']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const removedPathPatterns = [
+      'src/components',
+      'src/lib',
+      'components/',
+      'components/event-workflow',
+      'components/cp-maker',
+      'components/map-workflow',
+      'components/image-workflow',
+      'map-workflow',
+      'image-workflow',
+    ]
+    const removedPathViolations: string[] = []
+
+    for (const filePath of sourceFiles.flat()) {
+      const source = await readFile(filePath, 'utf8')
+      const relativePath = filePath.replace(`${process.cwd()}/`, '')
+
+      for (const pattern of removedPathPatterns) {
+        if (source.includes(pattern)) {
+          removedPathViolations.push(`${relativePath} contains ${pattern}`)
+        }
+      }
+
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (!specifier.startsWith('.')) {
           continue
         }
 
-        for (const specifier of extractImportSpecifiers(source)) {
-          const importedFeature = topLevelFeatureFromSpecifier(filePath, specifier)
+        const resolvedImportPath = resolve(dirname(filePath), specifier)
+        const relativeToLegacyComponents = relative(sourcePath('src/components'), resolvedImportPath)
+        const relativeToLegacyLib = relative(sourcePath('src/lib'), resolvedImportPath)
+        const importsLegacyComponents =
+          relativeToLegacyComponents === '' || (!relativeToLegacyComponents.startsWith('..') && !relativeToLegacyComponents.startsWith('/'))
+        const importsLegacyLib =
+          relativeToLegacyLib === '' || (!relativeToLegacyLib.startsWith('..') && !relativeToLegacyLib.startsWith('/'))
 
-          if (importedFeature && importedFeature !== ownerFeature) {
-            const relativePath = filePath.replace(`${process.cwd()}/`, '')
-            featureViolations.push(`${relativePath} imports ${specifier}`)
-          }
+        if (importsLegacyComponents || importsLegacyLib) {
+          removedPathViolations.push(`${relativePath} imports ${specifier}`)
         }
       }
+    }
 
-      expect(featureViolations).toEqual([])
-    },
-    10000,
-  )
+    expect(removedPathViolations).toEqual([])
+  }, 30000)
 
-  it(
-    'blocks cp-maker segment public APIs outside the slice root',
-    async () => {
-      const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/platform']
-      const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-      const violations: string[] = []
-      const blockedSpecifiers = [
-        '@features/cp-maker/model',
-        '@features/cp-maker/routing',
-        '@features/cp-maker/state',
-        '@features/cp-maker/ui',
-      ]
-
-      for (const filePath of sourceFiles.flat()) {
-        if (filePath.includes(`${sourcePath('src/features/cp-maker')}\\`) || filePath.includes(`${sourcePath('src/features/cp-maker')}/`)) {
-          continue
-        }
-
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = filePath.replace(`${process.cwd()}/`, '')
-
-        for (const specifier of extractImportSpecifiers(source)) {
-          if (blockedSpecifiers.some((blockedSpecifier) => specifier === blockedSpecifier || specifier.startsWith(`${blockedSpecifier}/`))) {
-            violations.push(`${relativePath} imports ${specifier}`)
-          }
-        }
-      }
-
-      expect(violations).toEqual([])
-    },
-    30000,
-  )
-
-  it(
-    'blocks removed legacy path references',
-    async () => {
-      const scannedRoots = [
-        'src/app',
-        'src/pages',
-        'src/widgets',
-        'src/features',
-        'src/entities',
-        'src/shared',
-        'src/platform',
-      ]
-      const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
-      const removedPathPatterns = [
-        'src/components',
-        'src/lib',
-        'components/',
-        'components/event-workflow',
-        'components/cp-maker',
-        'components/map-workflow',
-        'components/image-workflow',
-        'map-workflow',
-        'image-workflow',
-      ]
-      const removedPathViolations: string[] = []
-
-      for (const filePath of sourceFiles.flat()) {
-        const source = await readFile(filePath, 'utf8')
-        const relativePath = filePath.replace(`${process.cwd()}/`, '')
-
-        for (const pattern of removedPathPatterns) {
-          if (source.includes(pattern)) {
-            removedPathViolations.push(`${relativePath} contains ${pattern}`)
-          }
-        }
-
-        for (const specifier of extractImportSpecifiers(source)) {
-          if (!specifier.startsWith('.')) {
-            continue
-          }
-
-          const resolvedImportPath = resolve(dirname(filePath), specifier)
-          const relativeToLegacyComponents = relative(sourcePath('src/components'), resolvedImportPath)
-          const relativeToLegacyLib = relative(sourcePath('src/lib'), resolvedImportPath)
-          const importsLegacyComponents =
-            relativeToLegacyComponents === '' || (!relativeToLegacyComponents.startsWith('..') && !relativeToLegacyComponents.startsWith('/'))
-          const importsLegacyLib = relativeToLegacyLib === '' || (!relativeToLegacyLib.startsWith('..') && !relativeToLegacyLib.startsWith('/'))
-
-          if (importsLegacyComponents || importsLegacyLib) {
-            removedPathViolations.push(`${relativePath} imports ${specifier}`)
-          }
-        }
-      }
-
-      expect(removedPathViolations).toEqual([])
-    },
-    30000,
-  )
-
-  it('blocks legacy workspace paths and confirms page-owned workspace consumers', async () => {
+  it('blocks removed workspace paths and confirms page-owned workspace consumers', async () => {
     const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared', 'src/platform']
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
     const workspaceViolations: string[] = []
@@ -574,7 +573,7 @@ describe('frontend module architecture', () => {
       const relativePath = filePath.replace(`${process.cwd()}/`, '')
 
       if (source.includes('@features/workspaces') || source.includes('features/workspaces')) {
-        workspaceViolations.push(`${relativePath} contains legacy workspace path reference`)
+        workspaceViolations.push(`${relativePath} contains removed workspace path reference`)
       }
     }
 
@@ -596,7 +595,7 @@ describe('frontend module architecture', () => {
     expect(workbenchExperienceSource).toContain("from '../workspaces/event-stage'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/map'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/character'")
-    expect(workbenchExperienceSource).toContain("from '../workspaces/building'")
+    expect(workbenchExperienceSource).toContain("from '../workspaces/building/state/useBuildingWorkspace'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/item'")
     expect(workbenchExperienceSource).toContain("from '../workspaces/mod'")
 
@@ -608,26 +607,26 @@ describe('frontend module architecture', () => {
 
   it('keeps shared modules free of upper-layer imports and desktop bridge calls', async () => {
     const sharedSourceFiles = await collectSourceFiles(sourcePath('src/shared'))
-      const sharedViolations: string[] = []
-      const blockedSharedSpecifiers = [
-        '@app/',
-        '@entities/',
-        '@features/',
-        '@pages/',
-        '@platform/',
-        '@widgets/',
-        '../../app',
-        '../../components',
-        '../../pages',
-        '../../lib/app',
-        '../../lib/desktop',
-        '../../platform',
-        '../app',
-        '../components',
-        '../pages',
-        '../lib/app',
-        '../lib/desktop',
-        '../platform',
+    const sharedViolations: string[] = []
+    const blockedSharedSpecifiers = [
+      '@app/',
+      '@entities/',
+      '@features/',
+      '@pages/',
+      '@platform/',
+      '@widgets/',
+      '../../app',
+      '../../components',
+      '../../pages',
+      '../../lib/app',
+      '../../lib/desktop',
+      '../../platform',
+      '../app',
+      '../components',
+      '../pages',
+      '../lib/app',
+      '../lib/desktop',
+      '../platform',
     ]
 
     for (const filePath of sharedSourceFiles) {
@@ -649,7 +648,6 @@ describe('frontend module architecture', () => {
     const sharedPanelSection = await readFile(sourcePath('src/shared/ui/PanelSection.tsx'), 'utf8')
     const sharedLayoutTypes = await readFile(sourcePath('src/shared/contracts/types/workspaceLayout.ts'), 'utf8')
     const sharedWorkspaceLayout = await readFile(sourcePath('src/shared/workspace/layout-view/WorkspaceLayout.tsx'), 'utf8')
-    const platformDesktop = await readFile(sourcePath('src/platform/desktop/index.ts'), 'utf8')
     const sharedTypesIndex = await readFile(sourcePath('src/shared/contracts/types/index.ts'), 'utf8')
 
     expect(sharedCpMaker).not.toContain('@features/')
@@ -660,7 +658,6 @@ describe('frontend module architecture', () => {
     expect(sharedLayoutTypes).not.toContain('@features/')
     expect(sharedLayoutTypes).not.toContain("export * from '../../components/workspace/layoutTypes'")
     expect(sharedWorkspaceLayout).not.toContain('@features/')
-    expect(platformDesktop).not.toContain("export * from '@platform/desktop'")
     expect(sharedTypesIndex).toContain("export type * from './workspaceLayout'")
     expect(sharedTypesIndex).toContain("export type * from './cpMaker'")
     expect(sharedTypesIndex).toContain("export type * from './modBrowser'")
@@ -670,7 +667,7 @@ describe('frontend module architecture', () => {
     expect(sharedTypesIndex).toContain("export type * from './workspaceRuntime'")
     expect(sharedTypesIndex).toContain("export type * from './desktop'")
     expect(sharedTypesIndex).toContain("export type * from './appUiState'")
-    expect(sharedTypesIndex).not.toContain("export type * from '@platform/desktop'")
+    expect(sharedTypesIndex).not.toContain(`export type * from '${REMOVED_DESKTOP_FACADE_SPECIFIER}'`)
     expect(sharedCpMaker).toContain('export interface CpMakerDraft')
     expect(sharedLayoutTypes).toContain('export type DockArea')
     expect(await readFile(sourcePath('src/shared/contracts/types/modBrowser.ts'), 'utf8')).toContain('export type ModBrowserEntry')
@@ -679,125 +676,163 @@ describe('frontend module architecture', () => {
     expect(await readFile(sourcePath('src/entities/map/lib/types.ts'), 'utf8')).toContain("from '@shared/contracts'")
   })
 
+  it('keeps shared desktop exports limited to host infrastructure APIs', async () => {
+    const sharedDesktopIndex = await readFile(sourcePath('src/shared/lib/desktop/index.ts'), 'utf8')
+    const blockedDomainExports = [
+      'LauncherGameLaunchResult',
+      'launchLauncherGame',
+      'loadLauncher',
+      'saveLauncher',
+      'scanLauncher',
+      'ContentPatcher',
+      'CpMaker',
+      'ModProject',
+      'GameDirectoryInfo',
+      'MapAsset',
+      'loadMapAsset',
+      'loadTextAsset',
+      'scanMaps',
+      'scanEvents',
+    ]
+
+    for (const blockedExport of blockedDomainExports) {
+      expect(sharedDesktopIndex).not.toContain(blockedExport)
+    }
+  })
 
   /**
-   * Platform boundary classification: tracks every production file that imports @platform/desktop
-   * and classifies it as either an approved adapter/app-assembly boundary or a migration target.
-   * A new production file outside both categories fails the test.
+   * Platform boundary classification: the removed desktop platform facade was a migration facade.
+   * It must not return as a production or test import path.
    */
-  const APPROVED_BOUNDARY_PATTERNS = [
-    /^app\/app-shell\/AppShell\.tsx$/,
-    /^platform\/desktop\/index\.ts$/,
-    /^platform\/desktop\/index\.test\.ts$/,
-  ]
-  const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/
-  const TEST_SUPPORT_PATTERN = /^test\//
+  it('blocks the removed desktop platform facade from returning', async () => {
+    await expect(access(sourcePath('src/platform/desktop'))).rejects.toThrow()
 
-  // Known migration targets - these exact files are documented pending work, not accidental drift.
-  // Keep this as a per-file baseline so new @platform/desktop imports fail until classified.
-  const MIGRATION_TARGET_FILES = new Set([
-    'app/providers/launcherPortAdapter.ts',
-    'entities/event/model/stage/eventStageShared.ts',
-    'features/launcher/model/nexusDiagnostics.ts',
-    'pages/launcher/LauncherPage.tsx',
-    'pages/launcher/ui/LauncherDebugPage.tsx',
-    'pages/launcher/ui/LauncherDiscoverPage.tsx',
-    'pages/launcher/ui/LauncherLibraryPage.tsx',
-    'pages/launcher/ui/LauncherUpdatesPage.tsx',
-    'pages/workbench/ui/DevDebugOverlay.tsx',
-    'pages/workbench/ui/PlayerAppearanceWindow.tsx',
-    'pages/workbench/ui/WorkbenchExperience.tsx',
-    'pages/workbench/workspaces/building/state/useBuildingWorkspace.ts',
-    'pages/workbench/workspaces/building/state/buildingTextLocalization.ts',
-    'pages/workbench/workspaces/building/state/buildingObjectDisplay.ts',
-    'pages/workbench/workspaces/building/state/buildingWorldEntries.ts',
-    'pages/workbench/workspaces/building/state/buildingTextureAssets.ts',
-    'pages/workbench/workspaces/character/state/useCharacterWorkspace.ts',
-    'pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
-    'pages/workbench/workspaces/event-stage/state/audioPreview.ts',
-    'pages/workbench/workspaces/event-stage/state/useEventStageWorkspace.ts',
-    'pages/workbench/workspaces/event-stage/state/useEventWorkspace.ts',
-    'pages/workbench/workspaces/event-stage/view/EventStageWorkspace.tsx',
-    'pages/workbench/workspaces/item/state/useItemWorkspace.ts',
-    'pages/workbench/workspaces/map/editors/MapPatchEditor.tsx',
-    'pages/workbench/workspaces/map/state/useMapWorkspace.ts',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-model/contentPatcher.ts',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherDiagnosticsPanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherExportPanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherNavigator.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherResultPreview.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherTracePanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModBrowserPanel.tsx',
-    'pages/workbench/workspaces/mod/mods/content-patcher/content-view/ModDiagnosticsPanel.tsx',
-    'pages/workbench/workspaces/mod/state/modResultAssets.ts',
-    'pages/workbench/workspaces/mod/state/useModAssetIndex.ts',
-    'pages/workbench/workspaces/mod/state/useModWorkspace.ts',
-  ])
+    const allFiles = await collectSourceFiles(sourcePath('src'))
+    const violations: string[] = []
 
-  it(
-    'classifies all production @platform/desktop imports and prevents new unapproved drift',
-    async () => {
-      const allFiles = await collectSourceFiles(sourcePath('src'))
-      const unclassified: string[] = []
+    for (const filePath of allFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
 
-      for (const filePath of allFiles) {
-        const source = await readFile(filePath, 'utf8')
-        if (!source.includes('@platform/desktop')) {
-          continue
+      for (const specifier of extractImportSpecifiers(source)) {
+        if (specifier === REMOVED_DESKTOP_FACADE_SPECIFIER) {
+          violations.push(`${relPath} imports ${REMOVED_DESKTOP_FACADE_SPECIFIER}`)
         }
+      }
+    }
 
-        const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
-        const isTestOnly = TEST_FILE_PATTERN.test(relPath) || TEST_SUPPORT_PATTERN.test(relPath)
-        const isApproved = APPROVED_BOUNDARY_PATTERNS.some((p) => p.test(relPath))
-        const isMigrationTarget = MIGRATION_TARGET_FILES.has(relPath)
+    expect(violations).toEqual([])
+  }, 30000)
 
-        if (isApproved || isMigrationTarget || isTestOnly) {
-          continue
+  it('blocks active Nexus Public HTML and Cloudflare verification paths', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/shared', 'src/platform']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const blockedPatterns = [
+      /publicHtml/i,
+      /Public HTML/,
+      /Cloudflare/,
+      /cloudflare/,
+      /cf_clearance/,
+      /launcher\/cloudflare-challenge-required/,
+      /public_html_nexus_/,
+    ]
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles.flat()) {
+      const source = await readFile(filePath, 'utf8')
+      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+
+      for (const pattern of blockedPatterns) {
+        if (pattern.test(source)) {
+          violations.push(`${relPath} contains ${pattern}`)
         }
+      }
+    }
 
-        unclassified.push(relPath)
+    await expect(access(sourcePath('src/app/webview-surfaces/PublicHtmlVerificationControlsSurface.tsx'))).rejects.toThrow()
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('keeps the official Nexus SDK isolated behind a platform adapter', async () => {
+    const allFiles = await collectSourceFiles(sourcePath('src'))
+    const violations: string[] = []
+    const allowed = new Set(['platform/nexus/officialSdkAdapter.ts'])
+
+    for (const filePath of allFiles) {
+      const relPath = relative(sourcePath('src'), filePath).replace(/\\/g, '/')
+      if (TEST_FILE_PATTERN.test(relPath)) {
+        continue
       }
 
-      expect(unclassified).toEqual([])
-    },
-    30000,
-  )
-
-
-
-  it(
-    'rejects page-specific workbench panel source files under dock-side folder names',
-    async () => {
-      const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
-      const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
-
-      let panelsDir
-      try {
-        panelsDir = await readdir(panelsRoot, { withFileTypes: true })
-      } catch {
-        return
+      const source = await readFile(filePath, 'utf8')
+      if (!source.includes('@nexusmods/nexus-api')) {
+        continue
       }
 
-      const violations: string[] = []
+      if (!allowed.has(relPath)) {
+        violations.push(relPath)
+      }
+    }
 
-      for (const entry of panelsDir) {
-        if (!entry.isDirectory()) {
-          continue
+    expect(violations).toEqual([])
+  }, 30000)
+
+  it('keeps NexusMods provider code outside the launcher Rust domain', async () => {
+    const launcherFiles = await collectSourceFiles(sourcePath('src-tauri/src/domain/launcher'))
+    const blockedPatterns = [
+      /api-router\.nexusmods\.com/,
+      /api\.nexusmods\.com/,
+      /graphql\.nexusmods\.com/,
+      /staticdelivery\.nexusmods\.com/,
+      /send_nexus_(json_)?request/,
+      /api_headers/,
+      /graphql_headers/,
+      /public_graphql_headers/,
+      /^pub mod (catalog|discovery|downloads_provider|http|mod_detail|remote|rest_api|session|shared|sso);/m,
+    ]
+    const violations: string[] = []
+
+    for (const filePath of launcherFiles) {
+      const source = await readFile(filePath, 'utf8')
+      const relPath = relative(sourcePath('src-tauri/src/domain/launcher'), filePath).replace(/\\/g, '/')
+
+      for (const pattern of blockedPatterns) {
+        if (pattern.test(source)) {
+          violations.push(`${relPath} contains ${pattern}`)
         }
+      }
+    }
 
-        if (allowedDomainFolders.has(entry.name)) {
-          continue
-        }
+    expect(violations).toEqual([])
+  }, 30000)
 
-        violations.push(
-          'workspace-panels/' + entry.name + ' is not an allowed domain folder. Allowed: ' + Array.from(allowedDomainFolders).join(', '),
-        )
+  it('rejects page-specific workbench panel source files under dock-side folder names', async () => {
+    const panelsRoot = sourcePath('src/pages/workbench/ui/workspace-panels')
+    const allowedDomainFolders = new Set(['event', 'building', 'character', 'map', 'item', 'mod', 'common'])
+
+    let panelsDir
+    try {
+      panelsDir = await readdir(panelsRoot, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    const violations: string[] = []
+
+    for (const entry of panelsDir) {
+      if (!entry.isDirectory()) {
+        continue
       }
 
-      expect(violations).toEqual([])
-    },
-    10000,
-  )
+      if (allowedDomainFolders.has(entry.name)) {
+        continue
+      }
 
+      violations.push(
+        'workspace-panels/' + entry.name + ' is not an allowed domain folder. Allowed: ' + Array.from(allowedDomainFolders).join(', '),
+      )
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
 })

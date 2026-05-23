@@ -9,12 +9,9 @@ import type {
   LauncherInstallBackupSummary,
   LauncherLibraryModSummary,
   LauncherSettings,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import {
-  chooseArchiveFile,
-  chooseImageFile,
   inspectLauncherArchive,
-  listenToLauncherArchiveDragDrop,
   listLauncherInstallBackups,
   loadLauncherRemoteModDetail,
   openLauncherUrl,
@@ -22,8 +19,9 @@ import {
   resolveLauncherImage,
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
-} from '@platform/desktop'
-import { useLauncherLibrary } from '@features/launcher'
+} from '@features/launcher/api'
+import { chooseArchiveFile, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
+import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { LauncherLibraryPage } from './LauncherLibraryPage'
@@ -51,14 +49,19 @@ vi.mock('@radix-ui/react-context-menu', async () => {
   }
 
   function Item({
+    asChild,
     children,
     onSelect,
     className,
   }: {
+    asChild?: boolean
     children: ReactNode
     onSelect?: () => void
     className?: string
   }) {
+    if (asChild) {
+      return children
+    }
     return (
       <button type="button" role="menuitem" className={className} onClick={onSelect}>
         {children}
@@ -75,22 +78,31 @@ vi.mock('@radix-ui/react-context-menu', async () => {
   }
 })
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const rowSize = estimateSize()
+    const visibleRowCount = Math.min(count, 8)
+    return {
+      getTotalSize: () => count * rowSize,
+      getVirtualItems: () =>
+        Array.from({ length: visibleRowCount }, (_, index) => ({
+          index,
+          key: index,
+          start: index * rowSize,
+          size: rowSize,
+          end: (index + 1) * rowSize,
+          lane: 0,
+        })),
+      measureElement: vi.fn(),
+    }
+  },
+}))
+
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
     ...actual,
-    chooseArchiveFile: vi.fn(),
-    chooseImageFile: vi.fn(),
     inspectLauncherArchive: vi.fn(),
-    listenToLauncherArchiveDragDrop: vi.fn(async (listener) => {
-      archiveDragDropListeners.push(listener)
-      return () => {
-        const index = archiveDragDropListeners.indexOf(listener)
-        if (index >= 0) {
-          archiveDragDropListeners.splice(index, 1)
-        }
-      }
-    }),
     listLauncherInstallBackups: vi.fn(),
     loadLauncherRemoteModDetail: vi.fn(),
     openLauncherUrl: vi.fn(),
@@ -101,8 +113,28 @@ vi.mock('@platform/desktop', async () => {
   }
 })
 
-vi.mock('@features/launcher', async () => {
-  const actual = await vi.importActual<typeof import('@features/launcher')>('@features/launcher')
+vi.mock('@shared/lib/desktop', async () => {
+  const actual = await vi.importActual<typeof import('@shared/lib/desktop')>('@shared/lib/desktop')
+  return {
+    ...actual,
+    chooseArchiveFile: vi.fn(),
+    chooseImageFile: vi.fn(),
+    listenToLauncherArchiveDragDrop: vi.fn(async (listener) => {
+      archiveDragDropListeners.push(listener)
+      return () => {
+        const index = archiveDragDropListeners.indexOf(listener)
+        if (index >= 0) {
+          archiveDragDropListeners.splice(index, 1)
+        }
+      }
+    }),
+  }
+})
+
+vi.mock('@features/launcher/model/useLauncherLibrary', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/model/useLauncherLibrary')>(
+    '@features/launcher/model/useLauncherLibrary',
+  )
   return {
     ...actual,
     useLauncherLibrary: vi.fn(),
@@ -138,7 +170,7 @@ function createLauncherDiagnosticsResult() {
       {
         routeId: 'publicGraphql',
         label: 'Nexus Public GraphQL',
-        endpoint: 'https://api-router.nexusmods.com/graphql',
+        endpoint: 'https://api.nexusmods.com/v2/graphql',
         status: 'success' as const,
         available: true,
         message: 'Connected after 1 attempt.',
@@ -159,14 +191,26 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-async function emitArchiveDragDrop(payload: {
-  type: string
-  paths?: string[]
-  position?: { x: number; y: number }
-}) {
+async function emitArchiveDragDrop(payload: { type: string; paths?: string[]; position?: { x: number; y: number } }) {
   for (const listener of archiveDragDropListeners) {
     await listener(payload)
   }
+}
+
+function pointerDragDown(target: Element | Document | Window, clientX: number, clientY: number, pointerId = 1) {
+  fireEvent.pointerDown(target, { button: 0, buttons: 1, clientX, clientY, isPrimary: true, pointerId })
+}
+
+function pointerDragMove(target: Element | Document | Window, clientX: number, clientY: number, pointerId = 1) {
+  fireEvent.pointerMove(target, { button: 0, buttons: 1, clientX, clientY, isPrimary: true, pointerId })
+}
+
+function pointerDragUp(target: Element | Document | Window, clientX: number, clientY: number, pointerId = 1) {
+  fireEvent.pointerUp(target, { button: 0, buttons: 0, clientX, clientY, isPrimary: true, pointerId })
+}
+
+function clickAfterPress(target: Element) {
+  fireEvent.click(target)
 }
 
 function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSettings {
@@ -175,7 +219,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: 'E:\\Downloads\\Mods',
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -183,9 +226,7 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
   }
 }
 
-function createLibraryMod(
-  overrides: Partial<LauncherLibraryModSummary> = {},
-): LauncherLibraryModSummary {
+function createLibraryMod(overrides: Partial<LauncherLibraryModSummary> = {}): LauncherLibraryModSummary {
   return {
     id: 'mod-1',
     labelKey: 'ModForge.NpcAdventures',
@@ -201,6 +242,7 @@ function createLibraryMod(
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,
   }
@@ -234,9 +276,7 @@ function createArchivePreview(overrides: Partial<InspectLauncherArchiveResult> =
   }
 }
 
-function createInstallArchiveResult(
-  overrides: Partial<InstallLauncherArchiveResult> = {},
-): InstallLauncherArchiveResult {
+function createInstallArchiveResult(overrides: Partial<InstallLauncherArchiveResult> = {}): InstallLauncherArchiveResult {
   return {
     modName: 'Example Pack',
     uniqueId: 'ModForge.ExamplePack',
@@ -268,9 +308,7 @@ function createInstallArchiveResult(
   }
 }
 
-function createInstallBackupSummary(
-  overrides: Partial<LauncherInstallBackupSummary> = {},
-): LauncherInstallBackupSummary {
+function createInstallBackupSummary(overrides: Partial<LauncherInstallBackupSummary> = {}): LauncherInstallBackupSummary {
   return {
     backupId: 'install-123',
     backupPath: 'E:\\Games\\Stardew Valley\\Backups\\install-123',
@@ -289,11 +327,15 @@ function createLibraryState(): MockLibraryState {
     uniqueId: 'ModForge.VintageInterface',
     absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Vintage Interface Redux',
     enabled: false,
+    nexusModId: 202,
   })
 
   return {
     mods: [primaryMod, secondaryMod],
     filteredMods: [primaryMod, secondaryMod],
+    latestVersionByModId: {},
+    childModGroups: [],
+    libraryFolders: [],
     hiddenModKeys: [],
     selectedMod: primaryMod,
     selectedModId: 'mod-1',
@@ -357,6 +399,15 @@ function createLibraryState(): MockLibraryState {
     replacePackMods: vi.fn(async () => {}),
     hideMods: vi.fn(async () => {}),
     showMods: vi.fn(async () => {}),
+    setChildMods: vi.fn(async () => {}),
+    removeChildMods: vi.fn(async () => {}),
+    replaceChildMods: vi.fn(async () => {}),
+    createLibraryFolder: vi.fn(async () => 'new-folder'),
+    renameLibraryFolder: vi.fn(async () => {}),
+    addModsToLibraryFolder: vi.fn(async () => {}),
+    removeModsFromLibraryFolders: vi.fn(async () => {}),
+    moveLibraryFolderToFolder: vi.fn(async () => {}),
+    setModsEnabled: vi.fn(async () => {}),
     setCurrentPackId: vi.fn(async () => {}),
     applyCurrentPack: vi.fn(async () => {}),
     setSelectionEnabled: vi.fn(async () => {}),
@@ -423,7 +474,12 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
 describe('LauncherLibraryPage', () => {
   afterEach(() => {
     archiveDragDropListeners.length = 0
+    fireEvent.pointerUp(document, { clientX: 0, clientY: 0, pointerId: 0 })
+    fireEvent.mouseUp(document, { button: 0, buttons: 0, clientX: 0, clientY: 0 })
+    fireEvent.pointerUp(window, { clientX: 0, clientY: 0, pointerId: 0 })
+    fireEvent.mouseUp(window, { button: 0, buttons: 0, clientX: 0, clientY: 0 })
     cleanup()
+    vi.useRealTimers()
     vi.clearAllMocks()
   })
 
@@ -433,7 +489,16 @@ describe('LauncherLibraryPage', () => {
       chooseImageFile: chooseImageFileMock,
       inspectArchive: inspectLauncherArchiveMock,
       listInstallBackups: listLauncherInstallBackupsMock,
-      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock.mockResolvedValue({
+        modId: 101,
+        title: 'NPC Adventures',
+        summary: 'Remote details for NPC Adventures.',
+        author: 'ModForge',
+        version: '1.0.0',
+        modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
+        imageUrl: null,
+        galleryImages: [],
+      }),
       openPath: openLauncherPathMock,
       openUrl: openLauncherUrlMock,
       resolveImage: resolveLauncherImageMock,
@@ -484,6 +549,306 @@ describe('LauncherLibraryPage', () => {
     expect(container.querySelector('.launcher-library-shell > .launcher-library-sidebar')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell > .launcher-library-content')).not.toBeNull()
     expect(container.querySelector('.launcher-library-shell .launcher-library-console')).toBeNull()
+  })
+
+  it('creates a virtual library folder from the header without auto-expanding it', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create folder' }))
+
+    await waitFor(() => {
+      expect(library.createLibraryFolder).toHaveBeenCalled()
+    })
+    expect(screen.queryByRole('region')).toBeNull()
+  })
+
+  it('renders virtual folders as expandable folder tiles and hides contained mods from the top level', async () => {
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
+    expect(screen.queryByRole('article', { name: /npc adventures/i })).toBeNull()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
+  })
+
+  it('does not refresh the library when expanding a virtual folder', () => {
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(library.refresh).not.toHaveBeenCalled()
+  })
+
+  it('does not replay reveal loading motion for existing mods when expanding a virtual folder', async () => {
+    vi.useFakeTimers()
+    const baseLibrary = createLibraryState()
+    const belowMod = createLibraryMod({
+      id: 'mod-below',
+      labelKey: 'ModForge.Below',
+      name: 'Below Folder Mod',
+      uniqueId: 'ModForge.Below',
+      absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Below Folder Mod',
+    })
+    const library = {
+      ...baseLibrary,
+      filteredMods: [...baseLibrary.filteredMods, belowMod],
+      mods: [...baseLibrary.mods, belowMod],
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      vi.advanceTimersByTime(950)
+    })
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    const belowCard = screen.getByRole('article', { name: /below folder mod/i })
+    expect(belowCard.closest('.loading-motion-child-reveal')).toBeNull()
+  })
+
+  it('keeps mod cards full size inside expanded virtual folders', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
+    const folderGrid = folderRegion.querySelector<HTMLElement>('.launcher-library-folder-panel-grid')
+    expect(folderGrid?.style.gridTemplateColumns).toContain('260px')
+  })
+
+  it('does not repeat the empty-library auto refresh after local folder state changes', () => {
+    const library = {
+      ...createLibraryState(),
+      mods: [],
+      filteredMods: [],
+      selectedMod: null,
+      selectedModId: null,
+      currentPack: null,
+      currentPackId: null,
+      packPresets: [],
+      state: 'idle',
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(library.refresh).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
+
+    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    expect(library.refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('closes an expanded virtual folder with a single click', () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    clickAfterPress(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close folder' }))
+
+    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Open folder Visuals' })).not.toBeNull()
+  })
+
+  it('keeps multiple virtual folders expanded and shows folder context actions', async () => {
+    const library = {
+      ...createLibraryState(),
+      currentPack: null,
+      currentPackId: null,
+      libraryFolders: [
+        {
+          id: 'visuals',
+          name: 'Visuals',
+          parentFolderId: null,
+          modKeys: ['ModForge.NpcAdventures'],
+          coverModKeys: [],
+        },
+        {
+          id: 'gameplay',
+          name: 'Gameplay',
+          parentFolderId: null,
+          modKeys: ['ModForge.VintageInterface'],
+          coverModKeys: [],
+        },
+      ],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const visualsFolderButton = screen.getByRole('button', { name: 'Open folder Visuals' })
+    fireEvent.contextMenu(visualsFolderButton)
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem', { name: 'Open folder Visuals' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Rename folder' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Enable folder mods' }).length).toBeGreaterThan(0)
+      expect(screen.getAllByRole('menuitem', { name: 'Disable folder mods' }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open folder Gameplay' }))
+
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(screen.getByRole('region', { name: 'Gameplay' })).not.toBeNull()
+
+    fireEvent.contextMenu(screen.getByRole('region', { name: 'Gameplay' }))
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem', { name: 'Close folder' }).length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(within(screen.getByRole('region', { name: 'Gameplay' })).getByRole('button', { name: 'Close folder' }))
+
+    expect(screen.getByRole('region', { name: 'Visuals' })).not.toBeNull()
+    expect(screen.queryByRole('region', { name: 'Gameplay' })).toBeNull()
+  })
+
+  it('marks library card versions when a cached update is available', () => {
+    useLauncherLibraryMock.mockReturnValue({
+      ...createLibraryState(),
+      latestVersionByModId: {
+        101: '1.1.0',
+      },
+    })
+
+    renderLibraryPage()
+
+    const updateBadge = screen.getByLabelText('New version v1.1.0 available')
+    expect(updateBadge).toHaveClass('launcher-mod-card-version-update')
+    expect(updateBadge.textContent).toContain('v1.0.0')
+    expect(updateBadge.querySelector('svg')).toBeTruthy()
+  })
+
+  it('folds child mods under their parent by default and expands them from the parent card', async () => {
+    const library = {
+      ...createLibraryState(),
+      childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
+    }
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(screen.getByText('NPC Adventures')).toBeTruthy()
+    expect(screen.queryByText('Vintage Interface Redux')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+
+    expect(screen.getByText('Vintage Interface Redux')).toBeTruthy()
+  })
+
+  it('opens a multi-select child mod picker from a parent card and confirms selected children', () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
+    fireEvent.click(screen.getAllByText('Set as child mod')[0]!)
+    const dialog = screen.getByRole('dialog', { name: 'Choose child mods' })
+    expect(dialog).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: /vintage interface redux/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm child mods' }))
+
+    expect(library.replaceChildMods).toHaveBeenCalledWith('mod-1', ['mod-2'])
+  })
+
+  it('removes child mods from their parent through the child context action', async () => {
+    const library = {
+      ...createLibraryState(),
+      childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
+    }
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    fireEvent.contextMenu(screen.getByRole('article', { name: /vintage interface redux/i }))
+    fireEvent.click(screen.getByText('Remove from parent'))
+
+    expect(library.removeChildMods).toHaveBeenCalledWith(['mod-2'])
   })
 
   it('shows an install overlay for multiple supported external archives and hides it on leave', async () => {
@@ -971,16 +1336,8 @@ describe('LauncherLibraryPage', () => {
 
     library = {
       ...library,
-      mods: library.mods.map((mod) =>
-        mod.id === 'mod-1'
-          ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' }
-          : mod,
-      ),
-      filteredMods: library.filteredMods.map((mod) =>
-        mod.id === 'mod-1'
-          ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' }
-          : mod,
-      ),
+      mods: library.mods.map((mod) => (mod.id === 'mod-1' ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' } : mod)),
+      filteredMods: library.filteredMods.map((mod) => (mod.id === 'mod-1' ? { ...mod, imageUrl: 'E:\\Covers\\npc-adventures.png' } : mod)),
     } as MockLibraryState
 
     view.rerender(
@@ -1036,38 +1393,194 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('drops a dragged card onto a drawer pack row to add it to that pack', async () => {
+  it('shows the pointer drag preview immediately on press without dropping until movement starts', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
     renderLibraryPage()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pack Management' }))
+    const card = screen.getByRole('article', { name: /npc adventures/i })
 
-    const dataTransfer = {
-      effectAllowed: 'all',
-      dropEffect: 'move',
-      setData: vi.fn(),
-      getData: vi.fn(),
-      clearData: vi.fn(),
-    }
+    fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 71 })
 
-    fireEvent.dragStart(screen.getByRole('article', { name: /npc adventures/i }), { dataTransfer })
-    fireEvent.dragOver(screen.getByRole('button', { name: 'Challenge Pack' }), { dataTransfer })
-    fireEvent.drop(screen.getByRole('button', { name: 'Challenge Pack' }), { dataTransfer })
+    const preview = await screen.findByTestId('launcher-library-drag-preview')
+    expect(preview).toHaveClass('launcher-library-pointer-drag-preview-pending')
+
+    act(() => {
+      fireEvent.pointerUp(document, { clientX: 160, clientY: 160, pointerId: 71 })
+    })
 
     await waitFor(() => {
-      expect(library.addModsToPack).toHaveBeenCalledWith('challenge-pack', ['mod-1'])
+      expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull()
+    })
+    expect(library.addModsToPack).not.toHaveBeenCalled()
+    expect(library.addModsToLibraryFolder).not.toHaveBeenCalled()
+  })
+
+  it('uses the resolved desktop cover image in the pointer drag preview', async () => {
+    const library = createLibraryState()
+    const coveredMod = { ...library.mods[0]!, imageUrl: 'https://example.test/npc-cover.png' }
+    useLauncherLibraryMock.mockReturnValue({
+      ...library,
+      mods: [coveredMod, ...library.mods.slice(1)],
+      filteredMods: [coveredMod, ...library.filteredMods.slice(1)],
+    } as MockLibraryState)
+    resolveLauncherImageMock.mockResolvedValue({
+      sourceUrl: 'https://example.test/npc-cover.png',
+      localPath: 'E:\\Covers\\npc-cover.png',
+      mimeType: 'image/png',
+    })
+    launcherPort.toDesktopAssetUrl = vi.fn((path) => `asset://${path}`)
+
+    renderLibraryPage()
+
+    await waitFor(() => {
+      expect(resolveLauncherImageMock).toHaveBeenCalledWith({ url: 'https://example.test/npc-cover.png', refresh: false })
+    })
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    pointerDragDown(card, 160, 160)
+    act(() => {
+      pointerDragMove(window, 220, 220)
+    })
+
+    const previewImage = screen.getByTestId('launcher-library-drag-preview').querySelector('img')
+    expect(previewImage?.getAttribute('src')).toBe('asset://E:\\Covers\\npc-cover.png')
+
+    act(() => {
+      pointerDragUp(window, 220, 220)
     })
   })
 
-  it('opens mod details and keeps direct actions in the card context menu', async () => {
+  it('uses the drag-to-select package to show a selection rectangle and mark intersecting cards', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const wrapper = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const viewport = card.closest('.launcher-library-grid-viewport') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
+        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === wrapper || this === card) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+      act(() => {
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 260, clientY: 260 })
+      })
+
+      const selectionBox = await screen.findByTestId('launcher-library-box-select')
+      expect(selectionBox).not.toBeNull()
+      await waitFor(() => {
+        expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
+      })
+
+      act(() => {
+        fireEvent.mouseUp(window, { button: 0, clientX: 260, clientY: 260 })
+      })
+
+      await waitFor(() => {
+        expect(selectionBox.style.width).toBe('0px')
+        expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
+      })
+    } finally {
+      boundsSpy.mockRestore()
+    }
+  })
+
+  it('shows a lifted drag preview while a library card is being dragged', () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+
+    pointerDragDown(card, 160, 220)
+    act(() => {
+      pointerDragMove(document, 162, 222)
+    })
+
+    const preview = screen.getByTestId('launcher-library-drag-preview')
+    expect(preview.textContent).toContain('NPC Adventures')
+
+    act(() => {
+      pointerDragMove(document, 520, 360)
+    })
+
+    expect(screen.getByTestId('launcher-library-drag-preview').textContent).toContain('NPC Adventures')
+
+    act(() => {
+      pointerDragUp(document, 520, 360)
+    })
+
+    return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
+  })
+
+  it('does not open a folder from the click event emitted after dragging it', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const folder = screen.getByRole('button', { name: 'Open folder Visuals' })
+
+    pointerDragDown(folder, 160, 160)
+    act(() => {
+      pointerDragMove(window, 220, 220)
+    })
+    await screen.findByTestId('launcher-library-drag-preview')
+    act(() => {
+      pointerDragUp(window, 220, 220)
+    })
+    fireEvent.click(folder)
+
+    expect(screen.queryByRole('dialog', { name: 'Visuals' })).toBeNull()
+  })
+
+  it('shows immediate grab feedback before drag activation', () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const draggableCard = card.closest('.launcher-library-draggable-card')
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
+
+    fireEvent.pointerDown(card, { button: 0, clientX: 160, clientY: 220, isPrimary: true, pointerId: 19 })
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(true)
+
+    fireEvent.pointerUp(window, { button: 0, clientX: 160, clientY: 220, pointerId: 19 })
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
+  })
+
+  it('opens mod details from the context menu and keeps direct card actions', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
     chooseImageFileMock.mockResolvedValue('E:\\Covers\\npc-adventures.png')
     setLauncherLibraryCoverMock.mockResolvedValue({ covers: [] })
 
     renderLibraryPage()
+
+    fireEvent.doubleClick(screen.getByRole('button', { name: /npc adventures/i }))
+    await waitFor(() => {
+      expect(openLauncherPathMock).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures' })
+    })
 
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
 
@@ -1081,7 +1594,7 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'View Details' })[0]!)
     const dialog = await screen.findByRole('dialog', { name: 'NPC Adventures' })
-    expect(within(dialog).getByText('NPC Adventures')).not.toBeNull()
+    expect(within(dialog).getByRole('heading', { name: 'NPC Adventures' })).not.toBeNull()
 
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'Open Folder' })[0]!)
@@ -1089,11 +1602,11 @@ describe('LauncherLibraryPage', () => {
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'Disable' })[0]!)
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
     fireEvent.click(screen.getAllByRole('menuitem', { name: 'Set Cover' })[0]!)
-    fireEvent.click(within(dialog).getByRole('link', { name: 'Open Mod Page' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Open Mod Page' }))
 
     await waitFor(() => {
       expect(openLauncherUrlMock).toHaveBeenCalledWith({ url: 'https://www.nexusmods.com/stardewvalley/mods/101' })
-      expect(openLauncherPathMock).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley\\Mods\\NPC Adventures' })
+      expect(openLauncherPathMock).toHaveBeenCalledTimes(2)
       expect(library.toggleEnabled).toHaveBeenCalled()
       expect(setLauncherLibraryCoverMock).toHaveBeenCalledWith({
         labelKey: '101',
@@ -1523,18 +2036,137 @@ describe('LauncherLibraryPage', () => {
     expect(await screen.findByText('Refresh failed')).not.toBeNull()
   })
 
-  it('renders the full large-library grid directly without virtualization', async () => {
+  it('virtualizes the large-library grid instead of rendering every card', async () => {
     const library = createLargeLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
     renderLibraryPage()
 
     expect(screen.getByRole('article', { name: /^large library mod 1$/i })).not.toBeNull()
-    expect(screen.getByRole('article', { name: /^large library mod 80$/i })).not.toBeNull()
-    expect(screen.getAllByRole('article')).toHaveLength(library.mods.length)
+    expect(screen.queryByRole('article', { name: /^large library mod 80$/i })).toBeNull()
+    expect(screen.getAllByRole('article').length).toBeLessThan(library.mods.length)
+    expect(document.querySelector('.launcher-library-virtual-grid')).toBeTruthy()
 
     fireEvent.contextMenu(screen.getByRole('article', { name: /^large library mod 1$/i }))
     expect((await screen.findAllByRole('menuitem', { name: 'View Details' })).length).toBeGreaterThan(0)
+  })
+
+  it('renders only virtual rows near the viewport', () => {
+    const library = createLargeLibraryState(12)
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return { width: 560, height: 420, top: 0, left: 0, bottom: 420, right: 560, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const virtualRows = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-virtual-row'))
+    expect(virtualRows.length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
+
+    boundsSpy.mockRestore()
+  })
+
+  it('uses multiple columns for a large-screen virtualized library grid', async () => {
+    const library = createLargeLibraryState(16)
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return { width: 1120, height: 840, top: 0, left: 0, bottom: 840, right: 1120, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    await waitFor(() => {
+      const firstRow = document.querySelector<HTMLElement>('.launcher-library-virtual-row')
+      expect(firstRow?.style.gridTemplateColumns).toContain('repeat(4')
+    })
+
+    boundsSpy.mockRestore()
+  })
+
+  it('observes the library grid viewport for virtual column recalculation', () => {
+    const library = createLargeLibraryState(16)
+    const observedElements: Element[] = []
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      observe(target: Element) {
+        observedElements.push(target)
+      }
+
+      unobserve() {}
+
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    expect(observedElements.some((element) => element.classList.contains('launcher-library-grid-viewport'))).toBe(true)
+
+    globalThis.ResizeObserver = OriginalResizeObserver
+  })
+
+  it('keeps virtual rows mounted while the library grid is hidden during route switches', async () => {
+    const library = createLargeLibraryState(16)
+    let hidden = false
+    const resizeCallbacks: ResizeObserverCallback[] = []
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallbacks.push(callback)
+      }
+
+      observe() {}
+
+      unobserve() {}
+
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        if (hidden) {
+          return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+        }
+        return { width: 1120, height: 840, top: 0, left: 0, bottom: 840, right: 1120, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    const { container } = renderLibraryPage()
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.launcher-library-virtual-row').length).toBeGreaterThan(0)
+    })
+
+    hidden = true
+    act(() => {
+      for (const callback of resizeCallbacks) {
+        callback([], {} as ResizeObserver)
+      }
+    })
+
+    expect(container.querySelectorAll('.launcher-library-virtual-row').length).toBeGreaterThan(0)
+
+    boundsSpy.mockRestore()
+    globalThis.ResizeObserver = OriginalResizeObserver
   })
 
   it('shows the real empty-library message when no installed mods were found', () => {

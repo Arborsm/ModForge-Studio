@@ -51,13 +51,7 @@ export default function InitializationOverlay({
     >
       <div className="initialization-overlay-panel">
         {onClose ? (
-          <button
-            type="button"
-            className="initialization-overlay-close"
-            onClick={onClose}
-            aria-label="Close project overlay"
-            title="Close"
-          >
+          <button type="button" className="initialization-overlay-close" onClick={onClose} aria-label="Close project overlay" title="Close">
             <X className="h-4 w-4" />
           </button>
         ) : null}

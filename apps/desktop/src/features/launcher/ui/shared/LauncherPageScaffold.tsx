@@ -11,15 +11,7 @@ type LauncherPageScaffoldProps = {
   className?: string
 }
 
-export function LauncherPageScaffold({
-  eyebrow,
-  title,
-  subtitle,
-  actions,
-  stats,
-  children,
-  className,
-}: LauncherPageScaffoldProps) {
+export function LauncherPageScaffold({ eyebrow, title, subtitle, actions, stats, children, className }: LauncherPageScaffoldProps) {
   return (
     <section className={cx('launcher-page-scaffold', className)}>
       <header className="launcher-page-shell">

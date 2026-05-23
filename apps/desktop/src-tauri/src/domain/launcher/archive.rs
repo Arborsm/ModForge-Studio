@@ -5,10 +5,11 @@ use super::paths::{launcher_backup_dir, launcher_settings_path, launcher_updates
 use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
-    InspectLauncherArchiveRequest, InspectLauncherArchiveResult, InstallLauncherArchiveRequest,
-    InstallLauncherArchiveInstalledMod, InstallLauncherArchiveResult,
-    LauncherArchiveTreeNode, LauncherInstallBackupSummary, ListLauncherInstallBackupsRequest,
-    RestoreLauncherInstallBackupRequest, RestoreLauncherInstallBackupResult,
+    InspectLauncherArchiveRequest, InspectLauncherArchiveResult,
+    InstallLauncherArchiveInstalledMod, InstallLauncherArchiveRequest,
+    InstallLauncherArchiveResult, LauncherArchiveTreeNode, LauncherInstallBackupSummary,
+    ListLauncherInstallBackupsRequest, RestoreLauncherInstallBackupRequest,
+    RestoreLauncherInstallBackupResult,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
@@ -19,8 +20,8 @@ use std::env;
 use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
-use tar::Archive as TarArchive;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tar::Archive as TarArchive;
 use unrar::Archive as RarArchive;
 use zip::ZipArchive;
 
@@ -502,7 +503,11 @@ fn expand_tar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
             normalize_path(archive_path)
         )
     })?;
-    extract_tar_entries(TarArchive::new(archive_file), archive_path, destination_path)
+    extract_tar_entries(
+        TarArchive::new(archive_file),
+        archive_path,
+        destination_path,
+    )
 }
 
 fn expand_tar_gz_archive_to_path(
@@ -809,7 +814,9 @@ pub fn restore_launcher_install_backup(
             let cache_path = launcher_updates_cache_path()?;
             let mut invalidated = BTreeSet::new();
             for restored_path in &result.restored_paths {
-                if let Some(mods_path) = clean_input_path(restored_path).parent().map(normalize_path) {
+                if let Some(mods_path) =
+                    clean_input_path(restored_path).parent().map(normalize_path)
+                {
                     if invalidated.insert(mods_path.clone()) {
                         invalidate_launcher_updates_cache_at_path(&cache_path, Some(&mods_path))?;
                     }

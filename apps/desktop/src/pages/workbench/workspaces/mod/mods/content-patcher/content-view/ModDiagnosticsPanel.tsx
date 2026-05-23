@@ -1,4 +1,4 @@
-import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '@platform/desktop'
+import type { ModProjectDetail, ModProjectDiagnostic, SaveModProjectResult } from '@entities/mod/api'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import type { WorkspacePluginDefinition } from '../content-model/types'
 
@@ -27,14 +27,7 @@ function toneClass(severity: ModProjectDiagnostic['severity']) {
   return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
 }
 
-const manifestOverviewFields = new Set([
-  'Name',
-  'Author',
-  'Version',
-  'UniqueID',
-  'Description',
-  'ContentPackFor',
-])
+const manifestOverviewFields = new Set(['Name', 'Author', 'Version', 'UniqueID', 'Description', 'ContentPackFor'])
 
 function isSelectableDiagnosticField(field?: string | null) {
   if (!field) {
@@ -75,23 +68,23 @@ export function ModDiagnosticsPanel({
   return (
     <div className="flex h-full flex-col gap-4 rounded-3xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-4">
       <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{copy.diagnosticsTitle}</p>
+        <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{copy.diagnosticsTitle}</p>
         <h3 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Status Summary</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.projectFacts}</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{copy.projectFacts}</p>
             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{hasUnsavedChanges ? copy.dirtyLabel : copy.cleanLabel}</p>
           </div>
           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.capabilities}</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{copy.capabilities}</p>
             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{pluginDefinition?.capabilities.length ?? 0}</p>
           </div>
           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.includesLabel}</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{copy.includesLabel}</p>
             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{contentSummary.includeCount}</p>
           </div>
           <div className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] px-3 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.dynamicTokensLabel}</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{copy.dynamicTokensLabel}</p>
             <p className="mt-2 text-sm font-semibold text-[var(--text-primary)]">{contentSummary.dynamicTokenCount}</p>
           </div>
         </div>
@@ -99,11 +92,20 @@ export function ModDiagnosticsPanel({
 
       {activeProject ? (
         <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-4 text-sm text-[var(--text-secondary)]">
-          <p><strong className="text-[var(--text-primary)]">{copy.sourcePath}:</strong> {activeProject.summary.absolutePath}</p>
-          <p className="mt-2"><strong className="text-[var(--text-primary)]">{copy.manifestPathLabel}:</strong> {activeProject.summary.manifestPath}</p>
-          <p className="mt-2"><strong className="text-[var(--text-primary)]">{copy.contentPathLabel}:</strong> {activeProject.summary.contentPath ?? copy.unknownLabel}</p>
+          <p>
+            <strong className="text-[var(--text-primary)]">{copy.sourcePath}:</strong> {activeProject.summary.absolutePath}
+          </p>
+          <p className="mt-2">
+            <strong className="text-[var(--text-primary)]">{copy.manifestPathLabel}:</strong> {activeProject.summary.manifestPath}
+          </p>
+          <p className="mt-2">
+            <strong className="text-[var(--text-primary)]">{copy.contentPathLabel}:</strong>{' '}
+            {activeProject.summary.contentPath ?? copy.unknownLabel}
+          </p>
           {lastSaveResult ? (
-            <p className="mt-2"><strong className="text-[var(--text-primary)]">{copy.outputPath}:</strong> {lastSaveResult.targetPath}</p>
+            <p className="mt-2">
+              <strong className="text-[var(--text-primary)]">{copy.outputPath}:</strong> {lastSaveResult.targetPath}
+            </p>
           ) : null}
           {statusMessage ? <p className="mt-3 text-[var(--text-primary)]">{statusMessage}</p> : null}
         </section>
@@ -112,15 +114,17 @@ export function ModDiagnosticsPanel({
       <section className="flex-1 rounded-2xl border border-[var(--border-color)] bg-[var(--bg-app)] p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{copy.diagnosticsListTitle}</p>
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{copy.diagnosticsListTitle}</p>
             <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{copy.diagnosticsSubtitle}</p>
           </div>
-          <span className="dock-chip">{contentSummary.configKeys.length} {copy.configKeysLabel}</span>
+          <span className="dock-chip">
+            {contentSummary.configKeys.length} {copy.configKeysLabel}
+          </span>
         </div>
 
         <div className="mt-4 space-y-3">
           {diagnostics.length ? (
-            diagnostics.map((diagnostic, index) => (
+            diagnostics.map((diagnostic, index) =>
               (() => {
                 const isSelectable = Boolean(onSelectDiagnostic && isSelectableDiagnosticField(diagnostic.field))
                 const className = `w-full rounded-2xl border border-[var(--border-color)] bg-[var(--bg-elevated)] p-3 text-left${isSelectable ? ' hover:border-[color-mix(in_srgb,var(--accent)_24%,transparent)] hover:bg-[color-mix(in_srgb,var(--accent)_8%,var(--bg-elevated))]' : ''}`
@@ -130,7 +134,9 @@ export function ModDiagnosticsPanel({
                       <p className="text-sm font-medium text-[var(--text-primary)]">{diagnostic.message}</p>
                       {diagnostic.field ? <p className="mt-1 text-xs text-[var(--text-secondary)]">{diagnostic.field}</p> : null}
                     </div>
-                    <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${toneClass(diagnostic.severity)}`}>
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold tracking-[0.12em] uppercase ${toneClass(diagnostic.severity)}`}
+                    >
                       {diagnostic.severity}
                     </span>
                   </div>
@@ -150,8 +156,8 @@ export function ModDiagnosticsPanel({
                     {content}
                   </div>
                 )
-              })()
-            ))
+              })(),
+            )
           ) : (
             <div className="flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-[var(--border-color)] bg-[var(--bg-elevated)] px-4 text-center text-sm text-[var(--text-secondary)]">
               {copy.noDiagnosticsLabel}

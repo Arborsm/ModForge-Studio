@@ -188,12 +188,8 @@ describe('NotificationProvider', () => {
     expect(screen.getByText('4 routes did not pass verification.')).toBeTruthy()
     expect(screen.getByText('You can retry now, or open diagnostics to inspect the exact failures.')).toBeTruthy()
 
-    expect(screen.getByText('GraphQL').closest('.notification-toast-chip')?.className).toContain(
-      'notification-toast-chip-warning',
-    )
-    expect(screen.getByText('SMAPI').closest('.notification-toast-chip')?.className).toContain(
-      'notification-toast-chip-warning',
-    )
+    expect(screen.getByText('GraphQL').closest('.notification-toast-chip')?.className).toContain('notification-toast-chip-warning')
+    expect(screen.getByText('SMAPI').closest('.notification-toast-chip')?.className).toContain('notification-toast-chip-warning')
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry now' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
@@ -229,6 +225,29 @@ describe('NotificationProvider', () => {
     expect(screen.queryByText('Export failed')).toBeNull()
   })
 
+  it('can keep a persistent notification open after running an action', () => {
+    const onOpen = vi.fn()
+    renderNotifications()
+
+    act(() => {
+      publishNotification({
+        level: 'warning',
+        title: 'Nexus verification required',
+        action: {
+          label: 'Open Verification Window',
+          callback: onOpen,
+          closeOnClick: false,
+        },
+        autoDismissMs: null,
+      })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Verification Window' }))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+
+    expect(screen.getByText('Nexus verification required')).toBeTruthy()
+  })
+
   it('stacks newer notifications above older ones with queue offsets', () => {
     renderNotifications()
 
@@ -260,12 +279,10 @@ describe('NotificationProvider', () => {
   })
 
   it('expands the stacked column upward while hovered and only collapses after a short leave delay', () => {
-    const requestAnimationFrameSpy = vi
-      .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation((callback: FrameRequestCallback) => {
-        callback(16)
-        return 1
-      })
+    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      callback(16)
+      return 1
+    })
 
     renderNotifications()
 
@@ -453,6 +470,65 @@ describe('NotificationProvider', () => {
     expect(first?.getAttribute('style')).toContain('bottom: 272px')
   })
 
+  it('matches the hover region width to the rendered notification stack width', () => {
+    renderNotifications()
+
+    act(() => {
+      publishNotification({
+        level: 'info',
+        title: 'Narrow notification',
+      })
+      publishNotification({
+        level: 'warning',
+        title: 'Wide notification',
+      })
+    })
+
+    const viewport = screen.getByRole('region', { name: 'Notifications' })
+    const hoverRegion = viewport.querySelector('.notification-hover-region') as HTMLElement
+    const narrowToast = screen.getByText('Narrow notification').closest('.notification-toast') as HTMLElement
+    const wideToast = screen.getByText('Wide notification').closest('.notification-toast') as HTMLElement
+
+    Object.defineProperty(narrowToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 320,
+        height: 72,
+        top: 0,
+        right: 0,
+        bottom: 72,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+    Object.defineProperty(wideToast, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        width: 460,
+        height: 84,
+        top: 0,
+        right: 0,
+        bottom: 84,
+        left: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    })
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'))
+    })
+
+    expect(hoverRegion.getAttribute('style')).toContain('width: 460px')
+
+    fireEvent.mouseEnter(viewport)
+
+    expect(hoverRegion.getAttribute('style')).toContain('width: 460px')
+  })
+
   it('applies collapsed shared width immediately from synchronous measurements', () => {
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this instanceof HTMLElement && this.classList.contains('notification-toast')) {
@@ -616,5 +692,4 @@ describe('NotificationProvider', () => {
     expect(second?.getAttribute('style')).toContain('bottom: 60px')
     expect(first?.getAttribute('style')).toContain('bottom: 164px')
   })
-
 })

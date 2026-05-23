@@ -78,7 +78,9 @@ fn parse_area_value(
                 .map(|entry| {
                     if let Value::String(text) = entry {
                         if contains_unresolved_token(text) {
-                            return Err("Image area array contains an unresolved token.".to_string());
+                            return Err(
+                                "Image area array contains an unresolved token.".to_string()
+                            );
                         }
                     }
                     coerce_u32(entry).ok_or_else(|| {
@@ -193,7 +195,6 @@ pub fn apply_edit_image_patch(
         to_y
     ))
 }
-
 
 #[cfg(test)]
 #[path = "tests/edit_image_tests.rs"]

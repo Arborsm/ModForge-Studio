@@ -1,9 +1,4 @@
-import type {
-  LoadingMotionIntensityId,
-  LoadingMotionSpeedId,
-  LoadingMotionSpeedMode,
-  LoadingMotionStyleId,
-} from './loadingMotion'
+import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeedMode, LoadingMotionStyleId } from './loadingMotion'
 
 export type AppUiShellState = {
   appMode: string
@@ -48,6 +43,7 @@ export type AppUiLauncherState = {
     filtersHidden: boolean
   }
   forceOffline: boolean
+  forceNonPremium: boolean
 }
 
 export type AppUiState = {

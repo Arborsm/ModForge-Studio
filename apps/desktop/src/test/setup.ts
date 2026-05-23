@@ -14,3 +14,11 @@ if (typeof HTMLMediaElement !== 'undefined') {
     value: vi.fn(async () => undefined),
   })
 }
+
+if (typeof ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}

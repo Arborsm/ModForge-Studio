@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X, FolderOpen } from 'lucide-react'
-import { useCpMakerPort } from '@features/cp-maker'
+import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { EditorCopy } from '@locales'
 
 interface ExportDialogProps {
@@ -73,20 +73,14 @@ export function ExportDialog({ open, copy, draftName, fileList, onClose, onExpor
                 value={outputPath}
                 onChange={(e) => setOutputPath(e.target.value)}
               />
-              <button
-                type="button"
-                className="control-button shrink-0 text-xs"
-                onClick={handleSelectDirectory}
-              >
+              <button type="button" className="control-button shrink-0 text-xs" onClick={handleSelectDirectory}>
                 <FolderOpen className="mr-1 inline h-3.5 w-3.5" />
                 {copy.browse}
               </button>
             </div>
           </div>
 
-          {error ? (
-            <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</div>
-          ) : null}
+          {error ? <div className="rounded-md bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</div> : null}
 
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-3 py-2">
             <div className="text-[10px] text-[var(--text-secondary)]">{copy.filesToExport(fileList.length)}</div>

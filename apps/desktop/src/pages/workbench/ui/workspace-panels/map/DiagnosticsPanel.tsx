@@ -3,12 +3,7 @@ import { useEditorCopy } from '@locales/localeContext'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import type { DiagnosticsPanelProps } from '../common/rightShared'
 
-export function DiagnosticsPanel({
-  directoryInfo,
-  visibleLayerIds,
-  visibleObjectGroupIds,
-  workspaceStatus,
-}: DiagnosticsPanelProps) {
+export function DiagnosticsPanel({ directoryInfo, visibleLayerIds, visibleObjectGroupIds, workspaceStatus }: DiagnosticsPanelProps) {
   const copy = useEditorCopy()
 
   return (

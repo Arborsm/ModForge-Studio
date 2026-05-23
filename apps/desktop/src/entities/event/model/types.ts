@@ -1,13 +1,6 @@
 import type { EventAssetSummary } from '@shared/contracts'
 
-export type EventCommandKind =
-  | 'dialogue'
-  | 'message'
-  | 'choice'
-  | 'branch'
-  | 'timing'
-  | 'flow'
-  | 'action'
+export type EventCommandKind = 'dialogue' | 'message' | 'choice' | 'branch' | 'timing' | 'flow' | 'action'
 
 export type EventBranchChoice = {
   id: string

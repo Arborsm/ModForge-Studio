@@ -83,12 +83,7 @@ export function clampPanZoomZoom(value: number) {
   return Math.min(PAN_ZOOM_MAX_ZOOM, Math.max(PAN_ZOOM_MIN_ZOOM, value))
 }
 
-export function usePanZoomViewport({
-  contentHeight,
-  contentWidth,
-  fitPadding = 56,
-  onZoomChange,
-}: UsePanZoomViewportOptions) {
+export function usePanZoomViewport({ contentHeight, contentWidth, fitPadding = 56, onZoomChange }: UsePanZoomViewportOptions) {
   const dragStateRef = useRef<DragState | null>(null)
   const measuredViewportRef = useRef<HTMLElement | null>(null)
   const offsetRef = useRef<PanZoomViewportPoint>({ x: 0, y: 0 })

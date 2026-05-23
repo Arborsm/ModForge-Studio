@@ -1,13 +1,13 @@
-import {useCallback, useDeferredValue, useEffect, useMemo, useState} from 'react'
-import {type GameDirectoryInfo, loadTextAsset} from '@platform/desktop'
-import type {ItemsPanelCopy, LocaleCode} from '@locales'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { type GameDirectoryInfo, loadTextAsset } from '@entities/game/api'
+import type { ItemsPanelCopy, LocaleCode } from '@locales'
 import {
   getLocalizedImagePathCandidates,
   getLocalizedPathCacheKey,
   loadImageResourceFromPath,
   normalizeCachePathSegment,
 } from '@shared/lib/assets'
-import {CHARACTER_DATA_ASSET_PATH, CHARACTER_GIFT_TASTES_ASSET_PATH, buildGameContentPath} from '@shared/lib/assets'
+import { CHARACTER_DATA_ASSET_PATH, CHARACTER_GIFT_TASTES_ASSET_PATH, buildGameContentPath } from '@shared/lib/assets'
 import {
   buildNpcGiftTasteBuckets,
   buildUniversalGiftTasteBuckets,
@@ -57,10 +57,17 @@ import {
   TRINKET_DATA_ASSET_PATH,
   WEAPON_DATA_ASSET_PATH,
 } from '../entities/item'
-import { type BrowserSourceMode, buildModBrowserGroups, buildModEntryLookup, findModBrowserEntry, findModSources, type ModBrowserEntry } from '@pages/workbench/workspaces/mod'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+} from '@pages/workbench/workspaces/mod'
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
-import {loadModResultImageState} from '@pages/workbench/workspaces/mod'
-import {scheduleDeferred} from '@shared/lib/react'
+import { loadModResultImageState } from '@pages/workbench/workspaces/mod'
+import { scheduleDeferred } from '@shared/lib/react'
 
 type UseItemWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -169,13 +176,18 @@ async function loadStringTable(rootPath: string, assetPath: string, locale: Loca
         Object.entries(parsed).flatMap(([key, value]) => (typeof value === 'string' ? ([[key, value]] as const) : [])),
       )
     })
-    .catch(() => ({} as Record<string, string>))
+    .catch(() => ({}) as Record<string, string>)
 
   stringTableCache.set(cacheKey, pending)
   return pending
 }
 
-async function resolveLocalizedText(rootPath: string, locale: LocaleCode, value: string | null | undefined, depth = 0): Promise<string | null> {
+async function resolveLocalizedText(
+  rootPath: string,
+  locale: LocaleCode,
+  value: string | null | undefined,
+  depth = 0,
+): Promise<string | null> {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) {
     return null
@@ -209,7 +221,12 @@ async function localizeItemEntries(entries: ItemWorkspaceEntry[], rootPath: stri
         ...entry,
         displayName,
         description,
-        searchText: [entry.searchText, displayName, description, buildItemSearchAliases(displayName, description, entry.internalName, entry.qualifiedItemId)]
+        searchText: [
+          entry.searchText,
+          displayName,
+          description,
+          buildItemSearchAliases(displayName, description, entry.internalName, entry.qualifiedItemId),
+        ]
           .filter(Boolean)
           .join(' ')
           .toLowerCase(),
@@ -221,8 +238,28 @@ async function localizeItemEntries(entries: ItemWorkspaceEntry[], rootPath: stri
   return localized.sort((left, right) => compareLocalizedItemEntries(left, right, collator))
 }
 
-const ITEM_SORT_CATEGORY_ORDER: ItemBrowseCategory[] = ['crop', 'fish', 'cooking', 'mineral', 'equipment', 'apparel', 'furniture', 'crafting']
-const ITEM_SORT_KIND_ORDER: ItemKind[] = ['object', 'tool', 'weapon', 'boots', 'trinket', 'shirt', 'pants', 'hat', 'big-craftable', 'furniture']
+const ITEM_SORT_CATEGORY_ORDER: ItemBrowseCategory[] = [
+  'crop',
+  'fish',
+  'cooking',
+  'mineral',
+  'equipment',
+  'apparel',
+  'furniture',
+  'crafting',
+]
+const ITEM_SORT_KIND_ORDER: ItemKind[] = [
+  'object',
+  'tool',
+  'weapon',
+  'boots',
+  'trinket',
+  'shirt',
+  'pants',
+  'hat',
+  'big-craftable',
+  'furniture',
+]
 
 function buildItemCollator(locale: LocaleCode) {
   return new Intl.Collator(locale, {
@@ -596,10 +633,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const rootPath = directoryInfo?.rootPath ?? null
 
   const deferredFilter = useDeferredValue(itemFilter.trim().toLowerCase())
-  const filteredItems = useMemo(
-    () => items.filter((item) => itemMatchesFilter(item, deferredFilter)),
-    [deferredFilter, items],
-  )
+  const filteredItems = useMemo(() => items.filter((item) => itemMatchesFilter(item, deferredFilter)), [deferredFilter, items])
   const itemLookupByKey = useMemo(() => buildModEntryLookup(items, (item) => item.key), [items])
   const modItemGroups = useMemo(
     () =>
@@ -657,7 +691,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
 
         setItems(giftHydratedEntries)
         setActiveItemId((current) =>
-          current && giftHydratedEntries.some((entry) => entry.key === current) ? current : giftHydratedEntries[0]?.key ?? null,
+          current && giftHydratedEntries.some((entry) => entry.key === current) ? current : (giftHydratedEntries[0]?.key ?? null),
         )
         setItemStatusMessage(
           giftHydratedEntries.length
@@ -686,13 +720,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
         return
       }
 
-      const normalizedAssetNames = Array.from(
-        new Set(
-          assetNames
-            .map((assetName) => assetName.trim())
-            .filter(Boolean),
-        ),
-      )
+      const normalizedAssetNames = Array.from(new Set(assetNames.map((assetName) => assetName.trim()).filter(Boolean)))
       const pendingAssetNames = normalizedAssetNames.filter((assetName) => !(assetName in textureStatesByAssetName))
       if (pendingAssetNames.length === 0) {
         return
@@ -776,9 +804,7 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
 
     const nextEntry =
       activeModItemEntry ??
-      modItemGroups
-        .flatMap((group) => group.items)
-        .find((item) => item.value.key === activeItemId) ??
+      modItemGroups.flatMap((group) => group.items).find((item) => item.value.key === activeItemId) ??
       modItemGroups[0]?.items[0] ??
       null
 
@@ -831,4 +857,3 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
     handleSelectModItem,
   }
 }
-

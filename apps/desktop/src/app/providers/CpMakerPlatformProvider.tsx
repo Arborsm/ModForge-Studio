@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo } from 'react'
 import { createCpMakerPortAdapter } from './cpMakerPortAdapter'
-import { CpMakerProvider } from '@features/cp-maker'
+import { CpMakerProvider } from '@features/cp-maker/provider'
 import { usePlatformPorts } from './usePlatformPorts'
 
 export type CpMakerPlatformProviderProps = {

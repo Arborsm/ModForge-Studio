@@ -1,8 +1,8 @@
 import type { LauncherSettings } from './launcherContracts'
 import type { LocaleCode } from '@locales/editor-shell'
-import { useLauncherDownloads } from '@features/launcher'
+import { useLauncherDownloads } from './useLauncherDownloads'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
-import { useLauncherSettings } from '@features/launcher'
+import { useLauncherSettings } from './useLauncherSettings'
 
 export type LauncherWarningState = {
   missingGamePath: boolean
@@ -12,7 +12,7 @@ export type LauncherWarningState = {
 }
 
 export function hasLauncherCredentials(settings: LauncherSettings) {
-  return Boolean(settings.nexusApiKey?.trim() || settings.nexusCookie?.trim())
+  return Boolean(settings.nexusApiKey?.trim())
 }
 
 export function getLauncherWarningState(settings: LauncherSettings): LauncherWarningState {

@@ -116,4 +116,3 @@ pub(crate) fn unique_path(path: &Path) -> PathBuf {
 
     path.to_path_buf()
 }
-

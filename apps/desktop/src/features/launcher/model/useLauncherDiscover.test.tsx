@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { useLauncherDiscover } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
@@ -16,14 +16,14 @@ function createLauncherDiagnosticsResult(
   > = {
     publicGraphql: {
       label: 'Nexus Public GraphQL',
-      endpoint: 'https://api-router.nexusmods.com/graphql',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
     },
     privateGraphql: {
       label: 'Nexus Private GraphQL',
-      endpoint: 'https://graphql.nexusmods.com/',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
@@ -206,7 +206,7 @@ describe('useLauncherDiscover', () => {
           tags: [],
         },
         results: [],
-    })
+      })
 
     const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
     await act(async () => {

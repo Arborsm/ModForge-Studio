@@ -73,8 +73,7 @@ function rebuildScriptRaw(script: EventScript): EventScript {
 export const useEditorStore = create<EditorState>((set) => ({
   // 事件选择
   selectedEventKey: null,
-  setSelectedEventKey: (key) =>
-    set({ selectedEventKey: key, selectedCommandIndex: null }),
+  setSelectedEventKey: (key) => set({ selectedEventKey: key, selectedCommandIndex: null }),
 
   // 命令选择
   selectedCommandIndex: null,
@@ -87,15 +86,13 @@ export const useEditorStore = create<EditorState>((set) => ({
   // Pick Mode
   pickModeTarget: null,
   isPickMode: false,
-  setPickModeTarget: (target) =>
-    set({ pickModeTarget: target, isPickMode: target != null }),
+  setPickModeTarget: (target) => set({ pickModeTarget: target, isPickMode: target != null }),
 
   // 命令面板
   commandPaletteOpen: false,
   setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
   commandPaletteInsertIndex: null,
-  setCommandPaletteInsertIndex: (index) =>
-    set({ commandPaletteInsertIndex: index }),
+  setCommandPaletteInsertIndex: (index) => set({ commandPaletteInsertIndex: index }),
 
   // 视图偏好
   cardView: 'comfortable',
@@ -142,9 +139,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((state) => {
       if (!state.currentScript) return state
       const parsed = parseRawArgs(raw)
-      const cmds = state.currentScript.commands.map((c, i) =>
-        i === index ? { ...c, raw, command: parsed[0] ?? '', args: parsed } : c,
-      )
+      const cmds = state.currentScript.commands.map((c, i) => (i === index ? { ...c, raw, command: parsed[0] ?? '', args: parsed } : c))
       const nextScript = rebuildScriptRaw({
         ...state.currentScript,
         commands: cmds,

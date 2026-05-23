@@ -92,8 +92,11 @@
     gap: 8px 10px;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
     border-radius: 16px;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 96%, transparent), color-mix(in srgb, var(--bg-panel) 90%, transparent));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-elevated) 96%, transparent),
+      color-mix(in srgb, var(--bg-panel) 90%, transparent)
+    );
     box-shadow: var(--shadow-float);
     backdrop-filter: blur(12px);
     padding: 10px 12px;

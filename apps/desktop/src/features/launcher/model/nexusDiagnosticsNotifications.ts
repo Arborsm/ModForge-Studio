@@ -1,11 +1,6 @@
-import {
-  dismissNotification,
-  publishNotification,
-  type NotificationChip,
-  type PublishNotificationRequest,
-} from '@shared/ui/notifications'
+import { dismissNotification, publishNotification, type NotificationChip, type PublishNotificationRequest } from '@shared/ui/notifications'
 import type { LauncherCopy } from '@locales/editor-shell'
-import type { LauncherNexusDiagnosticsResult } from '@features/launcher'
+import type { LauncherNexusDiagnosticsResult } from './launcherContracts'
 import {
   canAutoCheckLauncherUpdates,
   canAutoLoadLauncherDiscover,
@@ -28,8 +23,6 @@ function getLauncherDiagnosticsChipLabel(routeId: string, fallbackLabel: string)
       return 'GraphQL'
     case 'privateGraphql':
       return 'Private GraphQL'
-    case 'publicHtml':
-      return 'HTML'
     case 'nexusImages':
       return 'Image CDN'
     case 'nexusApi':
@@ -38,14 +31,16 @@ function getLauncherDiagnosticsChipLabel(routeId: string, fallbackLabel: string)
       return 'SMAPI'
     default:
       return fallbackLabel
-    }
+  }
 }
 
 function buildLauncherDiagnosticsNotificationChips(diagnostics: LauncherNexusDiagnosticsResult) {
-  return getLauncherNexusWarningRoutes(diagnostics).slice(0, 4).map<NotificationChip>((route) => ({
-    label: getLauncherDiagnosticsChipLabel(route.routeId, route.label),
-    tone: 'warning',
-  }))
+  return getLauncherNexusWarningRoutes(diagnostics)
+    .slice(0, 4)
+    .map<NotificationChip>((route) => ({
+      label: getLauncherDiagnosticsChipLabel(route.routeId, route.label),
+      tone: 'warning',
+    }))
 }
 
 export function buildLauncherDiagnosticsNotificationContent(
@@ -60,24 +55,24 @@ export function buildLauncherDiagnosticsNotificationContent(
 
   const impactedTargets: string[] = []
   if (!canAutoLoadLauncherDiscover(diagnostics, { sort: 'trending' })) {
-    impactedTargets.push(copy.debug.nexusMessagePreviewDiscoverTarget)
+    impactedTargets.push(copy.configuration.nexusMessagePreviewDiscoverTarget)
   }
   if (!canAutoCheckLauncherUpdates(diagnostics)) {
-    impactedTargets.push(copy.debug.nexusMessagePreviewUpdatesTarget)
+    impactedTargets.push(copy.configuration.nexusMessagePreviewUpdatesTarget)
   }
 
   const hasPausedTargets = impactedTargets.length > 0
   const impactSummary = hasPausedTargets
-    ? copy.debug.nexusDiagnosticsNotificationImpact(impactedTargets.join(' / '))
-    : copy.debug.nexusDiagnosticsNotificationLimitedImpact
+    ? copy.configuration.nexusDiagnosticsNotificationImpact(impactedTargets.join(' / '))
+    : copy.configuration.nexusDiagnosticsNotificationLimitedImpact
 
   return {
     level: hasPausedTargets ? 'error' : 'warning',
     variant: 'diagnostic' as const,
-    title: copy.debug.nexusDiagnosticsNotificationTitle,
+    title: copy.configuration.nexusDiagnosticsNotificationTitle,
     summary: impactSummary,
-    description: copy.debug.nexusDiagnosticsNotificationBody(warningRoutes.length),
-    note: copy.debug.nexusDiagnosticsNotificationNote,
+    description: copy.configuration.nexusDiagnosticsNotificationBody(warningRoutes.length),
+    note: copy.configuration.nexusDiagnosticsNotificationNote,
     chips: buildLauncherDiagnosticsNotificationChips(diagnostics),
     secondaryAction: actions.onRetry
       ? {

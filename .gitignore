@@ -17,7 +17,11 @@ services/**/obj/
 .idea/
 .vscode/
 .worktrees/
-.codex/
+.codex/*
+!.codex/skills/
+.codex/skills/*
+!.codex/skills/codegraph/
+!.codex/skills/codegraph/**
 .uv-roaming/
 .tmp-pywinauto-stdout.txt
 .tmp-pywinauto-stderr.txt
@@ -29,3 +33,9 @@ services/**/obj/
 .superpowers
 .claude
 .planning
+.zed/
+
+.codegraph/*
+!.codegraph/
+!.codegraph/.gitignore
+!.codegraph/config.json

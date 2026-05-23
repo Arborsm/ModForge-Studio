@@ -22,10 +22,7 @@ function wrapHue(value: number) {
 }
 
 export function getLauncherCardMonogram(title: string) {
-  const words = title
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
+  const words = title.trim().split(/\s+/).filter(Boolean)
 
   if (!words.length) {
     return 'MOD'

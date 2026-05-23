@@ -31,7 +31,12 @@ export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspec
             <PanelSection variant="accent">
               <div className="flex items-center gap-3">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-[var(--border-color)] bg-[var(--bg-panel)]">
-                  <ItemSprite item={item} textureState={textureState} scale={getContainedItemSpriteScale(item, 48, 1.8)} className="h-12 w-12 rounded-2xl" />
+                  <ItemSprite
+                    item={item}
+                    textureState={textureState}
+                    scale={getContainedItemSpriteScale(item, 48, 1.8)}
+                    className="h-12 w-12 rounded-2xl"
+                  />
                 </div>
                 <div className="min-w-0">
                   <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
@@ -42,23 +47,23 @@ export function ItemInspectorPanel({ noneLabel, item, textureState }: ItemInspec
             </PanelSection>
 
             <PanelSection title={copy.basicsTitle} bodyClassName="space-y-2">
-                {renderKv(copy.displayNameLabel, item.displayName)}
-                {renderKv(copy.internalNameLabel, item.internalName)}
-                {renderKv(copy.qualifiedIdLabel, item.qualifiedItemId)}
-                {renderKv(copy.kindLabel, copy.kindLabels[item.kind])}
-                {renderKv(copy.typeLabel, item.kindMetaLabel ?? noneLabel)}
-                {renderKv(copy.priceLabel, String(item.price ?? item.salePrice ?? 0))}
-                {renderKv(copy.edibilityLabel, item.edibility != null ? String(item.edibility) : noneLabel)}
+              {renderKv(copy.displayNameLabel, item.displayName)}
+              {renderKv(copy.internalNameLabel, item.internalName)}
+              {renderKv(copy.qualifiedIdLabel, item.qualifiedItemId)}
+              {renderKv(copy.kindLabel, copy.kindLabels[item.kind])}
+              {renderKv(copy.typeLabel, item.kindMetaLabel ?? noneLabel)}
+              {renderKv(copy.priceLabel, String(item.price ?? item.salePrice ?? 0))}
+              {renderKv(copy.edibilityLabel, item.edibility != null ? String(item.edibility) : noneLabel)}
             </PanelSection>
 
             <PanelSection title={copy.assetTitle} bodyClassName="space-y-2">
-                {renderKv(copy.textureLabel, item.texturePathLabel)}
-                {renderKv(copy.spriteIndexLabel, item.menuSpriteIndex != null ? String(item.menuSpriteIndex) : noneLabel)}
-                {renderKv('Sprite', `${item.spriteWidth}x${item.spriteHeight}`)}
-                {renderKv(
-                  copy.textureSizeLabel,
-                  textureState?.width && textureState.height ? `${textureState.width}x${textureState.height}` : noneLabel,
-                )}
+              {renderKv(copy.textureLabel, item.texturePathLabel)}
+              {renderKv(copy.spriteIndexLabel, item.menuSpriteIndex != null ? String(item.menuSpriteIndex) : noneLabel)}
+              {renderKv('Sprite', `${item.spriteWidth}x${item.spriteHeight}`)}
+              {renderKv(
+                copy.textureSizeLabel,
+                textureState?.width && textureState.height ? `${textureState.width}x${textureState.height}` : noneLabel,
+              )}
             </PanelSection>
           </>
         )}

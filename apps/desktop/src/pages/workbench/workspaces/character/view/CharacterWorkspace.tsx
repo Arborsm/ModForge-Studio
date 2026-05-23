@@ -1,9 +1,6 @@
 import type { CSSProperties } from 'react'
 import { memo, useEffect, useState } from 'react'
-import {
-  buildActorBreathingLayerDescriptor,
-  getActorSpriteFrameHeight,
-} from '@entities/event'
+import { buildActorBreathingLayerDescriptor, getActorSpriteFrameHeight } from '@entities/event'
 import { getActorWalkAnimationState, getSpringObjectsSourceRect, type EventActorState } from '@entities/event'
 import {
   type CharacterAppearanceVariant,
@@ -16,10 +13,7 @@ import {
 import type { CharactersPanelCopy } from '@locales/editor-shell'
 import { useCharactersCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
-import {
-  getScaleUpFrameCount,
-  getScaleUpFramePreviewMetrics,
-} from '@pages/workbench/workspaces/mod'
+import { getScaleUpFrameCount, getScaleUpFramePreviewMetrics } from '@pages/workbench/workspaces/mod'
 import { ItemGroupPopover } from '@shared/ui/ItemGroupPopover'
 
 type CharacterWorkspaceProps = {
@@ -86,7 +80,8 @@ const GIFT_GROUP_KIND_STYLES: Record<
     cardClassName: 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_94%,transparent)]',
   },
   category: {
-    cardClassName: 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_84%,var(--bg-panel))]',
+    cardClassName:
+      'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] bg-[color-mix(in_srgb,var(--accent-soft)_84%,var(--bg-panel))]',
   },
   tag: {
     cardClassName: 'border-[color-mix(in_srgb,var(--warning)_28%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--bg-panel))]',
@@ -523,15 +518,11 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
   })()
 
   if (!spriteUrl || !spriteSheetWidth || !spriteSheetHeight) {
-    return (
-      <div className="panel-canvas-empty min-h-[360px] h-full">
-        {copy.spriteMissing}
-      </div>
-    )
+    return <div className="panel-canvas-empty h-full min-h-[360px]">{copy.spriteMissing}</div>
   }
 
   return (
-    <div className="panel-canvas relative flex min-h-[360px] h-full items-center justify-center">
+    <div className="panel-canvas relative flex h-full min-h-[360px] items-center justify-center">
       <div
         className="absolute inset-0 opacity-40"
         style={{
@@ -549,7 +540,7 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
         }}
       >
         <div
-          className="absolute left-1/2 top-1/2"
+          className="absolute top-1/2 left-1/2"
           style={{
             width: `${frameWidth}px`,
             height: `${frameHeight}px`,
@@ -560,7 +551,7 @@ const BreathingPreviewCanvas = memo(function BreathingPreviewCanvas({
           }}
         >
           <div
-            className="absolute left-0 top-0"
+            className="absolute top-0 left-0"
             style={buildAbsoluteSpriteLayerStyle({
               url: spriteUrl,
               sheetWidth: spriteSheetWidth,
@@ -616,9 +607,7 @@ function GiftTasteSection({
   const toneStyle = GIFT_TONE_STYLES[tone]
 
   return (
-    <div
-      className={`relative w-full max-w-full rounded-[26px] p-3 ${toneStyle.sectionClassName}`}
-    >
+    <div className={`relative w-full max-w-full rounded-[26px] p-3 ${toneStyle.sectionClassName}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className={cx('h-2.5 w-2.5 shrink-0 rounded-full', toneStyle.dotClassName)} />
@@ -673,9 +662,7 @@ function GiftTasteSection({
           </div>
         </>
       ) : (
-        <div className="panel-empty-state mt-3 text-xs leading-5">
-          {copy.giftTastesEmpty}
-        </div>
+        <div className="panel-empty-state mt-3 text-xs leading-5">{copy.giftTastesEmpty}</div>
       )}
     </div>
   )
@@ -714,9 +701,7 @@ function formatGiftTagLabel(copy: CharactersPanelCopy, rawLabel: string) {
 }
 
 function GiftItemName({ label }: { label: string }) {
-  return (
-    <p className="line-clamp-2 w-full text-center text-[12px] leading-4 text-[var(--text-primary)]">{label}</p>
-  )
+  return <p className="line-clamp-2 w-full text-center text-[12px] leading-4 text-[var(--text-primary)]">{label}</p>
 }
 
 function GiftItemTile({
@@ -772,7 +757,7 @@ function GiftItemTile({
         absolute
           ? 'pointer-events-none absolute h-[58px] w-[58px]'
           : 'rounded-2xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)] px-2 py-2.5 shadow-[0_6px_16px_rgba(15,23,42,0.06)]',
-        absolute ? '' : fluid ? 'min-w-0 w-full' : 'w-[88px]',
+        absolute ? '' : fluid ? 'w-full min-w-0' : 'w-[88px]',
       )}
       title={item.displayName}
       style={{
@@ -810,7 +795,7 @@ function GiftItemTile({
           ) : null}
           {sourceRect ? (
             <div
-              className="absolute left-1/2 top-1/2"
+              className="absolute top-1/2 left-1/2"
               style={{
                 ...buildAbsoluteSpriteLayerStyle({
                   url: springObjectsUrl,
@@ -826,7 +811,7 @@ function GiftItemTile({
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-[var(--text-secondary)] uppercase">
               ?
             </div>
           )}
@@ -861,7 +846,7 @@ function GiftGroupCard({
         'relative w-[96px] rounded-2xl border px-2 py-2.5 text-left transition-all duration-200',
         kindStyle.cardClassName,
         isActive &&
-          'scale-[1.035] border-[color-mix(in_srgb,var(--accent)_42%,transparent)] ring-2 ring-[color-mix(in_srgb,var(--accent)_24%,transparent)] shadow-[0_12px_30px_color-mix(in_srgb,var(--accent)_18%,transparent)]',
+          'scale-[1.035] border-[color-mix(in_srgb,var(--accent)_42%,transparent)] shadow-[0_12px_30px_color-mix(in_srgb,var(--accent)_18%,transparent)] ring-2 ring-[color-mix(in_srgb,var(--accent)_24%,transparent)]',
       )}
       title={`${getGiftGroupKindLabel(copy, group.kind)} / ${getGiftGroupDisplayLabel(copy, group)}`}
     >
@@ -871,8 +856,7 @@ function GiftGroupCard({
           isActive && 'opacity-100',
         )}
         style={{
-          background:
-            'radial-gradient(circle at center, color-mix(in_srgb,var(--accent)_18%,transparent), transparent 62%)',
+          background: 'radial-gradient(circle at center, color-mix(in_srgb,var(--accent)_18%,transparent), transparent 62%)',
         }}
       />
       <div className="flex flex-col items-center gap-2">
@@ -885,7 +869,7 @@ function GiftGroupCard({
         >
           {previewRect ? (
             <div
-              className="absolute left-1/2 top-1/2"
+              className="absolute top-1/2 left-1/2"
               style={{
                 ...buildAbsoluteSpriteLayerStyle({
                   url: springObjectsUrl,
@@ -901,15 +885,14 @@ function GiftGroupCard({
               }}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
+            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tracking-[0.08em] text-[var(--text-secondary)] uppercase">
               ?
             </div>
           )}
-
         </div>
 
         <div className="w-full space-y-1 text-center">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+          <p className="truncate text-[10px] font-semibold tracking-[0.12em] text-[var(--text-secondary)] uppercase">
             {getGiftGroupKindLabel(copy, group.kind)}
           </p>
           <p className="line-clamp-2 text-[12px] leading-4 text-[var(--text-primary)]">{getGiftGroupDisplayLabel(copy, group)}</p>
@@ -919,11 +902,7 @@ function GiftGroupCard({
   )
 }
 
-export default function CharacterWorkspace({
-  character,
-  activeVariant,
-  assetState,
-}: CharacterWorkspaceProps) {
+export default function CharacterWorkspace({ character, activeVariant, assetState }: CharacterWorkspaceProps) {
   const copy = useCharactersCopy()
   const frameWidth = character?.spriteWidth ?? 16
   const frameHeight = character ? Math.max(character.spriteHeight, getActorSpriteFrameHeight(character.internalName)) : 32
@@ -932,18 +911,20 @@ export default function CharacterWorkspace({
       ? Math.max(1, Math.floor(assetState.spriteSheetWidth / frameWidth))
       : 4
   const portraitFrameImages = {
-    resultImage: assetState.portraitSheetWidth && assetState.portraitSheetHeight
-      ? {
-          width: assetState.portraitSheetWidth,
-          height: assetState.portraitSheetHeight,
-        }
-      : null,
-    originalImage: assetState.portraitOriginalWidth && assetState.portraitOriginalHeight
-      ? {
-          width: assetState.portraitOriginalWidth,
-          height: assetState.portraitOriginalHeight,
-        }
-      : null,
+    resultImage:
+      assetState.portraitSheetWidth && assetState.portraitSheetHeight
+        ? {
+            width: assetState.portraitSheetWidth,
+            height: assetState.portraitSheetHeight,
+          }
+        : null,
+    originalImage:
+      assetState.portraitOriginalWidth && assetState.portraitOriginalHeight
+        ? {
+            width: assetState.portraitOriginalWidth,
+            height: assetState.portraitOriginalHeight,
+          }
+        : null,
   }
   const portraitCount = getScaleUpFrameCount(portraitFrameImages, {
     frameWidth: 64,
@@ -953,9 +934,7 @@ export default function CharacterWorkspace({
   if (!character) {
     return (
       <div className="panel-surface panel-surface-flat h-full">
-        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">
-          {copy.inspectorEmpty}
-        </div>
+        <div className="panel-canvas-empty h-full border-0 bg-transparent px-6">{copy.inspectorEmpty}</div>
       </div>
     )
   }
@@ -1090,9 +1069,7 @@ export default function CharacterWorkspace({
                     ))}
                   </div>
                 ) : (
-                  <div className="panel-canvas-empty min-h-[220px]">
-                    {copy.spriteMissing}
-                  </div>
+                  <div className="panel-canvas-empty min-h-[220px]">{copy.spriteMissing}</div>
                 )}
               </div>
             </div>
@@ -1149,7 +1126,7 @@ export default function CharacterWorkspace({
                       className="rounded-[22px] bg-[color-mix(in_srgb,var(--bg-panel)_78%,transparent)] p-2.5 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--border-color)_64%,transparent)]"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">#{index}</p>
+                        <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">#{index}</p>
                         {character.shakePortraits.includes(index) ? <span className="dock-chip">{copy.shakeBadge}</span> : null}
                       </div>
                       <div className="mt-2.5 flex justify-center">
@@ -1161,7 +1138,7 @@ export default function CharacterWorkspace({
                           }}
                         >
                           <div
-                            className="absolute left-0 top-0"
+                            className="absolute top-0 left-0"
                             style={{
                               ...buildAbsoluteSpriteLayerStyle({
                                 url: portraitUrl,
@@ -1181,9 +1158,7 @@ export default function CharacterWorkspace({
                 })}
               </div>
             ) : (
-              <div className="panel-canvas-empty min-h-[240px]">
-                {copy.portraitMissing}
-              </div>
+              <div className="panel-canvas-empty min-h-[240px]">{copy.portraitMissing}</div>
             )}
           </div>
         </aside>
@@ -1191,4 +1166,3 @@ export default function CharacterWorkspace({
     </div>
   )
 }
-

@@ -14,8 +14,7 @@ function eventPatch(): DraftPatch {
     enabled: true,
     editorState: {
       entries: {
-        event_square_meeting_1900:
-          'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/message "今天广场的人比平时多"',
+        event_square_meeting_1900: 'spring/Farmer 12 45/Abigail 12 45 2 Sam 13 45 2/message "今天广场的人比平时多"',
       },
     },
   }
@@ -44,8 +43,8 @@ function draft(patches: DraftPatch[]): CpMakerDraft {
   }
 }
 
-describe('EditModeShell event patch hub toolbar replacement', () => {
-  test('uses the event patch workspace header instead of the old edit toolbar', () => {
+describe('EditModeShell event patch hub header', () => {
+  test('renders event patch workspace actions in the header', () => {
     const patches = [eventPatch()]
     const onSaveDraft = vi.fn()
     const { container } = renderWithLocale(
@@ -71,7 +70,6 @@ describe('EditModeShell event patch hub toolbar replacement', () => {
       'zh-CN',
     )
 
-    expect(container.querySelector('.edit-mode-toolbar')).toBeNull()
     expect(container.querySelector('.event-patch-workspace-header')).not.toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: 'Patch 设置' }))

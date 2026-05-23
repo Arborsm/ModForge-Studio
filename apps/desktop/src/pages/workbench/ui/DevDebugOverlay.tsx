@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { getStageMetadataCacheStats } from '@entities/event'
-import { canUseDesktopHost, clearFileCache, getDesktopCacheStats, getFileCacheStats, type FileCacheStats } from '@platform/desktop'
+import { getGameAssetCacheStats } from '@entities/game/api'
+import { getModApiCacheStats } from '@entities/mod/api'
+import { clearFileCache, canUseDesktopHost, getFileCacheStats, type FileCacheStats } from '@shared/lib/desktop'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
 import type { WorkspaceMode } from '@locales/editor-shell'
 import { formatBytes } from '@shared/lib/formatting'
@@ -35,6 +37,13 @@ const debugOverlayPrecision = (_size: number, value: number, unit: string) => {
   }
 
   return 1
+}
+
+function getDesktopCacheStats() {
+  return {
+    ...getGameAssetCacheStats(),
+    ...getModApiCacheStats(),
+  }
 }
 
 function formatOverlayBytes(value: number) {
@@ -249,8 +258,11 @@ export function DevDebugOverlay({
   const renderMetricGrid = (items: MetricItem[]) => (
     <div className="grid grid-cols-2 gap-x-3 gap-y-2">
       {items.map(([label, value]) => (
-        <div key={label} className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-2.5 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{label}</p>
+        <div
+          key={label}
+          className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-2.5 py-2"
+        >
+          <p className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{label}</p>
           <p className="mt-1 truncate text-xs text-[var(--text-primary)]">{value}</p>
         </div>
       ))}
@@ -259,6 +271,7 @@ export function DevDebugOverlay({
 
   return (
     <div
+      data-testid="app-debug-overlay"
       className="fixed z-[260] w-[300px] overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--accent)_24%,var(--border-color))] bg-[color-mix(in_srgb,var(--bg-elevated)_92%,transparent)] shadow-[var(--shadow-float)] backdrop-blur"
       style={{ left: `${position.x}px`, top: `${position.y}px` }}
       onPointerMove={handlePointerMove}
@@ -267,7 +280,7 @@ export function DevDebugOverlay({
     >
       <div className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-2">
         <div className="flex-1 cursor-grab select-none active:cursor-grabbing" onPointerDown={beginDrag}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-secondary)]">Dev Debug</p>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-[var(--text-secondary)] uppercase">Dev Debug</p>
           <p className="text-xs text-[var(--text-tertiary)]">workspace diagnostics</p>
         </div>
         <button
@@ -283,12 +296,12 @@ export function DevDebugOverlay({
       {!collapsed ? (
         <div className="space-y-3 px-3 py-3">
           <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Runtime</p>
+            <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">Runtime</p>
             {renderMetricGrid(runtimeMetrics)}
           </div>
 
           <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{contextSectionLabel}</p>
+            <p className="mb-2 text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{contextSectionLabel}</p>
             {renderMetricGrid(contextMetrics)}
           </div>
 
@@ -296,9 +309,11 @@ export function DevDebugOverlay({
             <div className="rounded-xl border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_74%,transparent)] px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">File Cache</p>
+                  <p className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">File Cache</p>
                   <p className="mt-1 text-xs text-[var(--text-primary)]">
-                    {fileCacheStats ? `${fileCacheStats.entryCount} entries / ${formatOverlayBytes(fileCacheStats.totalSizeBytes)}` : 'Loading...'}
+                    {fileCacheStats
+                      ? `${fileCacheStats.entryCount} entries / ${formatOverlayBytes(fileCacheStats.totalSizeBytes)}`
+                      : 'Loading...'}
                   </p>
                 </div>
                 <button
@@ -310,7 +325,7 @@ export function DevDebugOverlay({
                   {clearing ? 'Clearing...' : 'Clear'}
                 </button>
               </div>
-              <p className="mt-2 break-all text-[11px] text-[var(--text-tertiary)]">{fileCacheStats?.rootPath ?? 'n/a'}</p>
+              <p className="mt-2 text-[11px] break-all text-[var(--text-tertiary)]">{fileCacheStats?.rootPath ?? 'n/a'}</p>
               {clearMessage ? <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{clearMessage}</p> : null}
             </div>
           ) : null}

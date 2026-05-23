@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLauncherPort } from '@features/launcher'
+import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings, LauncherUpdatesResult } from './launcherContracts'
 
 function getUpdatesCount(result: LauncherUpdatesResult | null) {
@@ -31,7 +31,8 @@ export function useLauncherUpdatesBadgeCount(settings: LauncherSettings) {
       applyCount(getUpdatesCount(result))
     })
 
-    void launcherPort.loadCachedUpdates({ modsPath })
+    void launcherPort
+      .loadCachedUpdates({ modsPath })
       .then((result) => {
         if (liveSnapshotSeen) {
           return

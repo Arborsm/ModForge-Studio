@@ -69,13 +69,13 @@ describe('StatusBar', () => {
 
   it('renders launcher mode status details instead of workspace telemetry', () => {
     renderWithLocale(
-        <StatusBar
-          {...buildProps({
-            appMode: 'launcher',
-            launcherPage: 'updates',
-            hoverInfo: hoverInfoSample,
-          })}
-        />,
+      <StatusBar
+        {...buildProps({
+          appMode: 'launcher',
+          launcherPage: 'updates',
+          hoverInfo: hoverInfoSample,
+        })}
+      />,
     )
 
     expect(screen.getByText(copy.shell.launcher)).toBeTruthy()

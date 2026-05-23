@@ -166,7 +166,9 @@ fn resolve_conditional_entry(
         _ => return Some(value.clone()),
     };
     let status = evaluate_patch_status(
-        &Value::Object(Map::from_iter(when_obj.iter().map(|(k, v)| (k.clone(), v.clone())))),
+        &Value::Object(Map::from_iter(
+            when_obj.iter().map(|(k, v)| (k.clone(), v.clone())),
+        )),
         context,
         project_root_path,
     );
@@ -189,7 +191,9 @@ fn apply_entries_to_object(
     ignore_when: bool,
 ) {
     for (key, value) in entries {
-        let Some(effective_value) = resolve_conditional_entry(value, context, project_root_path, ignore_when) else {
+        let Some(effective_value) =
+            resolve_conditional_entry(value, context, project_root_path, ignore_when)
+        else {
             continue;
         };
         if let Some(existing_value) = base_object.get_mut(key) {
@@ -208,7 +212,9 @@ fn apply_entries_to_array(
     ignore_when: bool,
 ) {
     for (key, value) in entries {
-        let Some(effective_value) = resolve_conditional_entry(value, context, project_root_path, ignore_when) else {
+        let Some(effective_value) =
+            resolve_conditional_entry(value, context, project_root_path, ignore_when)
+        else {
             continue;
         };
         let entry_id = effective_value
@@ -286,7 +292,13 @@ fn set_field_in_entry(entry: &mut Value, field_key: &str, field_value: &Value) {
                         let replacement = match field_value {
                             Value::String(s) => s.clone(),
                             Value::Number(n) => n.to_string(),
-                            Value::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
+                            Value::Bool(b) => {
+                                if *b {
+                                    "true".to_string()
+                                } else {
+                                    "false".to_string()
+                                }
+                            }
                             other => other.to_string(),
                         };
                         new_parts[index] = replacement;
@@ -299,10 +311,7 @@ fn set_field_in_entry(entry: &mut Value, field_key: &str, field_value: &Value) {
     }
 }
 
-fn apply_fields_patch(
-    base: &mut Value,
-    fields: &Map<String, Value>,
-) -> Result<String, String> {
+fn apply_fields_patch(base: &mut Value, fields: &Map<String, Value>) -> Result<String, String> {
     match base {
         Value::Object(base_object) => {
             for (entry_key, field_map) in fields {
@@ -322,12 +331,10 @@ fn apply_fields_patch(
                 let Some(field_map) = field_map.as_object() else {
                     continue;
                 };
-                if let Some(entry) = base_array.iter_mut().find(|e| {
-                    e.get("Id")
-                        .and_then(Value::as_str)
-                        .map(str::trim)
-                        == Some(entry_key)
-                }) {
+                if let Some(entry) = base_array
+                    .iter_mut()
+                    .find(|e| e.get("Id").and_then(Value::as_str).map(str::trim) == Some(entry_key))
+                {
                     for (field_key, field_value) in field_map {
                         set_field_in_entry(entry, field_key, field_value);
                     }
@@ -335,9 +342,7 @@ fn apply_fields_patch(
             }
         }
         _ => {
-            return Err(
-                "EditData Fields requires the target to be an object or array.".to_string(),
-            )
+            return Err("EditData Fields requires the target to be an object or array.".to_string())
         }
     }
 
@@ -362,7 +367,9 @@ fn parse_move_entries(patch: &Map<String, Value>) -> Result<Vec<MoveEntry>, Stri
     move_entries
         .iter()
         .map(|entry| {
-            let obj = entry.as_object().ok_or("MoveEntries item must be an object.")?;
+            let obj = entry
+                .as_object()
+                .ok_or("MoveEntries item must be an object.")?;
             let id = obj
                 .get("ID")
                 .and_then(Value::as_str)
@@ -394,10 +401,7 @@ fn parse_move_entries(patch: &Map<String, Value>) -> Result<Vec<MoveEntry>, Stri
         .collect()
 }
 
-fn apply_move_entries(
-    base: &mut Value,
-    move_entries: &[MoveEntry],
-) -> Result<String, String> {
+fn apply_move_entries(base: &mut Value, move_entries: &[MoveEntry]) -> Result<String, String> {
     let Value::Array(array) = base else {
         return Err("EditData MoveEntries requires the target to be a list (array).".to_string());
     };
@@ -491,7 +495,9 @@ fn parse_text_operations(patch: &Map<String, Value>) -> Result<Vec<TextOperation
 
     ops.iter()
         .map(|op| {
-            let obj = op.as_object().ok_or("TextOperations item must be an object.")?;
+            let obj = op
+                .as_object()
+                .ok_or("TextOperations item must be an object.")?;
 
             let operation = obj
                 .get("Operation")
@@ -668,10 +674,7 @@ fn apply_delimited_operation(
     }
 }
 
-fn apply_text_operations(
-    base: &mut Value,
-    operations: &[TextOperation],
-) -> Result<String, String> {
+fn apply_text_operations(base: &mut Value, operations: &[TextOperation]) -> Result<String, String> {
     let mut applied_count = 0;
 
     for op in operations {
@@ -755,9 +758,13 @@ pub fn apply_edit_data_patch(
     // 1. Apply Entries
     if let Some(entries) = patch.get("Entries").and_then(Value::as_object) {
         match target_value {
-            Value::Object(base_object) => {
-                apply_entries_to_object(base_object, entries, context, project_root_path, ignore_when)
-            }
+            Value::Object(base_object) => apply_entries_to_object(
+                base_object,
+                entries,
+                context,
+                project_root_path,
+                ignore_when,
+            ),
             Value::Array(base_array) => {
                 apply_entries_to_array(base_array, entries, context, project_root_path, ignore_when)
             }
@@ -797,7 +804,6 @@ pub fn apply_edit_data_patch(
 
     Ok(format!("updated {}", changes.join(", ")))
 }
-
 
 #[cfg(test)]
 #[path = "tests/edit_data_tests.rs"]

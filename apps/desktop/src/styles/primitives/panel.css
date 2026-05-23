@@ -16,12 +16,12 @@
 
   .panel-header {
     background: transparent;
-    @apply flex items-center justify-between gap-3 px-3 pb-1 pt-3;
+    @apply flex items-center justify-between gap-3 px-3 pt-3 pb-1;
   }
 
   .panel-title {
     color: var(--text-secondary);
-    @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+    @apply text-[11px] font-semibold tracking-[0.18em] uppercase;
   }
 
   .panel-subtitle {
@@ -44,12 +44,11 @@
   }
 
   .panel-section-accent {
-    background:
-      linear-gradient(
-        155deg,
-        color-mix(in srgb, var(--bg-panel) 96%, transparent),
-        color-mix(in srgb, var(--accent) 10%, var(--bg-panel-muted))
-      );
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--bg-panel) 96%, transparent),
+      color-mix(in srgb, var(--accent) 10%, var(--bg-panel-muted))
+    );
   }
 
   .panel-section-header {
@@ -60,7 +59,7 @@
 
   .panel-section-title {
     color: var(--text-secondary);
-    @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+    @apply text-[11px] font-semibold tracking-[0.18em] uppercase;
   }
 
   .panel-section-subtitle {
@@ -128,7 +127,7 @@
 
   .metric-label {
     color: var(--text-secondary);
-    @apply text-[11px] uppercase tracking-[0.16em];
+    @apply text-[11px] tracking-[0.16em] uppercase;
   }
 
   .metric-value {

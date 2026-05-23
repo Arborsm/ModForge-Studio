@@ -42,15 +42,7 @@ export const NPC_OPTIONS = [
   'Wizard',
 ]
 
-export const ACTOR_OPTIONS = [
-  ...NPC_OPTIONS,
-  'farmer',
-  'farmer2',
-  'farmer3',
-  'farmer4',
-  'spouse',
-  'player',
-]
+export const ACTOR_OPTIONS = [...NPC_OPTIONS, 'farmer', 'farmer2', 'farmer3', 'farmer4', 'spouse', 'player']
 
 // ─── 地图 ────────────────────────────────────────────────────────────────
 

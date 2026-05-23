@@ -11,29 +11,15 @@ describe('appShell', () => {
     expect(
       normalizeAppShellState({
         appMode: 'launcher',
-        launcherPage: 'debug',
+        launcherPage: 'configuration',
         debugEnabled: true,
         notificationSoundEnabled: false,
       }),
     ).toEqual({
       appMode: 'launcher',
-      launcherPage: 'debug',
+      launcherPage: 'configuration',
       debugEnabled: true,
       notificationSoundEnabled: false,
-    })
-  })
-
-  it('migrates the legacy settings page value to debug', () => {
-    expect(
-      normalizeAppShellState({
-        appMode: 'launcher',
-        launcherPage: 'settings',
-      }),
-    ).toEqual({
-      appMode: 'launcher',
-      launcherPage: 'debug',
-      debugEnabled: false,
-      notificationSoundEnabled: true,
     })
   })
 

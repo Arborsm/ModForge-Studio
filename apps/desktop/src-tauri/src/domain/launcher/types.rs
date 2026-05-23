@@ -15,7 +15,6 @@ pub struct LauncherSettings {
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
     pub nexus_api_key: Option<String>,
-    pub nexus_cookie: Option<String>,
     pub auto_install_downloads: bool,
     pub keep_downloaded_archives: bool,
     #[serde(default = "default_auto_check_mod_updates")]
@@ -29,7 +28,6 @@ impl Default for LauncherSettings {
             mods_path: None,
             download_path: None,
             nexus_api_key: None,
-            nexus_cookie: None,
             auto_install_downloads: false,
             keep_downloaded_archives: false,
             auto_check_mod_updates: default_auto_check_mod_updates(),
@@ -44,7 +42,6 @@ pub struct SaveLauncherSettingsRequest {
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
     pub nexus_api_key: Option<String>,
-    pub nexus_cookie: Option<String>,
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
@@ -73,6 +70,8 @@ pub struct LauncherLibraryModSummary {
     pub update_keys: Vec<String>,
     pub mod_url: Option<String>,
     pub image_url: Option<String>,
+    #[serde(default)]
+    pub required_dependencies: Vec<String>,
     pub missing_required_dependencies: Vec<String>,
 }
 
@@ -81,6 +80,13 @@ pub struct LauncherLibraryModSummary {
 pub struct LauncherLibraryScanResult {
     pub mods_path: String,
     pub mods: Vec<LauncherLibraryModSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRuntimeInfo {
+    pub game_version: Option<String>,
+    pub smapi_version: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -101,6 +107,27 @@ pub struct LauncherLibraryPackPreset {
     pub mod_keys: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherLibraryChildModGroup {
+    pub parent_mod_key: String,
+    #[serde(default)]
+    pub child_mod_keys: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherLibraryFolder {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub parent_folder_id: Option<String>,
+    #[serde(default)]
+    pub mod_keys: Vec<String>,
+    #[serde(default)]
+    pub cover_mod_keys: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum LauncherLibraryScopeMode {
@@ -118,6 +145,10 @@ pub struct LauncherLibraryState {
     pub hidden_mod_keys: Vec<String>,
     #[serde(default)]
     pub pack_presets: Vec<LauncherLibraryPackPreset>,
+    #[serde(default)]
+    pub child_mod_groups: Vec<LauncherLibraryChildModGroup>,
+    #[serde(default)]
+    pub library_folders: Vec<LauncherLibraryFolder>,
     #[serde(default)]
     pub current_pack_id: Option<String>,
     #[serde(default)]
@@ -142,6 +173,7 @@ pub struct LauncherLibraryCoversState {
 pub struct LauncherDownloadQueueItem {
     pub id: String,
     pub mod_id: i64,
+    pub file_id: Option<i64>,
     pub title: String,
     pub version: Option<String>,
     pub image_url: Option<String>,
@@ -230,6 +262,12 @@ pub struct SearchLauncherCatalogRequest {
 #[serde(rename_all = "camelCase")]
 pub struct LoadLauncherRemoteModDetailRequest {
     pub mod_id: i64,
+    #[serde(default = "default_include_remote_files")]
+    pub include_files: bool,
+}
+
+fn default_include_remote_files() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -289,6 +327,8 @@ pub struct LauncherRemoteModDetail {
     pub mod_id: i64,
     pub title: String,
     pub summary: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
     pub author: Option<String>,
     pub version: Option<String>,
     pub mod_url: String,
@@ -298,6 +338,99 @@ pub struct LauncherRemoteModDetail {
     pub updated_at: Option<String>,
     #[serde(default)]
     pub file_size: Option<u64>,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub downloads: Option<u64>,
+    #[serde(default)]
+    pub endorsements: Option<u64>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub direct_download_enabled: Option<bool>,
+    #[serde(default)]
+    pub supports_vortex: Option<bool>,
+    #[serde(default)]
+    pub primary_file_id: Option<i64>,
+    #[serde(default)]
+    pub primary_file_name: Option<String>,
+    #[serde(default)]
+    pub primary_file_version: Option<String>,
+    #[serde(default)]
+    pub primary_file_category: Option<String>,
+    #[serde(default)]
+    pub primary_file_size: Option<u64>,
+    #[serde(default)]
+    pub primary_file_size_bytes: Option<u64>,
+    #[serde(default)]
+    pub primary_file_scanned: Option<bool>,
+    #[serde(default)]
+    pub primary_file_scan_status: Option<String>,
+    #[serde(default)]
+    pub primary_file_changelog: Vec<String>,
+    #[serde(default)]
+    pub required_loader: Option<String>,
+    #[serde(default)]
+    pub game_version: Option<String>,
+    #[serde(default)]
+    pub archive_type: Option<String>,
+    #[serde(default)]
+    pub update_risk: Option<String>,
+    #[serde(default)]
+    pub requirements: Vec<LauncherRemoteModRequirement>,
+    #[serde(default)]
+    pub files: Vec<LauncherRemoteModFile>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRemoteModRequirement {
+    pub name: String,
+    #[serde(default)]
+    pub notes: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub external: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherRemoteModFile {
+    #[serde(default)]
+    pub file_id: Option<i64>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub uploaded_at: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub unique_downloads: Option<u64>,
+    #[serde(default)]
+    pub total_downloads: Option<u64>,
+    #[serde(default)]
+    pub manager_download_enabled: Option<bool>,
+    #[serde(default)]
+    pub uid: Option<String>,
+    #[serde(default)]
+    pub size: Option<u64>,
+    #[serde(default)]
+    pub size_bytes: Option<u64>,
+    #[serde(default)]
+    pub primary: bool,
+    #[serde(default)]
+    pub scanned: Option<bool>,
+    #[serde(default)]
+    pub scan_status: Option<String>,
+    #[serde(default)]
+    pub changelog: Vec<String>,
+    #[serde(default)]
+    pub archive_type: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -308,33 +441,6 @@ pub struct LauncherUpdateChangelogResult {
     pub version: Option<String>,
     #[serde(default)]
     pub changelog: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LauncherNexusRouteStatus {
-    Loading,
-    Warning,
-    Success,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LauncherNexusRouteSnapshot {
-    pub route_id: String,
-    pub label: String,
-    pub endpoint: String,
-    pub status: LauncherNexusRouteStatus,
-    pub attempts: u8,
-    pub max_attempts: u8,
-    pub available: bool,
-    pub message: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LauncherNexusDiagnosticsResult {
-    pub routes: Vec<LauncherNexusRouteSnapshot>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -364,6 +470,19 @@ pub struct CheckLauncherUpdatesRequest {
 #[serde(rename_all = "camelCase")]
 pub struct LoadCachedLauncherUpdatesRequest {
     pub mods_path: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadSuppressedLauncherUpdateModIdsRequest {
+    pub mods_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherSuppressedUpdateModIdsResult {
+    pub mods_path: String,
+    pub mod_ids: Vec<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -429,6 +548,7 @@ pub struct DownloadLauncherModResult {
     pub archive_path: String,
     pub installed: bool,
     pub installed_target_path: Option<String>,
+    pub manual_download_page_opened: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -553,6 +673,8 @@ impl Default for LauncherLibraryState {
             storage_folders: vec![default_unsorted_storage_folder()],
             hidden_mod_keys: Vec::new(),
             pack_presets: Vec::new(),
+            child_mod_groups: Vec::new(),
+            library_folders: Vec::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
         }

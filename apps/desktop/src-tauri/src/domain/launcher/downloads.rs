@@ -1,29 +1,93 @@
 use super::archive::install_archive_at_path;
 use super::fs::{sanitize_file_name, unique_path};
-use super::http::{
-    api_headers, launcher_http_client, probe_blocked_launcher_nexus_route, send_nexus_request,
-    LauncherNexusRoute, DEFAULT_GAME_ID, LAUNCHER_USER_AGENT,
-};
 use super::paths::{launcher_backup_dir, launcher_download_queue_path, launcher_settings_path};
+use super::runtime::open_launcher_url_in_browser;
 use super::settings::{load_or_create_settings_at_path, resolve_download_dir};
 use super::trace::log_launcher_trace;
 use super::types::{
     DownloadLauncherModRequest, DownloadLauncherModResult, LauncherDownloadQueueItem,
     LauncherDownloadQueueState,
 };
+use crate::domain::app_ui::load_app_ui_state;
+use crate::domain::nexusmods::downloads::{
+    download_file_response, fetch_mod_files_payload, resolve_download_url,
+    select_download_candidate, ResolveDownloadUrlError,
+};
+use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
 use reqwest::blocking::Response;
-use reqwest::header::{CONTENT_DISPOSITION, COOKIE, USER_AGENT};
-use serde_json::Value;
+use reqwest::header::CONTENT_DISPOSITION;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-#[derive(Debug, Clone)]
-struct DownloadCandidate {
-    file_id: i64,
+const NEXUS_STARDEW_VALLEY_GAME_ID: i64 = 1303;
+
+fn nexus_manual_download_url(file_id: i64, game_id: i64) -> String {
+    format!(
+        "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id={file_id}&game_id={game_id}"
+    )
+}
+
+fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> Result<(), String> {
+    let url = nexus_manual_download_url(file_id, game_id);
+    open_launcher_url_in_browser(&url)?;
+    log_launcher_trace(
+        "download.manual-page-opened",
+        &[
+            ("modId", mod_id.to_string()),
+            ("fileId", file_id.to_string()),
+            ("gameId", game_id.to_string()),
+            ("url", url),
+        ],
+    );
+    Ok(())
+}
+
+fn download_result_title(request: &DownloadLauncherModRequest) -> String {
+    request
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("Nexus Mod {}", request.mod_id))
+}
+
+fn manual_download_page_opened_result(
+    request: &DownloadLauncherModRequest,
     file_name: String,
     version: Option<String>,
+) -> DownloadLauncherModResult {
+    DownloadLauncherModResult {
+        mod_id: request.mod_id,
+        title: download_result_title(request),
+        version,
+        file_name,
+        archive_path: String::new(),
+        installed: false,
+        installed_target_path: None,
+        manual_download_page_opened: true,
+    }
+}
+
+fn log_download_result_complete(result: &DownloadLauncherModResult) {
+    log_launcher_trace(
+        "download.complete",
+        &[
+            ("modId", result.mod_id.to_string()),
+            ("archivePath", result.archive_path.clone()),
+            ("installed", result.installed.to_string()),
+            (
+                "installedTargetPath",
+                result.installed_target_path.clone().unwrap_or_default(),
+            ),
+            (
+                "manualDownloadPageOpened",
+                result.manual_download_page_opened.to_string(),
+            ),
+        ],
+    );
 }
 
 fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> LauncherDownloadQueueState {
@@ -50,6 +114,7 @@ fn normalize_download_queue_state(state: LauncherDownloadQueueState) -> Launcher
                 Some(LauncherDownloadQueueItem {
                     id,
                     mod_id: item.mod_id,
+                    file_id: item.file_id,
                     title,
                     version: item
                         .version
@@ -158,179 +223,6 @@ pub fn save_launcher_download_queue(
     )
 }
 
-fn fetch_mod_files_payload(
-    client: &reqwest::blocking::Client,
-    settings: &crate::domain::launcher::types::LauncherSettings,
-    mod_id: i64,
-) -> Result<Value, String> {
-    probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
-    let response = client.get(format!(
-        "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files.json"
-    ));
-    let api_key = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Configure a Nexus API key before fetching launcher mod files.".to_string())?;
-    let headers = api_headers(api_key)?;
-    let response = send_nexus_request(|| {
-        response
-            .try_clone()
-            .expect("request clone")
-            .headers(headers.clone())
-            .send()
-    })
-    .map_err(|error| format!("Failed to fetch launcher mod files: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Launcher mod files request failed for {mod_id}: HTTP {}",
-            response.status()
-        ));
-    }
-
-    response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher mod files JSON: {error}"))
-}
-
-fn select_download_candidate(
-    payload: &Value,
-    requested_file_id: Option<i64>,
-    requested_version: Option<&str>,
-) -> Result<DownloadCandidate, String> {
-    let files = payload
-        .get("files")
-        .and_then(Value::as_array)
-        .ok_or_else(|| "Launcher mod files payload did not contain a files array.".to_string())?;
-    if files.is_empty() {
-        return Err("Launcher mod did not contain any downloadable files.".to_string());
-    }
-
-    let selected = if let Some(file_id) = requested_file_id {
-        files
-            .iter()
-            .find(|item| item.get("file_id").and_then(Value::as_i64) == Some(file_id))
-    } else if let Some(version) = requested_version {
-        files.iter().find(|item| {
-            item.get("version")
-                .and_then(Value::as_str)
-                .map(|value| value.trim() == version.trim())
-                .unwrap_or(false)
-        })
-    } else {
-        files.iter().max_by_key(|item| {
-            item.get("uploaded_timestamp")
-                .and_then(Value::as_i64)
-                .unwrap_or_default()
-        })
-    }
-    .ok_or_else(|| "Unable to resolve a launcher download file.".to_string())?;
-
-    let file_id = selected
-        .get("file_id")
-        .and_then(Value::as_i64)
-        .ok_or_else(|| "Launcher download file is missing file_id.".to_string())?;
-    let file_name = selected
-        .get("file_name")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| "Launcher download file is missing file_name.".to_string())?
-        .to_string();
-
-    Ok(DownloadCandidate {
-        file_id,
-        file_name,
-        version: selected
-            .get("version")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned),
-    })
-}
-
-fn resolve_download_url(
-    client: &reqwest::blocking::Client,
-    settings: &crate::domain::launcher::types::LauncherSettings,
-    mod_id: i64,
-    file_id: i64,
-) -> Result<String, String> {
-    if let Some(api_key) = settings
-        .nexus_api_key
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        probe_blocked_launcher_nexus_route(client, Some(settings), LauncherNexusRoute::NexusApi)?;
-        let response = client
-            .get(format!(
-                "https://api.nexusmods.com/v1/games/stardewvalley/mods/{mod_id}/files/{file_id}/download_link.json"
-            ));
-        let headers = api_headers(api_key)?;
-        let response = send_nexus_request(|| {
-            response
-                .try_clone()
-                .expect("request clone")
-                .headers(headers.clone())
-                .send()
-        })
-        .map_err(|error| format!("Failed to fetch launcher download links: {error}"))?;
-        if response.status().is_success() {
-            let payload = response.json::<Value>().map_err(|error| {
-                format!("Failed to parse launcher download links JSON: {error}")
-            })?;
-            if let Some(uri) = payload
-                .as_array()
-                .and_then(|items| items.first())
-                .and_then(|item| item.get("URI"))
-                .and_then(Value::as_str)
-            {
-                return Ok(uri.to_string());
-            }
-        }
-    }
-
-    let cookie = settings
-        .nexus_cookie
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            "Unable to resolve a Nexus download link. Configure a Nexus cookie or use a premium API key.".to_string()
-        })?;
-    let response = client
-        .post("https://www.nexusmods.com/Core/Libs/Common/Managers/Downloads?GenerateDownloadUrl");
-    let response = send_nexus_request(|| {
-        response
-            .try_clone()
-            .expect("request clone")
-            .header(USER_AGENT, LAUNCHER_USER_AGENT)
-            .header(COOKIE, cookie)
-            .form(&[
-                ("fid", file_id.to_string()),
-                ("game_id", DEFAULT_GAME_ID.to_string()),
-            ])
-            .send()
-    })
-    .map_err(|error| format!("Failed to fetch launcher web download link: {error}"))?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Launcher web download link request failed for {mod_id}/{file_id}: HTTP {}",
-            response.status()
-        ));
-    }
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse launcher web download link JSON: {error}"))?;
-    payload
-        .get("url")
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| "Launcher web download link response did not include a URL.".to_string())
-}
-
 fn download_file_name(response: &Response, fallback: &str) -> String {
     let fallback_name = sanitize_file_name(fallback);
     response
@@ -416,12 +308,45 @@ pub fn download_launcher_mod(
                     ("version", candidate.version.clone().unwrap_or_default()),
                 ],
             );
+
+            if load_app_ui_state()
+                .map(|state| state.launcher.force_non_premium)
+                .unwrap_or(false)
+            {
+                open_nexus_manual_download_page(
+                    request.mod_id,
+                    candidate.file_id,
+                    NEXUS_STARDEW_VALLEY_GAME_ID,
+                )?;
+                let result = manual_download_page_opened_result(
+                    &request,
+                    candidate.file_name,
+                    candidate.version,
+                );
+                log_download_result_complete(&result);
+                return Ok(result);
+            }
+
             let download_url =
-                resolve_download_url(&client, &settings, request.mod_id, candidate.file_id)?;
-            let response = client.get(&download_url);
-            let response =
-                send_nexus_request(|| response.try_clone().expect("request clone").send())
-                    .map_err(|error| format!("Failed to download launcher mod: {error}"))?;
+                match resolve_download_url(&client, &settings, request.mod_id, candidate.file_id) {
+                    Ok(download_url) => download_url,
+                    Err(ResolveDownloadUrlError::PremiumRequired) => {
+                        open_nexus_manual_download_page(
+                            request.mod_id,
+                            candidate.file_id,
+                            NEXUS_STARDEW_VALLEY_GAME_ID,
+                        )?;
+                        let result = manual_download_page_opened_result(
+                            &request,
+                            candidate.file_name,
+                            candidate.version,
+                        );
+                        log_download_result_complete(&result);
+                        return Ok(result);
+                    }
+                    Err(ResolveDownloadUrlError::Message(message)) => return Err(message),
+                };
+            let response = download_file_response(&client, &download_url)?;
             if !response.status().is_success() {
                 return Err(format!(
                     "Failed to download launcher mod {}: HTTP {}",
@@ -438,12 +363,12 @@ pub fn download_launcher_mod(
                     normalize_path(&archive_path)
                 )
             })?;
-            let bytes = response
-                .bytes()
-                .map_err(|error| format!("Failed to read launcher download bytes: {error}"))?;
-            archive_file.write_all(&bytes).map_err(|error| {
+            let mut response_reader = response;
+            let bytes_written = std::io::copy(&mut response_reader, &mut archive_file)
+                .map_err(|error| format!("Failed to stream launcher download bytes: {error}"))?;
+            archive_file.flush().map_err(|error| {
                 format!(
-                    "Failed to write launcher archive {}: {error}",
+                    "Failed to flush launcher archive {}: {error}",
                     normalize_path(&archive_path)
                 )
             })?;
@@ -452,7 +377,7 @@ pub fn download_launcher_mod(
                 &[
                     ("modId", request.mod_id.to_string()),
                     ("archivePath", normalize_path(&archive_path)),
-                    ("bytes", bytes.len().to_string()),
+                    ("bytes", bytes_written.to_string()),
                 ],
             );
 
@@ -480,11 +405,7 @@ pub fn download_launcher_mod(
 
             let result = DownloadLauncherModResult {
                 mod_id: request.mod_id,
-                title: request
-                    .title
-                    .map(|value| value.trim().to_string())
-                    .filter(|value| !value.is_empty())
-                    .unwrap_or_else(|| format!("Nexus Mod {}", request.mod_id)),
+                title: download_result_title(&request),
                 version: candidate.version,
                 file_name: archive_path
                     .file_name()
@@ -494,20 +415,70 @@ pub fn download_launcher_mod(
                 archive_path: normalize_path(&archive_path),
                 installed,
                 installed_target_path,
+                manual_download_page_opened: false,
             };
-            log_launcher_trace(
-                "download.complete",
-                &[
-                    ("modId", result.mod_id.to_string()),
-                    ("archivePath", result.archive_path.clone()),
-                    ("installed", result.installed.to_string()),
-                    (
-                        "installedTargetPath",
-                        result.installed_target_path.clone().unwrap_or_default(),
-                    ),
-                ],
-            );
+            log_download_result_complete(&result);
             Ok(result)
         })(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        download_result_title, manual_download_page_opened_result, nexus_manual_download_url,
+        DownloadLauncherModRequest, NEXUS_STARDEW_VALLEY_GAME_ID,
+    };
+
+    #[test]
+    fn nexus_manual_download_url_targets_file_popup_with_explicit_game_id() {
+        assert_eq!(
+            nexus_manual_download_url(167813, NEXUS_STARDEW_VALLEY_GAME_ID),
+            "https://www.nexusmods.com/Core/Libs/Common/Widgets/DownloadPopUp?id=167813&game_id=1303"
+        );
+    }
+
+    #[test]
+    fn download_result_title_uses_trimmed_request_title_or_mod_fallback() {
+        let titled = DownloadLauncherModRequest {
+            mod_id: 1915,
+            file_id: Some(160463),
+            version: None,
+            title: Some("  Content Patcher  ".to_string()),
+        };
+        assert_eq!(download_result_title(&titled), "Content Patcher");
+
+        let fallback = DownloadLauncherModRequest {
+            mod_id: 1915,
+            file_id: None,
+            version: None,
+            title: Some("   ".to_string()),
+        };
+        assert_eq!(download_result_title(&fallback), "Nexus Mod 1915");
+    }
+
+    #[test]
+    fn manual_download_page_opened_result_marks_browser_fallback_without_local_archive() {
+        let request = DownloadLauncherModRequest {
+            mod_id: 1915,
+            file_id: Some(160463),
+            version: Some("2.9.1".to_string()),
+            title: Some("Content Patcher".to_string()),
+        };
+
+        let result = manual_download_page_opened_result(
+            &request,
+            "ContentPatcher.zip".to_string(),
+            Some("2.9.1".to_string()),
+        );
+
+        assert_eq!(result.mod_id, 1915);
+        assert_eq!(result.title, "Content Patcher");
+        assert_eq!(result.version.as_deref(), Some("2.9.1"));
+        assert_eq!(result.file_name, "ContentPatcher.zip");
+        assert!(result.archive_path.is_empty());
+        assert!(!result.installed);
+        assert_eq!(result.installed_target_path, None);
+        assert!(result.manual_download_page_opened);
+    }
 }

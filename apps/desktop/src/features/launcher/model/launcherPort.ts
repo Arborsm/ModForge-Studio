@@ -1,7 +1,11 @@
 import type {
+  SsoConnectionStatus,
+  SsoSnapshot,
+  ValidateApiKeyResult,
   LauncherSettings,
   ScanLauncherLibraryRequest,
   LauncherLibraryScanResult,
+  LauncherRuntimeInfo,
   LauncherLibraryState,
   LauncherLibraryCoversState,
   SetLauncherLibraryCoverRequest,
@@ -17,6 +21,8 @@ import type {
   CheckLauncherUpdatesRequest,
   LauncherUpdatesResult,
   LoadCachedLauncherUpdatesRequest,
+  LoadSuppressedLauncherUpdateModIdsRequest,
+  LauncherSuppressedUpdateModIdsResult,
   DownloadLauncherModRequest,
   DownloadLauncherModResult,
   InstallLauncherArchiveRequest,
@@ -42,6 +48,7 @@ export type LauncherPort = {
   loadSettings(): Promise<LauncherSettings>
   saveSettings(request: SaveLauncherSettingsRequest): Promise<LauncherSettings>
   scanLibrary(request: ScanLauncherLibraryRequest): Promise<LauncherLibraryScanResult>
+  loadRuntimeInfo(): Promise<LauncherRuntimeInfo>
   loadLibraryState(): Promise<LauncherLibraryState>
   saveLibraryState(request: LauncherLibraryState): Promise<LauncherLibraryState>
   loadLibraryCovers(): Promise<LauncherLibraryCoversState>
@@ -54,9 +61,11 @@ export type LauncherPort = {
   loadUpdateChangelog(request: LoadLauncherUpdateChangelogRequest): Promise<LauncherUpdateChangelogResult>
   loadNexusDiagnostics(): Promise<LauncherNexusDiagnosticsResult>
   restartNexusDiagnostics(): Promise<LauncherNexusDiagnosticsResult>
+  retryNexusDiagnosticsRoute(routeId: string): Promise<LauncherNexusDiagnosticsResult>
   setNexusForceOffline(forceOffline: boolean): Promise<LauncherNexusDiagnosticsResult>
   resolveImage(request: ResolveLauncherImageRequest): Promise<ResolveLauncherImageResult>
   loadCachedUpdates(request: LoadCachedLauncherUpdatesRequest): Promise<LauncherUpdatesResult | null>
+  loadSuppressedUpdateModIds(request: LoadSuppressedLauncherUpdateModIdsRequest): Promise<LauncherSuppressedUpdateModIdsResult>
   checkUpdates(request: CheckLauncherUpdatesRequest): Promise<LauncherUpdatesResult>
   listenToUpdateProgress(listener: (payload: LauncherUpdateProgressPayload) => void): Promise<() => void>
   downloadMod(request: DownloadLauncherModRequest): Promise<DownloadLauncherModResult>
@@ -76,4 +85,8 @@ export type LauncherPort = {
   detectDefaultGameDirectory(): Promise<string | null>
   toDesktopAssetUrl(path: string, protocol?: string): string
   subscribeUpdates(modsPath: string, listener: (result: LauncherUpdatesResult) => void): () => void
+  validateNexusApiKey(): Promise<ValidateApiKeyResult>
+  startNexusSso(): Promise<{ ssoId: string; status: SsoConnectionStatus }>
+  getNexusSsoStatus(): Promise<SsoSnapshot>
+  cancelNexusSso(): Promise<void>
 }

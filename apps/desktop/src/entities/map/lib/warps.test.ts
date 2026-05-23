@@ -25,9 +25,7 @@ function createMapDocument(overrides: Partial<MapDocument> = {}): MapDocument {
 describe('parseWarpProperty', () => {
   it('parses a single warp entry', () => {
     const entries = parseWarpProperty('1 2 Farm 10 11')
-    expect(entries).toEqual([
-      { sourceX: 1, sourceY: 2, targetMap: 'Farm', targetX: 10, targetY: 11 },
-    ])
+    expect(entries).toEqual([{ sourceX: 1, sourceY: 2, targetMap: 'Farm', targetX: 10, targetY: 11 }])
   })
 
   it('parses multiple warp entries', () => {

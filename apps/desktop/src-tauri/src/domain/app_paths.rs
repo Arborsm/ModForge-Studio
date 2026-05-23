@@ -33,7 +33,9 @@ pub(crate) fn launcher_library_covers_path() -> Result<PathBuf, String> {
 }
 
 pub(crate) fn launcher_updates_cache_path() -> Result<PathBuf, String> {
-    Ok(modforge_data_dir()?.join("launcher").join("updates-cache.json"))
+    Ok(modforge_data_dir()?
+        .join("launcher")
+        .join("updates-cache.json"))
 }
 
 pub(crate) fn launcher_backup_dir() -> Result<PathBuf, String> {
@@ -46,4 +48,8 @@ pub(crate) fn launcher_image_cache_dir() -> Result<PathBuf, String> {
 
 pub(crate) fn app_cache_dir() -> Result<PathBuf, String> {
     Ok(modforge_data_dir()?.join("cache"))
+}
+
+pub(crate) fn app_logs_dir() -> Result<PathBuf, String> {
+    Ok(modforge_data_dir()?.join("logs"))
 }

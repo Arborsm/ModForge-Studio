@@ -81,6 +81,8 @@ pub(crate) struct AppUiLauncherState {
     pub(crate) discover_toolbar: AppUiDiscoverToolbarState,
     #[serde(default)]
     pub(crate) force_offline: bool,
+    #[serde(default)]
+    pub(crate) force_non_premium: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -149,6 +151,8 @@ pub(crate) struct AppUiLauncherStatePatch {
     pub(crate) discover_toolbar: Option<AppUiDiscoverToolbarState>,
     #[serde(default)]
     pub(crate) force_offline: Option<bool>,
+    #[serde(default)]
+    pub(crate) force_non_premium: Option<bool>,
 }
 
 fn default_app_ui_state_version() -> u32 {
@@ -378,9 +382,7 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
             workspace_view_mode: normalize_workspace_view_mode(
                 &state.workspace.workspace_view_mode,
             ),
-            cp_maker: normalize_cp_maker_workspace_state(
-                state.workspace.cp_maker,
-            ),
+            cp_maker: normalize_cp_maker_workspace_state(state.workspace.cp_maker),
         },
         launcher: AppUiLauncherState {
             discover_toolbar: AppUiDiscoverToolbarState {
@@ -393,6 +395,7 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
                 filters_hidden: state.launcher.discover_toolbar.filters_hidden,
             },
             force_offline: state.launcher.force_offline,
+            force_non_premium: state.launcher.force_non_premium,
         },
     }
 }
@@ -479,11 +482,10 @@ pub(crate) fn patch_app_ui_state_at_path(
                 normalize_workspace_view_mode(&workspace_view_mode);
         }
         if let Some(cp_maker) = workspace.cp_maker {
-            state.workspace.cp_maker = normalize_cp_maker_workspace_state(
-                AppUiCpMakerWorkspaceState {
+            state.workspace.cp_maker =
+                normalize_cp_maker_workspace_state(AppUiCpMakerWorkspaceState {
                     active_generated_draft_key: cp_maker.active_generated_draft_key,
-                },
-            );
+                });
         }
     }
     if let Some(launcher) = patch.launcher {
@@ -498,6 +500,9 @@ pub(crate) fn patch_app_ui_state_at_path(
         }
         if let Some(force_offline) = launcher.force_offline {
             state.launcher.force_offline = force_offline;
+        }
+        if let Some(force_non_premium) = launcher.force_non_premium {
+            state.launcher.force_non_premium = force_non_premium;
         }
     }
     let normalized = normalize_app_ui_state(state);

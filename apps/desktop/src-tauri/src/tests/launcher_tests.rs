@@ -1,6 +1,6 @@
 use crate::domain::launcher::archive::{inspect_archive_at_path, install_archive_at_path};
-use crate::domain::launcher::can_use_nexus_graphql;
-use crate::domain::launcher::discovery::{
+use crate::domain::nexusmods::can_use_nexus_graphql;
+use crate::domain::nexusmods::catalog::{
     build_catalog_graphql_payload, build_public_catalog_graphql_payload,
     parse_catalog_graphql_response, parse_catalog_results,
 };
@@ -8,7 +8,7 @@ use crate::domain::launcher::downloads::{
     load_or_create_download_queue_at_path, save_download_queue_at_path,
 };
 use crate::domain::launcher::image_cache::clear_launcher_image_cache_dir;
-use crate::domain::launcher::remote::{
+use crate::domain::nexusmods::mod_detail::{
     enrich_remote_mod_detail_with_gallery_images, parse_launcher_update_changelog_text,
     parse_launcher_update_file_metadata_text, parse_public_mod_detail_graphql_response,
     parse_remote_mod_detail_html, parse_remote_mod_images_tab_html, RemoteModDetail,
@@ -23,9 +23,10 @@ use crate::domain::launcher::trace::format_launcher_trace_message;
 use crate::domain::launcher::types::{
     LauncherArchiveTreeNode, LauncherDownloadQueueItem, LauncherDownloadQueueState,
     LauncherGameLaunchErrorCode, LauncherGameLaunchTarget, LauncherLibraryCover,
-    LauncherLibraryCoversState, LauncherLibraryPackPreset, LauncherLibraryScopeMode,
-    LauncherLibraryState, LauncherLibraryStorageFolder, LauncherSettings, LauncherUpdateSummary,
-    LauncherUpdatesResult, SearchLauncherCatalogRequest, SetLauncherModEnabledRequest,
+    LauncherLibraryCoversState, LauncherLibraryChildModGroup, LauncherLibraryFolder, LauncherLibraryPackPreset,
+    LauncherLibraryScopeMode, LauncherLibraryState, LauncherLibraryStorageFolder,
+    LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult,
+    SearchLauncherCatalogRequest, SetLauncherModEnabledRequest,
 };
 use crate::domain::launcher::update_cache::{
     clear_launcher_updates_check_in_progress_at_path, inspect_launcher_updates_cache_at_path,
@@ -35,10 +36,12 @@ use crate::domain::launcher::update_cache::{
 };
 use crate::domain::launcher::updates::{
     build_launcher_update_summary, build_smapi_update_payload,
-    build_smapi_update_payload_with_versions, build_update_batch_graphql_payload,
-    dedupe_update_candidates_by_mod_id, finalize_remote_mod_details_batch,
-    parse_smapi_update_response, parse_update_batch_graphql_response,
+    build_smapi_update_payload_with_versions, dedupe_update_candidates_by_mod_id,
+    finalize_remote_mod_details_batch, parse_smapi_update_response,
     resolve_smapi_runtime_versions_with_reader, SmapiRuntimeVersions, UpdateCheckCandidate,
+};
+use crate::domain::nexusmods::updates::{
+    build_update_batch_graphql_payload, parse_update_batch_graphql_response,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use serde_json::json;
@@ -160,6 +163,8 @@ fn launcher_library_state_create_default_and_save_roundtrip() {
             }],
             hidden_mod_keys: Vec::new(),
             pack_presets: Vec::new(),
+            child_mod_groups: Vec::new(),
+            library_folders: Vec::new(),
             current_pack_id: None,
             scope_mode: LauncherLibraryScopeMode::All,
         }
@@ -187,6 +192,17 @@ fn launcher_library_state_create_default_and_save_roundtrip() {
                 "ModForge.Visible".to_string(),
                 "ModForge.Hidden".to_string(),
             ],
+        }],
+        child_mod_groups: vec![LauncherLibraryChildModGroup {
+            parent_mod_key: "ModForge.Visible".to_string(),
+            child_mod_keys: vec!["ModForge.Hidden".to_string()],
+        }],
+        library_folders: vec![LauncherLibraryFolder {
+            id: "visual".to_string(),
+            name: "Visual".to_string(),
+            parent_folder_id: None,
+            mod_keys: vec!["ModForge.Visible".to_string()],
+            cover_mod_keys: vec!["ModForge.Visible".to_string()],
         }],
         current_pack_id: Some("farm".to_string()),
         scope_mode: LauncherLibraryScopeMode::CurrentPack,
@@ -257,6 +273,59 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
                 mod_keys: vec!["ModForge.Z".to_string()],
             },
         ],
+        child_mod_groups: vec![
+            LauncherLibraryChildModGroup {
+                parent_mod_key: "ModForge.A".to_string(),
+                child_mod_keys: vec![
+                    "ModForge.B".to_string(),
+                    " ModForge.B ".to_string(),
+                    "ModForge.A".to_string(),
+                    "".to_string(),
+                ],
+            },
+            LauncherLibraryChildModGroup {
+                parent_mod_key: "ModForge.C".to_string(),
+                child_mod_keys: vec!["ModForge.B".to_string(), "ModForge.D".to_string()],
+            },
+            LauncherLibraryChildModGroup {
+                parent_mod_key: " ".to_string(),
+                child_mod_keys: vec!["ModForge.E".to_string()],
+            },
+        ],
+        library_folders: vec![
+            LauncherLibraryFolder {
+                id: "visual".to_string(),
+                name: "Visual".to_string(),
+                parent_folder_id: None,
+                mod_keys: vec![
+                    "ModForge.A".to_string(),
+                    " ModForge.A ".to_string(),
+                    "".to_string(),
+                ],
+                cover_mod_keys: vec!["ModForge.A".to_string(), "ModForge.Missing".to_string()],
+            },
+            LauncherLibraryFolder {
+                id: "extras".to_string(),
+                name: "Extras".to_string(),
+                parent_folder_id: Some("visual".to_string()),
+                mod_keys: vec!["ModForge.A".to_string(), "ModForge.C".to_string()],
+                cover_mod_keys: vec!["ModForge.C".to_string()],
+            },
+            LauncherLibraryFolder {
+                id: "cycle".to_string(),
+                name: "Cycle".to_string(),
+                parent_folder_id: Some("cycle".to_string()),
+                mod_keys: vec!["ModForge.D".to_string()],
+                cover_mod_keys: Vec::new(),
+            },
+            LauncherLibraryFolder {
+                id: "extras".to_string(),
+                name: "Duplicate".to_string(),
+                parent_folder_id: None,
+                mod_keys: vec!["ModForge.Z".to_string()],
+                cover_mod_keys: Vec::new(),
+            },
+        ],
         current_pack_id: Some("missing-pack".to_string()),
         scope_mode: LauncherLibraryScopeMode::CurrentPack,
     };
@@ -298,6 +367,69 @@ fn launcher_library_state_normalizes_invalid_entries_and_keeps_single_folder_mem
     );
     assert_eq!(reloaded.current_pack_id, None);
     assert_eq!(reloaded.scope_mode, LauncherLibraryScopeMode::CurrentPack);
+    assert_eq!(
+        reloaded.child_mod_groups,
+        vec![
+            LauncherLibraryChildModGroup {
+                parent_mod_key: "ModForge.A".to_string(),
+                child_mod_keys: vec!["ModForge.B".to_string()],
+            },
+            LauncherLibraryChildModGroup {
+                parent_mod_key: "ModForge.C".to_string(),
+                child_mod_keys: vec!["ModForge.D".to_string()],
+            },
+        ]
+    );
+    assert_eq!(
+        reloaded.library_folders,
+        vec![
+            LauncherLibraryFolder {
+                id: "visual".to_string(),
+                name: "Visual".to_string(),
+                parent_folder_id: None,
+                mod_keys: vec!["ModForge.A".to_string()],
+                cover_mod_keys: vec!["ModForge.A".to_string()],
+            },
+            LauncherLibraryFolder {
+                id: "extras".to_string(),
+                name: "Extras".to_string(),
+                parent_folder_id: Some("visual".to_string()),
+                mod_keys: vec!["ModForge.C".to_string()],
+                cover_mod_keys: vec!["ModForge.C".to_string()],
+            },
+            LauncherLibraryFolder {
+                id: "cycle".to_string(),
+                name: "Cycle".to_string(),
+                parent_folder_id: None,
+                mod_keys: vec!["ModForge.D".to_string()],
+                cover_mod_keys: Vec::new(),
+            },
+        ]
+    );
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn launcher_library_state_reads_legacy_json_without_child_mod_groups() {
+    let root = create_temp_dir("launcher-library-state-legacy-child-groups");
+    let state_path = root.join("launcher").join("library.json");
+    write_file(
+        &state_path,
+        r#"{
+  "storageFolders": [{"id": "unsorted", "name": "Unsorted", "modKeys": []}],
+  "hiddenModKeys": [],
+  "packPresets": [],
+  "currentPackId": null,
+  "scopeMode": "all"
+}"#,
+    );
+
+    let reloaded = load_or_create_library_state_at_path(&state_path)
+        .expect("reload legacy launcher library state");
+
+    assert_eq!(reloaded.child_mod_groups, Vec::<LauncherLibraryChildModGroup>::new());
+    assert_eq!(reloaded.library_folders, Vec::<LauncherLibraryFolder>::new());
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -440,6 +572,7 @@ fn launcher_download_queue_create_default_and_reset_inflight_items() {
         items: vec![LauncherDownloadQueueItem {
             id: "job-1".to_string(),
             mod_id: 101,
+            file_id: Some(5001),
             title: "NPC Adventures".to_string(),
             version: Some("1.0.0".to_string()),
             image_url: None,
@@ -456,6 +589,7 @@ fn launcher_download_queue_create_default_and_reset_inflight_items() {
 
     let reloaded = load_or_create_download_queue_at_path(&queue_path).expect("reload queue");
     assert_eq!(reloaded.items.len(), 1);
+    assert_eq!(reloaded.items[0].file_id, Some(5001));
     assert_eq!(reloaded.items[0].status, "queued");
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -1071,6 +1205,7 @@ fn enrich_remote_mod_detail_with_gallery_images_fills_missing_cover_from_images_
         name: Some("Vanilla Plus Professions".to_string()),
         author: Some("KediDili".to_string()),
         summary: Some("Professions expansion.".to_string()),
+        description: None,
         version: Some("1.1.1".to_string()),
         mod_url: "https://www.nexusmods.com/stardewvalley/mods/20054".to_string(),
         image_url: None,
@@ -1122,6 +1257,10 @@ fn parse_public_mod_detail_graphql_response_extracts_author_version_and_descript
     assert_eq!(detail.author.as_deref(), Some("blue704"));
     assert_eq!(
         detail.summary.as_deref(),
+        Some("Short summary.")
+    );
+    assert_eq!(
+        detail.description.as_deref(),
         Some("Full description for the mod.")
     );
     assert_eq!(detail.version.as_deref(), Some("1.0.0"));
@@ -1359,6 +1498,7 @@ fn build_launcher_update_summary_uses_remote_detail_fields_without_file_metadata
             name: Some("Lookup Anything".to_string()),
             author: Some("Pathoschild".to_string()),
             summary: Some("Inspect anything.".to_string()),
+            description: None,
             version: Some("1.44.0".to_string()),
             mod_url: "https://www.nexusmods.com/stardewvalley/mods/541".to_string(),
             image_url: Some(
@@ -1555,6 +1695,7 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
             name: Some("Tractor Mod".to_string()),
             author: Some("Pathoschild".to_string()),
             summary: None,
+            description: None,
             version: Some("4.0.1".to_string()),
             mod_url: "https://www.nexusmods.com/stardewvalley/mods/101".to_string(),
             image_url: None,
@@ -1581,16 +1722,11 @@ fn finalize_remote_mod_details_batch_keeps_resolved_candidates_even_when_some_fa
 }
 
 #[test]
-fn can_use_nexus_graphql_requires_api_key_or_cookie() {
+fn can_use_nexus_graphql_requires_api_key() {
     assert!(!can_use_nexus_graphql(&LauncherSettings::default()));
 
     assert!(can_use_nexus_graphql(&LauncherSettings {
         nexus_api_key: Some("nexus-key".to_string()),
-        ..LauncherSettings::default()
-    }));
-
-    assert!(can_use_nexus_graphql(&LauncherSettings {
-        nexus_cookie: Some("session=value".to_string()),
         ..LauncherSettings::default()
     }));
 }

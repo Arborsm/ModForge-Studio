@@ -2,7 +2,7 @@
 
 This document defines the target frontend architecture for ModForge Studio.
 
-The goal is to move from the historical `components + lib/app` structure to a stricter architecture suitable for a complex desktop workbench:
+The frontend architecture is suitable for a complex desktop workbench:
 
 - Feature-Sliced boundaries for ownership.
 - Clean Architecture dependency direction.
@@ -12,24 +12,7 @@ The goal is to move from the historical `components + lib/app` structure to a st
 
 ## Target Layers
 
-```text
-src/
-├── app/
-│   ├── app-shell/
-│   ├── providers/
-│   ├── registry-setup.ts
-│   └── App.tsx
-├── pages/
-├── widgets/
-├── features/
-├── entities/
-├── platform/
-└── shared/
-    ├── contracts/
-    ├── ui/
-    ├── lib/
-    └── types/
-```
+The durable frontend layers are `app`, `pages`, `widgets`, `features`, `entities`, `shared`, and `platform`. Do not use this document as a file map: project structure is indexed by CodeGraph, and concrete paths should be discovered with `codegraph_files`, `codegraph_context`, and `codegraph_search`.
 
 Target dependency direction:
 
@@ -37,7 +20,7 @@ Target dependency direction:
 app -> pages -> widgets -> features -> entities -> shared/contracts
 ```
 
-`platform` is an external adapter. It is implemented in the platform layer and injected by `app/providers`. Business code should depend on contracts, not on Tauri. The `processes` layer is deprecated in the current architecture; remaining orchestration belongs in `app/` or in the relevant `features/` slice.
+`platform` is an external adapter. It is implemented in the platform layer and injected by `app/providers`. Business code should depend on contracts, not on Tauri. Cross-page or cross-feature orchestration belongs in `app/` or in the relevant feature slice; do not add a separate `processes` layer.
 
 ## Layer Responsibilities
 
@@ -230,16 +213,11 @@ Rules:
 
 This keeps entities/features testable and prevents Tauri from leaking into business code.
 
-## Migration Rules
+## Cleanup Rules
 
-The historical folders are migration sources:
+New and moved code must use the target layers. Do not recreate old catch-all roots such as `components`, `lib`, or `processes`, and do not add re-export shims or compatibility directories for old import paths. If a short-lived compatibility layer is unavoidable, document the deletion condition and remove the shim as soon as the change lands.
 
-- `components`
-- `lib/app`
-- `lib/desktop.ts`
-- `processes` is deprecated; move remaining orchestration into `app/` or the owning `features/` slice.
-
-New or migrated code should prefer the target layers.
+Architecture tests should guard durable boundaries, not one-off migration milestones. Keep rules that prevent dependency drift or removed roots from being referenced again; delete tests that only assert a specific old filename no longer exists once the change is complete.
 
 ## Barrel Hygiene
 
@@ -252,18 +230,24 @@ Rules:
 - For `shared`, split exports by intent (`shared/ui`, `shared/lib`, `shared/contracts`, `shared/types`) rather than creating one giant barrel.
 - If a project grows beyond one sensible root, split it into multiple packages or roots instead of accumulating more barrel layers.
 
-Migration order:
+## Public API Comments
 
-1. Create contracts, providers, registry interfaces, and architecture guards.
-2. Establish workbench registry and view host.
-3. Move workspace panel assembly into widgets.
-4. Move domain hooks and models into entities.
-5. Move feature-owned UI/state/model under features.
-6. Shrink app shell and remove legacy shims.
+Public and cross-layer APIs must carry concise JSDoc so call sites can understand the boundary from editor hover text.
 
-Do not parallelize subsystem migrations until the foundation is stable.
+Required:
 
-After the foundation is stable, subsystem migrations can be split across subagents with disjoint write sets.
+- `features/*/api` and `entities/*/api` request/result functions and DTOs.
+- Stable exports from `features/*/index.ts`, `entities/*/index.ts`, and `shared/*/index.ts` when they are intended for other layers.
+- Shared utilities under `shared/lib/*` that are consumed by app/pages/widgets/features/entities.
+- Core contracts under `shared/contracts/*`, especially registry, commands, events, platform ports, and workspace/runtime types.
+
+Comments should describe purpose, owner boundary, important cache behavior, and side effects. Avoid comments that restate the implementation line-by-line. When an API is removed, delete its comments with it; do not leave compatibility or migration notes in code.
+
+## Boundary Debt
+
+Frontend architecture debt should be tracked as explicit, shrinking baselines in tests or task docs, not as compatibility shims in product code. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
+
+Do not preserve old internal request shapes, localStorage keys, route ids, or import paths for compatibility while the product is unreleased. Finish the change, update callers, and delete temporary code immediately.
 
 ## Architecture Tests
 
@@ -277,4 +261,4 @@ Architecture tests should guard these rules:
 - `entities` do not import panel/layout contracts.
 - Registry interfaces and registry instances stay separated.
 
-These tests are mandatory for the migration because documentation alone will not stop architectural drift.
+These tests are mandatory because documentation alone will not stop architectural drift.

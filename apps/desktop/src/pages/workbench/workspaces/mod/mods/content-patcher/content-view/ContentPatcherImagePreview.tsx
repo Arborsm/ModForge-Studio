@@ -51,7 +51,7 @@ function PanZoomFrame({ children, label, measure = false, panZoom }: PanZoomFram
   return (
     <div
       ref={measure ? panZoom.measureRef : undefined}
-      className={`cp-debugger-panzoom-viewport${panZoom.isDragging ? ' cp-debugger-panzoom-viewport-dragging' : ''}`}
+      className={`cp-debugger-panzoom-viewport${panZoom.isDragging ? 'cp-debugger-panzoom-viewport-dragging' : ''}`}
       aria-label={label}
       {...panZoom.surfaceProps}
     >
@@ -62,30 +62,12 @@ function PanZoomFrame({ children, label, measure = false, panZoom }: PanZoomFram
   )
 }
 
-function ImageFrame({
-  src,
-  alt,
-  width,
-  height,
-  bounds,
-  showPatchBounds,
-  overlaySrc,
-  overlayOpacity = 1,
-}: ImageFrameProps) {
+function ImageFrame({ src, alt, width, height, bounds, showPatchBounds, overlaySrc, overlayOpacity = 1 }: ImageFrameProps) {
   return (
     <div className="cp-debugger-image-frame" style={{ aspectRatio: `${Math.max(1, width)} / ${Math.max(1, height)}` }}>
-      <img
-        src={src}
-        alt={alt}
-        className={overlaySrc ? 'cp-debugger-image cp-debugger-image-overlay-base' : 'cp-debugger-image'}
-      />
+      <img src={src} alt={alt} className={overlaySrc ? 'cp-debugger-image cp-debugger-image-overlay-base' : 'cp-debugger-image'} />
       {overlaySrc ? (
-        <img
-          src={overlaySrc}
-          alt=""
-          className="cp-debugger-image cp-debugger-image-overlay-top"
-          style={{ opacity: overlayOpacity }}
-        />
+        <img src={overlaySrc} alt="" className="cp-debugger-image cp-debugger-image-overlay-top" style={{ opacity: overlayOpacity }} />
       ) : null}
       {showPatchBounds && bounds ? (
         <div
@@ -181,7 +163,7 @@ export function ContentPatcherImagePreview({
       }
   const frameWidth = compareAssets?.width ?? 1
   const frameHeight = compareAssets?.height ?? 1
-  const patchBounds = focusedChanges ? null : compareAssets?.diffBounds ?? null
+  const patchBounds = focusedChanges ? null : (compareAssets?.diffBounds ?? null)
   const canShowPatchBounds = Boolean(patchBounds)
   const panZoom = usePanZoomViewport({
     contentWidth: frameWidth,
@@ -413,9 +395,7 @@ export function ContentPatcherImagePreview({
           </div>
         </div>
       </div>
-      {compareEnabled && originalImageSource ? (
-        <p className="cp-debugger-image-meta">{originalImageSource}</p>
-      ) : null}
+      {compareEnabled && originalImageSource ? <p className="cp-debugger-image-meta">{originalImageSource}</p> : null}
     </div>
   )
 }

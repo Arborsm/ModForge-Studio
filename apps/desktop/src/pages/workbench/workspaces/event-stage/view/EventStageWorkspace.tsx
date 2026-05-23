@@ -1,11 +1,6 @@
 import { Grid2x2, Pause, Play, RotateCcw, Route, SkipForward, UserRound } from 'lucide-react'
-import { useMemo } from 'react'
-import {
-  EFFECT_VIEWPORT_BASE_HEIGHT,
-  EFFECT_VIEWPORT_BASE_WIDTH,
-  EVENT_STAGE_INITIAL_ZOOM,
-  toActorKey,
-} from '@entities/event'
+import { useEffect, useMemo } from 'react'
+import { EFFECT_VIEWPORT_BASE_HEIGHT, EFFECT_VIEWPORT_BASE_WIDTH, EVENT_STAGE_INITIAL_ZOOM, toActorKey } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
 import {
   buildActorBreathingLayerDescriptor,
@@ -19,7 +14,7 @@ import { MapWorldStatePreviewOverlay } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { useEventStageCopy } from '@locales/localeContext'
 import { useEventStageWorkspace } from '../state/useEventStageWorkspace'
-import { type GameDirectoryInfo } from '@platform/desktop'
+import { type GameDirectoryInfo } from '@entities/game/api'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { cx } from '@shared/lib/cx'
 import { MapViewport } from '@entities/map'
@@ -34,10 +29,9 @@ type EventStageWorkspaceProps = {
   selectedEvent: EventScript | null
   eventStatusMessage: string
   playerAppearanceProfile: PlayerAppearanceProfile | null
-  timelineJumpRequestId: string | null
-  onTimelineJumpHandled: () => void
   onSelectTimelineEntry: (entryId: string) => void
   onPlaybackCommandChange: (commandId: string | null) => void
+  onStageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
   onOpenPlayerAppearanceWindow: () => void
 }
 
@@ -51,10 +45,9 @@ export default function EventStageWorkspace({
   selectedEvent,
   eventStatusMessage,
   playerAppearanceProfile,
-  timelineJumpRequestId,
-  onTimelineJumpHandled,
   onSelectTimelineEntry,
   onPlaybackCommandChange,
+  onStageSeekReady,
   onOpenPlayerAppearanceWindow,
 }: EventStageWorkspaceProps) {
   const copy = useEventStageCopy()
@@ -78,6 +71,7 @@ export default function EventStageWorkspace({
     playbackStatusChips,
     playNextFrame,
     resetPlayback,
+    seekTimelineEntry,
     setShowGrid,
     setShowMapPaths,
     showGrid,
@@ -95,11 +89,11 @@ export default function EventStageWorkspace({
     parsedEventAsset,
     selectedEvent,
     playerAppearanceProfile,
-    timelineJumpRequestId,
-    onTimelineJumpHandled,
     onSelectTimelineEntry,
     onPlaybackCommandChange,
   })
+
+  useEffect(() => onStageSeekReady(seekTimelineEntry), [onStageSeekReady, seekTimelineEntry])
 
   const worldStageEffects = useMemo(
     () => playbackState.stageEffects.filter((effect) => effect.space === 'world'),
@@ -139,9 +133,7 @@ export default function EventStageWorkspace({
         const frameWidth = 16
         const frameHeight = getActorSpriteFrameHeight(actor.actorName)
         const spriteColumns =
-          asset?.spriteSheetWidth && asset.spriteSheetWidth >= frameWidth
-            ? Math.max(1, Math.floor(asset.spriteSheetWidth / frameWidth))
-            : 4
+          asset?.spriteSheetWidth && asset.spriteSheetWidth >= frameWidth ? Math.max(1, Math.floor(asset.spriteSheetWidth / frameWidth)) : 4
 
         return {
           actor,
@@ -217,116 +209,121 @@ export default function EventStageWorkspace({
         />
         {worldEffects}
         {actorRenderEntries.map(({ actor, asset, frameWidth, frameHeight, spriteColumns, actorHeightTiles, actorWidthTiles }) => {
-            const renderState = getActorRenderState(actor, animationNowMs)
-            const spriteLayers = buildSpriteLayerDescriptors(
-              asset,
-              renderState.frame,
-              renderState.facingDirection,
-              frameWidth,
-              frameHeight,
-              spriteColumns,
-              renderState.directionalFlip,
-              renderState.farmerRenderState,
-              renderState.bodyFlip,
-            )
-            const breathingLayer = buildActorBreathingLayerDescriptor(
-              asset,
-              actor,
-              renderState.frame,
-              frameWidth,
-              frameHeight,
-              spriteColumns,
-              animationNowMs,
-              renderState.breathingScale,
-              renderState.farmerRenderState,
-            )
-            const pixelX =
-              renderState.tileX * mapDocument.tileWidth * viewportZoom +
-              renderState.offsetX * gamePixelScale * viewportZoom +
-              renderState.shakeOffsetX * viewportZoom
-            const actorHeight = mapDocument.tileHeight * actorHeightTiles * viewportZoom
-            const actorWidth = mapDocument.tileWidth * actorWidthTiles * viewportZoom
-            const pixelY =
-              renderState.tileY * mapDocument.tileHeight * viewportZoom +
-              (renderState.offsetY + renderState.breathingOffsetY) * gamePixelScale * viewportZoom +
-              renderState.shakeOffsetY * viewportZoom
-            const spriteScale = Math.max(1, actorWidth / frameWidth)
-            const spriteTransform =
-              asset?.farmerAppearance
-                ? `scale(${spriteScale}, ${spriteScale})`
-                : renderState.flip
-                  ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale})`
-                  : `scale(${spriteScale}, ${spriteScale})`
+          const renderState = getActorRenderState(actor, animationNowMs)
+          const spriteLayers = buildSpriteLayerDescriptors(
+            asset,
+            renderState.frame,
+            renderState.facingDirection,
+            frameWidth,
+            frameHeight,
+            spriteColumns,
+            renderState.directionalFlip,
+            renderState.farmerRenderState,
+            renderState.bodyFlip,
+          )
+          const breathingLayer = buildActorBreathingLayerDescriptor(
+            asset,
+            actor,
+            renderState.frame,
+            frameWidth,
+            frameHeight,
+            spriteColumns,
+            animationNowMs,
+            renderState.breathingScale,
+            renderState.farmerRenderState,
+          )
+          const pixelX =
+            renderState.tileX * mapDocument.tileWidth * viewportZoom +
+            renderState.offsetX * gamePixelScale * viewportZoom +
+            renderState.shakeOffsetX * viewportZoom
+          const actorHeight = mapDocument.tileHeight * actorHeightTiles * viewportZoom
+          const actorWidth = mapDocument.tileWidth * actorWidthTiles * viewportZoom
+          const pixelY =
+            renderState.tileY * mapDocument.tileHeight * viewportZoom +
+            (renderState.offsetY + renderState.breathingOffsetY) * gamePixelScale * viewportZoom +
+            renderState.shakeOffsetY * viewportZoom
+          const spriteScale = Math.max(1, actorWidth / frameWidth)
+          const spriteTransform = asset?.farmerAppearance
+            ? `scale(${spriteScale}, ${spriteScale})`
+            : renderState.flip
+              ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale})`
+              : `scale(${spriteScale}, ${spriteScale})`
 
-            return (
-              <div
-                key={actor.id}
-                className="absolute"
-                style={{
-                  transform: `translate(${Math.round(pixelX)}px, ${Math.round(pixelY)}px)`,
-                  width: `${actorWidth}px`,
-                  height: `${actorHeight}px`,
-                  zIndex: Math.round(renderState.tileY * 100) + 50,
-                }}
-              >
-                {spriteLayers.length > 0 ? (
-                  <div className="relative overflow-visible" style={{ width: `${actorWidth}px`, height: `${actorHeight}px` }}>
-                    <div className="relative" style={{ width: `${frameWidth}px`, height: `${frameHeight}px`, transform: spriteTransform, transformOrigin: 'left bottom' }}>
-                      {spriteLayers.map((layer) => (
-                        <div
-                          key={`${actor.id}:${layer.key}`}
-                          className="absolute"
-                          style={{
-                            left: `${layer.offsetX}px`,
-                            top: `${layer.offsetY}px`,
-                            width: `${layer.width}px`,
-                            height: `${layer.height}px`,
-                            transform:
-                              [
-                                layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : null,
-                                layer.scaleX != null || layer.scaleY != null
-                                  ? `scale(${layer.scaleX ?? 1}, ${layer.scaleY ?? 1})`
-                                  : null,
-                                layer.rotation != null ? `rotate(${layer.rotation}rad)` : null,
-                              ]
-                                .filter(Boolean)
-                                .join(' ') || undefined,
-                            transformOrigin: layer.transformOrigin ?? 'top left',
-                            backgroundImage: layer.url ? `url("${layer.url}")` : undefined,
-                            backgroundColor: layer.backgroundColor ?? undefined,
-                            backgroundPosition: `-${layer.sourceX}px -${layer.sourceY}px`,
-                            backgroundRepeat: 'no-repeat',
-                            imageRendering: 'pixelated',
-                            opacity: layer.opacity,
-                          }}
-                        />
-                      ))}
-                      {breathingLayer ? (
-                        <div
-                          key={`${actor.id}:breathing`}
-                          className="absolute"
-                          style={{
-                            left: `${breathingLayer.offsetX}px`,
-                            top: `${breathingLayer.offsetY}px`,
-                            width: `${breathingLayer.width}px`,
-                            height: `${breathingLayer.height}px`,
-                            transform: `scale(${breathingLayer.scaleX ?? 1}, ${breathingLayer.scaleY ?? 1})`,
-                            transformOrigin: breathingLayer.transformOrigin ?? 'top left',
-                            backgroundImage: breathingLayer.url ? `url("${breathingLayer.url}")` : undefined,
-                            backgroundPosition: `-${breathingLayer.sourceX}px -${breathingLayer.sourceY}px`,
-                            backgroundRepeat: 'no-repeat',
-                            imageRendering: 'pixelated',
-                          }}
-                        />
-                      ) : null}
-                    </div>
+          return (
+            <div
+              key={actor.id}
+              className="absolute"
+              style={{
+                transform: `translate(${Math.round(pixelX)}px, ${Math.round(pixelY)}px)`,
+                width: `${actorWidth}px`,
+                height: `${actorHeight}px`,
+                zIndex: Math.round(renderState.tileY * 100) + 50,
+              }}
+            >
+              {spriteLayers.length > 0 ? (
+                <div className="relative overflow-visible" style={{ width: `${actorWidth}px`, height: `${actorHeight}px` }}>
+                  <div
+                    className="relative"
+                    style={{
+                      width: `${frameWidth}px`,
+                      height: `${frameHeight}px`,
+                      transform: spriteTransform,
+                      transformOrigin: 'left bottom',
+                    }}
+                  >
+                    {spriteLayers.map((layer) => (
+                      <div
+                        key={`${actor.id}:${layer.key}`}
+                        className="absolute"
+                        style={{
+                          left: `${layer.offsetX}px`,
+                          top: `${layer.offsetY}px`,
+                          width: `${layer.width}px`,
+                          height: `${layer.height}px`,
+                          transform:
+                            [
+                              layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : null,
+                              layer.scaleX != null || layer.scaleY != null ? `scale(${layer.scaleX ?? 1}, ${layer.scaleY ?? 1})` : null,
+                              layer.rotation != null ? `rotate(${layer.rotation}rad)` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' ') || undefined,
+                          transformOrigin: layer.transformOrigin ?? 'top left',
+                          backgroundImage: layer.url ? `url("${layer.url}")` : undefined,
+                          backgroundColor: layer.backgroundColor ?? undefined,
+                          backgroundPosition: `-${layer.sourceX}px -${layer.sourceY}px`,
+                          backgroundRepeat: 'no-repeat',
+                          imageRendering: 'pixelated',
+                          opacity: layer.opacity,
+                        }}
+                      />
+                    ))}
+                    {breathingLayer ? (
+                      <div
+                        key={`${actor.id}:breathing`}
+                        className="absolute"
+                        style={{
+                          left: `${breathingLayer.offsetX}px`,
+                          top: `${breathingLayer.offsetY}px`,
+                          width: `${breathingLayer.width}px`,
+                          height: `${breathingLayer.height}px`,
+                          transform: `scale(${breathingLayer.scaleX ?? 1}, ${breathingLayer.scaleY ?? 1})`,
+                          transformOrigin: breathingLayer.transformOrigin ?? 'top left',
+                          backgroundImage: breathingLayer.url ? `url("${breathingLayer.url}")` : undefined,
+                          backgroundPosition: `-${breathingLayer.sourceX}px -${breathingLayer.sourceY}px`,
+                          backgroundRepeat: 'no-repeat',
+                          imageRendering: 'pixelated',
+                        }}
+                      />
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="h-full w-full" />
-                )}
-              </div>
-            )
-          })}
+                </div>
+              ) : (
+                <div className="h-full w-full" />
+              )}
+            </div>
+          )
+        })}
       </div>
     )
   }, [actorRenderEntries, animationNowMs, effectAssets, mapDocument, viewportZoom, worldEffectEntries, worldOverlaySprites])
@@ -409,7 +406,7 @@ export default function EventStageWorkspace({
       {screenEffectsOverlay}
       <div className="absolute inset-0 flex flex-col justify-between p-4">
         <div className="flex justify-between gap-3">
-          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase shadow-[var(--shadow-panel)]">
             {selectedEvent?.eventId ?? labels.scene}
           </div>
           <div className="flex flex-wrap justify-end gap-2">
@@ -418,7 +415,7 @@ export default function EventStageWorkspace({
                 key={chip.id}
                 className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]"
               >
-                <span className="font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">{chip.label}</span>{' '}
+                <span className="font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{chip.label}</span>{' '}
                 <span>{chip.value}</span>
               </div>
             ))}
@@ -447,7 +444,10 @@ export default function EventStageWorkspace({
                           : 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_92%,transparent)]'
 
                   return (
-                    <div key={notice.id} className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-[var(--shadow-panel)] backdrop-blur ${toneClassName}`}>
+                    <div
+                      key={notice.id}
+                      className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-[var(--shadow-panel)] backdrop-blur ${toneClassName}`}
+                    >
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)]">
                         {notice.icon && iconAsset?.url ? (
                           <div
@@ -463,13 +463,13 @@ export default function EventStageWorkspace({
                             }}
                           />
                         ) : (
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                            HUD
-                          </span>
+                          <span className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">HUD</span>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">{notice.title}</p>
+                        <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">
+                          {notice.title}
+                        </p>
                         <p className="truncate text-sm text-[var(--text-primary)]">{notice.detail}</p>
                       </div>
                     </div>
@@ -519,15 +519,13 @@ export default function EventStageWorkspace({
                   />
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                <div className="flex h-full items-center justify-center text-center text-[11px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">
                   {playbackState.currentEntry.title}
                 </div>
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="panel-section-title">
-                {playbackState.currentEntry.title}
-              </p>
+              <p className="panel-section-title">{playbackState.currentEntry.title}</p>
               <p className="mt-2 text-base leading-7 text-[var(--text-primary)]">{playbackState.currentEntry.detail}</p>
             </div>
           </div>
@@ -539,7 +537,6 @@ export default function EventStageWorkspace({
       </div>
     </div>
   )
-
 
   if (!parsedEventAsset) {
     return (
@@ -660,5 +657,3 @@ export default function EventStageWorkspace({
     </div>
   )
 }
-
-

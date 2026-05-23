@@ -3,7 +3,7 @@ export type ThemeMode = 'dark' | 'light'
 export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
 export type WorkspaceMode = CoreWorkspaceMode | 'mods'
 export type AppMode = 'workbench' | 'launcher'
-export type LauncherPage = 'library' | 'discover' | 'updates' | 'debug'
+export type LauncherPage = 'library' | 'discover' | 'updates' | 'configuration'
 export type WorkspaceTone = 'idle' | 'working' | 'ready' | 'error'
 export type WorldAtlasViewId = 'main' | 'remote'
 
@@ -551,7 +551,6 @@ export type LauncherCopy = {
     modsPath: string
     downloadPath: string
     nexusApiKey: string
-    nexusCookie: string
   }
   toggles: {
     enabledOnly: string
@@ -564,101 +563,199 @@ export type LauncherCopy = {
     title: string
     subtitle: string
     empty: string
-      detailsTitle: string
-      detailsSubtitle: string
-      selectionEmpty: string
-      installHint: string
-      previewTitle: string
-      previewSubtitle: string
-      previewEntries: string
-      previewFiles: string
-      previewRoots: string
-      previewArchiveListTitle: string
-      previewArchiveListSubtitle: string
-      previewNoRoots: string
-      previewLoading: string
-      previewError: string
-      dragDropInstallTitle: string
-      dragDropInstallSubtitle: (formats: string) => string
-      dragDropMultipleFiles: string
-      dragDropUnsupportedArchive: (formats: string) => string
-      dragDropMissingPath: string
-      dragDropSkippedUnsupportedArchives: (count: number, formats: string) => string
-      dragDropSkippedMissingPaths: (count: number) => string
-      installSummaryTitle: string
-      installSummarySubtitle: string
-      installSummaryInstalledMods: (count: number) => string
-      installSummaryPreservedConfig: string
-      installSummaryPreservedI18n: string
-      installSummaryBackupSubtitle: string
-      installBackupsTitle: string
-      installBackupsSubtitle: string
-      installBackupsLoading: string
-      installBackupsEmpty: string
-      installBackupsError: string
-      manageInstallBackups: string
-      restoreInstallBackup: string
-      installBackupIdLabel: string
-      filteredEmpty: string
-      scopeTitle: string
-      scopeHint: string
-      scopeAll: string
-      scopeCurrentPack: string
-      packTitle: string
-      packSubtitle: string
-      packButtonLabel: string
-      storageTitle: string
-      storageSubtitle: string
-      storageButtonLabel: string
-      managementTitle: string
-      managementSubtitle: string
-      visibleTitle: string
-      selectedTitle: string
-      currentPackTitle: string
-      allPacks: string
-      hiddenMods: string
-      allStorageFolders: string
-      defaultStorageFolder: string
-      selectionButtonLabel: string
-      newPackPlaceholder: string
-      newStorageFolderPlaceholder: string
-      sortLabel: string
-      sortByName: string
-      sortByEnabled: string
-      sortByPack: string
-      sortByFolder: string
-      storageTargetLabel: string
-      packTargetLabel: string
-      noCover: string
-      packLabel: string
-      storageFolderLabel: string
-      manageCurrentPack: string
-      renameCurrentPack: string
-      deleteCurrentPack: string
-      editCurrentPack: string
-      editingPackLabel: string
-      includedModsCount: (count: number) => string
-      cancelEdit: string
-      saveChanges: string
-      renameCurrentPackPrompt: (name: string) => string
-      deleteCurrentPackConfirm: (name: string) => string
-      loadingMissingCoversTitle: string
-      loadingMissingCoversCurrentMod: (name: string) => string
-      loadingMissingCoversProgress: (completed: number, total: number) => string
-      loadingMissingCoversStageProgress: (stage: string, completed: number, total: number) => string
-      loadingMissingCoversStages: {
-        local: string
-        apiCover: string
-        apiGallery: string
-        remoteCover: string
-        remoteGallery: string
-      }
-      galleryCoverTitle: string
-      galleryCoverSubtitle: string
-      galleryCoverEmpty: string
-      galleryCoverLoading: string
-      galleryCoverImageLabel: (index: number) => string
+    detailsTitle: string
+    detailsSubtitle: string
+    selectionEmpty: string
+    modDetail: {
+      tabsLabel: string
+      tabs: Record<'overview' | 'description' | 'changelog' | 'details' | 'dependencies' | 'files', string>
+      local: string
+      byAuthor: string
+      installedVersionShort: string
+      nexusVersionShort: string
+      status: string
+      metadata: string
+      tags: string
+      reach: string
+      scan: string
+      state: string
+      identity: string
+      nexus: string
+      folder: string
+      category: string
+      updated: string
+      path: string
+      clean: string
+      dependenciesClean: string
+      noNexusLink: string
+      installed: string
+      currentFolder: string
+      version: string
+      updateAvailable: string
+      nexusPrimaryFile: string
+      file: string
+      size: string
+      whatsNew: string
+      primaryFile: string
+      readFullDescription: string
+      fullDescriptionTitle: string
+      installPath: string
+      updateEvidence: string
+      nexusPage: string
+      install: string
+      manifest: string
+      absolutePath: string
+      manifestFile: string
+      installedFile: string
+      requirement: string
+      gameVersion: string
+      download: string
+      directDownload: string
+      vortexSupported: string
+      name: string
+      fileId: string
+      archiveType: string
+      method: string
+      evidence: string
+      confidence: string
+      sizeChange: string
+      risk: string
+      match: string
+      updateKey: string
+      updateKeyEvidence: string
+      exact: string
+      verifiedFile: string
+      exactUpdateKeyMatch: string
+      installedTo: string
+      updateNow: string
+      reinstall: string
+      requirementNotes: string
+      externalRequirement: string
+      fileCategory: string
+      scanStatus: string
+      localRequirement: string
+      remoteRequirement: string
+      missing: string
+      satisfied: string
+      availableFiles: string
+      mainFiles: string
+      optionalFiles: string
+      oldFiles: string
+      oldAndArchivedFiles: string
+      changelogEmpty: string
     }
+    installHint: string
+    previewTitle: string
+    previewSubtitle: string
+    previewEntries: string
+    previewFiles: string
+    previewRoots: string
+    previewArchiveListTitle: string
+    previewArchiveListSubtitle: string
+    previewNoRoots: string
+    previewLoading: string
+    previewError: string
+    dragDropInstallTitle: string
+    dragDropInstallSubtitle: (formats: string) => string
+    dragDropMultipleFiles: string
+    dragDropUnsupportedArchive: (formats: string) => string
+    dragDropMissingPath: string
+    dragDropSkippedUnsupportedArchives: (count: number, formats: string) => string
+    dragDropSkippedMissingPaths: (count: number) => string
+    installSummaryTitle: string
+    installSummarySubtitle: string
+    installSummaryInstalledMods: (count: number) => string
+    installSummaryPreservedConfig: string
+    installSummaryPreservedI18n: string
+    installSummaryBackupSubtitle: string
+    installBackupsTitle: string
+    installBackupsSubtitle: string
+    installBackupsLoading: string
+    installBackupsEmpty: string
+    installBackupsError: string
+    manageInstallBackups: string
+    restoreInstallBackup: string
+    installBackupIdLabel: string
+    filteredEmpty: string
+    scopeTitle: string
+    scopeHint: string
+    scopeAll: string
+    scopeCurrentPack: string
+    packTitle: string
+    packSubtitle: string
+    packButtonLabel: string
+    storageTitle: string
+    storageSubtitle: string
+    storageButtonLabel: string
+    managementTitle: string
+    managementSubtitle: string
+    visibleTitle: string
+    selectedTitle: string
+    currentPackTitle: string
+    allPacks: string
+    hiddenMods: string
+    allStorageFolders: string
+    defaultStorageFolder: string
+    selectionButtonLabel: string
+    newPackPlaceholder: string
+    newStorageFolderPlaceholder: string
+    sortLabel: string
+    sortByName: string
+    sortByEnabled: string
+    sortByPack: string
+    sortByFolder: string
+    storageTargetLabel: string
+    packTargetLabel: string
+    noCover: string
+    packLabel: string
+    storageFolderLabel: string
+    manageCurrentPack: string
+    renameCurrentPack: string
+    deleteCurrentPack: string
+    editCurrentPack: string
+    editingPackLabel: string
+    includedModsCount: (count: number) => string
+    cancelEdit: string
+    saveChanges: string
+    renameCurrentPackPrompt: (name: string) => string
+    deleteCurrentPackConfirm: (name: string) => string
+    setAsChildMod: string
+    chooseChildMods: string
+    chooseChildModsSubtitle: (name: string) => string
+    confirmChildMods: string
+    childModsCount: (count: number) => string
+    expandChildMods: (name: string) => string
+    collapseChildMods: (name: string) => string
+    manageChildMods: string
+    removeFromParent: string
+    parentModLabel: (name: string) => string
+    createLibraryFolder: string
+    newLibraryFolderName: string
+    renameLibraryFolder: string
+    renameLibraryFolderPrompt: (name: string) => string
+    enableLibraryFolder: string
+    disableLibraryFolder: string
+    libraryFolderCount: (count: number) => string
+    openLibraryFolder: (name: string) => string
+    closeLibraryFolder: string
+    loadingMissingCoversTitle: string
+    loadingMissingCoversCurrentMod: (name: string) => string
+    loadingMissingCoversProgress: (completed: number, total: number) => string
+    loadingMissingCoversStageProgress: (stage: string, completed: number, total: number) => string
+    loadingMissingCoversStages: {
+      local: string
+      apiCover: string
+      apiGallery: string
+      remoteCover: string
+      remoteGallery: string
+    }
+    updateAvailableTooltip: (version: string) => string
+    galleryCoverTitle: string
+    galleryCoverSubtitle: string
+    galleryCoverEmpty: string
+    galleryCoverLoading: string
+    galleryCoverImageLabel: (index: number) => string
+  }
   discover: {
     title: string
     subtitle: string
@@ -718,18 +815,96 @@ export type LauncherCopy = {
     blockedTitle: string
     blockedDetail: string
   }
+  diagnostics: {
+    title: string
+    sectionTitle: string
+    sectionSubtitle: string
+    apiKeyTitle: string
+    apiKeySubtitle: string
+    apiKeyBadge: string
+    apiKeyMissing: string
+    apiKeyUnchecked: string
+    premiumActive: string
+    premiumFree: string
+    quotaRemaining: (remaining: string) => string
+    hourlyQuotaRemaining: (remaining: string) => string
+    quotaResetAt: (time: string) => string
+    lastRefresh: (time: string) => string
+    staleWarning: string
+    loading: string
+    empty: string
+    justNow: string
+    secondsAgo: (seconds: string) => string
+    minutesAgo: (minutes: string) => string
+    hoursAgo: (hours: string) => string
+    retryRouteAction: (routeLabel: string) => string
+    validateApiKeyAction: string
+    startSsoAction: string
+    cancelSsoAction: string
+    ssoWaiting: string
+    ssoAuthorized: string
+    errorCardLabel: string
+    errors: Record<
+      | 'invalidApiKey'
+      | 'premiumRequired'
+      | 'rateLimited'
+      | 'serviceUnavailable'
+      | 'network'
+      | 'ssoCancelled'
+      | 'ssoTimeout'
+      | 'ssoDenied'
+      | 'unknown',
+      {
+        title: string
+        detail: string
+        action: string
+      }
+    >
+  }
   downloads: {
     title: string
     subtitle: string
     empty: string
+    manualDownloadOpenedTitle: string
+    manualDownloadOpenedDetail: string
   }
   settings: {
     title: string
     subtitle: string
     pathsTitle: string
     pathsHint: string
+    gamePathHint: string
+    modsPathHint: string
+    downloadPathHint: string
+    pathNotConfigured: string
     nexusAccessTitle: string
+    nexusAccessHint: string
+    nexusReauthorize: string
+    nexusNormalStatus: string
+    nexusApiSsoMethod: string
+    nexusGuestTitle: string
+    nexusGuestSubtitle: string
+    nexusSignInAction: string
+    nexusPasteApiKeyAction: string
+    nexusClearApiKeyAction: string
+    nexusQuotaDaily: string
+    nexusQuotaHourly: string
+    nexusQuotaDailyLimit: string
+    nexusQuotaHourlyLimit: string
+    nexusQuotaPercent: (percent: number) => string
+    nexusQuotaResetIn: (duration: string) => string
+    nexusQuotaDurationHoursMinutes: (hours: number, minutes: number) => string
+    nexusQuotaDurationMinutes: (minutes: number) => string
+    nexusQuotaDailyResetHint: string
+    nexusQuotaHourlyResetHint: string
+    nexusApiRest: string
+    nexusApiGraphql: string
+    nexusApiImageCdn: string
+    nexusApiAvailable: string
+    nexusApiSlow: string
+    nexusApiUnavailable: string
     downloadBehaviorTitle: string
+    downloadDefaultsTitle: string
     downloadBehaviorHint: string
     autoCheckUpdatesHint: string
     autoInstallHint: string
@@ -737,10 +912,47 @@ export type LauncherCopy = {
     loadFailed: string
     saved: string
     saveFailed: string
+    configurationScoreLabel: string
+    configurationReady: string
+    configurationNeedsReview: string
+    configurationBreadcrumb: string
+    configurationGameTitle: string
+    configurationStatusLine: (status: string, modCount: string, diagnosticsAge: string) => string
+    configurationInstalledMods: (count: number) => string
+    configurationInstalledModsUnknown: string
+    configurationDiagnosticsJustNow: string
+    configurationDiagnosticsMinutesAgo: (minutes: number) => string
+    configurationRunDiagnostics: string
+    configurationViewLogs: string
+    configurationGameVersionTag: (version: string) => string
+    configurationSmapiVersionTag: (version: string) => string
+    configurationVersionUnknown: string
+    configurationIssueSummary: (pending: number) => string
+    configuredPathsSummary: (configured: number, total: number) => string
+    completionTitle: string
+    completionReady: (ready: number, total: number) => string
+    completionPending: (pending: number) => string
+    stepPaths: string
+    stepNexus: string
+    stepDownloads: string
+    stepDiagnostics: string
+    nexusReady: string
+    nexusMissing: string
+    downloadsReady: string
+    downloadsLimited: string
+    diagnosticsHealthy: string
+    diagnosticsReview: string
   }
-  debug: {
+  configuration: {
     title: string
     subtitle: string
+    moreToolsTitle: string
+    moreToolsSubtitle: string
+    moreToolsAction: string
+    lessToolsAction: string
+    debugToolsStateGroupTitle: string
+    debugToolsFeedbackGroupTitle: string
+    debugToolsModulesGroupTitle: string
     debugOnlyTitle: string
     debugOnlyDescription: string
     notificationsOverviewTitle: string
@@ -761,6 +973,10 @@ export type LauncherCopy = {
     nexusDiagnosticsAvailableState: string
     nexusDiagnosticsUnavailableState: string
     nexusDiagnosticsLoadingState: string
+    nexusDiagnosticsRouteResponsibilities: Record<
+      'publicGraphql' | 'privateGraphql' | 'nexusApi' | 'nexusImages' | 'smapi' | 'fallback',
+      string
+    >
     nexusDiagnosticsNotificationTitle: string
     nexusDiagnosticsNotificationImpact: (targets: string) => string
     nexusDiagnosticsNotificationLimitedImpact: string
@@ -778,11 +994,20 @@ export type LauncherCopy = {
     forceOfflineDisableButton: string
     forceOfflineEnabledLabel: string
     forceOfflineDisabledLabel: string
+    forceNonPremiumEnableButton: string
+    forceNonPremiumDisableButton: string
+    forceNonPremiumEnabledLabel: string
+    forceNonPremiumDisabledLabel: string
     clearImageCacheTitle: string
     clearImageCacheSubtitle: string
     clearImageCacheButton: string
+    bbcodePreviewTitle: string
+    bbcodePreviewSubtitle: string
+    bbcodePreviewExpandAction: string
+    bbcodePreviewCollapseAction: string
     simulationTitle: string
     simulationSubtitle: string
+    simulationParametersLabel: string
     simulationButtonIdle: string
     simulationButtonRunning: string
     notificationButtons: Record<'debug' | 'info' | 'success' | 'warning' | 'error', string>
@@ -872,6 +1097,7 @@ export type EditorCopy = {
     showGrid: string
     hideGrid: string
     moduleWorkspace: string
+    moduleWorkspaceDisabled: string
     moduleCanvas: string
     moduleInspector: string
   }
@@ -1293,12 +1519,15 @@ export type EditorCopy = {
         catalogCountLabel: (count: number) => string
         catalogArgumentLabel: string
         catalogAddLabel: string
-        catalogConditions: Record<string, {
-          title: string
-          description: string
-          placeholder?: string
-          fieldLabel?: string
-        }>
+        catalogConditions: Record<
+          string,
+          {
+            title: string
+            description: string
+            placeholder?: string
+            fieldLabel?: string
+          }
+        >
         catalogPresetLabel: string
         catalogWeekdayLabels: Record<'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun', string>
         catalogAnyPetLabel: string

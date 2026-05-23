@@ -16,19 +16,36 @@ export {
   normalizeLauncherDiscoverToolbarState,
 } from './model/launcherDiscoverToolbarState'
 export { getModKey, includesLibraryFilter, normalizeLookupKey } from './model/libraryHelpers'
-export { loadSettledLauncherNexusDiagnostics } from './model/nexusDiagnostics'
+export {
+  clearCachedLauncherConfigurationDiagnostics,
+  getLauncherNexusWarningRoutes,
+  loadSettledLauncherNexusDiagnostics,
+  mergeLauncherNexusDiagnostics,
+  readCachedLauncherConfigurationApiKeyStatus,
+  readCachedLauncherConfigurationDiagnostics,
+  readCachedLauncherConfigurationLibraryScan,
+  readCachedLauncherConfigurationRuntimeInfo,
+  readCachedLauncherConfigurationSsoStatus,
+  writeCachedLauncherConfigurationApiKeyStatus,
+  writeCachedLauncherConfigurationDiagnostics,
+  writeCachedLauncherConfigurationLibraryScan,
+  writeCachedLauncherConfigurationRuntimeInfo,
+  writeCachedLauncherConfigurationSsoStatus,
+} from './model/nexusDiagnostics'
 export { syncLauncherDiagnosticsNotification } from './model/nexusDiagnosticsNotifications'
 export { useLauncherPort } from './model/launcherPortContext'
 export { useLauncherDiscover } from './model/useLauncherDiscover'
 export { useLauncherDownloads } from './model/useLauncherDownloads'
 export { useLauncherLibrary } from './model/useLauncherLibrary'
-export { useLauncherRuntime } from './model/useLauncherRuntime'
+export { useLauncherRemoteModDetail } from './model/useLauncherRemoteModDetail'
+export { getLauncherWarningState, useLauncherRuntime } from './model/useLauncherRuntime'
 export { useLauncherSettings } from './model/useLauncherSettings'
 export { useLauncherUpdateProgressNotifications } from './model/useLauncherUpdateProgressNotifications'
 export { useLauncherUpdates } from './model/useLauncherUpdates'
 
 export type {
   LauncherDownloadQueueItem,
+  LauncherDiscoverDetail,
   LauncherLibraryItem,
   LauncherPackPreset,
   LauncherSettingsDraft,

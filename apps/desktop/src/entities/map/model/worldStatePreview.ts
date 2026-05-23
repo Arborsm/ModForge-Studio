@@ -73,8 +73,7 @@ function buildBushOverlaySprite(mapName: string, tileX: number, tileY: number, s
   const sourceRect = getBushSourceRect(size, tileX, normalizeMapNameToken(mapName) === 'town')
   const anchorX = tileX * 64 + ((sourceRect.effectiveSize + 1) * 64) / 2
   const anchorY =
-    (tileY + 1) * 64 -
-    (sourceRect.effectiveSize > 0 && (!sourceRect.townBush || sourceRect.effectiveSize !== 1) && size !== 4 ? 64 : 0)
+    (tileY + 1) * 64 - (sourceRect.effectiveSize > 0 && (!sourceRect.townBush || sourceRect.effectiveSize !== 1) && size !== 4 ? 64 : 0)
   const originX = ((sourceRect.effectiveSize + 1) * 16) / 2
   const originY = 32
 
@@ -228,11 +227,7 @@ function getStarterFarmBuildings(mapDocument: MapDocument) {
   const farmhouseEntry = getMapPropertyPoint(mapDocument, 'FarmHouseEntry') ?? { x: 64, y: 15 }
   const greenhouseLocation =
     getMapPropertyPoint(mapDocument, 'GreenhouseLocation') ??
-    (normalizedName === 'farm_fourcorners'
-      ? { x: 36, y: 29 }
-      : normalizedName === 'farm_island'
-        ? { x: 14, y: 14 }
-        : { x: 25, y: 10 })
+    (normalizedName === 'farm_fourcorners' ? { x: 36, y: 29 } : normalizedName === 'farm_island' ? { x: 14, y: 14 } : { x: 25, y: 10 })
   const shippingBinLocation = getMapPropertyPoint(mapDocument, 'ShippingBinLocation') ?? { x: 71, y: 14 }
   const petBowlLocation = getMapPropertyPoint(mapDocument, 'PetBowlLocation') ?? { x: 53, y: 7 }
 
@@ -337,10 +332,7 @@ function buildPathLayerWorldOverlaySprites(mapDocument: MapDocument): StageWorld
   return overlays
 }
 
-export function buildStageWorldOverlaySprites(
-  mapDocument: MapDocument | null,
-  buildingDataIndex: Record<string, StageBuildingDataEntry>,
-) {
+export function buildStageWorldOverlaySprites(mapDocument: MapDocument | null, buildingDataIndex: Record<string, StageBuildingDataEntry>) {
   if (!mapDocument || mapDocument.format === 'atlas') {
     return []
   }
@@ -351,7 +343,10 @@ export function buildStageWorldOverlaySprites(
     return cachedSprites
   }
 
-  const nextSprites = [...buildPathLayerWorldOverlaySprites(mapDocument), ...buildDefaultBuildingOverlaySprites(mapDocument, buildingDataIndex)]
+  const nextSprites = [
+    ...buildPathLayerWorldOverlaySprites(mapDocument),
+    ...buildDefaultBuildingOverlaySprites(mapDocument, buildingDataIndex),
+  ]
   const nextCache = cachedByDocument ?? new WeakMap<MapDocument, StageWorldOverlaySprite[]>()
   nextCache.set(mapDocument, nextSprites)
   if (!cachedByDocument) {

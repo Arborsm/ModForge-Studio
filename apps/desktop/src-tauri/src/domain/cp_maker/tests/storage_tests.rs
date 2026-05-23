@@ -1,12 +1,10 @@
 use crate::domain::cp_maker::storage::{
-    copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir,
-    draft_file_path_at_dir, list_cp_maker_drafts_at_dir, load_cp_maker_draft_at_dir,
-    save_cp_maker_draft_at_dir,
+    copy_cp_maker_draft_at_dir, delete_cp_maker_draft_at_dir, draft_file_path_at_dir,
+    list_cp_maker_drafts_at_dir, load_cp_maker_draft_at_dir, save_cp_maker_draft_at_dir,
 };
 use crate::domain::cp_maker::types::{
-    CopyCpMakerDraftRequest, CpMakerDraftErrorCode, CpMakerDraftOperation,
-    CpMakerDraftRecord, CpMakerEventSourceSnapshot,
-    CpMakerExportFingerprint, CpMakerMetadata, CpMakerOverlayTarget,
+    CopyCpMakerDraftRequest, CpMakerDraftErrorCode, CpMakerDraftOperation, CpMakerDraftRecord,
+    CpMakerEventSourceSnapshot, CpMakerExportFingerprint, CpMakerMetadata, CpMakerOverlayTarget,
     CpMakerOverlayTargetSource,
 };
 use crate::test_support::create_temp_dir;
@@ -95,8 +93,8 @@ fn saves_loads_and_lists_cp_maker_drafts_round_trip() {
 #[test]
 fn copies_cp_maker_drafts_with_a_new_storage_key() {
     let root = create_temp_dir("cp-maker-copy");
-    let source = save_cp_maker_draft_at_dir(&root, sample_draft("draft-source"))
-        .expect("save source draft");
+    let source =
+        save_cp_maker_draft_at_dir(&root, sample_draft("draft-source")).expect("save source draft");
 
     let copied = copy_cp_maker_draft_at_dir(
         &root,
@@ -123,8 +121,8 @@ fn copies_cp_maker_drafts_with_a_new_storage_key() {
     assert_eq!(copied.last_export_path, None);
     assert_eq!(copied.last_export_fingerprint, None);
 
-    let reloaded = load_cp_maker_draft_at_dir(&root, &copied.draft_storage_key)
-        .expect("load copied draft");
+    let reloaded =
+        load_cp_maker_draft_at_dir(&root, &copied.draft_storage_key).expect("load copied draft");
     assert_eq!(reloaded, copied);
 
     fs::remove_dir_all(root).expect("cleanup");

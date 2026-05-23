@@ -84,7 +84,10 @@ function parseTintColor(rawColor: string | null | undefined) {
 }
 
 type ItemSpriteProps = {
-  item: Pick<ItemWorkspaceEntry, 'displayName' | 'kind' | 'textureAssetName' | 'spriteIndex' | 'menuSpriteIndex' | 'spriteWidth' | 'spriteHeight' | 'apparelStats'>
+  item: Pick<
+    ItemWorkspaceEntry,
+    'displayName' | 'kind' | 'textureAssetName' | 'spriteIndex' | 'menuSpriteIndex' | 'spriteWidth' | 'spriteHeight' | 'apparelStats'
+  >
   textureState: ItemTextureAssetState | null
   scale?: number
   className?: string
@@ -97,11 +100,14 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', styl
   const tintColor = item.kind === 'shirt' || item.kind === 'pants' ? parseTintColor(item.apparelStats?.defaultColor) : null
 
   return (
-    <div className={`relative overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] ${className}`} style={{ isolation: 'isolate', ...style }}>
+    <div
+      className={`relative overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel-muted)] ${className}`}
+      style={{ isolation: 'isolate', ...style }}
+    >
       {sourceRect && textureState?.url && textureState.width && textureState.height ? (
         <>
           <div
-            className="absolute left-1/2 top-1/2"
+            className="absolute top-1/2 left-1/2"
             style={{
               ...buildSpriteLayerStyle({
                 url: textureState.url,
@@ -118,7 +124,7 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', styl
           />
           {tintMaskRect && tintColor ? (
             <div
-              className="absolute left-1/2 top-1/2"
+              className="absolute top-1/2 left-1/2"
               style={{
                 ...buildMaskLayerStyle({
                   url: textureState.url,
@@ -138,11 +144,10 @@ export function ItemSprite({ item, textureState, scale = 2, className = '', styl
           ) : null}
         </>
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase text-[var(--text-secondary)]">
+        <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-[var(--text-secondary)] uppercase">
           {item.displayName.slice(0, 1)}
         </div>
       )}
     </div>
   )
 }
-

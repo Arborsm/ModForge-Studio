@@ -120,7 +120,7 @@ export const GAME_STATE_QUERY_KEYS = [
   'FALSE',
 ] as const
 
-export type GameStateQueryKey = typeof GAME_STATE_QUERY_KEYS[number]
+export type GameStateQueryKey = (typeof GAME_STATE_QUERY_KEYS)[number]
 
 export interface ParsedGameStateQuerySet {
   raw: string
@@ -275,15 +275,9 @@ function formatKnownGameStateQueryClause(clause: ParsedGameStateQueryClause, hub
     case 'IS_HOST':
       return hub.preconditions.isHost
     case 'LOCATION_SEASON':
-      return semantics.locationSeason(
-        semantics.location(firstArg(args)),
-        args.slice(1).map(hub.preconditionSeasonName),
-      )
+      return semantics.locationSeason(semantics.location(firstArg(args)), args.slice(1).map(hub.preconditionSeasonName))
     case 'WEATHER':
-      return semantics.weather(
-        semantics.location(firstArg(args)),
-        args.slice(1).map(hub.preconditionWeatherName),
-      )
+      return semantics.weather(semantics.location(firstArg(args)), args.slice(1).map(hub.preconditionWeatherName))
     case 'WORLD_STATE_ID':
       return hub.preconditions.worldState(firstArg(args))
     case 'MINE_LOWEST_LEVEL_REACHED':
@@ -314,9 +308,7 @@ function formatKnownGameStateQueryClause(clause: ParsedGameStateQueryClause, hub
 }
 
 function formatGameStateQueryClauseForHub(clause: ParsedGameStateQueryClause, hub: HubCopy): string {
-  const label: string = clause.isKnown
-    ? formatKnownGameStateQueryClause(clause, hub)
-    : hub.preconditions.gameStateQuery(clause.raw)
+  const label: string = clause.isKnown ? formatKnownGameStateQueryClause(clause, hub) : hub.preconditions.gameStateQuery(clause.raw)
 
   return clause.negated ? hub.preconditionNegatedLabel(label) : label
 }
@@ -326,9 +318,7 @@ function formatGameStateQuerySetForHub(query: ParsedGameStateQuerySet, hub: HubC
     return hub.preconditions.gameStateQuery(query.raw)
   }
 
-  return hub.gameStateQuerySemantics.all(
-    query.clauses.map((clause) => formatGameStateQueryClauseForHub(clause, hub)),
-  )
+  return hub.gameStateQuerySemantics.all(query.clauses.map((clause) => formatGameStateQueryClauseForHub(clause, hub)))
 }
 
 export function formatGameStateQueryForHub(query: ParsedGameStateQuerySet | string, hub: HubCopy): string {

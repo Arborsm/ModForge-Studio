@@ -37,17 +37,11 @@ export function ConfigSchemaDialog({
     }
     return entries.length > 0 ? entries : [{ key: '', value: '' }]
   })
-  const [priority, setPriority] = useState(() =>
-    patch?.priority !== undefined ? String(patch.priority) : ''
-  )
+  const [priority, setPriority] = useState(() => (patch?.priority !== undefined ? String(patch.priority) : ''))
   const initialEnabledMode = typeof patch?.enabled === 'string' ? 'token' : 'bool'
   const [enabledMode, setEnabledMode] = useState<'bool' | 'token'>(initialEnabledMode)
-  const [enabledBool, setEnabledBool] = useState(() =>
-    typeof patch?.enabled === 'boolean' ? patch.enabled : true
-  )
-  const [enabledToken, setEnabledToken] = useState(() =>
-    typeof patch?.enabled === 'string' ? patch.enabled : ''
-  )
+  const [enabledBool, setEnabledBool] = useState(() => (typeof patch?.enabled === 'boolean' ? patch.enabled : true))
+  const [enabledToken, setEnabledToken] = useState(() => (typeof patch?.enabled === 'string' ? patch.enabled : ''))
   const [targetLocale, setTargetLocale] = useState(() => patch?.targetLocale ?? '')
   const [update, setUpdate] = useState(() => patch?.update ?? '')
   const [localTokens, setLocalTokens] = useState<Array<{ key: string; value: string }>>(() => {
@@ -95,11 +89,6 @@ export function ConfigSchemaDialog({
       return entries.length > 0 ? entries : [{ key: '', value: '' }]
     })
   }, [patch])
-
-  // Sync schema entries when configSchema changes
-  useEffect(() => {
-    setSchemaEntries(configSchema)
-  }, [configSchema])
 
   if (!open) return null
 
@@ -216,7 +205,7 @@ export function ConfigSchemaDialog({
 
               {/* Priority */}
               <div>
-                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Priority</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Priority</label>
                 <input
                   type="text"
                   list="priority-options"
@@ -245,7 +234,7 @@ export function ConfigSchemaDialog({
 
               {/* Enabled */}
               <div>
-                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Enabled</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Enabled</label>
                 <select
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={enabledMode}
@@ -276,14 +265,14 @@ export function ConfigSchemaDialog({
                     className="mt-1.5 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                     value={enabledToken}
                     onChange={(e) => setEnabledToken(e.target.value)}
-                    placeholder='e.g. {{EnableEdit}}'
+                    placeholder="e.g. {{EnableEdit}}"
                   />
                 )}
               </div>
 
               {/* TargetLocale */}
               <div>
-                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">TargetLocale</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">TargetLocale</label>
                 <input
                   type="text"
                   placeholder="e.g. zh-CN, fr-FR"
@@ -295,7 +284,7 @@ export function ConfigSchemaDialog({
 
               {/* Update */}
               <div>
-                <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">Update</label>
+                <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Update</label>
                 <select
                   className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                   value={update}
@@ -310,7 +299,7 @@ export function ConfigSchemaDialog({
 
               {/* When conditions */}
               <div className="border-t border-[var(--border-color)] pt-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">When</span>
+                <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">When</span>
                 <div className="mt-1.5 space-y-2">
                   {whenEntries.map((entry, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -357,7 +346,7 @@ export function ConfigSchemaDialog({
 
               {/* LocalTokens */}
               <div className="border-t border-[var(--border-color)] pt-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">LocalTokens</span>
+                <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">LocalTokens</span>
                 <div className="mt-1.5 space-y-2">
                   {localTokens.map((entry, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -404,21 +393,12 @@ export function ConfigSchemaDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-xs text-[var(--text-secondary)]">
-                Define ConfigSchema entries for your mod.
-              </p>
+              <p className="text-xs text-[var(--text-secondary)]">Define ConfigSchema entries for your mod.</p>
               {schemaEntries.map((entry, index) => (
-                <div
-                  key={index}
-                  className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)]"
-                >
+                <div key={index} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)]">
                   {/* Collapsed row */}
                   <div className="flex items-center gap-2 px-2.5 py-2">
-                    <button
-                      type="button"
-                      className="icon-button h-5 w-5 shrink-0"
-                      onClick={() => toggleRow(index)}
-                    >
+                    <button type="button" className="icon-button h-5 w-5 shrink-0" onClick={() => toggleRow(index)}>
                       {expandedRows.has(index) ? (
                         <ChevronDown className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
                       ) : (
@@ -436,7 +416,13 @@ export function ConfigSchemaDialog({
                       type="text"
                       placeholder="Default"
                       className="min-w-0 flex-1 rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                      value={entry.defaultValue === null ? '' : typeof entry.defaultValue === 'string' ? entry.defaultValue : JSON.stringify(entry.defaultValue)}
+                      value={
+                        entry.defaultValue === null
+                          ? ''
+                          : typeof entry.defaultValue === 'string'
+                            ? entry.defaultValue
+                            : JSON.stringify(entry.defaultValue)
+                      }
                       onChange={(e) => {
                         const text = e.target.value
                         try {
@@ -459,7 +445,7 @@ export function ConfigSchemaDialog({
                   {expandedRows.has(index) && (
                     <div className="space-y-2 border-t border-[var(--border-color)] px-2.5 py-2">
                       <div>
-                        <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
+                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">
                           AllowValues (comma-separated)
                         </label>
                         <input
@@ -472,9 +458,7 @@ export function ConfigSchemaDialog({
                       </div>
 
                       <div>
-                        <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
-                          Description
-                        </label>
+                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Description</label>
                         <input
                           type="text"
                           placeholder="Explain this option to players"
@@ -485,9 +469,7 @@ export function ConfigSchemaDialog({
                       </div>
 
                       <div>
-                        <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">
-                          Section
-                        </label>
+                        <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">Section</label>
                         <input
                           type="text"
                           placeholder="Group name (optional)"

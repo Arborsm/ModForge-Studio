@@ -33,18 +33,26 @@
     gap: clamp(14px, 1.25vw, 24px);
     overflow: auto;
     background:
-      radial-gradient(circle 220px at var(--studio-pointer-x) var(--studio-pointer-y), color-mix(in srgb, var(--accent) 9%, transparent), transparent 72%),
+      radial-gradient(
+        circle 220px at var(--studio-pointer-x) var(--studio-pointer-y),
+        color-mix(in srgb, var(--accent) 9%, transparent),
+        transparent 72%
+      ),
       linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, transparent) 0 1px, transparent 1px 48px),
       linear-gradient(90deg, color-mix(in srgb, var(--border-color) 30%, transparent) 0 1px, transparent 1px 96px),
-      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 24%, transparent) 0 1px, transparent 1px 96px),
-      var(--studio-shell-bg);
+      linear-gradient(180deg, color-mix(in srgb, var(--border-color) 24%, transparent) 0 1px, transparent 1px 96px), var(--studio-shell-bg);
     background-position:
       0 0,
       var(--studio-grid-shift-x) var(--studio-grid-shift-y),
       var(--studio-grid-shift-x) var(--studio-grid-shift-y),
       var(--studio-grid-shift-x) var(--studio-grid-shift-y),
       0 0;
-    background-size: auto, auto, 96px 96px, 96px 96px, auto;
+    background-size:
+      auto,
+      auto,
+      96px 96px,
+      96px 96px,
+      auto;
     padding: clamp(16px, 1.35vw, 26px);
     transition: background-position 120ms ease;
   }
@@ -430,9 +438,7 @@
     width: 120px;
     height: 76px;
     border-radius: 18px;
-    background:
-      linear-gradient(90deg, transparent 0 48%, var(--studio-border-soft) 48% 52%, transparent 52%),
-      var(--studio-surface);
+    background: linear-gradient(90deg, transparent 0 48%, var(--studio-border-soft) 48% 52%, transparent 52%), var(--studio-surface);
     box-shadow: inset 0 0 0 1px var(--studio-border-soft);
   }
 
@@ -664,7 +670,6 @@
       z-index: 50;
       display: flex;
     }
-
   }
 
   @media (max-width: 1200px) {
@@ -726,15 +731,19 @@
         radial-gradient(circle 240px at var(--studio-pointer-x) var(--studio-pointer-y), rgba(79, 141, 247, 0.055), transparent 72%),
         linear-gradient(135deg, rgba(79, 141, 247, 0.035) 0 1px, transparent 1px 48px),
         linear-gradient(90deg, rgba(148, 163, 184, 0.17) 0 1px, transparent 1px 96px),
-        linear-gradient(180deg, rgba(148, 163, 184, 0.15) 0 1px, transparent 1px 96px),
-        var(--studio-shell-bg);
+        linear-gradient(180deg, rgba(148, 163, 184, 0.15) 0 1px, transparent 1px 96px), var(--studio-shell-bg);
       background-position:
         0 0,
         var(--studio-grid-shift-x) var(--studio-grid-shift-y),
         var(--studio-grid-shift-x) var(--studio-grid-shift-y),
         var(--studio-grid-shift-x) var(--studio-grid-shift-y),
         0 0;
-      background-size: auto, auto, 96px 96px, 96px 96px, auto;
+      background-size:
+        auto,
+        auto,
+        96px 96px,
+        96px 96px,
+        auto;
       padding: 0 24px 24px;
     }
 
@@ -765,9 +774,12 @@
       background:
         radial-gradient(circle 260px at 40% 16%, rgba(79, 141, 247, 0.055), transparent 72%),
         linear-gradient(90deg, rgba(148, 163, 184, 0.13) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(148, 163, 184, 0.13) 1px, transparent 1px),
-        #f7fbff;
-      background-size: auto, 48px 48px, 48px 48px, auto;
+        linear-gradient(180deg, rgba(148, 163, 184, 0.13) 1px, transparent 1px), #f7fbff;
+      background-size:
+        auto,
+        48px 48px,
+        48px 48px,
+        auto;
     }
 
     .studio-gallery-workstation {
@@ -970,33 +982,23 @@
     }
 
     .studio-cover-festival {
-      background:
-        radial-gradient(circle at 78% 20%, rgba(255, 255, 255, 0.26), transparent 22%),
-        linear-gradient(135deg, #5c7897, #78a493);
+      background: radial-gradient(circle at 78% 20%, rgba(255, 255, 255, 0.26), transparent 22%), linear-gradient(135deg, #5c7897, #78a493);
     }
 
     .studio-cover-harbor {
-      background:
-        radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.24), transparent 23%),
-        linear-gradient(135deg, #5f8fa3, #87b0ae);
+      background: radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.24), transparent 23%), linear-gradient(135deg, #5f8fa3, #87b0ae);
     }
 
     .studio-cover-market {
-      background:
-        radial-gradient(circle at 20% 16%, rgba(255, 255, 255, 0.22), transparent 24%),
-        linear-gradient(135deg, #746f9c, #b58e62);
+      background: radial-gradient(circle at 20% 16%, rgba(255, 255, 255, 0.22), transparent 24%), linear-gradient(135deg, #746f9c, #b58e62);
     }
 
     .studio-cover-forest {
-      background:
-        radial-gradient(circle at 66% 16%, rgba(255, 255, 255, 0.22), transparent 22%),
-        linear-gradient(135deg, #678668, #90a2ac);
+      background: radial-gradient(circle at 66% 16%, rgba(255, 255, 255, 0.22), transparent 22%), linear-gradient(135deg, #678668, #90a2ac);
     }
 
     .studio-cover-greenhouse {
-      background:
-        radial-gradient(circle at 76% 18%, rgba(255, 255, 255, 0.22), transparent 22%),
-        linear-gradient(135deg, #71845d, #b69c68);
+      background: radial-gradient(circle at 76% 18%, rgba(255, 255, 255, 0.22), transparent 22%), linear-gradient(135deg, #71845d, #b69c68);
     }
 
     .studio-current-label,
@@ -1060,15 +1062,33 @@
       animation: studio-card-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
     }
 
-    .studio-desk-gallery-active .studio-project-card:nth-child(1) { animation-delay: 40ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(2) { animation-delay: 70ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(3) { animation-delay: 100ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(4) { animation-delay: 130ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(5) { animation-delay: 160ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(6) { animation-delay: 190ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(7) { animation-delay: 220ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(8) { animation-delay: 250ms; }
-    .studio-desk-gallery-active .studio-project-card:nth-child(9) { animation-delay: 280ms; }
+    .studio-desk-gallery-active .studio-project-card:nth-child(1) {
+      animation-delay: 40ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(2) {
+      animation-delay: 70ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(3) {
+      animation-delay: 100ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(4) {
+      animation-delay: 130ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(5) {
+      animation-delay: 160ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(6) {
+      animation-delay: 190ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(7) {
+      animation-delay: 220ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(8) {
+      animation-delay: 250ms;
+    }
+    .studio-desk-gallery-active .studio-project-card:nth-child(9) {
+      animation-delay: 280ms;
+    }
 
     .studio-desk:not(.studio-desk-gallery-active) .studio-top-bar {
       animation: studio-top-enter 220ms ease backwards;
@@ -1159,19 +1179,6 @@
       box-shadow:
         0 8px 18px rgba(12, 22, 36, 0.14),
         0 0 0 4px rgba(255, 255, 255, 0.16);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .studio-gallery-view,
-    .studio-gallery-control-pane,
-    .studio-project-card,
-    .studio-top-bar,
-    .studio-pulse,
-    .studio-status-badge {
-      animation: none;
-      transform: none;
-      filter: none;
     }
   }
 }

@@ -6,7 +6,9 @@ use self::common::{
 use self::conditions::evaluate_patch_status;
 use self::context::SimulationContext;
 use self::export::write_result_asset;
-use self::plan::{build_effective_context, build_patch_plan_with_context, resolve_dynamic_tokens_for_snapshot};
+use self::plan::{
+    build_effective_context, build_patch_plan_with_context, resolve_dynamic_tokens_for_snapshot,
+};
 use self::project::load_content_patcher_project;
 use self::schema::parse_json_str;
 use self::types::{

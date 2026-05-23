@@ -1,0 +1,19 @@
+@layer components {
+  .app-tooltip {
+    z-index: 100;
+    max-width: min(320px, calc(100vw - 20px));
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--bg-elevated) 96%, var(--bg-panel));
+    color: var(--text-primary);
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.35;
+    box-shadow:
+      var(--shadow-float),
+      0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+    pointer-events: none;
+    overflow-wrap: anywhere;
+  }
+}

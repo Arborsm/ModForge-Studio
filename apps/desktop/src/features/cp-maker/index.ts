@@ -1,10 +1,4 @@
-export {
-  buildContentJson,
-  buildManifestJson,
-  useCpMaker,
-  type ContentBuildResult,
-  type UseCpMakerReturn,
-} from './state/useCpMaker'
+export { buildContentJson, buildManifestJson, useCpMaker, type ContentBuildResult, type UseCpMakerReturn } from './state/useCpMaker'
 export { getEditModeRoute, type EditModeRoute } from './routing/editModeRoute'
 export {
   buildStudioDeskModel,

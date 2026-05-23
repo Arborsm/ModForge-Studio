@@ -24,7 +24,7 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const activePatch = activePatchId ? patches.find((patch) => patch.id === activePatchId) ?? null : null
+  const activePatch = activePatchId ? (patches.find((patch) => patch.id === activePatchId) ?? null) : null
 
   const filteredPatches = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -104,7 +104,7 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
           </button>
 
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               className="control-input h-9 pl-9 text-xs"
               value={query}

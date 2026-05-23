@@ -28,11 +28,7 @@ import {
   type LoadingMotionPreference,
   type LoadingMotionStyleId,
 } from '@shared/contracts/types/loadingMotion'
-import {
-  DEFAULT_LOADING_MOTION_PREFERENCE,
-  normalizeLoadingMotionPreference,
-  resolveLoadingMotionConfig,
-} from '@shared/lib/loading-motion'
+import { DEFAULT_LOADING_MOTION_PREFERENCE, normalizeLoadingMotionPreference, resolveLoadingMotionConfig } from '@shared/lib/loading-motion'
 
 type LoadingMotionContextValue = {
   provided: boolean
@@ -47,14 +43,12 @@ type LoadingMotionAnchorInput = readonly string[] | null | undefined
 function resolveMotionState(
   preference: Partial<LoadingMotionPreference> | LoadingMotionPreference | null | undefined,
   options?: {
-    prefersReducedMotion?: boolean
     revealOrder?: readonly string[] | null
     anchors?: LoadingMotionAnchorInput
   },
 ): LoadingMotionContextValue {
   const normalizedPreference = normalizeLoadingMotionPreference(preference ?? null)
   const config = resolveLoadingMotionConfig(normalizedPreference, {
-    prefersReducedMotion: options?.prefersReducedMotion ?? false,
     revealOrder: options?.revealOrder ?? null,
     anchors: options?.anchors ? { anchorIds: options.anchors } : null,
   })
@@ -67,7 +61,6 @@ function resolveMotionState(
 }
 
 const DEFAULT_LOADING_MOTION_STATE = resolveMotionState(DEFAULT_LOADING_MOTION_PREFERENCE, {
-  prefersReducedMotion: false,
   revealOrder: null,
   anchors: null,
 })
@@ -86,8 +79,6 @@ export type PageLoadingState = {
   stage: LoadingMotionStage
   /** Optional user preference - when omitted, defaults are used. */
   preference?: Partial<LoadingMotionPreference> | null
-  /** Whether the system or platform prefers reduced motion. */
-  prefersReducedMotion?: boolean
   /** Optional reveal order for page sections. */
   revealOrder?: readonly string[] | null
   /** Optional anchor declarations (max 2). */
@@ -111,7 +102,6 @@ export function useLoadingMotionConfig(state: PageLoadingState): {
   const normalizedPreference = normalizeLoadingMotionPreference(state.preference ?? null)
 
   const config = resolveLoadingMotionConfig(normalizedPreference, {
-    prefersReducedMotion: state.prefersReducedMotion ?? false,
     revealOrder: state.revealOrder ?? null,
     anchors: state.anchors ? { anchorIds: state.anchors } : null,
   })
@@ -128,30 +118,21 @@ export function useLoadingMotionConfig(state: PageLoadingState): {
 
 export type LoadingMotionProviderProps = {
   preference?: Partial<LoadingMotionPreference> | null
-  prefersReducedMotion?: boolean
   revealOrder?: readonly string[] | null
   anchors?: readonly string[] | null
   children: ReactNode
 }
 
-export function LoadingMotionProvider({
-  preference,
-  prefersReducedMotion = false,
-  revealOrder = null,
-  anchors = null,
-  children,
-}: LoadingMotionProviderProps) {
+export function LoadingMotionProvider({ preference, revealOrder = null, anchors = null, children }: LoadingMotionProviderProps) {
   const value = useMemo(
-    () =>
-      ({
-        ...resolveMotionState(preference ?? null, {
-          prefersReducedMotion,
-          revealOrder,
-          anchors,
-        }),
-        provided: true,
+    () => ({
+      ...resolveMotionState(preference ?? null, {
+        revealOrder,
+        anchors,
       }),
-    [anchors, prefersReducedMotion, preference, revealOrder],
+      provided: true,
+    }),
+    [anchors, preference, revealOrder],
   )
 
   return <LoadingMotionContext.Provider value={value}>{children}</LoadingMotionContext.Provider>
@@ -161,10 +142,7 @@ export function useLoadingMotionPreference(): LoadingMotionPreference {
   return useLoadingMotionContextValue().preference
 }
 
-export function useResolvedLoadingMotion(
-  preferenceOverride?: Partial<LoadingMotionPreference> | null,
-  prefersReducedMotion?: boolean,
-): ResolvedLoadingMotionConfig {
+export function useResolvedLoadingMotion(preferenceOverride?: Partial<LoadingMotionPreference> | null): ResolvedLoadingMotionConfig {
   const current = useLoadingMotionContextValue()
   const mergedPreference = preferenceOverride
     ? normalizeLoadingMotionPreference({
@@ -173,17 +151,13 @@ export function useResolvedLoadingMotion(
       })
     : current.preference
 
-  if (
-    !preferenceOverride &&
-    (prefersReducedMotion === undefined || prefersReducedMotion === current.config.reducedMotion)
-  ) {
+  if (!preferenceOverride) {
     return current.config
   }
 
   const anchorIds = current.config.anchors.filter((anchorId): anchorId is string => Boolean(anchorId))
 
   return resolveLoadingMotionConfig(mergedPreference, {
-    prefersReducedMotion: prefersReducedMotion ?? current.config.reducedMotion,
     revealOrder: current.config.revealOrder,
     anchors: anchorIds.length ? { anchorIds } : null,
   })
@@ -212,11 +186,7 @@ export type LoadingMotionHostProps = {
  * This component is intentionally thin - it delegates animation
  * implementation to the shared CSS primitives.
  */
-export function LoadingMotionHost({
-  stage,
-  children,
-  placeholder,
-}: LoadingMotionHostProps) {
+export function LoadingMotionHost({ stage, children, placeholder }: LoadingMotionHostProps) {
   if (stage === 'ready' || stage === 'idle') {
     return <>{children}</>
   }
@@ -254,16 +224,7 @@ type LoadingMotionChildRevealStyle = CSSProperties & {
   '--loading-motion-child-index'?: number
 }
 
-type LoadingMotionIntrinsicElement =
-  | 'article'
-  | 'aside'
-  | 'button'
-  | 'div'
-  | 'header'
-  | 'li'
-  | 'main'
-  | 'section'
-  | 'span'
+type LoadingMotionIntrinsicElement = 'article' | 'aside' | 'button' | 'div' | 'header' | 'li' | 'main' | 'section' | 'span'
 
 type LoadingMotionElementProps =
   | Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'className' | 'type'>
@@ -274,7 +235,6 @@ export type LoadingMotionRevealProps<T extends LoadingMotionIntrinsicElement = '
   index: number
   preference?: Partial<LoadingMotionPreference> | null
   preferenceOverride?: Partial<LoadingMotionPreference> | null
-  prefersReducedMotion?: boolean
   className?: string
   as?: T
   children: ReactNode
@@ -287,7 +247,6 @@ export type LoadingMotionRevealDomProps = {
   'data-loading-speed': LoadingMotionSpeedId
   'data-loading-speed-mode': LoadingMotionSpeedMode
   'data-loading-section': string
-  'data-loading-reduced-motion'?: 'true'
   style: LoadingMotionRevealStyle
 }
 
@@ -314,7 +273,6 @@ function buildLoadingMotionRevealProps({
     'data-loading-speed': config.speedId,
     'data-loading-speed-mode': config.speedMode,
     'data-loading-section': itemId,
-    ...(config.reducedMotion ? { 'data-loading-reduced-motion': 'true' as const } : {}),
     style: {
       '--loading-motion-reveal-index': index,
       '--loading-motion-speed-multiplier': config.speedMultiplier,
@@ -326,17 +284,15 @@ export function getLoadingMotionRevealProps({
   itemId,
   index,
   preference,
-  prefersReducedMotion = false,
   className,
 }: {
   itemId: string
   index: number
   preference?: Partial<LoadingMotionPreference> | null
-  prefersReducedMotion?: boolean
   className?: string
 }): LoadingMotionRevealDomProps {
   const config = resolveLoadingMotionConfig(normalizeLoadingMotionPreference(preference ?? null), {
-    prefersReducedMotion,
+    revealOrder: null,
   })
 
   return buildLoadingMotionRevealProps({ itemId, index, config, className })
@@ -362,19 +318,16 @@ export function LoadingMotionReveal<T extends LoadingMotionIntrinsicElement = 'd
   index,
   preference,
   preferenceOverride,
-  prefersReducedMotion,
   className,
   as,
   children,
   ...rest
 }: LoadingMotionRevealProps<T>) {
   const Component = (as ?? 'div') as LoadingMotionIntrinsicElement
-  const config = useResolvedLoadingMotion(preferenceOverride ?? preference ?? null, prefersReducedMotion)
+  const config = useResolvedLoadingMotion(preferenceOverride ?? preference ?? null)
   const revealProps = buildLoadingMotionRevealProps({ itemId, index, config, className })
   const elementProps =
-    Component === 'button' && !('type' in rest)
-      ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' })
-      : rest
+    Component === 'button' && !('type' in rest) ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' }) : rest
 
   return createElement(Component, { ...elementProps, ...revealProps } as HTMLAttributes<HTMLElement>, children)
 }
@@ -395,9 +348,7 @@ export function LoadingMotionRevealItem<T extends LoadingMotionIntrinsicElement 
 }: LoadingMotionRevealItemProps<T>) {
   const Component = (as ?? 'div') as LoadingMotionIntrinsicElement
   const elementProps =
-    Component === 'button' && !('type' in rest)
-      ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' })
-      : rest
+    Component === 'button' && !('type' in rest) ? ({ type: 'button', ...rest } as LoadingMotionElementProps & { type?: 'button' }) : rest
 
   return createElement(
     Component,
@@ -423,11 +374,7 @@ export function LoadingMotionFallback({
   className,
 }: LoadingMotionFallbackProps) {
   const config = useResolvedLoadingMotion(
-    styleId !== undefined ||
-      intensityId !== undefined ||
-      speedMode !== undefined ||
-      speedId !== undefined ||
-      speedMultiplier !== undefined
+    styleId !== undefined || intensityId !== undefined || speedMode !== undefined || speedId !== undefined || speedMultiplier !== undefined
       ? {
           ...(styleId !== undefined ? { styleId } : {}),
           ...(intensityId !== undefined ? { intensityId } : {}),

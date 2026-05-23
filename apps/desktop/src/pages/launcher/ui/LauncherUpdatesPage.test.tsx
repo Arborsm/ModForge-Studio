@@ -8,7 +8,7 @@ import type {
   LauncherUpdateChangelogResult,
   LauncherUpdateSummary,
   LauncherUpdatesResult,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import {
   checkLauncherUpdates,
   loadCachedLauncherUpdates,
@@ -16,7 +16,7 @@ import {
   loadLauncherRemoteModDetail,
   loadLauncherUpdateChangelog,
   subscribeLauncherUpdates,
-} from '@platform/desktop'
+} from '@features/launcher/api'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
@@ -27,8 +27,8 @@ import { LauncherUpdatesPage } from './LauncherUpdatesPage'
 
 const eventListeners = new Map<string, (event: { payload: unknown }) => void>()
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),
@@ -103,7 +103,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -144,14 +143,14 @@ function createLauncherDiagnosticsResult(
   > = {
     publicGraphql: {
       label: 'Nexus Public GraphQL',
-      endpoint: 'https://api-router.nexusmods.com/graphql',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
     },
-    publicHtml: {
-      label: 'Nexus Public HTML',
-      endpoint: 'https://www.nexusmods.com/stardewvalley',
+    nexusImages: {
+      label: 'Nexus Image CDN',
+      endpoint: 'https://staticdelivery.nexusmods.com/',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
@@ -196,8 +195,7 @@ function createChangelog(overrides: Partial<LauncherUpdateChangelogResult> = {})
   return {
     modId: 101,
     version: '1.2.0',
-    changelog:
-      '- 修复了在冬季由于雪地渲染导致的菜单闪烁 Bug\n- 增加了对 SMAPI 4.0 的完美支持',
+    changelog: '- 修复了在冬季由于雪地渲染导致的菜单闪烁 Bug\n- 增加了对 SMAPI 4.0 的完美支持',
     ...overrides,
   }
 }
@@ -326,7 +324,7 @@ describe('LauncherUpdatesPage', () => {
             available: false,
             message: 'Forced offline by debug override.',
           },
-          publicHtml: {
+          nexusImages: {
             status: 'warning',
             available: false,
             message: 'Forced offline by debug override.',
@@ -368,7 +366,6 @@ describe('LauncherUpdatesPage', () => {
       const details = container.querySelector('.launcher-blocked-pre')
       expect(details?.textContent ?? '').toContain('SMAPI: Forced offline by debug override.')
       expect(details?.textContent ?? '').toContain('Nexus Public GraphQL: Forced offline by debug override.')
-      expect(details?.textContent ?? '').toContain('Nexus Public HTML: Forced offline by debug override.')
     })
 
     fireEvent.click(screen.getByRole('button', { name: '前往通路诊断' }))
@@ -389,9 +386,7 @@ describe('LauncherUpdatesPage', () => {
     const onNavigateToDiagnostics = vi.fn()
     const onRetryDiagnostics = vi.fn().mockResolvedValue(undefined)
     const rawError = 'Nexus Public GraphQL: timeout'
-    checkLauncherUpdatesMock
-      .mockRejectedValueOnce(new Error(rawError))
-      .mockResolvedValueOnce(createResult([]))
+    checkLauncherUpdatesMock.mockRejectedValueOnce(new Error(rawError)).mockResolvedValueOnce(createResult([]))
 
     const { container } = renderWithProviders(
       <LauncherUpdatesPage
@@ -426,7 +421,7 @@ describe('LauncherUpdatesPage', () => {
     })
   })
 
-  it('queues only the checked updates when updating all selected items', async () => {
+  it('queues checked updates as one batch when updating all selected items', async () => {
     checkLauncherUpdatesMock.mockResolvedValue(
       createResult([
         createUpdate(),
@@ -440,8 +435,11 @@ describe('LauncherUpdatesPage', () => {
       ]),
     )
     const onQueueDownload = vi.fn()
+    const onQueueDownloads = vi.fn()
 
-    renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} />)
+    renderWithProviders(
+      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={onQueueDownload} onQueueDownloads={onQueueDownloads} />,
+    )
 
     const firstCheckbox = await screen.findByRole('checkbox', { name: 'NPC Adventures' })
     const secondCheckbox = await screen.findByRole('checkbox', { name: 'Horse Overhaul' })
@@ -454,14 +452,17 @@ describe('LauncherUpdatesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '一键更新所有勾选项' }))
 
-    expect(onQueueDownload).toHaveBeenCalledTimes(1)
-    expect(onQueueDownload).toHaveBeenCalledWith({
-      modId: 101,
-      title: 'NPC Adventures',
-      imageUrl: null,
-      version: '1.2.0',
-      source: 'updates',
-    })
+    expect(onQueueDownload).not.toHaveBeenCalled()
+    expect(onQueueDownloads).toHaveBeenCalledTimes(1)
+    expect(onQueueDownloads).toHaveBeenCalledWith([
+      {
+        modId: 101,
+        title: 'NPC Adventures',
+        imageUrl: null,
+        version: '1.2.0',
+        source: 'updates',
+      },
+    ])
   })
 
   it('toggles between select all and clear selection from the console control', async () => {
@@ -520,9 +521,7 @@ describe('LauncherUpdatesPage', () => {
   it('shows update-check progress in the global notification viewport', async () => {
     checkLauncherUpdatesMock.mockImplementation(() => new Promise(() => {}))
 
-    const { container } = renderWithProviders(
-      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-    )
+    const { container } = renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
     await act(async () => {
       eventListeners.get('launcher://update-check-progress')?.({
@@ -598,8 +597,11 @@ describe('LauncherUpdatesPage', () => {
       await Promise.resolve()
     })
 
-    expect(screen.queryByText(/NPC Adventures/)).toBeNull()
-    expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.queryByText(/NPC Adventures/)).toBeNull()
+      expect(screen.getByText(/Horse Overhaul/)).toBeTruthy()
+    })
+
     expect(container.querySelector('.notification-toast-progress')?.getAttribute('style')).toContain('width: 75%')
   })
 
@@ -607,9 +609,7 @@ describe('LauncherUpdatesPage', () => {
     const pendingCheck = createDeferred<LauncherUpdatesResult>()
     checkLauncherUpdatesMock.mockImplementation(() => pendingCheck.promise)
 
-    const { container } = renderWithProviders(
-      <LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />,
-    )
+    const { container } = renderWithProviders(<LauncherUpdatesPage settings={createSettings()} onQueueDownload={vi.fn()} />)
 
     await waitFor(() => {
       expect(checkLauncherUpdatesMock).toHaveBeenCalledTimes(1)

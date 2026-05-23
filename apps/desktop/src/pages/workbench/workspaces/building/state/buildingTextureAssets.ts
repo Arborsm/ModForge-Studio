@@ -3,10 +3,7 @@ import { getLocalizedImagePathCandidates, loadImageResourceFromPath } from '@sha
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
 import { getBuildingTexturePath } from '../entities/building'
 
-async function loadImageState(
-  path: string | null,
-  locale: LocaleCode,
-): Promise<BuildingTextureAssetState> {
+async function loadImageState(path: string | null, locale: LocaleCode): Promise<BuildingTextureAssetState> {
   if (!path) {
     return {
       path: null,

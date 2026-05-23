@@ -56,15 +56,16 @@ export function WorkbenchViewHost({
   return (
     <>
       {editModeView?.viewId === 'studio-desk' ? (
-        <LoadingMotionReveal
-          itemId="workbench-edit-studio-desk"
-          index={0}
-          className="h-full min-h-0"
-        >
+        <LoadingMotionReveal itemId="workbench-edit-studio-desk" index={0} className="h-full min-h-0">
           {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
             model: studioDeskModel,
             copy,
-            onCreateDraft: (metadata: Pick<CpMakerDraft['projectMetadata'], 'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'>) => {
+            onCreateDraft: (
+              metadata: Pick<
+                CpMakerDraft['projectMetadata'],
+                'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'
+              >,
+            ) => {
               void cpMaker.createDraft({
                 ...metadata,
                 gameRootPath: directoryInfo?.rootPath ?? null,
@@ -133,11 +134,7 @@ export function WorkbenchViewHost({
           })}
         </LoadingMotionReveal>
       ) : editModeView?.viewId === 'workspace-editor' ? (
-        <LoadingMotionReveal
-          itemId={`workbench-edit-workspace-editor:${workspaceMode}`}
-          index={0}
-          className="h-full min-h-0"
-        >
+        <LoadingMotionReveal itemId={`workbench-edit-workspace-editor:${workspaceMode}`} index={0} className="h-full min-h-0">
           {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
             workspaceMode,
             cpMaker,

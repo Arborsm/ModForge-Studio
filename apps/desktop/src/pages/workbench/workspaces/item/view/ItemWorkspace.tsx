@@ -116,7 +116,17 @@ type AsideSection = {
   rows: AsideRow[]
 }
 
-const BROWSE_TAB_ORDER: ItemBrowseCategory[] = ['all', 'mineral', 'cooking', 'fish', 'crop', 'equipment', 'apparel', 'furniture', 'crafting']
+const BROWSE_TAB_ORDER: ItemBrowseCategory[] = [
+  'all',
+  'mineral',
+  'cooking',
+  'fish',
+  'crop',
+  'equipment',
+  'apparel',
+  'furniture',
+  'crafting',
+]
 
 function formatTime(value: number) {
   const hours = Math.floor(value / 100)
@@ -199,7 +209,11 @@ function buildHeroChips(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   }
 
   if (item.fishData) {
-    chips.push({ key: 'fish-time', label: copy.fishTimeLabel, value: item.fishData.timeSpans.length ? formatTimeSpans(item.fishData.timeSpans) : copy.noneLabel })
+    chips.push({
+      key: 'fish-time',
+      label: copy.fishTimeLabel,
+      value: item.fishData.timeSpans.length ? formatTimeSpans(item.fishData.timeSpans) : copy.noneLabel,
+    })
     chips.push({ key: 'fish-level', label: copy.fishLevelLabel, value: String(item.fishData.minFishingLevel) })
   }
 
@@ -228,7 +242,10 @@ function buildSourceCards(item: ItemWorkspaceEntry, copy: ItemsCopy) {
       badge: copy.harvestSectionTitle,
       title: crop.seedDisplayName,
       detail: `${copy.cropSeasonsLabel}: ${crop.seasons.join(' / ') || copy.noneLabel}`,
-      meta: [`${copy.cropGrowthLabel}: ${crop.totalGrowthDays}`, `${copy.cropRegrowLabel}: ${crop.regrowDays > 0 ? crop.regrowDays : copy.noneLabel}`],
+      meta: [
+        `${copy.cropGrowthLabel}: ${crop.totalGrowthDays}`,
+        `${copy.cropRegrowLabel}: ${crop.regrowDays > 0 ? crop.regrowDays : copy.noneLabel}`,
+      ],
       relatedQualifiedItemId: crop.seedQualifiedItemId,
     })
   }
@@ -239,7 +256,9 @@ function buildSourceCards(item: ItemWorkspaceEntry, copy: ItemsCopy) {
       badge: copy.fishSectionTitle,
       title: source.locationDisplayName,
       detail: source.season ?? copy.noneLabel,
-      meta: [`${copy.fishLevelLabel}: ${source.minFishingLevel}`, source.condition ?? copy.noneLabel].filter((value) => value !== copy.noneLabel),
+      meta: [`${copy.fishLevelLabel}: ${source.minFishingLevel}`, source.condition ?? copy.noneLabel].filter(
+        (value) => value !== copy.noneLabel,
+      ),
       chance: source.chance != null ? `${Math.round(source.chance * 100)}%` : null,
     })
   }
@@ -295,7 +314,10 @@ function buildSourceCards(item: ItemWorkspaceEntry, copy: ItemsCopy) {
       badge: copy.machineSectionTitle,
       title: machine.machineDisplayName,
       detail: machine.triggerLabel,
-      meta: [machine.minutesUntilReady > 0 ? `${machine.minutesUntilReady}m` : '', machine.daysUntilReady > 0 ? `${machine.daysUntilReady}d` : ''].filter(Boolean),
+      meta: [
+        machine.minutesUntilReady > 0 ? `${machine.minutesUntilReady}m` : '',
+        machine.daysUntilReady > 0 ? `${machine.daysUntilReady}d` : '',
+      ].filter(Boolean),
       relatedQualifiedItemId: machine.machineQualifiedItemId,
     })
   }
@@ -323,14 +345,34 @@ function createRecipeUseCard(recipe: ItemRecipeEntry, item: ItemWorkspaceEntry, 
 
 function createMachineUseCard(machine: ItemMachineLink, item: ItemWorkspaceEntry, copy: ItemsCopy): UseCard {
   const ingredients = machine.requiredItemQualifiedId
-    ? [{ key: machine.requiredItemQualifiedId, label: item.displayName, amount: machine.requiredItemCount, qualifiedItemId: machine.requiredItemQualifiedId, isCurrent: machine.requiredItemQualifiedId === item.qualifiedItemId }]
-    : [{ key: `${machine.machineDisplayName}:${machine.machineRuleId ?? 'trigger'}`, label: machine.triggerLabel, amount: machine.requiredItemCount, qualifiedItemId: null, isCurrent: true }]
+    ? [
+        {
+          key: machine.requiredItemQualifiedId,
+          label: item.displayName,
+          amount: machine.requiredItemCount,
+          qualifiedItemId: machine.requiredItemQualifiedId,
+          isCurrent: machine.requiredItemQualifiedId === item.qualifiedItemId,
+        },
+      ]
+    : [
+        {
+          key: `${machine.machineDisplayName}:${machine.machineRuleId ?? 'trigger'}`,
+          label: machine.triggerLabel,
+          amount: machine.requiredItemCount,
+          qualifiedItemId: null,
+          isCurrent: true,
+        },
+      ]
 
   return {
     key: `${machine.machineDisplayName}:${machine.machineRuleId ?? machine.outputItemQualifiedId ?? 'na'}`,
     badge: copy.machineSectionTitle,
     title: machine.machineDisplayName,
-    subtitle: [machine.triggerLabel, machine.minutesUntilReady > 0 ? `${machine.minutesUntilReady}m` : '', machine.daysUntilReady > 0 ? `${machine.daysUntilReady}d` : '']
+    subtitle: [
+      machine.triggerLabel,
+      machine.minutesUntilReady > 0 ? `${machine.minutesUntilReady}m` : '',
+      machine.daysUntilReady > 0 ? `${machine.daysUntilReady}d` : '',
+    ]
       .filter(Boolean)
       .join(' / '),
     outputQualifiedItemId: machine.outputItemQualifiedId,
@@ -496,11 +538,15 @@ function buildSpecificSections(item: ItemWorkspaceEntry, copy: ItemsCopy): Aside
         { label: 'Rotations', value: String(item.furnitureStats.rotations) },
         {
           label: 'Source',
-          value: item.furnitureStats.sourceSize ? `${item.furnitureStats.sourceSize.width}x${item.furnitureStats.sourceSize.height}` : copy.noneLabel,
+          value: item.furnitureStats.sourceSize
+            ? `${item.furnitureStats.sourceSize.width}x${item.furnitureStats.sourceSize.height}`
+            : copy.noneLabel,
         },
         {
           label: 'Bounds',
-          value: item.furnitureStats.boundingSize ? `${item.furnitureStats.boundingSize.width}x${item.furnitureStats.boundingSize.height}` : copy.noneLabel,
+          value: item.furnitureStats.boundingSize
+            ? `${item.furnitureStats.boundingSize.width}x${item.furnitureStats.boundingSize.height}`
+            : copy.noneLabel,
         },
       ],
     })
@@ -514,7 +560,7 @@ function HeroStatChip({ chip }: { chip: HeroChip }) {
 
   return (
     <div className={`rounded-2xl border px-3 py-3 ${getToneClass(chip.tone ?? 'neutral')}`}>
-      <p className="text-[10px] uppercase tracking-[0.16em] opacity-70">{chip.label}</p>
+      <p className="text-[10px] tracking-[0.16em] uppercase opacity-70">{chip.label}</p>
       <div className="mt-2 flex items-center gap-2">
         {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
         <p className="text-sm font-semibold">{chip.value}</p>
@@ -535,15 +581,7 @@ function WorkbenchSignalCard({ card }: { card: SignalCard }) {
   )
 }
 
-function TasteGroup({
-  title,
-  entries,
-  tone,
-}: {
-  title: string
-  entries: ItemGiftTasteNpc[]
-  tone: Tone
-}) {
+function TasteGroup({ title, entries, tone }: { title: string; entries: ItemGiftTasteNpc[]; tone: Tone }) {
   if (!entries.length) {
     return null
   }
@@ -562,7 +600,9 @@ function TasteGroup({
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         {entries.map((npc) => (
           <div key={`${npc.taste}:${npc.internalName}`} className="panel-list-card flex items-center gap-3 px-3 py-2.5">
-            <div className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border text-sm font-semibold uppercase ${getToneClass(tone)}`}>
+            <div
+              className={`inline-flex h-10 w-10 shrink-0 items-center justify-center border text-sm font-semibold uppercase ${getToneClass(tone)}`}
+            >
               {npc.displayName.slice(0, 1)}
             </div>
             <div className="min-w-0">
@@ -591,7 +631,12 @@ function RelatedVisual({
   const textureState = relatedItem?.textureAssetName ? (textureStatesByAssetName[relatedItem.textureAssetName] ?? null) : null
 
   return relatedItem ? (
-    <ItemSprite item={relatedItem} textureState={textureState} scale={getContainedItemSpriteScale(relatedItem, 56, 1.9)} className="h-14 w-14 shrink-0" />
+    <ItemSprite
+      item={relatedItem}
+      textureState={textureState}
+      scale={getContainedItemSpriteScale(relatedItem, 56, 1.9)}
+      className="h-14 w-14 shrink-0"
+    />
   ) : (
     <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center text-sm font-semibold text-[var(--text-secondary)]">
       {fallback.slice(0, 1)}
@@ -623,7 +668,12 @@ function SourceGrid({
           {cards.map((card) => (
             <article key={card.key} className="panel-section-muted panel-section p-4">
               <div className="flex items-start gap-3">
-                <RelatedVisual itemId={card.relatedQualifiedItemId} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} fallback={card.title} />
+                <RelatedVisual
+                  itemId={card.relatedQualifiedItemId}
+                  itemLookup={itemLookup}
+                  textureStatesByAssetName={textureStatesByAssetName}
+                  fallback={card.title}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <span className="dock-chip">{card.badge}</span>
@@ -634,7 +684,10 @@ function SourceGrid({
                   {card.meta.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {card.meta.map((meta) => (
-                        <span key={meta} className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]">
+                        <span
+                          key={meta}
+                          className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)]"
+                        >
                           {meta}
                         </span>
                       ))}
@@ -646,9 +699,7 @@ function SourceGrid({
           ))}
         </div>
       ) : (
-        <div className="panel-empty-state">
-          {copy.sourceSectionEmpty}
-        </div>
+        <div className="panel-empty-state">{copy.sourceSectionEmpty}</div>
       )}
     </section>
   )
@@ -672,7 +723,14 @@ function FormulaChip({
           : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
       )}
     >
-      {relatedItem ? <ItemSprite item={relatedItem} textureState={textureState} scale={getContainedItemSpriteScale(relatedItem, 40, 1.45)} className="h-10 w-10 shrink-0" /> : null}
+      {relatedItem ? (
+        <ItemSprite
+          item={relatedItem}
+          textureState={textureState}
+          scale={getContainedItemSpriteScale(relatedItem, 40, 1.45)}
+          className="h-10 w-10 shrink-0"
+        />
+      ) : null}
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{ingredient.label}</p>
         <p className="text-xs text-[var(--text-secondary)]">x{ingredient.amount}</p>
@@ -718,7 +776,12 @@ function UseGrid({
                   </div>
                   {outputItem ? (
                     <div className="shrink-0 text-right">
-                      <ItemSprite item={outputItem} textureState={outputTexture} scale={getContainedItemSpriteScale(outputItem, 56, 1.75)} className="ml-auto h-14 w-14" />
+                      <ItemSprite
+                        item={outputItem}
+                        textureState={outputTexture}
+                        scale={getContainedItemSpriteScale(outputItem, 56, 1.75)}
+                        className="ml-auto h-14 w-14"
+                      />
                       <p className="mt-2 text-xs text-[var(--text-secondary)]">x{card.outputCount ?? 1}</p>
                     </div>
                   ) : null}
@@ -727,7 +790,9 @@ function UseGrid({
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {card.ingredients.map((ingredient, index) => {
                     const relatedItem = ingredient.qualifiedItemId ? (itemLookup.get(ingredient.qualifiedItemId) ?? null) : null
-                    const textureState = relatedItem?.textureAssetName ? (textureStatesByAssetName[relatedItem.textureAssetName] ?? null) : null
+                    const textureState = relatedItem?.textureAssetName
+                      ? (textureStatesByAssetName[relatedItem.textureAssetName] ?? null)
+                      : null
 
                     return (
                       <div key={ingredient.key} className="flex items-center gap-2">
@@ -740,7 +805,12 @@ function UseGrid({
                     <>
                       <ArrowRight className="h-4 w-4 text-[var(--text-tertiary)]" />
                       <div className="panel-list-card flex items-center gap-2 px-3 py-2">
-                        <ItemSprite item={outputItem} textureState={outputTexture} scale={getContainedItemSpriteScale(outputItem, 40, 1.45)} className="h-10 w-10 shrink-0" />
+                        <ItemSprite
+                          item={outputItem}
+                          textureState={outputTexture}
+                          scale={getContainedItemSpriteScale(outputItem, 40, 1.45)}
+                          className="h-10 w-10 shrink-0"
+                        />
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{outputItem.displayName}</p>
                           <p className="text-xs text-[var(--text-secondary)]">x{card.outputCount ?? 1}</p>
@@ -754,34 +824,34 @@ function UseGrid({
           })}
         </div>
       ) : (
-        <div className="panel-empty-state mt-3">
-          {copy.noneLabel}
-        </div>
+        <div className="panel-empty-state mt-3">{copy.noneLabel}</div>
       )}
     </section>
   )
 }
 
-function ItemTooltip({
-  item,
-}: {
-  item: ItemWorkspaceEntry | null
-}) {
+function ItemTooltip({ item }: { item: ItemWorkspaceEntry | null }) {
   const copy = useItemsCopy()
   if (!item) {
     return null
   }
 
   return (
-    <div className="pointer-events-none absolute bottom-4 right-4 z-10 w-[260px] rounded-2xl border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
+    <div className="pointer-events-none absolute right-4 bottom-4 z-10 w-[260px] rounded-2xl border border-white/10 bg-[rgba(10,12,16,0.88)] px-4 py-3 text-white shadow-2xl backdrop-blur-md">
       <div className="flex items-center gap-2">
         <span className="dock-chip">{copy.kindLabels[item.kind]}</span>
       </div>
       <p className="mt-3 text-base font-semibold">{item.displayName}</p>
       <div className="mt-3 space-y-1 text-xs text-white/80">
-        <p>{copy.qualifiedIdLabel}: {item.qualifiedItemId}</p>
-        <p>{copy.typeLabel}: {item.kindMetaLabel ?? copy.kindLabels[item.kind]}</p>
-        <p>{copy.priceLabel}: {formatPrice(item.price ?? item.salePrice, copy)}</p>
+        <p>
+          {copy.qualifiedIdLabel}: {item.qualifiedItemId}
+        </p>
+        <p>
+          {copy.typeLabel}: {item.kindMetaLabel ?? copy.kindLabels[item.kind]}
+        </p>
+        <p>
+          {copy.priceLabel}: {formatPrice(item.price ?? item.salePrice, copy)}
+        </p>
       </div>
     </div>
   )
@@ -910,7 +980,10 @@ function getCatalogColumnCount(width: number) {
 
 function computeCatalogGridMetrics(width: number, height: number) {
   const columns = getCatalogColumnCount(width)
-  const rows = Math.max(CATALOG_GRID_MIN_ROWS, Math.floor((height + CATALOG_GRID_GAP_PX) / (CATALOG_CARD_MIN_HEIGHT_PX + CATALOG_GRID_GAP_PX)))
+  const rows = Math.max(
+    CATALOG_GRID_MIN_ROWS,
+    Math.floor((height + CATALOG_GRID_GAP_PX) / (CATALOG_CARD_MIN_HEIGHT_PX + CATALOG_GRID_GAP_PX)),
+  )
 
   return {
     columns,
@@ -1005,11 +1078,7 @@ function buildSearchPriorityScore(entry: ItemWorkspaceEntry, tokens: string[]) {
 }
 
 function sortItemsBySearchPriority(items: ItemWorkspaceEntry[], rawFilter: string) {
-  const tokens = rawFilter
-    .trim()
-    .toLowerCase()
-    .split(/\s+/u)
-    .filter(Boolean)
+  const tokens = rawFilter.trim().toLowerCase().split(/\s+/u).filter(Boolean)
 
   if (!tokens.length) {
     return items
@@ -1075,9 +1144,12 @@ function useCatalogGridMetrics(itemsPerPage: number, onItemsPerPageChange: (item
 
     scheduleMeasure()
 
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => {
-      scheduleMeasure()
-    })
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            scheduleMeasure()
+          })
     resizeObserver?.observe(viewport)
 
     const handleWindowResize = () => {
@@ -1149,12 +1221,7 @@ function buildInfoRows(item: ItemWorkspaceEntry, copy: ItemsCopy) {
   ] satisfies AsideRow[]
 }
 
-function buildResourceRows(
-  item: ItemWorkspaceEntry,
-  textureState: ItemTextureAssetState | null,
-  copy: ItemsCopy,
-  spriteSizeLabel: string,
-) {
+function buildResourceRows(item: ItemWorkspaceEntry, textureState: ItemTextureAssetState | null, copy: ItemsCopy, spriteSizeLabel: string) {
   return [
     { label: copy.textureLabel, value: textureState?.path?.replaceAll('/', '\\') ?? item.texturePathLabel },
     { label: copy.spriteIndexLabel, value: item.menuSpriteIndex != null ? String(item.menuSpriteIndex) : copy.noneLabel },
@@ -1176,15 +1243,7 @@ function EmptyNotice({ message }: { message: string }) {
   return <div className="panel-empty-state">{message}</div>
 }
 
-function DetailSectionCard({
-  title,
-  rows,
-  children,
-}: {
-  title: string
-  rows?: AsideRow[]
-  children?: ReactNode
-}) {
+function DetailSectionCard({ title, rows, children }: { title: string; rows?: AsideRow[]; children?: ReactNode }) {
   return (
     <section className="panel-section p-4">
       <p className="panel-section-title">{title}</p>
@@ -1235,12 +1294,14 @@ function NavigationPane({
       <div className="panel-header">
         <div>
           <p className="panel-title">{text.railTitle}</p>
-          <p className="panel-subtitle">{visibleCount} / {totalVisibleCount}</p>
+          <p className="panel-subtitle">
+            {visibleCount} / {totalVisibleCount}
+          </p>
         </div>
       </div>
       <div className="panel-body min-h-0 overflow-auto p-4">
         <div className="relative mb-4">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             className="control-input pl-9"
             value={itemFilter}
@@ -1262,10 +1323,18 @@ function NavigationPane({
                 <button
                   key={tab.id}
                   type="button"
-                  className={cx('flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors', getPillClass(isActive))}
+                  className={cx(
+                    'flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors',
+                    getPillClass(isActive),
+                  )}
                   onClick={() => onBrowseTabChange(tab.id)}
                 >
-                  <span className={cx('inline-flex h-10 w-10 shrink-0 items-center justify-center border', isActive ? 'border-white/15 bg-white/10 text-white' : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]')}>
+                  <span
+                    className={cx(
+                      'inline-flex h-10 w-10 shrink-0 items-center justify-center border',
+                      isActive ? 'border-white/15 bg-white/10 text-white' : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)]',
+                    )}
+                  >
                     <tab.Icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -1285,7 +1354,12 @@ function NavigationPane({
             <div className="panel-section p-3">
               <div className="flex items-center gap-3">
                 <div className="panel-list-card flex h-14 w-14 shrink-0 items-center justify-center">
-                  <ItemSprite item={item} textureState={textureState} scale={getContainedItemSpriteScale(item, 40, 1.75)} className="h-10 w-10" />
+                  <ItemSprite
+                    item={item}
+                    textureState={textureState}
+                    scale={getContainedItemSpriteScale(item, 40, 1.75)}
+                    className="h-10 w-10"
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{item.displayName}</p>
@@ -1432,7 +1506,12 @@ function CatalogPane({
                           onMouseLeave={() => onHoverItem(null)}
                         >
                           <div className="panel-list-card flex h-12 w-12 shrink-0 items-center justify-center px-2 py-2">
-                            <ItemSprite item={entry} textureState={textureState} scale={getContainedItemSpriteScale(entry, 32, 2)} className="h-8 w-8" />
+                            <ItemSprite
+                              item={entry}
+                              textureState={textureState}
+                              scale={getContainedItemSpriteScale(entry, 32, 2)}
+                              className="h-8 w-8"
+                            />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{entry.displayName}</p>
@@ -1484,11 +1563,18 @@ function CatalogPane({
                     onBlur={() => onHoverItem(null)}
                     aria-label={`${entry.displayName} ${entry.qualifiedItemId}`}
                   >
-                    <span className="mb-2 inline-flex rounded-full border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                    <span className="mb-2 inline-flex rounded-full border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-0.5 text-[9px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">
                       {copy.kindLabels[entry.kind]}
                     </span>
-                    <ItemSprite item={entry} textureState={textureState} scale={getContainedItemSpriteScale(entry, 40, 1.55)} className="h-10 w-10 shrink-0" />
-                    <span className="mt-2 line-clamp-2 text-[11px] font-semibold leading-4 text-[var(--text-primary)]">{entry.displayName}</span>
+                    <ItemSprite
+                      item={entry}
+                      textureState={textureState}
+                      scale={getContainedItemSpriteScale(entry, 40, 1.55)}
+                      className="h-10 w-10 shrink-0"
+                    />
+                    <span className="mt-2 line-clamp-2 text-[11px] leading-4 font-semibold text-[var(--text-primary)]">
+                      {entry.displayName}
+                    </span>
                     <span className="mt-1 line-clamp-1 text-[10px] leading-4 text-[var(--text-tertiary)]">{entry.qualifiedItemId}</span>
                   </button>
                 )
@@ -1513,7 +1599,9 @@ function CatalogPane({
               <span className="rounded-full bg-[var(--bg-app)] px-3 py-1 text-xs font-semibold text-[var(--text-primary)]">
                 {rangeStart}-{rangeEnd}
               </span>
-              <span className="text-xs text-[var(--text-secondary)]">{text.catalogPageLabel} {currentPage} / {pageCount}</span>
+              <span className="text-xs text-[var(--text-secondary)]">
+                {text.catalogPageLabel} {currentPage} / {pageCount}
+              </span>
               <span className="text-[11px] text-[var(--text-tertiary)]">{text.catalogWheelHint}</span>
             </div>
             <div className="flex items-center gap-2">
@@ -1691,16 +1779,19 @@ function DetailPane({
 
       <div className="panel-body min-h-0 flex-1 overflow-auto px-5 py-5">
         <div className="flex flex-wrap gap-2">
-            {detailTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={cx('rounded-full border px-4 py-2 text-sm font-semibold transition-colors', getPillClass(tab.id === activeDetailTab))}
-                onClick={() => onDetailTabChange(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {detailTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={cx(
+                'rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
+                getPillClass(tab.id === activeDetailTab),
+              )}
+              onClick={() => onDetailTabChange(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         <div className="mt-5">
@@ -1735,10 +1826,33 @@ function DetailPane({
             <div className="space-y-4">
               {hasRelations ? (
                 <>
-                  {sourceCards.length ? <SourceGrid cards={sourceCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                  {recipeUseCards.length ? <UseGrid title={copy.recipeInputTitle} cards={recipeUseCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                  {machineUseCards.length ? <UseGrid title={copy.machineSectionTitle} cards={machineUseCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
-                  {recipeOutputCards.length ? <UseGrid title={copy.recipeOutputTitle} cards={recipeOutputCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} /> : null}
+                  {sourceCards.length ? (
+                    <SourceGrid cards={sourceCards} itemLookup={itemLookup} textureStatesByAssetName={textureStatesByAssetName} />
+                  ) : null}
+                  {recipeUseCards.length ? (
+                    <UseGrid
+                      title={copy.recipeInputTitle}
+                      cards={recipeUseCards}
+                      itemLookup={itemLookup}
+                      textureStatesByAssetName={textureStatesByAssetName}
+                    />
+                  ) : null}
+                  {machineUseCards.length ? (
+                    <UseGrid
+                      title={copy.machineSectionTitle}
+                      cards={machineUseCards}
+                      itemLookup={itemLookup}
+                      textureStatesByAssetName={textureStatesByAssetName}
+                    />
+                  ) : null}
+                  {recipeOutputCards.length ? (
+                    <UseGrid
+                      title={copy.recipeOutputTitle}
+                      cards={recipeOutputCards}
+                      itemLookup={itemLookup}
+                      textureStatesByAssetName={textureStatesByAssetName}
+                    />
+                  ) : null}
                 </>
               ) : (
                 <EmptyNotice message={text.relationsEmpty} />
@@ -1806,7 +1920,11 @@ function useItemWorkspaceViewModel({
     [ui.activeBrowseTab, items],
   )
   const matchingVisibleItems = useMemo(
-    () => sortItemsBySearchPriority(visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)), itemFilter),
+    () =>
+      sortItemsBySearchPriority(
+        visibleItems.filter((entry) => !itemFilter || matchedKeys.has(entry.key)),
+        itemFilter,
+      ),
     [itemFilter, matchedKeys, visibleItems],
   )
   const pagination = useMemo(
@@ -1842,14 +1960,20 @@ function useItemWorkspaceViewModel({
   const resourceRows = item ? buildResourceRows(item, activeTextureState, copy, text.spriteSizeLabel) : []
   const specificSections = item ? buildSpecificSections(item, copy) : []
 
-  const handleSelectItem = useCallback((itemKey: string, tab: DetailTab = 'info') => {
-    ui.setActiveDetailTab(tab)
-    onSelectItem(itemKey)
-  }, [onSelectItem, ui])
-  const handleSelectModItem = useCallback((entry: ModBrowserEntry<ItemWorkspaceEntry>, tab: DetailTab = 'info') => {
-    ui.setActiveDetailTab(tab)
-    onSelectModItem(entry)
-  }, [onSelectModItem, ui])
+  const handleSelectItem = useCallback(
+    (itemKey: string, tab: DetailTab = 'info') => {
+      ui.setActiveDetailTab(tab)
+      onSelectItem(itemKey)
+    },
+    [onSelectItem, ui],
+  )
+  const handleSelectModItem = useCallback(
+    (entry: ModBrowserEntry<ItemWorkspaceEntry>, tab: DetailTab = 'info') => {
+      ui.setActiveDetailTab(tab)
+      onSelectModItem(entry)
+    },
+    [onSelectModItem, ui],
+  )
 
   const handleItemFilterChange = useCallback(
     (value: string) => {
@@ -1877,13 +2001,9 @@ function useItemWorkspaceViewModel({
     visibleItems,
     matchingVisibleItems,
     navigationVisibleCount:
-      browserSourceMode === 'mod'
-        ? modItemGroups.reduce((total, group) => total + group.items.length, 0)
-        : matchingVisibleItems.length,
+      browserSourceMode === 'mod' ? modItemGroups.reduce((total, group) => total + group.items.length, 0) : matchingVisibleItems.length,
     navigationTotalVisibleCount:
-      browserSourceMode === 'mod'
-        ? modItemGroups.reduce((total, group) => total + group.items.length, 0)
-        : visibleItems.length,
+      browserSourceMode === 'mod' ? modItemGroups.reduce((total, group) => total + group.items.length, 0) : visibleItems.length,
     paginatedItems,
     currentPage,
     pageCount,
@@ -1985,35 +2105,33 @@ export function ItemDetailPanel(props: ItemWorkspaceProps) {
   )
 }
 
-export default function ItemWorkspace({
-  ...props
-}: ItemWorkspaceProps) {
+export default function ItemWorkspace({ ...props }: ItemWorkspaceProps) {
   const view = useItemWorkspaceViewModel(props)
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--bg-app)]">
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 xl:px-5 xl:py-5">
         <div className="mx-auto grid w-full max-w-[1760px] gap-5 xl:grid-cols-[minmax(220px,0.72fr)_minmax(420px,1.18fr)_minmax(520px,1.6fr)]">
-            <NavigationPane
-              text={view.text}
-              browserSourceMode={view.browserSourceMode}
-              onBrowserSourceModeChange={view.onBrowserSourceModeChange}
-              tabs={view.tabs}
-              activeBrowseTab={view.activeBrowseTab}
+          <NavigationPane
+            text={view.text}
+            browserSourceMode={view.browserSourceMode}
+            onBrowserSourceModeChange={view.onBrowserSourceModeChange}
+            tabs={view.tabs}
+            activeBrowseTab={view.activeBrowseTab}
             onBrowseTabChange={view.setActiveBrowseTab}
             itemFilter={view.itemFilter}
-              onItemFilterChange={view.onItemFilterChange}
-              item={view.item}
-              textureState={view.activeTextureState}
-              visibleCount={view.navigationVisibleCount}
-              totalVisibleCount={view.navigationTotalVisibleCount}
-            />
+            onItemFilterChange={view.onItemFilterChange}
+            item={view.item}
+            textureState={view.activeTextureState}
+            visibleCount={view.navigationVisibleCount}
+            totalVisibleCount={view.navigationTotalVisibleCount}
+          />
 
-            <CatalogPane
-              text={view.text}
-              browserSourceMode={view.browserSourceMode}
-              modItemGroups={view.modItemGroups}
-              items={view.paginatedItems}
+          <CatalogPane
+            text={view.text}
+            browserSourceMode={view.browserSourceMode}
+            modItemGroups={view.modItemGroups}
+            items={view.paginatedItems}
             totalItems={view.matchingVisibleItems.length}
             currentPage={view.currentPage}
             pageCount={view.pageCount}
@@ -2053,5 +2171,3 @@ export default function ItemWorkspace({
     </div>
   )
 }
-
-

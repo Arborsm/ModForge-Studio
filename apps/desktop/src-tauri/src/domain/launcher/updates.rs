@@ -1,20 +1,11 @@
-use super::can_use_nexus_graphql;
-use super::http::{
-    graphql_headers, launcher_http_client, probe_blocked_launcher_nexus_route,
-    send_nexus_request, LauncherNexusRoute,
-};
 use super::library::scan_library_at_path;
 use super::paths::{current_timestamp_ms, launcher_settings_path, launcher_updates_cache_path};
-use super::remote::{
-    load_remote_mod_detail_from_html, load_remote_mod_detail_from_public_graphql,
-    parse_remote_mod_detail_node, RemoteModDetail,
-};
 use super::settings::load_or_create_settings_at_path;
-use super::shared::{build_mod_page_url, extract_graphql_error, normalize_nexus_url};
 use super::trace::log_launcher_trace;
 use super::types::{
-    CheckLauncherUpdatesRequest, LauncherSettings, LauncherUpdateProgressPayload,
-    LauncherUpdateSummary, LauncherUpdatesResult, LoadCachedLauncherUpdatesRequest,
+    CheckLauncherUpdatesRequest, LauncherSettings, LauncherSuppressedUpdateModIdsResult,
+    LauncherUpdateProgressPayload, LauncherUpdateSummary, LauncherUpdatesResult,
+    LoadCachedLauncherUpdatesRequest, LoadSuppressedLauncherUpdateModIdsRequest,
 };
 use super::update_cache::{
     clear_launcher_update_auto_failures_at_path, clear_launcher_updates_check_in_progress_at_path,
@@ -24,20 +15,30 @@ use super::update_cache::{
     record_launcher_update_auto_failure_at_path, save_launcher_updates_cache_at_path,
     LauncherUpdatesCacheInspection,
 };
+use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
+use crate::domain::nexusmods::http::launcher_http_client;
+use crate::domain::nexusmods::mod_detail::{
+    load_remote_mod_detail_from_public_graphql, RemoteModDetail,
+};
+use crate::domain::nexusmods::routes::LauncherNexusRoute;
+use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
+use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
 use crate::infrastructure::fs::pathing::clean_input_path;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use semver::Version;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "windows")]
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
+use tauri::AppHandle;
 use tauri::Emitter;
 
 const UPDATE_BATCH_SIZE: usize = 24;
-const GRAPHQL_ENDPOINT: &str = "https://graphql.nexusmods.com/";
 const SMAPI_MOD_LOOKUP_ENDPOINT: &str = "https://smapi.io/api/v3.0/mods";
 const SMAPI_APPLICATION_NAME: &str = "ModForge Studio";
 const SMAPI_APPLICATION_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -47,19 +48,10 @@ const SMAPI_DEFAULT_PLATFORM: &str = "Windows";
 const LAUNCHER_UPDATE_PROGRESS_EVENT: &str = "launcher://update-check-progress";
 const LAUNCHER_UPDATES_CACHE_TTL_MS: u128 = 30 * 60 * 1000;
 pub(crate) const AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD: u32 = 3;
-const UPDATE_BATCH_GRAPHQL_QUERY: &str = r#"
-query LauncherUpdateBatch($ids: [CompositeDomainWithIdInput!]!) {
-  legacyModsByDomain(ids: $ids) {
-    nodes {
-      modId
-      name
-      version
-      pictureUrl
-    }
-  }
-}
-"#;
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 static ACTIVE_LAUNCHER_UPDATE_CHECKS: OnceLock<Mutex<HashMap<String, u32>>> = OnceLock::new();
+
 fn active_launcher_update_checks() -> &'static Mutex<HashMap<String, u32>> {
     ACTIVE_LAUNCHER_UPDATE_CHECKS.get_or_init(|| Mutex::new(HashMap::new()))
 }
@@ -214,13 +206,15 @@ fn resolve_update_check_game_root(settings: &LauncherSettings, mods_path: &str) 
 }
 
 #[cfg(target_os = "windows")]
-fn read_windows_file_version(path: &Path) -> Option<String> {
+pub(crate) fn read_windows_file_version(path: &Path) -> Option<String> {
     if !path.is_file() {
         return None;
     }
 
     let escaped = path.to_string_lossy().replace('\'', "''");
-    let output = Command::new("powershell")
+    let mut command = Command::new("powershell");
+    command
+        .creation_flags(CREATE_NO_WINDOW)
         .arg("-NoProfile")
         .arg("-Command")
         .arg(format!(
@@ -228,9 +222,8 @@ fn read_windows_file_version(path: &Path) -> Option<String> {
              $version = $item.VersionInfo.ProductVersion; \
              if ([string]::IsNullOrWhiteSpace($version)) {{ $version = $item.VersionInfo.FileVersion }}; \
              if (-not [string]::IsNullOrWhiteSpace($version)) {{ [Console]::Out.Write($version) }}"
-        ))
-        .output()
-        .ok()?;
+        ));
+    let output = command.output().ok()?;
 
     if !output.status.success() {
         return None;
@@ -241,7 +234,7 @@ fn read_windows_file_version(path: &Path) -> Option<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn read_windows_file_version(_path: &Path) -> Option<String> {
+pub(crate) fn read_windows_file_version(_path: &Path) -> Option<String> {
     None
 }
 
@@ -282,103 +275,13 @@ where
     resolved
 }
 
-fn resolve_smapi_runtime_versions(
+pub(crate) fn resolve_smapi_runtime_versions(
     settings: &LauncherSettings,
     mods_path: &str,
 ) -> SmapiRuntimeVersions {
     let game_root = resolve_update_check_game_root(settings, mods_path);
     resolve_smapi_runtime_versions_with_reader(game_root.as_deref(), read_windows_file_version)
 }
-pub(crate) fn build_update_batch_graphql_payload(mod_ids: &[i64]) -> Result<Value, String> {
-    if mod_ids.is_empty() {
-        return Err("At least one Nexus mod id is required.".to_string());
-    }
-
-    let ids = mod_ids
-        .iter()
-        .map(|mod_id| {
-            json!({
-                "gameDomain": "stardewvalley",
-                "modId": mod_id
-            })
-        })
-        .collect::<Vec<_>>();
-
-    Ok(json!({
-        "operationName": "LauncherUpdateBatch",
-        "query": UPDATE_BATCH_GRAPHQL_QUERY,
-        "variables": {
-            "ids": ids
-        }
-    }))
-}
-
-pub(crate) fn parse_update_batch_graphql_response(
-    payload: &Value,
-) -> Result<Vec<RemoteModDetail>, String> {
-    if let Some(error) = extract_graphql_error(payload) {
-        return Err(error);
-    }
-
-    let nodes = payload
-        .get("data")
-        .and_then(|value| value.get("legacyModsByDomain"))
-        .and_then(|value| value.get("nodes"))
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            "Nexus update batch response did not include a legacyModsByDomain.nodes array."
-                .to_string()
-        })?;
-
-    Ok(nodes
-        .iter()
-        .filter_map(parse_remote_mod_detail_node)
-        .collect())
-}
-
-fn load_remote_mod_details_from_graphql(
-    client: &Client,
-    settings: &LauncherSettings,
-    mod_ids: &[i64],
-) -> Result<HashMap<i64, RemoteModDetail>, String> {
-    if !can_use_nexus_graphql(settings) {
-        return Err("Configure a Nexus API key or cookie before querying Nexus Mods.".to_string());
-    }
-    probe_blocked_launcher_nexus_route(
-        client,
-        Some(settings),
-        LauncherNexusRoute::PrivateGraphql,
-    )?;
-
-    let headers = graphql_headers(
-        settings.nexus_api_key.as_deref(),
-        settings.nexus_cookie.as_deref(),
-    )?;
-    let payload = build_update_batch_graphql_payload(mod_ids)?;
-    let response = send_nexus_request(|| {
-        client
-            .post(GRAPHQL_ENDPOINT)
-            .headers(headers.clone())
-            .json(&payload)
-            .send()
-    })?;
-    if !response.status().is_success() {
-        return Err(format!(
-            "Nexus update batch GraphQL request failed: HTTP {}",
-            response.status()
-        ));
-    }
-
-    let payload = response
-        .json::<Value>()
-        .map_err(|error| format!("Failed to parse Nexus update batch GraphQL response: {error}"))?;
-    let details = parse_update_batch_graphql_response(&payload)?;
-    Ok(details
-        .into_iter()
-        .map(|detail| (detail.mod_id, detail))
-        .collect())
-}
-
 fn smapi_headers() -> Result<HeaderMap, String> {
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -546,16 +449,12 @@ pub(crate) fn parse_smapi_update_response(
         details.insert(
             candidate.mod_id,
             RemoteModDetail {
-                mod_id: candidate.mod_id,
                 name,
                 author,
                 summary,
                 version: Some(version),
-                mod_url,
                 image_url,
-                gallery_images: Vec::new(),
-                updated_at: None,
-                file_size: None,
+                ..RemoteModDetail::empty(candidate.mod_id, mod_url)
             },
         );
     }
@@ -607,6 +506,7 @@ fn load_remote_mod_details_from_smapi(
 }
 
 fn load_remote_mod_details_batch(
+    _app: &AppHandle,
     client: &Client,
     settings: &LauncherSettings,
     candidates: &[UpdateCheckCandidate],
@@ -677,7 +577,12 @@ fn load_remote_mod_details_batch(
         .iter()
         .map(|candidate| candidate.mod_id)
         .collect::<Vec<_>>();
-    let can_use_graphql = can_use_nexus_graphql(settings);
+    let can_use_graphql = settings
+        .nexus_api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some();
     let detail_count_before_graphql = details.len();
     if can_use_graphql {
         match load_remote_mod_details_from_graphql(client, settings, &mod_ids) {
@@ -724,9 +629,9 @@ fn load_remote_mod_details_batch(
     let public_fallback_candidate_count = missing_after_graphql.len();
     let mut unresolved_mod_ids = Vec::new();
     let mut public_graphql_resolved = 0usize;
-    let mut html_resolved = 0usize;
     for candidate in missing_after_graphql {
-        match load_remote_mod_detail_from_public_graphql(client, candidate.mod_id) {
+        match load_remote_mod_detail_from_public_graphql(client, settings, candidate.mod_id, false)
+        {
             Ok(detail) => {
                 public_graphql_resolved += 1;
                 details.insert(candidate.mod_id, detail);
@@ -737,23 +642,11 @@ fn load_remote_mod_details_batch(
                     candidate.mod_id,
                     error = public_error
                 );
-                match load_remote_mod_detail_from_html(client, candidate.mod_id) {
-                    Ok(detail) => {
-                        html_resolved += 1;
-                        details.insert(candidate.mod_id, detail);
-                    }
-                    Err(html_error) => {
-                        unresolved_mod_ids.push(candidate.mod_id);
-                        errors.push(format!(
-                            "mod {} public GraphQL failed: {}",
-                            candidate.mod_id, public_error
-                        ));
-                        errors.push(format!(
-                            "mod {} HTML fallback failed: {}",
-                            candidate.mod_id, html_error
-                        ));
-                    }
-                }
+                unresolved_mod_ids.push(candidate.mod_id);
+                errors.push(format!(
+                    "mod {} public GraphQL failed: {}",
+                    candidate.mod_id, public_error
+                ));
             }
         }
     }
@@ -765,7 +658,6 @@ fn load_remote_mod_details_batch(
                 public_fallback_candidate_count.to_string(),
             ),
             ("publicGraphqlResolved", public_graphql_resolved.to_string()),
-            ("htmlResolved", html_resolved.to_string()),
             ("unresolvedCount", unresolved_mod_ids.len().to_string()),
             ("unresolvedModIds", format!("{unresolved_mod_ids:?}")),
         ],
@@ -1000,6 +892,43 @@ pub fn load_cached_launcher_updates(
     )
 }
 
+pub(crate) fn load_launcher_suppressed_update_mod_ids_result_at_path(
+    cache_path: &Path,
+    request: LoadSuppressedLauncherUpdateModIdsRequest,
+) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+    let mods_path = request.mods_path.trim();
+    if mods_path.is_empty() {
+        return Err("modsPath is required.".to_string());
+    }
+
+    let mut mod_ids = load_suppressed_launcher_update_mod_ids_at_path(
+        cache_path,
+        mods_path,
+        AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD,
+    )?
+    .into_iter()
+    .collect::<Vec<_>>();
+    mod_ids.sort_unstable();
+
+    Ok(LauncherSuppressedUpdateModIdsResult {
+        mods_path: mods_path.to_string(),
+        mod_ids,
+    })
+}
+
+pub fn load_suppressed_launcher_update_mod_ids(
+    _app: tauri::AppHandle,
+    request: LoadSuppressedLauncherUpdateModIdsRequest,
+) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
+    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+        "load_suppressed_launcher_update_mod_ids",
+        (|| {
+            let cache_path = launcher_updates_cache_path()?;
+            load_launcher_suppressed_update_mod_ids_result_at_path(&cache_path, request)
+        })(),
+    )
+}
+
 pub async fn check_launcher_updates(
     app: tauri::AppHandle,
     request: CheckLauncherUpdatesRequest,
@@ -1156,7 +1085,7 @@ fn check_launcher_updates_blocking(
                 ],
             );
             let remote_details =
-                load_remote_mod_details_batch(&client, &settings, batch, &smapi_versions)?;
+                load_remote_mod_details_batch(app, &client, &settings, batch, &smapi_versions)?;
             let resolved_mod_ids = batch
                 .iter()
                 .filter(|candidate| remote_details.contains_key(&candidate.mod_id))

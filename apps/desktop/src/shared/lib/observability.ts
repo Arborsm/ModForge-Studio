@@ -1,13 +1,12 @@
-import {
-  publishNotification,
-  type NotificationAction,
-  type NotificationLevel,
-} from '@shared/ui/notifications'
+import { publishNotification, type NotificationAction, type NotificationLevel } from '@shared/ui/notifications'
 
+/** Event severity used for both notifications and observability routing. */
 export type AppEventLevel = NotificationLevel
 
+/** Log severity accepted by the frontend observability adapter. */
 export type FrontendLogLevel = 'debug' | 'info' | 'warning' | 'error'
 
+/** Structured log entry sent to the configured observability adapter. */
 export type FrontendLogRequest = {
   level: FrontendLogLevel
   message: string
@@ -16,6 +15,7 @@ export type FrontendLogRequest = {
   keyValues?: Record<string, string | undefined>
 }
 
+/** App event that may produce a notification, a log entry, or both. */
 export type ReportAppEventRequest = {
   level: AppEventLevel
   title: string
@@ -29,6 +29,7 @@ export type ReportAppEventRequest = {
   keyValues?: Record<string, string | undefined>
 }
 
+/** Host adapter for debug logging and frontend log forwarding. */
 export type ObservabilityAdapter = {
   setDebugLoggingEnabled?: (enabled: boolean) => Promise<void> | void
   writeFrontendLog?: (request: FrontendLogRequest) => Promise<void> | void
@@ -37,6 +38,7 @@ export type ObservabilityAdapter = {
 let debugDiagnosticsEnabled = false
 let observabilityAdapter: ObservabilityAdapter = {}
 
+/** Configures the observability adapter used by reportAppEvent. */
 export function configureObservability(adapter: ObservabilityAdapter) {
   observabilityAdapter = adapter
 }
@@ -79,6 +81,7 @@ function buildLogMessage({ title, description, logMessage }: ReportAppEventReque
   return title
 }
 
+/** Syncs the debug diagnostics toggle with in-memory state and the host logger. */
 export async function syncDebugDiagnosticsEnabled(enabled: boolean) {
   debugDiagnosticsEnabled = enabled
 
@@ -89,6 +92,7 @@ export async function syncDebugDiagnosticsEnabled(enabled: boolean) {
   }
 }
 
+/** Reports an app event, optionally writing a log and publishing a user notification. */
 export function reportAppEvent(request: ReportAppEventRequest) {
   const debugDiagnosticsActive = request.debugDiagnosticsEnabled ?? debugDiagnosticsEnabled
 

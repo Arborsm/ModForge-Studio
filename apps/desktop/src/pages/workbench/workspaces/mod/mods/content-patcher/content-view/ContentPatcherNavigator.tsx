@@ -1,5 +1,5 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '@platform/desktop'
+import type { ContentPatcherPatchStatus, ContentPatcherPlannedPatch, ContentPatcherTargetSummary } from '@entities/mod/api'
 import { contentPatcherStatusClass } from '../content-model/presentation'
 
 type ContentPatcherNavigatorProps = {
@@ -75,11 +75,7 @@ export function ContentPatcherNavigator({
     const button = (
       <button
         type="button"
-        className={
-          selectedTargetPath === target.path
-            ? 'cp-debugger-list-item cp-debugger-list-item-active'
-            : 'cp-debugger-list-item'
-        }
+        className={selectedTargetPath === target.path ? 'cp-debugger-list-item cp-debugger-list-item-active' : 'cp-debugger-list-item'}
         onClick={() => onSelectTarget(target.path)}
       >
         <div className="cp-debugger-list-row">
@@ -105,7 +101,12 @@ export function ContentPatcherNavigator({
                 <span className="context-menu-subhint">Open</span>
               </ContextMenu.SubTrigger>
               <ContextMenu.Portal>
-                <ContextMenu.SubContent className="context-menu-content context-menu-subcontent" collisionPadding={12} forceMount sideOffset={6}>
+                <ContextMenu.SubContent
+                  className="context-menu-content context-menu-subcontent"
+                  collisionPadding={12}
+                  forceMount
+                  sideOffset={6}
+                >
                   <ContextMenu.Item
                     className="context-menu-item"
                     onSelect={() => {
@@ -161,14 +162,19 @@ export function ContentPatcherNavigator({
                 <li key={patch.id}>
                   <button
                     type="button"
-                    className={selectedPatchId === patch.id ? 'cp-debugger-list-item cp-debugger-list-item-active' : 'cp-debugger-list-item'}
+                    className={
+                      selectedPatchId === patch.id ? 'cp-debugger-list-item cp-debugger-list-item-active' : 'cp-debugger-list-item'
+                    }
                     onClick={() => onSelectPatch(patch.id)}
                   >
                     <div className="cp-debugger-list-row">
                       <span className="cp-debugger-list-title">{patch.logName || patch.id}</span>
                       <span className={contentPatcherStatusClass(status)}>{status}</span>
                     </div>
-                    <p className="cp-debugger-list-meta">{patch.action}{patch.target ? ` -> ${patch.target}` : ''}</p>
+                    <p className="cp-debugger-list-meta">
+                      {patch.action}
+                      {patch.target ? ` -> ${patch.target}` : ''}
+                    </p>
                   </button>
                 </li>
               )

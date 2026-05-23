@@ -330,7 +330,6 @@
     display: none;
   }
 
-
   .event-edit-shell {
     display: flex;
     height: 100%;
@@ -410,14 +409,6 @@
 
     .edit-patch-catalog-metrics {
       grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .edit-mode-view-switch-button,
-    .event-edit-section-tab,
-    .edit-patch-card {
-      transition: none;
     }
   }
 }

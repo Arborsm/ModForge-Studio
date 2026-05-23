@@ -1,0 +1,216 @@
+import type { PlatformDragDropPayload, PlatformPorts } from '@shared/contracts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+async function loadConfiguredDesktop() {
+  vi.resetModules()
+
+  const eventListeners = new Map<string, (payload: unknown) => void>()
+  const dragDropListeners: Array<(payload: PlatformDragDropPayload) => void> = []
+  const invokeCommand = vi.fn()
+  const chooseDirectory = vi.fn()
+  const chooseFile = vi.fn()
+  const desktopWindow = {
+    minimize: vi.fn(),
+    toggleMaximize: vi.fn(),
+    close: vi.fn(),
+    isFullscreen: vi.fn(),
+    setFullscreen: vi.fn(),
+    toggleFullscreen: vi.fn(),
+  }
+  const ports: PlatformPorts = {
+    fileSystem: {
+      invokeCommand: invokeCommand as PlatformPorts['fileSystem']['invokeCommand'],
+      toAssetUrl: vi.fn((filePath: string, protocol?: string) => `${protocol ?? 'asset'}://${filePath}`),
+    },
+    desktopWindow,
+    storage: {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    },
+    dialog: {
+      open: vi.fn(),
+      chooseDirectory: chooseDirectory as PlatformPorts['dialog']['chooseDirectory'],
+      chooseFile: chooseFile as PlatformPorts['dialog']['chooseFile'],
+    },
+    hostEvents: {
+      canUseHost: vi.fn(() => true),
+      listen: vi.fn(async (event, listener) => {
+        eventListeners.set(event, listener as (payload: unknown) => void)
+        return () => {
+          eventListeners.delete(event)
+        }
+      }),
+      listenWindowDragDrop: vi.fn(async (listener) => {
+        dragDropListeners.push(listener)
+        return () => {
+          const index = dragDropListeners.indexOf(listener)
+          if (index >= 0) {
+            dragDropListeners.splice(index, 1)
+          }
+        }
+      }),
+    },
+  }
+
+  const desktop = await import('@shared/lib/desktop')
+  desktop.configureDesktopPlatformPorts(ports)
+
+  return {
+    desktop,
+    ports,
+    invokeCommand,
+    chooseDirectory,
+    chooseFile,
+    desktopWindow,
+    eventListeners,
+    dragDropListeners,
+  }
+}
+
+describe('desktop facade', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('routes window helpers through configured desktop window ports', async () => {
+    const { desktop, desktopWindow } = await loadConfiguredDesktop()
+    desktopWindow.isFullscreen.mockResolvedValueOnce(true)
+    desktopWindow.toggleFullscreen.mockResolvedValueOnce(false)
+
+    await expect(desktop.isCurrentWindowFullscreen()).resolves.toBe(true)
+    await expect(desktop.toggleFullscreenCurrentWindow()).resolves.toBe(false)
+    await desktop.setFullscreenCurrentWindow(true)
+
+    expect(desktopWindow.isFullscreen).toHaveBeenCalledTimes(1)
+    expect(desktopWindow.toggleFullscreen).toHaveBeenCalledTimes(1)
+    expect(desktopWindow.setFullscreen).toHaveBeenCalledWith(true)
+  })
+
+  it('opens archive files and drag-drop listeners through configured platform ports', async () => {
+    const { desktop, chooseFile, dragDropListeners, ports } = await loadConfiguredDesktop()
+    chooseFile.mockResolvedValueOnce('E:\\Downloads\\example.7z')
+    const listener = vi.fn()
+
+    await expect(desktop.chooseArchiveFile('Install Archive')).resolves.toBe('E:\\Downloads\\example.7z')
+    const unlisten = await desktop.listenToLauncherArchiveDragDrop(listener)
+
+    expect(chooseFile).toHaveBeenCalledWith({
+      title: 'Install Archive',
+      filters: [
+        {
+          name: 'Archives',
+          extensions: ['zip', '7z', 'rar', 'tar', 'tgz', 'gz'],
+        },
+      ],
+    })
+    expect(ports.hostEvents.listenWindowDragDrop).toHaveBeenCalledTimes(1)
+    expect(dragDropListeners).toHaveLength(1)
+
+    dragDropListeners[0]?.({
+      type: 'drop',
+      paths: ['E:\\Downloads\\example.7z'],
+      position: { x: 144, y: 288 },
+    })
+
+    expect(listener).toHaveBeenCalledWith({
+      type: 'drop',
+      paths: ['E:\\Downloads\\example.7z'],
+      position: { x: 144, y: 288 },
+    })
+
+    unlisten()
+    expect(dragDropListeners).toHaveLength(0)
+  })
+
+  it('recognizes supported launcher archive paths', async () => {
+    const { desktop } = await loadConfiguredDesktop()
+
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.zip')).toBe(true)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.7Z')).toBe(true)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.rar')).toBe(true)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.tar')).toBe(true)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.tgz')).toBe(true)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.tar.gz')).toBe(true)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.gz')).toBe(false)
+    expect(desktop.isSupportedLauncherArchivePath('E:\\Downloads\\example.txt')).toBe(false)
+    expect(desktop.isSupportedLauncherArchivePath('')).toBe(false)
+  })
+
+  it('routes app UI commands through the configured file system port', async () => {
+    const { desktop, invokeCommand } = await loadConfiguredDesktop()
+    const appUiState = {
+      version: 1,
+      shell: {
+        appMode: 'launcher',
+        launcherPage: 'library',
+        debugEnabled: false,
+        notificationSoundEnabled: true,
+      },
+      appearance: {
+        locale: 'zh-CN',
+        accentPresetId: 'indigo',
+        recentGameDirectories: [],
+        playerAppearance: {
+          profiles: [],
+          activeProfileId: null,
+        },
+      },
+      workspace: {
+        layouts: {},
+      },
+      launcher: {
+        discoverToolbar: {
+          sort: 'newest',
+          ascending: false,
+          timeRange: 'all',
+          pageSize: 20,
+          filtersHidden: false,
+        },
+        forceOffline: false,
+      },
+    }
+    invokeCommand.mockResolvedValueOnce(appUiState)
+
+    await expect(desktop.patchAppUiState({ shell: appUiState.shell })).resolves.toEqual(appUiState)
+
+    expect(invokeCommand).toHaveBeenNthCalledWith(1, 'patch_app_ui_state', {
+      request: {
+        shell: appUiState.shell,
+      },
+    })
+  })
+
+  it('mirrors frontend logs locally before forwarding them through desktop ports', async () => {
+    const { desktop, invokeCommand } = await loadConfiguredDesktop()
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    invokeCommand.mockResolvedValueOnce(undefined)
+
+    await expect(
+      desktop.writeFrontendLog({
+        level: 'warning',
+        message: 'Launcher settings save failed',
+        keyValues: {
+          source: 'launcher-settings',
+        },
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(invokeCommand).toHaveBeenCalledWith('write_frontend_log', {
+      request: {
+        level: 'warning',
+        message: 'Launcher settings save failed',
+        keyValues: {
+          source: 'launcher-settings',
+        },
+      },
+    })
+    expect(warnSpy).toHaveBeenCalledWith('Launcher settings save failed', {
+      source: 'launcher-settings',
+    })
+  })
+})

@@ -49,9 +49,7 @@ export async function buildObjectDisplayIndex(
         itemId.toLowerCase(),
         {
           displayName,
-          objectIndex: Number.isFinite(parseNumber(entry.SpriteIndex, Number.NaN))
-            ? parseNumber(entry.SpriteIndex, Number.NaN)
-            : null,
+          objectIndex: Number.isFinite(parseNumber(entry.SpriteIndex, Number.NaN)) ? parseNumber(entry.SpriteIndex, Number.NaN) : null,
         },
       ] as const
     }),

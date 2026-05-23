@@ -4,11 +4,15 @@ import type { ReactNode } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
-import { useLauncherSettings } from '@features/launcher'
-import { LauncherStateBlock } from '@features/launcher'
+import { useLauncherSettings } from '../../model/useLauncherSettings'
+import { LauncherStateBlock } from './LauncherStateBlock'
+import { DiagnosticsPanel } from './DiagnosticsPanel'
+import { LauncherNexusApiStatusCard } from './LauncherNexusApiStatusCard'
 
 type LauncherSettingsFormProps = {
   settingsState: ReturnType<typeof useLauncherSettings>
+  showDiagnostics?: boolean
+  showApiStatus?: boolean
 }
 
 function SettingPathField({
@@ -31,12 +35,7 @@ function SettingPathField({
   wide?: boolean
 }) {
   return (
-    <label
-      className={cx(
-        'settings-window-control-card launcher-settings-control-card',
-        wide && 'launcher-settings-control-card-wide',
-      )}
-    >
+    <label className={cx('settings-window-control-card launcher-settings-control-card', wide && 'launcher-settings-control-card-wide')}>
       <div className="launcher-settings-control-meta">
         <p className="settings-window-section-title">{label}</p>
       </div>
@@ -138,19 +137,20 @@ function LauncherSettingsSwitch({
   )
 }
 
-export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProps) {
+export function LauncherSettingsForm({ settingsState, showDiagnostics = true, showApiStatus = true }: LauncherSettingsFormProps) {
   const launcherPort = useLauncherPort()
   const rootCopy = useEditorCopy()
   const copy = rootCopy.launcher
   const commonCopy = rootCopy.common
   const settingsCopy = copy.settings
+  const diagnosticsCopy = copy.diagnostics
   const { settings, updateField, pickDirectory, error } = settingsState
 
   return (
     <div className="launcher-settings-stack">
       {error ? <LauncherStateBlock title={copy.settings.saveFailed} detail={error} tone="warning" /> : null}
 
-      <section className="launcher-settings-subsection">
+      <section className="launcher-settings-subsection launcher-settings-subsection-paths">
         <div>
           <p className="settings-window-section-title">{settingsCopy.pathsTitle}</p>
           <p className="settings-window-section-copy">{settingsCopy.pathsHint}</p>
@@ -164,6 +164,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             onOpen={() => void launcherPort.openPath({ path: settings.gamePath! })}
             openLabel={copy.actions.openFolder}
             browseLabel={rootCopy.controls.browse}
+            wide
           />
           <SettingPathField
             label={copy.fields.modsPath}
@@ -173,6 +174,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             onOpen={() => void launcherPort.openPath({ path: settings.modsPath! })}
             openLabel={copy.actions.openFolder}
             browseLabel={rootCopy.controls.browse}
+            wide
           />
           <SettingPathField
             label={copy.fields.downloadPath}
@@ -187,7 +189,7 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
         </div>
       </section>
 
-      <section className="launcher-settings-subsection">
+      <section className="launcher-settings-subsection launcher-settings-subsection-nexus">
         <div>
           <p className="settings-window-section-title">{settingsCopy.nexusAccessTitle}</p>
           <p className="settings-window-section-copy">{copy.discover.credentialsHint}</p>
@@ -200,19 +202,17 @@ export function LauncherSettingsForm({ settingsState }: LauncherSettingsFormProp
             trailing={
               <span className="dock-chip">
                 <KeyRound className="h-3 w-3" />
-                <span>API</span>
+                <span>{diagnosticsCopy.apiKeyBadge}</span>
               </span>
             }
           />
-          <CredentialField
-            label={copy.fields.nexusCookie}
-            value={settings.nexusCookie}
-            onChange={(value) => updateField('nexusCookie', value)}
-          />
         </div>
+        {showApiStatus ? <LauncherNexusApiStatusCard settingsState={settingsState} /> : null}
       </section>
 
-      <section className="launcher-settings-subsection">
+      {showDiagnostics ? <DiagnosticsPanel launcherPort={launcherPort} /> : null}
+
+      <section className="launcher-settings-subsection launcher-settings-subsection-downloads">
         <div>
           <p className="settings-window-section-title">{settingsCopy.downloadBehaviorTitle}</p>
           <p className="settings-window-section-copy">{settingsCopy.downloadBehaviorHint}</p>

@@ -97,7 +97,7 @@ export function EditModeShell({
   onAddVirtualAsset,
   onRemoveVirtualAsset,
 }: EditModeShellProps) {
-  const activePatch = activePatchId ? patches.find((p) => p.id === activePatchId) ?? null : null
+  const activePatch = activePatchId ? (patches.find((p) => p.id === activePatchId) ?? null) : null
   const [activeEventKey, setActiveEventKey] = useState<string | null>(null)
   const [editorViewMode, setEditorViewMode] = useState<'editor' | 'reference'>('editor')
   const [addPatchDialogOpen, setAddPatchDialogOpen] = useState(false)
@@ -221,6 +221,7 @@ export function EditModeShell({
 
       {configDialogOpen && draft ? (
         <ConfigSchemaDialog
+          key={`config:${activePatch?.id ?? 'world'}:${draft.configSchema.length}`}
           open={configDialogOpen}
           mode="config"
           patch={activePatch}

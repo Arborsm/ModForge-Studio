@@ -231,7 +231,12 @@ pub fn load_target_result(
             let apply_result = match (&mut loaded_target, asset_kind.as_str()) {
                 (LoadedTargetBase::Json { result_json }, "json") => {
                     if patch.action.eq_ignore_ascii_case("EditData") {
-                        edit_data::apply_edit_data_patch(result_json, &parsed_patch, context, project_root_path)
+                        edit_data::apply_edit_data_patch(
+                            result_json,
+                            &parsed_patch,
+                            context,
+                            project_root_path,
+                        )
                     } else if patch.action.eq_ignore_ascii_case("Load") {
                         let from_file = patch.from_file.as_deref().ok_or_else(|| {
                             format!("Load patch `{}` is missing a FromFile value.", patch.id)

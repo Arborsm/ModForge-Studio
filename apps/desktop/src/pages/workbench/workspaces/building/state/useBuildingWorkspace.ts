@@ -1,11 +1,11 @@
-import {useDeferredValue, useEffect, useMemo, useState} from 'react'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import type { ViewportWorldPoint } from '@shared/contracts'
 import type { ModAssetIndexGroup } from '@shared/contracts'
-import {deferToTimeout} from '@shared/lib/react'
-import {type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps} from '@platform/desktop'
-import type {BuildingsPanelCopy, LocaleCode} from '@locales'
-import type {MapDocument} from '@shared/contracts'
-import {OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH, buildGameContentPath} from '@shared/lib/assets'
+import { deferToTimeout } from '@shared/lib/react'
+import { type GameDirectoryInfo, loadMapAsset, loadTextAsset, scanMaps } from '@entities/game/api'
+import type { BuildingsPanelCopy, LocaleCode } from '@locales'
+import type { MapDocument } from '@shared/contracts'
+import { OBJECT_DATA_ASSET_PATH, SPRING_OBJECTS_ASSET_PATH, buildGameContentPath } from '@shared/lib/assets'
 import {
   BUILDINGS_DATA_ASSET_PATH,
   type BuildingTextureAssetState,
@@ -14,15 +14,22 @@ import {
   createBuildingEntryIndex,
   createConstructibleBuildingGroups,
 } from '../entities/building'
-import { type BrowserSourceMode, buildModBrowserGroups, buildModEntryLookup, findModBrowserEntry, findModSources, type ModBrowserEntry } from '@pages/workbench/workspaces/mod'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+} from '@pages/workbench/workspaces/mod'
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
-import {loadModResultImageState} from '@pages/workbench/workspaces/mod'
+import { loadModResultImageState } from '@pages/workbench/workspaces/mod'
 
-import {localizeBuildingEntries} from './buildingTextLocalization'
-import {buildObjectDisplayIndex, hydrateBuildingMaterials} from './buildingObjectDisplay'
-import {buildLocationSeeds, buildWorldBuildingEntries} from './buildingWorldEntries'
-import {loadImageState, loadChainTextureStates} from './buildingTextureAssets'
-import {useActiveBuildingFallback} from './buildingSelection'
+import { localizeBuildingEntries } from './buildingTextLocalization'
+import { buildObjectDisplayIndex, hydrateBuildingMaterials } from './buildingObjectDisplay'
+import { buildLocationSeeds, buildWorldBuildingEntries } from './buildingWorldEntries'
+import { loadImageState, loadChainTextureStates } from './buildingTextureAssets'
+import { useActiveBuildingFallback } from './buildingSelection'
 
 type UseBuildingWorkspaceOptions = {
   directoryInfo: GameDirectoryInfo | null
@@ -37,11 +44,7 @@ function getMapAssetName(document: MapDocument) {
   return normalizedRelativePath.replace(/\.xnb$/iu, '').replaceAll('\\', '/')
 }
 
-async function runWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T, index: number) => Promise<R>,
-) {
+async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T, index: number) => Promise<R>) {
   const results = new Array<R>(items.length)
   let nextIndex = 0
 
@@ -87,10 +90,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     () => worldBuildings.filter((building) => !deferredFilter || building.searchText.includes(deferredFilter)),
     [deferredFilter, worldBuildings],
   )
-  const buildingLookup = useMemo(
-    () => buildModEntryLookup(buildingEntries, (building) => building.key),
-    [buildingEntries],
-  )
+  const buildingLookup = useMemo(() => buildModEntryLookup(buildingEntries, (building) => building.key), [buildingEntries])
   const modBuildingGroups = useMemo(
     () =>
       buildModBrowserGroups({
@@ -135,15 +135,15 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           : [],
     [activeBuilding, buildingEntries],
   )
-  const activeTextureState =
-    activeBuilding?.sourceKind === 'constructible' ? (activeChainTextureStates[activeBuilding.key] ?? null) : null
+  const activeTextureState = activeBuilding?.sourceKind === 'constructible' ? (activeChainTextureStates[activeBuilding.key] ?? null) : null
   const effectiveActiveTextureState = browserSourceMode === 'mod' ? (activeModTextureState ?? activeTextureState) : activeTextureState
   const mapDocumentsByAssetName = useMemo(
     () => new Map(mapDocuments.map((document) => [getMapAssetName(document), document] as const)),
     [mapDocuments],
   )
-  const activeIndoorMapDocument =
-    activeBuilding?.indoorMapAssetName ? (mapDocumentsByAssetName.get(activeBuilding.indoorMapAssetName) ?? null) : null
+  const activeIndoorMapDocument = activeBuilding?.indoorMapAssetName
+    ? (mapDocumentsByAssetName.get(activeBuilding.indoorMapAssetName) ?? null)
+    : null
   const activeExteriorMapDocument =
     activeBuilding?.sourceKind === 'world' && activeBuilding.exteriorMapAssetName
       ? (mapDocumentsByAssetName.get(activeBuilding.exteriorMapAssetName) ?? null)
@@ -153,7 +153,9 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     ? activeIndoorMapDocument.relativePath
     : activeBuilding?.sourceKind === 'world'
       ? (activeBuilding?.indoorMapPathLabel ?? copy.noIndoorMap)
-      : (activeBuilding?.indoorMapAssetName ? activeBuilding.indoorMapPathLabel : activeBuilding?.nonInstancedIndoorLocation ?? copy.noIndoorMap)
+      : activeBuilding?.indoorMapAssetName
+        ? activeBuilding.indoorMapPathLabel
+        : (activeBuilding?.nonInstancedIndoorLocation ?? copy.noIndoorMap)
   const activeExteriorMapPath = activeExteriorMapDocument?.relativePath ?? activeBuilding?.exteriorMapPathLabel ?? null
   const activeExteriorMapMessage = activeExteriorMapDocument?.relativePath ?? activeBuilding?.exteriorMapPathLabel ?? copy.noExteriorMap
   const activeExteriorFocusPoint = useMemo<ViewportWorldPoint | null>(() => {
@@ -207,7 +209,10 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
           locale,
         )
         const hydratedConstructibleEntries = objectsAsset
-          ? hydrateBuildingMaterials(localizedConstructibleEntries, await buildObjectDisplayIndex(directoryInfo.rootPath, locale, objectsAsset.content))
+          ? hydrateBuildingMaterials(
+              localizedConstructibleEntries,
+              await buildObjectDisplayIndex(directoryInfo.rootPath, locale, objectsAsset.content),
+            )
           : localizedConstructibleEntries
         const loadedMapDocuments = (
           await runWithConcurrency(
@@ -242,7 +247,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
         setActiveBuildingId((current) =>
           current && nextEntries.some((entry) => entry.key === current)
             ? current
-            : nextConstructibleGroups[0]?.rootEntry.key ?? nextWorldBuildings[0]?.key ?? null,
+            : (nextConstructibleGroups[0]?.rootEntry.key ?? nextWorldBuildings[0]?.key ?? null),
         )
         setBuildingStatusMessage(
           nextConstructibleGroups.length || nextWorldBuildings.length
@@ -334,9 +339,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
 
     const nextEntry =
       activeModBuildingEntry ??
-      modBuildingGroups
-        .flatMap((group) => group.items)
-        .find((item) => item.value.key === activeBuildingId) ??
+      modBuildingGroups.flatMap((group) => group.items).find((item) => item.value.key === activeBuildingId) ??
       modBuildingGroups[0]?.items[0] ??
       null
 
@@ -351,12 +354,7 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
   }, [activeBuildingId, activeModBuildingEntry, browserSourceMode, modBuildingGroups])
 
   useEffect(() => {
-    if (
-      browserSourceMode !== 'mod' ||
-      !directoryInfo?.rootPath ||
-      !activeBuilding?.textureAssetName ||
-      !activeModBuildingEntry
-    ) {
+    if (browserSourceMode !== 'mod' || !directoryInfo?.rootPath || !activeBuilding?.textureAssetName || !activeModBuildingEntry) {
       return deferToTimeout(() => {
         setActiveModTextureState(null)
       })
@@ -390,7 +388,13 @@ export function useBuildingWorkspace({ directoryInfo, locale, copy }: UseBuildin
     return () => {
       cancelled = true
     }
-  }, [activeBuilding?.textureAssetName, activeBuilding?.texturePathLabel, activeModBuildingEntry, browserSourceMode, directoryInfo?.rootPath])
+  }, [
+    activeBuilding?.textureAssetName,
+    activeBuilding?.texturePathLabel,
+    activeModBuildingEntry,
+    browserSourceMode,
+    directoryInfo?.rootPath,
+  ])
 
   function handleSetBrowserSourceMode(mode: BrowserSourceMode) {
     setBrowserSourceMode(mode)

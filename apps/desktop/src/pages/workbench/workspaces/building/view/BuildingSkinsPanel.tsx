@@ -43,17 +43,23 @@ export function BuildingSkinsPanel(props: BuildingSkinsPanelProps) {
               ))}
             </div>
           ) : (
-            <div className="panel-empty-state">
-              {props.copy.skinsEmpty}
-            </div>
+            <div className="panel-empty-state">{props.copy.skinsEmpty}</div>
           )
         ) : (
           <div className="panel-section p-3">
             <div className="space-y-2 text-sm text-[var(--text-primary)]">
-              <p>{props.copy.sourceMapLabel}: {props.building.exteriorMapName ?? props.copy.noneLabel}</p>
-              <p>{props.copy.exteriorMapLabel}: {props.building.exteriorMapPathLabel ?? props.copy.noneLabel}</p>
-              <p>{props.copy.exteriorEntryLabel}: {formatPoint(props.building.exteriorEntryTile, props.copy.noneLabel)}</p>
-              <p>{props.copy.indoorMapLabel}: {props.building.indoorMapPathLabel}</p>
+              <p>
+                {props.copy.sourceMapLabel}: {props.building.exteriorMapName ?? props.copy.noneLabel}
+              </p>
+              <p>
+                {props.copy.exteriorMapLabel}: {props.building.exteriorMapPathLabel ?? props.copy.noneLabel}
+              </p>
+              <p>
+                {props.copy.exteriorEntryLabel}: {formatPoint(props.building.exteriorEntryTile, props.copy.noneLabel)}
+              </p>
+              <p>
+                {props.copy.indoorMapLabel}: {props.building.indoorMapPathLabel}
+              </p>
             </div>
           </div>
         )}

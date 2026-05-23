@@ -116,7 +116,9 @@ export function clonePlayerAppearanceProfile(profile: PlayerAppearanceProfile): 
 }
 
 export function sanitizePlayerAppearanceProfile(profile: Partial<PlayerAppearanceProfile> | null | undefined): PlayerAppearanceProfile {
-  const fallback = createDefaultPlayerAppearanceProfile(typeof profile?.label === 'string' && profile.label.trim() ? profile.label.trim() : 'Player')
+  const fallback = createDefaultPlayerAppearanceProfile(
+    typeof profile?.label === 'string' && profile.label.trim() ? profile.label.trim() : 'Player',
+  )
 
   return {
     id: typeof profile?.id === 'string' && profile.id.trim() ? profile.id : fallback.id,
@@ -162,7 +164,7 @@ export function readStoredPlayerAppearanceState(
   const activeProfileId =
     rawActiveProfileId && ensuredProfiles.some((profile) => profile.id === rawActiveProfileId)
       ? rawActiveProfileId
-      : ensuredProfiles[0]?.id ?? null
+      : (ensuredProfiles[0]?.id ?? null)
 
   return {
     profiles: ensuredProfiles,
@@ -258,10 +260,7 @@ export function parsePlayerAppearanceProfileFromSave(
   }
 
   const root = document.documentElement
-  const player =
-    root.tagName === 'Farmer'
-      ? root
-      : Array.from(root.children).find((child) => child.tagName === 'player') ?? root
+  const player = root.tagName === 'Farmer' ? root : (Array.from(root.children).find((child) => child.tagName === 'player') ?? root)
 
   if (!player) {
     throw new Error('The save file does not contain a player node.')
@@ -278,10 +277,8 @@ export function parsePlayerAppearanceProfileFromSave(
   const hatItem = findDirectChild(player, 'hat')
   const modData = readModDataMap(findDirectChild(player, 'modData'))
 
-  const shirtSpriteIndex =
-    shirtOverride >= 0 ? shirtOverride : parseInteger(readDirectChildText(shirtItem, 'indexInTileSheet'), 0)
-  const pantsSpriteIndex =
-    pantsOverride >= 0 ? pantsOverride : parseInteger(readDirectChildText(pantsItem, 'indexInTileSheet'), 0)
+  const shirtSpriteIndex = shirtOverride >= 0 ? shirtOverride : parseInteger(readDirectChildText(shirtItem, 'indexInTileSheet'), 0)
+  const pantsSpriteIndex = pantsOverride >= 0 ? pantsOverride : parseInteger(readDirectChildText(pantsItem, 'indexInTileSheet'), 0)
 
   const rawHatItemId = readDirectChildText(hatItem, 'itemId')
   const hatSpriteIndex = parseInteger(readDirectChildText(hatItem, 'parentSheetIndex'), -1)
@@ -314,9 +311,7 @@ export function parsePlayerAppearanceProfileFromSave(
 }
 
 export function colorToHex(color: PlayerAppearanceColor) {
-  return `#${[color.r, color.g, color.b]
-    .map((value) => clampByte(value, 0).toString(16).padStart(2, '0'))
-    .join('')}`
+  return `#${[color.r, color.g, color.b].map((value) => clampByte(value, 0).toString(16).padStart(2, '0')).join('')}`
 }
 
 export function hexToColor(value: string, fallback: PlayerAppearanceColor): PlayerAppearanceColor {

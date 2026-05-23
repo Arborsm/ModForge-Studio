@@ -17,13 +17,7 @@ export {
 } from './layoutConstants'
 export { findDockTarget, getRailSortTarget } from './layoutDragTargets'
 export { getDockGuideRects, getWorkspaceGeometry } from './layoutGeometry'
-export {
-  clampFloatRect,
-  getHorizontalUsableWidth,
-  getRailEdgeSizeBounds,
-  getResolvedSidePanelWidths,
-  splitSpan,
-} from './layoutSizing'
+export { clampFloatRect, getHorizontalUsableWidth, getRailEdgeSizeBounds, getResolvedSidePanelWidths, splitSpan } from './layoutSizing'
 export {
   buildDefaultSnapshot,
   clamp,
@@ -43,9 +37,4 @@ export {
   sanitizeStoredState,
 } from './layoutState'
 export { WorkspaceLayout } from './layout-view/WorkspaceLayout'
-export type {
-  DockArea,
-  WorkspaceLayoutHandle,
-  WorkspacePanelConfig,
-  WorkspacePanelMeta,
-} from './layout-view/WorkspaceLayout'
+export type { DockArea, WorkspaceLayoutHandle, WorkspacePanelConfig, WorkspacePanelMeta } from './layout-view/WorkspaceLayout'

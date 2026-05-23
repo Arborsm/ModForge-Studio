@@ -1,8 +1,6 @@
 @layer base {
   :root {
-    --font-sans:
-      "Segoe UI Variable Text", "SF Pro Text", "PingFang SC", "Microsoft YaHei UI", system-ui,
-      sans-serif;
+    --font-sans: "Segoe UI Variable Text", "SF Pro Text", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
     --font-mono: "IBM Plex Mono", "Cascadia Mono", "JetBrains Mono", monospace;
 
     --color-accent: #4f46e5;
@@ -24,12 +22,8 @@
     --surface-inverse: #0f172a;
 
     --border-subtle: rgba(91, 104, 126, 0.32);
-    --shadow-panel:
-      0 1px 1px rgba(15, 23, 42, 0.05),
-      0 8px 16px rgba(15, 23, 42, 0.08);
-    --shadow-float:
-      0 18px 30px rgba(15, 23, 42, 0.18),
-      0 8px 18px rgba(15, 23, 42, 0.12);
+    --shadow-panel: 0 1px 1px rgba(15, 23, 42, 0.05), 0 8px 16px rgba(15, 23, 42, 0.08);
+    --shadow-float: 0 18px 30px rgba(15, 23, 42, 0.18), 0 8px 18px rgba(15, 23, 42, 0.12);
 
     --grid-minor: rgba(92, 104, 124, 0.13);
     --grid-major: rgba(92, 104, 124, 0.19);
@@ -71,12 +65,8 @@
     --surface-inverse: #05070c;
 
     --border-subtle: rgba(166, 176, 192, 0.2);
-    --shadow-panel:
-      0 1px 1px rgba(0, 0, 0, 0.28),
-      0 16px 28px rgba(0, 0, 0, 0.22);
-    --shadow-float:
-      0 24px 44px rgba(0, 0, 0, 0.38),
-      0 10px 24px rgba(0, 0, 0, 0.26);
+    --shadow-panel: 0 1px 1px rgba(0, 0, 0, 0.28), 0 16px 28px rgba(0, 0, 0, 0.22);
+    --shadow-float: 0 24px 44px rgba(0, 0, 0, 0.38), 0 10px 24px rgba(0, 0, 0, 0.26);
 
     --grid-minor: rgba(255, 255, 255, 0.05);
     --grid-major: rgba(255, 255, 255, 0.08);

@@ -1,9 +1,7 @@
-use crate::infrastructure::game_formats::tbin::{
-    MapDocument, MapLayer, MapPropertyValue,
-};
 use super::super::assets::{load_map_patch_asset, LoadedMapAsset};
 use super::super::schema::coerce_u32;
 use super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
+use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -97,7 +95,9 @@ fn parse_area_value(
                 .map(|entry| {
                     if let Value::String(text) = entry {
                         if contains_unresolved_token(text) {
-                            return Err("Image area array contains an unresolved token.".to_string());
+                            return Err(
+                                "Image area array contains an unresolved token.".to_string()
+                            );
                         }
                     }
                     coerce_u32(entry).ok_or_else(|| {
@@ -169,7 +169,11 @@ fn merge_source_tilesets(document: &mut MapDocument, source: &MapDocument) -> Ha
 
     for source_tileset in &source.tilesets {
         // Try to find a compatible tileset by name
-        if let Some(target_tileset) = document.tilesets.iter().find(|t| t.name == source_tileset.name) {
+        if let Some(target_tileset) = document
+            .tilesets
+            .iter()
+            .find(|t| t.name == source_tileset.name)
+        {
             if target_tileset.tile_count == source_tileset.tile_count
                 && target_tileset.tile_width == source_tileset.tile_width
                 && target_tileset.tile_height == source_tileset.tile_height
@@ -219,7 +223,8 @@ fn apply_map_properties(
         if value.is_null() {
             document.properties.remove(key);
         } else {
-            document.properties
+            document
+                .properties
                 .insert(key.clone(), json_to_map_property_value(value));
         }
         push_unique(&mut debug.properties, key.clone());
@@ -256,7 +261,12 @@ fn apply_warps(
     let warp_strings: Vec<String> = match add_warps {
         Value::Array(arr) => arr
             .iter()
-            .filter_map(|v| v.as_str().map(str::trim).filter(|s| !s.is_empty()).map(ToOwned::to_owned))
+            .filter_map(|v| {
+                v.as_str()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToOwned::to_owned)
+            })
             .collect(),
         Value::String(s) => {
             let trimmed = s.trim();
@@ -294,9 +304,10 @@ fn apply_warps(
         format!("{new_warps} {prev_warps}")
     };
 
-    document
-        .properties
-        .insert(property_name.to_string(), MapPropertyValue::String(combined));
+    document.properties.insert(
+        property_name.to_string(),
+        MapPropertyValue::String(combined),
+    );
     push_unique(&mut debug.warps, property_name.to_string());
 
     Ok(valid_warps.len())
@@ -317,10 +328,7 @@ fn require_u32_no_token(value: Option<&Value>, field: &str) -> Result<u32, Strin
         .map(|v| v as u32)
 }
 
-fn apply_map_tiles(
-    document: &mut MapDocument,
-    map_tiles: &Value,
-) -> Result<usize, String> {
+fn apply_map_tiles(document: &mut MapDocument, map_tiles: &Value) -> Result<usize, String> {
     let tiles = map_tiles
         .as_array()
         .ok_or("MapTiles must be an array.".to_string())?;
@@ -414,7 +422,9 @@ fn apply_map_tiles(
                 let current_first_gid = document
                     .tilesets
                     .iter()
-                    .find(|t| current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count)
+                    .find(|t| {
+                        current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count
+                    })
                     .map(|t| t.first_gid)
                     .ok_or("Cannot resolve current tileset.")?;
                 let local_id = current_gid - current_first_gid;
@@ -436,7 +446,9 @@ fn apply_map_tiles(
                 let current_first_gid = document
                     .tilesets
                     .iter()
-                    .find(|t| current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count)
+                    .find(|t| {
+                        current_gid >= t.first_gid && current_gid < t.first_gid + t.tile_count
+                    })
                     .map(|t| t.first_gid)
                     .ok_or("Cannot resolve current tileset.")?;
                 let index = idx_str
@@ -494,8 +506,7 @@ fn apply_map_patch(
 ) -> Result<String, String> {
     let (source_x, source_y, source_w, source_h) =
         from_area.unwrap_or((0, 0, source.width, source.height));
-    let (target_x, target_y, target_w, target_h) =
-        to_area.unwrap_or((0, 0, source_w, source_h));
+    let (target_x, target_y, target_w, target_h) = to_area.unwrap_or((0, 0, source_w, source_h));
 
     if source_w != target_w || source_h != target_h {
         return Err(format!(
@@ -616,7 +627,12 @@ fn apply_remove_layer(
         }
         Value::Array(arr) => arr
             .iter()
-            .filter_map(|v| v.as_str().map(str::trim).filter(|s| !s.is_empty()).map(ToOwned::to_owned))
+            .filter_map(|v| {
+                v.as_str()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToOwned::to_owned)
+            })
             .collect(),
         _ => return Err("RemoveLayer must be a string or an array of strings.".to_string()),
     };
@@ -649,7 +665,12 @@ fn apply_add_layer(
         }
         Value::Array(arr) => arr
             .iter()
-            .filter_map(|v| v.as_str().map(str::trim).filter(|s| !s.is_empty()).map(ToOwned::to_owned))
+            .filter_map(|v| {
+                v.as_str()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(ToOwned::to_owned)
+            })
             .collect(),
         _ => return Err("AddLayer must be a string or an array of strings.".to_string()),
     };
@@ -772,11 +793,7 @@ fn apply_text_operations_to_map(
                     .to_string(),
             );
         }
-        let root = target[0]
-            .as_str()
-            .unwrap_or("")
-            .trim()
-            .to_ascii_lowercase();
+        let root = target[0].as_str().unwrap_or("").trim().to_ascii_lowercase();
         if root != "mapproperties" {
             return Err(format!(
                 "EditMap TextOperations target root must be 'MapProperties', got '{root}'."
@@ -807,10 +824,7 @@ fn apply_text_operations_to_map(
             .map(str::trim)
             .unwrap_or(" ");
 
-        let search = obj
-            .get("Search")
-            .and_then(Value::as_str)
-            .map(str::trim);
+        let search = obj.get("Search").and_then(Value::as_str).map(str::trim);
 
         let replace_mode = obj
             .get("ReplaceMode")
@@ -901,8 +915,12 @@ pub fn apply_edit_map_patch(
         let to_area = parse_area_value(
             patch.get("ToArea"),
             AreaDefaults::destination(
-                from_area.map(|(_, _, w, _h)| w).unwrap_or(source.document.width),
-                from_area.map(|(_, _, _w, h)| h).unwrap_or(source.document.height),
+                from_area
+                    .map(|(_, _, w, _h)| w)
+                    .unwrap_or(source.document.width),
+                from_area
+                    .map(|(_, _, _w, h)| h)
+                    .unwrap_or(source.document.height),
             ),
         )?;
         let patch_mode = patch
@@ -911,7 +929,14 @@ pub fn apply_edit_map_patch(
             .map(str::trim)
             .unwrap_or("ReplaceByLayer");
 
-        let summary = apply_map_patch(document, debug, &source.document, from_area, to_area, patch_mode)?;
+        let summary = apply_map_patch(
+            document,
+            debug,
+            &source.document,
+            from_area,
+            to_area,
+            patch_mode,
+        )?;
         changed.push(summary);
     }
 
@@ -975,7 +1000,6 @@ pub fn apply_edit_map_patch(
 
     Ok(format!("updated {}", changed.join(", ")))
 }
-
 
 #[cfg(test)]
 #[path = "tests/edit_map_tests.rs"]

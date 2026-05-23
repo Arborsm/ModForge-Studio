@@ -12,10 +12,7 @@ const { port, hmrPort } = resolveDevServerPorts()
 
 function resolveViteCacheDir(env = process.env) {
   const systemCacheRoot =
-    env.LOCALAPPDATA?.trim() ||
-    env.XDG_CACHE_HOME?.trim() ||
-    env.USERPROFILE?.trim() ||
-    path.join(os.homedir(), '.cache')
+    env.LOCALAPPDATA?.trim() || env.XDG_CACHE_HOME?.trim() || env.USERPROFILE?.trim() || path.join(os.homedir(), '.cache')
 
   return path.join(systemCacheRoot, 'ModForge Studio', 'vite')
 }
@@ -50,10 +47,7 @@ export default defineConfig({
             return 'tauri-vendor'
           }
 
-          if (
-            normalizedId.includes('/node_modules/lucide-react/') ||
-            normalizedId.includes('/node_modules/@radix-ui/')
-          ) {
+          if (normalizedId.includes('/node_modules/lucide-react/') || normalizedId.includes('/node_modules/@radix-ui/')) {
             return 'ui-vendor'
           }
 

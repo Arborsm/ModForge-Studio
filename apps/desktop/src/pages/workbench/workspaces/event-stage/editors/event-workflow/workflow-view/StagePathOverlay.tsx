@@ -56,10 +56,7 @@ function toActorKey(actorName: string): string {
 
 // ─── 路径计算 ────────────────────────────────────────────────────────────
 
-function buildActorPaths(
-  eventScript: EventScript | null,
-  mapDocument: MapDocument | null,
-): ActorPath[] {
+function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocument | null): ActorPath[] {
   if (!eventScript || !mapDocument) return []
 
   const { tileWidth, tileHeight } = mapDocument
@@ -92,13 +89,15 @@ function buildActorPaths(
       actorName: state?.name ?? actorKey,
       color,
       points: state
-        ? [{
-            x: state.tileX * tileWidth + tileWidth / 2,
-            y: (state.tileY - 1) * tileHeight + tileHeight / 2,
-            commandIndex: -1,
-            command: 'start',
-            kind: 'spawn',
-          }]
+        ? [
+            {
+              x: state.tileX * tileWidth + tileWidth / 2,
+              y: (state.tileY - 1) * tileHeight + tileHeight / 2,
+              commandIndex: -1,
+              command: 'start',
+              kind: 'spawn',
+            },
+          ]
         : [],
       segments: [],
     }
@@ -217,7 +216,7 @@ function buildActorPaths(
 
         const point: PathPoint = {
           x: (state.tileX + ox) * tileWidth + tileWidth / 2,
-          y: ((state.tileY + oy) - 1) * tileHeight + tileHeight / 2,
+          y: (state.tileY + oy - 1) * tileHeight + tileHeight / 2,
           commandIndex: i,
           command: cmd.command,
           kind: 'offset',
@@ -346,30 +345,14 @@ function buildActorPaths(
 
 function ArrowMarker({ id, color }: { id: string; color: string }) {
   return (
-    <marker
-      id={id}
-      markerWidth="10"
-      markerHeight="10"
-      refX="9"
-      refY="3"
-      orient="auto"
-      markerUnits="strokeWidth"
-    >
+    <marker id={id} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
       <path d="M0,0 L0,6 L9,3 z" fill={color} />
     </marker>
   )
 }
 
-export function StagePathOverlay({
-  eventScript,
-  mapDocument,
-  selectedCommandIndex,
-  hoveredCommandIndex,
-}: StagePathOverlayProps) {
-  const actorPaths = useMemo(
-    () => buildActorPaths(eventScript, mapDocument),
-    [eventScript, mapDocument],
-  )
+export function StagePathOverlay({ eventScript, mapDocument, selectedCommandIndex, hoveredCommandIndex }: StagePathOverlayProps) {
+  const actorPaths = useMemo(() => buildActorPaths(eventScript, mapDocument), [eventScript, mapDocument])
 
   if (!mapDocument || actorPaths.length === 0) return null
 
@@ -412,12 +395,7 @@ export function StagePathOverlay({
             const opacity = segmentOpacity(seg.commandIndex)
             const strokeWidth = segmentStrokeWidth(seg.commandIndex)
 
-            const dashArray =
-              seg.kind === 'warp'
-                ? '4,4'
-                : seg.kind === 'offset'
-                  ? '6,3,2,3'
-                  : undefined
+            const dashArray = seg.kind === 'warp' ? '4,4' : seg.kind === 'offset' ? '6,3,2,3' : undefined
 
             return (
               <line
@@ -454,26 +432,10 @@ export function StagePathOverlay({
                   />
                 ) : point.kind === 'warp' ? (
                   // 传送用空心圆
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={radius}
-                    fill="white"
-                    fillOpacity={opacity}
-                    stroke={path.color}
-                    strokeWidth={2}
-                  />
+                  <circle cx={point.x} cy={point.y} r={radius} fill="white" fillOpacity={opacity} stroke={path.color} strokeWidth={2} />
                 ) : (
                   // 普通移动点
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={radius}
-                    fill={path.color}
-                    fillOpacity={opacity}
-                    stroke="white"
-                    strokeWidth={1}
-                  />
+                  <circle cx={point.x} cy={point.y} r={radius} fill={path.color} fillOpacity={opacity} stroke="white" strokeWidth={1} />
                 )}
 
                 {/* 命令序号标签 */}

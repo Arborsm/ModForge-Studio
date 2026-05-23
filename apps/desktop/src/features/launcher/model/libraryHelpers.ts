@@ -8,16 +8,7 @@ export function getModKey(item: LauncherLibraryItem) {
 }
 
 function getFilterCandidates(item: LauncherLibraryItem) {
-  return [
-    item.name,
-    item.author,
-    item.version,
-    item.uniqueId,
-    item.description,
-    item.folderName,
-    item.absolutePath,
-    item.labelKey,
-  ] as const
+  return [item.name, item.author, item.version, item.uniqueId, item.description, item.folderName, item.absolutePath, item.labelKey] as const
 }
 
 function matchesNormalizedFilter(item: LauncherLibraryItem, normalizedFilter: string) {

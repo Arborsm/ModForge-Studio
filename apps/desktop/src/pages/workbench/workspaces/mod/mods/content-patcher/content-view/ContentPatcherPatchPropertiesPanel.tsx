@@ -54,23 +54,14 @@ export function ContentPatcherPatchPropertiesPanel({
 
   // Local draft for When to preserve user input on parse errors
   const whenText = useMemo(() => stringifyWhen(patch?.When), [patch?.When])
-  const [whenDraft, setWhenDraft] = useState(whenText)
+  const [editedWhenDraft, setEditedWhenDraft] = useState<string | null>(null)
   const prevWhenTextRef = useRef(whenText)
+  const whenDraft = editedWhenDraft ?? whenText
 
   useEffect(() => {
-    let cancelled = false
-
     if (prevWhenTextRef.current !== whenText) {
       prevWhenTextRef.current = whenText
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setWhenDraft(whenText)
-        }
-      })
-    }
-
-    return () => {
-      cancelled = true
+      setEditedWhenDraft(null)
     }
   }, [whenText])
 
@@ -111,11 +102,7 @@ export function ContentPatcherPatchPropertiesPanel({
         <div className="cp-debugger-form-grid cp-debugger-form-grid-compact">
           <label className="cp-debugger-field">
             <span>Action</span>
-            <select
-              value={action}
-              onChange={(event) => onFieldChange('Action', event.target.value)}
-              aria-label="Patch Action"
-            >
+            <select value={action} onChange={(event) => onFieldChange('Action', event.target.value)} aria-label="Patch Action">
               {ACTIONS.map((a) => (
                 <option key={a} value={a}>
                   {a || '—'}
@@ -161,11 +148,7 @@ export function ContentPatcherPatchPropertiesPanel({
           {needsPatchMode && (
             <label className="cp-debugger-field">
               <span>PatchMode</span>
-              <select
-                value={patchMode}
-                onChange={(event) => onFieldChange('PatchMode', event.target.value)}
-                aria-label="Patch PatchMode"
-              >
+              <select value={patchMode} onChange={(event) => onFieldChange('PatchMode', event.target.value)} aria-label="Patch PatchMode">
                 <option value="">Default</option>
                 {patchModeOptions.map((mode) => (
                   <option key={mode} value={mode}>
@@ -224,9 +207,7 @@ export function ContentPatcherPatchPropertiesPanel({
                   onChange={(event) => onFieldChange('Enabled', event.target.checked)}
                   aria-label="Patch Enabled"
                 />
-                <span style={{ fontSize: 12, textTransform: 'none', letterSpacing: 0 }}>
-                  {enabledBooleanValue ? 'true' : 'false'}
-                </span>
+                <span style={{ fontSize: 12, textTransform: 'none', letterSpacing: 0 }}>{enabledBooleanValue ? 'true' : 'false'}</span>
               </label>
             ) : (
               <input
@@ -273,7 +254,7 @@ export function ContentPatcherPatchPropertiesPanel({
             <textarea
               value={whenDraft}
               onChange={(event) => {
-                setWhenDraft(event.target.value)
+                setEditedWhenDraft(event.target.value)
                 onWhenChange(event.target.value)
               }}
               aria-label="Patch When"
@@ -290,9 +271,7 @@ export function ContentPatcherPatchPropertiesPanel({
                 resize: 'vertical',
               }}
             />
-            {patchWhenError ? (
-              <span style={{ color: 'var(--danger)', fontSize: 11 }}>{patchWhenError}</span>
-            ) : null}
+            {patchWhenError ? <span style={{ color: 'var(--danger)', fontSize: 11 }}>{patchWhenError}</span> : null}
           </div>
         </div>
       )}

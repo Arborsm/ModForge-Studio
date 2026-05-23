@@ -17,4 +17,3 @@ export function resolveTilesetImagePath(mapDocument: MapDocument, tileset: MapTi
 
   return `${mapDirectory}\\${fileName}`
 }
-

@@ -56,8 +56,7 @@ function ObjectGroupCard({
           <div className="space-y-2">
             {item.previewObjects.map((object) => {
               const interactionTag = getObjectInteractionTag(object)
-              const isFocused =
-                focusedObjectTarget?.groupId === item.group.id && focusedObjectTarget?.objectId === object.id
+              const isFocused = focusedObjectTarget?.groupId === item.group.id && focusedObjectTarget?.objectId === object.id
               return (
                 <button
                   key={object.id}
@@ -78,12 +77,8 @@ function ObjectGroupCard({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-[var(--text-primary)]">
-                        {getObjectDisplayName(object, copy)}
-                      </p>
-                      <p className="mt-1 truncate text-[11px] text-[var(--text-secondary)]">
-                        {formatObjectPreviewMeta(object, copy)}
-                      </p>
+                      <p className="truncate text-xs font-semibold text-[var(--text-primary)]">{getObjectDisplayName(object, copy)}</p>
+                      <p className="mt-1 truncate text-[11px] text-[var(--text-secondary)]">{formatObjectPreviewMeta(object, copy)}</p>
                     </div>
                     <span className="dock-chip shrink-0">{interactionTag ?? object.type ?? `#${object.id}`}</span>
                   </div>
@@ -93,9 +88,7 @@ function ObjectGroupCard({
           </div>
 
           {item.group.objects.length > item.previewObjects.length ? (
-            <p className="px-1 pt-2 text-[11px] text-[var(--text-tertiary)]">
-              +{item.group.objects.length - item.previewObjects.length}
-            </p>
+            <p className="px-1 pt-2 text-[11px] text-[var(--text-tertiary)]">+{item.group.objects.length - item.previewObjects.length}</p>
           ) : null}
         </div>
       ) : null}
@@ -164,7 +157,7 @@ export function GroupedObjectGroupList({
   return (
     <div className="space-y-3 p-3">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
         <input
           className="control-input pl-9"
           value={filterValue}
@@ -192,10 +185,7 @@ export function GroupedObjectGroupList({
             }
 
             return (
-              <section
-                key={entry.groupLabel}
-                className={objectGroupSectionClassName[variant]}
-              >
+              <section key={entry.groupLabel} className={objectGroupSectionClassName[variant]}>
                 <button
                   type="button"
                   className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-[var(--bg-active)]"
@@ -207,7 +197,7 @@ export function GroupedObjectGroupList({
                   }
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
+                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">
                       {entry.groupLabel}
                     </p>
                     <p className="text-[11px] text-[var(--text-secondary)]">
@@ -220,10 +210,7 @@ export function GroupedObjectGroupList({
                     </p>
                   </div>
                   <ChevronDown
-                    className={cx(
-                      'h-4 w-4 shrink-0 text-[var(--text-secondary)] transition-transform',
-                      !isCollapsed && 'rotate-180',
-                    )}
+                    className={cx('h-4 w-4 shrink-0 text-[var(--text-secondary)] transition-transform', !isCollapsed && 'rotate-180')}
                   />
                 </button>
 
@@ -245,9 +232,7 @@ export function GroupedObjectGroupList({
           })}
         </div>
       ) : (
-        <div className={objectGroupEmptyStateClassName[variant]}>
-          {emptyMessage}
-        </div>
+        <div className={objectGroupEmptyStateClassName[variant]}>{emptyMessage}</div>
       )}
     </div>
   )

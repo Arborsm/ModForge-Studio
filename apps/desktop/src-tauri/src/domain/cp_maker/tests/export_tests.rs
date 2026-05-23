@@ -1,10 +1,8 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
-use crate::domain::cp_maker::{
-    export_cp_maker_pack, types::CpMakerExportRequest,
-};
 use crate::domain::cp_maker::types::{
     CpMakerDraftErrorCode, CpMakerDraftOperation, CpMakerExportResult,
 };
+use crate::domain::cp_maker::{export_cp_maker_pack, types::CpMakerExportRequest};
 use crate::infrastructure::fs::pathing::normalize_path;
 use crate::test_support::{create_temp_dir, write_file};
 use base64::Engine;
@@ -157,7 +155,10 @@ fn rejects_cp_maker_export_when_target_directory_is_not_fresh() {
     assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
     assert_eq!(error.operation, CpMakerDraftOperation::Export);
     assert!(error.message.contains("fresh"));
-    assert_eq!(error.path.as_deref(), Some(normalize_path(&output_dir).as_str()));
+    assert_eq!(
+        error.path.as_deref(),
+        Some(normalize_path(&output_dir).as_str())
+    );
     assert_eq!(
         fs::read_to_string(output_dir.join("keep.txt")).expect("read existing file"),
         "leave me alone"
@@ -179,7 +180,10 @@ fn rejects_cp_maker_export_when_output_path_contains_parent_component() {
     assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
     assert_eq!(error.operation, CpMakerDraftOperation::Export);
     assert!(error.message.contains("clean"));
-    assert_eq!(error.path.as_deref(), Some(normalize_path(&output_dir).as_str()));
+    assert_eq!(
+        error.path.as_deref(),
+        Some(normalize_path(&output_dir).as_str())
+    );
     assert!(!root.join("fresh").exists());
     assert!(!root.join("manifest.json").exists());
     assert!(!root.join("content.json").exists());
@@ -215,7 +219,9 @@ fn rejects_cp_maker_export_when_virtual_asset_case_collides_with_reserved_output
         &output_dir,
         vec![virtual_asset("Manifest.json", br#"{"overwritten":true}"#)],
     ))
-    .expect_err("expected export to reject reserved output collisions on case-insensitive filesystems");
+    .expect_err(
+        "expected export to reject reserved output collisions on case-insensitive filesystems",
+    );
 
     assert_eq!(error.code, CpMakerDraftErrorCode::InvalidExport);
     assert_eq!(error.operation, CpMakerDraftOperation::Export);

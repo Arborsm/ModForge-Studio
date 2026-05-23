@@ -12,19 +12,13 @@ vi.mock('@radix-ui/react-context-menu', () => ({
   Portal: ({ children }: { children: ReactNode }) => <>{children}</>,
   Content: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Sub: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  SubTrigger: ({ children, className }: { children: ReactNode, className?: string }) => (
-    <button type="button" className={className}>{children}</button>
+  SubTrigger: ({ children, className }: { children: ReactNode; className?: string }) => (
+    <button type="button" className={className}>
+      {children}
+    </button>
   ),
   SubContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Item: ({
-    children,
-    className,
-    onSelect,
-  }: {
-    children: ReactNode
-    className?: string
-    onSelect?: () => void
-  }) => (
+  Item: ({ children, className, onSelect }: { children: ReactNode; className?: string; onSelect?: () => void }) => (
     <button type="button" className={className} onClick={() => onSelect?.()}>
       {children}
     </button>

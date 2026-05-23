@@ -44,7 +44,9 @@ export function BuildingFactGrid(props: BuildingFactGridProps) {
           </div>
           <div className="panel-section p-3">
             <p className="panel-section-title">{props.copy.indoorMapLabel}</p>
-            <p className="mt-1 truncate text-sm text-[var(--text-primary)]">{props.activeIndoorMapPath ?? props.building.indoorMapPathLabel}</p>
+            <p className="mt-1 truncate text-sm text-[var(--text-primary)]">
+              {props.activeIndoorMapPath ?? props.building.indoorMapPathLabel}
+            </p>
           </div>
           <div className="panel-section p-3">
             <p className="panel-section-title">{props.copy.entranceCountLabel}</p>

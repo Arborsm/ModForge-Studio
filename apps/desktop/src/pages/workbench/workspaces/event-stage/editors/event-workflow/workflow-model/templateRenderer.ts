@@ -6,11 +6,7 @@ export type RenderedNode =
   | { type: 'static'; text: string }
   | { type: 'param'; index: number; label: string; control: UIControlType; value: string; placeholder?: string; options?: OptionItem[] }
 
-export function renderTemplate(
-  schema: CommandSchema,
-  args: string[],
-  _locale: 'zh-CN' | 'en-US' = 'en-US',
-): RenderedNode[] {
+export function renderTemplate(schema: CommandSchema, args: string[], _locale: 'zh-CN' | 'en-US' = 'en-US'): RenderedNode[] {
   void _locale
   return schema.template.map((item): RenderedNode => {
     if (item.type === 'text') {

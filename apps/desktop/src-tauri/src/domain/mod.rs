@@ -7,4 +7,5 @@ pub mod launcher;
 pub(crate) mod manifest;
 pub mod modding;
 pub mod mods;
+pub mod nexusmods;
 pub mod saves;

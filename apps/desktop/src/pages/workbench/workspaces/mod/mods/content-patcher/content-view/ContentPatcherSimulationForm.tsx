@@ -300,32 +300,28 @@ export function ContentPatcherSimulationForm({
             value.config[key] !== undefined ? stringifyDisplayValue(value.config[key]) : stringifyDisplayValue(defaultValue)
 
           return (
-          <label key={key} className="cp-debugger-field">
-            <span>{`Config ${key}`}</span>
-            <input
-              value={displayedValue}
-              onChange={(event) => {
-                const nextConfig = { ...value.config }
-                const nextValue = event.target.value.trim()
-                if (!nextValue) {
-                  delete nextConfig[key]
-                } else {
-                  nextConfig[key] = coerceConfigValue(nextValue)
-                }
-                onChange({ ...value, config: nextConfig })
-              }}
-              aria-label={`Config ${key}`}
-              placeholder={defaultValue == null ? 'Any' : stringifyDisplayValue(defaultValue)}
-            />
-          </label>
+            <label key={key} className="cp-debugger-field">
+              <span>{`Config ${key}`}</span>
+              <input
+                value={displayedValue}
+                onChange={(event) => {
+                  const nextConfig = { ...value.config }
+                  const nextValue = event.target.value.trim()
+                  if (!nextValue) {
+                    delete nextConfig[key]
+                  } else {
+                    nextConfig[key] = coerceConfigValue(nextValue)
+                  }
+                  onChange({ ...value, config: nextConfig })
+                }}
+                aria-label={`Config ${key}`}
+                placeholder={defaultValue == null ? 'Any' : stringifyDisplayValue(defaultValue)}
+              />
+            </label>
           )
         })}
       </div>
-      <button
-        type="button"
-        className="cp-debugger-advanced-toggle"
-        onClick={() => setShowAdvanced((prev) => !prev)}
-      >
+      <button type="button" className="cp-debugger-advanced-toggle" onClick={() => setShowAdvanced((prev) => !prev)}>
         {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
       </button>
       {showAdvanced ? (

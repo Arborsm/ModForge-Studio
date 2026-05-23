@@ -183,7 +183,9 @@ describe('ModBrowserPanel', () => {
     expect(activeCard.className).toContain('rounded-[20px]')
     expect(activeCard.className).toContain('px-4')
     expect(activeCard.className).toContain('py-3')
-    expect(activeCard.className).toContain('bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))]')
+    expect(activeCard.className).toContain(
+      'bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))]',
+    )
     expect(activeCard.className).not.toContain('panel-list-card')
     expect(inactiveCard.className).toContain('rounded-[20px]')
     expect(inactiveCard.className).toContain('bg-[var(--bg-panel)]')

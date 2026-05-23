@@ -10,11 +10,7 @@ type CharacterVariantsPanelProps = {
   onSelectVariant: (variant: CharacterAppearanceVariant) => void
 }
 
-export function CharacterVariantsPanel({
-  character,
-  activeVariant,
-  onSelectVariant,
-}: CharacterVariantsPanelProps) {
+export function CharacterVariantsPanel({ character, activeVariant, onSelectVariant }: CharacterVariantsPanelProps) {
   const copy = useCharactersCopy()
   const { yes: yesLabel, no: noLabel, none: noneLabel } = useEditorCopy().common
 
@@ -32,9 +28,7 @@ export function CharacterVariantsPanel({
                 type="button"
                 className={cx(
                   'panel-list-card panel-list-card-interactive text-left',
-                  isActive
-                    ? 'panel-list-card-active'
-                    : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
+                  isActive ? 'panel-list-card-active' : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
                 )}
                 onClick={() => onSelectVariant(variant)}
               >
@@ -48,11 +42,21 @@ export function CharacterVariantsPanel({
                   </span>
                 </div>
                 <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
-                  <p>{copy.conditionLabel}: {variant.condition ?? noneLabel}</p>
-                  <p>{copy.seasonLabel}: {variant.season ?? noneLabel}</p>
-                  <p>{copy.islandAttireLabel}: {variant.isIslandAttire ? yesLabel : noLabel}</p>
-                  <p>{copy.portraitAssetLabel}: {variant.portraitPathLabel}</p>
-                  <p>{copy.spriteAssetLabel}: {variant.spritePathLabel}</p>
+                  <p>
+                    {copy.conditionLabel}: {variant.condition ?? noneLabel}
+                  </p>
+                  <p>
+                    {copy.seasonLabel}: {variant.season ?? noneLabel}
+                  </p>
+                  <p>
+                    {copy.islandAttireLabel}: {variant.isIslandAttire ? yesLabel : noLabel}
+                  </p>
+                  <p>
+                    {copy.portraitAssetLabel}: {variant.portraitPathLabel}
+                  </p>
+                  <p>
+                    {copy.spriteAssetLabel}: {variant.spritePathLabel}
+                  </p>
                 </div>
               </button>
             )

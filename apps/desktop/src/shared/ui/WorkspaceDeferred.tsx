@@ -8,11 +8,7 @@ type DeferredWorkspacePlaceholderProps = {
   lines?: number
 }
 
-export function DeferredWorkspacePlaceholder({
-  title,
-  subtitle,
-  lines = 3,
-}: DeferredWorkspacePlaceholderProps) {
+export function DeferredWorkspacePlaceholder({ title, subtitle, lines = 3 }: DeferredWorkspacePlaceholderProps) {
   return (
     <PanelFrame title={title} subtitle={subtitle} className="h-full">
       <div className="flex h-full flex-col gap-3 p-3">
@@ -46,7 +42,7 @@ export function DeferredWorkspaceReveal({ children }: { children: ReactNode }) {
   return (
     <div
       className={cx(
-        'h-full transform-gpu transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+        'h-full transform-gpu transition-[opacity,transform] duration-200 ease-out',
         visible ? 'translate-y-0 opacity-100' : 'translate-y-1.5 opacity-0',
       )}
     >
@@ -113,7 +109,7 @@ export function DeferredWorkspaceCrossfade({
         <div className="absolute inset-0">
           <div
             className={cx(
-              'h-full transform-gpu transition-[opacity,transform] duration-200 ease-out motion-reduce:transform-none motion-reduce:transition-none',
+              'h-full transform-gpu transition-[opacity,transform] duration-200 ease-out',
               contentVisible ? 'translate-y-0 opacity-100' : 'translate-y-1.5 opacity-0',
             )}
           >

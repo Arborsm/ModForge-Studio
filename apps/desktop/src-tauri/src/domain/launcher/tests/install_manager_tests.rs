@@ -49,17 +49,11 @@ fn install_staged_bundle_installs_multiple_mods_from_nested_roots() {
     let backup_root = root.join("backups");
 
     write_file(
-        &bundle_root
-            .join("pack")
-            .join("Core")
-            .join("manifest.json"),
+        &bundle_root.join("pack").join("Core").join("manifest.json"),
         &sample_manifest("ModForge.Core", "Core Pack", "1.0.0"),
     );
     write_file(
-        &bundle_root
-            .join("pack")
-            .join("Core")
-            .join("content.json"),
+        &bundle_root.join("pack").join("Core").join("content.json"),
         r#"{"Format":"2.0.0","Changes":[]}"#,
     );
     write_file(
@@ -108,12 +102,7 @@ fn install_staged_bundle_prefers_a_non_content_pack_as_the_primary_install_resul
             .join("translations")
             .join("AddOn")
             .join("manifest.json"),
-        &sample_content_pack_manifest(
-            "ModForge.AddOn",
-            "Add On",
-            "2.0.0",
-            "ModForge.Core",
-        ),
+        &sample_content_pack_manifest("ModForge.AddOn", "Add On", "2.0.0", "ModForge.Core"),
     );
     write_file(
         &bundle_root
@@ -164,7 +153,10 @@ fn install_staged_bundle_preserves_config_and_existing_i18n_on_upgrade() {
         &existing_root.join("i18n").join("zh.json"),
         r#"{"Greeting":"你好"}"#,
     );
-    write_file(&existing_root.join("assets").join("keep.txt"), "same-content");
+    write_file(
+        &existing_root.join("assets").join("keep.txt"),
+        "same-content",
+    );
 
     write_file(
         &bundle_root.join("Incoming Example").join("manifest.json"),
@@ -182,7 +174,10 @@ fn install_staged_bundle_preserves_config_and_existing_i18n_on_upgrade() {
         r#"{"Greeting":"new","NewLine":"present"}"#,
     );
     write_file(
-        &bundle_root.join("Incoming Example").join("assets").join("keep.txt"),
+        &bundle_root
+            .join("Incoming Example")
+            .join("assets")
+            .join("keep.txt"),
         "same-content",
     );
 
@@ -226,7 +221,11 @@ fn install_staged_bundle_preserves_config_and_existing_i18n_on_upgrade() {
         Some(&Value::String("你好".to_string()))
     );
 
-    let backup_metadata = read_json_file(Path::new(&result.backup_path).join("metadata.json").as_path());
+    let backup_metadata = read_json_file(
+        Path::new(&result.backup_path)
+            .join("metadata.json")
+            .as_path(),
+    );
     let saved_paths = backup_metadata
         .get("entries")
         .and_then(Value::as_array)
@@ -266,10 +265,7 @@ fn install_staged_bundle_merges_overlay_language_pack_and_restore_recovers_previ
         &target_root.join("i18n").join("default.json"),
         r#"{"Greeting":"old"}"#,
     );
-    write_file(
-        &target_root.join("assets").join("theme.png"),
-        "old-theme",
-    );
+    write_file(&target_root.join("assets").join("theme.png"), "old-theme");
 
     write_file(
         &bundle_root
@@ -323,11 +319,16 @@ fn install_staged_bundle_merges_overlay_language_pack_and_restore_recovers_previ
         Some(&Value::String("added".to_string()))
     );
     assert_eq!(
-        fs::read_to_string(target_root.join("assets").join("theme.png")).expect("read overlay asset"),
+        fs::read_to_string(target_root.join("assets").join("theme.png"))
+            .expect("read overlay asset"),
         "overlay-theme"
     );
 
-    let backup_metadata = read_json_file(Path::new(&result.backup_path).join("metadata.json").as_path());
+    let backup_metadata = read_json_file(
+        Path::new(&result.backup_path)
+            .join("metadata.json")
+            .as_path(),
+    );
     let saved_paths = backup_metadata
         .get("entries")
         .and_then(Value::as_array)
@@ -343,19 +344,18 @@ fn install_staged_bundle_merges_overlay_language_pack_and_restore_recovers_previ
     assert!(saved_paths.contains(&"assets/theme.png"));
     assert!(!saved_paths.contains(&"manifest.json"));
 
-    let restore_result = restore_backup_session_at_path(Path::new(&result.backup_path), Some(&mods_root))
-        .expect("restore backup");
+    let restore_result =
+        restore_backup_session_at_path(Path::new(&result.backup_path), Some(&mods_root))
+            .expect("restore backup");
     assert_eq!(restore_result.backup_path, result.backup_path);
 
     let restored_content = read_json_file(&target_root.join("content.json"));
-    assert_eq!(
-        restored_content.get("Overlay"),
-        None
-    );
+    assert_eq!(restored_content.get("Overlay"), None);
     assert!(restored_content.get("Changes").is_some());
     assert!(!target_root.join("i18n").join("zh.json").exists());
     assert_eq!(
-        fs::read_to_string(target_root.join("assets").join("theme.png")).expect("read restored asset"),
+        fs::read_to_string(target_root.join("assets").join("theme.png"))
+            .expect("read restored asset"),
         "old-theme"
     );
 
@@ -490,8 +490,8 @@ fn list_and_restore_backups_are_scoped_to_the_matching_mods_path() {
         &bundle_a.join("[CP] A").join("content.json"),
         r#"{"Format":"2.0.0","Changes":[]}"#,
     );
-    let result_a = install_staged_bundle_at_path(&bundle_a, &mods_a, &backup_root)
-        .expect("install bundle a");
+    let result_a =
+        install_staged_bundle_at_path(&bundle_a, &mods_a, &backup_root).expect("install bundle a");
 
     write_file(
         &bundle_b.join("[CP] B").join("manifest.json"),
@@ -501,8 +501,8 @@ fn list_and_restore_backups_are_scoped_to_the_matching_mods_path() {
         &bundle_b.join("[CP] B").join("content.json"),
         r#"{"Format":"2.0.0","Changes":[]}"#,
     );
-    let result_b = install_staged_bundle_at_path(&bundle_b, &mods_b, &backup_root)
-        .expect("install bundle b");
+    let result_b =
+        install_staged_bundle_at_path(&bundle_b, &mods_b, &backup_root).expect("install bundle b");
 
     let backups_for_a =
         list_backup_sessions_at_root(&backup_root, Some(&mods_a)).expect("list backups for a");

@@ -1,8 +1,6 @@
-use super::http::restart_launcher_nexus_diagnostics;
 use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -21,9 +19,9 @@ pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings
     LauncherSettings {
         game_path,
         mods_path,
-        download_path: normalize_optional_path(settings.download_path),
+        download_path: normalize_optional_path(settings.download_path)
+            .or_else(default_launcher_download_path),
         nexus_api_key: normalize_optional_text(settings.nexus_api_key),
-        nexus_cookie: normalize_optional_text(settings.nexus_cookie),
         auto_install_downloads: settings.auto_install_downloads,
         keep_downloaded_archives: settings.keep_downloaded_archives,
         auto_check_mod_updates: settings.auto_check_mod_updates,
@@ -71,7 +69,7 @@ pub(crate) fn load_or_create_settings_at_path(
         return Ok(normalize_settings(parsed));
     }
 
-    let defaults = LauncherSettings::default();
+    let defaults = normalize_settings(LauncherSettings::default());
     save_settings_at_path(settings_path, &defaults)?;
     Ok(defaults)
 }
@@ -111,24 +109,12 @@ pub(crate) fn resolve_download_dir(settings: &LauncherSettings) -> Result<PathBu
     })
 }
 
+fn default_launcher_download_path() -> Option<String> {
+    default_download_path().map(|path| normalize_path(&path))
+}
+
 fn default_download_path() -> Option<PathBuf> {
-    if let Ok(user_profile) = env::var("USERPROFILE") {
-        return Some(
-            PathBuf::from(user_profile)
-                .join("Downloads")
-                .join("ModForge Studio"),
-        );
-    }
-
-    if let Ok(home) = env::var("HOME") {
-        return Some(
-            PathBuf::from(home)
-                .join("Downloads")
-                .join("ModForge Studio"),
-        );
-    }
-
-    None
+    dirs::download_dir()
 }
 
 pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings, String> {
@@ -142,7 +128,7 @@ pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings
 }
 
 pub fn save_launcher_settings(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -155,7 +141,6 @@ pub fn save_launcher_settings(
                 mods_path: request.mods_path.or(existing.mods_path),
                 download_path: request.download_path.or(existing.download_path),
                 nexus_api_key: request.nexus_api_key.or(existing.nexus_api_key),
-                nexus_cookie: request.nexus_cookie.or(existing.nexus_cookie),
                 auto_install_downloads: request
                     .auto_install_downloads
                     .unwrap_or(existing.auto_install_downloads),
@@ -168,10 +153,20 @@ pub fn save_launcher_settings(
             };
             let normalized = normalize_settings(merged);
             save_settings_at_path(&settings_path, &normalized)?;
-            restart_launcher_nexus_diagnostics(&normalized);
+            restart_launcher_nexus_diagnostics_with_app(&app, &normalized);
             Ok(normalized)
         })(),
     )
+}
+
+pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
+    app: &tauri::AppHandle,
+    settings: &LauncherSettings,
+) {
+    crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(
+        Some(app),
+        settings,
+    );
 }
 
 #[cfg(test)]

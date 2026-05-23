@@ -3,7 +3,11 @@ import { createStageEffect, parsePoint, type StageEffectState } from '@entities/
 import { parseTemporaryAnimatedSpriteCommand, parseTemporarySpriteCommand } from './eventStageTemporarySpriteCommands'
 import { buildSpecificTemporarySpriteEffects } from './eventStageSpecificSpriteEffects'
 
-function replaceStageEffectByNumericId(effects: StageEffectState[], effectNumericId: number, producer: (current: StageEffectState) => StageEffectState) {
+function replaceStageEffectByNumericId(
+  effects: StageEffectState[],
+  effectNumericId: number,
+  producer: (current: StageEffectState) => StageEffectState,
+) {
   let changed = false
   const nextEffects = effects.map((effect) => {
     if (effect.effectNumericId !== effectNumericId) {
@@ -30,7 +34,6 @@ function removeStageEffectsByTile(effects: StageEffectState[], tileX: number, ti
     return Math.floor(effect.baseX / 64) !== tileX || Math.floor(effect.baseY / 64) !== tileY
   })
 }
-
 
 function applyStageEffectCommand(effects: StageEffectState[], command: EventCommand) {
   switch (command.command) {
@@ -208,7 +211,5 @@ function applyStageEffectCommand(effects: StageEffectState[], command: EventComm
       return effects
   }
 }
-
-
 
 export { applyStageEffectCommand, removeStageEffectsByTile }

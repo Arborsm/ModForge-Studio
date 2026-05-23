@@ -1,6 +1,6 @@
-use super::apply_edit_image_patch;
 use super::super::super::assets::{encode_image_png, with_virtual_preview_assets};
 use super::super::super::types::{ContentPatcherProjectSnapshot, VirtualPreviewAsset};
+use super::apply_edit_image_patch;
 use base64::Engine;
 use image::RgbaImage;
 use serde_json::{json, Map, Value};
@@ -54,7 +54,11 @@ fn apply_mask_reduces_alpha() {
 
     // Pixel (1,1) should have reduced alpha: 255 * (1 - 128/255) ≈ 127
     let masked = base.get_pixel(1, 1);
-    assert!(masked[3] < 255, "expected alpha reduction, got {}", masked[3]);
+    assert!(
+        masked[3] < 255,
+        "expected alpha reduction, got {}",
+        masked[3]
+    );
     assert!(masked[3] > 0, "expected non-zero alpha, got {}", masked[3]);
 }
 

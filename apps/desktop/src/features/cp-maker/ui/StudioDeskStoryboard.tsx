@@ -36,9 +36,7 @@ export function StudioDeskStoryboard({
   const normalizedQuery = query.trim().toLowerCase()
   const filteredInspirations = useMemo(() => {
     if (!normalizedQuery) return inspirations
-    return inspirations.filter((item) =>
-      `${item.title} ${item.target} ${item.action}`.toLowerCase().includes(normalizedQuery)
-    )
+    return inspirations.filter((item) => `${item.title} ${item.target} ${item.action}`.toLowerCase().includes(normalizedQuery))
   }, [inspirations, normalizedQuery])
   const handlePrimaryCreate = () => {
     if (hasActiveDraft) {
@@ -54,37 +52,20 @@ export function StudioDeskStoryboard({
       <div className="studio-section-label">{desk.recentInspirations}</div>
       <label className="studio-stack-filter">
         <span className="sr-only">{desk.quickSearchLabel}</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={desk.quickSearchPlaceholder}
-        />
+        <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={desk.quickSearchPlaceholder} />
       </label>
       <button type="button" className="studio-create-button" onClick={handlePrimaryCreate}>
         <Plus className="h-4 w-4" />
         <span>{hasActiveDraft ? desk.newCreation : desk.createDraft}</span>
       </button>
       <div className="studio-create-strip">
-        <button
-          type="button"
-          disabled={!hasActiveDraft}
-          onClick={() => onCreatePatch('EditData', 'events')}
-        >
+        <button type="button" disabled={!hasActiveDraft} onClick={() => onCreatePatch('EditData', 'events')}>
           {desk.newEvent}
         </button>
-        <button
-          type="button"
-          disabled={!hasActiveDraft}
-          onClick={() => onCreatePatch('EditMap', 'map')}
-        >
+        <button type="button" disabled={!hasActiveDraft} onClick={() => onCreatePatch('EditMap', 'map')}>
           {desk.newMap}
         </button>
-        <button
-          type="button"
-          disabled={!hasActiveDraft}
-          onClick={() => onCreatePatch('EditData', 'items')}
-        >
+        <button type="button" disabled={!hasActiveDraft} onClick={() => onCreatePatch('EditData', 'items')}>
           {desk.newItem}
         </button>
       </div>

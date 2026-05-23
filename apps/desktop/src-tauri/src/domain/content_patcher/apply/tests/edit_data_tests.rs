@@ -183,8 +183,28 @@ fn apply_fields_with_nested_object_path() {
     let custom_fields = emily.get("CustomFields").unwrap().as_object().unwrap();
     let mymod = custom_fields.get("MyMod").unwrap().as_object().unwrap();
     assert_eq!(mymod.get("Flag").unwrap().as_bool(), Some(true));
-    assert_eq!(emily.get("DisplayName").unwrap().as_object().unwrap().get("Name").unwrap().as_str(), Some("New Emily"));
-    assert_eq!(emily.get("DisplayName").unwrap().as_object().unwrap().get("Name").unwrap().as_str(), Some("New Emily"));
+    assert_eq!(
+        emily
+            .get("DisplayName")
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .get("Name")
+            .unwrap()
+            .as_str(),
+        Some("New Emily")
+    );
+    assert_eq!(
+        emily
+            .get("DisplayName")
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .get("Name")
+            .unwrap()
+            .as_str(),
+        Some("New Emily")
+    );
 }
 
 #[test]
@@ -207,7 +227,10 @@ fn apply_entries_with_when_condition_applies_when_met() {
     };
     let result = apply_edit_data_patch(&mut base, &patch, &context, None);
     assert!(result.is_ok(), "{result:?}");
-    assert_eq!(base.get("ConditionalEntry").unwrap().as_str(), Some("applied"));
+    assert_eq!(
+        base.get("ConditionalEntry").unwrap().as_str(),
+        Some("applied")
+    );
     assert_eq!(base.get("AlwaysEntry").unwrap().as_str(), Some("always"));
     assert_eq!(base.get("Keep").unwrap().as_str(), Some("value"));
 }

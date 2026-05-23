@@ -88,10 +88,4 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .status-bar-indicator {
-      transition: none;
-    }
-  }
 }

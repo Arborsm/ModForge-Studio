@@ -7,26 +7,18 @@ type ItemSourcesPanelProps = {
   item: ItemWorkspaceEntry | null
 }
 
-function SourceSection({
-  title,
-  entries,
-  noneLabel,
-}: {
-  title: string
-  entries: string[]
-  noneLabel: string
-}) {
+function SourceSection({ title, entries, noneLabel }: { title: string; entries: string[]; noneLabel: string }) {
   return (
     <PanelSection title={title} bodyClassName="space-y-2">
-        {entries.length ? (
-          entries.map((entry) => (
-            <div key={entry} className="panel-list-card text-sm text-[var(--text-primary)]">
-              {entry}
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
-        )}
+      {entries.length ? (
+        entries.map((entry) => (
+          <div key={entry} className="panel-list-card text-sm text-[var(--text-primary)]">
+            {entry}
+          </div>
+        ))
+      ) : (
+        <p className="text-sm text-[var(--text-secondary)]">{noneLabel}</p>
+      )}
     </PanelSection>
   )
 }

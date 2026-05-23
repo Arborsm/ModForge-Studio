@@ -33,8 +33,14 @@ function optionMatchesFilter(item: OptionItem, filter: string): boolean {
 }
 
 const DIRECTION_LABELS: Record<string, string> = {
-  '0': '上', '1': '右', '2': '下', '3': '左',
-  'up': '上', 'right': '右', 'down': '下', 'left': '左',
+  '0': '上',
+  '1': '右',
+  '2': '下',
+  '3': '左',
+  up: '上',
+  right: '右',
+  down: '下',
+  left: '左',
 }
 
 function directionLabel(value: string) {
@@ -59,25 +65,11 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () =
   }, [ref])
 }
 
-export function ParamPill({
-  control,
-  value,
-  label,
-  placeholder,
-  options,
-  onChange,
-  onPickMode,
-  disabled,
-  size = 'md',
-}: ParamPillProps) {
+export function ParamPill({ control, value, label, placeholder, options, onChange, onPickMode, disabled, size = 'md' }: ParamPillProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLSpanElement>(null)
-
-  useEffect(() => {
-    setDraft(value)
-  }, [value])
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -122,7 +114,8 @@ export function ParamPill({
       ? 'border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] italic'
       : 'border-[color-mix(in_srgb,var(--accent)_35%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_60%,transparent)] text-[var(--text-primary)]',
     disabled && 'opacity-50 cursor-not-allowed',
-    !disabled && 'hover:border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)]',
+    !disabled &&
+      'hover:border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)]',
   )
 
   const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'
@@ -152,15 +145,27 @@ export function ParamPill({
         <span ref={containerRef} className="inline-flex items-center gap-1">
           <button
             type="button"
-            className={cx(baseClasses, 'bg-[color-mix(in_srgb,var(--success)_15%,transparent)] border-[color-mix(in_srgb,var(--success)_40%,var(--border-color))]')}
-            onClick={() => { onChange?.('true'); setEditing(false) }}
+            className={cx(
+              baseClasses,
+              'border-[color-mix(in_srgb,var(--success)_40%,var(--border-color))] bg-[color-mix(in_srgb,var(--success)_15%,transparent)]',
+            )}
+            onClick={() => {
+              onChange?.('true')
+              setEditing(false)
+            }}
           >
             是
           </button>
           <button
             type="button"
-            className={cx(baseClasses, 'bg-[color-mix(in_srgb,var(--danger)_15%,transparent)] border-[color-mix(in_srgb,var(--danger)_40%,var(--border-color))]')}
-            onClick={() => { onChange?.('false'); setEditing(false) }}
+            className={cx(
+              baseClasses,
+              'border-[color-mix(in_srgb,var(--danger)_40%,var(--border-color))] bg-[color-mix(in_srgb,var(--danger)_15%,transparent)]',
+            )}
+            onClick={() => {
+              onChange?.('false')
+              setEditing(false)
+            }}
           >
             否
           </button>
@@ -176,12 +181,15 @@ export function ParamPill({
               key={dir}
               type="button"
               className={cx(
-                'inline-flex items-center justify-center rounded-md border text-[11px] font-medium transition-all h-6 min-h-[24px] px-1.5',
+                'inline-flex h-6 min-h-[24px] items-center justify-center rounded-md border px-1.5 text-[11px] font-medium transition-all',
                 value === dir
                   ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--text-primary)]'
                   : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]',
               )}
-              onClick={() => { onChange?.(dir); setEditing(false) }}
+              onClick={() => {
+                onChange?.(dir)
+                setEditing(false)
+              }}
             >
               {directionLabel(dir)}
             </button>
@@ -196,7 +204,7 @@ export function ParamPill({
           <textarea
             ref={inputRef as unknown as React.RefObject<HTMLTextAreaElement>}
             className={cx(
-              'w-64 resize-y rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] px-2 py-1 text-xs text-[var(--text-primary)] outline-none shadow-sm',
+              'w-64 resize-y rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] px-2 py-1 text-xs text-[var(--text-primary)] shadow-sm outline-none',
               'focus:ring-1 focus:ring-[var(--accent)]',
             )}
             rows={2}
@@ -229,12 +237,15 @@ export function ParamPill({
                 key={optValue}
                 type="button"
                 className={cx(
-                  'inline-flex items-center justify-center rounded-md border text-[11px] font-medium transition-all h-6 min-h-[24px] px-2',
+                  'inline-flex h-6 min-h-[24px] items-center justify-center rounded-md border px-2 text-[11px] font-medium transition-all',
                   value === optValue
                     ? 'border-[color-mix(in_srgb,var(--accent)_60%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_90%,transparent)] text-[var(--text-primary)]'
                     : 'border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]',
                 )}
-                onClick={() => { onChange?.(optValue); setEditing(false) }}
+                onClick={() => {
+                  onChange?.(optValue)
+                  setEditing(false)
+                }}
               >
                 {optLabel}
               </button>
@@ -246,9 +257,7 @@ export function ParamPill({
 
     // 带选项列表的可过滤输入（用于 npc_selector / music / sound / text 等）
     const hasOptions = options && options.length > 0
-    const filteredOptions = hasOptions
-      ? options.filter((opt) => optionMatchesFilter(opt, draft)).slice(0, 20)
-      : []
+    const filteredOptions = hasOptions ? options.filter((opt) => optionMatchesFilter(opt, draft)).slice(0, 20) : []
 
     return (
       <span ref={containerRef} className="inline-flex flex-col">
@@ -257,7 +266,7 @@ export function ParamPill({
             ref={inputRef}
             type={control === 'number' ? 'number' : 'text'}
             className={cx(
-              'inline-flex rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] px-2 outline-none text-xs text-[var(--text-primary)] shadow-sm',
+              'inline-flex rounded-md border border-[var(--accent)] bg-[var(--bg-panel)] px-2 text-xs text-[var(--text-primary)] shadow-sm outline-none',
               heightClass,
               control === 'number' ? 'w-16' : 'w-28',
               'focus:ring-1 focus:ring-[var(--accent)]',
@@ -278,8 +287,11 @@ export function ParamPill({
           {(control === 'tile_picker' || control === 'npc_selector') && onPickMode && (
             <button
               type="button"
-              className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-colors"
-              onClick={() => { setEditing(false); onPickMode() }}
+              className="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[var(--border-color)] bg-[var(--bg-panel-muted)] text-[var(--text-secondary)] transition-colors hover:text-[var(--accent)]"
+              onClick={() => {
+                setEditing(false)
+                onPickMode()
+              }}
               title="从地图拾取"
             >
               <MapPin className="h-3 w-3" />
@@ -298,7 +310,7 @@ export function ParamPill({
                   className={cx(
                     'block w-full rounded px-1.5 py-0.5 text-left text-[11px] transition-colors',
                     value === optValue
-                      ? 'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] text-[var(--accent)] font-medium'
+                      ? 'bg-[color-mix(in_srgb,var(--accent)_15%,transparent)] font-medium text-[var(--accent)]'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
                   )}
                   onClick={() => {
@@ -321,12 +333,15 @@ export function ParamPill({
       ref={containerRef}
       className={baseClasses}
       onClick={() => {
-        if (!disabled) setEditing(true)
+        if (!disabled) {
+          setDraft(value)
+          setEditing(true)
+        }
       }}
       title={`${label}${isEmpty ? '' : `: ${value}`}`}
     >
       {renderIcon()}
-      <span className="truncate max-w-[140px]">{displayValue}</span>
+      <span className="max-w-[140px] truncate">{displayValue}</span>
     </span>
   )
 }

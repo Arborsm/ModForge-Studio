@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { getDockGuideRects, getWorkspaceGeometry } from '@shared/workspace/layoutGeometry'
 import { buildDefaultSnapshot } from '@shared/workspace/layoutState'
-import {
-  ROOT_PADDING,
-  TOOL_WINDOW_RAIL_GAP,
-  TOOL_WINDOW_RAIL_WIDTH,
-} from '@shared/workspace/layoutConstants'
-import type {
-  WorkspacePanelConfig,
-  WorkspaceSize,
-  WorkspaceStoredState,
-} from '@shared/contracts'
+import { ROOT_PADDING, TOOL_WINDOW_RAIL_GAP, TOOL_WINDOW_RAIL_WIDTH } from '@shared/workspace/layoutConstants'
+import type { WorkspacePanelConfig, WorkspaceSize, WorkspaceStoredState } from '@shared/contracts'
 
 function buildPanels(): WorkspacePanelConfig[] {
   return [

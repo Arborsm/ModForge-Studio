@@ -118,21 +118,14 @@ fn evaluate_patch_status_supports_value_at_modifier_for_arrays() {
         ..SimulationContext::default()
     };
 
-    let first = evaluate_patch_status(
-        &json!({ "HasFlag|valueAt=1": "festival" }),
-        &context,
-        None,
-    );
+    let first = evaluate_patch_status(&json!({ "HasFlag|valueAt=1": "festival" }), &context, None);
     let second = evaluate_patch_status(
         &json!({ "HasFlag|valueAt=2": "beach_party" }),
         &context,
         None,
     );
-    let out_of_bounds = evaluate_patch_status(
-        &json!({ "HasFlag|valueAt=5": "anything" }),
-        &context,
-        None,
-    );
+    let out_of_bounds =
+        evaluate_patch_status(&json!({ "HasFlag|valueAt=5": "anything" }), &context, None);
 
     assert_eq!(first.status, "applied");
     assert_eq!(second.status, "applied");
@@ -146,16 +139,8 @@ fn evaluate_patch_status_supports_value_at_modifier_for_strings() {
         ..SimulationContext::default()
     };
 
-    let first = evaluate_patch_status(
-        &json!({ "Season|valueAt=1": "spring" }),
-        &context,
-        None,
-    );
-    let second = evaluate_patch_status(
-        &json!({ "Season|valueAt=2": "summer" }),
-        &context,
-        None,
-    );
+    let first = evaluate_patch_status(&json!({ "Season|valueAt=1": "spring" }), &context, None);
+    let second = evaluate_patch_status(&json!({ "Season|valueAt=2": "summer" }), &context, None);
 
     assert_eq!(first.status, "applied");
     assert_eq!(second.status, "applied");
@@ -213,26 +198,13 @@ fn value_at_negative_index_counts_from_end() {
         ..SimulationContext::default()
     };
 
-    let last_flag = evaluate_patch_status(
-        &json!({ "HasFlag|valueAt=-1": "c" }),
-        &context,
-        None,
-    );
-    let second_last_flag = evaluate_patch_status(
-        &json!({ "HasFlag|valueAt=-2": "b" }),
-        &context,
-        None,
-    );
-    let last_season = evaluate_patch_status(
-        &json!({ "Season|valueAt=-1": "fall" }),
-        &context,
-        None,
-    );
-    let out_of_bounds_negative = evaluate_patch_status(
-        &json!({ "HasFlag|valueAt=-5": "anything" }),
-        &context,
-        None,
-    );
+    let last_flag = evaluate_patch_status(&json!({ "HasFlag|valueAt=-1": "c" }), &context, None);
+    let second_last_flag =
+        evaluate_patch_status(&json!({ "HasFlag|valueAt=-2": "b" }), &context, None);
+    let last_season =
+        evaluate_patch_status(&json!({ "Season|valueAt=-1": "fall" }), &context, None);
+    let out_of_bounds_negative =
+        evaluate_patch_status(&json!({ "HasFlag|valueAt=-5": "anything" }), &context, None);
 
     assert_eq!(last_flag.status, "applied");
     assert_eq!(second_last_flag.status, "applied");
@@ -247,26 +219,12 @@ fn has_value_modifier_checks_token_presence() {
         ..SimulationContext::default()
     };
 
-    let has_value = evaluate_patch_status(
-        &json!({ "Season|hasValue": "true" }),
-        &context,
-        None,
-    );
-    let no_value = evaluate_patch_status(
-        &json!({ "Weather|hasValue": "true" }),
-        &context,
-        None,
-    );
-    let explicitly_false = evaluate_patch_status(
-        &json!({ "Weather|hasValue": "false" }),
-        &context,
-        None,
-    );
-    let empty_string_false = evaluate_patch_status(
-        &json!({ "Weather|hasValue": "false" }),
-        &context,
-        None,
-    );
+    let has_value = evaluate_patch_status(&json!({ "Season|hasValue": "true" }), &context, None);
+    let no_value = evaluate_patch_status(&json!({ "Weather|hasValue": "true" }), &context, None);
+    let explicitly_false =
+        evaluate_patch_status(&json!({ "Weather|hasValue": "false" }), &context, None);
+    let empty_string_false =
+        evaluate_patch_status(&json!({ "Weather|hasValue": "false" }), &context, None);
 
     assert_eq!(has_value.status, "applied");
     assert_eq!(no_value.status, "skipped");
@@ -299,11 +257,8 @@ fn relationship_condition_with_contains() {
         &context,
         None,
     );
-    let missing = evaluate_patch_status(
-        &json!({ "Relationship:Haley": "Married" }),
-        &context,
-        None,
-    );
+    let missing =
+        evaluate_patch_status(&json!({ "Relationship:Haley": "Married" }), &context, None);
 
     assert_eq!(married.status, "applied");
     assert_eq!(contains_married.status, "applied");

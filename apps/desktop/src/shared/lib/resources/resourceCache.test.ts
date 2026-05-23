@@ -12,10 +12,7 @@ describe('createResourceCache', () => {
       dispose: vi.fn(),
     }))
 
-    const [first, second] = await Promise.all([
-      cache.load('mod:cover:a', loader),
-      cache.load('mod:cover:a', loader),
-    ])
+    const [first, second] = await Promise.all([cache.load('mod:cover:a', loader), cache.load('mod:cover:a', loader)])
 
     expect(first).toBe('cover-a')
     expect(second).toBe('cover-a')

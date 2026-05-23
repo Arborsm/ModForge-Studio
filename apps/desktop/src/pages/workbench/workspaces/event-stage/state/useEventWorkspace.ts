@@ -1,11 +1,18 @@
-import {useDeferredValue, useEffect, useMemo, useState} from 'react'
-import {type EventAssetSummary, type GameDirectoryInfo, loadTextAsset, scanEvents} from '@platform/desktop'
-import type {EditorCopy, LocaleCode} from '@locales'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { type EventAssetSummary, type GameDirectoryInfo, loadTextAsset, scanEvents } from '@entities/game/api'
+import type { EditorCopy, LocaleCode } from '@locales'
 import { parseEventAssetContent, EVENT_SETUP_ENTRY_ID } from '@entities/event'
-import { buildModBrowserGroups, buildModEntryLookup, findModBrowserEntry, findModSources, type BrowserSourceMode, type ModBrowserEntry } from '@pages/workbench/workspaces/mod'
+import {
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type BrowserSourceMode,
+  type ModBrowserEntry,
+} from '@pages/workbench/workspaces/mod'
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
-import {loadModResultJsonValue} from '@pages/workbench/workspaces/mod'
-import {scheduleDeferred} from '@shared/lib/react'
+import { loadModResultJsonValue } from '@pages/workbench/workspaces/mod'
+import { scheduleDeferred } from '@shared/lib/react'
 
 type UseEventWorkspaceOptions = {
   copy: EditorCopy
@@ -30,7 +37,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   const [parsedEventAsset, setParsedEventAsset] = useState<ReturnType<typeof parseEventAssetContent> | null>(null)
   const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null)
   const [selectedTimelineEntryId, setSelectedTimelineEntryId] = useState<string>(EVENT_SETUP_ENTRY_ID)
-  const [timelineJumpRequestId, setTimelineJumpRequestId] = useState<string | null>(null)
   const [eventStatusMessage, setEventStatusMessage] = useState('')
   const { modIndex } = useModAssetIndex(directoryInfo)
 
@@ -84,7 +90,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-        setTimelineJumpRequestId(null)
         setEventStatusMessage('')
       })
     }
@@ -101,13 +106,11 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
         setEventAssets(assets)
         setEventStatusMessage(assets.length ? `${assets.length} event files ready.` : 'No XNB event files found.')
-        setActiveEventAssetId((current) => (current && assets.some((asset) => asset.id === current) ? current : assets[0]?.id ?? null))
+        setActiveEventAssetId((current) => (current && assets.some((asset) => asset.id === current) ? current : (assets[0]?.id ?? null)))
       } catch (error) {
         if (!cancelled) {
           setEventAssets([])
-          setEventStatusMessage(
-            `${copy.messages.mapScanFailed} ${error instanceof Error ? error.message : String(error)}`,
-          )
+          setEventStatusMessage(`${copy.messages.mapScanFailed} ${error instanceof Error ? error.message : String(error)}`)
         }
       }
     }
@@ -125,7 +128,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-        setTimelineJumpRequestId(null)
       })
     }
     const rootPath = directoryInfo.rootPath
@@ -136,7 +138,10 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
       const modEntry = browserSourceMode === 'mod' ? activeModEventEntry : null
       if (modEntry) {
         try {
-          const preferredTarget = asset.relativePath.replace(/^Content[\\/]/iu, '').replace(/\\/g, '/').replace(/\.xnb$/iu, '')
+          const preferredTarget = asset.relativePath
+            .replace(/^Content[\\/]/iu, '')
+            .replace(/\\/g, '/')
+            .replace(/\.xnb$/iu, '')
           const modContent = await loadModResultJsonValue({
             rootPath,
             entry: modEntry,
@@ -146,17 +151,11 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
             return
           }
           if (modContent && typeof modContent === 'object' && !Array.isArray(modContent)) {
-            const parsed = parseEventAssetContent(
-              JSON.stringify(modContent),
-              asset,
-              null,
-              asset.relativePath,
-            )
+            const parsed = parseEventAssetContent(JSON.stringify(modContent), asset, null, asset.relativePath)
 
             setParsedEventAsset(parsed)
             setSelectedEventKey(parsed.events[0]?.key ?? null)
             setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-            setTimelineJumpRequestId(null)
             setEventStatusMessage(`${asset.name} loaded from ${modEntry.modName}.`)
             return
           }
@@ -175,17 +174,11 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
             return
           }
 
-          const parsed = parseEventAssetContent(
-            textAsset.content,
-            asset,
-            relativePath === asset.relativePath ? null : locale,
-            relativePath,
-          )
+          const parsed = parseEventAssetContent(textAsset.content, asset, relativePath === asset.relativePath ? null : locale, relativePath)
 
           setParsedEventAsset(parsed)
           setSelectedEventKey(parsed.events[0]?.key ?? null)
           setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-          setTimelineJumpRequestId(null)
           setEventStatusMessage(`${asset.name} loaded with ${parsed.events.length} events.`)
           return
         } catch (error) {
@@ -197,7 +190,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
         setParsedEventAsset(null)
         setSelectedEventKey(null)
         setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-        setTimelineJumpRequestId(null)
         setEventStatusMessage(`Failed to load event file. ${lastError instanceof Error ? lastError.message : String(lastError)}`)
       }
     }
@@ -216,9 +208,7 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
 
     const nextEntry =
       activeModEventEntry ??
-      modEventGroups
-        .flatMap((group) => group.items)
-        .find((item) => item.value.id === activeEventAssetId) ??
+      modEventGroups.flatMap((group) => group.items).find((item) => item.value.id === activeEventAssetId) ??
       modEventGroups[0]?.items[0] ??
       null
 
@@ -253,16 +243,6 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
   function handleSelectEvent(eventKey: string) {
     setSelectedEventKey(eventKey)
     setSelectedTimelineEntryId(EVENT_SETUP_ENTRY_ID)
-    setTimelineJumpRequestId(null)
-  }
-
-  function requestTimelineJump(entryId: string) {
-    setSelectedTimelineEntryId(entryId)
-    setTimelineJumpRequestId(entryId)
-  }
-
-  function clearTimelineJumpRequest() {
-    setTimelineJumpRequestId(null)
   }
 
   return {
@@ -282,13 +262,9 @@ export function useEventWorkspace({ copy, locale, directoryInfo }: UseEventWorks
     selectedEvent,
     selectedTimelineEntryId,
     setSelectedTimelineEntryId,
-    timelineJumpRequestId,
-    requestTimelineJump,
-    clearTimelineJumpRequest,
     eventStatusMessage,
     handleOpenEventAsset,
     handleOpenModEventAsset,
     handleSelectEvent,
   }
 }
-

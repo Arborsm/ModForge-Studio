@@ -22,12 +22,7 @@ type RenderableOverlaySprite = {
   assetUrl: string
 }
 
-function MapWorldStatePreviewOverlay({
-  mapDocument,
-  viewportZoom,
-  sprites,
-  textureAssets,
-}: MapWorldStatePreviewOverlayProps) {
+function MapWorldStatePreviewOverlay({ mapDocument, viewportZoom, sprites, textureAssets }: MapWorldStatePreviewOverlayProps) {
   const spriteEntries = useMemo(
     () =>
       sprites.flatMap((sprite) => {

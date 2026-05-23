@@ -1,10 +1,6 @@
 import { useMemo, useState } from 'react'
-import {
-  chooseDirectory,
-  exportContentPatcherAsset,
-  type ContentPatcherProjectSnapshot,
-  type LoadContentPatcherResultAssetResult,
-} from '@platform/desktop'
+import { exportContentPatcherAsset, type ContentPatcherProjectSnapshot, type LoadContentPatcherResultAssetResult } from '@entities/mod/api'
+import { chooseDirectory } from '@shared/lib/desktop'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import { buildContentPatcherSimulationRequest, type ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
 import { PanelFrame } from '@shared/ui/PanelFrame'

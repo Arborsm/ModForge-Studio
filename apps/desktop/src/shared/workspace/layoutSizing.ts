@@ -7,12 +7,7 @@ import {
   TOOL_WINDOW_RAIL_HEIGHT,
   TOOL_WINDOW_RAIL_WIDTH,
 } from './layoutConstants'
-import type {
-  PanelRect,
-  WorkspacePanelConfig,
-  WorkspaceSize,
-  WorkspaceStoredState,
-} from '@shared/contracts'
+import type { PanelRect, WorkspacePanelConfig, WorkspaceSize, WorkspaceStoredState } from '@shared/contracts'
 import { clamp, getActiveDockedPanel, getDockedPanelIdsForRail } from './layoutState'
 
 export function getHorizontalUsableWidth(
@@ -100,7 +95,9 @@ export function getRailEdgeSizeBounds(
 ) {
   const leftRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'left').length > 0
   const rightRailVisible = getDockedPanelIdsForRail(panels, state.panels, 'right').length > 0
-  const bottomRailUsed = getDockedPanelIdsForRail(panels, state.panels, 'bottom').length ? TOOL_WINDOW_RAIL_HEIGHT + TOOL_WINDOW_RAIL_GAP : 0
+  const bottomRailUsed = getDockedPanelIdsForRail(panels, state.panels, 'bottom').length
+    ? TOOL_WINDOW_RAIL_HEIGHT + TOOL_WINDOW_RAIL_GAP
+    : 0
 
   if (rail === 'bottom') {
     return {

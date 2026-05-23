@@ -1,12 +1,6 @@
 import type { DockGuide } from './layoutGeometry'
 import { getOrderedPanelIdsForSlot } from './layoutState'
-import type {
-  DockArea,
-  SlotId,
-  WorkspacePanelConfig,
-  WorkspacePanelState,
-  WorkspaceSlotState,
-} from '@shared/contracts'
+import type { DockArea, SlotId, WorkspacePanelConfig, WorkspacePanelState, WorkspaceSlotState } from '@shared/contracts'
 
 export type DragPointer = {
   x: number
@@ -35,12 +29,7 @@ export type RailButtonBounds = {
 
 export function findDockTarget(dockGuides: DockGuide[], pointer: DragPointer): DockArea | null {
   const target = dockGuides.find(({ rect }) => {
-    return (
-      pointer.x >= rect.x &&
-      pointer.x <= rect.x + rect.width &&
-      pointer.y >= rect.y &&
-      pointer.y <= rect.y + rect.height
-    )
+    return pointer.x >= rect.x && pointer.x <= rect.x + rect.width && pointer.y >= rect.y && pointer.y <= rect.y + rect.height
   })
 
   return target?.area ?? null

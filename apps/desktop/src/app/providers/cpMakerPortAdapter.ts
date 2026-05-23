@@ -1,4 +1,4 @@
-import type { CpMakerPort } from '@features/cp-maker'
+import type { CpMakerPort } from '@features/cp-maker/provider'
 import type { PlatformPorts } from '@shared/contracts'
 
 export function createCpMakerPortAdapter({ dialog, fileSystem }: PlatformPorts): CpMakerPort {
@@ -24,10 +24,8 @@ export function createCpMakerPortAdapter({ dialog, fileSystem }: PlatformPorts):
     scanMaps: (path, locale) => fileSystem.invokeCommand('scan_maps', { path, locale }),
     scanEvents: (path) => fileSystem.invokeCommand('scan_events', { path }),
     scanModProjects: (rootPath) => fileSystem.invokeCommand('scan_mod_projects', { rootPath }),
-    loadMapAsset: (rootPath, mapPath, locale) =>
-      fileSystem.invokeCommand('load_map_asset', { rootPath, mapPath, locale }),
-    loadTextAsset: (rootPath, assetPath, locale) =>
-      fileSystem.invokeCommand('load_text_asset', { rootPath, assetPath, locale }),
+    loadMapAsset: (rootPath, mapPath, locale) => fileSystem.invokeCommand('load_map_asset', { rootPath, mapPath, locale }),
+    loadTextAsset: (rootPath, assetPath, locale) => fileSystem.invokeCommand('load_text_asset', { rootPath, assetPath, locale }),
     loadImageDataUrl: (path, locale) => fileSystem.invokeCommand('load_image_data_url', { path, locale }),
   }
 }

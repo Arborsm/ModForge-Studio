@@ -1,6 +1,5 @@
 use super::types::{
-    BuildCpMakerMapAssetRequest, CpMakerDraftError, CpMakerDraftErrorCode,
-    CpMakerDraftOperation,
+    BuildCpMakerMapAssetRequest, CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation,
 };
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};

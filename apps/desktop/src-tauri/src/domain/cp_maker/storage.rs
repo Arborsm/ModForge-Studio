@@ -1,6 +1,6 @@
 use super::types::{
-    CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftErrorCode,
-    CpMakerDraftOperation, CpMakerDraftRecord, CpMakerDraftSummary,
+    CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation,
+    CpMakerDraftRecord, CpMakerDraftSummary,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -43,11 +43,7 @@ pub fn list_cp_maker_drafts_at_dir(
             continue;
         };
 
-        let draft = read_draft_record_from_path(
-            &path,
-            file_stem,
-            CpMakerDraftOperation::List,
-        )?;
+        let draft = read_draft_record_from_path(&path, file_stem, CpMakerDraftOperation::List)?;
         drafts.push(draft.summary());
     }
 
@@ -69,22 +65,16 @@ pub fn load_cp_maker_draft_at_dir(
     validate_draft_storage_key(draft_storage_key, CpMakerDraftOperation::Load)?;
     let draft_path = draft_file_path_at_dir(drafts_dir, draft_storage_key);
     if !draft_path.is_file() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::MissingRecord,
-                CpMakerDraftOperation::Load,
-                "Cp-maker draft record was not found.",
-            )
-            .with_draft_storage_key(draft_storage_key)
-            .with_path(draft_path.display().to_string()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::MissingRecord,
+            CpMakerDraftOperation::Load,
+            "Cp-maker draft record was not found.",
+        )
+        .with_draft_storage_key(draft_storage_key)
+        .with_path(draft_path.display().to_string()));
     }
 
-    read_draft_record_from_path(
-        &draft_path,
-        draft_storage_key,
-        CpMakerDraftOperation::Load,
-    )
+    read_draft_record_from_path(&draft_path, draft_storage_key, CpMakerDraftOperation::Load)
 }
 
 pub fn save_cp_maker_draft_at_dir(
@@ -145,15 +135,13 @@ pub fn delete_cp_maker_draft_at_dir(
     validate_draft_storage_key(draft_storage_key, CpMakerDraftOperation::Delete)?;
     let draft_path = draft_file_path_at_dir(drafts_dir, draft_storage_key);
     if !draft_path.is_file() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::MissingRecord,
-                CpMakerDraftOperation::Delete,
-                "Cp-maker draft record was not found.",
-            )
-            .with_draft_storage_key(draft_storage_key)
-            .with_path(draft_path.display().to_string()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::MissingRecord,
+            CpMakerDraftOperation::Delete,
+            "Cp-maker draft record was not found.",
+        )
+        .with_draft_storage_key(draft_storage_key)
+        .with_path(draft_path.display().to_string()));
     }
 
     fs::remove_file(&draft_path).map_err(|error| {
@@ -213,15 +201,17 @@ fn current_time_millis(
     draft_storage_key: &str,
     path: &Path,
 ) -> Result<i64, CpMakerDraftError> {
-    let duration = SystemTime::now().duration_since(UNIX_EPOCH).map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::WriteFailed,
-            operation,
-            format!("Failed to compute cp-maker draft timestamp: {error}"),
-        )
-        .with_draft_storage_key(draft_storage_key)
-        .with_path(path.display().to_string())
-    })?;
+    let duration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| {
+            CpMakerDraftError::new(
+                CpMakerDraftErrorCode::WriteFailed,
+                operation,
+                format!("Failed to compute cp-maker draft timestamp: {error}"),
+            )
+            .with_draft_storage_key(draft_storage_key)
+            .with_path(path.display().to_string())
+        })?;
 
     Ok(duration.as_millis().min(i64::MAX as u128) as i64)
 }
@@ -233,41 +223,40 @@ fn normalize_draft_record(
     validate_draft_storage_key(&draft.draft_storage_key, operation)?;
 
     if !draft.config_schema_draft.is_object() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::InvalidDraft,
-                operation,
-                "Cp-maker draft configSchemaDraft must be a JSON object.",
-            )
-            .with_draft_storage_key(draft.draft_storage_key.clone()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::InvalidDraft,
+            operation,
+            "Cp-maker draft configSchemaDraft must be a JSON object.",
+        )
+        .with_draft_storage_key(draft.draft_storage_key.clone()));
     }
 
     if !draft.serialized_change_registry.is_object() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::InvalidDraft,
-                operation,
-                "Cp-maker draft serializedChangeRegistry must be a JSON object.",
-            )
-            .with_draft_storage_key(draft.draft_storage_key.clone()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::InvalidDraft,
+            operation,
+            "Cp-maker draft serializedChangeRegistry must be a JSON object.",
+        )
+        .with_draft_storage_key(draft.draft_storage_key.clone()));
     }
 
     for overlay_target in &draft.overlay_targets {
         if overlay_target.unique_id.trim().is_empty() {
-            return Err(
-                CpMakerDraftError::new(
-                    CpMakerDraftErrorCode::InvalidDraft,
-                    operation,
-                    "Cp-maker draft overlayTargets entries must include a uniqueId.",
-                )
-                .with_draft_storage_key(draft.draft_storage_key.clone()),
-            );
+            return Err(CpMakerDraftError::new(
+                CpMakerDraftErrorCode::InvalidDraft,
+                operation,
+                "Cp-maker draft overlayTargets entries must include a uniqueId.",
+            )
+            .with_draft_storage_key(draft.draft_storage_key.clone()));
         }
     }
 
-    if draft.project_metadata.content_pack_for_unique_id.trim().is_empty() {
+    if draft
+        .project_metadata
+        .content_pack_for_unique_id
+        .trim()
+        .is_empty()
+    {
         draft.project_metadata.content_pack_for_unique_id =
             "Pathoschild.ContentPatcher".to_string();
     }
@@ -308,52 +297,44 @@ fn read_draft_record_from_path(
     })?;
 
     if draft.draft_storage_key != draft_storage_key {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::CorruptedSnapshot,
-                operation,
-                "Cp-maker draft JSON key does not match the requested draftStorageKey.",
-            )
-            .with_draft_storage_key(draft_storage_key)
-            .with_path(path.display().to_string()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::CorruptedSnapshot,
+            operation,
+            "Cp-maker draft JSON key does not match the requested draftStorageKey.",
+        )
+        .with_draft_storage_key(draft_storage_key)
+        .with_path(path.display().to_string()));
     }
 
     if !draft.config_schema_draft.is_object() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::CorruptedSnapshot,
-                operation,
-                "Cp-maker draft configSchemaDraft must be a JSON object.",
-            )
-            .with_draft_storage_key(draft_storage_key)
-            .with_path(path.display().to_string()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::CorruptedSnapshot,
+            operation,
+            "Cp-maker draft configSchemaDraft must be a JSON object.",
+        )
+        .with_draft_storage_key(draft_storage_key)
+        .with_path(path.display().to_string()));
     }
 
     if !draft.serialized_change_registry.is_object() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::CorruptedSnapshot,
-                operation,
-                "Cp-maker draft serializedChangeRegistry must be a JSON object.",
-            )
-            .with_draft_storage_key(draft_storage_key)
-            .with_path(path.display().to_string()),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::CorruptedSnapshot,
+            operation,
+            "Cp-maker draft serializedChangeRegistry must be a JSON object.",
+        )
+        .with_draft_storage_key(draft_storage_key)
+        .with_path(path.display().to_string()));
     }
 
     for overlay_target in &draft.overlay_targets {
         if overlay_target.unique_id.trim().is_empty() {
-            return Err(
-                CpMakerDraftError::new(
-                    CpMakerDraftErrorCode::CorruptedSnapshot,
-                    operation,
-                    "Cp-maker draft overlayTargets entries must include a uniqueId.",
-                )
-                .with_draft_storage_key(draft_storage_key)
-                .with_path(path.display().to_string()),
-            );
+            return Err(CpMakerDraftError::new(
+                CpMakerDraftErrorCode::CorruptedSnapshot,
+                operation,
+                "Cp-maker draft overlayTargets entries must include a uniqueId.",
+            )
+            .with_draft_storage_key(draft_storage_key)
+            .with_path(path.display().to_string()));
         }
     }
 
@@ -366,14 +347,12 @@ fn validate_draft_storage_key(
 ) -> Result<(), CpMakerDraftError> {
     let trimmed = draft_storage_key.trim();
     if trimmed.is_empty() {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::InvalidDraft,
-                operation,
-                "Cp-maker draftStorageKey must not be empty.",
-            )
-            .with_draft_storage_key(draft_storage_key),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::InvalidDraft,
+            operation,
+            "Cp-maker draftStorageKey must not be empty.",
+        )
+        .with_draft_storage_key(draft_storage_key));
     }
 
     let is_safe = trimmed
@@ -381,14 +360,12 @@ fn validate_draft_storage_key(
         .all(|value| value.is_ascii_alphanumeric() || matches!(value, '-' | '_' | '.'));
 
     if !is_safe {
-        return Err(
-            CpMakerDraftError::new(
-                CpMakerDraftErrorCode::InvalidDraft,
-                operation,
-                "Cp-maker draftStorageKey must be a safe path segment.",
-            )
-            .with_draft_storage_key(draft_storage_key),
-        );
+        return Err(CpMakerDraftError::new(
+            CpMakerDraftErrorCode::InvalidDraft,
+            operation,
+            "Cp-maker draftStorageKey must be a safe path segment.",
+        )
+        .with_draft_storage_key(draft_storage_key));
     }
 
     Ok(())

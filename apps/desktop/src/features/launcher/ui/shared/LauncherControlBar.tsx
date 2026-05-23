@@ -9,13 +9,7 @@ type LauncherControlBarProps = {
   className?: string
 }
 
-export function LauncherControlBar({
-  title,
-  subtitle,
-  action,
-  children,
-  className,
-}: LauncherControlBarProps) {
+export function LauncherControlBar({ title, subtitle, action, children, className }: LauncherControlBarProps) {
   return (
     <section className={cx('launcher-control-bar panel-section panel-section-muted', className)}>
       {title || subtitle || action ? (

@@ -12,12 +12,14 @@ export type NotificationAction = {
   label: string
   callback: () => void | Promise<void>
   tone?: NotificationActionTone
+  closeOnClick?: boolean
 }
 
 export type PublishedNotificationAction = {
   label: string
   callback: () => void | Promise<void>
   tone: NotificationActionTone
+  closeOnClick: boolean
 }
 
 export type NotificationChip = {
@@ -132,6 +134,7 @@ function normalizeAction(action?: NotificationAction) {
     ...action,
     label: action.label.trim(),
     tone: action.tone ?? 'default',
+    closeOnClick: action.closeOnClick ?? true,
   }
 }
 

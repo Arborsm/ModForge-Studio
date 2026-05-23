@@ -206,7 +206,9 @@ pub(crate) fn cache_file_path(
     digest.update(b"\0");
     digest.update(locale_key.as_bytes());
     let hash = encode_hex(&digest.finalize());
-    Ok(active_file_cache_dir()?.join(kind).join(format!("{hash}.json")))
+    Ok(active_file_cache_dir()?
+        .join(kind)
+        .join(format!("{hash}.json")))
 }
 
 fn read_cached_string_asset(

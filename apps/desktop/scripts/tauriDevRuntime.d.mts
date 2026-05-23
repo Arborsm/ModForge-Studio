@@ -24,7 +24,4 @@ export function buildTauriDevConfigOverride(env?: DevServerEnv): TauriDevRuntime
 
 export function defaultPortAvailabilityProbe(port: number, host: string): Promise<boolean>
 
-export function resolveTauriDevRuntime(
-  env?: DevServerEnv,
-  isPortAvailable?: PortAvailabilityProbe,
-): Promise<TauriDevRuntime>
+export function resolveTauriDevRuntime(env?: DevServerEnv, isPortAvailable?: PortAvailabilityProbe): Promise<TauriDevRuntime>

@@ -1,4 +1,5 @@
-import { canUseDesktopHost, loadAudioDataUrl, loadXactAudioDataUrl, scanAudioAssets, type AudioAssetSummary } from '@platform/desktop'
+import { loadAudioDataUrl, loadXactAudioDataUrl, scanAudioAssets, type AudioAssetSummary } from '@entities/game/api'
+import { canUseDesktopHost } from '@shared/lib/desktop'
 
 type AudioCueKind = 'music' | 'sound'
 
@@ -26,9 +27,11 @@ function getAudioExtensionScore(path: string, kind: AudioCueKind) {
 function pickAudioAsset(assets: AudioAssetSummary[], kind: AudioCueKind) {
   const byKind = assets.filter((asset) => asset.kind === kind)
   const pool = byKind.length ? byKind : assets
-  return pool
-    .slice()
-    .sort((left, right) => getAudioExtensionScore(left.absolutePath, kind) - getAudioExtensionScore(right.absolutePath, kind))[0] ?? null
+  return (
+    pool
+      .slice()
+      .sort((left, right) => getAudioExtensionScore(left.absolutePath, kind) - getAudioExtensionScore(right.absolutePath, kind))[0] ?? null
+  )
 }
 
 async function loadAudioIndex(rootPath: string) {
@@ -203,7 +206,10 @@ export async function playSoundCue(rootPath: string, cue: string) {
     if (!list) {
       return
     }
-    activeSoundElements.set(normalized, list.filter((element) => element !== audio))
+    activeSoundElements.set(
+      normalized,
+      list.filter((element) => element !== audio),
+    )
   })
 
   void audio.play().catch(() => {

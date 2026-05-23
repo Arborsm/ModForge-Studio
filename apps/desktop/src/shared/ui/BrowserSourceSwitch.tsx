@@ -9,10 +9,12 @@ type BrowserSourceSwitchProps = {
 export function BrowserSourceSwitch({ value, onChange }: BrowserSourceSwitchProps) {
   return (
     <div className="inline-flex rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] p-1">
-      {([
-        ['original', 'Original'],
-        ['mod', 'Mod'],
-      ] as const).map(([mode, label]) => {
+      {(
+        [
+          ['original', 'Original'],
+          ['mod', 'Mod'],
+        ] as const
+      ).map(([mode, label]) => {
         const isActive = value === mode
         return (
           <button

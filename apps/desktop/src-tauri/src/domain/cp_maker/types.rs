@@ -280,7 +280,9 @@ impl Default for ChangeRegistryPatch {
 
 impl Default for ChangeRegistry {
     fn default() -> Self {
-        Self { patches: Vec::new() }
+        Self {
+            patches: Vec::new(),
+        }
     }
 }
 

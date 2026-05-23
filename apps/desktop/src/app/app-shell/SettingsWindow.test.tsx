@@ -97,12 +97,6 @@ describe('SettingsWindow', () => {
         { id: 'standard', label: 'Standard' },
         { id: 'fast', label: 'Fast' },
       ],
-      launcherContent: (
-        <div>
-          <span>Game Path</span>
-          <button type="button">Save Launcher Settings</button>
-        </div>
-      ),
       onSelectAccent: vi.fn(),
       onResetAccent: vi.fn(),
       onSelectLocale: vi.fn(),
@@ -160,13 +154,12 @@ describe('SettingsWindow', () => {
     expect(onToggleNotificationSound).toHaveBeenCalledTimes(1)
   })
 
-  it('renders launcher settings content in the launcher category', () => {
+  it('keeps launcher settings out of the global settings window', () => {
     renderWindow()
 
-    fireEvent.click(screen.getByRole('button', { name: /^Launcher/ }))
-
-    expect(screen.getByText('Game Path')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Save Launcher Settings' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Launcher/ })).toBeNull()
+    expect(screen.queryByText('Game Path')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Save Launcher Settings' })).toBeNull()
   })
 
   it('shows locale options in appearance and only selects a non-active locale', () => {
@@ -281,7 +274,6 @@ describe('SettingsWindow', () => {
 
     expect(englishOption.getAttribute('tabindex')).toBe('0')
     expect(chineseOption.getAttribute('tabindex')).toBe('-1')
-
     ;(englishOption as HTMLElement).focus()
     fireEvent.keyDown(englishOption, { key: 'ArrowRight' })
 

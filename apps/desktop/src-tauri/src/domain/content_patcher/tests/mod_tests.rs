@@ -4,8 +4,8 @@ use super::{
 use crate::commands::content_patcher as content_patcher_commands;
 use crate::domain::content_patcher::context::SimulationContext;
 use crate::domain::content_patcher::types::{
-    ContentPatcherPreviewFingerprint, ContentPatcherProjectSnapshot,
-    ContentPatcherProjectSummary, ContentPatcherSourceFile, ExportContentPatcherAssetRequest,
+    ContentPatcherPreviewFingerprint, ContentPatcherProjectSnapshot, ContentPatcherProjectSummary,
+    ContentPatcherSourceFile, ExportContentPatcherAssetRequest,
     LoadContentPatcherResultAssetRequest, SimulateContentPatcherRequest, VirtualPreviewAsset,
 };
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
@@ -1774,12 +1774,8 @@ fn export_content_patcher_asset_writes_map_tbin_snapshot() {
     let bytes = std::fs::read(&result.output_path).expect("read exported map");
     assert!(bytes.starts_with(b"tBIN10"));
 
-    let parsed = parse_tbin_map(
-        &bytes,
-        Path::new(&result.output_path),
-        "Maps/Town.tbin",
-    )
-    .expect("parse exported tbin");
+    let parsed = parse_tbin_map(&bytes, Path::new(&result.output_path), "Maps/Town.tbin")
+        .expect("parse exported tbin");
     assert_eq!(parsed.name, "Town");
     assert_eq!(parsed.tile_width, 0);
     assert_eq!(parsed.tile_height, 0);
@@ -1828,10 +1824,7 @@ fn simulate_skimpy_vn_portraits_ii_loads_without_errors() {
         "expected at least one target"
     );
     assert!(
-        simulation
-            .targets
-            .iter()
-            .any(|t| t.path == "Data/Shops"),
+        simulation.targets.iter().any(|t| t.path == "Data/Shops"),
         "expected Data/Shops target from EditData with TargetField"
     );
     assert!(
@@ -1845,7 +1838,9 @@ fn simulate_skimpy_vn_portraits_ii_loads_without_errors() {
 
 #[test]
 fn simulate_daisyniko_tilesheets_loads_without_errors() {
-    let pack_root = PathBuf::from(r"E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\[CP] DaisyNiko's Tilesheets");
+    let pack_root = PathBuf::from(
+        r"E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\[CP] DaisyNiko's Tilesheets",
+    );
     if !pack_root.join("manifest.json").is_file() {
         return;
     }

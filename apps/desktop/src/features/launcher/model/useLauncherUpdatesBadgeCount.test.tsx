@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@platform/desktop'
+import type { LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'
 import { useLauncherUpdatesBadgeCount } from './useLauncherUpdatesBadgeCount'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort'
@@ -23,7 +23,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -89,10 +88,7 @@ describe('useLauncherUpdatesBadgeCount', () => {
     expect(port.loadCachedUpdates).toHaveBeenCalledWith({
       modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     })
-    expect(port.subscribeUpdates).toHaveBeenCalledWith(
-      'E:\\Games\\Stardew Valley\\Mods',
-      expect.any(Function),
-    )
+    expect(port.subscribeUpdates).toHaveBeenCalledWith('E:\\Games\\Stardew Valley\\Mods', expect.any(Function))
   })
 
   it('does not let a slower cached response overwrite a live replayed snapshot', async () => {

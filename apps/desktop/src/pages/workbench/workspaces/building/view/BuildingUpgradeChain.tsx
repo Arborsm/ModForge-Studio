@@ -35,9 +35,7 @@ function StageCard({
       type="button"
       className={cx(
         'panel-list-card panel-list-card-interactive w-[240px] shrink-0 p-3 text-left',
-        isActive
-          ? 'panel-list-card-active'
-          : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
+        isActive ? 'panel-list-card-active' : 'hover:bg-[color-mix(in_srgb,var(--bg-active)_66%,transparent)]',
       )}
       onClick={onSelect}
     >
@@ -72,9 +70,15 @@ function StageCard({
       </div>
 
       <div className="mt-3 space-y-1 text-xs text-[var(--text-secondary)]">
-        <p>{copy.indoorMapLabel}: {stage.indoorMapAssetName ? stage.indoorMapPathLabel : copy.noneLabel}</p>
-        <p>{copy.buildCostLabel}: {stage.buildCost}</p>
-        <p>{copy.materialCountLabel}: {stage.buildMaterials.length}</p>
+        <p>
+          {copy.indoorMapLabel}: {stage.indoorMapAssetName ? stage.indoorMapPathLabel : copy.noneLabel}
+        </p>
+        <p>
+          {copy.buildCostLabel}: {stage.buildCost}
+        </p>
+        <p>
+          {copy.materialCountLabel}: {stage.buildMaterials.length}
+        </p>
       </div>
     </button>
   )

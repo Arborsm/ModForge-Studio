@@ -111,7 +111,11 @@ function stripQuotes(value: string): string {
   return t
 }
 
-export function CommandEditor({ command, onChange, onDelete }: {
+export function CommandEditor({
+  command,
+  onChange,
+  onDelete,
+}: {
   command: EventCommand
   onChange: (newRaw: string) => void
   onDelete: () => void
@@ -180,7 +184,7 @@ export function CommandEditor({ command, onChange, onDelete }: {
     <div className="space-y-2 px-3 py-2">
       {argFields.map((field) => (
         <div key={field.index}>
-          <label className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field.label}</label>
+          <label className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field.label}</label>
           {field.label === 'Text' || field.value.length > 40 ? (
             <textarea
               className="h-16 w-full resize-none rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -238,25 +242,29 @@ export function EventCommandPipeline({
   onInsertAfter,
   locale,
 }: EventCommandPipelineProps) {
-  const labels = locale === 'zh-CN'
-    ? { empty: '这个事件还没有命令', addHint: '从下方选择一个常用命令开始', quickAdd: '快捷添加' }
-    : { empty: 'No commands yet', addHint: 'Pick a common command below to start', quickAdd: 'Quick Add' }
+  const labels =
+    locale === 'zh-CN'
+      ? { empty: '这个事件还没有命令', addHint: '从下方选择一个常用命令开始', quickAdd: '快捷添加' }
+      : { empty: 'No commands yet', addHint: 'Pick a common command below to start', quickAdd: 'Quick Add' }
 
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (commands.length === 0) return
-    const currentIndex = commands.findIndex((c) => c.id === selectedId)
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      const next = commands[Math.min(currentIndex + 1, commands.length - 1)]
-      if (next) onSelect(next.id)
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      const prev = commands[Math.max(currentIndex - 1, 0)]
-      if (prev) onSelect(prev.id)
-    }
-  }, [commands, selectedId, onSelect])
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (commands.length === 0) return
+      const currentIndex = commands.findIndex((c) => c.id === selectedId)
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        const next = commands[Math.min(currentIndex + 1, commands.length - 1)]
+        if (next) onSelect(next.id)
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const prev = commands[Math.max(currentIndex - 1, 0)]
+        if (prev) onSelect(prev.id)
+      }
+    },
+    [commands, selectedId, onSelect],
+  )
 
   if (commands.length === 0) {
     return (
@@ -301,7 +309,7 @@ export function EventCommandPipeline({
                   </span>
                 ) : null}
                 <div className="h-3 w-px bg-[var(--border-color)]" />
-                <div className="h-0 w-0 border-l-[3px] border-r-[3px] border-t-[4px] border-l-transparent border-r-transparent border-t-[var(--border-color)]" />
+                <div className="h-0 w-0 border-t-[4px] border-r-[3px] border-l-[3px] border-t-[var(--border-color)] border-r-transparent border-l-transparent" />
               </div>
             )}
 
@@ -319,30 +327,17 @@ export function EventCommandPipeline({
               {/* Card header */}
               <div className="flex items-center gap-2.5 px-3 py-2">
                 {/* Icon bubble */}
-                <div
-                  className={cx(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                    kindBg[cmd.kind],
-                  )}
-                >
+                <div className={cx('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', kindBg[cmd.kind])}>
                   <Icon className={cx('h-4 w-4', kindIconColor[cmd.kind])} />
                 </div>
 
                 {/* Text */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-xs font-medium text-[var(--text-primary)]">
-                      {summary.title}
-                    </span>
-                    <span className="shrink-0 text-[9px] uppercase tracking-wider text-[var(--text-tertiary)]">
-                      {cmd.command}
-                    </span>
+                    <span className="truncate text-xs font-medium text-[var(--text-primary)]">{summary.title}</span>
+                    <span className="shrink-0 text-[9px] tracking-wider text-[var(--text-tertiary)] uppercase">{cmd.command}</span>
                   </div>
-                  {summary.subtitle && (
-                    <p className="truncate text-[11px] text-[var(--text-secondary)]">
-                      {summary.subtitle}
-                    </p>
-                  )}
+                  {summary.subtitle && <p className="truncate text-[11px] text-[var(--text-secondary)]">{summary.subtitle}</p>}
                 </div>
 
                 {/* Actions */}
@@ -375,11 +370,7 @@ export function EventCommandPipeline({
               {/* Expanded editor */}
               {isExpanded && (
                 <div className="border-t border-[var(--border-color)]">
-                  <CommandEditor
-                    command={cmd}
-                    onChange={(newRaw) => onChange(cmd.index, newRaw)}
-                    onDelete={() => onDelete(cmd.index)}
-                  />
+                  <CommandEditor command={cmd} onChange={(newRaw) => onChange(cmd.index, newRaw)} onDelete={() => onDelete(cmd.index)} />
                 </div>
               )}
 
@@ -403,7 +394,7 @@ export function EventCommandPipeline({
             {isLast && (
               <div className="flex flex-col items-center pt-2">
                 <div className="h-3 w-px bg-[var(--border-color)]" />
-                <div className="h-0 w-0 border-l-[3px] border-r-[3px] border-t-[4px] border-l-transparent border-r-transparent border-t-[var(--border-color)]" />
+                <div className="h-0 w-0 border-t-[4px] border-r-[3px] border-l-[3px] border-t-[var(--border-color)] border-r-transparent border-l-transparent" />
                 <div className="mt-1 flex flex-wrap justify-center gap-2 pb-2">
                   {QUICK_TEMPLATES.map((t) => (
                     <button

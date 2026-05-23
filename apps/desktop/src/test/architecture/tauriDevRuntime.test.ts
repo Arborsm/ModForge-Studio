@@ -24,16 +24,27 @@ describe('resolveTauriDevRuntime', () => {
     })
   })
 
-  it('keeps fixed default dev ports without probing when no overrides are provided', async () => {
+  it('falls back to the next available dev ports when defaults are unavailable', async () => {
     const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
-    let probeCalls = 0
 
-    const result = await resolveTauriDevRuntime({}, async () => {
-      probeCalls += 1
-      return false
+    const result = await resolveTauriDevRuntime({}, async (port: number) => port >= 5239)
+
+    expect(result.env.MODFORGE_DEV_PORT).toBe('5239')
+    expect(result.env.MODFORGE_DEV_HMR_PORT).toBe('5240')
+    expect(result.env.TAURI_DEV_PORT).toBe('5239')
+    expect(result.env.TAURI_DEV_HMR_PORT).toBe('5240')
+    expect(result.configOverride).toEqual({
+      build: {
+        devUrl: 'http://127.0.0.1:5239',
+      },
     })
+  })
 
-    expect(probeCalls).toBe(0)
+  it('keeps the default dev ports when they are available', async () => {
+    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
+
+    const result = await resolveTauriDevRuntime({}, async () => true)
+
     expect(result.env.MODFORGE_DEV_PORT).toBe('5173')
     expect(result.env.MODFORGE_DEV_HMR_PORT).toBe('5174')
     expect(result.env.TAURI_DEV_PORT).toBe('5173')
@@ -41,27 +52,6 @@ describe('resolveTauriDevRuntime', () => {
     expect(result.configOverride).toEqual({
       build: {
         devUrl: 'http://127.0.0.1:5173',
-      },
-    })
-  })
-
-  it('falls back to the next available dev ports only when dynamic resolution is enabled', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
-
-    const result = await resolveTauriDevRuntime(
-      {
-        MODFORGE_DEV_DYNAMIC_PORTS: '1',
-      },
-      async (port: number) => port >= 5175,
-    )
-
-    expect(result.env.MODFORGE_DEV_PORT).toBe('5175')
-    expect(result.env.MODFORGE_DEV_HMR_PORT).toBe('5176')
-    expect(result.env.TAURI_DEV_PORT).toBe('5175')
-    expect(result.env.TAURI_DEV_HMR_PORT).toBe('5176')
-    expect(result.configOverride).toEqual({
-      build: {
-        devUrl: 'http://127.0.0.1:5175',
       },
     })
   })

@@ -41,11 +41,4 @@
     background: color-mix(in srgb, var(--danger) 14%, transparent);
     color: var(--danger);
   }
-
-  @media (prefers-reduced-motion: reduce) {
-    .status-pill,
-    .status-pill-compact {
-      transition: none;
-    }
-  }
 }

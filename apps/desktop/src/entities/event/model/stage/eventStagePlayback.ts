@@ -354,7 +354,9 @@ function applyStopAnimationCommand(actors: Record<string, EventActorState>, comm
   }
 
   const fallbackFrameState =
-    command.frame == null ? getActorDefaultFrameState(actor.actorName, actor.facingDirection) : { frame: command.frame, directionalFlip: false }
+    command.frame == null
+      ? getActorDefaultFrameState(actor.actorName, actor.facingDirection)
+      : { frame: command.frame, directionalFlip: false }
   return {
     ...actors,
     [toActorKey(actorName)]: {
@@ -430,7 +432,7 @@ function applyFarmerEatCommand(
   }
 
   const itemIndex = parseSpringObjectIndexFromItemId(rawItemId)
-  const isDrink = itemIndex != null ? objectDrinkIndex[String(itemIndex)] ?? false : false
+  const isDrink = itemIndex != null ? (objectDrinkIndex[String(itemIndex)] ?? false) : false
   const animationFrames = buildFarmerSingleAnimationFrames(getFarmerEatAnimationId(isDrink), 2)
   if (!animationFrames?.length) {
     return actors
@@ -465,11 +467,7 @@ function applyFarmerEatCommand(
   }
 }
 
-function resolveViewportFocus(
-  command: EventCommand,
-  actors: Record<string, EventActorState>,
-  currentFocus: PlaybackState['focusTile'],
-) {
+function resolveViewportFocus(command: EventCommand, actors: Record<string, EventActorState>, currentFocus: PlaybackState['focusTile']) {
   if (command.args[1] === 'move') {
     const offset = parsePoint(command.args[2], command.args[3])
     return offset
@@ -554,10 +552,7 @@ function seekPlaybackToEntry(
       waitingStartedAtMs: null,
       blockingMovement: false,
       actors: Object.fromEntries(
-        Object.entries(rawNextState.actors).map(([actorKey, actor]) => [
-          actorKey,
-          actor.movement ? { ...actor, movement: null } : actor,
-        ]),
+        Object.entries(rawNextState.actors).map(([actorKey, actor]) => [actorKey, actor.movement ? { ...actor, movement: null } : actor]),
       ),
     }
     if (nextState.currentCommandId === entryId) {
@@ -675,10 +670,9 @@ function continuePlayback(
       case 'speak':
       case 'splitSpeak': {
         const actorName = command.actorName ?? command.title
-        const pages =
-          command.dialoguePages?.length
-            ? command.dialoguePages
-            : [{ id: 'page:0', text: command.text ?? command.detail, portraitIndex: 0 }]
+        const pages = command.dialoguePages?.length
+          ? command.dialoguePages
+          : [{ id: 'page:0', text: command.text ?? command.detail, portraitIndex: 0 }]
 
         return {
           ...base,
@@ -1225,8 +1219,7 @@ function continuePlayback(
       case 'questionAnswered':
       case 'rustyKey':
       case 'dump': {
-        const tone: PlaybackNoticeTone =
-          command.command.startsWith('remove') || command.command === 'dump' ? 'loss' : 'info'
+        const tone: PlaybackNoticeTone = command.command.startsWith('remove') || command.command === 'dump' ? 'loss' : 'info'
         const nextBase = {
           ...base,
           notices: enqueuePlaybackNotice(base, {
@@ -1349,7 +1342,12 @@ function continuePlayback(
         if (Object.values(nextState.actors).some((actor) => actor.movement)) {
           return {
             ...base,
-            currentEntry: { id: `${command.id}:waitForAllStationary`, tone: 'system', title: command.title, detail: command.detail || 'waiting for movement' },
+            currentEntry: {
+              id: `${command.id}:waitForAllStationary`,
+              tone: 'system',
+              title: command.title,
+              detail: command.detail || 'waiting for movement',
+            },
             activeDialogue: null,
             waitingMs: 80,
             waitingStartedAtMs: performance.now(),
@@ -1446,7 +1444,12 @@ function continuePlayback(
           nextState = {
             ...nextState,
             ...mergeEventScene(nextState, targetEvent),
-            currentEntry: { id: `${command.id}:fork`, tone: 'system', title: command.title, detail: command.targetEventKey ?? command.detail },
+            currentEntry: {
+              id: `${command.id}:fork`,
+              tone: 'system',
+              title: command.title,
+              detail: command.targetEventKey ?? command.detail,
+            },
             currentCommandId: command.id,
             activeDialogue: null,
             waitingMs: null,
@@ -1472,7 +1475,12 @@ function continuePlayback(
           nextState = {
             ...nextState,
             ...mergeEventScene(nextState, targetEvent),
-            currentEntry: { id: `${command.id}:switch`, tone: 'system', title: command.title, detail: command.targetEventKey ?? command.detail },
+            currentEntry: {
+              id: `${command.id}:switch`,
+              tone: 'system',
+              title: command.title,
+              detail: command.targetEventKey ?? command.detail,
+            },
             currentCommandId: command.id,
             activeDialogue: null,
             waitingMs: null,
@@ -1550,9 +1558,7 @@ function resolveChoice(
   }
   if (command.command === 'quickQuestion') {
     const branchCommands = command.choices?.[choiceIndex]?.branchRawCommands ?? []
-    const parsedBranchCommands = branchCommands.map((rawCommand, index) =>
-      parseEventCommand(rawCommand, state.pointer + 1 + index),
-    )
+    const parsedBranchCommands = branchCommands.map((rawCommand, index) => parseEventCommand(rawCommand, state.pointer + 1 + index))
     commands = [...state.commands.slice(0, state.pointer + 1), ...parsedBranchCommands, ...state.commands.slice(state.pointer + 1)]
   }
 
@@ -1574,13 +1580,6 @@ function resolveChoice(
   )
 }
 
-
-export {
-  advanceCommandPlayback,
-  continuePlayback,
-  resolveChoice,
-  seekPlaybackToEntry,
-}
+export { advanceCommandPlayback, continuePlayback, resolveChoice, seekPlaybackToEntry }
 
 export type { PlaybackContext }
-

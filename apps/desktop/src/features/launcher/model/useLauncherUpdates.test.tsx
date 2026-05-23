@@ -3,12 +3,7 @@ import type { PropsWithChildren } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
-import type {
-  LauncherNexusDiagnosticsResult,
-  LauncherSettings,
-  LauncherUpdateSummary,
-  LauncherUpdatesResult,
-} from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult, LauncherSettings, LauncherUpdateSummary, LauncherUpdatesResult } from '@features/launcher/api'
 import { useLauncherUpdates } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'
@@ -32,7 +27,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -71,14 +65,14 @@ function createLauncherDiagnosticsResult(
   > = {
     publicGraphql: {
       label: 'Nexus Public GraphQL',
-      endpoint: 'https://api-router.nexusmods.com/graphql',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
     },
-    publicHtml: {
-      label: 'Nexus Public HTML',
-      endpoint: 'https://www.nexusmods.com/stardewvalley',
+    nexusImages: {
+      label: 'Nexus Image CDN',
+      endpoint: 'https://staticdelivery.nexusmods.com/',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
@@ -146,9 +140,7 @@ describe('useLauncherUpdates', () => {
   })
 
   it('uses cached updates on mount without starting a new check', async () => {
-    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(
-      createResult([createUpdate({ latestVersion: '1.4.0' })]),
-    )
+    vi.mocked(launcherPort.loadCachedUpdates).mockResolvedValueOnce(createResult([createUpdate({ latestVersion: '1.4.0' })]))
 
     const { result } = renderHook(() => useLauncherUpdates(createSettings()), { wrapper: Wrapper })
 
@@ -265,7 +257,7 @@ describe('useLauncherUpdates', () => {
           available: false,
           message: 'Failed after 3 attempts: timeout',
         },
-        publicHtml: {
+        nexusImages: {
           status: 'warning',
           available: false,
           message: 'Failed after 3 attempts: timeout',
@@ -300,10 +292,7 @@ describe('useLauncherUpdates', () => {
   it('skips automatic update checks when automatic update checking is disabled but still allows manual refresh', async () => {
     vi.mocked(launcherPort.checkUpdates).mockResolvedValue(createResult([createUpdate()]))
 
-    const { result } = renderHook(
-      () => useLauncherUpdates(createSettings({ autoCheckModUpdates: false })),
-      { wrapper: Wrapper },
-    )
+    const { result } = renderHook(() => useLauncherUpdates(createSettings({ autoCheckModUpdates: false })), { wrapper: Wrapper })
 
     await waitFor(() => {
       expect(launcherPort.subscribeUpdates).toHaveBeenCalledTimes(1)

@@ -35,7 +35,9 @@
     background: var(--bg-panel-muted);
     color: var(--text-secondary);
     padding: 8px;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
   }
 
   .initialization-overlay-close:hover {
@@ -145,7 +147,9 @@
     padding: 6px 12px;
     text-align: left;
     font-size: 12px;
-    transition: border-color 160ms ease, color 160ms ease;
+    transition:
+      border-color 160ms ease,
+      color 160ms ease;
   }
 
   .initialization-overlay-detected-chip:hover {

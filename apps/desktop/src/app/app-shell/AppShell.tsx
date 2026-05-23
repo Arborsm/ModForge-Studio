@@ -1,18 +1,17 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   canUseDesktopHost,
-  clearDesktopLocaleCache,
   closeCurrentWindow,
   isCurrentWindowFullscreen,
   loadAppUiState,
-  loadImageDataUrl,
   minimizeCurrentWindow,
   patchAppUiState,
   toggleFullscreenCurrentWindow,
   toggleMaximizeCurrentWindow,
   setDesktopDebugLoggingEnabled,
   writeFrontendLog,
-} from '@platform/desktop'
+} from '@shared/lib/desktop'
+import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
 import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
 import { normalizeAppShellState } from '@shared/lib/app-state'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
@@ -30,35 +29,51 @@ import type {
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { rgbaFromHex } from '@app/app-shell/color'
 import { ACCENT_PRESETS } from './constants'
-import { clearLocalizedStageMetadataCache } from '@entities/event'
+import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
 import { LocaleProvider } from '@locales/localeContext'
 import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
-import {
-  applyAppUiStatePatch,
-  clearLegacyBrowserUiState,
-  configureAppUiStatePersistence,
-  getAppUiStateSnapshot,
-  initializeAppUiState,
-} from '@shared/lib/app-state'
+import { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
 import { clearImageMetricsLocaleCache, configureImageDataUrlLoader } from '@shared/lib/assets'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/model/launcherContracts'
 import {
+  getLauncherNexusWarningRoutes,
   loadSettledLauncherNexusDiagnostics,
-  syncLauncherDiagnosticsNotification,
-  useLauncherPort,
-  type LauncherNexusDiagnosticsResult,
-} from '@features/launcher'
+  mergeLauncherNexusDiagnostics,
+} from '@features/launcher/model/nexusDiagnostics'
+import { syncLauncherDiagnosticsNotification } from '@features/launcher/model/nexusDiagnosticsNotifications'
+import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { clearMapViewportLocaleCache } from '@shared/lib/maps'
 import { createAppEventBus } from '../providers/appEventBus'
 import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
-import { getWorkbenchViewRegistration } from '@app/registry-setup'
-import type { PendingWorkbenchCommandIntent } from '@shared/contracts'
-import type { SettingsWindowCategory } from '@shared/contracts'
+import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
+import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
+import { WorkbenchShellSkeleton } from './WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
-const WorkbenchPage = lazy(() => import('@pages/workbench').then((module) => ({ default: module.WorkbenchPage })))
+const WorkbenchPage = lazy(async () => {
+  const [workbenchModule, registryModule, cpMakerProviderModule] = await Promise.all([
+    import('@pages/workbench'),
+    import('@app/registry-setup'),
+    import('../providers/CpMakerPlatformProvider'),
+  ])
+
+  return {
+    default: function WorkbenchPageWithRegistry(
+      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration'>,
+    ) {
+      const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
+
+      return (
+        <CpMakerPlatformProvider>
+          <workbenchModule.WorkbenchPage {...props} getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration} />
+        </CpMakerPlatformProvider>
+      )
+    },
+  }
+})
 
 let workbenchStylesPromise: Promise<unknown> | null = null
 
@@ -90,12 +105,7 @@ function resolveLocale(value: string | null | undefined): LocaleCode {
 }
 
 export default function App() {
-  const initialAppUiStateRef = useRef<ReturnType<typeof getAppUiStateSnapshot> | null>(null)
-  if (!initialAppUiStateRef.current) {
-    initialAppUiStateRef.current = getAppUiStateSnapshot()
-  }
-
-  const initialAppUiState = initialAppUiStateRef.current
+  const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
 
   const [theme, setTheme] = useState<ThemeMode>(() =>
@@ -107,18 +117,18 @@ export default function App() {
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
   const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
   const [notificationSoundEnabled, setNotificationSoundEnabledState] = useState(initialShellState.notificationSoundEnabled)
-  const [loadingMotionPreference, setLoadingMotionPreference] = useState<LoadingMotionPreference>(
-    () => {
-      return normalizeLoadingMotionPreference(initialAppUiState.appearance?.loadingMotion)
-    },
+  const [loadingMotionPreference, setLoadingMotionPreference] = useState<LoadingMotionPreference>(() =>
+    normalizeLoadingMotionPreference(initialAppUiState.appearance?.loadingMotion),
   )
-  const [appUiStateReady, setAppUiStateReady] = useState(false)
+  const [appUiStateReady, setAppUiStateReady] = useState(!canUseDesktopHost())
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
-  const [workbenchLoaded, setWorkbenchLoaded] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
   const previousLocaleRef = useRef<LocaleCode>(locale)
+  const launcherPageRef = useRef<LauncherPage>(launcherPage)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
+  const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
@@ -128,24 +138,29 @@ export default function App() {
   const appCommandHandler = useMemo(
     () =>
       createAppCommandHandler({
-        setAppMode,
+        setAppMode: (nextMode) => {
+          if (nextMode === 'workbench') {
+            setWorkbenchHasOpened(true)
+          }
+          setAppMode(nextMode)
+        },
         onPendingIntent: setPendingWorkbenchIntent,
       }),
     [],
   )
-  const workbenchOrchestration = useMemo(() => createWorkbenchOrchestration({ dispatch: appCommandHandler.handleCommand }), [appCommandHandler])
+  const workbenchOrchestration = useMemo(
+    () => createWorkbenchOrchestration({ dispatch: appCommandHandler.handleCommand }),
+    [appCommandHandler],
+  )
 
   useEffect(() => {
-    if (appMode === 'workbench') {
-      setWorkbenchLoaded(true)
-    }
-  }, [appMode])
+    launcherPageRef.current = launcherPage
+  }, [launcherPage])
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
 
   useEffect(() => {
     if (!desktopHost) {
-      setAppUiStateReady(true)
       return
     }
 
@@ -160,9 +175,11 @@ export default function App() {
         const nextShellState = normalizeAppShellState(state.shell)
         const nextLocale = resolveLocale(state.appearance.locale)
 
-        clearLegacyBrowserUiState()
         setLocale(nextLocale)
         setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+        if (nextShellState.appMode === 'workbench') {
+          setWorkbenchHasOpened(true)
+        }
         setAppMode(nextShellState.appMode)
         setLauncherPage(nextShellState.launcherPage)
         setDebugEnabled(nextShellState.debugEnabled)
@@ -184,34 +201,83 @@ export default function App() {
   const handleViewLauncherDiagnostics = useCallback(() => {
     setAppMode('launcher')
     setDebugEnabled(true)
-    setLauncherPage('debug')
+    setLauncherPage('configuration')
   }, [])
 
-  const handleLauncherDiagnosticsUpdate = useCallback((diagnostics: LauncherNexusDiagnosticsResult | null | undefined) => {
-    syncLauncherDiagnosticsNotification(copy.launcher, diagnostics, {
-      onRetry: getAppUiStateSnapshot().launcher.forceOffline ? null : () => launcherDiagnosticsRetryRef.current?.(),
-      onViewDetails: handleViewLauncherDiagnostics,
-    })
-  }, [copy.launcher, handleViewLauncherDiagnostics])
+  const handleLauncherDiagnosticsUpdate = useCallback(
+    (diagnostics: LauncherNexusDiagnosticsResult | null | undefined) => {
+      latestLauncherDiagnosticsRef.current = diagnostics ?? null
+      syncLauncherDiagnosticsNotification(copy.launcher, diagnostics, {
+        onRetry: getAppUiStateSnapshot().launcher.forceOffline ? null : () => launcherDiagnosticsRetryRef.current?.(),
+        onViewDetails: handleViewLauncherDiagnostics,
+      })
+    },
+    [copy.launcher, handleViewLauncherDiagnostics],
+  )
+
+  const refreshLauncherDiagnostics = useCallback(async () => {
+    if (!desktopHost) {
+      return
+    }
+
+    await launcherPort.restartNexusDiagnostics()
+    handleLauncherDiagnosticsUpdate(
+      await loadSettledLauncherNexusDiagnostics({
+        loadDiagnostics: launcherPort.loadNexusDiagnostics,
+      }),
+    )
+  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     launcherDiagnosticsRetryRef.current = async () => {
-      if (!desktopHost || getAppUiStateSnapshot().launcher.forceOffline) {
+      if (getAppUiStateSnapshot().launcher.forceOffline) {
         return
       }
 
-      await launcherPort.restartNexusDiagnostics()
-      handleLauncherDiagnosticsUpdate(
-        await loadSettledLauncherNexusDiagnostics({
-          loadDiagnostics: launcherPort.loadNexusDiagnostics,
-        }),
-      )
+      const warningRoutes = getLauncherNexusWarningRoutes(latestLauncherDiagnosticsRef.current)
+      if (!warningRoutes.length) {
+        await refreshLauncherDiagnostics()
+        return
+      }
+
+      let latestDiagnostics: LauncherNexusDiagnosticsResult | null = latestLauncherDiagnosticsRef.current
+      for (const route of warningRoutes) {
+        const diagnostics = await launcherPort.retryNexusDiagnosticsRoute(route.routeId)
+        latestDiagnostics = {
+          routes: mergeLauncherNexusDiagnostics(latestDiagnostics?.routes ?? [], diagnostics.routes),
+        }
+      }
+      if (latestDiagnostics) {
+        handleLauncherDiagnosticsUpdate(latestDiagnostics)
+      }
     }
 
     return () => {
       launcherDiagnosticsRetryRef.current = null
     }
-  }, [desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
+  }, [handleLauncherDiagnosticsUpdate, launcherPort, refreshLauncherDiagnostics])
+
+  useEffect(() => {
+    if (!desktopHost || !appUiStateReady) {
+      return
+    }
+
+    let disposed = false
+
+    void loadSettledLauncherNexusDiagnostics({
+      loadDiagnostics: launcherPort.loadNexusDiagnostics,
+    })
+      .then((diagnostics) => {
+        if (!disposed) {
+          handleLauncherDiagnosticsUpdate(diagnostics)
+        }
+      })
+      .catch(() => {})
+
+    return () => {
+      disposed = true
+    }
+  }, [appUiStateReady, desktopHost, handleLauncherDiagnosticsUpdate, launcherPort])
 
   useEffect(() => {
     if (!desktopHost || !appUiStateReady) {
@@ -251,18 +317,12 @@ export default function App() {
     void applyAppUiStatePatch({
       shell: {
         appMode,
-        launcherPage,
+        launcherPage: launcherPageRef.current,
         debugEnabled,
         notificationSoundEnabled,
       },
     })
-  }, [appMode, appUiStateReady, debugEnabled, launcherPage, notificationSoundEnabled])
-
-  useEffect(() => {
-    if (!debugEnabled && launcherPage === 'debug') {
-      setLauncherPage('library')
-    }
-  }, [debugEnabled, launcherPage])
+  }, [appMode, appUiStateReady, debugEnabled, notificationSoundEnabled])
 
   useEffect(() => {
     void syncDebugDiagnosticsEnabled(debugEnabled)
@@ -278,7 +338,7 @@ export default function App() {
       return
     }
 
-    clearDesktopLocaleCache(previousLocale)
+    clearGameAssetLocaleCache(previousLocale)
     clearLocalizedStageMetadataCache(previousLocale)
     clearImageMetricsLocaleCache(previousLocale)
     clearMapViewportLocaleCache(previousLocale)
@@ -286,6 +346,7 @@ export default function App() {
   }, [locale])
 
   const activeAccentPreset = ACCENT_PRESETS.find((preset) => preset.id === accentPresetId) ?? ACCENT_PRESETS[0]
+  const workbenchLoaded = workbenchHasOpened || appMode === 'workbench'
 
   useEffect(() => {
     const root = document.documentElement
@@ -338,6 +399,9 @@ export default function App() {
   }, [])
 
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
+    if (nextMode === 'workbench') {
+      setWorkbenchHasOpened(true)
+    }
     setAppMode(nextMode)
   }, [])
 
@@ -346,14 +410,17 @@ export default function App() {
   }, [])
 
   const handleLauncherPageChange = useCallback((nextPage: LauncherPage) => {
-    if (nextPage === 'debug' && !debugEnabled) {
+    setLauncherPage(nextPage)
+  }, [])
+
+  const openSettingsWindow = useCallback((category: SettingsWindowCategory = 'appearance') => {
+    if (category === 'launcher') {
+      setAppMode('launcher')
+      setLauncherPage('configuration')
+      setSettingsWindowOpen(false)
       return
     }
 
-    setLauncherPage(nextPage)
-  }, [debugEnabled])
-
-  const openSettingsWindow = useCallback((category: SettingsWindowCategory = 'appearance') => {
     setSettingsWindowCategory(category)
     setSettingsWindowOpen(true)
   }, [])
@@ -441,12 +508,7 @@ export default function App() {
         speedMultiplier,
       })
     },
-    [
-      handleLoadingMotionChange,
-      loadingMotionPreference.intensityId,
-      loadingMotionPreference.speedId,
-      loadingMotionPreference.styleId,
-    ],
+    [handleLoadingMotionChange, loadingMotionPreference.intensityId, loadingMotionPreference.speedId, loadingMotionPreference.styleId],
   )
 
   const settingsMenuCopy = getSettingsMenuCopy(locale)
@@ -483,20 +545,21 @@ export default function App() {
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
                 onNavigateToDiagnostics={handleViewLauncherDiagnostics}
-                onRetryDiagnostics={getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()}
+                onRetryDiagnostics={
+                  getAppUiStateSnapshot().launcher.forceOffline ? null : async () => launcherDiagnosticsRetryRef.current?.()
+                }
                 onLauncherDiagnosticsUpdate={handleLauncherDiagnosticsUpdate}
               />
             ) : null}
 
             {workbenchLoaded ? (
-              <Suspense fallback={<LoadingMotionFallback />}>
+              <Suspense fallback={<WorkbenchShellSkeleton />}>
                 <WorkbenchPage
                   active={appMode === 'workbench'}
                   appUiStateReady={appUiStateReady}
                   theme={theme}
                   locale={locale}
                   accentColor={activeAccentPreset.color}
-                  debugEnabled={debugEnabled}
                   desktopHost={desktopHost}
                   onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
                   onSwitchToLauncher={handleSwitchToLauncher}
@@ -505,11 +568,32 @@ export default function App() {
                   onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
                   onCloseWindow={() => void closeCurrentWindow()}
                   onWorkbenchEvent={eventBus.emit}
-                  getWorkbenchViewRegistration={getWorkbenchViewRegistration}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
                   onClearPendingIntent={appCommandHandler.clearPendingIntent}
                 />
               </Suspense>
+            ) : null}
+
+            {debugEnabled ? (
+              <DevDebugOverlay
+                workspaceMode={appMode === 'launcher' ? 'launcher' : 'map'}
+                mapName={null}
+                eventName={null}
+                currentEventCommandId={null}
+                actorCount={0}
+                contextSectionLabel={appMode === 'launcher' ? 'Launcher' : 'App'}
+                contextMetrics={
+                  appMode === 'launcher'
+                    ? [
+                        ['Page', launcherPage],
+                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                      ]
+                    : [
+                        ['Mode', appMode],
+                        ['Desktop Host', desktopHost ? 'yes' : 'no'],
+                      ]
+                }
+              />
             ) : null}
 
             {settingsWindowOpen ? (
@@ -542,7 +626,6 @@ export default function App() {
                   enableNotificationSoundLabel={settingsMenuCopy.enableNotificationSoundLabel}
                   disableNotificationSoundLabel={settingsMenuCopy.disableNotificationSoundLabel}
                   notificationSoundEnabled={notificationSoundEnabled}
-                  launcherContent={null}
                   activeCategory={settingsWindowCategory}
                   accentOptions={ACCENT_PRESETS}
                   activeAccentId={activeAccentPreset.id}
@@ -572,15 +655,18 @@ export default function App() {
                   onSelectLoadingIntensity={handleSelectLoadingIntensity}
                   onSelectLoadingSpeed={handleSelectLoadingSpeed}
                   onSelectCustomLoadingSpeed={handleSelectCustomLoadingSpeed}
-                  loadingStyleOptions={LOADING_MOTION_STYLE_LABELS.map(function(e) {
-                    return { id: e.id, label: locale === 'zh-CN' ? e.labelZh : e.labelEn }
-                  })}
-                  loadingIntensityOptions={LOADING_MOTION_INTENSITY_LABELS.map(function(e) {
-                    return { id: e.id, label: locale === 'zh-CN' ? e.labelZh : e.labelEn }
-                  })}
-                  loadingSpeedOptions={LOADING_MOTION_SPEED_LABELS.map(function(e) {
-                    return { id: e.id, label: locale === 'zh-CN' ? e.labelZh : e.labelEn }
-                  })}
+                  loadingStyleOptions={LOADING_MOTION_STYLE_LABELS.map((entry) => ({
+                    id: entry.id,
+                    label: locale === 'zh-CN' ? entry.labelZh : entry.labelEn,
+                  }))}
+                  loadingIntensityOptions={LOADING_MOTION_INTENSITY_LABELS.map((entry) => ({
+                    id: entry.id,
+                    label: locale === 'zh-CN' ? entry.labelZh : entry.labelEn,
+                  }))}
+                  loadingSpeedOptions={LOADING_MOTION_SPEED_LABELS.map((entry) => ({
+                    id: entry.id,
+                    label: locale === 'zh-CN' ? entry.labelZh : entry.labelEn,
+                  }))}
                   onActiveCategoryChange={setSettingsWindowCategory}
                   onClose={() => setSettingsWindowOpen(false)}
                 />
@@ -592,4 +678,3 @@ export default function App() {
     </LocaleProvider>
   )
 }
-

@@ -4,10 +4,7 @@ import type { PageRegistration, WorkbenchViewRegistration, WorkspacePanelRegistr
 
 describe('registry setup', () => {
   it('publishes the initial static workbench views and workspace panels', () => {
-    expect(appRegistry.workbenchViews.map((view) => view.viewId)).toEqual([
-      'studio-desk',
-      'workspace-editor',
-    ])
+    expect(appRegistry.workbenchViews.map((view) => view.viewId)).toEqual(['studio-desk', 'workspace-editor'])
     expect(appRegistry.workspacePanels.map((panel) => panel.panelId)).toEqual([
       'assets',
       'viewport',

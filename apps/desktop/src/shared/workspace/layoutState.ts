@@ -1,9 +1,4 @@
-import {
-  LEFT_SLOTS,
-  RIGHT_SLOTS,
-  BOTTOM_SLOTS,
-  SLOT_IDS,
-} from './layoutConstants'
+import { LEFT_SLOTS, RIGHT_SLOTS, BOTTOM_SLOTS, SLOT_IDS } from './layoutConstants'
 import type {
   DockArea,
   SlotId,
@@ -32,11 +27,7 @@ function isRequiredCenterPanel(panel: WorkspacePanelConfig) {
   return (forcedDock ?? panel.defaultDock ?? null) === 'center'
 }
 
-export function getDockedPanelIdsForSlot(
-  panels: WorkspacePanelConfig[],
-  states: Record<string, WorkspacePanelState>,
-  slot: SlotId,
-) {
+export function getDockedPanelIdsForSlot(panels: WorkspacePanelConfig[], states: Record<string, WorkspacePanelState>, slot: SlotId) {
   return panels.filter((panel) => states[panel.id]?.mode === 'docked' && states[panel.id]?.dock === slot).map((panel) => panel.id)
 }
 
@@ -212,10 +203,13 @@ export function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefine
   return {
     panels: mergedPanels,
     slots: normalizeSlots(panels, mergedPanels, mergedSlots),
-    chrome: normalizeChrome({
-      ...defaults.chrome,
-      ...(snapshot?.chrome ?? {}),
-    }, panels),
+    chrome: normalizeChrome(
+      {
+        ...defaults.chrome,
+        ...(snapshot?.chrome ?? {}),
+      },
+      panels,
+    ),
   }
 }
 
@@ -227,10 +221,9 @@ export function createDefaultStoredState(panels: WorkspacePanelConfig[]) {
 export function sanitizeStoredState(snapshot: Partial<WorkspaceStoredState> | null | undefined, panels: WorkspacePanelConfig[]) {
   const rawPresets = snapshot?.presets ?? {}
   const presets = Object.fromEntries(
-    Object.entries(rawPresets).filter(([, value]) => typeof value === 'object' && value !== null).map(([name, value]) => [
-      name,
-      sanitizeSnapshot(value as Partial<WorkspaceSnapshot>, panels),
-    ]),
+    Object.entries(rawPresets)
+      .filter(([, value]) => typeof value === 'object' && value !== null)
+      .map(([name, value]) => [name, sanitizeSnapshot(value as Partial<WorkspaceSnapshot>, panels)]),
   )
 
   return {

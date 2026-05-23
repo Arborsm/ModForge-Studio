@@ -50,9 +50,10 @@ fn scalar_matches(expected: &str, actual: &str) -> bool {
         return true;
     }
 
-    if let (Some(expected_num), Some(actual_num)) =
-        (try_parse_number(expected_trimmed), try_parse_number(actual_trimmed))
-    {
+    if let (Some(expected_num), Some(actual_num)) = (
+        try_parse_number(expected_trimmed),
+        try_parse_number(actual_trimmed),
+    ) {
         return (expected_num - actual_num).abs() < f64::EPSILON;
     }
 
@@ -177,7 +178,9 @@ fn resolve_condition_value(
         let Some(actual) = context.daily_luck else {
             return Err("is missing from the simulation context".to_string());
         };
-        return Ok(Value::Number(serde_json::Number::from_f64(actual).unwrap_or_else(|| 0.into())));
+        return Ok(Value::Number(
+            serde_json::Number::from_f64(actual).unwrap_or_else(|| 0.into()),
+        ));
     }
     if name.eq_ignore_ascii_case("PlayerName") {
         let Some(actual) = context.player_name.as_deref() else {
@@ -280,7 +283,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasReadLetter") {
         if let Some(letter) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_read_letters, letter)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_read_letters,
+                letter,
+            )));
         }
         let values = context
             .has_read_letters
@@ -291,7 +297,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasVisitedLocation") {
         if let Some(location) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_visited_locations, location)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_visited_locations,
+                location,
+            )));
         }
         let values = context
             .has_visited_locations
@@ -313,7 +322,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasProfession") {
         if let Some(profession) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_professions, profession)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_professions,
+                profession,
+            )));
         }
         let values = context
             .has_professions
@@ -336,7 +348,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasConversationTopic") {
         if let Some(topic) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_conversation_topics, topic)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_conversation_topics,
+                topic,
+            )));
         }
         let values = context
             .has_conversation_topics
@@ -345,9 +360,14 @@ fn resolve_condition_value(
             .collect::<Vec<_>>();
         return Ok(Value::Array(values));
     }
-    if name.eq_ignore_ascii_case("HasDialogueAnswer") || name.eq_ignore_ascii_case("HasDialogueQuestionAnswered") {
+    if name.eq_ignore_ascii_case("HasDialogueAnswer")
+        || name.eq_ignore_ascii_case("HasDialogueQuestionAnswered")
+    {
         if let Some(answer) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_dialogue_answers, answer)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_dialogue_answers,
+                answer,
+            )));
         }
         let values = context
             .has_dialogue_answers
@@ -358,7 +378,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasCraftingRecipe") {
         if let Some(recipe) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_crafting_recipes, recipe)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_crafting_recipes,
+                recipe,
+            )));
         }
         let values = context
             .has_crafting_recipes
@@ -369,7 +392,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasCookingRecipe") {
         if let Some(recipe) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_cooking_recipes, recipe)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_cooking_recipes,
+                recipe,
+            )));
         }
         let values = context
             .has_cooking_recipes
@@ -398,7 +424,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasActiveQuest") {
         if let Some(quest) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_active_quests, quest)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_active_quests,
+                quest,
+            )));
         }
         let values = context
             .has_active_quests
@@ -409,7 +438,10 @@ fn resolve_condition_value(
     }
     if name.eq_ignore_ascii_case("HasCompletedQuest") {
         if let Some(quest) = arg {
-            return Ok(Value::Bool(list_contains(&context.has_completed_quests, quest)));
+            return Ok(Value::Bool(list_contains(
+                &context.has_completed_quests,
+                quest,
+            )));
         }
         let values = context
             .has_completed_quests
@@ -536,7 +568,8 @@ fn resolve_condition_value(
         return Ok(Value::Array(values));
     }
     if name.eq_ignore_ascii_case("HasFile") {
-        let relative_path = arg.ok_or_else(|| "uses `HasFile` without a file path argument".to_string())?;
+        let relative_path =
+            arg.ok_or_else(|| "uses `HasFile` without a file path argument".to_string())?;
         let root =
             project_root_path.ok_or_else(|| "requires a content pack root path".to_string())?;
         let candidate = path_from_relative(root, relative_path);
@@ -546,10 +579,14 @@ fn resolve_condition_value(
     }
     // Game runtime conditions that cannot be evaluated in simulation
     if name.eq_ignore_ascii_case("Query") {
-        return Err("requires game runtime (Query conditions are not supported in simulation)".to_string());
+        return Err(
+            "requires game runtime (Query conditions are not supported in simulation)".to_string(),
+        );
     }
     if name.eq_ignore_ascii_case("Random") {
-        return Err("is non-deterministic (Random conditions are not supported in simulation)".to_string());
+        return Err(
+            "is non-deterministic (Random conditions are not supported in simulation)".to_string(),
+        );
     }
     if name.eq_ignore_ascii_case("Relationship") {
         let npc = arg.ok_or_else(|| "uses `Relationship` without an NPC argument".to_string())?;
@@ -558,7 +595,9 @@ fn resolve_condition_value(
             .get(npc)
             .cloned()
             .map(Value::String)
-            .ok_or_else(|| format!("relationship for `{npc}` is missing from the simulation context"));
+            .ok_or_else(|| {
+                format!("relationship for `{npc}` is missing from the simulation context")
+            });
     }
     if name == INVALID_WHEN_TOKEN {
         return Err("contains a malformed `When` value; expected an object".to_string());
@@ -593,10 +632,7 @@ fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Resu
 
     for modifier in modifiers {
         if modifier.name.eq_ignore_ascii_case("inputSeparator") {
-            let separator = modifier
-                .value
-                .as_deref()
-                .unwrap_or(",");
+            let separator = modifier.value.as_deref().unwrap_or(",");
             match current {
                 Value::String(text) => {
                     let parts = text
@@ -607,7 +643,7 @@ fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Resu
                 }
                 _ => {
                     return Err(
-                        "uses an `inputSeparator` modifier on a non-string value".to_string(),
+                        "uses an `inputSeparator` modifier on a non-string value".to_string()
                     );
                 }
             }
@@ -617,18 +653,24 @@ fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Resu
                 .as_deref()
                 .ok_or_else(|| "uses a `valueAt` modifier without a value".to_string())?
                 .parse::<isize>()
-                .map_err(|_| {
-                    "uses a `valueAt` modifier with a non-numeric value".to_string()
-                })?;
+                .map_err(|_| "uses a `valueAt` modifier with a non-numeric value".to_string())?;
 
             match current {
                 Value::Array(arr) => {
                     let resolved = if index > 0 {
                         let pos = (index - 1) as usize;
-                        if pos < arr.len() { Some(arr[pos].clone()) } else { None }
+                        if pos < arr.len() {
+                            Some(arr[pos].clone())
+                        } else {
+                            None
+                        }
                     } else if index < 0 {
                         let pos = arr.len() as isize + index;
-                        if pos >= 0 { Some(arr[pos as usize].clone()) } else { None }
+                        if pos >= 0 {
+                            Some(arr[pos as usize].clone())
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     };
@@ -642,19 +684,25 @@ fn apply_input_modifiers(modifiers: &[&ConditionModifier], value: Value) -> Resu
                         .collect();
                     let resolved = if index > 0 {
                         let pos = (index - 1) as usize;
-                        if pos < parts.len() { Some(parts[pos].to_string()) } else { None }
+                        if pos < parts.len() {
+                            Some(parts[pos].to_string())
+                        } else {
+                            None
+                        }
                     } else if index < 0 {
                         let pos = parts.len() as isize + index;
-                        if pos >= 0 { Some(parts[pos as usize].to_string()) } else { None }
+                        if pos >= 0 {
+                            Some(parts[pos as usize].to_string())
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     };
                     current = Value::String(resolved.unwrap_or_default());
                 }
                 _ => {
-                    return Err(
-                        "uses a `valueAt` modifier on a non-array value".to_string()
-                    );
+                    return Err("uses a `valueAt` modifier on a non-array value".to_string());
                 }
             }
         }
@@ -705,7 +753,10 @@ fn evaluate_token_condition(
 ) -> Result<bool, String> {
     let actual = resolve_condition_value(&token.name, context, project_root_path);
 
-    let has_has_value = token.modifiers.iter().any(|m| m.name.eq_ignore_ascii_case("hasValue"));
+    let has_has_value = token
+        .modifiers
+        .iter()
+        .any(|m| m.name.eq_ignore_ascii_case("hasValue"));
 
     let actual = match actual {
         Ok(v) => v,
@@ -717,12 +768,9 @@ fn evaluate_token_condition(
         return value_matches_expected(expected, &actual);
     }
 
-    let (input_modifiers, comparison_modifiers): (Vec<_>, Vec<_>) = token
-        .modifiers
-        .iter()
-        .partition(|m| {
-            m.name.eq_ignore_ascii_case("valueAt")
-                || m.name.eq_ignore_ascii_case("inputSeparator")
+    let (input_modifiers, comparison_modifiers): (Vec<_>, Vec<_>) =
+        token.modifiers.iter().partition(|m| {
+            m.name.eq_ignore_ascii_case("valueAt") || m.name.eq_ignore_ascii_case("inputSeparator")
         });
 
     let actual = if input_modifiers.is_empty() {

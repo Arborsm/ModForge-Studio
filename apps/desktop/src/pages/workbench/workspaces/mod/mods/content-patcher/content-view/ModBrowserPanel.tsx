@@ -1,5 +1,5 @@
 import { Filter, FolderOpen, RefreshCw, Search, Upload } from 'lucide-react'
-import type { ModProjectSummary } from '@platform/desktop'
+import type { ModProjectSummary } from '@entities/mod/api'
 import { useModWorkspaceCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { getLoadingMotionChildRevealProps } from '@shared/ui/loading-motion'
@@ -30,8 +30,7 @@ function getPluginKindBadge(project: ModProjectSummary) {
 
   return {
     label: 'Unknown',
-    className:
-      'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[var(--text-primary)]',
+    className: 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_88%,transparent)] text-[var(--text-primary)]',
   }
 }
 
@@ -70,18 +69,13 @@ function ProjectRow({
       isIncompatible
         ? 'cursor-not-allowed border-[color-mix(in_srgb,#f97316_22%,var(--border-color))] bg-[color-mix(in_srgb,#fff7ed_58%,var(--bg-panel))] opacity-90'
         : active
-        ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
-        : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
+          ? 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--accent)_12%,transparent),color-mix(in_srgb,var(--accent)_6%,var(--bg-panel)))] shadow-[0_14px_28px_rgba(79,70,229,0.10)]'
+          : 'border-[var(--border-color)] bg-[var(--bg-panel)] hover:bg-[var(--bg-panel-muted)] hover:shadow-[0_10px_24px_rgba(15,23,42,0.08)]',
     ),
   })
 
   return (
-    <button
-      type="button"
-      disabled={isIncompatible}
-      {...revealProps}
-      onClick={onSelect}
-    >
+    <button type="button" disabled={isIncompatible} {...revealProps} onClick={onSelect}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{project.name}</p>
@@ -90,7 +84,7 @@ function ProjectRow({
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <span
             className={cx(
-              'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap',
+              'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] leading-none font-semibold whitespace-nowrap',
               pluginKindBadge.className,
             )}
           >
@@ -99,7 +93,7 @@ function ProjectRow({
           {statusBadge ? (
             <span
               className={cx(
-                'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] font-semibold leading-none whitespace-nowrap',
+                'inline-flex items-center rounded-md border px-2.5 py-1 text-[10px] leading-none font-semibold whitespace-nowrap',
                 statusBadge.className,
               )}
             >
@@ -148,7 +142,7 @@ export function ModBrowserPanel({
       <section className="panel-surface p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{copy.browserTitle}</p>
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">{copy.browserTitle}</p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">Get Started</h2>
           </div>
           <div className="grid shrink-0 gap-2 sm:grid-cols-2">
@@ -165,18 +159,18 @@ export function ModBrowserPanel({
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.projectsLabel}</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{copy.projectsLabel}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{projects.length}</p>
           </div>
           <div className="rounded-[20px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_95%,white_5%)] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{copy.filteredLabel}</p>
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-[var(--text-tertiary)] uppercase">{copy.filteredLabel}</p>
             <p className="mt-2 text-2xl font-semibold text-[var(--text-primary)]">{filteredProjects.length}</p>
           </div>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 lg:flex-row">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               className="control-input pl-9"
               value={modFilter}
@@ -221,9 +215,11 @@ export function ModBrowserPanel({
       <section className="panel-surface min-h-0 flex-1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Project Library</p>
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-[var(--text-tertiary)] uppercase">Project Library</p>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              {filteredProjects.length ? 'Choose one project to open it in the workspace.' : 'Import a mod or refresh the scan to populate the workspace list.'}
+              {filteredProjects.length
+                ? 'Choose one project to open it in the workspace.'
+                : 'Import a mod or refresh the scan to populate the workspace list.'}
             </p>
           </div>
           {activeProjectPath ? <span className="dock-chip">Active</span> : null}

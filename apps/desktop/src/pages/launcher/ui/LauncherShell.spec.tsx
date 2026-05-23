@@ -4,21 +4,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 
-const settingsPageSpy = vi.fn()
+const configurationPageSpy = vi.fn()
 let libraryPageInstanceCounter = 0
 
 vi.mock('./LauncherLibraryPage', () => ({
   LauncherLibraryPageContent: ({ launchGameLabel }: { launchGameLabel: string }) => {
     const instanceId = useRef(++libraryPageInstanceCounter)
-    return (
-      <div data-loading-section="launcher-library-test">
-        {`library-page:${launchGameLabel}:${instanceId.current}`}
-      </div>
-    )
+    return <div data-loading-section="launcher-library-test">{`library-page:${launchGameLabel}:${instanceId.current}`}</div>
   },
 }))
 
-vi.mock('@features/launcher', () => ({
+vi.mock('@features/launcher/model/useLauncherLibrary', () => ({
   useLauncherLibrary: vi.fn(() => ({
     mods: [],
     storageFolders: [],
@@ -77,10 +73,15 @@ vi.mock('./LauncherUpdatesPage', () => ({
   LauncherUpdatesPage: () => <div>updates-page</div>,
 }))
 
-vi.mock('./LauncherDebugPage', () => ({
-  LauncherDebugPage: (props: { debugEnabled: boolean; onToggleDebugMode: () => void; downloads: unknown }) => {
-    settingsPageSpy(props)
-    return <div>settings-page</div>
+vi.mock('./LauncherConfigurationPage', () => ({
+  LauncherConfigurationPage: (props: {
+    debugEnabled: boolean
+    onToggleDebugMode: () => void
+    downloads: unknown
+    settingsState: unknown
+  }) => {
+    configurationPageSpy(props)
+    return <div>configuration-page</div>
   },
 }))
 
@@ -90,7 +91,6 @@ const settingsState = {
     modsPath: null,
     downloadPath: null,
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -135,7 +135,7 @@ const downloads = {
 describe('LauncherShell', () => {
   afterEach(() => {
     cleanup()
-    settingsPageSpy.mockReset()
+    configurationPageSpy.mockReset()
     libraryPageInstanceCounter = 0
   })
 
@@ -237,12 +237,12 @@ describe('LauncherShell', () => {
     expect(await screen.findByText('updates-page')).toBeTruthy()
   })
 
-  it('routes the settings page', async () => {
+  it('routes the configuration page', async () => {
     const onToggleDebugMode = vi.fn()
 
     renderWithLocale(
       <LauncherShell
-        page="debug"
+        page="configuration"
         debugEnabled={true}
         settingsState={settingsState as never}
         downloads={downloads as never}
@@ -255,22 +255,23 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(await screen.findByText('settings-page')).toBeTruthy()
+    expect(await screen.findByText('configuration-page')).toBeTruthy()
     await waitFor(() => {
-      expect(settingsPageSpy).toHaveBeenCalledWith(
+      expect(configurationPageSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           debugEnabled: true,
           downloads,
           onToggleDebugMode,
+          settingsState,
         }),
       )
     })
   })
 
-  it('falls back to the library page when the debug page is requested while debug mode is disabled', () => {
+  it('routes the configuration page even when debug mode is disabled', async () => {
     renderWithLocale(
       <LauncherShell
-        page="debug"
+        page="configuration"
         debugEnabled={false}
         settingsState={settingsState as never}
         downloads={downloads as never}
@@ -283,8 +284,8 @@ describe('LauncherShell', () => {
       />,
     )
 
-    expect(screen.queryByText('settings-page')).toBeNull()
-    expect(screen.getByText('library-page:Launch Game:1')).toBeTruthy()
+    expect(await screen.findByText('configuration-page')).toBeTruthy()
+    expect(screen.queryByText('library-page:Launch Game:1')).toBeTruthy()
   })
 
   it('does not render a downloads page entry inside the shell', () => {

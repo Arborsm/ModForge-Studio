@@ -1,7 +1,7 @@
-import {useDeferredValue, useEffect, useMemo, useState} from 'react'
-import {deferToAnimationFrame, deferToTimeout} from '@shared/lib/react'
-import {type GameDirectoryInfo, loadTextAsset} from '@platform/desktop'
-import type {CharactersPanelCopy, LocaleCode} from '@locales'
+import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { deferToAnimationFrame, deferToTimeout } from '@shared/lib/react'
+import { type GameDirectoryInfo, loadTextAsset } from '@entities/game/api'
+import type { CharactersPanelCopy, LocaleCode } from '@locales'
 import {
   getLocalizedImagePathCandidates,
   getLocalizedPathCacheKey,
@@ -30,9 +30,16 @@ import {
   normalizeTagFragment,
   parseQualifiedGiftTasteObjectId,
 } from '@shared/lib/giftTasteHelpers'
-import { type BrowserSourceMode, buildModBrowserGroups, buildModEntryLookup, findModBrowserEntry, findModSources, type ModBrowserEntry } from '@pages/workbench/workspaces/mod'
+import {
+  type BrowserSourceMode,
+  buildModBrowserGroups,
+  buildModEntryLookup,
+  findModBrowserEntry,
+  findModSources,
+  type ModBrowserEntry,
+} from '@pages/workbench/workspaces/mod'
 import { useModAssetIndex } from '@pages/workbench/workspaces/mod'
-import {loadModResultImageState, loadModResultJsonValue} from '@pages/workbench/workspaces/mod'
+import { loadModResultImageState, loadModResultJsonValue } from '@pages/workbench/workspaces/mod'
 
 const MONSTER_DATA_ASSET_PATH = 'Content\\Data\\Monsters.xnb'
 
@@ -222,18 +229,21 @@ async function loadStringTable(rootPath: string, assetPath: string, locale: Loca
     .then((asset) => {
       const parsed = JSON.parse(asset.content) as Record<string, unknown>
       return Object.fromEntries(
-        Object.entries(parsed).flatMap(([key, value]) =>
-          typeof value === 'string' ? ([[key, value]] as const) : [],
-        ),
+        Object.entries(parsed).flatMap(([key, value]) => (typeof value === 'string' ? ([[key, value]] as const) : [])),
       )
     })
-    .catch(() => ({} as Record<string, string>))
+    .catch(() => ({}) as Record<string, string>)
 
   stringTableCache.set(cacheKey, pending)
   return pending
 }
 
-async function resolveLocalizedText(rootPath: string, locale: LocaleCode, value: string | null | undefined, depth = 0): Promise<string | null> {
+async function resolveLocalizedText(
+  rootPath: string,
+  locale: LocaleCode,
+  value: string | null | undefined,
+  depth = 0,
+): Promise<string | null> {
   const trimmed = value?.trim() ?? ''
   if (!trimmed) {
     return null
@@ -258,7 +268,11 @@ async function resolveLocalizedText(rootPath: string, locale: LocaleCode, value:
 }
 
 function normalizeMonsterTextureLookupKey(value: string) {
-  return value.trim().replaceAll('\\', '/').replace(/^Content\//iu, '').toLowerCase()
+  return value
+    .trim()
+    .replaceAll('\\', '/')
+    .replace(/^Content\//iu, '')
+    .toLowerCase()
 }
 
 function buildMonsterTextureLookupKeys(value: string) {
@@ -330,19 +344,19 @@ async function localizeCharacterEntries(
     entries.map(async (entry) => {
       const displayName = displayNameByInternalName.get(entry.internalName) ?? entry.displayName
       const loveInterestDisplayName = entry.loveInterest
-        ? (displayNameByInternalName.get(entry.loveInterest) ?? (await resolveLocalizedText(rootPath, locale, entry.loveInterest)) ?? entry.loveInterest)
+        ? (displayNameByInternalName.get(entry.loveInterest) ??
+          (await resolveLocalizedText(rootPath, locale, entry.loveInterest)) ??
+          entry.loveInterest)
         : null
       const friendsAndFamilyEntries = (
         await Promise.all(
-        Object.entries(entry.friendsAndFamily).map(async ([internalName, relation]) => ({
-          internalName,
-          displayName:
-            displayNameByInternalName.get(internalName) ??
-            (await resolveLocalizedText(rootPath, locale, internalName)) ??
+          Object.entries(entry.friendsAndFamily).map(async ([internalName, relation]) => ({
             internalName,
-          relation: (await resolveLocalizedText(rootPath, locale, relation)) ?? relation,
-        })),
-      )
+            displayName:
+              displayNameByInternalName.get(internalName) ?? (await resolveLocalizedText(rootPath, locale, internalName)) ?? internalName,
+            relation: (await resolveLocalizedText(rootPath, locale, relation)) ?? relation,
+          })),
+        )
       ).sort((left, right) => left.displayName.localeCompare(right.displayName))
 
       return {
@@ -737,13 +751,7 @@ async function attachGiftTasteEntries(
     const hatedGiftMatches: Array<{ item: CharacterGiftItem; source: GiftMatchSource }> = []
 
     for (const candidate of objectGiftCandidates) {
-      const match = resolveGiftTasteForCandidate(
-        entry.internalName,
-        candidate,
-        universalBuckets,
-        npcBuckets,
-        objectDisplayNameById,
-      )
+      const match = resolveGiftTasteForCandidate(entry.internalName, candidate, universalBuckets, npcBuckets, objectDisplayNameById)
       const giftItem: CharacterGiftItem = {
         itemId: candidate.itemId,
         objectIndex: candidate.objectIndex,
@@ -812,20 +820,9 @@ async function loadCharacterWorkspaceEntries(rootPath: string, locale: LocaleCod
     ])
 
     const nextCharacters = createCharacterEntryIndex(asset.content)
-    const localizedCharacters = await localizeCharacterEntries(
-      nextCharacters,
-      rootPath,
-      locale,
-      monsterDataAsset?.content ?? null,
-    )
+    const localizedCharacters = await localizeCharacterEntries(nextCharacters, rootPath, locale, monsterDataAsset?.content ?? null)
 
-    return attachGiftTasteEntries(
-      localizedCharacters,
-      rootPath,
-      locale,
-      giftTastesAsset?.content ?? null,
-      objectDataAsset?.content ?? null,
-    )
+    return attachGiftTasteEntries(localizedCharacters, rootPath, locale, giftTastesAsset?.content ?? null, objectDataAsset?.content ?? null)
   })
 }
 
@@ -846,12 +843,7 @@ function mergeCharacterAppearanceOverride(baseCharacter: CharacterWorkspaceEntry
   } satisfies CharacterWorkspaceEntry
 }
 
-export function useCharacterWorkspace({
-  directoryInfo,
-  locale,
-  copy,
-  enableVisualAssets = true,
-}: UseCharacterWorkspaceOptions) {
+export function useCharacterWorkspace({ directoryInfo, locale, copy, enableVisualAssets = true }: UseCharacterWorkspaceOptions) {
   const [characters, setCharacters] = useState<CharacterWorkspaceEntry[]>([])
   const [modCharacterOverride, setModCharacterOverride] = useState<CharacterWorkspaceEntry | null>(null)
   const [characterFilter, setCharacterFilter] = useState('')
@@ -909,9 +901,9 @@ export function useCharacterWorkspace({
     () => findModBrowserEntry(modCharacterGroups, activeModCharacterSelectionId),
     [activeModCharacterSelectionId, modCharacterGroups],
   )
-  const baseActiveCharacter = characters.find((character) => character.key === activeCharacterId) ?? filteredCharacters[0] ?? characters[0] ?? null
-  const activeCharacter =
-    modCharacterOverride?.key === baseActiveCharacter?.key ? modCharacterOverride : baseActiveCharacter
+  const baseActiveCharacter =
+    characters.find((character) => character.key === activeCharacterId) ?? filteredCharacters[0] ?? characters[0] ?? null
+  const activeCharacter = modCharacterOverride?.key === baseActiveCharacter?.key ? modCharacterOverride : baseActiveCharacter
   const activeVariant =
     activeCharacter?.variants.find((variant) => variant.key === activeVariantKey) ?? activeCharacter?.variants[0] ?? null
 
@@ -953,9 +945,7 @@ export function useCharacterWorkspace({
 
         setCharacters(hydratedCharacters)
         setActiveCharacterId((current) =>
-          current && hydratedCharacters.some((character) => character.key === current)
-            ? current
-            : hydratedCharacters[0]?.key ?? null,
+          current && hydratedCharacters.some((character) => character.key === current) ? current : (hydratedCharacters[0]?.key ?? null),
         )
         setCharacterStatusMessage(
           hydratedCharacters.length
@@ -1006,9 +996,7 @@ export function useCharacterWorkspace({
 
           const overrideCharacter =
             createCharacterEntryIndex(JSON.stringify(modContent)).find((character) => character.key === baseActiveCharacter.key) ?? null
-          setModCharacterOverride(
-            overrideCharacter ? mergeCharacterAppearanceOverride(baseActiveCharacter, overrideCharacter) : null,
-          )
+          setModCharacterOverride(overrideCharacter ? mergeCharacterAppearanceOverride(baseActiveCharacter, overrideCharacter) : null)
         } catch {
           if (!cancelled) {
             setModCharacterOverride(null)
@@ -1031,7 +1019,7 @@ export function useCharacterWorkspace({
       }
 
       setActiveVariantKey((current) =>
-          activeCharacter.variants.some((variant) => variant.key === current) ? current : activeCharacter.variants[0]?.key ?? 'default',
+        activeCharacter.variants.some((variant) => variant.key === current) ? current : (activeCharacter.variants[0]?.key ?? 'default'),
       )
     })
   }, [activeCharacter])
@@ -1043,12 +1031,10 @@ export function useCharacterWorkspace({
 
     return deferToAnimationFrame(() => {
       const nextEntry =
-          activeModCharacterEntry ??
-          modCharacterGroups
-              .flatMap((group) => group.items)
-              .find((item) => item.value.key === activeCharacterId) ??
-          modCharacterGroups[0]?.items[0] ??
-          null
+        activeModCharacterEntry ??
+        modCharacterGroups.flatMap((group) => group.items).find((item) => item.value.key === activeCharacterId) ??
+        modCharacterGroups[0]?.items[0] ??
+        null
 
       if (!nextEntry) {
         return
@@ -1119,9 +1105,14 @@ export function useCharacterWorkspace({
                 })
                   .then((result) => result ?? loadImageState(spritePath, locale))
                   .catch(() => ({ path: spritePath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }))
-              : loadImageState(spritePath, locale).catch(
-                  () => ({ path: spritePath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }),
-                ),
+              : loadImageState(spritePath, locale).catch(() => ({
+                  path: spritePath,
+                  url: null,
+                  width: null,
+                  height: null,
+                  originalWidth: null,
+                  originalHeight: null,
+                })),
             browserSourceMode === 'mod' && directoryInfo?.rootPath && activeModCharacterEntry
               ? loadModResultImageState({
                   rootPath: directoryInfo.rootPath,
@@ -1131,12 +1122,22 @@ export function useCharacterWorkspace({
                 })
                   .then((result) => result ?? loadImageState(portraitPath, locale))
                   .catch(() => ({ path: portraitPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }))
-              : loadImageState(portraitPath, locale).catch(
-                  () => ({ path: portraitPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }),
-                ),
-            loadImageState(springObjectsPath, locale).catch(
-              () => ({ path: springObjectsPath, url: null, width: null, height: null, originalWidth: null, originalHeight: null }),
-            ),
+              : loadImageState(portraitPath, locale).catch(() => ({
+                  path: portraitPath,
+                  url: null,
+                  width: null,
+                  height: null,
+                  originalWidth: null,
+                  originalHeight: null,
+                })),
+            loadImageState(springObjectsPath, locale).catch(() => ({
+              path: springObjectsPath,
+              url: null,
+              width: null,
+              height: null,
+              originalWidth: null,
+              originalHeight: null,
+            })),
           ])
 
           if (cancelled) {
@@ -1238,4 +1239,3 @@ export function useCharacterWorkspace({
     handleSelectVariant,
   }
 }
-

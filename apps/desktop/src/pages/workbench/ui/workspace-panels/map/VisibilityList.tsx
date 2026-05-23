@@ -93,7 +93,7 @@ export function GroupedVisibilityList({
   return (
     <div className="space-y-3 p-3">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
         <input
           className="control-input pl-9"
           value={filterValue}
@@ -112,10 +112,7 @@ export function GroupedVisibilityList({
             if (!group.grouped) {
               const item = group.items[0]
               return (
-                <div
-                  key={item.id}
-                  className={visibilitySectionClassName[variant]}
-                >
+                <div key={item.id} className={visibilitySectionClassName[variant]}>
                   <VisibilityRow
                     name={item.name}
                     meta={item.meta}
@@ -128,10 +125,7 @@ export function GroupedVisibilityList({
             }
 
             return (
-              <section
-                key={group.groupLabel}
-                className={visibilitySectionClassName[variant]}
-              >
+              <section key={group.groupLabel} className={visibilitySectionClassName[variant]}>
                 <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-3 py-2">
                   <button
                     type="button"
@@ -144,7 +138,7 @@ export function GroupedVisibilityList({
                     }
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
+                      <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">
                         {group.groupLabel}
                       </p>
                       <p className="text-[11px] text-[var(--text-secondary)]">
@@ -152,14 +146,11 @@ export function GroupedVisibilityList({
                       </p>
                     </div>
                     <ChevronDown
-                      className={cx(
-                        'h-4 w-4 shrink-0 text-[var(--text-secondary)] transition-transform',
-                        !isCollapsed && 'rotate-180',
-                      )}
+                      className={cx('h-4 w-4 shrink-0 text-[var(--text-secondary)] transition-transform', !isCollapsed && 'rotate-180')}
                     />
                   </button>
 
-                  <div className="flex shrink-0 gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                  <div className="flex shrink-0 gap-2 text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">
                     <button type="button" onClick={() => group.items.forEach((item) => item.setVisible(true))}>
                       <Eye className="h-3.5 w-3.5" />
                     </button>
@@ -188,9 +179,7 @@ export function GroupedVisibilityList({
           })}
         </div>
       ) : (
-        <div className={visibilityEmptyStateClassName[variant]}>
-          {emptyMessage}
-        </div>
+        <div className={visibilityEmptyStateClassName[variant]}>{emptyMessage}</div>
       )}
     </div>
   )

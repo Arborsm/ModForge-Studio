@@ -27,7 +27,22 @@ const WORKSPACE_TARGET_PREFIXES: Record<WorkspaceId, string[]> = {
   events: ['Data/Events'],
   characters: ['Portraits/', 'Characters/', 'Data/NPC'],
   buildings: ['Maps/', 'Data/Buildings', 'Data/Locations'],
-  items: ['Data/Objects', 'Data/Crops', 'Data/FruitTrees', 'Data/CookingRecipes', 'Data/CraftingRecipes', 'Data/BigCraftablesInformation', 'Data/Furniture', 'Data/ClothingInformation', 'Data/Boots', 'Data/Hats', 'Data/Weapons', 'Data/Tools', 'TileSheets/', 'LooseSprites/'],
+  items: [
+    'Data/Objects',
+    'Data/Crops',
+    'Data/FruitTrees',
+    'Data/CookingRecipes',
+    'Data/CraftingRecipes',
+    'Data/BigCraftablesInformation',
+    'Data/Furniture',
+    'Data/ClothingInformation',
+    'Data/Boots',
+    'Data/Hats',
+    'Data/Weapons',
+    'Data/Tools',
+    'TileSheets/',
+    'LooseSprites/',
+  ],
   mods: [],
 }
 
@@ -199,7 +214,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
-      <div className="w-[440px] max-w-[90vw] max-h-[85vh] flex flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
+      <div className="flex max-h-[85vh] w-[440px] max-w-[90vw] flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-panel)] shadow-xl">
         <div className="flex items-center justify-between border-b border-[var(--border-color)] px-4 py-3">
           <span className="text-sm font-semibold text-[var(--text-primary)]">
             {step === 1 ? 'Select Action' : isInclude ? 'Include File' : 'Select Target'}
@@ -235,11 +250,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
           </div>
         ) : isInclude ? (
           <div className="space-y-2 overflow-auto px-4 py-3">
-            <button
-              type="button"
-              className="mb-2 text-xs text-[var(--accent)] hover:underline"
-              onClick={() => setStep(1)}
-            >
+            <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
               ← Back
             </button>
 
@@ -252,9 +263,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
                 onChange={(e) => setFromFile(e.target.value)}
                 placeholder="e.g. assets/sub-content.json"
               />
-              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                Relative path to the content file to include.
-              </p>
+              <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Relative path to the content file to include.</p>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
@@ -274,20 +283,13 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
         ) : (
           <div className="flex min-h-0 flex-col">
             <div className="overflow-auto px-4 py-3">
-              <button
-                type="button"
-                className="mb-2 text-xs text-[var(--accent)] hover:underline"
-                onClick={() => setStep(1)}
-              >
+              <button type="button" className="mb-2 text-xs text-[var(--accent)] hover:underline" onClick={() => setStep(1)}>
                 ← Back
               </button>
 
               <div className="space-y-1">
                 {selectedAction &&
-                  filterTargetsByWorkspace(
-                    COMMON_TARGETS[selectedAction as Exclude<ActionType, 'Include'>],
-                    workspaceId,
-                  ).map((target) => (
+                  filterTargetsByWorkspace(COMMON_TARGETS[selectedAction as Exclude<ActionType, 'Include'>], workspaceId).map((target) => (
                     <button
                       key={target}
                       type="button"
@@ -319,12 +321,7 @@ export function AddPatchDialog({ open, workspaceId, onClose, onAdd }: AddPatchDi
               <button type="button" className="control-button text-xs" onClick={onClose}>
                 Cancel
               </button>
-              <button
-                type="button"
-                className="control-button control-button-primary text-xs"
-                disabled={!targetToUse}
-                onClick={handleAdd}
-              >
+              <button type="button" className="control-button control-button-primary text-xs" disabled={!targetToUse} onClick={handleAdd}>
                 Add Patch
               </button>
             </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useLauncherPort } from '@features/launcher'
+import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings } from './launcherContracts'
 import { getLauncherCopy, type LocaleCode } from '@locales/editor-shell'
 import { reportAppEvent } from '@shared/lib/observability'
@@ -10,13 +10,23 @@ const DEFAULT_SETTINGS: LauncherSettings = {
   modsPath: null,
   downloadPath: null,
   nexusApiKey: null,
-  nexusCookie: null,
   autoInstallDownloads: false,
   keepDownloadedArchives: false,
   autoCheckModUpdates: true,
 }
 
 const AUTOSAVE_DELAY_MS = 700
+
+function defaultDownloadPath() {
+  const home =
+    typeof process !== 'undefined' && typeof process.env?.USERPROFILE === 'string'
+      ? process.env.USERPROFILE
+      : typeof process !== 'undefined' && typeof process.env?.HOME === 'string'
+        ? process.env.HOME
+        : null
+
+  return home ? `${home.replace(/[\\/]+$/, '')}\\Downloads\\ModForge Studio` : null
+}
 
 function deriveModsPath(gamePath: string) {
   const trimmedPath = gamePath.trim().replace(/[\\/]+$/, '')
@@ -35,7 +45,6 @@ function normalizePersistedLauncherSettings(settings: LauncherSettings): Launche
     modsPath: settings.modsPath?.trim() ? settings.modsPath : null,
     downloadPath: settings.downloadPath?.trim() ? settings.downloadPath : null,
     nexusApiKey: settings.nexusApiKey?.trim() ? settings.nexusApiKey : null,
-    nexusCookie: settings.nexusCookie?.trim() ? settings.nexusCookie : null,
     autoCheckModUpdates: settings.autoCheckModUpdates ?? true,
   }
 }
@@ -44,11 +53,13 @@ function resolveLauncherSettings(settings: LauncherSettings): LauncherSettings {
   const normalized = normalizePersistedLauncherSettings(settings)
   const nextGamePath = normalized.gamePath
   const nextModsPath = normalized.modsPath?.trim() ? normalized.modsPath : nextGamePath ? deriveModsPath(nextGamePath) : null
+  const nextDownloadPath = normalized.downloadPath?.trim() ? normalized.downloadPath : defaultDownloadPath()
 
   return {
     ...normalized,
     gamePath: nextGamePath,
     modsPath: nextModsPath,
+    downloadPath: nextDownloadPath,
   }
 }
 
@@ -66,7 +77,6 @@ function launcherSettingsEqual(left: LauncherSettings | null, right: LauncherSet
     left.modsPath === right.modsPath &&
     left.downloadPath === right.downloadPath &&
     left.nexusApiKey === right.nexusApiKey &&
-    left.nexusCookie === right.nexusCookie &&
     left.autoInstallDownloads === right.autoInstallDownloads &&
     left.keepDownloadedArchives === right.keepDownloadedArchives &&
     left.autoCheckModUpdates === right.autoCheckModUpdates
@@ -232,9 +242,12 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     }
   }, [])
 
-  const save = useCallback(async (options?: { notifySuccess?: boolean }) => {
-    return persistSettings(resolvedSettings, options)
-  }, [persistSettings, resolvedSettings])
+  const save = useCallback(
+    async (options?: { notifySuccess?: boolean }) => {
+      return persistSettings(resolvedSettings, options)
+    },
+    [persistSettings, resolvedSettings],
+  )
 
   useEffect(() => {
     if (state !== 'ready' || launcherSettingsEqual(resolvedSettings, lastPersistedSettings)) {

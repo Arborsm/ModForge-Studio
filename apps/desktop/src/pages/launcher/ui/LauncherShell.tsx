@@ -2,20 +2,16 @@ import { Suspense, lazy, useMemo } from 'react'
 import type { LauncherPage } from '@locales/editor-shell'
 import type { LauncherNexusDiagnosticsResult } from '@shared/contracts'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
-import { useLauncherDownloads } from '@features/launcher'
-import { useLauncherLibrary } from '@features/launcher'
-import { useLauncherSettings } from '@features/launcher'
+import { useLauncherDownloads } from '@features/launcher/model/useLauncherDownloads'
+import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
+import { useLauncherSettings } from '@features/launcher/model/useLauncherSettings'
 import { LauncherLibraryPageContent } from './LauncherLibraryPage'
 import { cx } from '@shared/lib/cx'
 
-const LauncherDiscoverPage = lazy(() =>
-  import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })),
-)
-const LauncherUpdatesPage = lazy(() =>
-  import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })),
-)
-const LauncherDebugPage = lazy(() =>
-  import('./LauncherDebugPage').then((module) => ({ default: module.LauncherDebugPage })),
+const LauncherDiscoverPage = lazy(() => import('./LauncherDiscoverPage').then((module) => ({ default: module.LauncherDiscoverPage })))
+const LauncherUpdatesPage = lazy(() => import('./LauncherUpdatesPage').then((module) => ({ default: module.LauncherUpdatesPage })))
+const LauncherConfigurationPage = lazy(() =>
+  import('./LauncherConfigurationPage').then((module) => ({ default: module.LauncherConfigurationPage })),
 )
 
 type LauncherShellProps = {
@@ -49,7 +45,7 @@ export default function LauncherShell({
   launchGameBusy,
   onLaunchGame,
 }: LauncherShellProps) {
-  const activePage = !debugEnabled && page === 'debug' ? 'library' : page
+  const activePage = page
   const library = useLauncherLibrary(settingsState.settings)
   const libraryPage = useMemo(
     () => (
@@ -60,9 +56,10 @@ export default function LauncherShell({
         launchGameDisabled={launchGameDisabled}
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
+        onQueueDownload={downloads.queueDownload}
       />
     ),
-    [library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
+    [downloads.queueDownload, library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
   )
 
   return (
@@ -102,6 +99,7 @@ export default function LauncherShell({
               <LauncherUpdatesPage
                 settings={settingsState.settings}
                 onQueueDownload={downloads.queueDownload}
+                onQueueDownloads={downloads.queueDownloads}
                 onNavigateToDiagnostics={onNavigateToDiagnostics}
                 onRetryDiagnostics={onRetryDiagnostics}
                 onNavigateToSettings={onNavigateToSettings}
@@ -110,16 +108,17 @@ export default function LauncherShell({
           </Suspense>
         </div>
         <div
-          key="debug"
-          hidden={activePage !== 'debug' || !debugEnabled}
-          className={cx('launcher-shell-route', activePage === 'debug' && debugEnabled && 'launcher-shell-route-active')}
+          key="configuration"
+          hidden={activePage !== 'configuration'}
+          className={cx('launcher-shell-route', activePage === 'configuration' && 'launcher-shell-route-active')}
         >
           <Suspense fallback={<LoadingMotionFallback />}>
-            {activePage === 'debug' && debugEnabled ? (
-              <LauncherDebugPage
+            {activePage === 'configuration' ? (
+              <LauncherConfigurationPage
                 debugEnabled={debugEnabled}
                 onToggleDebugMode={onToggleDebugMode}
                 onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
+                settingsState={settingsState}
                 downloads={downloads}
               />
             ) : null}

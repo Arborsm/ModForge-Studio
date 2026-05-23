@@ -9,12 +9,7 @@ type LauncherInstallSummaryDialogProps = {
   onManageBackups: () => void
 }
 
-export function LauncherInstallSummaryDialog({
-  open,
-  result,
-  onClose,
-  onManageBackups,
-}: LauncherInstallSummaryDialogProps) {
+export function LauncherInstallSummaryDialog({ open, result, onClose, onManageBackups }: LauncherInstallSummaryDialogProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
 
@@ -24,7 +19,12 @@ export function LauncherInstallSummaryDialog({
 
   return (
     <div className="launcher-modal-backdrop launcher-library-dialog-backdrop" role="presentation">
-      <section className="launcher-library-dialog launcher-library-install-dialog" role="dialog" aria-modal="true" aria-label={copy.library.installSummaryTitle}>
+      <section
+        className="launcher-library-dialog launcher-library-install-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={copy.library.installSummaryTitle}
+      >
         <div className="launcher-library-dialog-header">
           <h2 className="launcher-library-dialog-title">{copy.library.installSummaryTitle}</h2>
           <p className="launcher-library-dialog-copy">{copy.library.installSummarySubtitle}</p>
@@ -48,7 +48,10 @@ export function LauncherInstallSummaryDialog({
             </div>
           </PanelSection>
 
-          <PanelSection title={copy.overview.installedMods} subtitle={copy.library.installSummaryInstalledMods(result.installedMods.length)}>
+          <PanelSection
+            title={copy.overview.installedMods}
+            subtitle={copy.library.installSummaryInstalledMods(result.installedMods.length)}
+          >
             <div className="launcher-library-install-list">
               {result.installedMods.map((item) => (
                 <article key={`${item.targetPath}:${item.uniqueId ?? item.modName}`} className="launcher-library-install-card">

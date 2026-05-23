@@ -278,9 +278,7 @@ function parseRectangleLike(value: RawRectangleLike) {
   }
 
   if (typeof value === 'string') {
-    const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/u.exec(
-      value,
-    )
+    const match = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/u.exec(value)
     if (!match) {
       return null
     }
@@ -584,11 +582,8 @@ export function createConstructibleBuildingGroups(entries: BuildingWorkspaceEntr
       const groupEntries = rootEntry.upgradeChainKeys
         .map((key) => entries.find((entry) => entry.key === key && entry.sourceKind === 'constructible') ?? null)
         .filter((entry): entry is BuildingWorkspaceEntry => entry != null)
-      const displayName =
-        rootEntry.generalTypeDisplayName ??
-        rootEntry.displayName
-      const builderLabel =
-        groupEntries.map((entry) => entry.builder).find((value): value is string => Boolean(value)) ?? null
+      const displayName = rootEntry.generalTypeDisplayName ?? rootEntry.displayName
+      const builderLabel = groupEntries.map((entry) => entry.builder).find((value): value is string => Boolean(value)) ?? null
 
       return {
         key: rootEntry.key,

@@ -121,8 +121,7 @@ function stripPortraitCommand(value: string) {
     }
 
     const command = match[1].toLowerCase()
-    const resolvedPortraitIndex =
-      /^\d+$/u.test(command) ? Number.parseInt(command, 10) : (DIALOGUE_PORTRAIT_ALIAS_INDEX[command] ?? null)
+    const resolvedPortraitIndex = /^\d+$/u.test(command) ? Number.parseInt(command, 10) : (DIALOGUE_PORTRAIT_ALIAS_INDEX[command] ?? null)
 
     if (resolvedPortraitIndex == null) {
       return { text, portraitIndex }
@@ -147,6 +146,7 @@ function parseDialoguePage(raw: string, index: number): EventDialoguePage | null
   }
 }
 
+/** Parses Stardew dialogue markup into UI-ready dialogue pages. */
 export function parseDialoguePages(raw: string): EventDialoguePage[] {
   const pages = raw
     .split(DIALOGUE_PAGE_BREAK_PATTERN)
@@ -186,14 +186,17 @@ function formatActorMoveGroups(args: string[]) {
   return groups
 }
 
+/** Splits an event data key into event id and precondition segments. */
 export function splitEventPreconditions(rawKey: string) {
   return splitOutsideQuotes(rawKey, '/')
 }
 
+/** Splits an event script into raw command segments while respecting quoted text. */
 export function parseEventCommands(rawScript: string) {
   return splitOutsideQuotes(rawScript, '/')
 }
 
+/** Parses the first event script segments into music, camera, and actor setup metadata. */
 export function parseEventSceneSetup(rawSegments: string[]): EventSceneSetup {
   const musicCue = rawSegments[0] ?? null
   const cameraInstruction = rawSegments[1] ?? null
@@ -362,6 +365,7 @@ function parseCommandDetail(command: string, args: string[]) {
   }
 }
 
+/** Parses one raw event command into a structured command for timelines and graphs. */
 export function parseEventCommand(raw: string, index: number): EventCommand {
   const args = splitSpaceQuoteAware(raw).map(stripOuterQuotes)
   const command = (args[0] ?? '').trim()
@@ -396,7 +400,10 @@ export function parseEventCommand(raw: string, index: number): EventCommand {
     eventCommand.animationFlip = args[2] === 'true'
     eventCommand.animationLoop = args[3] === 'true'
     eventCommand.animationFrameDurationMs = Number.parseInt(args[4] ?? '', 10)
-    eventCommand.animationFrames = args.slice(5).map((value) => Number.parseInt(value, 10)).filter(Number.isFinite)
+    eventCommand.animationFrames = args
+      .slice(5)
+      .map((value) => Number.parseInt(value, 10))
+      .filter(Number.isFinite)
   } else if (command === 'stopAnimation') {
     eventCommand.actorName = args[1]
     const frame = Number.parseInt(args[2] ?? '', 10)
@@ -427,6 +434,7 @@ export function parseEventCommand(raw: string, index: number): EventCommand {
   return eventCommand
 }
 
+/** Parses a loaded event asset JSON file into sorted event scripts and lookup indexes. */
 export function parseEventAssetContent(
   content: string,
   asset: EventAssetSummary,
@@ -468,6 +476,7 @@ type PositionedEvent = {
   nextY: number
 }
 
+/** Builds a display graph for one event, following branch and switchEvent references. */
 export function buildEventGraph(rootEvent: EventScript | null, eventIndex: Record<string, EventScript>): EventGraph {
   if (!rootEvent) {
     return { nodes: [], edges: [] }
@@ -516,8 +525,7 @@ export function buildEventGraph(rootEvent: EventScript | null, eventIndex: Recor
 
     for (const command of event.commands) {
       const nodeId = `${event.key}::${command.index}`
-      const nextRealNodeId =
-        command.index + 1 < event.commands.length ? `${event.key}::${command.index + 1}` : null
+      const nextRealNodeId = command.index + 1 < event.commands.length ? `${event.key}::${command.index + 1}` : null
 
       nodes.push({
         id: nodeId,
@@ -598,22 +606,12 @@ export function buildEventGraph(rootEvent: EventScript | null, eventIndex: Recor
         if (targetEvent && !activeKeys.has(targetEvent.key)) {
           const targetPlacement = placeEvent(targetEvent, depth + 1, currentY)
           if (targetPlacement.firstNodeId) {
-            addEdge(
-              nodeId,
-              targetPlacement.firstNodeId,
-              command.targetEventKey,
-              command.command === 'switchEvent' ? 'switch' : 'branch',
-            )
+            addEdge(nodeId, targetPlacement.firstNodeId, command.targetEventKey, command.command === 'switchEvent' ? 'switch' : 'branch')
           }
         } else if (targetEvent) {
           const targetPlacement = placedEvents.get(targetEvent.key)
           if (targetPlacement?.firstNodeId) {
-            addEdge(
-              nodeId,
-              targetPlacement.firstNodeId,
-              command.targetEventKey,
-              command.command === 'switchEvent' ? 'switch' : 'branch',
-            )
+            addEdge(nodeId, targetPlacement.firstNodeId, command.targetEventKey, command.command === 'switchEvent' ? 'switch' : 'branch')
           }
         }
       }

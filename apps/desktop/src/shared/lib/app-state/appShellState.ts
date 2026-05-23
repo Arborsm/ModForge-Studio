@@ -1,10 +1,6 @@
 import type { AppMode, LauncherPage } from '@locales/editor-shell'
 
-export const APP_MODE_STORAGE_KEY = 'modforge:app-mode'
-export const LAUNCHER_PAGE_STORAGE_KEY = 'modforge:launcher-page'
-export const DEBUG_ENABLED_STORAGE_KEY = 'modforge:debug-enabled'
-export const NOTIFICATION_SOUND_ENABLED_STORAGE_KEY = 'modforge:notification-sound-enabled'
-
+/** Minimal app shell state kept for legacy/local callers that do not need full AppUiState. */
 export type AppShellState = {
   appMode: AppMode
   launcherPage: LauncherPage
@@ -12,6 +8,7 @@ export type AppShellState = {
   notificationSoundEnabled: boolean
 }
 
+/** Default shell route and toggle state. */
 export const DEFAULT_APP_SHELL_STATE: AppShellState = {
   appMode: 'launcher',
   launcherPage: 'library',
@@ -26,17 +23,13 @@ type AppShellStateInput = {
   notificationSoundEnabled?: boolean | string | null
 }
 
-const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'debug']
+const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']
 
 function isAppMode(value: string | null): value is AppMode {
   return value === 'workbench' || value === 'launcher'
 }
 
 function parseLauncherPage(value: string | null): LauncherPage | null {
-  if (value === 'settings') {
-    return 'debug'
-  }
-
   return !!value && launcherPages.includes(value as LauncherPage) ? (value as LauncherPage) : null
 }
 
@@ -60,6 +53,7 @@ function parseStoredBoolean(value: string | null, fallback: boolean) {
   return fallback
 }
 
+/** Normalizes persisted shell state values from booleans or string-backed storage. */
 export function normalizeAppShellState(input?: AppShellStateInput | null): AppShellState {
   const appMode = input?.appMode ?? null
   const launcherPage = input?.launcherPage ?? null
@@ -69,15 +63,10 @@ export function normalizeAppShellState(input?: AppShellStateInput | null): AppSh
   return {
     appMode: isAppMode(appMode) ? appMode : DEFAULT_APP_SHELL_STATE.appMode,
     launcherPage: parseLauncherPage(launcherPage) ?? DEFAULT_APP_SHELL_STATE.launcherPage,
-    debugEnabled:
-      typeof debugEnabled === 'boolean'
-        ? debugEnabled
-        : isDebugEnabled(debugEnabled == null ? null : String(debugEnabled)),
+    debugEnabled: typeof debugEnabled === 'boolean' ? debugEnabled : isDebugEnabled(debugEnabled == null ? null : String(debugEnabled)),
     notificationSoundEnabled:
       typeof notificationSoundEnabled === 'boolean'
         ? notificationSoundEnabled
-        : isNotificationSoundEnabled(
-            notificationSoundEnabled == null ? null : String(notificationSoundEnabled),
-          ),
+        : isNotificationSoundEnabled(notificationSoundEnabled == null ? null : String(notificationSoundEnabled)),
   }
 }

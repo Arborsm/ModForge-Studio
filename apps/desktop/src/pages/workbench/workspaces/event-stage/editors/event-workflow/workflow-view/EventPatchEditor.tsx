@@ -58,18 +58,19 @@ export function EventPatchEditor({
   const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
   const entries = (editorState['entries'] as Record<string, unknown> | undefined) ?? EMPTY_ENTRIES
   const fields = (editorState['fields'] as Record<string, Record<string, string>> | undefined) ?? {}
-  const moveEntries = (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
+  const moveEntries =
+    (editorState['moveEntries'] as Array<{ id: string; beforeId?: string; afterId?: string; toPosition?: string }> | undefined) ?? []
   const gameRootPath = externalGameRootPath ?? draft.projectMetadata.gameRootPath ?? null
   const [conditionBuilderOpen, setConditionBuilderOpen] = useState(false)
 
   const activeTab: EditorTab = 'events'
   const entryKeys = useMemo(() => Object.keys(entries), [entries])
-  const selectedKey = selectedEventKey && entries[selectedEventKey] != null ? selectedEventKey : entryKeys[0] ?? null
+  const selectedKey = selectedEventKey && entries[selectedEventKey] != null ? selectedEventKey : (entryKeys[0] ?? null)
   const setSelectedKey: (key: string | null) => void = () => {}
   const hubPatch = useMemo(() => buildEventPatchHubPatches([patch])[0] ?? null, [patch])
-  const conditionBuilderEvent = selectedKey ? hubPatch?.events.find((event) => event.key === selectedKey) ?? null : null
+  const conditionBuilderEvent = selectedKey ? (hubPatch?.events.find((event) => event.key === selectedKey) ?? null) : null
   const eventAliases = eventAliasesFromState(editorState)
-  const conditionBuilderAlias = conditionBuilderEvent ? eventAliases[conditionBuilderEvent.key] ?? '' : ''
+  const conditionBuilderAlias = conditionBuilderEvent ? (eventAliases[conditionBuilderEvent.key] ?? '') : ''
 
   function updateEntries(newEntries: Record<string, unknown>) {
     onPatchChange(patch.id, {
@@ -120,7 +121,7 @@ export function EventPatchEditor({
     }
 
     const disabledKeys = Array.isArray(editorState['disabledEventKeys'])
-      ? editorState['disabledEventKeys'].map((key) => key === selectedKey ? result.eventKey : key)
+      ? editorState['disabledEventKeys'].map((key) => (key === selectedKey ? result.eventKey : key))
       : []
     onPatchChange(patch.id, {
       editorState: {
@@ -194,8 +195,9 @@ function eventAliasesFromState(state: Record<string, unknown>): Record<string, s
   }
 
   return Object.fromEntries(
-    Object.entries(state['eventAliases'] as Record<string, unknown>)
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    Object.entries(state['eventAliases'] as Record<string, unknown>).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
   )
 }
 
@@ -226,7 +228,7 @@ function EventsEditor({
   conditionBuilderLabel: string
   onOpenConditionBuilder: () => void
 }) {
-  const selectedEntry = selectedKey ? entries[selectedKey] ?? null : null
+  const selectedEntry = selectedKey ? (entries[selectedKey] ?? null) : null
   const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
   const [pickingActorIndex, setPickingActorIndex] = useState<number | null>(null)
   const isPickMode = useEditorStore((state) => state.isPickMode)
@@ -300,8 +302,15 @@ function EventsEditor({
     if (!selectedKey || !parsedEvent) {
       return
     }
-    const actorSegment = nextScene.actors.map((actor) => `${actor.actorName} ${actor.tileX} ${actor.tileY} ${actor.facingDirection}`).join(' ')
-    const newSegments = ensureSegmentPadding([nextScene.musicCue ?? '', nextScene.cameraInstruction ?? '', actorSegment, ...parsedEvent.segments.slice(3)])
+    const actorSegment = nextScene.actors
+      .map((actor) => `${actor.actorName} ${actor.tileX} ${actor.tileY} ${actor.facingDirection}`)
+      .join(' ')
+    const newSegments = ensureSegmentPadding([
+      nextScene.musicCue ?? '',
+      nextScene.cameraInstruction ?? '',
+      actorSegment,
+      ...parsedEvent.segments.slice(3),
+    ])
     updateEntries({ ...entries, [selectedKey]: newSegments.join('/') })
   }
 
@@ -334,9 +343,7 @@ function EventsEditor({
     if (pickingActorIndex === null || !parsedEvent || !selectedKey) {
       return
     }
-    const newActors = parsedEvent.scene.actors.map((actor, index) =>
-      index === pickingActorIndex ? { ...actor, tileX, tileY } : actor,
-    )
+    const newActors = parsedEvent.scene.actors.map((actor, index) => (index === pickingActorIndex ? { ...actor, tileX, tileY } : actor))
     handleSceneChange({ ...parsedEvent.scene, actors: newActors })
     setPickingActorIndex(null)
   }
@@ -417,7 +424,13 @@ function EventsEditor({
               additionalViewportOverlay={
                 <PickModeOverlay
                   active={isPickMode || pickingActorIndex !== null}
-                  label={isPickMode ? 'Click the map to choose coordinates' : pickingActorIndex !== null ? 'Click the map to place the actor' : undefined}
+                  label={
+                    isPickMode
+                      ? 'Click the map to choose coordinates'
+                      : pickingActorIndex !== null
+                        ? 'Click the map to place the actor'
+                        : undefined
+                  }
                 />
               }
             />
@@ -450,13 +463,13 @@ function FieldsEditor({
   updateFields: (fields: Record<string, Record<string, string>>) => void
 }) {
   const entryList = Object.entries(fields)
-  const selectedFieldMap = selectedKey ? fields[selectedKey] ?? null : null
+  const selectedFieldMap = selectedKey ? (fields[selectedKey] ?? null) : null
 
   return (
     <div className="flex min-h-0 flex-1">
       <div className="flex w-64 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)]">
         <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+          <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
             Entries ({entryList.length})
           </span>
           <button
@@ -623,51 +636,54 @@ function TextOpsEditor({
                   </button>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
-                  <label className="grid gap-1 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+                  <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
                     Target
                     <input
                       type="text"
-                      className="control-input h-9 text-xs normal-case tracking-normal"
+                      className="control-input h-9 text-xs tracking-normal normal-case"
                       value={op.target.join(', ')}
                       onChange={(event) => {
-                        const parts = event.target.value.split(',').map((part) => part.trim()).filter(Boolean)
+                        const parts = event.target.value
+                          .split(',')
+                          .map((part) => part.trim())
+                          .filter(Boolean)
                         updateOp(index, { target: parts.length ? parts : [''] })
                       }}
                     />
                   </label>
-                  <label className="grid gap-1 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+                  <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
                     Delimiter
                     <input
                       type="text"
-                      className="control-input h-9 text-xs normal-case tracking-normal"
+                      className="control-input h-9 text-xs tracking-normal normal-case"
                       value={op.delimiter ?? ''}
                       onChange={(event) => updateOp(index, { delimiter: event.target.value || undefined })}
                     />
                   </label>
-                  <label className="grid gap-1 text-[10px] uppercase tracking-wider text-[var(--text-secondary)] md:col-span-2">
+                  <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase md:col-span-2">
                     {op.operation === 'RemoveDelimited' ? 'Value to remove' : 'Value'}
                     <input
                       type="text"
-                      className="control-input h-9 text-xs normal-case tracking-normal"
+                      className="control-input h-9 text-xs tracking-normal normal-case"
                       value={op.value}
                       onChange={(event) => updateOp(index, { value: event.target.value })}
                     />
                   </label>
-                  {(op.operation === 'ReplaceDelimited' || op.operation === 'RemoveDelimited') ? (
+                  {op.operation === 'ReplaceDelimited' || op.operation === 'RemoveDelimited' ? (
                     <>
-                      <label className="grid gap-1 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+                      <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
                         Search
                         <input
                           type="text"
-                          className="control-input h-9 text-xs normal-case tracking-normal"
+                          className="control-input h-9 text-xs tracking-normal normal-case"
                           value={op.search ?? ''}
                           onChange={(event) => updateOp(index, { search: event.target.value || undefined })}
                         />
                       </label>
-                      <label className="grid gap-1 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+                      <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
                         ReplaceMode
                         <select
-                          className="control-input h-9 text-xs normal-case tracking-normal"
+                          className="control-input h-9 text-xs tracking-normal normal-case"
                           value={op.replaceMode ?? 'First'}
                           onChange={(event) => updateOp(index, { replaceMode: event.target.value as 'First' | 'All' })}
                         >
@@ -735,9 +751,21 @@ function MoveEntriesEditor({
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
                   <MoveEntryInput label="ID" value={entry.id} onChange={(value) => updateEntry(index, { id: value })} />
-                  <MoveEntryInput label="ToPosition" value={entry.toPosition ?? ''} onChange={(value) => updateEntry(index, { toPosition: value || undefined })} />
-                  <MoveEntryInput label="BeforeId" value={entry.beforeId ?? ''} onChange={(value) => updateEntry(index, { beforeId: value || undefined })} />
-                  <MoveEntryInput label="AfterId" value={entry.afterId ?? ''} onChange={(value) => updateEntry(index, { afterId: value || undefined })} />
+                  <MoveEntryInput
+                    label="ToPosition"
+                    value={entry.toPosition ?? ''}
+                    onChange={(value) => updateEntry(index, { toPosition: value || undefined })}
+                  />
+                  <MoveEntryInput
+                    label="BeforeId"
+                    value={entry.beforeId ?? ''}
+                    onChange={(value) => updateEntry(index, { beforeId: value || undefined })}
+                  />
+                  <MoveEntryInput
+                    label="AfterId"
+                    value={entry.afterId ?? ''}
+                    onChange={(value) => updateEntry(index, { afterId: value || undefined })}
+                  />
                 </div>
               </div>
             ))}
@@ -754,11 +782,11 @@ function MoveEntriesEditor({
 
 function MoveEntryInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-1 text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">
+    <label className="grid gap-1 text-[10px] tracking-wider text-[var(--text-secondary)] uppercase">
       {label}
       <input
         type="text"
-        className="control-input h-9 text-xs normal-case tracking-normal"
+        className="control-input h-9 text-xs tracking-normal normal-case"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />

@@ -11,16 +11,16 @@ import type {
   LauncherNexusDiagnosticsResult,
   LauncherRemoteModDetail,
   LauncherSettings,
-} from '@platform/desktop'
-import * as desktop from '@platform/desktop'
+} from '@features/launcher/api'
+import * as desktop from '@features/launcher/api'
 import { getLauncherCopy } from '@locales/editor-shell'
 import { useLauncherLibrary } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import type { LauncherPort } from './launcherPort'
 
-vi.mock('@platform/desktop', async () => {
-  const actual = await vi.importActual<typeof import('@platform/desktop')>('@platform/desktop')
+vi.mock('@features/launcher/api', async () => {
+  const actual = await vi.importActual<typeof import('@features/launcher/api')>('@features/launcher/api')
   return {
     ...actual,
     checkLauncherUpdates: vi.fn(),
@@ -92,7 +92,6 @@ function createSettings(overrides: Partial<LauncherSettings> = {}): LauncherSett
     modsPath: 'E:\\Games\\Stardew Valley\\Mods',
     downloadPath: 'E:\\Downloads\\Mods',
     nexusApiKey: null,
-    nexusCookie: null,
     autoInstallDownloads: false,
     keepDownloadedArchives: false,
     autoCheckModUpdates: true,
@@ -111,6 +110,8 @@ function createLibraryState(overrides: Partial<LauncherLibraryState> = {}): Laun
     ],
     hiddenModKeys: [],
     packPresets: [],
+    childModGroups: [],
+    libraryFolders: [],
     currentPackId: null,
     scopeMode: 'all',
     ...overrides,
@@ -140,6 +141,7 @@ function createMod(overrides: Partial<LauncherLibraryModSummary> = {}): Launcher
     updateKeys: ['Nexus:101'],
     modUrl: 'https://www.nexusmods.com/stardewvalley/mods/101',
     imageUrl: null,
+    requiredDependencies: [],
     missingRequiredDependencies: [],
     ...overrides,
   }
@@ -178,14 +180,7 @@ function createLauncherDiagnosticsResult(
   > = {
     publicGraphql: {
       label: 'Nexus Public GraphQL',
-      endpoint: 'https://api-router.nexusmods.com/graphql',
-      status: 'success',
-      available: true,
-      message: 'Connected after 1 attempt.',
-    },
-    publicHtml: {
-      label: 'Nexus Public HTML',
-      endpoint: 'https://www.nexusmods.com/stardewvalley',
+      endpoint: 'https://api.nexusmods.com/v2/graphql',
       status: 'success',
       available: true,
       message: 'Connected after 1 attempt.',
@@ -217,9 +212,7 @@ function createLauncherDiagnosticsResult(
   }
 }
 
-function createInstallArchiveResult(
-  overrides: Partial<InstallLauncherArchiveResult> = {},
-): InstallLauncherArchiveResult {
+function createInstallArchiveResult(overrides: Partial<InstallLauncherArchiveResult> = {}): InstallLauncherArchiveResult {
   return {
     modName: 'Example Pack',
     uniqueId: 'ModForge.ExamplePack',
@@ -353,6 +346,75 @@ describe('useLauncherLibrary', () => {
     expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
       labelKey: '202',
       imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+    })
+  })
+
+  it('skips automatic remote cover fetching for mods suppressed by repeated update failures', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2000-01-01T00:00:00Z'))
+
+    const loadSuppressedUpdateModIdsMock = vi.fn().mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      modIds: [202],
+    })
+
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-suppressed',
+          labelKey: 'ModForge.Suppressed',
+          uniqueId: 'ModForge.Suppressed',
+          nexusModId: 202,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Suppressed Mod',
+        }),
+        createMod({
+          id: 'mod-eligible',
+          labelKey: 'ModForge.Eligible',
+          uniqueId: 'ModForge.Eligible',
+          nexusModId: 303,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Eligible Mod',
+        }),
+      ],
+    })
+    loadLauncherRemoteModDetailMock.mockResolvedValue(
+      createRemoteModDetail({
+        modId: 303,
+        title: 'Eligible Mod',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    launcherPort = Object.assign(createMockLauncherPort(), {
+      loadSuppressedUpdateModIds: loadSuppressedUpdateModIdsMock,
+      loadLibraryState: loadLauncherLibraryStateMock,
+      loadLibraryCovers: loadLauncherLibraryCoversMock,
+      loadNexusDiagnostics: loadLauncherNexusDiagnosticsMock,
+      loadRemoteModDetail: loadLauncherRemoteModDetailMock,
+      persistLibraryRemoteCover: persistLauncherLibraryRemoteCoverMock,
+      scanLibrary: scanLauncherLibraryMock,
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), {
+      wrapper: Wrapper,
+    })
+
+    await act(async () => {
+      await result.current.refresh()
+      await flushAsyncWork()
+    })
+
+    expect(loadSuppressedUpdateModIdsMock).toHaveBeenCalledWith({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+    })
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledTimes(1)
+    expect(loadLauncherRemoteModDetailMock).toHaveBeenCalledWith({ modId: 303 })
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledTimes(1)
+    expect(persistLauncherLibraryRemoteCoverMock).toHaveBeenCalledWith({
+      labelKey: '303',
+      imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/303/303-cover.png',
     })
   })
 
@@ -514,7 +576,7 @@ describe('useLauncherLibrary', () => {
           available: false,
           message: 'Failed after 3 attempts: timeout',
         },
-        publicHtml: {
+        nexusImages: {
           status: 'warning',
           available: false,
           message: 'Failed after 3 attempts: timeout',
@@ -570,10 +632,7 @@ describe('useLauncherLibrary', () => {
       ],
     })
 
-    const { result } = renderHook(
-      () => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })),
-      { wrapper: Wrapper },
-    )
+    const { result } = renderHook(() => useLauncherLibrary(createSettings({ autoCheckModUpdates: false })), { wrapper: Wrapper })
 
     await act(async () => {
       await result.current.refresh()
@@ -753,18 +812,16 @@ describe('useLauncherLibrary', () => {
     vi.setSystemTime(new Date('2000-01-04T00:00:00Z'))
 
     loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
-    loadLauncherLibraryCoversMock
-      .mockResolvedValueOnce(createLibraryCoversState())
-      .mockResolvedValueOnce(
-        createLibraryCoversState({
-          covers: [
-            {
-              labelKey: 'ModForge.MissingA',
-              imagePath: 'E:\\Covers\\missing-a.png',
-            },
-          ],
-        }),
-      )
+    loadLauncherLibraryCoversMock.mockResolvedValueOnce(createLibraryCoversState()).mockResolvedValueOnce(
+      createLibraryCoversState({
+        covers: [
+          {
+            labelKey: 'ModForge.MissingA',
+            imagePath: 'E:\\Covers\\missing-a.png',
+          },
+        ],
+      }),
+    )
     scanLauncherLibraryMock
       .mockResolvedValueOnce({
         modsPath: 'E:\\Games\\Stardew Valley\\Mods',
@@ -844,20 +901,18 @@ describe('useLauncherLibrary', () => {
 
     loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
     loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
-    scanLauncherLibraryMock
-      .mockReturnValueOnce(firstScanRequest.promise)
-      .mockResolvedValueOnce({
-        modsPath: 'E:\\Games\\Stardew Valley\\Mods',
-        mods: [
-          createMod({
-            id: 'mod-new',
-            labelKey: 'ModForge.New',
-            uniqueId: 'ModForge.New',
-            name: 'New Result',
-            nexusModId: null,
-          }),
-        ],
-      })
+    scanLauncherLibraryMock.mockReturnValueOnce(firstScanRequest.promise).mockResolvedValueOnce({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-new',
+          labelKey: 'ModForge.New',
+          uniqueId: 'ModForge.New',
+          name: 'New Result',
+          nexusModId: null,
+        }),
+      ],
+    })
 
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
 
@@ -918,18 +973,14 @@ describe('useLauncherLibrary', () => {
         }),
       ],
     })
-    loadLauncherRemoteModDetailMock
-      .mockReturnValueOnce(detailRequest.promise)
-      .mockResolvedValueOnce(
-        createRemoteModDetail({
-          modId: 202,
-          title: 'Missing Cover B',
-          imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
-        }),
-      )
-    persistLauncherLibraryRemoteCoverMock
-      .mockReturnValueOnce(persistRequest.promise)
-      .mockResolvedValueOnce(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockReturnValueOnce(detailRequest.promise).mockResolvedValueOnce(
+      createRemoteModDetail({
+        modId: 202,
+        title: 'Missing Cover B',
+        imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/thumbnails/202/202-cover.png',
+      }),
+    )
+    persistLauncherLibraryRemoteCoverMock.mockReturnValueOnce(persistRequest.promise).mockResolvedValueOnce(createLibraryCoversState())
 
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
 
@@ -1004,14 +1055,8 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenNthCalledWith(
-        1,
-        createAutoCoverNotification('Missing Cover A', 'local', 0, 1),
-      )
-      expect(publishNotificationMock).toHaveBeenNthCalledWith(
-        2,
-        createAutoCoverNotification('Missing Cover A', 'apiCover', 0, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenNthCalledWith(1, createAutoCoverNotification('Missing Cover A', 'local', 0, 1))
+      expect(publishNotificationMock).toHaveBeenNthCalledWith(2, createAutoCoverNotification('Missing Cover A', 'apiCover', 0, 1))
     })
 
     await act(async () => {
@@ -1026,9 +1071,7 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Missing Cover A', 'remoteCover', 0, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Missing Cover A', 'remoteCover', 0, 1))
     })
 
     await act(async () => {
@@ -1037,9 +1080,7 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Missing Cover A', 'remoteCover', 1, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Missing Cover A', 'remoteCover', 1, 1))
       expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-auto-cover-progress')
     })
   })
@@ -1079,12 +1120,8 @@ describe('useLauncherLibrary', () => {
     })
 
     await waitFor(() => {
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Gallery Cover A', 'apiGallery', 0, 1),
-      )
-      expect(publishNotificationMock).toHaveBeenCalledWith(
-        createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 0, 1),
-      )
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Gallery Cover A', 'apiGallery', 0, 1))
+      expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 0, 1))
     })
 
     await act(async () => {
@@ -1096,9 +1133,7 @@ describe('useLauncherLibrary', () => {
       labelKey: '20599',
       imageUrl: 'https://staticdelivery.nexusmods.com/mods/1303/images/20599/20599-1.png',
     })
-    expect(publishNotificationMock).toHaveBeenCalledWith(
-      createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 1, 1),
-    )
+    expect(publishNotificationMock).toHaveBeenCalledWith(createAutoCoverNotification('Gallery Cover A', 'remoteGallery', 1, 1))
   })
 
   it('keeps the auto-cover flow alive across state writes until every eligible mod finishes', async () => {
@@ -1299,19 +1334,22 @@ describe('useLauncherLibrary', () => {
       await (result.current as typeof result.current & { hideMods: (modIds: string[]) => Promise<void> }).hideMods(['mod-visible'])
     })
 
-    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith({
-      storageFolders: [
-        {
-          id: 'unsorted',
-          name: 'Unsorted',
-          modKeys: [],
-        },
-      ],
-      hiddenModKeys: ['ModForge.Visible'],
-      packPresets: [],
-      currentPackId: null,
-      scopeMode: 'all',
-    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageFolders: [
+          {
+            id: 'unsorted',
+            name: 'Unsorted',
+            modKeys: [],
+          },
+        ],
+        hiddenModKeys: ['ModForge.Visible'],
+        packPresets: [],
+        childModGroups: [],
+        currentPackId: null,
+        scopeMode: 'all',
+      }),
+    )
   })
 
   it('assigns selected mods to one storage folder with single ownership', async () => {
@@ -1372,29 +1410,32 @@ describe('useLauncherLibrary', () => {
       await result.current.assignSelectionToFolder('addons')
     })
 
-    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith({
-      storageFolders: [
-        {
-          id: 'core',
-          name: 'Core',
-          modKeys: [],
-        },
-        {
-          id: 'addons',
-          name: 'Addons',
-          modKeys: ['ModForge.A', 'ModForge.B'],
-        },
-        {
-          id: 'unsorted',
-          name: 'Unsorted',
-          modKeys: [],
-        },
-      ],
-      hiddenModKeys: [],
-      packPresets: [],
-      currentPackId: null,
-      scopeMode: 'all',
-    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageFolders: [
+          {
+            id: 'core',
+            name: 'Core',
+            modKeys: [],
+          },
+          {
+            id: 'addons',
+            name: 'Addons',
+            modKeys: ['ModForge.A', 'ModForge.B'],
+          },
+          {
+            id: 'unsorted',
+            name: 'Unsorted',
+            modKeys: [],
+          },
+        ],
+        hiddenModKeys: [],
+        packPresets: [],
+        childModGroups: [],
+        currentPackId: null,
+        scopeMode: 'all',
+      }),
+    )
   })
 
   it('allows pack presets to keep multi-membership', async () => {
@@ -1448,30 +1489,33 @@ describe('useLauncherLibrary', () => {
       await result.current.addSelectionToPack('social')
     })
 
-    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith({
-      storageFolders: [
-        {
-          id: 'unsorted',
-          name: 'Unsorted',
-          modKeys: [],
-        },
-      ],
-      hiddenModKeys: [],
-      packPresets: [
-        {
-          id: 'farm',
-          name: 'Farm',
-          modKeys: ['ModForge.A'],
-        },
-        {
-          id: 'social',
-          name: 'Social',
-          modKeys: ['ModForge.B', 'ModForge.A'],
-        },
-      ],
-      currentPackId: null,
-      scopeMode: 'all',
-    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageFolders: [
+          {
+            id: 'unsorted',
+            name: 'Unsorted',
+            modKeys: [],
+          },
+        ],
+        hiddenModKeys: [],
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+          },
+          {
+            id: 'social',
+            name: 'Social',
+            modKeys: ['ModForge.B', 'ModForge.A'],
+          },
+        ],
+        childModGroups: [],
+        currentPackId: null,
+        scopeMode: 'all',
+      }),
+    )
   })
 
   it('applyCurrentPack leaves only pack members enabled', async () => {
@@ -1581,30 +1625,33 @@ describe('useLauncherLibrary', () => {
       await result.current.replacePackMods('farm', ['mod-b'])
     })
 
-    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith({
-      storageFolders: [
-        {
-          id: 'unsorted',
-          name: 'Unsorted',
-          modKeys: [],
-        },
-      ],
-      hiddenModKeys: [],
-      packPresets: [
-        {
-          id: 'farm',
-          name: 'Farm',
-          modKeys: ['ModForge.B'],
-        },
-        {
-          id: 'social',
-          name: 'Social',
-          modKeys: ['ModForge.B'],
-        },
-      ],
-      currentPackId: 'farm',
-      scopeMode: 'all',
-    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageFolders: [
+          {
+            id: 'unsorted',
+            name: 'Unsorted',
+            modKeys: [],
+          },
+        ],
+        hiddenModKeys: [],
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.B'],
+          },
+          {
+            id: 'social',
+            name: 'Social',
+            modKeys: ['ModForge.B'],
+          },
+        ],
+        childModGroups: [],
+        currentPackId: 'farm',
+        scopeMode: 'all',
+      }),
+    )
   })
 
   it('addModsToPack appends dragged mods into the target pack without duplicates', async () => {
@@ -1653,29 +1700,429 @@ describe('useLauncherLibrary', () => {
       await result.current.addModsToPack('social', ['mod-a', 'mod-b'])
     })
 
-    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith({
-      storageFolders: [
-        {
-          id: 'unsorted',
-          name: 'Unsorted',
-          modKeys: [],
-        },
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageFolders: [
+          {
+            id: 'unsorted',
+            name: 'Unsorted',
+            modKeys: [],
+          },
+        ],
+        hiddenModKeys: [],
+        packPresets: [
+          {
+            id: 'farm',
+            name: 'Farm',
+            modKeys: ['ModForge.A'],
+          },
+          {
+            id: 'social',
+            name: 'Social',
+            modKeys: ['ModForge.B', 'ModForge.A'],
+          },
+        ],
+        childModGroups: [],
+        currentPackId: null,
+        scopeMode: 'all',
+      }),
+    )
+  })
+
+  it('persists child mod groups and flattens existing children when moving a parent under another parent', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        childModGroups: [
+          {
+            parentModKey: 'ModForge.Parent',
+            childModKeys: ['ModForge.Child'],
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-new-parent', labelKey: 'ModForge.NewParent', uniqueId: 'ModForge.NewParent' }),
+        createMod({ id: 'mod-parent', labelKey: 'ModForge.Parent', uniqueId: 'ModForge.Parent' }),
+        createMod({ id: 'mod-child', labelKey: 'ModForge.Child', uniqueId: 'ModForge.Child' }),
       ],
-      hiddenModKeys: [],
-      packPresets: [
-        {
-          id: 'farm',
-          name: 'Farm',
-          modKeys: ['ModForge.A'],
-        },
-        {
-          id: 'social',
-          name: 'Social',
-          modKeys: ['ModForge.B', 'ModForge.A'],
-        },
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.setChildMods('mod-new-parent', ['mod-parent'])
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageFolders: [
+          {
+            id: 'unsorted',
+            name: 'Unsorted',
+            modKeys: [],
+          },
+        ],
+        hiddenModKeys: [],
+        packPresets: [],
+        childModGroups: [
+          {
+            parentModKey: 'ModForge.NewParent',
+            childModKeys: ['ModForge.Parent', 'ModForge.Child'],
+          },
+        ],
+        currentPackId: null,
+        scopeMode: 'all',
+      }),
+    )
+  })
+
+  it('creates virtual library folders and moves mods between them with single membership', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        libraryFolders: [
+          {
+            id: 'visuals',
+            name: 'Visuals',
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' }),
+        createMod({ id: 'mod-b', labelKey: 'ModForge.B', uniqueId: 'ModForge.B' }),
       ],
-      currentPackId: null,
-      scopeMode: 'all',
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.createLibraryFolder('Gameplay')
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'visuals',
+            name: 'Visuals',
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+          {
+            id: 'gameplay',
+            name: 'Gameplay',
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
+          },
+        ],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.addModsToLibraryFolder('gameplay', ['mod-a', 'mod-b'])
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'visuals',
+            name: 'Visuals',
+            parentFolderId: null,
+            modKeys: [],
+            coverModKeys: [],
+          },
+          {
+            id: 'gameplay',
+            name: 'Gameplay',
+            parentFolderId: null,
+            modKeys: ['ModForge.A', 'ModForge.B'],
+            coverModKeys: [],
+          },
+        ],
+      }),
+    )
+  })
+
+  it('renames virtual library folders without changing membership', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        libraryFolders: [
+          {
+            id: 'gameplay',
+            name: 'Gameplay',
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A' })],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.renameLibraryFolder('gameplay', 'Core Gameplay')
+    })
+
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          {
+            id: 'gameplay',
+            name: 'Core Gameplay',
+            parentFolderId: null,
+            modKeys: ['ModForge.A'],
+            coverModKeys: ['ModForge.A'],
+          },
+        ],
+      }),
+    )
+  })
+
+  it('sets explicit mod ids enabled without relying on selection state', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(createLibraryState())
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({ id: 'mod-a', labelKey: 'ModForge.A', uniqueId: 'ModForge.A', enabled: true, absolutePath: 'E:\\Mods\\A' }),
+        createMod({ id: 'mod-b', labelKey: 'ModForge.B', uniqueId: 'ModForge.B', enabled: false, absolutePath: 'E:\\Mods\\B' }),
+      ],
+    })
+    setLauncherModEnabledMock.mockResolvedValue({ absolutePath: 'E:\\Mods\\A', enabled: false })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.setModsEnabled(['mod-a', 'mod-b'], false)
+    })
+
+    expect(setLauncherModEnabledMock).toHaveBeenCalledTimes(1)
+    expect(setLauncherModEnabledMock).toHaveBeenCalledWith({
+      modPath: 'E:\\Mods\\A',
+      enabled: false,
+    })
+  })
+
+  it('nests virtual library folders and rejects cycles', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        libraryFolders: [
+          { id: 'root', name: 'Root', parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'child', name: 'Child', parentFolderId: null, modKeys: [], coverModKeys: [] },
+        ],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [createMod()],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.moveLibraryFolderToFolder('child', 'root')
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          { id: 'root', name: 'Root', parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'child', name: 'Child', parentFolderId: 'root', modKeys: [], coverModKeys: [] },
+        ],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.moveLibraryFolderToFolder('root', 'child')
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        libraryFolders: [
+          { id: 'root', name: 'Root', parentFolderId: null, modKeys: [], coverModKeys: [] },
+          { id: 'child', name: 'Child', parentFolderId: null, modKeys: [], coverModKeys: [] },
+        ],
+      }),
+    )
+  })
+
+  it('cascades parent enable toggles to direct children without cascading child toggles upward', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.Child'] }],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-parent',
+          labelKey: 'ModForge.Parent',
+          uniqueId: 'ModForge.Parent',
+          enabled: true,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Parent',
+        }),
+        createMod({
+          id: 'mod-child',
+          labelKey: 'ModForge.Child',
+          uniqueId: 'ModForge.Child',
+          enabled: true,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Child',
+        }),
+      ],
+    })
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.toggleEnabled(result.current.mods[0]!)
+    })
+
+    expect(setLauncherModEnabledMock).toHaveBeenCalledWith({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\Parent',
+      enabled: false,
+    })
+    expect(setLauncherModEnabledMock).toHaveBeenCalledWith({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\Child',
+      enabled: false,
+    })
+
+    setLauncherModEnabledMock.mockClear()
+    await act(async () => {
+      await result.current.toggleEnabled(result.current.mods[1]!)
+    })
+
+    expect(setLauncherModEnabledMock).toHaveBeenCalledTimes(1)
+    expect(setLauncherModEnabledMock).toHaveBeenCalledWith({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\Child',
+      enabled: false,
+    })
+  })
+
+  it('expands parent mods to children for hide, pack add, pack replace, and pack apply', async () => {
+    loadLauncherLibraryCoversMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherRemoteModDetailMock.mockResolvedValue(createRemoteModDetail({ imageUrl: null }))
+    persistLauncherLibraryRemoteCoverMock.mockResolvedValue(createLibraryCoversState())
+    loadLauncherLibraryStateMock.mockResolvedValue(
+      createLibraryState({
+        packPresets: [{ id: 'farm', name: 'Farm', modKeys: [] }],
+        currentPackId: 'farm',
+        childModGroups: [{ parentModKey: 'ModForge.Parent', childModKeys: ['ModForge.Child'] }],
+      }),
+    )
+    scanLauncherLibraryMock.mockResolvedValue({
+      modsPath: 'E:\\Games\\Stardew Valley\\Mods',
+      mods: [
+        createMod({
+          id: 'mod-parent',
+          labelKey: 'ModForge.Parent',
+          uniqueId: 'ModForge.Parent',
+          enabled: false,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Parent',
+        }),
+        createMod({
+          id: 'mod-child',
+          labelKey: 'ModForge.Child',
+          uniqueId: 'ModForge.Child',
+          enabled: false,
+          absolutePath: 'E:\\Games\\Stardew Valley\\Mods\\Child',
+        }),
+      ],
+    })
+    saveLauncherLibraryStateMock.mockImplementation(async (request) => request)
+
+    const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
+    await act(async () => {
+      await result.current.refresh()
+    })
+
+    await act(async () => {
+      await result.current.hideMods(['mod-parent'])
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        hiddenModKeys: ['ModForge.Parent', 'ModForge.Child'],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.addModsToPack('farm', ['mod-parent'])
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        packPresets: [{ id: 'farm', name: 'Farm', modKeys: ['ModForge.Parent', 'ModForge.Child'] }],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.replacePackMods('farm', ['mod-parent'])
+    })
+    expect(saveLauncherLibraryStateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        packPresets: [{ id: 'farm', name: 'Farm', modKeys: ['ModForge.Parent', 'ModForge.Child'] }],
+      }),
+    )
+
+    await act(async () => {
+      await result.current.applyCurrentPack()
+    })
+    expect(setLauncherModEnabledMock).toHaveBeenCalledWith({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\Parent',
+      enabled: true,
+    })
+    expect(setLauncherModEnabledMock).toHaveBeenCalledWith({
+      modPath: 'E:\\Games\\Stardew Valley\\Mods\\Child',
+      enabled: true,
     })
   })
 
@@ -1688,9 +2135,7 @@ describe('useLauncherLibrary', () => {
     const { result } = renderHook(() => useLauncherLibrary(createSettings()), { wrapper: Wrapper })
 
     await act(async () => {
-      await expect(result.current.installArchive('E:\\Downloads\\example.zip')).resolves.toEqual(
-        createInstallArchiveResult(),
-      )
+      await expect(result.current.installArchive('E:\\Downloads\\example.zip')).resolves.toEqual(createInstallArchiveResult())
     })
 
     expect(installLauncherArchiveMock).toHaveBeenCalledWith({

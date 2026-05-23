@@ -31,10 +31,7 @@ export function buildAbsoluteSpriteLayerStyle({
   }
 }
 
-export function getResolvedSourceRect(
-  entry: BuildingWorkspaceEntry,
-  textureState: BuildingTextureAssetState | null,
-) {
+export function getResolvedSourceRect(entry: BuildingWorkspaceEntry, textureState: BuildingTextureAssetState | null) {
   if (entry.sourceRect) {
     return entry.sourceRect
   }
@@ -51,11 +48,7 @@ export function getResolvedSourceRect(
   return null
 }
 
-export function getStageBadge(
-  copy: BuildingsPanelCopy,
-  stage: BuildingWorkspaceEntry,
-  currentKey: string | null,
-) {
+export function getStageBadge(copy: BuildingsPanelCopy, stage: BuildingWorkspaceEntry, currentKey: string | null) {
   if (stage.key === currentKey) {
     return copy.currentBadge
   }

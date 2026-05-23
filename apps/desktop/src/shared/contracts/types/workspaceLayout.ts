@@ -1,13 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type DockArea =
-  | 'left-top'
-  | 'left-bottom'
-  | 'right-top'
-  | 'right-bottom'
-  | 'bottom-left'
-  | 'bottom-right'
-  | 'center'
+export type DockArea = 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom' | 'bottom-left' | 'bottom-right' | 'center'
 
 export type PanelMode = 'docked' | 'floating' | 'hidden'
 export type RailId = 'left' | 'right' | 'bottom'

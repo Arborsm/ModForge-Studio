@@ -3,7 +3,7 @@
     border: 1px solid var(--border-color);
     background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
     color: var(--text-primary);
-    @apply h-10 w-full rounded-lg px-3 text-sm outline-none transition-colors;
+    @apply h-10 w-full rounded-lg px-3 text-sm transition-colors outline-none;
   }
 
   .control-input::placeholder {

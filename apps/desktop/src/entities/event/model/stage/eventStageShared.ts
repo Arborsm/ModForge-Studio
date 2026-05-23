@@ -1,4 +1,4 @@
-import { loadTextAsset } from '@platform/desktop'
+import { loadTextAsset } from '@entities/game/api'
 import type { LocaleCode } from '@locales/editor-shell'
 import {
   getFarmerDirectionalFrame,
@@ -7,9 +7,9 @@ import {
   type FarmerHairMetadataEntry,
   type FarmerSpriteLayerDescriptor,
 } from './farmerAppearanceRenderer'
+import { getLocalizedMetadataCacheKey, hairMetadataCache, hatMetadataCache, type HatMetadataEntry } from './stageMetadataCache'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import type { EventCommand, EventDialoguePage, EventSceneActor, EventScript } from '@entities/event'
-
 
 type PlaybackLogEntry = {
   id: string
@@ -335,11 +335,6 @@ const HAIR_DATA_PATH = 'Content\\Data\\HairData.xnb'
 const HAT_DATA_PATH = 'Content\\Data\\hats.xnb'
 const EFFECT_VIEWPORT_BASE_WIDTH = 1280
 const EFFECT_VIEWPORT_BASE_HEIGHT = 720
-type HatMetadataEntry = {
-  hairDrawMode: 'normal' | 'hide' | 'cover'
-  ignoreHairstyleOffset: boolean
-  isMask: boolean
-}
 const MANUAL_TEXTURE_NAME_ALIASES: Record<string, string[]> = {
   leahex: ['LeahExFemale', 'LeahExMale', 'LeahEx'],
 }
@@ -357,30 +352,6 @@ const NAMED_EFFECT_COLORS: Record<string, string> = {
   lime: '#7cff00',
   deepskyblue: '#00bfff',
 }
-const hatMetadataCache = new Map<string, Promise<Record<string, HatMetadataEntry>>>()
-const hairMetadataCache = new Map<string, Promise<Record<string, FarmerHairMetadataEntry>>>()
-
-export function clearLocalizedStageMetadataCache(locale: LocaleCode) {
-  const suffix = `::${locale}`
-  for (const key of hatMetadataCache.keys()) {
-    if (key.endsWith(suffix)) {
-      hatMetadataCache.delete(key)
-    }
-  }
-  for (const key of hairMetadataCache.keys()) {
-    if (key.endsWith(suffix)) {
-      hairMetadataCache.delete(key)
-    }
-  }
-}
-
-export function getStageMetadataCacheStats() {
-  return {
-    hat: hatMetadataCache.size,
-    hair: hairMetadataCache.size,
-  }
-}
-
 function normalizeActorName(value: string) {
   return value.trim().replace(/\?$/u, '')
 }
@@ -610,9 +581,10 @@ function createActorState(actor: EventSceneActor): EventActorState {
 }
 
 function buildActorMap(event: EventScript) {
-  return Object.fromEntries(
-    event.scene.actors.map((actor) => [toActorKey(actor.actorName), createActorState(actor)]),
-  ) as Record<string, EventActorState>
+  return Object.fromEntries(event.scene.actors.map((actor) => [toActorKey(actor.actorName), createActorState(actor)])) as Record<
+    string,
+    EventActorState
+  >
 }
 
 function parsePoint(valueA: string | undefined, valueB: string | undefined) {
@@ -648,7 +620,10 @@ function normalizeStageMapName(mapName: string | null | undefined) {
 }
 
 function isPathsLayerName(layerName: string) {
-  const normalized = layerName.trim().toLowerCase().replace(/[^a-z0-9]+/gu, '')
+  const normalized = layerName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '')
   return normalized === 'paths' || normalized.startsWith('paths')
 }
 
@@ -834,12 +809,7 @@ function getSpringObjectsSourceRect(itemIndex: number) {
   }
 }
 
-function createObjectSheetEffect(
-  commandId: string,
-  suffix: string,
-  itemIndex: number,
-  partial: Partial<StageEffectState>,
-) {
+function createObjectSheetEffect(commandId: string, suffix: string, itemIndex: number, partial: Partial<StageEffectState>) {
   const sourceRect = getSpringObjectsSourceRect(itemIndex)
   return createStageEffect(commandId, suffix, {
     textureName: 'Maps\\springobjects',
@@ -851,12 +821,7 @@ function createObjectSheetEffect(
   })
 }
 
-function createAnimationRowEffect(
-  commandId: string,
-  suffix: string,
-  rowInAnimationTexture: number,
-  partial: Partial<StageEffectState>,
-) {
+function createAnimationRowEffect(commandId: string, suffix: string, rowInAnimationTexture: number, partial: Partial<StageEffectState>) {
   return createStageEffect(commandId, suffix, {
     textureName: 'TileSheets\\animations',
     sourceX: 0,
@@ -909,10 +874,6 @@ function createItemAboveActorEffect(
   })
 }
 
-function getLocalizedMetadataCacheKey(rootPath: string, locale: LocaleCode) {
-  return `${rootPath}::${locale}`
-}
-
 async function loadHatMetadataIndex(rootPath: string, locale: LocaleCode) {
   const cacheKey = getLocalizedMetadataCacheKey(rootPath, locale)
   const cached = hatMetadataCache.get(cacheKey)
@@ -941,7 +902,7 @@ async function loadHatMetadataIndex(rootPath: string, locale: LocaleCode) {
         }),
       ) as Record<string, HatMetadataEntry>
     })
-    .catch(() => ({} as Record<string, HatMetadataEntry>))
+    .catch(() => ({}) as Record<string, HatMetadataEntry>)
 
   hatMetadataCache.set(cacheKey, pending)
   return pending
@@ -975,7 +936,7 @@ async function loadHairMetadataIndex(rootPath: string, locale: LocaleCode) {
         }),
       ) as Record<string, FarmerHairMetadataEntry>
     })
-    .catch(() => ({} as Record<string, FarmerHairMetadataEntry>))
+    .catch(() => ({}) as Record<string, FarmerHairMetadataEntry>)
 
   hairMetadataCache.set(cacheKey, pending)
   return pending
@@ -1153,4 +1114,3 @@ export type {
   StagePoint,
   StageRectangle,
 }
-

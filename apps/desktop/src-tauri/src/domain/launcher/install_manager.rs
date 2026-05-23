@@ -74,9 +74,17 @@ struct OverlayBundle {
 
 #[derive(Debug, Clone)]
 enum InstallOperation {
-    FreshInstall { bundle: ModBundle, target: PlannedTarget },
-    UpgradeReplace { bundle: ModBundle, target: PlannedTarget },
-    OverlayMerge { bundle: OverlayBundle },
+    FreshInstall {
+        bundle: ModBundle,
+        target: PlannedTarget,
+    },
+    UpgradeReplace {
+        bundle: ModBundle,
+        target: PlannedTarget,
+    },
+    OverlayMerge {
+        bundle: OverlayBundle,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -326,7 +334,10 @@ pub(crate) fn restore_backup_session_at_path(
 
     for entry in metadata.entries.iter().rev() {
         let target_root = clean_input_path(&entry.target_path);
-        let before_root = backup_path.join("entries").join(&entry.entry_id).join("before");
+        let before_root = backup_path
+            .join("entries")
+            .join(&entry.entry_id)
+            .join("before");
 
         for relative_path in &entry.added_paths {
             let target_path = target_root.join(relative_path);
@@ -377,12 +388,17 @@ pub(crate) fn restore_backup_session_at_path(
 
         if !entry.existed_before {
             cleanup_empty_tree(&target_root)?;
-            if target_root.is_dir() && target_root.read_dir().map_err(|error| {
-                format!(
-                    "Failed to inspect restored target {}: {error}",
-                    normalize_path(&target_root)
-                )
-            })?.next().is_none()
+            if target_root.is_dir()
+                && target_root
+                    .read_dir()
+                    .map_err(|error| {
+                        format!(
+                            "Failed to inspect restored target {}: {error}",
+                            normalize_path(&target_root)
+                        )
+                    })?
+                    .next()
+                    .is_none()
             {
                 let _ = fs::remove_dir_all(&target_root);
             }
@@ -429,7 +445,10 @@ pub(crate) fn install_archive_bundle_at_path(
     result
 }
 
-fn plan_install_operations(bundle_root: &Path, mods_path: &Path) -> Result<Vec<InstallOperation>, String> {
+fn plan_install_operations(
+    bundle_root: &Path,
+    mods_path: &Path,
+) -> Result<Vec<InstallOperation>, String> {
     let existing_targets = load_existing_targets(mods_path)?;
     let discovered_mod_roots = discover_project_roots(bundle_root)?;
     let mut mod_bundles = discovered_mod_roots
@@ -908,11 +927,7 @@ fn merge_json_files_at_paths(
     Ok(merge_json_values(&existing, &incoming, preference))
 }
 
-fn merge_json_values(
-    existing: &Value,
-    incoming: &Value,
-    preference: JsonMergePreference,
-) -> Value {
+fn merge_json_values(existing: &Value, incoming: &Value, preference: JsonMergePreference) -> Value {
     match (existing, incoming) {
         (Value::Object(existing_object), Value::Object(incoming_object)) => {
             let mut merged = Map::new();
@@ -1022,11 +1037,13 @@ fn copy_file(source_path: &Path, target_path: &Path) -> Result<(), String> {
 }
 
 fn files_differ(left_path: &Path, right_path: &Path) -> Result<bool, String> {
-    let left_bytes = fs::read(left_path).map_err(|error| {
-        format!("Failed to read file {}: {error}", normalize_path(left_path))
-    })?;
+    let left_bytes = fs::read(left_path)
+        .map_err(|error| format!("Failed to read file {}: {error}", normalize_path(left_path)))?;
     let right_bytes = fs::read(right_path).map_err(|error| {
-        format!("Failed to read file {}: {error}", normalize_path(right_path))
+        format!(
+            "Failed to read file {}: {error}",
+            normalize_path(right_path)
+        )
     })?;
     Ok(left_bytes != right_bytes)
 }
@@ -1124,12 +1141,9 @@ fn collect_directories(root: &Path) -> Result<Vec<PathBuf>, String> {
 }
 
 fn collect_directories_recursive(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
-    for entry in fs::read_dir(root).map_err(|error| {
-        format!(
-            "Failed to read directory {}: {error}",
-            normalize_path(root)
-        )
-    })? {
+    for entry in fs::read_dir(root)
+        .map_err(|error| format!("Failed to read directory {}: {error}", normalize_path(root)))?
+    {
         let entry = entry.map_err(|error| format!("Failed to inspect directory entry: {error}"))?;
         let entry_path = entry.path();
         if !entry_path.is_dir() {

@@ -1,7 +1,6 @@
 use crate::domain::cp_maker::build_cp_maker_map_asset;
 use crate::domain::cp_maker::types::{
-    BuildCpMakerMapAssetRequest, CpMakerDraftErrorCode,
-    CpMakerDraftOperation,
+    BuildCpMakerMapAssetRequest, CpMakerDraftErrorCode, CpMakerDraftOperation,
 };
 use crate::infrastructure::game_formats::tbin::{
     parse_tbin_map, MapDocument, MapLayer, MapPropertyValue,

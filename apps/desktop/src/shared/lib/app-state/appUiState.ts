@@ -14,36 +14,13 @@ let appUiStatePersistence: AppUiStatePersistence = {
   patch: async (request) => mergePatchIntoSnapshot(snapshot, request),
 }
 
+/** Configures the persistence adapter used by app UI state helpers. */
 export function configureAppUiStatePersistence(persistence: AppUiStatePersistence) {
   appUiStatePersistence = persistence
   snapshot = createDefaultAppUiState()
   initializePromise = null
   patchQueue = Promise.resolve(snapshot)
 }
-
-const LEGACY_WORKSPACE_LAYOUT_PREFIX = 'modforge:workspace-layout:'
-const APP_MODE_STORAGE_KEY = 'modforge:app-mode'
-const LAUNCHER_PAGE_STORAGE_KEY = 'modforge:launcher-page'
-const DEBUG_ENABLED_STORAGE_KEY = 'modforge:debug-enabled'
-const NOTIFICATION_SOUND_ENABLED_STORAGE_KEY = 'modforge:notification-sound-enabled'
-const ACCENT_STORAGE_KEY = 'modforge:accent-preset:v1'
-const PLAYER_APPEARANCE_PROFILES_STORAGE_KEY = 'modforge:player-appearance-profiles:v1'
-const PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY = 'modforge:player-appearance-active:v1'
-const RECENT_GAME_DIRECTORIES_STORAGE_KEY = 'modforge:recent-game-directories:v1'
-const LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY = 'modforge:launcher-discover-toolbar:v1'
-
-const LEGACY_UI_STATE_KEYS = [
-  'modforge:locale',
-  APP_MODE_STORAGE_KEY,
-  LAUNCHER_PAGE_STORAGE_KEY,
-  DEBUG_ENABLED_STORAGE_KEY,
-  NOTIFICATION_SOUND_ENABLED_STORAGE_KEY,
-  ACCENT_STORAGE_KEY,
-  PLAYER_APPEARANCE_PROFILES_STORAGE_KEY,
-  PLAYER_APPEARANCE_ACTIVE_PROFILE_STORAGE_KEY,
-  RECENT_GAME_DIRECTORIES_STORAGE_KEY,
-  LAUNCHER_DISCOVER_TOOLBAR_STORAGE_KEY,
-] as const
 
 function defaultLocale() {
   if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('zh')) {
@@ -53,6 +30,7 @@ function defaultLocale() {
   return 'en-US'
 }
 
+/** Creates a normalized default UI state for first launch or non-desktop fallback. */
 export function createDefaultAppUiState(): AppUiState {
   return {
     version: 1,
@@ -69,7 +47,7 @@ export function createDefaultAppUiState(): AppUiState {
       playerAppearance: {
         profiles: [],
         activeProfileId: null,
-    },
+      },
       loadingMotion: { ...DEFAULT_LOADING_MOTION_PREFERENCE },
     },
     workspace: {
@@ -88,6 +66,7 @@ export function createDefaultAppUiState(): AppUiState {
         filtersHidden: false,
       },
       forceOffline: false,
+      forceNonPremium: false,
     },
   }
 }
@@ -113,9 +92,10 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     version: typeof raw?.version === 'number' && Number.isFinite(raw.version) ? Math.max(1, Math.trunc(raw.version)) : defaults.version,
     shell: {
       appMode: raw?.shell?.appMode === 'workbench' ? 'workbench' : defaults.shell.appMode,
-      launcherPage: typeof raw?.shell?.launcherPage === 'string' && raw.shell.launcherPage.trim()
-        ? raw.shell.launcherPage
-        : defaults.shell.launcherPage,
+      launcherPage:
+        typeof raw?.shell?.launcherPage === 'string' && raw.shell.launcherPage.trim()
+          ? raw.shell.launcherPage
+          : defaults.shell.launcherPage,
       debugEnabled: typeof raw?.shell?.debugEnabled === 'boolean' ? raw.shell.debugEnabled : defaults.shell.debugEnabled,
       notificationSoundEnabled:
         typeof raw?.shell?.notificationSoundEnabled === 'boolean'
@@ -124,9 +104,7 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     },
     appearance: {
       locale:
-        raw?.appearance?.locale === 'zh-CN' || raw?.appearance?.locale === 'en-US'
-          ? raw.appearance.locale
-          : defaults.appearance.locale,
+        raw?.appearance?.locale === 'zh-CN' || raw?.appearance?.locale === 'en-US' ? raw.appearance.locale : defaults.appearance.locale,
       accentPresetId:
         typeof raw?.appearance?.accentPresetId === 'string' && raw.appearance.accentPresetId.trim()
           ? raw.appearance.accentPresetId
@@ -149,13 +127,15 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
     },
     workspace: {
       layouts: normalizeLayouts(raw?.workspace?.layouts),
-      workspaceViewMode: raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
-        ? raw.workspace.workspaceViewMode
-        : defaults.workspace.workspaceViewMode,
+      workspaceViewMode:
+        raw?.workspace?.workspaceViewMode === 'edit' || raw?.workspace?.workspaceViewMode === 'preview'
+          ? raw.workspace.workspaceViewMode
+          : defaults.workspace.workspaceViewMode,
       cpMaker: {
-        activeGeneratedDraftKey: typeof raw?.workspace?.cpMaker?.activeGeneratedDraftKey === 'string' && raw.workspace.cpMaker.activeGeneratedDraftKey.trim()
-          ? raw.workspace.cpMaker.activeGeneratedDraftKey
-          : null,
+        activeGeneratedDraftKey:
+          typeof raw?.workspace?.cpMaker?.activeGeneratedDraftKey === 'string' && raw.workspace.cpMaker.activeGeneratedDraftKey.trim()
+            ? raw.workspace.cpMaker.activeGeneratedDraftKey
+            : null,
       },
     },
     launcher: {
@@ -181,10 +161,9 @@ function normalizeAppUiState(raw: Partial<AppUiState> | null | undefined): AppUi
             ? raw.launcher.discoverToolbar.filtersHidden
             : defaults.launcher.discoverToolbar.filtersHidden,
       },
-      forceOffline:
-        typeof raw?.launcher?.forceOffline === 'boolean'
-          ? raw.launcher.forceOffline
-          : defaults.launcher.forceOffline,
+      forceOffline: typeof raw?.launcher?.forceOffline === 'boolean' ? raw.launcher.forceOffline : defaults.launcher.forceOffline,
+      forceNonPremium:
+        typeof raw?.launcher?.forceNonPremium === 'boolean' ? raw.launcher.forceNonPremium : defaults.launcher.forceNonPremium,
     },
   }
 }
@@ -221,10 +200,12 @@ let snapshot = createDefaultAppUiState()
 let initializePromise: Promise<AppUiState> | null = null
 let patchQueue = Promise.resolve(snapshot)
 
+/** Returns the current in-memory app UI state snapshot. */
 export function getAppUiStateSnapshot() {
   return snapshot
 }
 
+/** Loads persisted UI state once, normalizes it, and caches the initialized snapshot. */
 export async function initializeAppUiState() {
   if (initializePromise) {
     return initializePromise
@@ -274,6 +255,7 @@ function mergePatchIntoSnapshot(current: AppUiState, patch: PatchAppUiStateReque
   })
 }
 
+/** Serializes UI state patches so concurrent callers cannot overwrite each other. */
 export async function applyAppUiStatePatch(patch: PatchAppUiStateRequest) {
   patchQueue = patchQueue.then(async () => {
     if (!appUiStatePersistence.canPersist()) {
@@ -288,20 +270,3 @@ export async function applyAppUiStatePatch(patch: PatchAppUiStateRequest) {
 
   return patchQueue
 }
-
-export function clearLegacyBrowserUiState() {
-  if (appUiStatePersistence.canPersist() || typeof window === 'undefined') {
-    return
-  }
-
-  for (const key of LEGACY_UI_STATE_KEYS) {
-    window.localStorage.removeItem(key)
-  }
-
-  for (const key of Object.keys(window.localStorage)) {
-    if (key.startsWith(LEGACY_WORKSPACE_LAYOUT_PREFIX)) {
-      window.localStorage.removeItem(key)
-    }
-  }
-}
-

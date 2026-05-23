@@ -2,60 +2,19 @@
 
 ModForge Studio 是一个面向《星露谷物语》（Stardew Valley）的 Tauri v2 桌面工作台，用于模组创作、资源查看、Content Patcher 项目编辑、模组管理与游戏启动。
 
-当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。
+当前主产品位于 `apps/desktop`：前端使用 React + TypeScript，桌面端能力由 Rust / Tauri 提供。前端采用 FSD + Clean Architecture，桌面能力通过 platform contracts 和 app providers 注入，业务层不直接依赖 Tauri。
 
-当前架构收尾处于 phase 8：`CpMakerPlatformProvider`、`workbench/open-asset` replay protection、launcher port/provider 收口已经稳定，`app/providers/*`、`app/app-shell/AppShell.tsx`、`platform/desktop/index.ts`、`platform/desktop/index.test.ts` 继续作为批准边界保留，而 launcher、workbench 和 `entities/event/model/stage/eventStageShared.ts` 仍是可见迁移热点。后续新增代码、查找入口、重构迁移，都优先按下面的 FSD + Clean Architecture 结构定位。
+## 项目结构索引
 
-## 目录总览
+项目结构由 CodeGraph 托管，`.codegraph/` 是当前代码库的结构索引来源。查找文件、符号、调用关系、影响范围、功能入口时优先使用 CodeGraph MCP 工具，而不是维护一份容易过期的手写目录树。
 
-```text
-.
-├─ apps/
-│  └─ desktop/                         # 主桌面产品
-│     ├─ src/                          # React / TypeScript 前端
-│     │  ├─ app/                       # 应用装配、Provider、全局壳层、registry setup
-│     │  │  ├─ app-shell/              # 全局 App Shell、设置窗口、应用级 chrome
-│     │  │  └─ providers/              # DI Provider、事件总线、命令分发器
-│     │  ├─ pages/                     # 页面骨架与 view 分发
-│     │  │  ├─ launcher/               # 启动器页面入口
-│     │  │  └─ workbench/              # 工作台页面入口与页面级 runtime
-│     │  │     └─ workspaces/          # 各 workspace 的 UI、model、editors、entities
-│     │  ├─ widgets/                   # 复用 smart container 与跨页面区块
-│     │  │  ├─ top-navigation/         # 顶栏与菜单
-│     │  │  └─ status-bar/             # 底部状态栏
-│     │  ├─ features/                  # 业务能力与用户工作流
-│     │  │  ├─ cp-maker/      # Content Patcher 草稿构建器与 Edit Mode UI
-│     │  │  └─ launcher/               # 启动器功能 UI 与 feature-owned 行为
-│     │  ├─ entities/                  # headless 领域模型、状态、selector、查询
-│     │  │  ├─ event/
-│     │  │  ├─ map/
-│     │  │  └─ mod/
-│     │  ├─ shared/                    # 合同、纯类型、UI 原语、纯工具
-│     │  │  ├─ contracts/              # registry、events、commands、platform ports
-│     │  │  ├─ ui/                     # 无业务归属的共享 UI 与通用弹窗
-│     │  │  ├─ lib/                    # 纯工具函数
-│     │  │  └─ workspace/              # 工作台布局纯模型与 layout view
-│     │  ├─ platform/                  # 宿主 adapter 与插件注册
-│     │  │  ├─ desktop/                # 前端可见的桌面能力 facade
-│     │  │  ├─ plugins/                # 静态 workspace / editor 注册
-│     │  │  └─ tauri/                  # platform ports 的 Tauri 实现
-│     │  ├─ locales/                   # 类型化中英文文案
-│     │  ├─ styles/                    # CSS 入口与分层样式系统
-│     │  ├─ assets/                    # 静态资源
-│     │  └─ test/                      # 架构测试、回归测试、共享测试辅助
-│     └─ src-tauri/                    # Rust / Tauri 后端
-│        ├─ src/
-│        │  ├─ commands/               # Tauri command wrapper
-│        │  ├─ domain/                 # 业务 / 领域逻辑
-│        │  ├─ infrastructure/         # 格式解析、文件系统等技术细节
-│        │  ├─ support/                # 横向支撑代码
-│        │  └─ tests/                  # Rust 模块 / 单元测试
-│        └─ tests/                     # Rust 集成 / 回归测试
-├─ docs/                              # 长期维护的架构与设计文档
-├─ AGENTS.md                          # 仓库约束与 Agent 工作规则
-├─ package.json                       # 根脚本入口
-└─ pnpm-workspace.yaml                # pnpm workspace 配置
-```
+- 文件/目录：`codegraph_files`
+- 符号和定义：`codegraph_search`、`codegraph_node`
+- 调用关系和影响面：`codegraph_callers`、`codegraph_callees`、`codegraph_impact`
+- 功能或架构上下文：`codegraph_context`，必要时再用 `codegraph_explore`
+- 使用规则：`.codex/skills/codegraph/SKILL.md`
+
+只有稳定架构原则、公共入口和开发命令需要写进 README；具体文件清单以 CodeGraph 查询结果为准。
 
 ## 前端架构方向
 
@@ -87,139 +46,24 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 - 在已经有 slices 的层里，避免再给 segment 叠 `index.ts`，除非它真的是稳定的对外入口。
 - `shared` 以意图拆分的 segment public API 为主，避免单一巨型 `shared/index.ts`。
 - 大量 barrel 文件会拖慢开发服务器和 tree-shaking，新增出口前先判断它是不是必须的公共边界。
+- 跨层公共 API 需要简洁 JSDoc，覆盖用途、归属边界、缓存或副作用；不要写逐行解释，也不要保留迁移/兼容注释。
 
-## 功能索引
+## 长期入口
 
-### App Shell
+README 只记录长期稳定入口，不维护完整路径地图：
 
-- App wrapper：`apps/desktop/src/app/App.tsx`
-- 全局壳层：`apps/desktop/src/app/app-shell/`
-- Platform Provider：`apps/desktop/src/app/providers/PlatformProvider.tsx`
-- 事件总线与命令分发：`apps/desktop/src/app/providers/`
-- Approved platform bridge boundaries：`apps/desktop/src/app/providers/`、`apps/desktop/src/app/app-shell/AppShell.tsx`、`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
-- 静态 registry：`apps/desktop/src/app/registry-setup.ts`
+- 产品工作区：`apps/desktop`
+- 前端架构约束：`docs/frontend-architecture.md`
+- Agent 约束：`AGENTS.md`
+- Nexus Mods GraphQL v2 文档快照：`docs/nexusmods-graphql/SUMMARY.md`
+- CodeGraph 使用规则：`.codex/skills/codegraph/SKILL.md`
 
-### Launcher
+具体代码入口用 CodeGraph 查询：
 
-- 页面入口：`apps/desktop/src/pages/launcher/LauncherPage.tsx`
-- 页面级 UI：`apps/desktop/src/pages/launcher/ui/`
-- Launcher shell：`apps/desktop/src/pages/launcher/ui/LauncherShell.tsx`
-- Launcher shell 辅助 UI：`apps/desktop/src/pages/launcher/ui/`
-- Launcher feature public API：`apps/desktop/src/features/launcher/index.ts`
-- Launcher 可复用 feature UI：`apps/desktop/src/features/launcher/ui/`
-- Launcher 运行时能力：`apps/desktop/src/features/launcher/model/`
-- Launcher adapter/provider：`apps/desktop/src/app/providers/launcherPortAdapter.ts`
-- 顶栏：`apps/desktop/src/widgets/top-navigation/ui/TopMenuBar.tsx`
-- 状态栏：`apps/desktop/src/widgets/status-bar/ui/StatusBar.tsx`
-- Launcher 样式：`apps/desktop/src/styles/features/launcher/`
-
-### Workbench
-
-- 页面入口：`apps/desktop/src/pages/workbench/ui/WorkbenchPage.tsx`
-- 工作台 runtime 组装：`apps/desktop/src/pages/workbench/model/`
-- view host：`apps/desktop/src/pages/workbench/ui/WorkbenchViewHost.tsx`
-- layout host：`apps/desktop/src/pages/workbench/ui/WorkbenchLayoutHost.tsx`
-- workspace panels：`apps/desktop/src/pages/workbench/model/workspace-panels/` 与 `apps/desktop/src/pages/workbench/ui/workspace-panels/`
-- workspace 目录：`apps/desktop/src/pages/workbench/workspaces/`
-- 顶栏：`apps/desktop/src/widgets/top-navigation/`
-- 状态栏：`apps/desktop/src/widgets/status-bar/`
-- 工作台编排：`apps/desktop/src/app/providers/workbenchOrchestration.ts`
-- 工作台样式：`apps/desktop/src/styles/workspace/`
-
-### 领域工作区
-
-- 地图领域：`apps/desktop/src/entities/map/`
-- 事件领域：`apps/desktop/src/entities/event/`
-- 事件工作区：`apps/desktop/src/pages/workbench/workspaces/event-stage/`
-- 地图工作区：`apps/desktop/src/pages/workbench/workspaces/map/`
-- 角色工作区：`apps/desktop/src/pages/workbench/workspaces/character/`
-- 建筑工作区：`apps/desktop/src/pages/workbench/workspaces/building/`
-- 物品工作区：`apps/desktop/src/pages/workbench/workspaces/item/`
-- 模组工作区：`apps/desktop/src/pages/workbench/workspaces/mod/`
-- 图像补丁编辑器：`apps/desktop/src/pages/workbench/workspaces/image-patch/`
-- 模组领域：`apps/desktop/src/entities/mod/`
-- 工作区编辑器：`apps/desktop/src/pages/workbench/workspaces/*/editors/`
-- 工作区 panel 组装：`apps/desktop/src/pages/workbench/model/workspace-panels/` 与 `apps/desktop/src/pages/workbench/ui/workspace-panels/`
-
-### Cp Maker Builder
-
-- feature public API：`apps/desktop/src/features/cp-maker/index.ts`
-- 状态与草稿生命周期：`apps/desktop/src/features/cp-maker/state/`
-- 路由辅助：`apps/desktop/src/features/cp-maker/routing/`
-- Studio Desk、Edit Workspace Content 与 Edit Mode UI：`apps/desktop/src/features/cp-maker/ui/`
-- 模型辅助：`apps/desktop/src/features/cp-maker/model/`
-- 后端生成项目领域：`apps/desktop/src-tauri/src/domain/cp_maker/`
-
-### Desktop 与 Platform
-
-- platform contracts：`apps/desktop/src/shared/contracts/platform.ts`
-- Tauri adapter：`apps/desktop/src/platform/tauri/`
-- Desktop facade：`apps/desktop/src/platform/desktop/`
-- Approved desktop facade entrypoints：`apps/desktop/src/platform/desktop/index.ts`、`apps/desktop/src/platform/desktop/index.test.ts`
-- 插件注册：`apps/desktop/src/platform/plugins/`
-- App 注入入口：`apps/desktop/src/app/providers/`
-- Rust command wrapper：`apps/desktop/src-tauri/src/commands/`
-- Rust domain：`apps/desktop/src-tauri/src/domain/`
-
-### 文案与样式
-
-- 文案 schema：`apps/desktop/src/locales/schema.ts`
-- 英文文案：`apps/desktop/src/locales/en-US.ts`
-- 中文文案：`apps/desktop/src/locales/zh-CN.ts`
-- CSS 总入口：`apps/desktop/src/styles/index.css`
-- 基础样式原语：`apps/desktop/src/styles/primitives/`
-- 工作台样式：`apps/desktop/src/styles/workspace/`
-- feature 样式：`apps/desktop/src/styles/features/`
-
-### 测试
-
-- 架构测试：`apps/desktop/src/test/architecture/`
-- 回归测试：`apps/desktop/src/test/regressions/`
-- 前端共享测试辅助：`apps/desktop/src/test/`
-- Rust 模块测试：`apps/desktop/src-tauri/src/tests/`
-- Rust 集成测试：`apps/desktop/src-tauri/tests/`
-
-## 常见改动路径
-
-- 改应用启动、模式恢复、全局设置、Provider：
-  - `apps/desktop/src/app/app-shell/`
-  - `apps/desktop/src/app/providers/`
-  - `apps/desktop/src/app/App.tsx`
-- 改 registry、view 分发、workspace 注册：
-  - `apps/desktop/src/app/registry-setup.ts`
-  - `apps/desktop/src/shared/contracts/registry.ts`
-  - `apps/desktop/src/platform/plugins/`
-- 改 Launcher UI：
-  - `apps/desktop/src/pages/launcher/`
-  - `apps/desktop/src/features/launcher/`
-  - `apps/desktop/src/styles/features/launcher/`
-- 改工作台布局或 panel：
-  - `apps/desktop/src/pages/workbench/`
-  - `apps/desktop/src/shared/workspace/`
-  - `apps/desktop/src/shared/contracts/types/`
-- 改 workspace editor 行为：
-  - `apps/desktop/src/pages/workbench/workspaces/*/editors/`
-  - `apps/desktop/src/pages/workbench/workspaces/*/entities/`
-  - `apps/desktop/src/entities/<domain>/`
-  - `apps/desktop/src/pages/workbench/model/workspace-panels/`
-- 改 cp-maker 草稿、编辑、预览、导出：
-  - `apps/desktop/src/features/cp-maker/`
-  - `apps/desktop/src-tauri/src/domain/cp_maker/`
-- 改平台、文件系统、桌面能力：
-  - `apps/desktop/src/shared/contracts/platform.ts`
-  - `apps/desktop/src/platform/tauri/`
-  - `apps/desktop/src/platform/desktop/`
-  - `apps/desktop/src-tauri/src/commands/`
-  - `apps/desktop/src-tauri/src/domain/`
-- 改批准桥接边界：
-  - `apps/desktop/src/app/providers/`
-  - `apps/desktop/src/app/app-shell/AppShell.tsx`
-  - `apps/desktop/src/platform/desktop/index.ts`
-  - `apps/desktop/src/platform/desktop/index.test.ts`
-- 改文案：
-  - `apps/desktop/src/locales/schema.ts`
-  - `apps/desktop/src/locales/en-US.ts`
-  - `apps/desktop/src/locales/zh-CN.ts`
+- 改功能前先用 `codegraph_context` 取任务上下文。
+- 查目录用 `codegraph_files`，查符号用 `codegraph_search`。
+- 查影响面用 `codegraph_impact`、`codegraph_callers`、`codegraph_callees`。
+- CodeGraph 定位到文件后，再打开源码细读。
 
 ## 常用命令
 
@@ -227,24 +71,23 @@ app -> pages -> widgets -> features -> entities -> shared/contracts
 
 - `uv run pnpm dev`：启动前端开发服务器。
 - `uv run pnpm desktop:dev`：启动完整 Tauri 桌面应用。
+- `uv run pnpm format`：用 Prettier 格式化仓库内受支持文件，并自动排序 Tailwind class。
+- `uv run pnpm format:check`：检查 Prettier 格式，不写入文件。
 - `uv run pnpm lint`：前端 lint。
 - `uv run pnpm build`：前端构建。
 - `uv run pnpm --filter @modforge/desktop test`：前端测试。
+- `uv run pnpm --filter @modforge/desktop test:launcher-drag`：针对 Launcher library 拖拽交互运行 Playwright 性能验证；默认目标为 `http://127.0.0.1:5175/?mfLauncherMock=1`，可用 `MODFORGE_LAUNCHER_DRAG_URL` 覆盖。
+- `uv run cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`：格式化 Rust 后端。
 - `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 检查。
 - `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 测试。
 
-## 首次接手建议阅读顺序
+## 首次接手建议
 
-1. `AGENTS.md`
-2. `docs/frontend-architecture.md`
-3. `apps/desktop/src/app/App.tsx`
-4. `apps/desktop/src/app/app-shell/`
-5. `apps/desktop/src/app/registry-setup.ts`
-6. `apps/desktop/src/pages/launcher/LauncherPage.tsx`
-7. `apps/desktop/src/pages/workbench/WorkbenchPage.tsx`
-8. `apps/desktop/src/pages/workbench/model/workspace-panels/`
-9. `apps/desktop/src/platform/tauri/`
+1. 先读 `AGENTS.md` 和 `docs/frontend-architecture.md`，了解硬约束。
+2. 用 `codegraph_status` 确认索引健康。
+3. 用 `codegraph_context` 查询当前任务区域；需要目录时用 `codegraph_files`，需要符号时用 `codegraph_search`。
+4. 只在 CodeGraph 定位到具体文件后，再打开源码细读。
 
 ## 维护规则
 
-新增顶层目录、重要功能目录，或会改变开发者找代码路径的新入口时，同步更新本 README。README 应描述目标架构，不记录迁移期残留入口。
+项目结构由 CodeGraph 托管，README 不维护完整目录清单。只有稳定架构原则、公共入口、开发命令或长期文档位置发生变化时才同步 README；具体文件路径和影响面以 CodeGraph 查询结果为准。

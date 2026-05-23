@@ -65,7 +65,6 @@ type SettingsWindowProps = {
   enableNotificationSoundLabel: string
   disableNotificationSoundLabel: string
   notificationSoundEnabled: boolean
-  launcherContent?: ReactNode
   activeCategory?: SettingsWindowCategory
   accentOptions: AccentOption[]
   activeAccentId: string
@@ -185,7 +184,6 @@ export default function SettingsWindow({
   enableNotificationSoundLabel,
   disableNotificationSoundLabel,
   notificationSoundEnabled,
-  launcherContent,
   activeCategory: controlledActiveCategory,
   accentOptions,
   activeAccentId,
@@ -229,9 +227,7 @@ export default function SettingsWindow({
   const focusableLocaleIndex = activeLocaleIndex === -1 ? 0 : activeLocaleIndex
   const activeCategory = controlledActiveCategory ?? uncontrolledActiveCategory
   const effectiveLoadingSpeedMultiplier =
-    typeof activeLoadingSpeedMultiplier === 'number' && Number.isFinite(activeLoadingSpeedMultiplier)
-      ? activeLoadingSpeedMultiplier
-      : 1
+    typeof activeLoadingSpeedMultiplier === 'number' && Number.isFinite(activeLoadingSpeedMultiplier) ? activeLoadingSpeedMultiplier : 1
 
   const handleCategoryChange = (category: SettingsWindowCategory) => {
     if (controlledActiveCategory === undefined) {
@@ -319,14 +315,11 @@ export default function SettingsWindow({
 
         <div className="settings-window-body">
           <aside className="settings-window-sidebar">
-            {(['appearance', 'loading', 'view', 'interaction', 'launcher', 'debug'] as const).map((categoryId) => (
+            {(['appearance', 'loading', 'view', 'interaction', 'debug'] as const).map((categoryId) => (
               <button
                 key={categoryId}
                 type="button"
-                className={cx(
-                  'settings-window-nav-item',
-                  activeCategory === categoryId && 'settings-window-nav-item-active',
-                )}
+                className={cx('settings-window-nav-item', activeCategory === categoryId && 'settings-window-nav-item-active')}
                 onClick={() => handleCategoryChange(categoryId)}
               >
                 <span className="settings-window-nav-title">{categories[categoryId]}</span>
@@ -427,7 +420,7 @@ export default function SettingsWindow({
 
                 <p className="settings-window-section-title">{loadingMotionStyleLabel}</p>
                 <p className="settings-window-section-copy mt-1">{loadingMotionStyleDescription}</p>
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {loadingStyleOptions.map((option) => {
                     const active = option.id === activeLoadingStyleId
                     return (
@@ -446,7 +439,7 @@ export default function SettingsWindow({
                 <div className="mt-6">
                   <p className="settings-window-section-title">{loadingMotionIntensityLabel}</p>
                   <p className="settings-window-section-copy mt-1">{loadingMotionIntensityDescription}</p>
-                  <div className="flex flex-wrap gap-2 mt-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {loadingIntensityOptions.map((option) => {
                       const active = option.id === activeLoadingIntensityId
                       return (
@@ -481,14 +474,12 @@ export default function SettingsWindow({
                         onSelectLoadingSpeed(activeLoadingSpeedId)
                       }}
                     >
-                      {activeLoadingSpeedMode === 'preset'
-                        ? loadingMotionCustomSpeedToggleLabel
-                        : loadingMotionPresetSpeedToggleLabel}
+                      {activeLoadingSpeedMode === 'preset' ? loadingMotionCustomSpeedToggleLabel : loadingMotionPresetSpeedToggleLabel}
                     </button>
                   </div>
 
                   {activeLoadingSpeedMode === 'preset' ? (
-                    <div className="flex flex-wrap gap-2 mt-3">
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {loadingSpeedOptions.map((option) => {
                         const active = option.id === activeLoadingSpeedId
                         return (
@@ -523,7 +514,6 @@ export default function SettingsWindow({
                     </div>
                   )}
                 </div>
-
               </section>
             ) : null}
 
@@ -540,14 +530,6 @@ export default function SettingsWindow({
                   disabledLabel={disableBorderlessFullscreenLabel}
                   onToggle={onToggleBorderlessFullscreen}
                 />
-              </section>
-            ) : null}
-
-            {activeCategory === 'launcher' ? (
-              <section className="settings-window-section">
-                <p className="settings-window-section-title">{categories.launcher}</p>
-                <p className="settings-window-section-copy mt-2">{categoryDescriptions.launcher}</p>
-                <div className="mt-4">{launcherContent}</div>
               </section>
             ) : null}
 

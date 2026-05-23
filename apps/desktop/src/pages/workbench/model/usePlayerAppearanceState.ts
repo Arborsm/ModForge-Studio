@@ -9,10 +9,7 @@ import {
 } from '@entities/event'
 import type { LocaleCode } from '@locales/editor-shell'
 
-function normalizePlayerAppearanceState(
-  profiles: unknown[] | null | undefined,
-  activeProfileId: string | null | undefined,
-) {
+function normalizePlayerAppearanceState(profiles: unknown[] | null | undefined, activeProfileId: string | null | undefined) {
   return readStoredPlayerAppearanceState(JSON.stringify(Array.isArray(profiles) ? profiles : []), activeProfileId ?? null)
 }
 
@@ -35,21 +32,15 @@ export function usePlayerAppearanceState(appUiStateReady: boolean, locale: Local
       return
     }
 
-    queueMicrotask(() => {
-      if (hydratedRef.current) {
-        return
-      }
+    const state = getAppUiStateSnapshot()
+    const nextPlayerAppearanceState = normalizePlayerAppearanceState(
+      state.appearance.playerAppearance.profiles,
+      state.appearance.playerAppearance.activeProfileId,
+    )
 
-      const state = getAppUiStateSnapshot()
-      const nextPlayerAppearanceState = normalizePlayerAppearanceState(
-        state.appearance.playerAppearance.profiles,
-        state.appearance.playerAppearance.activeProfileId,
-      )
-
-      setPlayerAppearanceProfiles(nextPlayerAppearanceState.profiles)
-      setActivePlayerAppearanceProfileId(nextPlayerAppearanceState.activeProfileId)
-      hydratedRef.current = true
-    })
+    setPlayerAppearanceProfiles(nextPlayerAppearanceState.profiles)
+    setActivePlayerAppearanceProfileId(nextPlayerAppearanceState.activeProfileId)
+    hydratedRef.current = true
   }, [appUiStateReady])
 
   useEffect(() => {

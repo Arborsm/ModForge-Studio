@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import type { LauncherNexusDiagnosticsResult } from '@platform/desktop'
+import type { LauncherNexusDiagnosticsResult } from '@features/launcher/api'
 import { editorCopy, getModWorkspaceCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/editor-shell'
 import { clearNotifications, dismissNotification, publishNotification } from '@shared/ui/notifications'
 
@@ -82,9 +82,7 @@ type MockAppUiStatePatch = {
   }
 }
 
-function createMockAppUiState(
-  overrides: MockAppUiStateOverrides = {},
-): MockAppUiState {
+function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppUiState {
   return {
     version: overrides.version ?? 1,
     shell: {
@@ -101,14 +99,13 @@ function createMockAppUiState(
         profiles: overrides.appearance?.playerAppearance?.profiles ?? [],
         activeProfileId: overrides.appearance?.playerAppearance?.activeProfileId ?? null,
       },
-      loadingMotion:
-        overrides.appearance?.loadingMotion ?? {
-          styleId: 'softFadeIn',
-          intensityId: 'standard',
-          speedMode: 'preset',
-          speedId: 'standard',
-          speedMultiplier: 1,
-        },
+      loadingMotion: overrides.appearance?.loadingMotion ?? {
+        styleId: 'softFadeIn',
+        intensityId: 'standard',
+        speedMode: 'preset',
+        speedId: 'standard',
+        speedMultiplier: 1,
+      },
     },
     workspace: {
       layouts: overrides.workspace?.layouts ?? {},
@@ -176,24 +173,33 @@ let mockAppUiState = createMockAppUiState()
 const initializeAppUiStateMock = vi.fn(async () => mockAppUiState)
 const applyAppUiStatePatchMock = vi.fn(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
 const getAppUiStateSnapshotMock = vi.fn(() => mockAppUiState)
-const clearLegacyBrowserUiStateMock = vi.fn()
 const workspaceLayoutMock = vi.fn((props: Record<string, unknown>) => props)
 const canUseDesktopHostMock = vi.fn(() => false)
-function createLauncherNexusDiagnosticsResult(
-  routes: LauncherNexusDiagnosticsResult['routes'] = [],
-): LauncherNexusDiagnosticsResult {
+function createLauncherNexusDiagnosticsResult(routes: LauncherNexusDiagnosticsResult['routes'] = []): LauncherNexusDiagnosticsResult {
   return { routes }
 }
 
-const loadLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const loadLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
-const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const setLauncherNexusForceOfflineMock = vi.fn<(forceOffline: boolean) => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
-const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(
-  async () => createLauncherNexusDiagnosticsResult(),
+const restartLauncherNexusDiagnosticsMock = vi.fn<() => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
 )
+const retryLauncherNexusDiagnosticsRouteMock = vi.fn<(routeId: string) => Promise<LauncherNexusDiagnosticsResult>>(async () =>
+  createLauncherNexusDiagnosticsResult(),
+)
+const saveLauncherSettingsMock = vi.fn(async () => ({
+  gamePath: 'C:/Games/Stardew Valley',
+  modsPath: 'C:/Games/Stardew Valley/Mods',
+  downloadPath: 'C:/Downloads',
+  nexusApiKey: null,
+  autoInstallDownloads: false,
+  keepDownloadedArchives: false,
+  autoCheckModUpdates: true,
+}))
 
 const useCpMakerMock = vi.fn(() => ({
   activeDraft: null,
@@ -312,135 +318,109 @@ vi.mock('@features/launcher', async () => {
   return {
     ...actual,
     useLauncherRuntime: () => ({
-    settingsState: {
-      settings: {
-        gamePath: 'C:/Games/Stardew Valley',
-        modsPath: 'C:/Games/Stardew Valley/Mods',
-        downloadPath: 'C:/Downloads',
-        nexusApiKey: null,
-        nexusCookie: null,
-        autoInstallDownloads: false,
-        keepDownloadedArchives: false,
-        autoCheckModUpdates: true,
+      settingsState: {
+        settings: {
+          gamePath: 'C:/Games/Stardew Valley',
+          modsPath: 'C:/Games/Stardew Valley/Mods',
+          downloadPath: 'C:/Downloads',
+          nexusApiKey: null,
+          autoInstallDownloads: false,
+          keepDownloadedArchives: false,
+          autoCheckModUpdates: true,
+        },
+        state: 'ready',
+        error: null,
+        saveMessage: null,
+        setSettings: vi.fn(),
+        updateField: vi.fn(),
+        save: vi.fn(async () => null),
+        refresh: vi.fn(async () => {}),
+        pickDirectory: vi.fn(async () => null),
       },
-      state: 'ready',
-      error: null,
-      saveMessage: null,
-      setSettings: vi.fn(),
-      updateField: vi.fn(),
-      save: vi.fn(async () => null),
-      refresh: vi.fn(async () => {}),
-      pickDirectory: vi.fn(async () => null),
-    },
-    downloads: {
-      items: [],
-      queuedItems: [],
-      activeItems: [],
-      readyToInstall: [],
-      installedItems: [],
-      failedItems: [],
-      removableItems: [],
-      counts: {
-        queued: 0,
-        downloading: 0,
-        completed: 0,
-        failed: 0,
-        readyToInstall: 0,
+      downloads: {
+        items: [],
+        queuedItems: [],
+        activeItems: [],
+        readyToInstall: [],
+        installedItems: [],
+        failedItems: [],
+        removableItems: [],
+        counts: {
+          queued: 0,
+          downloading: 0,
+          completed: 0,
+          failed: 0,
+          readyToInstall: 0,
+        },
+        downloadProgressPercent: null,
+        queueDownload: vi.fn(),
+        startDebugSimulation: vi.fn(),
+        retryItem: vi.fn(),
+        retryFailed: vi.fn(),
+        removeItem: vi.fn(),
+        removeCompleted: vi.fn(),
+        installItem: vi.fn(),
+        installAllReady: vi.fn(),
+        clearAll: vi.fn(),
       },
-      downloadProgressPercent: null,
-      queueDownload: vi.fn(),
-      startDebugSimulation: vi.fn(),
-      retryItem: vi.fn(),
-      retryFailed: vi.fn(),
-      removeItem: vi.fn(),
-      removeCompleted: vi.fn(),
-      installItem: vi.fn(),
-      installAllReady: vi.fn(),
-      clearAll: vi.fn(),
-    },
-    credentialsReady: false,
-    settingsWarning: true,
-    settingsWarningLabel: 'Launcher setup incomplete',
-    updatesBadgeCount: 0,
-    downloadsBadgeCount: 0,
-    downloadsProgressPercent: null,
-    downloadsHasFailure: false,
+      credentialsReady: false,
+      settingsWarning: true,
+      settingsWarningLabel: 'Launcher setup incomplete',
+      updatesBadgeCount: 0,
+      downloadsBadgeCount: 0,
+      downloadsProgressPercent: null,
+      downloadsHasFailure: false,
     }),
   }
 })
 
-vi.mock('@platform/desktop', () => ({
+vi.mock('@shared/lib/desktop', () => ({
   LAUNCHER_ARCHIVE_FILE_SUFFIXES: ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'],
   canUseDesktopHost: () => canUseDesktopHostMock(),
-  checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
-  clearLauncherLibraryReadCaches: vi.fn(),
   clearDesktopLocaleCache: vi.fn(),
   closeCurrentWindow: vi.fn(),
+  configureDesktopPlatformPorts: vi.fn(),
   chooseArchiveFile: vi.fn(async () => null),
   chooseImageFile: vi.fn(async () => null),
   isCurrentWindowFullscreen: vi.fn(async () => false),
-  inspectLauncherArchive: vi.fn(),
   isSupportedLauncherArchivePath: vi.fn(() => false),
-  loadCachedLauncherUpdates: vi.fn(async () => null),
   loadAppUiState: vi.fn(async () => mockAppUiState),
-  loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
-  loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
   listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
-  restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
-  setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
-  listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
-  listKnownGameDirectories: vi.fn(async () => []),
-  listLauncherInstallBackups: vi.fn(async () => []),
-  launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
   minimizeCurrentWindow: vi.fn(),
-  openLauncherPath: vi.fn(async () => {}),
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
-  resolveLauncherImage: vi.fn(async () => null),
-  restoreLauncherInstallBackup: vi.fn(async () => undefined),
-  setLauncherLibraryCover: vi.fn(async () => undefined),
   setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
-  subscribeLauncherUpdates: vi.fn(() => () => {}),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
   toggleMaximizeCurrentWindow: vi.fn(),
   toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
   writeFrontendLog: vi.fn(async () => undefined),
 }))
 
-vi.mock('@platform/desktop', () => ({
-  LAUNCHER_ARCHIVE_FILE_SUFFIXES: ['.zip', '.7z', '.rar', '.tar.gz', '.tgz', '.tar'],
-  canUseDesktopHost: () => canUseDesktopHostMock(),
+vi.mock('@features/launcher/api', () => ({
   checkLauncherUpdates: vi.fn(async () => ({ modsPath: 'C:/Games/Stardew Valley/Mods', checkedAtMs: 0, updates: [] })),
   clearLauncherLibraryReadCaches: vi.fn(),
-  clearDesktopLocaleCache: vi.fn(),
-  closeCurrentWindow: vi.fn(),
-  chooseArchiveFile: vi.fn(async () => null),
-  chooseImageFile: vi.fn(async () => null),
-  isCurrentWindowFullscreen: vi.fn(async () => false),
   inspectLauncherArchive: vi.fn(),
-  isSupportedLauncherArchivePath: vi.fn(() => false),
   loadCachedLauncherUpdates: vi.fn(async () => null),
-  loadAppUiState: vi.fn(async () => mockAppUiState),
-  loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
   loadLauncherNexusDiagnostics: () => loadLauncherNexusDiagnosticsMock(),
-  listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
   restartLauncherNexusDiagnostics: () => restartLauncherNexusDiagnosticsMock(),
+  retryLauncherNexusDiagnosticsRoute: (routeId: string) => retryLauncherNexusDiagnosticsRouteMock(routeId),
   setLauncherNexusForceOffline: (forceOffline: boolean) => setLauncherNexusForceOfflineMock(forceOffline),
   listenToLauncherUpdateProgress: vi.fn(async () => () => {}),
-  listKnownGameDirectories: vi.fn(async () => []),
   listLauncherInstallBackups: vi.fn(async () => []),
   launchLauncherGame: vi.fn(async () => ({ target: 'game', executablePath: 'C:/Games/Stardew Valley/Stardew Valley.exe' })),
-  minimizeCurrentWindow: vi.fn(),
+  openLauncherUrl: vi.fn(async () => undefined),
   openLauncherPath: vi.fn(async () => {}),
-  patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
+  saveLauncherSettings: () => saveLauncherSettingsMock(),
   resolveLauncherImage: vi.fn(async () => null),
   restoreLauncherInstallBackup: vi.fn(async () => undefined),
   setLauncherLibraryCover: vi.fn(async () => undefined),
-  setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
   subscribeLauncherUpdates: vi.fn(() => () => {}),
-  toggleFullscreenCurrentWindow: vi.fn(async () => false),
-  toggleMaximizeCurrentWindow: vi.fn(),
-  toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
-  writeFrontendLog: vi.fn(async () => undefined),
+}))
+
+vi.mock('@entities/game/api', () => ({
+  clearGameAssetLocaleCache: vi.fn(),
+  detectDefaultGameDirectory: vi.fn(async () => null),
+  listKnownGameDirectories: vi.fn(async () => []),
+  loadImageDataUrl: vi.fn(async () => 'data:image/png;base64,mock'),
 }))
 
 vi.mock('@shared/lib/react', () => ({
@@ -474,28 +454,27 @@ vi.mock('@features/cp-maker', () => ({
 vi.mock('@pages/launcher/LauncherPage', () => ({
   LauncherPage: ({
     page,
-    debugEnabled,
     locale,
     onAppModeChange,
     onOpenSettings,
     onLauncherPageChange,
     onLauncherDiagnosticsUpdate,
   }: {
-    page: 'library' | 'discover' | 'updates' | 'debug'
+    page: 'library' | 'discover' | 'updates' | 'configuration'
     debugEnabled: boolean
     locale: 'en-US' | 'zh-CN'
     onAppModeChange: (mode: 'launcher' | 'workbench') => void
     onOpenSettings: (category?: 'appearance' | 'launcher' | 'interaction' | 'debug') => void
-    onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'debug') => void
+    onLauncherPageChange: (page: 'library' | 'discover' | 'updates' | 'configuration') => void
     onNavigateToDiagnostics?: () => void
     onRetryDiagnostics?: (() => Promise<void> | void) | null
     onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   }) => {
-    const activePage = !debugEnabled && page === 'debug' ? 'library' : page
+    const activePage = page
     const labels =
       locale === 'zh-CN'
         ? {
-            debug: '调试',
+            configuration: '配置',
             discover: '发现',
             downloads: '下载',
             launchGame: '启动游戏',
@@ -505,7 +484,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
             workbench: '工作台',
           }
         : {
-            debug: 'Debug',
+            configuration: 'Configuration',
             discover: 'Discover',
             downloads: 'Downloads',
             launchGame: 'Launch Game',
@@ -529,11 +508,7 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
         <button type="button" onClick={() => onAppModeChange('workbench')}>
           {labels.workbench}
         </button>
-        <button
-          type="button"
-          aria-current={activePage === 'library' ? 'page' : undefined}
-          onClick={() => onLauncherPageChange('library')}
-        >
+        <button type="button" aria-current={activePage === 'library' ? 'page' : undefined} onClick={() => onLauncherPageChange('library')}>
           {labels.library}
         </button>
         <button
@@ -543,23 +518,17 @@ vi.mock('@pages/launcher/LauncherPage', () => ({
         >
           {labels.discover}
         </button>
-        <button
-          type="button"
-          aria-current={activePage === 'updates' ? 'page' : undefined}
-          onClick={() => onLauncherPageChange('updates')}
-        >
+        <button type="button" aria-current={activePage === 'updates' ? 'page' : undefined} onClick={() => onLauncherPageChange('updates')}>
           {labels.updates}
         </button>
         <button type="button">{labels.downloads}</button>
-        {debugEnabled ? (
-          <button
-            type="button"
-            aria-current={activePage === 'debug' ? 'page' : undefined}
-            onClick={() => onLauncherPageChange('debug')}
-          >
-            {labels.debug}
-          </button>
-        ) : null}
+        <button
+          type="button"
+          aria-current={activePage === 'configuration' ? 'page' : undefined}
+          onClick={() => onLauncherPageChange('configuration')}
+        >
+          {labels.configuration}
+        </button>
         {activePage === 'library' ? <button type="button">{labels.launchGame}</button> : null}
       </div>
     )
@@ -629,12 +598,6 @@ vi.mock('@pages/workbench', () => ({
         <button type="button">{copy.leftDock.project}</button>
         <button type="button">{viewMenuCopy.title}</button>
         <div data-testid="workspace-layout" data-storage-key={layoutProps.storageKey} />
-        {props.debugEnabled ? (
-          <>
-            <div data-testid="workbench-debug-overlay" />
-            <div data-testid="app-debug-overlay" />
-          </>
-        ) : null}
       </div>
     )
   },
@@ -762,7 +725,7 @@ vi.mock('@shared/lib/app-state', () => ({
   normalizeAppShellState: (input?: Partial<MockAppUiState['shell']> | null) => ({
     appMode: input?.appMode === 'workbench' ? 'workbench' : 'launcher',
     launcherPage:
-      input?.launcherPage === 'discover' || input?.launcherPage === 'updates' || input?.launcherPage === 'debug'
+      input?.launcherPage === 'discover' || input?.launcherPage === 'updates' || input?.launcherPage === 'configuration'
         ? input.launcherPage
         : 'library',
     debugEnabled: input?.debugEnabled === true,
@@ -771,10 +734,8 @@ vi.mock('@shared/lib/app-state', () => ({
   initializeAppUiState: () => initializeAppUiStateMock(),
   applyAppUiStatePatch: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
   getAppUiStateSnapshot: () => getAppUiStateSnapshotMock(),
-  clearLegacyBrowserUiState: () => clearLegacyBrowserUiStateMock(),
   configureAppUiStatePersistence: vi.fn(),
 }))
-
 
 describe('App locale ownership', () => {
   beforeEach(() => {
@@ -789,13 +750,24 @@ describe('App locale ownership', () => {
     setLauncherNexusForceOfflineMock.mockResolvedValue({ routes: [] })
     restartLauncherNexusDiagnosticsMock.mockReset()
     restartLauncherNexusDiagnosticsMock.mockResolvedValue({ routes: [] })
+    retryLauncherNexusDiagnosticsRouteMock.mockReset()
+    retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({ routes: [] })
+    saveLauncherSettingsMock.mockReset()
+    saveLauncherSettingsMock.mockImplementation(async () => ({
+      gamePath: 'C:/Games/Stardew Valley',
+      modsPath: 'C:/Games/Stardew Valley/Mods',
+      downloadPath: 'C:/Downloads',
+      nexusApiKey: null,
+      autoInstallDownloads: false,
+      keepDownloadedArchives: false,
+      autoCheckModUpdates: true,
+    }))
     initializeAppUiStateMock.mockClear()
     initializeAppUiStateMock.mockImplementation(async () => mockAppUiState)
     applyAppUiStatePatchMock.mockClear()
     applyAppUiStatePatchMock.mockImplementation(async (patch: MockAppUiStatePatch) => applyMockAppUiStatePatch(patch))
     getAppUiStateSnapshotMock.mockClear()
     getAppUiStateSnapshotMock.mockImplementation(() => mockAppUiState)
-    clearLegacyBrowserUiStateMock.mockClear()
     workspaceLayoutMock.mockClear()
     vi.stubGlobal(
       'matchMedia',
@@ -820,6 +792,17 @@ describe('App locale ownership', () => {
       configurable: true,
       value: 'en-US',
     })
+  })
+
+  it('uses the workbench shell skeleton instead of the generic loading fallback while the workbench chunk loads', async () => {
+    const { container } = render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
+
+    expect(screen.getByTestId('workbench-shell-skeleton')).toBeTruthy()
+    expect(container.querySelector('.loading-motion-fallback')).toBeNull()
+
+    expect(await screen.findByTestId('workspace-layout')).toBeTruthy()
   })
 
   it('updates downstream shell copy immediately when locale changes through Settings', async () => {
@@ -916,9 +899,9 @@ describe('App locale ownership', () => {
 
     expect(screen.queryByTestId('workspace-layout')).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
-    expect(
-      screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current'),
-    ).not.toBe('page')
+    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.downloads.title })?.getAttribute('aria-current')).not.toBe(
+      'page',
+    )
   })
 
   it('switches app mode to workbench through shell controls and persists it', async () => {
@@ -943,7 +926,7 @@ describe('App locale ownership', () => {
     expect(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.launchGame })).toBeTruthy()
   })
 
-  it('persists the active launcher page only when switching back to workbench', async () => {
+  it('keeps launcher page switches in memory and persists the page with the next shell write', async () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
@@ -955,7 +938,7 @@ describe('App locale ownership', () => {
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }))
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.updates }).getAttribute('aria-current')).toBe('page')
-    expect(mockAppUiState.shell.launcherPage).toBe('updates')
+    expect(mockAppUiState.shell.launcherPage).toBe('library')
 
     fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].shell.workbench }))
 
@@ -965,15 +948,20 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('renders launcher settings inside the global settings window', async () => {
+  it('keeps launcher settings out of the global settings window', async () => {
     const englishSettingsCopy = getSettingsMenuCopy('en-US')
 
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
-    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) }))
+    await screen.findByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.appearance}`) })
 
-    expect(document.querySelector('.settings-window-content')?.textContent).toContain(englishSettingsCopy.categories.launcher)
+    const settingsSidebar = document.querySelector('.settings-window-sidebar')
+    expect(settingsSidebar).toBeTruthy()
+    expect(
+      within(settingsSidebar as HTMLElement).queryByRole('button', { name: new RegExp(`^${englishSettingsCopy.categories.launcher}`) }),
+    ).toBeNull()
+    expect(document.querySelector('.settings-window-content')?.textContent).not.toContain(englishSettingsCopy.categories.launcher)
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.saveSettings })).toBeNull()
   })
 
@@ -1020,7 +1008,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1032,14 +1020,12 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationTitle)).toBeTruthy()
+    expect(await screen.findByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationTitle)).toBeTruthy()
     expect(
-      screen.getByText(
-        editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationImpact('Discover / automatic updates'),
-      ),
+      screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationImpact('Discover / automatic updates')),
     ).toBeTruthy()
-    expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
-    expect(screen.getByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationNote)).toBeTruthy()
+    expect(screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationBody(1))).toBeTruthy()
+    expect(screen.getByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationNote)).toBeTruthy()
     expect(screen.queryByText(/Failed after 3 attempts: timeout/)).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeTruthy()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
@@ -1056,7 +1042,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1068,12 +1054,12 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(await screen.findByText(editorCopy['en-US'].launcher.debug.nexusDiagnosticsNotificationTitle)).toBeTruthy()
+    expect(await screen.findByText(editorCopy['en-US'].launcher.configuration.nexusDiagnosticsNotificationTitle)).toBeTruthy()
     expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.actions.retry })).toBeNull()
     expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails })).toBeTruthy()
   })
 
-  it('opens the launcher debug page from the diagnostics notification detail button', async () => {
+  it('opens the launcher configuration page from the diagnostics notification detail button', async () => {
     seedAppUiState({
       shell: { appMode: 'launcher' },
     })
@@ -1083,7 +1069,7 @@ describe('App locale ownership', () => {
         {
           routeId: 'publicGraphql',
           label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
@@ -1098,11 +1084,13 @@ describe('App locale ownership', () => {
     fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.viewDetails }))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe('page')
+      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
+        'page',
+      )
     })
   })
 
-  it('restarts Nexus diagnostics from the diagnostics notification retry button', async () => {
+  it('retries only failed Nexus diagnostics routes from the diagnostics notification retry button', async () => {
     seedAppUiState({
       shell: { appMode: 'launcher' },
     })
@@ -1110,28 +1098,38 @@ describe('App locale ownership', () => {
     loadLauncherNexusDiagnosticsMock.mockResolvedValue({
       routes: [
         {
-          routeId: 'publicGraphql',
-          label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
+          routeId: 'privateGraphql',
+          label: 'Nexus Private GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
           status: 'warning',
           attempts: 3,
           maxAttempts: 3,
           available: false,
           message: 'Failed after 3 attempts: timeout',
         },
-      ],
-    })
-    restartLauncherNexusDiagnosticsMock.mockResolvedValue({
-      routes: [
         {
-          routeId: 'publicGraphql',
-          label: 'Nexus Public GraphQL',
-          endpoint: 'https://api-router.nexusmods.com/graphql',
-          status: 'loading',
+          routeId: 'nexusImages',
+          label: 'Nexus Image CDN',
+          endpoint: 'https://staticdelivery.nexusmods.com/',
+          status: 'success',
           attempts: 1,
           maxAttempts: 3,
           available: true,
-          message: 'Attempt 1 of 3 is in progress.',
+          message: 'Connected after 1 attempt.',
+        },
+      ],
+    })
+    retryLauncherNexusDiagnosticsRouteMock.mockResolvedValue({
+      routes: [
+        {
+          routeId: 'privateGraphql',
+          label: 'Nexus Private GraphQL',
+          endpoint: 'https://api.nexusmods.com/v2/graphql',
+          status: 'success',
+          attempts: 1,
+          maxAttempts: 3,
+          available: true,
+          message: 'Connected after 1 attempt.',
         },
       ],
     })
@@ -1141,8 +1139,10 @@ describe('App locale ownership', () => {
     fireEvent.click(await screen.findByRole('button', { name: editorCopy['en-US'].launcher.actions.retry }))
 
     await waitFor(() => {
-      expect(restartLauncherNexusDiagnosticsMock).toHaveBeenCalledTimes(1)
+      expect(retryLauncherNexusDiagnosticsRouteMock).toHaveBeenCalledWith('privateGraphql')
     })
+    expect(restartLauncherNexusDiagnosticsMock).not.toHaveBeenCalled()
+    expect(retryLauncherNexusDiagnosticsRouteMock).not.toHaveBeenCalledWith('nexusImages')
   })
 
   it('applies the persisted launcher force-offline override during startup hydration', async () => {
@@ -1170,11 +1170,11 @@ describe('App locale ownership', () => {
     render(<App />)
 
     return waitFor(() => {
-      expect(screen.getByTestId('workbench-debug-overlay')).toBeTruthy()
+      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
     })
   })
 
-  it('keeps the workbench debug overlay out of launcher mode when debug mode is enabled', () => {
+  it('shows the debug overlay in launcher mode when debug mode is enabled', () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
@@ -1184,7 +1184,9 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    expect(screen.queryByTestId('workbench-debug-overlay')).toBeNull()
+    return waitFor(() => {
+      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
+    })
   })
 
   it('toggles debug mode from Settings and persists the flag', async () => {
@@ -1201,7 +1203,7 @@ describe('App locale ownership', () => {
 
     await waitFor(() => {
       expect(mockAppUiState.shell.debugEnabled).toBe(true)
-      expect(screen.getByTestId('workbench-debug-overlay')).toBeTruthy()
+      expect(screen.getByTestId('app-debug-overlay')).toBeTruthy()
     })
   })
 
@@ -1254,29 +1256,26 @@ describe('App locale ownership', () => {
     })
   })
 
-  it('falls back to the launcher library when the persisted debug page is disabled', () => {
+  it('keeps the launcher configuration page available when debug mode is disabled', () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
-        launcherPage: 'debug',
+        launcherPage: 'configuration',
         debugEnabled: false,
       },
     })
 
     render(<App />)
 
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe(
-      'page',
-    )
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
+    expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
   })
 
-  it('returns from the launcher debug page when debug mode is turned off', async () => {
+  it('keeps the launcher configuration page active when debug mode is turned off', async () => {
     seedAppUiState({
       shell: {
         appMode: 'launcher',
-        launcherPage: 'debug',
+        launcherPage: 'configuration',
         debugEnabled: true,
       },
     })
@@ -1284,10 +1283,8 @@ describe('App locale ownership', () => {
 
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }))
-    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.debug }).getAttribute('aria-current')).toBe(
-      'page',
-    )
+    fireEvent.click(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }))
+    expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe('page')
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(englishSettingsCopy.title) }))
     const sidebar = document.querySelector('.settings-window-sidebar')
@@ -1300,18 +1297,17 @@ describe('App locale ownership', () => {
         expect.objectContaining({
           shell: expect.objectContaining({
             appMode: 'launcher',
-            launcherPage: 'library',
+            launcherPage: 'configuration',
             debugEnabled: false,
           }),
         }),
       )
-      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.library }).getAttribute('aria-current')).toBe(
+      expect(screen.getByRole('button', { name: editorCopy['en-US'].launcher.pages.configuration }).getAttribute('aria-current')).toBe(
         'page',
       )
     })
 
-    expect(screen.queryByRole('button', { name: editorCopy['en-US'].launcher.pages.debug })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Launch Game' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Launch Game' })).toBeNull()
   })
 
   it('does not re-render App when the workspace layout reports an in-session persist update', async () => {
@@ -1368,5 +1364,4 @@ describe('App locale ownership', () => {
       })
     })
   })
-
 })

@@ -397,14 +397,11 @@ pub fn load_json_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<Value, String> {
-    let (relative_from, normalized_from) =
-        resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let raw_json = String::from_utf8(bytes).map_err(|err| {
-            format!(
-                "Failed to decode virtual JSON patch asset `{normalized_from}` as UTF-8: {err}"
-            )
+            format!("Failed to decode virtual JSON patch asset `{normalized_from}` as UTF-8: {err}")
         })?;
         return parse_json_str(&raw_json, &normalized_from);
     }
@@ -427,14 +424,11 @@ pub fn load_image_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<RgbaImage, String> {
-    let (relative_from, normalized_from) =
-        resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let image = image::load_from_memory(&bytes).map_err(|err| {
-            format!(
-                "Failed to load virtual image patch asset `{normalized_from}`: {err}"
-            )
+            format!("Failed to load virtual image patch asset `{normalized_from}`: {err}")
         })?;
         return Ok(image.to_rgba8());
     }
@@ -454,8 +448,7 @@ pub fn load_map_patch_asset(
     source_path: &str,
     from_file: &str,
 ) -> Result<LoadedMapAsset, String> {
-    let (relative_from, normalized_from) =
-        resolve_from_file_relative_path(source_path, from_file)?;
+    let (relative_from, normalized_from) = resolve_from_file_relative_path(source_path, from_file)?;
 
     if let Some(bytes) = decode_virtual_preview_asset_bytes(&normalized_from)? {
         let virtual_path = PathBuf::from(&normalized_from);

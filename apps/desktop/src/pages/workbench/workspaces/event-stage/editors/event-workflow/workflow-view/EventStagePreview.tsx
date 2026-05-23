@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Code2, Grid2x2, UserPlus, Camera, MapPin, Route } from 'lucide-react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
-import { loadMapAsset, validateGameDirectory } from '@platform/desktop'
+import { loadMapAsset, validateGameDirectory } from '@entities/game/api'
 import { loadImageUrlFromPath } from '@shared/lib/assets'
 import type { MapDocument } from '@shared/contracts'
 import type { EventSceneActor, EventScript } from '@entities/event'
@@ -55,10 +55,7 @@ function resolveActorFocusTile(actorMap: Record<string, EventActorState>) {
   return primary ? { tileX: primary.tileX, tileY: primary.tileY } : null
 }
 
-function resolveCameraFocus(
-  event: EventScript | null,
-  actorMap: Record<string, EventActorState>,
-) {
+function resolveCameraFocus(event: EventScript | null, actorMap: Record<string, EventActorState>) {
   if (!event) return resolveActorFocusTile(actorMap)
   const raw = event.scene.cameraInstruction?.trim()
   if (!raw || raw === 'continue' || raw === 'follow') {
@@ -86,6 +83,31 @@ type EventActorState = {
   portraitPath: string | null
   spriteUrl: string | null
   portraitUrl: string | null
+}
+
+type StagePreviewMapState = {
+  document: MapDocument | null
+  error: string
+  requestKey: string
+  status: 'idle' | 'ready' | 'error'
+}
+
+type ActorAssetState = {
+  requestKey: string
+  spriteUrl: string | null
+  portraitUrl: string | null
+}
+
+function toExternalActorAssets(assets: Record<string, ActorAssetState>) {
+  return Object.fromEntries(
+    Object.entries(assets).map(([actorKey, asset]) => [
+      actorKey,
+      {
+        spriteUrl: asset.spriteUrl,
+        portraitUrl: asset.portraitUrl,
+      },
+    ]),
+  )
 }
 
 function createActorState(actor: EventSceneActor, rootPath: string | null): EventActorState {
@@ -161,44 +183,58 @@ export function EventStagePreview({
   onContextMenuAction,
   conditionBuilderLabel,
 }: EventStagePreviewProps) {
-  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
-  const [mapError, setMapError] = useState('')
-  const [actorAssets, setActorAssets] = useState<Record<string, { spriteUrl: string | null; portraitUrl: string | null }>>({})
+  const [mapState, setMapState] = useState<StagePreviewMapState>({
+    document: null,
+    error: '',
+    requestKey: '',
+    status: 'idle',
+  })
+  const [actorAssets, setActorAssets] = useState<Record<string, ActorAssetState>>({})
   const [showGrid, setShowGrid] = useState(true)
   const [showPaths, setShowPaths] = useState(true)
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
   const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
+  const mapRequestKey = gameRootPath && mapName ? `${gameRootPath}::${mapName}::${locale}` : ''
+  const mapDocument = mapState.requestKey === mapRequestKey && mapState.status === 'ready' ? mapState.document : null
+  const mapError = !gameRootPath || mapState.requestKey !== mapRequestKey ? '' : !mapName ? 'No map name provided.' : mapState.error
+
+  // Build actor map from event script
+  const actorMap = useMemo(() => buildActorMap(eventScript, gameRootPath), [eventScript, gameRootPath])
+  const currentActorAssets = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(actorMap).flatMap(([actorKey, actor]) => {
+          const requestKey = `${gameRootPath ?? ''}::${actor.spritePath ?? ''}::${actor.portraitPath ?? ''}`
+          const asset = actorAssets[actorKey]
+          return asset?.requestKey === requestKey ? [[actorKey, asset] as const] : []
+        }),
+      ),
+    [actorAssets, actorMap, gameRootPath],
+  )
 
   // Load map
   useEffect(() => {
     let cancelled = false
 
     if (!gameRootPath || !mapName) {
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setMapDocument(null)
-          setMapError(gameRootPath ? 'No map name provided.' : '')
-        }
-      })
-
       return () => {
         cancelled = true
       }
     }
 
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setMapError('')
-      }
-    })
+    const requestKey = mapRequestKey
 
     void (async () => {
       try {
         const directoryInfo = await validateGameDirectory(gameRootPath)
         if (cancelled) return
         if (!directoryInfo.mapsPath) {
-          setMapDocument(null)
-          setMapError('No maps folder found in game directory.')
+          setMapState({
+            document: null,
+            error: 'No maps folder found in game directory.',
+            requestKey,
+            status: 'error',
+          })
           return
         }
 
@@ -208,15 +244,28 @@ export function EventStagePreview({
 
         if (asset.format === 'xnb') {
           const doc = JSON.parse(asset.content) as MapDocument
-          setMapDocument(doc)
+          setMapState({
+            document: doc,
+            error: '',
+            requestKey,
+            status: 'ready',
+          })
         } else {
-          setMapDocument(null)
-          setMapError('Only XNB maps can be staged for events.')
+          setMapState({
+            document: null,
+            error: 'Only XNB maps can be staged for events.',
+            requestKey,
+            status: 'error',
+          })
         }
       } catch (err) {
         if (!cancelled) {
-          setMapDocument(null)
-          setMapError(err instanceof Error ? err.message : String(err))
+          setMapState({
+            document: null,
+            error: err instanceof Error ? err.message : String(err),
+            requestKey,
+            status: 'error',
+          })
         }
       }
     })()
@@ -224,41 +273,30 @@ export function EventStagePreview({
     return () => {
       cancelled = true
     }
-  }, [gameRootPath, mapName, locale])
-
-  // Build actor map from event script
-  const actorMap = useMemo(() => buildActorMap(eventScript, gameRootPath), [eventScript, gameRootPath])
+  }, [gameRootPath, mapName, locale, mapRequestKey])
 
   // Load actor sprites and portraits
   useEffect(() => {
     let cancelled = false
 
     if (!gameRootPath || Object.keys(actorMap).length === 0) {
-      queueMicrotask(() => {
-        if (!cancelled) {
-          setActorAssets({})
-          onActorAssetsChange?.({})
-        }
-      })
-
-      return () => {
-        cancelled = true
-      }
+      return
     }
 
     void (async () => {
       const entries = await Promise.all(
         Object.values(actorMap).map(async (actor) => {
           const key = toActorKey(actor.actorName)
+          const requestKey = `${gameRootPath}::${actor.spritePath ?? ''}::${actor.portraitPath ?? ''}`
           const spriteUrl = actor.spritePath ? await loadImageUrlFromPath(actor.spritePath).catch(() => null) : null
           const portraitUrl = actor.portraitPath ? await loadImageUrlFromPath(actor.portraitPath).catch(() => null) : null
-          return [key, { spriteUrl, portraitUrl }] as const
+          return [key, { requestKey, spriteUrl, portraitUrl }] as const
         }),
       )
       const next = Object.fromEntries(entries)
       if (!cancelled) {
         setActorAssets(next)
-        onActorAssetsChange?.(next)
+        onActorAssetsChange?.(toExternalActorAssets(next))
       }
     })()
 
@@ -282,18 +320,12 @@ export function EventStagePreview({
 
     return (
       <>
-        {showPaths && (
-          <StagePathOverlay
-            eventScript={eventScript}
-            mapDocument={mapDocument}
-            selectedCommandIndex={selectedCommandIndex}
-          />
-        )}
+        {showPaths && <StagePathOverlay eventScript={eventScript} mapDocument={mapDocument} selectedCommandIndex={selectedCommandIndex} />}
         {Object.values(actorMap)
           .sort((left, right) => left.tileY - right.tileY)
           .map((actor) => {
             const actorKey = toActorKey(actor.actorName)
-            const spriteUrl = actorAssets[actorKey]?.spriteUrl ?? null
+            const spriteUrl = currentActorAssets[actorKey]?.spriteUrl ?? null
 
             return (
               <ActorSprite
@@ -313,7 +345,7 @@ export function EventStagePreview({
           })}
       </>
     )
-  }, [actorMap, actorAssets, mapDocument, eventScript, showPaths, selectedCommandIndex])
+  }, [actorMap, currentActorAssets, mapDocument, eventScript, showPaths, selectedCommandIndex])
 
   const mapOverlay = (
     <div className="absolute inset-0">
@@ -326,7 +358,7 @@ export function EventStagePreview({
     <div className="absolute inset-0">
       <div className="absolute inset-0 flex flex-col justify-between p-4">
         <div className="flex justify-between gap-3">
-          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase shadow-[var(--shadow-panel)]">
             {eventScript?.eventId ?? mapName ?? 'Scene'}
           </div>
         </div>

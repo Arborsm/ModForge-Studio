@@ -10,6 +10,7 @@ export * from './model/stage/eventStageAssets'
 export * from './model/stage/eventStageFarmerState'
 export * from './model/stage/eventStagePlayback'
 export * from './model/stage/eventStageShared'
+export { clearLocalizedStageMetadataCache, getStageMetadataCacheStats } from './model/stage/stageMetadataCache'
 export * from './model/stage/eventStageTemporarySprites'
 export {
   bakeFarmerBaseTexture,

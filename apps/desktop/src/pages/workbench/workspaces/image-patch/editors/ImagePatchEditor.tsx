@@ -111,9 +111,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
       <div className="flex min-h-0 flex-1">
         {/* Left: Image Upload / Preview */}
         <div className="flex w-1/2 shrink-0 flex-col border-r border-[var(--border-color)] p-3">
-          <span className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-            Replacement Image
-          </span>
+          <span className="mb-2 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">Replacement Image</span>
 
           {displayUrl ? (
             <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -126,9 +124,7 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="truncate text-[10px] text-[var(--text-secondary)]">
-                  {patch.fromFile ?? 'Unsaved'}
-                </span>
+                <span className="truncate text-[10px] text-[var(--text-secondary)]">{patch.fromFile ?? 'Unsaved'}</span>
                 <button
                   type="button"
                   className="icon-button h-6 w-6 text-red-400"
@@ -184,14 +180,15 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
               <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-3">
                 <p className="text-xs font-medium text-[var(--text-primary)]">Load Action</p>
                 <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-                  This patch will replace the entire target asset with the uploaded file. No area or mode options are available for Load patches.
+                  This patch will replace the entire target asset with the uploaded file. No area or mode options are available for Load
+                  patches.
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* Patch Mode */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                     Patch Mode
                   </label>
                   <select
@@ -210,13 +207,13 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
 
                 {/* From Area */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                     From Area (Source Crop)
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                        <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
                         <input
                           type="text"
                           className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
@@ -234,13 +231,13 @@ export function ImagePatchEditor({ patch, draft, onPatchChange, onAddVirtualAsse
 
                 {/* To Area */}
                 <div>
-                  <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <label className="mb-1.5 block text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
                     To Area (Target Position)
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {(['x', 'y', 'width', 'height'] as const).map((field) => (
                       <div key={field}>
-                        <span className="mb-0.5 block text-[9px] uppercase text-[var(--text-secondary)]">{field}</span>
+                        <span className="mb-0.5 block text-[9px] text-[var(--text-secondary)] uppercase">{field}</span>
                         <input
                           type="text"
                           className="w-full rounded border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1.5 text-[11px] text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"

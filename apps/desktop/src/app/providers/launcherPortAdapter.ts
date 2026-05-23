@@ -1,5 +1,9 @@
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import {
+  startNexusSso,
+  getNexusSsoStatus,
+  cancelNexusSso,
+  validateNexusApiKey,
   loadLauncherSettings,
   saveLauncherSettings,
   loadLauncherLibraryState,
@@ -14,9 +18,11 @@ import {
   loadLauncherUpdateChangelog,
   loadLauncherNexusDiagnostics,
   restartLauncherNexusDiagnostics,
+  retryLauncherNexusDiagnosticsRoute,
   setLauncherNexusForceOffline,
   resolveLauncherImage,
   loadCachedLauncherUpdates,
+  loadSuppressedLauncherUpdateModIds,
   checkLauncherUpdates,
   listenToLauncherUpdateProgress,
   downloadLauncherMod,
@@ -28,22 +34,21 @@ import {
   openLauncherPath,
   openLauncherUrl,
   scanLauncherLibrary,
+  loadLauncherRuntimeInfo,
   clearLauncherLibraryReadCaches,
-  chooseArchiveFile,
-  chooseImageFile,
   getLauncherBackupDirectory,
   setLauncherModEnabled,
-  chooseDirectory,
-  detectDefaultGameDirectory,
   subscribeLauncherUpdates,
-  toDesktopAssetUrl,
-} from '@platform/desktop'
+} from '@features/launcher/api'
+import { detectDefaultGameDirectory } from '@entities/game/api'
+import { chooseArchiveFile, chooseDirectory, chooseImageFile, toDesktopAssetUrl } from '@shared/lib/desktop'
 
 export function createLauncherPortAdapter(): LauncherPort {
   return {
     loadSettings: () => loadLauncherSettings(),
     saveSettings: (request) => saveLauncherSettings(request),
     scanLibrary: (request) => scanLauncherLibrary(request),
+    loadRuntimeInfo: () => loadLauncherRuntimeInfo(),
     loadLibraryState: () => loadLauncherLibraryState(),
     saveLibraryState: (request) => saveLauncherLibraryState(request),
     loadLibraryCovers: () => loadLauncherLibraryCovers(),
@@ -56,9 +61,11 @@ export function createLauncherPortAdapter(): LauncherPort {
     loadUpdateChangelog: (request) => loadLauncherUpdateChangelog(request),
     loadNexusDiagnostics: () => loadLauncherNexusDiagnostics(),
     restartNexusDiagnostics: () => restartLauncherNexusDiagnostics(),
+    retryNexusDiagnosticsRoute: (routeId) => retryLauncherNexusDiagnosticsRoute(routeId),
     setNexusForceOffline: (forceOffline) => setLauncherNexusForceOffline(forceOffline),
     resolveImage: (request) => resolveLauncherImage(request),
     loadCachedUpdates: (request) => loadCachedLauncherUpdates(request),
+    loadSuppressedUpdateModIds: (request) => loadSuppressedLauncherUpdateModIds(request),
     checkUpdates: (request) => checkLauncherUpdates(request),
     listenToUpdateProgress: (listener) => listenToLauncherUpdateProgress(listener),
     downloadMod: (request) => downloadLauncherMod(request),
@@ -78,5 +85,9 @@ export function createLauncherPortAdapter(): LauncherPort {
     detectDefaultGameDirectory: () => detectDefaultGameDirectory(),
     toDesktopAssetUrl: (path, protocol) => toDesktopAssetUrl(path, protocol),
     subscribeUpdates: (modsPath, listener) => subscribeLauncherUpdates(modsPath, listener),
+    validateNexusApiKey: () => validateNexusApiKey(),
+    startNexusSso: () => startNexusSso(),
+    getNexusSsoStatus: () => getNexusSsoStatus(),
+    cancelNexusSso: () => cancelNexusSso(),
   }
 }

@@ -58,13 +58,7 @@ describe('CharacterWorkspace', () => {
     const character = createCharacter()
     const assetState = createAssetState()
 
-    renderWithLocale(
-      <CharacterWorkspace
-        character={character}
-        activeVariant={character.variants[0] ?? null}
-        assetState={assetState}
-      />,
-    )
+    renderWithLocale(<CharacterWorkspace character={character} activeVariant={character.variants[0] ?? null} assetState={assetState} />)
 
     expect(screen.getByText(copy.breathingTitle)).toBeInTheDocument()
     expect(screen.queryByText(copy.breathHint)).not.toBeInTheDocument()
@@ -89,13 +83,7 @@ describe('CharacterWorkspace', () => {
       portraitOriginalHeight: number
     }
 
-    renderWithLocale(
-      <CharacterWorkspace
-        character={character}
-        activeVariant={character.variants[0] ?? null}
-        assetState={assetState}
-      />,
-    )
+    renderWithLocale(<CharacterWorkspace character={character} activeVariant={character.variants[0] ?? null} assetState={assetState} />)
 
     expect(screen.getByText(`${copy.expressions}: 2`)).toBeInTheDocument()
     expect(screen.queryByText(`${copy.expressions}: 32`)).not.toBeInTheDocument()
@@ -120,13 +108,7 @@ describe('CharacterWorkspace', () => {
       portraitOriginalHeight: number
     }
 
-    renderWithLocale(
-      <CharacterWorkspace
-        character={character}
-        activeVariant={character.variants[0] ?? null}
-        assetState={assetState}
-      />,
-    )
+    renderWithLocale(<CharacterWorkspace character={character} activeVariant={character.variants[0] ?? null} assetState={assetState} />)
 
     const header = screen.getByText('#0').parentElement
     const previewFrame = header?.nextElementSibling?.firstElementChild as HTMLElement | null

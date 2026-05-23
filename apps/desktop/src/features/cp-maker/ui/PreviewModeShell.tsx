@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Eye, Map, Calendar, User, Building2, Package } from 'lucide-react'
-import { useCpMakerPort } from '@features/cp-maker'
+import { useCpMakerPort } from '@features/cp-maker/provider'
 import type { WorkspaceId } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
@@ -24,6 +24,21 @@ type ResourceItem = {
   author?: string
   version?: string
   description?: string
+}
+
+type ResourceListState = {
+  key: string
+  status: 'idle' | 'loading' | 'ready'
+  items: ResourceItem[]
+}
+
+type ResourcePreviewState = {
+  key: string
+  status: 'idle' | 'loading' | 'ready' | 'error'
+  mapDocument: MapDocument | null
+  content: string | null
+  imageUrl: string | null
+  error: string | null
 }
 
 const WORKSPACE_ICONS: Record<WorkspaceId, React.ReactNode> = {
@@ -54,127 +69,121 @@ export function PreviewModeShell({
   viewportLabels,
 }: PreviewModeShellProps) {
   const port = useCpMakerPort()
-  const [resources, setResources] = useState<ResourceItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const resourceListKey = `${workspaceMode}:${gameRootPath ?? ''}:${directoryInfo?.rootPath ?? ''}:${locale}`
+  const [resourceListState, setResourceListState] = useState<ResourceListState>({
+    key: resourceListKey,
+    status: gameRootPath && directoryInfo ? 'loading' : 'idle',
+    items: [],
+  })
   const [selectedResource, setSelectedResource] = useState<ResourceItem | null>(null)
-
-  // Map preview state
-  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
-  const [mapLoading, setMapLoading] = useState(false)
-  const [mapError, setMapError] = useState<string | null>(null)
-
-  // Other workspace preview state
-  const [previewContent, setPreviewContent] = useState<string | null>(null)
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState<string | null>(null)
+  const selectedResourceKey = selectedResource
+    ? `${workspaceMode}:${gameRootPath ?? ''}:${locale}:${selectedResource.id}:${selectedResource.path}`
+    : ''
+  const [previewState, setPreviewState] = useState<ResourcePreviewState>({
+    key: selectedResourceKey,
+    status: selectedResource && gameRootPath ? 'loading' : 'idle',
+    mapDocument: null,
+    content: null,
+    imageUrl: null,
+    error: null,
+  })
 
   useEffect(() => {
     if (!gameRootPath || !directoryInfo) {
-      setResources([])
-      setSelectedResource(null)
       return
     }
 
-    setLoading(true)
-    setSelectedResource(null)
-
     const scanResources = async () => {
-      try {
-        const items: ResourceItem[] = []
+      const items: ResourceItem[] = []
 
-        switch (workspaceMode) {
-          case 'map': {
-            if (directoryInfo.mapsPath) {
-              const maps = await port.scanMaps(directoryInfo.mapsPath, locale)
-              for (const m of maps) {
-                items.push({ id: m.id, name: m.name, type: m.format, path: m.relativePath })
-              }
+      switch (workspaceMode) {
+        case 'map': {
+          if (directoryInfo.mapsPath) {
+            const maps = await port.scanMaps(directoryInfo.mapsPath, locale)
+            for (const m of maps) {
+              items.push({ id: m.id, name: m.name, type: m.format, path: m.relativePath })
             }
-            break
           }
-          case 'events': {
-            try {
-              const events = await port.scanEvents(gameRootPath)
-              for (const e of events) {
-                items.push({ id: e.id, name: e.name, type: 'events', path: e.relativePath })
-              }
-            } catch {
-              items.push(
-                { id: 'town', name: 'Town Events', type: 'events', path: 'Data/Events/Town' },
-                { id: 'beach', name: 'Beach Events', type: 'events', path: 'Data/Events/Beach' },
-                { id: 'mountain', name: 'Mountain Events', type: 'events', path: 'Data/Events/Mountain' },
-              )
-            }
-            break
-          }
-          case 'characters': {
-            const chars = ['Abigail', 'Alex', 'Elliott', 'Emily', 'Haley', 'Harvey', 'Leah', 'Maru', 'Penny', 'Sam', 'Sebastian', 'Shane']
-            for (const name of chars) {
-              items.push({ id: name.toLowerCase(), name, type: 'portrait', path: `Portraits/${name}` })
-            }
-            break
-          }
-          case 'buildings': {
-            const buildings = ['houses', 'barn', 'coop', 'silo', 'well', 'stable', 'slimehutch', 'shed', 'junimohut', 'mill']
-            for (const name of buildings) {
-              items.push({ id: name, name: name.charAt(0).toUpperCase() + name.slice(1), type: 'building', path: `Buildings/${name}` })
-            }
-            break
-          }
-          case 'items': {
-            const itemFiles = ['Objects', 'Crops', 'CraftingRecipes', 'Furniture', 'BigCraftables', 'Boots', 'Hats', 'Weapons']
-            for (const name of itemFiles) {
-              items.push({ id: name.toLowerCase(), name, type: 'item-data', path: `Data/${name}` })
-            }
-            break
-          }
-          case 'mods': {
-            try {
-              const mods = await port.scanModProjects(gameRootPath)
-              for (const m of mods) {
-                items.push({
-                  id: m.id,
-                  name: m.name,
-                  type: 'mod',
-                  path: `Mods/${m.id}/`,
-                  author: m.author ?? undefined,
-                  version: m.version ?? undefined,
-                  description: m.description ?? undefined,
-                })
-              }
-            } catch {
-              // Fallback placeholder if scan fails
-              items.push({ id: 'installed', name: 'Installed Mods', type: 'mod-list', path: 'Mods/' })
-            }
-            break
-          }
+          break
         }
-
-        setResources(items)
-      } finally {
-        setLoading(false)
+        case 'events': {
+          try {
+            const events = await port.scanEvents(gameRootPath)
+            for (const e of events) {
+              items.push({ id: e.id, name: e.name, type: 'events', path: e.relativePath })
+            }
+          } catch {
+            items.push(
+              { id: 'town', name: 'Town Events', type: 'events', path: 'Data/Events/Town' },
+              { id: 'beach', name: 'Beach Events', type: 'events', path: 'Data/Events/Beach' },
+              { id: 'mountain', name: 'Mountain Events', type: 'events', path: 'Data/Events/Mountain' },
+            )
+          }
+          break
+        }
+        case 'characters': {
+          const chars = ['Abigail', 'Alex', 'Elliott', 'Emily', 'Haley', 'Harvey', 'Leah', 'Maru', 'Penny', 'Sam', 'Sebastian', 'Shane']
+          for (const name of chars) {
+            items.push({ id: name.toLowerCase(), name, type: 'portrait', path: `Portraits/${name}` })
+          }
+          break
+        }
+        case 'buildings': {
+          const buildings = ['houses', 'barn', 'coop', 'silo', 'well', 'stable', 'slimehutch', 'shed', 'junimohut', 'mill']
+          for (const name of buildings) {
+            items.push({ id: name, name: name.charAt(0).toUpperCase() + name.slice(1), type: 'building', path: `Buildings/${name}` })
+          }
+          break
+        }
+        case 'items': {
+          const itemFiles = ['Objects', 'Crops', 'CraftingRecipes', 'Furniture', 'BigCraftables', 'Boots', 'Hats', 'Weapons']
+          for (const name of itemFiles) {
+            items.push({ id: name.toLowerCase(), name, type: 'item-data', path: `Data/${name}` })
+          }
+          break
+        }
+        case 'mods': {
+          try {
+            const mods = await port.scanModProjects(gameRootPath)
+            for (const m of mods) {
+              items.push({
+                id: m.id,
+                name: m.name,
+                type: 'mod',
+                path: `Mods/${m.id}/`,
+                author: m.author ?? undefined,
+                version: m.version ?? undefined,
+                description: m.description ?? undefined,
+              })
+            }
+          } catch {
+            items.push({ id: 'installed', name: 'Installed Mods', type: 'mod-list', path: 'Mods/' })
+          }
+          break
+        }
       }
+
+      setResourceListState({
+        key: resourceListKey,
+        status: 'ready',
+        items,
+      })
     }
 
     void scanResources()
-  }, [gameRootPath, directoryInfo, locale, workspaceMode, port])
+  }, [gameRootPath, directoryInfo, locale, workspaceMode, port, resourceListKey])
+
+  const resources = resourceListState.key === resourceListKey ? resourceListState.items : []
+  const loading =
+    Boolean(gameRootPath && directoryInfo) && (resourceListState.key !== resourceListKey || resourceListState.status === 'loading')
+  const currentSelectedResource =
+    selectedResource && resources.some((resource) => resource.id === selectedResource.id) ? selectedResource : null
 
   // Load selected resource content
   useEffect(() => {
-    if (!selectedResource || !gameRootPath) {
-      setMapDocument(null)
-      setMapError(null)
-      setPreviewContent(null)
-      setPreviewImageUrl(null)
-      setPreviewError(null)
+    if (!currentSelectedResource || !gameRootPath) {
       return
     }
-
-    setMapLoading(false)
-    setPreviewLoading(false)
-    setMapError(null)
-    setPreviewError(null)
 
     let cancelled = false
 
@@ -183,76 +192,138 @@ export function PreviewModeShell({
         switch (workspaceMode) {
           case 'map': {
             if (!directoryInfo?.mapsPath) return
-            setMapLoading(true)
-            const mapPath = `${directoryInfo.mapsPath}\\${selectedResource.name}.xnb`
+            const mapPath = `${directoryInfo.mapsPath}\\${currentSelectedResource.name}.xnb`
             const asset = await port.loadMapAsset(directoryInfo.rootPath, mapPath, locale)
             if (cancelled) return
             if (asset.format === 'xnb') {
-              setMapDocument(JSON.parse(asset.content) as MapDocument)
+              setPreviewState({
+                key: selectedResourceKey,
+                status: 'ready',
+                mapDocument: JSON.parse(asset.content) as MapDocument,
+                content: null,
+                imageUrl: null,
+                error: null,
+              })
             } else {
-              setMapError(`Format ${asset.format} not supported.`)
+              setPreviewState({
+                key: selectedResourceKey,
+                status: 'error',
+                mapDocument: null,
+                content: null,
+                imageUrl: null,
+                error: `Format ${asset.format} not supported.`,
+              })
             }
-            setMapLoading(false)
             break
           }
           case 'events': {
-            setPreviewLoading(true)
-            const eventPath = `${gameRootPath}\\Content\\${selectedResource.path}.xnb`
+            const eventPath = `${gameRootPath}\\Content\\${currentSelectedResource.path}.xnb`
             const textAsset = await port.loadTextAsset(gameRootPath, eventPath, locale)
             if (cancelled) return
-            setPreviewContent(textAsset.content)
-            setPreviewLoading(false)
+            setPreviewState({
+              key: selectedResourceKey,
+              status: 'ready',
+              mapDocument: null,
+              content: textAsset.content,
+              imageUrl: null,
+              error: null,
+            })
             break
           }
           case 'characters': {
-            setPreviewLoading(true)
-            const portraitPath = `${gameRootPath}\\Content\\Portraits\\${selectedResource.name}.xnb`
+            const portraitPath = `${gameRootPath}\\Content\\Portraits\\${currentSelectedResource.name}.xnb`
             const url = await port.loadImageDataUrl(portraitPath, locale)
             if (cancelled) return
-            setPreviewImageUrl(url)
-            setPreviewLoading(false)
+            setPreviewState({
+              key: selectedResourceKey,
+              status: 'ready',
+              mapDocument: null,
+              content: null,
+              imageUrl: url,
+              error: null,
+            })
             break
           }
           case 'buildings': {
-            setPreviewLoading(true)
-            const buildingPath = `${gameRootPath}\\Content\\Buildings\\${selectedResource.name}.xnb`
+            const buildingPath = `${gameRootPath}\\Content\\Buildings\\${currentSelectedResource.name}.xnb`
             try {
               const url = await port.loadImageDataUrl(buildingPath, locale)
               if (cancelled) return
-              setPreviewImageUrl(url)
+              setPreviewState({
+                key: selectedResourceKey,
+                status: 'ready',
+                mapDocument: null,
+                content: null,
+                imageUrl: url,
+                error: null,
+              })
             } catch {
               // Some buildings are directories, try alternative paths
-              const altPath = `${gameRootPath}\\Content\\Buildings\\${selectedResource.name}_0.xnb`
+              const altPath = `${gameRootPath}\\Content\\Buildings\\${currentSelectedResource.name}_0.xnb`
               try {
                 const url = await port.loadImageDataUrl(altPath, locale)
                 if (cancelled) return
-                setPreviewImageUrl(url)
+                setPreviewState({
+                  key: selectedResourceKey,
+                  status: 'ready',
+                  mapDocument: null,
+                  content: null,
+                  imageUrl: url,
+                  error: null,
+                })
               } catch {
-                if (!cancelled) setPreviewError('Could not load building texture.')
+                if (!cancelled) {
+                  setPreviewState({
+                    key: selectedResourceKey,
+                    status: 'error',
+                    mapDocument: null,
+                    content: null,
+                    imageUrl: null,
+                    error: 'Could not load building texture.',
+                  })
+                }
               }
             }
-            setPreviewLoading(false)
             break
           }
           case 'items': {
-            setPreviewLoading(true)
-            const itemPath = `${gameRootPath}\\Content\\Data\\${selectedResource.name}.xnb`
+            const itemPath = `${gameRootPath}\\Content\\Data\\${currentSelectedResource.name}.xnb`
             const textAsset = await port.loadTextAsset(gameRootPath, itemPath, locale)
             if (cancelled) return
-            setPreviewContent(textAsset.content)
-            setPreviewLoading(false)
+            setPreviewState({
+              key: selectedResourceKey,
+              status: 'ready',
+              mapDocument: null,
+              content: textAsset.content,
+              imageUrl: null,
+              error: null,
+            })
             break
           }
           case 'mods': {
             // Mod details are already in the resource item; no extra loading needed
+            setPreviewState({
+              key: selectedResourceKey,
+              status: 'ready',
+              mapDocument: null,
+              content: null,
+              imageUrl: null,
+              error: null,
+            })
             break
           }
         }
       } catch (err) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : String(err)
-          if (workspaceMode === 'map') setMapError(msg)
-          else setPreviewError(msg)
+          setPreviewState({
+            key: selectedResourceKey,
+            status: 'error',
+            mapDocument: null,
+            content: null,
+            imageUrl: null,
+            error: msg,
+          })
         }
       }
     })()
@@ -260,12 +331,21 @@ export function PreviewModeShell({
     return () => {
       cancelled = true
     }
-  }, [workspaceMode, selectedResource, gameRootPath, directoryInfo, locale, port])
+  }, [workspaceMode, currentSelectedResource, selectedResourceKey, gameRootPath, directoryInfo, locale, port])
 
-  const visibleLayerIds = useMemo(
-    () => mapDocument?.layers.map((l) => l.id) ?? [],
-    [mapDocument],
-  )
+  const currentPreviewState =
+    previewState.key === selectedResourceKey
+      ? previewState
+      : {
+          key: selectedResourceKey,
+          status: currentSelectedResource && gameRootPath ? ('loading' as const) : ('idle' as const),
+          mapDocument: null,
+          content: null,
+          imageUrl: null,
+          error: null,
+        }
+
+  const visibleLayerIds = useMemo(() => currentPreviewState.mapDocument?.layers.map((l) => l.id) ?? [], [currentPreviewState.mapDocument])
 
   if (!gameRootPath || !directoryInfo) {
     return (
@@ -282,39 +362,31 @@ export function PreviewModeShell({
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-4 py-2.5">
         <Eye className="h-4 w-4 text-[var(--accent)]" />
-        <span className="text-xs font-semibold text-[var(--text-primary)]">
-          Preview: {WORKSPACE_LABELS[workspaceMode]}
-        </span>
-        <span className="ml-auto text-[10px] text-[var(--text-secondary)] truncate max-w-[50%]">
-          {directoryInfo.rootPath}
-        </span>
+        <span className="text-xs font-semibold text-[var(--text-primary)]">Preview: {WORKSPACE_LABELS[workspaceMode]}</span>
+        <span className="ml-auto max-w-[50%] truncate text-[10px] text-[var(--text-secondary)]">{directoryInfo.rootPath}</span>
       </div>
 
       <div className="flex min-h-0 flex-1">
         {/* Left: Resource List */}
         <div className="flex w-64 shrink-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)]">
           <div className="border-b border-[var(--border-color)] px-3 py-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+            <span className="text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">
               Resources ({resources.length})
             </span>
           </div>
 
           <div className="flex-1 overflow-auto py-1">
             {loading ? (
-              <div className="px-3 py-4 text-center text-xs text-[var(--text-secondary)]">
-                Scanning...
-              </div>
+              <div className="px-3 py-4 text-center text-xs text-[var(--text-secondary)]">Scanning...</div>
             ) : resources.length === 0 ? (
-              <div className="px-3 py-4 text-center text-[10px] text-[var(--text-secondary)]">
-                No resources found.
-              </div>
+              <div className="px-3 py-4 text-center text-[10px] text-[var(--text-secondary)]">No resources found.</div>
             ) : (
               resources.map((resource) => (
                 <button
                   key={resource.id}
                   type="button"
                   className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors ${
-                    selectedResource?.id === resource.id
+                    currentSelectedResource?.id === resource.id
                       ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
                       : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)]'
                   }`}
@@ -333,20 +405,18 @@ export function PreviewModeShell({
 
         {/* Center: Preview Area */}
         <div className="min-w-0 flex-1 overflow-hidden">
-          {workspaceMode === 'map' && selectedResource ? (
-            mapLoading ? (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
-                Loading map...
-              </div>
-            ) : mapError ? (
+          {workspaceMode === 'map' && currentSelectedResource ? (
+            currentPreviewState.status === 'loading' ? (
+              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">Loading map...</div>
+            ) : currentPreviewState.error ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
                 <Map className="h-8 w-8 opacity-30" />
-                <p className="text-sm text-red-400">{mapError}</p>
+                <p className="text-sm text-red-400">{currentPreviewState.error}</p>
               </div>
-            ) : mapDocument ? (
+            ) : currentPreviewState.mapDocument ? (
               <MapViewport
                 locale={locale}
-                mapDocument={mapDocument}
+                mapDocument={currentPreviewState.mapDocument}
                 visibleLayerIds={visibleLayerIds}
                 visibleObjectGroupIds={[]}
                 labels={viewportLabels}
@@ -362,22 +432,20 @@ export function PreviewModeShell({
                 <p className="text-sm">Select a map to preview.</p>
               </div>
             )
-          ) : selectedResource ? (
-            previewLoading ? (
-              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">
-                Loading...
-              </div>
-            ) : previewError ? (
+          ) : currentSelectedResource ? (
+            currentPreviewState.status === 'loading' ? (
+              <div className="flex h-full items-center justify-center text-sm text-[var(--text-secondary)]">Loading...</div>
+            ) : currentPreviewState.error ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
                 <Eye className="h-8 w-8 opacity-30" />
-                <p className="text-sm text-red-400">{previewError}</p>
+                <p className="text-sm text-red-400">{currentPreviewState.error}</p>
               </div>
             ) : (
               <PreviewContent
                 workspaceMode={workspaceMode}
-                resource={selectedResource}
-                content={previewContent}
-                imageUrl={previewImageUrl}
+                resource={currentSelectedResource}
+                content={currentPreviewState.content}
+                imageUrl={currentPreviewState.imageUrl}
                 directoryInfo={directoryInfo}
               />
             )
@@ -385,9 +453,7 @@ export function PreviewModeShell({
             <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--text-secondary)]">
               <Eye className="h-10 w-10 opacity-30" />
               <p className="text-sm">Select a resource from the left to preview.</p>
-              <p className="text-[10px] opacity-70">
-                Preview shows original game resources, not draft modifications.
-              </p>
+              <p className="text-[10px] opacity-70">Preview shows original game resources, not draft modifications.</p>
             </div>
           )}
         </div>
@@ -416,9 +482,7 @@ function PreviewContent({
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             {WORKSPACE_ICONS[workspaceMode]}
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              {resource.name}
-            </h2>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">{resource.name}</h2>
             <span className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
               {resource.type}
             </span>
@@ -428,22 +492,22 @@ function PreviewContent({
             <div className="space-y-2 text-xs text-[var(--text-secondary)]">
               {resource.version ? (
                 <div className="flex gap-2">
-                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Version</span>
+                  <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Version</span>
                   <span className="text-[var(--text-primary)]">{resource.version}</span>
                 </div>
               ) : null}
               {resource.author ? (
                 <div className="flex gap-2">
-                  <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Author</span>
+                  <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Author</span>
                   <span className="text-[var(--text-primary)]">{resource.author}</span>
                 </div>
               ) : null}
               <div className="flex gap-2">
-                <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Path</span>
+                <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Path</span>
                 <span className="font-mono text-[var(--text-primary)]">{resource.path}</span>
               </div>
               <div className="flex gap-2">
-                <span className="w-20 shrink-0 text-[10px] uppercase tracking-wider">Root</span>
+                <span className="w-20 shrink-0 text-[10px] tracking-wider uppercase">Root</span>
                 <span className="font-mono text-[var(--text-primary)]">{directoryInfo.rootPath}</span>
               </div>
             </div>
@@ -451,9 +515,7 @@ function PreviewContent({
 
           {resource.description ? (
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                Description
-              </div>
+              <div className="mb-2 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">Description</div>
               <p className="text-xs leading-5 text-[var(--text-primary)]">{resource.description}</p>
             </div>
           ) : (
@@ -472,9 +534,7 @@ function PreviewContent({
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           {WORKSPACE_ICONS[workspaceMode]}
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-            {resource.name}
-          </h2>
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{resource.name}</h2>
           <span className="rounded-full border border-[var(--border-color)] bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
             {resource.type}
           </span>
@@ -483,15 +543,15 @@ function PreviewContent({
         <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
           <div className="space-y-2 text-xs text-[var(--text-secondary)]">
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wider">Path</span>
+              <span className="w-16 shrink-0 text-[10px] tracking-wider uppercase">Path</span>
               <span className="font-mono text-[var(--text-primary)]">{resource.path}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wider">Type</span>
+              <span className="w-16 shrink-0 text-[10px] tracking-wider uppercase">Type</span>
               <span className="text-[var(--text-primary)]">{resource.type}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-[10px] uppercase tracking-wider">Root</span>
+              <span className="w-16 shrink-0 text-[10px] tracking-wider uppercase">Root</span>
               <span className="font-mono text-[var(--text-primary)]">{directoryInfo.rootPath}</span>
             </div>
           </div>
@@ -509,10 +569,8 @@ function PreviewContent({
           </div>
         ) : content ? (
           <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-panel)] p-4">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-              Content Preview
-            </div>
-            <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] leading-4 text-[var(--text-primary)]">
+            <div className="mb-2 text-[10px] font-semibold tracking-wider text-[var(--text-secondary)] uppercase">Content Preview</div>
+            <pre className="max-h-[60vh] overflow-auto font-mono text-[10px] leading-4 break-all whitespace-pre-wrap text-[var(--text-primary)]">
               {content.slice(0, 10000)}
               {content.length > 10000 && (
                 <span className="text-[var(--text-secondary)]">\n\n... ({content.length - 10000} more characters)</span>
@@ -522,9 +580,7 @@ function PreviewContent({
         ) : (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-panel-muted)] p-8">
             <Eye className="h-8 w-8 text-[var(--text-secondary)] opacity-30" />
-            <p className="text-xs text-[var(--text-secondary)]">
-              No preview available for this resource type.
-            </p>
+            <p className="text-xs text-[var(--text-secondary)]">No preview available for this resource type.</p>
           </div>
         )}
       </div>

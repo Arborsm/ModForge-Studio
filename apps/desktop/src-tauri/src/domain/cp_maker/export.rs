@@ -1,6 +1,6 @@
 use super::types::{
-    CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation,
-    CpMakerExportRequest, CpMakerExportResult,
+    CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation, CpMakerExportRequest,
+    CpMakerExportResult,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use base64::Engine;
@@ -129,14 +129,19 @@ fn validate_fresh_output_directory(output_path: &Path) -> Result<(), CpMakerDraf
         .with_path(normalize_path(output_path))
     })?;
 
-    if entries.next().transpose().map_err(|error| {
-        CpMakerDraftError::new(
-            CpMakerDraftErrorCode::ReadFailed,
-            CpMakerDraftOperation::Export,
-            format!("Failed to inspect export directory: {error}"),
-        )
-        .with_path(normalize_path(output_path))
-    })?.is_some() {
+    if entries
+        .next()
+        .transpose()
+        .map_err(|error| {
+            CpMakerDraftError::new(
+                CpMakerDraftErrorCode::ReadFailed,
+                CpMakerDraftOperation::Export,
+                format!("Failed to inspect export directory: {error}"),
+            )
+            .with_path(normalize_path(output_path))
+        })?
+        .is_some()
+    {
         return Err(invalid_export(
             output_path,
             "Cp-maker export requires a fresh directory. Choose a new or empty directory.",
@@ -146,14 +151,9 @@ fn validate_fresh_output_directory(output_path: &Path) -> Result<(), CpMakerDraf
     Ok(())
 }
 
-fn parse_export_json(
-    json: &str,
-    path: &Path,
-    label: &str,
-) -> Result<Value, CpMakerDraftError> {
-    serde_json::from_str(json).map_err(|error| {
-        invalid_export(path, format!("{label} is not valid JSON: {error}"))
-    })
+fn parse_export_json(json: &str, path: &Path, label: &str) -> Result<Value, CpMakerDraftError> {
+    serde_json::from_str(json)
+        .map_err(|error| invalid_export(path, format!("{label} is not valid JSON: {error}")))
 }
 
 fn prepare_virtual_asset(

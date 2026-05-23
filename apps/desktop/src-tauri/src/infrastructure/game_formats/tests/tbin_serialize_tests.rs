@@ -62,10 +62,7 @@ fn sample_tbin_bytes() -> Vec<u8> {
     push_vector(&mut bytes, 16, 16);
     push_vector(&mut bytes, 0, 0);
     push_vector(&mut bytes, 0, 0);
-    push_properties(
-        &mut bytes,
-        &[("Season", PropertySeed::String("spring"))],
-    );
+    push_properties(&mut bytes, &[("Season", PropertySeed::String("spring"))]);
 
     push_i32(&mut bytes, 1);
     push_string(&mut bytes, "Back");
@@ -81,10 +78,7 @@ fn sample_tbin_bytes() -> Vec<u8> {
     push_u8(&mut bytes, b'S');
     push_i32(&mut bytes, 2);
     push_u8(&mut bytes, 0);
-    push_properties(
-        &mut bytes,
-        &[("Diggable", PropertySeed::Bool(true))],
-    );
+    push_properties(&mut bytes, &[("Diggable", PropertySeed::Bool(true))]);
 
     push_u8(&mut bytes, b'A');
     push_i32(&mut bytes, 90);
@@ -94,21 +88,12 @@ fn sample_tbin_bytes() -> Vec<u8> {
     push_u8(&mut bytes, b'S');
     push_i32(&mut bytes, 3);
     push_u8(&mut bytes, 0);
-    push_properties(
-        &mut bytes,
-        &[("Frame", PropertySeed::Integer(0))],
-    );
+    push_properties(&mut bytes, &[("Frame", PropertySeed::Integer(0))]);
     push_u8(&mut bytes, b'S');
     push_i32(&mut bytes, 4);
     push_u8(&mut bytes, 0);
-    push_properties(
-        &mut bytes,
-        &[("Frame", PropertySeed::Integer(1))],
-    );
-    push_properties(
-        &mut bytes,
-        &[("Animated", PropertySeed::Bool(true))],
-    );
+    push_properties(&mut bytes, &[("Frame", PropertySeed::Integer(1))]);
+    push_properties(&mut bytes, &[("Animated", PropertySeed::Bool(true))]);
 
     push_u8(&mut bytes, b'N');
     push_i32(&mut bytes, 1);
@@ -130,9 +115,18 @@ fn assert_documents_match(
     assert_eq!(actual.tilesets.len(), expected.tilesets.len());
     assert_eq!(actual.layers.len(), expected.layers.len());
 
-    let actual_music = actual.properties.get("Music").expect("actual music property");
-    let expected_music = expected.properties.get("Music").expect("expected music property");
-    assert_eq!(serde_json::to_value(actual_music).unwrap(), serde_json::to_value(expected_music).unwrap());
+    let actual_music = actual
+        .properties
+        .get("Music")
+        .expect("actual music property");
+    let expected_music = expected
+        .properties
+        .get("Music")
+        .expect("expected music property");
+    assert_eq!(
+        serde_json::to_value(actual_music).unwrap(),
+        serde_json::to_value(expected_music).unwrap()
+    );
 
     let actual_tileset = &actual.tilesets[0];
     let expected_tileset = &expected.tilesets[0];
@@ -142,8 +136,14 @@ fn assert_documents_match(
     assert_eq!(actual_tileset.tile_height, expected_tileset.tile_height);
     assert_eq!(actual_tileset.tile_count, expected_tileset.tile_count);
     assert_eq!(actual_tileset.columns, expected_tileset.columns);
-    assert_eq!(actual_tileset.tile_properties.len(), expected_tileset.tile_properties.len());
-    assert_eq!(actual_tileset.animations.len(), expected_tileset.animations.len());
+    assert_eq!(
+        actual_tileset.tile_properties.len(),
+        expected_tileset.tile_properties.len()
+    );
+    assert_eq!(
+        actual_tileset.animations.len(),
+        expected_tileset.animations.len()
+    );
     assert_eq!(
         serde_json::to_value(&actual_tileset.tile_properties).unwrap(),
         serde_json::to_value(&expected_tileset.tile_properties).unwrap()
@@ -177,8 +177,8 @@ enum PropertySeed<'a> {
 fn serializes_parsed_map_document_back_to_tbin_without_losing_structure() {
     let map_path = Path::new("Content/Maps/Town.xnb");
     let relative_path = "Content/Maps/Town.xnb";
-    let original = parse_tbin_map(&sample_tbin_bytes(), map_path, relative_path)
-        .expect("parse original tbin");
+    let original =
+        parse_tbin_map(&sample_tbin_bytes(), map_path, relative_path).expect("parse original tbin");
 
     let serialized = serialize_tbin_map(&original).expect("serialize tbin");
     let reparsed =

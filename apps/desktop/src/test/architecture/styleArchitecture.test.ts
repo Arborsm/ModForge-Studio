@@ -51,4 +51,12 @@ describe('style architecture', () => {
 
     expect(source).not.toMatch(/\.studio-export-center\s+span\s*\{/)
   })
+
+  it('keeps launcher grid card hover rings inside a padded paint area', async () => {
+    const source = await readFile(join(STYLES_DIR, 'features/launcher/library.css'), 'utf8')
+
+    expect(source).toMatch(/\.launcher-library-grid-reveal\s*\{[^}]*padding:\s*6px;/s)
+    expect(source).toMatch(/\.launcher-library-grid-reveal\s*\{[^}]*margin:\s*-6px;/s)
+    expect(source).toMatch(/\.launcher-mod-card:hover,\s*\.launcher-mod-card:focus-within\s*\{[^}]*z-index:\s*1;/s)
+  })
 })

@@ -95,7 +95,10 @@ fn collect_relative_files_recursive(root: &Path, current_dir: &Path, output: &mu
     }
 }
 
-fn collect_paths(nodes: &[crate::domain::launcher::types::LauncherArchiveTreeNode], output: &mut Vec<String>) {
+fn collect_paths(
+    nodes: &[crate::domain::launcher::types::LauncherArchiveTreeNode],
+    output: &mut Vec<String>,
+) {
     for node in nodes {
         output.push(node.path.clone());
         collect_paths(&node.children, output);
@@ -172,9 +175,14 @@ fn install_archive_installs_zip_bundle_and_reports_backup_details_cross_platform
         result.installed_mods[0].unique_id.as_deref(),
         Some("ModForge.ExamplePack")
     );
-    assert!(mods_root.join("[CP] Example Pack").join("manifest.json").is_file());
+    assert!(mods_root
+        .join("[CP] Example Pack")
+        .join("manifest.json")
+        .is_file());
     assert!(!result.backup_id.trim().is_empty());
-    assert!(Path::new(&result.backup_path).join("metadata.json").is_file());
+    assert!(Path::new(&result.backup_path)
+        .join("metadata.json")
+        .is_file());
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -232,8 +240,13 @@ fn install_archive_installs_tar_gz_bundle_and_reports_backup_details() {
         result.installed_mods[0].unique_id.as_deref(),
         Some("ModForge.TarInstallPack")
     );
-    assert!(mods_root.join("[CP] Tar Install Pack").join("manifest.json").is_file());
-    assert!(Path::new(&result.backup_path).join("metadata.json").is_file());
+    assert!(mods_root
+        .join("[CP] Tar Install Pack")
+        .join("manifest.json")
+        .is_file());
+    assert!(Path::new(&result.backup_path)
+        .join("metadata.json")
+        .is_file());
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -297,7 +310,9 @@ fn install_archive_installs_7z_bundle_and_reports_backup_details() {
         .join("[CP] SevenZip Install Pack")
         .join("manifest.json")
         .is_file());
-    assert!(Path::new(&result.backup_path).join("metadata.json").is_file());
+    assert!(Path::new(&result.backup_path)
+        .join("metadata.json")
+        .is_file());
 
     fs::remove_dir_all(root).expect("cleanup");
 }

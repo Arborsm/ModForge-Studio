@@ -53,7 +53,7 @@ export function CharacterBrowserPanel({
     >
       <div className="flex h-full flex-col gap-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
           <input
             className="control-input pl-9"
             value={characterFilter}
@@ -77,9 +77,7 @@ export function CharacterBrowserPanel({
                   })}
                 >
                   <div className="border-b border-[var(--border-color)] px-3 py-2">
-                    <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-primary)]">
-                      {group.modName}
-                    </p>
+                    <p className="truncate text-xs font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase">{group.modName}</p>
                     <p className="truncate text-[11px] text-[var(--text-secondary)]">{group.items.length}</p>
                   </div>
                   <div className="space-y-2 p-2">
@@ -126,12 +124,7 @@ export function CharacterBrowserPanel({
                 className: cx('asset-row text-left', isActive && 'asset-row-active'),
               })
               return (
-                <button
-                  key={character.key}
-                  type="button"
-                  {...revealProps}
-                  onClick={() => onSelectCharacter(character.key)}
-                >
+                <button key={character.key} type="button" {...revealProps} onClick={() => onSelectCharacter(character.key)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-[var(--text-primary)]">{character.displayName}</p>
@@ -155,4 +148,3 @@ export function CharacterBrowserPanel({
     </PanelFrame>
   )
 }
-

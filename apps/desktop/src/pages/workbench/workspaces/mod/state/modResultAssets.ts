@@ -1,4 +1,4 @@
-import { loadContentPatcherResultAsset } from '@platform/desktop'
+import { loadContentPatcherResultAsset } from '@entities/mod/api'
 import { loadImageResource } from '@shared/lib/assets'
 import type { MapDocument } from '@shared/contracts'
 import type { ModBrowserEntry } from './browser'
@@ -32,7 +32,11 @@ type LoadModResultMapDocumentRequest<T> = LoadModResultRequest<T> & {
 type LoadModResultJsonValueRequest<T> = LoadModResultRequest<T>
 
 function normalizeTargetPath(value: string) {
-  return value.trim().replaceAll('\\', '/').replace(/^Content\//iu, '').toLowerCase()
+  return value
+    .trim()
+    .replaceAll('\\', '/')
+    .replace(/^Content\//iu, '')
+    .toLowerCase()
 }
 
 function stripTargetExtension(value: string) {
@@ -77,9 +81,7 @@ export function findPreferredModTarget<T>(entry: ModBrowserEntry<T>, preferredTa
     }
   }
 
-  const familyPrefixes = preferredTargets
-    .map(buildTargetFamilyPrefix)
-    .filter((value): value is string => Boolean(value))
+  const familyPrefixes = preferredTargets.map(buildTargetFamilyPrefix).filter((value): value is string => Boolean(value))
   for (const target of entry.targets) {
     const normalizedTarget = stripTargetExtension(normalizeTargetPath(target))
     if (familyPrefixes.some((prefix) => normalizedTarget === prefix || normalizedTarget.startsWith(`${prefix}_`))) {
@@ -158,11 +160,7 @@ export async function loadModResultMapDocument<T>({
   }
 }
 
-export async function loadModResultJsonValue<T>({
-  rootPath,
-  entry,
-  preferredTargets,
-}: LoadModResultJsonValueRequest<T>) {
+export async function loadModResultJsonValue<T>({ rootPath, entry, preferredTargets }: LoadModResultJsonValueRequest<T>) {
   const target = findPreferredModTarget(entry, preferredTargets)
   if (!target) {
     return null

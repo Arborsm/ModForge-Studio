@@ -79,11 +79,7 @@ export const LOADING_MOTION_STYLE_LABELS: LoadingMotionStyleLabelEntry[] = [
 export type LoadingMotionIntensityId = 'light' | 'standard' | 'strong'
 
 /** All valid intensity ids in a stable array. */
-export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = [
-  'light',
-  'standard',
-  'strong',
-] as const
+export const LOADING_MOTION_INTENSITY_IDS: LoadingMotionIntensityId[] = ['light', 'standard', 'strong'] as const
 
 export type LoadingMotionIntensityLabelEntry = {
   id: LoadingMotionIntensityId
@@ -105,11 +101,7 @@ export type LoadingMotionSpeedId = 'slow' | 'standard' | 'fast'
 
 export type LoadingMotionSpeedMode = 'preset' | 'custom'
 
-export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = [
-  'slow',
-  'standard',
-  'fast',
-] as const
+export const LOADING_MOTION_SPEED_IDS: LoadingMotionSpeedId[] = ['slow', 'standard', 'fast'] as const
 
 export type LoadingMotionSpeedLabelEntry = {
   id: LoadingMotionSpeedId
@@ -145,8 +137,8 @@ export type LoadingMotionPreference = {
 /**
  * Fully resolved loading motion config for a single page load.
  *
- * The resolved config applies the user preference, reduced-motion override,
- * and any page-specific overrides in a single pass.
+ * The resolved config applies the user preference and any page-specific
+ * overrides in a single pass.
  *
  * - `styleId` / `intensityId`: The effective style and intensity after
  *   all resolution rules are applied.
@@ -154,8 +146,6 @@ export type LoadingMotionPreference = {
  *   the shared layer falls back to top-to-bottom reveal order.
  * - `anchors`: Page-declared anchor components — at most 2. Anchors are
  *   revealed ahead of the default reveal flow.
- * - `reducedMotion`: `true` if the system or platform prefers reduced motion.
- *   When true, the resolved style is `quietSimplify` and intensity is `light`.
  */
 export type ResolvedLoadingMotionConfig = {
   styleId: LoadingMotionStyleId
@@ -165,7 +155,6 @@ export type ResolvedLoadingMotionConfig = {
   speedMultiplier: number
   revealOrder: readonly string[] | null
   anchors: readonly [string, string?]
-  reducedMotion: boolean
 }
 
 /* ------------------------------------------------------------------ */

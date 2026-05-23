@@ -8,13 +8,12 @@ export type NavigationCommand =
       viewId: string
     }
 
-export type WorkbenchCommand =
-  | {
-      type: 'workbench/open-asset'
-      assetId: string
-      assetKind: 'event' | 'map' | 'image' | 'data'
-      sourceId?: string
-    }
+export type WorkbenchCommand = {
+  type: 'workbench/open-asset'
+  assetId: string
+  assetKind: 'event' | 'map' | 'image' | 'data'
+  sourceId?: string
+}
 
 export type AppCommand = NavigationCommand | WorkbenchCommand
 

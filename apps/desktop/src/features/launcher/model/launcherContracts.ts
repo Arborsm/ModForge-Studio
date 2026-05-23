@@ -3,7 +3,6 @@ export type LauncherSettings = {
   modsPath: string | null
   downloadPath: string | null
   nexusApiKey: string | null
-  nexusCookie: string | null
   autoInstallDownloads: boolean
   keepDownloadedArchives: boolean
   autoCheckModUpdates: boolean
@@ -14,7 +13,6 @@ export type SaveLauncherSettingsRequest = {
   modsPath?: string | null
   downloadPath?: string | null
   nexusApiKey?: string | null
-  nexusCookie?: string | null
   autoInstallDownloads?: boolean
   keepDownloadedArchives?: boolean
   autoCheckModUpdates?: boolean
@@ -39,12 +37,18 @@ export type LauncherLibraryModSummary = {
   updateKeys: string[]
   modUrl: string | null
   imageUrl: string | null
+  requiredDependencies: string[]
   missingRequiredDependencies: string[]
 }
 
 export type LauncherLibraryScanResult = {
   modsPath: string
   mods: LauncherLibraryModSummary[]
+}
+
+export type LauncherRuntimeInfo = {
+  gameVersion: string | null
+  smapiVersion: string | null
 }
 
 export type LauncherLibraryStorageFolder = {
@@ -59,12 +63,27 @@ export type LauncherLibraryPackPreset = {
   modKeys: string[]
 }
 
+export type LauncherLibraryChildModGroup = {
+  parentModKey: string
+  childModKeys: string[]
+}
+
+export type LauncherLibraryFolder = {
+  id: string
+  name: string
+  parentFolderId: string | null
+  modKeys: string[]
+  coverModKeys: string[]
+}
+
 export type LauncherLibraryScopeMode = 'all' | 'current-pack'
 
 export type LauncherLibraryState = {
   storageFolders: LauncherLibraryStorageFolder[]
   hiddenModKeys: string[]
   packPresets: LauncherLibraryPackPreset[]
+  childModGroups: LauncherLibraryChildModGroup[]
+  libraryFolders: LauncherLibraryFolder[]
   currentPackId: string | null
   scopeMode: LauncherLibraryScopeMode
 }
@@ -124,6 +143,7 @@ export type SearchLauncherCatalogRequest = {
 
 export type LoadLauncherRemoteModDetailRequest = {
   modId: number
+  includeFiles?: boolean
 }
 
 export type LoadLauncherUpdateChangelogRequest = {
@@ -171,6 +191,7 @@ export type LauncherRemoteModDetail = {
   modId: number
   title: string
   summary: string | null
+  description?: string | null
   author: string | null
   version: string | null
   modUrl: string
@@ -178,6 +199,54 @@ export type LauncherRemoteModDetail = {
   galleryImages: string[]
   updatedAt?: string | null
   fileSize?: number | null
+  category?: string | null
+  downloads?: number | null
+  endorsements?: number | null
+  tags?: string[]
+  directDownloadEnabled?: boolean | null
+  supportsVortex?: boolean | null
+  primaryFileId?: number | null
+  primaryFileName?: string | null
+  primaryFileVersion?: string | null
+  primaryFileCategory?: string | null
+  primaryFileSize?: number | null
+  primaryFileSizeBytes?: number | null
+  primaryFileScanned?: boolean | null
+  primaryFileScanStatus?: string | null
+  primaryFileChangelog?: string[]
+  requiredLoader?: string | null
+  gameVersion?: string | null
+  archiveType?: string | null
+  updateRisk?: string | null
+  requirements?: LauncherRemoteModRequirement[]
+  files?: LauncherRemoteModFile[]
+}
+
+export type LauncherRemoteModRequirement = {
+  name: string
+  notes?: string | null
+  url?: string | null
+  external?: boolean
+}
+
+export type LauncherRemoteModFile = {
+  fileId?: number | null
+  name?: string | null
+  version?: string | null
+  category?: string | null
+  uploadedAt?: string | null
+  description?: string | null
+  uniqueDownloads?: number | null
+  totalDownloads?: number | null
+  managerDownloadEnabled?: boolean | null
+  uid?: string | null
+  size?: number | null
+  sizeBytes?: number | null
+  primary?: boolean
+  scanned?: boolean | null
+  scanStatus?: string | null
+  changelog?: string[]
+  archiveType?: string | null
 }
 
 export type LauncherUpdateChangelogResult = {
@@ -202,6 +271,29 @@ export type LauncherNexusRouteSnapshot = {
 export type LauncherNexusDiagnosticsResult = {
   routes: LauncherNexusRouteSnapshot[]
 }
+export type ValidateApiKeyResult = {
+  userName: string
+  avatarUrl: string | null
+  profileUrl: string | null
+  isPremium: boolean
+  dailyRemaining: number | null
+  hourlyRemaining: number | null
+  dailyResetAt: number | null
+  hourlyResetAt: number | null
+}
+
+export type SsoConnectionStatus = 'idle' | 'connecting' | 'awaitingAuthorization' | 'authorized' | 'failed'
+
+export type SsoErrorKind = 'connectionTimeout' | 'authorizationTimeout' | 'connectionRefused' | 'networkError' | 'cancelled'
+
+export type SsoSnapshot = {
+  status: SsoConnectionStatus
+  errorKind?: SsoErrorKind | null
+  errorMessage?: string | null
+  userName?: string | null
+  isPremium: boolean
+  ssoId?: string | null
+}
 
 export type ResolveLauncherImageRequest = {
   url: string
@@ -221,6 +313,15 @@ export type CheckLauncherUpdatesRequest = {
 
 export type LoadCachedLauncherUpdatesRequest = {
   modsPath: string
+}
+
+export type LoadSuppressedLauncherUpdateModIdsRequest = {
+  modsPath: string
+}
+
+export type LauncherSuppressedUpdateModIdsResult = {
+  modsPath: string
+  modIds: number[]
 }
 
 export type LauncherUpdateSummary = {
@@ -267,6 +368,7 @@ export type DownloadLauncherModResult = {
   archivePath: string
   installed: boolean
   installedTargetPath: string | null
+  manualDownloadPageOpened: boolean
 }
 
 export type LauncherGameLaunchTarget = 'smapi' | 'game'
@@ -279,6 +381,7 @@ export type LauncherGameLaunchResult = {
 export type LauncherDownloadQueueItemRecord = {
   id: string
   modId: number
+  fileId?: number | null
   title: string
   version: string | null
   imageUrl: string | null

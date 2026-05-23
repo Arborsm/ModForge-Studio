@@ -52,9 +52,7 @@ function normalizeAssetPath(value: string) {
 
 function normalizeScaleUpTarget(value: string) {
   const trimmed = value.trim()
-  const unwrapped = trimmed.startsWith('{{') && trimmed.endsWith('}}')
-    ? trimmed.slice(2, -2).trim()
-    : trimmed
+  const unwrapped = trimmed.startsWith('{{') && trimmed.endsWith('}}') ? trimmed.slice(2, -2).trim() : trimmed
   return normalizeAssetPath(unwrapped)
 }
 
@@ -91,8 +89,10 @@ function getPatchTargetToken(patch: JsonObject) {
 
 function isScaleUpPatch(patch: JsonObject) {
   const action = typeof patch.Action === 'string' ? patch.Action.trim() : ''
-  return action.localeCompare('EditData', undefined, { sensitivity: 'accent' }) === 0
-    && SCALEUP_TARGETS.has(normalizeScaleUpTarget(getPatchTargetToken(patch)))
+  return (
+    action.localeCompare('EditData', undefined, { sensitivity: 'accent' }) === 0 &&
+    SCALEUP_TARGETS.has(normalizeScaleUpTarget(getPatchTargetToken(patch)))
+  )
 }
 
 function toOptionalInteger(value: unknown) {
@@ -178,9 +178,7 @@ function parseSpriteDraft(value: unknown, targetPath: string): ScaleUpSpriteDraf
 
   return {
     ...defaults,
-    ...Object.fromEntries(
-      Object.entries(sprite).filter(([, fieldValue]) => fieldValue !== null && fieldValue !== 'None'),
-    ),
+    ...Object.fromEntries(Object.entries(sprite).filter(([, fieldValue]) => fieldValue !== null && fieldValue !== 'None')),
     breathType: sprite.breathType,
   }
 }
@@ -243,7 +241,9 @@ function getTargetSource(entry: JsonObject, targetPath: string): ScaleUpTargetSo
     return {
       asset: null,
       target,
-      assets: entry.Assets.split(',').map((segment) => segment.trim()).filter(Boolean),
+      assets: entry.Assets.split(',')
+        .map((segment) => segment.trim())
+        .filter(Boolean),
       assetsFormat: 'string',
     }
   }
@@ -252,7 +252,9 @@ function getTargetSource(entry: JsonObject, targetPath: string): ScaleUpTargetSo
     return {
       asset: null,
       target,
-      assets: entry.Assets.filter((value): value is string => typeof value === 'string').map((value) => value.trim()).filter(Boolean),
+      assets: entry.Assets.filter((value): value is string => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter(Boolean),
       assetsFormat: 'array',
     }
   }
@@ -287,15 +289,10 @@ function sanitizePaddingValue(value: unknown) {
 }
 
 function sanitizePositiveDimension(value: number | null | undefined, fallback = 0) {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? Math.floor(value)
-    : fallback
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback
 }
 
-function inferScaleUpImageMetrics(images?: {
-  resultImage?: ScaleUpImageDimensions | null
-  originalImage?: ScaleUpImageDimensions | null
-}) {
+function inferScaleUpImageMetrics(images?: { resultImage?: ScaleUpImageDimensions | null; originalImage?: ScaleUpImageDimensions | null }) {
   const resultWidth = sanitizePositiveDimension(images?.resultImage?.width)
   const resultHeight = sanitizePositiveDimension(images?.resultImage?.height)
   const originalWidth = sanitizePositiveDimension(images?.originalImage?.width)
@@ -402,10 +399,12 @@ export function getScaleUpFrameCount(
 }
 
 export function getScaleUpFrameBounds(
-  images: {
-    resultImage?: ScaleUpImageDimensions | null
-    originalImage?: ScaleUpImageDimensions | null
-  } | undefined,
+  images:
+    | {
+        resultImage?: ScaleUpImageDimensions | null
+        originalImage?: ScaleUpImageDimensions | null
+      }
+    | undefined,
   frameIndex: number,
   options?: ScaleUpFrameOptions,
 ) {
@@ -438,26 +437,25 @@ export function getScaleUpFramePreviewScale(
   const layout = resolveScaleUpFrameLayout(images, options)
   const baseFrameWidth = sanitizePositiveDimension(options?.frameWidth, DEFAULT_FRAME_WIDTH)
   const baseFrameHeight = sanitizePositiveDimension(options?.frameHeight, DEFAULT_FRAME_HEIGHT)
-  const previewScale = typeof options?.previewScale === 'number' && Number.isFinite(options.previewScale) && options.previewScale > 0
-    ? options.previewScale
-    : 1
+  const previewScale =
+    typeof options?.previewScale === 'number' && Number.isFinite(options.previewScale) && options.previewScale > 0
+      ? options.previewScale
+      : 1
 
   if (layout.frameWidth <= 0 || layout.frameHeight <= 0) {
     return previewScale
   }
 
-  return previewScale * Math.min(
-    baseFrameWidth / layout.frameWidth,
-    baseFrameHeight / layout.frameHeight,
-    1,
-  )
+  return previewScale * Math.min(baseFrameWidth / layout.frameWidth, baseFrameHeight / layout.frameHeight, 1)
 }
 
 export function getScaleUpFramePreviewMetrics(
-  images: {
-    resultImage?: ScaleUpImageDimensions | null
-    originalImage?: ScaleUpImageDimensions | null
-  } | undefined,
+  images:
+    | {
+        resultImage?: ScaleUpImageDimensions | null
+        originalImage?: ScaleUpImageDimensions | null
+      }
+    | undefined,
   frameIndex: number,
   options?: ScaleUpFrameOptions,
 ) {
@@ -618,9 +616,7 @@ function buildEntryJson(draft: ScaleUpDraft) {
     entry.Asset = draft.targetSource.asset.trim()
   } else if (draft.targetSource.target?.trim() && draft.targetSource.assets.length) {
     entry.Target = draft.targetSource.target.trim()
-    entry.Assets = draft.targetSource.assetsFormat === 'array'
-      ? [...draft.targetSource.assets]
-      : draft.targetSource.assets.join(', ')
+    entry.Assets = draft.targetSource.assetsFormat === 'array' ? [...draft.targetSource.assets] : draft.targetSource.assets.join(', ')
   } else {
     entry.Asset = draft.targetPath
   }

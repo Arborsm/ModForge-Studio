@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   getScaleUpEditorState,
@@ -41,7 +41,7 @@ function parseIntegerInput(
 
   const parsed = Number.parseInt(value, 10)
   if (!Number.isFinite(parsed)) {
-    return options?.nullable ? null : options?.min ?? 0
+    return options?.nullable ? null : (options?.min ?? 0)
   }
 
   if (typeof options?.min === 'number') {
@@ -130,7 +130,7 @@ function PreviewRect({ label, colorClassName, rect, sheetWidth, sheetHeight }: P
         height: `${(rect.height / Math.max(1, sheetHeight)) * 100}%`,
       }}
     >
-      <span className="absolute left-1 top-1 rounded-full bg-[rgba(15,23,42,0.82)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
+      <span className="absolute top-1 left-1 rounded-full bg-[rgba(15,23,42,0.82)] px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] text-white uppercase">
         {label}
       </span>
     </div>
@@ -235,9 +235,8 @@ export function ContentPatcherScaleUpPanel({
       }),
     [content, images.originalImage, images.resultImage, targetPath],
   )
-  const editorStateKey = useMemo(() => JSON.stringify(editorState), [editorState])
-  const [draft, setDraft] = useState<ScaleUpDraft>(() => cloneDraft(editorState.draft))
-  const lastSyncedEditorStateKeyRef = useRef(editorStateKey)
+  const [editedDraft, setEditedDraft] = useState<ScaleUpDraft | null>(null)
+  const draft = editedDraft ?? editorState.draft
   const preview = useMemo(
     () =>
       buildScaleUpPreviewModel(draft, {
@@ -246,10 +245,6 @@ export function ContentPatcherScaleUpPanel({
       }),
     [draft, images.originalImage, images.resultImage],
   )
-
-  useEffect(() => {
-    setActiveSection(focusSection)
-  }, [focusSection])
 
   useEffect(() => {
     let cancelled = false
@@ -271,17 +266,8 @@ export function ContentPatcherScaleUpPanel({
     }
   }, [originalImageDataUrl, resultImageDataUrl])
 
-  useEffect(() => {
-    if (lastSyncedEditorStateKeyRef.current === editorStateKey) {
-      return
-    }
-
-    lastSyncedEditorStateKeyRef.current = editorStateKey
-    setDraft(cloneDraft(editorState.draft))
-  }, [editorState.draft, editorStateKey])
-
   function emitDraft(nextDraft: ScaleUpDraft) {
-    setDraft(nextDraft)
+    setEditedDraft(nextDraft)
     onContentChange(upsertScaleUpEntry(content, nextDraft))
   }
 
@@ -319,7 +305,7 @@ export function ContentPatcherScaleUpPanel({
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
+            <span className="rounded-full bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-[var(--accent)] uppercase">
               ScaleUp
             </span>
             <span className="text-xs text-[var(--text-tertiary)]">
@@ -386,12 +372,7 @@ export function ContentPatcherScaleUpPanel({
 
           <div className="rounded-[24px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_84%,white_8%)] p-3">
             <div className="relative overflow-hidden rounded-[20px] border border-[var(--border-color)]">
-              <img
-                src={resultImageDataUrl}
-                alt={`${targetPath} ScaleUp sheet`}
-                className="block h-auto w-full"
-                style={imageStyle()}
-              />
+              <img src={resultImageDataUrl} alt={`${targetPath} ScaleUp sheet`} className="block h-auto w-full" style={imageStyle()} />
               <div className="pointer-events-none absolute inset-0">
                 {preview.headshot ? (
                   <PreviewRect
@@ -585,4 +566,3 @@ export function ContentPatcherScaleUpPanel({
     </section>
   )
 }
-

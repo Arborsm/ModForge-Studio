@@ -1,9 +1,7 @@
 // 右侧剧本编辑器容器
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import {
-  ListOrdered, Maximize2, Minimize2,
-} from 'lucide-react'
+import { ListOrdered, Maximize2, Minimize2 } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import type { EventScript } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
@@ -19,12 +17,7 @@ export type ScriptEditorProps = {
   className?: string
 }
 
-export function ScriptEditor({
-  script,
-  locale = 'zh-CN',
-  onScriptChange,
-  className,
-}: ScriptEditorProps) {
+export function ScriptEditor({ script, locale = 'zh-CN', onScriptChange, className }: ScriptEditorProps) {
   // Subscribe only to needed state slices to avoid re-renders on unrelated store changes
   const currentScript = useEditorStore((s) => s.currentScript)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -83,24 +76,18 @@ export function ScriptEditor({
     return script?.commands ?? []
   }, [currentScript, script])
 
-  const handleUpdateArg = useCallback(
-    (commandIndex: number, argIndex: number, value: string) => {
-      const cmd = useEditorStore.getState().currentScript?.commands[commandIndex]
-      if (!cmd) return
-      const nextArgs = [...cmd.args]
-      nextArgs[argIndex] = value
-      const raw = serializeRaw(nextArgs)
-      useEditorStore.getState().updateCommandAt(commandIndex, raw)
-    },
-    [],
-  )
+  const handleUpdateArg = useCallback((commandIndex: number, argIndex: number, value: string) => {
+    const cmd = useEditorStore.getState().currentScript?.commands[commandIndex]
+    if (!cmd) return
+    const nextArgs = [...cmd.args]
+    nextArgs[argIndex] = value
+    const raw = serializeRaw(nextArgs)
+    useEditorStore.getState().updateCommandAt(commandIndex, raw)
+  }, [])
 
-  const handleEnterPickMode = useCallback(
-    (commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector') => {
-      useEditorStore.getState().setPickModeTarget({ commandIndex, paramIndex, controlType })
-    },
-    [],
-  )
+  const handleEnterPickMode = useCallback((commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector') => {
+    useEditorStore.getState().setPickModeTarget({ commandIndex, paramIndex, controlType })
+  }, [])
 
   // Ctrl+K / Cmd+K to open CommandPalette
   useEffect(() => {
@@ -129,23 +116,15 @@ export function ScriptEditor({
   const preconditions = script?.preconditions.slice(1).join(' / ') ?? ''
 
   return (
-    <div className={cx('flex h-full flex-col bg-[var(--bg-panel)]', className)}
-    >
+    <div className={cx('flex h-full flex-col bg-[var(--bg-panel)]', className)}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2"
-      >
-        <div className="flex items-center gap-2 min-w-0"
-        >
-          <span className="shrink-0 text-xs font-semibold text-[var(--text-primary)]"
-          >{eventId}</span>
-          {preconditions && (
-            <span className="truncate text-[10px] text-[var(--text-tertiary)]"
-            >{preconditions}</span>
-          )}
+      <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-semibold text-[var(--text-primary)]">{eventId}</span>
+          {preconditions && <span className="truncate text-[10px] text-[var(--text-tertiary)]">{preconditions}</span>}
         </div>
 
-        <div className="flex items-center gap-0.5"
-        >
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             className={cx(
@@ -167,40 +146,28 @@ export function ScriptEditor({
                 ? 'bg-[var(--bg-active)] text-[var(--accent)]'
                 : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
             )}
-            onClick={() =>
-              useEditorStore.getState().setCardView(cardView === 'compact' ? 'comfortable' : 'compact')
-            }
+            onClick={() => useEditorStore.getState().setCardView(cardView === 'compact' ? 'comfortable' : 'compact')}
             title="紧凑视图"
           >
-            {cardView === 'compact' ? (
-              <Maximize2 className="h-3.5 w-3.5" />
-            ) : (
-              <Minimize2 className="h-3.5 w-3.5" />
-            )}
+            {cardView === 'compact' ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
           </button>
         </div>
       </div>
 
       {/* Timeline */}
-      <div className="flex-1 overflow-y-auto"
-      >
-        <ScriptTimeline
-          commands={commands}
-          locale={locale}
-          onUpdateArg={handleUpdateArg}
-          onEnterPickMode={handleEnterPickMode}
-        />
+      <div className="flex-1 overflow-y-auto">
+        <ScriptTimeline commands={commands} locale={locale} onUpdateArg={handleUpdateArg} onEnterPickMode={handleEnterPickMode} />
       </div>
 
       {/* Status bar */}
-      <div className="flex items-center justify-between border-t border-[var(--border-color)] px-3 py-1.5 text-[10px] text-[var(--text-tertiary)]"
-      >
+      <div className="flex items-center justify-between border-t border-[var(--border-color)] px-3 py-1.5 text-[10px] text-[var(--text-tertiary)]">
         <span>{commands.length} 条命令</span>
         <span>{isPickMode ? '地图拾取模式' : ''}</span>
       </div>
 
       {/* Command Palette */}
       <CommandPalette
+        key={commandPaletteOpen ? 'open' : 'closed'}
         open={commandPaletteOpen}
         onClose={() => useEditorStore.getState().setCommandPaletteOpen(false)}
         onSelect={(key) => {
@@ -214,4 +181,3 @@ export function ScriptEditor({
     </div>
   )
 }
-

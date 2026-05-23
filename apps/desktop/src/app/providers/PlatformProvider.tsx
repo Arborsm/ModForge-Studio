@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import type { PlatformPorts } from '@shared/contracts'
+import { configureDesktopPlatformPorts } from '@shared/lib/desktop'
 import { PlatformContext } from './platformContext'
 
 export type PlatformProviderProps = {
@@ -10,6 +11,7 @@ export type PlatformProviderProps = {
 
 export function PlatformProvider({ children, ports }: PlatformProviderProps) {
   const defaultPorts = useMemo(() => ports ?? createTauriPlatformPorts(), [ports])
+  configureDesktopPlatformPorts(defaultPorts)
 
   return <PlatformContext.Provider value={defaultPorts}>{children}</PlatformContext.Provider>
 }

@@ -1,5 +1,5 @@
 import type { LocaleCode } from '@locales'
-import { loadTextAsset } from '@platform/desktop'
+import { loadTextAsset } from '@entities/game/api'
 import type { BuildingWorkspaceEntry } from '../entities/building'
 
 // ── String table cache ────────────────────────────────────────────────────
@@ -46,12 +46,10 @@ async function loadStringTable(rootPath: string, assetPath: string, locale: Loca
     .then((asset) => {
       const parsed = JSON.parse(asset.content) as Record<string, unknown>
       return Object.fromEntries(
-        Object.entries(parsed).flatMap(([key, value]) =>
-          typeof value === 'string' ? ([[key, value]] as const) : [],
-        ),
+        Object.entries(parsed).flatMap(([key, value]) => (typeof value === 'string' ? ([[key, value]] as const) : [])),
       )
     })
-    .catch(() => ({} as Record<string, string>))
+    .catch(() => ({}) as Record<string, string>)
 
   stringTableCache.set(cacheKey, pending)
   return pending
@@ -95,21 +93,19 @@ export async function localizeBuildingEntries(
     entries.map(async (entry) => {
       const displayName = (await resolveLocalizedText(rootPath, locale, entry.rawDisplayName)) ?? entry.rawDisplayName
       const generalTypeDisplayName = entry.rawGeneralTypeDisplayName
-        ? (await resolveLocalizedText(rootPath, locale, entry.rawGeneralTypeDisplayName)) ?? entry.rawGeneralTypeDisplayName
+        ? ((await resolveLocalizedText(rootPath, locale, entry.rawGeneralTypeDisplayName)) ?? entry.rawGeneralTypeDisplayName)
         : null
       const description = entry.rawDescription
-        ? (await resolveLocalizedText(rootPath, locale, entry.rawDescription)) ?? entry.rawDescription
+        ? ((await resolveLocalizedText(rootPath, locale, entry.rawDescription)) ?? entry.rawDescription)
         : null
       const localizedSkins = await Promise.all(
         entry.skins.map(async (skin) => ({
           ...skin,
           displayName: (await resolveLocalizedText(rootPath, locale, skin.displayName)) ?? skin.displayName,
           generalTypeDisplayName: skin.generalTypeDisplayName
-            ? (await resolveLocalizedText(rootPath, locale, skin.generalTypeDisplayName)) ?? skin.generalTypeDisplayName
+            ? ((await resolveLocalizedText(rootPath, locale, skin.generalTypeDisplayName)) ?? skin.generalTypeDisplayName)
             : null,
-          description: skin.description
-            ? (await resolveLocalizedText(rootPath, locale, skin.description)) ?? skin.description
-            : null,
+          description: skin.description ? ((await resolveLocalizedText(rootPath, locale, skin.description)) ?? skin.description) : null,
         })),
       )
 

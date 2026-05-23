@@ -73,12 +73,7 @@ describe('map helpers', () => {
   })
 
   it('strips tiled flip and rotation flags from gids', () => {
-    const rawGid =
-      37 |
-      FLIPPED_HORIZONTALLY_FLAG |
-      FLIPPED_VERTICALLY_FLAG |
-      FLIPPED_DIAGONALLY_FLAG |
-      ROTATED_HEXAGONAL_120_FLAG
+    const rawGid = 37 | FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG | ROTATED_HEXAGONAL_120_FLAG
 
     expect(stripTileGidFlags(rawGid)).toBe(37)
   })
@@ -92,7 +87,7 @@ describe('map helpers', () => {
   it('has the correct flag mask values', () => {
     const expectedFlags = FLIPPED_HORIZONTALLY_FLAG | FLIPPED_VERTICALLY_FLAG | FLIPPED_DIAGONALLY_FLAG | ROTATED_HEXAGONAL_120_FLAG
     expect(TILE_GID_FLAG_MASK).toBe(expectedFlags >>> 0)
-    expect(TILE_ID_MASK).toBe((~expectedFlags) >>> 0)
+    expect(TILE_ID_MASK).toBe(~expectedFlags >>> 0)
   })
 
   it('strips no flags when gid has none set', () => {
@@ -184,8 +179,6 @@ describe('map helpers', () => {
       { sourceX: 3, sourceY: 4, targetMap: 'Town', targetX: 5, targetY: 6 },
     ])
     expect(isExteriorWarp(mapDocument, entries[0]!)).toBe(false)
-    expect(isExteriorWarp(mapDocument, { sourceX: -1, sourceY: 0, targetMap: 'Farm', targetX: 1, targetY: 1 })).toBe(
-      true,
-    )
+    expect(isExteriorWarp(mapDocument, { sourceX: -1, sourceY: 0, targetMap: 'Farm', targetX: 1, targetY: 1 })).toBe(true)
   })
 })

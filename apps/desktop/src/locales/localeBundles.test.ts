@@ -20,11 +20,15 @@ describe('typed locale bundles', () => {
     expect(getViewMenuCopy('en-US').deletePresetConfirm('Alpha')).toContain('Alpha')
     expect(getViewMenuCopy('en-US').panelVisibleLabel).toBe('Visible')
     expect(getViewMenuCopy('en-US').deletePresetLabel).toBe('Delete preset')
-    expect(getWorkspaceModeLabel('zh-CN', getEditorCopy('zh-CN'), 'mods')).toBe(
-      getModWorkspaceCopy('zh-CN').workspaceLabel,
-    )
+    expect(getWorkspaceModeLabel('zh-CN', getEditorCopy('zh-CN'), 'mods')).toBe(getModWorkspaceCopy('zh-CN').workspaceLabel)
     expect(getEditorCopy('en-US').shell.launcher).toBeTruthy()
     expect(getEditorCopy('en-US').launcher.pages.library).toBeTruthy()
+    expect(getEditorCopy('zh-CN').launcher.pages.configuration).toBe('配置')
+    expect(getEditorCopy('zh-CN').launcher.configuration.title).toBe('配置')
+    expect(getEditorCopy('en-US').launcher.pages.configuration).toBe('Configuration')
+    expect(getEditorCopy('en-US').launcher.configuration.title).toBe('Configuration')
+    expect(getEditorCopy('zh-CN').launcher.diagnostics.apiKeySubtitle).toContain('API Key')
+    expect(getEditorCopy('en-US').launcher.diagnostics.apiKeySubtitle).toContain('Nexus login')
   })
 
   it('keeps localized toolbar labels and panel titles inside the locale bundles', () => {
@@ -57,9 +61,7 @@ describe('typed locale bundles', () => {
     expect(typeof enUS.mods.scanStatus).toBe('function')
 
     expect(enUS.editor.common.objectLabel(7)).toBe('Object 7')
-    expect(enUS.editor.messages.loadedMapAssetsWithActiveMap(2, 'xnb', 'Town')).toBe(
-      'Loaded 2 XNB map assets. Town is active.',
-    )
+    expect(enUS.editor.messages.loadedMapAssetsWithActiveMap(2, 'xnb', 'Town')).toBe('Loaded 2 XNB map assets. Town is active.')
     expect(enUS.editor.viewportLabels.zoomLabel(0.875)).toBe('Zoom 88%')
     expect(enUS.editor.eventStage.cueLabel('rain')).toBe('Cue: rain')
     expect(enUS.viewMenu.deletePresetConfirm('Preset A')).toContain('Preset A')
@@ -101,8 +103,8 @@ describe('typed locale bundles', () => {
   it('keeps english auto-cover stage progress punctuation readable', () => {
     const launcher = getLauncherCopy('en-US')
 
-    expect(
-      launcher.library.loadingMissingCoversStageProgress(launcher.library.loadingMissingCoversStages.apiCover, 1, 3),
-    ).toBe('API Cover · 1 / 3')
+    expect(launcher.library.loadingMissingCoversStageProgress(launcher.library.loadingMissingCoversStages.apiCover, 1, 3)).toBe(
+      'API Cover · 1 / 3',
+    )
   })
 })

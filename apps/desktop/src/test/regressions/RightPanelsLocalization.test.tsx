@@ -13,13 +13,7 @@ describe('right panels localization ownership', () => {
     renderWithLocale(
       <>
         <InspectorPanel mapDocument={null} />
-        <LayersPanel
-          mapDocument={null}
-          visibleLayerIds={[]}
-          onToggleLayer={vi.fn()}
-          onShowAllLayers={vi.fn()}
-          onHideAllLayers={vi.fn()}
-        />
+        <LayersPanel mapDocument={null} visibleLayerIds={[]} onToggleLayer={vi.fn()} onShowAllLayers={vi.fn()} onHideAllLayers={vi.fn()} />
         <DiagnosticsPanel
           directoryInfo={null}
           visibleLayerIds={[]}

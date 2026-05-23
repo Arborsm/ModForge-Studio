@@ -11,6 +11,7 @@ function createItem(overrides: Partial<LauncherDownloadQueueItem>): LauncherDown
   return {
     id: 'item-1',
     modId: 101,
+    fileId: null,
     title: 'NPC Adventures',
     version: '1.2.0',
     imageUrl: null,
@@ -31,9 +32,7 @@ function createItem(overrides: Partial<LauncherDownloadQueueItem>): LauncherDown
 function createDownloads(items: LauncherDownloadQueueItem[]) {
   const readyToInstall = items.filter((item) => item.status === 'completed' && Boolean(item.archivePath))
   const failedItems = items.filter((item) => item.status === 'failed')
-  const removableItems = items.filter(
-    (item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed',
-  )
+  const removableItems = items.filter((item) => item.status === 'completed' || item.status === 'installed' || item.status === 'failed')
 
   return {
     items,
@@ -52,6 +51,7 @@ function createDownloads(items: LauncherDownloadQueueItem[]) {
     removableItems,
     downloadProgressPercent: null,
     queueDownload: vi.fn(),
+    queueDownloads: vi.fn(),
     startDebugSimulation: vi.fn(),
     retryItem: vi.fn(),
     retryFailed: vi.fn(),

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '@platform/desktop'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '@entities/game/api'
 import type { ViewportWorldPoint } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'
@@ -31,7 +31,6 @@ import {
 import { deriveMapDrivenFarmerBedState } from '@entities/event'
 import { continuePlayback, resolveChoice, seekPlaybackToEntry } from '@entities/event'
 import {
-  areAssetMapsEqual,
   buildCharacterTextureIndex,
   getAnimatedFrame,
   getPortraitFrameBounds,
@@ -51,10 +50,166 @@ type UseEventStageWorkspaceOptions = {
   parsedEventAsset: ParsedEventAsset | null
   selectedEvent: EventScript | null
   playerAppearanceProfile: PlayerAppearanceProfile | null
-  timelineJumpRequestId: string | null
-  onTimelineJumpHandled: () => void
   onSelectTimelineEntry: (entryId: string) => void
   onPlaybackCommandChange: (commandId: string | null) => void
+}
+
+type BuildingDataIndex = Record<
+  string,
+  {
+    Texture?: string | null
+    Size?: { X: number; Y: number } | null
+    SourceRect?: { X: number; Y: number; Width: number; Height: number } | null
+    DrawOffset?: { X: number; Y: number } | null
+    SortTileOffset?: number | null
+  }
+>
+
+type KeyedResourceState<T> = {
+  requestKey: string
+  value: T
+}
+
+type StageMapLoadState = {
+  document: MapDocument | null
+  message: string
+  requestKey: string
+  status: 'idle' | 'ready' | 'error'
+}
+
+const EMPTY_CHARACTER_TEXTURE_INDEX: CharacterTextureIndex = {}
+const EMPTY_BUILDING_DATA_INDEX: BuildingDataIndex = {}
+const EMPTY_OBJECT_DRINK_INDEX: Record<string, boolean> = {}
+
+function deriveMapDrivenPlaybackState(state: PlaybackState, mapDocument: MapDocument | null) {
+  let changed = false
+  const nextActors = { ...state.actors }
+
+  for (const [actorKey, actor] of Object.entries(state.actors)) {
+    if (!actor.farmerRenderState) {
+      continue
+    }
+
+    const derivedBedState = deriveMapDrivenFarmerBedState(mapDocument, actor)
+    if (
+      actor.farmerRenderState.isInBed === derivedBedState.isInBed &&
+      actor.farmerRenderState.timeWentToBed === derivedBedState.timeWentToBed
+    ) {
+      continue
+    }
+
+    nextActors[actorKey] = {
+      ...actor,
+      farmerRenderState: {
+        ...actor.farmerRenderState,
+        isInBed: derivedBedState.isInBed,
+        timeWentToBed: derivedBedState.timeWentToBed,
+      },
+    }
+    changed = true
+  }
+
+  return changed ? { ...state, actors: nextActors } : state
+}
+
+function advancePlaybackTimeState(
+  state: PlaybackState,
+  nowMs: number,
+  options: {
+    autoPlay: boolean
+    copy: EventStageCopy
+    eventIndex: Record<string, EventScript>
+    objectDrinkIndex: Record<string, boolean>
+  },
+) {
+  let changed = false
+  let nextState = state
+
+  if (nextState.notices.length > 0 || nextState.flashOverlay != null || nextState.fadeOverlay != null) {
+    const notices = prunePlaybackNotices(nextState.notices, nowMs)
+    const flashOverlay =
+      nextState.flashOverlay && nowMs - nextState.flashOverlay.startedAtMs >= nextState.flashOverlay.durationMs
+        ? null
+        : nextState.flashOverlay
+    const fadeOverlay = advanceFadeOverlayState(nextState.fadeOverlay, nowMs)
+
+    if (
+      (notices !== nextState.notices && notices.length !== nextState.notices.length) ||
+      flashOverlay !== nextState.flashOverlay ||
+      fadeOverlay !== nextState.fadeOverlay
+    ) {
+      nextState = {
+        ...nextState,
+        notices,
+        flashOverlay,
+        fadeOverlay,
+      }
+      changed = true
+    }
+  }
+
+  const nextActors = { ...nextState.actors }
+  let actorsChanged = false
+
+  for (const [actorKey, actor] of Object.entries(nextState.actors)) {
+    if (actor.animation && !actor.animation.loop && getAnimatedFrame(actor, nowMs).complete) {
+      const finalFrame = actor.animation.frames[actor.animation.frames.length - 1]?.frame ?? actor.frame
+      nextActors[actorKey] = {
+        ...actor,
+        frame: finalFrame,
+        animation: null,
+        farmerRenderState: actor.farmerRenderState
+          ? {
+              ...actor.farmerRenderState,
+              pauseForSingleAnimation: false,
+              usingTool: false,
+              toolKind: 'none' as const,
+              armOffset: 6,
+              fishingRodIsCasting: true,
+              slingshotAimRadians: null,
+              slingshotBackArmDistance: 8,
+            }
+          : null,
+      }
+      actorsChanged = true
+      continue
+    }
+
+    if (actor.movement && nowMs - actor.movement.startedAtMs >= actor.movement.durationMs) {
+      const frameState = getActorDefaultFrameState(actor.actorName, actor.facingDirection)
+      nextActors[actorKey] = {
+        ...actor,
+        movement: null,
+        frame: frameState.frame,
+        directionalFlip: frameState.directionalFlip,
+        farmerRenderState: actor.farmerRenderState
+          ? {
+              ...actor.farmerRenderState,
+              lastMovementEndedAtMs: nowMs,
+            }
+          : null,
+      }
+      actorsChanged = true
+    }
+  }
+
+  if (actorsChanged) {
+    const stillMoving = Object.values(nextActors).some((actor) => actor.movement)
+    nextState = {
+      ...nextState,
+      actors: nextActors,
+      blockingMovement: stillMoving ? nextState.blockingMovement : false,
+    }
+    changed = true
+
+    if (!stillMoving && state.blockingMovement && options.autoPlay && !nextState.pendingChoice && !nextState.ended) {
+      nextState = continuePlayback(nextState, options.eventIndex, options.copy, {
+        objectDrinkIndex: options.objectDrinkIndex,
+      })
+    }
+  }
+
+  return changed ? nextState : state
 }
 
 export function useEventStageWorkspace({
@@ -65,8 +220,6 @@ export function useEventStageWorkspace({
   parsedEventAsset,
   selectedEvent,
   playerAppearanceProfile,
-  timelineJumpRequestId,
-  onTimelineJumpHandled,
   onSelectTimelineEntry,
   onPlaybackCommandChange,
 }: UseEventStageWorkspaceOptions) {
@@ -79,11 +232,24 @@ export function useEventStageWorkspace({
   const [musicSyncEnabled, setMusicSyncEnabled] = useState(false)
   const [playbackState, setPlaybackState] = useState<PlaybackState>(() => createInitialPlaybackState(selectedEvent, initialMapName))
   const [animationNowMs, setAnimationNowMs] = useState(() => performance.now())
-  const [mapDocument, setMapDocument] = useState<MapDocument | null>(null)
-  const [mapMessage, setMapMessage] = useState('')
-  const [characterTextureIndex, setCharacterTextureIndex] = useState<CharacterTextureIndex>({})
-  const [buildingDataIndex, setBuildingDataIndex] = useState<Record<string, { Texture?: string | null; Size?: { X: number; Y: number } | null; SourceRect?: { X: number; Y: number; Width: number; Height: number } | null; DrawOffset?: { X: number; Y: number } | null; SortTileOffset?: number | null }>>({})
-  const [eventObjectDrinkIndex, setEventObjectDrinkIndex] = useState<Record<string, boolean>>({})
+  const [mapLoadState, setMapLoadState] = useState<StageMapLoadState>({
+    document: null,
+    message: '',
+    requestKey: '',
+    status: 'idle',
+  })
+  const [characterTextureState, setCharacterTextureState] = useState<KeyedResourceState<CharacterTextureIndex>>({
+    requestKey: '',
+    value: EMPTY_CHARACTER_TEXTURE_INDEX,
+  })
+  const [buildingDataState, setBuildingDataState] = useState<KeyedResourceState<BuildingDataIndex>>({
+    requestKey: '',
+    value: EMPTY_BUILDING_DATA_INDEX,
+  })
+  const [eventObjectDrinkState, setEventObjectDrinkState] = useState<KeyedResourceState<Record<string, boolean>>>({
+    requestKey: '',
+    value: EMPTY_OBJECT_DRINK_INDEX,
+  })
   const [actorAssets, setActorAssets] = useState<Record<string, ActorAssetState>>({})
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
   const lastAudioCommandIdRef = useRef<string | null>(null)
@@ -107,12 +273,33 @@ export function useEventStageWorkspace({
     }
   }
 
+  const characterTextureRequestKey = directoryInfo?.rootPath ? `${directoryInfo.rootPath}::${locale}` : ''
+  const objectDrinkRequestKey = directoryInfo?.rootPath ? `${directoryInfo.rootPath}::${locale}` : ''
+  const buildingDataRequestKey = directoryInfo?.rootPath ? `${directoryInfo.rootPath}::${locale}` : ''
+  const characterTextureIndex =
+    characterTextureState.requestKey === characterTextureRequestKey ? characterTextureState.value : EMPTY_CHARACTER_TEXTURE_INDEX
+  const eventObjectDrinkIndex =
+    eventObjectDrinkState.requestKey === objectDrinkRequestKey ? eventObjectDrinkState.value : EMPTY_OBJECT_DRINK_INDEX
+  const buildingDataIndex = buildingDataState.requestKey === buildingDataRequestKey ? buildingDataState.value : EMPTY_BUILDING_DATA_INDEX
+  const mapLoadRequestKey =
+    directoryInfo?.rootPath && directoryInfo.mapsPath && playbackState.currentMapName
+      ? `${directoryInfo.rootPath}::${directoryInfo.mapsPath}::${playbackState.currentMapName}::${locale}`
+      : ''
+  const mapDocument = mapLoadState.requestKey === mapLoadRequestKey && mapLoadState.status === 'ready' ? mapLoadState.document : null
+  const mapMessage =
+    !directoryInfo?.rootPath || !playbackState.currentMapName
+      ? ''
+      : !directoryInfo.mapsPath
+        ? copy.stageMissing
+        : mapLoadState.requestKey === mapLoadRequestKey
+          ? mapLoadState.message
+          : copy.stageWaiting
+  const renderedPlaybackState = useMemo(() => deriveMapDrivenPlaybackState(playbackState, mapDocument), [mapDocument, playbackState])
+
   const visibleLayerIds = useMemo(
     () =>
       mapDocument
-        ? mapDocument.layers
-            .filter((layer) => layer.visible && (showMapPaths || !isPathsLayerName(layer.name)))
-            .map((layer) => layer.id)
+        ? mapDocument.layers.filter((layer) => layer.visible && (showMapPaths || !isPathsLayerName(layer.name))).map((layer) => layer.id)
         : [],
     [mapDocument, showMapPaths],
   )
@@ -127,21 +314,27 @@ export function useEventStageWorkspace({
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      setCharacterTextureIndex({})
       return
     }
 
     let cancelled = false
+    const requestKey = characterTextureRequestKey
 
     void (async () => {
       try {
         const characterDataAsset = await loadTextAsset(directoryInfo.rootPath, CHARACTER_DATA_PATH, locale)
         if (!cancelled) {
-          setCharacterTextureIndex(buildCharacterTextureIndex(characterDataAsset.content))
+          setCharacterTextureState({
+            requestKey,
+            value: buildCharacterTextureIndex(characterDataAsset.content),
+          })
         }
       } catch {
         if (!cancelled) {
-          setCharacterTextureIndex({})
+          setCharacterTextureState({
+            requestKey,
+            value: EMPTY_CHARACTER_TEXTURE_INDEX,
+          })
         }
       }
     })()
@@ -149,28 +342,32 @@ export function useEventStageWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, locale])
+  }, [characterTextureRequestKey, directoryInfo?.rootPath, locale])
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      setEventObjectDrinkIndex({})
       return
     }
 
     let cancelled = false
+    const requestKey = objectDrinkRequestKey
 
     void (async () => {
       try {
         const objectDataAsset = await loadTextAsset(directoryInfo.rootPath, OBJECT_DATA_PATH, locale)
         const parsed = JSON.parse(objectDataAsset.content) as Record<string, ObjectDataEntry>
         if (!cancelled) {
-          setEventObjectDrinkIndex(
-            Object.fromEntries(Object.entries(parsed).map(([itemId, entry]) => [itemId, Boolean(entry?.IsDrink)])),
-          )
+          setEventObjectDrinkState({
+            requestKey,
+            value: Object.fromEntries(Object.entries(parsed).map(([itemId, entry]) => [itemId, Boolean(entry?.IsDrink)])),
+          })
         }
       } catch {
         if (!cancelled) {
-          setEventObjectDrinkIndex({})
+          setEventObjectDrinkState({
+            requestKey,
+            value: EMPTY_OBJECT_DRINK_INDEX,
+          })
         }
       }
     })()
@@ -178,25 +375,31 @@ export function useEventStageWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, locale])
+  }, [directoryInfo?.rootPath, locale, objectDrinkRequestKey])
 
   useEffect(() => {
     if (!directoryInfo?.rootPath) {
-      setBuildingDataIndex({})
       return
     }
 
     let cancelled = false
+    const requestKey = buildingDataRequestKey
 
     void (async () => {
       try {
         const buildingsDataAsset = await loadTextAsset(directoryInfo.rootPath, 'Content\\Data\\Buildings.xnb', locale)
         if (!cancelled) {
-          setBuildingDataIndex(buildBuildingDataIndex(buildingsDataAsset.content))
+          setBuildingDataState({
+            requestKey,
+            value: buildBuildingDataIndex(buildingsDataAsset.content),
+          })
         }
       } catch {
         if (!cancelled) {
-          setBuildingDataIndex({})
+          setBuildingDataState({
+            requestKey,
+            value: EMPTY_BUILDING_DATA_INDEX,
+          })
         }
       }
     })()
@@ -204,29 +407,16 @@ export function useEventStageWorkspace({
     return () => {
       cancelled = true
     }
-  }, [directoryInfo?.rootPath, locale])
+  }, [buildingDataRequestKey, directoryInfo?.rootPath, locale])
 
   useEffect(() => {
-    if (!directoryInfo?.rootPath) {
-      setMapDocument(null)
-      setMapMessage('')
-      return
-    }
-    if (!directoryInfo.mapsPath) {
-      setMapDocument(null)
-      setMapMessage(copy.stageMissing)
-      return
-    }
-
-    if (!playbackState.currentMapName) {
-      setMapDocument(null)
-      setMapMessage('')
+    if (!directoryInfo?.rootPath || !directoryInfo.mapsPath || !playbackState.currentMapName) {
       return
     }
 
     const mapPath = `${directoryInfo.mapsPath}\\${playbackState.currentMapName}.xnb`
     let cancelled = false
-    setMapMessage(copy.stageWaiting)
+    const requestKey = mapLoadRequestKey
 
     void (async () => {
       try {
@@ -235,15 +425,23 @@ export function useEventStageWorkspace({
           return
         }
         if (asset.format === 'xnb') {
-          setMapDocument(JSON.parse(asset.content) as MapDocument)
+          setMapLoadState({
+            document: JSON.parse(asset.content) as MapDocument,
+            message: asset.relativePath,
+            requestKey,
+            status: 'ready',
+          })
         } else {
           throw new Error(copy.stageMapUnsupported)
         }
-        setMapMessage(asset.relativePath)
       } catch (error) {
         if (!cancelled) {
-          setMapDocument(null)
-          setMapMessage(`${copy.stageFailed}: ${error instanceof Error ? error.message : String(error)}`)
+          setMapLoadState({
+            document: null,
+            message: `${copy.stageFailed}: ${error instanceof Error ? error.message : String(error)}`,
+            requestKey,
+            status: 'error',
+          })
         }
       }
     })()
@@ -256,41 +454,16 @@ export function useEventStageWorkspace({
     directoryInfo?.mapsPath,
     copy.stageFailed,
     copy.stageMapUnsupported,
-    copy.stageMissing,
-    copy.stageWaiting,
     locale,
+    mapLoadRequestKey,
     playbackState.currentMapName,
   ])
-
-  useEffect(() => {
-    setAutoPlay(false)
-    setMusicSyncEnabled(false)
-    setPlaybackState(createStageReadyPlaybackState(selectedEvent, initialMapName))
-    onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
-    onPlaybackCommandChange(null)
-  }, [initialMapName, onPlaybackCommandChange, onSelectTimelineEntry, selectedEvent])
 
   useEffect(() => {
     resetAudioPreview()
     lastAudioCommandIdRef.current = null
     lastSyncedMusicCueKeyRef.current = null
-    setMusicSyncEnabled(false)
   }, [directoryInfo?.rootPath])
-
-  useEffect(() => {
-    if (!timelineJumpRequestId) {
-      return
-    }
-
-    setAutoPlay(false)
-    setMusicSyncEnabled(true)
-    setPlaybackState(
-      seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, timelineJumpRequestId, initialMapName, copy, {
-        objectDrinkIndex: eventObjectDrinkIndex,
-      }),
-    )
-    onTimelineJumpHandled()
-  }, [copy, eventObjectDrinkIndex, initialMapName, onTimelineJumpHandled, parsedEventAsset?.eventIndex, selectedEvent, timelineJumpRequestId])
 
   useEffect(() => {
     onPlaybackCommandChange(playbackState.currentCommandId)
@@ -302,7 +475,7 @@ export function useEventStageWorkspace({
   useEffect(() => {
     const rootPath = directoryInfo?.rootPath
     const musicCue = playbackState.activeMusicCue
-    const syncKey = `${rootPath ?? ''}::${musicSyncEnabled ? musicCue ?? 'none' : '__disabled__'}`
+    const syncKey = `${rootPath ?? ''}::${musicSyncEnabled ? (musicCue ?? 'none') : '__disabled__'}`
     if (!rootPath || syncKey === lastSyncedMusicCueKeyRef.current) {
       return
     }
@@ -348,9 +521,84 @@ export function useEventStageWorkspace({
     }
   }, [directoryInfo?.rootPath, playbackState.commands, playbackState.currentCommandId])
 
+  const actorAssetRequests = useMemo<ActorAssetRequest[]>(
+    () =>
+      Object.values(renderedPlaybackState.actors).map((actor) => {
+        const actorMetadata = characterTextureIndex[toActorKey(actor.actorName)] ?? null
+        const textureCandidates = getTextureCandidates(actor.actorName, characterTextureIndex)
+        const spriteTextureCandidates = actor.spriteOverrideSuffix
+          ? [...textureCandidates.map((candidate) => `${candidate}_${actor.spriteOverrideSuffix}`), ...textureCandidates]
+          : textureCandidates
+        const portraitTextureCandidates = actor.portraitOverrideSuffix
+          ? [...textureCandidates.map((candidate) => `${candidate}_${actor.portraitOverrideSuffix}`), ...textureCandidates]
+          : textureCandidates
+        return {
+          actorKey: toActorKey(actor.actorName),
+          actorName: actor.actorName,
+          requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify(
+            {
+              farmerAppearanceProfile:
+                isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+              characterMetadata: actorMetadata,
+            },
+          )}`,
+          spriteTextureCandidates,
+          portraitTextureCandidates,
+          farmerAppearanceProfile:
+            isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
+          characterMetadata: actorMetadata,
+        }
+      }),
+    [characterTextureIndex, directoryInfo?.rootPath, playerAppearanceProfile, renderedPlaybackState.actors],
+  )
+
+  const currentActorAssets = useMemo(
+    () =>
+      Object.fromEntries(
+        actorAssetRequests.flatMap((request) => {
+          const asset = actorAssets[request.actorKey]
+          return asset?.requestKey === request.requestKey ? [[request.actorKey, asset] as const] : []
+        }),
+      ),
+    [actorAssetRequests, actorAssets],
+  )
+
+  const pendingActorAssetRequests = useMemo(
+    () => actorAssetRequests.filter((request) => currentActorAssets[request.actorKey]?.requestKey !== request.requestKey),
+    [actorAssetRequests, currentActorAssets],
+  )
+
+  useEffect(() => {
+    if (!directoryInfo?.rootPath || !pendingActorAssetRequests.length) {
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      const resolvedEntries = await Promise.all(
+        pendingActorAssetRequests.map(
+          async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale)] as const,
+        ),
+      )
+      if (cancelled) {
+        return
+      }
+
+      setActorAssets((current) => ({
+        ...current,
+        ...Object.fromEntries(resolvedEntries),
+      }))
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [directoryInfo?.rootPath, locale, pendingActorAssetRequests])
+
   useEffect(() => {
     const nowMs = performance.now()
-    const hasAnimatedActors = Object.values(playbackState.actors).some((actor) => {
+    const hasAnimatedActors = Object.values(renderedPlaybackState.actors).some((actor) => {
       if (actor.animation || actor.movement) {
         return true
       }
@@ -363,11 +611,11 @@ export function useEventStageWorkspace({
         return true
       }
 
-      const asset = actorAssets[toActorKey(actor.actorName)]
+      const asset = currentActorAssets[toActorKey(actor.actorName)]
       const breatherEnabled = actor.breatherOverride ?? asset?.characterMetadata?.breather ?? false
       return actor.visible && breatherEnabled && !actor.farmerPassesThrough
     })
-    const hasAnimatedEffects = playbackState.stageEffects.some(
+    const hasAnimatedEffects = renderedPlaybackState.stageEffects.some(
       (effect) =>
         effect.animationLength > 1 ||
         effect.motionX !== 0 ||
@@ -382,191 +630,42 @@ export function useEventStageWorkspace({
         effect.pulse,
     )
     const hasAnimatedHud =
-      playbackState.notices.length > 0 ||
-      playbackState.flashOverlay != null ||
-      isFadeOverlayAnimating(playbackState.fadeOverlay, performance.now())
+      renderedPlaybackState.notices.length > 0 ||
+      renderedPlaybackState.flashOverlay != null ||
+      isFadeOverlayAnimating(renderedPlaybackState.fadeOverlay, performance.now())
     if (!hasAnimatedActors && !hasAnimatedEffects && !hasAnimatedHud) {
       return
     }
 
     let frameId = 0
     const tick = () => {
-      setAnimationNowMs(performance.now())
+      const nowMs = performance.now()
+      setAnimationNowMs(nowMs)
+      setPlaybackState((current) =>
+        advancePlaybackTimeState(current, nowMs, {
+          autoPlay,
+          copy,
+          eventIndex: parsedEventAsset?.eventIndex ?? {},
+          objectDrinkIndex: eventObjectDrinkIndex,
+        }),
+      )
       frameId = window.requestAnimationFrame(tick)
     }
 
     frameId = window.requestAnimationFrame(tick)
     return () => window.cancelAnimationFrame(frameId)
   }, [
-    actorAssets,
-    playbackState.actors,
-    playbackState.fadeOverlay,
-    playbackState.flashOverlay,
-    playbackState.notices.length,
-    playbackState.stageEffects,
+    currentActorAssets,
+    autoPlay,
+    copy,
+    eventObjectDrinkIndex,
+    parsedEventAsset?.eventIndex,
+    renderedPlaybackState.actors,
+    renderedPlaybackState.fadeOverlay,
+    renderedPlaybackState.flashOverlay,
+    renderedPlaybackState.notices.length,
+    renderedPlaybackState.stageEffects,
   ])
-
-  useEffect(() => {
-    if (playbackState.notices.length === 0 && playbackState.flashOverlay == null && playbackState.fadeOverlay == null) {
-      return
-    }
-
-    setPlaybackState((current) => {
-      const nowMs = performance.now()
-      const notices = prunePlaybackNotices(current.notices, nowMs)
-      const flashOverlay =
-        current.flashOverlay && nowMs - current.flashOverlay.startedAtMs >= current.flashOverlay.durationMs
-          ? null
-          : current.flashOverlay
-      const fadeOverlay = advanceFadeOverlayState(current.fadeOverlay, nowMs)
-
-      if (notices === current.notices && flashOverlay === current.flashOverlay && fadeOverlay === current.fadeOverlay) {
-        return current
-      }
-
-      if (notices.length === current.notices.length && flashOverlay === current.flashOverlay && fadeOverlay === current.fadeOverlay) {
-        return current
-      }
-
-      return {
-        ...current,
-        notices,
-        flashOverlay,
-        fadeOverlay,
-      }
-    })
-  }, [animationNowMs, playbackState.fadeOverlay, playbackState.flashOverlay, playbackState.notices])
-
-  useEffect(() => {
-    setPlaybackState((current) => {
-      let changed = false
-      const nextActors = { ...current.actors }
-
-      for (const [actorKey, actor] of Object.entries(current.actors)) {
-        if (!actor.farmerRenderState) {
-          continue
-        }
-
-        const derivedBedState = deriveMapDrivenFarmerBedState(mapDocument, actor)
-        if (
-          actor.farmerRenderState.isInBed === derivedBedState.isInBed &&
-          actor.farmerRenderState.timeWentToBed === derivedBedState.timeWentToBed
-        ) {
-          continue
-        }
-
-        nextActors[actorKey] = {
-          ...actor,
-          farmerRenderState: {
-            ...actor.farmerRenderState,
-            isInBed: derivedBedState.isInBed,
-            timeWentToBed: derivedBedState.timeWentToBed,
-          },
-        }
-        changed = true
-      }
-
-      return changed ? { ...current, actors: nextActors } : current
-    })
-  }, [mapDocument, playbackState.currentMapName, playbackState.actors])
-
-  useEffect(() => {
-    const completedActorKeys = Object.values(playbackState.actors)
-      .filter((actor) => actor.animation && !actor.animation.loop)
-      .filter((actor) => getAnimatedFrame(actor, animationNowMs).complete)
-      .map((actor) => toActorKey(actor.actorName))
-
-    if (!completedActorKeys.length) {
-      return
-    }
-
-    setPlaybackState((current) => {
-      let changed = false
-      const nextActors = { ...current.actors }
-
-      for (const actorKey of completedActorKeys) {
-        const actor = nextActors[actorKey]
-        if (!actor?.animation) {
-          continue
-        }
-
-        const finalFrame = actor.animation.frames[actor.animation.frames.length - 1]?.frame ?? actor.frame
-        nextActors[actorKey] = {
-          ...actor,
-          frame: finalFrame,
-          animation: null,
-          farmerRenderState: actor.farmerRenderState
-            ? {
-                ...actor.farmerRenderState,
-                pauseForSingleAnimation: false,
-                usingTool: false,
-                toolKind: 'none' as const,
-                armOffset: 6,
-                fishingRodIsCasting: true,
-                slingshotAimRadians: null,
-                slingshotBackArmDistance: 8,
-              }
-            : null,
-        }
-        changed = true
-      }
-
-      return changed ? { ...current, actors: nextActors } : current
-    })
-  }, [animationNowMs, playbackState.actors])
-
-  useEffect(() => {
-    const completedMovementActorKeys = Object.values(playbackState.actors)
-      .filter((actor) => actor.movement)
-      .filter((actor) => animationNowMs - (actor.movement?.startedAtMs ?? 0) >= (actor.movement?.durationMs ?? Number.POSITIVE_INFINITY))
-      .map((actor) => toActorKey(actor.actorName))
-
-    if (completedMovementActorKeys.length === 0) {
-      return
-    }
-
-    setPlaybackState((current) => {
-      let changed = false
-      const nextActors = { ...current.actors }
-
-      for (const actorKey of completedMovementActorKeys) {
-        const actor = nextActors[actorKey]
-        if (!actor?.movement) {
-          continue
-        }
-
-        const frameState = getActorDefaultFrameState(actor.actorName, actor.facingDirection)
-        nextActors[actorKey] = {
-          ...actor,
-          movement: null,
-          frame: frameState.frame,
-          directionalFlip: frameState.directionalFlip,
-          farmerRenderState: actor.farmerRenderState
-            ? {
-                ...actor.farmerRenderState,
-                lastMovementEndedAtMs: animationNowMs,
-              }
-            : null,
-        }
-        changed = true
-      }
-
-      if (!changed) {
-        return current
-      }
-
-      const stillMoving = Object.values(nextActors).some((actor) => actor.movement)
-      const nextState = { ...current, actors: nextActors, blockingMovement: stillMoving ? current.blockingMovement : false }
-
-      if (!stillMoving && current.blockingMovement && autoPlay && !current.pendingChoice && !current.ended) {
-        return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
-          objectDrinkIndex: eventObjectDrinkIndex,
-        })
-      }
-
-      return nextState
-    })
-  }, [animationNowMs, autoPlay, copy, eventObjectDrinkIndex, parsedEventAsset?.eventIndex, playbackState.actors])
 
   useEffect(() => {
     if (!autoPlay || playbackState.pendingChoice || playbackState.ended || playbackState.blockingMovement) {
@@ -575,23 +674,20 @@ export function useEventStageWorkspace({
 
     const waitMs =
       playbackState.waitingMs ??
-      (playbackState.currentEntry?.tone === 'dialogue'
-        ? 1500
-        : playbackState.currentEntry?.tone === 'message'
-          ? 1200
-          : null)
+      (playbackState.currentEntry?.tone === 'dialogue' ? 1500 : playbackState.currentEntry?.tone === 'message' ? 1200 : null)
 
     if (waitMs == null) {
-      setPlaybackState((current) =>
-        continuePlayback(current, parsedEventAsset?.eventIndex ?? {}, copy, {
-          objectDrinkIndex: eventObjectDrinkIndex,
-        }),
-      )
-      return
+      const timeout = window.setTimeout(() => {
+        setPlaybackState((current) =>
+          continuePlayback(current, parsedEventAsset?.eventIndex ?? {}, copy, {
+            objectDrinkIndex: eventObjectDrinkIndex,
+          }),
+        )
+      }, 0)
+      return () => window.clearTimeout(timeout)
     }
 
-    const elapsedWaitMs =
-      playbackState.waitingStartedAtMs == null ? 0 : Math.max(0, performance.now() - playbackState.waitingStartedAtMs)
+    const elapsedWaitMs = playbackState.waitingStartedAtMs == null ? 0 : Math.max(0, performance.now() - playbackState.waitingStartedAtMs)
     const remainingWaitMs = Math.max(0, waitMs - elapsedWaitMs)
 
     const timeout = window.setTimeout(() => {
@@ -610,112 +706,39 @@ export function useEventStageWorkspace({
     return () => window.clearTimeout(timeout)
   }, [autoPlay, copy, eventObjectDrinkIndex, parsedEventAsset?.eventIndex, playbackState])
 
-  const actorAssetRequests = useMemo<ActorAssetRequest[]>(
-    () =>
-      Object.values(playbackState.actors).map((actor) => {
-        const actorMetadata = characterTextureIndex[toActorKey(actor.actorName)] ?? null
-        const textureCandidates = getTextureCandidates(actor.actorName, characterTextureIndex)
-        const spriteTextureCandidates = actor.spriteOverrideSuffix
-          ? [...textureCandidates.map((candidate) => `${candidate}_${actor.spriteOverrideSuffix}`), ...textureCandidates]
-          : textureCandidates
-        const portraitTextureCandidates = actor.portraitOverrideSuffix
-          ? [...textureCandidates.map((candidate) => `${candidate}_${actor.portraitOverrideSuffix}`), ...textureCandidates]
-          : textureCandidates
-        return {
-          actorKey: toActorKey(actor.actorName),
-          actorName: actor.actorName,
-          requestKey: `${directoryInfo?.rootPath ?? ''}::${spriteTextureCandidates.join('|')}::${portraitTextureCandidates.join('|')}::${JSON.stringify({
-            farmerAppearanceProfile:
-              isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
-            characterMetadata: actorMetadata,
-          })}`,
-          spriteTextureCandidates,
-          portraitTextureCandidates,
-          farmerAppearanceProfile:
-            isFarmerActor(actor.actorName) || normalizeActorName(actor.actorName) === 'farmer' ? playerAppearanceProfile : null,
-          characterMetadata: actorMetadata,
-        }
-      }),
-    [characterTextureIndex, directoryInfo?.rootPath, playbackState.actors, playerAppearanceProfile],
-  )
-
-  useEffect(() => {
-    setActorAssets((current) => {
-      const next = Object.fromEntries(
-        actorAssetRequests.flatMap((request) => {
-          const asset = current[request.actorKey]
-          return asset?.requestKey === request.requestKey ? [[request.actorKey, asset] as const] : []
-        }),
-      )
-
-      return areAssetMapsEqual(current, next) ? current : next
-    })
-  }, [actorAssetRequests])
-
-  const pendingActorAssetRequests = useMemo(
-    () => actorAssetRequests.filter((request) => actorAssets[request.actorKey]?.requestKey !== request.requestKey),
-    [actorAssetRequests, actorAssets],
-  )
-
-  useEffect(() => {
-    if (!directoryInfo?.rootPath || !pendingActorAssetRequests.length) {
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      const resolvedEntries = await Promise.all(
-        pendingActorAssetRequests.map(async (request) => [request.actorKey, await resolveActorAssets(request, directoryInfo.rootPath, locale)] as const),
-      )
-      if (cancelled) {
-        return
-      }
-
-      setActorAssets((current) => ({
-        ...current,
-        ...Object.fromEntries(resolvedEntries),
-      }))
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [directoryInfo?.rootPath, locale, pendingActorAssetRequests])
-
   const effectTextureRequests = useMemo(
     () =>
       Array.from(
         new Set(
           [
-            ...playbackState.stageEffects.map((effect) => effect.textureName),
-            ...playbackState.notices.map((notice) => notice.icon?.textureName ?? null),
+            ...renderedPlaybackState.stageEffects.map((effect) => effect.textureName),
+            ...renderedPlaybackState.notices.map((notice) => notice.icon?.textureName ?? null),
             ...worldOverlaySprites.map((sprite) => sprite.textureName),
           ].filter((value): value is string => Boolean(value)),
         ),
       ),
-    [playbackState.notices, playbackState.stageEffects, worldOverlaySprites],
+    [renderedPlaybackState.notices, renderedPlaybackState.stageEffects, worldOverlaySprites],
   )
 
-  useEffect(() => {
-    setEffectAssets((current) =>
+  const currentEffectAssets = useMemo(
+    () =>
       Object.fromEntries(
         effectTextureRequests.flatMap((textureName) => {
           const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
-          const asset = current[textureName]
+          const asset = effectAssets[textureName]
           return asset?.requestKey === requestKey ? [[textureName, asset] as const] : []
         }),
       ),
-    )
-  }, [directoryInfo?.rootPath, effectTextureRequests])
+    [directoryInfo?.rootPath, effectAssets, effectTextureRequests],
+  )
 
   const pendingEffectTextureRequests = useMemo(
     () =>
       effectTextureRequests.filter((textureName) => {
         const requestKey = `${directoryInfo?.rootPath ?? ''}::${textureName}`
-        return effectAssets[textureName]?.requestKey !== requestKey
+        return currentEffectAssets[textureName]?.requestKey !== requestKey
       }),
-    [directoryInfo?.rootPath, effectAssets, effectTextureRequests],
+    [directoryInfo?.rootPath, currentEffectAssets, effectTextureRequests],
   )
 
   useEffect(() => {
@@ -727,7 +750,9 @@ export function useEventStageWorkspace({
 
     void (async () => {
       const resolvedEntries = await Promise.all(
-        pendingEffectTextureRequests.map(async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const),
+        pendingEffectTextureRequests.map(
+          async (textureName) => [textureName, await resolveEffectAsset(textureName, directoryInfo.rootPath)] as const,
+        ),
       )
       if (cancelled) {
         return
@@ -745,51 +770,51 @@ export function useEventStageWorkspace({
   }, [directoryInfo?.rootPath, pendingEffectTextureRequests])
 
   const focusWorldPoint = useMemo<ViewportWorldPoint | null>(() => {
-    if (!mapDocument || !playbackState.focusTile) {
+    if (!mapDocument || !renderedPlaybackState.focusTile) {
       return null
     }
 
     return {
-      worldX: (playbackState.focusTile.tileX + 0.5) * mapDocument.tileWidth,
-      worldY: (playbackState.focusTile.tileY + 0.5) * mapDocument.tileHeight,
+      worldX: (renderedPlaybackState.focusTile.tileX + 0.5) * mapDocument.tileWidth,
+      worldY: (renderedPlaybackState.focusTile.tileY + 0.5) * mapDocument.tileHeight,
     }
-  }, [mapDocument, playbackState.focusTile])
+  }, [mapDocument, renderedPlaybackState.focusTile])
 
   const currentDialogueActor =
-    playbackState.currentEntry?.tone === 'dialogue' && playbackState.currentEntry.actorName
-      ? getActorByName(playbackState.actors, playbackState.currentEntry.actorName)
+    renderedPlaybackState.currentEntry?.tone === 'dialogue' && renderedPlaybackState.currentEntry.actorName
+      ? getActorByName(renderedPlaybackState.actors, renderedPlaybackState.currentEntry.actorName)
       : null
-  const currentDialogueActorAsset = currentDialogueActor ? actorAssets[toActorKey(currentDialogueActor.actorName)] ?? null : null
+  const currentDialogueActorAsset = currentDialogueActor ? (currentActorAssets[toActorKey(currentDialogueActor.actorName)] ?? null) : null
   const currentDialoguePortrait = useMemo(
-    () => getPortraitFrameBounds(currentDialogueActorAsset, playbackState.currentEntry?.portraitIndex ?? 0),
-    [currentDialogueActorAsset, playbackState.currentEntry?.portraitIndex],
+    () => getPortraitFrameBounds(currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex ?? 0),
+    [currentDialogueActorAsset, renderedPlaybackState.currentEntry?.portraitIndex],
   )
   const flashOverlayOpacity = useMemo(() => {
-    if (!playbackState.flashOverlay) {
+    if (!renderedPlaybackState.flashOverlay) {
       return 0
     }
 
-    const elapsedMs = Math.max(0, animationNowMs - playbackState.flashOverlay.startedAtMs)
-    const progress = Math.max(0, Math.min(1, elapsedMs / Math.max(1, playbackState.flashOverlay.durationMs)))
-    return playbackState.flashOverlay.alpha * (1 - progress)
-  }, [animationNowMs, playbackState.flashOverlay])
+    const elapsedMs = Math.max(0, animationNowMs - renderedPlaybackState.flashOverlay.startedAtMs)
+    const progress = Math.max(0, Math.min(1, elapsedMs / Math.max(1, renderedPlaybackState.flashOverlay.durationMs)))
+    return renderedPlaybackState.flashOverlay.alpha * (1 - progress)
+  }, [animationNowMs, renderedPlaybackState.flashOverlay])
   const fadeOverlayOpacity = useMemo(
-    () => resolveFadeOverlayAlpha(playbackState.fadeOverlay, animationNowMs),
-    [animationNowMs, playbackState.fadeOverlay],
+    () => resolveFadeOverlayAlpha(renderedPlaybackState.fadeOverlay, animationNowMs),
+    [animationNowMs, renderedPlaybackState.fadeOverlay],
   )
   const playbackStatusChips = useMemo(() => {
     const chips: Array<{ id: string; label: string; value: string }> = []
 
-    if (playbackState.activeMusicCue) {
-      chips.push({ id: 'music', label: copy.statusMusic, value: playbackState.activeMusicCue })
+    if (renderedPlaybackState.activeMusicCue) {
+      chips.push({ id: 'music', label: copy.statusMusic, value: renderedPlaybackState.activeMusicCue })
     }
-    if (playbackState.activeSoundCue) {
-      chips.push({ id: 'sound', label: copy.statusSound, value: playbackState.activeSoundCue })
+    if (renderedPlaybackState.activeSoundCue) {
+      chips.push({ id: 'sound', label: copy.statusSound, value: renderedPlaybackState.activeSoundCue })
     }
-    if (playbackState.ambientOverlayColor) {
-      chips.push({ id: 'ambient', label: copy.statusAmbient, value: playbackState.ambientOverlayColor })
+    if (renderedPlaybackState.ambientOverlayColor) {
+      chips.push({ id: 'ambient', label: copy.statusAmbient, value: renderedPlaybackState.ambientOverlayColor })
     }
-    if (playbackState.fadeOverlay) {
+    if (renderedPlaybackState.fadeOverlay) {
       chips.push({
         id: 'fade',
         label: copy.statusFade,
@@ -803,10 +828,10 @@ export function useEventStageWorkspace({
     copy.statusFade,
     copy.statusMusic,
     copy.statusSound,
-    playbackState.activeMusicCue,
-    playbackState.activeSoundCue,
-    playbackState.ambientOverlayColor,
-    playbackState.fadeOverlay,
+    renderedPlaybackState.activeMusicCue,
+    renderedPlaybackState.activeSoundCue,
+    renderedPlaybackState.ambientOverlayColor,
+    renderedPlaybackState.fadeOverlay,
     fadeOverlayOpacity,
   ])
 
@@ -823,7 +848,9 @@ export function useEventStageWorkspace({
     setMusicSyncEnabled(true)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? preparePlaybackStep(current) : createStageReadyPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended
+          ? preparePlaybackStep(current)
+          : createStageReadyPlaybackState(selectedEvent, initialMapName)
       return continuePlayback(nextState, parsedEventAsset?.eventIndex ?? {}, copy, {
         objectDrinkIndex: eventObjectDrinkIndex,
       })
@@ -835,7 +862,9 @@ export function useEventStageWorkspace({
     setAutoPlay((current) => !current)
     setPlaybackState((current) => {
       const nextState =
-        current.rootEventKey === selectedEvent?.key && !current.ended ? current : createStageReadyPlaybackState(selectedEvent, initialMapName)
+        current.rootEventKey === selectedEvent?.key && !current.ended
+          ? current
+          : createStageReadyPlaybackState(selectedEvent, initialMapName)
       const shouldAdvanceImmediately =
         current.rootEventKey !== selectedEvent?.key || current.ended || (!current.currentEntry && !current.pendingChoice)
 
@@ -854,19 +883,32 @@ export function useEventStageWorkspace({
     onSelectTimelineEntry(EVENT_SETUP_ENTRY_ID)
   }
 
+  const seekTimelineEntry = useCallback(
+    (entryId: string) => {
+      setAutoPlay(false)
+      setMusicSyncEnabled(true)
+      setPlaybackState(
+        seekPlaybackToEntry(selectedEvent, parsedEventAsset?.eventIndex ?? {}, entryId, initialMapName, copy, {
+          objectDrinkIndex: eventObjectDrinkIndex,
+        }),
+      )
+    },
+    [copy, eventObjectDrinkIndex, initialMapName, parsedEventAsset?.eventIndex, selectedEvent],
+  )
+
   function handleZoomChange(nextZoom: number) {
     setViewportZoom(nextZoom)
     setZoomLabel(viewportLabels.zoomLabel(nextZoom))
   }
 
   return {
-    actorAssets,
+    actorAssets: currentActorAssets,
     animationNowMs,
     autoPlay,
     currentDialogueActor,
     currentDialogueActorAsset,
     currentDialoguePortrait,
-    effectAssets,
+    effectAssets: currentEffectAssets,
     fadeOverlayOpacity,
     flashOverlayOpacity,
     focusWorldPoint,
@@ -875,10 +917,11 @@ export function useEventStageWorkspace({
     labels: copy,
     mapDocument,
     mapMessage,
-    playbackState,
+    playbackState: renderedPlaybackState,
     playbackStatusChips,
     playNextFrame,
     resetPlayback,
+    seekTimelineEntry,
     setShowGrid,
     setShowMapPaths,
     showGrid,
@@ -891,4 +934,3 @@ export function useEventStageWorkspace({
     zoomLabel,
   }
 }
-

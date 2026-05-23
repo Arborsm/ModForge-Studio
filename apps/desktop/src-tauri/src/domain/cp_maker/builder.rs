@@ -1,7 +1,6 @@
 use super::types::{
-    ChangeRegistry, ChangeRegistryPatch, CustomLocation, DynamicToken,
-    CpMakerDraftError, CpMakerDraftErrorCode, CpMakerDraftOperation,
-    CpMakerDraftRecord, CpMakerMetadata,
+    ChangeRegistry, ChangeRegistryPatch, CpMakerDraftError, CpMakerDraftErrorCode,
+    CpMakerDraftOperation, CpMakerDraftRecord, CpMakerMetadata, CustomLocation, DynamicToken,
 };
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, HashSet};
@@ -43,7 +42,9 @@ pub fn import_cp_maker_pack(
         parse_content_json(&content_json, dir)?;
 
     // Prefer ConfigSchema from manifest (CP canonical location), fallback to content.json
-    let config_schema_draft = if config_schema_from_manifest.as_object().map_or(false, |o| !o.is_empty())
+    let config_schema_draft = if config_schema_from_manifest
+        .as_object()
+        .map_or(false, |o| !o.is_empty())
     {
         config_schema_from_manifest
     } else {
@@ -81,9 +82,7 @@ pub fn import_cp_maker_pack(
 
 // ─── manifest.json ────────────────────────────────────────────────────
 
-fn parse_manifest_json(
-    manifest_json: &str,
-) -> Result<(CpMakerMetadata, Value), CpMakerDraftError> {
+fn parse_manifest_json(manifest_json: &str) -> Result<(CpMakerMetadata, Value), CpMakerDraftError> {
     let value: Value = serde_json::from_str(manifest_json).map_err(|error| {
         CpMakerDraftError::new(
             CpMakerDraftErrorCode::InvalidDraft,
@@ -146,7 +145,10 @@ fn parse_manifest_json(
         })
         .unwrap_or_default();
 
-    let config_schema = obj.get("ConfigSchema").cloned().unwrap_or_else(|| Value::Object(Map::new()));
+    let config_schema = obj
+        .get("ConfigSchema")
+        .cloned()
+        .unwrap_or_else(|| Value::Object(Map::new()));
 
     Ok((
         CpMakerMetadata {
@@ -252,15 +254,16 @@ fn resolve_changes(
             .unwrap_or("");
 
         if action == "Include" {
-            let from_file = change_obj.get("FromFile").and_then(Value::as_str).ok_or_else(
-                || {
+            let from_file = change_obj
+                .get("FromFile")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
                     CpMakerDraftError::new(
                         CpMakerDraftErrorCode::InvalidDraft,
                         CpMakerDraftOperation::Import,
                         "Include action must have FromFile.",
                     )
-                },
-            )?;
+                })?;
 
             if !visited.insert(from_file.to_string()) {
                 return Err(CpMakerDraftError::new(
@@ -362,7 +365,9 @@ fn changes_to_patches(
 
     for ((workspace, target), changes) in edit_data_groups {
         patch_id += 1;
-        patches.push(edit_data_changes_to_patch(&workspace, &target, &changes, patch_id)?);
+        patches.push(edit_data_changes_to_patch(
+            &workspace, &target, &changes, patch_id,
+        )?);
     }
 
     for (workspace, change) in standalone {
@@ -455,10 +460,7 @@ fn edit_data_changes_to_patch(
         editor_state.insert("fields".to_string(), Value::Object(fields));
     }
     if !text_operations.is_empty() {
-        editor_state.insert(
-            "textOperations".to_string(),
-            Value::Array(text_operations),
-        );
+        editor_state.insert("textOperations".to_string(), Value::Array(text_operations));
     }
     if !move_entries.is_empty() {
         editor_state.insert("moveEntries".to_string(), Value::Array(move_entries));
@@ -495,8 +497,16 @@ fn standalone_change_to_patch(
         )
     })?;
 
-    let action = obj.get("Action").and_then(Value::as_str).unwrap_or("").to_string();
-    let target = obj.get("Target").and_then(Value::as_str).unwrap_or("").to_string();
+    let action = obj
+        .get("Action")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let target = obj
+        .get("Target")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let log_name = obj
         .get("LogName")
         .and_then(Value::as_str)
@@ -504,30 +514,42 @@ fn standalone_change_to_patch(
         .to_string();
     let enabled = obj.get("Enabled").cloned().unwrap_or(json!(true));
     let when = obj.get("When").cloned();
-    let from_file = obj.get("FromFile").and_then(Value::as_str).map(|s| s.to_string());
+    let from_file = obj
+        .get("FromFile")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
     let target_locale = obj
         .get("TargetLocale")
         .and_then(Value::as_str)
         .map(|s| s.to_string());
-    let update = obj.get("Update").and_then(Value::as_str).map(|s| s.to_string());
+    let update = obj
+        .get("Update")
+        .and_then(Value::as_str)
+        .map(|s| s.to_string());
     let priority = obj.get("Priority").cloned();
     let local_tokens = obj.get("LocalTokens").cloned();
-    let target_field = obj
-        .get("TargetField")
-        .and_then(Value::as_array)
-        .map(|arr| {
-            arr.iter()
-                .filter_map(Value::as_str)
-                .map(|s| s.to_string())
-                .collect()
-        });
+    let target_field = obj.get("TargetField").and_then(Value::as_array).map(|arr| {
+        arr.iter()
+            .filter_map(Value::as_str)
+            .map(|s| s.to_string())
+            .collect()
+    });
 
     let mut editor_state = Map::new();
 
     // Common CP field names that should NOT go into editor_state (they are PatchConfig)
     let common_keys: [&str; 11] = [
-        "Action", "Target", "LogName", "Enabled", "When", "FromFile",
-        "TargetLocale", "Update", "Priority", "LocalTokens", "TargetField",
+        "Action",
+        "Target",
+        "LogName",
+        "Enabled",
+        "When",
+        "FromFile",
+        "TargetLocale",
+        "Update",
+        "Priority",
+        "LocalTokens",
+        "TargetField",
     ];
 
     for (k, v) in obj {
@@ -580,7 +602,8 @@ fn standalone_change_to_patch(
                                 let t_obj = t.as_object()?;
                                 let mut tile = Map::new();
                                 tile.insert("layer".to_string(), t_obj.get("Layer")?.clone());
-                                if let Some(pos) = t_obj.get("Position").and_then(Value::as_object) {
+                                if let Some(pos) = t_obj.get("Position").and_then(Value::as_object)
+                                {
                                     tile.insert("x".to_string(), pos.get("X")?.clone());
                                     tile.insert("y".to_string(), pos.get("Y")?.clone());
                                 }
@@ -708,8 +731,16 @@ fn parse_dynamic_tokens(value: Option<&Value>) -> Result<Vec<DynamicToken>, CpMa
         for token in arr {
             if let Some(obj) = token.as_object() {
                 result.push(DynamicToken {
-                    name: obj.get("Name").and_then(Value::as_str).unwrap_or("").to_string(),
-                    value: obj.get("Value").and_then(Value::as_str).unwrap_or("").to_string(),
+                    name: obj
+                        .get("Name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
+                    value: obj
+                        .get("Value")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     when: obj.get("When").and_then(Value::as_object).cloned(),
                 });
             }
@@ -718,15 +749,17 @@ fn parse_dynamic_tokens(value: Option<&Value>) -> Result<Vec<DynamicToken>, CpMa
     Ok(result)
 }
 
-fn parse_custom_locations(
-    value: Option<&Value>,
-) -> Result<Vec<CustomLocation>, CpMakerDraftError> {
+fn parse_custom_locations(value: Option<&Value>) -> Result<Vec<CustomLocation>, CpMakerDraftError> {
     let mut result = Vec::new();
     if let Some(arr) = value.and_then(Value::as_array) {
         for loc in arr {
             if let Some(obj) = loc.as_object() {
                 result.push(CustomLocation {
-                    name: obj.get("Name").and_then(Value::as_str).unwrap_or("").to_string(),
+                    name: obj
+                        .get("Name")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string(),
                     from_map_file: obj
                         .get("FromMapFile")
                         .and_then(Value::as_str)
@@ -772,7 +805,6 @@ fn read_failed(path: &Path, message: impl Into<String>) -> CpMakerDraftError {
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────
-
 
 #[cfg(test)]
 #[path = "tests/builder_tests.rs"]
