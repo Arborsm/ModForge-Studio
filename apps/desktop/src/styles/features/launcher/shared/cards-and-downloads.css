@@ -1,0 +1,260 @@
+@layer components {
+  .launcher-mod-card,
+  .launcher-discover-card {
+    border-radius: 18px;
+    padding: 14px;
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .launcher-update-card,
+  .launcher-download-row {
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--bg-panel) 95%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
+    );
+    padding: 14px;
+    transition:
+      transform 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .launcher-mod-card:hover,
+  .launcher-discover-card:hover,
+  .launcher-update-card:hover,
+  .launcher-download-row:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 26%, var(--border-color));
+    box-shadow: 0 14px 26px rgba(15, 23, 42, 0.08);
+  }
+
+  .launcher-mod-card {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-mod-card-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    text-align: left;
+    width: 100%;
+  }
+
+  .launcher-mod-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .launcher-mod-card-cover,
+  .launcher-discover-card-media,
+  .launcher-update-card-media,
+  .launcher-download-row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 16px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
+    );
+    color: var(--text-primary);
+  }
+
+  .launcher-progress-ring {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
+  .launcher-progress-ring-svg {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    transform: rotate(-90deg);
+  }
+
+  .launcher-progress-ring-indicator {
+    stroke-linecap: round;
+    transition: stroke-dashoffset 180ms ease;
+  }
+
+  .launcher-progress-ring-content {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .launcher-mod-card-cover {
+    width: 64px;
+    height: 64px;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .launcher-discover-card,
+  .launcher-update-card {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .launcher-discover-card-media,
+  .launcher-update-card-media {
+    width: 84px;
+    height: 84px;
+    overflow: hidden;
+  }
+
+  .launcher-mod-card-cover-image,
+  .launcher-discover-card-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .launcher-mod-card-title,
+  .launcher-discover-card-title,
+  .launcher-section-title,
+  .launcher-empty-state-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .launcher-mod-card-meta,
+  .launcher-mod-card-subtitle,
+  .launcher-discover-card-subtitle,
+  .launcher-shell-nav-copy,
+  .launcher-empty-state-body,
+  .launcher-mod-card-summary,
+  .launcher-download-row-subtitle,
+  .launcher-download-row-path,
+  .launcher-mod-card-warning,
+  .launcher-mod-card-ready,
+  .launcher-discover-card-summary,
+  .launcher-section-subtitle {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .launcher-mod-card-meta,
+  .launcher-token-list,
+  .launcher-stats-row,
+  .launcher-toggle-grid,
+  .launcher-download-row-main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .launcher-download-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .launcher-download-row-main {
+    align-items: center;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .launcher-download-row-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .launcher-download-row-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .launcher-download-row-progress {
+    color: var(--text-primary);
+  }
+
+  .launcher-download-row-body {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .launcher-download-row-topline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .launcher-download-row-progress-copy {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.4;
+    font-family: var(--font-mono);
+  }
+
+  .launcher-download-row-detailline {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .launcher-download-row-error {
+    color: var(--danger);
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .launcher-download-row-subtitle,
+  .launcher-download-row-path {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .launcher-download-row-subtitle {
+    white-space: nowrap;
+  }
+
+  .launcher-download-row-actions {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .launcher-download-row-actions .control-button {
+    min-height: 32px;
+    padding-inline: 10px;
+    font-size: 11px;
+  }
+}

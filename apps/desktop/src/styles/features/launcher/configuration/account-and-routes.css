@@ -1,0 +1,509 @@
+@layer components {
+  .launcher-config-dashboard {
+    display: grid;
+    gap: 12px;
+    padding: 16px 20px 10px;
+  }
+
+  .launcher-config-account-row {
+    position: relative;
+    display: grid;
+    align-items: start;
+    width: 100%;
+    min-width: 0;
+    min-height: 238px;
+    overflow: hidden;
+    border: 1px solid var(--config-line);
+    border-radius: 12px;
+    background: var(--config-surface);
+    box-shadow: var(--config-shadow);
+    padding: 0;
+  }
+
+  .launcher-config-account-cover {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 112px;
+    border-bottom: 0;
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      color-mix(in srgb, var(--accent) 22%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 12%, transparent) 34%,
+      color-mix(in srgb, var(--accent) 4%, transparent) 62%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  .launcher-config-account-card {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 22px;
+    min-width: 0;
+    padding: 28px 24px 24px;
+    text-align: center;
+  }
+
+  .launcher-config-avatar-wrap {
+    position: relative;
+    flex: 0 0 auto;
+    margin-top: 0;
+  }
+
+  .launcher-config-avatar {
+    width: 96px;
+    height: 96px;
+    display: inline-grid;
+    place-items: center;
+    border: 3px solid white;
+    border-radius: 28px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--config-primary) 76%, white), var(--config-primary));
+    color: white;
+    font-size: 30px;
+    font-weight: 900;
+    box-shadow: 0 18px 40px color-mix(in srgb, var(--accent) 9%, transparent);
+  }
+
+  .launcher-config-avatar-image {
+    display: block;
+    object-fit: cover;
+    background: color-mix(in srgb, var(--config-primary) 12%, white);
+  }
+
+  .launcher-config-online-dot {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 18px;
+    height: 18px;
+    border: 2px solid white;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 5px rgba(93, 216, 149, 0.34);
+  }
+
+  .launcher-config-online-dot-danger {
+    background: var(--danger);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--danger) 42%, transparent);
+  }
+
+  .launcher-config-account-meta {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .launcher-config-account-meta strong {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--config-text);
+    font-size: 22px;
+    font-weight: 750;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+
+  .launcher-config-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+    min-height: 24px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 86%, white 14%);
+    color: var(--accent);
+    padding: 0 11px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--config-primary) 12%, transparent),
+      0 6px 18px color-mix(in srgb, var(--config-primary) 10%, transparent);
+  }
+
+  .launcher-config-tier-badge-free {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, #94a3b8 34%, transparent);
+    background: color-mix(in srgb, #f8fafc 82%, white);
+    color: #475569;
+    padding: 0 12px;
+    font-size: 10px;
+    font-weight: 850;
+    letter-spacing: 0.02em;
+  }
+
+  .launcher-config-method,
+  .launcher-config-micro {
+    color: var(--config-faint);
+    font-size: 11px;
+  }
+
+  .launcher-config-dash-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    justify-self: end;
+    color: var(--config-muted);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .launcher-config-dash-status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 6px rgba(93, 216, 149, 0.4);
+  }
+
+  .launcher-config-dash-status-danger::before {
+    background: var(--danger);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--danger) 42%, transparent);
+  }
+
+  .launcher-config-dash-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .launcher-config-dash-metric {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--config-surface-soft);
+    padding: 14px 16px;
+  }
+
+  .launcher-config-dash-metric-warn {
+    background: var(--config-surface-soft);
+  }
+
+  .launcher-config-metric-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--config-muted);
+    font-size: 12px;
+  }
+
+  .launcher-config-metric-head span:last-child {
+    color: var(--config-text);
+    font-weight: 750;
+  }
+
+  .launcher-config-metric-value {
+    color: var(--config-text);
+    font-size: 26px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .launcher-config-progress {
+    position: relative;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--config-surface-soft);
+  }
+
+  .launcher-config-progress i {
+    position: relative;
+    display: block;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+    background: var(--config-primary);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .launcher-config-progress i::after {
+    content: "";
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -34px;
+    width: 34px;
+    opacity: 0;
+    transform: skewX(-18deg);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.88), transparent);
+    filter: blur(0.15px);
+    animation: launcher-config-progress-shimmer 2.05s ease-in-out infinite;
+  }
+
+  .launcher-config-progress-warn i {
+    background: var(--warning);
+  }
+
+  .launcher-config-progress-warn i::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 248, 220, 0.88), transparent);
+  }
+
+  .launcher-config-guest-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 18px 20px;
+  }
+
+  .launcher-config-guest-hero h3 {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .launcher-config-guest-hero p {
+    margin: 6px 0 0;
+    color: var(--config-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .launcher-config-api-list {
+    display: grid;
+    border-top: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+  }
+
+  .launcher-config-api-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(168px, 168px) minmax(0, 1fr) 76px;
+    gap: 14px;
+    align-items: center;
+    min-height: 48px;
+    border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    padding: 10px 18px;
+    overflow: hidden;
+    transition: background-color 150ms ease;
+  }
+
+  .launcher-config-api-row > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .launcher-config-api-row:hover {
+    background: #f8fafc;
+  }
+
+  .launcher-config-api-row:last-child {
+    border-bottom: 0;
+  }
+
+  .launcher-config-api-row-resolved::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateX(-105%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--config-primary) 7%, transparent) 26%,
+      color-mix(in srgb, var(--config-primary) 18%, transparent) 48%,
+      color-mix(in srgb, var(--config-primary) 7%, transparent) 72%,
+      transparent 100%
+    );
+    animation: launcher-config-route-resolve-sweep 760ms ease-out 80ms 1;
+  }
+
+  .launcher-config-api-row-danger.launcher-config-api-row-resolved::before {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--danger) 7%, transparent) 26%,
+      color-mix(in srgb, var(--danger) 18%, transparent) 48%,
+      color-mix(in srgb, var(--danger) 7%, transparent) 72%,
+      transparent 100%
+    );
+  }
+
+  .launcher-config-api-row-warn.launcher-config-api-row-resolved::before {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--warning) 8%, transparent) 26%,
+      color-mix(in srgb, var(--warning) 19%, transparent) 48%,
+      color-mix(in srgb, var(--warning) 8%, transparent) 72%,
+      transparent 100%
+    );
+  }
+
+  .launcher-config-api-name {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    width: 168px;
+  }
+
+  .launcher-config-api-name h3 {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-config-api-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--config-primary-light);
+    color: var(--config-brand-ink);
+  }
+
+  .launcher-config-api-icon-publicGraphql {
+    background: color-mix(in srgb, #2563eb 14%, white);
+    color: #2563eb;
+  }
+
+  .launcher-config-api-icon-nexusImages {
+    background: color-mix(in srgb, #14b8a6 16%, white);
+    color: #0f766e;
+  }
+
+  .launcher-config-api-icon-smapi {
+    background: color-mix(in srgb, #22c55e 16%, white);
+    color: #15803d;
+  }
+
+  .launcher-config-api-icon-privateGraphql {
+    background: color-mix(in srgb, #8b5cf6 15%, white);
+    color: #7c3aed;
+  }
+
+  .launcher-config-api-icon-nexusApi {
+    background: color-mix(in srgb, #f59e0b 18%, white);
+    color: #b45309;
+  }
+
+  .launcher-config-api-icon-warn {
+    background: var(--config-warning-bg);
+    color: var(--config-warning-text);
+  }
+
+  .launcher-config-api-icon-danger {
+    background: var(--config-error-bg);
+    color: var(--config-error-text);
+  }
+
+  .launcher-config-api-desc {
+    grid-column: 2;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--config-muted);
+    font-size: 12px;
+  }
+
+  .launcher-config-status-tag {
+    grid-column: 3;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 24px;
+    min-width: 76px;
+    border-radius: 999px;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .launcher-config-status-tag-ok {
+    background: transparent;
+    color: var(--config-success-text);
+    padding-inline: 0;
+  }
+
+  .launcher-config-status-tag-ok::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .launcher-config-status-tag-warn,
+  .launcher-config-status-tag-loading {
+    background: var(--config-warning-bg);
+    color: var(--config-warning-text);
+  }
+
+  .launcher-config-status-tag-danger {
+    background: var(--config-error-bg);
+    color: var(--config-error-text);
+  }
+
+  .launcher-config-api-error {
+    margin: 0;
+    border-top: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    color: var(--config-error-text);
+    padding: 10px 18px 14px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  @keyframes launcher-config-progress-shimmer {
+    0%,
+    34% {
+      left: -34px;
+      opacity: 0;
+    }
+
+    46% {
+      opacity: 0.9;
+    }
+
+    100% {
+      left: 100%;
+      opacity: 0;
+    }
+  }
+
+  @keyframes launcher-config-route-resolve-sweep {
+    0% {
+      opacity: 0;
+      transform: translateX(-105%);
+    }
+
+    18% {
+      opacity: 1;
+    }
+
+    82% {
+      opacity: 0.95;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateX(105%);
+    }
+  }
+}

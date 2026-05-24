@@ -1,0 +1,332 @@
+@layer components {
+  .launcher-page-scaffold {
+    display: grid;
+    gap: 16px;
+    min-height: 100%;
+  }
+
+  .launcher-page-shell {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border-color));
+    border-radius: 22px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--bg-panel) 97%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
+    );
+    padding: 18px 20px;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+  }
+
+  .launcher-page-shell-copy {
+    min-width: 0;
+  }
+
+  .launcher-page-shell-eyebrow {
+    margin: 0;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .launcher-page-shell-title {
+    margin: 8px 0 0;
+    color: var(--text-primary);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+
+  .launcher-page-shell-subtitle {
+    margin: 10px 0 0;
+    max-width: 78ch;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .launcher-page-shell-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .launcher-page-shell-stats,
+  .launcher-page-shell-body {
+    min-width: 0;
+  }
+
+  .launcher-page-stats-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .launcher-page-stats-grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .launcher-control-bar {
+    border-radius: 20px;
+  }
+
+  .launcher-control-bar-body {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-split-layout {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.92fr);
+    min-height: 0;
+    align-items: start;
+  }
+
+  .launcher-split-layout-triple {
+    grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.2fr) minmax(320px, 0.94fr);
+  }
+
+  .launcher-split-layout-panel {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .launcher-state-block {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border-color));
+    border-radius: 10px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--accent-soft) 48%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
+    padding: 12px;
+  }
+
+  .launcher-state-block-warning {
+    border-color: color-mix(in srgb, var(--warning) 30%, var(--border-color));
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--warning) 12%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
+  }
+
+  .launcher-state-block-success {
+    border-color: color-mix(in srgb, var(--success) 28%, var(--border-color));
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--success) 10%, transparent),
+      color-mix(in srgb, var(--bg-panel) 92%, transparent)
+    );
+  }
+
+  .launcher-state-block-compact {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px 12px;
+  }
+
+  .launcher-state-block-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel) 82%, transparent);
+    color: var(--accent);
+  }
+
+  .launcher-state-block-warning .launcher-state-block-icon {
+    color: var(--warning);
+  }
+
+  .launcher-state-block-success .launcher-state-block-icon {
+    color: var(--success);
+  }
+
+  .launcher-state-block-copy {
+    min-width: 0;
+  }
+
+  .launcher-state-block-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .launcher-state-block-detail {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .launcher-state-block-action {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .launcher-library-feed,
+  .launcher-update-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-settings-index {
+    display: grid;
+    gap: 8px;
+  }
+
+  .launcher-settings-index-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 14px;
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--bg-panel) 95%, transparent),
+      color-mix(in srgb, var(--bg-panel-muted) 90%, transparent)
+    );
+    color: var(--text-secondary);
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  @media (max-width: 980px) {
+    .launcher-configuration-page-header,
+    .launcher-config-title-cluster {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .launcher-config-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-config-rail {
+      position: static;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: none;
+      align-items: start;
+      min-height: 0;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .launcher-configuration-page {
+      padding: 18px 14px 32px;
+    }
+
+    .launcher-configuration-page-header {
+      display: grid;
+      gap: 12px;
+    }
+
+    .launcher-config-header-actions {
+      display: grid;
+      justify-content: stretch;
+      gap: 10px;
+    }
+
+    .launcher-config-env-tags,
+    .launcher-config-header-button-group {
+      justify-content: flex-start;
+    }
+
+    .launcher-config-rail {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-config-main .launcher-settings-path-grid,
+    .launcher-debug-overview-card,
+    .launcher-debug-route-row,
+    .launcher-config-path-row,
+    .launcher-config-api-row,
+    .launcher-config-dash-metrics {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-config-api-name,
+    .launcher-config-status-tag {
+      width: auto;
+      min-width: 0;
+      justify-self: stretch;
+    }
+
+    .launcher-config-path-field {
+      padding-right: 12px;
+    }
+
+    .launcher-config-path-actions {
+      position: static;
+      margin-left: auto;
+    }
+
+    .launcher-config-api-desc {
+      white-space: normal;
+    }
+
+    .launcher-config-guest-hero {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .launcher-debug-tool-header,
+    .launcher-debug-more-card {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .launcher-debug-tool-header-side,
+    .launcher-debug-tool-header-actions .launcher-toolbar {
+      justify-content: flex-start;
+    }
+
+    .launcher-debug-more-button {
+      width: 100%;
+    }
+
+    .launcher-debug-route-row {
+      gap: 10px;
+      align-items: start;
+      padding: 14px 10px;
+    }
+
+    .launcher-debug-route-details {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-debug-route-actions {
+      grid-column: 1;
+      grid-row: auto;
+      justify-content: flex-start;
+    }
+
+    .launcher-debug-route-actions-wide .launcher-toolbar {
+      justify-content: flex-start;
+    }
+
+    .launcher-debug-route-message span {
+      white-space: normal;
+    }
+  }
+}

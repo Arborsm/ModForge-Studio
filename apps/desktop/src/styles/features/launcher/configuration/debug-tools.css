@@ -1,0 +1,537 @@
+@layer components {
+  .launcher-debug-more-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border: 1px dashed #e2e8f0;
+    border-radius: 12px;
+    background: var(--config-surface);
+    padding: 16px 20px;
+    box-shadow: var(--config-shadow);
+  }
+
+  .launcher-debug-more-button {
+    flex: 0 0 auto;
+    min-width: 96px;
+    justify-content: center;
+  }
+
+  .launcher-debug-more-button svg {
+    transition: transform 160ms ease;
+  }
+
+  .launcher-debug-overview-card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .launcher-debug-stat-card {
+    display: grid;
+    gap: 8px;
+    padding: 22px 24px;
+  }
+
+  .launcher-debug-overview-label {
+    color: var(--config-muted);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .launcher-debug-overview-value {
+    color: var(--config-primary);
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: 0;
+  }
+
+  .launcher-debug-stat-card-neutral .launcher-debug-overview-value {
+    color: var(--config-text);
+  }
+
+  .launcher-debug-stack,
+  .launcher-debug-tools-stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .launcher-debug-section-title {
+    margin: 24px 0 8px;
+    color: var(--config-muted);
+    font-size: 12px;
+    font-weight: 850;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+  }
+
+  .launcher-debug-tool-card {
+    border: 1px solid color-mix(in srgb, var(--config-line) 82%, transparent);
+    background: color-mix(in srgb, var(--config-surface) 92%, var(--config-surface-soft));
+    padding: 18px 20px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+  }
+
+  .launcher-debug-tool-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .launcher-debug-tool-header-center {
+    align-items: center;
+  }
+
+  .launcher-debug-tool-copy,
+  .launcher-debug-setting-copy {
+    min-width: 0;
+  }
+
+  .launcher-debug-tool-copy {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .launcher-debug-tool-text {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    align-self: center;
+  }
+
+  .launcher-debug-tool-header-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-left: auto;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .launcher-debug-tool-header-actions {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .launcher-debug-tool-header-actions .launcher-toolbar {
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-debug-tool-header-actions .launcher-debug-action-segmented {
+    justify-content: flex-end;
+    width: min(100%, 560px);
+  }
+
+  .launcher-debug-tools-stack .control-button,
+  .launcher-debug-more-button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: color-mix(in srgb, #dbeafe 82%, white);
+    color: #0b73f6;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: none;
+    white-space: nowrap;
+  }
+
+  .launcher-debug-tools-stack .control-button:hover,
+  .launcher-debug-more-button:hover {
+    background: color-mix(in srgb, #bfdbfe 88%, white);
+    color: #075fc7;
+  }
+
+  .launcher-debug-tools-stack .control-button-primary {
+    background: #0b73f6;
+    color: white;
+  }
+
+  .launcher-debug-tools-stack .control-button-primary:hover {
+    background: #075fc7;
+  }
+
+  .launcher-debug-tools-stack .launcher-config-danger-button {
+    background: color-mix(in srgb, #fee2e2 82%, white);
+    color: #b91c1c;
+  }
+
+  .launcher-debug-tools-stack .launcher-config-danger-button:hover,
+  .launcher-debug-tools-stack .launcher-config-danger-button-active {
+    background: #ef4444;
+    color: white;
+  }
+
+  .launcher-debug-tools-stack .dock-chip {
+    min-height: 32px;
+    border-radius: 8px;
+    background: color-mix(in srgb, #e2e8f0 72%, white);
+    color: #475569;
+    padding: 0 11px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .launcher-debug-tool-title {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+
+  .launcher-debug-tool-subtitle {
+    margin: 0;
+    color: var(--config-faint);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+
+  .launcher-debug-setting {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .launcher-debug-setting-icon,
+  .launcher-debug-tool-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+    border-radius: 10px;
+    background: var(--config-primary-light);
+    color: var(--config-primary);
+  }
+
+  .launcher-debug-tool-card-danger .launcher-debug-tool-badge {
+    background: var(--config-error-bg);
+    color: var(--config-error-text);
+  }
+
+  .launcher-debug-icon-debug-mode {
+    background: color-mix(in srgb, #e0e7ff 76%, white);
+    color: #4f46e5;
+  }
+
+  .launcher-debug-icon-offline {
+    background: color-mix(in srgb, #fee2e2 76%, white);
+    color: #dc2626;
+  }
+
+  .launcher-debug-icon-account {
+    background: color-mix(in srgb, #fef3c7 78%, white);
+    color: #b45309;
+  }
+
+  .launcher-debug-icon-notifications {
+    background: color-mix(in srgb, #e0f2fe 76%, white);
+    color: #0284c7;
+  }
+
+  .launcher-debug-icon-logs {
+    background: color-mix(in srgb, #eef2ff 76%, white);
+    color: #64748b;
+  }
+
+  .launcher-debug-icon-cache {
+    background: color-mix(in srgb, #ccfbf1 66%, white);
+    color: #0f766e;
+  }
+
+  .launcher-debug-icon-code {
+    background: color-mix(in srgb, #f3e8ff 72%, white);
+    color: #7e22ce;
+  }
+
+  .launcher-debug-icon-download {
+    background: color-mix(in srgb, #dcfce7 72%, white);
+    color: #15803d;
+  }
+
+  .launcher-debug-tool-tray {
+    display: flex;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .launcher-debug-bbcode-preview {
+    max-height: 460px;
+    overflow: auto;
+    padding: 18px 20px;
+    border: 1px solid var(--config-line);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--config-surface) 88%, var(--config-surface-soft));
+  }
+
+  .launcher-debug-level-button {
+    flex: 0 0 auto;
+    min-width: 92px;
+    min-height: 34px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #0b73f6;
+    padding: 0 11px;
+    box-shadow: none;
+  }
+
+  .launcher-debug-action-segmented .launcher-debug-level-button + .launcher-debug-level-button {
+    border-left: 1px solid color-mix(in srgb, #bfdbfe 70%, transparent);
+  }
+
+  .launcher-debug-action-segmented .launcher-debug-level-button:hover {
+    background: color-mix(in srgb, #dbeafe 78%, white);
+    color: #075fc7;
+  }
+
+  .launcher-debug-level-button-debug,
+  .launcher-debug-level-button-info,
+  .launcher-debug-level-button-success,
+  .launcher-debug-level-button-warning,
+  .launcher-debug-level-button-error {
+    background: transparent;
+    color: #0b73f6;
+  }
+
+  .launcher-debug-level-button-debug:hover,
+  .launcher-debug-level-button-info:hover,
+  .launcher-debug-level-button-success:hover,
+  .launcher-debug-level-button-warning:hover,
+  .launcher-debug-level-button-error:hover {
+    background: color-mix(in srgb, #dbeafe 78%, white);
+    color: #075fc7;
+  }
+
+  .launcher-debug-route-loading {
+    margin: 0;
+    color: var(--config-muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .launcher-debug-route-list {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .launcher-debug-api-status-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .launcher-debug-route-row {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.7fr) minmax(420px, 1fr);
+    gap: 28px;
+    align-items: start;
+    min-width: 0;
+    padding: 16px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--config-line);
+    border-radius: 0;
+    background: transparent;
+    transition: background-color 160ms ease;
+  }
+
+  .launcher-debug-route-row-api {
+    grid-template-columns: minmax(300px, 0.7fr) minmax(420px, 1fr);
+  }
+
+  .launcher-debug-route-row:last-child {
+    border-bottom: 0;
+  }
+
+  .launcher-debug-route-row:hover {
+    background: var(--config-row-hover);
+  }
+
+  .launcher-debug-route-main,
+  .launcher-debug-route-details,
+  .launcher-debug-route-actions,
+  .launcher-debug-route-copy {
+    min-width: 0;
+  }
+
+  .launcher-debug-route-title {
+    margin: 0;
+    min-width: 0;
+    color: var(--config-text);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .launcher-debug-route-endpoint {
+    display: flex;
+    gap: 6px;
+    margin: 4px 0 0;
+    min-width: 0;
+    color: var(--config-muted);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .launcher-debug-route-endpoint span:first-child {
+    flex: 0 0 auto;
+    color: var(--config-faint);
+    font-weight: 700;
+  }
+
+  .launcher-debug-route-endpoint span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-debug-route-details {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 14px;
+    align-items: center;
+  }
+
+  .launcher-debug-route-message,
+  .launcher-debug-route-meta {
+    margin: 0;
+  }
+
+  .launcher-debug-route-result-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .launcher-debug-route-result-label {
+    color: var(--config-faint);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .launcher-debug-route-message {
+    grid-column: 1;
+    color: var(--config-text);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .launcher-debug-route-message span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-debug-route-meta {
+    grid-column: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    color: var(--config-muted);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .launcher-debug-route-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 74px;
+    height: 24px;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 999px;
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    text-transform: lowercase;
+    white-space: nowrap;
+  }
+
+  .launcher-debug-route-status-loading {
+    background: var(--config-primary-light);
+    color: var(--config-primary);
+  }
+
+  .launcher-debug-route-status-warning {
+    background: var(--config-warning-bg);
+    color: var(--config-warning-text);
+  }
+
+  .launcher-debug-route-status-success {
+    background: var(--config-success-bg);
+    color: var(--config-success-text);
+  }
+
+  .launcher-debug-route-status-error {
+    background: var(--config-error-bg);
+    color: var(--config-error-text);
+  }
+
+  .launcher-debug-route-actions {
+    grid-row: 1 / span 3;
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .launcher-debug-route-actions-wide,
+  .launcher-debug-route-actions-wide .launcher-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .launcher-debug-route-actions-wide .launcher-toolbar {
+    justify-content: flex-end;
+  }
+
+  .launcher-debug-route-retry {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--config-muted);
+    padding: 0;
+  }
+
+  .launcher-debug-route-retry:hover {
+    background: var(--config-neutral-bg);
+    color: var(--config-text);
+  }
+
+  .launcher-debug-route-retry span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}

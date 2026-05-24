@@ -7,6 +7,7 @@ const STYLES_DIR = resolve(process.cwd(), 'src/styles')
 const THEME_TOKEN_DEFINITION_PATTERN =
   /--(?:accent|accent-soft|bg-(?:app|panel|panel-muted|viewport|active|elevated)|text-(?:primary|secondary|tertiary|inverse)|border-color)\s*:/g
 const LIGHT_THEME_PIN_PATTERN = /color-scheme\s*:\s*light/g
+const MAX_CSS_FILE_LINES = 1000
 
 async function listCssFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
@@ -38,6 +39,23 @@ async function readCssWithImports(filePath: string): Promise<string> {
 }
 
 describe('style architecture', () => {
+  it('keeps individual CSS files below the local split threshold', async () => {
+    const cssFiles = await listCssFiles(STYLES_DIR)
+    const oversizedFiles: string[] = []
+
+    await Promise.all(
+      cssFiles.map(async (file) => {
+        const source = await readFile(file, 'utf8')
+        const lineCount = source.split(/\r?\n/).length
+        if (lineCount > MAX_CSS_FILE_LINES) {
+          oversizedFiles.push(`${relative(STYLES_DIR, file)}: ${lineCount} lines`)
+        }
+      }),
+    )
+
+    expect(oversizedFiles.sort()).toEqual([])
+  })
+
   it('keeps global theme tokens owned by tokens.css', async () => {
     const cssFiles = (await listCssFiles(STYLES_DIR)).filter((file) => basename(file) !== 'tokens.css')
     const violations: string[] = []

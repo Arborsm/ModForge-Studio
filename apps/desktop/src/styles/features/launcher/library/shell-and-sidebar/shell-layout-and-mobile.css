@@ -1,0 +1,89 @@
+@layer components {
+  .launcher-library-page {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+    overflow: hidden;
+  }
+
+  .launcher-library-shell {
+    --launcher-library-sidebar-width: 240px;
+    display: grid;
+    grid-template-columns: minmax(0, var(--launcher-library-sidebar-width)) minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--launcher-border-soft);
+    border-radius: 12px;
+    background: var(--launcher-surface-base);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  }
+
+  .launcher-library-shell-sidebar-collapsed {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  .launcher-library-sidebar {
+    background: var(--launcher-surface-base);
+    border: 0;
+    border-right: 1px solid var(--launcher-border-soft);
+    border-radius: 12px 0 0 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    contain: layout paint;
+    flex: 0 0 auto;
+    will-change: width;
+    transition:
+      width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.2s ease;
+  }
+
+  .launcher-library-content {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px 14px;
+    overflow: hidden;
+    border-radius: 0 12px 12px 0;
+    align-content: start;
+  }
+
+  @media (max-width: 760px) {
+    .launcher-discover-console {
+      padding: 16px;
+    }
+
+    .launcher-discover-console-title {
+      font-size: 20px;
+    }
+
+    .launcher-discover-console-actions {
+      justify-content: flex-start;
+    }
+
+    .launcher-discover-console-title-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .launcher-discover-range-row,
+    .launcher-discover-spotlight {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-discover-spotlight-cover {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+    }
+  }
+}
