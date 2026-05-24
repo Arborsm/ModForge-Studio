@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
-import StatusBar from '@widgets/status-bar'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
 import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
@@ -139,19 +138,6 @@ export function LauncherPage({
           />
         </div>
       </div>
-
-      <StatusBar
-        appMode="launcher"
-        launcherPage={activeLauncherPage}
-        workspaceMode="map"
-        workspaceStatus={{ tone: 'idle', message: '' }}
-        directoryInfo={null}
-        mapAssets={[]}
-        activeAsset={null}
-        mapDocument={null}
-        pathLabel={copy.common.none}
-        hoverInfo={null}
-      />
     </div>
   )
 }

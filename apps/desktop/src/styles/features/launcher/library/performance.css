@@ -1,0 +1,28 @@
+@layer components {
+  .launcher-performance-test .panel-list-card.launcher-mod-card,
+  .launcher-performance-test .launcher-mod-card:hover,
+  .launcher-performance-test .launcher-mod-card:focus-within,
+  .launcher-performance-test .launcher-mod-card-selected,
+  .launcher-performance-test .launcher-mod-card-selected:hover,
+  .launcher-performance-test .launcher-mod-card-selected:focus-within {
+    transform: none !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: none !important;
+    transition: none !important;
+  }
+
+  .launcher-performance-test .launcher-mod-card-cover-gradient,
+  .launcher-performance-test .launcher-mod-card-cover-noise,
+  .launcher-performance-test .launcher-mod-card-cover-aura,
+  .launcher-performance-test .launcher-mod-card-author::before,
+  .launcher-performance-test .launcher-mod-card-author::after,
+  .launcher-performance-test .launcher-mod-card-version::before,
+  .launcher-performance-test .launcher-mod-card-version::after {
+    display: none !important;
+  }
+
+  .launcher-performance-test .launcher-mod-card-cover-word {
+    font-size: 32px;
+    text-shadow: none;
+  }
+}

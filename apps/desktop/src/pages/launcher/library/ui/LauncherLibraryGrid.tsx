@@ -36,7 +36,8 @@ import {
 } from '../model/launcherLibraryDisplay'
 import {
   buildLauncherLibraryGridBlocks,
-  LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX,
+  estimateLauncherLibraryCardHeight,
+  LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX,
   LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX,
   LAUNCHER_LIBRARY_GRID_GAP_PX,
   LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX,
@@ -84,29 +85,6 @@ export type VirtualizedLauncherGridProps = {
   onCloseLibraryFolder?: (folderId: string) => void
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
-}
-
-function startLauncherGrabPending(event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>, disabled = false) {
-  if (event.button !== 0 || disabled) {
-    return
-  }
-
-  const node = event.currentTarget
-  if (node.classList.contains('launcher-library-card-grab-pending')) {
-    return
-  }
-
-  node.classList.add('launcher-library-card-grab-pending')
-  const clearGrabPending = () => {
-    node.classList.remove('launcher-library-card-grab-pending')
-    window.removeEventListener('pointerup', clearGrabPending)
-    window.removeEventListener('pointercancel', clearGrabPending)
-    window.removeEventListener('blur', clearGrabPending)
-  }
-
-  window.addEventListener('pointerup', clearGrabPending)
-  window.addEventListener('pointercancel', clearGrabPending)
-  window.addEventListener('blur', clearGrabPending)
 }
 
 export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
@@ -159,7 +137,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const isFolderGrid = originFolderId !== null
   const shouldRevealItems = enableRevealMotion && (isFolderGrid || !hasPlayedInitialReveal)
   const cardMinWidth = LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
-  const estimatedRowHeight = LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX
+  const [estimatedRowHeight, setEstimatedRowHeight] = useState(LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX)
   const gridBlocks = useMemo(
     () => buildLauncherLibraryGridBlocks(items, gridColumnCount, isLibraryFolderOpen, estimatedRowHeight),
     [estimatedRowHeight, gridColumnCount, isLibraryFolderOpen, items],
@@ -169,8 +147,13 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     count: gridBlocks.length,
     getScrollElement: () => viewportElement,
     estimateSize: (index) => (gridBlocks[index]?.estimatedHeight ?? estimatedRowHeight) + LAUNCHER_LIBRARY_GRID_GAP_PX,
-    overscan: 4,
+    overscan: 1,
   })
+  useEffect(() => {
+    gridBlocks.forEach((block, index) => {
+      rowVirtualizer.resizeItem?.(index, block.estimatedHeight + LAUNCHER_LIBRARY_GRID_GAP_PX)
+    })
+  }, [estimatedRowHeight, gridBlocks, rowVirtualizer])
   const virtualRows = rowVirtualizer.getVirtualItems()
   const updateDragSelection = useCallback(
     (box: Box) => {
@@ -219,25 +202,25 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       return
     }
 
-    const updateGridColumnCount = () => {
+    const updateGridMetrics = () => {
       const viewportWidth = viewport.getBoundingClientRect().width
       const nextColumnCount = Math.max(
         1,
         Math.floor((viewportWidth + LAUNCHER_LIBRARY_GRID_GAP_PX) / (cardMinWidth + LAUNCHER_LIBRARY_GRID_GAP_PX)),
       )
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
-    }
-
-    updateGridColumnCount()
-
-    if (!shouldRevealItems || !grid) {
-      setRevealBatchSize(clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length))
-      return
+      const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX) / nextColumnCount
+      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth)
+      setEstimatedRowHeight((current) => (current === nextEstimatedRowHeight ? current : nextEstimatedRowHeight))
     }
 
     const measuredGrid = grid
 
     const updateRevealBatchSize = () => {
+      if (!shouldRevealItems || !measuredGrid) {
+        setRevealBatchSize(clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length))
+        return
+      }
       const firstCard = measuredGrid.querySelector<HTMLElement>('.launcher-library-grid-reveal')
       const viewportRect = viewport.getBoundingClientRect()
       const cardRect = firstCard?.getBoundingClientRect()
@@ -254,18 +237,41 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       setRevealBatchSize((current) => (current === nextBatchSize ? current : nextBatchSize))
     }
 
-    updateRevealBatchSize()
-
-    if (typeof ResizeObserver === 'undefined') {
-      return
+    let frameId: number | null = null
+    const updateLayoutMeasurements = () => {
+      updateGridMetrics()
+      updateRevealBatchSize()
+    }
+    const scheduleLayoutMeasurements = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null
+        updateLayoutMeasurements()
+      })
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      updateGridColumnCount()
-      updateRevealBatchSize()
-    })
-    resizeObserver.observe(viewport)
-    return () => resizeObserver.disconnect()
+    updateLayoutMeasurements()
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            scheduleLayoutMeasurements()
+          })
+    resizeObserver?.observe(viewport)
+    window.addEventListener('resize', scheduleLayoutMeasurements)
+    window.visualViewport?.addEventListener('resize', scheduleLayoutMeasurements)
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', scheduleLayoutMeasurements)
+      window.visualViewport?.removeEventListener('resize', scheduleLayoutMeasurements)
+    }
   }, [cardMinWidth, items.length, shouldRevealItems])
 
   useEffect(() => {
@@ -296,13 +302,12 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
           return (
             <div
               key={virtualRow.key}
-              ref={rowVirtualizer.measureElement}
               className="launcher-library-virtual-row launcher-library-virtual-grid-block"
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
                 gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))`,
-                gridTemplateRows: `repeat(${blockRowCount}, ${LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX}px)`,
+                gridTemplateRows: `repeat(${blockRowCount}, ${estimatedRowHeight}px)`,
               }}
             >
               {block ? (
@@ -419,6 +424,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   key={`folder-${displayItem.folder.id}`}
                   index={Math.floor(index / revealBatchSize) + 3}
                   className="launcher-library-grid-reveal"
+                  style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
                 >
                   <DraggableLauncherFolderCard
                     folder={displayItem.folder}
@@ -432,7 +438,11 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                 </LoadingMotionRevealItem>
               ) : null}
               {!folderOpen && !shouldRevealItems ? (
-                <div key={`folder-${displayItem.folder.id}`} className="launcher-library-grid-reveal">
+                <div
+                  key={`folder-${displayItem.folder.id}`}
+                  className="launcher-library-grid-reveal"
+                  style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
+                >
                   <DraggableLauncherFolderCard
                     folder={displayItem.folder}
                     mods={displayItem.mods}
@@ -615,8 +625,9 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
       {...(!selectionMode ? { [LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE]: item.id } : {})}
       onPointerDownCapture={(event) => {
         pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)
-        startLauncherGrabPending(event, selectionMode)
-        pointerDrag?.startPointerDrag(dragSource, event)
+        if (!selectionMode) {
+          pointerDrag?.startPointerDrag(dragSource, event)
+        }
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
       onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
@@ -695,7 +706,6 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
       onContextMenuCapture={handleContextMenuCapture}
       onPointerDownCapture={(event) => {
         pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)
-        startLauncherGrabPending(event)
         pointerDrag?.startPointerDrag(dragSource, event)
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
@@ -866,6 +876,7 @@ function LauncherLibraryFolderPanel({
       role="region"
       aria-label={folder.name}
       data-folder-tone={getLauncherFolderTone(folder.id)}
+      data-launcher-folder-panel-id={folder.id}
       onContextMenuCapture={handleContextMenuCapture}
       style={{
         gridColumn: `${columnStart + 1} / span ${columnSpan}`,

@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { cx } from '@shared/lib/cx'
@@ -21,6 +22,8 @@ import {
   LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
   LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
   LAUNCHER_LIBRARY_PARENT_DROP_PREFIX,
+  getLauncherDropTargetById,
+  getLauncherDropTargetAtPoint,
   measureLauncherDndKitDropTargets,
   type LauncherDndKitActiveDrag,
   type LauncherDndKitDropData,
@@ -108,11 +111,14 @@ function LauncherDragPreview({ source, count, pending = false }: { source: Launc
 }
 
 function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }) {
+  const left = drag.sourceRect.left + drag.latestX - drag.startX
+  const top = drag.sourceRect.top + drag.latestY - drag.startY
+
   return (
     <div
       className="launcher-library-pending-drag-preview-layer"
       style={{
-        transform: `translate3d(${drag.latestX}px, ${drag.latestY}px, 0)`,
+        transform: `translate3d(${left}px, ${top}px, 0)`,
       }}
     >
       <LauncherDragPreview source={drag.source} count={drag.modIds.length} pending={!drag.started} />
@@ -120,17 +126,33 @@ function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }
   )
 }
 
-function LauncherDndKitDropTargetLayer({ targets }: { targets: LauncherDndKitDropTarget[] }) {
+function getLauncherDndTargetKind(dropId: string) {
+  if (dropId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
+    return 'blank'
+  }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX) || dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)) {
+    return 'folder'
+  }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
+    return 'parent'
+  }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
+    return 'pack'
+  }
+  return 'target'
+}
+
+function LauncherDndKitDropTargetLayer({ targets, activeDropId }: { targets: LauncherDndKitDropTarget[]; activeDropId: string | null }) {
   return (
     <div className="launcher-library-dnd-target-layer" aria-hidden="true">
       {targets.map((target) => (
-        <LauncherDndKitDropTargetBox key={target.dropId} target={target} />
+        <LauncherDndKitDropTargetBox key={target.dropId} target={target} active={target.dropId === activeDropId} />
       ))}
     </div>
   )
 }
 
-function LauncherDndKitDropTargetBox({ target }: { target: LauncherDndKitDropTarget }) {
+function LauncherDndKitDropTargetBox({ target, active }: { target: LauncherDndKitDropTarget; active: boolean }) {
   const { setNodeRef } = useDroppable({
     id: target.dropId,
     data: { dropId: target.dropId } satisfies LauncherDndKitDropData,
@@ -139,7 +161,12 @@ function LauncherDndKitDropTargetBox({ target }: { target: LauncherDndKitDropTar
   return (
     <span
       ref={setNodeRef}
-      className="launcher-library-dnd-target-box"
+      className={cx(
+        'launcher-library-dnd-target-box',
+        active && 'launcher-library-dnd-target-box-active',
+        active && `launcher-library-dnd-target-box-${getLauncherDndTargetKind(target.dropId)}`,
+      )}
+      data-launcher-dnd-target-id={target.dropId}
       style={{
         left: target.rect.left,
         top: target.rect.top,
@@ -153,11 +180,13 @@ function LauncherDndKitDropTargetBox({ target }: { target: LauncherDndKitDropTar
 function LauncherLibraryDndBridge({
   onControlsChange,
   dropTargets,
+  activeDropId,
   pendingOverlay,
   activeOverlay,
 }: {
   onControlsChange: (controls: LauncherDndKitControls | null) => void
   dropTargets: LauncherDndKitDropTarget[]
+  activeDropId: string | null
   pendingOverlay: LauncherDndKitActiveDrag | null
   activeOverlay: LauncherDndKitActiveDrag | null
 }) {
@@ -192,7 +221,7 @@ function LauncherLibraryDndBridge({
 
   return (
     <>
-      <LauncherDndKitDropTargetLayer targets={dropTargets} />
+      <LauncherDndKitDropTargetLayer targets={dropTargets} activeDropId={activeDropId} />
       {pendingOverlay ? <LauncherPendingDragPreview drag={pendingOverlay} /> : null}
       <DragOverlay dropAnimation={null} zIndex={80}>
         {activeOverlay ? <LauncherDragPreview source={activeOverlay.source} count={activeOverlay.modIds.length} /> : null}
@@ -228,6 +257,7 @@ export function LauncherLibraryDndScope({
   const [pendingOverlay, setPendingOverlay] = useState<LauncherDndKitActiveDrag | null>(null)
   const [activeOverlay, setActiveOverlay] = useState<LauncherDndKitActiveDrag | null>(null)
   const [dropTargets, setDropTargets] = useState<LauncherDndKitDropTarget[]>([])
+  const [activeDropId, setActiveDropId] = useState<string | null>(null)
   const [dndKitControls, setDndKitControls] = useState<LauncherDndKitControls | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX } }))
   const measuring = useMemo(
@@ -250,6 +280,8 @@ export function LauncherLibraryDndScope({
     setPendingOverlay(null)
     setActiveOverlay(activeDrag)
     setDropTargets(measureLauncherDndKitDropTargets(drag.sourceElement))
+    drag.sourceElement.classList.add('launcher-library-card-grab-pending')
+    document.body.classList.add('launcher-library-dragging-active')
     return activeDrag
   }, [])
 
@@ -261,6 +293,9 @@ export function LauncherLibraryDndScope({
       setActiveOverlay(null)
       setPendingOverlay(null)
       setDropTargets([])
+      setActiveDropId(null)
+      drag?.sourceElement.classList.remove('launcher-library-card-grab-pending')
+      document.body.classList.remove('launcher-library-dragging-active')
       if (!drag || cancelled) {
         return
       }
@@ -282,12 +317,16 @@ export function LauncherLibraryDndScope({
           ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
           : null
 
-      if (modIds.length && targetFolderBlankId && targetFolderBlankId !== originFolderId) {
-        onAssignModsToLibraryFolder(targetFolderBlankId, modIds)
-      } else if (drag.source.kind === 'mod' && drag.source.originFolderId) {
-        onReleaseModsFromLibraryFolder(modIds)
-      } else if (drag.source.kind === 'mod' && drag.source.originParentId) {
+      if (
+        modIds.length &&
+        drag.source.kind === 'mod' &&
+        drag.source.originParentId &&
+        targetFolderBlankId &&
+        targetFolderBlankId === originFolderId
+      ) {
         onRemoveChildModsFromParent(modIds)
+      } else if (modIds.length && targetFolderBlankId && targetFolderBlankId !== originFolderId) {
+        onAssignModsToLibraryFolder(targetFolderBlankId, modIds)
       } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
         onAddModsToPack(effectiveOverId.slice(LAUNCHER_LIBRARY_PACK_DROP_PREFIX.length), modIds)
       } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
@@ -297,6 +336,10 @@ export function LauncherLibraryDndScope({
       } else if (modIds.length && effectiveOverId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
         onRemoveChildModsFromParent(modIds)
         onRemoveModsFromLibraryFolders(modIds)
+      } else if (drag.source.kind === 'mod' && drag.source.originParentId) {
+        onRemoveChildModsFromParent(modIds)
+      } else if (drag.source.kind === 'mod' && drag.source.originFolderId) {
+        onReleaseModsFromLibraryFolder(modIds)
       } else if (folderDragId && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX)) {
         const targetFolderId = effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX.length)
         if (targetFolderId !== folderDragId) {
@@ -337,17 +380,20 @@ export function LauncherLibraryDndScope({
         return
       }
       const modIds = source.kind === 'mod' ? resolveDraggedModIds(source.modId) : []
+      const sourceElement = event.currentTarget.closest<HTMLElement>('.launcher-library-draggable-card') ?? event.currentTarget
       const existingDrag = activeDragRef.current ?? pendingDragRef.current
-      if (existingDrag?.sourceElement === event.currentTarget && !existingDrag.started) {
-        setPendingOverlay((current) =>
-          current?.sourceElement === event.currentTarget ? { ...current, latestX: event.clientX, latestY: event.clientY } : current,
-        )
+      if (existingDrag?.sourceElement === sourceElement && !existingDrag.started) {
         return
       }
+      const sourceRect = sourceElement.getBoundingClientRect()
       const drag = {
         id: LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID,
         source,
-        sourceElement: event.currentTarget,
+        sourceElement,
+        sourceRect: {
+          left: sourceRect.left,
+          top: sourceRect.top,
+        },
         startX: event.clientX,
         startY: event.clientY,
         latestX: event.clientX,
@@ -356,10 +402,60 @@ export function LauncherLibraryDndScope({
         modIds,
       }
       pendingDragRef.current = drag
-      setPendingOverlay(drag)
     },
     [resolveDraggedModIds],
   )
+
+  useEffect(() => {
+    const showPendingDragFeedback = (event: globalThis.PointerEvent) => {
+      const drag = pendingDragRef.current
+      if (!drag || drag.started) {
+        return
+      }
+      if (event.buttons !== 1) {
+        return
+      }
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY)
+      if (distance < LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX) {
+        return
+      }
+      const nextDrag = { ...drag, latestX: event.clientX, latestY: event.clientY }
+      pendingDragRef.current = nextDrag
+      nextDrag.sourceElement.classList.add('launcher-library-card-grab-pending')
+      document.body.classList.add('launcher-library-dragging-active')
+      setPendingOverlay(nextDrag)
+      const pointerX = event.clientX
+      const pointerY = event.clientY
+      window.requestAnimationFrame(() => {
+        if (pendingDragRef.current || activeDragRef.current) {
+          setDropTargets((current) => {
+            const nextTargets = current.length ? current : measureLauncherDndKitDropTargets(nextDrag.sourceElement)
+            const target = getLauncherDropTargetAtPoint(nextTargets, pointerX, pointerY, nextDrag.source)
+            setActiveDropId((activeDropId) => (activeDropId === (target?.dropId ?? null) ? activeDropId : (target?.dropId ?? null)))
+            return nextTargets
+          })
+        }
+      })
+    }
+
+    const clearPendingDragStyle = () => {
+      const drag = pendingDragRef.current
+      drag?.sourceElement.classList.remove('launcher-library-card-grab-pending')
+      if (!activeDragRef.current) {
+        document.body.classList.remove('launcher-library-dragging-active')
+      }
+    }
+
+    window.addEventListener('pointermove', showPendingDragFeedback, { passive: true })
+    window.addEventListener('pointerup', clearPendingDragStyle)
+    window.addEventListener('pointercancel', clearPendingDragStyle)
+    return () => {
+      window.removeEventListener('pointermove', showPendingDragFeedback)
+      window.removeEventListener('pointerup', clearPendingDragStyle)
+      window.removeEventListener('pointercancel', clearPendingDragStyle)
+      document.body.classList.remove('launcher-library-dragging-active')
+    }
+  }, [])
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -375,12 +471,38 @@ export function LauncherLibraryDndScope({
     [activatePendingDrag],
   )
 
+  useEffect(() => {
+    const updateActiveDropTargetFromPointer = (event: globalThis.PointerEvent) => {
+      if (!activeDragRef.current && !pendingDragRef.current) {
+        return
+      }
+      const drag = activeDragRef.current ?? pendingDragRef.current
+      const target = getLauncherDropTargetAtPoint(dropTargets, event.clientX, event.clientY, drag?.source)
+      setActiveDropId((current) => (current === (target?.dropId ?? null) ? current : (target?.dropId ?? null)))
+    }
+
+    window.addEventListener('pointermove', updateActiveDropTargetFromPointer, { passive: true })
+    return () => window.removeEventListener('pointermove', updateActiveDropTargetFromPointer)
+  }, [dropTargets])
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const overDropId = (event.over?.data.current as LauncherDndKitDropData | undefined)?.dropId ?? String(event.over?.id ?? '')
-      finishPointerDrag(false, overDropId || null)
+      const drag = activeDragRef.current ?? pendingDragRef.current
+      const prioritizedTarget = getLauncherDropTargetById(dropTargets, activeDropId ?? overDropId, drag?.source)
+      finishPointerDrag(false, prioritizedTarget?.dropId ?? (overDropId || null))
     },
-    [finishPointerDrag],
+    [activeDropId, dropTargets, finishPointerDrag],
+  )
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const overDropId = (event.over?.data.current as LauncherDndKitDropData | undefined)?.dropId ?? String(event.over?.id ?? '')
+      const drag = activeDragRef.current ?? pendingDragRef.current
+      const prioritizedTarget = getLauncherDropTargetById(dropTargets, overDropId, drag?.source)
+      setActiveDropId(prioritizedTarget?.dropId ?? (overDropId || null))
+    },
+    [dropTargets],
   )
 
   const handleDragCancel = useCallback(() => {
@@ -389,9 +511,8 @@ export function LauncherLibraryDndScope({
 
   useEffect(() => {
     const cancelPendingDrag = () => {
-      if (pendingDragRef.current) {
-        pendingDragRef.current = null
-        setPendingOverlay(null)
+      if (pendingDragRef.current || activeDragRef.current) {
+        finishPointerDrag(true)
       }
     }
     const handleWindowBlur = () => finishPointerDrag(true)
@@ -426,12 +547,14 @@ export function LauncherLibraryDndScope({
         measuring={measuring}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
         <LauncherLibraryDndBridge
           onControlsChange={setDndKitControls}
           dropTargets={dropTargets}
+          activeDropId={activeDropId}
           pendingOverlay={pendingOverlay}
           activeOverlay={activeOverlay}
         />

@@ -2,9 +2,22 @@ import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay
 
 export const LAUNCHER_LIBRARY_GRID_GAP_PX = 20
 export const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
-export const LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX = 226
-export const LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT = 6
+export const LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX = 260
+export const LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX = 14
+export const LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX = 52
+export const LAUNCHER_LIBRARY_CARD_COVER_ASPECT_RATIO = 96 / 55
+export const LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT = 3
 export const LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX = 18
+
+export function estimateLauncherLibraryCardHeight(cardWidth: number) {
+  if (!Number.isFinite(cardWidth) || cardWidth <= 0) {
+    return LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX
+  }
+
+  const contentWidth = Math.max(0, cardWidth - LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * 2)
+  const coverHeight = contentWidth / LAUNCHER_LIBRARY_CARD_COVER_ASPECT_RATIO
+  return Math.ceil(LAUNCHER_LIBRARY_CARD_HORIZONTAL_PADDING_PX * 2 + coverHeight + LAUNCHER_LIBRARY_CARD_COPY_HEIGHT_PX)
+}
 
 export type LauncherLibraryGridRowItem = {
   displayItem: LauncherLibraryDisplayItem
@@ -116,13 +129,10 @@ export function buildLauncherLibraryGridBlocks(
     const rowStart = blockIndex * LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
     const rowEnd = rowStart + LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
     const blockItems = placedItems.filter((item) => item.rowStart < rowEnd && item.rowStart + item.rowSpan > rowStart)
+    const occupiedBlockRowCount = Math.max(0, ...blockItems.map((item) => item.rowStart + item.rowSpan - rowStart))
     const rowCount = Math.max(
       1,
-      Math.min(
-        LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT,
-        Math.max(0, occupiedRows.length - rowStart),
-        ...blockItems.map((item) => item.rowStart + item.rowSpan - rowStart),
-      ),
+      Math.min(LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT, Math.max(0, occupiedRows.length - rowStart), occupiedBlockRowCount),
     )
     return {
       items: blockItems,

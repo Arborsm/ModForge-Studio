@@ -1393,7 +1393,7 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('shows the pointer drag preview immediately on press without dropping until movement starts', async () => {
+  it('keeps click presses quiet and only shows the pointer drag preview after movement starts', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1403,11 +1403,17 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 71 })
 
+    expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull()
+
+    act(() => {
+      fireEvent.pointerMove(window, { button: 0, buttons: 1, clientX: 168, clientY: 160, isPrimary: true, pointerId: 71 })
+    })
+
     const preview = await screen.findByTestId('launcher-library-drag-preview')
     expect(preview).toHaveClass('launcher-library-pointer-drag-preview-pending')
 
     act(() => {
-      fireEvent.pointerUp(document, { clientX: 160, clientY: 160, pointerId: 71 })
+      fireEvent.pointerUp(document, { clientX: 168, clientY: 160, pointerId: 71 })
     })
 
     await waitFor(() => {
@@ -1506,7 +1512,7 @@ describe('LauncherLibraryPage', () => {
 
     pointerDragDown(card, 160, 220)
     act(() => {
-      pointerDragMove(document, 162, 222)
+      pointerDragMove(document, 168, 228)
     })
 
     const preview = screen.getByTestId('launcher-library-drag-preview')
@@ -1523,6 +1529,84 @@ describe('LauncherLibraryPage', () => {
     })
 
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
+  })
+
+  it('highlights folder, parent mod, and blank drop targets while dragging', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const sourceMod = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const folder = screen.getByRole('button', { name: 'Open folder Visuals' }).closest('[data-launcher-folder-drop-id]') as HTMLElement
+    const targetMod = screen
+      .getByRole('article', { name: /vintage interface redux/i })
+      .closest('[data-launcher-parent-drop-id]') as HTMLElement
+    const targetParentDropId = targetMod.getAttribute('data-launcher-parent-drop-id')
+    const blank = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === blank) {
+        return { width: 760, height: 540, top: 80, left: 80, bottom: 620, right: 840, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === folder) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      if (this === targetMod) {
+        return { width: 220, height: 180, top: 120, left: 380, bottom: 300, right: 600, x: 380, y: 120, toJSON: () => ({}) }
+      }
+      if (this === sourceMod || this === card) {
+        return { width: 220, height: 180, top: 340, left: 120, bottom: 520, right: 340, x: 120, y: 340, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      pointerDragDown(card, 160, 380)
+      act(() => {
+        pointerDragMove(window, 168, 388)
+      })
+      await screen.findByTestId('launcher-library-drag-preview')
+
+      act(() => {
+        pointerDragMove(window, 200, 180)
+      })
+      await waitFor(() => {
+        expect(document.querySelector('[data-launcher-dnd-target-id="launcher-folder:visuals"]')).toHaveClass(
+          'launcher-library-dnd-target-box-active',
+        )
+      })
+
+      act(() => {
+        pointerDragMove(window, 440, 180)
+      })
+      await waitFor(() => {
+        expect(document.querySelector(`[data-launcher-dnd-target-id="launcher-parent:${targetParentDropId}"]`)).toHaveClass(
+          'launcher-library-dnd-target-box-active',
+        )
+      })
+
+      act(() => {
+        pointerDragMove(window, 720, 160)
+      })
+      await waitFor(() => {
+        expect(document.querySelector('[data-launcher-dnd-target-id="launcher-library-blank"]')).toHaveClass(
+          'launcher-library-dnd-target-box-active',
+        )
+      })
+
+      act(() => {
+        pointerDragUp(window, 720, 160)
+      })
+      await waitFor(() => {
+        expect(document.querySelector('.launcher-library-dnd-target-box-active')).toBeNull()
+      })
+    } finally {
+      boundsSpy.mockRestore()
+    }
   })
 
   it('does not open a folder from the click event emitted after dragging it', async () => {
@@ -1549,7 +1633,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.queryByRole('dialog', { name: 'Visuals' })).toBeNull()
   })
 
-  it('shows immediate grab feedback before drag activation', () => {
+  it('does not show grab feedback until the pointer moves beyond the drag threshold', () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1560,11 +1644,19 @@ describe('LauncherLibraryPage', () => {
 
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
 
-    fireEvent.pointerDown(card, { button: 0, clientX: 160, clientY: 220, isPrimary: true, pointerId: 19 })
+    fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 220, isPrimary: true, pointerId: 19 })
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
+
+    fireEvent.pointerMove(window, { button: 0, buttons: 1, clientX: 164, clientY: 220, isPrimary: true, pointerId: 19 })
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
+
+    fireEvent.pointerMove(window, { button: 0, buttons: 1, clientX: 168, clientY: 220, isPrimary: true, pointerId: 19 })
 
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(true)
 
-    fireEvent.pointerUp(window, { button: 0, clientX: 160, clientY: 220, pointerId: 19 })
+    fireEvent.pointerUp(window, { button: 0, clientX: 168, clientY: 220, pointerId: 19 })
 
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
   })
@@ -2095,6 +2187,126 @@ describe('LauncherLibraryPage', () => {
 
     boundsSpy.mockRestore()
   })
+
+  it('recalculates virtualized grid columns when the window is maximized after reveal motion', async () => {
+    const library = createLargeLibraryState(16)
+    let viewportWidth = 1120
+    const activeResizeCallbacks = new Set<ResizeObserverCallback>()
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      private readonly callback: ResizeObserverCallback
+
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+      }
+
+      observe() {
+        activeResizeCallbacks.add(this.callback)
+      }
+
+      unobserve() {}
+
+      disconnect() {
+        activeResizeCallbacks.delete(this.callback)
+      }
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return {
+          width: viewportWidth,
+          height: 840,
+          top: 0,
+          left: 0,
+          bottom: 840,
+          right: viewportWidth,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    try {
+      useLauncherLibraryMock.mockReturnValue(library)
+
+      renderLibraryPage()
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(4')
+      })
+
+      await new Promise((resolve) => window.setTimeout(resolve, 950))
+      viewportWidth = 1840
+      act(() => {
+        for (const callback of activeResizeCallbacks) {
+          callback([], {} as ResizeObserver)
+        }
+      })
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(6')
+      })
+    } finally {
+      boundsSpy.mockRestore()
+      globalThis.ResizeObserver = OriginalResizeObserver
+    }
+  }, 10_000)
+
+  it('recalculates virtualized grid columns from window resize events', async () => {
+    const library = createLargeLibraryState(16)
+    let viewportWidth = 1120
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return {
+          width: viewportWidth,
+          height: 840,
+          top: 0,
+          left: 0,
+          bottom: 840,
+          right: viewportWidth,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    try {
+      useLauncherLibraryMock.mockReturnValue(library)
+
+      renderLibraryPage()
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(4')
+      })
+
+      viewportWidth = 1840
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(6')
+      })
+    } finally {
+      boundsSpy.mockRestore()
+      globalThis.ResizeObserver = OriginalResizeObserver
+    }
+  }, 10_000)
 
   it('observes the library grid viewport for virtual column recalculation', () => {
     const library = createLargeLibraryState(16)

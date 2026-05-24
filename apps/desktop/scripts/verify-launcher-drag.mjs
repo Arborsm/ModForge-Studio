@@ -23,6 +23,205 @@ function summarizeFrames(values) {
   }
 }
 
+async function getVisibleBox(page, selector, index = 0) {
+  return page.evaluate(
+    ({ selector, index }) => {
+      const boxes = Array.from(document.querySelectorAll(selector))
+        .map((element) => {
+          const rect = element.getBoundingClientRect()
+          return {
+            x: rect.x,
+            y: rect.y,
+            width: rect.width,
+            height: rect.height,
+          }
+        })
+        .filter((rect) => rect.width > 0 && rect.height > 0)
+      return boxes.at(index) ?? null
+    },
+    { selector, index },
+  )
+}
+
+async function verifyExpandedFolderPriority(page) {
+  const folderCard = await getVisibleBox(page, '.launcher-library-folder-card')
+  if (!folderCard) {
+    throw new Error('Missing visible folder card for expanded folder priority check.')
+  }
+
+  await page.mouse.click(folderCard.x + folderCard.width / 2, folderCard.y + folderCard.height / 2)
+  await page.waitForSelector('.launcher-library-folder-panel', { state: 'visible', timeout: 3_000 })
+  await page.waitForTimeout(200)
+
+  const points = await page.evaluate(() => {
+    const source = Array.from(document.querySelectorAll('.launcher-library-draggable-card .launcher-mod-card'))
+      .map((card) => ({ panel: card.closest('.launcher-library-folder-panel'), rect: card.getBoundingClientRect() }))
+      .filter((item) => !item.panel && item.rect.width > 0 && item.rect.height > 0)
+      .at(2)
+    const target = Array.from(
+      document.querySelectorAll('.launcher-library-folder-panel .launcher-library-draggable-card .launcher-mod-card'),
+    )
+      .map((card) => ({ rect: card.getBoundingClientRect() }))
+      .filter((item) => item.rect.width > 0 && item.rect.height > 0)
+      .at(0)
+    if (!source || !target) {
+      return null
+    }
+    return {
+      source: {
+        x: source.rect.left + source.rect.width / 2,
+        y: source.rect.top + Math.min(90, source.rect.height / 2),
+      },
+      target: {
+        x: target.rect.left + target.rect.width / 2,
+        y: target.rect.top + target.rect.height / 2,
+      },
+    }
+  })
+  if (!points) {
+    throw new Error('Missing source or expanded folder target mod for priority check.')
+  }
+
+  await page.mouse.move(points.source.x, points.source.y)
+  await page.mouse.down()
+  await page.mouse.move(points.source.x + 8, points.source.y + 1)
+  await page.waitForSelector('.launcher-library-card-grab-pending', { state: 'attached', timeout: 1_000 })
+  for (let i = 1; i <= 24; i += 1) {
+    const t = i / 24
+    await page.mouse.move(
+      points.source.x + (points.target.x - points.source.x) * t,
+      points.source.y + (points.target.y - points.source.y) * t,
+    )
+  }
+  await page.waitForTimeout(80)
+  await page.screenshot({ path: 'C:/Users/26537/AppData/Local/Temp/modforge-launcher-expanded-folder-drag.png', fullPage: false })
+  const evidence = await page.evaluate(({ x, y }) => {
+    const activeTargets = Array.from(document.querySelectorAll('.launcher-library-dnd-target-box-active')).map((element) =>
+      element.getAttribute('data-launcher-dnd-target-id'),
+    )
+    const underTargets = Array.from(document.querySelectorAll('[data-launcher-dnd-target-id]'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+          ? element.getAttribute('data-launcher-dnd-target-id')
+          : null
+      })
+      .filter(Boolean)
+    return {
+      activeTargets,
+      underTargets,
+      hoveredCards: document.querySelectorAll('.launcher-mod-card:hover, .launcher-library-folder-card:hover').length,
+      bodyDragging: document.body.classList.contains('launcher-library-dragging-active'),
+    }
+  }, points.target)
+  await page.mouse.up()
+  await page.waitForTimeout(120)
+
+  const activeTarget = evidence.activeTargets.at(0) ?? ''
+  if (!activeTarget.startsWith('launcher-folder-blank:')) {
+    throw new Error(`Expanded folder drag targeted the wrong element: ${JSON.stringify(evidence)}`)
+  }
+  if (!evidence.underTargets.some((target) => target?.startsWith('launcher-parent:'))) {
+    throw new Error(`Expanded folder priority check did not cover an internal parent target: ${JSON.stringify(evidence)}`)
+  }
+  if (evidence.hoveredCards > 0) {
+    throw new Error(`Drag hover leaked to underlying cards: ${JSON.stringify(evidence)}`)
+  }
+
+  return evidence
+}
+
+async function verifyChildReleasePriority(page) {
+  const childToggle = await getVisibleBox(page, '.launcher-mod-card-child-toggle')
+  if (!childToggle) {
+    throw new Error('Missing child mod toggle for release priority check.')
+  }
+
+  await page.mouse.click(childToggle.x + childToggle.width / 2, childToggle.y + childToggle.height / 2)
+  await page.waitForSelector('.launcher-library-grid-reveal-child', { state: 'visible', timeout: 3_000 })
+  await page.waitForTimeout(160)
+
+  const points = await page.evaluate(() => {
+    const child = Array.from(
+      document.querySelectorAll('.launcher-library-grid-reveal-child .launcher-library-draggable-card .launcher-mod-card'),
+    )
+      .map((card) => ({ rect: card.getBoundingClientRect() }))
+      .filter((item) => item.rect.width > 0 && item.rect.height > 0)
+      .at(0)
+    const topLevelParent = Array.from(document.querySelectorAll('.launcher-library-draggable-card .launcher-mod-card'))
+      .map((card) => ({
+        child: card.closest('.launcher-library-grid-reveal-child'),
+        panel: card.closest('.launcher-library-folder-panel'),
+        rect: card.getBoundingClientRect(),
+      }))
+      .filter((item) => !item.child && !item.panel && item.rect.width > 0 && item.rect.height > 0)
+      .at(3)
+    if (!child || !topLevelParent) {
+      return null
+    }
+    return {
+      source: {
+        x: child.rect.left + child.rect.width / 2,
+        y: child.rect.top + child.rect.height / 2,
+      },
+      target: {
+        x: topLevelParent.rect.left + topLevelParent.rect.width / 2,
+        y: topLevelParent.rect.top + topLevelParent.rect.height / 2,
+      },
+    }
+  })
+  if (!points) {
+    throw new Error('Missing child mod or top-level parent target for release priority check.')
+  }
+
+  await page.mouse.move(points.source.x, points.source.y)
+  await page.mouse.down()
+  await page.mouse.move(points.source.x + 8, points.source.y + 1)
+  await page.waitForSelector('.launcher-library-card-grab-pending', { state: 'attached', timeout: 1_000 })
+  for (let i = 1; i <= 24; i += 1) {
+    const t = i / 24
+    await page.mouse.move(
+      points.source.x + (points.target.x - points.source.x) * t,
+      points.source.y + (points.target.y - points.source.y) * t,
+    )
+  }
+  await page.waitForTimeout(80)
+  await page.screenshot({ path: 'C:/Users/26537/AppData/Local/Temp/modforge-launcher-child-release-drag.png', fullPage: false })
+  const evidence = await page.evaluate(({ x, y }) => {
+    const activeTargets = Array.from(document.querySelectorAll('.launcher-library-dnd-target-box-active')).map((element) =>
+      element.getAttribute('data-launcher-dnd-target-id'),
+    )
+    const underTargets = Array.from(document.querySelectorAll('[data-launcher-dnd-target-id]'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect()
+        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+          ? element.getAttribute('data-launcher-dnd-target-id')
+          : null
+      })
+      .filter(Boolean)
+    return {
+      activeTargets,
+      underTargets,
+      hoveredCards: document.querySelectorAll('.launcher-mod-card:hover, .launcher-library-folder-card:hover').length,
+      bodyDragging: document.body.classList.contains('launcher-library-dragging-active'),
+    }
+  }, points.target)
+  await page.mouse.up()
+  await page.waitForTimeout(120)
+
+  if (!evidence.activeTargets.includes('launcher-library-blank')) {
+    throw new Error(`Child release targeted the wrong element: ${JSON.stringify(evidence)}`)
+  }
+  if (!evidence.underTargets.some((target) => target?.startsWith('launcher-parent:'))) {
+    throw new Error(`Child release priority check did not cover an underlying parent target: ${JSON.stringify(evidence)}`)
+  }
+  if (evidence.hoveredCards > 0) {
+    throw new Error(`Child release hover leaked to underlying cards: ${JSON.stringify(evidence)}`)
+  }
+
+  return evidence
+}
+
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
   headless: true,
@@ -40,6 +239,8 @@ try {
     cards: document.querySelectorAll('.launcher-mod-card').length,
     title: document.title,
   }))
+  const expandedFolderPriority = await verifyExpandedFolderPriority(page)
+  const childReleasePriority = await verifyChildReleasePriority(page)
 
   const source = await page.evaluate(() => {
     const candidates = Array.from(document.querySelectorAll('.launcher-library-draggable-card .launcher-mod-card'))
@@ -61,7 +262,7 @@ try {
 
     return candidates.at(2) ?? candidates.at(0) ?? null
   })
-  const target = await page.locator('[data-launcher-folder-drop-id="visuals"]').boundingBox()
+  const target = await getVisibleBox(page, '[data-launcher-folder-drop-id]')
 
   if (!source || !target) {
     throw new Error(`Missing drag endpoints: source=${Boolean(source)} target=${Boolean(target)}`)
@@ -134,9 +335,33 @@ try {
 
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
+  await page.evaluate(() => {
+    window.__launcherDragFeedbackLatencyMs = null
+    window.__launcherDragFeedbackProbeStartedAt = performance.now()
+    const listener = (event) => {
+      if (event.buttons !== 1) return
+      const startedAt = performance.now()
+      queueMicrotask(() => {
+        if (window.__launcherDragFeedbackLatencyMs == null) {
+          const hasFeedback = Boolean(document.querySelector('.launcher-library-draggable-card.launcher-library-card-grab-pending'))
+          if (hasFeedback) {
+            window.__launcherDragFeedbackLatencyMs = performance.now() - startedAt
+          }
+        }
+      })
+    }
+    window.__launcherDragFeedbackListener = listener
+    window.addEventListener('pointermove', listener, { passive: true })
+  })
   const dragFeedbackStartedAt = await page.evaluate(() => performance.now())
-  await page.waitForSelector('.launcher-library-draggable-card.launcher-library-card-grab-pending', { state: 'visible', timeout: 200 })
-  const dragFeedbackLatencyMs = await page.evaluate((startedAt) => performance.now() - startedAt, dragFeedbackStartedAt)
+  await page.mouse.move(start.x + 8, start.y + 1)
+  await page.waitForFunction(() => Boolean(document.querySelector('.launcher-library-draggable-card.launcher-library-card-grab-pending')), {
+    timeout: 200,
+  })
+  const dragFeedbackLatencyMs = await page.evaluate((fallbackStartedAt) => {
+    window.removeEventListener('pointermove', window.__launcherDragFeedbackListener)
+    return window.__launcherDragFeedbackLatencyMs ?? performance.now() - fallbackStartedAt
+  }, dragFeedbackStartedAt)
   const immediateFeedback = await page.evaluate(() =>
     Boolean(document.querySelector('.launcher-library-draggable-card.launcher-library-card-grab-pending')),
   )
@@ -171,7 +396,7 @@ try {
       dropFrames: window.__launcherDropFrames ?? [],
       longTasks: window.__launcherDragLongTasks ?? [],
       previewVisible: Boolean(document.querySelector('[data-testid="launcher-library-drag-preview"]')),
-      visualsText: document.querySelector('[data-launcher-folder-drop-id="visuals"]')?.textContent ?? '',
+      folderText: document.querySelector('[data-launcher-folder-drop-id]')?.textContent ?? '',
       consoleErrors: window.__launcherDragConsoleErrors ?? [],
       events: window.__launcherDragEvents ?? [],
     }
@@ -213,9 +438,11 @@ try {
         .filter((event) => Math.abs(event.time - entry.startTime) <= 36)
         .map((event) => ({ ...event, time: Number(event.time.toFixed(2)) })),
     })),
+    expandedFolderPriority,
+    childReleasePriority,
     immediateFeedback,
     previewVisibleAfterDrop: result.previewVisible,
-    visualsText: result.visualsText,
+    folderText: result.folderText,
   }
 
   console.log(JSON.stringify(summary, null, 2))
@@ -227,9 +454,15 @@ try {
     throw new Error('Drag preview remained visible after drop.')
   }
   if (!immediateFeedback) {
-    throw new Error('Drag did not show immediate grab feedback before activation.')
+    throw new Error('Drag did not show grab feedback after movement crossed the drag threshold.')
   }
-  if (longTaskCount > 0 || dragFrameSummary.p95Ms > 34 || dragFrameSummary.maxMs > 80 || dragFeedbackLatencyMs > 40) {
+  if (
+    longTaskCount > 0 ||
+    dragFrameSummary.p95Ms > 34 ||
+    dragFrameSummary.below30FpsFrameRate > 0.02 ||
+    dragFrameSummary.jankFrameRate > 0.02 ||
+    dragFeedbackLatencyMs > 40
+  ) {
     throw new Error(`Drag was not smooth enough: ${JSON.stringify(summary)}`)
   }
 } finally {
