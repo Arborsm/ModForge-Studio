@@ -22,7 +22,6 @@ type LauncherLibraryDisplayStateInput = {
   hiddenViewOpen: boolean
   editMode: boolean
   editingSelectionIds: string[]
-  expandedParentIds: string[]
   openLibraryFolderIds: string[]
   readyLibraryFolderIds: string[]
 }
@@ -37,7 +36,6 @@ export function useLauncherLibraryDisplayState({
   hiddenViewOpen,
   editMode,
   editingSelectionIds,
-  expandedParentIds,
   openLibraryFolderIds,
   readyLibraryFolderIds,
 }: LauncherLibraryDisplayStateInput) {
@@ -177,21 +175,12 @@ export function useLauncherLibraryDisplayState({
         .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey)))
         .filter((item): item is LauncherLibraryItem => Boolean(item))
       items.push({ kind: 'mod', mod, childMods, isChild: false })
-
-      if (!expandedParentIds.includes(mod.id)) {
-        continue
-      }
-
-      for (const childMod of childMods) {
-        items.push({ kind: 'child', mod: childMod, parentMod: mod })
-      }
     }
     return items
   }, [
     buildFolderDisplayItem,
     childGroupLookup,
     childParentLookup,
-    expandedParentIds,
     isLibraryFolderOpen,
     library.libraryFolders,
     libraryFolderModLookup,

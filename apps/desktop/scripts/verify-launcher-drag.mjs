@@ -132,29 +132,27 @@ async function verifyExpandedFolderPriority(page) {
 }
 
 async function verifyChildReleasePriority(page) {
-  const childToggle = await getVisibleBox(page, '.launcher-mod-card-child-toggle')
+  const childToggle = await getVisibleBox(page, '.launcher-mod-card-child-count')
   if (!childToggle) {
     throw new Error('Missing child mod toggle for release priority check.')
   }
 
   await page.mouse.click(childToggle.x + childToggle.width / 2, childToggle.y + childToggle.height / 2)
-  await page.waitForSelector('.launcher-library-grid-reveal-child', { state: 'visible', timeout: 3_000 })
+  await page.waitForSelector('.launcher-library-modules-floating-panel', { state: 'visible', timeout: 3_000 })
   await page.waitForTimeout(160)
 
   const points = await page.evaluate(() => {
-    const child = Array.from(
-      document.querySelectorAll('.launcher-library-grid-reveal-child .launcher-library-draggable-card .launcher-mod-card'),
-    )
+    const child = Array.from(document.querySelectorAll('.launcher-library-modules-floating-panel .launcher-library-module-tile'))
       .map((card) => ({ rect: card.getBoundingClientRect() }))
       .filter((item) => item.rect.width > 0 && item.rect.height > 0)
       .at(0)
     const topLevelParent = Array.from(document.querySelectorAll('.launcher-library-draggable-card .launcher-mod-card'))
       .map((card) => ({
-        child: card.closest('.launcher-library-grid-reveal-child'),
+        modules: card.closest('.launcher-library-modules-floating-panel'),
         panel: card.closest('.launcher-library-folder-panel'),
         rect: card.getBoundingClientRect(),
       }))
-      .filter((item) => !item.child && !item.panel && item.rect.width > 0 && item.rect.height > 0)
+      .filter((item) => !item.modules && !item.panel && item.rect.width > 0 && item.rect.height > 0)
       .at(3)
     if (!child || !topLevelParent) {
       return null

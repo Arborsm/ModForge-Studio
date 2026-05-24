@@ -1,7 +1,7 @@
 import { memo, useCallback, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { ArrowUp, Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { ArrowUp, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
@@ -32,7 +32,7 @@ type LauncherModCardProps = {
   expanded?: boolean
   expandLabel?: string
   collapseLabel?: string
-  onToggleExpanded?: () => void
+  onToggleExpanded?: (event: MouseEvent<HTMLElement>) => void
   selectionMode?: boolean
   selected?: boolean
 }
@@ -127,6 +127,7 @@ function LauncherModCardContent({
         selectionMode && 'launcher-mod-card-selection-mode',
         selectionMode && selected && 'launcher-mod-card-selected',
         selectionMode && !selected && 'launcher-mod-card-unselected',
+        childCount > 0 && onToggleExpanded && 'launcher-mod-card-has-modules',
       )}
     >
       <div className="launcher-mod-card-stack">
@@ -141,21 +142,30 @@ function LauncherModCardContent({
 
         {childCount > 0 ? (
           <div className="launcher-mod-card-child-tools">
-            <span className="launcher-mod-card-child-count">{childCountLabel ?? String(childCount)}</span>
             {onToggleExpanded ? (
               <button
                 type="button"
-                className="launcher-mod-card-child-toggle"
+                className="launcher-mod-card-child-count"
                 aria-label={expanded ? collapseLabel : expandLabel}
                 aria-expanded={expanded}
                 onClick={(event) => {
+                  event.preventDefault()
                   event.stopPropagation()
-                  onToggleExpanded()
+                  onToggleExpanded(event)
                 }}
               >
-                {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                <span className="launcher-mod-card-child-count-label">{childCountLabel ?? String(childCount)}</span>
+                {expanded ? (
+                  <ChevronUp className="launcher-mod-card-child-count-icon" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="launcher-mod-card-child-count-icon" aria-hidden="true" />
+                )}
               </button>
-            ) : null}
+            ) : (
+              <span className="launcher-mod-card-child-count">
+                <span className="launcher-mod-card-child-count-label">{childCountLabel ?? String(childCount)}</span>
+              </span>
+            )}
           </div>
         ) : null}
 

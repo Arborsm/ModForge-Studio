@@ -802,7 +802,7 @@ describe('LauncherLibraryPage', () => {
     expect(updateBadge.querySelector('svg')).toBeTruthy()
   })
 
-  it('folds child mods under their parent by default and expands them from the parent card', async () => {
+  it('folds child mods under their parent by default and opens them in a floating module panel', async () => {
     const library = {
       ...createLibraryState(),
       childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
@@ -814,9 +814,20 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByText('NPC Adventures')).toBeTruthy()
     expect(screen.queryByText('Vintage Interface Redux')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    const moduleButton = screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' })
+    expect(moduleButton).toHaveClass('launcher-mod-card-child-count')
+    expect(moduleButton.textContent).toContain('1 child mod')
 
-    expect(screen.getByText('Vintage Interface Redux')).toBeTruthy()
+    fireEvent.click(moduleButton)
+
+    const panel = screen.getByRole('dialog', { name: 'NPC Adventures modules' })
+    expect(within(panel).getByText('Vintage Interface Redux')).toBeTruthy()
+    expect(document.querySelector('.launcher-library-modules-floating-panel')).toBeTruthy()
+    expect(panel.querySelector('.launcher-mod-card')).toBeNull()
+    expect(panel.querySelector('.launcher-library-module-tile')).toBeTruthy()
+
+    fireEvent.click(moduleButton)
+    expect(screen.queryByRole('dialog', { name: 'NPC Adventures modules' })).toBeNull()
   })
 
   it('opens a multi-select child mod picker from a parent card and confirms selected children', () => {
@@ -845,10 +856,56 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
-    fireEvent.contextMenu(screen.getByRole('article', { name: /vintage interface redux/i }))
+    const panel = screen.getByRole('dialog', { name: 'NPC Adventures modules' })
+    fireEvent.contextMenu(within(panel).getByRole('article', { name: /vintage interface redux/i }))
     fireEvent.click(screen.getByText('Remove from parent'))
 
     expect(library.removeChildMods).toHaveBeenCalledWith(['mod-2'])
+  })
+
+  it('opens child mod folders from floating module tiles', async () => {
+    const library = {
+      ...createLibraryState(),
+      childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
+    }
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    const panel = screen.getByRole('dialog', { name: 'NPC Adventures modules' })
+    fireEvent.doubleClick(within(panel).getByRole('article', { name: /vintage interface redux/i }))
+
+    await waitFor(() => {
+      expect(openLauncherPathMock).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley\\Mods\\Vintage Interface Redux' })
+    })
+  })
+
+  it('closes the floating module panel when the parent no longer has children', async () => {
+    let library = {
+      ...createLibraryState(),
+      childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
+    }
+    useLauncherLibraryMock.mockImplementation(() => library)
+
+    const view = renderLibraryPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    expect(screen.getByRole('dialog', { name: 'NPC Adventures modules' })).toBeTruthy()
+
+    library = { ...library, childModGroups: [] }
+    view.rerender(
+      <LauncherLibraryPage
+        settings={createSettings()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'NPC Adventures modules' })).toBeNull()
+    })
   })
 
   it('shows an install overlay for multiple supported external archives and hides it on leave', async () => {

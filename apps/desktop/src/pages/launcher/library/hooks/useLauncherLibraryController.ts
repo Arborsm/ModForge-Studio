@@ -153,7 +153,6 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
     hiddenViewOpen,
     editMode,
     editingSelectionIds,
-    expandedParentIds,
     openLibraryFolderIds,
     readyLibraryFolderIds,
   })

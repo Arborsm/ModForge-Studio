@@ -40,13 +40,17 @@ type LauncherLibraryGridPlacement = {
   rowSpan: number
 }
 
-function getLauncherLibraryFolderPlacement(itemCount: number, gridColumnCount: number): LauncherLibraryGridPlacement {
+export function getLauncherLibraryPanelPlacement(
+  itemCount: number,
+  gridColumnCount: number,
+  minColumnSpan = 2,
+): LauncherLibraryGridPlacement {
   if (gridColumnCount <= 1) {
     return { columnSpan: 1, rowSpan: Math.max(1, itemCount) }
   }
 
   const contentSize = Math.max(1, itemCount)
-  const preferredSpan = Math.max(2, Math.ceil(Math.sqrt(contentSize)))
+  const preferredSpan = Math.max(minColumnSpan, Math.ceil(Math.sqrt(contentSize)))
   const columnSpan = Math.min(gridColumnCount, preferredSpan)
   return { columnSpan, rowSpan: Math.max(1, Math.ceil(contentSize / columnSpan)) }
 }
@@ -82,7 +86,7 @@ export function buildLauncherLibraryGridBlocks(
   items.forEach((displayItem, index) => {
     const isOpenFolder = displayItem.kind === 'folder' && isLibraryFolderOpen(displayItem.folder.id)
     const placement = isOpenFolder
-      ? getLauncherLibraryFolderPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount)
+      ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount)
       : { columnSpan: 1, rowSpan: 1 }
 
     let rowStart = firstOpenRow
