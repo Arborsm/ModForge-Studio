@@ -243,6 +243,20 @@ Required:
 
 Comments should describe purpose, owner boundary, important cache behavior, and side effects. Avoid comments that restate the implementation line-by-line. When an API is removed, delete its comments with it; do not leave compatibility or migration notes in code.
 
+## CSS Organization
+
+CSS follows the same ownership model as the frontend layers. Global entry points stay small and durable; feature styles live under the feature style area that owns the UI surface.
+
+Rules:
+
+- `apps/desktop/src/styles/index.css` is the single global style entry. Do not add another global entry point for convenience.
+- Keep `primitives`, `workspace`, and `features` separated by responsibility. Do not duplicate selectors across those folders to patch ownership problems.
+- Keep individual CSS files below 1000 lines. When a file approaches that threshold, split it by stable UI regions such as shell, sidebar, card grid, dialog, details panel, lists, or responsive rules.
+- Preserve cascade order during a split. The original file should become a thin `@import` aggregator, and imported files should appear in the same order the rules previously appeared.
+- Put split files in a same-name directory beside the aggregator, for example `launcher/configuration.css` importing files from `launcher/configuration/`.
+- Each split file should declare its own `@layer components`; do not rely on an aggregator to wrap imported files in a layer.
+- Update style architecture tests when style ownership rules change. The line-count guard and any rules that inspect imported CSS belong in `src/test/architecture/styleArchitecture.test.ts`.
+
 ## Boundary Debt
 
 Frontend architecture debt should be tracked as explicit, shrinking baselines in tests or task docs, not as compatibility shims in product code. When a debt file is cleaned, remove it from the architecture test baseline in the same change.
