@@ -25,7 +25,10 @@
     "security": {
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": {
+          "allow": ["$DATA/ModForge Studio/**"],
+          "requireLiteralLeadingDot": false
+        }
       },
       "csp": null
     }

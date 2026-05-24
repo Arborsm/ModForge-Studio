@@ -1,23 +1,3 @@
-import * as ContextMenu from '@radix-ui/react-context-menu'
-import {
-  Activity,
-  Boxes,
-  Files,
-  FolderOpen,
-  Grip,
-  Layers3,
-  Library,
-  Map,
-  Package,
-  PanelBottom,
-  PanelLeft,
-  PanelRight,
-  Pin,
-  SlidersHorizontal,
-  SquareDashedMousePointer,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
 import {
   forwardRef,
   useCallback,
@@ -29,7 +9,6 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
-  type ReactNode,
 } from 'react'
 import { cx } from '@shared/lib/cx'
 import { RAIL_DRAG_THRESHOLD, ROOT_PADDING, SLOT_IDS, SPLIT_GAP } from '@shared/workspace/layoutConstants'
@@ -52,7 +31,6 @@ import { clampFloatRect, getHorizontalUsableWidth, getRailEdgeSizeBounds } from 
 import type {
   DockArea,
   PanelMode,
-  PanelRect,
   RailId,
   SlotId,
   WorkspaceLayoutHandle,
@@ -63,38 +41,10 @@ import type {
   WorkspaceSlotState,
   WorkspaceStoredState,
 } from '@shared/contracts'
+import { WorkspacePanelShell } from './WorkspacePanelShell'
+import { WorkspaceDragOverlay, WorkspaceRail } from './WorkspaceRails'
 
 export type { DockArea, WorkspaceLayoutHandle, WorkspacePanelConfig, WorkspacePanelMeta } from '@shared/contracts'
-
-const PANEL_ICON_MAP: Record<string, LucideIcon> = {
-  project: FolderOpen,
-  assets: Files,
-  viewport: Map,
-  'item-navigation': Files,
-  'item-catalog': Package,
-  'item-details': SlidersHorizontal,
-  'mods-browser': Library,
-  'mods-navigator': Files,
-  'mods-workspace': Package,
-  'mods-trace': Activity,
-  'mods-target-diagnostics': Activity,
-  'mods-export': Files,
-  'mods-inspector': SlidersHorizontal,
-  'mods-diagnostics': Activity,
-  inspector: SlidersHorizontal,
-  layers: Layers3,
-  'object-groups': Boxes,
-  diagnostics: Activity,
-}
-
-const DOCK_TARGETS: Array<{ area: DockArea; label: string; icon: LucideIcon }> = [
-  { area: 'left-top', label: 'Move to Left Top', icon: PanelLeft },
-  { area: 'left-bottom', label: 'Move to Left Bottom', icon: PanelLeft },
-  { area: 'right-top', label: 'Move to Right Top', icon: PanelRight },
-  { area: 'right-bottom', label: 'Move to Right Bottom', icon: PanelRight },
-  { area: 'bottom-left', label: 'Move to Bottom Left', icon: PanelBottom },
-  { area: 'bottom-right', label: 'Move to Bottom Right', icon: PanelBottom },
-]
 
 type WorkspaceLayoutProps = {
   panels: WorkspacePanelConfig[]
@@ -149,68 +99,6 @@ type DragInteraction =
       startY: number
       dragging: boolean
     }
-
-function getPanelIcon(panelId: string) {
-  return PANEL_ICON_MAP[panelId] ?? Library
-}
-
-function getDockLabel(area: DockArea) {
-  switch (area) {
-    case 'left-top':
-      return 'Left Top'
-    case 'left-bottom':
-      return 'Left Bottom'
-    case 'right-top':
-      return 'Right Top'
-    case 'right-bottom':
-      return 'Right Bottom'
-    case 'bottom-left':
-      return 'Bottom Left'
-    case 'bottom-right':
-      return 'Bottom Right'
-    case 'center':
-      return 'Center'
-  }
-}
-
-function ToolWindowMenu({
-  children,
-  onFloat,
-  onHide,
-  onDock,
-}: {
-  children: ReactNode
-  onFloat: () => void
-  onHide: () => void
-  onDock: (area: DockArea) => void
-}) {
-  return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Content className="context-menu-content">
-          <ContextMenu.Item className="context-menu-item" onSelect={onFloat}>
-            Float Window
-          </ContextMenu.Item>
-          <ContextMenu.Item className="context-menu-item" onSelect={onHide}>
-            Hide
-          </ContextMenu.Item>
-          <ContextMenu.Separator className="my-1 h-px bg-[color-mix(in_srgb,var(--border-color)_75%,transparent)]" />
-          {DOCK_TARGETS.map((target) => (
-            <ContextMenu.Item
-              key={target.area}
-              className="context-menu-item flex items-center justify-between gap-3"
-              onSelect={() => onDock(target.area)}
-            >
-              <span>{target.label}</span>
-              <target.icon className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
-            </ContextMenu.Item>
-          ))}
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
-    </ContextMenu.Root>
-  )
-}
 
 export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayoutProps>(function WorkspaceLayout(
   { panels, storageKey = 'modforge:workspace-layout:v7', persistedState = null, onPersistStateChange, onLayoutMetaChange },
@@ -1130,149 +1018,38 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
     setDragDockTarget(null)
   }
 
-  function renderRailButtons(slot: SlotId) {
-    const slotState = state.slots[slot]
-    const panelIds = getOrderedPanelIdsForSlot(panels, state.panels, state.slots, slot)
-
-    return panelIds.map((panelId) => {
-      const panel = panelMap[panelId]
-      const Icon = getPanelIcon(panelId)
-      const isCurrent = slotState.activePanelId === panelId
-      const isExpanded = isCurrent && slotState.expanded
-      const isDragging = draggedPanelId === panelId
-      const isSortTarget = railSortTarget?.slot === slot && railSortTarget.panelId === panelId
-
-      return (
-        <ToolWindowMenu key={panelId} onFloat={() => undock(panelId)} onHide={() => hide(panelId)} onDock={(area) => dock(panelId, area)}>
-          <button
-            type="button"
-            ref={(node) => {
-              railButtonRefs.current[`${slot}:${panelId}`] = node
-            }}
-            data-slot={slot}
-            data-panel-id={panelId}
-            className={cx(
-              'workspace-tool-button',
-              isCurrent && 'workspace-tool-button-current',
-              isExpanded && 'workspace-tool-button-active',
-              isDragging && 'workspace-tool-button-dragging',
-              isSortTarget && 'workspace-tool-button-drop-target',
-              isSortTarget && railSortTarget?.position === 'after' && 'workspace-tool-button-drop-target-after',
-            )}
-            onClick={(event) => handleRailButtonClick(slot, panelId, event)}
-            onPointerDown={(event) => beginRailDrag(panelId, event)}
-            title={`${panel.title}${isExpanded ? ' (expanded)' : ''}`}
-          >
-            <Icon className="h-4.5 w-4.5" />
-          </button>
-        </ToolWindowMenu>
-      )
-    })
-  }
-
-  function renderRail(rail: RailId) {
-    const railRect = geometry.rails[rail]
-    if (!railRect) {
-      return null
-    }
-
-    if (rail === 'bottom') {
-      return null
-    }
-
-    const topSlot = rail === 'left' ? 'left-top' : 'right-top'
-    const bottomSlot = rail === 'left' ? 'left-bottom' : 'right-bottom'
-    const bottomDockSlot = rail === 'left' ? 'bottom-left' : 'bottom-right'
-
-    return (
-      <aside
-        className={cx('workspace-tool-rail', rail === 'left' ? 'workspace-tool-rail-left' : 'workspace-tool-rail-right')}
-        style={{
-          left: `${railRect.x}px`,
-          top: `${railRect.y}px`,
-          width: `${railRect.width}px`,
-          height: `${railRect.height}px`,
-        }}
-      >
-        <div className="workspace-tool-group">{renderRailButtons(topSlot)}</div>
-        <div className="workspace-tool-divider" />
-        <div className="workspace-tool-group">{renderRailButtons(bottomSlot)}</div>
-        <div className="workspace-tool-spacer" />
-        <div className="workspace-tool-group">{renderRailButtons(bottomDockSlot)}</div>
-      </aside>
-    )
-  }
-
-  function renderDockGuide(area: DockArea, rect: PanelRect, label: string) {
-    return (
-      <div
-        key={area}
-        className={cx('workspace-drop-zone', dragDockTarget === area && 'workspace-drop-zone-active')}
-        style={{
-          left: `${rect.x}px`,
-          top: `${rect.y}px`,
-          width: `${rect.width}px`,
-          height: `${rect.height}px`,
-        }}
-        onDragEnter={() => setDragDockTarget(area)}
-        onDragOver={(event) => {
-          event.preventDefault()
-          if (dragDockTarget !== area) {
-            setDragDockTarget(area)
-          }
-        }}
-        onDragLeave={(event) => {
-          if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-            return
-          }
-          if (dragDockTarget === area) {
-            setDragDockTarget(null)
-          }
-        }}
-        onDrop={(event) => {
-          event.preventDefault()
-          dropToDock(area, event.dataTransfer.getData('text/plain') || null)
-        }}
-        title={label}
-      >
-        <span>{label}</span>
-      </div>
-    )
-  }
-
   return (
     <div ref={rootRef} className="workspace-root">
-      {renderRail('left')}
-      {renderRail('right')}
+      {(['left', 'right'] as const).map((rail) => (
+        <WorkspaceRail
+          key={rail}
+          rail={rail}
+          railRect={geometry.rails[rail]}
+          panels={panels}
+          panelMap={panelMap}
+          panelStates={state.panels}
+          slots={state.slots}
+          draggedPanelId={draggedPanelId}
+          railSortTarget={railSortTarget}
+          railButtonRefs={railButtonRefs}
+          onUndock={undock}
+          onHide={hide}
+          onDock={dock}
+          onRailButtonClick={handleRailButtonClick}
+          onBeginRailDrag={beginRailDrag}
+        />
+      ))}
 
-      {draggedPanelId ? (
-        <div className="workspace-drop-overlay" onDragOver={(event) => event.preventDefault()} onDrop={() => endToolDrag()}>
-          {dockGuides.map(({ area, rect, label }) => renderDockGuide(area, rect, label))}
-          {dragPreview ? (
-            <div
-              className="workspace-drag-preview"
-              style={{
-                left: `${dragPreview.x + 14}px`,
-                top: `${dragPreview.y + 14}px`,
-              }}
-            >
-              {(() => {
-                const Icon = getPanelIcon(dragPreview.panelId)
-                const panel = panelMap[dragPreview.panelId]
-
-                return (
-                  <>
-                    <span className="workspace-drag-preview-icon">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span>{panel?.title ?? dragPreview.panelId}</span>
-                  </>
-                )
-              })()}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <WorkspaceDragOverlay
+        draggedPanelId={draggedPanelId}
+        dockGuides={dockGuides}
+        dragDockTarget={dragDockTarget}
+        dragPreview={dragPreview}
+        panelMap={panelMap}
+        onDragDockTargetChange={setDragDockTarget}
+        onDropToDock={dropToDock}
+        onEndToolDrag={endToolDrag}
+      />
 
       {(['left', 'right', 'bottom'] as const).map((rail) => {
         const resizer = geometry.edgeResizers[rail]
@@ -1355,145 +1132,24 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
           panelState.mode === 'docked' && (panel.hideDockHeader || panelState.dock !== 'center' || panel.id === 'viewport')
 
         return (
-          <section
+          <WorkspacePanelShell
             key={panel.id}
-            className={cx(
-              'workspace-panel-shell',
-              panel.shellClassName,
-              panelState.mode === 'floating' ? 'workspace-panel-floating' : 'workspace-panel-docked',
-            )}
-            style={{
-              left: `${rect.x}px`,
-              top: `${rect.y}px`,
-              width: `${rect.width}px`,
-              height: `${rect.height}px`,
-              visibility: hideWhileDragging ? 'hidden' : 'visible',
-              pointerEvents: hideWhileDragging ? 'none' : undefined,
-              zIndex:
-                panelState.mode === 'floating'
-                  ? 30 + panelState.zIndex
-                  : panelState.dock === 'center'
-                    ? 4
-                    : panelState.dock.startsWith('bottom')
-                      ? 11
-                      : 12,
-            }}
-            onPointerDown={() => {
-              if (panelState.mode === 'floating') {
-                bringToFront(panel.id)
-              }
-            }}
+            panel={panel}
+            panelState={panelState}
+            rect={rect}
+            hideWhileDragging={hideWhileDragging}
+            hideDockHeader={hideDockHeader}
+            onBringToFront={bringToFront}
+            onBeginMove={beginMove}
+            onBeginRailDrag={beginRailDrag}
+            onStopHeaderDrag={stopHeaderDrag}
+            onDock={dock}
+            onUndock={undock}
+            onHide={hide}
+            onRestoreToSidebar={restoreToSidebar}
+            onCollapseDockedPanel={collapseDockedPanel}
+            onBeginFloatResize={beginFloatResize}
           >
-            {!hideDockHeader ? (
-              <ToolWindowMenu onFloat={() => undock(panel.id)} onHide={() => hide(panel.id)} onDock={(area) => dock(panel.id, area)}>
-                <header className="workspace-panel-header" onPointerDown={(event) => beginMove(panel.id, event)}>
-                  <div className="workspace-panel-header-main flex min-w-0 items-center gap-2">
-                    <div
-                      className="workspace-panel-grip cursor-grab active:cursor-grabbing"
-                      onPointerDown={
-                        panelState.mode === 'floating'
-                          ? (event) => {
-                              event.stopPropagation()
-                              beginRailDrag(panel.id, event, 'floating')
-                            }
-                          : undefined
-                      }
-                    >
-                      <Grip className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="workspace-panel-labels min-w-0">
-                      <p className="workspace-panel-title">{panel.title}</p>
-                      <p className="workspace-panel-subtitle">{panel.subtitle}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1" data-panel-no-drag="true" onPointerDown={stopHeaderDrag}>
-                      {panelState.mode !== 'floating' ? (
-                        <>
-                          <span className="workspace-panel-mode-pill" title={getDockLabel(panelState.dock)}>
-                            {getDockLabel(panelState.dock)}
-                          </span>
-                          <button
-                            type="button"
-                            className="workspace-panel-action"
-                            data-panel-no-drag="true"
-                            onPointerDown={stopHeaderDrag}
-                            onClick={() => dock(panel.id, 'left-top')}
-                            title="Dock left"
-                          >
-                            <PanelLeft className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            className="workspace-panel-action"
-                            data-panel-no-drag="true"
-                            onPointerDown={stopHeaderDrag}
-                            onClick={() => dock(panel.id, 'right-top')}
-                            title="Dock right"
-                          >
-                            <PanelRight className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            className="workspace-panel-action"
-                            data-panel-no-drag="true"
-                            onPointerDown={stopHeaderDrag}
-                            onClick={() => dock(panel.id, 'bottom-left')}
-                            title="Dock bottom"
-                          >
-                            <PanelBottom className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            className="workspace-panel-action"
-                            data-panel-no-drag="true"
-                            onPointerDown={stopHeaderDrag}
-                            onClick={() => dock(panel.id, 'center')}
-                            title="Dock center"
-                          >
-                            <Pin className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            className="workspace-panel-action"
-                            data-panel-no-drag="true"
-                            onPointerDown={stopHeaderDrag}
-                            onClick={() => undock(panel.id)}
-                            title="Float window"
-                          >
-                            <SquareDashedMousePointer className="h-3.5 w-3.5" />
-                          </button>
-                        </>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="workspace-panel-action"
-                        data-panel-no-drag="true"
-                        onPointerDown={stopHeaderDrag}
-                        onClick={() =>
-                          panelState.mode === 'floating'
-                            ? restoreToSidebar(panel.id)
-                            : panelState.dock !== 'center'
-                              ? collapseDockedPanel(panel.id)
-                              : hide(panel.id)
-                        }
-                        title={
-                          panelState.mode === 'floating'
-                            ? 'Restore to sidebar'
-                            : panelState.dock !== 'center'
-                              ? 'Collapse to sidebar'
-                              : 'Hide'
-                        }
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </header>
-              </ToolWindowMenu>
-            ) : null}
-
             <div
               ref={(node) => {
                 panelContentRefs.current[panel.id] = node
@@ -1503,11 +1159,7 @@ export const WorkspaceLayout = forwardRef<WorkspaceLayoutHandle, WorkspaceLayout
             >
               {panel.content}
             </div>
-
-            {panelState.mode === 'floating' ? (
-              <div className="workspace-float-resizer" onPointerDown={(event) => beginFloatResize(panel.id, event)} />
-            ) : null}
-          </section>
+          </WorkspacePanelShell>
         )
       })}
     </div>
