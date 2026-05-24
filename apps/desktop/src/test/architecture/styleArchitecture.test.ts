@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { basename, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const STYLES_DIR = resolve(process.cwd(), 'src/styles')
@@ -21,6 +21,20 @@ async function listCssFiles(directory: string): Promise<string[]> {
   )
 
   return nested.flat()
+}
+
+async function readCssWithImports(filePath: string): Promise<string> {
+  const source = await readFile(filePath, 'utf8')
+  const importMatches = Array.from(source.matchAll(/@import\s+"(?<path>[^"]+)";/g))
+  if (!importMatches.length) {
+    return source
+  }
+
+  const importedSources = await Promise.all(
+    importMatches.map((match) => readCssWithImports(join(dirname(filePath), match.groups?.path ?? ''))),
+  )
+
+  return [source, ...importedSources].join('\n')
 }
 
 describe('style architecture', () => {
@@ -53,7 +67,7 @@ describe('style architecture', () => {
   })
 
   it('keeps launcher grid card hover rings inside a padded paint area', async () => {
-    const source = await readFile(join(STYLES_DIR, 'features/launcher/library.css'), 'utf8')
+    const source = await readCssWithImports(join(STYLES_DIR, 'features/launcher/library.css'))
 
     expect(source).toMatch(/\.launcher-library-grid-reveal\s*\{[^}]*padding:\s*6px;/s)
     expect(source).toMatch(/\.launcher-library-grid-reveal\s*\{[^}]*margin:\s*-6px;/s)

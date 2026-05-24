@@ -1,0 +1,56 @@
+@layer components {
+  @media (max-width: 960px) {
+    .launcher-library-console,
+    .launcher-library-edit-bar {
+      padding: 18px;
+    }
+
+    .launcher-library-shell {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-library-grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+  }
+
+  @media (max-width: 720px) {
+    .launcher-library-shell {
+      --launcher-library-sidebar-width: 220px;
+    }
+
+    .launcher-library-sidebar {
+      width: 220px;
+    }
+
+    .launcher-library-sidebar-open {
+      width: 220px;
+    }
+
+    .launcher-library-content {
+      padding: 12px;
+    }
+
+    .launcher-library-search {
+      min-width: 0;
+      max-width: none;
+      width: 100%;
+    }
+
+    .launcher-library-console-actions,
+    .launcher-library-console-left,
+    .launcher-library-console-right,
+    .launcher-library-edit-bar-right {
+      width: 100%;
+    }
+
+    .launcher-library-secondary-action,
+    .launcher-library-primary-action,
+    .launcher-library-pack-trigger,
+    .launcher-library-sort-trigger,
+    .launcher-library-sort-field {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
