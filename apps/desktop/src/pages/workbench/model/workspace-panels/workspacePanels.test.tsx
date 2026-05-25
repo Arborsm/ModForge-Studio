@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
+import { localeBundles } from '@locales'
 import { getModWorkspaceCopy } from '@locales/editor-shell'
 import { createDefaultContentPatcherSimulationContext } from '../../workspaces/mod'
 import type { BuildingTextureAssetState } from '../../workspaces/building'
@@ -17,6 +18,7 @@ type BuildOptions = Parameters<typeof buildWorkspacePanels>[0]
 const noop = vi.fn()
 const copy = editorCopy['en-US']
 const modWorkspaceCopy = getModWorkspaceCopy('en-US')
+const modI18nCopy = localeBundles['en-US'].modI18n
 
 function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
   return {
@@ -156,6 +158,7 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     onSelectItem: noop,
     onSelectModItem: noop,
     modWorkspaceCopy,
+    modI18nCopy,
     modPluginDefinition: null,
     modProjects: [],
     filteredModProjects: [],
@@ -204,6 +207,16 @@ function buildOptions(overrides: Partial<BuildOptions> = {}): BuildOptions {
     contentPatcherResultLoading: false,
     contentPatcherResultError: null,
     simulationContext: createDefaultContentPatcherSimulationContext(),
+    modI18nFiles: [],
+    modI18nSourceLocale: 'default',
+    modI18nTargetLocale: 'zh-CN',
+    modI18nQuery: '',
+    modI18nStatusFilter: 'all',
+    onModI18nSourceLocaleChange: noop,
+    onModI18nTargetLocaleChange: noop,
+    onModI18nQueryChange: noop,
+    onModI18nStatusFilterChange: noop,
+    onModI18nFilesChange: noop,
     onModManifestFieldChange: noop,
     onModManifestTextChange: noop,
     onModContentTextChange: noop,
@@ -390,6 +403,7 @@ describe('workspacePanels mode builders', () => {
             dynamicTokenCount: 0,
             configKeys: [],
             hasI18n: false,
+            i18nFiles: [],
             patches: [],
           },
         },
@@ -487,6 +501,15 @@ describe('buildWorkspacePanels', () => {
     )
   })
 
+  it('locks panel ids and docks for mod i18n mode next to the project browser', () => {
+    const panels = buildWorkspacePanels(buildOptions({ workspaceMode: 'mod-i18n' }))
+
+    expectPanelLayout(panels, ['mod-i18n-projects', 'mod-i18n-workspace'], {
+      'mod-i18n-projects': 'left-top',
+      'mod-i18n-workspace': 'center',
+    })
+  })
+
   it('does not render canvas-era content patcher inspector text in mods mode', () => {
     const panels = buildModsWorkspacePanels(
       buildOptions({
@@ -522,6 +545,7 @@ describe('buildWorkspacePanels', () => {
             dynamicTokenCount: 0,
             configKeys: [],
             hasI18n: false,
+            i18nFiles: [],
             patches: [],
           },
         },

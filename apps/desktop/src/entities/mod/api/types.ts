@@ -51,7 +51,17 @@ export type ContentPatcherProjectData = {
   dynamicTokenCount: number
   configKeys: string[]
   hasI18n: boolean
+  i18nFiles: ContentPatcherI18nFile[]
   patches: ContentPatcherPatchSummary[]
+}
+
+/** One editable Content Patcher i18n JSON file under a mod project's i18n folder. */
+export type ContentPatcherI18nFile = {
+  locale: string
+  path: string
+  relativePath: string
+  rawJson: string
+  entryCount: number
 }
 
 /** Full mod project payload with plugin-specific editable data when supported. */
@@ -265,6 +275,10 @@ export type SaveModProjectRequest = {
   outputPath?: string | null
   manifestJson: string
   contentJson: string
+  i18nFiles?: Array<{
+    locale: string
+    rawJson: string
+  }>
 }
 
 /** Paths and diagnostics returned after saving a mod project. */

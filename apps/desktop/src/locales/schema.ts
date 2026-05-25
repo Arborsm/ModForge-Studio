@@ -1,6 +1,6 @@
 export type LocaleCode = 'zh-CN' | 'en-US'
 export type ThemeMode = 'dark' | 'light'
-export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
+export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'mod-i18n' | 'events'
 export type WorkspaceMode = CoreWorkspaceMode | 'mods'
 export type AppMode = 'workbench' | 'launcher'
 export type LauncherPage = 'library' | 'discover' | 'updates' | 'configuration'
@@ -1680,7 +1680,7 @@ export type EditorCopy = {
   charactersPanel: CharactersPanelCopy
   buildingsPanel: BuildingsPanelCopy
   itemsPanel: ItemsPanelCopy
-  moduleBlueprints: Record<Exclude<CoreWorkspaceMode, 'map'>, ModuleBlueprint>
+  moduleBlueprints: Record<Exclude<CoreWorkspaceMode, 'map' | 'mod-i18n'>, ModuleBlueprint>
 }
 
 export type ModWorkspaceCopy = {
@@ -1771,6 +1771,30 @@ export type ModWorkspaceCopy = {
   scanStatus: (count: number) => string
 }
 
+export type ModI18nWorkspaceCopy = {
+  workspaceLabel: string
+  workspaceSubtitle: string
+  noProject: string
+  noI18n: string
+  projectLabel: string
+  fileLabel: string
+  sourceLabel: string
+  targetLabel: string
+  searchPlaceholder: string
+  allStatus: string
+  translatedStatus: string
+  missingStatus: string
+  emptyStatus: string
+  errorStatus: string
+  saveTranslations: string
+  addLocale: string
+  newLocalePrompt: string
+  progressLabel: string
+  entriesLabel: (count: number) => string
+  missingTokens: (tokens: string) => string
+  invalidJson: string
+}
+
 export type NotificationCopy = {
   viewportLabel: string
   dismissLabel: string
@@ -1781,6 +1805,7 @@ export type NotificationCopy = {
 export type LocaleBundle = {
   editor: EditorCopy
   mods: ModWorkspaceCopy
+  modI18n: ModI18nWorkspaceCopy
   notifications: NotificationCopy
   viewMenu: ViewMenuCopy
   settingsMenu: SettingsMenuCopy

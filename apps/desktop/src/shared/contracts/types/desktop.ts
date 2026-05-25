@@ -73,7 +73,16 @@ export type ContentPatcherProjectData = {
   dynamicTokenCount: number
   configKeys: string[]
   hasI18n: boolean
+  i18nFiles: ContentPatcherI18nFile[]
   patches: ContentPatcherPatchSummary[]
+}
+
+export type ContentPatcherI18nFile = {
+  locale: string
+  path: string
+  relativePath: string
+  rawJson: string
+  entryCount: number
 }
 
 export type ModProjectDetail = {

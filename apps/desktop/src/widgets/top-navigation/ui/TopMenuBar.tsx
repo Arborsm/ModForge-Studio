@@ -4,6 +4,7 @@ import {
   GitMerge,
   LayoutDashboard,
   Library,
+  Languages,
   Map,
   Minus,
   Moon,
@@ -80,6 +81,7 @@ const MODULE_ICONS: Record<WorkspaceMode, typeof Map> = {
   characters: Users,
   buildings: Castle,
   items: Package,
+  'mod-i18n': Languages,
   events: GitMerge,
   mods: Library,
 } satisfies Record<WorkspaceMode, typeof Map>
@@ -122,7 +124,7 @@ export default function TopMenuBar({
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
-  const orderedNavModes: WorkspaceMode[] = ['mods', 'map', 'events', 'characters', 'buildings', 'items']
+  const orderedNavModes: WorkspaceMode[] = ['mods', 'map', 'events', 'characters', 'buildings', 'items', 'mod-i18n']
   const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map(
     (mode) => [mode, getWorkspaceModeLabel(locale, copy, mode)] as const,
   )
@@ -484,4 +486,4 @@ export default function TopMenuBar({
   )
 }
 
-const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
+const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n', 'mods']

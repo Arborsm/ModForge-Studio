@@ -1,5 +1,6 @@
 import type {
   ContentPatcherProjectSnapshot,
+  ContentPatcherI18nFile,
   ContentPatcherSimulationResult,
   LoadContentPatcherResultAssetResult,
   ModProjectDetail,
@@ -7,9 +8,11 @@ import type {
   SaveModProjectResult,
 } from '@shared/contracts'
 import type { ContentPatcherBackendSimulationContext, WorkspacePluginDefinition } from '../../workspaces/mod'
+import type { ModI18nStatusFilter } from '../../workspaces/mod-i18n'
 
 export type BuildModsWorkspacePanelsOptions = {
   modWorkspaceCopy: import('@locales').ModWorkspaceCopy
+  modI18nCopy: import('@locales').ModI18nWorkspaceCopy
   modPluginDefinition: WorkspacePluginDefinition | null
   gameRootPath: string | null
   modProjects: ModProjectSummary[]
@@ -76,6 +79,16 @@ export type BuildModsWorkspacePanelsOptions = {
   contentPatcherResultLoading: boolean
   contentPatcherResultError: string | null
   simulationContext: ContentPatcherBackendSimulationContext
+  modI18nFiles: ContentPatcherI18nFile[]
+  modI18nSourceLocale: string
+  modI18nTargetLocale: string
+  modI18nQuery: string
+  modI18nStatusFilter: ModI18nStatusFilter
+  onModI18nSourceLocaleChange: (locale: string) => void
+  onModI18nTargetLocaleChange: (locale: string) => void
+  onModI18nQueryChange: (value: string) => void
+  onModI18nStatusFilterChange: (status: ModI18nStatusFilter) => void
+  onModI18nFilesChange: (files: ContentPatcherI18nFile[]) => void
   navigatorMode: 'patches' | 'targets'
   selectedTargetPath: string | null
   onNavigatorModeChange: (mode: 'patches' | 'targets') => void

@@ -8,6 +8,7 @@ import {
   type ThemeMode,
   type WorkspaceMode,
 } from '@locales/editor-shell'
+import { localeBundles } from '@locales'
 import { useEventWorkspace } from '../workspaces/event-stage'
 import { useMapWorkspace } from '../workspaces/map'
 import { useCharacterWorkspace } from '../workspaces/character'
@@ -15,6 +16,7 @@ import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWo
 import { useItemWorkspace } from '../workspaces/item'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useModWorkspace } from '../workspaces/mod'
+import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'
 import { useCpMaker, getEditModeRoute, buildStudioDeskModel } from '@features/cp-maker'
 import { buildWorkspacePanels } from '../model/workspace-panels/buildWorkspacePanels'
 import StatusBar from '@widgets/status-bar'
@@ -94,6 +96,10 @@ export default function WorkbenchExperience({
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
+  const [modI18nSourceLocale, setModI18nSourceLocale] = useState('default')
+  const [modI18nTargetLocale, setModI18nTargetLocale] = useState('zh-CN')
+  const [modI18nQuery, setModI18nQuery] = useState('')
+  const [modI18nStatusFilter, setModI18nStatusFilter] = useState<ModI18nStatusFilter>('all')
   const { activeEditPatchId, navigateToPatch, goBack, goForward, resetNavigation, canGoBack, canGoForward } = useEditModeNavigation(
     workspaceViewMode === 'edit',
   )
@@ -400,6 +406,8 @@ export default function WorkbenchExperience({
     contentPatcherResultLoading,
     contentPatcherResultError,
     simulationContext,
+    i18nFiles: modI18nFiles,
+    setI18nFiles: setModI18nFiles,
     navigatorMode,
     setNavigatorMode,
     selectedTargetPath,
@@ -427,6 +435,7 @@ export default function WorkbenchExperience({
   })
 
   const cpMaker = useCpMaker()
+  const modI18nCopy = localeBundles[locale].modI18n
   useWorkbenchCommandIntent({
     pendingIntent: pendingWorkbenchIntent,
     cpMaker,
@@ -451,7 +460,9 @@ export default function WorkbenchExperience({
   const editModeView = getWorkbenchViewRegistration(editModeRoute)
 
   const moduleBlueprint =
-    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
+    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' || workspaceMode === 'mod-i18n'
+      ? undefined
+      : copy.moduleBlueprints[workspaceMode]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const needsInitialization = !directoryInfo
   const interactionLocked = resourcePreloadState.active
@@ -517,6 +528,23 @@ export default function WorkbenchExperience({
   useEffect(() => {
     resetNavigation()
   }, [resetNavigation, workspaceMode])
+
+  const modI18nLocales = useMemo(() => modI18nFiles.map((file) => file.locale), [modI18nFiles])
+  const normalizedModI18nSourceLocale = modI18nLocales.includes(modI18nSourceLocale)
+    ? modI18nSourceLocale
+    : modI18nLocales.includes('default')
+      ? 'default'
+      : (modI18nLocales[0] ?? 'default')
+  const normalizedModI18nTargetLocale = modI18nLocales.includes(modI18nTargetLocale)
+    ? modI18nTargetLocale
+    : (modI18nLocales.find((candidate) => candidate !== normalizedModI18nSourceLocale) ?? normalizedModI18nSourceLocale)
+
+  const handleModI18nSourceLocaleChange = useCallback((nextLocale: string) => {
+    setModI18nSourceLocale(nextLocale)
+  }, [])
+  const handleModI18nTargetLocaleChange = useCallback((nextLocale: string) => {
+    setModI18nTargetLocale(nextLocale)
+  }, [])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -705,6 +733,7 @@ export default function WorkbenchExperience({
     onSelectItem: handleSelectItem,
     onSelectModItem: handleSelectModItem,
     modWorkspaceCopy,
+    modI18nCopy,
     modPluginDefinition,
     modProjects,
     filteredModProjects,
@@ -738,6 +767,16 @@ export default function WorkbenchExperience({
     contentPatcherResultLoading,
     contentPatcherResultError,
     simulationContext,
+    modI18nFiles,
+    modI18nSourceLocale: normalizedModI18nSourceLocale,
+    modI18nTargetLocale: normalizedModI18nTargetLocale,
+    modI18nQuery,
+    modI18nStatusFilter,
+    onModI18nSourceLocaleChange: handleModI18nSourceLocaleChange,
+    onModI18nTargetLocaleChange: handleModI18nTargetLocaleChange,
+    onModI18nQueryChange: setModI18nQuery,
+    onModI18nStatusFilterChange: setModI18nStatusFilter,
+    onModI18nFilesChange: setModI18nFiles,
     navigatorMode,
     selectedTargetPath,
     onNavigatorModeChange: setNavigatorMode,

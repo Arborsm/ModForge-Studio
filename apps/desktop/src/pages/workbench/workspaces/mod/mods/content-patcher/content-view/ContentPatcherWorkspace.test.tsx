@@ -54,6 +54,7 @@ function buildProps(): ComponentProps<typeof ContentPatcherWorkspace> {
         dynamicTokenCount: 0,
         configKeys: [],
         hasI18n: false,
+        i18nFiles: [],
         patches: [],
       },
     },

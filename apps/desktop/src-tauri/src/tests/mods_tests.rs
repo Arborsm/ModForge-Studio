@@ -322,6 +322,41 @@ fn load_mod_project_returns_patch_summary_and_diagnostics() {
 }
 
 #[test]
+fn load_mod_project_returns_i18n_translation_files() {
+    let root = create_temp_dir("mods-load-i18n");
+    let project = root.join("ExamplePack");
+    write_file(&project.join("manifest.json"), sample_manifest());
+    write_file(&project.join("content.json"), sample_content());
+    write_file(
+        &project.join("i18n").join("default.json"),
+        r#"{
+  "ui.delete": "Delete {{itemName}}?",
+  "ui.save": "Save"
+}"#,
+    );
+    write_file(
+        &project.join("i18n").join("zh-CN.json"),
+        r#"{
+  "ui.delete": "删除 {{itemName}}？"
+}"#,
+    );
+
+    let detail =
+        load_mod_project(project.to_string_lossy().into_owned()).expect("load mod project");
+    let cp = detail.content_patcher.expect("content patcher payload");
+
+    assert!(cp.has_i18n);
+    assert_eq!(cp.i18n_files.len(), 2);
+    assert_eq!(cp.i18n_files[0].locale, "default");
+    assert_eq!(cp.i18n_files[0].entry_count, 2);
+    assert!(cp.i18n_files[0].raw_json.contains("ui.delete"));
+    assert_eq!(cp.i18n_files[1].locale, "zh-CN");
+    assert_eq!(cp.i18n_files[1].entry_count, 1);
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn save_mod_project_exports_and_preserves_other_files() {
     let root = create_temp_dir("mods-save");
     let source = root.join("SourcePack");
@@ -336,6 +371,7 @@ fn save_mod_project_exports_and_preserves_other_files() {
         output_path: Some(export.to_string_lossy().into_owned()),
         manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
         content_json: sample_content().replace("spring", "summer"),
+        i18n_files: vec![],
     };
 
     let result = save_mod_project(request).expect("save mod project");
@@ -348,6 +384,45 @@ fn save_mod_project_exports_and_preserves_other_files() {
     assert!(exported_manifest.contains("Exported Pack"));
     assert!(exported_content.contains("summer"));
     assert_eq!(result.target_path, export.to_string_lossy());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_project_writes_requested_i18n_files() {
+    let root = create_temp_dir("mods-save-i18n");
+    let source = root.join("SourcePack");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    write_file(
+        &source.join("i18n").join("default.json"),
+        r#"{"ui.save":"Save"}"#,
+    );
+
+    let request = SaveModProjectRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        output_path: None,
+        manifest_json: sample_manifest().to_string(),
+        content_json: sample_content().to_string(),
+        i18n_files: vec![
+            super::ContentPatcherI18nFileInput {
+                locale: "default".to_string(),
+                raw_json: r#"{"ui.save":"Save now"}"#.to_string(),
+            },
+            super::ContentPatcherI18nFileInput {
+                locale: "zh-CN".to_string(),
+                raw_json: r#"{"ui.save":"立即保存"}"#.to_string(),
+            },
+        ],
+    };
+
+    save_mod_project(request).expect("save mod project");
+
+    let default_json =
+        fs::read_to_string(source.join("i18n").join("default.json")).expect("read default i18n");
+    let zh_json = fs::read_to_string(source.join("i18n").join("zh-CN.json")).expect("read zh i18n");
+    assert!(default_json.contains("Save now"));
+    assert!(zh_json.contains("立即保存"));
 
     fs::remove_dir_all(root).expect("cleanup");
 }

@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   type ContentPatcherPatchSummary,
+  type ContentPatcherI18nFile,
   type ContentPatcherProjectSnapshot,
   type ContentPatcherSimulationResult,
   loadContentPatcherProject,
@@ -169,6 +170,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   const [contentPatcherResultLoading, setContentPatcherResultLoading] = useState(false)
   const [contentPatcherResultError, setContentPatcherResultError] = useState<string | null>(null)
   const [simulationContext, setSimulationContext] = useState<ContentPatcherBackendSimulationContext>(createDefaultSimulationContext)
+  const [i18nFiles, setI18nFiles] = useState<ContentPatcherI18nFile[]>([])
   const deferredFilter = useDeferredValue(modFilter.trim().toLowerCase())
 
   const filteredModProjects = useMemo(
@@ -236,8 +238,19 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       return false
     }
 
+    const originalI18nByLocale = new Map((source.i18nFiles ?? []).map((file) => [file.locale, file.rawJson.trimEnd()]))
+    const currentI18nByLocale = new Map(i18nFiles.map((file) => [file.locale, file.rawJson.trimEnd()]))
+    if (originalI18nByLocale.size !== currentI18nByLocale.size) {
+      return true
+    }
+    for (const [locale, rawJson] of currentI18nByLocale) {
+      if (originalI18nByLocale.get(locale) !== rawJson) {
+        return true
+      }
+    }
+
     return manifestEditor.text.trimEnd() !== source.manifestJson.trimEnd() || contentEditor.text.trimEnd() !== source.contentJson.trimEnd()
-  }, [contentEditor.text, manifestEditor.text, projectDetail?.contentPatcher])
+  }, [contentEditor.text, i18nFiles, manifestEditor.text, projectDetail?.contentPatcher])
 
   const canPersist = Boolean(projectDetail?.contentPatcher && !manifestEditor.error && !contentEditor.error && !patchWhenError)
 
@@ -262,6 +275,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setContentPatcherResultLoading(false)
         setContentPatcherResultError(null)
         setSimulationContext(createDefaultSimulationContext())
+        setI18nFiles([])
       })
     }
 
@@ -306,6 +320,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setContentPatcherResultLoading(false)
         setContentPatcherResultError(null)
         setSimulationContext(createDefaultSimulationContext())
+        setI18nFiles([])
       })
     }
 
@@ -323,6 +338,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         const contentJson = detail.contentPatcher?.contentJson ?? '{\n  "Changes": []\n}\n'
         setManifestEditor(normalizeEditorState(manifestJson))
         setContentEditor(normalizeEditorState(contentJson))
+        setI18nFiles(detail.contentPatcher?.i18nFiles ?? [])
         setPatchWhenError(null)
         setNavigatorMode('patches')
         setSelectedTargetPath(null)
@@ -345,6 +361,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
           setContentPatcherResultLoading(false)
           setContentPatcherResultError(null)
           setStatusMessage(error instanceof Error ? error.message : String(error))
+          setI18nFiles([])
         }
       })
 
@@ -672,6 +689,10 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         outputPath,
         manifestJson: manifestEditor.text,
         contentJson: contentEditor.text,
+        i18nFiles: i18nFiles.map((file) => ({
+          locale: file.locale,
+          rawJson: file.rawJson,
+        })),
       })
       setLastSaveResult(result)
 
@@ -681,6 +702,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         setModProjects((current) => upsertProject(current, refreshed.summary))
         setManifestEditor(normalizeEditorState(refreshed.contentPatcher?.manifestJson ?? '{}\n'))
         setContentEditor(normalizeEditorState(refreshed.contentPatcher?.contentJson ?? '{\n  "Changes": []\n}\n'))
+        setI18nFiles(refreshed.contentPatcher?.i18nFiles ?? [])
         setStatusMessage(copy.saveSuccess(result.targetPath))
         reportAppEvent({
           level: 'success',
@@ -844,6 +866,8 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     contentPatcherResultLoading,
     contentPatcherResultError,
     simulationContext,
+    i18nFiles,
+    setI18nFiles,
     navigatorMode,
     setNavigatorMode,
     selectedTargetPath,

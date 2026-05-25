@@ -80,6 +80,22 @@ describe('TopMenuBar', () => {
     expect(inactiveModule.getAttribute('aria-current')).toBeNull()
   })
 
+  it('places the translations workspace next to items in the workbench module navigation', () => {
+    const props = buildProps()
+    renderWithLocale(<TopMenuBar {...props} />)
+
+    const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
+    const labels = within(moduleNav)
+      .getAllByRole('link')
+      .map((item) => item.textContent?.trim())
+
+    expect(labels).toEqual(['Mods', 'Map', 'Events', 'Characters', 'Buildings', 'Items', 'Translations'])
+
+    fireEvent.click(within(moduleNav).getByRole('link', { name: 'Translations' }))
+
+    expect(props.onWorkspaceChange).toHaveBeenCalledWith('mod-i18n')
+  })
+
   it('disables workspace module navigation while no project is open', () => {
     const props = buildProps({
       workspaceNavigationDisabled: true,
