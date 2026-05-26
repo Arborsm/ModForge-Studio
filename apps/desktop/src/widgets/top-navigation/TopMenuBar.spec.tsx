@@ -66,58 +66,27 @@ describe('TopMenuBar', () => {
     cleanup()
   })
 
-  it('labels the workspace module navigation and marks the active module', () => {
+  it('removes workbench module navigation and launchpad trigger from the title bar', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
 
-    const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
-    const gooeyNav = container.querySelector('.top-menu-gooey-nav')
-
-    const activeModule = within(moduleNav).getByRole('link', { name: copy.nav.map })
-    const inactiveModule = within(moduleNav).getByRole('link', { name: copy.nav.characters })
-
-    expect(gooeyNav?.getAttribute('data-variant')).toBe('dark')
-    expect(activeModule.getAttribute('aria-current')).toBe('page')
-    expect(inactiveModule.getAttribute('aria-current')).toBeNull()
+    expect(screen.queryByRole('navigation', { name: copy.center.moduleWorkspace })).toBeNull()
+    expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.openLaunchpad })).toBeNull()
   })
 
-  it('places the translations workspace next to items in the workbench module navigation', () => {
+  it('does not route workspace changes from the title bar module navigation anymore', () => {
     const props = buildProps()
     renderWithLocale(<TopMenuBar {...props} />)
 
-    const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
-    const labels = within(moduleNav)
-      .getAllByRole('link')
-      .map((item) => item.textContent?.trim())
-
-    expect(labels).toEqual(['Mods', 'Map', 'Events', 'Characters', 'Buildings', 'Items', 'Translations'])
-
-    fireEvent.click(within(moduleNav).getByRole('link', { name: 'Translations' }))
-
-    expect(props.onWorkspaceChange).toHaveBeenCalledWith('mod-i18n')
-  })
-
-  it('disables workspace module navigation while no project is open', () => {
-    const props = buildProps({
-      workspaceNavigationDisabled: true,
-    })
-    renderWithLocale(<TopMenuBar {...props} />)
-
-    const moduleNav = screen.getByRole('navigation', { name: copy.center.moduleWorkspace })
-    const charactersLink = within(moduleNav).getByRole('link', { name: copy.nav.characters })
-
-    expect(charactersLink.getAttribute('aria-disabled')).toBe('true')
-
-    fireEvent.click(charactersLink)
-
+    expect(screen.queryByRole('link', { name: 'Translations' })).toBeNull()
     expect(props.onWorkspaceChange).not.toHaveBeenCalled()
   })
 
-  it('uses the light GooeyNav variant when the shell theme is light', () => {
+  it('keeps the workbench title bar free of navigation controls when the shell theme is light', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps({ theme: 'light' })} />)
 
-    const gooeyNav = container.querySelector('.top-menu-gooey-nav')
-
-    expect(gooeyNav?.getAttribute('data-variant')).toBe('light')
+    expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()
+    expect(screen.queryByRole('button', { name: copy.workbenchNavigation.openLaunchpad })).toBeNull()
   })
 
   it('opens the view menu with expanded state and a labeled menu', () => {

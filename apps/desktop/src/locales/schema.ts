@@ -1101,6 +1101,36 @@ export type EditorCopy = {
     moduleCanvas: string
     moduleInspector: string
   }
+  workbenchNavigation: {
+    openLaunchpad: string
+    closeLaunchpad: string
+    title: string
+    eyebrow: string
+    subtitle: string
+    searchPlaceholder: string
+    rootPages: string
+    rootPagesHint: string
+    projectChildren: string
+    projectChildrenReady: string
+    projectChildrenDisabled: string
+    currentPage: string
+    rootPage: string
+    projectChild: string
+    needsProject: string
+    pluginTools: string
+    pluginToolsDescription: string
+    pluginToolsHint: string
+    recentPages: string
+    home: string
+    projectLobby: string
+    chooseProjectTitle: string
+    cancelProjectSelection: string
+    mapMaking: string
+    eventMaking: string
+    itemMaking: string
+    exportCenter: string
+    exportCenterDescription: string
+  }
   rightDock: {
     title: string
     subtitle: string

@@ -28,6 +28,7 @@ type WorkbenchViewHostProps = {
   onSetWorkspaceViewMode: (mode: 'edit' | 'preview') => void
   studioDeskGalleryOpen: boolean
   onStudioDeskGalleryOpenChange: (open: boolean) => void
+  studioDeskCreateDialogOpenSignal: number
   activeEditPatchId: string | null
 }
 
@@ -51,6 +52,7 @@ export function WorkbenchViewHost({
   onSetWorkspaceViewMode,
   studioDeskGalleryOpen,
   onStudioDeskGalleryOpenChange,
+  studioDeskCreateDialogOpenSignal,
   activeEditPatchId,
 }: WorkbenchViewHostProps) {
   return (
@@ -131,6 +133,7 @@ export function WorkbenchViewHost({
             isLoading: cpMaker.draftLoading,
             galleryOpen: studioDeskGalleryOpen,
             onGalleryOpenChange: onStudioDeskGalleryOpenChange,
+            createDialogOpenSignal: studioDeskCreateDialogOpenSignal,
           })}
         </LoadingMotionReveal>
       ) : editModeView?.viewId === 'workspace-editor' ? (

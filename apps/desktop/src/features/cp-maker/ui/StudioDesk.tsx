@@ -31,6 +31,7 @@ export type StudioDeskProps = {
   isLoading: boolean
   galleryOpen?: boolean
   onGalleryOpenChange?: (open: boolean) => void
+  createDialogOpenSignal?: number
 }
 
 export function StudioDesk({
@@ -47,15 +48,21 @@ export function StudioDesk({
   isLoading,
   galleryOpen: controlledGalleryOpen,
   onGalleryOpenChange,
+  createDialogOpenSignal,
 }: StudioDeskProps) {
   const [localGalleryOpen, setLocalGalleryOpen] = useState(true)
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createDialogState, setCreateDialogState] = useState(() => ({
+    open: false,
+    consumedSignal: createDialogOpenSignal ?? 0,
+  }))
   const [exportOpen, setExportOpen] = useState(false)
   const [worldBibleOpen, setWorldBibleOpen] = useState(false)
   const [previewFocus, setPreviewFocus] = useState<StudioDeskInspiration | null>(null)
   const desk = copy.studioDesk
   const worldBibleId = 'studio-world-bible-panel'
   const galleryOpen = controlledGalleryOpen ?? localGalleryOpen
+  const createOpen =
+    createDialogState.open || Boolean(createDialogOpenSignal && createDialogState.consumedSignal !== createDialogOpenSignal)
   const setGalleryOpen = useCallback(
     (open: boolean) => {
       if (controlledGalleryOpen === undefined) {
@@ -65,6 +72,18 @@ export function StudioDesk({
     },
     [controlledGalleryOpen, onGalleryOpenChange],
   )
+  const openCreateDialog = useCallback(() => {
+    setCreateDialogState({
+      open: true,
+      consumedSignal: createDialogOpenSignal ?? 0,
+    })
+  }, [createDialogOpenSignal])
+  const closeCreateDialog = useCallback(() => {
+    setCreateDialogState({
+      open: false,
+      consumedSignal: createDialogOpenSignal ?? 0,
+    })
+  }, [createDialogOpenSignal])
 
   const tagList = desk.designTags.map((tag, index) => (
     <span key={tag}>
@@ -104,7 +123,7 @@ export function StudioDesk({
         <StudioDeskProjectGallery
           model={model}
           copy={copy}
-          onCreateDraftRequest={() => setCreateOpen(true)}
+          onCreateDraftRequest={openCreateDialog}
           onReturnToDesk={() => setGalleryOpen(false)}
           onOpenDraft={(draftStorageKey) => {
             setGalleryOpen(false)
@@ -177,7 +196,7 @@ export function StudioDesk({
             copy={copy}
             inspirations={model.recentInspirations}
             hasActiveDraft={model.hasActiveDraft}
-            onCreateDraft={() => setCreateOpen(true)}
+            onCreateDraft={openCreateDialog}
             onCreatePatch={onCreatePatch}
             onOpenPatch={onOpenPatch}
             onPreviewFocusChange={setPreviewFocus}
@@ -186,7 +205,7 @@ export function StudioDesk({
             copy={copy}
             model={model}
             previewFocus={previewFocus}
-            onCreateDraft={() => setCreateOpen(true)}
+            onCreateDraft={openCreateDialog}
             onOpenWorkspace={onOpenWorkspace}
           />
           <StudioDeskWorldBible
@@ -205,9 +224,9 @@ export function StudioDesk({
       <CreateDraftDialog
         open={createOpen}
         copy={desk.createDialog}
-        onClose={() => setCreateOpen(false)}
+        onClose={closeCreateDialog}
         onCreate={(metadata) => {
-          setCreateOpen(false)
+          closeCreateDialog()
           setGalleryOpen(false)
           void onCreateDraft(metadata)
         }}

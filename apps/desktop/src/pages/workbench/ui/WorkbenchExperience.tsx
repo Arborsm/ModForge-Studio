@@ -29,6 +29,7 @@ import { listKnownGameDirectories } from '@entities/game/api'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchLayoutHost } from './WorkbenchLayoutHost'
+import WorkbenchLaunchpadNavigation from './WorkbenchLaunchpadNavigation'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 import { useEditModeNavigation } from '../model/useEditModeNavigation'
 import { usePlayerAppearanceState } from '../model/usePlayerAppearanceState'
@@ -96,6 +97,7 @@ export default function WorkbenchExperience({
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
+  const [workbenchLaunchpadOpen, setWorkbenchLaunchpadOpen] = useState(false)
   const [modI18nSourceLocale, setModI18nSourceLocale] = useState('default')
   const [modI18nTargetLocale, setModI18nTargetLocale] = useState('zh-CN')
   const [modI18nQuery, setModI18nQuery] = useState('')
@@ -111,6 +113,7 @@ export default function WorkbenchExperience({
     resetNavigation,
   })
   const [studioDeskGalleryOpen, setStudioDeskGalleryOpen] = useState(true)
+  const [studioDeskCreateDialogOpenSignal, setStudioDeskCreateDialogOpenSignal] = useState(0)
 
   const storedRecentGameDirectories = getAppUiStateSnapshot()?.appearance.recentGameDirectories ?? []
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
@@ -835,6 +838,66 @@ export default function WorkbenchExperience({
     [onSwitchToLauncher],
   )
 
+  const handleOpenRootWorkspace = useCallback(
+    (mode: WorkspaceMode) => {
+      if (mode === 'mods') {
+        handleWorkspaceChange(mode)
+        return
+      }
+
+      setWorkspaceViewMode('preview')
+      setWorkspaceMode(mode)
+      void applyAppUiStatePatch({
+        workspace: {
+          workspaceViewMode: 'preview',
+        },
+      })
+    },
+    [handleWorkspaceChange],
+  )
+
+  const handleOpenProjectWorkspace = useCallback(
+    (mode: WorkspaceMode) => {
+      setWorkspaceViewMode('edit')
+      setWorkspaceMode(mode)
+      resetNavigation()
+      void applyAppUiStatePatch({
+        workspace: {
+          workspaceViewMode: 'edit',
+        },
+      })
+    },
+    [resetNavigation],
+  )
+
+  const handleOpenProjectManagement = useCallback(() => {
+    setWorkspaceMode('mods')
+    setWorkspaceViewMode('edit')
+    setStudioDeskGalleryOpen(true)
+    resetNavigation()
+    void applyAppUiStatePatch({
+      workspace: {
+        workspaceViewMode: 'edit',
+      },
+    })
+  }, [resetNavigation])
+
+  const handleOpenProjectCreate = useCallback(() => {
+    handleOpenProjectManagement()
+    setStudioDeskCreateDialogOpenSignal((current) => current + 1)
+  }, [handleOpenProjectManagement])
+
+  const handleSelectProjectForLaunchpad = useCallback(
+    (draftStorageKey: string) => {
+      void cpMaker.loadDraft(draftStorageKey)
+      onWorkbenchEvent({
+        type: 'cp-maker/draft-selected',
+        draftKey: draftStorageKey,
+      })
+    },
+    [cpMaker, onWorkbenchEvent],
+  )
+
   return (
     <div className={active ? 'flex h-full flex-col' : 'hidden'} aria-busy={interactionLocked} aria-hidden={!active}>
       <TopMenuBar
@@ -927,6 +990,7 @@ export default function WorkbenchExperience({
                 onSetWorkspaceViewMode={setWorkspaceViewMode}
                 studioDeskGalleryOpen={studioDeskGalleryOpen}
                 onStudioDeskGalleryOpenChange={setStudioDeskGalleryOpen}
+                studioDeskCreateDialogOpenSignal={studioDeskCreateDialogOpenSignal}
                 activeEditPatchId={activeEditPatchId}
               />
             </LoadingMotionReveal>
@@ -946,6 +1010,20 @@ export default function WorkbenchExperience({
           onClose={needsInitialization ? undefined : () => setProjectOverlayOpen(false)}
         />
       ) : null}
+
+      <WorkbenchLaunchpadNavigation
+        open={workbenchLaunchpadOpen}
+        workspaceMode={workspaceMode}
+        workspaceViewMode={workspaceViewMode}
+        hasActiveProject={Boolean(cpMaker.activeDraft)}
+        projectSummaries={cpMaker.drafts}
+        onOpenChange={setWorkbenchLaunchpadOpen}
+        onRootWorkspaceOpen={handleOpenRootWorkspace}
+        onProjectWorkspaceOpen={handleOpenProjectWorkspace}
+        onProjectManagementOpen={handleOpenProjectManagement}
+        onProjectCreateOpen={handleOpenProjectCreate}
+        onProjectSelect={handleSelectProjectForLaunchpad}
+      />
 
       {workspaceViewMode !== 'edit' ? (
         <StatusBar
