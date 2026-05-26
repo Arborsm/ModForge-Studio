@@ -69,6 +69,7 @@ type WorkbenchExperienceProps = {
   onCloseWindow: () => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
+  workbenchActivationKey?: number
 }
 
 export default function WorkbenchExperience({
@@ -88,16 +89,14 @@ export default function WorkbenchExperience({
   onCloseWindow,
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
+  workbenchActivationKey = 0,
 }: WorkbenchExperienceProps) {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
-  const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>(() => {
-    const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
-    return saved === 'edit' || saved === 'preview' ? saved : 'edit'
-  })
+  const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>('edit')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
-  const [workbenchLaunchpadOpen, setWorkbenchLaunchpadOpen] = useState(false)
+  const [closedWorkbenchLaunchpadKey, setClosedWorkbenchLaunchpadKey] = useState<number | null>(null)
   const [modI18nSourceLocale, setModI18nSourceLocale] = useState('default')
   const [modI18nTargetLocale, setModI18nTargetLocale] = useState('zh-CN')
   const [modI18nQuery, setModI18nQuery] = useState('')
@@ -135,6 +134,13 @@ export default function WorkbenchExperience({
   } = usePlayerAppearanceState(appUiStateReady, locale)
 
   const copy = editorCopy[locale]
+  const workbenchLaunchpadOpen = closedWorkbenchLaunchpadKey !== workbenchActivationKey
+  const setWorkbenchLaunchpadOpen = useCallback(
+    (open: boolean) => {
+      setClosedWorkbenchLaunchpadKey(open ? null : workbenchActivationKey)
+    },
+    [workbenchActivationKey],
+  )
 
   useEffect(() => {
     if (workspaceMode !== 'map') {
@@ -847,11 +853,6 @@ export default function WorkbenchExperience({
 
       setWorkspaceViewMode('preview')
       setWorkspaceMode(mode)
-      void applyAppUiStatePatch({
-        workspace: {
-          workspaceViewMode: 'preview',
-        },
-      })
     },
     [handleWorkspaceChange],
   )
@@ -861,11 +862,6 @@ export default function WorkbenchExperience({
       setWorkspaceViewMode('edit')
       setWorkspaceMode(mode)
       resetNavigation()
-      void applyAppUiStatePatch({
-        workspace: {
-          workspaceViewMode: 'edit',
-        },
-      })
     },
     [resetNavigation],
   )
@@ -875,11 +871,6 @@ export default function WorkbenchExperience({
     setWorkspaceViewMode('edit')
     setStudioDeskGalleryOpen(true)
     resetNavigation()
-    void applyAppUiStatePatch({
-      workspace: {
-        workspaceViewMode: 'edit',
-      },
-    })
   }, [resetNavigation])
 
   const handleOpenProjectCreate = useCallback(() => {

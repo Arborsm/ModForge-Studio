@@ -4,6 +4,8 @@ import WorkbenchExperience from './WorkbenchExperience'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import type { WorkbenchViewRegistration } from '@shared/contracts'
 
+const applyAppUiStatePatchSpy = vi.hoisted(() => vi.fn(() => Promise.resolve()))
+
 vi.mock('@shared/lib/app-state', async () => {
   const actual = await vi.importActual<typeof import('@shared/lib/app-state')>('@shared/lib/app-state')
   return {
@@ -24,7 +26,7 @@ vi.mock('@shared/lib/app-state', async () => {
         },
       },
     })),
-    applyAppUiStatePatch: vi.fn(() => Promise.resolve()),
+    applyAppUiStatePatch: applyAppUiStatePatchSpy,
   }
 })
 
@@ -88,10 +90,23 @@ function renderExperience() {
 }
 
 describe('WorkbenchExperience launchpad navigation', () => {
+  it('opens the launchpad by default without restoring the previous workspace page', () => {
+    renderExperience()
+
+    expect(screen.getByRole('dialog', { name: 'Choose a workbench page' })).toBeTruthy()
+    expect(screen.queryByText('Viewport')).toBeNull()
+  })
+
+  it('opens initialization while no game directory is available', () => {
+    renderExperience()
+
+    expect(screen.getByRole('dialog', { name: 'Choose a workbench page' })).toBeTruthy()
+    expect(screen.getAllByText('Game directory').length).toBeGreaterThan(0)
+  })
+
   it('opens root browse pages in preview mode from the launchpad', async () => {
     renderExperience()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Home' }))
     const dialog = screen.getByRole('dialog', { name: 'Choose a workbench page' })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Map' }))
 
@@ -105,11 +120,10 @@ describe('WorkbenchExperience launchpad navigation', () => {
   it('opens project management from the dock project shortcut', () => {
     renderExperience()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Home' }))
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Choose a workbench page' })).getByRole('button', { name: 'Map' }))
     expect(screen.getByText('Viewport')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Project Lobby' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Project Manager' }))
 
     expect(screen.getByText('studio-desk')).toBeTruthy()
   })
@@ -117,7 +131,6 @@ describe('WorkbenchExperience launchpad navigation', () => {
   it('keeps launchpad making entries clickable when no project is active', () => {
     renderExperience()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Home' }))
     const dialog = screen.getByRole('dialog', { name: 'Choose a workbench page' })
 
     expect(within(dialog).getByRole('button', { name: 'Map Making' })).not.toBeDisabled()
@@ -135,7 +148,6 @@ describe('WorkbenchExperience launchpad navigation', () => {
     ]
     renderExperience()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Home' }))
     const dialog = screen.getByRole('dialog', { name: 'Choose a workbench page' })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Map Making' }))
     fireEvent.click(
@@ -144,5 +156,18 @@ describe('WorkbenchExperience launchpad navigation', () => {
 
     expect(loadDraftSpy).toHaveBeenCalledWith('festival-dialogue')
     useCpMakerState.drafts = []
+  })
+
+  it('does not persist workspace view mode while navigating launchpad pages', () => {
+    renderExperience()
+
+    const dialog = screen.getByRole('dialog', { name: 'Choose a workbench page' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Map' }))
+
+    expect(applyAppUiStatePatchSpy).not.toHaveBeenCalledWith({
+      workspace: {
+        workspaceViewMode: 'preview',
+      },
+    })
   })
 })

@@ -1087,6 +1087,7 @@ export function useCpMaker() {
     deleteDraft,
     copyDraft,
     refreshDrafts,
+    chooseDirectory: port.chooseDirectory,
 
     // Patch 管理
     addPatch: addPatchWithReturn,

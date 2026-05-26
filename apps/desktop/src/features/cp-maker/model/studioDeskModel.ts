@@ -3,8 +3,7 @@ import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 
 export type StudioDeskInspirationStatus = 'modified' | 'synced'
 export type StudioDeskInspirationKind = 'event' | 'map' | 'asset' | 'project'
-export type StudioDeskProjectFilter = 'all' | 'active' | 'export' | 'conflict' | 'archive'
-export type StudioDeskProjectStatus = Exclude<StudioDeskProjectFilter, 'all'>
+export type StudioDeskProjectStatus = 'export' | 'conflict' | 'archive' | 'incomplete' | 'neverExported'
 export type StudioDeskProjectCoverTone = 'festival' | 'harbor' | 'market' | 'forest' | 'greenhouse' | 'archive'
 
 export type StudioDeskInspiration = {
@@ -51,16 +50,21 @@ export type StudioDeskGalleryProject = {
   searchText: string
   coverTone: StudioDeskProjectCoverTone
   conflictCount: number
+  needsMetadata: boolean
 }
 
 export type StudioDeskGallery = {
   projects: StudioDeskGalleryProject[]
-  counts: Record<StudioDeskProjectFilter, number>
+  counts: {
+    all: number
+  }
 }
 
 export type StudioDeskModel = {
   projectName: string
   projectDescription: string
+  projectAuthor: string
+  projectVersion: string
   projectUniqueId: string
   hasActiveDraft: boolean
   draftSummaries: CpMakerDraftSummary[]
@@ -153,6 +157,10 @@ function isDraftWaitingForExport(summary: CpMakerDraftSummary, isCurrent: boolea
   return savedAt > 0 && savedAt > exportedAt
 }
 
+function isProjectMetadataIncomplete(summary: CpMakerDraftSummary): boolean {
+  return !summary.projectName.trim() || !summary.projectUniqueId.trim()
+}
+
 function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: number): StudioDeskGallery {
   const activeDraftKey = input.activeDraft?.draftStorageKey ?? null
   const summaries =
@@ -170,13 +178,20 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: n
       : input.drafts
   const projects = summaries.map((summary, index): StudioDeskGalleryProject => {
     const isCurrent = summary.draftStorageKey === activeDraftKey
-    const statuses: StudioDeskProjectStatus[] = ['active']
+    const statuses: StudioDeskProjectStatus[] = []
     const projectConflictCount = isCurrent ? conflictCount : 0
+    const needsMetadata = isProjectMetadataIncomplete(summary)
     if (isDraftWaitingForExport(summary, isCurrent, input.isDirty)) {
       statuses.push('export')
     }
     if (projectConflictCount > 0) {
       statuses.push('conflict')
+    }
+    if (needsMetadata) {
+      statuses.push('incomplete')
+    }
+    if (summary.lastExportedAt === null) {
+      statuses.push('neverExported')
     }
 
     return {
@@ -195,15 +210,12 @@ function buildGalleryProjects(input: BuildStudioDeskModelInput, conflictCount: n
       ].join(' '),
       coverTone: coverTones[index % coverTones.length] ?? 'festival',
       conflictCount: projectConflictCount,
+      needsMetadata,
     }
   })
 
-  const counts: Record<StudioDeskProjectFilter, number> = {
+  const counts = {
     all: projects.length,
-    active: projects.filter((project) => project.statuses.includes('active')).length,
-    export: projects.filter((project) => project.statuses.includes('export')).length,
-    conflict: projects.filter((project) => project.statuses.includes('conflict')).length,
-    archive: projects.filter((project) => project.statuses.includes('archive')).length,
   }
 
   return { projects, counts }
@@ -223,6 +235,8 @@ export function buildStudioDeskModel(input: BuildStudioDeskModelInput): StudioDe
   return {
     projectName: activeDraft?.projectMetadata.projectName ?? '',
     projectDescription: activeDraft?.projectMetadata.projectDescription ?? '',
+    projectAuthor: activeDraft?.projectMetadata.projectAuthor ?? '',
+    projectVersion: activeDraft?.projectMetadata.projectVersion ?? '',
     projectUniqueId: activeDraft?.projectMetadata.projectUniqueId ?? '',
     hasActiveDraft: Boolean(activeDraft),
     draftSummaries: input.drafts,

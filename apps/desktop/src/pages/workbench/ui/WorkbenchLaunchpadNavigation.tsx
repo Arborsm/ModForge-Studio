@@ -1,5 +1,5 @@
-import { ArrowUpFromLine, Castle, FolderOpen, GitMerge, Home, Languages, Library, Map, Package, Plus, Search, Users, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { Castle, FolderOpen, GitMerge, Home, Languages, Library, Map, Package, Search, Users, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { getWorkspaceModeLabel, type WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy, useLocale } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
@@ -25,6 +25,7 @@ type LaunchpadCard = {
   description: string
   hint: string
   icon: ComponentType<{ className?: string }>
+  tone: string
   active?: boolean
   disabled?: boolean
   onOpen?: () => void
@@ -131,10 +132,11 @@ export default function WorkbenchLaunchpadNavigation({
     () => [
       ...ROOT_MODES.map((mode) => ({
         id: mode,
-        title: getWorkspaceModeLabel(locale, copy, mode),
-        description: `workspace: ${mode}`,
-        hint: workspaceMode === mode ? navCopy.currentPage : navCopy.rootPage,
+        title: navCopy.rootModeLabels[mode],
+        description: navCopy.rootModeCodes[mode],
+        hint: workspaceMode === mode ? navCopy.currentMarker : '',
         icon: ICON_BY_MODE[mode],
+        tone: mode,
         active: workspaceMode === mode && workspaceViewMode === 'preview',
         onOpen: () => {
           rememberRootMode(mode)
@@ -142,16 +144,8 @@ export default function WorkbenchLaunchpadNavigation({
           closeLaunchpad()
         },
       })),
-      {
-        id: 'plugin-tools',
-        title: navCopy.pluginTools,
-        description: navCopy.pluginToolsDescription,
-        hint: navCopy.pluginToolsHint,
-        icon: Plus,
-        disabled: true,
-      },
     ],
-    [closeLaunchpad, copy, locale, navCopy, onRootWorkspaceOpen, rememberRootMode, workspaceMode, workspaceViewMode],
+    [closeLaunchpad, navCopy, onRootWorkspaceOpen, rememberRootMode, workspaceMode, workspaceViewMode],
   )
 
   const projectCards = useMemo<LaunchpadCard[]>(
@@ -159,9 +153,11 @@ export default function WorkbenchLaunchpadNavigation({
       {
         id: 'make-map',
         title: navCopy.mapMaking,
-        description: navCopy.projectChild,
-        hint: navCopy.needsProject,
+        description: hasActiveProject ? navCopy.openProjectTool : navCopy.projectToolLocked,
+        hint: '',
         icon: Map,
+        tone: 'make-map',
+        disabled: !hasActiveProject,
         onOpen: () => {
           openProjectWorkspace('map')
         },
@@ -169,9 +165,11 @@ export default function WorkbenchLaunchpadNavigation({
       {
         id: 'make-event',
         title: navCopy.eventMaking,
-        description: navCopy.projectChild,
-        hint: navCopy.needsProject,
+        description: hasActiveProject ? navCopy.openProjectTool : navCopy.projectToolLocked,
+        hint: '',
         icon: GitMerge,
+        tone: 'make-event',
+        disabled: !hasActiveProject,
         onOpen: () => {
           openProjectWorkspace('events')
         },
@@ -179,25 +177,17 @@ export default function WorkbenchLaunchpadNavigation({
       {
         id: 'make-item',
         title: navCopy.itemMaking,
-        description: navCopy.projectChild,
-        hint: navCopy.needsProject,
+        description: hasActiveProject ? navCopy.openProjectTool : navCopy.projectToolLocked,
+        hint: '',
         icon: Package,
+        tone: 'make-item',
+        disabled: !hasActiveProject,
         onOpen: () => {
           openProjectWorkspace('items')
         },
       },
-      {
-        id: 'export-center',
-        title: navCopy.exportCenter,
-        description: navCopy.exportCenterDescription,
-        hint: navCopy.needsProject,
-        icon: ArrowUpFromLine,
-        onOpen: () => {
-          openProjectWorkspace('mods')
-        },
-      },
     ],
-    [navCopy, openProjectWorkspace],
+    [hasActiveProject, navCopy, openProjectWorkspace],
   )
 
   const normalizedQuery = query.trim().toLocaleLowerCase(locale)
@@ -281,27 +271,41 @@ export default function WorkbenchLaunchpadNavigation({
               <div className="workbench-launchpad-title">
                 <span className="workbench-launchpad-eyebrow">{navCopy.eyebrow}</span>
                 <h2>{navCopy.title}</h2>
-                <p>{navCopy.subtitle}</p>
               </div>
-              <button type="button" className="workbench-launchpad-close" aria-label={navCopy.closeLaunchpad} onClick={closeLaunchpad}>
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <div className="workbench-launchpad-head-tools">
+                <label className="workbench-launchpad-search">
+                  <Search className="h-4 w-4" aria-hidden="true" />
+                  <input
+                    ref={searchInputRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.currentTarget.value)}
+                    placeholder={navCopy.searchPlaceholder}
+                  />
+                </label>
+                <button type="button" className="workbench-launchpad-close" aria-label={navCopy.closeLaunchpad} onClick={closeLaunchpad}>
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
-            <label className="workbench-launchpad-search">
-              <Search className="h-4 w-4" aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                value={query}
-                onChange={(event) => setQuery(event.currentTarget.value)}
-                placeholder={navCopy.searchPlaceholder}
-              />
-            </label>
-
-            <LaunchpadSection title={navCopy.rootPages} hint={navCopy.rootPagesHint} cards={visibleRootCards} />
+            <LaunchpadSection title={navCopy.rootPages} cards={visibleRootCards} />
             <LaunchpadSection
               title={navCopy.projectChildren}
-              hint={hasActiveProject ? navCopy.projectChildrenReady : navCopy.projectChildrenDisabled}
+              framed
+              beforeGrid={
+                !hasActiveProject ? (
+                  <ProjectRequiredNotice
+                    title={navCopy.projectRequiredTitle}
+                    description={
+                      projectSummaries.length ? navCopy.projectRequiredChooseDescription : navCopy.projectRequiredCreateDescription
+                    }
+                    selectProjectAction={projectSummaries.length ? navCopy.selectProjectAction : null}
+                    createProjectAction={navCopy.createProjectAction}
+                    onSelectProject={openProjectManagement}
+                    onCreateProject={onProjectCreateOpen}
+                  />
+                ) : null
+              }
               cards={visibleProjectCards.map((card) => ({
                 ...card,
               }))}
@@ -376,13 +380,65 @@ function ProjectPickerDialog({
   )
 }
 
-function LaunchpadSection({ title, hint, cards }: { title: string; hint: string; cards: LaunchpadCard[] }) {
+function ProjectRequiredNotice({
+  title,
+  description,
+  selectProjectAction,
+  createProjectAction,
+  onSelectProject,
+  onCreateProject,
+}: {
+  title: string
+  description: string
+  selectProjectAction: string | null
+  createProjectAction: string
+  onSelectProject: () => void
+  onCreateProject: () => void
+}) {
   return (
-    <section className="workbench-launchpad-section">
+    <section className="workbench-project-required" aria-label={title}>
+      <div className="workbench-project-required-icon" aria-hidden="true">
+        <FolderOpen className="h-5 w-5" />
+      </div>
+      <div className="workbench-project-required-copy">
+        <strong>{title}</strong>
+        <span>{description}</span>
+      </div>
+      <div className="workbench-project-required-actions">
+        {selectProjectAction ? (
+          <button type="button" className="workbench-project-required-button" onClick={onSelectProject}>
+            {selectProjectAction}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="workbench-project-required-button workbench-project-required-button-primary"
+          onClick={onCreateProject}
+        >
+          {createProjectAction}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function LaunchpadSection({
+  title,
+  beforeGrid,
+  framed,
+  cards,
+}: {
+  title: string
+  beforeGrid?: ReactNode
+  framed?: boolean
+  cards: LaunchpadCard[]
+}) {
+  return (
+    <section className={cx('workbench-launchpad-section', framed && 'workbench-launchpad-section-framed')}>
       <div className="workbench-launchpad-section-head">
         <h3>{title}</h3>
-        <span>{hint}</span>
       </div>
+      {beforeGrid}
       <div className="workbench-launchpad-grid">
         {cards.map((card) => (
           <LaunchpadButton key={card.id} card={card} />
@@ -407,7 +463,7 @@ function LaunchpadButton({ card }: { card: LaunchpadCard }) {
       disabled={card.disabled}
       onClick={card.onOpen}
     >
-      <span className="workbench-launchpad-icon" aria-hidden="true">
+      <span className="workbench-launchpad-icon" data-tone={card.tone} aria-hidden="true">
         <Icon className="h-5 w-5" />
       </span>
       <span className="workbench-launchpad-copy">

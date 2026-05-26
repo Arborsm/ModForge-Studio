@@ -73,6 +73,20 @@ export function WorkbenchViewHost({
                 gameRootPath: directoryInfo?.rootPath ?? null,
               })
             },
+            onImportDraft: async () => {
+              const selectedPath = await cpMaker.chooseDirectory(copy.studioDesk.importDraft)
+              if (!selectedPath) {
+                return
+              }
+              const draft = await cpMaker.importPack(selectedPath)
+              onWorkbenchEvent({
+                type: 'cp-maker/draft-selected',
+                draftKey: draft.draftStorageKey,
+              })
+              onSetWorkspaceMode('mods')
+              onSetWorkspaceViewMode('edit')
+              navigateToPatch(null)
+            },
             onCreatePatch: (action: DraftPatch['action'], nextWorkspace: WorkspaceId) => {
               if (!cpMaker.activeDraft) {
                 return
@@ -125,6 +139,9 @@ export function WorkbenchViewHost({
             },
             onDeleteDraft: (draftStorageKey: string) => {
               void cpMaker.deleteDraft(draftStorageKey)
+            },
+            onUpdateDraftMetadata: (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
+              cpMaker.updateMetadata(metadata)
             },
             onExportPack: async (outputPath: string) => {
               const result = await cpMaker.exportPack(outputPath)

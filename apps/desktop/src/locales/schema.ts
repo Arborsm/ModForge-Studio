@@ -1106,20 +1106,22 @@ export type EditorCopy = {
     closeLaunchpad: string
     title: string
     eyebrow: string
-    subtitle: string
     searchPlaceholder: string
     rootPages: string
-    rootPagesHint: string
     projectChildren: string
-    projectChildrenReady: string
-    projectChildrenDisabled: string
     currentPage: string
     rootPage: string
-    projectChild: string
-    needsProject: string
-    pluginTools: string
-    pluginToolsDescription: string
-    pluginToolsHint: string
+    rootModeLabels: Record<WorkspaceMode, string>
+    rootModeCodes: Record<WorkspaceMode, string>
+    currentMarker: string
+    projectRequiredLabel: string
+    projectToolLocked: string
+    openProjectTool: string
+    projectRequiredTitle: string
+    projectRequiredChooseDescription: string
+    projectRequiredCreateDescription: string
+    selectProjectAction: string
+    createProjectAction: string
     recentPages: string
     home: string
     projectLobby: string
@@ -1128,8 +1130,6 @@ export type EditorCopy = {
     mapMaking: string
     eventMaking: string
     itemMaking: string
-    exportCenter: string
-    exportCenterDescription: string
   }
   rightDock: {
     title: string
@@ -1228,8 +1228,17 @@ export type EditorCopy = {
     projectLobbyControl: string
     projectGrid: string
     projectCount: (count: number) => string
+    projectMoreActions: (name: string) => string
+    projectManagerEyebrow: string
+    projectManagerSubtitle: string
+    projectList: string
     searchProjects: string
-    galleryFilters: Record<'all' | 'active' | 'export' | 'conflict' | 'archive', string>
+    uniqueIdLabel: string
+    lastEditedLabel: string
+    lastExportedLabel: string
+    metadataIncomplete: string
+    editProjectProperties: string
+    editProjectPropertiesHint: string
     overview: string
     totalProjects: string
     waitingExport: string

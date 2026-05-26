@@ -311,6 +311,8 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     }
   }, [directoryInfo?.rootPath, locale])
 
+  const loadGameDirectoryInBackgroundRef = useRef(loadGameDirectoryInBackground)
+
   useEffect(() => {
     if (!desktopHost) {
       return
@@ -329,13 +331,10 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
         if (detectedPath) {
           setGameDirectory(detectedPath)
-          const validatedInfo = await validateGameDirectory(detectedPath)
+          await loadGameDirectoryInBackgroundRef.current(detectedPath, () => cancelled)
           if (cancelled) {
             return
           }
-
-          setGameDirectory(validatedInfo.rootPath)
-          setWorkspaceStatus({ tone: 'ready', message: copy.messages.validatedDirectory(validatedInfo.rootPath) })
         } else {
           setWorkspaceStatus({ tone: 'idle', message: copy.messages.automaticDetectionFailed })
         }
@@ -467,6 +466,63 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       total,
       currentLabel: '',
     })
+  }
+
+  async function loadGameDirectoryInBackground(currentPath: string, isCancelled = () => false) {
+    const trimmedPath = currentPath.trim()
+    if (!trimmedPath) {
+      return null
+    }
+
+    setResourcePreloadState({
+      active: true,
+      message: copy.messages.validatingAndScanning,
+      completed: 0,
+      total: 0,
+      currentLabel: trimmedPath,
+    })
+    setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingAndScanning })
+
+    try {
+      const info = await validateGameDirectory(trimmedPath)
+      if (isCancelled()) {
+        return null
+      }
+
+      setDirectoryInfo(info)
+      setGameDirectory(info.rootPath)
+      setWorkspaceStatus({ tone: 'ready', message: copy.messages.validatedDirectory(info.rootPath) })
+
+      const assets = await scanMaps(info.rootPath, locale)
+      if (isCancelled()) {
+        return null
+      }
+
+      setMapAssets(assets)
+      loadedResourceLocaleRef.current = locale
+
+      await preloadResources(assets, info)
+      if (isCancelled()) {
+        return null
+      }
+
+      await openWorldAtlas(assets, info)
+      if (!isCancelled()) {
+        setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+      }
+      return info
+    } catch (error) {
+      if (!isCancelled()) {
+        setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+        setDirectoryInfo(null)
+        resetLoadedMaps()
+        setWorkspaceStatus({
+          tone: 'error',
+          message: `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`,
+        })
+      }
+      return null
+    }
   }
 
   function findMapAssetByName(mapName: string) {
@@ -903,6 +959,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
     openWorldAtlasRef.current = openWorldAtlas
     openMapRef.current = openMap
     openModMapRef.current = openModMapEntry
+    loadGameDirectoryInBackgroundRef.current = loadGameDirectoryInBackground
   })
 
   useEffect(() => {
@@ -997,33 +1054,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
       return
     }
 
-    setResourcePreloadState({
-      active: true,
-      message: copy.messages.validatingAndScanning,
-      completed: 0,
-      total: 0,
-      currentLabel: '',
-    })
-    setWorkspaceStatus({ tone: 'working', message: copy.messages.validatingAndScanning })
-
-    try {
-      const info = await validateGameDirectory(trimmedPath)
-      const assets = await scanMaps(info.rootPath, locale)
-      setDirectoryInfo(info)
-      setGameDirectory(info.rootPath)
-      setMapAssets(assets)
-      loadedResourceLocaleRef.current = locale
-
-      await preloadResources(assets, info)
-      await openWorldAtlas(assets, info)
-      setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
-    } catch (error) {
-      setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
-      setWorkspaceStatus({
-        tone: 'error',
-        message: `${copy.messages.resourcePreloadFailed} ${error instanceof Error ? error.message : String(error)}`,
-      })
-    }
+    await loadGameDirectoryInBackground(trimmedPath)
   }
 
   async function handleChooseDirectory() {
@@ -1060,7 +1091,7 @@ export function useMapWorkspace({ copy, locale, desktopHost, getWorldAtlasViewLa
 
       setGameDirectory(detectedPath)
       setWorkspaceStatus({ tone: 'ready', message: copy.messages.detectedKnownPath(detectedPath) })
-      void ensureValidatedDirectory(detectedPath)
+      void loadGameDirectoryInBackground(detectedPath)
     } catch (error) {
       setWorkspaceStatus({
         tone: 'error',

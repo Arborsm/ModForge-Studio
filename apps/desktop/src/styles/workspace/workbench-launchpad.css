@@ -74,7 +74,7 @@
 
   .workbench-launchpad {
     position: fixed;
-    inset: 0;
+    inset: 56px 0 0;
     z-index: 130;
     display: grid;
     place-items: center;
@@ -99,6 +99,13 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 22px;
+  }
+
+  .workbench-launchpad-head-tools {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
   }
 
   .workbench-launchpad-eyebrow {
@@ -145,12 +152,11 @@
   }
 
   .workbench-launchpad-search {
-    width: min(360px, 100%);
+    width: min(360px, 36vw);
     height: 42px;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 20px;
     border: 1px solid #d6e2ef;
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.9);
@@ -172,6 +178,12 @@
     margin-top: 24px;
   }
 
+  .workbench-launchpad-section-framed {
+    border: 1px solid #e4eaf2;
+    border-radius: 16px;
+    padding: 20px 24px 24px;
+  }
+
   .workbench-launchpad-section-head {
     align-items: center;
     margin-bottom: 12px;
@@ -187,6 +199,94 @@
     color: #65758b;
     font-size: 11px;
     font-weight: 780;
+  }
+
+  .workbench-project-required {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(34, 120, 242, 0.18);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(246, 250, 255, 0.96), rgba(238, 246, 255, 0.9));
+    padding: 14px;
+  }
+
+  .workbench-project-required-icon {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(34, 120, 242, 0.2);
+    border-radius: 14px;
+    background: #fff;
+    color: #2278f2;
+  }
+
+  .workbench-project-required-copy {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .workbench-project-required-copy strong {
+    color: #182235;
+    font-size: 14px;
+    font-weight: 860;
+  }
+
+  .workbench-project-required-copy span {
+    color: #65758b;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .workbench-project-required-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .workbench-project-required-button {
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d6e2ef;
+    border-radius: 10px;
+    background: #fff;
+    color: #40536c;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 760;
+    white-space: nowrap;
+    transition:
+      border 160ms ease,
+      background 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .workbench-project-required-button:hover,
+  .workbench-project-required-button:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(34, 120, 242, 0.35);
+    background: #f6f9fe;
+    color: #182235;
+    outline: 0;
+  }
+
+  .workbench-project-required-button-primary {
+    border-color: rgba(34, 120, 242, 0.42);
+    background: #2278f2;
+    color: #fff;
+  }
+
+  .workbench-project-required-button-primary:hover,
+  .workbench-project-required-button-primary:focus-visible {
+    background: #1b66cf;
+    color: #fff;
   }
 
   .workbench-launchpad-grid {
@@ -238,7 +338,50 @@
     border: 1px solid #e8eef7;
     border-radius: 14px;
     background: #f6f9fe;
-    color: #2278f2;
+    color: #4f6681;
+  }
+
+  .workbench-launchpad-icon[data-tone="mods"] {
+    background: #fff7df;
+    color: #d79000;
+  }
+
+  .workbench-launchpad-icon[data-tone="map"],
+  .workbench-launchpad-icon[data-tone="make-map"] {
+    background: #eaf4ff;
+    color: #2384e8;
+  }
+
+  .workbench-launchpad-icon[data-tone="events"],
+  .workbench-launchpad-icon[data-tone="make-event"] {
+    background: #fff0e5;
+    color: #df6b24;
+  }
+
+  .workbench-launchpad-icon[data-tone="characters"] {
+    background: #e9f8ef;
+    color: #27965b;
+  }
+
+  .workbench-launchpad-icon[data-tone="buildings"] {
+    background: #fff0f3;
+    color: #d94872;
+  }
+
+  .workbench-launchpad-icon[data-tone="items"],
+  .workbench-launchpad-icon[data-tone="make-item"] {
+    background: #f3efe8;
+    color: #9c6a35;
+  }
+
+  .workbench-launchpad-icon[data-tone="mod-i18n"] {
+    background: #e8f8ff;
+    color: #0b92c9;
+  }
+
+  .workbench-launchpad-card-locked .workbench-launchpad-icon {
+    background: #f2f4f7;
+    color: #aeb7c4;
   }
 
   .workbench-launchpad-copy {
@@ -275,7 +418,7 @@
 
   .workbench-project-picker {
     position: fixed;
-    inset: 0;
+    inset: 56px 0 0;
     z-index: 150;
     display: grid;
     place-items: center;
@@ -398,9 +541,31 @@
     .workbench-launchpad-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .workbench-project-required {
+      grid-template-columns: 46px minmax(0, 1fr);
+    }
+
+    .workbench-project-required-actions {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+    }
   }
 
   @media (max-width: 640px) {
+    .workbench-launchpad-head {
+      flex-direction: column;
+    }
+
+    .workbench-launchpad-head-tools,
+    .workbench-launchpad-search {
+      width: 100%;
+    }
+
+    .workbench-launchpad-head-tools {
+      align-items: stretch;
+    }
+
     .workbench-launchpad-panel {
       width: calc(100vw - 24px);
       max-height: calc(100vh - 24px);
@@ -410,6 +575,14 @@
 
     .workbench-launchpad-grid {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .workbench-project-required {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .workbench-project-required-actions {
+      flex-wrap: wrap;
     }
 
     .workbench-quick-dock {

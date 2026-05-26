@@ -23,6 +23,7 @@ type WorkbenchPageProps = {
   onCloseWindow: () => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
+  workbenchActivationKey?: number
 }
 
 export function WorkbenchPage(props: WorkbenchPageProps) {

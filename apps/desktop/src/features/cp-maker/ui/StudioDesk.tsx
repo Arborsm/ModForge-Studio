@@ -10,6 +10,7 @@ import { StudioDeskStoryboard } from './StudioDeskStoryboard'
 import { StudioDeskMainStage } from './StudioDeskMainStage'
 import { StudioDeskWorldBible } from './StudioDeskWorldBible'
 import { StudioDeskProjectGallery } from './StudioDeskProjectGallery'
+import { ProjectPropertiesDialog } from './ProjectPropertiesDialog'
 import { formatStudioTimestamp } from '@features/cp-maker'
 
 type CreateDraftMetadata = Pick<
@@ -21,12 +22,14 @@ export type StudioDeskProps = {
   model: StudioDeskModel
   copy: EditorCopy
   onCreateDraft: (metadata: CreateDraftMetadata) => void | Promise<void>
+  onImportDraft: () => void | Promise<void>
   onCreatePatch: (action: DraftPatch['action'], workspace: WorkspaceId) => void
   onOpenWorkspace: (workspace: WorkspaceId) => void
   onOpenPatch: (patchId: string) => void
   onOpenDraft: (draftStorageKey: string) => void | Promise<void>
   onCopyDraft: (draftStorageKey: string) => void | Promise<void>
   onDeleteDraft: (draftStorageKey: string) => void | Promise<void>
+  onUpdateDraftMetadata: (metadata: Partial<CpMakerDraft['projectMetadata']>) => void | Promise<void>
   onExportPack: (outputPath: string) => Promise<void>
   isLoading: boolean
   galleryOpen?: boolean
@@ -38,12 +41,14 @@ export function StudioDesk({
   model,
   copy,
   onCreateDraft,
+  onImportDraft,
   onCreatePatch,
   onOpenWorkspace,
   onOpenPatch,
   onOpenDraft,
   onCopyDraft,
   onDeleteDraft,
+  onUpdateDraftMetadata,
   onExportPack,
   isLoading,
   galleryOpen: controlledGalleryOpen,
@@ -56,6 +61,7 @@ export function StudioDesk({
     consumedSignal: createDialogOpenSignal ?? 0,
   }))
   const [exportOpen, setExportOpen] = useState(false)
+  const [propertiesOpen, setPropertiesOpen] = useState(false)
   const [worldBibleOpen, setWorldBibleOpen] = useState(false)
   const [previewFocus, setPreviewFocus] = useState<StudioDeskInspiration | null>(null)
   const desk = copy.studioDesk
@@ -124,13 +130,14 @@ export function StudioDesk({
           model={model}
           copy={copy}
           onCreateDraftRequest={openCreateDialog}
-          onReturnToDesk={() => setGalleryOpen(false)}
+          onImportDraftRequest={onImportDraft}
           onOpenDraft={(draftStorageKey) => {
             setGalleryOpen(false)
             void onOpenDraft(draftStorageKey)
           }}
           onCopyDraft={onCopyDraft}
           onDeleteDraft={onDeleteDraft}
+          onEditCurrentDraftProperties={() => setPropertiesOpen(true)}
         />
       ) : (
         <>
@@ -230,6 +237,19 @@ export function StudioDesk({
           setGalleryOpen(false)
           void onCreateDraft(metadata)
         }}
+      />
+      <ProjectPropertiesDialog
+        open={propertiesOpen}
+        copy={desk}
+        metadata={{
+          projectName: model.projectName,
+          projectDescription: model.projectDescription,
+          projectAuthor: model.projectAuthor,
+          projectVersion: model.projectVersion,
+          projectUniqueId: model.projectUniqueId,
+        }}
+        onClose={() => setPropertiesOpen(false)}
+        onSave={onUpdateDraftMetadata}
       />
       <ExportDialog
         open={exportOpen}

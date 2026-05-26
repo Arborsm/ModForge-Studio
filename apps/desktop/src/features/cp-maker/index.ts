@@ -9,7 +9,6 @@ export {
   type StudioDeskInspirationStatus,
   type StudioDeskModel,
   type StudioDeskProjectCoverTone,
-  type StudioDeskProjectFilter,
   type StudioDeskProjectStatus,
   type StudioDeskWorkspaceEntrypoint,
   type StudioDeskWorldBible as StudioDeskWorldBibleModel,

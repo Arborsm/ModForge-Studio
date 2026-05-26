@@ -51,7 +51,7 @@ describe('WorkbenchLaunchpadNavigation', () => {
     const dock = screen.getByRole('navigation', { name: copy.recentPages })
 
     expect(within(dock).getByRole('button', { name: copy.home })).toBeTruthy()
-    expect(within(dock).getByRole('button', { name: 'Project Lobby' })).toBeTruthy()
+    expect(within(dock).getByRole('button', { name: 'Project Manager' })).toBeTruthy()
     expect(within(dock).getByRole('button', { name: 'Characters' })).toBeTruthy()
     expect(within(dock).getByRole('button', { name: 'Mods' })).toBeTruthy()
     expect(within(dock).queryByRole('button', { name: 'Translations' })).toBeNull()
@@ -62,18 +62,12 @@ describe('WorkbenchLaunchpadNavigation', () => {
     const { props, rerender } = renderNavigation({ open: true, workspaceMode: 'mods' })
 
     const dialog = screen.getByRole('dialog', { name: copy.title })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Map' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Map Browser' }))
     expect(props.onRootWorkspaceOpen).toHaveBeenCalledWith('map')
 
     rerender(
       <LocaleProvider locale="en-US">
-        <WorkbenchLaunchpadNavigation
-          {...props}
-          open={false}
-          workspaceMode="map"
-          onRootWorkspaceOpen={props.onRootWorkspaceOpen}
-          onOpenChange={props.onOpenChange}
-        />
+        <WorkbenchLaunchpadNavigation {...props} open={false} workspaceMode="map" />
       </LocaleProvider>,
     )
 
@@ -82,13 +76,22 @@ describe('WorkbenchLaunchpadNavigation', () => {
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))
 
-    expect(buttons).toEqual([copy.home, 'Project Lobby', 'Map', 'Mods'])
+    expect(buttons).toEqual([copy.home, 'Project Manager', 'Map', 'Mods'])
+  })
+
+  it('does not render plugin tools or export center entries', () => {
+    renderNavigation({ open: true })
+
+    const dialog = screen.getByRole('dialog', { name: copy.title })
+
+    expect(within(dialog).queryByRole('button', { name: 'Plugin Tools' })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Export Center' })).toBeNull()
   })
 
   it('opens project management from the dock project shortcut', () => {
     const { props } = renderNavigation()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Project Lobby' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Project Manager' }))
 
     expect(props.onProjectManagementOpen).toHaveBeenCalled()
   })
@@ -113,7 +116,7 @@ describe('WorkbenchLaunchpadNavigation', () => {
     const { props } = renderNavigation({ open: true })
 
     const dialog = screen.getByRole('dialog', { name: copy.title })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Map' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Map Browser' }))
 
     expect(props.onRootWorkspaceOpen).toHaveBeenCalledWith('map')
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
@@ -123,15 +126,17 @@ describe('WorkbenchLaunchpadNavigation', () => {
     const { props } = renderNavigation({ open: true, hasActiveProject: false, projectSummaries: [] })
 
     const dialog = screen.getByRole('dialog', { name: copy.title })
+    expect(within(dialog).getByText('No target project')).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: 'New project' })).toBeTruthy()
     const mapMaking = within(dialog).getByRole('button', { name: 'Map Making' })
 
-    expect(mapMaking).not.toBeDisabled()
+    expect(mapMaking).toBeDisabled()
     fireEvent.click(mapMaking)
-    expect(props.onProjectCreateOpen).toHaveBeenCalled()
+    expect(props.onProjectCreateOpen).not.toHaveBeenCalled()
     expect(props.onProjectWorkspaceOpen).not.toHaveBeenCalled()
   })
 
-  it('opens project selection before making when saved projects exist but none is active', () => {
+  it('keeps making cards disabled when saved projects exist but none is active', () => {
     const { props } = renderNavigation({
       open: true,
       hasActiveProject: false,
@@ -147,13 +152,13 @@ describe('WorkbenchLaunchpadNavigation', () => {
     })
 
     const dialog = screen.getByRole('dialog', { name: copy.title })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Map Making' }))
+    expect(within(dialog).getByRole('button', { name: 'Choose project' })).toBeTruthy()
+    const mapMaking = within(dialog).getByRole('button', { name: 'Map Making' })
 
-    const projectDialog = screen.getByRole('dialog', { name: copy.chooseProjectTitle })
-    fireEvent.click(within(projectDialog).getByRole('button', { name: 'Festival Dialogue Pack' }))
-
-    expect(props.onProjectSelect).toHaveBeenCalledWith('festival-dialogue')
-    expect(props.onProjectWorkspaceOpen).toHaveBeenCalledWith('map')
+    expect(mapMaking).toBeDisabled()
+    fireEvent.click(mapMaking)
+    expect(props.onProjectSelect).not.toHaveBeenCalled()
+    expect(props.onProjectWorkspaceOpen).not.toHaveBeenCalled()
   })
 
   it('opens project making entries when a project is active', () => {
