@@ -1,0 +1,286 @@
+import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
+import type { ResourceRegistry } from '@entities/game/api'
+import { getItemKindLabel, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
+import type { DraftPatch } from '@shared/contracts'
+import { ACTOR_OPTIONS, ITEM_OPTIONS, MAP_OPTIONS, MUSIC_OPTIONS, SOUND_OPTIONS } from '../workflow-model/commandOptions'
+import type { EventResourceKind, EventResourceOption } from './EventResourcePicker'
+
+export type EventActorAssetPreview = {
+  spriteUrl: string | null
+  portraitUrl: string | null
+}
+
+export type EventResourceRegistry = Record<EventResourceKind, EventResourceOption[]>
+
+type BuildEventResourceRegistryOptions = {
+  patch: DraftPatch
+  draftPatches: DraftPatch[]
+  entries: Record<string, unknown>
+  eventLocations?: Record<string, string>
+  actorAssets?: Record<string, EventActorAssetPreview>
+  globalRegistry?: ResourceRegistry | null
+  itemCatalog?: ItemWorkspaceEntry[]
+  itemTexturesByAssetName?: Record<string, ItemTextureAssetState>
+  locale?: 'zh-CN' | 'en-US'
+}
+
+const EMPTY_ENTRIES: Record<string, unknown> = {}
+
+const RESOURCE_TONES = ['#0ea5e9', '#f97316', '#22c55e', '#ec4899', '#8b5cf6', '#14b8a6', '#eab308', '#64748b']
+
+function resourceTone(seed: string) {
+  let hash = 0
+  for (const char of seed) {
+    hash = (hash * 31 + char.charCodeAt(0)) % RESOURCE_TONES.length
+  }
+  return RESOURCE_TONES[hash] ?? RESOURCE_TONES[0]
+}
+
+function optionValue(option: string | { value: string; label: string }) {
+  return typeof option === 'string' ? option : option.value
+}
+
+function optionLabel(option: string | { value: string; label: string }) {
+  return typeof option === 'string' ? option : option.label
+}
+
+function makeOption(kind: EventResourceKind, value: string, label: string, source: string, preview?: string | null): EventResourceOption {
+  return {
+    id: `${kind}:${source}:${value}`,
+    value,
+    label,
+    kind,
+    subtitle: source,
+    badge: source,
+    preview: preview ?? undefined,
+    tone: resourceTone(value),
+  }
+}
+
+function pushUnique(target: EventResourceOption[], option: EventResourceOption) {
+  const existingIndex = target.findIndex((candidate) => candidate.value === option.value)
+  if (existingIndex === -1) {
+    target.push(option)
+    return
+  }
+
+  const existing = target[existingIndex]
+  target[existingIndex] = {
+    ...existing,
+    preview: existing.preview ?? option.preview,
+    subtitle: existing.subtitle === option.subtitle ? existing.subtitle : `${existing.subtitle}, ${option.subtitle}`,
+    badge: existing.badge ?? option.badge,
+  }
+}
+
+function sourceLabelForEntry(source: string, sourceKind: string, locale: 'zh-CN' | 'en-US') {
+  if (sourceKind === 'game') {
+    return locale === 'zh-CN' ? '游戏资源' : 'Game assets'
+  }
+  return source
+}
+
+export function buildEventResourceRegistryFromGlobal(
+  globalRegistry: ResourceRegistry | null | undefined,
+  locale: 'zh-CN' | 'en-US' = 'zh-CN',
+): EventResourceRegistry {
+  const registry = buildDefaultEventResourceRegistry(locale)
+
+  for (const entry of globalRegistry?.entries ?? []) {
+    if (!['actor', 'item', 'location', 'music', 'sound'].includes(entry.kind)) {
+      continue
+    }
+
+    const kind = entry.kind as EventResourceKind
+    const source = sourceLabelForEntry(entry.source, entry.sourceKind, locale)
+    pushUnique(registry[kind], {
+      ...makeOption(kind, entry.value, entry.label || entry.value, source, entry.absolutePath ?? entry.relativePath ?? null),
+      category: entry.category ?? source,
+      meta: entry.metadata?.qualifiedId ?? entry.metadata?.id ?? entry.value,
+      sourcePath: entry.relativePath ?? undefined,
+    })
+  }
+
+  return registry
+}
+
+function getItemPrimaryCategory(entry: ItemWorkspaceEntry) {
+  return entry.browseCategories.find((category) => category !== 'all') ?? entry.kind
+}
+
+function buildItemMeta(entry: ItemWorkspaceEntry) {
+  return [
+    entry.qualifiedItemId,
+    entry.kindMetaLabel ?? getItemKindLabel(entry.kind),
+    entry.price != null ? `${entry.price}g` : null,
+    entry.cropData ? 'crop' : null,
+    entry.fishData ? 'fish' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function makeItemCatalogOption(
+  entry: ItemWorkspaceEntry,
+  textureState: ItemTextureAssetState | null,
+  locale: 'zh-CN' | 'en-US',
+): EventResourceOption {
+  const source = locale === 'zh-CN' ? '物品目录' : 'Item catalog'
+  return {
+    id: `item:${entry.qualifiedItemId}`,
+    value: entry.qualifiedItemId,
+    label: entry.displayName,
+    kind: 'item',
+    subtitle: entry.internalName,
+    badge: source,
+    category: getItemPrimaryCategory(entry),
+    meta: buildItemMeta(entry),
+    sourcePath: entry.texturePathLabel,
+    item: entry,
+    itemTexture: entry.textureAssetName ? (textureState ?? null) : null,
+  }
+}
+
+function applyItemCatalog(
+  registry: EventResourceRegistry,
+  itemCatalog: ItemWorkspaceEntry[] | null | undefined,
+  itemTexturesByAssetName: Record<string, ItemTextureAssetState> | null | undefined,
+  locale: 'zh-CN' | 'en-US',
+) {
+  if (!itemCatalog?.length) {
+    return
+  }
+
+  registry.item = itemCatalog.map((entry) =>
+    makeItemCatalogOption(entry, entry.textureAssetName ? (itemTexturesByAssetName?.[entry.textureAssetName] ?? null) : null, locale),
+  )
+}
+
+function collectTargetLocation(target: unknown) {
+  if (typeof target !== 'string') {
+    return null
+  }
+  const match = /^Data\/Events\/(.+)$/u.exec(target)
+  return match?.[1] ?? null
+}
+
+function collectEntriesFromPatch(patch: DraftPatch) {
+  const editorState = patch.editorState as { entries?: Record<string, unknown> } | undefined
+  const editorEntries = editorState?.entries
+  if (editorEntries && typeof editorEntries === 'object') {
+    return editorEntries
+  }
+  return EMPTY_ENTRIES
+}
+
+function collectResourcesFromRawScript(
+  rawScript: string,
+  registry: EventResourceRegistry,
+  source: string,
+  actorAssets?: Record<string, EventActorAssetPreview>,
+) {
+  const segments = parseEventCommands(rawScript)
+  const scene = parseEventSceneSetup(segments)
+
+  if (scene.musicCue) {
+    pushUnique(registry.music, makeOption('music', scene.musicCue, scene.musicCue, source))
+  }
+
+  for (const actor of scene.actors) {
+    const preview = actorAssets?.[actor.actorName]?.portraitUrl ?? actorAssets?.[actor.actorName]?.spriteUrl
+    pushUnique(registry.actor, makeOption('actor', actor.actorName, actor.actorName, source, preview))
+  }
+
+  for (let index = 3; index < segments.length; index += 1) {
+    const command = parseEventCommand(segments[index] ?? '', index - 3)
+    switch (command.command) {
+      case 'playMusic':
+        if (command.args[1]) {
+          pushUnique(registry.music, makeOption('music', command.args[1], command.args[1], source))
+        }
+        break
+      case 'playSound':
+        if (command.args[1]) {
+          pushUnique(registry.sound, makeOption('sound', command.args[1], command.args[1], source))
+        }
+        break
+      case 'changeLocation':
+      case 'changeToTemporaryMap':
+        if (command.args[1]) {
+          pushUnique(registry.location, makeOption('location', command.args[1], command.args[1], source))
+        }
+        break
+      default:
+        break
+    }
+
+    for (const arg of command.args) {
+      if (/^\([A-Z]\)\d+/u.test(arg)) {
+        pushUnique(registry.item, makeOption('item', arg, arg, source))
+      }
+    }
+  }
+}
+
+export function buildDefaultEventResourceRegistry(locale: 'zh-CN' | 'en-US' = 'zh-CN'): EventResourceRegistry {
+  const source = locale === 'zh-CN' ? '原版资源' : 'Vanilla'
+  return {
+    actor: ACTOR_OPTIONS.map((value) => makeOption('actor', value, value, source)),
+    item: ITEM_OPTIONS.map((option) => makeOption('item', optionValue(option), optionLabel(option), source)),
+    location: MAP_OPTIONS.map((value) => makeOption('location', value, value, source)),
+    music: MUSIC_OPTIONS.map((value) => makeOption('music', value, value, source)),
+    sound: SOUND_OPTIONS.map((value) => makeOption('sound', value, value, source)),
+  }
+}
+
+export function buildEventResourceRegistry({
+  patch,
+  draftPatches,
+  entries,
+  eventLocations,
+  actorAssets,
+  globalRegistry,
+  itemCatalog,
+  itemTexturesByAssetName,
+  locale = 'zh-CN',
+}: BuildEventResourceRegistryOptions): EventResourceRegistry {
+  const registry = buildEventResourceRegistryFromGlobal(globalRegistry, locale)
+  applyItemCatalog(registry, itemCatalog, itemTexturesByAssetName, locale)
+  const draftSource = locale === 'zh-CN' ? '当前项目' : 'Project'
+  const patchSource = locale === 'zh-CN' ? '当前补丁' : 'Patch'
+
+  for (const location of Object.values(eventLocations ?? {})) {
+    if (location) {
+      pushUnique(registry.location, makeOption('location', location, location, patchSource))
+    }
+  }
+
+  const patchTargetLocation = collectTargetLocation(patch.target)
+  if (patchTargetLocation) {
+    pushUnique(registry.location, makeOption('location', patchTargetLocation, patchTargetLocation, patchSource))
+  }
+
+  for (const raw of Object.values(entries)) {
+    if (typeof raw === 'string') {
+      collectResourcesFromRawScript(raw, registry, patchSource, actorAssets)
+    }
+  }
+
+  for (const draftPatch of draftPatches) {
+    const targetLocation = collectTargetLocation(draftPatch.target)
+    if (targetLocation) {
+      pushUnique(registry.location, makeOption('location', targetLocation, targetLocation, draftSource))
+    }
+    for (const raw of Object.values(collectEntriesFromPatch(draftPatch))) {
+      if (typeof raw === 'string') {
+        collectResourcesFromRawScript(raw, registry, draftSource, actorAssets)
+      }
+    }
+  }
+
+  for (const [actorName, asset] of Object.entries(actorAssets ?? {})) {
+    pushUnique(registry.actor, makeOption('actor', actorName, actorName, draftSource, asset.portraitUrl ?? asset.spriteUrl))
+  }
+
+  return registry
+}
