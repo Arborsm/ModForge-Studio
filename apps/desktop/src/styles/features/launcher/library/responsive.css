@@ -5,6 +5,20 @@
       padding: 18px;
     }
 
+    .launcher-library-console-top,
+    .launcher-library-console-bottom,
+    .launcher-library-edit-bar {
+      grid-template-columns: 1fr;
+    }
+
+    .launcher-library-console-actions,
+    .launcher-library-console-right,
+    .launcher-library-edit-bar-right {
+      justify-self: stretch;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
     .launcher-library-shell {
       grid-template-columns: 1fr;
     }
@@ -48,7 +62,9 @@
     .launcher-library-primary-action,
     .launcher-library-pack-trigger,
     .launcher-library-sort-trigger,
-    .launcher-library-sort-field {
+    .launcher-library-sort-field,
+    .launcher-library-switch-button {
+      max-width: none;
       width: 100%;
       justify-content: center;
     }

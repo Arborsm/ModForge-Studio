@@ -5,7 +5,9 @@ use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
     LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{
+    clean_input_path, normalize_path, smapi_launch_candidates, stardew_game_launch_candidates,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -46,23 +48,29 @@ fn resolve_game_launch_target(
         "launch.resolve",
         &[("gamePath", normalize_path(&game_root))],
     );
-    let smapi_path = game_root.join("StardewModdingAPI.exe");
-    if smapi_path.is_file() {
-        return Ok((smapi_path, LauncherGameLaunchTarget::Smapi));
+    let smapi_candidates = smapi_launch_candidates(&game_root);
+    if let Some(smapi_path) = smapi_candidates.iter().find(|path| path.is_file()) {
+        return Ok((smapi_path.to_path_buf(), LauncherGameLaunchTarget::Smapi));
     }
 
-    let base_path = game_root.join("Stardew Valley.exe");
-    if base_path.is_file() {
-        return Ok((base_path, LauncherGameLaunchTarget::StardewValley));
+    let base_candidates = stardew_game_launch_candidates(&game_root);
+    if let Some(base_path) = base_candidates.iter().find(|path| path.is_file()) {
+        return Ok((
+            base_path.to_path_buf(),
+            LauncherGameLaunchTarget::StardewValley,
+        ));
     }
+
+    let checked_paths = smapi_candidates
+        .iter()
+        .chain(base_candidates.iter())
+        .map(|path| normalize_path(path))
+        .collect::<Vec<_>>()
+        .join(", ");
 
     Err(launcher_launch_error(
         LauncherGameLaunchErrorCode::MissingExecutable,
-        format!(
-            "No launcher executable found. Checked {} and {}.",
-            normalize_path(&smapi_path),
-            normalize_path(&base_path)
-        ),
+        format!("No launcher executable found. Checked {checked_paths}."),
     ))
 }
 

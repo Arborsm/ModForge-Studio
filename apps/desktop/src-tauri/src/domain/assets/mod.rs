@@ -22,7 +22,7 @@ use self::mime::{infer_audio_mime, infer_image_mime};
 use crate::domain::app_paths::app_cache_dir;
 use crate::infrastructure::fs::pathing::{
     audio_source_roots, clean_input_path, collect_known_game_paths, event_source_path,
-    map_source_path, normalize_path,
+    map_source_path, normalize_path, stardew_game_validation_candidates,
 };
 use crate::infrastructure::game_formats::tbin::parse_tbin_map;
 use crate::infrastructure::game_formats::xnb::{self, read_xnb_from_path};
@@ -400,13 +400,15 @@ pub fn read_directory_info(root: &Path) -> Result<GameDirectoryInfo, String> {
         ));
     }
 
-    let executable_path = root.join("Stardew Valley.exe");
-    if !executable_path.exists() {
+    let Some(executable_path) = stardew_game_validation_candidates(root)
+        .into_iter()
+        .find(|path| path.exists())
+    else {
         return Err(format!(
-            "Stardew Valley.exe was not found in {}",
-            normalize_path(root)
+            "No Stardew Valley executable or game assembly was found in {}",
+            normalize_path(root),
         ));
-    }
+    };
 
     let maps_path = map_source_path(root);
     if !maps_path.exists() {

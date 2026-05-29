@@ -19,7 +19,20 @@
     border: 1px solid var(--border-color);
     background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
     color: var(--text-primary);
+    min-width: 0;
+    gap: 6px;
+    white-space: nowrap;
     @apply inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-medium transition-colors;
+  }
+
+  .control-button > svg {
+    flex: 0 0 auto;
+  }
+
+  .control-button > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .control-button:hover {

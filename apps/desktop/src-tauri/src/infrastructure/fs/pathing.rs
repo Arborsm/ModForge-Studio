@@ -64,6 +64,36 @@ pub fn collect_known_game_paths() -> Vec<PathBuf> {
     candidates
 }
 
+pub fn stardew_game_validation_candidates(root: &Path) -> Vec<PathBuf> {
+    stardew_game_launch_candidates(root)
+        .into_iter()
+        .chain([root.join("Stardew Valley.dll")])
+        .collect()
+}
+
+pub fn stardew_game_launch_candidates(root: &Path) -> Vec<PathBuf> {
+    [
+        "Stardew Valley.exe",
+        "Stardew Valley",
+        "StardewValley",
+        "Stardew Valley.bin.x86_64",
+    ]
+    .into_iter()
+    .map(|name| root.join(name))
+    .collect()
+}
+
+pub fn smapi_launch_candidates(root: &Path) -> Vec<PathBuf> {
+    [
+        "StardewModdingAPI.exe",
+        "StardewModdingAPI",
+        "StardewModdingAPI.bin.x86_64",
+    ]
+    .into_iter()
+    .map(|name| root.join(name))
+    .collect()
+}
+
 pub fn map_source_path(root: &Path) -> PathBuf {
     root.join("Content").join("Maps")
 }

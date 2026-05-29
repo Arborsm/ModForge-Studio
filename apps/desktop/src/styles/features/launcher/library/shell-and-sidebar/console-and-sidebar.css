@@ -46,29 +46,42 @@
   }
 
   .launcher-library-console-top,
-  .launcher-library-console-bottom,
   .launcher-library-edit-bar {
-    display: flex;
+    display: grid;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
+  }
+
+  .launcher-library-console-top {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .launcher-library-console-bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .launcher-library-edit-bar {
+    grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
   }
 
   .launcher-library-console-heading {
     min-width: 0;
-    flex: 1 1 320px;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
   }
 
   .launcher-library-console-copy {
     min-width: 0;
+    max-width: min(720px, 100%);
     position: relative;
   }
 
   .launcher-library-title-button {
+    max-width: 100%;
     border: 0;
     background: transparent;
     color: inherit;
@@ -80,15 +93,20 @@
   }
 
   .launcher-library-title-button svg {
+    flex: 0 0 auto;
     color: var(--launcher-text-tertiary);
   }
 
   .launcher-library-console-title {
+    min-width: 0;
     margin: 0;
     color: var(--text-primary);
     font-size: 20px;
     line-height: 1.1;
     font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .launcher-library-console-subtitle {
@@ -130,6 +148,23 @@
     flex-wrap: wrap;
   }
 
+  .launcher-library-console-actions,
+  .launcher-library-console-right,
+  .launcher-library-edit-bar-right {
+    justify-content: flex-end;
+  }
+
+  .launcher-library-console-actions,
+  .launcher-library-console-right {
+    min-width: 0;
+    justify-self: end;
+    flex-wrap: nowrap;
+  }
+
+  .launcher-library-console-left {
+    min-width: 0;
+  }
+
   .launcher-library-console-divider {
     height: 1px;
     margin: 0;
@@ -164,26 +199,31 @@
 
   .launcher-library-secondary-action,
   .launcher-library-primary-action {
+    min-width: 0;
     min-height: 36px;
     border-radius: 999px;
     font-size: 13px;
     font-weight: 600;
+    white-space: nowrap;
   }
 
   .launcher-library-secondary-action {
+    max-width: 160px;
     border-color: transparent;
     background: var(--launcher-surface-muted);
     color: var(--text-primary);
   }
 
   .launcher-library-primary-action {
+    max-width: 148px;
     border-color: transparent;
     background: var(--launcher-surface-strong);
     color: var(--launcher-text-inverse);
   }
 
   .launcher-library-search {
-    min-width: 240px;
+    width: 100%;
+    min-width: 0;
     max-width: 240px;
     height: 36px;
     border: 1px solid transparent;

@@ -1,8 +1,8 @@
 use super::{
     cache_file_path, encode_hex, localized_variant_path, logicalized_asset_path,
-    preferred_existing_xnb_path, split_localized_stem,
+    preferred_existing_xnb_path, read_directory_info, split_localized_stem,
 };
-use crate::test_support::create_temp_dir;
+use crate::test_support::{create_temp_dir, write_file};
 use std::fs;
 use std::path::Path;
 
@@ -65,4 +65,22 @@ fn cache_file_path_uses_lower_hex_sha256_file_names() {
     assert!(hash
         .chars()
         .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()));
+}
+
+#[test]
+fn read_directory_info_accepts_unix_stardew_executable_names() {
+    for executable_name in ["Stardew Valley", "StardewValley", "Stardew Valley.dll"] {
+        let root = create_temp_dir("assets-unix-game-directory");
+        write_file(&root.join(executable_name), "game");
+        let maps = root.join("Content").join("Maps");
+        fs::create_dir_all(&maps).expect("create maps directory");
+        write_file(&maps.join("Town.xnb"), "map");
+
+        let info = read_directory_info(&root).expect("read game directory info");
+
+        assert_eq!(info.root_path, root.to_string_lossy());
+        assert_eq!(info.map_count, 1);
+
+        fs::remove_dir_all(root).expect("cleanup test directory");
+    }
 }

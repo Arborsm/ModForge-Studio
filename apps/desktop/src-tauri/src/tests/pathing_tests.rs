@@ -1,4 +1,7 @@
-use super::{clean_input_path, extract_xml_tag_value, parse_vdf, VdfValue};
+use super::{
+    clean_input_path, extract_xml_tag_value, parse_vdf, smapi_launch_candidates,
+    stardew_game_launch_candidates, stardew_game_validation_candidates, VdfValue,
+};
 use std::path::Path;
 
 #[test]
@@ -60,5 +63,49 @@ fn clean_input_path_maps_windows_drive_paths_to_wsl_mounts() {
     assert_eq!(
         cleaned,
         Path::new("/mnt/e/SteamLibrary/steamapps/common/Stardew Valley")
+    );
+}
+
+#[test]
+fn stardew_game_candidates_include_windows_linux_and_macos_names() {
+    let root = Path::new("/games/Stardew Valley");
+
+    let launch_names = stardew_game_launch_candidates(root)
+        .into_iter()
+        .map(|path| path.file_name().unwrap().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        launch_names,
+        vec![
+            "Stardew Valley.exe",
+            "Stardew Valley",
+            "StardewValley",
+            "Stardew Valley.bin.x86_64",
+        ]
+    );
+
+    let validation_names = stardew_game_validation_candidates(root)
+        .into_iter()
+        .map(|path| path.file_name().unwrap().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    assert!(validation_names.contains(&"Stardew Valley.dll".to_string()));
+}
+
+#[test]
+fn smapi_launch_candidates_include_unix_names() {
+    let root = Path::new("/games/Stardew Valley");
+
+    let names = smapi_launch_candidates(root)
+        .into_iter()
+        .map(|path| path.file_name().unwrap().to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        names,
+        vec![
+            "StardewModdingAPI.exe",
+            "StardewModdingAPI",
+            "StardewModdingAPI.bin.x86_64",
+        ]
     );
 }
