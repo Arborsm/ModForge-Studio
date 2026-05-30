@@ -161,11 +161,13 @@ pub fn save_launcher_download_queue(
 }
 
 #[tauri::command]
-pub fn download_launcher_mod(
+pub async fn download_launcher_mod(
     app: tauri::AppHandle,
     request: DownloadLauncherModRequest,
 ) -> Result<DownloadLauncherModResult, String> {
-    downloads::download_launcher_mod(app, request)
+    tauri::async_runtime::spawn_blocking(move || downloads::download_launcher_mod(app, request))
+        .await
+        .map_err(|error| format!("launcher mod download task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -274,11 +276,13 @@ pub async fn check_launcher_updates(
 }
 
 #[tauri::command]
-pub fn install_launcher_archive(
+pub async fn install_launcher_archive(
     app: tauri::AppHandle,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
-    archive::install_launcher_archive(app, request)
+    tauri::async_runtime::spawn_blocking(move || archive::install_launcher_archive(app, request))
+        .await
+        .map_err(|error| format!("launcher archive install task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -298,10 +302,12 @@ pub fn restore_launcher_install_backup(
 }
 
 #[tauri::command]
-pub fn inspect_launcher_archive(
+pub async fn inspect_launcher_archive(
     request: InspectLauncherArchiveRequest,
 ) -> Result<InspectLauncherArchiveResult, String> {
-    archive::inspect_launcher_archive(request)
+    tauri::async_runtime::spawn_blocking(move || archive::inspect_launcher_archive(request))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 // ---- REST API v1 Commands ----

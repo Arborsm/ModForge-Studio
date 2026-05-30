@@ -3,6 +3,7 @@ export {
   LAUNCHER_ARCHIVE_FILE_DIALOG_EXTENSIONS,
   LAUNCHER_ARCHIVE_FILE_SUFFIXES,
   chooseArchiveFile,
+  chooseArchiveFiles,
   chooseDirectory,
   chooseGameDirectory,
   chooseImageFile,

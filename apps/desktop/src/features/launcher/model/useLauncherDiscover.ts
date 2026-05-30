@@ -47,6 +47,82 @@ const EMPTY_FACETS: LauncherCatalogFacets = {
   tags: [],
 }
 
+function parseFacetTokens(value: string | null | undefined) {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function isBaseFacetRequest(request: SearchLauncherCatalogRequest) {
+  return (
+    !request.query?.trim() &&
+    !request.titleQuery?.trim() &&
+    !request.descriptionQuery?.trim() &&
+    !request.authorQuery?.trim() &&
+    !request.uploaderQuery?.trim() &&
+    !request.category &&
+    !request.language &&
+    !request.tagsInclude &&
+    !request.tagsExclude &&
+    !request.includeAdult &&
+    request.minFileSize == null &&
+    request.maxFileSize == null &&
+    request.minDownloads == null &&
+    request.maxDownloads == null &&
+    request.minEndorsements == null &&
+    request.maxEndorsements == null &&
+    (!request.timeRange || request.timeRange === 'all')
+  )
+}
+
+function mergeFacetOptions(
+  baseOptions: LauncherCatalogFacets['categories'],
+  currentOptions: LauncherCatalogFacets['categories'],
+  selectedNames: string[],
+) {
+  const currentCounts = new Map(currentOptions.map((option) => [option.name.toLowerCase(), option.count]))
+  const merged = new Map<string, { name: string; count: number }>()
+  const seedOptions = baseOptions.length ? baseOptions : currentOptions
+
+  for (const option of seedOptions) {
+    const name = option.name.trim()
+    if (!name) {
+      continue
+    }
+
+    merged.set(name.toLowerCase(), {
+      name,
+      count: currentCounts.get(name.toLowerCase()) ?? option.count,
+    })
+  }
+
+  for (const name of selectedNames) {
+    const trimmed = name.trim()
+    if (!trimmed || merged.has(trimmed.toLowerCase())) {
+      continue
+    }
+
+    merged.set(trimmed.toLowerCase(), {
+      name: trimmed,
+      count: currentCounts.get(trimmed.toLowerCase()) ?? 0,
+    })
+  }
+
+  return [...merged.values()]
+}
+
+function buildDisplayFacets(baseFacets: LauncherCatalogFacets, currentFacets: LauncherCatalogFacets, filters: DiscoverFilters) {
+  return {
+    categories: mergeFacetOptions(baseFacets.categories, currentFacets.categories, [filters.category]),
+    languages: mergeFacetOptions(baseFacets.languages, currentFacets.languages, [filters.language]),
+    tags: mergeFacetOptions(baseFacets.tags, currentFacets.tags, [
+      ...parseFacetTokens(filters.tagsInclude),
+      ...parseFacetTokens(filters.tagsExclude),
+    ]),
+  }
+}
+
 function parseOptionalNumber(value: string) {
   const trimmed = value.trim()
   if (!trimmed) {
@@ -73,6 +149,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
   const [hasMore, setHasMore] = useState(false)
   const [totalCount, setTotalCount] = useState(0)
   const [facets, setFacets] = useState<LauncherCatalogFacets>(EMPTY_FACETS)
+  const [baseFacets, setBaseFacets] = useState<LauncherCatalogFacets>(EMPTY_FACETS)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
@@ -127,7 +204,6 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
             setItems([])
             setTotalCount(0)
             setHasMore(false)
-            setFacets(EMPTY_FACETS)
             setBlockedReason(unavailableReason)
             setState('ready')
             return null
@@ -144,6 +220,9 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
           setTotalCount(result.totalCount)
           setHasMore(result.hasMore)
           setFacets(result.facets)
+          if (isBaseFacetRequest(requestPayload)) {
+            setBaseFacets(result.facets)
+          }
           setBlockedReason(null)
           setState('ready')
         })
@@ -168,6 +247,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
   }
 
   const totalPages = totalCount > 0 ? Math.ceil(totalCount / pageSize) : 0
+  const displayFacets = buildDisplayFacets(baseFacets, facets, filters)
 
   const setPage = (value: number) => {
     const normalized = Math.max(1, Math.trunc(value))
@@ -194,7 +274,7 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
     totalPages,
     page,
     hasMore,
-    facets,
+    facets: displayFacets,
     filters,
     state,
     error,

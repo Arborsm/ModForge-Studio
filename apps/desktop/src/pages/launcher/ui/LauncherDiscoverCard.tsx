@@ -134,29 +134,37 @@ export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload }: L
 
   return (
     <article className="launcher-discover-wall-card panel-section">
-      <button
-        type="button"
-        className="launcher-discover-wall-cover"
-        aria-label={`${copy.library.detailsTitle}: ${item.title}`}
-        aria-busy={image.loading ? 'true' : undefined}
-        onClick={scheduleOpenDetails}
-        onDoubleClick={openModPage}
-      >
-        {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
-        {!image.imageUrl ? (
-          <span className="launcher-discover-wall-cover-fallback">
-            <span className="launcher-discover-wall-cover-monogram" aria-hidden="true">
-              {coverMonogram}
+      <div className="launcher-discover-wall-media">
+        <button
+          type="button"
+          className="launcher-discover-wall-cover"
+          aria-label={`${copy.library.detailsTitle}: ${item.title}`}
+          aria-busy={image.loading ? 'true' : undefined}
+          onClick={scheduleOpenDetails}
+          onDoubleClick={openModPage}
+        >
+          {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
+          {!image.imageUrl ? (
+            <span className="launcher-discover-wall-cover-fallback">
+              <span className="launcher-discover-wall-cover-monogram" aria-hidden="true">
+                {coverMonogram}
+              </span>
+              {image.loading ? <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span> : null}
             </span>
-            {image.loading ? <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span> : null}
-          </span>
-        ) : null}
-        {item.updateAvailable ? <span className="launcher-discover-wall-badge">Update available</span> : null}
-        <div className="launcher-discover-wall-cover-overlay">
+          ) : null}
+          {item.updateAvailable ? <span className="launcher-discover-wall-badge">Update available</span> : null}
+        </button>
+        <button
+          type="button"
+          className="launcher-discover-wall-cover-overlay"
+          aria-label={copy.actions.openModPage}
+          title={copy.actions.openModPage}
+          onClick={openModPage}
+        >
           <ExternalLink className="h-4 w-4" />
           <span>{copy.actions.openModPage}</span>
-        </div>
-      </button>
+        </button>
+      </div>
       <div className="launcher-discover-wall-body">
         <button type="button" className="launcher-discover-wall-copy" onClick={scheduleOpenDetails} onDoubleClick={openModPage}>
           <div className="launcher-discover-wall-title-slot">

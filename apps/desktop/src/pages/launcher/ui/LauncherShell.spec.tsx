@@ -5,6 +5,7 @@ import LauncherShell from './LauncherShell'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 
 const configurationPageSpy = vi.fn()
+const libraryRefreshMock = vi.fn(async () => {})
 let libraryPageInstanceCounter = 0
 
 vi.mock('./LauncherLibraryPage', () => ({
@@ -34,7 +35,7 @@ vi.mock('@features/launcher/model/useLauncherLibrary', () => ({
     error: null,
     filterText: '',
     enabledOnly: false,
-    refresh: vi.fn(async () => {}),
+    refresh: libraryRefreshMock,
     setSelectedModId: vi.fn(),
     toggleEnabled: vi.fn(async () => {}),
     installArchive: vi.fn(async () => {}),
@@ -127,15 +128,15 @@ const downloads = {
   retryFailed: vi.fn(),
   removeItem: vi.fn(),
   removeCompleted: vi.fn(),
-  installItem: vi.fn(),
-  installAllReady: vi.fn(),
   clearAll: vi.fn(),
+  markArchivesInstalled: vi.fn(),
 }
 
 describe('LauncherShell', () => {
   afterEach(() => {
     cleanup()
     configurationPageSpy.mockReset()
+    libraryRefreshMock.mockClear()
     libraryPageInstanceCounter = 0
   })
 

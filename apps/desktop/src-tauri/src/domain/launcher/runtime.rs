@@ -10,7 +10,7 @@ use crate::infrastructure::fs::pathing::{
 };
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use url::Url;
 
 #[cfg(target_os = "windows")]
@@ -222,40 +222,40 @@ fn open_url_in_shell(url: &str) -> Result<(), String> {
     let mut command = Command::new("rundll32");
     command
         .creation_flags(CREATE_NO_WINDOW)
-        .args(["url.dll,FileProtocolHandler", url]);
+        .args(["url.dll,FileProtocolHandler", url])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
-    let status = command
-        .status()
+    command
+        .spawn()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
-    if !status.success() {
-        return Err(format!("Browser launch failed for {url}."));
-    }
 
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn open_url_in_shell(url: &str) -> Result<(), String> {
-    let status = Command::new("open")
+    Command::new("open")
         .arg(url)
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
-    if !status.success() {
-        return Err(format!("Browser launch failed for {url}."));
-    }
 
     Ok(())
 }
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
 fn open_url_in_shell(url: &str) -> Result<(), String> {
-    let status = Command::new("xdg-open")
+    Command::new("xdg-open")
         .arg(url)
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
-    if !status.success() {
-        return Err(format!("Browser launch failed for {url}."));
-    }
 
     Ok(())
 }

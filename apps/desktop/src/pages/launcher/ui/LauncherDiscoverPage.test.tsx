@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import { openLauncherUrl, type LauncherSettings } from '@features/launcher/api'
@@ -151,6 +151,26 @@ describe('LauncherDiscoverPage', () => {
     expect(screen.getByRole('button', { name: copy.actions.refresh }).hasAttribute('disabled')).toBe(false)
   })
 
+  it('binds the discover header search input to the catalog query', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    const setQuery = vi.fn()
+    useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ query: 'tractor', setQuery }))
+
+    renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+
+    const searchInput = screen.getByRole('textbox', { name: 'Search Nexus Mods' })
+    expect(searchInput).toHaveValue('tractor')
+
+    fireEvent.change(searchInput, { target: { value: 'content patcher' } })
+
+    expect(setQuery).toHaveBeenCalledWith('content patcher')
+  })
+
   it('renders the project-aligned browse shell and result cards for discover browsing', () => {
     getAppUiStateSnapshotMock.mockReturnValue({
       launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
@@ -301,6 +321,11 @@ describe('LauncherDiscoverPage', () => {
     )
 
     const cardButton = screen.getByRole('button', { name: `${copy.library.detailsTitle}: Joja Civic Center` })
+    fireEvent.click(screen.getByRole('button', { name: copy.actions.openModPage }))
+
+    expect(openLauncherUrlMock).toHaveBeenCalledWith({ url: 'https://www.nexusmods.com/stardewvalley/mods/44722' })
+    openLauncherUrlMock.mockClear()
+
     fireEvent.click(cardButton)
 
     expect(openLauncherUrlMock).not.toHaveBeenCalled()
@@ -572,10 +597,10 @@ describe('LauncherDiscoverPage', () => {
         facets: {
           categories: [],
           languages: [],
-          tags: [
-            { name: 'SMAPI', count: 18839 },
-            { name: 'Expansion', count: 912 },
-          ],
+          tags: Array.from({ length: 72 }, (_, index) => ({
+            name: index === 0 ? 'SMAPI' : `Remote tag ${index + 1}`,
+            count: 18839 - index,
+          })),
         },
         updateFilter,
       }),
@@ -589,9 +614,34 @@ describe('LauncherDiscoverPage', () => {
     fireEvent.focus(screen.getByPlaceholderText('e.g. expansion, ui'))
 
     expect(screen.getByRole('listbox', { name: 'Includes suggestions' })).toBeTruthy()
+    expect(screen.getByRole('option', { name: /Remote tag 72/i })).toBeTruthy()
     fireEvent.click(screen.getByRole('option', { name: /SMAPI/i }))
 
     expect(updateFilter).toHaveBeenCalledWith('tagsInclude', 'SMAPI')
+  })
+
+  it('uses range presets by default and keeps manual range inputs behind advanced controls', () => {
+    getAppUiStateSnapshotMock.mockReturnValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    initializeAppUiStateMock.mockResolvedValue({
+      launcher: { discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false } },
+    } as never)
+    const updateFilter = vi.fn()
+    useLauncherDiscoverMock.mockReturnValue(createDiscoverState({ updateFilter }))
+
+    renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Limits' }))
+    expect(screen.queryByPlaceholderText('No min')).toBeNull()
+
+    fireEvent.click(within(screen.getByRole('group', { name: 'Downloads presets' })).getByRole('button', { name: '10K+' }))
+    expect(updateFilter).toHaveBeenCalledWith('minDownloads', '10000')
+    expect(updateFilter).toHaveBeenCalledWith('maxDownloads', '')
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Advanced' })[1])
+    fireEvent.change(screen.getByPlaceholderText('No min'), { target: { value: '12345' } })
+    expect(updateFilter).toHaveBeenCalledWith('minDownloads', '12345')
   })
 
   it('renders a real paginator and forwards previous/next and jump actions', () => {
@@ -634,7 +684,23 @@ describe('LauncherDiscoverPage', () => {
       }),
     )
 
-    renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+    const { container } = renderWithLocale(<LauncherDiscoverPage settings={createSettings()} onQueueDownload={vi.fn()} />, 'zh-CN')
+    const resultsViewport = container.querySelector('.launcher-discover-results-viewport') as HTMLDivElement
+    const discoverContent = container.querySelector('.launcher-discover-content') as HTMLDivElement
+    Object.defineProperty(resultsViewport, 'scrollTo', {
+      configurable: true,
+      value: vi.fn((options?: ScrollToOptions) => {
+        resultsViewport.scrollTop = Number(options?.top ?? 0)
+        resultsViewport.scrollLeft = Number(options?.left ?? 0)
+      }),
+    })
+    Object.defineProperty(discoverContent, 'scrollTo', {
+      configurable: true,
+      value: vi.fn((options?: ScrollToOptions) => {
+        discoverContent.scrollTop = Number(options?.top ?? 0)
+        discoverContent.scrollLeft = Number(options?.left ?? 0)
+      }),
+    })
 
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeTruthy()
@@ -642,15 +708,30 @@ describe('LauncherDiscoverPage', () => {
     expect(screen.getByText('1445')).toBeTruthy()
     expect(screen.getByLabelText('Jump to page')).toBeTruthy()
 
+    resultsViewport.scrollTop = 480
+    discoverContent.scrollTop = 80
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }))
     expect(goToNextPage).toHaveBeenCalled()
+    expect(resultsViewport.scrollTop).toBe(0)
+    expect(discoverContent.scrollTop).toBe(0)
 
+    resultsViewport.scrollTop = 360
+    discoverContent.scrollTop = 60
     fireEvent.click(screen.getByRole('button', { name: 'Previous page' }))
     expect(goToPreviousPage).toHaveBeenCalled()
+    expect(resultsViewport.scrollTop).toBe(0)
+    expect(discoverContent.scrollTop).toBe(0)
 
+    resultsViewport.scrollTop = 240
+    fireEvent.click(screen.getByRole('button', { name: 'Page 2' }))
+    expect(setPage).toHaveBeenCalledWith(2)
+    expect(resultsViewport.scrollTop).toBe(0)
+
+    resultsViewport.scrollTop = 120
     fireEvent.change(screen.getByLabelText('Jump to page'), { target: { value: '120' } })
     fireEvent.keyDown(screen.getByLabelText('Jump to page'), { key: 'Enter', code: 'Enter' })
     expect(setPage).toHaveBeenCalledWith(120)
+    expect(resultsViewport.scrollTop).toBe(0)
   })
 
   it('keeps the sidebar accordion in single-open mode with the first section open by default', () => {

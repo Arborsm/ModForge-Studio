@@ -642,6 +642,7 @@ export type LauncherCopy = {
       optionalFiles: string
       oldFiles: string
       oldAndArchivedFiles: string
+      filesLoading: string
       changelogEmpty: string
     }
     installHint: string
@@ -654,6 +655,7 @@ export type LauncherCopy = {
     previewArchiveListSubtitle: string
     previewNoRoots: string
     previewLoading: string
+    previewProgress: (completed: number, total: number, archiveName: string) => string
     previewError: string
     dragDropInstallTitle: string
     dragDropInstallSubtitle: (formats: string) => string
@@ -664,7 +666,12 @@ export type LauncherCopy = {
     dragDropSkippedMissingPaths: (count: number) => string
     installSummaryTitle: string
     installSummarySubtitle: string
+    installProgressTitle: string
+    installProgress: (completed: number, total: number, archiveName: string) => string
+    installProgressKeepWorking: string
     installSummaryInstalledMods: (count: number) => string
+    installSummarySucceeded: (count: number) => string
+    installSummaryFailed: (count: number) => string
     installSummaryPreservedConfig: string
     installSummaryPreservedI18n: string
     installSummaryBackupSubtitle: string
@@ -865,6 +872,9 @@ export type LauncherCopy = {
     title: string
     subtitle: string
     empty: string
+    backgroundQueuedTitle: string
+    backgroundQueuedSummary: (count: number) => string
+    backgroundQueuedDetail: string
     manualDownloadOpenedTitle: string
     manualDownloadOpenedDetail: string
   }

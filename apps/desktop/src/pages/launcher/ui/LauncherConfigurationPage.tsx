@@ -14,6 +14,7 @@ import {
 } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import {
+  clearCachedLauncherConfigurationDiagnostics,
   getLauncherWarningState,
   readCachedLauncherConfigurationApiKeyStatus,
   readCachedLauncherConfigurationDiagnostics,
@@ -30,6 +31,7 @@ import {
 } from '@features/launcher'
 import type { LauncherCopy } from '@locales/schema'
 import type { LauncherRuntimeInfo, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'
+import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'
 import { ConfigAccountCard, ConfigCompletionRail, ConfigDownloadDefaults, type ConfigStep } from './LauncherConfigurationRailCards'
 
@@ -54,6 +56,36 @@ type NexusApiAccountStatus = {
   ssoStarting: boolean
   refreshApiKeyStatus: (options?: { force?: boolean; forceNonPremium?: boolean }) => Promise<void>
   startSso: () => Promise<void>
+}
+
+const SSO_STATUS_POLL_INTERVAL_MS = 1500
+const SSO_STATUS_POLL_TIMEOUT_MS = 125_000
+
+function isSsoPendingStatus(status: string) {
+  return status === 'connecting' || status === 'awaitingAuthorization'
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+async function pollNexusSsoUntilSettled(launcherPort: LauncherPort, options: { signal: () => boolean }) {
+  const startedAt = Date.now()
+
+  while (!options.signal()) {
+    const snapshot = await launcherPort.getNexusSsoStatus()
+    if (!isSsoPendingStatus(snapshot.status)) {
+      return snapshot
+    }
+
+    if (Date.now() - startedAt >= SSO_STATUS_POLL_TIMEOUT_MS) {
+      return snapshot
+    }
+
+    await wait(SSO_STATUS_POLL_INTERVAL_MS)
+  }
+
+  return launcherPort.getNexusSsoStatus()
 }
 
 function createLoadingRoute(routeId: ConfigRouteId, label: string): LauncherNexusRouteSnapshot {
@@ -408,7 +440,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
   const refreshApiKeyStatus = useCallback(
     async (options: { force?: boolean; forceNonPremium?: boolean } = {}) => {
       const effectiveForceNonPremium = options.forceNonPremium ?? forceNonPremium
-      if (!hasApiKey) {
+      if (!hasApiKey && !options.force) {
         setApiKeyStatus(null)
         setApiKeyError(null)
         return
@@ -521,19 +553,25 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
   }, [launcherPort])
 
   const startSso = useCallback(async () => {
+    let cancelled = false
     setSsoStarting(true)
     try {
       await launcherPort.startNexusSso()
-      const snapshot = await launcherPort.getNexusSsoStatus()
+      const snapshot = await pollNexusSsoUntilSettled(launcherPort, {
+        signal: () => cancelled,
+      })
       writeCachedLauncherConfigurationSsoStatus(snapshot)
       setSsoAuthorized(snapshot.status === 'authorized')
       if (snapshot.status === 'authorized') {
+        clearCachedLauncherConfigurationDiagnostics()
+        writeCachedLauncherConfigurationSsoStatus(snapshot)
         await refresh()
         await refreshApiKeyStatus({ force: true })
       }
     } catch (nextError) {
       setApiKeyError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
+      cancelled = true
       setSsoStarting(false)
     }
   }, [launcherPort, refresh, refreshApiKeyStatus])
@@ -665,8 +703,10 @@ function ConfigNexusPanel({
               type="button"
               className="launcher-config-button launcher-config-button-brand"
               disabled={account.ssoStarting}
+              aria-busy={account.ssoStarting}
               onClick={() => void account.startSso()}
             >
+              {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
               {isAuthorized ? copy.settings.nexusReauthorize : copy.settings.nexusSignInAction}
             </button>
             <button
@@ -725,8 +765,10 @@ function ConfigNexusPanel({
               type="button"
               className="launcher-config-button launcher-config-button-primary"
               disabled={account.ssoStarting}
+              aria-busy={account.ssoStarting}
               onClick={() => void account.startSso()}
             >
+              {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
               {copy.settings.nexusSignInAction}
             </button>
             <button

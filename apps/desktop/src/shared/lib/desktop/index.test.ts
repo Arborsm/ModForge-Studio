@@ -92,15 +92,17 @@ describe('desktop facade', () => {
   })
 
   it('opens archive files and drag-drop listeners through configured platform ports', async () => {
-    const { desktop, chooseFile, dragDropListeners, ports } = await loadConfiguredDesktop()
-    chooseFile.mockResolvedValueOnce('E:\\Downloads\\example.7z')
+    const { desktop, dragDropListeners, ports } = await loadConfiguredDesktop()
+    vi.mocked(ports.dialog.open).mockResolvedValueOnce('E:\\Downloads\\example.7z')
     const listener = vi.fn()
 
     await expect(desktop.chooseArchiveFile('Install Archive')).resolves.toBe('E:\\Downloads\\example.7z')
     const unlisten = await desktop.listenToLauncherArchiveDragDrop(listener)
 
-    expect(chooseFile).toHaveBeenCalledWith({
+    expect(ports.dialog.open).toHaveBeenCalledWith({
       title: 'Install Archive',
+      directory: false,
+      multiple: false,
       filters: [
         {
           name: 'Archives',
@@ -125,6 +127,25 @@ describe('desktop facade', () => {
 
     unlisten()
     expect(dragDropListeners).toHaveLength(0)
+  })
+
+  it('opens multiple archive files through the generic dialog port', async () => {
+    const { desktop, ports } = await loadConfiguredDesktop()
+    vi.mocked(ports.dialog.open).mockResolvedValueOnce(['E:\\Downloads\\a.zip', 'E:\\Downloads\\b.7z'])
+
+    await expect(desktop.chooseArchiveFiles('Install Archives')).resolves.toEqual(['E:\\Downloads\\a.zip', 'E:\\Downloads\\b.7z'])
+
+    expect(ports.dialog.open).toHaveBeenCalledWith({
+      title: 'Install Archives',
+      directory: false,
+      multiple: true,
+      filters: [
+        {
+          name: 'Archives',
+          extensions: ['zip', '7z', 'rar', 'tar', 'tgz', 'gz'],
+        },
+      ],
+    })
   })
 
   it('recognizes supported launcher archive paths', async () => {

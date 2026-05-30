@@ -14,7 +14,7 @@ import {
   type LauncherInstallBackupSummary,
 } from '@features/launcher/api'
 import {
-  chooseArchiveFile,
+  chooseArchiveFiles,
   chooseImageFile,
   isSupportedLauncherArchivePath,
   listenToLauncherArchiveDragDrop,
@@ -39,6 +39,7 @@ export type LauncherLibraryControllerInput = {
   library: ReturnType<typeof useLauncherLibrary>
   refresh: () => Promise<void>
   copy: LauncherCopy
+  onArchiveInstallSuccess?: (archivePaths: string[]) => void
 }
 
 type DroppedArchivePaths = {
@@ -48,6 +49,8 @@ type DroppedArchivePaths = {
 }
 
 const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-gallery-loading'
+const LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID = 'launcher-library-archive-preview'
+const LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID = 'launcher-library-archive-install'
 const LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS = 15_000
 
 function splitDroppedArchivePaths(paths: string[] | undefined): DroppedArchivePaths {
@@ -75,8 +78,51 @@ function splitDroppedArchivePaths(paths: string[] | undefined): DroppedArchivePa
   )
 }
 
+function archiveFileNameFromPath(path: string) {
+  return path.split(/[\\/]/).pop()?.trim() || path
+}
+
+function installErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
+function formatInstallResultDescription(
+  copy: LauncherCopy['library'],
+  results: InstallLauncherArchiveResult[],
+  failures: Array<{ archivePath: string; message: string }>,
+) {
+  const successNames = results.map((result) => result.modName || archiveFileNameFromPath(result.archivePath))
+  const failureNames = failures.map((failure) => `${archiveFileNameFromPath(failure.archivePath)}: ${failure.message}`)
+  const lines: string[] = []
+
+  if (results.length) {
+    lines.push(copy.installSummarySucceeded(results.length))
+    lines.push(...successNames.map((name) => `- ${name}`))
+  }
+
+  if (failures.length) {
+    if (lines.length) {
+      lines.push('')
+    }
+    lines.push(copy.installSummaryFailed(failures.length))
+    lines.push(...failureNames.map((name) => `- ${name}`))
+  }
+
+  return lines.join('\n')
+}
+
+function formatInstallProgressDescription(copy: LauncherCopy['library'], archiveName: string, completed: number, total: number) {
+  return `${copy.installProgress(completed, total, archiveName)}\n${copy.installProgressKeepWorking}`
+}
+
 /** Coordinates launcher-library page state, derived display data, and local interaction refs. */
-export function useLauncherLibraryController({ settings, library, refresh, copy }: LauncherLibraryControllerInput) {
+export function useLauncherLibraryController({
+  settings,
+  library,
+  refresh,
+  copy,
+  onArchiveInstallSuccess,
+}: LauncherLibraryControllerInput) {
   const [archivePreviewState, setArchivePreviewState] = useState<ArchivePreviewState>('idle')
   const [archivePreviews, setArchivePreviews] = useState<InspectLauncherArchiveResult[]>([])
   const [selectedArchivePreviewPath, setSelectedArchivePreviewPath] = useState<string | null>(null)
@@ -121,6 +167,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
   const lastLoadedModsPathRef = useRef<string | null>(settings.modsPath?.trim() || null)
   const autoRefreshModsPathRef = useRef<string | null>(null)
   const installBackupsOpenRef = useRef(false)
+  const archivePreviewTaskTokenRef = useRef(0)
 
   useEffect(() => {
     const nextModsPath = settings.modsPath?.trim() || null
@@ -271,33 +318,34 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
     setInstallResult(result)
   }, [])
 
-  const publishArchiveInstallSuccess = useCallback(
-    (result: InstallLauncherArchiveResult) => {
+  const publishArchiveInstallResult = useCallback(
+    (results: InstallLauncherArchiveResult[], failures: Array<{ archivePath: string; message: string }>) => {
+      if (!results.length && !failures.length) {
+        return
+      }
+
       publishNotification({
-        level: 'success',
+        level: failures.length && !results.length ? 'error' : failures.length ? 'warning' : 'success',
         title: copy.library.installSummaryTitle,
-        summary: result.modName,
-        description: copy.library.installSummaryInstalledMods(result.installedMods.length),
-        action: {
-          label: copy.actions.viewDetails,
-          callback: () => openInstallSummary(result),
-          tone: 'primary',
-        },
+        summary: [
+          results.length ? copy.library.installSummarySucceeded(results.length) : null,
+          failures.length ? copy.library.installSummaryFailed(failures.length) : null,
+        ]
+          .filter(Boolean)
+          .join(' / '),
+        description: formatInstallResultDescription(copy.library, results, failures),
+        action:
+          results.length === 1
+            ? {
+                label: copy.actions.viewDetails,
+                callback: () => openInstallSummary(results[0]!),
+                tone: 'primary',
+              }
+            : undefined,
         autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
       })
     },
     [copy.actions.viewDetails, copy.library, openInstallSummary],
-  )
-
-  const publishArchiveInstallError = useCallback(
-    (error: unknown) => {
-      publishNotification({
-        level: 'error',
-        title: copy.actions.installArchive,
-        description: error instanceof Error ? error.message : copy.library.previewError,
-      })
-    },
-    [copy.actions.installArchive, copy.library.previewError],
   )
 
   const publishArchiveDropError = useCallback(
@@ -313,18 +361,49 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
 
   const openArchivePreviewForPaths = useCallback(
     async (paths: string[]) => {
-      setArchivePreviewState('loading')
+      const taskToken = archivePreviewTaskTokenRef.current + 1
+      archivePreviewTaskTokenRef.current = taskToken
+      const isTaskActive = () => archivePreviewTaskTokenRef.current === taskToken
+
+      setArchivePreviewState('idle')
       setArchivePreviews([])
       setSelectedArchivePreviewPath(null)
       setArchivePreviewError(null)
 
       const nextPreviews: InspectLauncherArchiveResult[] = []
       let firstError: string | null = null
+      const total = paths.length
+      let completed = 0
 
       for (const path of paths) {
+        if (!isTaskActive()) {
+          return
+        }
+
+        publishNotification({
+          id: LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID,
+          level: 'info',
+          title: copy.library.previewLoading,
+          description: copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)),
+          autoDismissMs: null,
+          progress: total > 0 ? (completed / total) * 100 : 0,
+        })
+
         try {
           nextPreviews.push(await inspectLauncherArchive({ archivePath: path }))
+          completed += 1
+          if (isTaskActive()) {
+            publishNotification({
+              id: LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID,
+              level: 'info',
+              title: copy.library.previewLoading,
+              description: copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)),
+              autoDismissMs: null,
+              progress: total > 0 ? (completed / total) * 100 : 100,
+            })
+          }
         } catch (nextError) {
+          completed += 1
           const description = nextError instanceof Error ? nextError.message : copy.library.previewError
           if (!firstError) {
             firstError = description
@@ -336,6 +415,12 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
           })
         }
       }
+
+      if (!isTaskActive()) {
+        return
+      }
+
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
 
       if (nextPreviews.length) {
         setArchivePreviews(nextPreviews)
@@ -349,7 +434,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
       setSelectedArchivePreviewPath(null)
       setArchivePreviewError(firstError)
     },
-    [copy.library.previewError, copy.library.previewTitle],
+    [copy.library],
   )
 
   const openArchivePreviewForPath = useCallback(
@@ -357,6 +442,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
       try {
         await openArchivePreviewForPaths([path])
       } catch (nextError) {
+        dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
         setArchivePreviewState('idle')
         setArchivePreviews([])
         setSelectedArchivePreviewPath(null)
@@ -436,43 +522,95 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
   )
 
   const inspectArchive = useCallback(async () => {
-    const path = await chooseArchiveFile(copy.actions.chooseArchive)
-    if (!path) {
+    const paths = await chooseArchiveFiles(copy.actions.chooseArchive)
+    if (!paths.length) {
       return
     }
 
-    await openArchivePreviewForPath(path)
-  }, [copy.actions.chooseArchive, openArchivePreviewForPath])
+    void openArchivePreviewForPaths(paths)
+  }, [copy.actions.chooseArchive, openArchivePreviewForPaths])
 
   const confirmArchiveInstall = useCallback(async () => {
     if (!archivePreviews.length) {
       return
     }
 
+    const previewsToInstall = archivePreviews
+    const total = previewsToInstall.length
+
     setInstallingArchive(true)
+    setArchivePreviewState('idle')
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
+    setArchivePreviewError(null)
+    publishNotification({
+      id: LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID,
+      level: 'info',
+      title: copy.library.installProgressTitle,
+      description: formatInstallProgressDescription(copy.library, archiveFileNameFromPath(previewsToInstall[0]!.archivePath), 0, total),
+      autoDismissMs: null,
+      progress: 0,
+    })
+
     let successfulInstalls = 0
+    const successfulArchivePaths: string[] = []
+    const installResults: InstallLauncherArchiveResult[] = []
+    const installFailures: Array<{ archivePath: string; message: string }> = []
 
     try {
-      for (const preview of archivePreviews) {
+      for (const preview of previewsToInstall) {
+        publishNotification({
+          id: LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID,
+          level: 'info',
+          title: copy.library.installProgressTitle,
+          description: formatInstallProgressDescription(
+            copy.library,
+            archiveFileNameFromPath(preview.archivePath),
+            successfulInstalls + installFailures.length,
+            total,
+          ),
+          autoDismissMs: null,
+          progress: total > 0 ? ((successfulInstalls + installFailures.length) / total) * 100 : 0,
+        })
+
         try {
           const result = await library.installArchive(preview.archivePath)
           successfulInstalls += 1
-          publishArchiveInstallSuccess(result)
+          successfulArchivePaths.push(preview.archivePath)
+          installResults.push(result)
         } catch (nextError) {
-          publishArchiveInstallError(nextError)
+          installFailures.push({
+            archivePath: preview.archivePath,
+            message: installErrorMessage(nextError, copy.library.previewError),
+          })
         }
       }
 
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
+      publishArchiveInstallResult(installResults, installFailures)
+
       if (successfulInstalls > 0) {
-        closeArchivePreview()
+        onArchiveInstallSuccess?.(successfulArchivePaths)
         void refreshLibrary()
       }
     } catch (nextError) {
-      publishArchiveInstallError(nextError)
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
+      publishArchiveInstallResult(
+        [],
+        [{ archivePath: copy.actions.installArchive, message: installErrorMessage(nextError, copy.library.previewError) }],
+      )
     } finally {
       setInstallingArchive(false)
     }
-  }, [archivePreviews, closeArchivePreview, library, publishArchiveInstallError, publishArchiveInstallSuccess, refreshLibrary])
+  }, [
+    archivePreviews,
+    copy.actions.installArchive,
+    copy.library,
+    library,
+    onArchiveInstallSuccess,
+    publishArchiveInstallResult,
+    refreshLibrary,
+  ])
 
   const handleDroppedArchives = useCallback(
     async (paths: string[] | undefined) => {
@@ -496,7 +634,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
         publishArchiveDropError(copy.library.dragDropSkippedUnsupportedArchives(unsupportedCount, supportedArchiveFormatsLabel))
       }
 
-      await openArchivePreviewForPaths(supportedPaths)
+      void openArchivePreviewForPaths(supportedPaths)
     },
     [copy.library, openArchivePreviewForPaths, publishArchiveDropError, supportedArchiveFormatsLabel],
   )

@@ -10,7 +10,7 @@ import { PanelEmptyState } from '@shared/ui/PanelSection'
 import type { LauncherDiscoverDetail, LauncherLibraryItem, QueueLauncherDownloadInput } from '../../model/types'
 import { LauncherArtworkCover } from './LauncherArtworkCover'
 import { getLauncherCardCoverWord, getLauncherCardFallbackPalette } from './launcherCardPresentation'
-import { ChangelogList, DependencyList, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
+import { ChangelogList, DependencyList, DetailDataLoading, DetailSection, FileList, PropertyRow } from './LauncherModDetailLists'
 import {
   buildChangelogItems,
   compactNumber,
@@ -127,11 +127,10 @@ export function LauncherModDetailPanel({
     includeFiles: true,
     notify: false,
   })
+  const deferredFilesLoading = Boolean(shouldFetchDeferredFiles && fetchedRemoteWithFiles.state === 'loading')
   const remote = fetchedRemoteWithFiles.detail ?? remoteDetail ?? fetchedRemote.detail
   const showRemoteLoading =
-    remoteLoading ||
-    Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading') ||
-    Boolean(shouldFetchDeferredFiles && fetchedRemoteWithFiles.state === 'loading')
+    remoteLoading || Boolean(open && !remoteDetail && mod?.nexusModId && fetchedRemote.state === 'loading') || deferredFilesLoading
   const fallbackRemoteModId = mod?.nexusModId ?? null
   const isLocal = Boolean(mod?.absolutePath)
   const isNexus = Boolean(remote)
@@ -579,7 +578,13 @@ export function LauncherModDetailPanel({
                     aria-hidden={selectedTab !== 'changelog'}
                   >
                     <div className="launcher-mod-detail-info-layout rich scrollable">
-                      {selectedTab === 'changelog' ? <ChangelogList items={changelogItems} emptyLabel={detailCopy.changelogEmpty} /> : null}
+                      {selectedTab === 'changelog' ? (
+                        deferredFilesLoading ? (
+                          <DetailDataLoading label={detailCopy.filesLoading} />
+                        ) : (
+                          <ChangelogList items={changelogItems} emptyLabel={detailCopy.changelogEmpty} />
+                        )
+                      ) : null}
                     </div>
                   </section>
                 ) : null}
@@ -635,7 +640,9 @@ export function LauncherModDetailPanel({
                     aria-hidden={selectedTab !== 'files'}
                   >
                     <div className="launcher-mod-detail-info-layout rich scrollable">
-                      {selectedTab === 'files' ? (
+                      {selectedTab === 'files' && deferredFilesLoading ? (
+                        <DetailDataLoading label={detailCopy.filesLoading} />
+                      ) : selectedTab === 'files' ? (
                         <FileList
                           items={fileItems}
                           labels={{

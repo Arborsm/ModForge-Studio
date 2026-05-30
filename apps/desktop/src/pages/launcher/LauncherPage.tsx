@@ -64,10 +64,18 @@ export function LauncherPage({
   const launcherRuntime = useLauncherRuntime(locale)
   useLauncherUpdateProgressNotifications(locale)
   const [launchBusy, setLaunchBusy] = useState(false)
+  const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
   const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
-  const downloadsPopover = <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />
+  const downloadsPopover = (
+    <LauncherDownloadsPopover
+      downloads={launcherRuntime.downloads}
+      onInstallArchives={(archivePaths) => {
+        setDownloadInstallRequest({ id: Date.now(), archivePaths })
+      }}
+    />
+  )
   const handleLaunchGame = useCallback(async () => {
     if (!desktopHost || launchBusy) {
       return
@@ -130,6 +138,8 @@ export function LauncherPage({
             onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
             settingsState={launcherRuntime.settingsState}
             downloads={launcherRuntime.downloads}
+            downloadInstallRequest={downloadInstallRequest}
+            onDownloadArchivesInstalled={launcherRuntime.downloads.markArchivesInstalled}
             onNavigateToSettings={() => onLauncherPageChange('configuration')}
             launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}

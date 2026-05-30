@@ -150,6 +150,20 @@ export function FileList({
   )
 }
 
+export function DetailDataLoading({ label }: { label: string }) {
+  return (
+    <div className="launcher-mod-detail-data-loading" role="status" aria-live="polite">
+      <span className="launcher-mod-detail-data-loading-spinner" aria-hidden="true" />
+      <strong>{label}</strong>
+      <div className="launcher-mod-detail-data-loading-lines" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+    </div>
+  )
+}
+
 export function ChangelogList({ items, emptyLabel }: { items: ChangelogListItem[]; emptyLabel: string }) {
   if (!items.length) {
     return <PanelEmptyState>{emptyLabel}</PanelEmptyState>

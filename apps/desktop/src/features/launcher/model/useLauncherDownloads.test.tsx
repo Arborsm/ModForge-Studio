@@ -429,7 +429,15 @@ describe('useLauncherDownloads', () => {
       expect(result.current.items).toHaveLength(0)
     })
     expect(result.current.failedItems).toHaveLength(0)
-    expect(publishNotificationMock).toHaveBeenCalledTimes(1)
+    expect(publishNotificationMock).toHaveBeenCalledTimes(2)
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'launcher-download-background-queued',
+        level: 'info',
+        title: 'Download queued',
+        summary: 'Content Patcher',
+      }),
+    )
     expect(publishNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'launcher-manual-download-page-opened',
@@ -455,7 +463,7 @@ describe('useLauncherDownloads', () => {
     await waitFor(() => {
       expect(result.current.items).toHaveLength(0)
     })
-    expect(publishNotificationMock).toHaveBeenCalledTimes(1)
+    expect(publishNotificationMock).toHaveBeenCalledTimes(3)
   })
 
   it('keeps processing queued items when a batch falls back to manual browser downloads', async () => {
@@ -537,7 +545,13 @@ describe('useLauncherDownloads', () => {
         modId: 2400,
       }),
     )
-    expect(publishNotificationMock).toHaveBeenCalledTimes(1)
+    expect(publishNotificationMock).toHaveBeenCalledTimes(2)
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'launcher-download-background-queued',
+        summary: '2 downloads queued',
+      }),
+    )
   })
 
   it('marks downloads without a Nexus API key as failed before calling the backend', async () => {
@@ -575,7 +589,63 @@ describe('useLauncherDownloads', () => {
     )
   })
 
-  it('captures install failures in queue state and preserves the archive for retrying install', async () => {
+  it('requeues credential failures when a Nexus API key becomes available without restarting', async () => {
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'auth-failed-job',
+            modId: 101,
+            fileId: null,
+            title: 'NPC Adventures',
+            version: '1.2.0',
+            imageUrl: null,
+            source: 'updates',
+            status: 'failed',
+            archivePath: null,
+            installedTargetPath: null,
+            error: 'Nexus API key is required to download mods.',
+            addedAt: 1,
+            completedAt: 2,
+          },
+        ],
+      }),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+      downloadMod: vi.fn().mockResolvedValue({
+        archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
+        installed: false,
+        installedTargetPath: null,
+        manualDownloadPageOpened: false,
+        version: '1.2.0',
+      }),
+    })
+
+    const { result, rerender } = renderHook(({ settings }) => useLauncherDownloads(settings), {
+      wrapper: createWrapper(port),
+      initialProps: { settings: createSettings({ nexusApiKey: null }) },
+    })
+
+    await waitFor(() => {
+      expect(result.current.failedItems).toHaveLength(1)
+    })
+    expect(port.downloadMod).not.toHaveBeenCalled()
+
+    rerender({ settings: createSettings({ nexusApiKey: 'api-key' }) })
+
+    await waitFor(() => {
+      expect(port.downloadMod).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modId: 101,
+          title: 'NPC Adventures',
+        }),
+      )
+    })
+    await waitFor(() => {
+      expect(result.current.readyToInstall).toHaveLength(1)
+    })
+  })
+
+  it('marks downloaded archives as installed after the shared archive installer succeeds', async () => {
     const port = createMockLauncherPort({
       loadDownloadQueue: vi.fn().mockResolvedValue({
         items: [
@@ -597,7 +667,6 @@ describe('useLauncherDownloads', () => {
         ],
       }),
       saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
-      installArchive: vi.fn().mockRejectedValue(new Error('Archive missing')),
     })
 
     const { result } = renderHook(
@@ -614,21 +683,20 @@ describe('useLauncherDownloads', () => {
       expect(result.current.readyToInstall).toHaveLength(1)
     })
 
-    await act(async () => {
-      await result.current.installItem('persisted-job')
+    act(() => {
+      result.current.markArchivesInstalled(['E:\\Downloads\\Mods\\npc-adventures.zip'])
     })
 
     await waitFor(() => {
-      expect(result.current.failedItems).toHaveLength(1)
+      expect(result.current.installedItems).toHaveLength(1)
     })
 
-    expect(result.current.failedItems[0]).toEqual(
+    expect(result.current.installedItems[0]).toEqual(
       expect.objectContaining({
-        status: 'failed',
+        status: 'installed',
         archivePath: 'E:\\Downloads\\Mods\\npc-adventures.zip',
-        error: 'Archive missing',
+        error: null,
       }),
     )
-    expect(port.checkUpdates).not.toHaveBeenCalled()
   })
 })

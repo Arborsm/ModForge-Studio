@@ -13,7 +13,7 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
-use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
+use time::{Duration, OffsetDateTime};
 
 const DEFAULT_PAGE_SIZE: usize = 20;
 const MAX_PAGE_SIZE: usize = 80;
@@ -103,6 +103,34 @@ fn graphql_filter_value(value: &str, op: &str) -> Value {
     json!([{ "value": value, "op": op }])
 }
 
+fn has_catalog_text(value: &Option<String>) -> bool {
+    normalize_optional_text(value.clone()).is_some()
+}
+
+fn has_catalog_advanced_filters(request: &SearchLauncherCatalogRequest) -> bool {
+    has_catalog_text(&request.category)
+        || has_catalog_text(&request.language)
+        || has_catalog_text(&request.tags_include)
+        || has_catalog_text(&request.tags_exclude)
+        || request.min_file_size.is_some()
+        || request.max_file_size.is_some()
+        || request.min_downloads.is_some()
+        || request.max_downloads.is_some()
+        || request.min_endorsements.is_some()
+        || request.max_endorsements.is_some()
+}
+
+fn has_catalog_constraints(request: &SearchLauncherCatalogRequest) -> bool {
+    has_catalog_text(&request.query)
+        || has_catalog_text(&request.title_query)
+        || has_catalog_text(&request.description_query)
+        || has_catalog_text(&request.author_query)
+        || has_catalog_text(&request.uploader_query)
+        || has_catalog_advanced_filters(request)
+        || catalog_time_range_days(request.time_range.as_deref()).is_some()
+        || request.include_adult.unwrap_or(false)
+}
+
 fn catalog_page_size(requested: Option<usize>) -> usize {
     requested
         .unwrap_or(DEFAULT_PAGE_SIZE)
@@ -167,8 +195,8 @@ fn build_catalog_time_range_filter(
         None => return Ok(None),
     };
     let lower_bound = (OffsetDateTime::now_utc() - Duration::days(days))
-        .format(&Rfc3339)
-        .map_err(|error| format!("Failed to format catalog time range filter: {error}"))?;
+        .unix_timestamp()
+        .to_string();
 
     Ok(Some((
         catalog_time_range_filter_field(sort),
@@ -194,10 +222,12 @@ pub(crate) fn build_catalog_graphql_payload(
         "gameDomainName".to_string(),
         graphql_filter_value("stardewvalley", "EQUALS"),
     );
-    filter.insert(
-        "adultContent".to_string(),
-        json!([{ "op": "EQUALS", "value": request.include_adult.unwrap_or(false) }]),
-    );
+    if !request.include_adult.unwrap_or(false) {
+        filter.insert(
+            "adultContent".to_string(),
+            json!([{ "op": "EQUALS", "value": false }]),
+        );
+    }
 
     if let Some(query) = query
         .as_deref()
@@ -276,10 +306,12 @@ pub(crate) fn build_public_catalog_graphql_payload(
         .map(|value| json!([{ "value": value, "op": "WILDCARD" }]))
         .unwrap_or_else(|| json!([]));
     let mut filter = serde_json::Map::new();
-    filter.insert(
-        "adultContent".to_string(),
-        json!([{ "op": "EQUALS", "value": request.include_adult.unwrap_or(false) }]),
-    );
+    if !request.include_adult.unwrap_or(false) {
+        filter.insert(
+            "adultContent".to_string(),
+            json!([{ "op": "EQUALS", "value": false }]),
+        );
+    }
     filter.insert("filter".to_string(), json!([]));
     filter.insert(
         "gameDomainName".to_string(),
@@ -713,7 +745,7 @@ fn search_launcher_catalog_blocking(
         ],
     );
 
-    if query.is_none() && sort == "trending" {
+    if query.is_none() && sort == "trending" && !has_catalog_constraints(request) {
         if let Some(api_key) = settings
             .nexus_api_key
             .as_deref()
@@ -721,17 +753,38 @@ fn search_launcher_catalog_blocking(
             .filter(|value| !value.is_empty())
         {
             let result = load_trending_catalog_page(&client, &settings, api_key, page, ascending)?;
-            log_launcher_trace(
-                "catalog.search.complete",
-                &[
-                    ("page", result.page.to_string()),
-                    ("resultCount", result.results.len().to_string()),
-                    ("hasMore", result.has_more.to_string()),
-                    ("source", "trending".to_string()),
-                ],
-            );
-            return Ok(result);
+            if !result.facets.categories.is_empty()
+                || !result.facets.languages.is_empty()
+                || !result.facets.tags.is_empty()
+            {
+                log_launcher_trace(
+                    "catalog.search.complete",
+                    &[
+                        ("page", result.page.to_string()),
+                        ("resultCount", result.results.len().to_string()),
+                        ("hasMore", result.has_more.to_string()),
+                        ("source", "trending".to_string()),
+                    ],
+                );
+                return Ok(result);
+            }
         }
+    }
+
+    if query.is_none() || has_catalog_advanced_filters(request) {
+        let result = load_public_catalog_page(&client, request)?;
+        log_launcher_trace(
+            "catalog.search.complete",
+            &[
+                ("page", result.page.to_string()),
+                ("pageSize", result.page_size.to_string()),
+                ("totalCount", result.total_count.to_string()),
+                ("resultCount", result.results.len().to_string()),
+                ("hasMore", result.has_more.to_string()),
+                ("source", "public-graphql".to_string()),
+            ],
+        );
+        return Ok(result);
     }
 
     if !can_use_nexus_graphql(&settings) {

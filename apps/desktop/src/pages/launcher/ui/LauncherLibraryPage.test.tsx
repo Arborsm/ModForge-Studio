@@ -20,7 +20,7 @@ import {
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
 } from '@features/launcher/api'
-import { chooseArchiveFile, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
+import { chooseArchiveFiles, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -117,7 +117,7 @@ vi.mock('@shared/lib/desktop', async () => {
   const actual = await vi.importActual<typeof import('@shared/lib/desktop')>('@shared/lib/desktop')
   return {
     ...actual,
-    chooseArchiveFile: vi.fn(),
+    chooseArchiveFiles: vi.fn(),
     chooseImageFile: vi.fn(),
     listenToLauncherArchiveDragDrop: vi.fn(async (listener) => {
       archiveDragDropListeners.push(listener)
@@ -148,7 +148,7 @@ vi.mock('@shared/ui/notifications', () => ({
 
 type MockLibraryState = ReturnType<typeof useLauncherLibrary>
 
-const chooseArchiveFileMock = vi.mocked(chooseArchiveFile)
+const chooseArchiveFilesMock = vi.mocked(chooseArchiveFiles)
 const chooseImageFileMock = vi.mocked(chooseImageFile)
 const inspectLauncherArchiveMock = vi.mocked(inspectLauncherArchive)
 const listenToLauncherArchiveDragDropMock = vi.mocked(listenToLauncherArchiveDragDrop)
@@ -485,7 +485,6 @@ describe('LauncherLibraryPage', () => {
 
   beforeEach(() => {
     launcherPort = createMockLauncherPort({
-      chooseArchiveFile: chooseArchiveFileMock,
       chooseImageFile: chooseImageFileMock,
       inspectArchive: inspectLauncherArchiveMock,
       listInstallBackups: listLauncherInstallBackupsMock,
@@ -962,6 +961,44 @@ describe('LauncherLibraryPage', () => {
     expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
   })
 
+  it('keeps archive inspection in a progress notification until the preview is ready', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    const inspection = createDeferred<InspectLauncherArchiveResult>()
+    inspectLauncherArchiveMock.mockReturnValue(inspection.promise)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\preview.7z'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'launcher-library-archive-preview',
+        level: 'info',
+        title: 'Inspecting archive contents...',
+        description: 'Inspecting preview.7z (0/1)',
+        progress: 0,
+      }),
+    )
+
+    inspection.resolve(
+      createArchivePreview({
+        archivePath: 'E:\\Downloads\\preview.7z',
+        archiveFileName: 'preview.7z',
+      }),
+    )
+
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+    expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-archive-preview')
+  })
+
   it('previews multiple supported archives, lets the user switch previews, and installs them after confirmation', async () => {
     const library = createLibraryState()
     const installArchiveMock = vi.mocked(library.installArchive)
@@ -1089,14 +1126,8 @@ describe('LauncherLibraryPage', () => {
       expect.objectContaining({
         level: 'success',
         title: 'Install Summary',
-        summary: 'First Pack',
-      }),
-    )
-    expect(publishNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'success',
-        title: 'Install Summary',
-        summary: 'Second Pack',
+        summary: '2 archives succeeded',
+        description: '2 archives succeeded\n- First Pack\n- Second Pack',
       }),
     )
   })
@@ -1944,8 +1975,10 @@ describe('LauncherLibraryPage', () => {
 
   it('inspects and installs an archive from the install mod action', async () => {
     const library = createLibraryState()
+    const installDeferred = createDeferred<InstallLauncherArchiveResult>()
+    library.installArchive = vi.fn(() => installDeferred.promise)
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
 
     renderLibraryPage()
@@ -1960,18 +1993,33 @@ describe('LauncherLibraryPage', () => {
 
     await waitFor(() => {
       expect(library.installArchive).toHaveBeenCalledWith('E:\\Downloads\\preview.zip')
+      expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
       expect(publishNotificationMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          level: 'success',
-          title: 'Install Summary',
-          summary: 'Example Pack',
-          description: '2 installed targets',
+          id: 'launcher-library-archive-install',
+          level: 'info',
+          title: 'Installing archive...',
+          description: 'Installing preview.zip (0/1)\nYou can keep using the launcher while installation continues.',
+          autoDismissMs: null,
+          progress: 0,
         }),
       )
     })
 
+    await act(async () => {
+      installDeferred.resolve(createInstallArchiveResult())
+      await installDeferred.promise
+    })
+
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'success',
+          title: 'Install Summary',
+          summary: '1 archives succeeded',
+          description: '1 archives succeeded\n- Example Pack',
+        }),
+      )
     })
   })
 
@@ -1979,7 +2027,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
     listLauncherInstallBackupsMock.mockResolvedValue([createInstallBackupSummary()])
 
@@ -1995,8 +2043,8 @@ describe('LauncherLibraryPage', () => {
         expect.objectContaining({
           level: 'success',
           title: 'Install Summary',
-          summary: 'Example Pack',
-          description: '2 installed targets',
+          summary: '1 archives succeeded',
+          description: '1 archives succeeded\n- Example Pack',
           autoDismissMs: 15_000,
           action: expect.objectContaining({
             label: 'View Details',
@@ -2032,7 +2080,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
     listLauncherInstallBackupsMock.mockRejectedValue(new Error('Backups unavailable'))
 
@@ -2076,7 +2124,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
     const backupsDeferred = createDeferred<LauncherInstallBackupSummary[]>()
     listLauncherInstallBackupsMock.mockReturnValue(backupsDeferred.promise)

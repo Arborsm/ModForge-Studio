@@ -15,9 +15,7 @@ fn assert_catalog_time_range_filter(payload: &Value, field: &str) {
     let value = filters[0]["value"]
         .as_str()
         .expect("time range filter value string");
-    assert!(!value.is_empty());
-    assert!(value.contains('T'));
-    assert!(value.ends_with('Z'));
+    assert!(value.parse::<i64>().expect("time range unix timestamp") > 0);
 }
 
 #[test]
@@ -94,6 +92,66 @@ fn build_public_catalog_graphql_payload_applies_time_range_to_created_sort() {
     .expect("build public catalog graphql payload");
 
     assert_catalog_time_range_filter(&payload, "createdAt");
+}
+
+#[test]
+fn catalog_graphql_payload_omits_adult_filter_when_adult_content_is_included() {
+    let payload = build_catalog_graphql_payload(&SearchLauncherCatalogRequest {
+        query: None,
+        title_query: None,
+        description_query: None,
+        author_query: None,
+        uploader_query: None,
+        page: Some(1),
+        page_size: Some(20),
+        time_range: None,
+        sort: Some("newest".to_string()),
+        ascending: Some(false),
+        category: None,
+        language: None,
+        tags_include: None,
+        tags_exclude: None,
+        include_adult: Some(true),
+        min_file_size: None,
+        max_file_size: None,
+        min_downloads: None,
+        max_downloads: None,
+        min_endorsements: None,
+        max_endorsements: None,
+    })
+    .expect("build catalog graphql payload");
+
+    assert!(payload["variables"]["filter"].get("adultContent").is_none());
+}
+
+#[test]
+fn public_catalog_graphql_payload_omits_adult_filter_when_adult_content_is_included() {
+    let payload = build_public_catalog_graphql_payload(&SearchLauncherCatalogRequest {
+        query: None,
+        title_query: None,
+        description_query: None,
+        author_query: None,
+        uploader_query: None,
+        page: Some(1),
+        page_size: Some(20),
+        time_range: None,
+        sort: Some("newest".to_string()),
+        ascending: Some(false),
+        category: None,
+        language: None,
+        tags_include: None,
+        tags_exclude: None,
+        include_adult: Some(true),
+        min_file_size: None,
+        max_file_size: None,
+        min_downloads: None,
+        max_downloads: None,
+        min_endorsements: None,
+        max_endorsements: None,
+    })
+    .expect("build public catalog graphql payload");
+
+    assert!(payload["variables"]["filter"].get("adultContent").is_none());
 }
 
 #[test]
