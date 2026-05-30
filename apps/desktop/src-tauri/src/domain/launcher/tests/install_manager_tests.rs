@@ -91,6 +91,36 @@ fn install_staged_bundle_installs_multiple_mods_from_nested_roots() {
 }
 
 #[test]
+fn install_staged_bundle_uses_manifest_name_for_root_level_mod_folder() {
+    let root = create_temp_dir("install-manager-root-level-mod");
+    let bundle_root = root.join("bundle");
+    let mods_root = root.join("Mods");
+    let backup_root = root.join("backups");
+
+    write_file(
+        &bundle_root.join("manifest.json"),
+        &sample_manifest("ModForge.RootLevel", "Root Level Pack", "1.0.0"),
+    );
+    write_file(
+        &bundle_root.join("content.json"),
+        r#"{"Format":"2.0.0","Changes":[]}"#,
+    );
+
+    let result = install_staged_bundle_at_path(&bundle_root, &mods_root, &backup_root)
+        .expect("install root-level mod");
+
+    assert_eq!(result.installed_mods.len(), 1);
+    assert_eq!(result.installed_mods[0].mod_name, "Root Level Pack");
+    assert!(mods_root
+        .join("Root Level Pack")
+        .join("manifest.json")
+        .is_file());
+    assert!(!mods_root.join("bundle").join("manifest.json").exists());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn install_staged_bundle_prefers_a_non_content_pack_as_the_primary_install_result() {
     let root = create_temp_dir("install-manager-primary-selection");
     let bundle_root = root.join("bundle");

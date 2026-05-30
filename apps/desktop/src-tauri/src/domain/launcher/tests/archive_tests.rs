@@ -252,6 +252,45 @@ fn install_archive_installs_tar_gz_bundle_and_reports_backup_details() {
 }
 
 #[test]
+fn install_archive_uses_manifest_name_for_zip_with_manifest_at_archive_root() {
+    let root = create_temp_dir("launcher-install-root-manifest-zip");
+    let source = root.join("source");
+    let mods_root = root.join("Mods");
+    let backup_root = root.join("backups");
+    write_file(
+        &source.join("manifest.json"),
+        &sample_manifest("ModForge.RootZipPack"),
+    );
+    write_file(
+        &source.join("content.json"),
+        r#"{"Format":"2.0.0","Changes":[]}"#,
+    );
+
+    let archive_path = root.join("root.zip");
+    create_zip_from_directory(&source, &archive_path);
+
+    let result = install_archive_at_path(
+        &archive_path,
+        Some(&mods_root.to_string_lossy()),
+        Some(&backup_root),
+    )
+    .expect("install zip archive with root manifest");
+
+    assert_eq!(result.installed_mods.len(), 1);
+    assert_eq!(
+        result.installed_mods[0].unique_id.as_deref(),
+        Some("ModForge.RootZipPack")
+    );
+    assert!(mods_root
+        .join("Example Mod")
+        .join("manifest.json")
+        .is_file());
+    assert!(!mods_root.join("launcher-install-bundle").exists());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn inspect_archive_detects_manifest_roots_inside_7z_archive() {
     let root = create_temp_dir("launcher-inspect-archive-7z");
     let source = root.join("source");

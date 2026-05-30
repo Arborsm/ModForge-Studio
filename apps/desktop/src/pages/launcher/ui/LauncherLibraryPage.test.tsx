@@ -471,6 +471,36 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
   }
 }
 
+function renderHiddenLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryPage>[0]> = {}) {
+  const onLaunchGame = vi.fn()
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="en-US">{children}</LocaleProvider>
+      </LauncherTestWrapper>
+    )
+  }
+
+  const view = render(
+    <div hidden>
+      <LauncherLibraryPage
+        settings={createSettings()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={onLaunchGame}
+        {...overrides}
+      />
+    </div>,
+    { wrapper: Wrapper },
+  )
+
+  return {
+    ...view,
+    onLaunchGame,
+  }
+}
+
 describe('LauncherLibraryPage', () => {
   afterEach(() => {
     archiveDragDropListeners.length = 0
@@ -959,6 +989,31 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+  })
+
+  it('shows the archive install dialog from the portal when the library route is hidden', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    inspectLauncherArchiveMock.mockResolvedValue(
+      createArchivePreview({
+        archivePath: 'E:\\Downloads\\preview.7z',
+        archiveFileName: 'preview.7z',
+      }),
+    )
+
+    renderHiddenLibraryPage({
+      downloadInstallRequest: {
+        id: 1,
+        archivePaths: ['E:\\Downloads\\preview.7z'],
+      },
+    })
+
+    await waitFor(() => {
+      expect(inspectLauncherArchiveMock).toHaveBeenCalledWith({ archivePath: 'E:\\Downloads\\preview.7z' })
+    })
+
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).toBeTruthy()
+    expect(document.body.querySelector('.launcher-dialog-portal-root.launcher-shell-routed')).toBeTruthy()
   })
 
   it('keeps archive inspection in a progress notification until the preview is ready', async () => {

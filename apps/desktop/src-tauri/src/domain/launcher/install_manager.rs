@@ -1,4 +1,4 @@
-use super::fs::{discover_project_roots, read_json_file, unique_path};
+use super::fs::{discover_project_roots, read_json_file, sanitize_file_name, unique_path};
 use super::library::scan_library_at_path;
 use crate::domain::manifest::{
     content_pack_for_unique_id, normalize_unique_id, project_name_from_manifest, string_field,
@@ -453,7 +453,7 @@ fn plan_install_operations(
     let discovered_mod_roots = discover_project_roots(bundle_root)?;
     let mut mod_bundles = discovered_mod_roots
         .into_iter()
-        .map(|root| build_mod_bundle(&root))
+        .map(|root| build_mod_bundle(bundle_root, &root))
         .collect::<Result<Vec<_>, _>>()?;
     mod_bundles.sort_by(|left, right| {
         normalize_unique_id(&left.mod_name)
@@ -856,20 +856,33 @@ fn load_existing_targets(mods_path: &Path) -> Result<BTreeMap<String, PlannedTar
     Ok(targets)
 }
 
-fn build_mod_bundle(root: &Path) -> Result<ModBundle, String> {
+fn build_mod_bundle(bundle_root: &Path, root: &Path) -> Result<ModBundle, String> {
     let manifest = read_json_file(&root.join("manifest.json"))?;
+    let mod_name = project_name_from_manifest(&manifest, root);
     Ok(ModBundle {
         root: root.to_path_buf(),
-        mod_name: project_name_from_manifest(&manifest, root),
+        mod_name: mod_name.clone(),
         unique_id: string_field(&manifest, "UniqueID"),
         version: string_field(&manifest, "Version"),
         content_pack_for: content_pack_for_unique_id(&manifest),
-        folder_name: root
-            .file_name()
+        folder_name: install_folder_name_for_root(bundle_root, root, &mod_name),
+    })
+}
+
+fn install_folder_name_for_root(bundle_root: &Path, root: &Path, mod_name: &str) -> String {
+    if root == bundle_root {
+        let sanitized = sanitize_file_name(mod_name).trim().to_string();
+        if sanitized.is_empty() {
+            "InstalledMod".to_string()
+        } else {
+            sanitized
+        }
+    } else {
+        root.file_name()
             .and_then(|value| value.to_str())
             .unwrap_or("InstalledMod")
-            .to_string(),
-    })
+            .to_string()
+    }
 }
 
 fn primary_install_priority(operation: &InstallOperation) -> PrimaryInstallPriority {
