@@ -1,5 +1,5 @@
 import type { CommandSchema } from '../commandSchema'
-import { ACTOR_OPTIONS } from '../commandOptions'
+import { ACTOR_OPTIONS, ITEM_OPTIONS } from '../commandOptions'
 
 export const itemCommandSchemas = [
   // Item
@@ -13,7 +13,9 @@ export const itemCommandSchemas = [
     icon: 'Package',
     template: [
       { type: 'text', value: '添加物品' },
-      { type: 'param', index: 1, label: '物品', ui: 'text', placeholder: 'ItemId' },
+      { type: 'param', index: 1, label: '物品', ui: 'item', placeholder: 'ItemId', options: ITEM_OPTIONS },
+      { type: 'text', value: '数量' },
+      { type: 'param', index: 2, label: '数量', ui: 'number', placeholder: '1' },
     ],
   },
 
@@ -26,7 +28,7 @@ export const itemCommandSchemas = [
     icon: 'Package',
     template: [
       { type: 'text', value: '移除物品' },
-      { type: 'param', index: 1, label: '物品', ui: 'text', placeholder: 'ItemId' },
+      { type: 'param', index: 1, label: '物品', ui: 'item', placeholder: 'ItemId', options: ITEM_OPTIONS },
     ],
   },
 
@@ -52,7 +54,7 @@ export const itemCommandSchemas = [
     icon: 'ArrowUpCircle',
     template: [
       { type: 'text', value: '头顶显示物品' },
-      { type: 'param', index: 1, label: '物品', ui: 'text', placeholder: 'ItemId' },
+      { type: 'param', index: 1, label: '物品', ui: 'item', placeholder: 'ItemId', options: ITEM_OPTIONS },
     ],
   },
 

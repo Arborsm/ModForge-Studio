@@ -67,7 +67,7 @@ function buildCharacterTextureIndex(content: string) {
 
 function getTextureCandidates(actorName: string, textureIndex: CharacterTextureIndex) {
   const normalized = normalizeActorName(actorName)
-  if (!normalized || normalized === 'player' || normalized === 'spouse') {
+  if (!normalized || normalized === 'spouse') {
     return []
   }
 

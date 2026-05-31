@@ -17,7 +17,10 @@ export function renderTemplate(schema: CommandSchema, args: string[], _locale: '
       index: item.index,
       label: item.label ?? `Arg ${item.index}`,
       control: item.ui,
-      value: args[item.index] ?? '',
+      value:
+        item.ui === 'path_picker' || item.ui === 'animation_frames' || item.ui === 'quick_question'
+          ? args.slice(item.index).join(' ')
+          : (args[item.index] ?? ''),
       placeholder: item.placeholder,
       options: item.options,
     }

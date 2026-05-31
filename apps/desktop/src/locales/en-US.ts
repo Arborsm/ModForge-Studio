@@ -728,7 +728,7 @@ const localeBundle: LocaleBundle = {
       currentPage: 'Current page',
       rootPage: 'root page',
       rootModeLabels: {
-        mods: 'Project Manager',
+        mods: 'Project Page',
         map: 'Map Browser',
         events: 'Event Browser',
         characters: 'Character Browser',

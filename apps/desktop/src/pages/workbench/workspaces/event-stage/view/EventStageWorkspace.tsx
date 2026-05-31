@@ -1,23 +1,19 @@
-import { Grid2x2, Pause, Play, RotateCcw, Route, SkipForward, UserRound } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { Camera, Code2, Music2, MapPin, OctagonX, UserPlus, UserRound, Volume2 } from 'lucide-react'
+import * as ContextMenu from '@radix-ui/react-context-menu'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { EFFECT_VIEWPORT_BASE_HEIGHT, EFFECT_VIEWPORT_BASE_WIDTH, EVENT_STAGE_INITIAL_ZOOM, toActorKey } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
-import {
-  buildActorBreathingLayerDescriptor,
-  buildSpriteLayerDescriptors,
-  getActorRenderState,
-  getActorSpriteFrameHeight,
-  getStageEffectPlayback,
-  getStageEffectSortValue,
-} from '@entities/event'
+import { getActorSpriteFrameHeight, getStageEffectPlayback, getStageEffectSortValue } from '@entities/event'
 import { MapWorldStatePreviewOverlay } from '@entities/map'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { useEventStageCopy } from '@locales/localeContext'
 import { useEventStageWorkspace } from '../state/useEventStageWorkspace'
-import { type GameDirectoryInfo } from '@entities/game/api'
+import { type GameDirectoryInfo, type MapAssetContent } from '@entities/game/api'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
-import { cx } from '@shared/lib/cx'
-import { MapViewport } from '@entities/map'
+import { MapViewport, type MapViewportHandle } from '@entities/map'
+import { EventStageActorSprite } from './EventStageActorSprite'
+import { EventStagePlaybackToolbar } from './EventStagePlaybackToolbar'
+import type { TileHoverInfo } from '@shared/contracts'
 
 type EventStageWorkspaceProps = {
   locale: LocaleCode
@@ -33,6 +29,14 @@ type EventStageWorkspaceProps = {
   onPlaybackCommandChange: (commandId: string | null) => void
   onStageSeekReady: (seekTimelineEntry: (entryId: string) => void) => () => void
   onOpenPlayerAppearanceWindow: () => void
+  className?: string
+  hideHeader?: boolean
+  additionalViewportOverlay?: ReactNode
+  onTileClick?: (tileX: number, tileY: number) => void
+  onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
+  conditionBuilderLabel?: string
+  mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
+  onActorAssetsChange?: (assets: Record<string, { spriteUrl: string | null; portraitUrl: string | null }>) => void
 }
 
 export default function EventStageWorkspace({
@@ -49,8 +53,18 @@ export default function EventStageWorkspace({
   onPlaybackCommandChange,
   onStageSeekReady,
   onOpenPlayerAppearanceWindow,
+  className,
+  hideHeader = false,
+  additionalViewportOverlay,
+  onTileClick,
+  onContextMenuAction,
+  conditionBuilderLabel,
+  mapAssetLoader,
+  onActorAssetsChange,
 }: EventStageWorkspaceProps) {
   const copy = useEventStageCopy()
+  const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
+  const mapViewportRef = useRef<MapViewportHandle | null>(null)
   const {
     actorAssets,
     animationNowMs,
@@ -91,9 +105,34 @@ export default function EventStageWorkspace({
     playerAppearanceProfile,
     onSelectTimelineEntry,
     onPlaybackCommandChange,
+    mapAssetLoader,
   })
+  const noticeSymbolIcon = {
+    music: Music2,
+    sound: Volume2,
+    stop: OctagonX,
+  } as const
 
   useEffect(() => onStageSeekReady(seekTimelineEntry), [onStageSeekReady, seekTimelineEntry])
+
+  useEffect(() => {
+    onActorAssetsChange?.(
+      Object.fromEntries(
+        Object.entries(actorAssets).map(([actorKey, asset]) => [
+          actorKey,
+          {
+            spriteUrl: asset.spriteUrl,
+            portraitUrl: asset.portraitUrl,
+          },
+        ]),
+      ),
+    )
+  }, [actorAssets, onActorAssetsChange])
+
+  const resetStageViewport = useCallback(() => {
+    mapViewportRef.current?.fitToScreen()
+    mapViewportRef.current?.centerView()
+  }, [])
 
   const worldStageEffects = useMemo(
     () => playbackState.stageEffects.filter((effect) => effect.space === 'world'),
@@ -141,8 +180,6 @@ export default function EventStageWorkspace({
           frameWidth,
           frameHeight,
           spriteColumns,
-          actorHeightTiles: frameHeight / 16,
-          actorWidthTiles: frameWidth / 16,
         }
       }),
     [actorAssets, visibleSortedActors],
@@ -208,122 +245,21 @@ export default function EventStageWorkspace({
           textureAssets={effectAssets}
         />
         {worldEffects}
-        {actorRenderEntries.map(({ actor, asset, frameWidth, frameHeight, spriteColumns, actorHeightTiles, actorWidthTiles }) => {
-          const renderState = getActorRenderState(actor, animationNowMs)
-          const spriteLayers = buildSpriteLayerDescriptors(
-            asset,
-            renderState.frame,
-            renderState.facingDirection,
-            frameWidth,
-            frameHeight,
-            spriteColumns,
-            renderState.directionalFlip,
-            renderState.farmerRenderState,
-            renderState.bodyFlip,
-          )
-          const breathingLayer = buildActorBreathingLayerDescriptor(
-            asset,
-            actor,
-            renderState.frame,
-            frameWidth,
-            frameHeight,
-            spriteColumns,
-            animationNowMs,
-            renderState.breathingScale,
-            renderState.farmerRenderState,
-          )
-          const pixelX =
-            renderState.tileX * mapDocument.tileWidth * viewportZoom +
-            renderState.offsetX * gamePixelScale * viewportZoom +
-            renderState.shakeOffsetX * viewportZoom
-          const actorHeight = mapDocument.tileHeight * actorHeightTiles * viewportZoom
-          const actorWidth = mapDocument.tileWidth * actorWidthTiles * viewportZoom
-          const pixelY =
-            renderState.tileY * mapDocument.tileHeight * viewportZoom +
-            (renderState.offsetY + renderState.breathingOffsetY) * gamePixelScale * viewportZoom +
-            renderState.shakeOffsetY * viewportZoom
-          const spriteScale = Math.max(1, actorWidth / frameWidth)
-          const spriteTransform = asset?.farmerAppearance
-            ? `scale(${spriteScale}, ${spriteScale})`
-            : renderState.flip
-              ? `translateX(${actorWidth}px) scale(${-spriteScale}, ${spriteScale})`
-              : `scale(${spriteScale}, ${spriteScale})`
-
-          return (
-            <div
-              key={actor.id}
-              className="absolute"
-              style={{
-                transform: `translate(${Math.round(pixelX)}px, ${Math.round(pixelY)}px)`,
-                width: `${actorWidth}px`,
-                height: `${actorHeight}px`,
-                zIndex: Math.round(renderState.tileY * 100) + 50,
-              }}
-            >
-              {spriteLayers.length > 0 ? (
-                <div className="relative overflow-visible" style={{ width: `${actorWidth}px`, height: `${actorHeight}px` }}>
-                  <div
-                    className="relative"
-                    style={{
-                      width: `${frameWidth}px`,
-                      height: `${frameHeight}px`,
-                      transform: spriteTransform,
-                      transformOrigin: 'left bottom',
-                    }}
-                  >
-                    {spriteLayers.map((layer) => (
-                      <div
-                        key={`${actor.id}:${layer.key}`}
-                        className="absolute"
-                        style={{
-                          left: `${layer.offsetX}px`,
-                          top: `${layer.offsetY}px`,
-                          width: `${layer.width}px`,
-                          height: `${layer.height}px`,
-                          transform:
-                            [
-                              layer.flip ? `translateX(${layer.width}px) scaleX(-1)` : null,
-                              layer.scaleX != null || layer.scaleY != null ? `scale(${layer.scaleX ?? 1}, ${layer.scaleY ?? 1})` : null,
-                              layer.rotation != null ? `rotate(${layer.rotation}rad)` : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' ') || undefined,
-                          transformOrigin: layer.transformOrigin ?? 'top left',
-                          backgroundImage: layer.url ? `url("${layer.url}")` : undefined,
-                          backgroundColor: layer.backgroundColor ?? undefined,
-                          backgroundPosition: `-${layer.sourceX}px -${layer.sourceY}px`,
-                          backgroundRepeat: 'no-repeat',
-                          imageRendering: 'pixelated',
-                          opacity: layer.opacity,
-                        }}
-                      />
-                    ))}
-                    {breathingLayer ? (
-                      <div
-                        key={`${actor.id}:breathing`}
-                        className="absolute"
-                        style={{
-                          left: `${breathingLayer.offsetX}px`,
-                          top: `${breathingLayer.offsetY}px`,
-                          width: `${breathingLayer.width}px`,
-                          height: `${breathingLayer.height}px`,
-                          transform: `scale(${breathingLayer.scaleX ?? 1}, ${breathingLayer.scaleY ?? 1})`,
-                          transformOrigin: breathingLayer.transformOrigin ?? 'top left',
-                          backgroundImage: breathingLayer.url ? `url("${breathingLayer.url}")` : undefined,
-                          backgroundPosition: `-${breathingLayer.sourceX}px -${breathingLayer.sourceY}px`,
-                          backgroundRepeat: 'no-repeat',
-                          imageRendering: 'pixelated',
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full w-full" />
-              )}
-            </div>
-          )
-        })}
+        {actorRenderEntries.map(({ actor, asset, frameWidth, frameHeight, spriteColumns }) => (
+          <EventStageActorSprite
+            key={actor.id}
+            actor={actor}
+            asset={asset}
+            animationNowMs={animationNowMs}
+            frameWidth={frameWidth}
+            frameHeight={frameHeight}
+            spriteColumns={spriteColumns}
+            tileWidth={mapDocument.tileWidth}
+            tileHeight={mapDocument.tileHeight}
+            gamePixelScale={gamePixelScale}
+            viewportZoom={viewportZoom}
+          />
+        ))}
       </div>
     )
   }, [actorRenderEntries, animationNowMs, effectAssets, mapDocument, viewportZoom, worldEffectEntries, worldOverlaySprites])
@@ -434,6 +370,8 @@ export default function EventStageWorkspace({
                 .reverse()
                 .map((notice) => {
                   const iconAsset = notice.icon ? effectAssets[notice.icon.textureName] : null
+                  const iconScale = notice.icon ? Math.min(32 / notice.icon.sourceWidth, 32 / notice.icon.sourceHeight) : 1
+                  const NoticeSymbolIcon = notice.symbol ? noticeSymbolIcon[notice.symbol] : null
                   const toneClassName =
                     notice.tone === 'gain'
                       ? 'border-[color-mix(in_srgb,var(--success)_38%,transparent)] bg-[color-mix(in_srgb,var(--success)_12%,var(--bg-panel))]'
@@ -448,22 +386,29 @@ export default function EventStageWorkspace({
                       key={notice.id}
                       className={`panel-list-card flex items-center gap-3 px-3 py-2 shadow-[var(--shadow-panel)] backdrop-blur ${toneClassName}`}
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)]">
+                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-elevated)]">
                         {notice.icon && iconAsset?.url ? (
                           <div
+                            className="absolute top-1/2 left-1/2"
                             style={{
                               width: `${notice.icon.sourceWidth}px`,
                               height: `${notice.icon.sourceHeight}px`,
-                              transform: `scale(${40 / notice.icon.sourceWidth})`,
-                              transformOrigin: 'top left',
+                              transform: `translate(-50%, -50%) scale(${iconScale})`,
+                              transformOrigin: 'center',
                               backgroundImage: `url("${iconAsset.url}")`,
                               backgroundPosition: `-${notice.icon.sourceX}px -${notice.icon.sourceY}px`,
                               backgroundRepeat: 'no-repeat',
                               imageRendering: 'pixelated',
                             }}
                           />
+                        ) : NoticeSymbolIcon ? (
+                          <span className="flex h-full items-center justify-center text-[var(--text-secondary)]">
+                            <NoticeSymbolIcon className="h-5 w-5" />
+                          </span>
                         ) : (
-                          <span className="text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">HUD</span>
+                          <span className="flex h-full items-center justify-center text-[10px] font-semibold tracking-[0.16em] text-[var(--text-secondary)] uppercase">
+                            HUD
+                          </span>
                         )}
                       </div>
                       <div className="min-w-0">
@@ -535,12 +480,13 @@ export default function EventStageWorkspace({
           </div>
         )}
       </div>
+      {additionalViewportOverlay}
     </div>
   )
 
   if (!parsedEventAsset) {
     return (
-      <div className="panel-surface panel-surface-flat h-full">
+      <div className={`panel-surface panel-surface-flat h-full ${className ?? ''}`}>
         <div className="flex h-full items-center justify-center p-8 text-center text-sm text-[var(--text-secondary)]">
           <div className="space-y-3">
             <p className="text-base font-semibold text-[var(--text-primary)]">{labels.empty}</p>
@@ -552,16 +498,19 @@ export default function EventStageWorkspace({
   }
 
   return (
-    <div className="panel-surface h-full">
-      <div className="panel-header">
-        <div>
-          <p className="panel-title">{labels.scene}</p>
-          <p className="panel-subtitle">{mapMessage || eventStatusMessage}</p>
+    <div className={`panel-surface h-full ${className ?? ''}`}>
+      {!hideHeader ? (
+        <div className="panel-header">
+          <div>
+            <p className="panel-title">{labels.scene}</p>
+            <p className="panel-subtitle">{mapMessage || eventStatusMessage}</p>
+          </div>
         </div>
-      </div>
-      <div className="panel-body h-[calc(100%-58px)] min-h-0 p-3">
+      ) : null}
+      <div className={`panel-body ${hideHeader ? 'h-full' : 'h-[calc(100%-58px)]'} min-h-0 p-3`}>
         <div className="relative h-full">
           <MapViewport
+            ref={mapViewportRef}
             key={
               mapDocument
                 ? `${mapDocument.sourcePath}:${playbackState.currentMapName ?? 'map'}:${selectedEvent?.key ?? 'event'}`
@@ -576,82 +525,90 @@ export default function EventStageWorkspace({
             accentColor={accentColor}
             showGrid={showGrid}
             showStatsChips={false}
-            contextMenuEnabled={false}
             initialZoom={EVENT_STAGE_INITIAL_ZOOM}
             mapOverlay={mapOverlay}
             viewportOverlay={viewportOverlay}
             focusWorldPoint={focusWorldPoint}
             onZoomChange={handleZoomChange}
+            onHoverChange={setHoverInfo}
+            onTileClick={onTileClick}
+            contextMenuEnabled={Boolean(onContextMenuAction)}
+            contextMenuExtraItems={
+              onContextMenuAction && hoverInfo ? (
+                <>
+                  <ContextMenu.Separator className="context-menu-separator" />
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => onContextMenuAction('conditionBuilder', hoverInfo.tileX, hoverInfo.tileY)}
+                  >
+                    <Code2 className="mr-1.5 inline h-3.5 w-3.5" />
+                    {conditionBuilderLabel ?? labels.scene}
+                  </ContextMenu.Item>
+                  <ContextMenu.Separator className="context-menu-separator" />
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => onContextMenuAction('addActor', hoverInfo.tileX, hoverInfo.tileY)}
+                  >
+                    <UserPlus className="mr-1.5 inline h-3.5 w-3.5" />
+                    Add Actor Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => onContextMenuAction('setCamera', hoverInfo.tileX, hoverInfo.tileY)}
+                  >
+                    <Camera className="mr-1.5 inline h-3.5 w-3.5" />
+                    Set Camera Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    className="context-menu-item"
+                    onSelect={() => onContextMenuAction('addWarp', hoverInfo.tileX, hoverInfo.tileY)}
+                  >
+                    <MapPin className="mr-1.5 inline h-3.5 w-3.5" />
+                    Add Warp Here ({hoverInfo.tileX}, {hoverInfo.tileY})
+                  </ContextMenu.Item>
+                </>
+              ) : null
+            }
           />
-          <div className="workspace-viewport-toolbar" role="toolbar" aria-label={labels.scene}>
-            <div className="workspace-viewport-toolbar-group">
+          {!mapDocument && additionalViewportOverlay ? (
+            <div className="pointer-events-none absolute inset-0 z-[18]">{additionalViewportOverlay}</div>
+          ) : null}
+          <EventStagePlaybackToolbar
+            autoPlay={autoPlay}
+            canPlay={Boolean(selectedEvent)}
+            showGrid={showGrid}
+            showPaths={showMapPaths}
+            labels={{
+              ariaLabel: labels.scene,
+              step: labels.step,
+              play: labels.play,
+              pause: labels.pause,
+              reset: labels.reset,
+              resetView: viewportLabels.fitMap,
+              toggleGrid: labels.toggleGrid,
+              togglePaths: labels.showPathsLayer,
+            }}
+            gridDisabled={!mapDocument}
+            pathsDisabled={!mapDocument}
+            onStep={playNextFrame}
+            onTogglePlay={toggleAutoPlayback}
+            onReset={resetPlayback}
+            onResetView={resetStageViewport}
+            onToggleGrid={() => setShowGrid((current) => !current)}
+            onTogglePaths={() => setShowMapPaths((current) => !current)}
+            extraControls={
               <button
                 type="button"
-                className="workspace-viewport-toolbar-icon-button"
-                onClick={playNextFrame}
-                title={labels.step}
-                aria-label={labels.step}
-                disabled={!selectedEvent}
-              >
-                <SkipForward className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className={cx('workspace-viewport-toolbar-icon-button', autoPlay && 'workspace-viewport-toolbar-button-active')}
-                onClick={toggleAutoPlayback}
-                title={autoPlay ? labels.pause : labels.play}
-                aria-label={autoPlay ? labels.pause : labels.play}
-                aria-pressed={autoPlay}
-                disabled={!selectedEvent}
-              >
-                {autoPlay ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                className="workspace-viewport-toolbar-icon-button"
-                onClick={resetPlayback}
-                title={labels.reset}
-                aria-label={labels.reset}
-                disabled={!selectedEvent}
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="workspace-viewport-toolbar-group workspace-viewport-toolbar-group-push">
-              <button
-                type="button"
-                className={cx('workspace-viewport-toolbar-icon-button', showGrid && 'workspace-viewport-toolbar-button-active')}
-                title={labels.toggleGrid}
-                aria-label={labels.toggleGrid}
-                aria-pressed={showGrid}
-                disabled={!mapDocument}
-                onClick={() => setShowGrid((current) => !current)}
-              >
-                <Grid2x2 className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className={cx('workspace-viewport-toolbar-icon-button', showMapPaths && 'workspace-viewport-toolbar-button-active')}
-                title={labels.showPathsLayer}
-                aria-label={labels.showPathsLayer}
-                aria-pressed={showMapPaths}
-                disabled={!mapDocument}
-                onClick={() => setShowMapPaths((current) => !current)}
-              >
-                <Route className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="workspace-viewport-toolbar-icon-button"
+                className="workspace-viewport-toolbar-menu-item"
                 title={labels.configurePlayerAppearance}
                 aria-label={labels.configurePlayerAppearance}
                 onClick={onOpenPlayerAppearanceWindow}
               >
                 <UserRound className="h-4 w-4" />
+                <span>{labels.configurePlayerAppearance}</span>
               </button>
-            </div>
-          </div>
+            }
+          />
         </div>
       </div>
     </div>

@@ -25,6 +25,10 @@ function updateFarmerRenderState(actor: EventActorState, mutate: NonNullable<Eve
   }
 }
 
+function getPrimaryFarmerActor(actors: Record<string, EventActorState>) {
+  return Object.values(actors).find((actor) => isFarmerActor(actor.actorName)) ?? null
+}
+
 export function applyMoveCommand(actors: Record<string, EventActorState>, command: EventCommand) {
   const nextActors = { ...actors }
   let durationMs = 0
@@ -87,14 +91,20 @@ export function applyWarpCommand(actors: Record<string, EventActorState>, comman
   }
 
   const actor = getActorByName(actors, actorName)
+  const facingDirection = Number.parseInt(command.args[4] ?? '', 10)
+  const frameState = Number.isFinite(facingDirection) ? getActorDefaultFrameState(actorName, facingDirection) : null
   return actor
     ? {
         ...actors,
-        [toActorKey(actorName)]: {
+        [toActorKey(actor.actorName)]: {
           ...actor,
           tileX: point.tileX,
           tileY: point.tileY,
           visible: point.tileX >= 0 && point.tileY >= 0,
+          facingDirection: frameState ? facingDirection : actor.facingDirection,
+          frame: frameState?.frame ?? actor.frame,
+          directionalFlip: frameState?.directionalFlip ?? actor.directionalFlip,
+          animation: null,
           movement: null,
         },
       }
@@ -196,7 +206,7 @@ export function applyPositionOffsetCommand(actors: Record<string, EventActorStat
 }
 
 export function applyFarmerEyesCommand(actors: Record<string, EventActorState>, command: EventCommand) {
-  const farmer = getActorByName(actors, 'farmer')
+  const farmer = getPrimaryFarmerActor(actors)
   const eyes = Number.parseInt(command.args[1] ?? '', 10)
   const blinkTimerMs = Number.parseInt(command.args[2] ?? '', 10)
   if (!farmer?.farmerRenderState || !Number.isFinite(eyes) || !Number.isFinite(blinkTimerMs)) {
@@ -355,7 +365,7 @@ export function applyStopAnimationCommand(actors: Record<string, EventActorState
 }
 
 export function applyFarmerSingleAnimationCommand(actors: Record<string, EventActorState>, animationId: number) {
-  const farmer = getActorByName(actors, 'farmer')
+  const farmer = getPrimaryFarmerActor(actors)
   if (!farmer?.farmerRenderState) {
     return actors
   }
@@ -399,7 +409,7 @@ export function applyFarmerEatCommand(
   rawItemId: string | undefined,
   objectDrinkIndex: Record<string, boolean>,
 ) {
-  const farmer = getActorByName(actors, 'farmer')
+  const farmer = getPrimaryFarmerActor(actors)
   if (!farmer?.farmerRenderState) {
     return actors
   }

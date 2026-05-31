@@ -45,17 +45,34 @@ describe('WorkbenchLaunchpadNavigation', () => {
     expect(props.onOpenChange).toHaveBeenCalledWith(true)
   })
 
-  it('renders only the current recent root pages in the dock', () => {
+  it('renders only home, the current root page, and recent pages in the dock', () => {
     renderNavigation({ workspaceMode: 'characters' })
 
     const dock = screen.getByRole('navigation', { name: copy.recentPages })
 
     expect(within(dock).getByRole('button', { name: copy.home })).toBeTruthy()
-    expect(within(dock).getByRole('button', { name: 'Project Manager' })).toBeTruthy()
     expect(within(dock).getByRole('button', { name: 'Characters' })).toBeTruthy()
-    expect(within(dock).getByRole('button', { name: 'Mods' })).toBeTruthy()
+    expect(within(dock).getByRole('button', { name: 'Project Page' })).toBeTruthy()
     expect(within(dock).queryByRole('button', { name: 'Translations' })).toBeNull()
     expect(within(dock).queryByRole('button', { name: 'Events' })).toBeNull()
+  })
+
+  it('adds the active project page to the recent dock list', () => {
+    renderNavigation({ workspaceMode: 'events', workspaceViewMode: 'edit', hasActiveProject: true })
+
+    const dock = screen.getByRole('navigation', { name: copy.recentPages })
+
+    expect(within(dock).getByRole('button', { name: `${copy.projectChildren}: Events` })).toHaveAttribute('aria-current', 'page')
+    expect(within(dock).getByRole('button', { name: 'Project Page' })).toBeTruthy()
+  })
+
+  it('routes project recent pages through project workspace navigation', () => {
+    const { props } = renderNavigation({ workspaceMode: 'events', workspaceViewMode: 'edit', hasActiveProject: true })
+
+    fireEvent.click(screen.getByRole('button', { name: `${copy.projectChildren}: Events` }))
+
+    expect(props.onProjectWorkspaceOpen).toHaveBeenCalledWith('events')
+    expect(props.onRootWorkspaceOpen).not.toHaveBeenCalled()
   })
 
   it('moves visited root pages to the front of the recent dock list', () => {
@@ -76,7 +93,7 @@ describe('WorkbenchLaunchpadNavigation', () => {
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))
 
-    expect(buttons).toEqual([copy.home, 'Project Manager', 'Map', 'Mods'])
+    expect(buttons).toEqual([copy.home, 'Project Manager', 'Map', 'Project Page'])
   })
 
   it('does not render plugin tools or export center entries', () => {
@@ -88,12 +105,36 @@ describe('WorkbenchLaunchpadNavigation', () => {
     expect(within(dialog).queryByRole('button', { name: 'Export Center' })).toBeNull()
   })
 
-  it('opens project management from the dock project shortcut', () => {
-    const { props } = renderNavigation()
+  it('renders the project page as the first project section entry', () => {
+    renderNavigation({ open: true })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Project Manager' }))
+    const dialog = screen.getByRole('dialog', { name: copy.title })
+    const projectSection = within(dialog).getByRole('heading', { name: copy.projectChildren }).closest('section')
+    const projectButtons = within(projectSection!)
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('workbench-launchpad-card'))
 
-    expect(props.onProjectManagementOpen).toHaveBeenCalled()
+    expect(projectButtons[0]).toHaveAccessibleName('Project Page')
+  })
+
+  it('keeps the project page locked when no project is active', () => {
+    const { props } = renderNavigation({ open: true })
+    const projectPage = within(screen.getByRole('dialog', { name: copy.title })).getByRole('button', { name: 'Project Page' })
+
+    expect(projectPage).toBeDisabled()
+    fireEvent.click(projectPage)
+
+    expect(props.onProjectWorkspaceOpen).not.toHaveBeenCalled()
+    expect(props.onProjectManagementOpen).not.toHaveBeenCalled()
+  })
+
+  it('opens the project page as a project workspace when a project is active', () => {
+    const { props } = renderNavigation({ open: true, hasActiveProject: true })
+
+    fireEvent.click(within(screen.getByRole('dialog', { name: copy.title })).getByRole('button', { name: 'Project Page' }))
+
+    expect(props.onProjectWorkspaceOpen).toHaveBeenCalledWith('mods')
+    expect(props.onProjectManagementOpen).not.toHaveBeenCalled()
   })
 
   it('closes the launchpad with Escape', () => {
@@ -169,5 +210,11 @@ describe('WorkbenchLaunchpadNavigation', () => {
 
     expect(props.onProjectWorkspaceOpen).toHaveBeenCalledWith('map')
     expect(props.onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('uses title bar dock placement without fixed floating positioning', () => {
+    const { container } = renderNavigation({ dockPlacement: 'titlebar' })
+
+    expect(container.querySelector('.workbench-quick-dock-titlebar')).toBeTruthy()
   })
 })

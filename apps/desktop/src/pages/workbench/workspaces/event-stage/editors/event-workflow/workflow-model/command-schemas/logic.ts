@@ -27,8 +27,13 @@ export const logicCommandSchemas = [
     icon: 'GitBranch',
     template: [
       { type: 'text', value: '快速选择:' },
-      { type: 'param', index: 1, label: '问题', ui: 'textarea', placeholder: '问题内容#选项1#选项2' },
-      { type: 'text', value: '分支...' },
+      {
+        type: 'param',
+        index: 1,
+        label: '问题和分支',
+        ui: 'quick_question',
+        placeholder: '问题#Yes#No\\yesCommand\\noCommand',
+      },
     ],
   },
 

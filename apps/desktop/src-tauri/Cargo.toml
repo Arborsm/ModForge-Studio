@@ -7,12 +7,21 @@ license = ""
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"
+default-run = "modforge_studio_desktop"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 name = "modforge_studio_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "event-asset-bridge"
+path = "src/bin/event_asset_bridge.rs"
+required-features = ["dev-asset-bridge"]
+
+[features]
+dev-asset-bridge = []
 
 [build-dependencies]
 tauri-build = { version = "2.6.1", features = [] }

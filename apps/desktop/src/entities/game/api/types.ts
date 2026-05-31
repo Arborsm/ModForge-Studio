@@ -64,3 +64,23 @@ export type AudioAssetSummary = {
   absolutePath: string
   relativePath: string
 }
+
+/** Single normalized resource entry from the global desktop resource registry. */
+export type ResourceRegistryEntry = {
+  id: string
+  kind: 'actor' | 'item' | 'location' | 'music' | 'sound'
+  value: string
+  label: string
+  source: string
+  sourceKind: 'game' | 'mod' | 'project' | 'fallback' | string
+  category: string | null
+  metadata: Record<string, string>
+  relativePath: string | null
+  absolutePath: string | null
+}
+
+/** Global resource registry used by editors and resource browsers. */
+export type ResourceRegistry = {
+  entries: ResourceRegistryEntry[]
+  warnings: string[]
+}

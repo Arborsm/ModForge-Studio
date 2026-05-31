@@ -223,7 +223,7 @@ export function CommandEditor({
 const QUICK_TEMPLATES: { label: string; raw: string }[] = [
   { label: 'speak', raw: 'speak Abigail "Hello!"' },
   { label: 'pause', raw: 'pause 1000' },
-  { label: 'move', raw: 'move Abigail 0 1 0 2 2' },
+  { label: 'move', raw: 'move Abigail 10 15 2 12 15 1' },
   { label: 'emote', raw: 'emote Abigail 8' },
   { label: 'warp', raw: 'warp Abigail 10 15 2' },
   { label: 'message', raw: 'message "A message appears..."' },

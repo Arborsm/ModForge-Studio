@@ -35,6 +35,10 @@ export type EventCommand = {
   questionKey?: string
   prompt?: string
   choices?: EventBranchChoice[]
+  embeddedQuestion?: {
+    prompt: string
+    choices: EventBranchChoice[]
+  }
   targetEventKey?: string
   targetConditionId?: string | null
   isTranslationKey?: boolean

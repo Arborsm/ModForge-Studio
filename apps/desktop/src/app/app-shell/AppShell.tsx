@@ -62,13 +62,17 @@ const WorkbenchPage = lazy(async () => {
 
   return {
     default: function WorkbenchPageWithRegistry(
-      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration'>,
+      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration' | 'workbenchViews'>,
     ) {
       const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
 
       return (
         <CpMakerPlatformProvider>
-          <workbenchModule.WorkbenchPage {...props} getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration} />
+          <workbenchModule.WorkbenchPage
+            {...props}
+            getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration}
+            workbenchViews={registryModule.appRegistry.workbenchViews}
+          />
         </CpMakerPlatformProvider>
       )
     },

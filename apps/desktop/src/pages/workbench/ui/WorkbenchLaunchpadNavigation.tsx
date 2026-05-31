@@ -1,19 +1,28 @@
-import { Castle, FolderOpen, GitMerge, Home, Languages, Library, Map, Package, Search, Users, X } from 'lucide-react'
+import { Beaker, Castle, FolderOpen, GitMerge, Home, Languages, Library, Map, Package, Search, Users, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { getWorkspaceModeLabel, type WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy, useLocale } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import type { CpMakerDraftSummary } from '@features/cp-maker'
+import type { WorkbenchViewRegistration } from '@shared/contracts'
+
+type DevWorkbenchViewNavigationItem = WorkbenchViewRegistration & {
+  active?: boolean
+}
 
 type WorkbenchLaunchpadNavigationProps = {
   open: boolean
   workspaceMode: WorkspaceMode
   workspaceViewMode: 'edit' | 'preview'
   hasActiveProject: boolean
+  dockPlacement?: 'floating' | 'titlebar'
   projectSummaries: CpMakerDraftSummary[]
+  devViews?: readonly DevWorkbenchViewNavigationItem[]
   onOpenChange: (open: boolean) => void
   onRootWorkspaceOpen: (mode: WorkspaceMode) => void
   onProjectWorkspaceOpen: (mode: WorkspaceMode) => void
+  onDevViewOpen?: (viewId: string) => void
   onProjectManagementOpen: () => void
   onProjectCreateOpen: () => void
   onProjectSelect: (draftStorageKey: string) => void
@@ -31,8 +40,16 @@ type LaunchpadCard = {
   onOpen?: () => void
 }
 
-const ROOT_MODES: WorkspaceMode[] = ['mods', 'map', 'events', 'characters', 'buildings', 'items', 'mod-i18n']
-const DEFAULT_RECENT_MODES: WorkspaceMode[] = ['mods']
+type RecentPage = {
+  kind: 'root' | 'project'
+  mode: WorkspaceMode
+} | {
+  kind: 'dev'
+  viewId: string
+}
+
+const ROOT_MODES: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n']
+const DEFAULT_RECENT_PAGES: RecentPage[] = [{ kind: 'project', mode: 'mods' }]
 const MAX_RECENT_MODES = 4
 const ICON_BY_MODE: Record<WorkspaceMode, ComponentType<{ className?: string }>> = {
   mods: Library,
@@ -44,15 +61,22 @@ const ICON_BY_MODE: Record<WorkspaceMode, ComponentType<{ className?: string }>>
   'mod-i18n': Languages,
 }
 
+function getRecentPageKey(page: RecentPage) {
+  return page.kind === 'dev' ? `${page.kind}:${page.viewId}` : `${page.kind}:${page.mode}`
+}
+
 export default function WorkbenchLaunchpadNavigation({
   open,
   workspaceMode,
   workspaceViewMode,
   hasActiveProject,
+  dockPlacement = 'floating',
   projectSummaries,
+  devViews = [],
   onOpenChange,
   onRootWorkspaceOpen,
   onProjectWorkspaceOpen,
+  onDevViewOpen,
   onProjectManagementOpen,
   onProjectCreateOpen,
   onProjectSelect,
@@ -62,18 +86,22 @@ export default function WorkbenchLaunchpadNavigation({
   const navCopy = copy.workbenchNavigation
   const [query, setQuery] = useState('')
   const [pendingProjectMode, setPendingProjectMode] = useState<WorkspaceMode | null>(null)
-  const [recentModes, setRecentModes] = useState<WorkspaceMode[]>(() =>
+  const [recentPages, setRecentPages] = useState<RecentPage[]>(() =>
     workspaceViewMode === 'preview'
-      ? [workspaceMode, ...DEFAULT_RECENT_MODES.filter((mode) => mode !== workspaceMode)]
-      : DEFAULT_RECENT_MODES,
+      ? [
+          { kind: 'root', mode: workspaceMode },
+          ...DEFAULT_RECENT_PAGES.filter((page) => page.kind !== 'dev' && page.mode !== workspaceMode),
+        ]
+      : DEFAULT_RECENT_PAGES,
   )
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const closeLaunchpad = useCallback(() => onOpenChange(false), [onOpenChange])
   const openLaunchpad = useCallback(() => onOpenChange(true), [onOpenChange])
   const closeProjectPicker = useCallback(() => setPendingProjectMode(null), [])
-  const rememberRootMode = useCallback((mode: WorkspaceMode) => {
-    setRecentModes((current) => [mode, ...current.filter((candidate) => candidate !== mode)].slice(0, MAX_RECENT_MODES))
+  const rememberRecentPage = useCallback((page: RecentPage) => {
+    const pageKey = getRecentPageKey(page)
+    setRecentPages((current) => [page, ...current.filter((candidate) => getRecentPageKey(candidate) !== pageKey)].slice(0, MAX_RECENT_MODES))
   }, [])
 
   const openProjectManagement = useCallback(() => {
@@ -82,11 +110,23 @@ export default function WorkbenchLaunchpadNavigation({
     onProjectManagementOpen()
   }, [closeLaunchpad, closeProjectPicker, onProjectManagementOpen])
 
+  const openProjectPage = useCallback(() => {
+    if (!hasActiveProject) {
+      return
+    }
+
+    closeProjectPicker()
+    closeLaunchpad()
+    rememberRecentPage({ kind: 'project', mode: 'mods' })
+    onProjectWorkspaceOpen('mods')
+  }, [closeLaunchpad, closeProjectPicker, hasActiveProject, onProjectWorkspaceOpen, rememberRecentPage])
+
   const openProjectWorkspace = useCallback(
     (mode: WorkspaceMode) => {
       if (hasActiveProject) {
         closeProjectPicker()
         closeLaunchpad()
+        rememberRecentPage({ kind: 'project', mode })
         onProjectWorkspaceOpen(mode)
         return
       }
@@ -100,8 +140,31 @@ export default function WorkbenchLaunchpadNavigation({
 
       setPendingProjectMode(mode)
     },
-    [closeLaunchpad, closeProjectPicker, hasActiveProject, onProjectCreateOpen, onProjectWorkspaceOpen, projectSummaries.length],
+    [
+      closeLaunchpad,
+      closeProjectPicker,
+      hasActiveProject,
+      onProjectCreateOpen,
+      onProjectWorkspaceOpen,
+      projectSummaries.length,
+      rememberRecentPage,
+    ],
   )
+
+  useEffect(() => {
+    if (devViews.some((view) => view.active)) {
+      return
+    }
+
+    if (workspaceViewMode === 'preview') {
+      rememberRecentPage({ kind: 'root', mode: workspaceMode })
+      return
+    }
+
+    if (workspaceMode === 'mods' || hasActiveProject) {
+      rememberRecentPage({ kind: 'project', mode: workspaceMode })
+    }
+  }, [devViews, hasActiveProject, rememberRecentPage, workspaceMode, workspaceViewMode])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -134,22 +197,57 @@ export default function WorkbenchLaunchpadNavigation({
         id: mode,
         title: navCopy.rootModeLabels[mode],
         description: navCopy.rootModeCodes[mode],
-        hint: workspaceMode === mode ? navCopy.currentMarker : '',
+        hint: workspaceMode === mode && workspaceViewMode === 'preview' ? navCopy.currentMarker : '',
         icon: ICON_BY_MODE[mode],
         tone: mode,
         active: workspaceMode === mode && workspaceViewMode === 'preview',
         onOpen: () => {
-          rememberRootMode(mode)
+          rememberRecentPage({ kind: 'root', mode })
           onRootWorkspaceOpen(mode)
           closeLaunchpad()
         },
       })),
+      ...devViews.map((view) => ({
+        id: view.viewId,
+        title: view.title,
+        description: 'DEV',
+        hint: '',
+        icon: Beaker,
+        tone: 'mod-i18n',
+        onOpen: () => {
+          closeProjectPicker()
+          closeLaunchpad()
+          rememberRecentPage({ kind: 'dev', viewId: view.viewId })
+          onDevViewOpen?.(view.viewId)
+        },
+      })),
     ],
-    [closeLaunchpad, navCopy, onRootWorkspaceOpen, rememberRootMode, workspaceMode, workspaceViewMode],
+    [
+      closeLaunchpad,
+      closeProjectPicker,
+      devViews,
+      navCopy,
+      onDevViewOpen,
+      onRootWorkspaceOpen,
+      rememberRecentPage,
+      workspaceMode,
+      workspaceViewMode,
+    ],
   )
 
   const projectCards = useMemo<LaunchpadCard[]>(
     () => [
+      {
+        id: 'project-page',
+        title: navCopy.rootModeLabels.mods,
+        description: navCopy.rootModeCodes.mods,
+        hint: workspaceMode === 'mods' && workspaceViewMode === 'edit' ? navCopy.currentMarker : '',
+        icon: Library,
+        tone: 'mods',
+        disabled: !hasActiveProject,
+        active: workspaceMode === 'mods' && workspaceViewMode === 'edit',
+        onOpen: openProjectPage,
+      },
       {
         id: 'make-map',
         title: navCopy.mapMaking,
@@ -187,7 +285,7 @@ export default function WorkbenchLaunchpadNavigation({
         },
       },
     ],
-    [hasActiveProject, navCopy, openProjectWorkspace],
+    [hasActiveProject, navCopy, openProjectPage, openProjectWorkspace, workspaceMode, workspaceViewMode],
   )
 
   const normalizedQuery = query.trim().toLocaleLowerCase(locale)
@@ -203,14 +301,107 @@ export default function WorkbenchLaunchpadNavigation({
 
   const visibleRootCards = filterCards(rootCards)
   const visibleProjectCards = filterCards(projectCards)
-  const visibleRecentModes =
-    workspaceViewMode === 'preview'
-      ? [workspaceMode, ...recentModes.filter((mode) => mode !== workspaceMode)].slice(0, MAX_RECENT_MODES)
-      : recentModes
+  const activeDevView = devViews.find((view) => view.active)
+  const activeRecentPage: RecentPage | null =
+    activeDevView
+      ? { kind: 'dev', viewId: activeDevView.viewId }
+      : workspaceViewMode === 'preview'
+      ? { kind: 'root', mode: workspaceMode }
+      : workspaceMode === 'mods' || hasActiveProject
+        ? { kind: 'project', mode: workspaceMode }
+        : null
+  const activeRecentPageKey = activeRecentPage ? getRecentPageKey(activeRecentPage) : null
+  const visibleRecentPages = (
+    activeRecentPage ? [activeRecentPage, ...recentPages.filter((page) => getRecentPageKey(page) !== activeRecentPageKey)] : recentPages
+  ).slice(0, MAX_RECENT_MODES)
+  const overlay =
+    open || pendingProjectMode ? (
+      <>
+        {open ? (
+          <section
+            className="workbench-launchpad"
+            aria-label={navCopy.title}
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeLaunchpad()
+              }
+            }}
+          >
+            <div className="workbench-launchpad-panel">
+              <div className="workbench-launchpad-head">
+                <div className="workbench-launchpad-title">
+                  <span className="workbench-launchpad-eyebrow">{navCopy.eyebrow}</span>
+                  <h2>{navCopy.title}</h2>
+                </div>
+                <div className="workbench-launchpad-head-tools">
+                  <label className="workbench-launchpad-search">
+                    <Search className="h-4 w-4" aria-hidden="true" />
+                    <input
+                      ref={searchInputRef}
+                      value={query}
+                      onChange={(event) => setQuery(event.currentTarget.value)}
+                      placeholder={navCopy.searchPlaceholder}
+                    />
+                  </label>
+                  <button type="button" className="workbench-launchpad-close" aria-label={navCopy.closeLaunchpad} onClick={closeLaunchpad}>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+
+              <LaunchpadSection title={navCopy.rootPages} cards={visibleRootCards} />
+              <LaunchpadSection
+                title={navCopy.projectChildren}
+                framed
+                beforeGrid={
+                  !hasActiveProject ? (
+                    <ProjectRequiredNotice
+                      title={navCopy.projectRequiredTitle}
+                      description={
+                        projectSummaries.length ? navCopy.projectRequiredChooseDescription : navCopy.projectRequiredCreateDescription
+                      }
+                      selectProjectAction={projectSummaries.length ? navCopy.selectProjectAction : null}
+                      createProjectAction={navCopy.createProjectAction}
+                      onSelectProject={openProjectManagement}
+                      onCreateProject={onProjectCreateOpen}
+                    />
+                  ) : null
+                }
+                cards={visibleProjectCards.map((card) => ({
+                  ...card,
+                }))}
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {pendingProjectMode ? (
+          <ProjectPickerDialog
+            title={navCopy.chooseProjectTitle}
+            cancelLabel={navCopy.cancelProjectSelection}
+            projects={projectSummaries}
+            onCancel={closeProjectPicker}
+            onSelect={(draftStorageKey) => {
+              const mode = pendingProjectMode
+              closeProjectPicker()
+              closeLaunchpad()
+              rememberRecentPage({ kind: 'project', mode })
+              onProjectSelect(draftStorageKey)
+              onProjectWorkspaceOpen(mode)
+            }}
+          />
+        ) : null}
+      </>
+    ) : null
 
   return (
     <>
-      <nav className="workbench-quick-dock" aria-label={navCopy.recentPages}>
+      <nav
+        className={cx('workbench-quick-dock', dockPlacement === 'titlebar' && 'workbench-quick-dock-titlebar')}
+        aria-label={navCopy.recentPages}
+      >
         <button
           type="button"
           className="workbench-dock-item workbench-dock-home"
@@ -230,22 +421,52 @@ export default function WorkbenchLaunchpadNavigation({
           <FolderOpen className="h-4 w-4" aria-hidden="true" />
         </button>
         <span className="workbench-dock-separator" aria-hidden="true" />
-        {visibleRecentModes.map((mode) => {
-          const Icon = ICON_BY_MODE[mode]
-          const label = getWorkspaceModeLabel(locale, copy, mode)
-          const active = workspaceMode === mode && workspaceViewMode === 'preview'
+        {visibleRecentPages.map((page) => {
+          const devView = page.kind === 'dev' ? devViews.find((view) => view.viewId === page.viewId) : null
+          const Icon = page.kind === 'dev' ? Beaker : ICON_BY_MODE[page.mode]
+          const modeLabel =
+            page.kind === 'dev'
+              ? (devView?.title ?? page.viewId)
+              : page.mode === 'mods'
+                ? navCopy.rootModeLabels.mods
+                : getWorkspaceModeLabel(locale, copy, page.mode)
+          const label =
+            page.kind === 'dev'
+              ? modeLabel
+              : page.kind === 'project' && page.mode !== 'mods'
+                ? `${navCopy.projectChildren}: ${modeLabel}`
+                : modeLabel
+          const active =
+            page.kind === 'dev'
+              ? Boolean(devView?.active)
+              : !activeDevView && workspaceMode === page.mode && workspaceViewMode === (page.kind === 'root' ? 'preview' : 'edit')
 
           return (
             <button
-              key={mode}
+              key={getRecentPageKey(page)}
               type="button"
               className={cx('workbench-dock-item', active && 'workbench-dock-item-active')}
               aria-label={label}
               aria-current={active ? 'page' : undefined}
               title={label}
               onClick={() => {
-                rememberRootMode(mode)
-                onRootWorkspaceOpen(mode)
+                rememberRecentPage(page)
+                if (page.kind === 'dev') {
+                  onDevViewOpen?.(page.viewId)
+                  return
+                }
+
+                if (page.kind === 'root') {
+                  onRootWorkspaceOpen(page.mode)
+                  return
+                }
+
+                if (page.mode === 'mods') {
+                  openProjectPage()
+                  return
+                }
+
+                openProjectWorkspace(page.mode)
               }}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -253,82 +474,7 @@ export default function WorkbenchLaunchpadNavigation({
           )
         })}
       </nav>
-
-      {open ? (
-        <section
-          className="workbench-launchpad"
-          aria-label={navCopy.title}
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closeLaunchpad()
-            }
-          }}
-        >
-          <div className="workbench-launchpad-panel">
-            <div className="workbench-launchpad-head">
-              <div className="workbench-launchpad-title">
-                <span className="workbench-launchpad-eyebrow">{navCopy.eyebrow}</span>
-                <h2>{navCopy.title}</h2>
-              </div>
-              <div className="workbench-launchpad-head-tools">
-                <label className="workbench-launchpad-search">
-                  <Search className="h-4 w-4" aria-hidden="true" />
-                  <input
-                    ref={searchInputRef}
-                    value={query}
-                    onChange={(event) => setQuery(event.currentTarget.value)}
-                    placeholder={navCopy.searchPlaceholder}
-                  />
-                </label>
-                <button type="button" className="workbench-launchpad-close" aria-label={navCopy.closeLaunchpad} onClick={closeLaunchpad}>
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            <LaunchpadSection title={navCopy.rootPages} cards={visibleRootCards} />
-            <LaunchpadSection
-              title={navCopy.projectChildren}
-              framed
-              beforeGrid={
-                !hasActiveProject ? (
-                  <ProjectRequiredNotice
-                    title={navCopy.projectRequiredTitle}
-                    description={
-                      projectSummaries.length ? navCopy.projectRequiredChooseDescription : navCopy.projectRequiredCreateDescription
-                    }
-                    selectProjectAction={projectSummaries.length ? navCopy.selectProjectAction : null}
-                    createProjectAction={navCopy.createProjectAction}
-                    onSelectProject={openProjectManagement}
-                    onCreateProject={onProjectCreateOpen}
-                  />
-                ) : null
-              }
-              cards={visibleProjectCards.map((card) => ({
-                ...card,
-              }))}
-            />
-          </div>
-        </section>
-      ) : null}
-
-      {pendingProjectMode ? (
-        <ProjectPickerDialog
-          title={navCopy.chooseProjectTitle}
-          cancelLabel={navCopy.cancelProjectSelection}
-          projects={projectSummaries}
-          onCancel={closeProjectPicker}
-          onSelect={(draftStorageKey) => {
-            const mode = pendingProjectMode
-            closeProjectPicker()
-            closeLaunchpad()
-            onProjectSelect(draftStorageKey)
-            onProjectWorkspaceOpen(mode)
-          }}
-        />
-      ) : null}
+      {overlay ? createPortal(overlay, document.body) : null}
     </>
   )
 }

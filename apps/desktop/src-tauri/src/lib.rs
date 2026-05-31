@@ -5,6 +5,9 @@ mod domain;
 mod infrastructure;
 mod support;
 
+#[cfg(any(debug_assertions, feature = "dev-asset-bridge"))]
+pub mod dev_asset_bridge;
+
 #[cfg(test)]
 #[path = "../tests/support/mod.rs"]
 pub mod test_support;
@@ -43,6 +46,7 @@ use commands::launcher::{
 };
 use commands::logging::{set_debug_logging_enabled, write_frontend_log};
 use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
+use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
 use support::logging::{build_logging_plugin, DebugLoggingState};
 use tauri::Manager;
@@ -109,6 +113,7 @@ pub fn run() {
             scan_audio_assets,
             load_audio_data_url,
             load_xact_audio_data_url,
+            load_resource_registry,
             scan_default_save_slots,
             load_launcher_settings,
             save_launcher_settings,

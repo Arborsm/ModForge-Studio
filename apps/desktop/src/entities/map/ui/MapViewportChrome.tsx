@@ -66,7 +66,7 @@ export function MapViewportStatsChips({
 
 export function MapViewportImageError({ error }: { error: string }) {
   return (
-    <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-[var(--danger)]">
+    <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-lg border border-[color-mix(in_srgb,var(--danger)_32%,transparent)] bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] px-3 py-2 text-xs text-[var(--danger)]">
       {error}
     </div>
   )

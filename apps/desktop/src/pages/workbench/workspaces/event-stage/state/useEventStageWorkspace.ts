@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadMapAsset, loadTextAsset, type GameDirectoryInfo } from '@entities/game/api'
+import { loadMapAsset, loadTextAsset, type GameDirectoryInfo, type MapAssetContent } from '@entities/game/api'
 import type { ViewportWorldPoint } from '@shared/contracts'
 import type { MapDocument } from '@shared/contracts'
+import { scheduleDeferred } from '@shared/lib/react'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
 import type { EventStageCopy, LocaleCode, ViewportLabels } from '@locales/editor-shell'
@@ -11,6 +12,7 @@ import {
   OBJECT_DATA_PATH,
   advanceFadeOverlayState,
   createInitialPlaybackState,
+  enqueuePlaybackNotice,
   getActorByName,
   getActorDefaultFrameState,
   isFadeOverlayAnimating,
@@ -52,6 +54,7 @@ type UseEventStageWorkspaceOptions = {
   playerAppearanceProfile: PlayerAppearanceProfile | null
   onSelectTimelineEntry: (entryId: string) => void
   onPlaybackCommandChange: (commandId: string | null) => void
+  mapAssetLoader?: (gameRootPath: string, mapPath: string, locale: string) => Promise<MapAssetContent>
 }
 
 type BuildingDataIndex = Record<
@@ -222,6 +225,7 @@ export function useEventStageWorkspace({
   playerAppearanceProfile,
   onSelectTimelineEntry,
   onPlaybackCommandChange,
+  mapAssetLoader = loadMapAsset,
 }: UseEventStageWorkspaceOptions) {
   const initialMapName = normalizeStageMapName(parsedEventAsset?.asset.name)
   const [autoPlay, setAutoPlay] = useState(false)
@@ -254,12 +258,28 @@ export function useEventStageWorkspace({
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
   const lastAudioCommandIdRef = useRef<string | null>(null)
   const lastSyncedMusicCueKeyRef = useRef<string | null>(null)
+  const onSelectTimelineEntryRef = useRef(onSelectTimelineEntry)
+
+  useEffect(() => {
+    onSelectTimelineEntryRef.current = onSelectTimelineEntry
+  }, [onSelectTimelineEntry])
 
   function createStageReadyPlaybackState(event: EventScript | null, mapName: string | null) {
     const initialState = createInitialPlaybackState(event, mapName)
     const musicCue = event?.scene.musicCue && event.scene.musicCue !== 'none' ? event.scene.musicCue : null
     return musicCue === initialState.activeMusicCue ? initialState : { ...initialState, activeMusicCue: musicCue }
   }
+
+  useEffect(() => {
+    lastAudioCommandIdRef.current = null
+    lastSyncedMusicCueKeyRef.current = null
+    onSelectTimelineEntryRef.current(EVENT_SETUP_ENTRY_ID)
+    return scheduleDeferred(() => {
+      setAutoPlay(false)
+      setMusicSyncEnabled(false)
+      setPlaybackState(createStageReadyPlaybackState(selectedEvent, initialMapName))
+    })
+  }, [initialMapName, selectedEvent])
 
   function preparePlaybackStep(state: PlaybackState) {
     if (state.waitingMs == null) {
@@ -420,7 +440,7 @@ export function useEventStageWorkspace({
 
     void (async () => {
       try {
-        const asset = await loadMapAsset(directoryInfo.rootPath, mapPath, locale)
+        const asset = await mapAssetLoader(directoryInfo.rootPath, mapPath, locale)
         if (cancelled) {
           return
         }
@@ -455,6 +475,7 @@ export function useEventStageWorkspace({
     copy.stageFailed,
     copy.stageMapUnsupported,
     locale,
+    mapAssetLoader,
     mapLoadRequestKey,
     playbackState.currentMapName,
   ])
@@ -507,7 +528,21 @@ export function useEventStageWorkspace({
       case 'playSound': {
         const cue = command.args[1] && command.args[1] !== 'none' ? command.args[1] : null
         if (cue) {
-          void playSoundCue(rootPath, cue)
+          void playSoundCue(rootPath, cue).then((result) => {
+            if (!result.played) {
+              setPlaybackState((current) => ({
+                ...current,
+                notices: enqueuePlaybackNotice(current, {
+                  id: `${command.id}:sound-error`,
+                  title: command.title,
+                  detail: result.reason,
+                  tone: 'loss',
+                  durationMs: 4200,
+                  symbol: 'sound',
+                }),
+              }))
+            }
+          })
         } else {
           stopSoundPreview()
         }

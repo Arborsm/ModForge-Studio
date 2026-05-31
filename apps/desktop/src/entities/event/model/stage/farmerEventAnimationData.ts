@@ -70,7 +70,7 @@ function buildFarmerSingleAnimationFrames(animationId: number, facingDirection: 
     case 304:
       return [createAnimationFrameState(84, 99999999)]
     default:
-      return null
+      return [createAnimationFrameState(animationId, 99999999)]
   }
 }
 

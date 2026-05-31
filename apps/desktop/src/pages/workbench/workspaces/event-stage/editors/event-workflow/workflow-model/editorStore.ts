@@ -7,7 +7,7 @@ import { parseRawArgs } from './rawSerializer'
 export type PickModeTarget = {
   commandIndex: number
   paramIndex: number
-  controlType: 'tile_picker' | 'npc_selector'
+  controlType: 'tile_picker' | 'npc_selector' | 'path_picker'
 } | null
 
 type ScriptCardView = 'compact' | 'comfortable'

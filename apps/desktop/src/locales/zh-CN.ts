@@ -631,7 +631,7 @@ const localeBundle = {
       currentPage: '当前位置',
       rootPage: 'root page',
       rootModeLabels: {
-        mods: '项目管理',
+        mods: '项目页',
         map: '地图浏览',
         events: '事件浏览',
         characters: '角色浏览',

@@ -253,6 +253,23 @@ function continuePlayback(
       case 'speak':
       case 'splitSpeak': {
         const actorName = command.actorName ?? command.title
+        if (command.embeddedQuestion) {
+          return {
+            ...base,
+            currentEntry: {
+              id: `${command.id}:question`,
+              tone: 'choice',
+              title: command.title,
+              detail: command.embeddedQuestion.prompt,
+            },
+            activeDialogue: null,
+            pendingChoice: { command, question: command.embeddedQuestion.prompt, choices: command.embeddedQuestion.choices },
+            waitingMs: null,
+            blockingMovement: false,
+            ended: false,
+          }
+        }
+
         const pages = command.dialoguePages?.length
           ? command.dialoguePages
           : [{ id: 'page:0', text: command.text ?? command.detail, portraitIndex: 0 }]
@@ -550,6 +567,7 @@ function continuePlayback(
             detail: cue ? copy.cueLabel(cue) : copy.musicStopped,
             tone: 'info',
             durationMs: 2600,
+            symbol: 'music',
           }),
         }
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'music', entryDetail: cue ?? command.detail })
@@ -563,6 +581,7 @@ function continuePlayback(
             detail: copy.stopCurrentEventMusic,
             tone: 'info',
             durationMs: 2200,
+            symbol: 'stop',
           }),
         }
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'music', entryDetail: copy.musicStopped })
@@ -577,6 +596,7 @@ function continuePlayback(
             detail: cue ? copy.cueLabel(cue) : command.detail,
             tone: 'info',
             durationMs: 2200,
+            symbol: 'sound',
           }),
         }
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'sound', entryDetail: cue ?? command.detail })
@@ -591,6 +611,7 @@ function continuePlayback(
             detail: cue ? copy.stopCueLabel(cue) : copy.stopTrackedSound,
             tone: 'info',
             durationMs: 2200,
+            symbol: 'stop',
           }),
         }
         return advanceCommandPlayback(nextBase, command, { entrySuffix: 'sound', entryDetail: cue ?? command.detail })

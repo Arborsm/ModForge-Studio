@@ -1,5 +1,5 @@
 import type { CommandSchema } from '../commandSchema'
-import { ACTOR_OPTIONS, MAP_OPTIONS } from '../commandOptions'
+import { ACTOR_OPTIONS, ITEM_OPTIONS, MAP_OPTIONS } from '../commandOptions'
 
 export const sceneCommandSchemas = [
   // Scene
@@ -29,7 +29,7 @@ export const sceneCommandSchemas = [
     icon: 'Map',
     template: [
       { type: 'text', value: '切换至地图' },
-      { type: 'param', index: 1, label: '地图', ui: 'text', placeholder: 'MapName', options: MAP_OPTIONS },
+      { type: 'param', index: 1, label: '地图', ui: 'choice', placeholder: 'MapName', options: MAP_OPTIONS },
     ],
   },
 
@@ -42,7 +42,7 @@ export const sceneCommandSchemas = [
     icon: 'Map',
     template: [
       { type: 'text', value: '切换至临时地图' },
-      { type: 'param', index: 1, label: '地图', ui: 'text', placeholder: 'MapName', options: MAP_OPTIONS },
+      { type: 'param', index: 1, label: '地图', ui: 'choice', placeholder: 'MapName', options: MAP_OPTIONS },
     ],
   },
 
@@ -60,8 +60,8 @@ export const sceneCommandSchemas = [
       { type: 'param', index: 2, label: '宽', ui: 'number', placeholder: '16' },
       { type: 'param', index: 3, label: '高', ui: 'number', placeholder: '32' },
       { type: 'text', value: '位置' },
-      { type: 'param', index: 4, label: 'X', ui: 'number', placeholder: '0' },
-      { type: 'param', index: 5, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 4, label: 'X', ui: 'tile_picker', placeholder: '0' },
+      { type: 'param', index: 5, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '面向' },
       { type: 'param', index: 6, label: '方向', ui: 'direction', placeholder: '0-3' },
     ],
@@ -90,11 +90,11 @@ export const sceneCommandSchemas = [
     icon: 'Box',
     template: [
       { type: 'text', value: '在' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '添加物体' },
-      { type: 'param', index: 3, label: '物体', ui: 'text', placeholder: 'ObjectName' },
+      { type: 'param', index: 3, label: '物体', ui: 'item', placeholder: 'ObjectName', options: ITEM_OPTIONS },
     ],
   },
 
@@ -107,9 +107,9 @@ export const sceneCommandSchemas = [
     icon: 'Box',
     template: [
       { type: 'text', value: '移除' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '的物体' },
     ],
   },
@@ -123,9 +123,9 @@ export const sceneCommandSchemas = [
     icon: 'TreePine',
     template: [
       { type: 'text', value: '在' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '添加道具' },
       { type: 'param', index: 3, label: '道具', ui: 'text', placeholder: 'PropName' },
     ],
@@ -140,9 +140,9 @@ export const sceneCommandSchemas = [
     icon: 'TreePine',
     template: [
       { type: 'text', value: '在' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '添加大道具' },
       { type: 'param', index: 3, label: '道具', ui: 'text', placeholder: 'PropName' },
     ],
@@ -157,9 +157,9 @@ export const sceneCommandSchemas = [
     icon: 'TreePine',
     template: [
       { type: 'text', value: '在' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '添加地面道具' },
       { type: 'param', index: 3, label: '道具', ui: 'text', placeholder: 'PropName' },
     ],
@@ -174,9 +174,9 @@ export const sceneCommandSchemas = [
     icon: 'Lamp',
     template: [
       { type: 'text', value: '在' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '添加灯笼' },
     ],
   },

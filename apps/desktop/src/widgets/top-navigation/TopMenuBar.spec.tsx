@@ -66,12 +66,31 @@ describe('TopMenuBar', () => {
     cleanup()
   })
 
-  it('removes workbench module navigation and launchpad trigger from the title bar', () => {
+  it('removes the old workbench module navigation from the title bar', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps()} />)
 
     expect(screen.queryByRole('navigation', { name: copy.center.moduleWorkspace })).toBeNull()
     expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()
     expect(screen.queryByRole('button', { name: copy.workbenchNavigation.openLaunchpad })).toBeNull()
+  })
+
+  it('renders the workbench quick dock in the title bar center slot', () => {
+    const { container } = renderWithLocale(
+      <TopMenuBar
+        {...buildProps({
+          workbenchQuickDock: (
+            <nav className="workbench-quick-dock workbench-quick-dock-titlebar" aria-label={copy.workbenchNavigation.recentPages}>
+              <button type="button">Dock</button>
+            </nav>
+          ),
+        })}
+      />,
+    )
+
+    const center = container.querySelector('.top-menu-center')
+
+    expect(center?.querySelector('.workbench-quick-dock-titlebar')).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: copy.workbenchNavigation.recentPages })).toBeTruthy()
   })
 
   it('does not route workspace changes from the title bar module navigation anymore', () => {
@@ -82,7 +101,7 @@ describe('TopMenuBar', () => {
     expect(props.onWorkspaceChange).not.toHaveBeenCalled()
   })
 
-  it('keeps the workbench title bar free of navigation controls when the shell theme is light', () => {
+  it('keeps the workbench title bar free of the old gooey navigation when the shell theme is light', () => {
     const { container } = renderWithLocale(<TopMenuBar {...buildProps({ theme: 'light' })} />)
 
     expect(container.querySelector('.top-menu-gooey-nav')).toBeNull()

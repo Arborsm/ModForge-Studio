@@ -37,7 +37,7 @@ export const visualCommandSchemas = [
       { type: 'text', value: '帧间隔(ms):' },
       { type: 'param', index: 4, label: '间隔', ui: 'number', placeholder: '100' },
       { type: 'text', value: '帧序列:' },
-      { type: 'param', index: 5, label: '帧', ui: 'raw', placeholder: '0 1 2' },
+      { type: 'param', index: 5, label: '帧', ui: 'animation_frames', placeholder: '0 1 2' },
     ],
   },
 
@@ -52,7 +52,7 @@ export const visualCommandSchemas = [
       { type: 'text', value: '停止' },
       { type: 'param', index: 1, label: '角色', ui: 'npc_selector', placeholder: 'NPC', options: ACTOR_OPTIONS },
       { type: 'text', value: '动画 停在帧' },
-      { type: 'param', index: 2, label: '帧', ui: 'number', placeholder: '0', options: ANIMATION_FRAME_OPTIONS },
+      { type: 'param', index: 2, label: '帧', ui: 'choice', placeholder: '0', options: ANIMATION_FRAME_OPTIONS },
     ],
   },
 
@@ -67,7 +67,7 @@ export const visualCommandSchemas = [
       { type: 'text', value: '设置' },
       { type: 'param', index: 1, label: '角色', ui: 'npc_selector', placeholder: 'NPC', options: ACTOR_OPTIONS },
       { type: 'text', value: '显示帧' },
-      { type: 'param', index: 2, label: '帧', ui: 'number', placeholder: '0', options: ANIMATION_FRAME_OPTIONS },
+      { type: 'param', index: 2, label: '帧', ui: 'choice', placeholder: '0', options: ANIMATION_FRAME_OPTIONS },
     ],
   },
 
@@ -112,7 +112,7 @@ export const visualCommandSchemas = [
       { type: 'text', value: '设置' },
       { type: 'param', index: 1, label: '角色', ui: 'npc_selector', placeholder: 'NPC', options: ACTOR_OPTIONS },
       { type: 'text', value: '眼睛状态' },
-      { type: 'param', index: 2, label: '状态', ui: 'number', placeholder: '0-3', options: EYES_OPTIONS },
+      { type: 'param', index: 2, label: '状态', ui: 'choice', placeholder: '0-3', options: EYES_OPTIONS },
     ],
   },
 

@@ -8,4 +8,5 @@ pub(crate) mod manifest;
 pub mod modding;
 pub mod mods;
 pub mod nexusmods;
+pub mod resource_registry;
 pub mod saves;

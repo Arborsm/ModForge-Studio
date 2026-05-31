@@ -148,7 +148,9 @@ export function CommandPalette({ open, onClose, onSelect, locale = 'zh-CN' }: Co
 
   useEffect(() => {
     const el = resultsRef.current?.querySelector('[data-cmd-highlight="true"]')
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (typeof el?.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
   }, [highlightedIndex])
 
   if (!open) return null

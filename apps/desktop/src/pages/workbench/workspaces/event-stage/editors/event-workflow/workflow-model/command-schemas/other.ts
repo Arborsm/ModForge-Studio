@@ -76,9 +76,9 @@ export const otherCommandSchemas = [
     icon: 'MousePointerClick',
     template: [
       { type: 'text', value: '在' },
-      { type: 'param', index: 1, label: 'X', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 1, label: 'X', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: ',' },
-      { type: 'param', index: 2, label: 'Y', ui: 'number', placeholder: '0' },
+      { type: 'param', index: 2, label: 'Y', ui: 'tile_picker', placeholder: '0' },
       { type: 'text', value: '执行动作' },
     ],
   },

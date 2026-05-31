@@ -38,6 +38,7 @@ type TopMenuBarProps = {
     highlighted?: boolean
     onOpen: () => void
   }
+  workbenchQuickDock?: ReactNode
   launcherChrome?: {
     page: LauncherPage
     visiblePages: LauncherPage[]
@@ -73,6 +74,7 @@ export default function TopMenuBar({
   viewMenu,
   settingsMenu,
   projectMenu,
+  workbenchQuickDock,
   launcherChrome,
 }: TopMenuBarProps) {
   const copy = useEditorCopy()
@@ -270,7 +272,9 @@ export default function TopMenuBar({
                 />
               </div>
             </div>
-          ) : null}
+          ) : (
+            workbenchQuickDock
+          )}
         </div>
 
         <div

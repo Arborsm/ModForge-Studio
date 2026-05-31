@@ -94,6 +94,22 @@ type DragState = {
   scrollTop: number
 }
 
+type LeftPressState = {
+  pointerId: number
+  startX: number
+  startY: number
+  button: number
+}
+
+type TilePoint = {
+  tileX: number
+  tileY: number
+}
+
+type PickFlashState = TilePoint & {
+  token: number
+}
+
 type ZoomAnchor = {
   viewportX: number
   viewportY: number
@@ -138,6 +154,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const foregroundRasterCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const dragStateRef = useRef<DragState | null>(null)
+  const leftPressStateRef = useRef<LeftPressState | null>(null)
   const pendingZoomAnchorRef = useRef<ZoomAnchor | null>(null)
   const pendingFocusWorldPointRef = useRef<FocusWorldPoint | null>(
     initialDefaultViewportState
@@ -161,6 +178,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
   const [viewportScroll, setViewportScroll] = useState({ left: 0, top: 0 })
   const [refreshToken, setRefreshToken] = useState(0)
   const [highlightedObjectTarget, setHighlightedObjectTarget] = useState<FocusedMapObjectTarget | null>(null)
+  const [hoveredTile, setHoveredTile] = useState<TilePoint | null>(null)
+  const [pickFlash, setPickFlash] = useState<PickFlashState | null>(null)
 
   useLayoutEffect(() => {
     const frame = frameRef.current
@@ -388,10 +407,32 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     }),
     [canvasOffset.left, canvasOffset.top, viewportScroll.left, viewportScroll.top],
   )
+  const tileInteractionEnabled = Boolean(onTileClick)
+  const viewportCursorClass = tileInteractionEnabled ? 'cursor-crosshair' : 'cursor-default'
+
+  useEffect(() => {
+    if (!pickFlash) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setPickFlash((current) => (current?.token === pickFlash.token ? null : current))
+    }, 520)
+
+    return () => window.clearTimeout(timeout)
+  }, [pickFlash])
 
   useEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
+
+  useEffect(() => {
+    lastHoverRef.current = null
+    leftPressStateRef.current = null
+    dragStateRef.current = null
+    setHoveredTile(null)
+    setPickFlash(null)
+  }, [mapDocument?.sourcePath])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -1098,10 +1139,12 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     )
     context.restore()
   }, [
-    foregroundLayers.length,
+    foregroundLayers,
     mapDisplayOffset.left,
     mapDisplayOffset.top,
     mapDocument,
+    refreshToken,
+    tilesetImages,
     viewportCanvasRect.height,
     viewportCanvasRect.left,
     viewportCanvasRect.top,
@@ -1115,12 +1158,42 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
     if (!mapDocument || !worldPoint) {
       lastHoverRef.current = null
+      setHoveredTile(null)
       return
     }
 
     const info = buildHoverInfo(mapDocument, visibleLayerIdSet, visibleObjectGroupIdSet, worldPoint.pixelX, worldPoint.pixelY)
     lastHoverRef.current = info
+    setHoveredTile(tileInteractionEnabled && info ? { tileX: info.tileX, tileY: info.tileY } : null)
     onHoverChange?.(info)
+  }
+
+  function handleTilePick(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !mapDocument) {
+      return
+    }
+
+    const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
+    if (!worldPoint) {
+      return
+    }
+
+    const portal = getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY)
+    if (portal) {
+      onAtlasPortalOpen?.(portal.targetMap)
+      onHoverChange?.(null)
+      setHoveredTile(null)
+      return
+    }
+
+    const tileX = Math.floor(worldPoint.pixelX / mapDocument.tileWidth)
+    const tileY = Math.floor(worldPoint.pixelY / mapDocument.tileHeight)
+    if (tileX < 0 || tileY < 0 || tileX >= mapDocument.width || tileY >= mapDocument.height) {
+      return
+    }
+
+    setPickFlash({ tileX, tileY, token: window.performance.now() })
+    onTileClick?.(tileX, tileY)
   }
 
   function getCanvasWorldPoint(clientX: number, clientY: number) {
@@ -1149,7 +1222,18 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       return
     }
 
-    if (event.button !== 0 && event.button !== 1) {
+    if (event.button === 0) {
+      leftPressStateRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        button: event.button,
+      }
+      updateHover(event)
+      return
+    }
+
+    if (event.button !== 1) {
       return
     }
 
@@ -1189,33 +1273,25 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const viewport = viewportRef.current
     const dragState = dragStateRef.current
     if (!viewport || !dragState || dragState.pointerId !== event.pointerId) {
+      const leftPressState = leftPressStateRef.current
+      leftPressStateRef.current = null
+      if (leftPressState && leftPressState.pointerId === event.pointerId) {
+        const moved = Math.hypot(event.clientX - leftPressState.startX, event.clientY - leftPressState.startY)
+        if (moved <= 6 && leftPressState.button === event.button) {
+          handleTilePick(event)
+          return
+        }
+      }
+      updateHover(event)
       return
     }
 
     dragStateRef.current = null
+    leftPressStateRef.current = null
     if (viewport.hasPointerCapture(event.pointerId)) {
       viewport.releasePointerCapture(event.pointerId)
     }
-    viewport.style.cursor = 'grab'
-
-    const moved = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY)
-    if (event.button === 0 && moved <= 6) {
-      const worldPoint = getCanvasWorldPoint(event.clientX, event.clientY)
-      if (worldPoint && mapDocument) {
-        const portal = getAtlasPortalAtWorldPoint(worldPoint.pixelX, worldPoint.pixelY)
-        if (portal) {
-          onAtlasPortalOpen?.(portal.targetMap)
-          onHoverChange?.(null)
-          return
-        }
-        const tileX = Math.floor(worldPoint.pixelX / mapDocument.tileWidth)
-        const tileY = Math.floor(worldPoint.pixelY / mapDocument.tileHeight)
-        if (tileX >= 0 && tileY >= 0 && tileX < mapDocument.width && tileY < mapDocument.height) {
-          onTileClick?.(tileX, tileY)
-          return
-        }
-      }
-    }
+    viewport.style.cursor = ''
 
     updateHover(event)
   }
@@ -1224,20 +1300,28 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
     const viewport = viewportRef.current
     const dragState = dragStateRef.current
     if (!viewport || !dragState || dragState.pointerId !== event.pointerId) {
+      const leftPressState = leftPressStateRef.current
+      if (leftPressState?.pointerId === event.pointerId) {
+        leftPressStateRef.current = null
+      }
       return
     }
 
     dragStateRef.current = null
+    leftPressStateRef.current = null
     if (viewport.hasPointerCapture(event.pointerId)) {
       viewport.releasePointerCapture(event.pointerId)
     }
-    viewport.style.cursor = 'grab'
+    viewport.style.cursor = ''
     onHoverChange?.(null)
+    setHoveredTile(null)
   }
 
   function handlePointerLeave() {
+    leftPressStateRef.current = null
     if (!dragStateRef.current) {
       onHoverChange?.(null)
+      setHoveredTile(null)
     }
   }
 
@@ -1298,7 +1382,8 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
       <div ref={frameRef} className="absolute inset-0">
         <div
           ref={viewportRef}
-          className={`viewport-scroll-hidden h-full w-full cursor-grab ${zoomMode === 'fit' ? 'overflow-hidden' : 'overflow-auto'}`}
+          className={`viewport-scroll-hidden h-full w-full ${viewportCursorClass} ${zoomMode === 'fit' ? 'overflow-hidden' : 'overflow-auto'}`}
+          data-map-viewport-scroll="true"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -1319,6 +1404,7 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                 top: `${canvasOffset.top}px`,
                 width: `${canvasLogicalSize.width}px`,
                 height: `${canvasLogicalSize.height}px`,
+                boxShadow: tileInteractionEnabled ? `0 0 0 1px ${rgbaFromHex(accentColor, 0.22)}` : undefined,
               }}
             />
             {mapOverlay && !scaleMapOverlayWithViewport ? (
@@ -1332,6 +1418,48 @@ export const MapViewport = forwardRef<MapViewportHandle, MapViewportProps>(funct
                 }}
               >
                 {mapOverlay}
+              </div>
+            ) : null}
+            {tileInteractionEnabled && (hoveredTile || pickFlash) ? (
+              <div
+                className="pointer-events-none absolute z-[5]"
+                style={{
+                  left: `${canvasOffset.left}px`,
+                  top: `${canvasOffset.top}px`,
+                  width: `${canvasLogicalSize.width}px`,
+                  height: `${canvasLogicalSize.height}px`,
+                }}
+              >
+                {hoveredTile ? (
+                  <div
+                    className="absolute"
+                    data-map-tile-hover="true"
+                    style={{
+                      left: `${hoveredTile.tileX * mapDocument.tileWidth * zoom}px`,
+                      top: `${hoveredTile.tileY * mapDocument.tileHeight * zoom}px`,
+                      width: `${mapDocument.tileWidth * zoom}px`,
+                      height: `${mapDocument.tileHeight * zoom}px`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.14 : 0.18),
+                      border: `1px solid ${rgbaFromHex(accentColor, 0.88)}`,
+                      boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.55), 0 0 0 1px ${rgbaFromHex(accentColor, 0.26)}`,
+                    }}
+                  />
+                ) : null}
+                {pickFlash ? (
+                  <div
+                    className="absolute"
+                    data-map-tile-pick="true"
+                    style={{
+                      left: `${pickFlash.tileX * mapDocument.tileWidth * zoom}px`,
+                      top: `${pickFlash.tileY * mapDocument.tileHeight * zoom}px`,
+                      width: `${mapDocument.tileWidth * zoom}px`,
+                      height: `${mapDocument.tileHeight * zoom}px`,
+                      backgroundColor: rgbaFromHex(accentColor, theme === 'light' ? 0.22 : 0.26),
+                      border: `2px solid ${rgbaFromHex(accentColor, 0.98)}`,
+                      boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.78), 0 0 0 3px ${rgbaFromHex(accentColor, 0.2)}`,
+                    }}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>

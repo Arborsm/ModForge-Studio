@@ -6,8 +6,12 @@ export type UIControlType =
   | 'number' // 数字
   | 'npc_selector' // NPC 头像选择器
   | 'tile_picker' // 地图瓷砖拾取器
+  | 'path_picker' // 地图路径拾取器
   | 'direction' // 方向选择 0/1/2/3
   | 'emote' // 表情选择器
+  | 'item' // 物品/对象选择
+  | 'animation_frames' // 动画帧序列选择
+  | 'quick_question' // 快速选择和分支命令编辑
   | 'music' // 音乐选择
   | 'sound' // 音效选择
   | 'toggle' // 布尔开关

@@ -6,6 +6,7 @@ import type { GameDirectoryInfo } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, EditorCopy } from '@locales/editor-shell'
 import type { StudioDeskModel, UseCpMakerReturn } from '@features/cp-maker'
 import type { WorkspaceMode } from '@locales/editor-shell'
+import type { PlayerAppearanceProfile } from '@entities/event'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 
 type WorkbenchViewHostProps = {
@@ -30,6 +31,8 @@ type WorkbenchViewHostProps = {
   onStudioDeskGalleryOpenChange: (open: boolean) => void
   studioDeskCreateDialogOpenSignal: number
   activeEditPatchId: string | null
+  playerAppearanceProfile?: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow?: () => void
 }
 
 export function WorkbenchViewHost({
@@ -54,6 +57,8 @@ export function WorkbenchViewHost({
   onStudioDeskGalleryOpenChange,
   studioDeskCreateDialogOpenSignal,
   activeEditPatchId,
+  playerAppearanceProfile,
+  onOpenPlayerAppearanceWindow,
 }: WorkbenchViewHostProps) {
   return (
     <>
@@ -165,10 +170,21 @@ export function WorkbenchViewHost({
             accentColor,
             viewportLabels: copy.viewportLabels,
             directoryInfo,
+            playerAppearanceProfile,
+            onOpenPlayerAppearanceWindow,
             canGoBack,
             canGoForward,
             onGoBack,
             onGoForward,
+          })}
+        </LoadingMotionReveal>
+      ) : editModeView ? (
+        <LoadingMotionReveal itemId={`workbench-edit-registered:${editModeView.viewId}`} index={0} className="h-full min-h-0">
+          {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
+            locale,
+            theme,
+            accentColor,
+            directoryInfo,
           })}
         </LoadingMotionReveal>
       ) : (

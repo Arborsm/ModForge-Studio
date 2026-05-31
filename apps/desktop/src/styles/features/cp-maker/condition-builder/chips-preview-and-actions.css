@@ -241,7 +241,7 @@
     margin-top: 0;
     border: 1px solid color-mix(in srgb, var(--ephub-border-soft) 78%, transparent);
     border-radius: 12px;
-    background: color-mix(in srgb, var(--ephub-surface-strong) 74%, transparent);
+    background: var(--ephub-surface-strong);
     padding: 12px 16px 12px 18px;
     box-shadow:
       0 22px 50px -30px var(--ephub-shadow-strong),
