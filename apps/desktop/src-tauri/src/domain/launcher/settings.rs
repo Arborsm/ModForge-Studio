@@ -1,6 +1,7 @@
 use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::AppHandle;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -117,7 +118,7 @@ fn default_download_path() -> Option<PathBuf> {
     dirs::download_dir()
 }
 
-pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings, String> {
+pub fn load_launcher_settings(_app: AppHandle) -> Result<LauncherSettings, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_settings",
         (|| {
@@ -128,7 +129,7 @@ pub fn load_launcher_settings(_app: tauri::AppHandle) -> Result<LauncherSettings
 }
 
 pub fn save_launcher_settings(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -160,7 +161,7 @@ pub fn save_launcher_settings(
 }
 
 pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
-    app: &tauri::AppHandle,
+    app: &AppHandle,
     settings: &LauncherSettings,
 ) {
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(

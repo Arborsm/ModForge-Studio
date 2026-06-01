@@ -8,6 +8,7 @@ use super::types::{
 use crate::infrastructure::fs::pathing::{
     clean_input_path, normalize_path, smapi_launch_candidates, stardew_game_launch_candidates,
 };
+use crate::AppHandle;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -123,7 +124,7 @@ fn spawn_launcher_process(path: &Path) -> Result<(), String> {
 }
 
 pub fn launch_launcher_game(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
 ) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error_with_message(
         "launch_launcher_game",
@@ -140,7 +141,7 @@ pub fn launch_launcher_game(
     )
 }
 
-pub fn get_launcher_backup_directory(_app: tauri::AppHandle) -> Result<String, String> {
+pub fn get_launcher_backup_directory(_app: AppHandle) -> Result<String, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "get_launcher_backup_directory",
         (|| {

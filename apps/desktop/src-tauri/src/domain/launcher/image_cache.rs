@@ -4,6 +4,7 @@ use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::routes::launcher_nexus_route_for_url;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::AppHandle;
 use reqwest::header::CONTENT_TYPE;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -116,7 +117,7 @@ pub(crate) fn clear_launcher_image_cache_dir(cache_dir: &Path) -> Result<(), Str
 }
 
 pub(crate) fn resolve_launcher_image_blocking(
-    _app: &tauri::AppHandle,
+    _app: &AppHandle,
     request: &ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
     let request = request;
@@ -201,7 +202,7 @@ pub(crate) fn resolve_launcher_image_blocking(
 }
 
 pub async fn resolve_launcher_image(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -214,7 +215,7 @@ pub async fn resolve_launcher_image(
     )
 }
 
-pub fn clear_launcher_image_cache(_app: tauri::AppHandle) -> Result<(), String> {
+pub fn clear_launcher_image_cache(_app: AppHandle) -> Result<(), String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "clear_launcher_image_cache",
         (|| {

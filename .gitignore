@@ -13,6 +13,7 @@ services/**/bin/
 services/**/obj/
 
 .vite/
+.cache/
 .dotnet/
 .idea/
 .vscode/

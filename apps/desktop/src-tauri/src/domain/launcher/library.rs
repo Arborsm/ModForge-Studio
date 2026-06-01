@@ -18,6 +18,7 @@ use crate::domain::manifest::{
     string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::AppHandle;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -702,7 +703,7 @@ fn set_mod_enabled_at_path(
     })
 }
 
-pub fn load_launcher_library_state(_app: tauri::AppHandle) -> Result<LauncherLibraryState, String> {
+pub fn load_launcher_library_state(_app: AppHandle) -> Result<LauncherLibraryState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_library_state",
         (|| {
@@ -713,7 +714,7 @@ pub fn load_launcher_library_state(_app: tauri::AppHandle) -> Result<LauncherLib
 }
 
 pub fn save_launcher_library_state(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: LauncherLibraryState,
 ) -> Result<LauncherLibraryState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -727,9 +728,7 @@ pub fn save_launcher_library_state(
     )
 }
 
-pub fn load_launcher_library_covers(
-    _app: tauri::AppHandle,
-) -> Result<LauncherLibraryCoversState, String> {
+pub fn load_launcher_library_covers(_app: AppHandle) -> Result<LauncherLibraryCoversState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_library_covers",
         (|| {
@@ -740,7 +739,7 @@ pub fn load_launcher_library_covers(
 }
 
 pub fn set_launcher_library_cover(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: SetLauncherLibraryCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -787,7 +786,7 @@ pub fn set_launcher_library_cover(
 }
 
 pub async fn persist_launcher_library_remote_cover(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: PersistLauncherLibraryRemoteCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -834,7 +833,7 @@ pub async fn persist_launcher_library_remote_cover(
 }
 
 pub fn scan_launcher_library(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: ScanLauncherLibraryRequest,
 ) -> Result<LauncherLibraryScanResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -886,7 +885,7 @@ pub(crate) fn set_launcher_mod_enabled_blocking(
 }
 
 pub fn set_launcher_mod_enabled(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: SetLauncherModEnabledRequest,
 ) -> Result<SetLauncherModEnabledResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(

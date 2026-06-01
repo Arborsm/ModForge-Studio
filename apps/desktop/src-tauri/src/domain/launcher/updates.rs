@@ -24,6 +24,7 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
 use crate::infrastructure::fs::pathing::clean_input_path;
+use crate::AppHandle;
 use reqwest::blocking::Client;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use semver::Version;
@@ -35,7 +36,6 @@ use std::path::{Path, PathBuf};
 #[cfg(target_os = "windows")]
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
-use tauri::AppHandle;
 use tauri::Emitter;
 
 const UPDATE_BATCH_SIZE: usize = 24;
@@ -815,7 +815,7 @@ pub(crate) fn build_launcher_update_summary(
 }
 
 fn emit_update_check_progress(
-    app: &tauri::AppHandle,
+    app: &AppHandle,
     mods_path: &str,
     session_id: &str,
     checked: usize,
@@ -838,7 +838,7 @@ fn emit_update_check_progress(
 }
 
 pub fn load_cached_launcher_updates(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: LoadCachedLauncherUpdatesRequest,
 ) -> Result<Option<LauncherUpdatesResult>, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -917,7 +917,7 @@ pub(crate) fn load_launcher_suppressed_update_mod_ids_result_at_path(
 }
 
 pub fn load_suppressed_launcher_update_mod_ids(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: LoadSuppressedLauncherUpdateModIdsRequest,
 ) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -930,7 +930,7 @@ pub fn load_suppressed_launcher_update_mod_ids(
 }
 
 pub async fn check_launcher_updates(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: CheckLauncherUpdatesRequest,
 ) -> Result<LauncherUpdatesResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -944,7 +944,7 @@ pub async fn check_launcher_updates(
 }
 
 fn check_launcher_updates_blocking(
-    app: &tauri::AppHandle,
+    app: &AppHandle,
     request: &CheckLauncherUpdatesRequest,
 ) -> Result<LauncherUpdatesResult, String> {
     let mods_path = request.mods_path.trim();

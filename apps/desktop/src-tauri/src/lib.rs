@@ -13,6 +13,12 @@ pub mod dev_asset_bridge;
 pub mod test_support;
 pub use support::logging;
 
+#[cfg(target_os = "linux")]
+pub type AppRuntime = tauri::Cef;
+#[cfg(not(target_os = "linux"))]
+pub type AppRuntime = tauri::Wry;
+pub type AppHandle = tauri::AppHandle<AppRuntime>;
+
 use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
 use commands::assets::{
     clear_file_cache, detect_default_game_directory, get_file_cache_stats,

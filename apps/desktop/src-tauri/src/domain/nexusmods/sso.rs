@@ -7,6 +7,7 @@ use tungstenite::{connect, Message, WebSocket};
 
 use super::rest_api;
 use crate::domain::launcher::{paths, settings as launcher_settings};
+use crate::AppHandle;
 
 // ---- Constants ----
 
@@ -100,7 +101,7 @@ fn is_cancelled() -> bool {
 
 // ---- Public API ----
 
-pub(crate) fn start_sso(app: &tauri::AppHandle) -> Result<String, String> {
+pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
     let mut state = sso_state().lock().expect("sso mutex");
 
     if running_flag().load(Ordering::Relaxed) {
@@ -199,7 +200,7 @@ pub(crate) fn get_sso_status() -> SsoSnapshot {
 
 // ---- SSO flow (background thread) ----
 
-fn run_sso_flow(_app: &tauri::AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind, String)> {
+fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind, String)> {
     if is_cancelled() {
         return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
     }

@@ -12,10 +12,10 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
 };
+use crate::AppHandle;
 use regex::Regex;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
-use tauri::AppHandle;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 const PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER: &str = "LauncherPublicModDetail";

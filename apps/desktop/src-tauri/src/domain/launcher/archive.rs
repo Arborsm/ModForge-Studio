@@ -13,6 +13,7 @@ use super::types::{
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::AppHandle;
 use flate2::read::GzDecoder;
 use sevenz_rust::{decompress_file_with_extract_fn, Error as SevenZipError};
 use std::collections::BTreeSet;
@@ -717,7 +718,7 @@ fn expand_rar_archive_to_path(archive_path: &Path, destination_path: &Path) -> R
 }
 
 pub fn install_launcher_archive(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -765,7 +766,7 @@ pub fn inspect_launcher_archive(
 }
 
 pub fn list_launcher_install_backups(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: ListLauncherInstallBackupsRequest,
 ) -> Result<Vec<LauncherInstallBackupSummary>, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -793,7 +794,7 @@ pub fn list_launcher_install_backups(
 }
 
 pub fn restore_launcher_install_backup(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: RestoreLauncherInstallBackupRequest,
 ) -> Result<RestoreLauncherInstallBackupResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(

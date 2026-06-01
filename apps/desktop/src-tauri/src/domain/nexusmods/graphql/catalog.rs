@@ -11,6 +11,7 @@ use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{api_headers, launcher_http_client, send_nexus_json_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
+use crate::AppHandle;
 use reqwest::blocking::Client;
 use serde_json::{json, Value};
 use time::{Duration, OffsetDateTime};
@@ -709,7 +710,7 @@ fn load_trending_catalog_page(
 }
 
 pub async fn search_launcher_catalog(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -723,7 +724,7 @@ pub async fn search_launcher_catalog(
 }
 
 fn search_launcher_catalog_blocking(
-    _app: &tauri::AppHandle,
+    _app: &AppHandle,
     request: &SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
     let page = request.page.unwrap_or(1).max(1);
