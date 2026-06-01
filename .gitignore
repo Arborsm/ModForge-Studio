@@ -18,11 +18,9 @@ services/**/obj/
 .idea/
 .vscode/
 .worktrees/
-.codex/*
-!.codex/skills/
-.codex/skills/*
-!.codex/skills/codegraph/
-!.codex/skills/codegraph/**
+.codex/
+.cargo/
+AGENTS.md
 .uv-roaming/
 .tmp-pywinauto-stdout.txt
 .tmp-pywinauto-stderr.txt
@@ -35,8 +33,6 @@ services/**/obj/
 .claude
 .planning
 .zed/
+package-lock.json
 
-.codegraph/*
-!.codegraph/
-!.codegraph/.gitignore
-!.codegraph/config.json
+.codegraph/
