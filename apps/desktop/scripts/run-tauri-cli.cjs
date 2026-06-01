@@ -121,6 +121,25 @@ function resolveTauriCliCommand(userArgs, env) {
   }
 }
 
+function readTauriManifest() {
+  try {
+    return fs.readFileSync(tauriManifest, 'utf8')
+  } catch {
+    return null
+  }
+}
+
+function restoreTauriManifest(snapshot) {
+  if (snapshot === null) {
+    return
+  }
+
+  const current = readTauriManifest()
+  if (current !== snapshot) {
+    fs.writeFileSync(tauriManifest, snapshot)
+  }
+}
+
 async function main() {
   const userArgs = process.argv.slice(2)
   let env = withLinuxCefPath(process.env)
@@ -135,11 +154,13 @@ async function main() {
     ;({ command, args } = resolveTauriCliCommand([...userArgs, '--config', JSON.stringify(runtime.configOverride)], env))
   }
 
+  const tauriManifestSnapshot = readTauriManifest()
   const result = spawnSync(command, args, {
     cwd: desktopRoot,
     env,
     stdio: 'inherit',
   })
+  restoreTauriManifest(tauriManifestSnapshot)
 
   if (typeof result.status === 'number') {
     process.exit(result.status)

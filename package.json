@@ -32,6 +32,8 @@
     "release:linux:rpm": "pnpm --filter @modforge/desktop release:linux:rpm",
     "release:macos": "pnpm --filter @modforge/desktop release:macos",
     "release:windows": "pnpm --filter @modforge/desktop release:windows",
+    "release:all": "pnpm --filter @modforge/desktop release:all",
+    "release:collect": "pnpm --filter @modforge/desktop release:collect",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "prepare": "husky"
