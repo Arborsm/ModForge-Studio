@@ -15,15 +15,15 @@ default-run = "modforge_studio_desktop"
 name = "modforge_studio_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
-[[bin]]
-name = "event_asset_bridge"
-path = "src/bin/event_asset_bridge.rs"
-required-features = ["dev-asset-bridge"]
-
 [features]
 default = []
 cef-runtime = ["tauri/cef"]
 dev-asset-bridge = []
+
+[[example]]
+name = "event_asset_bridge"
+path = "examples/event_asset_bridge.rs"
+required-features = ["dev-asset-bridge"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.1", features = [] }

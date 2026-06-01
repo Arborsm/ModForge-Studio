@@ -6,6 +6,7 @@ const repoRoot = path.resolve(desktopRoot, '../..')
 const tauriRoot = path.join(desktopRoot, 'src-tauri')
 const bundleRoot = path.join(tauriRoot, 'target/release/bundle')
 const releaseRoot = path.join(repoRoot, 'dist/release')
+const uploadRoot = path.join(repoRoot, 'dist/release-artifacts')
 const platformNames = {
   darwin: 'macos',
   linux: 'linux',
@@ -15,14 +16,14 @@ const architectureNames = {
   arm64: 'arm64',
   x64: 'x64',
 }
-const artifactExtensions = new Set(['.appimage', '.deb', '.dmg', '.msi', '.rpm'])
+const artifactExtensions = new Set(['.appimage', '.deb', '.dmg', '.exe', '.msi', '.rpm'])
 const artifactNames = new Set(['nsis.zip'])
 const currentPlatform = platformNames[process.platform] ?? process.platform
 const currentArch = architectureNames[process.arch] ?? process.arch
 const targetRoot = path.join(releaseRoot, `${currentPlatform}-${currentArch}`)
 const artifactRootsByPlatform = {
   linux: [path.join(bundleRoot, 'deb'), path.join(bundleRoot, 'appimage'), path.join(bundleRoot, 'rpm-system', 'RPMS')],
-  macos: [path.join(bundleRoot, 'dmg'), path.join(bundleRoot, 'macos')],
+  macos: [path.join(bundleRoot, 'dmg')],
   windows: [path.join(bundleRoot, 'msi'), path.join(bundleRoot, 'nsis')],
 }
 
@@ -65,6 +66,27 @@ function copyArtifact(filePath) {
   return targetPath
 }
 
+function artifactKind(filePath) {
+  const segments = path.relative(bundleRoot, filePath).split(path.sep)
+  const extension = path.extname(filePath).toLowerCase().replace(/^\./u, '')
+  return segments[0] || extension || 'bundle'
+}
+
+function sanitizeFileName(fileName) {
+  return fileName.replace(/[^a-zA-Z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '')
+}
+
+function copyUploadArtifact(filePath) {
+  const kind = artifactKind(filePath)
+  const fileName = sanitizeFileName(path.basename(filePath))
+  const targetPath = path.join(uploadRoot, `${currentPlatform}-${currentArch}-${kind}-${fileName}`)
+
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true })
+  fs.copyFileSync(filePath, targetPath)
+
+  return targetPath
+}
+
 function formatBytes(bytes) {
   const units = ['B', 'KB', 'MB', 'GB']
   let size = bytes
@@ -87,18 +109,22 @@ function main() {
   }
 
   fs.rmSync(targetRoot, { recursive: true, force: true })
+  fs.rmSync(uploadRoot, { recursive: true, force: true })
 
   const copiedArtifacts = artifacts.map((artifact) => {
     const targetPath = copyArtifact(artifact)
+    const uploadPath = copyUploadArtifact(artifact)
     const size = fs.statSync(targetPath).size
     return {
       size,
       targetPath,
+      uploadPath,
     }
   })
 
   for (const artifact of copiedArtifacts) {
     console.log(`${formatBytes(artifact.size)} ${path.relative(repoRoot, artifact.targetPath)}`)
+    console.log(`upload ${path.relative(repoRoot, artifact.uploadPath)}`)
   }
 }
 
