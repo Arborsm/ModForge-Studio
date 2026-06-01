@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { X } from 'lucide-react'
 import type { EditorCopy } from '@locales'
 import type { CpMakerDraft } from '@shared/contracts'
@@ -17,15 +17,21 @@ type ProjectPropertiesDialogProps = {
 }
 
 export function ProjectPropertiesDialog({ open, copy, metadata, onClose, onSave }: ProjectPropertiesDialogProps) {
-  const [form, setForm] = useState(metadata)
-
-  useEffect(() => {
-    if (open) {
-      setForm(metadata)
-    }
-  }, [metadata, open])
-
   if (!open) return null
+
+  const metadataKey = [
+    metadata.projectName,
+    metadata.projectDescription,
+    metadata.projectAuthor,
+    metadata.projectVersion,
+    metadata.projectUniqueId,
+  ].join('\0')
+
+  return <ProjectPropertiesDialogForm key={metadataKey} copy={copy} metadata={metadata} onClose={onClose} onSave={onSave} />
+}
+
+function ProjectPropertiesDialogForm({ copy, metadata, onClose, onSave }: Omit<ProjectPropertiesDialogProps, 'open'>) {
+  const [form, setForm] = useState(metadata)
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()

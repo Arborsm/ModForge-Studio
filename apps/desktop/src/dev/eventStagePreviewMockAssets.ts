@@ -32,7 +32,11 @@ function createFallbackGameDirectoryInfo(gameRootPath: string): GameDirectoryInf
 }
 
 function createFallbackMapAsset(mapPath: string): MapAssetContent {
-  const mapName = mapPath.split(/[\\/]/u).pop()?.replace(/\.xnb$/iu, '') || 'Town'
+  const mapName =
+    mapPath
+      .split(/[\\/]/u)
+      .pop()
+      ?.replace(/\.xnb$/iu, '') || 'Town'
   return {
     name: mapName,
     absolutePath: mapPath,
@@ -104,7 +108,11 @@ function createFallbackMapDocument(mapName: string): MapDocument {
 }
 
 function createFallbackActorSpriteUrl(assetPath: string) {
-  const actorName = assetPath.split(/[\\/]/u).pop()?.replace(/\.xnb$/iu, '') || 'Actor'
+  const actorName =
+    assetPath
+      .split(/[\\/]/u)
+      .pop()
+      ?.replace(/\.xnb$/iu, '') || 'Actor'
   const hue = Math.abs(
     Array.from(actorName).reduce((hash, char) => {
       return (hash * 31 + char.charCodeAt(0)) % 360

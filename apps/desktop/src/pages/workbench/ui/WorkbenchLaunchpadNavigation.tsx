@@ -40,13 +40,15 @@ type LaunchpadCard = {
   onOpen?: () => void
 }
 
-type RecentPage = {
-  kind: 'root' | 'project'
-  mode: WorkspaceMode
-} | {
-  kind: 'dev'
-  viewId: string
-}
+type RecentPage =
+  | {
+      kind: 'root' | 'project'
+      mode: WorkspaceMode
+    }
+  | {
+      kind: 'dev'
+      viewId: string
+    }
 
 const ROOT_MODES: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n']
 const DEFAULT_RECENT_PAGES: RecentPage[] = [{ kind: 'project', mode: 'mods' }]
@@ -101,7 +103,9 @@ export default function WorkbenchLaunchpadNavigation({
   const closeProjectPicker = useCallback(() => setPendingProjectMode(null), [])
   const rememberRecentPage = useCallback((page: RecentPage) => {
     const pageKey = getRecentPageKey(page)
-    setRecentPages((current) => [page, ...current.filter((candidate) => getRecentPageKey(candidate) !== pageKey)].slice(0, MAX_RECENT_MODES))
+    setRecentPages((current) =>
+      [page, ...current.filter((candidate) => getRecentPageKey(candidate) !== pageKey)].slice(0, MAX_RECENT_MODES),
+    )
   }, [])
 
   const openProjectManagement = useCallback(() => {
@@ -156,13 +160,28 @@ export default function WorkbenchLaunchpadNavigation({
       return
     }
 
+    let canceled = false
+    const rememberActivePage = (page: RecentPage) => {
+      queueMicrotask(() => {
+        if (!canceled) {
+          rememberRecentPage(page)
+        }
+      })
+    }
+
     if (workspaceViewMode === 'preview') {
-      rememberRecentPage({ kind: 'root', mode: workspaceMode })
-      return
+      rememberActivePage({ kind: 'root', mode: workspaceMode })
+      return () => {
+        canceled = true
+      }
     }
 
     if (workspaceMode === 'mods' || hasActiveProject) {
-      rememberRecentPage({ kind: 'project', mode: workspaceMode })
+      rememberActivePage({ kind: 'project', mode: workspaceMode })
+    }
+
+    return () => {
+      canceled = true
     }
   }, [devViews, hasActiveProject, rememberRecentPage, workspaceMode, workspaceViewMode])
 
@@ -302,10 +321,9 @@ export default function WorkbenchLaunchpadNavigation({
   const visibleRootCards = filterCards(rootCards)
   const visibleProjectCards = filterCards(projectCards)
   const activeDevView = devViews.find((view) => view.active)
-  const activeRecentPage: RecentPage | null =
-    activeDevView
-      ? { kind: 'dev', viewId: activeDevView.viewId }
-      : workspaceViewMode === 'preview'
+  const activeRecentPage: RecentPage | null = activeDevView
+    ? { kind: 'dev', viewId: activeDevView.viewId }
+    : workspaceViewMode === 'preview'
       ? { kind: 'root', mode: workspaceMode }
       : workspaceMode === 'mods' || hasActiveProject
         ? { kind: 'project', mode: workspaceMode }

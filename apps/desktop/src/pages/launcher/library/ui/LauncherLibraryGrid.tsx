@@ -1086,7 +1086,6 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
   const handleSelect = useCallback(() => toggleSelectionRef.current?.(itemRef.current.id), [])
   const handleOpenDetails = useCallback(() => openModDetailsRef.current?.(itemRef.current.id), [])
   const handleOpenDirectTarget = useCallback(() => openModFolderRef.current?.(itemRef.current), [])
-  const resolveContextActions = useCallback(() => getContextActionsRef.current?.(itemRef.current), [])
   const handleActionClick = useCallback((event: MouseEvent<HTMLButtonElement>, action: () => void) => {
     event.preventDefault()
     event.stopPropagation()
@@ -1103,7 +1102,7 @@ const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
     originFolderId: null,
     originParentId,
   }
-  const menuActions = resolveContextActions() ?? []
+  const menuActions = getContextActions?.(item) ?? []
   const removeAction = menuActions.find((action) => /remove|移出/i.test(action.label))
   const tile = (
     <article

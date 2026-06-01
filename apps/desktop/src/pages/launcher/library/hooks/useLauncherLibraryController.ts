@@ -91,7 +91,7 @@ function formatInstallResultDescription(
   results: InstallLauncherArchiveResult[],
   failures: Array<{ archivePath: string; message: string }>,
 ) {
-  const successNames = results.map((result) => result.modName || archiveFileNameFromPath(result.archivePath))
+  const successNames = results.map((result) => result.modName || archiveFileNameFromPath(result.targetPath))
   const failureNames = failures.map((failure) => `${archiveFileNameFromPath(failure.archivePath)}: ${failure.message}`)
   const lines: string[] = []
 

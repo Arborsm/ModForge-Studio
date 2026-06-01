@@ -130,7 +130,7 @@ function getErrorMessage(error: unknown) {
 }
 
 async function resolveCueUrl(rootPath: string, cue: string, kind: AudioCueKind): Promise<{ url: string | null; reason?: string }> {
-  let lastReason = ''
+  let lastReason: string
 
   try {
     const asset = await resolveCue(rootPath, cue, kind)

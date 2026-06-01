@@ -22,7 +22,11 @@ export function createEventStagePreviewTestAssetLoader(): EventStagePreviewAsset
 }
 
 function createFallbackActorSpriteUrl(assetPath: string) {
-  const actorName = assetPath.split(/[\\/]/u).pop()?.replace(/\.xnb$/iu, '') || 'Actor'
+  const actorName =
+    assetPath
+      .split(/[\\/]/u)
+      .pop()
+      ?.replace(/\.xnb$/iu, '') || 'Actor'
   const hue = Math.abs(
     Array.from(actorName).reduce((hash, char) => {
       return (hash * 31 + char.charCodeAt(0)) % 360
