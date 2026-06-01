@@ -27,6 +27,11 @@
     "build": "pnpm --filter @modforge/desktop build",
     "lint": "pnpm --filter @modforge/desktop lint",
     "desktop:build": "pnpm --filter @modforge/desktop tauri build",
+    "release:linux": "pnpm --filter @modforge/desktop release:linux",
+    "release:linux:deb": "pnpm --filter @modforge/desktop release:linux:deb",
+    "release:linux:rpm": "pnpm --filter @modforge/desktop release:linux:rpm",
+    "release:macos": "pnpm --filter @modforge/desktop release:macos",
+    "release:windows": "pnpm --filter @modforge/desktop release:windows",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "prepare": "husky"
