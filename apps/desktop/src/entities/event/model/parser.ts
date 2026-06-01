@@ -233,18 +233,44 @@ export function parseEventSceneSetup(rawSegments: string[]): EventSceneSetup {
 
 function extractQuickQuestionChoices(raw: string): { prompt: string; choices: EventBranchChoice[] } {
   const rawPayload = raw.includes(' ') ? raw.slice(raw.indexOf(' ') + 1) : ''
-  const sections = splitOutsideQuotes(rawPayload, '(break)')
-  const labels = sections[0] ? splitOutsideQuotes(sections[0], '#') : []
+  const payload = stripOuterQuotes(rawPayload)
+  const sections = payload.includes('(break)')
+    ? payload.split('(break)').map((section) => section.trim())
+    : payload.split('\\').map((section) => section.trim())
+  const labels = sections[0] ? sections[0].split('#') : []
   const prompt = stripOuterQuotes(labels[0] ?? '')
+  const optionLabels = labels.slice(1)
 
   return {
     prompt,
-    choices: labels.slice(1).map((label, index) => ({
+    choices: optionLabels.map((label, index) => ({
       id: `choice:${index}`,
       label: stripOuterQuotes(label),
       branchRawCommands: splitOutsideQuotes(sections[index + 1] ?? '', '\\'),
     })),
   }
+}
+
+function extractEmbeddedDialogueQuestion(raw: string): { prompt: string; choices: EventBranchChoice[] } | null {
+  const text = stripOuterQuotes(raw)
+  const questionMatch = /\$q\s+[^#]*#([^#]+?)(?=#\$r|#$|$)/u.exec(text)
+  if (!questionMatch) {
+    return null
+  }
+
+  const prompt = questionMatch[1]?.trim() ?? ''
+  const choicePattern = /\$r\s+(-?\d+)\s+(-?\d+)\s+[^#]*#([^#]+?)(?=#\$r|#$|$)/gu
+  const choices = Array.from(text.matchAll(choicePattern)).map((match, index) => ({
+    id: `choice:${index}`,
+    label: (match[3] ?? '').trim(),
+    branchRawCommands: [],
+  }))
+
+  if (!prompt || choices.length === 0) {
+    return null
+  }
+
+  return { prompt, choices }
 }
 
 function extractQuestionChoices(args: string[]) {
@@ -384,7 +410,8 @@ export function parseEventCommand(raw: string, index: number): EventCommand {
   if (command === 'speak' || command === 'splitSpeak') {
     eventCommand.actorName = args[1]
     eventCommand.text = stripOuterQuotes(args[2] ?? '')
-    eventCommand.dialoguePages = parseDialoguePages(eventCommand.text)
+    eventCommand.embeddedQuestion = extractEmbeddedDialogueQuestion(eventCommand.text) ?? undefined
+    eventCommand.dialoguePages = eventCommand.embeddedQuestion ? [] : parseDialoguePages(eventCommand.text)
   } else if (command === 'message') {
     eventCommand.text = stripOuterQuotes(args[1] ?? '')
   } else if (command === 'pause') {

@@ -8,12 +8,24 @@ import { CSS } from '@dnd-kit/utilities'
 import type { EventCommand } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { ScriptCard } from './ScriptCard'
+import type { EventResourceRegistry } from './eventResourceRegistry'
+import {
+  getInlineDelayCandidate,
+  getVisiblePlaybackCommandIndex,
+  shouldFoldPauseIntoPrevious,
+  type InlineDelayCandidate,
+} from '../workflow-model/commandInlineDelay'
 
 export type ScriptTimelineProps = {
   commands: EventCommand[]
   locale?: 'zh-CN' | 'en-US'
+  resourceRegistry?: EventResourceRegistry
+  currentPlaybackCommandId?: string | null
   onUpdateArg: (commandIndex: number, argIndex: number, value: string) => void
-  onEnterPickMode: (commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector') => void
+  onUpdateArgs: (commandIndex: number, argIndex: number, values: string[]) => void
+  onSetInlineDelay: (commandIndex: number, pauseCommandIndex: number | null, valueMs: number) => void
+  onRemoveInlineDelay: (pauseCommandIndex: number) => void
+  onEnterPickMode: (commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => void
 }
 
 function GapInsertButton({ index, onClick }: { index: number; onClick: (index: number) => void }) {
@@ -35,31 +47,45 @@ function SortableScriptCard({
   cmd,
   index,
   selected,
+  playing,
   expanded,
   showLineNumber,
   cardView,
   locale,
+  resourceRegistry,
+  inlineDelay,
   onSelect,
   onToggleExpand,
   onUpdateArg,
+  onUpdateArgs,
+  onSetInlineDelay,
+  onRemoveInlineDelay,
   onEnterPickMode,
   onDuplicate,
   onDelete,
+  onPlayFromHere,
   onInsert,
 }: {
   cmd: EventCommand
   index: number
   selected: boolean
+  playing: boolean
   expanded: boolean
   showLineNumber: boolean
   cardView: 'compact' | 'comfortable'
   locale: 'zh-CN' | 'en-US'
+  resourceRegistry?: EventResourceRegistry
+  inlineDelay: InlineDelayCandidate | null
   onSelect: () => void
   onToggleExpand: () => void
   onUpdateArg: (argIndex: number, value: string) => void
-  onEnterPickMode: (paramIndex: number, controlType: 'tile_picker' | 'npc_selector') => void
+  onUpdateArgs: (argIndex: number, values: string[]) => void
+  onSetInlineDelay: (pauseCommandIndex: number | null, valueMs: number) => void
+  onRemoveInlineDelay: (pauseCommandIndex: number) => void
+  onEnterPickMode: (paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => void
   onDuplicate: () => void
   onDelete: () => void
+  onPlayFromHere: () => void
   onInsert: (index: number) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cmd.id })
@@ -76,23 +102,40 @@ function SortableScriptCard({
         command={cmd}
         index={index}
         selected={selected}
+        playing={playing}
         expanded={expanded}
         showLineNumber={showLineNumber}
         cardView={cardView}
         locale={locale}
+        resourceRegistry={resourceRegistry}
         onSelect={onSelect}
         onToggleExpand={onToggleExpand}
         onUpdateArg={onUpdateArg}
+        onUpdateArgs={onUpdateArgs}
+        inlineDelay={inlineDelay}
+        onSetInlineDelay={onSetInlineDelay}
+        onRemoveInlineDelay={onRemoveInlineDelay}
         onEnterPickMode={onEnterPickMode}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
+        onPlayFromHere={onPlayFromHere}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
     </div>
   )
 }
 
-export function ScriptTimeline({ commands, locale = 'zh-CN', onUpdateArg, onEnterPickMode }: ScriptTimelineProps) {
+export function ScriptTimeline({
+  commands,
+  locale = 'zh-CN',
+  resourceRegistry,
+  currentPlaybackCommandId = null,
+  onUpdateArg,
+  onUpdateArgs,
+  onSetInlineDelay,
+  onRemoveInlineDelay,
+  onEnterPickMode,
+}: ScriptTimelineProps) {
   const selectedCommandIndex = useEditorStore((s) => s.selectedCommandIndex)
   const expandedCards = useEditorStore((s) => s.expandedCards)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
@@ -110,8 +153,19 @@ export function ScriptTimeline({ commands, locale = 'zh-CN', onUpdateArg, onEnte
   useEffect(() => {
     if (selectedCommandIndex == null) return
     const el = document.querySelector(`[data-cmd-index="${selectedCommandIndex}"]`)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (typeof el?.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
   }, [selectedCommandIndex])
+
+  useEffect(() => {
+    const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
+    if (playbackCommandIndex == null) return
+    const el = document.querySelector(`[data-cmd-index="${playbackCommandIndex}"]`)
+    if (typeof el?.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [commands, currentPlaybackCommandId])
 
   // Keyboard navigation — uses getState() inside listener so we don't need
   // commands in deps and avoid re-registering on every store update.
@@ -196,28 +250,39 @@ export function ScriptTimeline({ commands, locale = 'zh-CN', onUpdateArg, onEnte
     }
   }
 
-  const sortableIds = commands.map((c) => c.id)
+  const visibleCommandEntries = commands
+    .map((cmd, index) => ({ cmd, index }))
+    .filter(({ index }) => !shouldFoldPauseIntoPrevious(commands, index))
+  const sortableIds = visibleCommandEntries.map(({ cmd }) => cmd.id)
+  const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="flex flex-col gap-0.5 px-3 py-2">
         <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-          {commands.map((cmd, i) => (
+          {visibleCommandEntries.map(({ cmd, index: i }) => (
             <div key={cmd.id} data-cmd-index={i}>
               <SortableScriptCard
                 cmd={cmd}
                 index={i}
                 selected={selectedCommandIndex === i}
+                playing={playbackCommandIndex === i}
                 expanded={expandedCards.has(cmd.id)}
                 showLineNumber={showLineNumbers}
                 cardView={cardView}
                 locale={locale}
+                resourceRegistry={resourceRegistry}
+                inlineDelay={getInlineDelayCandidate(commands, i)}
                 onSelect={() => handleSelect(i)}
                 onToggleExpand={() => useEditorStore.getState().toggleCardExpanded(cmd.id)}
                 onUpdateArg={(argIndex, value) => onUpdateArg(i, argIndex, value)}
+                onUpdateArgs={(argIndex, values) => onUpdateArgs(i, argIndex, values)}
+                onSetInlineDelay={(pauseCommandIndex, valueMs) => onSetInlineDelay(i, pauseCommandIndex, valueMs)}
+                onRemoveInlineDelay={onRemoveInlineDelay}
                 onEnterPickMode={(paramIndex, controlType) => onEnterPickMode(i, paramIndex, controlType)}
                 onDuplicate={() => handleDuplicate(i)}
                 onDelete={() => handleDelete(i)}
+                onPlayFromHere={() => handleSelect(i)}
                 onInsert={handleInsert}
               />
             </div>

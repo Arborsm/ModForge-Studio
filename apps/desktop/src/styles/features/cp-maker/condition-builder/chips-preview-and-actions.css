@@ -1,0 +1,316 @@
+@layer components {
+  .condition-builder-chain-dock {
+    display: grid;
+    min-height: 42px;
+    align-items: center;
+    border: 1px solid color-mix(in srgb, var(--ephub-border-soft) 78%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--ephub-surface-muted) 74%, transparent);
+    padding: 8px 12px;
+    box-shadow:
+      0 18px 44px -32px var(--ephub-shadow-strong),
+      inset 0 1px 0 color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+    backdrop-filter: blur(18px) saturate(1.22);
+  }
+
+  .condition-builder-chain-dock.conflict {
+    border-color: color-mix(in srgb, var(--danger) 78%, var(--ephub-border-soft));
+    background: color-mix(in srgb, var(--danger) 8%, var(--ephub-surface));
+  }
+
+  .condition-chip-scroll {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 2px;
+    white-space: nowrap;
+  }
+
+  .condition-chip-scroll.compact {
+    gap: 6px;
+  }
+
+  .condition-chip-empty {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .condition-chip {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    overflow: hidden;
+    gap: 4px;
+    min-height: 26px;
+    max-width: 260px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--ephub-surface-accent);
+    color: var(--accent);
+    padding: 2px 5px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    will-change: transform, max-width;
+    transition:
+      max-width 180ms ease,
+      background 160ms ease,
+      color 160ms ease,
+      opacity 160ms ease,
+      transform 170ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 170ms ease;
+  }
+
+  .condition-chip + .condition-chip::before {
+    content: "";
+    position: absolute;
+    left: -4px;
+    width: 1px;
+    height: 14px;
+    background: var(--ephub-border-soft);
+  }
+
+  .condition-chip.negated {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--danger) 10%, var(--ephub-surface));
+    color: var(--danger);
+  }
+
+  .condition-chip.conflict {
+    animation: condition-conflict-flash 900ms ease-in-out infinite;
+  }
+
+  .condition-chip:active,
+  .condition-chip.dragging {
+    cursor: grabbing;
+  }
+
+  .condition-chip.dragging {
+    z-index: 2;
+    opacity: 0.78;
+    box-shadow: 0 12px 22px -16px color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+
+  .condition-chip.drop-target {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--ephub-border-soft));
+    background: color-mix(in srgb, var(--accent-soft) 40%, var(--ephub-surface-accent));
+    transform: translateY(-1px);
+  }
+
+  .condition-chip:hover,
+  .condition-chip:focus-within {
+    max-width: 310px;
+  }
+
+  .condition-chip svg {
+    flex: 0 0 auto;
+  }
+
+  .condition-chip button {
+    display: grid;
+    width: 0;
+    height: 22px;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ephub-surface-strong) 82%, transparent);
+    color: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    transform: translateX(-2px) scale(0.96);
+    transition:
+      width 140ms ease,
+      opacity 140ms ease,
+      transform 140ms ease,
+      background 140ms ease;
+  }
+
+  .condition-chip:hover button,
+  .condition-chip:focus-within button {
+    width: 22px;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+
+  .condition-chip button:hover,
+  .condition-chip button:focus-visible {
+    background: var(--ephub-surface-strong);
+    outline: 1px solid currentColor;
+    outline-offset: 1px;
+  }
+
+  .condition-chip button:disabled {
+    cursor: not-allowed;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .condition-chip:hover button:disabled,
+  .condition-chip:focus-within button:disabled {
+    opacity: 0.28;
+  }
+
+  .condition-chip-negate {
+    border: 0 !important;
+  }
+
+  .condition-chip:hover .condition-chip-negate,
+  .condition-chip:focus-within .condition-chip-negate {
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent) !important;
+  }
+
+  .condition-chip-full,
+  .condition-chip-compact {
+    display: inline-block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition:
+      max-width 180ms ease,
+      opacity 150ms ease,
+      transform 180ms ease;
+  }
+
+  .condition-chip-full {
+    max-width: 178px;
+  }
+
+  .condition-chip-compact {
+    max-width: 0;
+    opacity: 0;
+  }
+
+  .condition-chip-scroll.compact .condition-chip {
+    max-width: 62px;
+    min-height: 24px;
+    gap: 3px;
+    padding-inline: 4px;
+  }
+
+  .condition-chip-scroll.compact .condition-chip-full {
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  .condition-chip-scroll.compact .condition-chip-compact {
+    max-width: 40px;
+    opacity: 1;
+    transform: none;
+  }
+
+  .condition-chip-scroll.compact .condition-chip:hover,
+  .condition-chip-scroll.compact .condition-chip:focus-within {
+    max-width: 280px;
+  }
+
+  .condition-chip-scroll.compact .condition-chip:hover .condition-chip-full,
+  .condition-chip-scroll.compact .condition-chip:focus-within .condition-chip-full {
+    max-width: 170px;
+    opacity: 1;
+    transform: none;
+  }
+
+  .condition-chip-scroll.compact .condition-chip:hover .condition-chip-compact,
+  .condition-chip-scroll.compact .condition-chip:focus-within .condition-chip-compact {
+    max-width: 0;
+    opacity: 0;
+    transform: translateX(-3px);
+  }
+
+  .condition-builder-preview-dock {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    min-height: 72px;
+    margin-top: 0;
+    border: 1px solid color-mix(in srgb, var(--ephub-border-soft) 78%, transparent);
+    border-radius: 12px;
+    background: var(--ephub-surface-strong);
+    padding: 12px 16px 12px 18px;
+    box-shadow:
+      0 22px 50px -30px var(--ephub-shadow-strong),
+      inset 0 1px 0 color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+    backdrop-filter: blur(18px) saturate(1.25);
+  }
+
+  .condition-builder-preview-dock.invalid {
+    border-color: color-mix(in srgb, var(--danger) 82%, var(--ephub-border-soft));
+    background: color-mix(in srgb, var(--danger) 8%, var(--ephub-surface));
+    box-shadow:
+      0 22px 50px -30px color-mix(in srgb, var(--danger) 35%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+  }
+
+  .condition-builder-previews {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .condition-builder-previews p {
+    display: flex;
+    min-width: 0;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .condition-builder-previews strong {
+    flex: 0 0 auto;
+    color: var(--text-primary);
+    font-weight: 800;
+  }
+
+  .condition-builder-previews code {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--accent);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .condition-builder-validation strong {
+    color: var(--danger);
+  }
+
+  .condition-builder-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .condition-builder-actions .control-button-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  @keyframes condition-conflict-flash {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 0%, transparent);
+    }
+
+    50% {
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 18%, transparent);
+    }
+  }
+}

@@ -208,6 +208,7 @@
   color: var(--text-secondary);
   font-size: 0.78rem;
   line-height: 1.38;
+  white-space: pre-line;
   word-break: break-word;
 }
 

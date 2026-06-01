@@ -1,0 +1,151 @@
+@layer components {
+  .launcher-discover-results-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+
+  .launcher-discover-results-viewport {
+    min-height: 0;
+    overflow: auto;
+    min-block-size: 320px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+
+  .launcher-discover-results-viewport-loading {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .launcher-discover-wall-shell {
+    position: relative;
+    min-height: 100%;
+  }
+
+  .launcher-discover-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+    backdrop-filter: blur(3px);
+    pointer-events: auto;
+    cursor: progress;
+  }
+
+  .launcher-discover-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid color-mix(in srgb, var(--accent) 16%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 999px;
+    animation: launcher-discover-spinner 720ms linear infinite;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-inverse) 68%, transparent);
+  }
+
+  .launcher-discover-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-top: 4px;
+  }
+
+  .launcher-discover-pagination-pages {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-discover-pagination-button,
+  .launcher-discover-pagination-page {
+    min-height: 34px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: color-mix(in srgb, var(--text-primary) 78%, var(--text-secondary));
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease,
+      opacity 140ms ease;
+  }
+
+  .launcher-discover-pagination-button:hover,
+  .launcher-discover-pagination-page:hover {
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+  }
+
+  .launcher-discover-pagination-page-active {
+    background: var(--accent);
+    color: var(--text-inverse);
+  }
+
+  .launcher-discover-pagination-page-active:hover {
+    background: color-mix(in srgb, var(--accent) 88%, var(--surface-inverse));
+  }
+
+  .launcher-discover-pagination-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .launcher-discover-pagination-ellipsis {
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 2px;
+  }
+
+  .launcher-discover-pagination-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .launcher-discover-pagination-jump .control-input {
+    width: 68px;
+    min-width: 68px;
+    height: 34px;
+    text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    .launcher-discover-blocked-state {
+      border-radius: 22px;
+      padding: 22px 18px;
+    }
+
+    .launcher-discover-blocked-highlight,
+    .launcher-discover-blocked-details {
+      width: 100%;
+    }
+
+    .launcher-discover-blocked-details-toolbar,
+    .launcher-discover-blocked-actions {
+      justify-content: stretch;
+    }
+
+    .launcher-discover-blocked-details-toolbar .control-button,
+    .launcher-discover-blocked-actions .control-button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}

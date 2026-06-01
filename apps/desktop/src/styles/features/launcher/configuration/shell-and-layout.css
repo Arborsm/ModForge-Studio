@@ -1,0 +1,444 @@
+@layer components {
+  .launcher-shell-routed {
+    display: block;
+    height: 100%;
+    padding: 18px;
+    background: transparent;
+  }
+
+  .launcher-dialog-portal-root {
+    display: contents;
+    height: auto;
+    padding: 0;
+    background: transparent;
+  }
+
+  .launcher-shell-routed .launcher-shell-content {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    margin-top: 0;
+    overflow: hidden;
+    padding-right: 2px;
+  }
+
+  .launcher-shell-route {
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
+    pointer-events: none;
+  }
+
+  .launcher-shell-route-active {
+    pointer-events: auto;
+  }
+
+  .launcher-configuration-page {
+    --config-bg: var(--bg-app);
+    --config-surface: var(--bg-panel);
+    --config-surface-soft: var(--bg-panel-muted);
+    --config-primary: var(--accent);
+    --config-primary-light: color-mix(in srgb, var(--accent-soft) 100%, transparent);
+    --config-primary-light-hover: color-mix(in srgb, var(--accent-soft) 82%, var(--accent) 8%);
+    --config-success-bg: color-mix(in srgb, var(--success) 13%, transparent);
+    --config-success-text: color-mix(in srgb, var(--success) 72%, #111827);
+    --config-warning-bg: color-mix(in srgb, var(--warning) 15%, transparent);
+    --config-warning-text: color-mix(in srgb, var(--warning) 72%, #111827);
+    --config-error-bg: color-mix(in srgb, var(--danger) 12%, transparent);
+    --config-error-text: color-mix(in srgb, var(--danger) 76%, #111827);
+    --config-info-bg: color-mix(in srgb, #2563eb 10%, transparent);
+    --config-info-text: #1d4ed8;
+    --config-neutral-bg: color-mix(in srgb, var(--bg-panel-muted) 78%, white 22%);
+    --config-row-hover: color-mix(in srgb, var(--config-primary) 5%, var(--bg-panel));
+    --config-line: color-mix(in srgb, var(--border-color) 74%, transparent);
+    --config-input: color-mix(in srgb, var(--bg-panel-muted) 82%, white 18%);
+    --config-text: var(--text-primary);
+    --config-muted: var(--text-secondary);
+    --config-faint: var(--text-tertiary);
+    --config-brand-ink: var(--accent);
+    --config-shadow: 0 4px 20px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    --config-glow: 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent);
+    --launcher-config-top-card-height: 258px;
+
+    min-height: 100%;
+    padding: 24px 28px 44px;
+    background: transparent;
+    color: var(--config-text);
+  }
+
+  .launcher-configuration-canvas {
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    gap: 18px;
+  }
+
+  .launcher-configuration-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    min-width: 0;
+    padding: 2px 4px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--config-line) 55%, transparent);
+  }
+
+  .launcher-config-title-cluster {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .launcher-config-breadcrumb {
+    color: var(--config-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .launcher-configuration-page-title {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 24px;
+    font-weight: 900;
+    line-height: 1.12;
+    letter-spacing: 0;
+  }
+
+  .launcher-config-header-status {
+    margin: 0;
+    color: #4b5563;
+    font-size: 12.5px;
+    line-height: 1.45;
+    letter-spacing: 0.01em;
+  }
+
+  .launcher-config-header-actions {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .launcher-config-env-tags,
+  .launcher-config-header-button-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .launcher-config-env-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--config-primary-light) 48%, var(--config-surface-soft));
+    color: var(--config-muted);
+    padding: 0 10px;
+    font-size: 11.5px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .launcher-config-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 24px;
+    min-width: 0;
+    border-radius: 999px;
+    background: var(--config-primary-light);
+    color: var(--config-primary);
+    padding: 0 11px;
+    font-size: 11px;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .launcher-config-tag::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .launcher-config-tag-success {
+    background: var(--config-success-bg);
+    color: var(--config-success-text);
+  }
+
+  .launcher-config-tag-warn {
+    background: var(--config-warning-bg);
+    color: var(--config-warning-text);
+  }
+
+  .launcher-config-tag-danger {
+    background: var(--config-error-bg);
+    color: var(--config-error-text);
+  }
+
+  .launcher-config-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 290px;
+    align-items: stretch;
+    gap: 18px;
+  }
+
+  .launcher-config-main-column,
+  .launcher-config-rail {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+  }
+
+  .launcher-config-main-column {
+    align-content: start;
+  }
+
+  .launcher-config-panel {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--config-line);
+    border-radius: 16px;
+    background: var(--config-surface);
+    box-shadow: var(--config-shadow);
+  }
+
+  .launcher-config-panel:hover {
+    box-shadow: var(--config-shadow), var(--config-glow);
+  }
+
+  .launcher-config-panel-head {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 58px;
+    border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    padding: 18px 20px 14px 24px;
+  }
+
+  .launcher-config-panel-head::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 14px;
+    width: 4px;
+    height: 26px;
+    border-radius: 0 4px 4px 0;
+    background: var(--config-primary);
+    box-shadow: 2px 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .launcher-config-panel-head h2 {
+    margin: 0;
+    color: var(--config-text);
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .launcher-config-panel-head p {
+    margin: 4px 0 0;
+    color: var(--config-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .launcher-config-panel-actions,
+  .launcher-config-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .launcher-config-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    border: 1px solid var(--config-line);
+    border-radius: 10px;
+    background: var(--config-surface-soft);
+    color: var(--config-text);
+    cursor: pointer;
+    padding: 0 14px;
+    font-size: 12px;
+    font-weight: 700;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .launcher-config-button:hover {
+    border-color: color-mix(in srgb, var(--config-primary) 55%, var(--config-line));
+    background: var(--config-primary-light);
+    color: var(--config-brand-ink);
+  }
+
+  .launcher-config-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+
+  .launcher-config-button-primary {
+    border-color: transparent;
+    background: var(--config-primary);
+    color: white;
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+
+  .launcher-config-button-brand {
+    border-color: var(--config-primary-light);
+    background: var(--config-primary-light);
+    color: var(--config-brand-ink);
+  }
+
+  .launcher-config-danger-button {
+    border-color: color-mix(in srgb, var(--danger) 18%, var(--config-line));
+    background: transparent;
+    color: color-mix(in srgb, var(--danger) 72%, var(--config-muted));
+  }
+
+  .launcher-config-danger-button:hover,
+  .launcher-config-danger-button-active {
+    border-color: color-mix(in srgb, var(--danger) 42%, var(--config-line));
+    background: color-mix(in srgb, var(--danger) 8%, transparent);
+    color: var(--danger);
+  }
+
+  .launcher-config-help {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--config-line);
+    border-radius: 999px;
+    background: var(--config-surface-soft);
+    color: var(--config-muted);
+  }
+
+  .launcher-config-path-list {
+    display: grid;
+  }
+
+  .launcher-config-paths,
+  .launcher-config-completion-rail {
+    min-height: var(--launcher-config-top-card-height);
+  }
+
+  .launcher-config-path-row {
+    display: grid;
+    grid-template-columns: 135px minmax(0, 1fr);
+    gap: 16px;
+    align-items: center;
+    min-height: 60px;
+    border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+    padding: 10px 18px;
+  }
+
+  .launcher-config-path-row:last-child {
+    border-bottom: 0;
+  }
+
+  .launcher-config-path-row:hover {
+    background: var(--config-row-hover);
+  }
+
+  .launcher-config-path-label {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .launcher-config-path-label strong {
+    color: var(--config-text);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.25;
+  }
+
+  .launcher-config-path-label span {
+    color: var(--config-muted);
+    font-size: 11px;
+    font-weight: 450;
+    line-height: 1.35;
+  }
+
+  .launcher-config-path-field {
+    position: relative;
+    min-width: 0;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--config-surface-soft);
+    color: var(--config-muted);
+    padding: 0 74px 0 12px;
+    transition: border-color 160ms ease;
+  }
+
+  .launcher-config-path-field:hover {
+    border-color: var(--config-primary-light);
+  }
+
+  .launcher-config-path-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .launcher-config-path-actions {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+  }
+
+  .launcher-config-icon-button {
+    width: 30px;
+    height: 30px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid var(--config-line);
+    border-radius: 8px;
+    background: var(--config-surface-soft);
+    color: var(--config-faint);
+    cursor: pointer;
+    padding: 0;
+    transition:
+      border-color 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .launcher-config-icon-button:hover {
+    border-color: var(--config-primary);
+    background: var(--config-primary-light);
+    color: var(--config-brand-ink);
+  }
+
+  .launcher-config-panel-icon-button {
+    flex: 0 0 auto;
+  }
+
+  .launcher-config-refresh-button {
+    min-height: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}

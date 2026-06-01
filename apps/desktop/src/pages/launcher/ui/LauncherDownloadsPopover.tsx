@@ -7,11 +7,13 @@ import { orderLauncherDownloadItems } from '@features/launcher/ui/shared/orderLa
 
 type LauncherDownloadsPopoverProps = {
   downloads: ReturnType<typeof useLauncherDownloads>
+  onInstallArchives: (archivePaths: string[]) => void
 }
 
-export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopoverProps) {
+export function LauncherDownloadsPopover({ downloads, onInstallArchives }: LauncherDownloadsPopoverProps) {
   const copy = useEditorCopy().launcher
   const orderedItems = orderLauncherDownloadItems(downloads.items)
+  const readyArchivePaths = downloads.readyToInstall.map((item) => item.archivePath).filter((path): path is string => Boolean(path))
 
   return (
     <div className="launcher-downloads-popover">
@@ -21,8 +23,8 @@ export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopover
           <p className="launcher-downloads-popover-subtitle">{copy.downloads.subtitle}</p>
         </div>
         <div className="launcher-downloads-popover-actions">
-          {downloads.counts.readyToInstall ? (
-            <button type="button" className="control-button control-button-primary" onClick={() => void downloads.installAllReady()}>
+          {readyArchivePaths.length ? (
+            <button type="button" className="control-button control-button-primary" onClick={() => onInstallArchives(readyArchivePaths)}>
               <span>
                 {copy.actions.install} ({downloads.counts.readyToInstall})
               </span>
@@ -86,7 +88,7 @@ export function LauncherDownloadsPopover({ downloads }: LauncherDownloadsPopover
                   statusLabel={copy.states[item.status]}
                   onRetry={() => downloads.retryItem(item.id)}
                   onRemove={() => downloads.removeItem(item.id)}
-                  onInstall={() => void downloads.installItem(item.id)}
+                  onInstall={() => (item.archivePath ? onInstallArchives([item.archivePath]) : undefined)}
                 />
               ))}
             </div>

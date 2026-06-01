@@ -81,16 +81,11 @@ export function getCommandSummary(cmd: EventCommand): CommandSummary {
 
     case 'move': {
       const actor = args[1] ?? ''
-      let steps = 0
-      for (let i = 1; i + 3 < args.length; i += 4) {
-        const dx = Number.parseInt(args[i + 1] ?? '0', 10) || 0
-        const dy = Number.parseInt(args[i + 2] ?? '0', 10) || 0
-        steps += Math.abs(dx) + Math.abs(dy)
-      }
+      const pathPoints = Math.max(0, Math.floor((args.length - 2) / 3))
       return {
         icon: 'ArrowRightLeft',
         title: actor || 'Move',
-        subtitle: steps > 0 ? `移动 ${steps} 格` : '移动',
+        subtitle: pathPoints > 0 ? `${pathPoints} 个路径点` : '选择路径',
       }
     }
 

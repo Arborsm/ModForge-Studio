@@ -1,6 +1,8 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss" source(none);
 @import "./workspace/layout.css";
+@import "./workspace/workbench-launchpad.css";
+@import "./workspace/dev-resource-browser.css";
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
 @import "./features/cp-maker-edit.css";

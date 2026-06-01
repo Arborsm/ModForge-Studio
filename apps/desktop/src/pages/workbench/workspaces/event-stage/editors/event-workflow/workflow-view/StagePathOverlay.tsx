@@ -8,6 +8,7 @@ import type { MapDocument } from '@shared/contracts'
 export type StagePathOverlayProps = {
   eventScript: EventScript | null
   mapDocument: MapDocument | null
+  viewportZoom?: number
   selectedCommandIndex?: number | null
   hoveredCommandIndex?: number | null
 }
@@ -117,17 +118,22 @@ function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocume
 
     switch (cmd.command) {
       case 'move': {
-        // move <actor> <x> <y> <dir> [x2 y2 dir2 ...]
-        const actorName = cmd.args[1]
-        if (!actorName) continue
-        const actorKey = toActorKey(actorName)
-        const path = ensurePath(actorKey)
+        // Stardew move uses repeated relative groups:
+        // move <actor> <dx> <dy> <dir> [<actor> <dx> <dy> <dir> ...]
+        for (let j = 1; j + 3 < cmd.args.length; j += 4) {
+          const actorName = cmd.args[j]
+          if (!actorName) continue
+          const actorKey = toActorKey(actorName)
+          const path = ensurePath(actorKey)
+          const state = actorStates.get(actorKey)
+          if (!state) continue
 
-        for (let j = 2; j + 2 < cmd.args.length; j += 3) {
-          const tx = Number.parseInt(cmd.args[j] ?? '', 10)
-          const ty = Number.parseInt(cmd.args[j + 1] ?? '', 10)
-          const tdir = Number.parseInt(cmd.args[j + 2] ?? '', 10)
-          if (!Number.isFinite(tx) || !Number.isFinite(ty)) continue
+          const dx = Number.parseInt(cmd.args[j + 1] ?? '', 10)
+          const dy = Number.parseInt(cmd.args[j + 2] ?? '', 10)
+          const tdir = Number.parseInt(cmd.args[j + 3] ?? '', 10)
+          if (!Number.isFinite(dx) || !Number.isFinite(dy)) continue
+          const tx = state.tileX + dx
+          const ty = state.tileY + dy
 
           const point: PathPoint = {
             x: tx * tileWidth + tileWidth / 2,
@@ -148,13 +154,9 @@ function buildActorPaths(eventScript: EventScript | null, mapDocument: MapDocume
           }
           path.points.push(point)
 
-          // 更新 actor 状态
-          const state = actorStates.get(actorKey)
-          if (state) {
-            state.tileX = tx
-            state.tileY = ty
-            if (Number.isFinite(tdir)) state.dir = tdir
-          }
+          state.tileX = tx
+          state.tileY = ty
+          if (Number.isFinite(tdir)) state.dir = tdir
         }
         break
       }
@@ -351,14 +353,20 @@ function ArrowMarker({ id, color }: { id: string; color: string }) {
   )
 }
 
-export function StagePathOverlay({ eventScript, mapDocument, selectedCommandIndex, hoveredCommandIndex }: StagePathOverlayProps) {
+export function StagePathOverlay({
+  eventScript,
+  mapDocument,
+  viewportZoom = 1,
+  selectedCommandIndex,
+  hoveredCommandIndex,
+}: StagePathOverlayProps) {
   const actorPaths = useMemo(() => buildActorPaths(eventScript, mapDocument), [eventScript, mapDocument])
 
   if (!mapDocument || actorPaths.length === 0) return null
 
   const { width, height, tileWidth, tileHeight } = mapDocument
-  const svgWidth = width * tileWidth
-  const svgHeight = height * tileHeight
+  const svgWidth = width * tileWidth * viewportZoom
+  const svgHeight = height * tileHeight * viewportZoom
 
   function isHighlighted(commandIndex: number): boolean {
     return selectedCommandIndex === commandIndex || hoveredCommandIndex === commandIndex
@@ -400,10 +408,10 @@ export function StagePathOverlay({ eventScript, mapDocument, selectedCommandInde
             return (
               <line
                 key={`seg-${idx}`}
-                x1={seg.from.x}
-                y1={seg.from.y}
-                x2={seg.to.x}
-                y2={seg.to.y}
+                x1={seg.from.x * viewportZoom}
+                y1={seg.from.y * viewportZoom}
+                x2={seg.to.x * viewportZoom}
+                y2={seg.to.y * viewportZoom}
                 stroke={path.color}
                 strokeWidth={strokeWidth}
                 strokeDasharray={dashArray}
@@ -424,7 +432,7 @@ export function StagePathOverlay({ eventScript, mapDocument, selectedCommandInde
                 {point.kind === 'spawn' && point.commandIndex !== -1 ? (
                   // 新增 actor 用菱形
                   <polygon
-                    points={`${point.x},${point.y - radius} ${point.x + radius},${point.y} ${point.x},${point.y + radius} ${point.x - radius},${point.y}`}
+                    points={`${point.x * viewportZoom},${point.y * viewportZoom - radius} ${point.x * viewportZoom + radius},${point.y * viewportZoom} ${point.x * viewportZoom},${point.y * viewportZoom + radius} ${point.x * viewportZoom - radius},${point.y * viewportZoom}`}
                     fill={path.color}
                     fillOpacity={opacity}
                     stroke="white"
@@ -432,17 +440,33 @@ export function StagePathOverlay({ eventScript, mapDocument, selectedCommandInde
                   />
                 ) : point.kind === 'warp' ? (
                   // 传送用空心圆
-                  <circle cx={point.x} cy={point.y} r={radius} fill="white" fillOpacity={opacity} stroke={path.color} strokeWidth={2} />
+                  <circle
+                    cx={point.x * viewportZoom}
+                    cy={point.y * viewportZoom}
+                    r={radius}
+                    fill="white"
+                    fillOpacity={opacity}
+                    stroke={path.color}
+                    strokeWidth={2}
+                  />
                 ) : (
                   // 普通移动点
-                  <circle cx={point.x} cy={point.y} r={radius} fill={path.color} fillOpacity={opacity} stroke="white" strokeWidth={1} />
+                  <circle
+                    cx={point.x * viewportZoom}
+                    cy={point.y * viewportZoom}
+                    r={radius}
+                    fill={path.color}
+                    fillOpacity={opacity}
+                    stroke="white"
+                    strokeWidth={1}
+                  />
                 )}
 
                 {/* 命令序号标签 */}
                 {point.commandIndex >= 0 && (
                   <text
-                    x={point.x + 8}
-                    y={point.y - 6}
+                    x={point.x * viewportZoom + 8}
+                    y={point.y * viewportZoom - 6}
                     fontSize="9"
                     fontFamily="monospace"
                     fontWeight="bold"

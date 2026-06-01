@@ -36,7 +36,7 @@ export type {
   WorldAtlasViewId,
 } from '../locales'
 
-export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']
+export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n', 'mods']
 export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']
 
 export const editorCopy: Record<LocaleCode, EditorCopy> = {
@@ -71,6 +71,10 @@ export function getSettingsMenuCopy(locale: LocaleCode): SettingsMenuCopy {
 export function getWorkspaceModeLabel(locale: LocaleCode, copy: Pick<EditorCopy, 'nav'>, mode: WorkspaceMode) {
   if (mode === 'mods') {
     return getModWorkspaceCopy(locale).workspaceLabel
+  }
+
+  if (mode === 'mod-i18n') {
+    return localeBundles[locale].modI18n.workspaceLabel
   }
 
   return copy.nav[mode]

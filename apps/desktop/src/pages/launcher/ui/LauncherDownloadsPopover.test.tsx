@@ -1,4 +1,4 @@
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
 import type { LauncherDownloadQueueItem } from '@features/launcher'
@@ -57,9 +57,8 @@ function createDownloads(items: LauncherDownloadQueueItem[]) {
     retryFailed: vi.fn(),
     removeItem: vi.fn(),
     removeCompleted: vi.fn(),
-    installItem: vi.fn(async () => {}),
-    installAllReady: vi.fn(async () => {}),
     clearAll: vi.fn(),
+    markArchivesInstalled: vi.fn(),
   }
 }
 
@@ -75,11 +74,22 @@ describe('LauncherDownloadsPopover', () => {
       createItem({ id: 'failed-item', title: 'Failed Item', status: 'failed', archivePath: null, error: 'Request timed out.' }),
     ])
 
-    const { container } = renderWithLocale(<LauncherDownloadsPopover downloads={downloads} />, 'zh-CN')
+    const { container } = renderWithLocale(<LauncherDownloadsPopover downloads={downloads} onInstallArchives={vi.fn()} />, 'zh-CN')
 
     expect(screen.getByText(copy.downloads.title)).toBeTruthy()
     expect(container.querySelector('.launcher-downloads-popover-list-shell')).toBeTruthy()
     expect(container.querySelectorAll('.launcher-download-row')).toHaveLength(3)
     expect(container.querySelector('.launcher-downloads-popover-section')).toBeNull()
+  })
+
+  it('opens the shared archive installer for ready downloads', () => {
+    const onInstallArchives = vi.fn()
+    const downloads = createDownloads([createItem({ id: 'ready-item', title: 'Ready Item' })])
+
+    renderWithLocale(<LauncherDownloadsPopover downloads={downloads} onInstallArchives={onInstallArchives} />, 'zh-CN')
+
+    fireEvent.click(screen.getByRole('button', { name: `${copy.actions.install} (1)` }))
+
+    expect(onInstallArchives).toHaveBeenCalledWith(['E:\\Downloads\\npc-adventures.zip'])
   })
 })

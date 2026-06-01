@@ -1,0 +1,266 @@
+@layer components {
+  .dev-resource-browser {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    min-height: 0;
+    background: var(--bg-app);
+    color: var(--text-primary);
+  }
+
+  .dev-resource-browser__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel);
+  }
+
+  .dev-resource-browser__title-row,
+  .dev-resource-browser__metrics,
+  .dev-resource-browser__dialog-head,
+  .dev-resource-browser__dialog-row,
+  .dev-resource-browser__dialog-footer,
+  .dev-resource-browser__icon-box,
+  .dev-resource-browser__swatch {
+    display: flex;
+    align-items: center;
+  }
+
+  .dev-resource-browser__title-row {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .dev-resource-browser__title-row h1,
+  .dev-resource-browser__dialog-head h2,
+  .dev-resource-browser__dialog-side h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .dev-resource-browser__subtitle,
+  .dev-resource-browser__dialog-head p,
+  .dev-resource-browser__tiny,
+  .dev-resource-browser__dialog-selection {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-tertiary);
+  }
+
+  .dev-resource-browser__subtitle,
+  .dev-resource-browser__dialog-head p {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+
+  .dev-resource-browser__metrics {
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+  }
+
+  .dev-resource-browser__metric,
+  .dev-resource-browser__badge,
+  .dev-resource-browser__source-chip,
+  .dev-resource-browser__count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-app);
+  }
+
+  .dev-resource-browser__metric {
+    height: 28px;
+    padding: 0 8px;
+  }
+
+  .dev-resource-browser__badge,
+  .dev-resource-browser__source-chip,
+  .dev-resource-browser__count {
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 650;
+    color: var(--text-tertiary);
+  }
+
+  .dev-resource-browser__dialog-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-content: start;
+    gap: 12px;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+  }
+
+  .dev-resource-browser__dialog-panel,
+  .dev-resource-browser__dialog-side {
+    min-width: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-panel);
+  }
+
+  .dev-resource-browser__dialog-panel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .dev-resource-browser__dialog-head {
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .dev-resource-browser__dialog-grid {
+    display: grid;
+    gap: 1px;
+    background: var(--border-color);
+  }
+
+  .dev-resource-browser__dialog-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 6px 8px;
+    background: var(--bg-panel);
+  }
+
+  .dev-resource-browser__dialog-row[data-active="true"] {
+    outline: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border-color));
+    outline-offset: -1px;
+    background: color-mix(in srgb, var(--accent-soft) 24%, var(--bg-panel));
+  }
+
+  .dev-resource-browser__icon-box {
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-app);
+  }
+
+  .dev-resource-browser__dialog-copy,
+  .dev-resource-browser__selection-copy {
+    min-width: 0;
+  }
+
+  .dev-resource-browser__label,
+  .dev-resource-browser__selection-label {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .dev-resource-browser__tiny {
+    display: block;
+    font-size: 10px;
+  }
+
+  .dev-resource-browser__picker-trigger {
+    width: 180px;
+    justify-content: space-between;
+  }
+
+  .dev-resource-browser__dialog-selection {
+    grid-column: 2 / -1;
+    max-width: 100%;
+    font-size: 10px;
+  }
+
+  .dev-resource-browser__dialog-footer {
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 8px 10px;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-tertiary);
+  }
+
+  .dev-resource-browser__source-chip {
+    min-width: 0;
+    max-width: 180px;
+    font-weight: 500;
+  }
+
+  .dev-resource-browser__dialog-side {
+    padding: 12px;
+  }
+
+  .dev-resource-browser__selection-list {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .dev-resource-browser__selection {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-app);
+    text-align: left;
+  }
+
+  .dev-resource-browser__selection:hover {
+    background: var(--bg-panel-muted);
+  }
+
+  .dev-resource-browser__swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  @media (max-width: 1120px) {
+    .dev-resource-browser__dialog-stage {
+      grid-template-columns: minmax(0, 760px);
+    }
+
+    .dev-resource-browser__dialog-side {
+      display: none;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .dev-resource-browser__header,
+    .dev-resource-browser__dialog-head,
+    .dev-resource-browser__dialog-row {
+      grid-template-columns: 1fr;
+      align-items: start;
+    }
+
+    .dev-resource-browser__dialog-stage {
+      padding: 12px;
+    }
+
+    .dev-resource-browser__picker-trigger {
+      width: 100%;
+    }
+  }
+}

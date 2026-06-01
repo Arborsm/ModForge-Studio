@@ -1,6 +1,6 @@
 export type LocaleCode = 'zh-CN' | 'en-US'
 export type ThemeMode = 'dark' | 'light'
-export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'events'
+export type CoreWorkspaceMode = 'map' | 'characters' | 'buildings' | 'items' | 'mod-i18n' | 'events'
 export type WorkspaceMode = CoreWorkspaceMode | 'mods'
 export type AppMode = 'workbench' | 'launcher'
 export type LauncherPage = 'library' | 'discover' | 'updates' | 'configuration'
@@ -642,6 +642,7 @@ export type LauncherCopy = {
       optionalFiles: string
       oldFiles: string
       oldAndArchivedFiles: string
+      filesLoading: string
       changelogEmpty: string
     }
     installHint: string
@@ -654,6 +655,7 @@ export type LauncherCopy = {
     previewArchiveListSubtitle: string
     previewNoRoots: string
     previewLoading: string
+    previewProgress: (completed: number, total: number, archiveName: string) => string
     previewError: string
     dragDropInstallTitle: string
     dragDropInstallSubtitle: (formats: string) => string
@@ -664,7 +666,12 @@ export type LauncherCopy = {
     dragDropSkippedMissingPaths: (count: number) => string
     installSummaryTitle: string
     installSummarySubtitle: string
+    installProgressTitle: string
+    installProgress: (completed: number, total: number, archiveName: string) => string
+    installProgressKeepWorking: string
     installSummaryInstalledMods: (count: number) => string
+    installSummarySucceeded: (count: number) => string
+    installSummaryFailed: (count: number) => string
     installSummaryPreservedConfig: string
     installSummaryPreservedI18n: string
     installSummaryBackupSubtitle: string
@@ -865,6 +872,9 @@ export type LauncherCopy = {
     title: string
     subtitle: string
     empty: string
+    backgroundQueuedTitle: string
+    backgroundQueuedSummary: (count: number) => string
+    backgroundQueuedDetail: string
     manualDownloadOpenedTitle: string
     manualDownloadOpenedDetail: string
   }
@@ -1101,6 +1111,36 @@ export type EditorCopy = {
     moduleCanvas: string
     moduleInspector: string
   }
+  workbenchNavigation: {
+    openLaunchpad: string
+    closeLaunchpad: string
+    title: string
+    eyebrow: string
+    searchPlaceholder: string
+    rootPages: string
+    projectChildren: string
+    currentPage: string
+    rootPage: string
+    rootModeLabels: Record<WorkspaceMode, string>
+    rootModeCodes: Record<WorkspaceMode, string>
+    currentMarker: string
+    projectRequiredLabel: string
+    projectToolLocked: string
+    openProjectTool: string
+    projectRequiredTitle: string
+    projectRequiredChooseDescription: string
+    projectRequiredCreateDescription: string
+    selectProjectAction: string
+    createProjectAction: string
+    recentPages: string
+    home: string
+    projectLobby: string
+    chooseProjectTitle: string
+    cancelProjectSelection: string
+    mapMaking: string
+    eventMaking: string
+    itemMaking: string
+  }
   rightDock: {
     title: string
     subtitle: string
@@ -1198,8 +1238,17 @@ export type EditorCopy = {
     projectLobbyControl: string
     projectGrid: string
     projectCount: (count: number) => string
+    projectMoreActions: (name: string) => string
+    projectManagerEyebrow: string
+    projectManagerSubtitle: string
+    projectList: string
     searchProjects: string
-    galleryFilters: Record<'all' | 'active' | 'export' | 'conflict' | 'archive', string>
+    uniqueIdLabel: string
+    lastEditedLabel: string
+    lastExportedLabel: string
+    metadataIncomplete: string
+    editProjectProperties: string
+    editProjectPropertiesHint: string
     overview: string
     totalProjects: string
     waitingExport: string
@@ -1680,7 +1729,7 @@ export type EditorCopy = {
   charactersPanel: CharactersPanelCopy
   buildingsPanel: BuildingsPanelCopy
   itemsPanel: ItemsPanelCopy
-  moduleBlueprints: Record<Exclude<CoreWorkspaceMode, 'map'>, ModuleBlueprint>
+  moduleBlueprints: Record<Exclude<CoreWorkspaceMode, 'map' | 'mod-i18n'>, ModuleBlueprint>
 }
 
 export type ModWorkspaceCopy = {
@@ -1771,6 +1820,30 @@ export type ModWorkspaceCopy = {
   scanStatus: (count: number) => string
 }
 
+export type ModI18nWorkspaceCopy = {
+  workspaceLabel: string
+  workspaceSubtitle: string
+  noProject: string
+  noI18n: string
+  projectLabel: string
+  fileLabel: string
+  sourceLabel: string
+  targetLabel: string
+  searchPlaceholder: string
+  allStatus: string
+  translatedStatus: string
+  missingStatus: string
+  emptyStatus: string
+  errorStatus: string
+  saveTranslations: string
+  addLocale: string
+  newLocalePrompt: string
+  progressLabel: string
+  entriesLabel: (count: number) => string
+  missingTokens: (tokens: string) => string
+  invalidJson: string
+}
+
 export type NotificationCopy = {
   viewportLabel: string
   dismissLabel: string
@@ -1781,6 +1854,7 @@ export type NotificationCopy = {
 export type LocaleBundle = {
   editor: EditorCopy
   mods: ModWorkspaceCopy
+  modI18n: ModI18nWorkspaceCopy
   notifications: NotificationCopy
   viewMenu: ViewMenuCopy
   settingsMenu: SettingsMenuCopy

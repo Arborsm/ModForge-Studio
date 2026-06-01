@@ -8,6 +8,7 @@ import {
   type ThemeMode,
   type WorkspaceMode,
 } from '@locales/editor-shell'
+import { localeBundles } from '@locales'
 import { useEventWorkspace } from '../workspaces/event-stage'
 import { useMapWorkspace } from '../workspaces/map'
 import { useCharacterWorkspace } from '../workspaces/character'
@@ -15,6 +16,7 @@ import { useBuildingWorkspace } from '../workspaces/building/state/useBuildingWo
 import { useItemWorkspace } from '../workspaces/item'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import { useModWorkspace } from '../workspaces/mod'
+import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'
 import { useCpMaker, getEditModeRoute, buildStudioDeskModel } from '@features/cp-maker'
 import { buildWorkspacePanels } from '../model/workspace-panels/buildWorkspacePanels'
 import StatusBar from '@widgets/status-bar'
@@ -27,6 +29,7 @@ import { listKnownGameDirectories } from '@entities/game/api'
 import type { AppEvent, PendingWorkbenchCommandIntent, WorkbenchViewRegistration } from '@shared/contracts'
 import InitializationOverlay from './InitializationOverlay'
 import { WorkbenchLayoutHost } from './WorkbenchLayoutHost'
+import WorkbenchLaunchpadNavigation from './WorkbenchLaunchpadNavigation'
 import { WorkbenchViewHost } from './WorkbenchViewHost'
 import { useEditModeNavigation } from '../model/useEditModeNavigation'
 import { usePlayerAppearanceState } from '../model/usePlayerAppearanceState'
@@ -66,6 +69,8 @@ type WorkbenchExperienceProps = {
   onCloseWindow: () => void
   onWorkbenchEvent: (event: AppEvent) => void
   getWorkbenchViewRegistration: (viewId: string) => WorkbenchViewRegistration | null
+  workbenchViews?: readonly WorkbenchViewRegistration[]
+  workbenchActivationKey?: number
 }
 
 export default function WorkbenchExperience({
@@ -85,15 +90,21 @@ export default function WorkbenchExperience({
   onCloseWindow,
   onWorkbenchEvent,
   getWorkbenchViewRegistration,
+  workbenchViews = [],
+  workbenchActivationKey = 0,
 }: WorkbenchExperienceProps) {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('mods')
-  const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>(() => {
-    const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
-    return saved === 'edit' || saved === 'preview' ? saved : 'edit'
-  })
+  const [workspaceViewMode, setWorkspaceViewMode] = useState<'edit' | 'preview'>('edit')
   const [deferredHeavyWorkspaceMode, setDeferredHeavyWorkspaceMode] = useState<WorkspaceMode | null>(null)
   const [knownGameDirectories, setKnownGameDirectories] = useState<string[]>([])
   const [projectOverlayOpen, setProjectOverlayOpen] = useState(false)
+  const [closedWorkbenchLaunchpadKey, setClosedWorkbenchLaunchpadKey] = useState<number | null>(null)
+  const [devWorkbenchViewId, setDevWorkbenchViewId] = useState<string | null>(null)
+  const [modI18nSourceLocale, setModI18nSourceLocale] = useState('default')
+  const [modI18nTargetLocale, setModI18nTargetLocale] = useState('zh-CN')
+  const [modI18nQuery, setModI18nQuery] = useState('')
+  const [modI18nStatusFilter, setModI18nStatusFilter] = useState<ModI18nStatusFilter>('all')
+  const lastSelectedDraftKeyRef = useRef<string | null>(null)
   const { activeEditPatchId, navigateToPatch, goBack, goForward, resetNavigation, canGoBack, canGoForward } = useEditModeNavigation(
     workspaceViewMode === 'edit',
   )
@@ -105,6 +116,7 @@ export default function WorkbenchExperience({
     resetNavigation,
   })
   const [studioDeskGalleryOpen, setStudioDeskGalleryOpen] = useState(true)
+  const [studioDeskCreateDialogOpenSignal, setStudioDeskCreateDialogOpenSignal] = useState(0)
 
   const storedRecentGameDirectories = getAppUiStateSnapshot()?.appearance.recentGameDirectories ?? []
   const [viewMenuPanelItems, setViewMenuPanelItems] = useState<WorkspacePanelMeta[]>([])
@@ -126,6 +138,13 @@ export default function WorkbenchExperience({
   } = usePlayerAppearanceState(appUiStateReady, locale)
 
   const copy = editorCopy[locale]
+  const workbenchLaunchpadOpen = closedWorkbenchLaunchpadKey !== workbenchActivationKey
+  const setWorkbenchLaunchpadOpen = useCallback(
+    (open: boolean) => {
+      setClosedWorkbenchLaunchpadKey(open ? null : workbenchActivationKey)
+    },
+    [workbenchActivationKey],
+  )
 
   useEffect(() => {
     if (workspaceMode !== 'map') {
@@ -400,6 +419,8 @@ export default function WorkbenchExperience({
     contentPatcherResultLoading,
     contentPatcherResultError,
     simulationContext,
+    i18nFiles: modI18nFiles,
+    setI18nFiles: setModI18nFiles,
     navigatorMode,
     setNavigatorMode,
     selectedTargetPath,
@@ -427,6 +448,7 @@ export default function WorkbenchExperience({
   })
 
   const cpMaker = useCpMaker()
+  const modI18nCopy = localeBundles[locale].modI18n
   useWorkbenchCommandIntent({
     pendingIntent: pendingWorkbenchIntent,
     cpMaker,
@@ -447,15 +469,31 @@ export default function WorkbenchExperience({
       }),
     [cpMaker.activeDraft, cpMaker.drafts, cpMaker.patchCountByWorkspace, cpMaker.dirtyPatchIds, cpMaker.isDirty],
   )
-  const editModeRoute = getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
+  const editModeRoute = devWorkbenchViewId ?? getEditModeRoute(workspaceMode, Boolean(cpMaker.activeDraft))
   const editModeView = getWorkbenchViewRegistration(editModeRoute)
+  const devWorkbenchViews = useMemo(
+    () =>
+      import.meta.env.DEV
+        ? workbenchViews
+            .filter((view) => view.devOnly)
+            .map((view) => ({
+              ...view,
+              active: view.viewId === devWorkbenchViewId,
+            }))
+            .slice()
+            .sort((left, right) => (left.order ?? 0) - (right.order ?? 0))
+        : [],
+    [devWorkbenchViewId, workbenchViews],
+  )
 
   const moduleBlueprint =
-    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' ? undefined : copy.moduleBlueprints[workspaceMode]
+    workspaceMode === 'map' || workspaceMode === 'events' || workspaceMode === 'mods' || workspaceMode === 'mod-i18n'
+      ? undefined
+      : copy.moduleBlueprints[workspaceMode]
   const activeAssetName = mapDocument?.name ?? activeAsset?.name
   const needsInitialization = !directoryInfo
   const interactionLocked = resourcePreloadState.active
-  const showProjectOverlay = (needsInitialization || projectOverlayOpen) && !interactionLocked
+  const showProjectOverlay = !devWorkbenchViewId && (needsInitialization || projectOverlayOpen) && !interactionLocked
 
   const { currentWorkspaceStatus, recentGameDirectories, resourcePreloadProgress } = useWorkbenchStatus({
     workspaceMode,
@@ -498,13 +536,22 @@ export default function WorkbenchExperience({
   useEffect(() => () => dismissNotification(RESOURCE_PRELOAD_NOTIFICATION_ID), [])
 
   useEffect(() => {
-    if (cpMaker.activeDraft) {
-      onWorkbenchEvent({
-        type: 'cp-maker/draft-selected',
-        draftKey: cpMaker.activeDraft.draftStorageKey,
-      })
+    const draftKey = cpMaker.activeDraft?.draftStorageKey ?? null
+    if (!draftKey) {
+      lastSelectedDraftKeyRef.current = null
+      return
     }
-  }, [cpMaker.activeDraft, onWorkbenchEvent])
+
+    if (lastSelectedDraftKeyRef.current === draftKey) {
+      return
+    }
+
+    lastSelectedDraftKeyRef.current = draftKey
+    onWorkbenchEvent({
+      type: 'cp-maker/draft-selected',
+      draftKey,
+    })
+  }, [cpMaker.activeDraft?.draftStorageKey, onWorkbenchEvent])
 
   useEffect(() => {
     if (workspaceMode !== 'events' || !currentEventCommandId) {
@@ -517,6 +564,23 @@ export default function WorkbenchExperience({
   useEffect(() => {
     resetNavigation()
   }, [resetNavigation, workspaceMode])
+
+  const modI18nLocales = useMemo(() => modI18nFiles.map((file) => file.locale), [modI18nFiles])
+  const normalizedModI18nSourceLocale = modI18nLocales.includes(modI18nSourceLocale)
+    ? modI18nSourceLocale
+    : modI18nLocales.includes('default')
+      ? 'default'
+      : (modI18nLocales[0] ?? 'default')
+  const normalizedModI18nTargetLocale = modI18nLocales.includes(modI18nTargetLocale)
+    ? modI18nTargetLocale
+    : (modI18nLocales.find((candidate) => candidate !== normalizedModI18nSourceLocale) ?? normalizedModI18nSourceLocale)
+
+  const handleModI18nSourceLocaleChange = useCallback((nextLocale: string) => {
+    setModI18nSourceLocale(nextLocale)
+  }, [])
+  const handleModI18nTargetLocaleChange = useCallback((nextLocale: string) => {
+    setModI18nTargetLocale(nextLocale)
+  }, [])
 
   useEffect(() => {
     if (!appUiStateReady) {
@@ -705,6 +769,7 @@ export default function WorkbenchExperience({
     onSelectItem: handleSelectItem,
     onSelectModItem: handleSelectModItem,
     modWorkspaceCopy,
+    modI18nCopy,
     modPluginDefinition,
     modProjects,
     filteredModProjects,
@@ -738,6 +803,16 @@ export default function WorkbenchExperience({
     contentPatcherResultLoading,
     contentPatcherResultError,
     simulationContext,
+    modI18nFiles,
+    modI18nSourceLocale: normalizedModI18nSourceLocale,
+    modI18nTargetLocale: normalizedModI18nTargetLocale,
+    modI18nQuery,
+    modI18nStatusFilter,
+    onModI18nSourceLocaleChange: handleModI18nSourceLocaleChange,
+    onModI18nTargetLocaleChange: handleModI18nTargetLocaleChange,
+    onModI18nQueryChange: setModI18nQuery,
+    onModI18nStatusFilterChange: setModI18nStatusFilter,
+    onModI18nFilesChange: setModI18nFiles,
     navigatorMode,
     selectedTargetPath,
     onNavigatorModeChange: setNavigatorMode,
@@ -796,6 +871,93 @@ export default function WorkbenchExperience({
     [onSwitchToLauncher],
   )
 
+  const handleOpenRootWorkspace = useCallback(
+    (mode: WorkspaceMode) => {
+      setDevWorkbenchViewId(null)
+      if (mode === 'mods') {
+        handleWorkspaceChange(mode)
+        return
+      }
+
+      setWorkspaceViewMode('preview')
+      setWorkspaceMode(mode)
+    },
+    [handleWorkspaceChange],
+  )
+
+  const handleOpenProjectWorkspace = useCallback(
+    (mode: WorkspaceMode) => {
+      setDevWorkbenchViewId(null)
+      setWorkspaceViewMode('edit')
+      setWorkspaceMode(mode)
+      resetNavigation()
+    },
+    [resetNavigation],
+  )
+
+  const handleOpenProjectPage = useCallback(() => {
+    setDevWorkbenchViewId(null)
+    setWorkspaceMode('mods')
+    setWorkspaceViewMode('edit')
+    setStudioDeskGalleryOpen(false)
+    resetNavigation()
+  }, [resetNavigation])
+
+  const handleOpenProjectManagement = useCallback(() => {
+    setDevWorkbenchViewId(null)
+    setWorkspaceMode('mods')
+    setWorkspaceViewMode('edit')
+    setStudioDeskGalleryOpen(true)
+    resetNavigation()
+  }, [resetNavigation])
+
+  const handleOpenProjectCreate = useCallback(() => {
+    handleOpenProjectManagement()
+    setStudioDeskCreateDialogOpenSignal((current) => current + 1)
+  }, [handleOpenProjectManagement])
+
+  const handleSelectProjectForLaunchpad = useCallback(
+    (draftStorageKey: string) => {
+      void cpMaker.loadDraft(draftStorageKey)
+      onWorkbenchEvent({
+        type: 'cp-maker/draft-selected',
+        draftKey: draftStorageKey,
+      })
+    },
+    [cpMaker, onWorkbenchEvent],
+  )
+
+  const workbenchQuickDock = (
+    <WorkbenchLaunchpadNavigation
+      open={workbenchLaunchpadOpen}
+      workspaceMode={workspaceMode}
+      workspaceViewMode={workspaceViewMode}
+      dockPlacement="titlebar"
+      hasActiveProject={Boolean(cpMaker.activeDraft)}
+      projectSummaries={cpMaker.drafts}
+      devViews={devWorkbenchViews}
+      onOpenChange={setWorkbenchLaunchpadOpen}
+      onRootWorkspaceOpen={handleOpenRootWorkspace}
+      onProjectWorkspaceOpen={(mode) => {
+        if (mode === 'mods') {
+          handleOpenProjectPage()
+          return
+        }
+
+        handleOpenProjectWorkspace(mode)
+      }}
+      onDevViewOpen={(viewId) => {
+        setDevWorkbenchViewId(viewId)
+        setWorkspaceViewMode('edit')
+        setWorkbenchLaunchpadOpen(false)
+        resetNavigation()
+      }}
+      onProjectManagementOpen={handleOpenProjectManagement}
+      onProjectCreateOpen={handleOpenProjectCreate}
+      onProjectSelect={handleSelectProjectForLaunchpad}
+    />
+  )
+
   return (
     <div className={active ? 'flex h-full flex-col' : 'hidden'} aria-busy={interactionLocked} aria-hidden={!active}>
       <TopMenuBar
@@ -831,6 +993,7 @@ export default function WorkbenchExperience({
             setProjectOverlayOpen(true)
           },
         }}
+        workbenchQuickDock={workbenchQuickDock}
       />
 
       {playerAppearanceWindowOpen ? (
@@ -888,7 +1051,10 @@ export default function WorkbenchExperience({
                 onSetWorkspaceViewMode={setWorkspaceViewMode}
                 studioDeskGalleryOpen={studioDeskGalleryOpen}
                 onStudioDeskGalleryOpenChange={setStudioDeskGalleryOpen}
+                studioDeskCreateDialogOpenSignal={studioDeskCreateDialogOpenSignal}
                 activeEditPatchId={activeEditPatchId}
+                playerAppearanceProfile={activePlayerAppearanceProfile}
+                onOpenPlayerAppearanceWindow={openAppearanceWindow}
               />
             </LoadingMotionReveal>
           )}

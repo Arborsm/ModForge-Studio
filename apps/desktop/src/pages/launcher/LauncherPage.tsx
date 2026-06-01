@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react'
 import { LauncherDownloadsPopover } from './ui/LauncherDownloadsPopover'
 import LauncherShell from './ui/LauncherShell'
 import TopMenuBar from '@widgets/top-navigation'
-import StatusBar from '@widgets/status-bar'
 import type { LauncherPage as LauncherPageId, AppMode, ThemeMode, WorkspaceMode } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
 import type { SettingsWindowCategory, WorkspacePanelMeta } from '@shared/contracts'
@@ -65,10 +64,18 @@ export function LauncherPage({
   const launcherRuntime = useLauncherRuntime(locale)
   useLauncherUpdateProgressNotifications(locale)
   const [launchBusy, setLaunchBusy] = useState(false)
+  const [downloadInstallRequest, setDownloadInstallRequest] = useState<{ id: number; archivePaths: string[] } | null>(null)
   const launcherPort = useLauncherPort()
   const activeLauncherPage: LauncherPageId = page
   const availableLauncherPages = ['library', 'discover', 'updates', 'configuration'] as const
-  const downloadsPopover = <LauncherDownloadsPopover downloads={launcherRuntime.downloads} />
+  const downloadsPopover = (
+    <LauncherDownloadsPopover
+      downloads={launcherRuntime.downloads}
+      onInstallArchives={(archivePaths) => {
+        setDownloadInstallRequest({ id: Date.now(), archivePaths })
+      }}
+    />
+  )
   const handleLaunchGame = useCallback(async () => {
     if (!desktopHost || launchBusy) {
       return
@@ -131,6 +138,8 @@ export function LauncherPage({
             onLauncherDiagnosticsUpdate={onLauncherDiagnosticsUpdate}
             settingsState={launcherRuntime.settingsState}
             downloads={launcherRuntime.downloads}
+            downloadInstallRequest={downloadInstallRequest}
+            onDownloadArchivesInstalled={launcherRuntime.downloads.markArchivesInstalled}
             onNavigateToSettings={() => onLauncherPageChange('configuration')}
             launchGameLabel={copy.launcher.actions.launchGame}
             launchGameDisabled={!desktopHost || launchBusy}
@@ -139,19 +148,6 @@ export function LauncherPage({
           />
         </div>
       </div>
-
-      <StatusBar
-        appMode="launcher"
-        launcherPage={activeLauncherPage}
-        workspaceMode="map"
-        workspaceStatus={{ tone: 'idle', message: '' }}
-        directoryInfo={null}
-        mapAssets={[]}
-        activeAsset={null}
-        mapDocument={null}
-        pathLabel={copy.common.none}
-        hoverInfo={null}
-      />
     </div>
   )
 }

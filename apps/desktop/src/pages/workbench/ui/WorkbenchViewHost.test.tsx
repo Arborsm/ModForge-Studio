@@ -26,6 +26,7 @@ function renderHost(editModeView: WorkbenchViewRegistration) {
       onSetWorkspaceViewMode={vi.fn()}
       studioDeskGalleryOpen={false}
       onStudioDeskGalleryOpenChange={vi.fn()}
+      studioDeskCreateDialogOpenSignal={0}
       activeEditPatchId={null}
     />,
   )

@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { EditWorkspaceContent, StudioDesk } from '@features/cp-maker'
 import type {
   AppRegistry,
@@ -7,24 +8,48 @@ import type {
   WorkspacePanelRegistration,
 } from '@shared/contracts'
 
-const coreWorkbenchViews: WorkbenchViewRegistration[] = [
-  {
+const LazyDevResourceBrowserLab = lazy(() =>
+  import('../dev/DevResourceBrowserLab').then((module) => ({
+    default: module.DevResourceBrowserLab,
+  })),
+)
+
+function eraseWorkbenchViewProps<TProps>(view: WorkbenchViewRegistration<TProps>): WorkbenchViewRegistration<never> {
+  return view as WorkbenchViewRegistration<never>
+}
+
+const coreWorkbenchViews: WorkbenchViewRegistration<never>[] = [
+  eraseWorkbenchViewProps({
     id: 'studio-desk',
     kind: 'workbench-view',
     title: 'Studio Desk',
     order: 10,
     viewId: 'studio-desk',
     component: StudioDesk,
-  },
-  {
+  }),
+  eraseWorkbenchViewProps({
     id: 'workspace-editor',
     kind: 'workbench-view',
     title: 'Workspace Editor',
     order: 20,
     viewId: 'workspace-editor',
     component: EditWorkspaceContent,
-  },
+  }),
 ]
+
+const devWorkbenchViews: WorkbenchViewRegistration<never>[] = import.meta.env.DEV
+  ? [
+      eraseWorkbenchViewProps({
+        id: 'dev-resource-browser',
+        kind: 'workbench-view',
+        title: '资源浏览器',
+        order: 900,
+        viewId: 'dev-resource-browser',
+        devOnly: true,
+        component: LazyDevResourceBrowserLab,
+      }),
+    ]
+  : []
 
 const coreWorkspacePanels: WorkspacePanelRegistration[] = [
   {
@@ -110,7 +135,7 @@ export function createAppRegistry(input: AppRegistryInput = {}): AppRegistry {
 }
 
 export const appRegistry = createAppRegistry({
-  workbenchViews: coreWorkbenchViews,
+  workbenchViews: [...coreWorkbenchViews, ...devWorkbenchViews],
   workspacePanels: coreWorkspacePanels,
 })
 

@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import type { ComponentType, LazyExoticComponent } from 'react'
 
 export type RegistryItemKind = 'page' | 'workbench-view' | 'workspace-panel'
 
@@ -9,9 +9,10 @@ export type RegistryItemMetadata = {
   kind: RegistryItemKind
   title: string
   order?: number
+  devOnly?: boolean
 }
 
-export type ComponentFactory<TProps = never> = ComponentType<TProps>
+export type ComponentFactory<TProps = never> = ComponentType<TProps> | LazyExoticComponent<ComponentType<TProps>>
 
 export type DefaultLayoutContract = {
   preferredPanelIds?: readonly string[]
@@ -39,13 +40,13 @@ export type WorkspacePanelRegistration<TProps = never> = RegistryItemMetadata & 
 }
 
 export interface AppRegistry {
-  readonly pages: readonly PageRegistration[]
-  readonly workbenchViews: readonly WorkbenchViewRegistration[]
-  readonly workspacePanels: readonly WorkspacePanelRegistration[]
+  readonly pages: readonly PageRegistration<never>[]
+  readonly workbenchViews: readonly WorkbenchViewRegistration<never>[]
+  readonly workspacePanels: readonly WorkspacePanelRegistration<never>[]
 }
 
 export type AppRegistryInput = {
-  pages?: readonly PageRegistration[]
-  workbenchViews?: readonly WorkbenchViewRegistration[]
-  workspacePanels?: readonly WorkspacePanelRegistration[]
+  pages?: readonly PageRegistration<never>[]
+  workbenchViews?: readonly WorkbenchViewRegistration<never>[]
+  workspacePanels?: readonly WorkspacePanelRegistration<never>[]
 }

@@ -1,4 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react'
+import { createPortal } from 'react-dom'
 import type { InspectLauncherArchiveResult, InstallLauncherArchiveResult, LauncherInstallBackupSummary } from '@features/launcher/api'
 import type { LauncherLibraryItem } from '@features/launcher/model/types'
 import { useLauncherImage } from '@features/launcher/model/imageLoader'
@@ -147,8 +148,8 @@ export function LauncherLibraryDialogs({
   onFolderDialogChange,
   onSubmitFolderDialog,
 }: LauncherLibraryDialogsProps) {
-  return (
-    <>
+  return createPortal(
+    <div className="launcher-shell launcher-shell-routed launcher-dialog-portal-root">
       <LauncherArchiveInstallDialog
         open={archivePreviewState !== 'idle'}
         loading={archivePreviewState === 'loading'}
@@ -397,6 +398,7 @@ export function LauncherLibraryDialogs({
           </section>
         </div>
       ) : null}
-    </>
+    </div>,
+    document.body,
   )
 }

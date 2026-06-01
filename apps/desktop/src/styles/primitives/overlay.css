@@ -82,32 +82,29 @@
   .cp-debugger-image-toolbar,
   .workspace-viewport-toolbar {
     position: absolute;
-    right: 16px;
-    bottom: 16px;
-    left: 16px;
+    right: 12px;
+    bottom: 12px;
+    left: auto;
     z-index: 12;
+    pointer-events: auto;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 8px 10px;
+    gap: 6px;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 16px;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-elevated) 96%, transparent),
-      color-mix(in srgb, var(--bg-panel) 90%, transparent)
-    );
-    box-shadow: var(--shadow-float);
-    backdrop-filter: blur(12px);
-    padding: 10px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+    box-shadow: 0 10px 24px color-mix(in srgb, #000 14%, transparent);
+    backdrop-filter: blur(10px);
+    padding: 4px;
   }
 
   .cp-debugger-toolbar-group,
   .workspace-viewport-toolbar-group {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
   }
 
   .cp-debugger-toolbar-group-push,
@@ -161,16 +158,24 @@
     color: var(--text-primary);
   }
 
+  .workspace-viewport-toolbar-button-active {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
   .cp-debugger-toolbar-icon-button,
   .workspace-viewport-toolbar-icon-button {
     display: inline-flex;
-    min-width: 34px;
-    min-height: 34px;
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
     align-items: center;
     justify-content: center;
     border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-panel-muted) 84%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 72%, transparent);
     color: var(--text-secondary);
     transition:
       background-color 160ms ease,
@@ -180,7 +185,57 @@
 
   .cp-debugger-toolbar-icon-button:hover,
   .workspace-viewport-toolbar-icon-button:hover {
-    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    background: color-mix(in srgb, var(--bg-active) 72%, transparent);
+    color: var(--text-primary);
+  }
+
+  .workspace-viewport-toolbar-more {
+    position: relative;
+  }
+
+  .workspace-viewport-toolbar-more > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .workspace-viewport-toolbar-more > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .workspace-viewport-toolbar-menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    display: grid;
+    min-width: 190px;
+    gap: 4px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 84%, transparent);
+    border-radius: 10px;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-float);
+    padding: 6px;
+  }
+
+  .workspace-viewport-toolbar-menu-item {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .workspace-viewport-toolbar-menu-item:hover {
+    background: color-mix(in srgb, var(--bg-panel-muted) 78%, transparent);
     color: var(--text-primary);
   }
 

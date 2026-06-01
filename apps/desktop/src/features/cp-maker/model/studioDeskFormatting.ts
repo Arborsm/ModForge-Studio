@@ -14,7 +14,8 @@ export function getStudioProjectStatusLabel(copy: EditorCopy['studioDesk'], stat
   if (status === 'export') return copy.pendingExport
   if (status === 'conflict') return copy.hasConflict
   if (status === 'archive') return copy.archived
-  return copy.galleryFilters.active
+  if (status === 'incomplete') return copy.metadataIncomplete
+  return copy.neverExported
 }
 
 export function handleStudioKeyboardAction(event: KeyboardEvent<HTMLElement>, callback: () => void) {

@@ -41,6 +41,7 @@ function createMockCpMaker(overrides: Partial<UseCpMakerReturn> = {}): UseCpMake
     buildManifestJson: vi.fn(),
     buildContentJson: vi.fn() as unknown as UseCpMakerReturn['buildContentJson'],
     exportPack: vi.fn(),
+    chooseDirectory: vi.fn(),
     patchCountByWorkspace: {},
     ...overrides,
   }

@@ -70,6 +70,16 @@ pub struct ContentPatcherPatchSummary {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ContentPatcherI18nFile {
+    pub locale: String,
+    pub path: String,
+    pub relative_path: String,
+    pub raw_json: String,
+    pub entry_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ContentPatcherProjectData {
     pub manifest_path: String,
     pub content_path: String,
@@ -81,6 +91,7 @@ pub struct ContentPatcherProjectData {
     pub dynamic_token_count: usize,
     pub config_keys: Vec<String>,
     pub has_i18n: bool,
+    pub i18n_files: Vec<ContentPatcherI18nFile>,
     pub patches: Vec<ContentPatcherPatchSummary>,
 }
 
@@ -101,6 +112,15 @@ pub struct SaveModProjectRequest {
     pub output_path: Option<String>,
     pub manifest_json: String,
     pub content_json: String,
+    #[serde(default)]
+    pub i18n_files: Vec<ContentPatcherI18nFileInput>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentPatcherI18nFileInput {
+    pub locale: String,
+    pub raw_json: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -245,6 +265,101 @@ fn discover_project_roots(path: &Path) -> Result<Vec<PathBuf>, String> {
 
 fn read_json_file(path: &Path) -> Result<(String, Value), String> {
     json_relaxed::read_json_file(path, &format!("JSON file {}", normalize_path(path)))
+}
+
+fn i18n_entry_count(value: &Value) -> usize {
+    value
+        .as_object()
+        .map(|entries| {
+            entries
+                .iter()
+                .filter(|(_, value)| value.is_string())
+                .count()
+        })
+        .unwrap_or_default()
+}
+
+fn locale_from_i18n_path(path: &Path) -> Option<String> {
+    path.file_stem()
+        .and_then(|value| value.to_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn normalize_i18n_locale(locale: &str) -> Result<String, String> {
+    let trimmed = locale.trim();
+    if trimmed.is_empty() {
+        return Err("i18n locale cannot be empty.".to_string());
+    }
+
+    let valid = trimmed
+        .chars()
+        .all(|value| value.is_ascii_alphanumeric() || value == '-' || value == '_');
+    if !valid || trimmed.contains("..") || trimmed.contains('/') || trimmed.contains('\\') {
+        return Err(format!("Invalid i18n locale name: {trimmed}"));
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn read_i18n_files(project_path: &Path) -> Result<Vec<ContentPatcherI18nFile>, String> {
+    let i18n_dir = project_path.join("i18n");
+    if !i18n_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut files = Vec::new();
+    let entries = fs::read_dir(&i18n_dir).map_err(|error| {
+        format!(
+            "Failed to read i18n directory {}: {error}",
+            normalize_path(&i18n_dir)
+        )
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Failed to inspect i18n entry: {error}"))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        if !path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|value| value.eq_ignore_ascii_case("json"))
+        {
+            continue;
+        }
+
+        let locale = match locale_from_i18n_path(&path) {
+            Some(locale) => locale,
+            None => continue,
+        };
+        let (raw_json, parsed) = read_json_file(&path)?;
+        files.push(ContentPatcherI18nFile {
+            locale,
+            path: normalize_path(&path),
+            relative_path: format!(
+                "i18n/{}",
+                path.file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+            ),
+            raw_json: serde_json::to_string_pretty(&parsed)
+                .map(|value| format!("{value}\n"))
+                .unwrap_or(raw_json),
+            entry_count: i18n_entry_count(&parsed),
+        });
+    }
+
+    files.sort_by(|left, right| {
+        let left_default = left.locale.eq_ignore_ascii_case("default");
+        let right_default = right.locale.eq_ignore_ascii_case("default");
+        right_default
+            .cmp(&left_default)
+            .then_with(|| left.locale.cmp(&right.locale))
+    });
+    Ok(files)
 }
 
 fn log_scan_skip(error: &str) {
@@ -547,12 +662,13 @@ fn build_project_summary(
 }
 
 fn build_content_patcher_data(
+    project_path: &Path,
     manifest_path: &Path,
     content_path: &Path,
     manifest_json: String,
     content_json: String,
     content: &Value,
-) -> ContentPatcherProjectData {
+) -> Result<ContentPatcherProjectData, String> {
     let config_keys = object_field(content, "ConfigSchema")
         .map(|schema| {
             let mut keys = schema.keys().cloned().collect::<Vec<_>>();
@@ -561,7 +677,9 @@ fn build_content_patcher_data(
         })
         .unwrap_or_default();
 
-    ContentPatcherProjectData {
+    let i18n_files = read_i18n_files(project_path)?;
+
+    Ok(ContentPatcherProjectData {
         manifest_path: normalize_path(manifest_path),
         content_path: normalize_path(content_path),
         manifest_json,
@@ -577,11 +695,10 @@ fn build_content_patcher_data(
             .map(Vec::len)
             .unwrap_or_default(),
         config_keys,
-        has_i18n: content_path
-            .parent()
-            .is_some_and(|parent| parent.join("i18n").is_dir()),
+        has_i18n: !i18n_files.is_empty(),
+        i18n_files,
         patches: collect_patch_summaries(content),
-    }
+    })
 }
 
 fn target_values(patch: &Map<String, Value>) -> Vec<String> {
@@ -1320,6 +1437,7 @@ pub(crate) fn load_mod_project(path: String) -> Result<ModProjectDetail, String>
         ),
         diagnostics,
         content_patcher: Some(build_content_patcher_data(
+            &project_path,
             &manifest_path,
             &content_path,
             serde_json::to_string_pretty(&manifest)
@@ -1327,7 +1445,7 @@ pub(crate) fn load_mod_project(path: String) -> Result<ModProjectDetail, String>
             serde_json::to_string_pretty(&content)
                 .map_err(|error| format!("Failed to serialize content.json: {error}"))?,
             &content,
-        )),
+        )?),
     })
 }
 
@@ -1381,6 +1499,18 @@ pub(crate) fn save_mod_project(
         .map_err(|error| format!("Failed to format manifest.json: {error}"))?;
     let content_pretty = serde_json::to_string_pretty(&content)
         .map_err(|error| format!("Failed to format content.json: {error}"))?;
+    let mut i18n_payloads = Vec::new();
+    for file in request.i18n_files {
+        let locale = normalize_i18n_locale(&file.locale)?;
+        let parsed: Value = serde_json::from_str(&file.raw_json)
+            .map_err(|error| format!("i18n/{locale}.json is not valid JSON: {error}"))?;
+        if !parsed.is_object() {
+            return Err(format!("i18n/{locale}.json must contain a JSON object."));
+        }
+        let pretty = serde_json::to_string_pretty(&parsed)
+            .map_err(|error| format!("Failed to format i18n/{locale}.json: {error}"))?;
+        i18n_payloads.push((locale, pretty));
+    }
 
     fs::write(&manifest_path, format!("{manifest_pretty}\n")).map_err(|error| {
         format!(
@@ -1390,6 +1520,20 @@ pub(crate) fn save_mod_project(
     })?;
     fs::write(&content_path, format!("{content_pretty}\n"))
         .map_err(|error| format!("Failed to write {}: {error}", normalize_path(&content_path)))?;
+    if !i18n_payloads.is_empty() {
+        let i18n_dir = target_path.join("i18n");
+        fs::create_dir_all(&i18n_dir).map_err(|error| {
+            format!(
+                "Failed to create i18n directory {}: {error}",
+                normalize_path(&i18n_dir)
+            )
+        })?;
+        for (locale, pretty) in i18n_payloads {
+            let path = i18n_dir.join(format!("{locale}.json"));
+            fs::write(&path, format!("{pretty}\n"))
+                .map_err(|error| format!("Failed to write {}: {error}", normalize_path(&path)))?;
+        }
+    }
 
     Ok(SaveModProjectResult {
         plugin_kind: "content-patcher".to_string(),

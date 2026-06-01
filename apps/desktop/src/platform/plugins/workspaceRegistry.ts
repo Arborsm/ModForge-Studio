@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
-import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
+import type { DraftPatch, CpMakerDraft, GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { PlayerAppearanceProfile } from '@entities/event'
 
 export interface PatchListField {
   key: string
@@ -31,6 +32,9 @@ export type EditorComponent = ComponentType<{
   viewportLabels?: ViewportLabels
   selectedEventKey?: string | null
   gameRootPath?: string | null
+  directoryInfo?: GameDirectoryInfo | null
+  playerAppearanceProfile?: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow?: () => void
 }>
 
 export type PreviewRendererComponent = ComponentType<{

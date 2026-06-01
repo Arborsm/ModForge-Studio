@@ -359,6 +359,32 @@ export const EMOTE_OPTIONS = [
   { value: '31', label: '31 皇冠' },
 ]
 
+// ─── 常用物品 / 对象 ─────────────────────────────────────────────────────
+
+export const ITEM_OPTIONS = [
+  { value: '(O)24', label: 'Parsnip (O)24' },
+  { value: '(O)60', label: 'Emerald (O)60' },
+  { value: '(O)62', label: 'Aquamarine (O)62' },
+  { value: '(O)72', label: 'Diamond (O)72' },
+  { value: '(O)128', label: 'Pufferfish (O)128' },
+  { value: '(O)176', label: 'Egg (O)176' },
+  { value: '(O)194', label: 'Fried Egg (O)194' },
+  { value: '(O)216', label: 'Bread (O)216' },
+  { value: '(O)268', label: 'Starfruit (O)268' },
+  { value: '(O)334', label: 'Copper Bar (O)334' },
+  { value: '(O)335', label: 'Iron Bar (O)335' },
+  { value: '(O)336', label: 'Gold Bar (O)336' },
+  { value: '(O)337', label: 'Iridium Bar (O)337' },
+  { value: '(O)348', label: 'Driftwood (O)348' },
+  { value: '(O)372', label: 'Clam (O)372' },
+  { value: '(O)388', label: 'Wood (O)388' },
+  { value: '(O)390', label: 'Stone (O)390' },
+  { value: '(O)428', label: 'Cloth (O)428' },
+  { value: '(O)434', label: 'Stardrop (O)434' },
+  { value: '(O)709', label: 'Hardwood (O)709' },
+  { value: '(O)787', label: 'Battery Pack (O)787' },
+]
+
 // ─── 速度 ────────────────────────────────────────────────────────────────
 
 export const SPEED_OPTIONS = ['1', '2', '3', '4', '5', '6']

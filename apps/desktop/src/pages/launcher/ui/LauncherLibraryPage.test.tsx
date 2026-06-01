@@ -20,7 +20,7 @@ import {
   restoreLauncherInstallBackup,
   setLauncherLibraryCover,
 } from '@features/launcher/api'
-import { chooseArchiveFile, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
+import { chooseArchiveFiles, chooseImageFile, listenToLauncherArchiveDragDrop } from '@shared/lib/desktop'
 import { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
 import { createMockLauncherPort } from '@test/launcherTestPort.ts'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
@@ -117,7 +117,7 @@ vi.mock('@shared/lib/desktop', async () => {
   const actual = await vi.importActual<typeof import('@shared/lib/desktop')>('@shared/lib/desktop')
   return {
     ...actual,
-    chooseArchiveFile: vi.fn(),
+    chooseArchiveFiles: vi.fn(),
     chooseImageFile: vi.fn(),
     listenToLauncherArchiveDragDrop: vi.fn(async (listener) => {
       archiveDragDropListeners.push(listener)
@@ -148,7 +148,7 @@ vi.mock('@shared/ui/notifications', () => ({
 
 type MockLibraryState = ReturnType<typeof useLauncherLibrary>
 
-const chooseArchiveFileMock = vi.mocked(chooseArchiveFile)
+const chooseArchiveFilesMock = vi.mocked(chooseArchiveFiles)
 const chooseImageFileMock = vi.mocked(chooseImageFile)
 const inspectLauncherArchiveMock = vi.mocked(inspectLauncherArchive)
 const listenToLauncherArchiveDragDropMock = vi.mocked(listenToLauncherArchiveDragDrop)
@@ -471,6 +471,36 @@ function renderLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryP
   }
 }
 
+function renderHiddenLibraryPage(overrides: Partial<Parameters<typeof LauncherLibraryPage>[0]> = {}) {
+  const onLaunchGame = vi.fn()
+  function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <LauncherTestWrapper port={launcherPort}>
+        <LocaleProvider locale="en-US">{children}</LocaleProvider>
+      </LauncherTestWrapper>
+    )
+  }
+
+  const view = render(
+    <div hidden>
+      <LauncherLibraryPage
+        settings={createSettings()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={onLaunchGame}
+        {...overrides}
+      />
+    </div>,
+    { wrapper: Wrapper },
+  )
+
+  return {
+    ...view,
+    onLaunchGame,
+  }
+}
+
 describe('LauncherLibraryPage', () => {
   afterEach(() => {
     archiveDragDropListeners.length = 0
@@ -485,7 +515,6 @@ describe('LauncherLibraryPage', () => {
 
   beforeEach(() => {
     launcherPort = createMockLauncherPort({
-      chooseArchiveFile: chooseArchiveFileMock,
       chooseImageFile: chooseImageFileMock,
       inspectArchive: inspectLauncherArchiveMock,
       listInstallBackups: listLauncherInstallBackupsMock,
@@ -802,7 +831,7 @@ describe('LauncherLibraryPage', () => {
     expect(updateBadge.querySelector('svg')).toBeTruthy()
   })
 
-  it('folds child mods under their parent by default and expands them from the parent card', async () => {
+  it('folds child mods under their parent by default and opens them in a floating module panel', async () => {
     const library = {
       ...createLibraryState(),
       childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
@@ -814,9 +843,20 @@ describe('LauncherLibraryPage', () => {
     expect(screen.getByText('NPC Adventures')).toBeTruthy()
     expect(screen.queryByText('Vintage Interface Redux')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    const moduleButton = screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' })
+    expect(moduleButton).toHaveClass('launcher-mod-card-child-count')
+    expect(moduleButton.textContent).toContain('1 child mod')
 
-    expect(screen.getByText('Vintage Interface Redux')).toBeTruthy()
+    fireEvent.click(moduleButton)
+
+    const panel = screen.getByRole('dialog', { name: 'NPC Adventures modules' })
+    expect(within(panel).getByText('Vintage Interface Redux')).toBeTruthy()
+    expect(document.querySelector('.launcher-library-modules-floating-panel')).toBeTruthy()
+    expect(panel.querySelector('.launcher-mod-card')).toBeNull()
+    expect(panel.querySelector('.launcher-library-module-tile')).toBeTruthy()
+
+    fireEvent.click(moduleButton)
+    expect(screen.queryByRole('dialog', { name: 'NPC Adventures modules' })).toBeNull()
   })
 
   it('opens a multi-select child mod picker from a parent card and confirms selected children', () => {
@@ -845,10 +885,56 @@ describe('LauncherLibraryPage', () => {
     renderLibraryPage()
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
-    fireEvent.contextMenu(screen.getByRole('article', { name: /vintage interface redux/i }))
+    const panel = screen.getByRole('dialog', { name: 'NPC Adventures modules' })
+    fireEvent.contextMenu(within(panel).getByRole('article', { name: /vintage interface redux/i }))
     fireEvent.click(screen.getByText('Remove from parent'))
 
     expect(library.removeChildMods).toHaveBeenCalledWith(['mod-2'])
+  })
+
+  it('opens child mod folders from floating module tiles', async () => {
+    const library = {
+      ...createLibraryState(),
+      childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
+    }
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    const panel = screen.getByRole('dialog', { name: 'NPC Adventures modules' })
+    fireEvent.doubleClick(within(panel).getByRole('article', { name: /vintage interface redux/i }))
+
+    await waitFor(() => {
+      expect(openLauncherPathMock).toHaveBeenCalledWith({ path: 'E:\\Games\\Stardew Valley\\Mods\\Vintage Interface Redux' })
+    })
+  })
+
+  it('closes the floating module panel when the parent no longer has children', async () => {
+    let library = {
+      ...createLibraryState(),
+      childModGroups: [{ parentModKey: 'ModForge.NpcAdventures', childModKeys: ['ModForge.VintageInterface'] }],
+    }
+    useLauncherLibraryMock.mockImplementation(() => library)
+
+    const view = renderLibraryPage()
+    fireEvent.click(screen.getByRole('button', { name: 'Expand child mods for NPC Adventures' }))
+    expect(screen.getByRole('dialog', { name: 'NPC Adventures modules' })).toBeTruthy()
+
+    library = { ...library, childModGroups: [] }
+    view.rerender(
+      <LauncherLibraryPage
+        settings={createSettings()}
+        launchGameLabel="Launch Game"
+        launchGameDisabled={false}
+        launchGameBusy={false}
+        onLaunchGame={vi.fn()}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'NPC Adventures modules' })).toBeNull()
+    })
   })
 
   it('shows an install overlay for multiple supported external archives and hides it on leave', async () => {
@@ -903,6 +989,69 @@ describe('LauncherLibraryPage', () => {
     })
 
     expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+  })
+
+  it('shows the archive install dialog from the portal when the library route is hidden', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    inspectLauncherArchiveMock.mockResolvedValue(
+      createArchivePreview({
+        archivePath: 'E:\\Downloads\\preview.7z',
+        archiveFileName: 'preview.7z',
+      }),
+    )
+
+    renderHiddenLibraryPage({
+      downloadInstallRequest: {
+        id: 1,
+        archivePaths: ['E:\\Downloads\\preview.7z'],
+      },
+    })
+
+    await waitFor(() => {
+      expect(inspectLauncherArchiveMock).toHaveBeenCalledWith({ archivePath: 'E:\\Downloads\\preview.7z' })
+    })
+
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).toBeTruthy()
+    expect(document.body.querySelector('.launcher-dialog-portal-root.launcher-shell-routed')).toBeTruthy()
+  })
+
+  it('keeps archive inspection in a progress notification until the preview is ready', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+    const inspection = createDeferred<InspectLauncherArchiveResult>()
+    inspectLauncherArchiveMock.mockReturnValue(inspection.promise)
+
+    renderLibraryPage()
+
+    await act(async () => {
+      await emitArchiveDragDrop({
+        type: 'drop',
+        paths: ['E:\\Downloads\\preview.7z'],
+        position: { x: 180, y: 260 },
+      })
+    })
+
+    expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
+    expect(publishNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'launcher-library-archive-preview',
+        level: 'info',
+        title: 'Inspecting archive contents...',
+        description: 'Inspecting preview.7z (0/1)',
+        progress: 0,
+      }),
+    )
+
+    inspection.resolve(
+      createArchivePreview({
+        archivePath: 'E:\\Downloads\\preview.7z',
+        archiveFileName: 'preview.7z',
+      }),
+    )
+
+    expect(await screen.findByRole('dialog', { name: 'Archive Preview' })).not.toBeNull()
+    expect(dismissNotificationMock).toHaveBeenCalledWith('launcher-library-archive-preview')
   })
 
   it('previews multiple supported archives, lets the user switch previews, and installs them after confirmation', async () => {
@@ -1032,14 +1181,8 @@ describe('LauncherLibraryPage', () => {
       expect.objectContaining({
         level: 'success',
         title: 'Install Summary',
-        summary: 'First Pack',
-      }),
-    )
-    expect(publishNotificationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        level: 'success',
-        title: 'Install Summary',
-        summary: 'Second Pack',
+        summary: '2 archives succeeded',
+        description: '2 archives succeeded\n- First Pack\n- Second Pack',
       }),
     )
   })
@@ -1393,7 +1536,7 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('shows the pointer drag preview immediately on press without dropping until movement starts', async () => {
+  it('keeps click presses quiet and only shows the pointer drag preview after movement starts', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1403,11 +1546,17 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 160, isPrimary: true, pointerId: 71 })
 
+    expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull()
+
+    act(() => {
+      fireEvent.pointerMove(window, { button: 0, buttons: 1, clientX: 168, clientY: 160, isPrimary: true, pointerId: 71 })
+    })
+
     const preview = await screen.findByTestId('launcher-library-drag-preview')
     expect(preview).toHaveClass('launcher-library-pointer-drag-preview-pending')
 
     act(() => {
-      fireEvent.pointerUp(document, { clientX: 160, clientY: 160, pointerId: 71 })
+      fireEvent.pointerUp(document, { clientX: 168, clientY: 160, pointerId: 71 })
     })
 
     await waitFor(() => {
@@ -1506,7 +1655,7 @@ describe('LauncherLibraryPage', () => {
 
     pointerDragDown(card, 160, 220)
     act(() => {
-      pointerDragMove(document, 162, 222)
+      pointerDragMove(document, 168, 228)
     })
 
     const preview = screen.getByTestId('launcher-library-drag-preview')
@@ -1523,6 +1672,84 @@ describe('LauncherLibraryPage', () => {
     })
 
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
+  })
+
+  it('highlights folder, parent mod, and blank drop targets while dragging', async () => {
+    const library = {
+      ...createLibraryState(),
+      libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
+    } as MockLibraryState
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const sourceMod = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const folder = screen.getByRole('button', { name: 'Open folder Visuals' }).closest('[data-launcher-folder-drop-id]') as HTMLElement
+    const targetMod = screen
+      .getByRole('article', { name: /vintage interface redux/i })
+      .closest('[data-launcher-parent-drop-id]') as HTMLElement
+    const targetParentDropId = targetMod.getAttribute('data-launcher-parent-drop-id')
+    const blank = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === blank) {
+        return { width: 760, height: 540, top: 80, left: 80, bottom: 620, right: 840, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === folder) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      if (this === targetMod) {
+        return { width: 220, height: 180, top: 120, left: 380, bottom: 300, right: 600, x: 380, y: 120, toJSON: () => ({}) }
+      }
+      if (this === sourceMod || this === card) {
+        return { width: 220, height: 180, top: 340, left: 120, bottom: 520, right: 340, x: 120, y: 340, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      pointerDragDown(card, 160, 380)
+      act(() => {
+        pointerDragMove(window, 168, 388)
+      })
+      await screen.findByTestId('launcher-library-drag-preview')
+
+      act(() => {
+        pointerDragMove(window, 200, 180)
+      })
+      await waitFor(() => {
+        expect(document.querySelector('[data-launcher-dnd-target-id="launcher-folder:visuals"]')).toHaveClass(
+          'launcher-library-dnd-target-box-active',
+        )
+      })
+
+      act(() => {
+        pointerDragMove(window, 440, 180)
+      })
+      await waitFor(() => {
+        expect(document.querySelector(`[data-launcher-dnd-target-id="launcher-parent:${targetParentDropId}"]`)).toHaveClass(
+          'launcher-library-dnd-target-box-active',
+        )
+      })
+
+      act(() => {
+        pointerDragMove(window, 720, 160)
+      })
+      await waitFor(() => {
+        expect(document.querySelector('[data-launcher-dnd-target-id="launcher-library-blank"]')).toHaveClass(
+          'launcher-library-dnd-target-box-active',
+        )
+      })
+
+      act(() => {
+        pointerDragUp(window, 720, 160)
+      })
+      await waitFor(() => {
+        expect(document.querySelector('.launcher-library-dnd-target-box-active')).toBeNull()
+      })
+    } finally {
+      boundsSpy.mockRestore()
+    }
   })
 
   it('does not open a folder from the click event emitted after dragging it', async () => {
@@ -1549,7 +1776,7 @@ describe('LauncherLibraryPage', () => {
     expect(screen.queryByRole('dialog', { name: 'Visuals' })).toBeNull()
   })
 
-  it('shows immediate grab feedback before drag activation', () => {
+  it('does not show grab feedback until the pointer moves beyond the drag threshold', () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1560,11 +1787,19 @@ describe('LauncherLibraryPage', () => {
 
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
 
-    fireEvent.pointerDown(card, { button: 0, clientX: 160, clientY: 220, isPrimary: true, pointerId: 19 })
+    fireEvent.pointerDown(card, { button: 0, buttons: 1, clientX: 160, clientY: 220, isPrimary: true, pointerId: 19 })
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
+
+    fireEvent.pointerMove(window, { button: 0, buttons: 1, clientX: 164, clientY: 220, isPrimary: true, pointerId: 19 })
+
+    expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
+
+    fireEvent.pointerMove(window, { button: 0, buttons: 1, clientX: 168, clientY: 220, isPrimary: true, pointerId: 19 })
 
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(true)
 
-    fireEvent.pointerUp(window, { button: 0, clientX: 160, clientY: 220, pointerId: 19 })
+    fireEvent.pointerUp(window, { button: 0, clientX: 168, clientY: 220, pointerId: 19 })
 
     expect(draggableCard?.classList.contains('launcher-library-card-grab-pending')).toBe(false)
   })
@@ -1795,8 +2030,10 @@ describe('LauncherLibraryPage', () => {
 
   it('inspects and installs an archive from the install mod action', async () => {
     const library = createLibraryState()
+    const installDeferred = createDeferred<InstallLauncherArchiveResult>()
+    library.installArchive = vi.fn(() => installDeferred.promise)
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
 
     renderLibraryPage()
@@ -1811,18 +2048,33 @@ describe('LauncherLibraryPage', () => {
 
     await waitFor(() => {
       expect(library.installArchive).toHaveBeenCalledWith('E:\\Downloads\\preview.zip')
+      expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
       expect(publishNotificationMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          level: 'success',
-          title: 'Install Summary',
-          summary: 'Example Pack',
-          description: '2 installed targets',
+          id: 'launcher-library-archive-install',
+          level: 'info',
+          title: 'Installing archive...',
+          description: 'Installing preview.zip (0/1)\nYou can keep using the launcher while installation continues.',
+          autoDismissMs: null,
+          progress: 0,
         }),
       )
     })
 
+    await act(async () => {
+      installDeferred.resolve(createInstallArchiveResult())
+      await installDeferred.promise
+    })
+
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Archive Preview' })).toBeNull()
+      expect(publishNotificationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'success',
+          title: 'Install Summary',
+          summary: '1 archives succeeded',
+          description: '1 archives succeeded\n- Example Pack',
+        }),
+      )
     })
   })
 
@@ -1830,7 +2082,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
     listLauncherInstallBackupsMock.mockResolvedValue([createInstallBackupSummary()])
 
@@ -1846,8 +2098,8 @@ describe('LauncherLibraryPage', () => {
         expect.objectContaining({
           level: 'success',
           title: 'Install Summary',
-          summary: 'Example Pack',
-          description: '2 installed targets',
+          summary: '1 archives succeeded',
+          description: '1 archives succeeded\n- Example Pack',
           autoDismissMs: 15_000,
           action: expect.objectContaining({
             label: 'View Details',
@@ -1883,7 +2135,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
     listLauncherInstallBackupsMock.mockRejectedValue(new Error('Backups unavailable'))
 
@@ -1927,7 +2179,7 @@ describe('LauncherLibraryPage', () => {
     const library = createLibraryState()
     library.installArchive = vi.fn(async () => createInstallArchiveResult())
     useLauncherLibraryMock.mockReturnValue(library)
-    chooseArchiveFileMock.mockResolvedValue('E:\\Downloads\\preview.zip')
+    chooseArchiveFilesMock.mockResolvedValue(['E:\\Downloads\\preview.zip'])
     inspectLauncherArchiveMock.mockResolvedValue(createArchivePreview())
     const backupsDeferred = createDeferred<LauncherInstallBackupSummary[]>()
     listLauncherInstallBackupsMock.mockReturnValue(backupsDeferred.promise)
@@ -2095,6 +2347,126 @@ describe('LauncherLibraryPage', () => {
 
     boundsSpy.mockRestore()
   })
+
+  it('recalculates virtualized grid columns when the window is maximized after reveal motion', async () => {
+    const library = createLargeLibraryState(16)
+    let viewportWidth = 1120
+    const activeResizeCallbacks = new Set<ResizeObserverCallback>()
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      private readonly callback: ResizeObserverCallback
+
+      constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+      }
+
+      observe() {
+        activeResizeCallbacks.add(this.callback)
+      }
+
+      unobserve() {}
+
+      disconnect() {
+        activeResizeCallbacks.delete(this.callback)
+      }
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return {
+          width: viewportWidth,
+          height: 840,
+          top: 0,
+          left: 0,
+          bottom: 840,
+          right: viewportWidth,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    try {
+      useLauncherLibraryMock.mockReturnValue(library)
+
+      renderLibraryPage()
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(4')
+      })
+
+      await new Promise((resolve) => window.setTimeout(resolve, 950))
+      viewportWidth = 1840
+      act(() => {
+        for (const callback of activeResizeCallbacks) {
+          callback([], {} as ResizeObserver)
+        }
+      })
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(6')
+      })
+    } finally {
+      boundsSpy.mockRestore()
+      globalThis.ResizeObserver = OriginalResizeObserver
+    }
+  }, 10_000)
+
+  it('recalculates virtualized grid columns from window resize events', async () => {
+    const library = createLargeLibraryState(16)
+    let viewportWidth = 1120
+    const OriginalResizeObserver = globalThis.ResizeObserver
+    class TestResizeObserver implements ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+    globalThis.ResizeObserver = TestResizeObserver
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains('launcher-library-grid-viewport')) {
+        return {
+          width: viewportWidth,
+          height: 840,
+          top: 0,
+          left: 0,
+          bottom: 840,
+          right: viewportWidth,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }
+      }
+      if (this.classList.contains('launcher-library-grid-reveal')) {
+        return { width: 260, height: 210, top: 0, left: 0, bottom: 210, right: 260, x: 0, y: 0, toJSON: () => ({}) }
+      }
+      return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0, x: 0, y: 0, toJSON: () => ({}) }
+    })
+    try {
+      useLauncherLibraryMock.mockReturnValue(library)
+
+      renderLibraryPage()
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(4')
+      })
+
+      viewportWidth = 1840
+      act(() => {
+        window.dispatchEvent(new Event('resize'))
+      })
+
+      await waitFor(() => {
+        expect(document.querySelector<HTMLElement>('.launcher-library-virtual-row')?.style.gridTemplateColumns).toContain('repeat(6')
+      })
+    } finally {
+      boundsSpy.mockRestore()
+      globalThis.ResizeObserver = OriginalResizeObserver
+    }
+  }, 10_000)
 
   it('observes the library grid viewport for virtual column recalculation', () => {
     const library = createLargeLibraryState(16)

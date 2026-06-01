@@ -5,7 +5,6 @@ export type LibrarySortMode = 'name' | 'enabled-first' | 'pack'
 
 export type LauncherLibraryDisplayItem =
   | { kind: 'mod'; mod: LauncherLibraryItem; childMods: LauncherLibraryItem[]; isChild: false }
-  | { kind: 'child'; mod: LauncherLibraryItem; parentMod: LauncherLibraryItem }
   | { kind: 'folder'; folder: LauncherVirtualFolder; mods: LauncherLibraryItem[]; childFolders: LauncherVirtualFolder[] }
 
 export type LauncherFolderPreviewItem =

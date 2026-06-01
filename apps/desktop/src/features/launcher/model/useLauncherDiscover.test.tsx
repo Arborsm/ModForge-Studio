@@ -400,6 +400,69 @@ describe('useLauncherDiscover', () => {
     )
   })
 
+  it('keeps base remote facet options while applying counts from narrowed result facets', async () => {
+    vi.mocked(launcherPort.searchCatalog)
+      .mockResolvedValueOnce({
+        page: 1,
+        pageSize: 20,
+        totalCount: 1445,
+        hasMore: true,
+        facets: {
+          categories: [
+            { name: 'Gameplay Mechanics', count: 1100 },
+            { name: 'Characters', count: 865 },
+            { name: 'Portraits', count: 545 },
+          ],
+          languages: [
+            { name: 'English', count: 16098 },
+            { name: 'Chinese', count: 1200 },
+          ],
+          tags: [
+            { name: 'SMAPI', count: 18839 },
+            { name: 'Content Patcher', count: 12000 },
+          ],
+        },
+        results: [],
+      })
+      .mockResolvedValueOnce({
+        page: 1,
+        pageSize: 20,
+        totalCount: 1100,
+        hasMore: true,
+        facets: {
+          categories: [
+            { name: 'Gameplay Mechanics', count: 1100 },
+            { name: 'Portraits', count: 90 },
+          ],
+          languages: [{ name: 'English', count: 900 }],
+          tags: [{ name: 'SMAPI', count: 800 }],
+        },
+        results: [],
+      })
+
+    const { result } = renderHook(() => useLauncherDiscover(), { wrapper: Wrapper })
+    await act(async () => {
+      vi.runOnlyPendingTimers()
+      await Promise.resolve()
+    })
+
+    expect(result.current.facets.categories.map((category) => category.name)).toEqual(['Gameplay Mechanics', 'Characters', 'Portraits'])
+
+    act(() => {
+      result.current.updateFilter('category', 'Gameplay Mechanics')
+    })
+
+    await act(async () => {
+      vi.advanceTimersByTime(320)
+      await Promise.resolve()
+    })
+
+    expect(result.current.facets.categories.map((category) => category.name)).toEqual(['Gameplay Mechanics', 'Characters', 'Portraits'])
+    expect(result.current.facets.categories.map((category) => category.count)).toEqual([1100, 865, 90])
+    expect(result.current.facets.languages.map((language) => language.name)).toEqual(['English', 'Chinese'])
+    expect(result.current.facets.tags.map((tag) => tag.name)).toEqual(['SMAPI', 'Content Patcher'])
+  })
+
   it('skips automatic discover searches when all discover routes are unavailable', async () => {
     vi.mocked(launcherPort.loadNexusDiagnostics).mockResolvedValue(
       createLauncherDiagnosticsResult({

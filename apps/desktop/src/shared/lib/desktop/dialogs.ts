@@ -54,8 +54,10 @@ export async function chooseArchiveFile(title: string) {
     throw new Error('File selection requires the desktop host.')
   }
 
-  return getPlatformPorts().dialog.chooseFile({
+  const selected = await getPlatformPorts().dialog.open({
     title,
+    directory: false,
+    multiple: false,
     filters: [
       {
         name: 'Archives',
@@ -63,6 +65,31 @@ export async function chooseArchiveFile(title: string) {
       },
     ],
   })
+  return typeof selected === 'string' ? selected : null
+}
+
+/** Opens a desktop multi-file picker restricted to launcher archive formats. */
+export async function chooseArchiveFiles(title: string) {
+  if (!canUseDesktopHost()) {
+    throw new Error('File selection requires the desktop host.')
+  }
+
+  const selected = await getPlatformPorts().dialog.open({
+    title,
+    directory: false,
+    multiple: true,
+    filters: [
+      {
+        name: 'Archives',
+        extensions: LAUNCHER_ARCHIVE_FILE_DIALOG_EXTENSIONS,
+      },
+    ],
+  })
+
+  if (Array.isArray(selected)) {
+    return selected
+  }
+  return typeof selected === 'string' ? [selected] : []
 }
 
 /** Opens a desktop file picker restricted to supported cover image formats. */

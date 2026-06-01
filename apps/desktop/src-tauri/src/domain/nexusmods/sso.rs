@@ -7,12 +7,12 @@ use tungstenite::{connect, Message, WebSocket};
 
 use super::rest_api;
 use crate::domain::launcher::{paths, settings as launcher_settings};
+use crate::AppHandle;
 
 // ---- Constants ----
 
 const SSO_WEBSOCKET_URL: &str = "wss://sso.nexusmods.com";
 const SSO_AUTH_URL_BASE: &str = "https://www.nexusmods.com/sso";
-const SSO_APP_ID: &str = "modforge_studio";
 const CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
 const AUTHORIZATION_TIMEOUT: Duration = Duration::from_secs(120);
 const SSO_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
@@ -101,7 +101,7 @@ fn is_cancelled() -> bool {
 
 // ---- Public API ----
 
-pub(crate) fn start_sso(app: &tauri::AppHandle) -> Result<String, String> {
+pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
     let mut state = sso_state().lock().expect("sso mutex");
 
     if running_flag().load(Ordering::Relaxed) {
@@ -200,7 +200,7 @@ pub(crate) fn get_sso_status() -> SsoSnapshot {
 
 // ---- SSO flow (background thread) ----
 
-fn run_sso_flow(_app: &tauri::AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind, String)> {
+fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind, String)> {
     if is_cancelled() {
         return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
     }
@@ -360,7 +360,6 @@ fn read_with_cancel(
 fn build_handshake_payload(sso_id: &str, connection_token: Option<&str>) -> String {
     serde_json::json!({
         "id": sso_id,
-        "appid": SSO_APP_ID,
         "token": connection_token,
         "protocol": 2,
     })
@@ -368,7 +367,7 @@ fn build_handshake_payload(sso_id: &str, connection_token: Option<&str>) -> Stri
 }
 
 fn build_auth_url(sso_id: &str) -> String {
-    format!("{SSO_AUTH_URL_BASE}?id={sso_id}&application={SSO_APP_ID}")
+    format!("{SSO_AUTH_URL_BASE}?id={sso_id}")
 }
 
 fn resolve_authorization_url(sso_id: &str, response: &SsoConnectionResponse) -> String {
@@ -497,24 +496,39 @@ fn classify_sso_error(err: &str) -> (SsoErrorKind, String) {
 }
 
 fn open_browser(url: &str) {
+    let mut command = {
+        #[cfg(windows)]
+        {
+            let mut command = std::process::Command::new("cmd");
+            command.args(["/c", "start", "", url]);
+            command
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let mut command = std::process::Command::new("open");
+            command.arg(url);
+            command
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let mut command = std::process::Command::new("xdg-open");
+            command.arg(url);
+            command
+        }
+    };
+
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
 
-        let _ = std::process::Command::new("cmd")
-            .creation_flags(CREATE_NO_WINDOW)
-            .args(["/c", "start", "", url])
-            .spawn();
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = std::process::Command::new("open").arg(url).spawn();
-    }
-    #[cfg(target_os = "linux")]
-    {
-        let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-    }
+    let _ = command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
 }
 
 #[cfg(test)]
@@ -525,7 +539,7 @@ mod tests {
     };
 
     #[test]
-    fn build_handshake_payload_sends_session_id_and_app_id() {
+    fn build_handshake_payload_sends_session_id_without_unregistered_app_id() {
         let payload: serde_json::Value =
             serde_json::from_str(&build_handshake_payload("session-123", None))
                 .expect("handshake JSON");
@@ -534,10 +548,7 @@ mod tests {
             payload.get("id").and_then(|value| value.as_str()),
             Some("session-123")
         );
-        assert_eq!(
-            payload.get("appid").and_then(|value| value.as_str()),
-            Some("modforge_studio")
-        );
+        assert!(payload.get("appid").is_none());
         assert!(payload.get("token").is_some_and(serde_json::Value::is_null));
         assert_eq!(
             payload.get("protocol").and_then(|value| value.as_i64()),
@@ -611,7 +622,7 @@ mod tests {
 
         assert_eq!(
             resolve_authorization_url("session-123", &response),
-            "https://www.nexusmods.com/sso?id=session-123&application=modforge_studio"
+            "https://www.nexusmods.com/sso?id=session-123"
         );
     }
 

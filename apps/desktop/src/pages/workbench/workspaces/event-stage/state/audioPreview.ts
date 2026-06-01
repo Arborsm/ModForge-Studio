@@ -2,6 +2,7 @@ import { loadAudioDataUrl, loadXactAudioDataUrl, scanAudioAssets, type AudioAsse
 import { canUseDesktopHost } from '@shared/lib/desktop'
 
 type AudioCueKind = 'music' | 'sound'
+type AudioCuePlaybackResult = { played: true } | { played: false; reason: string }
 
 type AudioAssetIndex = Map<string, AudioAssetSummary[]>
 
@@ -124,29 +125,40 @@ export function resetAudioPreview() {
   XACT_URL_CACHE.clear()
 }
 
-async function resolveCueUrl(rootPath: string, cue: string, kind: AudioCueKind) {
-  const asset = await resolveCue(rootPath, cue, kind)
-  if (asset) {
-    return resolveAudioUrl(asset)
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+async function resolveCueUrl(rootPath: string, cue: string, kind: AudioCueKind): Promise<{ url: string | null; reason?: string }> {
+  let lastReason: string
+
+  try {
+    const asset = await resolveCue(rootPath, cue, kind)
+    if (asset) {
+      return { url: await resolveAudioUrl(asset) }
+    }
+    lastReason = `Cue not found in loose audio assets: ${cue}`
+  } catch (error) {
+    lastReason = getErrorMessage(error)
   }
 
   const cacheKey = `${rootPath}::${normalizeCue(cue)}`
   const cached = XACT_URL_CACHE.get(cacheKey)
   if (cached) {
-    return cached
+    return { url: cached }
   }
 
   try {
     const url = await loadXactAudioDataUrl(rootPath, cue)
     if (url) {
       XACT_URL_CACHE.set(cacheKey, url)
-      return url
+      return { url }
     }
-  } catch {
-    return null
+  } catch (error) {
+    return { url: null, reason: getErrorMessage(error) }
   }
 
-  return null
+  return { url: null, reason: lastReason || `Cue did not resolve to playable audio: ${cue}` }
 }
 
 export async function playMusicCue(rootPath: string, cue: string) {
@@ -164,7 +176,7 @@ export async function playMusicCue(rootPath: string, cue: string) {
     return true
   }
 
-  const url = await resolveCueUrl(rootPath, cue, 'music')
+  const { url } = await resolveCueUrl(rootPath, cue, 'music')
   if (!url) {
     return false
   }
@@ -180,19 +192,19 @@ export async function playMusicCue(rootPath: string, cue: string) {
   return true
 }
 
-export async function playSoundCue(rootPath: string, cue: string) {
+export async function playSoundCue(rootPath: string, cue: string): Promise<AudioCuePlaybackResult> {
   if (!canUseDesktopHost()) {
-    return false
+    return { played: false, reason: 'Desktop audio host is unavailable.' }
   }
 
   const normalized = normalizeCue(cue)
   if (!normalized) {
-    return false
+    return { played: false, reason: 'Sound cue is empty.' }
   }
 
-  const url = await resolveCueUrl(rootPath, cue, 'sound')
+  const { url, reason } = await resolveCueUrl(rootPath, cue, 'sound')
   if (!url) {
-    return false
+    return { played: false, reason: reason ?? `Sound cue did not resolve: ${cue}` }
   }
   const audio = new Audio(url)
   audio.volume = 0.7
@@ -212,9 +224,16 @@ export async function playSoundCue(rootPath: string, cue: string) {
     )
   })
 
-  void audio.play().catch(() => {
+  try {
+    await audio.play()
+  } catch (error) {
     stopAudioElement(audio)
-  })
+    activeSoundElements.set(
+      normalized,
+      (activeSoundElements.get(normalized) ?? []).filter((element) => element !== audio),
+    )
+    return { played: false, reason: getErrorMessage(error) }
+  }
 
-  return true
+  return { played: true }
 }

@@ -23,6 +23,8 @@ type LauncherShellProps = {
   onLauncherDiagnosticsUpdate?: (diagnostics: LauncherNexusDiagnosticsResult) => void
   settingsState: ReturnType<typeof useLauncherSettings>
   downloads: ReturnType<typeof useLauncherDownloads>
+  downloadInstallRequest?: { id: number; archivePaths: string[] } | null
+  onDownloadArchivesInstalled?: (archivePaths: string[]) => void
   onNavigateToSettings: () => void
   launchGameLabel: string
   launchGameDisabled: boolean
@@ -39,6 +41,8 @@ export default function LauncherShell({
   onLauncherDiagnosticsUpdate,
   settingsState,
   downloads,
+  downloadInstallRequest,
+  onDownloadArchivesInstalled,
   onNavigateToSettings,
   launchGameLabel,
   launchGameDisabled,
@@ -47,6 +51,7 @@ export default function LauncherShell({
 }: LauncherShellProps) {
   const activePage = page
   const library = useLauncherLibrary(settingsState.settings)
+
   const libraryPage = useMemo(
     () => (
       <LauncherLibraryPageContent
@@ -57,9 +62,21 @@ export default function LauncherShell({
         launchGameBusy={launchGameBusy}
         onLaunchGame={onLaunchGame}
         onQueueDownload={downloads.queueDownload}
+        downloadInstallRequest={downloadInstallRequest}
+        onDownloadArchivesInstalled={onDownloadArchivesInstalled}
       />
     ),
-    [downloads.queueDownload, library, settingsState.settings, launchGameLabel, launchGameDisabled, launchGameBusy, onLaunchGame],
+    [
+      downloadInstallRequest,
+      downloads.queueDownload,
+      library,
+      onDownloadArchivesInstalled,
+      settingsState.settings,
+      launchGameLabel,
+      launchGameDisabled,
+      launchGameBusy,
+      onLaunchGame,
+    ],
   )
 
   return (

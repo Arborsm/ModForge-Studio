@@ -49,6 +49,38 @@ fn launcher_nexus_api_key_validation_command_runs_off_the_webview_thread() {
     assert!(command_source.contains("validate_nexus_api_key_blocking"));
 }
 
+#[test]
+fn launcher_archive_inspection_command_runs_off_the_webview_thread() {
+    let source = include_str!("../commands/launcher.rs");
+    let command_start = source
+        .find("pub async fn inspect_launcher_archive")
+        .expect("inspect_launcher_archive command should exist");
+    let command_source = &source[command_start..];
+    let command_end = command_source
+        .find("// ---- REST API v1 Commands ----")
+        .expect("inspect_launcher_archive command should stay above REST API commands");
+    let command_source = &command_source[..command_end];
+
+    assert!(command_source.contains("tauri::async_runtime::spawn_blocking"));
+    assert!(command_source.contains("archive::inspect_launcher_archive(request)"));
+}
+
+#[test]
+fn launcher_mod_download_command_runs_off_the_webview_thread() {
+    let source = include_str!("../commands/launcher.rs");
+    let command_start = source
+        .find("pub async fn download_launcher_mod")
+        .expect("download_launcher_mod command should exist");
+    let command_source = &source[command_start..];
+    let command_end = command_source
+        .find("pub async fn search_launcher_catalog")
+        .expect("download_launcher_mod command should stay above catalog search");
+    let command_source = &command_source[..command_end];
+
+    assert!(command_source.contains("tauri::async_runtime::spawn_blocking"));
+    assert!(command_source.contains("downloads::download_launcher_mod(app, request)"));
+}
+
 fn launcher_settings(api_key: Option<&str>) -> LauncherSettings {
     LauncherSettings {
         game_path: None,

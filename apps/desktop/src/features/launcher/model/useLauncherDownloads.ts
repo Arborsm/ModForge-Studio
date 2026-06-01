@@ -16,10 +16,23 @@ const DEBUG_SIMULATION_DURATION_SECONDS = 10
 const DEBUG_SIMULATION_BYTES_PER_SECOND = 2 * 1024 * 1024
 const DEBUG_SIMULATION_TOTAL_BYTES = DEBUG_SIMULATION_DURATION_SECONDS * DEBUG_SIMULATION_BYTES_PER_SECOND
 const MANUAL_DOWNLOAD_NOTIFICATION_ID = 'launcher-manual-download-page-opened'
+const QUEUED_DOWNLOAD_NOTIFICATION_ID = 'launcher-download-background-queued'
 const MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS = 5_000
+const QUEUED_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS = 4_000
+const DOWNLOAD_CREDENTIAL_REQUIRED_ERROR = 'Nexus API key is required to download mods.'
 
 function getDownloadCredentialError(settings: Pick<LauncherSettings, 'nexusApiKey'>) {
-  return settings.nexusApiKey?.trim() ? null : 'Nexus API key is required to download mods.'
+  return settings.nexusApiKey?.trim() ? null : DOWNLOAD_CREDENTIAL_REQUIRED_ERROR
+}
+
+function isDownloadCredentialError(error: string | null | undefined) {
+  const normalized = error?.trim().toLowerCase() ?? ''
+  return (
+    normalized === DOWNLOAD_CREDENTIAL_REQUIRED_ERROR.toLowerCase() ||
+    normalized.includes('api key') ||
+    normalized.includes('not authenticated') ||
+    normalized.includes('401')
+  )
 }
 
 function isQueueStatus(value: string): value is LauncherDownloadQueueStatus {
@@ -225,6 +238,27 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     }, MANUAL_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS)
   }, [copy.manualDownloadOpenedDetail, copy.manualDownloadOpenedTitle])
 
+  const publishQueuedDownloadNotification = useCallback(
+    (queuedItems: LauncherDownloadQueueItem[]) => {
+      if (!queuedItems.length) {
+        return
+      }
+
+      publishNotification({
+        id: QUEUED_DOWNLOAD_NOTIFICATION_ID,
+        level: 'info',
+        title: copy.backgroundQueuedTitle,
+        summary:
+          queuedItems.length === 1
+            ? (queuedItems[0]?.title ?? copy.backgroundQueuedSummary(1))
+            : copy.backgroundQueuedSummary(queuedItems.length),
+        description: copy.backgroundQueuedDetail,
+        autoDismissMs: QUEUED_DOWNLOAD_NOTIFICATION_AUTO_DISMISS_MS,
+      })
+    },
+    [copy],
+  )
+
   useLayoutEffect(() => {
     latestItemsRef.current = items
   }, [items])
@@ -264,6 +298,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
       if (!normalizedInputs.length) {
         return
       }
+      const optimisticQueuedItems = createQueueItems(normalizedInputs, latestItemsRef.current, credentialError)
 
       setItems((current) => {
         const nextItems = createQueueItems(normalizedInputs, current, credentialError)
@@ -273,8 +308,12 @@ export function useLauncherDownloads(settings: LauncherSettings) {
 
         return [...current, ...nextItems]
       })
+
+      if (!credentialError) {
+        publishQueuedDownloadNotification(optimisticQueuedItems)
+      }
     },
-    [settings],
+    [publishQueuedDownloadNotification, settings],
   )
 
   const queueDownload = useCallback((input: QueueLauncherDownloadInput) => queueDownloads([input]), [queueDownloads])
@@ -316,6 +355,37 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     )
   }, [settings])
 
+  useEffect(() => {
+    if (!settings.nexusApiKey?.trim()) {
+      return
+    }
+
+    const handle = window.setTimeout(() => {
+      setItems((current) => {
+        let changed = false
+        const nextItems = current.map((item) => {
+          if (item.status !== 'failed' || !isDownloadCredentialError(item.error)) {
+            return item
+          }
+
+          changed = true
+          return {
+            ...item,
+            status: 'queued' as const,
+            error: null,
+            completedAt: null,
+            downloadedBytes: null,
+            bytesPerSecond: null,
+          }
+        })
+
+        return changed ? nextItems : current
+      })
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [settings.nexusApiKey])
+
   const removeItem = useCallback(
     (id: string) => {
       clearDebugSimulation(id)
@@ -341,47 +411,26 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     setItems([])
   }, [clearAllDebugSimulations])
 
-  const installItem = useCallback(
-    async (id: string) => {
-      const target = items.find((item) => item.id === id)
-      if (!target?.archivePath) {
-        return
-      }
+  const markArchivesInstalled = useCallback((archivePaths: string[]) => {
+    const installedLookup = new Set(archivePaths.map((path) => path.trim()).filter(Boolean))
+    if (!installedLookup.size) {
+      return
+    }
 
-      try {
-        const result = await launcherPort.installArchive({
-          archivePath: target.archivePath,
-          modsPath: settings.modsPath,
-        })
-
-        setItems((current) =>
-          updateQueueItem(current, id, (item) => ({
-            ...item,
-            status: 'installed',
-            installedTargetPath: result.targetPath,
-            error: null,
-            completedAt: Date.now(),
-          })),
-        )
-        refreshUpdatesAfterInstall()
-      } catch (nextError) {
-        setItems((current) =>
-          updateQueueItem(current, id, (item) => ({
-            ...item,
-            status: 'failed',
-            error: nextError instanceof Error ? nextError.message : 'Failed to install downloaded archive.',
-            completedAt: Date.now(),
-          })),
-        )
-      }
-    },
-    [items, launcherPort, refreshUpdatesAfterInstall, settings.modsPath],
-  )
-
-  const installAllReady = useCallback(async () => {
-    const targets = items.filter((item) => item.status === 'completed' && Boolean(item.archivePath))
-    await Promise.allSettled(targets.map((item) => installItem(item.id)))
-  }, [installItem, items])
+    setItems((current) =>
+      current.map((item) =>
+        item.archivePath && installedLookup.has(item.archivePath)
+          ? {
+              ...item,
+              status: 'installed',
+              installedTargetPath: item.installedTargetPath ?? item.archivePath,
+              error: null,
+              completedAt: Date.now(),
+            }
+          : item,
+      ),
+    )
+  }, [])
 
   const beginDownload = useCallback(
     (queuedItem: LauncherDownloadQueueItem) => {
@@ -421,34 +470,6 @@ export function useLauncherDownloads(settings: LauncherSettings) {
             return
           }
 
-          if (settings.autoInstallDownloads && result.archivePath) {
-            try {
-              const installResult = await launcherPort.installArchive({
-                archivePath: result.archivePath,
-                modsPath: settings.modsPath,
-              })
-              setItems((current) =>
-                updateQueueItem(current, queuedItem.id, (item) => ({
-                  ...mapDownloadResultToQueueState(item, result),
-                  status: 'installed',
-                  installedTargetPath: installResult.targetPath,
-                })),
-              )
-              refreshUpdatesAfterInstall()
-              return
-            } catch (nextError) {
-              setItems((current) =>
-                updateQueueItem(current, queuedItem.id, (item) => ({
-                  ...mapDownloadResultToQueueState(item, result),
-                  status: 'failed',
-                  error: nextError instanceof Error ? nextError.message : 'Failed to install downloaded archive.',
-                  bytesPerSecond: null,
-                })),
-              )
-              return
-            }
-          }
-
           setItems((current) => updateQueueItem(current, queuedItem.id, (item) => mapDownloadResultToQueueState(item, result)))
         })
         .catch((nextError) => {
@@ -466,14 +487,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           processingIdsRef.current.delete(queuedItem.id)
         })
     },
-    [
-      clearDebugSimulation,
-      launcherPort,
-      publishManualDownloadOpenedNotification,
-      refreshUpdatesAfterInstall,
-      settings.autoInstallDownloads,
-      settings.modsPath,
-    ],
+    [clearDebugSimulation, launcherPort, publishManualDownloadOpenedNotification, refreshUpdatesAfterInstall],
   )
 
   const startDebugSimulation = useCallback(
@@ -619,8 +633,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     retryFailed,
     removeItem,
     removeCompleted,
-    installItem,
-    installAllReady,
     clearAll,
+    markArchivesInstalled,
   }
 }

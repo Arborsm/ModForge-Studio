@@ -166,7 +166,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ### 环境管理
 
-- 使用 `uv` 进行包管理和命令运行（`uv run pnpm dev` 等）。
+- 前端使用 `pnpm`，Rust 后端使用 `cargo`；本项目不需要额外的命令运行层。
 - 使用 `pnpm@10.30.3`（在 `packageManager` 字段锁定）。
 
 ## 代码风格与命名规范
@@ -226,6 +226,10 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
   - `workspace/`：工作台、顶栏、布局骨架。
   - `features/`：launcher、editor 等功能页面样式。
 - 不要跨目录重复添加样式规则；修改视觉前先确认属于 `workspace` 还是 `features`。
+- 单个 CSS 文件不得超过 1000 行；接近阈值时优先按页面区域、弹窗、列表、响应式规则等自然边界拆分。
+- 拆分已有 CSS 时保留原文件名作为轻量 `@import` 聚合入口，把子文件放在同名子目录中，并严格保持 import 顺序等同于原 cascade 顺序。
+- 拆出的子文件继续声明自己的 `@layer components`，不要依赖父级聚合文件包裹 layer，也不要为了拆分新增第二个全局样式入口。
+- 新增或拆分样式文件时，同步维护 `src/test/architecture/styleArchitecture.test.ts` 里的样式架构约束，尤其是 CSS 行数上限和需要跨 `@import` 读取的规则。
 - 工作台样式 `styles/workbench.css` 采用懒加载（`import('./styles/workbench.css')`），减少启动器模式的首屏负担。
 
 ## Vite 构建优化

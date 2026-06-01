@@ -8,7 +8,7 @@ export const LAUNCHER_LIBRARY_BLANK_DROP_ID = 'launcher-library-blank'
 export const LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX = 'launcher-folder-blank:'
 export const LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE = 'data-launcher-parent-drop-id'
 export const LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID = 'launcher-library-active-drag'
-export const LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX = 2
+export const LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX = 6
 
 export const LAUNCHER_LIBRARY_DROP_TARGET_SELECTORS = [
   '[data-launcher-blank-drop-id]',
@@ -40,6 +40,10 @@ export type LauncherDndKitActiveDrag = {
   id: UniqueIdentifier
   source: LauncherPointerDragSource
   sourceElement: HTMLElement
+  sourceRect: {
+    left: number
+    top: number
+  }
   startX: number
   startY: number
   latestX: number
@@ -54,12 +58,117 @@ export type LauncherDndKitDropData = {
 
 export type LauncherDndKitDropTarget = {
   dropId: string
+  kind: 'blank' | 'folder' | 'folderBlank' | 'pack' | 'parent'
+  containerFolderId: string | null
   rect: {
     left: number
     top: number
     width: number
     height: number
   }
+}
+
+export function getLauncherDropTargetAtPoint(
+  targets: LauncherDndKitDropTarget[],
+  clientX: number,
+  clientY: number,
+  source?: LauncherPointerDragSource | null,
+) {
+  const sourceFolderId = source?.kind === 'mod' ? source.originFolderId : source?.kind === 'folder' ? source.folderId : null
+  const insideTargets: LauncherDndKitDropTarget[] = []
+  for (const target of targets) {
+    const { left, top, width, height } = target.rect
+    const inside = clientX >= left && clientX <= left + width && clientY >= top && clientY <= top + height
+    if (inside) {
+      insideTargets.push(target)
+    }
+  }
+  if (!insideTargets.length) {
+    return null
+  }
+
+  const globalBlankTarget = targets.find((target) => target.kind === 'blank') ?? null
+  const concreteTargets = insideTargets.filter((target) => target.kind !== 'blank' && target.kind !== 'folderBlank')
+  const sameFolderBlankTarget =
+    insideTargets.find((target) => target.kind === 'folderBlank' && target.containerFolderId === sourceFolderId) ?? null
+  const anyFolderBlankTarget = insideTargets.find((target) => target.kind === 'folderBlank') ?? null
+  const libraryBlankTarget = insideTargets.find((target) => target.kind === 'blank') ?? null
+  const blankTarget = sameFolderBlankTarget ?? anyFolderBlankTarget ?? libraryBlankTarget
+
+  if (source?.kind === 'mod' && source.originParentId) {
+    const sameFolderParent =
+      sourceFolderId == null
+        ? null
+        : concreteTargets.find((target) => target.kind === 'parent' && target.containerFolderId === sourceFolderId)
+    if (sameFolderParent) {
+      return sameFolderParent
+    }
+    return sameFolderBlankTarget ?? libraryBlankTarget ?? globalBlankTarget
+  }
+
+  if (source?.kind === 'mod' && source.originFolderId) {
+    const sameFolderParent = concreteTargets.find((target) => target.kind === 'parent' && target.containerFolderId === sourceFolderId)
+    if (sameFolderParent) {
+      return sameFolderParent
+    }
+    return blankTarget ?? globalBlankTarget
+  }
+
+  const folderTarget = concreteTargets.find((target) => target.kind === 'folder')
+  if (folderTarget) {
+    return folderTarget
+  }
+  const folderBlankTarget = insideTargets.find((target) => target.kind === 'folderBlank')
+  if (folderBlankTarget) {
+    return folderBlankTarget
+  }
+  const packTarget = concreteTargets.find((target) => target.kind === 'pack')
+  if (packTarget) {
+    return packTarget
+  }
+  const parentTarget = concreteTargets.find((target) => target.kind === 'parent')
+  if (parentTarget) {
+    return parentTarget
+  }
+  return blankTarget
+}
+
+function getLauncherDropTargetKind(dropId: string): LauncherDndKitDropTarget['kind'] {
+  if (dropId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
+    return 'blank'
+  }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)) {
+    return 'folderBlank'
+  }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX)) {
+    return 'folder'
+  }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
+    return 'pack'
+  }
+  return 'parent'
+}
+
+function getLauncherDropTargetContainerFolderId(element: HTMLElement, dropId: string) {
+  if (dropId.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)) {
+    return dropId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
+  }
+  return element.closest<HTMLElement>('[data-launcher-folder-panel-id]')?.getAttribute('data-launcher-folder-panel-id') ?? null
+}
+
+export function getLauncherDropTargetById(
+  targets: LauncherDndKitDropTarget[],
+  dropId: string | null,
+  source?: LauncherPointerDragSource | null,
+) {
+  if (!dropId) {
+    return null
+  }
+  const target = targets.find((item) => item.dropId === dropId)
+  if (!target) {
+    return null
+  }
+  return getLauncherDropTargetAtPoint(targets, target.rect.left + target.rect.width / 2, target.rect.top + target.rect.height / 2, source)
 }
 
 export function getLauncherFolderIdFromBlankDropId(blankDropId: string) {
@@ -94,7 +203,7 @@ export function measureLauncherDndKitDropTargets(sourceElement: HTMLElement | nu
   const targets: LauncherDndKitDropTarget[] = []
 
   for (const element of Array.from(document.querySelectorAll<HTMLElement>(LAUNCHER_LIBRARY_DROP_TARGET_SELECTORS.join(',')))) {
-    if (!element.isConnected || element.offsetParent == null || element === sourceCard || (sourceCard && sourceCard.contains(element))) {
+    if (!element.isConnected || element === sourceCard || (sourceCard && sourceCard.contains(element))) {
       continue
     }
     const dropId = getLauncherDropIdFromElement(element)
@@ -108,6 +217,8 @@ export function measureLauncherDndKitDropTargets(sourceElement: HTMLElement | nu
     seen.add(dropId)
     targets.push({
       dropId,
+      kind: getLauncherDropTargetKind(dropId),
+      containerFolderId: getLauncherDropTargetContainerFolderId(element, dropId),
       rect: {
         left: rect.left,
         top: rect.top,

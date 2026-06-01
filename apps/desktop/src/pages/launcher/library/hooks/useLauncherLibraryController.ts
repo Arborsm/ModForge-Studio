@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LauncherCopy } from '@locales/schema'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import {
@@ -14,26 +14,17 @@ import {
   type LauncherInstallBackupSummary,
 } from '@features/launcher/api'
 import {
-  LAUNCHER_ARCHIVE_FILE_SUFFIXES,
-  chooseArchiveFile,
+  chooseArchiveFiles,
   chooseImageFile,
   isSupportedLauncherArchivePath,
   listenToLauncherArchiveDragDrop,
   type UnlistenFn,
 } from '@shared/lib/desktop'
-import { buildChildModLookup, buildParentModLookup } from '@features/launcher/model/childModRelations'
 import { getLauncherCoverKey } from '@features/launcher/model/coverKey'
-import { getModKey, includesLibraryFilter, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
+import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
 import type { LauncherLibraryItem, LauncherPackPreset, LauncherSettingsDraft, LauncherVirtualFolder } from '@features/launcher/model/types'
 import type { useLauncherLibrary } from '@features/launcher/model/useLauncherLibrary'
-import {
-  buildPackLookup,
-  getPackModIds,
-  shortenLibraryPath,
-  sortLibraryMods,
-  type LauncherLibraryDisplayItem,
-  type LibrarySortMode,
-} from '../model/launcherLibraryDisplay'
+import { getPackModIds, type LibrarySortMode } from '../model/launcherLibraryDisplay'
 import type {
   ArchivePreviewState,
   FolderDialogState,
@@ -41,12 +32,14 @@ import type {
   InstallBackupsState,
   PackDialogState,
 } from '../model/launcherLibraryDialogs'
+import { useLauncherLibraryDisplayState } from './useLauncherLibraryDisplayState'
 
 export type LauncherLibraryControllerInput = {
   settings: LauncherSettingsDraft
   library: ReturnType<typeof useLauncherLibrary>
   refresh: () => Promise<void>
   copy: LauncherCopy
+  onArchiveInstallSuccess?: (archivePaths: string[]) => void
 }
 
 type DroppedArchivePaths = {
@@ -56,6 +49,8 @@ type DroppedArchivePaths = {
 }
 
 const LAUNCHER_LIBRARY_GALLERY_LOADING_NOTIFICATION_ID = 'launcher-library-gallery-loading'
+const LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID = 'launcher-library-archive-preview'
+const LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID = 'launcher-library-archive-install'
 const LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS = 15_000
 
 function splitDroppedArchivePaths(paths: string[] | undefined): DroppedArchivePaths {
@@ -83,8 +78,51 @@ function splitDroppedArchivePaths(paths: string[] | undefined): DroppedArchivePa
   )
 }
 
+function archiveFileNameFromPath(path: string) {
+  return path.split(/[\\/]/).pop()?.trim() || path
+}
+
+function installErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
+function formatInstallResultDescription(
+  copy: LauncherCopy['library'],
+  results: InstallLauncherArchiveResult[],
+  failures: Array<{ archivePath: string; message: string }>,
+) {
+  const successNames = results.map((result) => result.modName || archiveFileNameFromPath(result.targetPath))
+  const failureNames = failures.map((failure) => `${archiveFileNameFromPath(failure.archivePath)}: ${failure.message}`)
+  const lines: string[] = []
+
+  if (results.length) {
+    lines.push(copy.installSummarySucceeded(results.length))
+    lines.push(...successNames.map((name) => `- ${name}`))
+  }
+
+  if (failures.length) {
+    if (lines.length) {
+      lines.push('')
+    }
+    lines.push(copy.installSummaryFailed(failures.length))
+    lines.push(...failureNames.map((name) => `- ${name}`))
+  }
+
+  return lines.join('\n')
+}
+
+function formatInstallProgressDescription(copy: LauncherCopy['library'], archiveName: string, completed: number, total: number) {
+  return `${copy.installProgress(completed, total, archiveName)}\n${copy.installProgressKeepWorking}`
+}
+
 /** Coordinates launcher-library page state, derived display data, and local interaction refs. */
-export function useLauncherLibraryController({ settings, library, refresh, copy }: LauncherLibraryControllerInput) {
+export function useLauncherLibraryController({
+  settings,
+  library,
+  refresh,
+  copy,
+  onArchiveInstallSuccess,
+}: LauncherLibraryControllerInput) {
   const [archivePreviewState, setArchivePreviewState] = useState<ArchivePreviewState>('idle')
   const [archivePreviews, setArchivePreviews] = useState<InspectLauncherArchiveResult[]>([])
   const [selectedArchivePreviewPath, setSelectedArchivePreviewPath] = useState<string | null>(null)
@@ -129,6 +167,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
   const lastLoadedModsPathRef = useRef<string | null>(settings.modsPath?.trim() || null)
   const autoRefreshModsPathRef = useRef<string | null>(null)
   const installBackupsOpenRef = useRef(false)
+  const archivePreviewTaskTokenRef = useRef(0)
 
   useEffect(() => {
     const nextModsPath = settings.modsPath?.trim() || null
@@ -152,23 +191,41 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
     installBackupsOpenRef.current = installBackupsOpen
   }, [installBackupsOpen])
 
-  const packLookup = useMemo(() => buildPackLookup(library.packPresets), [library.packPresets])
-  const childGroupLookup = useMemo(() => buildChildModLookup(library.childModGroups), [library.childModGroups])
-  const childParentLookup = useMemo(() => buildParentModLookup(library.childModGroups), [library.childModGroups])
-  const hiddenModKeyLookup = useMemo(
-    () => new Set(library.hiddenModKeys.map((value) => normalizeLookupKey(value))),
-    [library.hiddenModKeys],
-  )
-  const hiddenMods = useMemo(
-    () => library.mods.filter((item) => hiddenModKeyLookup.has(normalizeLookupKey(getModKey(item)))),
-    [hiddenModKeyLookup, library.mods],
-  )
-  const visibleLibraryModsCount = library.mods.length - hiddenMods.length
-  const selectedDetailMod = useMemo(
-    () => (detailModId ? (library.mods.find((item) => item.id === detailModId) ?? null) : null),
-    [detailModId, library.mods],
-  )
-  const detailMod = detailModId ? selectedDetailMod : null
+  const displayState = useLauncherLibraryDisplayState({
+    settings,
+    library,
+    copy,
+    sortMode,
+    detailModId,
+    hiddenViewOpen,
+    editMode,
+    editingSelectionIds,
+    openLibraryFolderIds,
+    readyLibraryFolderIds,
+  })
+  const {
+    packLookup,
+    childGroupLookup,
+    childParentLookup,
+    hiddenModKeyLookup,
+    hiddenMods,
+    visibleLibraryModsCount,
+    detailMod,
+    visibleMods,
+    modByKeyLookup,
+    libraryFolderModLookup,
+    visibleDisplayItems,
+    openLibraryFolderItemsById,
+    shortModsPath,
+    sortOptions,
+    currentSortLabel,
+    editCount,
+    currentPackLabel,
+    supportedArchiveFormatsLabel,
+    isLibraryFolderOpen,
+    getLibraryFolderItemCount,
+    getLibraryFolderModIds,
+  } = displayState
 
   useEffect(() => {
     const enteredEditMode = editMode && !lastEditSeedRef.current.editMode
@@ -217,199 +274,6 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
     input.select()
   }, [packDialog])
 
-  const visibleMods = useMemo(() => {
-    const browseScoped = hiddenViewOpen
-      ? hiddenMods.filter((item) => includesLibraryFilter(item, library.filterText)).filter((item) => !library.enabledOnly || item.enabled)
-      : editMode
-        ? library.mods
-            .filter((item) => includesLibraryFilter(item, library.filterText))
-            .filter((item) => !library.enabledOnly || item.enabled)
-        : library.filteredMods
-
-    return sortLibraryMods(browseScoped, sortMode, packLookup, library.currentPackId)
-  }, [
-    editMode,
-    hiddenMods,
-    hiddenViewOpen,
-    library.currentPackId,
-    library.enabledOnly,
-    library.filterText,
-    library.filteredMods,
-    library.mods,
-    packLookup,
-    sortMode,
-  ])
-
-  const modByKeyLookup = useMemo(() => {
-    const lookup = new Map<string, LauncherLibraryItem>()
-    for (const mod of library.mods) {
-      lookup.set(normalizeLookupKey(getModKey(mod)), mod)
-    }
-    return lookup
-  }, [library.mods])
-
-  const libraryFolderModLookup = useMemo(() => {
-    const lookup = new Map<string, string>()
-    for (const folder of library.libraryFolders) {
-      for (const modKey of folder.modKeys) {
-        lookup.set(normalizeLookupKey(modKey), folder.id)
-      }
-    }
-    return lookup
-  }, [library.libraryFolders])
-
-  const buildFolderDisplayItem = useCallback(
-    (folder: LauncherVirtualFolder): LauncherLibraryDisplayItem => ({
-      kind: 'folder',
-      folder,
-      mods: folder.modKeys
-        .map((modKey) => modByKeyLookup.get(normalizeLookupKey(modKey)))
-        .filter((item): item is LauncherLibraryItem => Boolean(item)),
-      childFolders: library.libraryFolders.filter(
-        (childFolder) => normalizeLookupKey(childFolder.parentFolderId ?? '') === normalizeLookupKey(folder.id),
-      ),
-    }),
-    [library.libraryFolders, modByKeyLookup],
-  )
-
-  const getLibraryFolderItemCount = useCallback(
-    (folderId: string) => {
-      const folderById = new Map(library.libraryFolders.map((folder) => [normalizeLookupKey(folder.id), folder]))
-      const visibleModKeyLookup = new Set(visibleMods.map((mod) => normalizeLookupKey(getModKey(mod))))
-      const countFolder = (nextFolderId: string, seen = new Set<string>()): number => {
-        const folderLookup = normalizeLookupKey(nextFolderId)
-        if (seen.has(folderLookup)) {
-          return 0
-        }
-        seen.add(folderLookup)
-        const folder = folderById.get(folderLookup)
-        if (!folder) {
-          return 0
-        }
-        const childFolderCount = library.libraryFolders.filter((candidate) => {
-          if (normalizeLookupKey(candidate.parentFolderId ?? '') !== folderLookup) {
-            return false
-          }
-          return countFolder(candidate.id, new Set(seen)) > 0
-        }).length
-        const modCount = folder.modKeys.filter((modKey) => visibleModKeyLookup.has(normalizeLookupKey(modKey))).length
-        return modCount + childFolderCount
-      }
-      const folderLookup = normalizeLookupKey(folderId)
-      return countFolder(folderLookup)
-    },
-    [library.libraryFolders, visibleMods],
-  )
-
-  const openLibraryFolderIdLookup = useMemo(() => new Set(openLibraryFolderIds.map((id) => normalizeLookupKey(id))), [openLibraryFolderIds])
-  const isLibraryFolderOpen = useCallback(
-    (folderId: string) => openLibraryFolderIdLookup.has(normalizeLookupKey(folderId)),
-    [openLibraryFolderIdLookup],
-  )
-
-  const visibleDisplayItems = useMemo<LauncherLibraryDisplayItem[]>(() => {
-    const visibleKeyLookup = new Set(visibleMods.map((mod) => normalizeLookupKey(getModKey(mod))))
-    const items: LauncherLibraryDisplayItem[] = []
-    const rootFolders = library.libraryFolders
-      .filter((folder) => !folder.parentFolderId)
-      .sort((left, right) => {
-        const leftOpen = isLibraryFolderOpen(left.id)
-        const rightOpen = isLibraryFolderOpen(right.id)
-        if (leftOpen !== rightOpen) return leftOpen ? 1 : -1
-        return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
-      })
-    for (const folder of rootFolders) {
-      items.push(buildFolderDisplayItem(folder))
-    }
-    for (const mod of visibleMods) {
-      const modLookup = normalizeLookupKey(getModKey(mod))
-      if (libraryFolderModLookup.has(modLookup)) {
-        continue
-      }
-      const parentKey = childParentLookup.get(modLookup)
-      if (parentKey && visibleKeyLookup.has(normalizeLookupKey(parentKey))) {
-        continue
-      }
-
-      const childMods = (childGroupLookup.get(modLookup)?.childModKeys ?? [])
-        .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey)))
-        .filter((item): item is LauncherLibraryItem => Boolean(item))
-      items.push({ kind: 'mod', mod, childMods, isChild: false })
-
-      if (!expandedParentIds.includes(mod.id)) {
-        continue
-      }
-
-      for (const childMod of childMods) {
-        items.push({ kind: 'child', mod: childMod, parentMod: mod })
-      }
-    }
-    return items
-  }, [
-    buildFolderDisplayItem,
-    childGroupLookup,
-    childParentLookup,
-    expandedParentIds,
-    isLibraryFolderOpen,
-    library.libraryFolders,
-    libraryFolderModLookup,
-    modByKeyLookup,
-    visibleMods,
-  ])
-
-  const getLibraryFolderModIds = useCallback(
-    (folder: LauncherVirtualFolder) => {
-      const folderModLookup = new Set(folder.modKeys.map((value) => normalizeLookupKey(value)))
-      return library.mods.filter((mod) => folderModLookup.has(normalizeLookupKey(getModKey(mod)))).map((mod) => mod.id)
-    },
-    [library.mods],
-  )
-
-  const openLibraryFolderItemsById = useMemo(() => {
-    const itemsById = new Map<string, LauncherLibraryDisplayItem[]>()
-    if (!readyLibraryFolderIds.length) {
-      return itemsById
-    }
-    const readyFolderLookup = new Set(readyLibraryFolderIds.map((id) => normalizeLookupKey(id)))
-    for (const folder of library.libraryFolders) {
-      const folderLookup = normalizeLookupKey(folder.id)
-      if (!readyFolderLookup.has(folderLookup)) {
-        continue
-      }
-      const folderModLookup = new Set(folder.modKeys.map((value) => normalizeLookupKey(value)))
-      const childFolders = library.libraryFolders.filter(
-        (candidate) => normalizeLookupKey(candidate.parentFolderId ?? '') === normalizeLookupKey(folder.id),
-      )
-      const items: LauncherLibraryDisplayItem[] = childFolders.map(buildFolderDisplayItem)
-      for (const mod of visibleMods) {
-        const modLookup = normalizeLookupKey(getModKey(mod))
-        if (!folderModLookup.has(modLookup)) {
-          continue
-        }
-        const childMods = (childGroupLookup.get(modLookup)?.childModKeys ?? [])
-          .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey)))
-          .filter((item): item is LauncherLibraryItem => Boolean(item))
-        items.push({ kind: 'mod', mod, childMods, isChild: false })
-      }
-      itemsById.set(folderLookup, items)
-    }
-    return itemsById
-  }, [buildFolderDisplayItem, childGroupLookup, library.libraryFolders, modByKeyLookup, readyLibraryFolderIds, visibleMods])
-
-  const shortModsPath = useMemo(() => shortenLibraryPath(settings.modsPath), [settings.modsPath])
-  const sortOptions = useMemo(
-    () => [
-      { value: 'name' as const, label: copy.library.sortByName },
-      { value: 'enabled-first' as const, label: copy.library.sortByEnabled },
-      { value: 'pack' as const, label: copy.library.sortByPack },
-    ],
-    [copy.library.sortByEnabled, copy.library.sortByName, copy.library.sortByPack],
-  )
-  const currentSortLabel = sortOptions.find((option) => option.value === sortMode)?.label ?? copy.library.sortByName
-  const editCount = editingSelectionIds.length
-  const currentPackLabel = hiddenViewOpen ? copy.library.hiddenMods : library.currentPack ? library.currentPack.name : copy.library.allPacks
-  const supportedArchiveFormatsLabel = useMemo(() => LAUNCHER_ARCHIVE_FILE_SUFFIXES.join(', '), [])
-
   const toggleLibraryFolderOpen = useCallback(
     (folderId: string) => {
       const folderLookup = normalizeLookupKey(folderId)
@@ -454,33 +318,34 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
     setInstallResult(result)
   }, [])
 
-  const publishArchiveInstallSuccess = useCallback(
-    (result: InstallLauncherArchiveResult) => {
+  const publishArchiveInstallResult = useCallback(
+    (results: InstallLauncherArchiveResult[], failures: Array<{ archivePath: string; message: string }>) => {
+      if (!results.length && !failures.length) {
+        return
+      }
+
       publishNotification({
-        level: 'success',
+        level: failures.length && !results.length ? 'error' : failures.length ? 'warning' : 'success',
         title: copy.library.installSummaryTitle,
-        summary: result.modName,
-        description: copy.library.installSummaryInstalledMods(result.installedMods.length),
-        action: {
-          label: copy.actions.viewDetails,
-          callback: () => openInstallSummary(result),
-          tone: 'primary',
-        },
+        summary: [
+          results.length ? copy.library.installSummarySucceeded(results.length) : null,
+          failures.length ? copy.library.installSummaryFailed(failures.length) : null,
+        ]
+          .filter(Boolean)
+          .join(' / '),
+        description: formatInstallResultDescription(copy.library, results, failures),
+        action:
+          results.length === 1
+            ? {
+                label: copy.actions.viewDetails,
+                callback: () => openInstallSummary(results[0]!),
+                tone: 'primary',
+              }
+            : undefined,
         autoDismissMs: LAUNCHER_LIBRARY_INSTALL_RESULT_AUTO_DISMISS_MS,
       })
     },
     [copy.actions.viewDetails, copy.library, openInstallSummary],
-  )
-
-  const publishArchiveInstallError = useCallback(
-    (error: unknown) => {
-      publishNotification({
-        level: 'error',
-        title: copy.actions.installArchive,
-        description: error instanceof Error ? error.message : copy.library.previewError,
-      })
-    },
-    [copy.actions.installArchive, copy.library.previewError],
   )
 
   const publishArchiveDropError = useCallback(
@@ -496,18 +361,49 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
 
   const openArchivePreviewForPaths = useCallback(
     async (paths: string[]) => {
-      setArchivePreviewState('loading')
+      const taskToken = archivePreviewTaskTokenRef.current + 1
+      archivePreviewTaskTokenRef.current = taskToken
+      const isTaskActive = () => archivePreviewTaskTokenRef.current === taskToken
+
+      setArchivePreviewState('idle')
       setArchivePreviews([])
       setSelectedArchivePreviewPath(null)
       setArchivePreviewError(null)
 
       const nextPreviews: InspectLauncherArchiveResult[] = []
       let firstError: string | null = null
+      const total = paths.length
+      let completed = 0
 
       for (const path of paths) {
+        if (!isTaskActive()) {
+          return
+        }
+
+        publishNotification({
+          id: LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID,
+          level: 'info',
+          title: copy.library.previewLoading,
+          description: copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)),
+          autoDismissMs: null,
+          progress: total > 0 ? (completed / total) * 100 : 0,
+        })
+
         try {
           nextPreviews.push(await inspectLauncherArchive({ archivePath: path }))
+          completed += 1
+          if (isTaskActive()) {
+            publishNotification({
+              id: LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID,
+              level: 'info',
+              title: copy.library.previewLoading,
+              description: copy.library.previewProgress(completed, total, archiveFileNameFromPath(path)),
+              autoDismissMs: null,
+              progress: total > 0 ? (completed / total) * 100 : 100,
+            })
+          }
         } catch (nextError) {
+          completed += 1
           const description = nextError instanceof Error ? nextError.message : copy.library.previewError
           if (!firstError) {
             firstError = description
@@ -519,6 +415,12 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
           })
         }
       }
+
+      if (!isTaskActive()) {
+        return
+      }
+
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
 
       if (nextPreviews.length) {
         setArchivePreviews(nextPreviews)
@@ -532,7 +434,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
       setSelectedArchivePreviewPath(null)
       setArchivePreviewError(firstError)
     },
-    [copy.library.previewError, copy.library.previewTitle],
+    [copy.library],
   )
 
   const openArchivePreviewForPath = useCallback(
@@ -540,6 +442,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
       try {
         await openArchivePreviewForPaths([path])
       } catch (nextError) {
+        dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_PREVIEW_NOTIFICATION_ID)
         setArchivePreviewState('idle')
         setArchivePreviews([])
         setSelectedArchivePreviewPath(null)
@@ -619,43 +522,95 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
   )
 
   const inspectArchive = useCallback(async () => {
-    const path = await chooseArchiveFile(copy.actions.chooseArchive)
-    if (!path) {
+    const paths = await chooseArchiveFiles(copy.actions.chooseArchive)
+    if (!paths.length) {
       return
     }
 
-    await openArchivePreviewForPath(path)
-  }, [copy.actions.chooseArchive, openArchivePreviewForPath])
+    void openArchivePreviewForPaths(paths)
+  }, [copy.actions.chooseArchive, openArchivePreviewForPaths])
 
   const confirmArchiveInstall = useCallback(async () => {
     if (!archivePreviews.length) {
       return
     }
 
+    const previewsToInstall = archivePreviews
+    const total = previewsToInstall.length
+
     setInstallingArchive(true)
+    setArchivePreviewState('idle')
+    setArchivePreviews([])
+    setSelectedArchivePreviewPath(null)
+    setArchivePreviewError(null)
+    publishNotification({
+      id: LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID,
+      level: 'info',
+      title: copy.library.installProgressTitle,
+      description: formatInstallProgressDescription(copy.library, archiveFileNameFromPath(previewsToInstall[0]!.archivePath), 0, total),
+      autoDismissMs: null,
+      progress: 0,
+    })
+
     let successfulInstalls = 0
+    const successfulArchivePaths: string[] = []
+    const installResults: InstallLauncherArchiveResult[] = []
+    const installFailures: Array<{ archivePath: string; message: string }> = []
 
     try {
-      for (const preview of archivePreviews) {
+      for (const preview of previewsToInstall) {
+        publishNotification({
+          id: LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID,
+          level: 'info',
+          title: copy.library.installProgressTitle,
+          description: formatInstallProgressDescription(
+            copy.library,
+            archiveFileNameFromPath(preview.archivePath),
+            successfulInstalls + installFailures.length,
+            total,
+          ),
+          autoDismissMs: null,
+          progress: total > 0 ? ((successfulInstalls + installFailures.length) / total) * 100 : 0,
+        })
+
         try {
           const result = await library.installArchive(preview.archivePath)
           successfulInstalls += 1
-          publishArchiveInstallSuccess(result)
+          successfulArchivePaths.push(preview.archivePath)
+          installResults.push(result)
         } catch (nextError) {
-          publishArchiveInstallError(nextError)
+          installFailures.push({
+            archivePath: preview.archivePath,
+            message: installErrorMessage(nextError, copy.library.previewError),
+          })
         }
       }
 
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
+      publishArchiveInstallResult(installResults, installFailures)
+
       if (successfulInstalls > 0) {
-        closeArchivePreview()
+        onArchiveInstallSuccess?.(successfulArchivePaths)
         void refreshLibrary()
       }
     } catch (nextError) {
-      publishArchiveInstallError(nextError)
+      dismissNotification(LAUNCHER_LIBRARY_ARCHIVE_INSTALL_NOTIFICATION_ID)
+      publishArchiveInstallResult(
+        [],
+        [{ archivePath: copy.actions.installArchive, message: installErrorMessage(nextError, copy.library.previewError) }],
+      )
     } finally {
       setInstallingArchive(false)
     }
-  }, [archivePreviews, closeArchivePreview, library, publishArchiveInstallError, publishArchiveInstallSuccess, refreshLibrary])
+  }, [
+    archivePreviews,
+    copy.actions.installArchive,
+    copy.library,
+    library,
+    onArchiveInstallSuccess,
+    publishArchiveInstallResult,
+    refreshLibrary,
+  ])
 
   const handleDroppedArchives = useCallback(
     async (paths: string[] | undefined) => {
@@ -679,7 +634,7 @@ export function useLauncherLibraryController({ settings, library, refresh, copy 
         publishArchiveDropError(copy.library.dragDropSkippedUnsupportedArchives(unsupportedCount, supportedArchiveFormatsLabel))
       }
 
-      await openArchivePreviewForPaths(supportedPaths)
+      void openArchivePreviewForPaths(supportedPaths)
     },
     [copy.library, openArchivePreviewForPaths, publishArchiveDropError, supportedArchiveFormatsLabel],
   )

@@ -1,6 +1,7 @@
 import { normalizeCachePathSegment } from '@shared/lib/assets'
 import { createPromiseCache, getLocalizedRootedAssetCacheKey, readCached, readPending } from '@shared/lib/desktop/cache'
 import { invokeDesktop } from '@shared/lib/desktop/runtime'
+import { loadImageDataUrlFromDevBridge, loadResourceRegistryFromDevBridge, loadTextAssetFromDevBridge } from './devAssetBridge'
 import type {
   AudioAssetSummary,
   DefaultSaveSlotSummary,
@@ -9,6 +10,7 @@ import type {
   LocalTextFileContent,
   MapAssetContent,
   MapAssetSummary,
+  ResourceRegistry,
   TextAssetContent,
 } from './types'
 const validateDirectoryCache = createPromiseCache<GameDirectoryInfo>()
@@ -23,6 +25,7 @@ const scanAudioAssetsCache = createPromiseCache<AudioAssetSummary[]>()
 const loadAudioDataUrlCache = createPromiseCache<string>()
 const loadXactAudioDataUrlCache = createPromiseCache<string>()
 const scanDefaultSaveSlotsCache = createPromiseCache<DefaultSaveSlotSummary[]>()
+const loadResourceRegistryCache = createPromiseCache<ResourceRegistry>()
 
 /** Clears locale-scoped game asset cache entries after the UI language changes. */
 export function clearGameAssetLocaleCache(locale: string) {
@@ -36,6 +39,7 @@ export function clearGameAssetLocaleCache(locale: string) {
   loadMapAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
   loadTextAssetCache.deleteWhere((key) => key.endsWith(localizedSuffix))
   loadImageDataUrlCache.deleteWhere((key) => key.endsWith(localizedSuffix))
+  loadResourceRegistryCache.deleteWhere((key) => key.endsWith(localizedSuffix))
 }
 
 /** Returns cache sizes for the game asset desktop API, used by debug tooling. */
@@ -52,6 +56,7 @@ export function getGameAssetCacheStats() {
     audioDataUrl: loadAudioDataUrlCache.size(),
     xactAudioDataUrl: loadXactAudioDataUrlCache.size(),
     saveSlots: scanDefaultSaveSlotsCache.size(),
+    resourceRegistry: loadResourceRegistryCache.size(),
   }
 }
 /** Asks the desktop backend to detect the default Stardew Valley install directory. */
@@ -91,9 +96,10 @@ export function loadMapAsset(rootPath: string, mapPath: string, locale?: string)
 /** Loads a Stardew text/data asset from the game root. */
 export function loadTextAsset(rootPath: string, assetPath: string, locale?: string) {
   const cacheKey = getLocalizedRootedAssetCacheKey(rootPath, assetPath, locale)
-  return readPending(loadTextAssetCache, cacheKey, () =>
-    invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath, locale }),
-  )
+  return readPending(loadTextAssetCache, cacheKey, async () => {
+    const bridged = await loadTextAssetFromDevBridge(rootPath, assetPath, locale)
+    return bridged ?? invokeDesktop<TextAssetContent>('load_text_asset', { rootPath, assetPath, locale })
+  })
 }
 
 /** Loads an arbitrary local text file through the desktop backend. */
@@ -105,7 +111,10 @@ export function loadTextFile(path: string) {
 /** Loads an image file as a data URL that can be rendered safely by the webview. */
 export function loadImageDataUrl(path: string, locale?: string) {
   const cacheKey = `${normalizeCachePathSegment(path)}::${locale?.trim() || 'default'}`
-  return readPending(loadImageDataUrlCache, cacheKey, () => invokeDesktop<string>('load_image_data_url', { path, locale }))
+  return readPending(loadImageDataUrlCache, cacheKey, async () => {
+    const bridged = await loadImageDataUrlFromDevBridge(path, locale)
+    return bridged ?? invokeDesktop<string>('load_image_data_url', { path, locale })
+  })
 }
 
 /** Scans audio cues and files available under the game root. */
@@ -124,6 +133,15 @@ export function loadAudioDataUrl(path: string) {
 export function loadXactAudioDataUrl(rootPath: string, cue: string) {
   const cacheKey = `${normalizeCachePathSegment(rootPath)}::${cue.trim()}`
   return readPending(loadXactAudioDataUrlCache, cacheKey, () => invokeDesktop<string>('load_xact_audio_data_url', { rootPath, cue }))
+}
+
+/** Loads the global game resource registry maintained by the desktop backend. */
+export function loadResourceRegistry(rootPath: string, locale?: string) {
+  const cacheKey = `${normalizeCachePathSegment(rootPath)}::${locale?.trim() || 'default'}`
+  return readPending(loadResourceRegistryCache, cacheKey, async () => {
+    const bridged = await loadResourceRegistryFromDevBridge(rootPath, locale)
+    return bridged ?? invokeDesktop<ResourceRegistry>('load_resource_registry', { rootPath, locale })
+  })
 }
 
 /** Scans the default Stardew Valley save directory for player save slots. */

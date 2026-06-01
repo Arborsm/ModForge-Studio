@@ -9,7 +9,6 @@ export {
   type StudioDeskInspirationStatus,
   type StudioDeskModel,
   type StudioDeskProjectCoverTone,
-  type StudioDeskProjectFilter,
   type StudioDeskProjectStatus,
   type StudioDeskWorkspaceEntrypoint,
   type StudioDeskWorldBible as StudioDeskWorldBibleModel,
@@ -38,6 +37,7 @@ export { StudioDeskProjectGallery } from './ui/StudioDeskProjectGallery'
 export { StudioDeskStoryboard } from './ui/StudioDeskStoryboard'
 export { StudioDeskWorldBible } from './ui/StudioDeskWorldBible'
 
+export type { CpMakerDraftSummary } from './model/cpMakerPort'
 export type { CpMakerProviderProps } from './model/cpMakerProvider'
 export { CpMakerProvider } from './model/cpMakerProvider'
 export { useCpMakerPort } from './model/useCpMakerPort'

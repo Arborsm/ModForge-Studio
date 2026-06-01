@@ -391,6 +391,30 @@ describe('LauncherModDetailPanel', () => {
     expect(await screen.findByRole('button', { name: 'Queue Download Content Patcher 2.9.1' })).toBeTruthy()
   })
 
+  it('shows an in-panel loading animation while deferred Nexus files load', async () => {
+    const remoteWithoutFiles = createRemoteDetail({
+      primaryFileId: null,
+      primaryFileName: null,
+      primaryFileVersion: null,
+      primaryFileChangelog: [],
+      files: [],
+    })
+    const loadRemoteModDetail = vi.fn().mockReturnValue(new Promise<LauncherDiscoverDetail>(() => {}))
+    const port = renderPanel(null, remoteWithoutFiles, {
+      onQueueDownload: vi.fn(),
+      remoteFilesDeferred: true,
+      loadRemoteModDetail,
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Files' }))
+
+    await waitFor(() => {
+      expect(port.loadRemoteModDetail).toHaveBeenCalledWith({ modId: 1915, includeFiles: true })
+    })
+    expect(screen.getByText('Loading Nexus files...')).toBeTruthy()
+    expect(document.querySelector('.launcher-mod-detail-data-loading-spinner')).toBeTruthy()
+  })
+
   it('keeps combined detail file data deferred until files or changelog is opened', async () => {
     const remoteWithoutFiles = createRemoteDetail({
       primaryFileId: null,

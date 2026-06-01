@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { PlayerAppearanceProfile } from '@entities/event'
 import { AddPatchDialog } from './AddPatchDialog'
 import { ConfigSchemaDialog } from './ConfigSchemaDialog'
 import { EditModeToolbar } from './EditModeToolbar'
@@ -27,6 +28,8 @@ interface EditModeShellProps {
   onRemoveVirtualAsset: (relativePath: string) => void
   gameRootPath?: string | null
   directoryInfo?: GameDirectoryInfo | null
+  playerAppearanceProfile?: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow?: () => void
   locale?: LocaleCode
   theme?: ThemeMode
   accentColor?: string
@@ -86,6 +89,8 @@ export function EditModeShell({
   isDirty,
   gameRootPath,
   directoryInfo,
+  playerAppearanceProfile,
+  onOpenPlayerAppearanceWindow,
   locale,
   theme,
   accentColor,
@@ -214,6 +219,8 @@ export function EditModeShell({
             selectedEventKey={activeEventKey}
             gameRootPath={gameRootPath ?? null}
             directoryInfo={directoryInfo ?? null}
+            playerAppearanceProfile={playerAppearanceProfile}
+            onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
             viewMode={activeEditorViewMode}
           />
         )}

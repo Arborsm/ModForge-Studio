@@ -1,7 +1,6 @@
 import { useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { WorkspaceMode } from '@locales'
-import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 
 type WorkspaceViewMode = 'edit' | 'preview'
 
@@ -43,27 +42,13 @@ export function useWorkbenchModeTransitions({
       } else {
         setWorkspaceViewMode(mode)
       }
-
-      void applyAppUiStatePatch({
-        workspace: {
-          workspaceViewMode: mode,
-        },
-      })
     },
     [openStudioDeskRoute, setWorkspaceViewMode],
   )
-
-  const handleWorkspaceViewModeChangeFromSnapshot = useCallback(() => {
-    const saved = getAppUiStateSnapshot()?.workspace?.workspaceViewMode
-    if (saved === 'edit' || saved === 'preview') {
-      setWorkspaceViewMode(saved)
-    }
-  }, [setWorkspaceViewMode])
 
   return {
     openStudioDeskRoute,
     handleWorkspaceChange,
     handleWorkspaceViewModeChange,
-    handleWorkspaceViewModeChangeFromSnapshot,
   }
 }

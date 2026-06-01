@@ -67,8 +67,8 @@ describe('buildStudioDeskModel', () => {
     })
 
     expect(model.gallery.projects.map((project) => project.title)).toEqual(['星露谷夏日祭扩展', '海风旅店'])
-    expect(model.gallery.projects[0]?.statuses).toEqual(['active', 'export', 'conflict'])
-    expect(model.gallery.counts).toMatchObject({ all: 2, active: 2, export: 1, conflict: 1, archive: 0 })
+    expect(model.gallery.projects[0]?.statuses).toEqual(['export', 'conflict'])
+    expect(model.gallery.counts).toMatchObject({ all: 2 })
   })
 
   test('sorts recent inspirations by updatedAt descending', () => {

@@ -1,0 +1,453 @@
+@layer components {
+  .launcher-config-tools,
+  .launcher-debug-tool-card,
+  .launcher-debug-more-card {
+    min-width: 0;
+  }
+
+  .launcher-debug-tool-card,
+  .launcher-debug-more-card,
+  .launcher-debug-stat-card,
+  .launcher-config-rail-panel {
+    border: 0;
+    border-radius: 12px;
+    background: var(--config-surface);
+    box-shadow: var(--config-shadow);
+  }
+
+  .launcher-config-tools {
+    display: grid;
+    gap: 16px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .launcher-config-rail {
+    position: sticky;
+    top: 16px;
+    align-self: stretch;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    min-height: 100%;
+  }
+
+  .launcher-config-rail-panel {
+    display: grid;
+    gap: 15px;
+    padding: 18px;
+  }
+
+  .launcher-config-completion-rail {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .launcher-config-rail-title {
+    color: var(--config-text);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .launcher-config-stepper {
+    display: grid;
+    align-content: space-between;
+    gap: 13px;
+  }
+
+  .launcher-config-step {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .launcher-config-step-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--config-success-bg);
+    color: var(--config-success-text);
+  }
+
+  .launcher-config-step-warn .launcher-config-step-mark {
+    background: var(--config-warning-bg);
+    color: var(--config-warning-text);
+  }
+
+  .launcher-config-step-danger .launcher-config-step-mark {
+    background: var(--config-error-bg);
+    color: var(--config-error-text);
+  }
+
+  .launcher-config-step strong,
+  .launcher-config-step div > span {
+    display: block;
+    min-width: 0;
+  }
+
+  .launcher-config-step strong {
+    color: var(--config-text);
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.25;
+  }
+
+  .launcher-config-step div > span {
+    margin-top: 3px;
+    color: var(--config-muted);
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+
+  .launcher-config-defaults {
+    display: grid;
+    gap: 0;
+  }
+
+  .launcher-config-download-defaults {
+    align-content: stretch;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .launcher-config-download-defaults .launcher-config-defaults {
+    align-content: stretch;
+  }
+
+  .launcher-config-default-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-height: 42px;
+    border-top: 1px solid var(--config-line);
+    color: var(--config-text);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .launcher-config-default-row:first-child {
+    border-top: 0;
+  }
+
+  .launcher-config-mini-switch {
+    position: relative;
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    transition: background-color 160ms ease;
+  }
+
+  .launcher-config-mini-switch span {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: white;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+    transition: transform 160ms ease;
+  }
+
+  .launcher-config-mini-switch-active {
+    background: var(--config-primary);
+  }
+
+  .launcher-config-mini-switch-active span {
+    transform: translateX(14px);
+  }
+
+  .launcher-config-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--config-line);
+  }
+
+  .launcher-config-main .launcher-settings-stack {
+    display: grid;
+    gap: 0;
+  }
+
+  .launcher-config-main .launcher-settings-subsection {
+    display: grid;
+    grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+    gap: 20px;
+    min-width: 0;
+    padding: 20px 0;
+    border-top: 1px solid var(--config-line);
+  }
+
+  .launcher-config-main .launcher-settings-subsection:first-of-type {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .launcher-config-main .launcher-settings-subsection:last-of-type {
+    padding-bottom: 0;
+  }
+
+  .launcher-config-main .launcher-settings-subsection > :first-child {
+    grid-column: 1;
+  }
+
+  .launcher-config-main .launcher-settings-subsection > :not(:first-child) {
+    grid-column: 2;
+  }
+
+  .launcher-config-main .settings-window-control-card {
+    margin-top: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .launcher-config-main .launcher-settings-control-card {
+    display: grid;
+    gap: 8px;
+    min-height: 0;
+  }
+
+  .launcher-config-main .launcher-settings-inline-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .launcher-config-main .launcher-settings-inline-actions .control-input {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .launcher-config-main .launcher-settings-control-card-wide {
+    grid-column: 1 / -1;
+  }
+
+  .launcher-config-main .launcher-form-grid {
+    gap: 14px;
+  }
+
+  .launcher-config-main .launcher-settings-path-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .launcher-config-main .launcher-settings-toggle-list {
+    display: grid;
+    gap: 0;
+  }
+
+  .launcher-config-main .launcher-settings-toggle-list .settings-window-control-card {
+    min-height: 68px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--config-line);
+  }
+
+  .launcher-config-main .launcher-settings-toggle-list .settings-window-control-card:first-child {
+    padding-top: 0;
+  }
+
+  .launcher-config-main .launcher-settings-toggle-list .settings-window-control-card:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .launcher-config-main .settings-window-section-title {
+    color: var(--config-text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .launcher-config-main .settings-window-section-copy {
+    margin-top: 5px;
+    color: var(--config-muted);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .launcher-configuration-page .control-input {
+    height: 40px;
+    box-sizing: border-box;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: var(--config-input);
+    color: var(--config-text);
+    box-shadow: none;
+  }
+
+  .launcher-configuration-page .control-input:focus {
+    border-color: var(--config-primary);
+    background: var(--config-surface);
+    box-shadow: none;
+  }
+
+  .launcher-configuration-page .control-button {
+    min-height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--config-primary-light);
+    color: var(--config-primary);
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: none;
+  }
+
+  .launcher-configuration-page .control-button:hover {
+    background: var(--config-primary-light-hover);
+  }
+
+  .launcher-configuration-page .control-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+  }
+
+  .launcher-configuration-page .control-button-primary {
+    background: var(--config-primary);
+    color: white;
+  }
+
+  .launcher-configuration-page .control-button-primary:hover {
+    background: color-mix(in srgb, var(--accent) 88%, #111827 12%);
+    color: white;
+  }
+
+  .launcher-config-main .launcher-settings-inline-actions .control-button {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    flex: 0 0 40px;
+  }
+
+  .launcher-config-main .launcher-settings-subsection-verification > .launcher-form-grid .control-button {
+    width: auto;
+    padding-inline: 14px;
+    flex: initial;
+  }
+
+  .launcher-config-main .launcher-settings-subsection-verification > .launcher-form-grid .control-button:first-child {
+    background: var(--config-primary);
+    color: white;
+  }
+
+  .launcher-config-main .launcher-settings-subsection-verification > .launcher-form-grid .control-button:first-child:hover {
+    background: color-mix(in srgb, var(--accent) 88%, #111827 12%);
+  }
+
+  .launcher-configuration-page .settings-switch {
+    position: relative;
+    display: inline-flex;
+    width: 44px;
+    min-width: 44px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    padding: 0;
+    color: transparent;
+    box-shadow: none;
+  }
+
+  .launcher-configuration-page .settings-switch:hover {
+    background: transparent;
+  }
+
+  .launcher-configuration-page .settings-switch:focus-visible {
+    outline: 2px solid var(--config-primary);
+    outline-offset: 3px;
+    box-shadow: none;
+  }
+
+  .launcher-configuration-page .settings-switch-copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .launcher-configuration-page .settings-switch-track {
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    background: #d1d5db;
+    padding: 2px;
+    transition: background-color 160ms ease;
+  }
+
+  .launcher-configuration-page .settings-switch-active .settings-switch-track {
+    background: var(--config-primary);
+  }
+
+  .launcher-configuration-page .settings-switch-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: white;
+    box-shadow: 0 1px 3px rgba(31, 41, 55, 0.16);
+    transform: translateX(0);
+    transition: transform 160ms ease;
+  }
+
+  .launcher-configuration-page .settings-switch-active .settings-switch-thumb {
+    transform: translateX(20px);
+  }
+
+  .launcher-config-main .launcher-state-block,
+  .launcher-debug-api-status-grid .launcher-state-block {
+    border: 0;
+    border-radius: 12px;
+    background: var(--config-row-hover);
+    padding: 12px;
+  }
+
+  .launcher-config-main .launcher-state-block-warning {
+    background: var(--config-warning-bg);
+  }
+
+  .launcher-config-main .launcher-state-block-success {
+    background: var(--config-success-bg);
+  }
+
+  .launcher-configuration-page .launcher-state-block-title {
+    color: var(--config-text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .launcher-configuration-page .launcher-state-block-detail {
+    color: var(--config-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .launcher-configuration-page .dock-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--config-neutral-bg);
+    color: var(--config-muted);
+    padding: 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: none;
+  }
+}

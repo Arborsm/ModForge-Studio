@@ -5,10 +5,13 @@ use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
     LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest,
 };
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
+use crate::infrastructure::fs::pathing::{
+    clean_input_path, normalize_path, smapi_launch_candidates, stardew_game_launch_candidates,
+};
+use crate::AppHandle;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use url::Url;
 
 #[cfg(target_os = "windows")]
@@ -46,23 +49,29 @@ fn resolve_game_launch_target(
         "launch.resolve",
         &[("gamePath", normalize_path(&game_root))],
     );
-    let smapi_path = game_root.join("StardewModdingAPI.exe");
-    if smapi_path.is_file() {
-        return Ok((smapi_path, LauncherGameLaunchTarget::Smapi));
+    let smapi_candidates = smapi_launch_candidates(&game_root);
+    if let Some(smapi_path) = smapi_candidates.iter().find(|path| path.is_file()) {
+        return Ok((smapi_path.to_path_buf(), LauncherGameLaunchTarget::Smapi));
     }
 
-    let base_path = game_root.join("Stardew Valley.exe");
-    if base_path.is_file() {
-        return Ok((base_path, LauncherGameLaunchTarget::StardewValley));
+    let base_candidates = stardew_game_launch_candidates(&game_root);
+    if let Some(base_path) = base_candidates.iter().find(|path| path.is_file()) {
+        return Ok((
+            base_path.to_path_buf(),
+            LauncherGameLaunchTarget::StardewValley,
+        ));
     }
+
+    let checked_paths = smapi_candidates
+        .iter()
+        .chain(base_candidates.iter())
+        .map(|path| normalize_path(path))
+        .collect::<Vec<_>>()
+        .join(", ");
 
     Err(launcher_launch_error(
         LauncherGameLaunchErrorCode::MissingExecutable,
-        format!(
-            "No launcher executable found. Checked {} and {}.",
-            normalize_path(&smapi_path),
-            normalize_path(&base_path)
-        ),
+        format!("No launcher executable found. Checked {checked_paths}."),
     ))
 }
 
@@ -115,7 +124,7 @@ fn spawn_launcher_process(path: &Path) -> Result<(), String> {
 }
 
 pub fn launch_launcher_game(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
 ) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error_with_message(
         "launch_launcher_game",
@@ -132,7 +141,7 @@ pub fn launch_launcher_game(
     )
 }
 
-pub fn get_launcher_backup_directory(_app: tauri::AppHandle) -> Result<String, String> {
+pub fn get_launcher_backup_directory(_app: AppHandle) -> Result<String, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "get_launcher_backup_directory",
         (|| {
@@ -214,40 +223,40 @@ fn open_url_in_shell(url: &str) -> Result<(), String> {
     let mut command = Command::new("rundll32");
     command
         .creation_flags(CREATE_NO_WINDOW)
-        .args(["url.dll,FileProtocolHandler", url]);
+        .args(["url.dll,FileProtocolHandler", url])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
 
-    let status = command
-        .status()
+    command
+        .spawn()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
-    if !status.success() {
-        return Err(format!("Browser launch failed for {url}."));
-    }
 
     Ok(())
 }
 
 #[cfg(target_os = "macos")]
 fn open_url_in_shell(url: &str) -> Result<(), String> {
-    let status = Command::new("open")
+    Command::new("open")
         .arg(url)
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
-    if !status.success() {
-        return Err(format!("Browser launch failed for {url}."));
-    }
 
     Ok(())
 }
 
 #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
 fn open_url_in_shell(url: &str) -> Result<(), String> {
-    let status = Command::new("xdg-open")
+    Command::new("xdg-open")
         .arg(url)
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
         .map_err(|error| format!("Failed to launch browser for {url}: {error}"))?;
-    if !status.success() {
-        return Err(format!("Browser launch failed for {url}."));
-    }
 
     Ok(())
 }

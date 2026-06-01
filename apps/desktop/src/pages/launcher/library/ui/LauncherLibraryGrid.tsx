@@ -1,5 +1,4 @@
 import {
-  createContext,
   Fragment,
   memo,
   useCallback,
@@ -11,26 +10,12 @@ import {
   type CSSProperties,
   type HTMLAttributes,
   type MouseEvent,
-  type PointerEvent,
-  type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import { useSelectionContainer, boxesIntersect, type Box } from '@air/react-drag-to-select'
-import {
-  DndContext,
-  DragOverlay,
-  MeasuringStrategy,
-  PointerSensor,
-  pointerWithin,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Folder } from 'lucide-react'
+import { ExternalLink, Folder, Info, X } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import { useLauncherImage } from '@features/launcher/model/imageLoader'
@@ -50,40 +35,29 @@ import {
   type LauncherLibraryDisplayItem,
 } from '../model/launcherLibraryDisplay'
 import {
-  LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID,
+  buildLauncherLibraryGridBlocks,
+  estimateLauncherLibraryCardHeight,
+  getLauncherLibraryPanelPlacement,
+  LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX,
+  LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX,
+  LAUNCHER_LIBRARY_GRID_GAP_PX,
+  LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX,
+  type LauncherLibraryGridBlock,
+} from './launcherLibraryGridLayout'
+import {
   LAUNCHER_LIBRARY_BLANK_DROP_ID,
-  LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX,
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,
-  LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
-  LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
   LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE,
-  LAUNCHER_LIBRARY_PARENT_DROP_PREFIX,
   getLauncherFolderIdFromBlankDropId,
-  measureLauncherDndKitDropTargets,
-  type LauncherDndKitActiveDrag,
-  type LauncherDndKitDropData,
-  type LauncherDndKitDropTarget,
   type LauncherPointerDragSource,
 } from '../model/launcherLibraryDrag'
+import { LauncherPointerDragContext } from './launcherLibraryPointerDragContext'
+import { LauncherContextMenuItem, type LauncherContextMenuAction } from './LauncherLibraryContextMenuItem'
 
-export type LauncherContextMenuAction = {
-  label: string
-  onSelect: () => void
-}
+export { LauncherLibraryDndScope } from './LauncherLibraryDndScope'
 
-type LauncherPointerDragContextValue = {
-  startPointerDrag: (source: LauncherPointerDragSource, event: PointerEvent<HTMLElement>) => void
-  suppressClickAfterDrag: (event: MouseEvent<HTMLElement>) => void
-  handleDndPointerDown: (event: PointerEvent<HTMLElement>) => void
-  setDraggableActivatorNodeRef: (node: HTMLElement | null) => void
-}
+export type { LauncherContextMenuAction } from './LauncherLibraryContextMenuItem'
 
-type LauncherDndKitControls = {
-  handleDndPointerDown: (event: PointerEvent<HTMLElement>) => void
-  setDraggableActivatorNodeRef: (node: HTMLElement | null) => void
-}
-
-const LauncherPointerDragContext = createContext<LauncherPointerDragContextValue | null>(null)
 export type VirtualizedLauncherGridProps = {
   items: LauncherLibraryDisplayItem[]
   blankDropId?: string
@@ -103,7 +77,7 @@ export type VirtualizedLauncherGridProps = {
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
   onBoxSelectionChange: (modIds: string[]) => void
-  onToggleParentExpanded: (modId: string) => void
+  onToggleParentExpanded: (modId: string, anchorElement?: HTMLElement | null) => void
   isParentExpanded: (modId: string) => boolean
   onOpenModDetails: (modId: string) => void
   onOpenModFolder: (mod: LauncherLibraryItem) => void
@@ -112,85 +86,6 @@ export type VirtualizedLauncherGridProps = {
   onCloseLibraryFolder?: (folderId: string) => void
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
-}
-
-const LAUNCHER_LIBRARY_GRID_GAP_PX = 20
-const LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX = 260
-const LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX = 226
-const LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT = 6
-const LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX = 18
-
-type LauncherLibraryGridRowItem = {
-  displayItem: LauncherLibraryDisplayItem
-  index: number
-  columnSpan: number
-  rowSpan: number
-  columnStart: number
-  rowStart: number
-}
-
-type LauncherLibraryGridBlock = {
-  items: LauncherLibraryGridRowItem[]
-  rowStart: number
-  rowCount: number
-  estimatedHeight: number
-}
-
-type LauncherLibraryGridPlacement = {
-  columnSpan: number
-  rowSpan: number
-}
-
-function getLauncherLibraryFolderPlacement(itemCount: number, gridColumnCount: number): LauncherLibraryGridPlacement {
-  if (gridColumnCount <= 1) {
-    return { columnSpan: 1, rowSpan: Math.max(1, itemCount) }
-  }
-
-  const contentSize = Math.max(1, itemCount)
-  const preferredSpan = Math.max(2, Math.ceil(Math.sqrt(contentSize)))
-  const columnSpan = Math.min(gridColumnCount, preferredSpan)
-  return { columnSpan, rowSpan: Math.max(1, Math.ceil(contentSize / columnSpan)) }
-}
-
-function canPlaceLauncherLibraryGridItem(
-  occupiedRows: boolean[][],
-  rowIndex: number,
-  columnIndex: number,
-  columnSpan: number,
-  rowSpan: number,
-) {
-  for (let nextRowIndex = rowIndex; nextRowIndex < rowIndex + rowSpan; nextRowIndex += 1) {
-    const occupiedColumns = occupiedRows[nextRowIndex] ?? []
-    for (let nextColumnIndex = columnIndex; nextColumnIndex < columnIndex + columnSpan; nextColumnIndex += 1) {
-      if (occupiedColumns[nextColumnIndex]) {
-        return false
-      }
-    }
-  }
-  return true
-}
-
-function startLauncherGrabPending(event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>, disabled = false) {
-  if (event.button !== 0 || disabled) {
-    return
-  }
-
-  const node = event.currentTarget
-  if (node.classList.contains('launcher-library-card-grab-pending')) {
-    return
-  }
-
-  node.classList.add('launcher-library-card-grab-pending')
-  const clearGrabPending = () => {
-    node.classList.remove('launcher-library-card-grab-pending')
-    window.removeEventListener('pointerup', clearGrabPending)
-    window.removeEventListener('pointercancel', clearGrabPending)
-    window.removeEventListener('blur', clearGrabPending)
-  }
-
-  window.addEventListener('pointerup', clearGrabPending)
-  window.addEventListener('pointercancel', clearGrabPending)
-  window.addEventListener('blur', clearGrabPending)
 }
 
 export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
@@ -226,6 +121,12 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const gridRef = useRef<HTMLDivElement | null>(null)
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null)
   const [gridColumnCount, setGridColumnCount] = useState(1)
+  const [activeModulesPanel, setActiveModulesPanel] = useState<{
+    parentMod: LauncherLibraryItem
+    childMods: LauncherLibraryItem[]
+    anchorElement: HTMLElement
+    anchorRect: DOMRect
+  } | null>(null)
   const [revealBatchSize, setRevealBatchSize] = useState(() =>
     clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length),
   )
@@ -243,85 +144,23 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   const isFolderGrid = originFolderId !== null
   const shouldRevealItems = enableRevealMotion && (isFolderGrid || !hasPlayedInitialReveal)
   const cardMinWidth = LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX
-  const estimatedRowHeight = LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX
-  const gridBlocks = useMemo(() => {
-    const occupiedRows: boolean[][] = []
-    const occupiedColumnCounts: number[] = []
-    const placedItems: LauncherLibraryGridRowItem[] = []
-    let firstOpenRow = 0
-    items.forEach((displayItem, index) => {
-      const isOpenFolder = displayItem.kind === 'folder' && isLibraryFolderOpen(displayItem.folder.id)
-      const placement = isOpenFolder
-        ? getLauncherLibraryFolderPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount)
-        : { columnSpan: 1, rowSpan: 1 }
-
-      let rowStart = firstOpenRow
-      let columnStart = 0
-      let placed = false
-      while (!placed) {
-        for (let candidateColumn = 0; candidateColumn <= gridColumnCount - placement.columnSpan; candidateColumn += 1) {
-          if (canPlaceLauncherLibraryGridItem(occupiedRows, rowStart, candidateColumn, placement.columnSpan, placement.rowSpan)) {
-            columnStart = candidateColumn
-            placed = true
-            break
-          }
-        }
-        if (!placed) {
-          rowStart += 1
-        }
-      }
-
-      for (let rowIndex = rowStart; rowIndex < rowStart + placement.rowSpan; rowIndex += 1) {
-        occupiedRows[rowIndex] ??= []
-        for (let columnIndex = columnStart; columnIndex < columnStart + placement.columnSpan; columnIndex += 1) {
-          if (!occupiedRows[rowIndex]![columnIndex]) {
-            occupiedRows[rowIndex]![columnIndex] = true
-            occupiedColumnCounts[rowIndex] = (occupiedColumnCounts[rowIndex] ?? 0) + 1
-          }
-        }
-      }
-      while ((occupiedColumnCounts[firstOpenRow] ?? 0) >= gridColumnCount) {
-        firstOpenRow += 1
-      }
-
-      placedItems.push({
-        displayItem,
-        index,
-        columnSpan: placement.columnSpan,
-        rowSpan: placement.rowSpan,
-        columnStart,
-        rowStart,
-      })
-    })
-
-    const blockCount = Math.max(1, Math.ceil(occupiedRows.length / LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT))
-    return Array.from({ length: blockCount }, (_, blockIndex): LauncherLibraryGridBlock => {
-      const rowStart = blockIndex * LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
-      const rowEnd = rowStart + LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
-      const blockItems = placedItems.filter((item) => item.rowStart < rowEnd && item.rowStart + item.rowSpan > rowStart)
-      const rowCount = Math.max(
-        1,
-        Math.min(
-          LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT,
-          Math.max(0, occupiedRows.length - rowStart),
-          ...blockItems.map((item) => item.rowStart + item.rowSpan - rowStart),
-        ),
-      )
-      return {
-        items: blockItems,
-        rowStart,
-        rowCount,
-        estimatedHeight: rowCount * estimatedRowHeight + Math.max(0, rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX,
-      }
-    }).filter((block) => block.items.length > 0)
-  }, [estimatedRowHeight, gridColumnCount, isLibraryFolderOpen, items])
+  const [estimatedRowHeight, setEstimatedRowHeight] = useState(LAUNCHER_LIBRARY_CARD_FALLBACK_ESTIMATED_HEIGHT_PX)
+  const gridBlocks = useMemo(
+    () => buildLauncherLibraryGridBlocks(items, gridColumnCount, isLibraryFolderOpen, estimatedRowHeight),
+    [estimatedRowHeight, gridColumnCount, isLibraryFolderOpen, items],
+  )
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual owns imperative row measurement for the large launcher grid.
   const rowVirtualizer = useVirtualizer({
     count: gridBlocks.length,
     getScrollElement: () => viewportElement,
     estimateSize: (index) => (gridBlocks[index]?.estimatedHeight ?? estimatedRowHeight) + LAUNCHER_LIBRARY_GRID_GAP_PX,
-    overscan: 4,
+    overscan: 1,
   })
+  useEffect(() => {
+    gridBlocks.forEach((block, index) => {
+      rowVirtualizer.resizeItem?.(index, block.estimatedHeight + LAUNCHER_LIBRARY_GRID_GAP_PX)
+    })
+  }, [estimatedRowHeight, gridBlocks, rowVirtualizer])
   const virtualRows = rowVirtualizer.getVirtualItems()
   const updateDragSelection = useCallback(
     (box: Box) => {
@@ -362,6 +201,130 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     shouldStartSelecting: (target) => target instanceof HTMLElement && !target.closest('.launcher-library-draggable-card'),
   })
 
+  const handleToggleParentModulesPanel = useCallback(
+    (modId: string, anchorElement?: HTMLElement | null) => {
+      const displayItem = items.find((item) => item.kind === 'mod' && item.mod.id === modId)
+      if (!displayItem || displayItem.kind !== 'mod' || !displayItem.childMods.length || !anchorElement) {
+        onToggleParentExpanded(modId)
+        return
+      }
+
+      if (activeModulesPanel?.parentMod.id === modId) {
+        setActiveModulesPanel(null)
+        onToggleParentExpanded(modId)
+        return
+      }
+
+      if (activeModulesPanel && isParentExpanded(activeModulesPanel.parentMod.id)) {
+        onToggleParentExpanded(activeModulesPanel.parentMod.id)
+      }
+      if (!isParentExpanded(modId)) {
+        onToggleParentExpanded(modId)
+      }
+      setActiveModulesPanel({
+        parentMod: displayItem.mod,
+        childMods: displayItem.childMods,
+        anchorElement,
+        anchorRect: anchorElement.getBoundingClientRect(),
+      })
+    },
+    [activeModulesPanel, isParentExpanded, items, onToggleParentExpanded],
+  )
+
+  useEffect(() => {
+    if (!activeModulesPanel) {
+      return
+    }
+
+    let frameId: number | null = null
+    const updateAnchorRect = () => {
+      frameId = null
+      setActiveModulesPanel((current) => {
+        if (!current || current.anchorElement !== activeModulesPanel.anchorElement) {
+          return current
+        }
+        if (!current.anchorElement.isConnected) {
+          return null
+        }
+        const nextRect = current.anchorElement.getBoundingClientRect()
+        const currentRect = current.anchorRect
+        const changed =
+          Math.abs(nextRect.top - currentRect.top) > 0.5 ||
+          Math.abs(nextRect.left - currentRect.left) > 0.5 ||
+          Math.abs(nextRect.width - currentRect.width) > 0.5 ||
+          Math.abs(nextRect.height - currentRect.height) > 0.5
+        return changed ? { ...current, anchorRect: nextRect } : current
+      })
+    }
+    const scheduleAnchorRectUpdate = () => {
+      if (frameId !== null) {
+        return
+      }
+      frameId = window.requestAnimationFrame(updateAnchorRect)
+    }
+
+    viewportElement?.addEventListener('scroll', scheduleAnchorRectUpdate, { passive: true })
+    window.addEventListener('resize', scheduleAnchorRectUpdate)
+    window.visualViewport?.addEventListener('resize', scheduleAnchorRectUpdate)
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+      viewportElement?.removeEventListener('scroll', scheduleAnchorRectUpdate)
+      window.removeEventListener('resize', scheduleAnchorRectUpdate)
+      window.visualViewport?.removeEventListener('resize', scheduleAnchorRectUpdate)
+    }
+  }, [activeModulesPanel, viewportElement])
+
+  useEffect(() => {
+    if (!activeModulesPanel) {
+      return
+    }
+    const currentDisplayItem = items.find(
+      (item): item is Extract<LauncherLibraryDisplayItem, { kind: 'mod' }> =>
+        item.kind === 'mod' && item.mod.id === activeModulesPanel.parentMod.id,
+    )
+    if (!currentDisplayItem || !isParentExpanded(activeModulesPanel.parentMod.id)) {
+      setActiveModulesPanel(null)
+      return
+    }
+    if (!currentDisplayItem.childMods.length) {
+      setActiveModulesPanel(null)
+      if (isParentExpanded(activeModulesPanel.parentMod.id)) {
+        onToggleParentExpanded(activeModulesPanel.parentMod.id)
+      }
+      return
+    }
+    const currentChildIds = currentDisplayItem.childMods.map((mod) => mod.id).join('\u0000')
+    const activeChildIds = activeModulesPanel.childMods.map((mod) => mod.id).join('\u0000')
+    if (currentChildIds !== activeChildIds) {
+      setActiveModulesPanel((current) =>
+        current && current.parentMod.id === activeModulesPanel.parentMod.id
+          ? { ...current, childMods: currentDisplayItem.childMods }
+          : current,
+      )
+    }
+  }, [activeModulesPanel, isParentExpanded, items, onToggleParentExpanded])
+
+  useEffect(() => {
+    if (!activeModulesPanel) {
+      return
+    }
+    const close = (event: globalThis.PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLElement)) {
+        return
+      }
+      if (target.closest('.launcher-library-modules-floating-panel') || target.closest('.launcher-mod-card-child-tools')) {
+        return
+      }
+      setActiveModulesPanel(null)
+      onToggleParentExpanded(activeModulesPanel.parentMod.id)
+    }
+    window.addEventListener('pointerdown', close, { capture: true })
+    return () => window.removeEventListener('pointerdown', close, { capture: true })
+  }, [activeModulesPanel, onToggleParentExpanded])
+
   useEffect(() => {
     const viewport = viewportRef.current
     const grid = gridRef.current
@@ -370,25 +333,25 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       return
     }
 
-    const updateGridColumnCount = () => {
+    const updateGridMetrics = () => {
       const viewportWidth = viewport.getBoundingClientRect().width
       const nextColumnCount = Math.max(
         1,
         Math.floor((viewportWidth + LAUNCHER_LIBRARY_GRID_GAP_PX) / (cardMinWidth + LAUNCHER_LIBRARY_GRID_GAP_PX)),
       )
       setGridColumnCount((current) => (current === nextColumnCount ? current : nextColumnCount))
-    }
-
-    updateGridColumnCount()
-
-    if (!shouldRevealItems || !grid) {
-      setRevealBatchSize(clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length))
-      return
+      const cardWidth = (viewportWidth - Math.max(0, nextColumnCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX) / nextColumnCount
+      const nextEstimatedRowHeight = estimateLauncherLibraryCardHeight(cardWidth)
+      setEstimatedRowHeight((current) => (current === nextEstimatedRowHeight ? current : nextEstimatedRowHeight))
     }
 
     const measuredGrid = grid
 
     const updateRevealBatchSize = () => {
+      if (!shouldRevealItems || !measuredGrid) {
+        setRevealBatchSize(clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length))
+        return
+      }
       const firstCard = measuredGrid.querySelector<HTMLElement>('.launcher-library-grid-reveal')
       const viewportRect = viewport.getBoundingClientRect()
       const cardRect = firstCard?.getBoundingClientRect()
@@ -405,18 +368,41 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       setRevealBatchSize((current) => (current === nextBatchSize ? current : nextBatchSize))
     }
 
-    updateRevealBatchSize()
-
-    if (typeof ResizeObserver === 'undefined') {
-      return
+    let frameId: number | null = null
+    const updateLayoutMeasurements = () => {
+      updateGridMetrics()
+      updateRevealBatchSize()
+    }
+    const scheduleLayoutMeasurements = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null
+        updateLayoutMeasurements()
+      })
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      updateGridColumnCount()
-      updateRevealBatchSize()
-    })
-    resizeObserver.observe(viewport)
-    return () => resizeObserver.disconnect()
+    updateLayoutMeasurements()
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            scheduleLayoutMeasurements()
+          })
+    resizeObserver?.observe(viewport)
+    window.addEventListener('resize', scheduleLayoutMeasurements)
+    window.visualViewport?.addEventListener('resize', scheduleLayoutMeasurements)
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', scheduleLayoutMeasurements)
+      window.visualViewport?.removeEventListener('resize', scheduleLayoutMeasurements)
+    }
   }, [cardMinWidth, items.length, shouldRevealItems])
 
   useEffect(() => {
@@ -447,13 +433,12 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
           return (
             <div
               key={virtualRow.key}
-              ref={rowVirtualizer.measureElement}
               className="launcher-library-virtual-row launcher-library-virtual-grid-block"
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
                 gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))`,
-                gridTemplateRows: `repeat(${blockRowCount}, ${LAUNCHER_LIBRARY_CARD_ESTIMATED_HEIGHT_PX}px)`,
+                gridTemplateRows: `repeat(${blockRowCount}, ${estimatedRowHeight}px)`,
               }}
             >
               {block ? (
@@ -477,7 +462,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   openFolderLabel={openFolderLabel}
                   closeFolderLabel={closeFolderLabel}
                   onToggleSelection={onToggleSelection}
-                  onToggleParentExpanded={onToggleParentExpanded}
+                  onToggleParentExpanded={handleToggleParentModulesPanel}
                   isParentExpanded={isParentExpanded}
                   onOpenModDetails={onOpenModDetails}
                   onOpenModFolder={onOpenModFolder}
@@ -492,6 +477,29 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
           )
         })}
       </div>
+      {activeModulesPanel ? (
+        <LauncherLibraryModulesFloatingPanel
+          parentMod={activeModulesPanel.parentMod}
+          childMods={activeModulesPanel.childMods}
+          anchorRect={activeModulesPanel.anchorRect}
+          viewportElement={viewportElement}
+          gridColumnCount={gridColumnCount}
+          editMode={editMode}
+          editingSelectionIds={editingSelectionIds}
+          boxSelectionIds={boxSelectionIds}
+          noneLabel={noneLabel}
+          childCountLabel={childCountLabel}
+          collapseLabel={collapseLabel}
+          onClose={() => {
+            setActiveModulesPanel(null)
+            onToggleParentExpanded(activeModulesPanel.parentMod.id)
+          }}
+          onToggleSelection={onToggleSelection}
+          onOpenModDetails={onOpenModDetails}
+          onOpenModFolder={onOpenModFolder}
+          getContextActions={getContextActions}
+        />
+      ) : null}
     </div>
   )
 })
@@ -545,7 +553,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   openFolderLabel: (name: string) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
-  onToggleParentExpanded: (modId: string) => void
+  onToggleParentExpanded: (modId: string, anchorElement?: HTMLElement | null) => void
   isParentExpanded: (modId: string) => boolean
   onOpenModDetails: (modId: string) => void
   onOpenModFolder: (mod: LauncherLibraryItem) => void
@@ -570,6 +578,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   key={`folder-${displayItem.folder.id}`}
                   index={Math.floor(index / revealBatchSize) + 3}
                   className="launcher-library-grid-reveal"
+                  style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
                 >
                   <DraggableLauncherFolderCard
                     folder={displayItem.folder}
@@ -583,7 +592,11 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                 </LoadingMotionRevealItem>
               ) : null}
               {!folderOpen && !shouldRevealItems ? (
-                <div key={`folder-${displayItem.folder.id}`} className="launcher-library-grid-reveal">
+                <div
+                  key={`folder-${displayItem.folder.id}`}
+                  className="launcher-library-grid-reveal"
+                  style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
+                >
                   <DraggableLauncherFolderCard
                     folder={displayItem.folder}
                     mods={displayItem.mods}
@@ -633,38 +646,35 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
           )
         }
         const item = displayItem.mod
-        const childCount = displayItem.kind === 'mod' ? displayItem.childMods.length : 0
+        const childCount = displayItem.childMods.length
         const expanded = childCount > 0 && isParentExpanded(item.id)
         const content = (
-          <>
-            {displayItem.kind === 'child' ? <span className="launcher-library-child-branch" aria-hidden="true" /> : null}
-            <DraggableLauncherLibraryCard
-              item={item}
-              noneLabel={noneLabel}
-              latestVersionByModId={latestVersionByModId}
-              boxSelected={boxSelectionIdLookup.has(item.id)}
-              originFolderId={originFolderId}
-              originParentId={displayItem.kind === 'child' ? displayItem.parentMod.id : null}
-              selectionMode={editMode}
-              selected={selectedIdLookup.has(item.id)}
-              childCount={childCount}
-              childCountLabel={childCount ? childCountLabel(childCount) : undefined}
-              expanded={expanded}
-              expandLabel={childCount ? expandLabel(item.name) : undefined}
-              collapseLabel={childCount ? collapseLabel(item.name) : undefined}
-              onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}
-              onToggleSelection={editMode ? onToggleSelection : undefined}
-              onOpenModDetails={editMode ? undefined : onOpenModDetails}
-              onOpenModFolder={editMode ? undefined : onOpenModFolder}
-              getContextActions={editMode ? undefined : getContextActions}
-            />
-          </>
+          <DraggableLauncherLibraryCard
+            item={item}
+            noneLabel={noneLabel}
+            latestVersionByModId={latestVersionByModId}
+            boxSelected={boxSelectionIdLookup.has(item.id)}
+            originFolderId={originFolderId}
+            originParentId={null}
+            selectionMode={editMode}
+            selected={selectedIdLookup.has(item.id)}
+            childCount={childCount}
+            childCountLabel={childCount ? childCountLabel(childCount) : undefined}
+            expanded={expanded}
+            expandLabel={childCount ? expandLabel(item.name) : undefined}
+            collapseLabel={childCount ? collapseLabel(item.name) : undefined}
+            onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}
+            onToggleSelection={editMode ? onToggleSelection : undefined}
+            onOpenModDetails={editMode ? undefined : onOpenModDetails}
+            onOpenModFolder={editMode ? undefined : onOpenModFolder}
+            getContextActions={editMode ? undefined : getContextActions}
+          />
         )
         if (!shouldRevealItems) {
           return (
             <div
               key={`${displayItem.kind}-${item.id}`}
-              className={cx('launcher-library-grid-reveal', displayItem.kind === 'child' && 'launcher-library-grid-reveal-child')}
+              className="launcher-library-grid-reveal"
               style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
             >
               {content}
@@ -675,7 +685,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
           <LoadingMotionRevealItem
             key={`${displayItem.kind}-${item.id}`}
             index={Math.floor(index / revealBatchSize) + 3}
-            className={cx('launcher-library-grid-reveal', displayItem.kind === 'child' && 'launcher-library-grid-reveal-child')}
+            className="launcher-library-grid-reveal"
             style={{ gridColumnStart: columnStart + 1, gridRowStart: blockRelativeRowStart + 1 }}
           >
             {content}
@@ -719,7 +729,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   expanded: boolean
   expandLabel?: string
   collapseLabel?: string
-  onToggleParentExpanded?: (modId: string) => void
+  onToggleParentExpanded?: (modId: string, anchorElement?: HTMLElement | null) => void
   onToggleSelection?: (modId: string) => void
   onOpenModDetails?: (modId: string) => void
   onOpenModFolder?: (mod: LauncherLibraryItem) => void
@@ -742,7 +752,10 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
     openModFolderRef.current = onOpenModFolder
     getContextActionsRef.current = getContextActions
   }, [getContextActions, item, onOpenModDetails, onOpenModFolder, onToggleParentExpanded, onToggleSelection])
-  const handleToggleExpanded = useCallback(() => toggleParentExpandedRef.current?.(itemRef.current.id), [])
+  const handleToggleExpanded = useCallback((event?: MouseEvent<HTMLElement>) => {
+    const anchorElement = event?.currentTarget ?? null
+    toggleParentExpandedRef.current?.(itemRef.current.id, anchorElement)
+  }, [])
   const handleSelect = useCallback(() => toggleSelectionRef.current?.(itemRef.current.id), [])
   const handleOpenDetails = useCallback(() => openModDetailsRef.current?.(itemRef.current.id), [])
   const handleOpenDirectTarget = useCallback(() => openModFolderRef.current?.(itemRef.current), [])
@@ -766,8 +779,9 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
       {...(!selectionMode ? { [LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE]: item.id } : {})}
       onPointerDownCapture={(event) => {
         pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)
-        startLauncherGrabPending(event, selectionMode)
-        pointerDrag?.startPointerDrag(dragSource, event)
+        if (!selectionMode) {
+          pointerDrag?.startPointerDrag(dragSource, event)
+        }
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
       onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
@@ -846,7 +860,6 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
       onContextMenuCapture={handleContextMenuCapture}
       onPointerDownCapture={(event) => {
         pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)
-        startLauncherGrabPending(event)
         pointerDrag?.startPointerDrag(dragSource, event)
       }}
       onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
@@ -896,6 +909,275 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
   )
 })
 
+function LauncherLibraryModulesFloatingPanel({
+  parentMod,
+  childMods,
+  anchorRect,
+  viewportElement,
+  gridColumnCount,
+  editMode,
+  editingSelectionIds,
+  boxSelectionIds,
+  noneLabel,
+  childCountLabel,
+  collapseLabel,
+  onClose,
+  onToggleSelection,
+  onOpenModDetails,
+  onOpenModFolder,
+  getContextActions,
+}: {
+  parentMod: LauncherLibraryItem
+  childMods: LauncherLibraryItem[]
+  anchorRect: DOMRect
+  viewportElement: HTMLElement | null
+  gridColumnCount: number
+  editMode: boolean
+  editingSelectionIds: string[]
+  boxSelectionIds: string[]
+  noneLabel: string
+  childCountLabel: (count: number) => string
+  collapseLabel: (name: string) => string
+  onClose: () => void
+  onToggleSelection: (modId: string) => void
+  onOpenModDetails: (modId: string) => void
+  onOpenModFolder: (mod: LauncherLibraryItem) => void
+  getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
+}) {
+  const selectedIdLookup = useMemo(
+    () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
+    [boxSelectionIds, editMode, editingSelectionIds],
+  )
+  const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
+  const panelLabel = `${parentMod.name} modules`
+  const placement = getLauncherLibraryPanelPlacement(childMods.length, gridColumnCount, 1)
+  const visibleRows = Math.min(3, placement.rowSpan)
+  const panelPadding = 12
+  const panelHeaderHeight = 56
+  const moduleRowHeight = 84
+  const moduleGridGap = 12
+  const moduleCardWidth = Math.max(236, Math.min(252, LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX - 8))
+  const panelWidth = placement.columnSpan * moduleCardWidth + Math.max(0, placement.columnSpan - 1) * moduleGridGap + panelPadding * 2
+  const desiredPanelHeight =
+    panelHeaderHeight + visibleRows * moduleRowHeight + Math.max(0, visibleRows - 1) * moduleGridGap + panelPadding * 2
+  const viewportRect = viewportElement?.getBoundingClientRect() ?? null
+  const margin = 12
+  const viewportLeft = viewportRect?.left ?? 0
+  const viewportTop = viewportRect?.top ?? 0
+  const viewportRight = viewportRect?.right ?? globalThis.window?.innerWidth ?? panelWidth + margin * 2
+  const viewportBottom = viewportRect?.bottom ?? globalThis.window?.innerHeight ?? desiredPanelHeight + margin * 2
+  const preferredLeft = anchorRect.left
+  const offset = 10
+  const maxLeft = viewportRight - panelWidth - margin
+  const left = Math.max(viewportLeft + margin, Math.min(preferredLeft, maxLeft))
+  const spaceBelow = viewportBottom - anchorRect.bottom - offset - margin
+  const spaceAbove = anchorRect.top - viewportTop - offset - margin
+  const preferBelow = spaceBelow >= desiredPanelHeight || (spaceAbove < desiredPanelHeight && spaceBelow >= spaceAbove)
+  const availablePanelHeight = Math.max(180, preferBelow ? spaceBelow : spaceAbove)
+  const panelHeight = Math.min(desiredPanelHeight, availablePanelHeight)
+  const constrainedByViewport = panelHeight < desiredPanelHeight
+  const scrollable = placement.rowSpan > 3 || constrainedByViewport
+  const top = preferBelow ? anchorRect.bottom + offset : anchorRect.top - panelHeight - offset
+  const arrowLeft = Math.max(18, Math.min(anchorRect.left + anchorRect.width / 2 - left - 6, panelWidth - 32))
+  const panel = (
+    <section
+      className="launcher-library-modules-floating-panel"
+      role="dialog"
+      aria-label={panelLabel}
+      data-placement={preferBelow ? 'bottom' : 'top'}
+      style={
+        {
+          '--launcher-modules-panel-left': `${left}px`,
+          '--launcher-modules-panel-top': `${top}px`,
+          '--launcher-modules-panel-width': `${panelWidth}px`,
+          '--launcher-modules-panel-height': `${panelHeight}px`,
+          '--launcher-modules-panel-card-width': `${moduleCardWidth}px`,
+          '--launcher-modules-panel-columns': placement.columnSpan,
+          '--launcher-modules-panel-arrow-left': `${arrowLeft}px`,
+        } as CSSProperties
+      }
+    >
+      <div className="launcher-library-modules-floating-header">
+        <div className="launcher-library-modules-floating-title">
+          <strong>{parentMod.name}</strong>
+          <span>{childCountLabel(childMods.length)}</span>
+        </div>
+        <button
+          type="button"
+          className="launcher-library-modules-floating-close"
+          aria-label={collapseLabel(parentMod.name)}
+          title={collapseLabel(parentMod.name)}
+          onClick={onClose}
+        >
+          ×
+        </button>
+      </div>
+      <div className="launcher-library-modules-floating-grid" data-scrollable={scrollable ? 'true' : 'false'}>
+        {childMods.map((childMod) => (
+          <div key={childMod.id} className="launcher-library-module-reveal">
+            <DraggableLauncherModuleTile
+              item={childMod}
+              noneLabel={noneLabel}
+              boxSelected={boxSelectionIdLookup.has(childMod.id)}
+              originParentId={parentMod.id}
+              selectionMode={editMode}
+              selected={selectedIdLookup.has(childMod.id)}
+              onToggleSelection={editMode ? onToggleSelection : undefined}
+              onOpenModDetails={editMode ? undefined : onOpenModDetails}
+              onOpenModFolder={editMode ? undefined : onOpenModFolder}
+              getContextActions={editMode ? undefined : getContextActions}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+  return createPortal(panel, document.body)
+}
+
+const DraggableLauncherModuleTile = memo(function DraggableLauncherModuleTile({
+  item,
+  noneLabel,
+  boxSelected,
+  originParentId,
+  selectionMode,
+  selected,
+  onToggleSelection,
+  onOpenModDetails,
+  onOpenModFolder,
+  getContextActions,
+}: {
+  item: LauncherLibraryItem
+  noneLabel: string
+  boxSelected: boolean
+  originParentId: string
+  selectionMode: boolean
+  selected: boolean
+  onToggleSelection?: (modId: string) => void
+  onOpenModDetails?: (modId: string) => void
+  onOpenModFolder?: (mod: LauncherLibraryItem) => void
+  getContextActions?: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
+}) {
+  const pointerDrag = useContext(LauncherPointerDragContext)
+  const cover = useLauncherImage(item.imageUrl)
+  const meta = buildLibraryCardMeta(item, noneLabel)
+  const fallbackPalette = getLauncherCardFallbackPalette(item.name)
+  const fallbackWord = getLauncherCardCoverWord(item.name)
+  const coverStyle = {
+    '--launcher-cover-bright': fallbackPalette.bright,
+    '--launcher-cover-base': fallbackPalette.base,
+    '--launcher-cover-dark': fallbackPalette.dark,
+    '--launcher-cover-edge': fallbackPalette.edge,
+    '--launcher-cover-glow': fallbackPalette.glow,
+    '--launcher-cover-shadow': fallbackPalette.shadow,
+  } as CSSProperties
+  const itemRef = useRef(item)
+  const toggleSelectionRef = useRef(onToggleSelection)
+  const openModDetailsRef = useRef(onOpenModDetails)
+  const openModFolderRef = useRef(onOpenModFolder)
+  const getContextActionsRef = useRef(getContextActions)
+  useEffect(() => {
+    itemRef.current = item
+    toggleSelectionRef.current = onToggleSelection
+    openModDetailsRef.current = onOpenModDetails
+    openModFolderRef.current = onOpenModFolder
+    getContextActionsRef.current = getContextActions
+  }, [getContextActions, item, onOpenModDetails, onOpenModFolder, onToggleSelection])
+  const handleSelect = useCallback(() => toggleSelectionRef.current?.(itemRef.current.id), [])
+  const handleOpenDetails = useCallback(() => openModDetailsRef.current?.(itemRef.current.id), [])
+  const handleOpenDirectTarget = useCallback(() => openModFolderRef.current?.(itemRef.current), [])
+  const handleActionClick = useCallback((event: MouseEvent<HTMLButtonElement>, action: () => void) => {
+    event.preventDefault()
+    event.stopPropagation()
+    action()
+  }, [])
+  const dragSource: LauncherPointerDragSource = {
+    kind: 'mod',
+    modId: item.id,
+    title: item.name,
+    meta,
+    imageUrl: item.imageUrl,
+    previewImageUrl: cover.imageUrl,
+    enabled: item.enabled,
+    originFolderId: null,
+    originParentId,
+  }
+  const menuActions = getContextActions?.(item) ?? []
+  const removeAction = menuActions.find((action) => /remove|移出/i.test(action.label))
+  const tile = (
+    <article
+      className={cx(
+        'launcher-library-module-tile launcher-library-draggable-card',
+        !item.enabled && 'launcher-library-module-tile-disabled',
+        (selected || boxSelected) && 'launcher-library-module-tile-selected',
+      )}
+      aria-label={item.name}
+      data-draggable="true"
+      data-launcher-mod-card-id={item.id}
+      onPointerDownCapture={(event) => {
+        pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)
+        if (!selectionMode) {
+          pointerDrag?.startPointerDrag(dragSource, event)
+        }
+      }}
+      onPointerDown={(event) => pointerDrag?.handleDndPointerDown(event)}
+      onClickCapture={(event) => pointerDrag?.suppressClickAfterDrag(event)}
+      onClick={selectionMode ? handleSelect : handleOpenDetails}
+      onDoubleClick={selectionMode ? undefined : handleOpenDirectTarget}
+    >
+      <LauncherArtworkCover
+        title={item.name}
+        imageUrl={cover.imageUrl}
+        coverStyle={coverStyle}
+        coverWord={fallbackWord}
+        className="launcher-library-module-thumb"
+      />
+      <div className="launcher-library-module-main">
+        <strong title={item.name}>{item.name}</strong>
+        <span title={meta}>{meta}</span>
+        <div className="launcher-library-module-actions">
+          <button type="button" aria-label={item.name} title={item.name} onClick={(event) => handleActionClick(event, handleOpenDetails)}>
+            <Info className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label={item.absolutePath}
+            title={item.absolutePath}
+            onClick={(event) => handleActionClick(event, handleOpenDirectTarget)}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+          {removeAction ? (
+            <button
+              type="button"
+              aria-label={removeAction.label}
+              title={removeAction.label}
+              onClick={(event) => handleActionClick(event, removeAction.onSelect)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  )
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>{tile}</ContextMenu.Trigger>
+      {menuActions.length ? (
+        <ContextMenu.Portal>
+          <ContextMenu.Content className="context-menu-content" collisionPadding={12}>
+            {menuActions.map((action) => (
+              <LauncherContextMenuItem key={action.label} action={action} />
+            ))}
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      ) : null}
+    </ContextMenu.Root>
+  )
+})
+
 const LauncherFolderPreviewModItem = memo(function LauncherFolderPreviewModItem({ item }: { item: LauncherFolderPreviewItem }) {
   const fallbackPalette = getLauncherCardFallbackPalette(item.title)
   const fallbackWord = getLauncherCardCoverWord(item.title)
@@ -928,40 +1210,6 @@ const LauncherFolderPreviewModItem = memo(function LauncherFolderPreviewModItem(
     </span>
   )
 })
-
-function LauncherContextMenuItem({ action }: { action: LauncherContextMenuAction }) {
-  const handledRef = useRef(false)
-  const runAction = () => {
-    if (handledRef.current) {
-      return
-    }
-    handledRef.current = true
-    action.onSelect()
-    window.setTimeout(() => {
-      handledRef.current = false
-    }, 250)
-  }
-
-  return (
-    <ContextMenu.Item asChild onSelect={(event) => event.preventDefault()}>
-      <button
-        type="button"
-        className="context-menu-item"
-        role="menuitem"
-        onPointerDown={runAction}
-        onPointerUp={runAction}
-        onClick={runAction}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            runAction()
-          }
-        }}
-      >
-        {action.label}
-      </button>
-    </ContextMenu.Item>
-  )
-}
 
 function LauncherLibraryFolderPanel({
   folder,
@@ -1051,6 +1299,7 @@ function LauncherLibraryFolderPanel({
       role="region"
       aria-label={folder.name}
       data-folder-tone={getLauncherFolderTone(folder.id)}
+      data-launcher-folder-panel-id={folder.id}
       onContextMenuCapture={handleContextMenuCapture}
       style={{
         gridColumn: `${columnStart + 1} / span ${columnSpan}`,
@@ -1103,20 +1352,16 @@ function LauncherLibraryFolderPanel({
               }
 
               const item = displayItem.mod
-              const childCount = displayItem.kind === 'mod' ? displayItem.childMods.length : 0
+              const childCount = displayItem.childMods.length
               return (
-                <div
-                  key={`${displayItem.kind}-${item.id}`}
-                  className={cx('launcher-library-grid-reveal', displayItem.kind === 'child' && 'launcher-library-grid-reveal-child')}
-                >
-                  {displayItem.kind === 'child' ? <span className="launcher-library-child-branch" aria-hidden="true" /> : null}
+                <div key={`${displayItem.kind}-${item.id}`} className="launcher-library-grid-reveal">
                   <DraggableLauncherLibraryCard
                     item={item}
                     noneLabel={noneLabel}
                     latestVersionByModId={latestVersionByModId}
                     boxSelected={boxSelectionIdLookup.has(item.id)}
                     originFolderId={folder.id}
-                    originParentId={displayItem.kind === 'child' ? displayItem.parentMod.id : null}
+                    originParentId={null}
                     selectionMode={editMode}
                     selected={selectedIdLookup.has(item.id)}
                     childCount={childCount}
@@ -1158,411 +1403,5 @@ function LauncherLibraryFolderPanel({
         </ContextMenu.Portal>
       ) : null}
     </ContextMenu.Root>
-  )
-}
-
-function LauncherDragPreview({ source, count, pending = false }: { source: LauncherPointerDragSource; count: number; pending?: boolean }) {
-  if (source.kind === 'folder') {
-    const previewItems = source.previewItems.slice(0, 4)
-    const previewKind = previewItems.length === 1 ? previewItems[0]?.kind : previewItems.length === 0 ? 'empty' : 'mixed'
-    return (
-      <div
-        className={cx(
-          'launcher-library-drag-preview launcher-library-pointer-drag-preview launcher-library-folder-drag-preview',
-          pending && 'launcher-library-pointer-drag-preview-pending',
-        )}
-        data-testid="launcher-library-drag-preview"
-        aria-hidden="true"
-      >
-        <span
-          className="launcher-library-folder-drag-preview-grid"
-          data-preview-count={previewItems.length}
-          data-preview-kind={previewKind}
-        >
-          {previewItems.length
-            ? previewItems.map((item) => (
-                <span
-                  key={item.id}
-                  className={cx(
-                    'launcher-library-folder-drag-preview-tile',
-                    item.kind === 'folder' && 'launcher-library-folder-drag-preview-folder-tile',
-                  )}
-                >
-                  {item.kind === 'mod' && item.imageUrl ? (
-                    <img src={item.imageUrl} alt="" draggable={false} />
-                  ) : item.kind === 'folder' ? (
-                    <span className="launcher-library-folder-drag-preview-folder-glyph" />
-                  ) : (
-                    item.title.slice(0, 1).toUpperCase()
-                  )}
-                </span>
-              ))
-            : Array.from({ length: 4 }, (_, index) => (
-                <span
-                  key={`placeholder-${index}`}
-                  className="launcher-library-folder-drag-preview-tile launcher-library-folder-drag-preview-placeholder"
-                />
-              ))}
-        </span>
-        <span>{source.title}</span>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className={cx(
-        'launcher-library-drag-preview launcher-library-pointer-drag-preview',
-        pending && 'launcher-library-pointer-drag-preview-pending',
-      )}
-      data-testid="launcher-library-drag-preview"
-      aria-hidden="true"
-    >
-      <div className={cx('launcher-library-mod-drag-preview-card', !source.enabled && 'launcher-library-mod-drag-preview-card-disabled')}>
-        {source.previewImageUrl ? (
-          <img src={source.previewImageUrl} alt="" draggable={false} />
-        ) : (
-          <span className="launcher-library-mod-drag-preview-fallback">{source.title.slice(0, 1).toUpperCase()}</span>
-        )}
-        <span className="launcher-library-mod-drag-preview-copy">
-          <strong>{source.title}</strong>
-          <span>{source.meta}</span>
-        </span>
-      </div>
-      {count > 1 ? <span className="launcher-library-drag-preview-count">{count}</span> : null}
-    </div>
-  )
-}
-
-function LauncherPendingDragPreview({ drag }: { drag: LauncherDndKitActiveDrag }) {
-  return (
-    <div
-      className="launcher-library-pending-drag-preview-layer"
-      style={{
-        transform: `translate3d(${drag.latestX}px, ${drag.latestY}px, 0)`,
-      }}
-    >
-      <LauncherDragPreview source={drag.source} count={drag.modIds.length} pending={!drag.started} />
-    </div>
-  )
-}
-
-function LauncherDndKitDropTargetLayer({ targets }: { targets: LauncherDndKitDropTarget[] }) {
-  return (
-    <div className="launcher-library-dnd-target-layer" aria-hidden="true">
-      {targets.map((target) => (
-        <LauncherDndKitDropTargetBox key={target.dropId} target={target} />
-      ))}
-    </div>
-  )
-}
-
-function LauncherDndKitDropTargetBox({ target }: { target: LauncherDndKitDropTarget }) {
-  const { setNodeRef } = useDroppable({
-    id: target.dropId,
-    data: { dropId: target.dropId } satisfies LauncherDndKitDropData,
-  })
-
-  return (
-    <span
-      ref={setNodeRef}
-      className="launcher-library-dnd-target-box"
-      style={{
-        left: target.rect.left,
-        top: target.rect.top,
-        width: target.rect.width,
-        height: target.rect.height,
-      }}
-    />
-  )
-}
-
-function LauncherLibraryDndBridge({
-  onControlsChange,
-  dropTargets,
-  pendingOverlay,
-  activeOverlay,
-}: {
-  onControlsChange: (controls: LauncherDndKitControls | null) => void
-  dropTargets: LauncherDndKitDropTarget[]
-  pendingOverlay: LauncherDndKitActiveDrag | null
-  activeOverlay: LauncherDndKitActiveDrag | null
-}) {
-  const {
-    listeners: draggableListeners,
-    setActivatorNodeRef,
-    setNodeRef: setDraggableNodeRef,
-  } = useDraggable({
-    id: LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID,
-  })
-  const draggableListenersRef = useRef(draggableListeners)
-
-  useEffect(() => {
-    draggableListenersRef.current = draggableListeners
-  }, [draggableListeners])
-
-  const handleDndPointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
-    draggableListenersRef.current?.onPointerDown?.(event)
-  }, [])
-
-  useEffect(() => {
-    const controls = {
-      handleDndPointerDown,
-      setDraggableActivatorNodeRef: (node: HTMLElement | null) => {
-        setActivatorNodeRef(node)
-        setDraggableNodeRef(node)
-      },
-    }
-    onControlsChange(controls)
-    return () => onControlsChange(null)
-  }, [handleDndPointerDown, onControlsChange, setActivatorNodeRef, setDraggableNodeRef])
-
-  return (
-    <>
-      <LauncherDndKitDropTargetLayer targets={dropTargets} />
-      {pendingOverlay ? <LauncherPendingDragPreview drag={pendingOverlay} /> : null}
-      <DragOverlay dropAnimation={null} zIndex={80}>
-        {activeOverlay ? <LauncherDragPreview source={activeOverlay.source} count={activeOverlay.modIds.length} /> : null}
-      </DragOverlay>
-    </>
-  )
-}
-
-export function LauncherLibraryDndScope({
-  children,
-  resolveDraggedModIds,
-  onAddModsToPack,
-  onAssignModsToParent,
-  onAssignModsToLibraryFolder,
-  onRemoveChildModsFromParent,
-  onRemoveModsFromLibraryFolders,
-  onReleaseModsFromLibraryFolder,
-  onMoveFolderToFolder,
-}: {
-  children: ReactNode
-  resolveDraggedModIds: (modId: string) => string[]
-  onAddModsToPack: (packId: string, modIds: string[]) => void
-  onAssignModsToParent: (parentModId: string, modIds: string[]) => void
-  onAssignModsToLibraryFolder: (folderId: string, modIds: string[]) => void
-  onRemoveChildModsFromParent: (modIds: string[]) => void
-  onRemoveModsFromLibraryFolders: (modIds: string[]) => void
-  onReleaseModsFromLibraryFolder: (modIds: string[]) => void
-  onMoveFolderToFolder: (folderId: string, parentFolderId: string | null) => void
-}) {
-  const pendingDragRef = useRef<LauncherDndKitActiveDrag | null>(null)
-  const activeDragRef = useRef<LauncherDndKitActiveDrag | null>(null)
-  const suppressClickRef = useRef<{ element: HTMLElement; expiresAt: number } | null>(null)
-  const [pendingOverlay, setPendingOverlay] = useState<LauncherDndKitActiveDrag | null>(null)
-  const [activeOverlay, setActiveOverlay] = useState<LauncherDndKitActiveDrag | null>(null)
-  const [dropTargets, setDropTargets] = useState<LauncherDndKitDropTarget[]>([])
-  const [dndKitControls, setDndKitControls] = useState<LauncherDndKitControls | null>(null)
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: LAUNCHER_LIBRARY_DRAG_START_DISTANCE_PX } }))
-  const measuring = useMemo(
-    () => ({
-      droppable: {
-        strategy: MeasuringStrategy.BeforeDragging,
-      },
-    }),
-    [],
-  )
-
-  const activatePendingDrag = useCallback(() => {
-    const drag = pendingDragRef.current
-    if (!drag || activeDragRef.current) {
-      return null
-    }
-    const activeDrag = { ...drag, started: true }
-    activeDragRef.current = activeDrag
-    pendingDragRef.current = null
-    setPendingOverlay(null)
-    setActiveOverlay(activeDrag)
-    setDropTargets(measureLauncherDndKitDropTargets(drag.sourceElement))
-    return activeDrag
-  }, [])
-
-  const finishPointerDrag = useCallback(
-    (cancelled = false, overDropId?: string | null) => {
-      const drag = activeDragRef.current ?? pendingDragRef.current
-      activeDragRef.current = null
-      pendingDragRef.current = null
-      setActiveOverlay(null)
-      setPendingOverlay(null)
-      setDropTargets([])
-      if (!drag || cancelled) {
-        return
-      }
-      if (!drag.started) {
-        return
-      }
-      suppressClickRef.current = { element: drag.sourceElement, expiresAt: Date.now() + 500 }
-
-      const effectiveOverId = overDropId ?? null
-      const modIds = drag.source.kind === 'mod' ? drag.modIds : []
-      const folderDragId = drag.source.kind === 'folder' ? drag.source.folderId : null
-      const originFolderId = drag.source.kind === 'mod' ? drag.source.originFolderId : null
-      const targetFolderBlankId = effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)
-        ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
-        : null
-      const targetDropFolderId = effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX)
-        ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX.length)
-        : effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX)
-          ? effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX.length)
-          : null
-
-      if (modIds.length && targetFolderBlankId && targetFolderBlankId !== originFolderId) {
-        onAssignModsToLibraryFolder(targetFolderBlankId, modIds)
-      } else if (drag.source.kind === 'mod' && drag.source.originFolderId) {
-        onReleaseModsFromLibraryFolder(modIds)
-      } else if (drag.source.kind === 'mod' && drag.source.originParentId) {
-        onRemoveChildModsFromParent(modIds)
-      } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
-        onAddModsToPack(effectiveOverId.slice(LAUNCHER_LIBRARY_PACK_DROP_PREFIX.length), modIds)
-      } else if (modIds.length && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
-        onAssignModsToParent(effectiveOverId.slice(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX.length), modIds)
-      } else if (modIds.length && targetDropFolderId) {
-        onAssignModsToLibraryFolder(targetDropFolderId, modIds)
-      } else if (modIds.length && effectiveOverId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
-        onRemoveChildModsFromParent(modIds)
-        onRemoveModsFromLibraryFolders(modIds)
-      } else if (folderDragId && effectiveOverId?.startsWith(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX)) {
-        const targetFolderId = effectiveOverId.slice(LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX.length)
-        if (targetFolderId !== folderDragId) {
-          onMoveFolderToFolder(folderDragId, targetFolderId)
-        }
-      } else if (folderDragId && effectiveOverId === LAUNCHER_LIBRARY_BLANK_DROP_ID) {
-        onMoveFolderToFolder(folderDragId, null)
-      }
-    },
-    [
-      onAddModsToPack,
-      onAssignModsToLibraryFolder,
-      onAssignModsToParent,
-      onMoveFolderToFolder,
-      onRemoveChildModsFromParent,
-      onRemoveModsFromLibraryFolders,
-      onReleaseModsFromLibraryFolder,
-    ],
-  )
-
-  const suppressClickAfterDrag = useCallback((event: MouseEvent<HTMLElement>) => {
-    const suppressClick = suppressClickRef.current
-    if (!suppressClick || Date.now() > suppressClick.expiresAt) {
-      suppressClickRef.current = null
-      return
-    }
-    if (event.currentTarget !== suppressClick.element) {
-      return
-    }
-    suppressClickRef.current = null
-    event.preventDefault()
-    event.stopPropagation()
-  }, [])
-
-  const startPointerDrag = useCallback(
-    (source: LauncherPointerDragSource, event: PointerEvent<HTMLElement>) => {
-      if (event.button !== 0 || event.buttons !== 1) {
-        return
-      }
-      const modIds = source.kind === 'mod' ? resolveDraggedModIds(source.modId) : []
-      const existingDrag = activeDragRef.current ?? pendingDragRef.current
-      if (existingDrag?.sourceElement === event.currentTarget && !existingDrag.started) {
-        setPendingOverlay((current) =>
-          current?.sourceElement === event.currentTarget ? { ...current, latestX: event.clientX, latestY: event.clientY } : current,
-        )
-        return
-      }
-      const drag = {
-        id: LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID,
-        source,
-        sourceElement: event.currentTarget,
-        startX: event.clientX,
-        startY: event.clientY,
-        latestX: event.clientX,
-        latestY: event.clientY,
-        started: false,
-        modIds,
-      }
-      pendingDragRef.current = drag
-      setPendingOverlay(drag)
-    },
-    [resolveDraggedModIds],
-  )
-
-  const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const drag = pendingDragRef.current
-      if (!drag) {
-        return
-      }
-      if (String(event.active.id) !== String(drag.id)) {
-        return
-      }
-      activatePendingDrag()
-    },
-    [activatePendingDrag],
-  )
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const overDropId = (event.over?.data.current as LauncherDndKitDropData | undefined)?.dropId ?? String(event.over?.id ?? '')
-      finishPointerDrag(false, overDropId || null)
-    },
-    [finishPointerDrag],
-  )
-
-  const handleDragCancel = useCallback(() => {
-    finishPointerDrag(true)
-  }, [finishPointerDrag])
-
-  useEffect(() => {
-    const cancelPendingDrag = () => {
-      if (pendingDragRef.current) {
-        pendingDragRef.current = null
-        setPendingOverlay(null)
-      }
-    }
-    const handleWindowBlur = () => finishPointerDrag(true)
-    window.addEventListener('pointerup', cancelPendingDrag)
-    window.addEventListener('pointercancel', cancelPendingDrag)
-    window.addEventListener('blur', handleWindowBlur)
-    return () => {
-      window.removeEventListener('pointerup', cancelPendingDrag)
-      window.removeEventListener('pointercancel', cancelPendingDrag)
-      window.removeEventListener('blur', handleWindowBlur)
-      finishPointerDrag(true)
-    }
-  }, [finishPointerDrag])
-
-  return (
-    <LauncherPointerDragContext.Provider
-      value={useMemo(
-        () => ({
-          startPointerDrag,
-          suppressClickAfterDrag,
-          handleDndPointerDown: (event: PointerEvent<HTMLElement>) => dndKitControls?.handleDndPointerDown(event),
-          setDraggableActivatorNodeRef: (node: HTMLElement | null) => {
-            dndKitControls?.setDraggableActivatorNodeRef(node)
-          },
-        }),
-        [dndKitControls, startPointerDrag, suppressClickAfterDrag],
-      )}
-    >
-      {children}
-      <DndContext
-        sensors={sensors}
-        measuring={measuring}
-        collisionDetection={pointerWithin}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
-      >
-        <LauncherLibraryDndBridge
-          onControlsChange={setDndKitControls}
-          dropTargets={dropTargets}
-          pendingOverlay={pendingOverlay}
-          activeOverlay={activeOverlay}
-        />
-      </DndContext>
-    </LauncherPointerDragContext.Provider>
   )
 }

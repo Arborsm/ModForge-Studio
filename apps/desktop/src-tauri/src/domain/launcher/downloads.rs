@@ -15,6 +15,7 @@ use crate::domain::nexusmods::downloads::{
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
+use crate::AppHandle;
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_DISPOSITION;
 use std::fs;
@@ -196,9 +197,7 @@ pub(crate) fn save_download_queue_at_path(
     Ok(())
 }
 
-pub fn load_launcher_download_queue(
-    _app: tauri::AppHandle,
-) -> Result<LauncherDownloadQueueState, String> {
+pub fn load_launcher_download_queue(_app: AppHandle) -> Result<LauncherDownloadQueueState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
         "load_launcher_download_queue",
         (|| {
@@ -209,7 +208,7 @@ pub fn load_launcher_download_queue(
 }
 
 pub fn save_launcher_download_queue(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: LauncherDownloadQueueState,
 ) -> Result<LauncherDownloadQueueState, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(
@@ -246,7 +245,7 @@ fn parse_content_disposition_file_name(value: &str) -> Option<String> {
 }
 
 pub fn download_launcher_mod(
-    _app: tauri::AppHandle,
+    _app: AppHandle,
     request: DownloadLauncherModRequest,
 ) -> Result<DownloadLauncherModResult, String> {
     modforge_studio_desktop_lib::logging::log_tauri_command_error(

@@ -96,6 +96,17 @@ function withResolvedPorts(env, ports) {
   }
 }
 
+function withLinuxCefCache(env) {
+  if (process.platform !== 'linux' || env.CEF_PATH?.trim() || !env.MODFORGE_CEF_PATH?.trim()) {
+    return env
+  }
+
+  return {
+    ...env,
+    CEF_PATH: env.MODFORGE_CEF_PATH.trim(),
+  }
+}
+
 export async function resolveTauriDevRuntime(env = process.env, isPortAvailable = defaultPortAvailabilityProbe) {
   const host = resolveDevServerHost(env)
   const explicitAppPort = hasExplicitAppPortOverride(env)
@@ -117,7 +128,7 @@ export async function resolveTauriDevRuntime(env = process.env, isPortAvailable 
     }
   }
 
-  const runtimeEnv = withResolvedPorts(env, { port, hmrPort })
+  const runtimeEnv = withLinuxCefCache(withResolvedPorts(env, { port, hmrPort }))
 
   return {
     env: runtimeEnv,

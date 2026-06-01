@@ -6,6 +6,7 @@ import type { GameDirectoryInfo } from '../model/cpMakerPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { getWorkspacePlugin } from '@platform/plugins/workspaceRegistry'
 import { PreviewModeShell } from './PreviewModeShell'
+import type { PlayerAppearanceProfile } from '@entities/event'
 
 interface EditorPageProps {
   workspaceId: WorkspaceId
@@ -21,6 +22,8 @@ interface EditorPageProps {
   selectedEventKey?: string | null
   gameRootPath: string | null
   directoryInfo: GameDirectoryInfo | null
+  playerAppearanceProfile?: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow?: () => void
   viewMode: 'editor' | 'reference'
 }
 
@@ -38,6 +41,8 @@ export function EditorPage({
   selectedEventKey,
   gameRootPath,
   directoryInfo,
+  playerAppearanceProfile,
+  onOpenPlayerAppearanceWindow,
   viewMode,
 }: EditorPageProps) {
   const showReferenceTab = Boolean(gameRootPath && directoryInfo && locale && theme)
@@ -76,6 +81,9 @@ export function EditorPage({
             viewportLabels={viewportLabels}
             selectedEventKey={selectedEventKey}
             gameRootPath={gameRootPath}
+            directoryInfo={directoryInfo}
+            playerAppearanceProfile={playerAppearanceProfile}
+            onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">

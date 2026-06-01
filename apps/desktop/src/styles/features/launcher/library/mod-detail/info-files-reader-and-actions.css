@@ -1,0 +1,740 @@
+@layer components {
+  .launcher-mod-detail-info-layout {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+    min-height: 0;
+    padding: 18px 20px;
+  }
+
+  .launcher-mod-detail-info-layout.combined {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .launcher-mod-detail-info-layout.only {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    max-width: 540px;
+  }
+
+  .launcher-mod-detail-info-layout.rich {
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px 20px 16px;
+  }
+
+  .launcher-mod-detail-info-layout.rich.scrollable {
+    overflow: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .launcher-mod-detail-changelog-list {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+    padding-bottom: 4px;
+  }
+
+  .launcher-mod-detail-changelog-entry {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 58%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 22%, var(--bg-panel));
+    padding: 12px 14px;
+  }
+
+  .launcher-mod-detail-changelog-entry header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-changelog-entry header > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-changelog-entry span {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+
+  .launcher-mod-detail-changelog-entry strong,
+  .launcher-mod-detail-changelog-entry p {
+    overflow: hidden;
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-changelog-entry p {
+    max-width: 48%;
+    text-align: right;
+  }
+
+  .launcher-mod-detail-changelog-entry ul {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .launcher-mod-detail-changelog-entry li {
+    position: relative;
+    min-width: 0;
+    padding-left: 14px;
+  }
+
+  .launcher-mod-detail-changelog-entry li::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--text-tertiary);
+    font-size: 13px;
+    line-height: 1.5;
+    content: "›";
+  }
+
+  .launcher-mod-detail-changelog-entry li .nexusmods-bbcode {
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .launcher-mod-detail-rich-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    min-width: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 66%, transparent);
+    padding-bottom: 8px;
+  }
+
+  .launcher-mod-detail-rich-head span {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 650;
+  }
+
+  .launcher-mod-detail-rich-head strong {
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 760;
+    line-height: 1;
+  }
+
+  .launcher-detail-info-section {
+    display: grid;
+    align-content: start;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-info-layout.only .launcher-detail-info-section + .launcher-detail-info-section {
+    padding-top: 16px;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+  }
+
+  .launcher-detail-info-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .launcher-detail-info-heading span {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-panel));
+    color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 760;
+  }
+
+  .launcher-detail-info-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .launcher-detail-info-row {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    align-items: baseline;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-data-list {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .launcher-mod-detail-data-list.file-list {
+    gap: 12px;
+    overflow: visible;
+    padding-bottom: 4px;
+  }
+
+  .launcher-mod-detail-data-list.dependency-list {
+    overflow: visible;
+    padding-bottom: 4px;
+  }
+
+  .launcher-mod-detail-data-loading {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 12px;
+    min-height: 220px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 28%, var(--bg-panel));
+    color: var(--text-secondary);
+    padding: 24px;
+  }
+
+  .launcher-mod-detail-data-loading-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid color-mix(in srgb, var(--accent) 16%, var(--border-color));
+    border-top-color: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
+    border-radius: 999px;
+    animation: launcher-mod-detail-data-spinner 760ms linear infinite;
+  }
+
+  .launcher-mod-detail-data-loading strong {
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 760;
+  }
+
+  .launcher-mod-detail-data-loading-lines {
+    display: grid;
+    gap: 7px;
+    width: min(260px, 100%);
+  }
+
+  .launcher-mod-detail-data-loading-lines span {
+    display: block;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel)),
+      color-mix(in srgb, var(--accent-soft) 58%, var(--bg-panel)),
+      color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel))
+    );
+    background-size: 220% 100%;
+    animation: launcher-mod-detail-loading-line 1.2s ease-in-out infinite;
+  }
+
+  .launcher-mod-detail-data-loading-lines span:nth-child(2) {
+    width: 82%;
+  }
+
+  .launcher-mod-detail-data-loading-lines span:nth-child(3) {
+    width: 64%;
+  }
+
+  @keyframes launcher-mod-detail-data-spinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .launcher-mod-detail-file-group {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-file-group-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    min-width: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    padding: 0 2px 6px;
+  }
+
+  .launcher-mod-detail-file-group-head span {
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 760;
+  }
+
+  .launcher-mod-detail-file-group-head strong {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .launcher-mod-detail-file-stack {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-data-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 56px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 34%, var(--bg-panel));
+    padding: 10px 12px;
+  }
+
+  .launcher-mod-detail-data-item.is-missing {
+    border-color: color-mix(in srgb, var(--danger) 26%, var(--border-color));
+    background: color-mix(in srgb, var(--danger) 5%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-data-item.is-primary {
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 44%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-data-item.file-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    min-height: 44px;
+    border-color: color-mix(in srgb, var(--border-color) 52%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 20%, var(--bg-panel));
+    padding: 0;
+  }
+
+  .launcher-mod-detail-data-item.file-item.is-expanded {
+    border-color: color-mix(in srgb, var(--accent) 18%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 20%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-file-toggle {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    padding: 8px 11px;
+    text-align: left;
+  }
+
+  .launcher-mod-detail-file-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    padding-right: 8px;
+  }
+
+  .launcher-mod-detail-data-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--success);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 12%, transparent);
+  }
+
+  .launcher-mod-detail-data-item.is-missing .launcher-mod-detail-data-dot {
+    background: var(--danger);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 12%, transparent);
+  }
+
+  .launcher-mod-detail-data-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-data-copy strong {
+    overflow: hidden;
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 760;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-data-copy span {
+    overflow: hidden;
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    line-height: 1.28;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-data-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 54px;
+    border-radius: 999px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 760;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-data-pill.ready {
+    background: color-mix(in srgb, var(--success) 11%, var(--bg-panel));
+    color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-data-pill.danger {
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
+    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-file-mark {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--bg-panel) 70%, var(--bg-panel-muted));
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .launcher-mod-detail-data-item.is-primary .launcher-mod-detail-file-mark {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-panel));
+    color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-file-chevron {
+    color: var(--text-tertiary);
+    font-size: 18px;
+    font-weight: 760;
+    line-height: 1;
+    transform: rotate(90deg);
+    transition: transform 150ms ease;
+  }
+
+  .launcher-mod-detail-file-action {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--border-color) 68%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--bg-panel) 76%, var(--bg-panel-muted));
+    color: var(--text-secondary);
+    transition:
+      border-color 150ms ease,
+      background 150ms ease,
+      color 150ms ease;
+  }
+
+  .launcher-mod-detail-file-action:hover {
+    border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 42%, var(--bg-panel));
+    color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-file-archive-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 42px;
+    border: 1px dashed color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 24%, transparent);
+    color: var(--text-secondary);
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 720;
+    cursor: pointer;
+    transition:
+      border-color 150ms ease,
+      background 150ms ease,
+      color 150ms ease;
+  }
+
+  .launcher-mod-detail-file-archive-toggle:hover {
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
+    background: color-mix(in srgb, var(--accent-soft) 28%, var(--bg-panel));
+    color: var(--text-primary);
+  }
+
+  .launcher-mod-detail-file-archive-toggle strong {
+    display: inline-flex;
+    min-width: 24px;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 62%, var(--bg-panel));
+    color: color-mix(in srgb, var(--accent) 74%, var(--text-primary));
+    padding: 2px 7px;
+    font-size: 11px;
+  }
+
+  .launcher-mod-detail-file-toggle[aria-expanded="true"] .launcher-mod-detail-file-chevron {
+    transform: rotate(-90deg);
+  }
+
+  .launcher-mod-detail-file-changelog {
+    margin: 0 12px 9px 49px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 18%, var(--border-color));
+    color: var(--text-secondary);
+    padding-left: 10px;
+    font-size: 11.5px;
+    line-height: 1.35;
+  }
+
+  .launcher-mod-detail-file-description {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .launcher-mod-detail-file-description .nexusmods-bbcode {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .launcher-mod-detail-file-changelog .nexusmods-bbcode {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .launcher-mod-detail-key-card {
+    display: grid;
+    align-content: start;
+    gap: 16px;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 78%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--bg-panel) 70%, transparent);
+    padding: 14px;
+  }
+
+  .launcher-mod-detail-key-card h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 760;
+  }
+
+  .launcher-mod-detail-key-list {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-key-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 62%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 34%, var(--bg-panel));
+    padding: 11px 12px;
+  }
+
+  .launcher-mod-detail-key-item.is-missing {
+    border-color: color-mix(in srgb, var(--danger) 24%, var(--border-color));
+    background: color-mix(in srgb, var(--danger) 5%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-key-icon {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent-soft) 74%, var(--bg-panel));
+    color: color-mix(in srgb, var(--accent) 78%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-key-icon span {
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .launcher-mod-detail-key-item.is-missing .launcher-mod-detail-key-icon {
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
+    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-key-item div {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-key-item strong,
+  .launcher-mod-detail-key-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-key-item strong {
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 760;
+  }
+
+  .launcher-mod-detail-key-item span {
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+
+  .launcher-mod-detail-key-item em {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--success) 11%, var(--bg-panel));
+    color: color-mix(in srgb, var(--success) 78%, var(--text-primary));
+    padding: 2px 7px;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 760;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-key-item.is-missing em {
+    background: color-mix(in srgb, var(--danger) 10%, var(--bg-panel));
+    color: color-mix(in srgb, var(--danger) 82%, var(--text-primary));
+  }
+
+  .launcher-mod-detail-reader {
+    position: absolute;
+    inset: 18px;
+    z-index: 9;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid color-mix(in srgb, var(--border-color) 86%, transparent);
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--bg-panel) 96%, transparent);
+    box-shadow: 0 28px 60px rgba(15, 23, 42, 0.26);
+    padding: 18px;
+  }
+
+  .launcher-mod-detail-reader-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-reader-head > div {
+    min-width: 0;
+  }
+
+  .launcher-mod-detail-reader-head h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 820;
+    line-height: 1.2;
+  }
+
+  .launcher-mod-detail-reader-head p {
+    overflow: hidden;
+    margin: 3px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .launcher-mod-detail-reader-body {
+    overflow: auto;
+    justify-self: center;
+    width: min(920px, 100%);
+    min-height: 0;
+    color: var(--text-secondary);
+    scrollbar-width: thin;
+  }
+
+  .launcher-mod-detail-reader-body .nexusmods-bbcode {
+    margin: 0;
+    color: inherit;
+    font-size: 14px;
+    line-height: 1.62;
+  }
+
+  .launcher-mod-detail-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 13px 16px;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 76%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 64%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-tool-group {
+    display: inline-flex;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--border-color) 82%, transparent);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--bg-panel-muted) 76%, var(--bg-panel));
+  }
+
+  .launcher-mod-detail-tool-button {
+    display: inline-grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 0;
+    border-right: 1px solid color-mix(in srgb, var(--border-color) 72%, transparent);
+    background: color-mix(in srgb, var(--bg-panel-muted) 82%, var(--bg-panel));
+    color: var(--text-secondary);
+  }
+
+  .launcher-mod-detail-tool-button:last-child {
+    border-right: 0;
+  }
+
+  .launcher-mod-detail-tool-button:hover {
+    background: color-mix(in srgb, var(--bg-active) 82%, transparent);
+    color: var(--text-primary);
+  }
+
+  .launcher-mod-detail-primary-action {
+    min-width: 132px;
+    height: 38px;
+    box-shadow: 0 5px 12px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+}

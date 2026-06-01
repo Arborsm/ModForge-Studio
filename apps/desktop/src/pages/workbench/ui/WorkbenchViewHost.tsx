@@ -6,6 +6,7 @@ import type { GameDirectoryInfo } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, EditorCopy } from '@locales/editor-shell'
 import type { StudioDeskModel, UseCpMakerReturn } from '@features/cp-maker'
 import type { WorkspaceMode } from '@locales/editor-shell'
+import type { PlayerAppearanceProfile } from '@entities/event'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'
 
 type WorkbenchViewHostProps = {
@@ -28,7 +29,10 @@ type WorkbenchViewHostProps = {
   onSetWorkspaceViewMode: (mode: 'edit' | 'preview') => void
   studioDeskGalleryOpen: boolean
   onStudioDeskGalleryOpenChange: (open: boolean) => void
+  studioDeskCreateDialogOpenSignal: number
   activeEditPatchId: string | null
+  playerAppearanceProfile?: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow?: () => void
 }
 
 export function WorkbenchViewHost({
@@ -51,7 +55,10 @@ export function WorkbenchViewHost({
   onSetWorkspaceViewMode,
   studioDeskGalleryOpen,
   onStudioDeskGalleryOpenChange,
+  studioDeskCreateDialogOpenSignal,
   activeEditPatchId,
+  playerAppearanceProfile,
+  onOpenPlayerAppearanceWindow,
 }: WorkbenchViewHostProps) {
   return (
     <>
@@ -70,6 +77,20 @@ export function WorkbenchViewHost({
                 ...metadata,
                 gameRootPath: directoryInfo?.rootPath ?? null,
               })
+            },
+            onImportDraft: async () => {
+              const selectedPath = await cpMaker.chooseDirectory(copy.studioDesk.importDraft)
+              if (!selectedPath) {
+                return
+              }
+              const draft = await cpMaker.importPack(selectedPath)
+              onWorkbenchEvent({
+                type: 'cp-maker/draft-selected',
+                draftKey: draft.draftStorageKey,
+              })
+              onSetWorkspaceMode('mods')
+              onSetWorkspaceViewMode('edit')
+              navigateToPatch(null)
             },
             onCreatePatch: (action: DraftPatch['action'], nextWorkspace: WorkspaceId) => {
               if (!cpMaker.activeDraft) {
@@ -124,6 +145,9 @@ export function WorkbenchViewHost({
             onDeleteDraft: (draftStorageKey: string) => {
               void cpMaker.deleteDraft(draftStorageKey)
             },
+            onUpdateDraftMetadata: (metadata: Partial<CpMakerDraft['projectMetadata']>) => {
+              cpMaker.updateMetadata(metadata)
+            },
             onExportPack: async (outputPath: string) => {
               const result = await cpMaker.exportPack(outputPath)
               void result
@@ -131,6 +155,7 @@ export function WorkbenchViewHost({
             isLoading: cpMaker.draftLoading,
             galleryOpen: studioDeskGalleryOpen,
             onGalleryOpenChange: onStudioDeskGalleryOpenChange,
+            createDialogOpenSignal: studioDeskCreateDialogOpenSignal,
           })}
         </LoadingMotionReveal>
       ) : editModeView?.viewId === 'workspace-editor' ? (
@@ -145,10 +170,21 @@ export function WorkbenchViewHost({
             accentColor,
             viewportLabels: copy.viewportLabels,
             directoryInfo,
+            playerAppearanceProfile,
+            onOpenPlayerAppearanceWindow,
             canGoBack,
             canGoForward,
             onGoBack,
             onGoForward,
+          })}
+        </LoadingMotionReveal>
+      ) : editModeView ? (
+        <LoadingMotionReveal itemId={`workbench-edit-registered:${editModeView.viewId}`} index={0} className="h-full min-h-0">
+          {createElement(editModeView.component as ComponentType<Record<string, unknown>>, {
+            locale,
+            theme,
+            accentColor,
+            directoryInfo,
           })}
         </LoadingMotionReveal>
       ) : (

@@ -5,11 +5,11 @@ use super::types::{NexusDiagnosticsResult, NexusRouteSnapshot, NexusRouteStatus}
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;
 use crate::domain::launcher::types::LauncherSettings;
+use crate::AppHandle;
 use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
-use tauri::AppHandle;
 
 const LAUNCHER_NEXUS_DIAGNOSTIC_MAX_ATTEMPTS: u8 = 3;
 const LAUNCHER_NEXUS_DIAGNOSTIC_RETRY_DELAY_MS: u64 = 800;

@@ -62,13 +62,17 @@ const WorkbenchPage = lazy(async () => {
 
   return {
     default: function WorkbenchPageWithRegistry(
-      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration'>,
+      props: Omit<Parameters<typeof workbenchModule.WorkbenchPage>[0], 'getWorkbenchViewRegistration' | 'workbenchViews'>,
     ) {
       const CpMakerPlatformProvider = cpMakerProviderModule.CpMakerPlatformProvider
 
       return (
         <CpMakerPlatformProvider>
-          <workbenchModule.WorkbenchPage {...props} getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration} />
+          <workbenchModule.WorkbenchPage
+            {...props}
+            getWorkbenchViewRegistration={registryModule.getWorkbenchViewRegistration}
+            workbenchViews={registryModule.appRegistry.workbenchViews}
+          />
         </CpMakerPlatformProvider>
       )
     },
@@ -125,6 +129,7 @@ export default function App() {
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
   const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
+  const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
   const previousLocaleRef = useRef<LocaleCode>(locale)
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
@@ -141,6 +146,7 @@ export default function App() {
         setAppMode: (nextMode) => {
           if (nextMode === 'workbench') {
             setWorkbenchHasOpened(true)
+            setWorkbenchActivationKey((current) => current + 1)
           }
           setAppMode(nextMode)
         },
@@ -179,6 +185,7 @@ export default function App() {
         setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
+          setWorkbenchActivationKey((current) => current + 1)
         }
         setAppMode(nextShellState.appMode)
         setLauncherPage(nextShellState.launcherPage)
@@ -401,6 +408,7 @@ export default function App() {
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
     if (nextMode === 'workbench') {
       setWorkbenchHasOpened(true)
+      setWorkbenchActivationKey((current) => current + 1)
     }
     setAppMode(nextMode)
   }, [])
@@ -570,6 +578,7 @@ export default function App() {
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
                   onClearPendingIntent={appCommandHandler.clearPendingIntent}
+                  workbenchActivationKey={workbenchActivationKey}
                 />
               </Suspense>
             ) : null}

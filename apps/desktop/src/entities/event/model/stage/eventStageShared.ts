@@ -43,6 +43,7 @@ type PlaybackNotice = {
   tone: PlaybackNoticeTone
   startedAtMs: number
   durationMs: number
+  symbol?: 'music' | 'sound' | 'stop' | null
   icon?: PlaybackNoticeIcon | null
 }
 
@@ -323,7 +324,7 @@ type SpecificTemporarySpriteResolution = {
   sourceRect?: { x: number; y: number; width: number; height: number }
 }
 
-const FARMER_NAME_PATTERN = /^farmer\d*$/iu
+const FARMER_NAME_PATTERN = /^(?:farmer\d*|player)$/iu
 const DEFAULT_FARMER_HAIR_STYLE_INDEX = 0
 const DEFAULT_FARMER_SHIRT_SPRITE_INDEX = 0
 const DEFAULT_FARMER_PANTS_SPRITE_INDEX = 0
@@ -679,7 +680,7 @@ const ITEM_TOKEN_ALIASES: Record<string, string> = {
 }
 
 function normalizeEventItemId(rawItemId: string | undefined) {
-  const trimmed = rawItemId?.trim() ?? ''
+  const trimmed = rawItemId?.trim().replace(/^"(.+)"$/u, '$1') ?? ''
   if (!trimmed) {
     return null
   }
@@ -737,6 +738,7 @@ function enqueuePlaybackNotice(
     title: notice.title,
     detail: notice.detail,
     tone: notice.tone,
+    symbol: notice.symbol ?? null,
     icon: notice.icon ?? null,
   }
 
@@ -840,8 +842,8 @@ function createItemAtTileEffect(commandId: string, suffix: string, tileX: number
   }
 
   return createObjectSheetEffect(commandId, suffix, itemIndex, {
-    baseX: tileX * 64 + 16,
-    baseY: tileY * 64 + 16,
+    baseX: tileX * 64,
+    baseY: tileY * 64,
     space: 'world',
     scale: 4,
     layerDepth: (tileY * 64 + 32) / 10000,
@@ -866,8 +868,8 @@ function createItemAboveActorEffect(
   }
 
   return createObjectSheetEffect(commandId, suffix, itemIndex, {
-    baseX: actor.tileX * 64 + actor.offsetX + 16,
-    baseY: actor.tileY * 64 + actor.offsetY - 80,
+    baseX: actor.tileX * 64 + actor.offsetX,
+    baseY: actor.tileY * 64 + actor.offsetY - 96,
     space: 'world',
     scale: 4,
     layerDepth: ((actor.tileY - 1) * 64) / 10000,
@@ -943,7 +945,16 @@ async function loadHairMetadataIndex(rootPath: string, locale: LocaleCode) {
 }
 
 function getActorByName(actors: Record<string, EventActorState>, actorName: string) {
-  return actors[toActorKey(actorName)] ?? null
+  const directActor = actors[toActorKey(actorName)]
+  if (directActor) {
+    return directActor
+  }
+
+  if (isFarmerActor(actorName)) {
+    return Object.values(actors).find((actor) => isFarmerActor(actor.actorName)) ?? null
+  }
+
+  return null
 }
 
 function resolveActorFocusTile(actors: Record<string, EventActorState>) {

@@ -29,16 +29,17 @@ use crate::domain::nexusmods::mod_detail;
 use crate::domain::nexusmods::rest_api;
 use crate::domain::nexusmods::sso::{SsoConnectionStatus, SsoSnapshot};
 use crate::domain::nexusmods::types::NexusDiagnosticsResult;
+use crate::AppHandle;
 use serde::{Deserialize, Serialize};
 
 #[tauri::command]
-pub fn load_launcher_settings(app: tauri::AppHandle) -> Result<LauncherSettings, String> {
+pub fn load_launcher_settings(app: AppHandle) -> Result<LauncherSettings, String> {
     settings::load_launcher_settings(app)
 }
 
 #[tauri::command]
 pub fn save_launcher_settings(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: SaveLauncherSettingsRequest,
 ) -> Result<LauncherSettings, String> {
     settings::save_launcher_settings(app, request)
@@ -46,13 +47,13 @@ pub fn save_launcher_settings(
 
 #[tauri::command]
 pub fn launch_launcher_game(
-    app: tauri::AppHandle,
+    app: AppHandle,
 ) -> Result<LauncherGameLaunchResult, LauncherGameLaunchError> {
     runtime::launch_launcher_game(app)
 }
 
 #[tauri::command]
-pub fn get_launcher_backup_directory(app: tauri::AppHandle) -> Result<String, String> {
+pub fn get_launcher_backup_directory(app: AppHandle) -> Result<String, String> {
     runtime::get_launcher_backup_directory(app)
 }
 
@@ -67,28 +68,26 @@ pub fn open_launcher_url(request: OpenLauncherUrlRequest) -> Result<(), String> 
 }
 
 #[tauri::command]
-pub fn load_launcher_library_state(app: tauri::AppHandle) -> Result<LauncherLibraryState, String> {
+pub fn load_launcher_library_state(app: AppHandle) -> Result<LauncherLibraryState, String> {
     library::load_launcher_library_state(app)
 }
 
 #[tauri::command]
 pub fn save_launcher_library_state(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: LauncherLibraryState,
 ) -> Result<LauncherLibraryState, String> {
     library::save_launcher_library_state(app, request)
 }
 
 #[tauri::command]
-pub fn load_launcher_library_covers(
-    app: tauri::AppHandle,
-) -> Result<LauncherLibraryCoversState, String> {
+pub fn load_launcher_library_covers(app: AppHandle) -> Result<LauncherLibraryCoversState, String> {
     library::load_launcher_library_covers(app)
 }
 
 #[tauri::command]
 pub fn set_launcher_library_cover(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: SetLauncherLibraryCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
     library::set_launcher_library_cover(app, request)
@@ -96,7 +95,7 @@ pub fn set_launcher_library_cover(
 
 #[tauri::command]
 pub async fn persist_launcher_library_remote_cover(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: PersistLauncherLibraryRemoteCoverRequest,
 ) -> Result<LauncherLibraryCoversState, String> {
     library::persist_launcher_library_remote_cover(app, request).await
@@ -104,14 +103,14 @@ pub async fn persist_launcher_library_remote_cover(
 
 #[tauri::command]
 pub fn scan_launcher_library(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: ScanLauncherLibraryRequest,
 ) -> Result<LauncherLibraryScanResult, String> {
     library::scan_launcher_library(app, request)
 }
 
 #[tauri::command]
-pub fn load_launcher_runtime_info(app: tauri::AppHandle) -> Result<LauncherRuntimeInfo, String> {
+pub fn load_launcher_runtime_info(app: AppHandle) -> Result<LauncherRuntimeInfo, String> {
     let settings = settings::load_launcher_settings(app)?;
     let Some(game_path) = settings
         .game_path
@@ -139,38 +138,38 @@ pub fn load_launcher_runtime_info(app: tauri::AppHandle) -> Result<LauncherRunti
 
 #[tauri::command]
 pub fn set_launcher_mod_enabled(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: SetLauncherModEnabledRequest,
 ) -> Result<SetLauncherModEnabledResult, String> {
     library::set_launcher_mod_enabled(app, request)
 }
 
 #[tauri::command]
-pub fn load_launcher_download_queue(
-    app: tauri::AppHandle,
-) -> Result<LauncherDownloadQueueState, String> {
+pub fn load_launcher_download_queue(app: AppHandle) -> Result<LauncherDownloadQueueState, String> {
     downloads::load_launcher_download_queue(app)
 }
 
 #[tauri::command]
 pub fn save_launcher_download_queue(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: LauncherDownloadQueueState,
 ) -> Result<LauncherDownloadQueueState, String> {
     downloads::save_launcher_download_queue(app, request)
 }
 
 #[tauri::command]
-pub fn download_launcher_mod(
-    app: tauri::AppHandle,
+pub async fn download_launcher_mod(
+    app: AppHandle,
     request: DownloadLauncherModRequest,
 ) -> Result<DownloadLauncherModResult, String> {
-    downloads::download_launcher_mod(app, request)
+    tauri::async_runtime::spawn_blocking(move || downloads::download_launcher_mod(app, request))
+        .await
+        .map_err(|error| format!("launcher mod download task failed: {error}"))?
 }
 
 #[tauri::command]
 pub async fn search_launcher_catalog(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: SearchLauncherCatalogRequest,
 ) -> Result<LauncherCatalogPageResult, String> {
     catalog::search_launcher_catalog(app, request).await
@@ -178,7 +177,7 @@ pub async fn search_launcher_catalog(
 
 #[tauri::command]
 pub async fn load_launcher_remote_mod_detail(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: LoadLauncherRemoteModDetailRequest,
 ) -> Result<LauncherRemoteModDetail, String> {
     mod_detail::load_launcher_remote_mod_detail(app, request).await
@@ -186,7 +185,7 @@ pub async fn load_launcher_remote_mod_detail(
 
 #[tauri::command]
 pub async fn load_launcher_update_changelog(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: LoadLauncherUpdateChangelogRequest,
 ) -> Result<LauncherUpdateChangelogResult, String> {
     mod_detail::load_launcher_update_changelog(app, request).await
@@ -194,20 +193,20 @@ pub async fn load_launcher_update_changelog(
 
 #[tauri::command]
 pub async fn resolve_launcher_image(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: ResolveLauncherImageRequest,
 ) -> Result<ResolveLauncherImageResult, String> {
     image_cache::resolve_launcher_image(app, request).await
 }
 
 #[tauri::command]
-pub fn clear_launcher_image_cache(app: tauri::AppHandle) -> Result<(), String> {
+pub fn clear_launcher_image_cache(app: AppHandle) -> Result<(), String> {
     image_cache::clear_launcher_image_cache(app)
 }
 
 #[tauri::command]
 pub async fn load_launcher_nexus_diagnostics(
-    app: tauri::AppHandle,
+    app: AppHandle,
 ) -> Result<NexusDiagnosticsResult, String> {
     tauri::async_runtime::spawn_blocking(move || diagnostics::load_launcher_nexus_diagnostics(&app))
         .await
@@ -216,7 +215,7 @@ pub async fn load_launcher_nexus_diagnostics(
 
 #[tauri::command]
 pub async fn restart_launcher_nexus_diagnostics(
-    app: tauri::AppHandle,
+    app: AppHandle,
 ) -> Result<NexusDiagnosticsResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         diagnostics::restart_launcher_nexus_diagnostics_with_app(&app)
@@ -227,7 +226,7 @@ pub async fn restart_launcher_nexus_diagnostics(
 
 #[tauri::command]
 pub async fn retry_launcher_nexus_diagnostics_route(
-    app: tauri::AppHandle,
+    app: AppHandle,
     route_id: String,
 ) -> Result<NexusDiagnosticsResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -239,7 +238,7 @@ pub async fn retry_launcher_nexus_diagnostics_route(
 
 #[tauri::command]
 pub async fn set_launcher_nexus_force_offline(
-    app: tauri::AppHandle,
+    app: AppHandle,
     force_offline: bool,
 ) -> Result<NexusDiagnosticsResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -251,7 +250,7 @@ pub async fn set_launcher_nexus_force_offline(
 
 #[tauri::command]
 pub fn load_cached_launcher_updates(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: LoadCachedLauncherUpdatesRequest,
 ) -> Result<Option<LauncherUpdatesResult>, String> {
     updates::load_cached_launcher_updates(app, request)
@@ -259,7 +258,7 @@ pub fn load_cached_launcher_updates(
 
 #[tauri::command]
 pub fn load_suppressed_launcher_update_mod_ids(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: LoadSuppressedLauncherUpdateModIdsRequest,
 ) -> Result<LauncherSuppressedUpdateModIdsResult, String> {
     updates::load_suppressed_launcher_update_mod_ids(app, request)
@@ -267,23 +266,25 @@ pub fn load_suppressed_launcher_update_mod_ids(
 
 #[tauri::command]
 pub async fn check_launcher_updates(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: CheckLauncherUpdatesRequest,
 ) -> Result<LauncherUpdatesResult, String> {
     updates::check_launcher_updates(app, request).await
 }
 
 #[tauri::command]
-pub fn install_launcher_archive(
-    app: tauri::AppHandle,
+pub async fn install_launcher_archive(
+    app: AppHandle,
     request: InstallLauncherArchiveRequest,
 ) -> Result<InstallLauncherArchiveResult, String> {
-    archive::install_launcher_archive(app, request)
+    tauri::async_runtime::spawn_blocking(move || archive::install_launcher_archive(app, request))
+        .await
+        .map_err(|error| format!("launcher archive install task failed: {error}"))?
 }
 
 #[tauri::command]
 pub fn list_launcher_install_backups(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: ListLauncherInstallBackupsRequest,
 ) -> Result<Vec<LauncherInstallBackupSummary>, String> {
     archive::list_launcher_install_backups(app, request)
@@ -291,17 +292,19 @@ pub fn list_launcher_install_backups(
 
 #[tauri::command]
 pub fn restore_launcher_install_backup(
-    app: tauri::AppHandle,
+    app: AppHandle,
     request: RestoreLauncherInstallBackupRequest,
 ) -> Result<RestoreLauncherInstallBackupResult, String> {
     archive::restore_launcher_install_backup(app, request)
 }
 
 #[tauri::command]
-pub fn inspect_launcher_archive(
+pub async fn inspect_launcher_archive(
     request: InspectLauncherArchiveRequest,
 ) -> Result<InspectLauncherArchiveResult, String> {
-    archive::inspect_launcher_archive(request)
+    tauri::async_runtime::spawn_blocking(move || archive::inspect_launcher_archive(request))
+        .await
+        .map_err(|error| error.to_string())?
 }
 
 // ---- REST API v1 Commands ----
@@ -320,13 +323,13 @@ pub struct ValidateApiKeyResult {
 }
 
 #[tauri::command]
-pub async fn validate_nexus_api_key(app: tauri::AppHandle) -> Result<ValidateApiKeyResult, String> {
+pub async fn validate_nexus_api_key(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
     tauri::async_runtime::spawn_blocking(move || validate_nexus_api_key_blocking(app))
         .await
         .map_err(|error| format!("launcher Nexus API key validation task failed: {error}"))?
 }
 
-fn validate_nexus_api_key_blocking(app: tauri::AppHandle) -> Result<ValidateApiKeyResult, String> {
+fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
     let settings = settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
     let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
@@ -359,7 +362,7 @@ pub struct SsoStartResult {
 }
 
 #[tauri::command]
-pub fn start_nexus_sso(app: tauri::AppHandle) -> Result<SsoStartResult, String> {
+pub fn start_nexus_sso(app: AppHandle) -> Result<SsoStartResult, String> {
     let sso_id = crate::domain::nexusmods::sso::start_sso(&app)?;
     std::thread::sleep(std::time::Duration::from_millis(100));
     let status = crate::domain::nexusmods::sso::get_sso_status().status;

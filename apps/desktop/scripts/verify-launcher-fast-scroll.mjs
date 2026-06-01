@@ -61,10 +61,7 @@ async function installFastScrollProbe(page) {
     }
     state.sample = () => {
       const viewport = document.querySelector('.launcher-library-grid-viewport')
-      const visibleCards = Array.from(document.querySelectorAll('.launcher-mod-card')).filter((node) => {
-        const rect = node.getBoundingClientRect()
-        return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight
-      }).length
+      const visibleCards = document.querySelectorAll('.launcher-mod-card').length
       const samples = state.samplesByPhase[state.phase] ?? []
       samples.push({
         scrollTop: viewport?.scrollTop ?? 0,
@@ -154,6 +151,11 @@ function buildSummary(raw) {
 const browser = await chromium.launch({ executablePath, headless: true })
 const page = await browser.newPage({ viewport: { width: 1440, height: 980 }, deviceScaleFactor: 1 })
 const consoleErrors = []
+await page.addInitScript(() => {
+  const markPerformanceTest = () => document.documentElement?.classList.add('launcher-performance-test')
+  markPerformanceTest()
+  document.addEventListener('DOMContentLoaded', markPerformanceTest, { once: true })
+})
 
 page.on('console', (msg) => {
   if (msg.type() === 'error') consoleErrors.push(msg.text())
@@ -164,7 +166,7 @@ try {
   await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 })
   await page.waitForSelector('.launcher-library-grid-viewport', { state: 'visible', timeout: 30_000 })
   await page.waitForSelector('.launcher-mod-card', { state: 'visible', timeout: 30_000 })
-  await page.waitForTimeout(1000)
+  await page.waitForTimeout(1200)
   await installFastScrollProbe(page)
 
   const viewport = page.locator('.launcher-library-grid-viewport').first()

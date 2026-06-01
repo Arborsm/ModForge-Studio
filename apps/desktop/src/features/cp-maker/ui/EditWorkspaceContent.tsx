@@ -2,6 +2,7 @@ import type { GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { EditModeShell } from './EditModeShell'
 import type { UseCpMakerReturn } from '@features/cp-maker'
+import type { PlayerAppearanceProfile } from '@entities/event'
 
 type EditWorkspaceContentProps = {
   workspaceMode: WorkspaceId
@@ -13,6 +14,8 @@ type EditWorkspaceContentProps = {
   accentColor: string
   viewportLabels: ViewportLabels
   directoryInfo?: GameDirectoryInfo | null
+  playerAppearanceProfile?: PlayerAppearanceProfile | null
+  onOpenPlayerAppearanceWindow?: () => void
   canGoBack: boolean
   canGoForward: boolean
   onGoBack: () => void
@@ -29,6 +32,8 @@ export function EditWorkspaceContent({
   accentColor,
   viewportLabels,
   directoryInfo,
+  playerAppearanceProfile,
+  onOpenPlayerAppearanceWindow,
   canGoBack,
   canGoForward,
   onGoBack,
@@ -69,6 +74,8 @@ export function EditWorkspaceContent({
       onRemoveVirtualAsset={cpMaker.removeVirtualAsset}
       gameRootPath={directoryInfo?.rootPath ?? null}
       directoryInfo={directoryInfo}
+      playerAppearanceProfile={playerAppearanceProfile}
+      onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
       locale={locale}
       theme={theme}
       accentColor={accentColor}

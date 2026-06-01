@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { getModKey, normalizeLookupKey } from '@features/launcher/model/libraryHelpers'
@@ -18,6 +19,8 @@ export type LauncherLibraryPageProps = {
   launchGameBusy: boolean
   onLaunchGame: () => void
   onQueueDownload?: (input: QueueLauncherDownloadInput) => void
+  downloadInstallRequest?: { id: number; archivePaths: string[] } | null
+  onDownloadArchivesInstalled?: (archivePaths: string[]) => void
 }
 
 type LauncherLibraryPageContentProps = LauncherLibraryPageProps & {
@@ -32,12 +35,20 @@ export function LauncherLibraryPageContent({
   launchGameBusy,
   onLaunchGame,
   onQueueDownload,
+  downloadInstallRequest,
+  onDownloadArchivesInstalled,
 }: LauncherLibraryPageContentProps) {
   const editorCopy = useEditorCopy()
   const copy = editorCopy.launcher
   const { refresh } = library
 
-  const controller = useLauncherLibraryController({ settings, library, refresh, copy })
+  const controller = useLauncherLibraryController({
+    settings,
+    library,
+    refresh,
+    copy,
+    onArchiveInstallSuccess: onDownloadArchivesInstalled,
+  })
   const { viewModel, refs, dialogState, dragState, shellState, actions: controllerActions } = controller
   const {
     packLookup,
@@ -92,6 +103,7 @@ export function LauncherLibraryPageContent({
     closeInstallBackupsDialog,
     openInstallBackupsDialog,
     openInstallBackupsFromSummary,
+    openArchivePreviewForPaths,
     refreshLibrary,
     inspectArchive,
     confirmArchiveInstall,
@@ -137,6 +149,16 @@ export function LauncherLibraryPageContent({
     toggleLibraryFolderOpen,
     closeLibraryFolder,
   } = controllerActions
+  const handledDownloadInstallRequestIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!downloadInstallRequest || handledDownloadInstallRequestIdRef.current === downloadInstallRequest.id) {
+      return
+    }
+
+    handledDownloadInstallRequestIdRef.current = downloadInstallRequest.id
+    void openArchivePreviewForPaths(downloadInstallRequest.archivePaths)
+  }, [downloadInstallRequest, openArchivePreviewForPaths])
 
   return (
     <>

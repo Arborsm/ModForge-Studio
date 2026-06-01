@@ -69,17 +69,17 @@ README 只记录长期稳定入口，不维护完整路径地图：
 
 从仓库根目录运行。
 
-- `uv run pnpm dev`：启动前端开发服务器。
-- `uv run pnpm desktop:dev`：启动完整 Tauri 桌面应用。
-- `uv run pnpm format`：用 Prettier 格式化仓库内受支持文件，并自动排序 Tailwind class。
-- `uv run pnpm format:check`：检查 Prettier 格式，不写入文件。
-- `uv run pnpm lint`：前端 lint。
-- `uv run pnpm build`：前端构建。
-- `uv run pnpm --filter @modforge/desktop test`：前端测试。
-- `uv run pnpm --filter @modforge/desktop test:launcher-drag`：针对 Launcher library 拖拽交互运行 Playwright 性能验证；默认目标为 `http://127.0.0.1:5175/?mfLauncherMock=1`，可用 `MODFORGE_LAUNCHER_DRAG_URL` 覆盖。
-- `uv run cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`：格式化 Rust 后端。
-- `uv run cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 检查。
-- `uv run cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 测试。
+- `pnpm dev`：启动前端开发服务器。
+- `pnpm desktop:dev`：启动完整 Tauri 桌面应用。
+- `pnpm format`：用 Prettier 格式化仓库内受支持文件，并自动排序 Tailwind class。
+- `pnpm format:check`：检查 Prettier 格式，不写入文件。
+- `pnpm lint`：前端 lint。
+- `pnpm build`：前端构建。
+- `pnpm --filter @modforge/desktop test`：前端测试。
+- `pnpm --filter @modforge/desktop test:launcher-drag`：针对 Launcher library 拖拽交互运行 Playwright 性能验证；默认目标为 `http://127.0.0.1:5175/?mfLauncherMock=1`，可用 `MODFORGE_LAUNCHER_DRAG_URL` 覆盖。
+- `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`：格式化 Rust 后端。
+- `cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 检查。
+- `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`：Rust 测试。
 
 ## 首次接手建议
 

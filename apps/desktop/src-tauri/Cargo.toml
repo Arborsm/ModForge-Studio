@@ -7,12 +7,23 @@ license = ""
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"
+default-run = "modforge_studio_desktop"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 name = "modforge_studio_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "event_asset_bridge"
+path = "src/bin/event_asset_bridge.rs"
+required-features = ["dev-asset-bridge"]
+
+[features]
+default = []
+cef-runtime = ["tauri/cef"]
+dev-asset-bridge = []
 
 [build-dependencies]
 tauri-build = { version = "2.6.1", features = [] }
@@ -26,7 +37,6 @@ base64 = "0.22"
 brotli = "8.0.2"
 thiserror = "2.0.12"
 tungstenite = { version = "0.29", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
-tauri = { version = "2.11.1", features = ["protocol-asset", "unstable"] }
 tauri-plugin-dialog = "2.7.1"
 tauri-plugin-log = "2.8.0"
 lz4_flex = "0.13.1"
@@ -48,3 +58,16 @@ uuid = { version = "1.23.1", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
+
+[target.'cfg(target_os = "linux")'.dependencies.tauri]
+version = "2"
+features = ["cef", "protocol-asset", "unstable"]
+default-features = false
+
+[target.'cfg(not(target_os = "linux"))'.dependencies.tauri]
+version = "2"
+features = ["protocol-asset", "unstable"]
+
+[patch.crates-io.tauri]
+git = "https://github.com/tauri-apps/tauri"
+branch = "feat/cef"

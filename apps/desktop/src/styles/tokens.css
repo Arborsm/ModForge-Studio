@@ -1,6 +1,8 @@
 @layer base {
   :root {
-    --font-sans: "Segoe UI Variable Text", "SF Pro Text", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
+    --font-sans:
+      "Segoe UI Variable Text", "SF Pro Text", "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", "Noto Sans SC",
+      "Source Han Sans SC", "WenQuanYi Micro Hei", system-ui, sans-serif;
     --font-mono: "IBM Plex Mono", "Cascadia Mono", "JetBrains Mono", monospace;
 
     --color-accent: #4f46e5;

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { editorCopy } from '@locales/editor-shell'
@@ -697,6 +697,97 @@ describe('LauncherConfigurationPage', () => {
     })
     expect(nexusPanel.textContent).not.toContain(copy.configuration.forceOfflineEnableButton)
     expect(restartLauncherNexusDiagnostics).toHaveBeenCalled()
+  })
+
+  it('keeps the Nexus SSO action occupied while authorization is pending', async () => {
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    writeCachedLauncherConfigurationSsoStatus({
+      status: 'idle',
+      errorKind: null,
+      errorMessage: null,
+      userName: null,
+      isPremium: false,
+      ssoId: null,
+    })
+    const pendingStart = createDeferred<{ ssoId: string; status: 'connecting' }>()
+    const startNexusSso = vi.fn().mockReturnValue(pendingStart.promise)
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ startNexusSso }))
+
+    const signInButton = screen.getByRole('button', { name: copy.settings.nexusReauthorize })
+    fireEvent.click(signInButton)
+
+    expect(signInButton).toBeDisabled()
+    expect(signInButton).toHaveAttribute('aria-busy', 'true')
+
+    pendingStart.resolve({ ssoId: 'test-sso-id', status: 'connecting' })
+    await waitFor(() => {
+      expect(startNexusSso).toHaveBeenCalled()
+    })
+  })
+
+  it('polls Nexus SSO until authorized and refreshes the saved credentials', async () => {
+    vi.useFakeTimers()
+    loadLauncherNexusDiagnostics.mockResolvedValue({ routes: [] })
+    writeCachedLauncherConfigurationSsoStatus({
+      status: 'idle',
+      errorKind: null,
+      errorMessage: null,
+      userName: null,
+      isPremium: false,
+      ssoId: null,
+    })
+    const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
+    const startNexusSso = vi.fn().mockResolvedValue({ ssoId: 'test-sso-id', status: 'connecting' as const })
+    const getNexusSsoStatus = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 'connecting' as const,
+        errorKind: null,
+        errorMessage: null,
+        userName: null,
+        isPremium: false,
+        ssoId: 'test-sso-id',
+      })
+      .mockResolvedValueOnce({
+        status: 'authorized' as const,
+        errorKind: null,
+        errorMessage: null,
+        userName: 'SsoPilot',
+        isPremium: true,
+        ssoId: 'test-sso-id',
+      })
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'SsoPilot',
+      avatarUrl: null,
+      profileUrl: null,
+      isPremium: true,
+      dailyRemaining: 950,
+      hourlyRemaining: 450,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(
+      { settingsState: settingsState as never },
+      createMockLauncherPort({ startNexusSso, getNexusSsoStatus, validateNexusApiKey }),
+    )
+
+    await act(async () => {
+      const signInButtons = screen.getAllByRole('button', { name: copy.settings.nexusSignInAction })
+      fireEvent.click(signInButtons[signInButtons.length - 1]!)
+      await Promise.resolve()
+    })
+
+    expect(getNexusSsoStatus).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500)
+      await Promise.resolve()
+    })
+
+    expect(settingsState.refresh).toHaveBeenCalled()
+    expect(validateNexusApiKey).toHaveBeenCalled()
   })
 
   it('restarts diagnostics asynchronously when the header refresh action is clicked', async () => {

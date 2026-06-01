@@ -1,31 +1,18 @@
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarDays,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  ExternalLink,
-  Filter,
-  HardDrive,
-  LayoutGrid,
-  RefreshCw,
-  Search,
-} from 'lucide-react'
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Filter, LayoutGrid, RefreshCw, Search } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
-import { Tooltip } from '@shared/ui/Tooltip'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
-import { openLauncherUrl, type LauncherSettings } from '@features/launcher/api'
+import type { LauncherSettings } from '@features/launcher/api'
 import { canUseDesktopHost } from '@shared/lib/desktop'
-import { useLauncherImage } from '@features/launcher'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from '@features/launcher'
 import { useLauncherDiscover, useLauncherRemoteModDetail } from '@features/launcher'
 import type { LauncherDiscoverDetail, QueueLauncherDownloadInput } from '@features/launcher'
-import { getLauncherCardMonogram, LauncherBlockedState, LauncherModDetailPanel, LauncherStateBlock } from '@features/launcher'
+import { LauncherBlockedState, LauncherModDetailPanel, LauncherStateBlock } from '@features/launcher'
 import { applyAppUiStatePatch, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'
+import { LauncherDiscoverCard } from './LauncherDiscoverCard'
+import { formatCompactNumber } from './launcherDiscoverFormat'
 
 type LauncherDiscoverPageProps = {
   settings: LauncherSettings
@@ -82,18 +69,38 @@ const PAGE_SIZE_OPTIONS: DiscoverOption<number>[] = [
   { value: 80, label: '80 items' },
 ]
 
-type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'content' | 'fileSize' | 'downloads' | 'endorsements'
+type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'limits'
 type DiscoverItem = ReturnType<typeof useLauncherDiscover>['items'][number]
-type DiscoverTitleMarqueeStyle = CSSProperties & {
-  '--launcher-discover-title-distance': string
-  '--launcher-discover-title-duration': string
+type DiscoverFilters = ReturnType<typeof useLauncherDiscover>['filters']
+
+const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
+
+type RangePreset = {
+  label: string
+  min: string
+  max: string
 }
 
-const DISCOVER_CARD_SINGLE_CLICK_DELAY_MS = 180
-const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
-const DISCOVER_TITLE_SCROLL_SPEED_PX_PER_SECOND = 24
-const DISCOVER_TITLE_SCROLL_MIN_DURATION_SECONDS = 7
-const DISCOVER_TITLE_SCROLL_MAX_DURATION_SECONDS = 16
+const FILE_SIZE_PRESETS: RangePreset[] = [
+  { label: 'Any', min: '', max: '' },
+  { label: '< 10 KB', min: '', max: '10240' },
+  { label: '10-100 KB', min: '10240', max: '102400' },
+  { label: '> 100 KB', min: '102400', max: '' },
+]
+
+const DOWNLOAD_PRESETS: RangePreset[] = [
+  { label: 'Any', min: '', max: '' },
+  { label: '10K+', min: '10000', max: '' },
+  { label: '100K+', min: '100000', max: '' },
+  { label: '500K+', min: '500000', max: '' },
+]
+
+const ENDORSEMENT_PRESETS: RangePreset[] = [
+  { label: 'Any', min: '', max: '' },
+  { label: '1K+', min: '1000', max: '' },
+  { label: '5K+', min: '5000', max: '' },
+  { label: '10K+', min: '10000', max: '' },
+]
 
 function parseTagTokens(value: string) {
   return value
@@ -126,50 +133,6 @@ function applyTagSuggestion(currentValue: string, tag: string) {
 
 const LAUNCHER_DISCOVER_PROGRESS_NOTIFICATION_ID = 'launcher-discover-progress'
 
-function formatCompactNumber(value: number | null) {
-  if (!value || value <= 0) {
-    return 'N/A'
-  }
-
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value)
-}
-
-function formatFileSize(bytes: number | null) {
-  if (!bytes || bytes <= 0) {
-    return 'N/A'
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB']
-  let current = bytes
-  let unitIndex = 0
-  while (current >= 1024 && unitIndex < units.length - 1) {
-    current /= 1024
-    unitIndex += 1
-  }
-
-  return `${current >= 10 ? current.toFixed(0) : current.toFixed(1)}${units[unitIndex]}`
-}
-
-function formatRelativeDate(value: string | null) {
-  if (!value) {
-    return 'N/A'
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}.${month}.${day}`
-}
-
 function getDiscoverPaginationItems(page: number, totalPages: number) {
   if (totalPages <= 0) {
     return []
@@ -192,6 +155,28 @@ function getDiscoverPaginationItems(page: number, totalPages: number) {
 
 function getInitialDiscoverToolbarState(): LauncherDiscoverToolbarState {
   return normalizeLauncherDiscoverToolbarState(getAppUiStateSnapshot().launcher.discoverToolbar)
+}
+
+function scrollElementToTop(element: HTMLElement | null) {
+  if (!element) {
+    return
+  }
+
+  if (typeof element.scrollTo === 'function') {
+    element.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    return
+  }
+
+  element.scrollTop = 0
+  element.scrollLeft = 0
+}
+
+function scrollDiscoverResultsViewportToTop(viewport: HTMLDivElement | null, content: HTMLDivElement | null) {
+  scrollElementToTop(viewport)
+  scrollElementToTop(content)
+
+  const shell = content?.closest<HTMLElement>('.launcher-shell-view, .launcher-shell-main, .launcher-shell-routed')
+  scrollElementToTop(shell ?? null)
 }
 
 function getBlockedReasonLines(reason: string | null | undefined) {
@@ -254,172 +239,6 @@ function DiscoverMenu<T extends string | number>({
   )
 }
 
-function DiscoverCardTitle({ title }: { title: string }) {
-  const frameRef = useRef<HTMLSpanElement | null>(null)
-  const textRef = useRef<HTMLSpanElement | null>(null)
-  const [scrollState, setScrollState] = useState({ enabled: false, distance: 0, duration: DISCOVER_TITLE_SCROLL_MIN_DURATION_SECONDS })
-
-  useEffect(() => {
-    const frame = frameRef.current
-    const text = textRef.current
-    if (!frame || !text) {
-      return undefined
-    }
-
-    const updateScrollState = () => {
-      const distance = Math.ceil(text.scrollWidth - frame.clientWidth)
-      const enabled = distance > 2
-      const duration = Math.min(
-        DISCOVER_TITLE_SCROLL_MAX_DURATION_SECONDS,
-        Math.max(DISCOVER_TITLE_SCROLL_MIN_DURATION_SECONDS, distance / DISCOVER_TITLE_SCROLL_SPEED_PX_PER_SECOND),
-      )
-
-      setScrollState({ enabled, distance: Math.max(0, distance), duration })
-    }
-
-    updateScrollState()
-
-    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateScrollState)
-    resizeObserver?.observe(frame)
-    resizeObserver?.observe(text)
-    window.addEventListener('resize', updateScrollState)
-
-    return () => {
-      resizeObserver?.disconnect()
-      window.removeEventListener('resize', updateScrollState)
-    }
-  }, [title])
-
-  const style: DiscoverTitleMarqueeStyle | undefined = scrollState.enabled
-    ? {
-        '--launcher-discover-title-distance': `${scrollState.distance}px`,
-        '--launcher-discover-title-duration': `${scrollState.duration}s`,
-      }
-    : undefined
-
-  return (
-    <Tooltip label={title} disabled={!scrollState.enabled} className="launcher-discover-title-tooltip-anchor" placement="bottom">
-      <span
-        ref={frameRef}
-        className={cx('launcher-discover-wall-title', scrollState.enabled && 'launcher-discover-wall-title-marquee')}
-        style={style}
-      >
-        <span ref={textRef} className="launcher-discover-wall-title-text">
-          {title}
-        </span>
-      </span>
-    </Tooltip>
-  )
-}
-
-function DiscoverCard({
-  item,
-  onOpenDetails,
-  onQueueDownload,
-}: {
-  item: DiscoverItem
-  onOpenDetails: () => void
-  onQueueDownload: () => void
-}) {
-  const copy = useEditorCopy().launcher
-  const image = useLauncherImage(item.imageUrl)
-  const coverMonogram = getLauncherCardMonogram(item.title)
-  const singleClickTimeoutRef = useRef<number | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (singleClickTimeoutRef.current !== null) {
-        window.clearTimeout(singleClickTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const scheduleOpenDetails = () => {
-    if (singleClickTimeoutRef.current !== null) {
-      window.clearTimeout(singleClickTimeoutRef.current)
-    }
-
-    singleClickTimeoutRef.current = window.setTimeout(() => {
-      singleClickTimeoutRef.current = null
-      onOpenDetails()
-    }, DISCOVER_CARD_SINGLE_CLICK_DELAY_MS)
-  }
-
-  const openModPage = () => {
-    if (singleClickTimeoutRef.current !== null) {
-      window.clearTimeout(singleClickTimeoutRef.current)
-      singleClickTimeoutRef.current = null
-    }
-
-    void openLauncherUrl({ url: item.modUrl })
-  }
-
-  return (
-    <article className="launcher-discover-wall-card panel-section">
-      <button
-        type="button"
-        className="launcher-discover-wall-cover"
-        aria-label={`${copy.library.detailsTitle}: ${item.title}`}
-        aria-busy={image.loading ? 'true' : undefined}
-        onClick={scheduleOpenDetails}
-        onDoubleClick={openModPage}
-      >
-        {image.imageUrl ? <img src={image.imageUrl} alt="" className="launcher-discover-card-image" /> : null}
-        {!image.imageUrl ? (
-          <span className="launcher-discover-wall-cover-fallback">
-            <span className="launcher-discover-wall-cover-monogram" aria-hidden="true">
-              {coverMonogram}
-            </span>
-            {image.loading ? <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span> : null}
-          </span>
-        ) : null}
-        {item.updateAvailable ? <span className="launcher-discover-wall-badge">Update available</span> : null}
-        <div className="launcher-discover-wall-cover-overlay">
-          <ExternalLink className="h-4 w-4" />
-          <span>{copy.actions.openModPage}</span>
-        </div>
-      </button>
-      <div className="launcher-discover-wall-body">
-        <button type="button" className="launcher-discover-wall-copy" onClick={scheduleOpenDetails} onDoubleClick={openModPage}>
-          <div className="launcher-discover-wall-title-slot">
-            <DiscoverCardTitle title={item.title} />
-          </div>
-          <p className="launcher-discover-wall-author">{item.author ?? item.uploader ?? `Nexus #${item.modId}`}</p>
-          <p className="launcher-discover-wall-category">{item.category ?? 'Stardew Valley Mod'}</p>
-          <div className="launcher-discover-wall-summary-slot">
-            <p className="launcher-discover-wall-summary">{item.summary ?? copy.states.noSummary}</p>
-          </div>
-        </button>
-        <div className="launcher-discover-card-footer">
-          <div className="launcher-discover-wall-meta">
-            <span className="launcher-discover-wall-meta-chip">
-              <CalendarDays className="h-3.5 w-3.5" />
-              <span>{formatRelativeDate(item.updatedAt ?? item.createdAt)}</span>
-            </span>
-            <span className="launcher-discover-wall-meta-chip">
-              <Download className="h-3.5 w-3.5" />
-              <span>{formatCompactNumber(item.downloads)}</span>
-            </span>
-            <span className="launcher-discover-wall-meta-chip">
-              <HardDrive className="h-3.5 w-3.5" />
-              <span>{formatFileSize(item.fileSize)}</span>
-            </span>
-          </div>
-          <button
-            type="button"
-            className="launcher-discover-card-quick-action"
-            onClick={onQueueDownload}
-            aria-label={copy.actions.queueDownload}
-            title={copy.actions.queueDownload}
-          >
-            <Download className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    </article>
-  )
-}
-
 function DiscoverRailSection({
   id,
   title,
@@ -436,7 +255,7 @@ function DiscoverRailSection({
   const bodyId = `launcher-discover-rail-body-${id}`
 
   return (
-    <section className="launcher-discover-rail-section panel-section">
+    <section className={cx('launcher-discover-rail-section panel-section', open && 'launcher-discover-rail-section-open')}>
       <button
         type="button"
         className="launcher-discover-rail-header"
@@ -474,6 +293,8 @@ function TagSuggestionField({
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null)
+  const shellRef = useRef<HTMLDivElement | null>(null)
   const selectedTags = parseTagTokens(value)
   const currentDraft = getCurrentTagDraft(value).toLowerCase()
   const filteredSuggestions = suggestions.filter((tag) => {
@@ -487,11 +308,45 @@ function TagSuggestionField({
 
     return tag.name.toLowerCase().includes(currentDraft)
   })
+  const updateMenuPosition = useCallback(() => {
+    const rect = shellRef.current?.getBoundingClientRect()
+    if (!rect) {
+      return
+    }
+
+    const rowBlockSize = 38
+    const verticalPadding = 12
+    const viewportPadding = 18
+    const availableHeight = Math.max(220, window.innerHeight - rect.bottom - viewportPadding)
+    const preferredHeight = Math.min(520, availableHeight)
+    const visibleRows = Math.max(5, Math.floor((preferredHeight - verticalPadding) / rowBlockSize))
+
+    setMenuStyle({
+      left: rect.left,
+      maxHeight: verticalPadding + visibleRows * rowBlockSize,
+      top: rect.bottom + 6,
+      width: rect.width,
+    })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return
+    }
+
+    updateMenuPosition()
+    window.addEventListener('resize', updateMenuPosition)
+    window.addEventListener('scroll', updateMenuPosition, true)
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition)
+      window.removeEventListener('scroll', updateMenuPosition, true)
+    }
+  }, [open, updateMenuPosition])
 
   return (
     <label className="launcher-discover-rail-field launcher-discover-tag-field">
       <span>{label}</span>
-      <div className="launcher-discover-tag-input-shell">
+      <div ref={shellRef} className="launcher-discover-tag-input-shell">
         <input
           className="control-input"
           value={value}
@@ -506,31 +361,111 @@ function TagSuggestionField({
           aria-expanded={open ? 'true' : 'false'}
           aria-controls={open ? suggestionsId : undefined}
         />
-        {open && filteredSuggestions.length ? (
-          <div id={suggestionsId} className="launcher-discover-tag-suggestions" role="listbox" aria-label={suggestionsLabel}>
-            {filteredSuggestions.slice(0, 8).map((tag) => (
-              <button
-                key={`${suggestionsId}:${tag.name}`}
-                type="button"
-                className="launcher-discover-tag-suggestion"
-                role="option"
-                aria-selected="false"
-                onMouseDown={(event) => {
-                  event.preventDefault()
-                }}
-                onClick={() => {
-                  onChange(applyTagSuggestion(value, tag.name))
-                  setOpen(false)
-                }}
+        {open && filteredSuggestions.length && menuStyle
+          ? createPortal(
+              <div
+                id={suggestionsId}
+                className="launcher-discover-tag-suggestions"
+                role="listbox"
+                aria-label={suggestionsLabel}
+                style={menuStyle}
               >
-                <span>{tag.name}</span>
-                {tag.count ? <span>{formatCompactNumber(tag.count)}</span> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
+                {filteredSuggestions.map((tag) => (
+                  <button
+                    key={`${suggestionsId}:${tag.name}`}
+                    type="button"
+                    className="launcher-discover-tag-suggestion"
+                    role="option"
+                    aria-selected="false"
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                    }}
+                    onClick={() => {
+                      onChange(applyTagSuggestion(value, tag.name))
+                      setOpen(false)
+                    }}
+                  >
+                    <span>{tag.name}</span>
+                    {tag.count ? <span>{formatCompactNumber(tag.count)}</span> : null}
+                  </button>
+                ))}
+              </div>,
+              document.body,
+            )
+          : null}
       </div>
     </label>
+  )
+}
+
+function RangePresetGroup({
+  label,
+  minValue,
+  maxValue,
+  minFilter,
+  maxFilter,
+  presets,
+  advancedOpen,
+  onToggleAdvanced,
+  onUpdateFilter,
+}: {
+  label: string
+  minValue: string
+  maxValue: string
+  minFilter: keyof DiscoverFilters
+  maxFilter: keyof DiscoverFilters
+  presets: RangePreset[]
+  advancedOpen: boolean
+  onToggleAdvanced: () => void
+  onUpdateFilter: <Key extends keyof DiscoverFilters>(key: Key, value: DiscoverFilters[Key]) => void
+}) {
+  const activePreset = presets.find((preset) => preset.min === minValue && preset.max === maxValue)
+
+  return (
+    <div className="launcher-discover-range-group">
+      <div className="launcher-discover-range-heading">
+        <span className="launcher-discover-range-label">{label}</span>
+        <button type="button" className="launcher-discover-range-advanced" onClick={onToggleAdvanced}>
+          Advanced
+        </button>
+      </div>
+      <div className="launcher-discover-range-presets" role="group" aria-label={`${label} presets`}>
+        {presets.map((preset) => (
+          <button
+            key={preset.label}
+            type="button"
+            className={cx(
+              'launcher-discover-range-preset',
+              activePreset?.label === preset.label && 'launcher-discover-range-preset-active',
+            )}
+            onClick={() => {
+              onUpdateFilter(minFilter, preset.min as DiscoverFilters[typeof minFilter])
+              onUpdateFilter(maxFilter, preset.max as DiscoverFilters[typeof maxFilter])
+            }}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      {advancedOpen ? (
+        <div className="launcher-discover-range-row">
+          <input
+            className="control-input"
+            value={minValue}
+            onChange={(event) => onUpdateFilter(minFilter, event.target.value as DiscoverFilters[typeof minFilter])}
+            placeholder="No min"
+            inputMode="numeric"
+          />
+          <input
+            className="control-input"
+            value={maxValue}
+            onChange={(event) => onUpdateFilter(maxFilter, event.target.value as DiscoverFilters[typeof maxFilter])}
+            placeholder="No max"
+            inputMode="numeric"
+          />
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -709,7 +644,9 @@ function LauncherDiscoverPageContent({
   const [jumpPageDraft, setJumpPageDraft] = useState('')
   const [jumpPageDirty, setJumpPageDirty] = useState(false)
   const [detailItem, setDetailItem] = useState<DiscoverItem | null>(null)
+  const [advancedLimitId, setAdvancedLimitId] = useState<string | null>(null)
   const resultsViewportRef = useRef<HTMLDivElement | null>(null)
+  const contentRef = useRef<HTMLDivElement | null>(null)
   const discoverBlocked = Boolean(discover.blockedReason && discover.state !== 'loading')
   const blockedReasonLines = getBlockedReasonLines(discover.blockedReason)
   const primaryBlockedReason = blockedReasonLines[0] ?? null
@@ -725,7 +662,7 @@ function LauncherDiscoverPageContent({
   const languageOptions = discover.facets.languages.length
     ? discover.facets.languages
     : LANGUAGE_OPTIONS.filter((name) => name !== 'Any').map((name) => ({ name, count: 0 }))
-  const popularTags = discover.facets.tags.slice(0, 12)
+  const popularTags = discover.facets.tags
   const loadingDescription =
     discover.page > 1 || discover.items.length ? copy.discover.loadingPage(discover.page) : copy.discover.loadingResults
 
@@ -818,6 +755,20 @@ function LauncherDiscoverPageContent({
     setOpenSection(section)
   }
 
+  const scrollResultsToTop = () => scrollDiscoverResultsViewportToTop(resultsViewportRef.current, contentRef.current)
+  const setDiscoverPage = (page: number) => {
+    scrollResultsToTop()
+    discover.setPage(page)
+  }
+  const goToPreviousDiscoverPage = () => {
+    scrollResultsToTop()
+    discover.goToPreviousPage()
+  }
+  const goToNextDiscoverPage = () => {
+    scrollResultsToTop()
+    discover.goToNextPage()
+  }
+
   const submitJumpPage = () => {
     const nextPage = Number(jumpPageValue)
     if (!Number.isFinite(nextPage) || nextPage < 1) {
@@ -825,7 +776,7 @@ function LauncherDiscoverPageContent({
       setJumpPageDraft('')
       return
     }
-    discover.setPage(nextPage)
+    setDiscoverPage(nextPage)
     setJumpPageDirty(false)
     setJumpPageDraft('')
   }
@@ -857,6 +808,18 @@ function LauncherDiscoverPageContent({
             <p className="launcher-discover-console-subtitle">{`Showing ${rangeStart} - ${rangeEnd} of ${formattedResultCount} results`}</p>
           </div>
           <div className="launcher-discover-console-toolbar">
+            <label className="launcher-discover-searchbar">
+              <Search className="h-4 w-4" aria-hidden="true" />
+              <input
+                className="launcher-discover-searchbar-input"
+                value={discover.query}
+                onChange={(event) => discover.setQuery(event.target.value)}
+                placeholder="Search Nexus Mods"
+                aria-label="Search Nexus Mods"
+                spellCheck={false}
+                disabled={discoverBlocked || discoverRequestFailed}
+              />
+            </label>
             <button
               type="button"
               className="launcher-discover-filters-toggle control-button"
@@ -1067,7 +1030,7 @@ function LauncherDiscoverPageContent({
                   </div>
                 </DiscoverRailSection>
 
-                <DiscoverRailSection id="content" title="Content Options" open={openSection === 'content'} onToggle={toggleSection}>
+                <DiscoverRailSection id="limits" title="Limits" open={openSection === 'limits'} onToggle={toggleSection}>
                   <label className="launcher-discover-toggle-row">
                     <input
                       type="checkbox"
@@ -1076,63 +1039,39 @@ function LauncherDiscoverPageContent({
                     />
                     <span>Include adult content</span>
                   </label>
-                </DiscoverRailSection>
-
-                <DiscoverRailSection id="fileSize" title="File Size" open={openSection === 'fileSize'} onToggle={toggleSection}>
-                  <div className="launcher-discover-range-row">
-                    <input
-                      className="control-input"
-                      value={discover.filters.minFileSize}
-                      onChange={(event) => discover.updateFilter('minFileSize', event.target.value)}
-                      placeholder="No min"
-                      inputMode="numeric"
-                    />
-                    <input
-                      className="control-input"
-                      value={discover.filters.maxFileSize}
-                      onChange={(event) => discover.updateFilter('maxFileSize', event.target.value)}
-                      placeholder="No max"
-                      inputMode="numeric"
-                    />
-                  </div>
-                </DiscoverRailSection>
-
-                <DiscoverRailSection id="downloads" title="Downloads" open={openSection === 'downloads'} onToggle={toggleSection}>
-                  <div className="launcher-discover-range-row">
-                    <input
-                      className="control-input"
-                      value={discover.filters.minDownloads}
-                      onChange={(event) => discover.updateFilter('minDownloads', event.target.value)}
-                      placeholder="No min"
-                      inputMode="numeric"
-                    />
-                    <input
-                      className="control-input"
-                      value={discover.filters.maxDownloads}
-                      onChange={(event) => discover.updateFilter('maxDownloads', event.target.value)}
-                      placeholder="No max"
-                      inputMode="numeric"
-                    />
-                  </div>
-                </DiscoverRailSection>
-
-                <DiscoverRailSection id="endorsements" title="Endorsements" open={openSection === 'endorsements'} onToggle={toggleSection}>
-                  <div className="launcher-discover-range-row">
-                    <input
-                      className="control-input"
-                      value={discover.filters.minEndorsements}
-                      onChange={(event) => discover.updateFilter('minEndorsements', event.target.value)}
-                      placeholder="No min"
-                      inputMode="numeric"
-                    />
-                    <input
-                      className="control-input"
-                      value={discover.filters.maxEndorsements}
-                      onChange={(event) => discover.updateFilter('maxEndorsements', event.target.value)}
-                      placeholder="No max"
-                      inputMode="numeric"
-                    />
-                  </div>
+                  <RangePresetGroup
+                    label="File size"
+                    minValue={discover.filters.minFileSize}
+                    maxValue={discover.filters.maxFileSize}
+                    minFilter="minFileSize"
+                    maxFilter="maxFileSize"
+                    presets={FILE_SIZE_PRESETS}
+                    advancedOpen={advancedLimitId === 'fileSize'}
+                    onToggleAdvanced={() => setAdvancedLimitId((current) => (current === 'fileSize' ? null : 'fileSize'))}
+                    onUpdateFilter={discover.updateFilter}
+                  />
+                  <RangePresetGroup
+                    label="Downloads"
+                    minValue={discover.filters.minDownloads}
+                    maxValue={discover.filters.maxDownloads}
+                    minFilter="minDownloads"
+                    maxFilter="maxDownloads"
+                    presets={DOWNLOAD_PRESETS}
+                    advancedOpen={advancedLimitId === 'downloads'}
+                    onToggleAdvanced={() => setAdvancedLimitId((current) => (current === 'downloads' ? null : 'downloads'))}
+                    onUpdateFilter={discover.updateFilter}
+                  />
+                  <RangePresetGroup
+                    label="Endorsements"
+                    minValue={discover.filters.minEndorsements}
+                    maxValue={discover.filters.maxEndorsements}
+                    minFilter="minEndorsements"
+                    maxFilter="maxEndorsements"
+                    presets={ENDORSEMENT_PRESETS}
+                    advancedOpen={advancedLimitId === 'endorsements'}
+                    onToggleAdvanced={() => setAdvancedLimitId((current) => (current === 'endorsements' ? null : 'endorsements'))}
+                    onUpdateFilter={discover.updateFilter}
+                  />
                 </DiscoverRailSection>
               </div>
             </fieldset>
@@ -1145,6 +1084,7 @@ function LauncherDiscoverPageContent({
         ) : null}
 
         <div
+          ref={contentRef}
           className={cx(
             'launcher-discover-content',
             discoverBlocked && 'launcher-discover-content-blocked',
@@ -1233,7 +1173,7 @@ function LauncherDiscoverPageContent({
                 <div className="launcher-discover-wall-shell">
                   <div className="launcher-discover-wall">
                     {discover.items.map((item) => (
-                      <DiscoverCard
+                      <LauncherDiscoverCard
                         key={`${item.modId}:${item.modUrl}`}
                         item={item}
                         onOpenDetails={() => setDetailItem(item)}
@@ -1270,7 +1210,7 @@ function LauncherDiscoverPageContent({
                     className="launcher-discover-pagination-button"
                     aria-label="Previous page"
                     disabled={discover.page <= 1}
-                    onClick={discover.goToPreviousPage}
+                    onClick={goToPreviousDiscoverPage}
                   >
                     <ChevronLeft className="h-4 w-4" />
                     <span>Previous</span>
@@ -1292,7 +1232,7 @@ function LauncherDiscoverPageContent({
                           )}
                           aria-label={`Page ${item}`}
                           aria-current={item === discover.page ? 'page' : undefined}
-                          onClick={() => discover.setPage(item)}
+                          onClick={() => setDiscoverPage(item)}
                         >
                           {item}
                         </button>
@@ -1305,7 +1245,7 @@ function LauncherDiscoverPageContent({
                     className="launcher-discover-pagination-button"
                     aria-label="Next page"
                     disabled={discover.totalPages > 0 && discover.page >= discover.totalPages}
-                    onClick={discover.goToNextPage}
+                    onClick={goToNextDiscoverPage}
                   >
                     <span>Next</span>
                     <ChevronRight className="h-4 w-4" />

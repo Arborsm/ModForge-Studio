@@ -13,6 +13,8 @@ function model(): StudioDeskModel {
   return {
     projectName: '星露谷夏日祭扩展',
     projectDescription: '一个正在生长的节日、剧情和地图创作项目。',
+    projectAuthor: 'Arbor',
+    projectVersion: '1.0.0',
     projectUniqueId: 'Arbor.SummerFestival',
     hasActiveDraft: true,
     draftSummaries: [
@@ -32,7 +34,7 @@ function model(): StudioDeskModel {
       },
     ],
     gallery: {
-      counts: { all: 2, active: 2, export: 2, conflict: 1, archive: 0 },
+      counts: { all: 2 },
       projects: [
         {
           draftStorageKey: 'draft-1',
@@ -41,22 +43,24 @@ function model(): StudioDeskModel {
           lastEditedAt: Date.now() - 120_000,
           lastExportedAt: Date.now() - 600_000,
           isCurrent: true,
-          statuses: ['active', 'export', 'conflict'],
+          statuses: ['export', 'conflict'],
           searchText: '星露谷夏日祭扩展 Arbor.SummerFestival',
           coverTone: 'festival',
           conflictCount: 2,
+          needsMetadata: false,
         },
         {
           draftStorageKey: 'draft-2',
           title: '海风旅店',
-          uniqueId: 'Arbor.HarborInn',
+          uniqueId: '',
           lastEditedAt: Date.now() - 900_000,
-          lastExportedAt: Date.now() - 1_200_000,
+          lastExportedAt: null,
           isCurrent: false,
-          statuses: ['active', 'export'],
+          statuses: ['incomplete', 'neverExported'],
           searchText: '海风旅店 Arbor.HarborInn',
           coverTone: 'harbor',
           conflictCount: 0,
+          needsMetadata: true,
         },
       ],
     },
@@ -124,12 +128,14 @@ function renderDesk(overrides: Partial<ComponentProps<typeof StudioDesk>> = {}) 
     model: model(),
     copy,
     onCreateDraft: vi.fn(),
+    onImportDraft: vi.fn(),
     onCreatePatch: vi.fn(),
     onOpenWorkspace: vi.fn(),
     onOpenPatch: vi.fn(),
     onOpenDraft: vi.fn(),
     onCopyDraft: vi.fn(),
     onDeleteDraft: vi.fn(),
+    onUpdateDraftMetadata: vi.fn(),
     onExportPack: vi.fn(async () => {}),
     isLoading: false,
     ...overrides,
@@ -146,13 +152,20 @@ describe('StudioDesk', () => {
   test('starts in the project lobby with real draft cards', () => {
     renderDesk()
 
-    expect(screen.getByRole('region', { name: /项目大厅/ })).toBeTruthy()
+    expect(screen.getByRole('region', { name: /项目管理/ })).toBeTruthy()
     expect(screen.getByText('2 个项目')).toBeTruthy()
     expect(screen.getByText('星露谷夏日祭扩展')).toBeTruthy()
     expect(screen.getByText('海风旅店')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /星露谷夏日祭扩展/ })).toHaveClass('loading-motion-child-reveal')
-    expect(screen.getByRole('button', { name: /星露谷夏日祭扩展/ }).style.getPropertyValue('--loading-motion-child-index')).toBe('0')
-    expect(screen.getByRole('button', { name: /海风旅店/ }).style.getPropertyValue('--loading-motion-child-index')).toBe('1')
+    expect(screen.getAllByText('缺少名称或 UniqueID').length).toBeGreaterThan(0)
+    expect(screen.queryByText('资料完整')).toBeNull()
+    expect(screen.queryByText('资料不完整')).toBeNull()
+    expect(screen.queryByText('从未导出')).toBeNull()
+    expect(screen.queryByText('draft-1')).toBeNull()
+    expect(screen.getByRole('button', { name: /^打开项目 星露谷夏日祭扩展$/ })).toHaveClass('loading-motion-child-reveal')
+    expect(screen.getByRole('button', { name: /^打开项目 星露谷夏日祭扩展$/ }).style.getPropertyValue('--loading-motion-child-index')).toBe(
+      '0',
+    )
+    expect(screen.getByRole('button', { name: /^打开项目 海风旅店$/ }).style.getPropertyValue('--loading-motion-child-index')).toBe('1')
     expect(screen.queryByText('山脊夜市')).toBeNull()
   })
 
@@ -170,43 +183,49 @@ describe('StudioDesk', () => {
   test('opens an existing draft from the project lobby', () => {
     const props = renderDesk()
 
-    fireEvent.click(screen.getByRole('button', { name: /海风旅店/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^打开项目 海风旅店$/ }))
 
     expect(props.onOpenDraft).toHaveBeenCalledWith('draft-2')
     expect(screen.getByText('近期灵感堆栈')).toBeTruthy()
   })
 
-  test('supports project context menu copy and delete actions', () => {
+  test('imports a project from the project manager', () => {
     const props = renderDesk()
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: /海风旅店/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^导入$/ }))
+
+    expect(props.onImportDraft).toHaveBeenCalled()
+  })
+
+  test('supports project context menu copy, metadata, and delete actions', () => {
+    const props = renderDesk()
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /^打开项目 星露谷夏日祭扩展$/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /编辑项目属性/ }))
+    fireEvent.change(screen.getByLabelText('项目名称 *'), { target: { value: '星露谷秋日祭扩展' } })
+    fireEvent.click(screen.getByRole('button', { name: /^保存$/ }))
+
+    expect(props.onUpdateDraftMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectName: '星露谷秋日祭扩展',
+        projectUniqueId: 'Arbor.SummerFestival',
+      }),
+    )
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /^打开项目 海风旅店$/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /复制/ }))
 
     expect(props.onCopyDraft).toHaveBeenCalledWith('draft-2')
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: /海风旅店/ }))
+    fireEvent.contextMenu(screen.getByRole('button', { name: /^打开项目 海风旅店$/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /删除/ }))
     fireEvent.click(screen.getByRole('button', { name: /^删除$/ }))
 
     expect(props.onDeleteDraft).toHaveBeenCalledWith('draft-2')
   })
 
-  test('supports bulk project deletion from selected lobby cards', () => {
-    const props = renderDesk()
-
-    fireEvent.click(screen.getByRole('checkbox', { name: /选择 星露谷夏日祭扩展/ }))
-    fireEvent.click(screen.getByRole('checkbox', { name: /选择 海风旅店/ }))
-    fireEvent.click(screen.getByRole('button', { name: /批量删除/ }))
-    fireEvent.click(screen.getByRole('button', { name: /^删除$/ }))
-
-    expect(props.onDeleteDraft).toHaveBeenCalledWith('draft-1')
-    expect(props.onDeleteDraft).toHaveBeenCalledWith('draft-2')
-  })
-
   test('renders the three creation desk regions', () => {
-    renderDesk()
-
-    fireEvent.click(screen.getByRole('button', { name: /返回当前工作台/ }))
+    renderDesk({ galleryOpen: false })
 
     expect(screen.getByText('近期灵感堆栈')).toBeTruthy()
     expect(screen.getByText('星露谷夏日祭扩展')).toBeTruthy()
@@ -216,16 +235,15 @@ describe('StudioDesk', () => {
   test('can restore the creation desk without rendering project tabs', () => {
     renderDesk({ galleryOpen: false })
 
-    expect(screen.queryByRole('region', { name: /项目大厅/ })).toBeNull()
-    expect(screen.queryByRole('navigation', { name: /项目大厅/ })).toBeNull()
+    expect(screen.queryByRole('region', { name: /项目管理/ })).toBeNull()
+    expect(screen.queryByRole('navigation', { name: /项目管理/ })).toBeNull()
     expect(screen.getByText('近期灵感堆栈')).toBeTruthy()
     expect(screen.getByText('世界百科')).toBeTruthy()
   })
 
   test('opens independent workspace instead of global category', async () => {
-    const props = renderDesk()
+    const props = renderDesk({ galleryOpen: false })
 
-    fireEvent.click(screen.getByRole('button', { name: /返回当前工作台/ }))
     fireEvent.click(screen.getByRole('button', { name: /继续编写剧本/ }))
 
     expect(props.onOpenWorkspace).toHaveBeenCalledWith('events')
@@ -239,9 +257,8 @@ describe('StudioDesk', () => {
   })
 
   test('updates main stage preview when hovering an inspiration', async () => {
-    renderDesk()
+    renderDesk({ galleryOpen: false })
 
-    fireEvent.click(screen.getByRole('button', { name: /返回当前工作台/ }))
     const storyboard = screen.getByRole('complementary', { name: /近期灵感堆栈/ })
     fireEvent.mouseEnter(within(storyboard).getByText('矿山入口.map'))
     fireEvent.click(screen.getByRole('button', { name: '地图' }))
@@ -283,9 +300,8 @@ describe('StudioDesk', () => {
 
   test('opens export dialog without prompt', async () => {
     const promptSpy = vi.spyOn(globalThis, 'prompt')
-    renderDesk()
+    renderDesk({ galleryOpen: false })
 
-    fireEvent.click(screen.getByRole('button', { name: /返回当前工作台/ }))
     fireEvent.click(screen.getAllByRole('button', { name: /打包发布/ })[0]!)
 
     expect(promptSpy).not.toHaveBeenCalled()
@@ -293,9 +309,8 @@ describe('StudioDesk', () => {
   })
 
   test('opens and closes the world bible drawer affordance', () => {
-    renderDesk()
+    renderDesk({ galleryOpen: false })
 
-    fireEvent.click(screen.getByRole('button', { name: /返回当前工作台/ }))
     const drawerButton = screen.getByRole('button', { name: /^世界百科$/ })
     fireEvent.click(drawerButton)
 
@@ -308,9 +323,8 @@ describe('StudioDesk', () => {
   })
 
   test('renders the mockup stage instead of engineering controls', () => {
-    const props = renderDesk()
+    const props = renderDesk({ galleryOpen: false })
 
-    fireEvent.click(screen.getByRole('button', { name: /返回当前工作台/ }))
     expect(screen.getByText('创作控件')).toBeTruthy()
     expect(screen.getByText('剧本控制台')).toBeTruthy()
     expect(screen.getByRole('button', { name: '剧本' })).toBeTruthy()

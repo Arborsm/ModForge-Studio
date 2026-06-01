@@ -1,30 +1,7 @@
-import {
-  Castle,
-  Download,
-  GitMerge,
-  LayoutDashboard,
-  Library,
-  Map,
-  Minus,
-  Moon,
-  Package,
-  Rocket,
-  Settings2,
-  Square,
-  Sun,
-  Users,
-  X,
-} from 'lucide-react'
+import { Download, LayoutDashboard, Minus, Moon, Rocket, Settings2, Square, Sun, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import {
-  getWorkspaceModeLabel,
-  type AppMode,
-  type LauncherPage,
-  type ThemeMode,
-  type WorkspaceMode,
-  type WorkspaceTone,
-} from '@locales/editor-shell'
-import { useEditorCopy, useLocale, useSettingsMenuCopy, useViewMenuCopy } from '@locales/localeContext'
+import { type AppMode, type LauncherPage, type ThemeMode, type WorkspaceMode, type WorkspaceTone } from '@locales/editor-shell'
+import { useEditorCopy, useSettingsMenuCopy, useViewMenuCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import type { WorkspacePanelMeta } from '@shared/contracts'
 import { ProgressRing } from '@shared/ui/ProgressRing'
@@ -61,6 +38,7 @@ type TopMenuBarProps = {
     highlighted?: boolean
     onOpen: () => void
   }
+  workbenchQuickDock?: ReactNode
   launcherChrome?: {
     page: LauncherPage
     visiblePages: LauncherPage[]
@@ -75,15 +53,6 @@ type TopMenuBarProps = {
   }
 }
 
-const MODULE_ICONS: Record<WorkspaceMode, typeof Map> = {
-  map: Map,
-  characters: Users,
-  buildings: Castle,
-  items: Package,
-  events: GitMerge,
-  mods: Library,
-} satisfies Record<WorkspaceMode, typeof Map>
-
 function formatLauncherNavBadgeCount(count: number) {
   if (count <= 0) {
     return null
@@ -95,11 +64,6 @@ function formatLauncherNavBadgeCount(count: number) {
 export default function TopMenuBar({
   appMode,
   onAppModeChange,
-  workspaceMode,
-  onWorkspaceChange,
-  workspaceNavigationDisabled = false,
-  workspaceViewMode,
-  onWorkspaceViewModeChange,
   theme,
   onToggleTheme,
   statusTone,
@@ -110,10 +74,10 @@ export default function TopMenuBar({
   viewMenu,
   settingsMenu,
   projectMenu,
+  workbenchQuickDock,
   launcherChrome,
 }: TopMenuBarProps) {
   const copy = useEditorCopy()
-  const locale = useLocale()
   const viewMenuCopy = useViewMenuCopy()
   const settingsMenuCopy = useSettingsMenuCopy()
   const [activeMenu, setActiveMenu] = useState<'view' | 'downloads' | null>(null)
@@ -122,10 +86,6 @@ export default function TopMenuBar({
   const viewMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsMenuRef = useRef<HTMLDivElement | null>(null)
   const downloadsFloatRef = useRef<HTMLElement | null>(null)
-  const orderedNavModes: WorkspaceMode[] = ['mods', 'map', 'events', 'characters', 'buildings', 'items']
-  const visibleNavEntries = (orderedNavModes.length ? orderedNavModes : workspaceModes).map(
-    (mode) => [mode, getWorkspaceModeLabel(locale, copy, mode)] as const,
-  )
   const launcherModeActive = appMode === 'launcher'
   const launcherNav = launcherModeActive ? launcherChrome : undefined
   const visibleActiveMenu =
@@ -293,57 +253,9 @@ export default function TopMenuBar({
         </div>
 
         <div className="top-menu-center flex min-w-0 items-center justify-self-center">
-          <div className="top-menu-workspace pointer-events-auto">
-            <div className="top-menu-workspace-list">
-              {!launcherNav ? (
-                <>
-                  <GooeyNav
-                    items={visibleNavEntries.map(([mode, label]) => {
-                      const Icon = MODULE_ICONS[mode]
-                      return {
-                        label,
-                        icon: <Icon className="h-4 w-4" />,
-                        disabled: workspaceNavigationDisabled,
-                        disabledReason: copy.center.moduleWorkspaceDisabled,
-                      } satisfies GooeyNavItem
-                    })}
-                    activeIndex={orderedNavModes.indexOf(workspaceMode)}
-                    onChange={(index) => onWorkspaceChange(orderedNavModes[index])}
-                    ariaLabel={copy.center.moduleWorkspace}
-                    className="top-menu-gooey-nav"
-                    variant={theme}
-                  />
-                  {workspaceViewMode && onWorkspaceViewModeChange ? <div className="mx-1 h-4 w-px bg-[var(--border-color)]" /> : null}
-                  {workspaceViewMode && onWorkspaceViewModeChange ? (
-                    <div className="flex items-center gap-0.5 rounded-lg bg-[var(--bg-panel-muted)] p-0.5">
-                      <button
-                        type="button"
-                        className={cx(
-                          'rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
-                          workspaceViewMode === 'edit'
-                            ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
-                        )}
-                        onClick={() => onWorkspaceViewModeChange('edit')}
-                      >
-                        设计
-                      </button>
-                      <button
-                        type="button"
-                        className={cx(
-                          'rounded-md px-2 py-1 text-[10px] font-medium transition-colors',
-                          workspaceViewMode === 'preview'
-                            ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
-                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
-                        )}
-                        onClick={() => onWorkspaceViewModeChange('preview')}
-                      >
-                        浏览
-                      </button>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
+          {launcherNav ? (
+            <div className="top-menu-workspace pointer-events-auto">
+              <div className="top-menu-workspace-list">
                 <GooeyNav
                   items={launcherNav.visiblePages.map((page) => {
                     const updatesBadge = page === 'updates' ? formatLauncherNavBadgeCount(launcherNav.updatesBadgeCount) : null
@@ -358,9 +270,11 @@ export default function TopMenuBar({
                   className="top-menu-gooey-nav"
                   variant={theme}
                 />
-              )}
+              </div>
             </div>
-          </div>
+          ) : (
+            workbenchQuickDock
+          )}
         </div>
 
         <div
@@ -483,5 +397,3 @@ export default function TopMenuBar({
     </header>
   )
 }
-
-const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mods']

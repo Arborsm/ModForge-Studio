@@ -6,4 +6,5 @@ pub mod cp_maker;
 pub mod launcher;
 pub mod logging;
 pub mod mods;
+pub mod resource_registry;
 pub mod saves;

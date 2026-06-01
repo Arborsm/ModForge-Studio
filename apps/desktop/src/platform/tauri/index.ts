@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { OpenDialogOptions, PlatformPorts } from '@shared/contracts'
@@ -117,7 +118,7 @@ export function createTauriPlatformPorts(): PlatformPorts {
           return () => {}
         }
 
-        return getCurrentWindow().onDragDropEvent((event) => listener(event.payload))
+        return getCurrentWebview().onDragDropEvent((event) => listener(event.payload))
       },
     },
   }
