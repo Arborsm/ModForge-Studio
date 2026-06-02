@@ -13,6 +13,9 @@ supportedArchitectures:
   libc:
     - glibc
 
-onlyBuiltDependencies:
-  - electron
-  - esbuild
+minimumReleaseAge: 0
+
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  esbuild: true
