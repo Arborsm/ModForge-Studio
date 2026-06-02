@@ -66,6 +66,7 @@ describe('vite config', () => {
     const manualChunks = await loadManualChunks()
     const context: Parameters<typeof manualChunks>[1] = { getModuleInfo: () => null }
 
+    expect(manualChunks('E:/repo/apps/desktop/node_modules/@tauri-apps/api/core.js', context)).toBe('desktop-host-vendor')
     expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStageTemporarySprites.ts', context)).toBe(
       'event-stage-runtime',
     )

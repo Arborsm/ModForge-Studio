@@ -1,6 +1,6 @@
 use super::assets::{
-    image_to_data_url, infer_target_asset_kind, load_base_image_asset, load_base_json_asset,
-    load_base_map_asset, LoadedBaseImageAsset, LoadedMapAsset,
+    LoadedBaseImageAsset, LoadedMapAsset, image_to_data_url, infer_target_asset_kind,
+    load_base_image_asset, load_base_json_asset, load_base_map_asset,
 };
 use super::common::when_to_value;
 use super::conditions::evaluate_patch_status;
@@ -407,5 +407,5 @@ pub fn load_target_result(
 }
 
 #[cfg(test)]
-#[path = "tests/mod_tests.rs"]
+#[path = "apply/tests/mod_tests.rs"]
 mod tests;

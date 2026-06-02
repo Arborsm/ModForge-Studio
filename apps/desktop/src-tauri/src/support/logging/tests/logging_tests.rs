@@ -1,6 +1,6 @@
 use super::{
-    log_file_config, log_tauri_command_error_with, COMMAND_LOG_TARGET, LOG_FILE_COUNT,
-    LOG_FILE_NAME, LOG_FILE_SIZE_BYTES,
+    COMMAND_LOG_TARGET, LOG_FILE_COUNT, LOG_FILE_NAME, LOG_FILE_SIZE_BYTES, log_file_config,
+    log_tauri_command_error_with,
 };
 use crate::domain::app_paths::app_logs_dir;
 

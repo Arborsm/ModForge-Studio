@@ -6,7 +6,7 @@ ModForge Studio is a desktop workbench for creating, inspecting, and managing
 Stardew Valley mods.
 
 It combines mod library management, game asset inspection, Content Patcher
-authoring, and desktop launch workflows in one Tauri application. The active
+authoring, and desktop launch workflows in one desktop application. The active
 product workspace is `apps/desktop`.
 
 ## Features
@@ -23,12 +23,13 @@ product workspace is `apps/desktop`.
 
 ## Tech Stack
 
-- Desktop shell: Tauri v2 with a Rust backend.
+- Desktop shell: Electron on Linux; Tauri v2 on macOS and Windows; Rust remains
+  the backend for desktop capabilities.
 - Frontend: React 19, TypeScript 6, Vite 8, Tailwind CSS 4.
 - UI/runtime libraries: Radix UI, Floating UI, lucide-react, React Resizable
   Panels, TanStack Virtual, XYFlow, Zustand.
 - Testing: Vitest, jsdom, Testing Library, Playwright verification scripts.
-- Package manager: pnpm 10.30.3.
+- Package manager: pnpm 11.5.1.
 
 ## Quick Start
 
@@ -37,8 +38,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Use `pnpm desktop:dev` to run the full Tauri desktop application with the Rust
-backend. Use `pnpm build` for the frontend production build.
+Use `pnpm desktop:dev` to run the full desktop application with the Rust
+backend. On Linux this starts Electron; macOS and Windows continue to use
+Tauri. Use `pnpm build` for the frontend production build.
 
 Common checks:
 
@@ -56,9 +58,9 @@ ModForge Studio is in early active development. The repository is structured as
 a pnpm workspace, but `apps/desktop` is currently the only active product
 workspace.
 
-Linux builds currently use Tauri's experimental CEF path. Release automation is
-available, but platform signing and distribution credentials are expected to be
-provided by CI or the local release environment.
+Linux builds use Electron packages. Release automation is available, but
+platform signing and distribution credentials are expected to be provided by CI
+or the local release environment.
 
 ## Documentation
 

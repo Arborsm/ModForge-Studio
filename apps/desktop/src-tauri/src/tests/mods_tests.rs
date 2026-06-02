@@ -1,6 +1,6 @@
 use super::{
-    load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects,
-    SaveModProjectRequest,
+    SaveModProjectRequest, load_mod_project, save_mod_project, scan_mod_asset_index,
+    scan_mod_projects,
 };
 use crate::test_support::{create_temp_dir, write_file};
 use std::fs;
@@ -217,12 +217,16 @@ fn scan_mod_projects_skips_invalid_projects_without_failing() {
 
     let projects = scan_mod_projects(root.to_string_lossy().into_owned()).expect("scan mods");
     assert_eq!(projects.len(), 2);
-    assert!(projects
-        .iter()
-        .any(|project| project.absolute_path == valid_project.to_string_lossy()));
-    assert!(projects
-        .iter()
-        .any(|project| project.absolute_path == broken_content_project.to_string_lossy()));
+    assert!(
+        projects
+            .iter()
+            .any(|project| project.absolute_path == valid_project.to_string_lossy())
+    );
+    assert!(
+        projects
+            .iter()
+            .any(|project| project.absolute_path == broken_content_project.to_string_lossy())
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

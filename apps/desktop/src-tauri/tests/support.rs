@@ -1,3 +1,4 @@
+#[path = "support/infrastructure.rs"]
 pub mod infrastructure;
 
 use std::fs;

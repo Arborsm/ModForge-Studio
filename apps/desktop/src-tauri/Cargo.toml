@@ -5,8 +5,8 @@ description = "Desktop host for ModForge Studio"
 authors = ["ModForge Studio"]
 license = "GPL-3.0-or-later"
 repository = ""
-edition = "2021"
-rust-version = "1.77.2"
+edition = "2024"
+rust-version = "1.96.0"
 default-run = "modforge_studio_desktop"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -17,7 +17,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = []
-cef-runtime = ["tauri/cef"]
 dev-asset-bridge = []
 
 [[example]]
@@ -26,17 +25,18 @@ path = "examples/event_asset_bridge.rs"
 required-features = ["dev-asset-bridge"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.1", features = [] }
+tauri-build = { version = "2.6.2", features = [] }
 
 [dependencies]
 dirs = "6.0.0"
-serde_json = "1.0.149"
+serde_json = "1.0.150"
 serde = { version = "1.0.228", features = ["derive"] }
-log = "0.4.29"
-base64 = "0.22"
-brotli = "8.0.2"
-thiserror = "2.0.12"
-tungstenite = { version = "0.29", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+log = "0.4.31"
+base64 = "0.22.1"
+brotli = "8.0.3"
+thiserror = "2.0.18"
+tungstenite = { version = "0.29.0", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+tauri = { version = "2.11.2", features = ["protocol-asset", "unstable"] }
 tauri-plugin-dialog = "2.7.1"
 tauri-plugin-log = "2.8.0"
 lz4_flex = "0.13.1"
@@ -45,29 +45,16 @@ flate2 = "1.1.9"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 sha2 = "0.11.0"
 regex = "1.12.3"
-reqwest = { version = "0.13.3", default-features = false, features = ["blocking", "cookies", "form", "json", "rustls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["blocking", "cookies", "form", "json", "rustls"] }
 cookie_store = "0.22.1"
 semver = "1.0.28"
 sevenz-rust = { version = "0.6.1", features = ["compress"] }
-tar = "0.4.44"
-time = { version = "0.3.44", features = ["formatting"] }
+tar = "0.4.46"
+time = { version = "0.3.47", features = ["formatting"] }
 unrar = "0.5.8"
 url = "2.5.8"
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
-uuid = { version = "1.23.1", features = ["v4"] }
+uuid = { version = "1.23.2", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.56.0"
-
-[target.'cfg(target_os = "linux")'.dependencies.tauri]
-version = "2"
-features = ["cef", "protocol-asset", "unstable"]
-default-features = false
-
-[target.'cfg(not(target_os = "linux"))'.dependencies.tauri]
-version = "2"
-features = ["protocol-asset", "unstable"]
-
-[patch.crates-io.tauri]
-git = "https://github.com/tauri-apps/tauri"
-branch = "feat/cef"

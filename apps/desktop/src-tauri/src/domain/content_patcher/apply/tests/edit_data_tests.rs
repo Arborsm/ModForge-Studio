@@ -1,6 +1,6 @@
 use super::apply_edit_data_patch;
 use crate::domain::content_patcher::context::SimulationContext;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 fn patch_from(obj: Value) -> Map<String, Value> {
     obj.as_object().unwrap().clone()

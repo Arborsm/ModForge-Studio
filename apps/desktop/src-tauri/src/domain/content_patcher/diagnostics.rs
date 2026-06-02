@@ -11,7 +11,9 @@ pub(crate) fn non_content_patcher_manifest_error(unique_id: Option<&str>) -> Str
         Some(value) => format!(
             "manifest.json ContentPackFor.UniqueID must be Pathoschild.ContentPatcher, found {value}"
         ),
-        None => "manifest.json ContentPackFor.UniqueID must be Pathoschild.ContentPatcher".to_string(),
+        None => {
+            "manifest.json ContentPackFor.UniqueID must be Pathoschild.ContentPatcher".to_string()
+        }
     }
 }
 

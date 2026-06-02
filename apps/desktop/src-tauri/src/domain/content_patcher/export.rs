@@ -2,7 +2,7 @@ use base64::Engine;
 use std::fs;
 
 use super::types::{ContentPatcherResultAsset, ExportContentPatcherAssetResult};
-use crate::infrastructure::game_formats::tbin::{serialize_tbin_map, MapDocument};
+use crate::infrastructure::game_formats::tbin::{MapDocument, serialize_tbin_map};
 
 pub fn write_result_asset(
     target: &str,

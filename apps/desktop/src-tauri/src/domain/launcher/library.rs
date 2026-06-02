@@ -13,12 +13,12 @@ use super::types::{
     SetLauncherModEnabledResult, UNSORTED_STORAGE_FOLDER_ID, UNSORTED_STORAGE_FOLDER_NAME,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
+use crate::AppHandle;
 use crate::domain::manifest::{
     normalize_unique_id, project_name_from_manifest, required_dependency_ids, string_array_field,
     string_field,
 };
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use crate::AppHandle;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

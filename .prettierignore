@@ -3,6 +3,7 @@ dist
 coverage
 
 apps/desktop/dist
+apps/desktop/electron-dist
 apps/desktop/node_modules
 apps/desktop/src-tauri/gen/schemas
 apps/desktop/src-tauri/target

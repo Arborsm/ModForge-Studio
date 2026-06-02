@@ -1,4 +1,6 @@
+#[path = "assets/mime.rs"]
 mod mime;
+#[path = "assets/types.rs"]
 pub mod types;
 
 pub use types::{
@@ -1032,5 +1034,5 @@ pub(crate) fn load_audio_data_url(path: String) -> Result<String, String> {
 }
 
 #[cfg(test)]
-#[path = "../../tests/assets_tests.rs"]
+#[path = "../tests/assets_tests.rs"]
 mod tests;

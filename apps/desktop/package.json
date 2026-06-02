@@ -2,18 +2,24 @@
   "name": "@modforge/desktop",
   "private": true,
   "version": "0.1.0",
+  "description": "Desktop workbench for Stardew Valley mod creation and management.",
+  "author": "ModForge Studio <dev@modforge.studio>",
+  "homepage": "https://modforge.studio",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "node ./scripts/run-vite-dev.mjs",
     "dev:event-assets": "cargo run --manifest-path src-tauri/Cargo.toml --features dev-asset-bridge --example event_asset_bridge",
     "dev:force": "vite --configLoader runner --force",
+    "electron:dev": "node ./scripts/run-electron-dev.mjs",
+    "electron:build": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs",
+    "electron:build:deb": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs deb",
+    "electron:build:rpm": "pnpm build:web && cargo build --manifest-path src-tauri/Cargo.toml --release --bin modforge_sidecar && node ./scripts/build-electron-main.mjs && node ./scripts/build-electron-linux.mjs rpm",
     "build": "pnpm build:web",
     "build:web": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build --configLoader runner",
-    "build:linux-rpm": "node ./scripts/build-linux-rpm.cjs",
-    "release:linux": "pnpm release:linux:deb && pnpm build:linux-rpm",
-    "release:linux:deb": "pnpm tauri build --bundles deb",
-    "release:linux:rpm": "pnpm release:linux:deb && pnpm build:linux-rpm",
+    "release:linux": "pnpm electron:build",
+    "release:linux:deb": "pnpm electron:build:deb",
+    "release:linux:rpm": "pnpm electron:build:rpm",
     "release:macos": "node ./scripts/release-macos.cjs",
     "release:windows": "pnpm tauri build --bundles nsis",
     "release:all": "node ./scripts/release-current-platform.cjs",
@@ -27,50 +33,87 @@
     "preview": "vite preview --configLoader runner",
     "tauri": "node ./scripts/run-tauri-cli.cjs"
   },
-  "dependencies": {
+  "optionalDependencies": {
+    "@rolldown/binding-linux-x64-gnu": "1.0.3",
+    "@rolldown/binding-win32-x64-msvc": "1.0.3"
+  },
+  "devDependencies": {
     "@air/react-drag-to-select": "^5.0.11",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@eslint/js": "^10.0.1",
     "@floating-ui/react": "^0.27.19",
     "@nexusmods/nexus-api": "1.1.5",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@tailwindcss/postcss": "^4.3.0",
-    "@tanstack/react-virtual": "^3.13.24",
+    "@tanstack/react-virtual": "^3.14.2",
     "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/cli": "^2.11.2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
-    "@xyflow/react": "^12.10.2",
-    "autoprefixer": "^10.5.0",
-    "lucide-react": "^1.16.0",
-    "postcss": "^8.5.14",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
-    "react-resizable-panels": "^4.11.1",
-    "tailwindcss": "^4.3.0",
-    "zustand": "^5.0.13"
-  },
-  "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "1.0.1",
-    "@rolldown/binding-win32-x64-msvc": "1.0.1"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@tauri-apps/cli": "^2.11.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^25.8.0",
-    "@types/react": "^19.2.14",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.3.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "@xyflow/react": "^12.11.0",
+    "autoprefixer": "^10.5.0",
+    "electron": "^42.3.2",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.4.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "lucide-react": "^1.17.0",
     "playwright": "^1.60.0",
+    "postcss": "^8.5.15",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-resizable-panels": "^4.11.2",
+    "tailwindcss": "^4.3.0",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.59.3",
-    "vite": "^8.0.12",
-    "vitest": "^4.1.6"
+    "typescript-eslint": "^8.60.1",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8",
+    "zustand": "^5.0.14"
+  },
+  "main": "electron-dist/main.cjs",
+  "build": {
+    "appId": "studio.modforge.desktop",
+    "productName": "ModForge Studio",
+    "beforeBuild": "./scripts/electron-builder-before-build.cjs",
+    "files": [
+      "dist/**",
+      "electron-dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src-tauri/target/release/modforge_sidecar",
+        "to": "bin/modforge_sidecar"
+      }
+    ],
+    "linux": {
+      "executableName": "modforge-studio",
+      "artifactName": "modforge-studio-${version}-${arch}.${ext}",
+      "maintainer": "ModForge Studio <dev@modforge.studio>",
+      "synopsis": "Stardew Valley mod workbench",
+      "description": "Desktop workbench for Stardew Valley mod creation and management.",
+      "target": [
+        "deb",
+        "rpm",
+        "AppImage"
+      ],
+      "category": "Development"
+    },
+    "deb": {
+      "packageName": "modforge-studio"
+    },
+    "rpm": {
+      "packageName": "modforge-studio"
+    }
   }
 }

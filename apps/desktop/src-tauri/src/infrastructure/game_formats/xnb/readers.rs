@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::{Mutex, OnceLock};
 
 use super::buffer::CursorReader;
-use super::schema::{schema_registry, CustomTypeSchema};
+use super::schema::{CustomTypeSchema, schema_registry};
 use super::values::{TextureData, XnbValue};
 
 #[derive(Debug, Clone)]
@@ -377,11 +377,7 @@ fn compact_f32(value: f32) -> String {
     if text.contains('.') {
         text = text.trim_end_matches('0').trim_end_matches('.').to_string();
     }
-    if text == "-0" {
-        "0".to_string()
-    } else {
-        text
-    }
+    if text == "-0" { "0".to_string() } else { text }
 }
 
 fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
@@ -419,7 +415,7 @@ fn compiled_custom_type(type_name: &str) -> Result<CompiledCustomType, String> {
         None => {
             return Err(format!(
                 "Unsupported XNB reader type: {type_name} ({type_name})"
-            ))
+            ));
         }
     };
 
@@ -721,10 +717,9 @@ fn parse_suffix_subtypes(full: &str) -> Option<Vec<String>> {
         return None;
     }
 
-    Some(vec![suffix
-        .trim_matches(&['[', ']'][..])
-        .trim()
-        .to_string()])
+    Some(vec![
+        suffix.trim_matches(&['[', ']'][..]).trim().to_string(),
+    ])
 }
 
 fn generic_arity(full: &str) -> Option<usize> {

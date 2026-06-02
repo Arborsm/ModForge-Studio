@@ -1,7 +1,7 @@
 use super::{
-    find_sound_match_for_cue, parse_clip_event_wave, parse_complex_cue_entry,
+    SoundEntry, find_sound_match_for_cue, parse_clip_event_wave, parse_complex_cue_entry,
     parse_sound_entry_complex_wave, parse_sound_entry_direct_wave, parse_xsb_header,
-    read_sound_entries, SoundEntry,
+    read_sound_entries,
 };
 use std::collections::HashMap;
 

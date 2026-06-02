@@ -2,22 +2,21 @@ extern crate self as modforge_studio_desktop_lib;
 
 mod commands;
 mod domain;
+mod host;
 mod infrastructure;
+pub mod sidecar;
 mod support;
 
 #[cfg(any(debug_assertions, feature = "dev-asset-bridge"))]
 pub mod dev_asset_bridge;
 
 #[cfg(test)]
-#[path = "../tests/support/mod.rs"]
+#[path = "../tests/support.rs"]
 pub mod test_support;
 pub use support::logging;
 
-#[cfg(target_os = "linux")]
-pub type AppRuntime = tauri::Cef;
-#[cfg(not(target_os = "linux"))]
 pub type AppRuntime = tauri::Wry;
-pub type AppHandle = tauri::AppHandle<AppRuntime>;
+pub type AppHandle = host::HostHandle;
 
 use commands::app_ui::{load_app_ui_state, patch_app_ui_state};
 use commands::assets::{
@@ -54,7 +53,7 @@ use commands::logging::{set_debug_logging_enabled, write_frontend_log};
 use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
-use support::logging::{build_logging_plugin, DebugLoggingState};
+use support::logging::{DebugLoggingState, build_logging_plugin};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -62,7 +61,7 @@ pub fn run() {
     let debug_logging_state = DebugLoggingState::new();
     debug_logging_state.set_enabled(false);
 
-    tauri::Builder::default()
+    tauri::Builder::<AppRuntime>::default()
         .manage(debug_logging_state.clone())
         .plugin(tauri_plugin_dialog::init())
         .plugin(build_logging_plugin(debug_logging_state))
@@ -71,16 +70,14 @@ pub fn run() {
             let diagnostics_start_result = domain::app_ui::load_app_ui_state()
                 .map(|state| state.launcher.force_offline)
                 .and_then(|force_offline| {
+                    let host = AppHandle::from_tauri(app.handle().clone());
                     if force_offline {
                         domain::nexusmods::diagnostics::set_launcher_nexus_force_offline(
-                            &app.handle(),
-                            true,
+                            &host, true,
                         )
                         .map(|_| ())
                     } else {
-                        domain::nexusmods::diagnostics::prime_launcher_nexus_diagnostics(
-                            &app.handle(),
-                        )
+                        domain::nexusmods::diagnostics::prime_launcher_nexus_diagnostics(&host)
                     }
                 });
             if let Err(error) = diagnostics_start_result {

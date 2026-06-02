@@ -2,7 +2,7 @@
 #[path = "../src/domain/app_paths.rs"]
 mod app_paths;
 #[allow(dead_code, unused_imports)]
-#[path = "../src/domain/assets/mod.rs"]
+#[path = "../src/domain/assets.rs"]
 mod assets;
 mod domain {
     pub(crate) use crate::app_paths;
@@ -10,7 +10,7 @@ mod domain {
 #[path = "support/infrastructure.rs"]
 mod infrastructure;
 #[allow(dead_code, unused_imports)]
-#[path = "support/mod.rs"]
+#[path = "support.rs"]
 mod test_support;
 
 use serde_json::Value;
@@ -73,7 +73,11 @@ fn loads_farm_tileset_images_as_data_urls() {
         map_load_ms,
         lines.len(),
         total_image_ms,
-        if lines.is_empty() { 0.0 } else { total_image_ms / lines.len() as f64 },
+        if lines.is_empty() {
+            0.0
+        } else {
+            total_image_ms / lines.len() as f64
+        },
         lines.join("\n")
     );
 

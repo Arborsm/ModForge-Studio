@@ -4,7 +4,8 @@ const path = require('node:path')
 const desktopRoot = path.resolve(__dirname, '..')
 const repoRoot = path.resolve(desktopRoot, '../..')
 const tauriRoot = path.join(desktopRoot, 'src-tauri')
-const bundleRoot = path.join(tauriRoot, 'target/release/bundle')
+const tauriBundleRoot = path.join(tauriRoot, 'target/release/bundle')
+const electronDistRoot = path.join(desktopRoot, 'dist')
 const releaseRoot = path.join(repoRoot, 'dist/release')
 const uploadRoot = path.join(repoRoot, 'dist/release-artifacts')
 const platformNames = {
@@ -22,9 +23,12 @@ const currentPlatform = platformNames[process.platform] ?? process.platform
 const currentArch = architectureNames[process.arch] ?? process.arch
 const targetRoot = path.join(releaseRoot, `${currentPlatform}-${currentArch}`)
 const artifactRootsByPlatform = {
-  linux: [path.join(bundleRoot, 'deb'), path.join(bundleRoot, 'appimage'), path.join(bundleRoot, 'rpm-system', 'RPMS')],
-  macos: [path.join(bundleRoot, 'dmg')],
-  windows: [path.join(bundleRoot, 'msi'), path.join(bundleRoot, 'nsis')],
+  linux: [{ root: electronDistRoot, relativeRoot: electronDistRoot }],
+  macos: [{ root: path.join(tauriBundleRoot, 'dmg'), relativeRoot: tauriBundleRoot }],
+  windows: [
+    { root: path.join(tauriBundleRoot, 'msi'), relativeRoot: tauriBundleRoot },
+    { root: path.join(tauriBundleRoot, 'nsis'), relativeRoot: tauriBundleRoot },
+  ],
 }
 
 function walkFiles(root) {
@@ -56,19 +60,32 @@ function isReleaseArtifact(filePath) {
   return artifactExtensions.has(path.extname(fileName)) || artifactNames.has(fileName)
 }
 
-function copyArtifact(filePath) {
-  const relativePath = path.relative(bundleRoot, filePath)
+function collectArtifacts(rootConfig) {
+  return walkFiles(rootConfig.root)
+    .filter(isReleaseArtifact)
+    .map((filePath) => ({
+      filePath,
+      relativeRoot: rootConfig.relativeRoot,
+    }))
+}
+
+function copyArtifact(artifact) {
+  const relativePath = path.relative(artifact.relativeRoot, artifact.filePath)
   const targetPath = path.join(targetRoot, relativePath)
 
   fs.mkdirSync(path.dirname(targetPath), { recursive: true })
-  fs.copyFileSync(filePath, targetPath)
+  fs.copyFileSync(artifact.filePath, targetPath)
 
   return targetPath
 }
 
-function artifactKind(filePath) {
-  const segments = path.relative(bundleRoot, filePath).split(path.sep)
-  const extension = path.extname(filePath).toLowerCase().replace(/^\./u, '')
+function artifactKind(artifact) {
+  const extension = path.extname(artifact.filePath).toLowerCase().replace(/^\./u, '')
+  if (currentPlatform === 'linux') {
+    return extension || 'bundle'
+  }
+
+  const segments = path.relative(artifact.relativeRoot, artifact.filePath).split(path.sep)
   return segments[0] || extension || 'bundle'
 }
 
@@ -76,13 +93,13 @@ function sanitizeFileName(fileName) {
   return fileName.replace(/[^a-zA-Z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '')
 }
 
-function copyUploadArtifact(filePath) {
-  const kind = artifactKind(filePath)
-  const fileName = sanitizeFileName(path.basename(filePath))
+function copyUploadArtifact(artifact) {
+  const kind = artifactKind(artifact)
+  const fileName = sanitizeFileName(path.basename(artifact.filePath))
   const targetPath = path.join(uploadRoot, `${currentPlatform}-${currentArch}-${kind}-${fileName}`)
 
   fs.mkdirSync(path.dirname(targetPath), { recursive: true })
-  fs.copyFileSync(filePath, targetPath)
+  fs.copyFileSync(artifact.filePath, targetPath)
 
   return targetPath
 }
@@ -101,11 +118,12 @@ function formatBytes(bytes) {
 }
 
 function main() {
-  const artifactRoots = artifactRootsByPlatform[currentPlatform] ?? [bundleRoot]
-  const artifacts = artifactRoots.flatMap(walkFiles).filter(isReleaseArtifact)
+  const artifactRoots = artifactRootsByPlatform[currentPlatform] ?? [{ root: tauriBundleRoot, relativeRoot: tauriBundleRoot }]
+  const artifacts = artifactRoots.flatMap(collectArtifacts)
 
   if (artifacts.length === 0) {
-    throw new Error(`No release artifacts found under ${bundleRoot}`)
+    const searchedRoots = artifactRoots.map((artifactRoot) => path.relative(repoRoot, artifactRoot.root)).join(', ')
+    throw new Error(`No release artifacts found under ${searchedRoots}`)
   }
 
   fs.rmSync(targetRoot, { recursive: true, force: true })

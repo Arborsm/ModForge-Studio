@@ -1,7 +1,7 @@
 use super::{
+    AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD, UpdateCheckCandidate,
     load_launcher_suppressed_update_mod_ids_result_at_path,
-    partition_update_candidates_for_request, UpdateCheckCandidate,
-    AUTO_UPDATE_FAILURE_SUPPRESSION_THRESHOLD,
+    partition_update_candidates_for_request,
 };
 use crate::domain::launcher::types::LoadSuppressedLauncherUpdateModIdsRequest;
 use crate::domain::launcher::update_cache::{

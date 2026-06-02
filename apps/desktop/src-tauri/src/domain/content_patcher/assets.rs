@@ -5,7 +5,7 @@ use super::types::{
 };
 use crate::domain::modding::attached_api::AttachedApiRegistry;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
-use crate::infrastructure::game_formats::tbin::{parse_tbin_map, MapDocument};
+use crate::infrastructure::game_formats::tbin::{MapDocument, parse_tbin_map};
 use crate::infrastructure::game_formats::xnb::read_xnb_from_path;
 use base64::Engine;
 use image::codecs::png::PngEncoder;
@@ -293,7 +293,7 @@ pub fn load_base_image_asset(target: &str, game_root_path: Option<&str>) -> Load
                         return LoadedBaseImageAsset {
                             image,
                             source: describe_base_image_source(root, &candidate),
-                        }
+                        };
                     }
                     Err(error) => {
                         log::warn!("{error}");

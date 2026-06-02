@@ -12,10 +12,10 @@ use crate::domain::nexusmods::diagnostics::{
     set_launcher_nexus_route_snapshot_from_probe_for_test,
     snapshot_launcher_nexus_diagnostics_for_test,
 };
-use crate::domain::nexusmods::routes::{launcher_nexus_route_for_url, LauncherNexusRoute};
+use crate::domain::nexusmods::routes::{LauncherNexusRoute, launcher_nexus_route_for_url};
 use crate::domain::nexusmods::types::{NexusRouteSnapshot, NexusRouteStatus};
 use reqwest::header::{HeaderMap, HeaderValue};
-use std::sync::{mpsc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock, mpsc};
 use std::time::Duration;
 
 fn launcher_http_test_guard() -> &'static Mutex<()> {

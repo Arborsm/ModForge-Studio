@@ -3,33 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "license": "GPL-3.0-or-later",
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@11.5.1",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
-  "pnpm": {
-    "supportedArchitectures": {
-      "os": [
-        "darwin",
-        "linux",
-        "win32"
-      ],
-      "cpu": [
-        "arm64",
-        "x64"
-      ],
-      "libc": [
-        "glibc"
-      ]
-    }
-  },
   "scripts": {
     "dev": "pnpm --filter @modforge/desktop dev",
-    "desktop:dev": "pnpm --filter @modforge/desktop tauri dev",
+    "desktop:dev": "node ./scripts/desktop-host-dispatch.cjs dev",
     "build": "pnpm --filter @modforge/desktop build",
     "lint": "pnpm --filter @modforge/desktop lint",
-    "desktop:build": "pnpm --filter @modforge/desktop tauri build",
+    "desktop:build": "node ./scripts/desktop-host-dispatch.cjs build",
     "release:linux": "pnpm --filter @modforge/desktop release:linux",
     "release:linux:deb": "pnpm --filter @modforge/desktop release:linux:deb",
     "release:linux:rpm": "pnpm --filter @modforge/desktop release:linux:rpm",
@@ -47,7 +31,7 @@
   "devDependencies": {
     "eslint-config-prettier": "10.1.8",
     "husky": "9.1.7",
-    "lint-staged": "17.0.4",
+    "lint-staged": "17.0.7",
     "prettier": "3.8.3",
     "prettier-plugin-tailwindcss": "0.8.0"
   }

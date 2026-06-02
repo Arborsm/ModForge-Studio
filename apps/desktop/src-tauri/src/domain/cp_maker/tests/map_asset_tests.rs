@@ -3,7 +3,7 @@ use crate::domain::cp_maker::types::{
     BuildCpMakerMapAssetRequest, CpMakerDraftErrorCode, CpMakerDraftOperation,
 };
 use crate::infrastructure::game_formats::tbin::{
-    parse_tbin_map, MapDocument, MapLayer, MapPropertyValue,
+    MapDocument, MapLayer, MapPropertyValue, parse_tbin_map,
 };
 use base64::Engine;
 use std::collections::HashMap;

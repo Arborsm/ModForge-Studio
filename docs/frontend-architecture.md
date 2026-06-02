@@ -147,13 +147,13 @@ Rules:
 
 Responsibilities:
 
-- Tauri command adapters.
+- Electron and Tauri command adapters.
 - File system, dialog, window, storage, and shell ports.
 - Desktop host feature detection.
 
 Rules:
 
-- `platform/tauri` implements `shared/contracts/platform.ts`.
+- `platform/electron` and `platform/tauri` implement `shared/contracts/platform.ts`.
 - Business layers must not import `@tauri-apps/api`.
 - Business layers must not call `invoke(` directly.
 
@@ -207,11 +207,11 @@ Suggested contracts:
 Rules:
 
 - Contracts live in `shared/contracts/platform.ts`.
-- Tauri implementation lives in `platform/tauri`.
+- Electron and Tauri implementations live in `platform/electron` and `platform/tauri`.
 - Provider lives in `app/providers`.
 - Upper layers consume ports from the provider or a narrow hook.
 
-This keeps entities/features testable and prevents Tauri from leaking into business code.
+This keeps entities/features testable and prevents host APIs from leaking into business code.
 
 ## Cleanup Rules
 

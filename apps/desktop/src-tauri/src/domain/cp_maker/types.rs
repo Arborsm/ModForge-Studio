@@ -1,7 +1,7 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
 use crate::infrastructure::game_formats::tbin::MapDocument;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::fmt::{self, Display, Formatter};
 

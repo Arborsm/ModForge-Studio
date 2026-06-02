@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react'
+import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import type { PlatformPorts } from '@shared/contracts'
 import { configureDesktopPlatformPorts } from '@shared/lib/desktop'
@@ -10,7 +11,7 @@ export type PlatformProviderProps = {
 }
 
 export function PlatformProvider({ children, ports }: PlatformProviderProps) {
-  const defaultPorts = useMemo(() => ports ?? createTauriPlatformPorts(), [ports])
+  const defaultPorts = useMemo(() => ports ?? (isElectronHost() ? createElectronPlatformPorts() : createTauriPlatformPorts()), [ports])
   configureDesktopPlatformPorts(defaultPorts)
 
   return <PlatformContext.Provider value={defaultPorts}>{children}</PlatformContext.Provider>

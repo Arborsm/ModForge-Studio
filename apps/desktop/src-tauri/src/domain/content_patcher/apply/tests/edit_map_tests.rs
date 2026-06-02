@@ -2,7 +2,7 @@ use super::super::super::assets::LoadedMapAsset;
 use super::super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
 use super::apply_edit_map_patch;
 use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 
 fn empty_map_document() -> MapDocument {
@@ -240,18 +240,20 @@ fn apply_remove_layer_removes_existing_layer() {
     }));
     let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
     assert!(result.is_ok(), "{result:?}");
-    assert!(map
-        .document
-        .layers
-        .iter()
-        .find(|l| l.name == "Back")
-        .is_none());
-    assert!(map
-        .document
-        .layers
-        .iter()
-        .find(|l| l.name == "Front")
-        .is_some());
+    assert!(
+        map.document
+            .layers
+            .iter()
+            .find(|l| l.name == "Back")
+            .is_none()
+    );
+    assert!(
+        map.document
+            .layers
+            .iter()
+            .find(|l| l.name == "Front")
+            .is_some()
+    );
 }
 
 #[test]
@@ -278,16 +280,18 @@ fn apply_remove_layer_and_add_layer_combined() {
     }));
     let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
     assert!(result.is_ok(), "{result:?}");
-    assert!(map
-        .document
-        .layers
-        .iter()
-        .find(|l| l.name == "Back")
-        .is_none());
-    assert!(map
-        .document
-        .layers
-        .iter()
-        .find(|l| l.name == "Buildings")
-        .is_some());
+    assert!(
+        map.document
+            .layers
+            .iter()
+            .find(|l| l.name == "Back")
+            .is_none()
+    );
+    assert!(
+        map.document
+            .layers
+            .iter()
+            .find(|l| l.name == "Buildings")
+            .is_some()
+    );
 }

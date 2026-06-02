@@ -1,7 +1,7 @@
 use super::{
     as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
 #[test]
@@ -36,15 +36,21 @@ fn build_snapshot_diagnostics_reports_missing_required_fields() {
     let diagnostics = build_snapshot_diagnostics(&json!({ "Name": "Pack" }), &json!({}));
 
     assert_eq!(diagnostics.len(), 3);
-    assert!(diagnostics
-        .iter()
-        .any(|diag| diag.field.as_deref() == Some("manifest.UniqueID")));
-    assert!(diagnostics
-        .iter()
-        .any(|diag| diag.field.as_deref() == Some("content.Format")));
-    assert!(diagnostics
-        .iter()
-        .any(|diag| diag.field.as_deref() == Some("content.Changes")));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diag| diag.field.as_deref() == Some("manifest.UniqueID"))
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diag| diag.field.as_deref() == Some("content.Format"))
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diag| diag.field.as_deref() == Some("content.Changes"))
+    );
 }
 
 #[test]

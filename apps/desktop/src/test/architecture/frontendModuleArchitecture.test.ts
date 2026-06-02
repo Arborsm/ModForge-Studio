@@ -116,6 +116,7 @@ describe('frontend module architecture', () => {
     await expectFile(sourcePath('src/shared/contracts/types/viewport.ts'))
     await expectFile(sourcePath('src/shared/contracts/types/maps.ts'))
     await expectFile(sourcePath('src/platform/tauri/index.ts'))
+    await expectFile(sourcePath('src/platform/electron/index.ts'))
 
     const mainEntry = await readFile(sourcePath('src/main.tsx'), 'utf8')
     const appEntry = await readFile(sourcePath('src/app/App.tsx'), 'utf8')
@@ -170,12 +171,13 @@ describe('frontend module architecture', () => {
     expect(registrySetup).toContain('getWorkspacePanelRegistration')
   })
 
-  it('provides platform ports from the app layer through the Tauri adapter', async () => {
+  it('provides platform ports from the app layer through desktop host adapters', async () => {
     const provider = await readFile(sourcePath('src/app/providers/PlatformProvider.tsx'), 'utf8')
     const cpMakerProvider = await readFile(sourcePath('src/app/providers/CpMakerPlatformProvider.tsx'), 'utf8')
     const cpMakerPortAdapter = await readFile(sourcePath('src/app/providers/cpMakerPortAdapter.ts'), 'utf8')
     const cpMakerProviderEntry = await readFile(sourcePath('src/features/cp-maker/provider.ts'), 'utf8')
     const tauriAdapter = await readFile(sourcePath('src/platform/tauri/index.ts'), 'utf8')
+    const electronAdapter = await readFile(sourcePath('src/platform/electron/index.ts'), 'utf8')
 
     expect(provider).toContain('PlatformProvider')
     expect(cpMakerProvider).toContain("from '@features/cp-maker/provider'")
@@ -199,6 +201,10 @@ describe('frontend module architecture', () => {
     expect(tauriAdapter).toContain("from '@tauri-apps/api/window'")
     expect(tauriAdapter).toContain("from '@tauri-apps/plugin-dialog'")
     expect(tauriAdapter).toContain('createTauriPlatformPorts')
+    expect(electronAdapter).toContain("from '@shared/contracts'")
+    expect(electronAdapter).toContain('createElectronPlatformPorts')
+    expect(electronAdapter).toContain('window.modforgeElectron')
+    expect(provider).toContain('isElectronHost()')
   })
 
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {

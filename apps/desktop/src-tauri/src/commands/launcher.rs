@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use crate::domain::launcher::archive;
 use crate::domain::launcher::downloads;
 use crate::domain::launcher::image_cache;
@@ -29,7 +30,6 @@ use crate::domain::nexusmods::mod_detail;
 use crate::domain::nexusmods::rest_api;
 use crate::domain::nexusmods::sso::{SsoConnectionStatus, SsoSnapshot};
 use crate::domain::nexusmods::types::NexusDiagnosticsResult;
-use crate::AppHandle;
 use serde::{Deserialize, Serialize};
 
 #[tauri::command]

@@ -5,6 +5,7 @@ coverage/
 Thumbs.db
 
 apps/desktop/dist/
+apps/desktop/electron-dist/
 apps/desktop/node_modules/
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/tests/fixtures/**/target/

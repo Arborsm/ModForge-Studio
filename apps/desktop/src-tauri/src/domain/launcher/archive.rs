@@ -12,10 +12,10 @@ use super::types::{
     RestoreLauncherInstallBackupResult,
 };
 use super::update_cache::invalidate_launcher_updates_cache_at_path;
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::AppHandle;
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use flate2::read::GzDecoder;
-use sevenz_rust::{decompress_file_with_extract_fn, Error as SevenZipError};
+use sevenz_rust::{Error as SevenZipError, decompress_file_with_extract_fn};
 use std::collections::BTreeSet;
 use std::env;
 use std::fs;

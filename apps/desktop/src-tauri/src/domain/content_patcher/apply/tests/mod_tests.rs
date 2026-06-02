@@ -1,4 +1,4 @@
-use super::{load_target_base_with, LoadedTargetBase};
+use super::{LoadedTargetBase, load_target_base_with};
 use crate::domain::content_patcher::assets::{LoadedBaseImageAsset, LoadedMapAsset};
 use crate::domain::content_patcher::types::ContentPatcherMapDebugSummary;
 use crate::infrastructure::game_formats::tbin::MapDocument;

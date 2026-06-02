@@ -3,12 +3,12 @@ pub mod mod_detail;
 pub mod updates;
 
 use super::http::{
-    apply_launcher_headers, launcher_http_client, send_nexus_json_request,
-    PUBLIC_BROWSER_USER_AGENT,
+    PUBLIC_BROWSER_USER_AGENT, apply_launcher_headers, launcher_http_client,
+    send_nexus_json_request,
 };
 use crate::domain::nexusmods::shared::{extract_graphql_error, normalize_nexus_url, string_field};
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, CONTENT_TYPE, REFERER, USER_AGENT};
-use serde_json::{json, Value};
+use reqwest::header::{ACCEPT, CONTENT_TYPE, HeaderMap, HeaderValue, REFERER, USER_AGENT};
+use serde_json::{Value, json};
 
 pub(crate) const GRAPHQL_ENDPOINT: &str = super::endpoints::GRAPHQL_V2;
 pub(crate) const DEFAULT_GAME_ID: i64 = 1303;
@@ -144,5 +144,5 @@ pub(crate) fn load_user_avatar(api_key: &str, user_id: u64) -> Result<Option<Str
 }
 
 #[cfg(test)]
-#[path = "tests/account_tests.rs"]
+#[path = "graphql/tests/account_tests.rs"]
 mod account_tests;

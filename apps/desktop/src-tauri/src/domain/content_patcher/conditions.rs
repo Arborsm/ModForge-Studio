@@ -1,5 +1,5 @@
 use super::context::SimulationContext;
-use super::tokens::{parse_condition_token, ConditionModifier, INVALID_WHEN_TOKEN};
+use super::tokens::{ConditionModifier, INVALID_WHEN_TOKEN, parse_condition_token};
 use super::types::ContentPatcherPatchStatus;
 use serde_json::Value;
 use std::path::{Path, PathBuf};

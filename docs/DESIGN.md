@@ -159,7 +159,7 @@ Durable architecture rules that affect design work:
 - `features` own independent user capabilities and must not import other features.
 - `entities` are headless domain modules.
 - `shared/contracts` owns registry, events, commands, platform ports, and cross-layer types.
-- `platform/tauri` implements desktop adapters; business code must not import Tauri directly.
+- `platform/electron` and `platform/tauri` implement desktop adapters; business code must not import host APIs directly.
 - Static registry composition happens in `apps/desktop/src/app/registry-setup.ts`.
 
 Cross-feature coordination uses typed events and commands:

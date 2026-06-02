@@ -8,14 +8,14 @@ use super::types::{
     DownloadLauncherModRequest, DownloadLauncherModResult, LauncherDownloadQueueItem,
     LauncherDownloadQueueState,
 };
+use crate::AppHandle;
 use crate::domain::app_ui::load_app_ui_state;
 use crate::domain::nexusmods::downloads::{
-    download_file_response, fetch_mod_files_payload, resolve_download_url,
-    select_download_candidate, ResolveDownloadUrlError,
+    ResolveDownloadUrlError, download_file_response, fetch_mod_files_payload, resolve_download_url,
+    select_download_candidate,
 };
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::infrastructure::fs::pathing::normalize_path;
-use crate::AppHandle;
 use reqwest::blocking::Response;
 use reqwest::header::CONTENT_DISPOSITION;
 use std::fs;
@@ -425,8 +425,8 @@ pub fn download_launcher_mod(
 #[cfg(test)]
 mod tests {
     use super::{
-        download_result_title, manual_download_page_opened_result, nexus_manual_download_url,
-        DownloadLauncherModRequest, NEXUS_STARDEW_VALLEY_GAME_ID,
+        DownloadLauncherModRequest, NEXUS_STARDEW_VALLEY_GAME_ID, download_result_title,
+        manual_download_page_opened_result, nexus_manual_download_url,
     };
 
     #[test]

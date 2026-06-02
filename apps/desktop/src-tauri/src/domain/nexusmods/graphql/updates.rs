@@ -3,13 +3,13 @@ use crate::domain::nexusmods::can_use_nexus_graphql;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::graphql::mod_detail::{
-    parse_remote_mod_detail_node, RemoteModDetail,
+    RemoteModDetail, parse_remote_mod_detail_node,
 };
 use crate::domain::nexusmods::http::send_nexus_request;
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::extract_graphql_error;
 use reqwest::blocking::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 const UPDATE_BATCH_GRAPHQL_QUERY: &str = r#"

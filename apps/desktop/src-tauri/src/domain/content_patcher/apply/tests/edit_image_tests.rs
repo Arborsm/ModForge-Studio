@@ -3,7 +3,7 @@ use super::super::super::types::{ContentPatcherProjectSnapshot, VirtualPreviewAs
 use super::apply_edit_image_patch;
 use base64::Engine;
 use image::RgbaImage;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 fn empty_snapshot() -> ContentPatcherProjectSnapshot {
     ContentPatcherProjectSnapshot {

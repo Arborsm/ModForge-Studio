@@ -45,17 +45,17 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
           shared-key: release-${{ matrix.platform }}
 
-      - name: Cache Tauri tooling
+      - name: Cache desktop packaging tools
         uses: actions/cache@v4
         with:
           path: |
             ~/.cache/tauri
             ~/Library/Caches/tauri
             ~/AppData/Local/tauri
-            .cache/cef
-          key: tauri-${{ matrix.platform }}-${{ runner.os }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock') }}
+            .tmp/electron-builder-cache
+          key: desktop-packaging-${{ matrix.platform }}-${{ runner.os }}-${{ hashFiles('apps/desktop/src-tauri/Cargo.lock', 'pnpm-lock.yaml') }}
           restore-keys: |
-            tauri-${{ matrix.platform }}-${{ runner.os }}-
+            desktop-packaging-${{ matrix.platform }}-${{ runner.os }}-
 
       - name: Install Linux bundling dependencies
         if: matrix.platform == 'linux'
@@ -104,7 +104,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modforge-studio-linux-rpm
-          path: dist/release-artifacts/*-rpm-system-*
+          path: dist/release-artifacts/*-rpm-*
+          if-no-files-found: error
+
+      - name: Upload Linux AppImage
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: modforge-studio-linux-appimage
+          path: dist/release-artifacts/*-appimage-*
           if-no-files-found: error
 
       - name: Upload macOS dmg

@@ -5,10 +5,10 @@ use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
     LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest,
 };
+use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{
     clean_input_path, normalize_path, smapi_launch_candidates, stardew_game_launch_candidates,
 };
-use crate::AppHandle;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};

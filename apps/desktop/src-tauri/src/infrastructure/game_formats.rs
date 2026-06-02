@@ -4,5 +4,5 @@ pub mod xact;
 pub mod xnb;
 
 #[cfg(test)]
-#[path = "tests/mod.rs"]
+#[path = "game_formats/tests.rs"]
 mod tests;

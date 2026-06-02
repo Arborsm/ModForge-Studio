@@ -2,7 +2,7 @@ use super::types::{
     ChangeRegistry, ChangeRegistryPatch, CpMakerDraftError, CpMakerDraftErrorCode,
     CpMakerDraftOperation, CpMakerDraftRecord, CpMakerMetadata, CustomLocation, DynamicToken,
 };
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};

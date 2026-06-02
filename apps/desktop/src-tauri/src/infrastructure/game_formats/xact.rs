@@ -1,6 +1,10 @@
+#[path = "xact/io.rs"]
 mod io;
+#[path = "xact/wav.rs"]
 mod wav;
+#[path = "xact/xsb.rs"]
 mod xsb;
+#[path = "xact/xwb.rs"]
 mod xwb;
 
 use base64::Engine;

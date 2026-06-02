@@ -1,4 +1,4 @@
-use super::{parse_character_entries, parse_item_entries, ResourceRegistryEntry};
+use super::{ResourceRegistryEntry, parse_character_entries, parse_item_entries};
 
 fn values_for(entries: &[ResourceRegistryEntry], kind: &str) -> Vec<String> {
     entries

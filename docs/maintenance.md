@@ -6,9 +6,9 @@ from the repository root unless a command says otherwise.
 ## Prerequisites
 
 - Node.js compatible with the locked dependency graph.
-- pnpm 10.30.3, as declared in the root `packageManager` field.
+- pnpm 11.5.1, as declared in the root `packageManager` field.
 - Rust stable with the toolchain required by `apps/desktop/src-tauri/Cargo.toml`.
-- Platform build dependencies for Tauri, CEF, and native package generation.
+- Platform build dependencies for Tauri, Electron, and native package generation.
 
 ## Development Commands
 
@@ -48,9 +48,8 @@ individual package artifacts into the release output directory. The collector is
 intended to preserve package and architecture names instead of hiding them inside
 one archive.
 
-Linux CEF builds use Tauri's experimental `cef` feature. RPM output is generated
-through the project release script rather than relying only on Tauri's default
-RPM bundler path.
+Linux releases use Electron Builder to generate Debian, RPM, and AppImage
+artifacts. macOS and Windows releases continue to use Tauri packaging.
 
 ## CI and GitHub Actions
 
@@ -62,8 +61,7 @@ The release workflow should build each supported host on its matching runner:
 
 CI should cache pnpm store data, Rust registry data, Rust git dependencies, and
 `apps/desktop/src-tauri/target` where practical. Cache keys should include the
-OS, architecture, lockfiles, and Rust manifest files so platform-specific CEF
-artifacts do not leak across runners.
+OS, architecture, lockfiles, and Rust manifest files.
 
 ## macOS Signing
 

@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::load_or_create_settings_at_path;
 use crate::domain::launcher::types::{
@@ -12,11 +13,10 @@ use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{
     build_mod_page_url, decode_html, extract_graphql_error, normalize_nexus_url, string_field,
 };
-use crate::AppHandle;
 use regex::Regex;
 use reqwest::blocking::Client;
-use serde_json::{json, Value};
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use serde_json::{Value, json};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 const PUBLIC_MOD_DETAIL_GRAPHQL_OPERATION_HEADER: &str = "LauncherPublicModDetail";
 const PUBLIC_MOD_DETAIL_GRAPHQL_QUERY: &str = r#"

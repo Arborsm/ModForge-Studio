@@ -62,9 +62,10 @@ fn cache_file_path_uses_lower_hex_sha256_file_names() {
     let hash = file_name.strip_suffix(".json").expect("json cache file");
 
     assert_eq!(hash.len(), 64);
-    assert!(hash
-        .chars()
-        .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase()));
+    assert!(
+        hash.chars()
+            .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase())
+    );
 }
 
 #[test]

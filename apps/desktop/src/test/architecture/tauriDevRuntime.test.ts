@@ -56,34 +56,6 @@ describe('resolveTauriDevRuntime', () => {
     })
   })
 
-  it('leaves CEF_PATH to Cargo config when no explicit override is configured', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
-
-    const result = await resolveTauriDevRuntime({}, async () => true)
-
-    expect(result.env.CEF_PATH).toBeUndefined()
-  })
-
-  it('maps explicit MODFORGE_CEF_PATH overrides to CEF_PATH on Linux', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
-
-    const result = await resolveTauriDevRuntime({ MODFORGE_CEF_PATH: '/tmp/modforge-cef' }, async () => true)
-
-    if (process.platform === 'linux') {
-      expect(result.env.CEF_PATH).toBe('/tmp/modforge-cef')
-    } else {
-      expect(result.env.CEF_PATH).toBeUndefined()
-    }
-  })
-
-  it('keeps explicit CEF_PATH overrides', async () => {
-    const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
-
-    const result = await resolveTauriDevRuntime({ CEF_PATH: '/tmp/custom-cef' }, async () => true)
-
-    expect(result.env.CEF_PATH).toBe('/tmp/custom-cef')
-  })
-
   it('keeps explicit port overrides without probing for a replacement', async () => {
     const { resolveTauriDevRuntime } = await import('../../../scripts/tauriDevRuntime.mjs')
     let probeCalls = 0

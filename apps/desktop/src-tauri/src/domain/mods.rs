@@ -1545,5 +1545,5 @@ pub(crate) fn save_mod_project(
 }
 
 #[cfg(test)]
-#[path = "../../tests/mods_tests.rs"]
+#[path = "../tests/mods_tests.rs"]
 mod tests;

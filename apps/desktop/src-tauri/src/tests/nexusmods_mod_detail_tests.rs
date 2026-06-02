@@ -1,6 +1,6 @@
 use super::{
-    load_remote_mod_detail_with_api_fallback, load_remote_mod_detail_with_graphql_fallback,
-    parse_public_mod_detail_graphql_response, RemoteModDetail,
+    RemoteModDetail, load_remote_mod_detail_with_api_fallback,
+    load_remote_mod_detail_with_graphql_fallback, parse_public_mod_detail_graphql_response,
 };
 use serde_json::json;
 
@@ -253,8 +253,11 @@ fn parse_public_mod_detail_graphql_response_preserves_description_markup_for_ren
     assert!(description.contains("[center]"));
     assert!(description.contains("<br />----------------------------"));
     assert!(description.contains("\n<br />Stardew Foliage Redone"));
-    assert!(!description
-        .contains("Mods used on screenshots: ---------------------------- Stardew Foliage Redone"));
+    assert!(
+        !description.contains(
+            "Mods used on screenshots: ---------------------------- Stardew Foliage Redone"
+        )
+    );
     assert_eq!(
         detail.summary.as_deref(),
         Some(

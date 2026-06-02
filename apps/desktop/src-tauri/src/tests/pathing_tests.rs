@@ -1,6 +1,6 @@
 use super::{
-    clean_input_path, extract_xml_tag_value, parse_vdf, smapi_launch_candidates,
-    stardew_game_launch_candidates, stardew_game_validation_candidates, VdfValue,
+    VdfValue, clean_input_path, extract_xml_tag_value, parse_vdf, smapi_launch_candidates,
+    stardew_game_launch_candidates, stardew_game_validation_candidates,
 };
 use std::path::Path;
 

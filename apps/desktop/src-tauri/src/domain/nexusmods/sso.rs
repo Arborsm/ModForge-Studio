@@ -3,11 +3,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
-use tungstenite::{connect, Message, WebSocket};
+use tungstenite::{Message, WebSocket, connect};
 
 use super::rest_api;
-use crate::domain::launcher::{paths, settings as launcher_settings};
 use crate::AppHandle;
+use crate::domain::launcher::{paths, settings as launcher_settings};
 
 // ---- Constants ----
 
@@ -534,8 +534,8 @@ fn open_browser(url: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_handshake_payload, parse_sso_connection_response, parse_sso_response,
-        resolve_authorization_url, SsoConnectionResponse, SsoErrorKind,
+        SsoConnectionResponse, SsoErrorKind, build_handshake_payload,
+        parse_sso_connection_response, parse_sso_response, resolve_authorization_url,
     };
 
     #[test]

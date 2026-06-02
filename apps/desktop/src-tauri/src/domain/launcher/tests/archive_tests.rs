@@ -2,15 +2,15 @@ use crate::domain::launcher::archive::{
     inspect_archive_at_path, install_archive_at_path, resolve_backup_session_path,
 };
 use crate::test_support::{create_temp_dir, write_file};
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use tar::Builder;
-use zip::write::SimpleFileOptions;
 use zip::CompressionMethod;
 use zip::ZipWriter;
+use zip::write::SimpleFileOptions;
 
 fn sample_manifest(unique_id: &str) -> String {
     format!(
@@ -175,14 +175,18 @@ fn install_archive_installs_zip_bundle_and_reports_backup_details_cross_platform
         result.installed_mods[0].unique_id.as_deref(),
         Some("ModForge.ExamplePack")
     );
-    assert!(mods_root
-        .join("[CP] Example Pack")
-        .join("manifest.json")
-        .is_file());
+    assert!(
+        mods_root
+            .join("[CP] Example Pack")
+            .join("manifest.json")
+            .is_file()
+    );
     assert!(!result.backup_id.trim().is_empty());
-    assert!(Path::new(&result.backup_path)
-        .join("metadata.json")
-        .is_file());
+    assert!(
+        Path::new(&result.backup_path)
+            .join("metadata.json")
+            .is_file()
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -240,13 +244,17 @@ fn install_archive_installs_tar_gz_bundle_and_reports_backup_details() {
         result.installed_mods[0].unique_id.as_deref(),
         Some("ModForge.TarInstallPack")
     );
-    assert!(mods_root
-        .join("[CP] Tar Install Pack")
-        .join("manifest.json")
-        .is_file());
-    assert!(Path::new(&result.backup_path)
-        .join("metadata.json")
-        .is_file());
+    assert!(
+        mods_root
+            .join("[CP] Tar Install Pack")
+            .join("manifest.json")
+            .is_file()
+    );
+    assert!(
+        Path::new(&result.backup_path)
+            .join("metadata.json")
+            .is_file()
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -281,10 +289,12 @@ fn install_archive_uses_manifest_name_for_zip_with_manifest_at_archive_root() {
         result.installed_mods[0].unique_id.as_deref(),
         Some("ModForge.RootZipPack")
     );
-    assert!(mods_root
-        .join("Example Mod")
-        .join("manifest.json")
-        .is_file());
+    assert!(
+        mods_root
+            .join("Example Mod")
+            .join("manifest.json")
+            .is_file()
+    );
     assert!(!mods_root.join("launcher-install-bundle").exists());
 
     fs::remove_dir_all(root).expect("cleanup");
@@ -345,13 +355,17 @@ fn install_archive_installs_7z_bundle_and_reports_backup_details() {
         result.installed_mods[0].unique_id.as_deref(),
         Some("ModForge.SevenZipInstallPack")
     );
-    assert!(mods_root
-        .join("[CP] SevenZip Install Pack")
-        .join("manifest.json")
-        .is_file());
-    assert!(Path::new(&result.backup_path)
-        .join("metadata.json")
-        .is_file());
+    assert!(
+        mods_root
+            .join("[CP] SevenZip Install Pack")
+            .join("manifest.json")
+            .is_file()
+    );
+    assert!(
+        Path::new(&result.backup_path)
+            .join("metadata.json")
+            .is_file()
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

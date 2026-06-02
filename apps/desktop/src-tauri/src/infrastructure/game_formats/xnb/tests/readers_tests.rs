@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use super::{build_reader_from_type_name, format_flags_enum, TypeReader};
+use super::{TypeReader, build_reader_from_type_name, format_flags_enum};
 
 #[test]
 fn parses_bracket_generic_array_subtypes() {

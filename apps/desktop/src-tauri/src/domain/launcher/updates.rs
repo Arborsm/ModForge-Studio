@@ -8,27 +8,26 @@ use super::types::{
     LoadCachedLauncherUpdatesRequest, LoadSuppressedLauncherUpdateModIdsRequest,
 };
 use super::update_cache::{
-    clear_launcher_update_auto_failures_at_path, clear_launcher_updates_check_in_progress_at_path,
-    inspect_launcher_updates_cache_at_path, load_cached_launcher_updates_at_path,
-    load_suppressed_launcher_update_mod_ids_at_path,
+    LauncherUpdatesCacheInspection, clear_launcher_update_auto_failures_at_path,
+    clear_launcher_updates_check_in_progress_at_path, inspect_launcher_updates_cache_at_path,
+    load_cached_launcher_updates_at_path, load_suppressed_launcher_update_mod_ids_at_path,
     mark_launcher_updates_check_in_progress_at_path, normalize_launcher_updates_cache_key,
     record_launcher_update_auto_failure_at_path, save_launcher_updates_cache_at_path,
-    LauncherUpdatesCacheInspection,
 };
+use crate::AppHandle;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::mod_detail::{
-    load_remote_mod_detail_from_public_graphql, RemoteModDetail,
+    RemoteModDetail, load_remote_mod_detail_from_public_graphql,
 };
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, normalize_nexus_url};
 use crate::domain::nexusmods::updates::load_remote_mod_details_from_graphql;
 use crate::infrastructure::fs::pathing::clean_input_path;
-use crate::AppHandle;
 use reqwest::blocking::Client;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
 use semver::Version;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -36,7 +35,6 @@ use std::path::{Path, PathBuf};
 #[cfg(target_os = "windows")]
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
-use tauri::Emitter;
 
 const UPDATE_BATCH_SIZE: usize = 24;
 const SMAPI_MOD_LOOKUP_ENDPOINT: &str = "https://smapi.io/api/v3.0/mods";

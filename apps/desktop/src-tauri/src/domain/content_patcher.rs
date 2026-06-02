@@ -369,5 +369,5 @@ pub fn export_content_patcher_asset(
 }
 
 #[cfg(test)]
-#[path = "tests/mod_tests.rs"]
+#[path = "content_patcher/tests/mod_tests.rs"]
 mod tests;

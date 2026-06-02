@@ -1,5 +1,5 @@
 use base64::Engine;
-use serde_json::{json, Map, Number, Value};
+use serde_json::{Map, Number, Value, json};
 
 #[derive(Debug, Clone)]
 pub struct TextureData {

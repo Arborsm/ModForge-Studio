@@ -111,10 +111,12 @@ fn install_staged_bundle_uses_manifest_name_for_root_level_mod_folder() {
 
     assert_eq!(result.installed_mods.len(), 1);
     assert_eq!(result.installed_mods[0].mod_name, "Root Level Pack");
-    assert!(mods_root
-        .join("Root Level Pack")
-        .join("manifest.json")
-        .is_file());
+    assert!(
+        mods_root
+            .join("Root Level Pack")
+            .join("manifest.json")
+            .is_file()
+    );
     assert!(!mods_root.join("bundle").join("manifest.json").exists());
 
     fs::remove_dir_all(root).expect("cleanup");

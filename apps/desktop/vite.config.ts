@@ -18,6 +18,7 @@ function resolveViteCacheDir(env = process.env) {
 }
 
 export default defineConfig({
+  base: './',
   clearScreen: false,
   plugins: [react()],
   cacheDir: resolveViteCacheDir(),
@@ -44,7 +45,7 @@ export default defineConfig({
           }
 
           if (normalizedId.includes('/node_modules/@tauri-apps/')) {
-            return 'tauri-vendor'
+            return 'desktop-host-vendor'
           }
 
           if (normalizedId.includes('/node_modules/lucide-react/') || normalizedId.includes('/node_modules/@radix-ui/')) {

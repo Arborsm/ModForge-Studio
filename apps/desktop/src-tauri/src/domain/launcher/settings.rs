@@ -1,7 +1,7 @@
 use super::paths::launcher_settings_path;
 use super::types::{LauncherSettings, SaveLauncherSettingsRequest};
-use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use crate::AppHandle;
+use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use std::fs;
 use std::path::{Path, PathBuf};
 

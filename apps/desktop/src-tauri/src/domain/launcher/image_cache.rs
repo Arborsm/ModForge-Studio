@@ -1,10 +1,10 @@
 use super::paths::launcher_image_cache_dir;
 use super::types::{ResolveLauncherImageRequest, ResolveLauncherImageResult};
+use crate::AppHandle;
 use crate::domain::nexusmods::diagnostics::probe_blocked_launcher_nexus_route;
 use crate::domain::nexusmods::http::launcher_http_client;
 use crate::domain::nexusmods::routes::launcher_nexus_route_for_url;
 use crate::infrastructure::fs::pathing::normalize_path;
-use crate::AppHandle;
 use reqwest::header::CONTENT_TYPE;
 use sha2::{Digest, Sha256};
 use std::fs;

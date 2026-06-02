@@ -16,5 +16,15 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    files: ['electron/**/*.ts', 'scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
   eslintConfigPrettier,
 ])

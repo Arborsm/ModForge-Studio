@@ -1,9 +1,9 @@
-use reqwest::blocking::Response;
 use reqwest::StatusCode;
+use reqwest::blocking::Response;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::domain::nexusmods::http;
 
@@ -29,38 +29,22 @@ fn hourly_reset_state() -> &'static AtomicU64 {
 
 pub(crate) fn daily_quota_remaining() -> Option<u64> {
     let val = daily_quota_state().load(Ordering::Relaxed);
-    if val == u64::MAX {
-        None
-    } else {
-        Some(val)
-    }
+    if val == u64::MAX { None } else { Some(val) }
 }
 
 pub(crate) fn hourly_quota_remaining() -> Option<u64> {
     let val = hourly_quota_state().load(Ordering::Relaxed);
-    if val == u64::MAX {
-        None
-    } else {
-        Some(val)
-    }
+    if val == u64::MAX { None } else { Some(val) }
 }
 
 pub(crate) fn daily_quota_reset_at() -> Option<u64> {
     let val = daily_reset_state().load(Ordering::Relaxed);
-    if val == 0 {
-        None
-    } else {
-        Some(val)
-    }
+    if val == 0 { None } else { Some(val) }
 }
 
 pub(crate) fn hourly_quota_reset_at() -> Option<u64> {
     let val = hourly_reset_state().load(Ordering::Relaxed);
-    if val == 0 {
-        None
-    } else {
-        Some(val)
-    }
+    if val == 0 { None } else { Some(val) }
 }
 
 fn parse_u64_header(response: &Response, name: &str) -> Option<u64> {
@@ -96,7 +80,9 @@ pub(crate) enum NexusRestError {
     #[error("Invalid API Key: the Nexus Mods API rejected the provided key (HTTP 401)")]
     InvalidApiKey,
 
-    #[error("Rate limited: daily_remaining={daily_remaining:?}, hourly_remaining={hourly_remaining:?}, reset_at={reset_at:?}")]
+    #[error(
+        "Rate limited: daily_remaining={daily_remaining:?}, hourly_remaining={hourly_remaining:?}, reset_at={reset_at:?}"
+    )]
     RateLimited {
         daily_remaining: Option<u64>,
         hourly_remaining: Option<u64>,

@@ -38,7 +38,7 @@ fn parse_target_field_segments(
         _ => {
             return Err(
                 "EditData TargetField must be a string or an array of path segments.".to_string(),
-            )
+            );
         }
     };
 
@@ -342,7 +342,9 @@ fn apply_fields_patch(base: &mut Value, fields: &Map<String, Value>) -> Result<S
             }
         }
         _ => {
-            return Err("EditData Fields requires the target to be an object or array.".to_string())
+            return Err(
+                "EditData Fields requires the target to be an object or array.".to_string(),
+            );
         }
     }
 
@@ -609,7 +611,7 @@ fn resolve_text_target<'a>(
             _ => {
                 return Err(
                     "TextOperations target path must traverse objects or arrays.".to_string(),
-                )
+                );
             }
         }
     }
@@ -772,7 +774,7 @@ pub fn apply_edit_data_patch(
                 return Err(
                     "EditData TargetField resolved to a scalar value, which cannot accept Entries."
                         .to_string(),
-                )
+                );
             }
         }
         changes.push(format!("{} entries", entries.len()));

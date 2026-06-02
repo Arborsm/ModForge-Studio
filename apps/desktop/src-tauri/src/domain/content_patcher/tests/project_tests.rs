@@ -53,68 +53,84 @@ fn load_content_patcher_project_returns_include_tree_sources_and_summary_metadat
         snapshot.summary.content_pack_for.as_deref(),
         Some("Pathoschild.ContentPatcher")
     );
-    assert!(Path::new(
-        snapshot
-            .summary
-            .absolute_path
-            .as_deref()
-            .expect("absolute path")
-    )
-    .is_absolute());
-    assert!(Path::new(
-        snapshot
-            .summary
-            .absolute_path
-            .as_deref()
-            .expect("absolute path")
-    )
-    .ends_with(root.file_name().expect("root name")));
-    assert!(Path::new(
-        snapshot
-            .summary
-            .manifest_path
-            .as_deref()
-            .expect("manifest path")
-    )
-    .is_absolute());
-    assert!(Path::new(
-        snapshot
-            .summary
-            .manifest_path
-            .as_deref()
-            .expect("manifest path")
-    )
-    .ends_with(Path::new("manifest.json")));
-    assert!(Path::new(
-        snapshot
-            .summary
-            .content_path
-            .as_deref()
-            .expect("content path")
-    )
-    .is_absolute());
-    assert!(Path::new(
-        snapshot
-            .summary
-            .content_path
-            .as_deref()
-            .expect("content path")
-    )
-    .ends_with(Path::new("content.json")));
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .absolute_path
+                .as_deref()
+                .expect("absolute path")
+        )
+        .is_absolute()
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .absolute_path
+                .as_deref()
+                .expect("absolute path")
+        )
+        .ends_with(root.file_name().expect("root name"))
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .manifest_path
+                .as_deref()
+                .expect("manifest path")
+        )
+        .is_absolute()
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .manifest_path
+                .as_deref()
+                .expect("manifest path")
+        )
+        .ends_with(Path::new("manifest.json"))
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .content_path
+                .as_deref()
+                .expect("content path")
+        )
+        .is_absolute()
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .content_path
+                .as_deref()
+                .expect("content path")
+        )
+        .ends_with(Path::new("content.json"))
+    );
     assert_eq!(snapshot.sources.len(), 2);
-    assert!(snapshot
-        .sources
-        .iter()
-        .any(|source| source.path == "content.json"
-            && Path::new(&source.absolute_path).ends_with(Path::new("content.json"))
-            && source.raw_json.contains("\"Format\": \"2.0.0\"")));
-    assert!(snapshot
-        .sources
-        .iter()
-        .any(|source| source.path == "patches/spring.json"
-            && Path::new(&source.absolute_path)
-                .ends_with(Path::new("patches").join("spring.json"))
-            && source.raw_json.contains("\"Action\": \"EditData\"")));
+    assert!(
+        snapshot
+            .sources
+            .iter()
+            .any(|source| source.path == "content.json"
+                && Path::new(&source.absolute_path).ends_with(Path::new("content.json"))
+                && source.raw_json.contains("\"Format\": \"2.0.0\""))
+    );
+    assert!(
+        snapshot
+            .sources
+            .iter()
+            .any(|source| source.path == "patches/spring.json"
+                && Path::new(&source.absolute_path)
+                    .ends_with(Path::new("patches").join("spring.json"))
+                && source.raw_json.contains("\"Action\": \"EditData\""))
+    );
     assert_eq!(snapshot.include_tree.len(), 1);
     assert_eq!(snapshot.include_tree[0].source_path, "content.json");
     assert_eq!(
@@ -149,10 +165,13 @@ fn load_content_patcher_project_accepts_relaxed_json_and_reports_warning_diagnos
     let snapshot =
         load_content_patcher_project(root.to_string_lossy().into_owned()).expect("snapshot");
     assert_eq!(snapshot.include_tree.len(), 1);
-    assert!(snapshot
-        .diagnostics
-        .iter()
-        .any(|diag| diag.severity == "warning" && diag.field.as_deref() == Some("content.Format")));
+    assert!(
+        snapshot
+            .diagnostics
+            .iter()
+            .any(|diag| diag.severity == "warning"
+                && diag.field.as_deref() == Some("content.Format"))
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -287,34 +306,42 @@ fn load_content_patcher_project_normalizes_absolute_paths_from_relative_root_inp
 
     let snapshot =
         load_content_patcher_project(format!(".\\{relative_dir_name}")).expect("snapshot");
-    assert!(Path::new(
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .absolute_path
+                .as_deref()
+                .expect("absolute path")
+        )
+        .is_absolute()
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .manifest_path
+                .as_deref()
+                .expect("manifest path")
+        )
+        .is_absolute()
+    );
+    assert!(
+        Path::new(
+            snapshot
+                .summary
+                .content_path
+                .as_deref()
+                .expect("content path")
+        )
+        .is_absolute()
+    );
+    assert!(
         snapshot
-            .summary
-            .absolute_path
-            .as_deref()
-            .expect("absolute path")
-    )
-    .is_absolute());
-    assert!(Path::new(
-        snapshot
-            .summary
-            .manifest_path
-            .as_deref()
-            .expect("manifest path")
-    )
-    .is_absolute());
-    assert!(Path::new(
-        snapshot
-            .summary
-            .content_path
-            .as_deref()
-            .expect("content path")
-    )
-    .is_absolute());
-    assert!(snapshot
-        .sources
-        .iter()
-        .all(|source| Path::new(&source.absolute_path).is_absolute()));
+            .sources
+            .iter()
+            .all(|source| Path::new(&source.absolute_path).is_absolute())
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }
@@ -346,10 +373,12 @@ fn load_content_patcher_project_normalizes_dot_segment_include_within_root() {
         snapshot.include_tree[0].included_path,
         "patches/spring.json"
     );
-    assert!(snapshot
-        .sources
-        .iter()
-        .any(|source| source.path == "patches/spring.json"));
+    assert!(
+        snapshot
+            .sources
+            .iter()
+            .any(|source| source.path == "patches/spring.json")
+    );
 
     fs::remove_dir_all(root).expect("cleanup");
 }

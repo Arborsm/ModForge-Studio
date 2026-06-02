@@ -1,6 +1,6 @@
 #[path = "support/infrastructure.rs"]
 mod infrastructure;
-#[path = "support/mod.rs"]
+#[path = "support.rs"]
 mod test_support;
 
 use infrastructure::game_formats::xnb;

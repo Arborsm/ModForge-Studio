@@ -5,7 +5,7 @@
 ModForge Studio 是面向《星露谷物语》（Stardew Valley）的桌面端模组创作与管理工作台。
 
 它把模组库管理、游戏资源查看、Content Patcher 项目创作和桌面启动流程放在同一个
-Tauri 应用中。当前主要产品工作区是 `apps/desktop`。
+桌面应用中。当前主要产品工作区是 `apps/desktop`。
 
 ## 功能概览
 
@@ -17,12 +17,12 @@ Tauri 应用中。当前主要产品工作区是 `apps/desktop`。
 
 ## 技术栈
 
-- 桌面外壳：Tauri v2 + Rust 后端。
+- 桌面外壳：Linux 使用 Electron；macOS 和 Windows 继续使用 Tauri v2；桌面能力仍由 Rust 后端提供。
 - 前端：React 19、TypeScript 6、Vite 8、Tailwind CSS 4。
 - UI/运行时库：Radix UI、Floating UI、lucide-react、React Resizable Panels、
   TanStack Virtual、XYFlow、Zustand。
 - 测试：Vitest、jsdom、Testing Library、Playwright 验证脚本。
-- 包管理器：pnpm 10.30.3。
+- 包管理器：pnpm 11.5.1。
 
 ## 快速开始
 
@@ -31,7 +31,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-运行完整 Tauri 桌面应用：
+运行完整桌面应用：
 
 ```bash
 pnpm desktop:dev
@@ -52,8 +52,7 @@ cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ModForge Studio 仍处于早期活跃开发阶段。仓库采用 pnpm workspace 管理，但当前只有
 `apps/desktop` 是活跃产品工作区。
 
-Linux 构建目前使用 Tauri 的实验性 CEF 路径。发布自动化已经接入，但平台签名和分发凭证需要由
-CI 或本地发布环境提供。
+Linux 构建使用 Electron 包。发布自动化已经接入，但平台签名和分发凭证需要由 CI 或本地发布环境提供。
 
 ## 文档入口
 

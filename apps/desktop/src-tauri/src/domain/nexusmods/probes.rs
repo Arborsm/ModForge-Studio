@@ -1,12 +1,12 @@
 use super::http::{api_headers, with_nexus_request_slot};
-use super::routes::{launcher_nexus_api_key, LauncherNexusRoute};
+use super::routes::{LauncherNexusRoute, launcher_nexus_api_key};
 use super::shared::extract_graphql_error;
 use super::{endpoints, graphql, rest_api};
 use crate::domain::launcher::types::LauncherSettings;
+use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
 use reqwest::header::CONTENT_TYPE;
-use reqwest::StatusCode;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const PUBLIC_GRAPHQL_DIAGNOSTIC_REFERER: &str = "https://www.nexusmods.com/";
 const PUBLIC_GRAPHQL_DIAGNOSTIC_OPERATION_NAME: &str = "GameModsListing";

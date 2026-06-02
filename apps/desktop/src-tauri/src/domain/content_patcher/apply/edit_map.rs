@@ -1,4 +1,4 @@
-use super::super::assets::{load_map_patch_asset, LoadedMapAsset};
+use super::super::assets::{LoadedMapAsset, load_map_patch_asset};
 use super::super::schema::coerce_u32;
 use super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
 use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};

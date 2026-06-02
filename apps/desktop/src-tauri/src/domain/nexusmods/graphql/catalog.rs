@@ -1,3 +1,4 @@
+use crate::AppHandle;
 use crate::domain::launcher::paths::launcher_settings_path;
 use crate::domain::launcher::settings::{load_or_create_settings_at_path, normalize_optional_text};
 use crate::domain::launcher::trace::log_launcher_trace;
@@ -11,9 +12,8 @@ use crate::domain::nexusmods::graphql;
 use crate::domain::nexusmods::http::{api_headers, launcher_http_client, send_nexus_json_request};
 use crate::domain::nexusmods::routes::LauncherNexusRoute;
 use crate::domain::nexusmods::shared::{build_mod_page_url, extract_graphql_error, string_field};
-use crate::AppHandle;
 use reqwest::blocking::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use time::{Duration, OffsetDateTime};
 
 const DEFAULT_PAGE_SIZE: usize = 20;

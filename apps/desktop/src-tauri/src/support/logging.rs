@@ -2,15 +2,15 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 use crate::domain::app_paths::app_logs_dir;
 use log::RecordBuilder;
 use serde::Deserialize;
-use tauri::{plugin::TauriPlugin, Runtime};
-use tauri_plugin_log::{log::LevelFilter, RotationStrategy, Target, TargetKind, TimezoneStrategy};
+use tauri::{Runtime, plugin::TauriPlugin};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy, log::LevelFilter};
 
 const LOG_FILE_NAME: &str = "modforge-studio";
 const LOG_FILE_SIZE_BYTES: u128 = 1_000_000;
@@ -196,5 +196,5 @@ pub fn set_debug_logging_enabled(state: &DebugLoggingState, enabled: bool) {
 }
 
 #[cfg(test)]
-#[path = "tests/logging_tests.rs"]
+#[path = "logging/tests/logging_tests.rs"]
 mod tests;

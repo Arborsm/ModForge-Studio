@@ -798,9 +798,11 @@ fn load_content_patcher_result_asset_applies_target_field_entries_to_character_a
         .expect("appearance array");
 
     assert_eq!(appearance.len(), 2);
-    assert!(appearance
-        .iter()
-        .any(|entry| { entry.get("Id").and_then(Value::as_str) == Some("Vanilla.EmilyWinter") }));
+    assert!(
+        appearance.iter().any(|entry| {
+            entry.get("Id").and_then(Value::as_str) == Some("Vanilla.EmilyWinter")
+        })
+    );
     assert!(appearance.iter().any(|entry| {
         entry.get("Id").and_then(Value::as_str) == Some("ModForge.EmilySpring")
             && entry.get("Portrait").and_then(Value::as_str) == Some("Portraits/Emily_Spring")
@@ -844,9 +846,11 @@ fn export_content_patcher_asset_writes_json_result() {
 
     let result = export_content_patcher_asset(request).expect("json export");
     assert_eq!(result.format, "json");
-    assert!(std::fs::read_to_string(&result.output_path)
-        .unwrap()
-        .contains("\"24\""));
+    assert!(
+        std::fs::read_to_string(&result.output_path)
+            .unwrap()
+            .contains("\"24\"")
+    );
 }
 
 #[test]
@@ -934,11 +938,13 @@ fn load_content_patcher_result_asset_returns_image_data_url() {
     .expect("image result");
 
     assert_eq!(result.result.kind, "image");
-    assert!(result
-        .result
-        .image_data_url
-        .as_deref()
-        .is_some_and(|value| value.starts_with("data:image/png;base64,")));
+    assert!(
+        result
+            .result
+            .image_data_url
+            .as_deref()
+            .is_some_and(|value| value.starts_with("data:image/png;base64,"))
+    );
     assert!(result.exportable);
 }
 
@@ -1559,11 +1565,13 @@ fn simulate_and_load_result_resolve_target_and_from_file_tokens_for_image_target
     .expect("image result");
 
     assert_eq!(result.result.kind, "image");
-    assert!(result
-        .result
-        .image_data_url
-        .as_deref()
-        .is_some_and(|value| value.starts_with("data:image/png;base64,")));
+    assert!(
+        result
+            .result
+            .image_data_url
+            .as_deref()
+            .is_some_and(|value| value.starts_with("data:image/png;base64,"))
+    );
 }
 
 #[test]

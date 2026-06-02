@@ -3,6 +3,17 @@
     border-bottom: 1px solid var(--border-color);
     background: color-mix(in srgb, var(--bg-panel) 94%, transparent);
     backdrop-filter: blur(24px);
+    -webkit-app-region: drag;
+  }
+
+  .top-menu-bar button,
+  .top-menu-bar a,
+  .top-menu-bar input,
+  .top-menu-bar select,
+  .top-menu-bar textarea,
+  .top-menu-bar [role="button"],
+  .top-menu-bar .pointer-events-auto {
+    -webkit-app-region: no-drag;
   }
 
   .top-menu-primary {
