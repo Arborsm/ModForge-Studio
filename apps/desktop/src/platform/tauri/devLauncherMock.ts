@@ -142,6 +142,8 @@ function createInitialAppUiState(): AppUiState {
     appearance: {
       locale: 'en-US',
       accentPresetId: 'blue',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'standard',
       recentGameDirectories: [],
       playerAppearance: {
         profiles: [],

@@ -45,6 +45,20 @@ describe('SettingsWindow', () => {
       accentOptions: ACCENT_PRESETS,
       activeAccentId: ACCENT_PRESETS[0].id,
       windowModeLabel: 'Window mode',
+      windowBorderToneLabel: copy.windowBorderToneLabel,
+      windowBorderToneDescription: copy.windowBorderToneDescription,
+      windowBorderToneOptions: Object.entries(copy.windowBorderToneOptions).map(([id, label]) => ({
+        id: id as keyof typeof copy.windowBorderToneOptions,
+        label,
+      })),
+      activeWindowBorderTone: 'accent',
+      windowBorderWeightLabel: copy.windowBorderWeightLabel,
+      windowBorderWeightDescription: copy.windowBorderWeightDescription,
+      windowBorderWeightOptions: Object.entries(copy.windowBorderWeightOptions).map(([id, label]) => ({
+        id: id as keyof typeof copy.windowBorderWeightOptions,
+        label,
+      })),
+      activeWindowBorderWeight: 'standard',
       borderlessFullscreenLabel: 'Borderless fullscreen',
       borderlessFullscreenDescription: 'Switch the undecorated window into an immersive fullscreen workspace.',
       enableBorderlessFullscreenLabel: 'Enter borderless fullscreen',
@@ -100,6 +114,8 @@ describe('SettingsWindow', () => {
       onSelectAccent: vi.fn(),
       onResetAccent: vi.fn(),
       onSelectLocale: vi.fn(),
+      onSelectWindowBorderTone: vi.fn(),
+      onSelectWindowBorderWeight: vi.fn(),
       onToggleBorderlessFullscreen: vi.fn(),
       onToggleNotificationSound: vi.fn(),
       onToggleDebugMode: vi.fn(),
@@ -124,6 +140,31 @@ describe('SettingsWindow', () => {
 
     expect(toggle).toBeTruthy()
     expect(toggle.getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('selects window border color and weight independently from the view category', () => {
+    const onSelectWindowBorderTone = vi.fn()
+    const onSelectWindowBorderWeight = vi.fn()
+    renderWindow({
+      activeWindowBorderTone: 'neutral',
+      activeWindowBorderWeight: 'thin',
+      onSelectWindowBorderTone,
+      onSelectWindowBorderWeight,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^View/ }))
+
+    const toneGroup = screen.getByRole('radiogroup', { name: copy.windowBorderToneLabel })
+    const weightGroup = screen.getByRole('radiogroup', { name: copy.windowBorderWeightLabel })
+    expect(toneGroup).toBeTruthy()
+    expect(weightGroup).toBeTruthy()
+    expect(screen.getByRole('radio', { name: copy.windowBorderToneOptions.neutral }).getAttribute('aria-checked')).toBe('true')
+    expect(screen.getByRole('radio', { name: copy.windowBorderWeightOptions.thin }).getAttribute('aria-checked')).toBe('true')
+
+    fireEvent.click(screen.getByRole('radio', { name: copy.windowBorderToneOptions.accent }))
+    fireEvent.click(screen.getByRole('radio', { name: copy.windowBorderWeightOptions.none }))
+    expect(onSelectWindowBorderTone).toHaveBeenCalledWith('accent')
+    expect(onSelectWindowBorderWeight).toHaveBeenCalledWith('none')
   })
 
   it('shows the debug toggle in the advanced category and calls the toggle handler', () => {

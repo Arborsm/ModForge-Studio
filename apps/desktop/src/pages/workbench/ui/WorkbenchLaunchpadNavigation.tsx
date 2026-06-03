@@ -332,6 +332,7 @@ export default function WorkbenchLaunchpadNavigation({
   const visibleRecentPages = (
     activeRecentPage ? [activeRecentPage, ...recentPages.filter((page) => getRecentPageKey(page) !== activeRecentPageKey)] : recentPages
   ).slice(0, MAX_RECENT_MODES)
+  const overlayRoot = document.querySelector<HTMLElement>('.app-window-frame') ?? document.body
   const overlay =
     open || pendingProjectMode ? (
       <>
@@ -492,7 +493,7 @@ export default function WorkbenchLaunchpadNavigation({
           )
         })}
       </nav>
-      {overlay ? createPortal(overlay, document.body) : null}
+      {overlay ? createPortal(overlay, overlayRoot) : null}
     </>
   )
 }

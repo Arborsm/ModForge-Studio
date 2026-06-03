@@ -13,6 +13,7 @@ async function loadConfiguredDesktop() {
     minimize: vi.fn(),
     toggleMaximize: vi.fn(),
     close: vi.fn(),
+    isMaximized: vi.fn(),
     isFullscreen: vi.fn(),
     setFullscreen: vi.fn(),
     toggleFullscreen: vi.fn(),
@@ -79,13 +80,19 @@ describe('desktop facade', () => {
 
   it('routes window helpers through configured desktop window ports', async () => {
     const { desktop, desktopWindow } = await loadConfiguredDesktop()
+    desktopWindow.toggleMaximize.mockResolvedValueOnce(true)
+    desktopWindow.isMaximized.mockResolvedValueOnce(true)
     desktopWindow.isFullscreen.mockResolvedValueOnce(true)
     desktopWindow.toggleFullscreen.mockResolvedValueOnce(false)
 
+    await expect(desktop.toggleMaximizeCurrentWindow()).resolves.toBe(true)
+    await expect(desktop.isCurrentWindowMaximized()).resolves.toBe(true)
     await expect(desktop.isCurrentWindowFullscreen()).resolves.toBe(true)
     await expect(desktop.toggleFullscreenCurrentWindow()).resolves.toBe(false)
     await desktop.setFullscreenCurrentWindow(true)
 
+    expect(desktopWindow.toggleMaximize).toHaveBeenCalledTimes(1)
+    expect(desktopWindow.isMaximized).toHaveBeenCalledTimes(1)
     expect(desktopWindow.isFullscreen).toHaveBeenCalledTimes(1)
     expect(desktopWindow.toggleFullscreen).toHaveBeenCalledTimes(1)
     expect(desktopWindow.setFullscreen).toHaveBeenCalledWith(true)
@@ -175,6 +182,8 @@ describe('desktop facade', () => {
       appearance: {
         locale: 'zh-CN',
         accentPresetId: 'indigo',
+        windowBorderTone: 'accent',
+        windowBorderWeight: 'standard',
         recentGameDirectories: [],
         playerAppearance: {
           profiles: [],

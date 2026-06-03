@@ -15,6 +15,7 @@ export {
 export {
   closeCurrentWindow,
   isCurrentWindowFullscreen,
+  isCurrentWindowMaximized,
   minimizeCurrentWindow,
   setFullscreenCurrentWindow,
   toggleFullscreenCurrentWindow,

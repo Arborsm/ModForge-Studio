@@ -3,8 +3,9 @@ import type { OpenDialogOptions, PlatformDragDropPayload, PlatformUnlistenFn } f
 export type ModforgeElectronApi = {
   invokeCommand: <T>(command: string, args?: Record<string, unknown>) => Promise<T>
   minimize: () => Promise<void>
-  toggleMaximize: () => Promise<void>
+  toggleMaximize: () => Promise<boolean>
   close: () => Promise<void>
+  isMaximized: () => Promise<boolean>
   isFullscreen: () => Promise<boolean>
   setFullscreen: (fullscreen: boolean) => Promise<void>
   toggleFullscreen: () => Promise<boolean>

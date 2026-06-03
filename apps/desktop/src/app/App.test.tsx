@@ -23,6 +23,8 @@ type MockAppUiState = {
   appearance: {
     locale: string
     accentPresetId: string
+    windowBorderTone: 'accent' | 'neutral'
+    windowBorderWeight: 'standard' | 'thin' | 'none'
     recentGameDirectories: string[]
     playerAppearance: {
       profiles: unknown[]
@@ -94,6 +96,8 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
     appearance: {
       locale: overrides.appearance?.locale ?? 'en-US',
       accentPresetId: overrides.appearance?.accentPresetId ?? 'indigo',
+      windowBorderTone: overrides.appearance?.windowBorderTone ?? 'accent',
+      windowBorderWeight: overrides.appearance?.windowBorderWeight ?? 'standard',
       recentGameDirectories: overrides.appearance?.recentGameDirectories ?? [],
       playerAppearance: {
         profiles: overrides.appearance?.playerAppearance?.profiles ?? [],
@@ -383,6 +387,7 @@ vi.mock('@shared/lib/desktop', () => ({
   chooseArchiveFiles: vi.fn(async () => []),
   chooseImageFile: vi.fn(async () => null),
   isCurrentWindowFullscreen: vi.fn(async () => false),
+  isCurrentWindowMaximized: vi.fn(async () => false),
   isSupportedLauncherArchivePath: vi.fn(() => false),
   loadAppUiState: vi.fn(async () => mockAppUiState),
   listenToLauncherArchiveDragDrop: vi.fn(async () => () => {}),
@@ -390,7 +395,7 @@ vi.mock('@shared/lib/desktop', () => ({
   patchAppUiState: (patch: MockAppUiStatePatch) => applyAppUiStatePatchMock(patch),
   setDesktopDebugLoggingEnabled: vi.fn(async () => undefined),
   toggleFullscreenCurrentWindow: vi.fn(async () => false),
-  toggleMaximizeCurrentWindow: vi.fn(),
+  toggleMaximizeCurrentWindow: vi.fn(async () => false),
   toDesktopAssetUrl: vi.fn((value: string) => `asset:${value}`),
   writeFrontendLog: vi.fn(async () => undefined),
 }))

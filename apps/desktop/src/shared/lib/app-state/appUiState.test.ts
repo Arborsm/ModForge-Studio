@@ -24,6 +24,8 @@ describe('uiState store', () => {
       appearance: {
         locale: 'en-US',
         accentPresetId: 'cyan',
+        windowBorderTone: 'neutral',
+        windowBorderWeight: 'thin',
         recentGameDirectories: ['C:\\Games\\Stardew Valley'],
         playerAppearance: {
           profiles: [],
@@ -177,31 +179,35 @@ it('includes loading motion preference in default state', async () => {
 
 it('normalizes loading motion from persisted state', async () => {
   const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
+  const persistedState: AppUiState = {
+    version: 1,
+    shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+    appearance: {
+      locale: 'en-US',
+      accentPresetId: 'indigo',
+      windowBorderTone: 'accent',
+      windowBorderWeight: 'thin',
+      recentGameDirectories: [],
+      playerAppearance: { profiles: [], activeProfileId: null },
+      loadingMotion: createLoadingMotionPreference({
+        styleId: 'bounceIn',
+        intensityId: 'strong',
+        speedMode: 'custom',
+        speedId: 'fast',
+        speedMultiplier: 0.68,
+      }),
+    },
+    workspace: { layouts: {} },
+    launcher: {
+      discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
+      forceOffline: false,
+      forceNonPremium: false,
+    },
+  }
+
   configureAppUiStatePersistence({
     canPersist: () => true,
-    load: vi.fn(async () => ({
-      version: 1,
-      shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
-      appearance: {
-        locale: 'en-US',
-        accentPresetId: 'indigo',
-        recentGameDirectories: [],
-        playerAppearance: { profiles: [], activeProfileId: null },
-        loadingMotion: createLoadingMotionPreference({
-          styleId: 'bounceIn',
-          intensityId: 'strong',
-          speedMode: 'custom',
-          speedId: 'fast',
-          speedMultiplier: 0.68,
-        }),
-      },
-      workspace: { layouts: {} },
-      launcher: {
-        discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
-        forceOffline: false,
-        forceNonPremium: false,
-      },
-    })),
+    load: vi.fn(async () => persistedState),
     patch: vi.fn(),
   })
   await initializeAppUiState()
@@ -211,6 +217,39 @@ it('normalizes loading motion from persisted state', async () => {
     speedMode: 'custom',
     speedId: 'fast',
     speedMultiplier: 0.68,
+  })
+})
+
+it('migrates legacy window border style into independent tone and weight fields', async () => {
+  const { configureAppUiStatePersistence, initializeAppUiState, getAppUiStateSnapshot } = await import('./appUiState')
+  const persistedState = {
+    version: 1,
+    shell: { appMode: 'launcher', launcherPage: 'library', debugEnabled: false, notificationSoundEnabled: true },
+    appearance: {
+      locale: 'en-US',
+      accentPresetId: 'indigo',
+      windowBorderStyle: 'subtle',
+      recentGameDirectories: [],
+      playerAppearance: { profiles: [], activeProfileId: null },
+      loadingMotion: createLoadingMotionPreference({}),
+    },
+    workspace: { layouts: {} },
+    launcher: {
+      discoverToolbar: { sort: 'newest', ascending: false, timeRange: 'all', pageSize: 20, filtersHidden: false },
+      forceOffline: false,
+      forceNonPremium: false,
+    },
+  }
+
+  configureAppUiStatePersistence({
+    canPersist: () => true,
+    load: vi.fn(async () => persistedState as unknown as AppUiState),
+    patch: vi.fn(),
+  })
+  await initializeAppUiState()
+  expect(getAppUiStateSnapshot().appearance).toMatchObject({
+    windowBorderTone: 'accent',
+    windowBorderWeight: 'thin',
   })
 })
 

@@ -118,7 +118,8 @@ vite.on('exit', (code) => {
 
 await waitForDevServer(devUrl)
 const electronPath = resolveElectronExecutable()
-electron = spawn(electronPath, ['electron-dist/main.cjs'], {
+const remoteDebuggingPort = process.env.MODFORGE_ELECTRON_REMOTE_DEBUGGING_PORT ?? '9222'
+electron = spawn(electronPath, [`--remote-debugging-port=${remoteDebuggingPort}`, 'electron-dist/main.cjs'], {
   cwd: desktopRoot,
   env: {
     ...runtime.env,

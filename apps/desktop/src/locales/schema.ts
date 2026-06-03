@@ -38,6 +38,12 @@ export type SettingsMenuCopy = {
   languageDescription: string
   localeLabels: Record<LocaleCode, string>
   windowModeLabel: string
+  windowBorderToneLabel: string
+  windowBorderToneDescription: string
+  windowBorderToneOptions: Record<'accent' | 'neutral', string>
+  windowBorderWeightLabel: string
+  windowBorderWeightDescription: string
+  windowBorderWeightOptions: Record<'standard' | 'thin' | 'none', string>
   borderlessFullscreenLabel: string
   borderlessFullscreenDescription: string
   enableBorderlessFullscreenLabel: string

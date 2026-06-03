@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import fs from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import path from 'node:path'
 
@@ -14,12 +15,75 @@ type RpcResponse = {
   }
 }
 
+const localFileProtocol = 'modforge-asset'
+const localFileHost = 'local'
 const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 let mainWindow: BrowserWindow | null = null
 let sidecar: ChildProcessWithoutNullStreams | null = null
 let nextRpcId = 0
 const pendingRpc = new Map<number, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>()
+
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('use-webgpu-adapter', 'opengles')
+}
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: localFileProtocol,
+    privileges: {
+      standard: true,
+      secure: true,
+    },
+  },
+])
+
+function registerLocalFileProtocol() {
+  protocol.handle(localFileProtocol, async (request) => {
+    const url = new URL(request.url)
+    if (url.hostname !== localFileHost) {
+      return new Response('Unknown local file host.', { status: 404 })
+    }
+
+    const filePath = decodeLocalFilePath(url)
+    if (!path.isAbsolute(filePath)) {
+      return new Response('Local file path must be absolute.', { status: 400 })
+    }
+
+    try {
+      const bytes = await fs.readFile(filePath)
+      return new Response(bytes, {
+        headers: {
+          'content-type': mimeTypeFromPath(filePath),
+        },
+      })
+    } catch {
+      return new Response('Local file was not found.', { status: 404 })
+    }
+  })
+}
+
+function decodeLocalFilePath(url: URL) {
+  return decodeURIComponent(url.pathname.slice(1))
+}
+
+function mimeTypeFromPath(filePath: string) {
+  switch (path.extname(filePath).toLowerCase()) {
+    case '.png':
+      return 'image/png'
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    case '.svg':
+      return 'image/svg+xml'
+    default:
+      return 'application/octet-stream'
+  }
+}
 
 function resolveSidecarPath() {
   if (process.env.MODFORGE_SIDECAR_PATH?.trim()) {
@@ -117,7 +181,8 @@ function createMainWindow() {
     frame: false,
     resizable: true,
     show: false,
-    backgroundColor: '#101620',
+    transparent: true,
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -150,11 +215,14 @@ ipcMain.handle('modforge:window-toggle-maximize', () => {
   const window = currentWindow()
   if (window.isMaximized()) {
     window.unmaximize()
+    return false
   } else {
     window.maximize()
+    return true
   }
 })
 ipcMain.handle('modforge:window-close', () => currentWindow().close())
+ipcMain.handle('modforge:window-is-maximized', () => currentWindow().isMaximized())
 ipcMain.handle('modforge:window-is-fullscreen', () => currentWindow().isFullScreen())
 ipcMain.handle('modforge:window-set-fullscreen', (_event, fullscreen: boolean) => currentWindow().setFullScreen(fullscreen))
 ipcMain.handle('modforge:window-toggle-fullscreen', () => {
@@ -179,6 +247,7 @@ ipcMain.handle('modforge:open-dialog', async (_event, options?: Electron.OpenDia
 })
 
 app.whenReady().then(() => {
+  registerLocalFileProtocol()
   startSidecar()
   createMainWindow()
 })

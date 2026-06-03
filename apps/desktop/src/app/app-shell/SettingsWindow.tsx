@@ -1,10 +1,10 @@
-import { Bug, Maximize2, Palette, Settings2, Volume2, X } from 'lucide-react'
+import { Bug, Maximize2, Palette, Settings2, Square, Volume2, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import type { LocaleCode } from '@locales/editor-shell'
-import type { SettingsWindowCategory } from '@shared/contracts'
+import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
 import type {
   LoadingMotionIntensityId,
   LoadingMotionSpeedId,
@@ -20,6 +20,16 @@ type AccentOption = {
 
 type LocaleOption = {
   id: LocaleCode
+  label: string
+}
+
+type WindowBorderToneOption = {
+  id: WindowBorderTone
+  label: string
+}
+
+type WindowBorderWeightOption = {
+  id: WindowBorderWeight
   label: string
 }
 
@@ -50,6 +60,14 @@ type SettingsWindowProps = {
   localeOptions: LocaleOption[]
   activeLocale: LocaleCode
   windowModeLabel: string
+  windowBorderToneLabel: string
+  windowBorderToneDescription: string
+  windowBorderToneOptions: WindowBorderToneOption[]
+  activeWindowBorderTone: WindowBorderTone
+  windowBorderWeightLabel: string
+  windowBorderWeightDescription: string
+  windowBorderWeightOptions: WindowBorderWeightOption[]
+  activeWindowBorderWeight: WindowBorderWeight
   borderlessFullscreenLabel: string
   borderlessFullscreenDescription: string
   enableBorderlessFullscreenLabel: string
@@ -71,6 +89,8 @@ type SettingsWindowProps = {
   onSelectAccent: (id: string) => void
   onResetAccent: () => void
   onSelectLocale: (locale: LocaleCode) => void
+  onSelectWindowBorderTone: (tone: WindowBorderTone) => void
+  onSelectWindowBorderWeight: (weight: WindowBorderWeight) => void
   onToggleBorderlessFullscreen: () => void
   onToggleNotificationSound: () => void
   onToggleDebugMode: () => void
@@ -169,6 +189,14 @@ export default function SettingsWindow({
   localeOptions,
   activeLocale,
   windowModeLabel,
+  windowBorderToneLabel,
+  windowBorderToneDescription,
+  windowBorderToneOptions,
+  activeWindowBorderTone,
+  windowBorderWeightLabel,
+  windowBorderWeightDescription,
+  windowBorderWeightOptions,
+  activeWindowBorderWeight,
   borderlessFullscreenLabel,
   borderlessFullscreenDescription,
   enableBorderlessFullscreenLabel,
@@ -190,6 +218,8 @@ export default function SettingsWindow({
   onSelectAccent,
   onResetAccent,
   onSelectLocale,
+  onSelectWindowBorderTone,
+  onSelectWindowBorderWeight,
   onToggleBorderlessFullscreen,
   onToggleNotificationSound,
   onToggleDebugMode,
@@ -521,6 +551,70 @@ export default function SettingsWindow({
               <section className="settings-window-section">
                 <p className="settings-window-section-title">{windowModeLabel}</p>
                 <p className="settings-window-section-copy mt-2">{categoryDescriptions.view}</p>
+                <div className="settings-window-control-card">
+                  <div className="settings-window-control-meta">
+                    <span className="settings-window-control-icon" aria-hidden="true">
+                      <Square className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="settings-window-section-title">{windowBorderToneLabel}</p>
+                      <p className="settings-window-section-copy mt-2">{windowBorderToneDescription}</p>
+                    </div>
+                  </div>
+                  <div className="settings-window-option-grid" role="radiogroup" aria-label={windowBorderToneLabel}>
+                    {windowBorderToneOptions.map((option) => {
+                      const active = option.id === activeWindowBorderTone
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={cx('settings-window-option-button', active && 'settings-window-option-button-active')}
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            if (!active) {
+                              onSelectWindowBorderTone(option.id)
+                            }
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="settings-window-control-card">
+                  <div className="settings-window-control-meta">
+                    <span className="settings-window-control-icon" aria-hidden="true">
+                      <Square className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="settings-window-section-title">{windowBorderWeightLabel}</p>
+                      <p className="settings-window-section-copy mt-2">{windowBorderWeightDescription}</p>
+                    </div>
+                  </div>
+                  <div className="settings-window-option-grid" role="radiogroup" aria-label={windowBorderWeightLabel}>
+                    {windowBorderWeightOptions.map((option) => {
+                      const active = option.id === activeWindowBorderWeight
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={cx('settings-window-option-button', active && 'settings-window-option-button-active')}
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            if (!active) {
+                              onSelectWindowBorderWeight(option.id)
+                            }
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
                 <SettingsBooleanSwitch
                   icon={<Maximize2 className="h-4 w-4" />}
                   label={borderlessFullscreenLabel}

@@ -1,10 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { OpenDialogOptions, PlatformDragDropPayload } from '../src/shared/contracts/platform'
 
-function toFileUrl(filePath: string) {
-  const normalized = filePath.replaceAll('\\', '/')
-  const prefixed = normalized.startsWith('/') ? normalized : `/${normalized}`
-  return `file://${encodeURI(prefixed).replaceAll('#', '%23')}`
+export function toElectronLocalFileUrl(filePath: string) {
+  return `modforge-asset://local/${encodeURIComponent(filePath)}`
 }
 
 contextBridge.exposeInMainWorld('modforgeElectron', {
@@ -15,13 +13,16 @@ contextBridge.exposeInMainWorld('modforgeElectron', {
     return ipcRenderer.invoke('modforge:window-minimize') as Promise<void>
   },
   toggleMaximize() {
-    return ipcRenderer.invoke('modforge:window-toggle-maximize') as Promise<void>
+    return ipcRenderer.invoke('modforge:window-toggle-maximize') as Promise<boolean>
   },
   close() {
     return ipcRenderer.invoke('modforge:window-close') as Promise<void>
   },
   isFullscreen() {
     return ipcRenderer.invoke('modforge:window-is-fullscreen') as Promise<boolean>
+  },
+  isMaximized() {
+    return ipcRenderer.invoke('modforge:window-is-maximized') as Promise<boolean>
   },
   setFullscreen(fullscreen: boolean) {
     return ipcRenderer.invoke('modforge:window-set-fullscreen', fullscreen) as Promise<void>
@@ -33,7 +34,7 @@ contextBridge.exposeInMainWorld('modforgeElectron', {
     return ipcRenderer.invoke('modforge:open-dialog', options) as Promise<string | string[] | null>
   },
   toAssetUrl(filePath: string) {
-    return toFileUrl(filePath)
+    return toElectronLocalFileUrl(filePath)
   },
   onHostEvent<T>(event: string, listener: (payload: T) => void) {
     const channelListener = (_event: Electron.IpcRendererEvent, nextEvent: string, payload: T) => {

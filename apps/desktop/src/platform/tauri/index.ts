@@ -64,8 +64,11 @@ export function createTauriPlatformPorts(): PlatformPorts {
       },
       async toggleMaximize() {
         if (canUseTauriHost()) {
-          await getCurrentWindow().toggleMaximize()
+          const currentWindow = getCurrentWindow()
+          await currentWindow.toggleMaximize()
+          return currentWindow.isMaximized()
         }
+        return false
       },
       async close() {
         if (canUseTauriHost()) {
@@ -74,6 +77,9 @@ export function createTauriPlatformPorts(): PlatformPorts {
       },
       async isFullscreen() {
         return canUseTauriHost() ? getCurrentWindow().isFullscreen() : false
+      },
+      async isMaximized() {
+        return canUseTauriHost() ? getCurrentWindow().isMaximized() : false
       },
       async setFullscreen(fullscreen: boolean) {
         if (canUseTauriHost()) {

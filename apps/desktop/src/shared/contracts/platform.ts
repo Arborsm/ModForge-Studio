@@ -34,8 +34,9 @@ export interface HostEventPort {
 
 export interface DesktopWindowPort {
   minimize: () => Promise<void>
-  toggleMaximize: () => Promise<void>
+  toggleMaximize: () => Promise<boolean>
   close: () => Promise<void>
+  isMaximized: () => Promise<boolean>
   isFullscreen: () => Promise<boolean>
   setFullscreen: (fullscreen: boolean) => Promise<void>
   toggleFullscreen: () => Promise<boolean>

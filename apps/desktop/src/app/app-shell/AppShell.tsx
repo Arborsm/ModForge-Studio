@@ -3,6 +3,7 @@ import {
   canUseDesktopHost,
   closeCurrentWindow,
   isCurrentWindowFullscreen,
+  isCurrentWindowMaximized,
   loadAppUiState,
   minimizeCurrentWindow,
   patchAppUiState,
@@ -49,7 +50,7 @@ import { createAppCommandHandler } from '../providers/appCommandRouting'
 import { createWorkbenchOrchestration } from '../providers/workbenchOrchestration'
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
-import type { PendingWorkbenchCommandIntent, SettingsWindowCategory } from '@shared/contracts'
+import type { PendingWorkbenchCommandIntent, SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
 import { WorkbenchShellSkeleton } from './WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
@@ -108,6 +109,14 @@ function resolveLocale(value: string | null | undefined): LocaleCode {
   return getNavigatorLocale()
 }
 
+function normalizeWindowBorderTone(value: unknown): WindowBorderTone {
+  return value === 'neutral' ? 'neutral' : 'accent'
+}
+
+function normalizeWindowBorderWeight(value: unknown): WindowBorderWeight {
+  return value === 'thin' || value === 'none' ? value : 'standard'
+}
+
 export default function App() {
   const [initialAppUiState] = useState(() => getAppUiStateSnapshot())
   const initialShellState = normalizeAppShellState(initialAppUiState.shell)
@@ -117,6 +126,12 @@ export default function App() {
   )
   const [locale, setLocale] = useState<LocaleCode>(() => resolveLocale(initialAppUiState.appearance.locale))
   const [accentPresetId, setAccentPresetId] = useState<string>(() => initialAppUiState.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+  const [windowBorderTone, setWindowBorderTone] = useState<WindowBorderTone>(() =>
+    normalizeWindowBorderTone(initialAppUiState.appearance.windowBorderTone),
+  )
+  const [windowBorderWeight, setWindowBorderWeight] = useState<WindowBorderWeight>(() =>
+    normalizeWindowBorderWeight(initialAppUiState.appearance.windowBorderWeight),
+  )
   const [appMode, setAppMode] = useState<AppMode>(initialShellState.appMode)
   const [launcherPage, setLauncherPage] = useState<LauncherPage>(initialShellState.launcherPage)
   const [debugEnabled, setDebugEnabled] = useState(initialShellState.debugEnabled)
@@ -128,6 +143,7 @@ export default function App() {
   const [settingsWindowOpen, setSettingsWindowOpen] = useState(false)
   const [settingsWindowCategory, setSettingsWindowCategory] = useState<SettingsWindowCategory>('appearance')
   const [windowIsFullscreen, setWindowIsFullscreen] = useState(false)
+  const [windowIsMaximized, setWindowIsMaximized] = useState(false)
   const [workbenchHasOpened, setWorkbenchHasOpened] = useState(initialShellState.appMode === 'workbench')
   const [workbenchActivationKey, setWorkbenchActivationKey] = useState(0)
   const previousLocaleRef = useRef<LocaleCode>(locale)
@@ -183,6 +199,8 @@ export default function App() {
 
         setLocale(nextLocale)
         setAccentPresetId(state.appearance.accentPresetId || ACCENT_PRESETS[0].id)
+        setWindowBorderTone(normalizeWindowBorderTone(state.appearance.windowBorderTone))
+        setWindowBorderWeight(normalizeWindowBorderWeight(state.appearance.windowBorderWeight))
         if (nextShellState.appMode === 'workbench') {
           setWorkbenchHasOpened(true)
           setWorkbenchActivationKey((current) => current + 1)
@@ -377,32 +395,77 @@ export default function App() {
   }, [activeAccentPreset.id, appUiStateReady])
 
   useEffect(() => {
+    if (!appUiStateReady) {
+      return
+    }
+
+    void applyAppUiStatePatch({ appearance: { windowBorderTone, windowBorderWeight } })
+  }, [appUiStateReady, windowBorderTone, windowBorderWeight])
+
+  useEffect(() => {
     if (!desktopHost) {
       return
     }
 
     let disposed = false
+    let frameId: number | null = null
 
-    void isCurrentWindowFullscreen()
-      .then((fullscreen) => {
-        if (!disposed) {
-          setWindowIsFullscreen(fullscreen)
-        }
+    const syncWindowFrameState = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null
+
+        void Promise.all([isCurrentWindowFullscreen(), isCurrentWindowMaximized()])
+          .then(([fullscreen, maximized]) => {
+            if (!disposed) {
+              setWindowIsFullscreen(fullscreen)
+              setWindowIsMaximized(maximized)
+            }
+          })
+          .catch(() => {
+            if (!disposed) {
+              setWindowIsFullscreen(false)
+              setWindowIsMaximized(false)
+            }
+          })
       })
-      .catch(() => {
-        if (!disposed) {
-          setWindowIsFullscreen(false)
-        }
-      })
+    }
+
+    syncWindowFrameState()
+    window.addEventListener('resize', syncWindowFrameState)
 
     return () => {
       disposed = true
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+      window.removeEventListener('resize', syncWindowFrameState)
     }
   }, [desktopHost, settingsWindowOpen])
 
   const handleToggleBorderlessFullscreen = useCallback(async () => {
     const nextFullscreen = await toggleFullscreenCurrentWindow()
     setWindowIsFullscreen(nextFullscreen)
+    if (nextFullscreen) {
+      setWindowIsMaximized(false)
+    }
+    window.requestAnimationFrame(() => {
+      void Promise.all([isCurrentWindowFullscreen(), isCurrentWindowMaximized()]).then(([fullscreen, maximized]) => {
+        setWindowIsFullscreen(fullscreen)
+        setWindowIsMaximized(maximized)
+      })
+    })
+  }, [])
+
+  const handleToggleMaximizeWindow = useCallback(async () => {
+    const nextMaximized = await toggleMaximizeCurrentWindow()
+    setWindowIsMaximized(nextMaximized)
+    window.requestAnimationFrame(() => {
+      void isCurrentWindowMaximized().then(setWindowIsMaximized)
+    })
   }, [])
 
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
@@ -535,7 +598,12 @@ export default function App() {
     <LocaleProvider locale={locale}>
       <NotificationProvider>
         <LoadingMotionProvider preference={loadingMotionPreference}>
-          <div className="relative h-screen w-screen overflow-hidden bg-(--bg-app) text-(--text-primary)">
+          <div
+            className="app-window-frame"
+            data-window-border-tone={windowBorderTone}
+            data-window-border-weight={windowBorderWeight}
+            data-window-edge-to-edge={windowIsFullscreen || windowIsMaximized ? 'true' : undefined}
+          >
             {appMode === 'launcher' ? (
               <LauncherPageView
                 page={launcherPage}
@@ -548,7 +616,7 @@ export default function App() {
                 onWorkspaceChange={() => {}}
                 onLauncherPageChange={handleLauncherPageChange}
                 onMinimizeWindow={() => void minimizeCurrentWindow()}
-                onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+                onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
                 onCloseWindow={() => void closeCurrentWindow()}
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
@@ -573,7 +641,7 @@ export default function App() {
                   onSwitchToLauncher={handleSwitchToLauncher}
                   onOpenSettings={openSettingsWindow}
                   onMinimizeWindow={() => void minimizeCurrentWindow()}
-                  onToggleMaximizeWindow={() => void toggleMaximizeCurrentWindow()}
+                  onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
                   onCloseWindow={() => void closeCurrentWindow()}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
@@ -620,6 +688,18 @@ export default function App() {
                   localeOptions={localeOptions}
                   activeLocale={locale}
                   windowModeLabel={settingsMenuCopy.windowModeLabel}
+                  windowBorderToneLabel={settingsMenuCopy.windowBorderToneLabel}
+                  windowBorderToneDescription={settingsMenuCopy.windowBorderToneDescription}
+                  windowBorderToneOptions={(
+                    Object.entries(settingsMenuCopy.windowBorderToneOptions) as Array<[WindowBorderTone, string]>
+                  ).map(([id, label]) => ({ id, label }))}
+                  activeWindowBorderTone={windowBorderTone}
+                  windowBorderWeightLabel={settingsMenuCopy.windowBorderWeightLabel}
+                  windowBorderWeightDescription={settingsMenuCopy.windowBorderWeightDescription}
+                  windowBorderWeightOptions={(
+                    Object.entries(settingsMenuCopy.windowBorderWeightOptions) as Array<[WindowBorderWeight, string]>
+                  ).map(([id, label]) => ({ id, label }))}
+                  activeWindowBorderWeight={windowBorderWeight}
                   borderlessFullscreenLabel={settingsMenuCopy.borderlessFullscreenLabel}
                   borderlessFullscreenDescription={settingsMenuCopy.borderlessFullscreenDescription}
                   enableBorderlessFullscreenLabel={settingsMenuCopy.enableBorderlessFullscreenLabel}
@@ -641,6 +721,8 @@ export default function App() {
                   onSelectAccent={setAccentPresetId}
                   onResetAccent={() => setAccentPresetId(ACCENT_PRESETS[0].id)}
                   onSelectLocale={setLocale}
+                  onSelectWindowBorderTone={setWindowBorderTone}
+                  onSelectWindowBorderWeight={setWindowBorderWeight}
                   onToggleBorderlessFullscreen={() => void handleToggleBorderlessFullscreen()}
                   onToggleNotificationSound={() => setNotificationSoundEnabledState((current) => !current)}
                   onToggleDebugMode={() => setDebugEnabled((current) => !current)}
@@ -681,6 +763,7 @@ export default function App() {
                 />
               </Suspense>
             ) : null}
+            <div className="app-window-titlebar-divider" aria-hidden="true" />
           </div>
         </LoadingMotionProvider>
       </NotificationProvider>

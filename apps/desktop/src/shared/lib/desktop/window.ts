@@ -12,10 +12,19 @@ export async function minimizeCurrentWindow() {
 /** Toggles maximize state for the current desktop window. */
 export async function toggleMaximizeCurrentWindow() {
   if (!canUseDesktopHost()) {
-    return
+    return false
   }
 
-  await getPlatformPorts().desktopWindow.toggleMaximize()
+  return getPlatformPorts().desktopWindow.toggleMaximize()
+}
+
+/** Reads maximized state for the current desktop window. */
+export async function isCurrentWindowMaximized() {
+  if (!canUseDesktopHost()) {
+    return false
+  }
+
+  return getPlatformPorts().desktopWindow.isMaximized()
 }
 
 /** Reads fullscreen state for the current desktop window. */
