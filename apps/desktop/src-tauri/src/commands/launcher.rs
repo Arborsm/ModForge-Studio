@@ -332,6 +332,12 @@ pub async fn validate_nexus_api_key(app: AppHandle) -> Result<ValidateApiKeyResu
 fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResult, String> {
     let settings = settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
+    log::info!(
+        target: "launcher_nexus",
+        "validate nexus api key requested: nexus_api_key_present={} nexus_api_key_len={}",
+        !api_key.trim().is_empty(),
+        api_key.len()
+    );
     let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
     let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
         .map_err(|error| {

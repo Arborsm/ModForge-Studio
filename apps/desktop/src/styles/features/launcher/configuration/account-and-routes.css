@@ -1,7 +1,14 @@
 @layer components {
+  .launcher-config-account-slot {
+    display: grid;
+    min-height: 136px;
+    border-bottom: 1px solid color-mix(in srgb, var(--config-line) 50%, transparent);
+  }
+
   .launcher-config-dashboard {
     display: grid;
     gap: 12px;
+    min-height: 100%;
     padding: 16px 20px 10px;
   }
 
@@ -256,7 +263,12 @@
     align-items: center;
     justify-content: space-between;
     gap: 18px;
+    min-height: 100%;
     padding: 18px 20px;
+  }
+
+  .launcher-config-account-slot + .launcher-config-api-list {
+    border-top: 0;
   }
 
   .launcher-config-guest-hero h3 {

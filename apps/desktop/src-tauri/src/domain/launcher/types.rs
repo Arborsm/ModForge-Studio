@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub(crate) const UNSORTED_STORAGE_FOLDER_ID: &str = "unsorted";
 pub(crate) const UNSORTED_STORAGE_FOLDER_NAME: &str = "Unsorted";
@@ -35,13 +35,52 @@ impl Default for LauncherSettings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NullablePatch<T> {
+    Missing,
+    Null,
+    Value(T),
+}
+
+impl<T> NullablePatch<T> {
+    pub fn state_label(&self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::Null => "null",
+            Self::Value(_) => "value",
+        }
+    }
+}
+
+impl<T> Default for NullablePatch<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<'de, T> Deserialize<'de> for NullablePatch<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Option::<T>::deserialize(deserializer).map(|value| match value {
+            Some(value) => Self::Value(value),
+            None => Self::Null,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveLauncherSettingsRequest {
     pub game_path: Option<String>,
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
-    pub nexus_api_key: Option<String>,
+    #[serde(default)]
+    pub nexus_api_key: NullablePatch<String>,
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,

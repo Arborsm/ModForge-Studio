@@ -368,6 +368,9 @@ pub fn run_stdio() -> Result<(), String> {
         )
     });
     let debug_logging_state = DebugLoggingState::new();
+    if let Err(error) = logging::init_sidecar_logging(&debug_logging_state) {
+        eprintln!("modforge sidecar logging init failed: {error}");
+    }
     debug_logging_state.set_enabled(false);
 
     let diagnostics_start_result = domain::app_ui::load_app_ui_state()

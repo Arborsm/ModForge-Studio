@@ -74,26 +74,30 @@ export function ConfigCompletionRail({ title, steps }: { title: string; steps: C
 }
 
 export function ConfigDownloadDefaults({
-  settings,
+  settingsState,
   copy,
   yesLabel,
   noLabel,
 }: {
-  settings: ReturnType<typeof useLauncherSettings>['settings']
+  settingsState: ReturnType<typeof useLauncherSettings>
   copy: LauncherCopy
   yesLabel: string
   noLabel: string
 }) {
+  const { settings } = settingsState
   const defaults = [
     {
+      field: 'autoCheckModUpdates' as const,
       label: copy.toggles.autoCheckModUpdates,
       checked: settings.autoCheckModUpdates,
     },
     {
+      field: 'autoInstallDownloads' as const,
       label: copy.toggles.autoInstallDownloads,
       checked: settings.autoInstallDownloads,
     },
     {
+      field: 'keepDownloadedArchives' as const,
       label: copy.toggles.keepDownloadedArchives,
       checked: settings.keepDownloadedArchives,
     },
@@ -112,12 +116,17 @@ export function ConfigDownloadDefaults({
         {defaults.map((item, index) => (
           <LoadingMotionRevealItem key={item.label} index={index} as="div" className="launcher-config-default-row">
             <span>{item.label}</span>
-            <span
+            <button
+              type="button"
+              role="switch"
+              aria-checked={item.checked}
               className={cx('launcher-config-mini-switch', item.checked && 'launcher-config-mini-switch-active')}
-              aria-label={item.checked ? yesLabel : noLabel}
+              aria-label={item.label}
+              title={item.checked ? yesLabel : noLabel}
+              onClick={() => settingsState.updateField(item.field, !item.checked)}
             >
               <span aria-hidden="true" />
-            </span>
+            </button>
           </LoadingMotionRevealItem>
         ))}
       </div>

@@ -7,10 +7,10 @@ use std::sync::{
 };
 
 use crate::domain::app_paths::app_logs_dir;
-use log::RecordBuilder;
+use log::{LevelFilter, Metadata, Record, RecordBuilder};
 use serde::Deserialize;
 use tauri::{Runtime, plugin::TauriPlugin};
-use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy, log::LevelFilter};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 const LOG_FILE_NAME: &str = "modforge-studio";
 const LOG_FILE_SIZE_BYTES: u128 = 1_000_000;
@@ -89,6 +89,42 @@ impl DebugLoggingState {
     fn filter_enabled(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.enabled)
     }
+}
+
+struct SidecarStderrLogger {
+    debug_enabled: Arc<AtomicBool>,
+}
+
+impl log::Log for SidecarStderrLogger {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+        match metadata.level() {
+            log::Level::Debug | log::Level::Trace => self.debug_enabled.load(Ordering::Relaxed),
+            _ => true,
+        }
+    }
+
+    fn log(&self, record: &Record<'_>) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+
+        eprintln!(
+            "[{}][{}] {}",
+            record.level(),
+            record.target(),
+            record.args()
+        );
+    }
+
+    fn flush(&self) {}
+}
+
+pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLoggerError> {
+    log::set_boxed_logger(Box::new(SidecarStderrLogger {
+        debug_enabled: state.filter_enabled(),
+    }))?;
+    log::set_max_level(LevelFilter::Info);
+    Ok(())
 }
 
 pub fn build_logging_plugin<R: Runtime>(state: DebugLoggingState) -> TauriPlugin<R> {

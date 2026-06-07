@@ -283,6 +283,10 @@ function getRouteRowTone(route: LauncherNexusRouteSnapshot | undefined, account:
     return isAuthorized ? restTone : 'danger'
   }
 
+  if (route?.routeId === 'privateGraphql' && (account.apiKeyError || !isAuthorized)) {
+    return 'danger'
+  }
+
   const routeTone = getRouteTone(route)
   if (routeTone === 'loading') {
     return 'loading'
@@ -701,16 +705,6 @@ function ConfigNexusPanel({
           <div className="launcher-config-actions">
             <button
               type="button"
-              className="launcher-config-button launcher-config-button-brand"
-              disabled={account.ssoStarting}
-              aria-busy={account.ssoStarting}
-              onClick={() => void account.startSso()}
-            >
-              {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-              {isAuthorized ? copy.settings.nexusReauthorize : copy.settings.nexusSignInAction}
-            </button>
-            <button
-              type="button"
               className="launcher-config-button"
               disabled={!hasApiKey}
               onClick={() => settingsState.updateField('nexusApiKey', null)}
@@ -734,53 +728,53 @@ function ConfigNexusPanel({
         }
       />
 
-      {isAuthorized ? (
-        <div className="launcher-config-dashboard">
-          <div className="launcher-config-dash-metrics">
-            <ConfigMetric
-              title={copy.settings.nexusQuotaDaily}
-              value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
-              percent={dailyPercent}
-              limit={dailyLimit}
-            />
-            <ConfigMetric
-              title={copy.settings.nexusQuotaHourly}
-              value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
-              percent={hourlyPercent}
-              limit={hourlyLimit}
-              warn
-            />
+      <div className="launcher-config-account-slot">
+        {isAuthorized ? (
+          <div className="launcher-config-dashboard">
+            <div className="launcher-config-dash-metrics">
+              <ConfigMetric
+                title={copy.settings.nexusQuotaDaily}
+                value={formatNumber(account.apiKeyStatus?.dailyRemaining)}
+                percent={dailyPercent}
+                limit={dailyLimit}
+              />
+              <ConfigMetric
+                title={copy.settings.nexusQuotaHourly}
+                value={formatNumber(account.apiKeyStatus?.hourlyRemaining)}
+                percent={hourlyPercent}
+                limit={hourlyLimit}
+                warn
+              />
+            </div>
           </div>
-        </div>
-      ) : null}
-
-      {!isAuthorized ? (
-        <div className="launcher-config-guest-hero">
-          <div>
-            <h3>{copy.settings.nexusGuestTitle}</h3>
-            <p>{copy.settings.nexusGuestSubtitle}</p>
+        ) : (
+          <div className="launcher-config-guest-hero">
+            <div>
+              <h3>{copy.settings.nexusGuestTitle}</h3>
+              <p>{copy.settings.nexusGuestSubtitle}</p>
+            </div>
+            <div className="launcher-config-actions">
+              <button
+                type="button"
+                className="launcher-config-button launcher-config-button-primary"
+                disabled={account.ssoStarting}
+                aria-busy={account.ssoStarting}
+                onClick={() => void account.startSso()}
+              >
+                {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
+                {copy.settings.nexusSignInAction}
+              </button>
+              <button
+                type="button"
+                className="launcher-config-button"
+                onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
+              >
+                {copy.settings.nexusPasteApiKeyAction}
+              </button>
+            </div>
           </div>
-          <div className="launcher-config-actions">
-            <button
-              type="button"
-              className="launcher-config-button launcher-config-button-primary"
-              disabled={account.ssoStarting}
-              aria-busy={account.ssoStarting}
-              onClick={() => void account.startSso()}
-            >
-              {account.ssoStarting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
-              {copy.settings.nexusSignInAction}
-            </button>
-            <button
-              type="button"
-              className="launcher-config-button"
-              onClick={() => settingsState.updateField('nexusApiKey', settingsState.settings.nexusApiKey ?? '')}
-            >
-              {copy.settings.nexusPasteApiKeyAction}
-            </button>
-          </div>
-        </div>
-      ) : null}
+        )}
+      </div>
 
       <div className="launcher-config-api-list">
         {displayedRoutes.map((route, index) => {
@@ -1136,7 +1130,7 @@ export function LauncherConfigurationPage({
           <aside className="launcher-config-rail">
             <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
             <ConfigAccountCard account={account} copy={copy} />
-            <ConfigDownloadDefaults settings={settingsState.settings} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
+            <ConfigDownloadDefaults settingsState={settingsState} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
           </aside>
         </div>
 

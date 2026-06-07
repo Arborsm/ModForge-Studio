@@ -931,8 +931,13 @@ describe('LauncherConfigurationPage', () => {
     expect(await screen.findByText('Log: network timeout')).toBeTruthy()
 
     const apiRouteRow = screen.getByRole('heading', { name: copy.settings.nexusApiRest, level: 3 }).closest('.launcher-config-api-row')
+    const privateGraphqlRouteRow = screen
+      .getByRole('heading', { name: 'Nexus Private GraphQL', level: 3 })
+      .closest('.launcher-config-api-row')
     expect(apiRouteRow).not.toHaveClass('launcher-config-api-row-ok')
     expect(apiRouteRow).toHaveClass('launcher-config-api-row-danger')
+    expect(privateGraphqlRouteRow).not.toHaveClass('launcher-config-api-row-loading')
+    expect(privateGraphqlRouteRow).toHaveClass('launcher-config-api-row-danger')
   })
 
   it('keeps debug utilities collapsed until more is requested', async () => {
