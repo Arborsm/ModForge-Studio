@@ -114,6 +114,15 @@ pub(crate) struct UserInfo {
     pub key: String,
     pub name: String,
     pub is_premium: bool,
+    #[serde(default, alias = "premium_expiry", alias = "premium_expires", alias = "premium_until")]
+    pub premium_expires_at: Option<Value>,
+    #[serde(
+        default,
+        alias = "lifetime_premium",
+        alias = "premium_lifetime",
+        alias = "is_premium_lifetime"
+    )]
+    pub is_lifetime_premium: Option<bool>,
     pub is_supporter: bool,
     pub email: String,
     pub profile_url: String,
@@ -226,6 +235,7 @@ pub(crate) fn get_mod(api_key: &str, domain: &str, mod_id: u64) -> Result<ModInf
 #[cfg(test)]
 mod tests {
     use super::UserInfo;
+    use serde_json::Value;
 
     #[test]
     fn user_info_deserializes_nexus_rest_validate_response() {
@@ -234,6 +244,8 @@ mod tests {
             "key": "api-key",
             "name": "ApiPilot",
             "is_premium": true,
+            "premium_expires_at": "2026-12-31T23:59:59Z",
+            "is_lifetime_premium": false,
             "is_supporter": false,
             "email": "pilot@example.com",
             "profile_url": "https://www.nexusmods.com/users/123"
@@ -244,6 +256,11 @@ mod tests {
         assert_eq!(info.user_id, 123);
         assert_eq!(info.name, "ApiPilot");
         assert!(info.is_premium);
+        assert_eq!(
+            info.premium_expires_at.as_ref().and_then(Value::as_str),
+            Some("2026-12-31T23:59:59Z")
+        );
+        assert_eq!(info.is_lifetime_premium, Some(false));
         assert_eq!(info.profile_url, "https://www.nexusmods.com/users/123");
     }
 }

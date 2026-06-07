@@ -52,6 +52,7 @@ type NexusApiAccountStatus = {
   apiKeyStatus: ValidateApiKeyResult | null
   apiKeyError: string | null
   apiKeyChecking: boolean
+  hasApiKey: boolean
   ssoAuthorized: boolean
   ssoStarting: boolean
   refreshApiKeyStatus: (options?: { force?: boolean; forceNonPremium?: boolean }) => Promise<void>
@@ -189,6 +190,53 @@ function getNextHourTimestampSeconds() {
 function getQuotaDetail(limit: string, resetAt: number | null | undefined, fallbackResetAt: () => number, copy: LauncherCopy) {
   const resetDetail = formatResetCountdown(resetAt ?? fallbackResetAt(), copy)
   return resetDetail == null ? limit : `${limit} · ${resetDetail}`
+}
+
+function getPremiumExpiryLabel(status: ValidateApiKeyResult | null, copy: LauncherCopy) {
+  if (!status?.isPremium) {
+    return null
+  }
+
+  if (status.isLifetimePremium) {
+    return copy.diagnostics.premiumLifetime
+  }
+
+  const rawValue = status.premiumExpiresAt?.trim()
+  if (!rawValue) {
+    return null
+  }
+
+  const timestampMs = Number(rawValue)
+  const date =
+    Number.isFinite(timestampMs) && timestampMs > 0
+      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
+      : new Date(rawValue)
+  const displayValue = Number.isNaN(date.getTime()) ? rawValue : date.toLocaleDateString()
+
+  return copy.diagnostics.premiumExpiresAt(displayValue)
+}
+
+function getPremiumCacheExpiresAtMs(status: ValidateApiKeyResult | null) {
+  if (!status?.isPremium) {
+    return undefined
+  }
+
+  if (status.isLifetimePremium) {
+    return null
+  }
+
+  const rawValue = status.premiumExpiresAt?.trim()
+  if (!rawValue) {
+    return undefined
+  }
+
+  const timestampMs = Number(rawValue)
+  const date =
+    Number.isFinite(timestampMs) && timestampMs > 0
+      ? new Date(timestampMs < 10_000_000_000 ? timestampMs * 1000 : timestampMs)
+      : new Date(rawValue)
+
+  return Number.isNaN(date.getTime()) ? undefined : date.getTime()
 }
 
 function getDiagnosticsAgeLabel(timestamp: number | null, copy: LauncherCopy) {
@@ -432,19 +480,20 @@ function useNexusApiAccountStatus(
 
   const writeApiKeyStatusCache = useCallback(
     (status: ValidateApiKeyResult | null, error: string | null, overrideForceNonPremium = forceNonPremium) => {
+      const cachedStatus = applyDebugAccountTier(status, overrideForceNonPremium)
       writeCachedLauncherConfigurationApiKeyStatus(
         {
-          status: applyDebugAccountTier(status, overrideForceNonPremium),
+          status: cachedStatus,
           error,
         },
         {
           apiKeySignature,
+          expiresAtMs: getPremiumCacheExpiresAtMs(cachedStatus),
         },
       )
     },
     [apiKeySignature, applyDebugAccountTier, forceNonPremium],
   )
-
   const refreshApiKeyStatus = useCallback(
     async (options: { force?: boolean; forceNonPremium?: boolean } = {}) => {
       const effectiveForceNonPremium = options.forceNonPremium ?? forceNonPremium
@@ -461,7 +510,9 @@ function useNexusApiAccountStatus(
         if (cached) {
           setApiKeyStatus(applyDebugAccountTier(cached.status, effectiveForceNonPremium))
           setApiKeyError(cached.error)
-          return
+          if (!cached.shouldRefresh) {
+            return
+          }
         }
       }
 
@@ -503,9 +554,15 @@ function useNexusApiAccountStatus(
           setApiKeyStatus(applyDebugAccountTier(cached.status))
           setApiKeyError(cached.error)
         }
-        return
+        if (!cached.shouldRefresh) {
+          return
+        }
       }
 
+      if (!cancelled) {
+        setApiKeyChecking(true)
+        setApiKeyError(null)
+      }
       try {
         const nextStatus = applyDebugAccountTier(await launcherPort.validateNexusApiKey())
         writeApiKeyStatusCache(nextStatus, null)
@@ -519,6 +576,10 @@ function useNexusApiAccountStatus(
         if (!cancelled) {
           setApiKeyStatus(null)
           setApiKeyError(errorMessage)
+        }
+      } finally {
+        if (!cancelled) {
+          setApiKeyChecking(false)
         }
       }
     })()
@@ -589,6 +650,7 @@ function useNexusApiAccountStatus(
     apiKeyStatus,
     apiKeyError,
     apiKeyChecking,
+    hasApiKey,
     ssoAuthorized,
     ssoStarting,
     refreshApiKeyStatus,
@@ -1134,7 +1196,12 @@ export function LauncherConfigurationPage({
 
           <aside className="launcher-config-rail">
             <ConfigCompletionRail title={copy.settings.completionTitle} steps={stepItems} />
-            <ConfigAccountCard account={account} copy={copy} />
+            <ConfigAccountCard
+              account={account}
+              copy={copy}
+              premiumExpiryLabel={getPremiumExpiryLabel(account.apiKeyStatus, copy)}
+              onRefresh={() => void account.refreshApiKeyStatus({ force: true })}
+            />
             <ConfigDownloadDefaults settingsState={settingsState} copy={copy} yesLabel={commonCopy.yes} noLabel={commonCopy.no} />
           </aside>
         </div>

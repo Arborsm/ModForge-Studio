@@ -21,6 +21,7 @@ services/**/obj/
 .worktrees/
 .codex/
 .cargo/
+.omp/
 AGENTS.md
 .uv-roaming/
 .tmp-pywinauto-stdout.txt

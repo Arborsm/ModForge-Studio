@@ -496,6 +496,8 @@ const localeBundle: LocaleBundle = {
         apiKeyUnchecked: 'API key saved, not validated yet',
         premiumActive: 'Premium',
         premiumFree: 'Free',
+        premiumExpiresAt: (date) => `Premium expires ${date}`,
+        premiumLifetime: 'Lifetime Premium',
         quotaRemaining: (remaining) => `${remaining} requests remaining today`,
         hourlyQuotaRemaining: (remaining) => `${remaining} requests remaining this hour`,
         quotaResetAt: (time) => `Resets at ${time}`,

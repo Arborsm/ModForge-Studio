@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Crown, X } from 'lucide-react'
+import { AlertTriangle, Check, Crown, RefreshCw, X } from 'lucide-react'
 import { useState } from 'react'
 import type { LauncherCopy } from '@locales/schema'
 import { cx } from '@shared/lib/cx'
@@ -136,13 +136,22 @@ export function ConfigDownloadDefaults({
 
 type ConfigAccountCardProps = {
   account: {
-    apiKeyStatus: { userName?: string | null; avatarUrl?: string | null; isPremium?: boolean | null } | null
+    apiKeyStatus: {
+      userName?: string | null
+      avatarUrl?: string | null
+      isPremium?: boolean | null
+      premiumExpiresAt?: string | null
+    } | null
     apiKeyError: string | null
+    apiKeyChecking: boolean
+    hasApiKey: boolean
   }
   copy: LauncherCopy
+  premiumExpiryLabel: string | null
+  onRefresh: () => void
 }
 
-export function ConfigAccountCard({ account, copy }: ConfigAccountCardProps) {
+export function ConfigAccountCard({ account, copy, premiumExpiryLabel, onRefresh }: ConfigAccountCardProps) {
   const accountName = account.apiKeyStatus?.userName ?? 'Nexus'
   const avatarUrl = account.apiKeyStatus?.avatarUrl?.trim() || null
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)
@@ -160,6 +169,17 @@ export function ConfigAccountCard({ account, copy }: ConfigAccountCardProps) {
       data-testid="launcher-config-account-card"
     >
       <div className="launcher-config-account-cover" aria-hidden="true" />
+      <button
+        type="button"
+        className="launcher-config-account-refresh"
+        disabled={!account.hasApiKey || account.apiKeyChecking}
+        aria-busy={account.apiKeyChecking}
+        aria-label={copy.diagnostics.validateApiKeyAction}
+        title={copy.diagnostics.validateApiKeyAction}
+        onClick={onRefresh}
+      >
+        <RefreshCw className={cx('h-4 w-4', account.apiKeyChecking && 'animate-spin')} aria-hidden="true" />
+      </button>
       <div className="launcher-config-account-card">
         <div className="launcher-config-avatar-wrap">
           {shouldShowAvatarImage ? (
@@ -189,6 +209,7 @@ export function ConfigAccountCard({ account, copy }: ConfigAccountCardProps) {
             {isPremium ? <Crown className="h-3.5 w-3.5" aria-hidden="true" /> : null}
             {isPremium ? tierLabel.toUpperCase() : tierLabel}
           </span>
+          {premiumExpiryLabel ? <span className="launcher-config-premium-expiry">{premiumExpiryLabel}</span> : null}
         </div>
       </div>
     </LoadingMotionReveal>

@@ -492,6 +492,8 @@ const localeBundle = {
         apiKeyUnchecked: 'API Key 已保存，尚未校验',
         premiumActive: 'Premium',
         premiumFree: '免费用户',
+        premiumExpiresAt: (date) => `Premium 到期：${date}`,
+        premiumLifetime: '永久 Premium',
         quotaRemaining: (remaining) => `今日剩余 ${remaining} 次请求`,
         hourlyQuotaRemaining: (remaining) => `本小时剩余 ${remaining} 次请求`,
         quotaResetAt: (time) => `重置时间：${time}`,

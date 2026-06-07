@@ -305,6 +305,8 @@ export type ValidateApiKeyResult = {
   avatarUrl: string | null
   profileUrl: string | null
   isPremium: boolean
+  premiumExpiresAt?: string | null
+  isLifetimePremium?: boolean | null
   dailyRemaining: number | null
   hourlyRemaining: number | null
   dailyResetAt: number | null

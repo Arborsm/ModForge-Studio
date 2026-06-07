@@ -217,6 +217,7 @@ describe('LauncherConfigurationPage', () => {
       avatarUrl: 'https://staticdelivery.nexusmods.com/Images/Users/123/avatar.png',
       profileUrl: 'https://www.nexusmods.com/users/123',
       isPremium: true,
+      premiumExpiresAt: '2026-12-31T23:59:59Z',
       dailyRemaining: 18742,
       hourlyRemaining: 500,
       dailyResetAt: null,
@@ -242,6 +243,35 @@ describe('LauncherConfigurationPage', () => {
     expect(accountCard.textContent).not.toContain('500')
     expect(nexusPanel.textContent).toContain('18,742')
     expect(nexusPanel.textContent).toContain('500')
+    expect(accountCard.textContent).toContain('Premium 到期：')
+
+    fireEvent.click(within(accountCard).getByRole('button', { name: copy.diagnostics.validateApiKeyAction }))
+    await waitFor(() => {
+      expect(validateNexusApiKey).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('renders permanent Premium accounts without an expiry date', async () => {
+    loadLauncherNexusDiagnostics.mockReturnValue(createNeverSettledPromise())
+    const validateNexusApiKey = vi.fn().mockResolvedValue({
+      userName: 'LifetimePilot',
+      avatarUrl: null,
+      profileUrl: 'https://www.nexusmods.com/users/124',
+      isPremium: true,
+      isLifetimePremium: true,
+      premiumExpiresAt: null,
+      dailyRemaining: 18742,
+      hourlyRemaining: 500,
+      dailyResetAt: null,
+      hourlyResetAt: null,
+    })
+
+    renderConfigurationPage(undefined, createMockLauncherPort({ validateNexusApiKey }))
+
+    const accountCard = await screen.findByTestId('launcher-config-account-card')
+
+    expect(accountCard.textContent).toContain(copy.diagnostics.premiumLifetime)
+    expect(accountCard.textContent).not.toContain('Premium 到期：')
   })
 
   it('uses a distinct free-account presentation instead of premium chrome', async () => {

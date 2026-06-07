@@ -982,6 +982,8 @@ export type LauncherCopy = {
     apiKeyUnchecked: string
     premiumActive: string
     premiumFree: string
+    premiumExpiresAt: (date: string) => string
+    premiumLifetime: string
     quotaRemaining: (remaining: string) => string
     hourlyQuotaRemaining: (remaining: string) => string
     quotaResetAt: (time: string) => string

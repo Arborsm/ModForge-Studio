@@ -321,10 +321,29 @@ pub struct ValidateApiKeyResult {
     pub avatar_url: Option<String>,
     pub profile_url: Option<String>,
     pub is_premium: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub premium_expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_lifetime_premium: Option<bool>,
     pub daily_remaining: Option<u64>,
     pub hourly_remaining: Option<u64>,
     pub daily_reset_at: Option<u64>,
     pub hourly_reset_at: Option<u64>,
+}
+
+fn optional_nexus_value_as_string(value: Option<serde_json::Value>) -> Option<String> {
+    match value? {
+        serde_json::Value::String(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        }
+        serde_json::Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -356,6 +375,8 @@ fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResul
         avatar_url,
         profile_url: Some(user_info.profile_url),
         is_premium: user_info.is_premium,
+        premium_expires_at: optional_nexus_value_as_string(user_info.premium_expires_at),
+        is_lifetime_premium: user_info.is_lifetime_premium,
         daily_remaining: rest_api::daily_quota_remaining(),
         hourly_remaining: rest_api::hourly_quota_remaining(),
         daily_reset_at: rest_api::daily_quota_reset_at(),
