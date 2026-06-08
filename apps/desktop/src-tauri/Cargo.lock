@@ -2221,6 +2221,7 @@ dependencies = [
  "log",
  "lz4_flex",
  "lzxd",
+ "owo-colors",
  "regex",
  "reqwest",
  "semver",
@@ -2228,6 +2229,7 @@ dependencies = [
  "serde_json",
  "sevenz-rust",
  "sha2 0.11.0",
+ "sheen",
  "tar",
  "tauri",
  "tauri-build",
@@ -2573,6 +2575,12 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "owo-colors"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
 
 [[package]]
 name = "pango"
@@ -3705,6 +3713,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
  "digest 0.11.3",
+]
+
+[[package]]
+name = "sheen"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45b2b59988006b1f52e108a93088e195417bfc569837c6e7d22b0dd4057954f6"
+dependencies = [
+ "chrono",
+ "log",
+ "owo-colors",
 ]
 
 [[package]]

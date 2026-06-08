@@ -11,18 +11,30 @@ pub fn run_from_env() -> Result<(), String> {
         .unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
     let listener = TcpListener::bind(&bind_addr)
         .map_err(|error| format!("Failed to bind dev asset bridge at {bind_addr}: {error}"))?;
-    println!("ModForge event asset bridge listening at http://{bind_addr}");
+    crate::support::logging::write_dev_asset_bridge_log(
+        log::Level::Info,
+        "Dev Asset Bridge",
+        format!("listening url=http://{bind_addr}"),
+    );
 
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
                 thread::spawn(|| {
                     if let Err(error) = handle_connection(stream) {
-                        eprintln!("dev asset bridge request failed: {error}");
+                        crate::support::logging::write_dev_asset_bridge_log(
+                            log::Level::Warn,
+                            "Dev Asset Bridge",
+                            format!("request failed error={error}"),
+                        );
                     }
                 });
             }
-            Err(error) => eprintln!("dev asset bridge accept failed: {error}"),
+            Err(error) => crate::support::logging::write_dev_asset_bridge_log(
+                log::Level::Warn,
+                "Dev Asset Bridge",
+                format!("accept failed error={error}"),
+            ),
         }
     }
 

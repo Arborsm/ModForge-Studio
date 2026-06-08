@@ -410,7 +410,11 @@ function applyForcedNonPremiumStatus(status: ValidateApiKeyResult | null, forceN
   return status && forceNonPremium ? { ...status, isPremium: false } : status
 }
 
-function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSettings>, forceNonPremium: boolean): NexusApiAccountStatus {
+function useNexusApiAccountStatus(
+  settingsState: ReturnType<typeof useLauncherSettings>,
+  forceNonPremium: boolean,
+  onAuthorized?: () => void,
+): NexusApiAccountStatus {
   const launcherPort = useLauncherPort()
   const { settings, refresh } = settingsState
   const [apiKeyStatus, setApiKeyStatus] = useState<ValidateApiKeyResult | null>(null)
@@ -571,6 +575,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
         writeCachedLauncherConfigurationSsoStatus(snapshot)
         await refresh()
         await refreshApiKeyStatus({ force: true })
+        onAuthorized?.()
       }
     } catch (nextError) {
       setApiKeyError(nextError instanceof Error ? nextError.message : String(nextError))
@@ -578,7 +583,7 @@ function useNexusApiAccountStatus(settingsState: ReturnType<typeof useLauncherSe
       cancelled = true
       setSsoStarting(false)
     }
-  }, [launcherPort, refresh, refreshApiKeyStatus])
+  }, [launcherPort, onAuthorized, refresh, refreshApiKeyStatus])
 
   return {
     apiKeyStatus,
@@ -826,7 +831,6 @@ export function LauncherConfigurationPage({
   const [installedModCount, setInstalledModCount] = useState<number | null>(null)
   const [runtimeInfo, setRuntimeInfo] = useState<LauncherRuntimeInfo | null>(null)
   const launcherPort = useLauncherPort()
-  const account = useNexusApiAccountStatus(settingsState, forceNonPremium)
   const warningState = getLauncherWarningState(settingsState.settings)
   const configuredPaths = countConfiguredPaths(settingsState.settings)
   const hasCredentials = !warningState.missingCredentials
@@ -878,6 +882,12 @@ export function LauncherConfigurationPage({
     },
     [onLauncherDiagnosticsUpdate],
   )
+  const handleRefreshDiagnostics = useCallback(() => {
+    setDiagnosticsRefreshing(true)
+    setDiagnosticRoutes(getDefaultConfigRoutes(copy))
+    setDiagnosticsRestartNonce((value) => value + 1)
+  }, [copy])
+  const account = useNexusApiAccountStatus(settingsState, forceNonPremium, handleRefreshDiagnostics)
   useEffect(() => {
     let disposed = false
     const modsPath = settingsState.settings.modsPath?.trim()
@@ -1007,11 +1017,6 @@ export function LauncherConfigurationPage({
       }
     }
   }, [diagnosticsApiKeySignature, diagnosticsPollNonce, diagnosticsRestartNonce, handleDiagnosticsUpdate, onLauncherDiagnosticsUpdate])
-  const handleRefreshDiagnostics = useCallback(() => {
-    setDiagnosticsRefreshing(true)
-    setDiagnosticRoutes(getDefaultConfigRoutes(copy))
-    setDiagnosticsRestartNonce((value) => value + 1)
-  }, [copy])
   const handleViewLogs = useCallback(() => {
     setDebugToolsExpanded(true)
     window.requestAnimationFrame(() => {

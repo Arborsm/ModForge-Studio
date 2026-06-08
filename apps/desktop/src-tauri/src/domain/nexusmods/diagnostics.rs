@@ -352,9 +352,9 @@ fn start_launcher_nexus_diagnostics_with_settings(
             .lock()
             .expect("launcher nexus diagnostics mutex should not be poisoned");
         if state.started && !force_restart {
-            log::info!(
-                target: "launcher_nexus",
-                "launcher nexus diagnostics already started: generation={} nexus_api_key_present={}",
+            log::debug!(
+                target: "Nexus",
+                "Diagnostics already started: generation={} api-key-present={}",
                 state.generation,
                 nexus_api_key_present
             );
@@ -365,8 +365,8 @@ fn start_launcher_nexus_diagnostics_with_settings(
             state.started = true;
             state.routes = build_launcher_nexus_force_offline_snapshot_map(&settings);
             log::info!(
-                target: "launcher_nexus",
-                "launcher nexus diagnostics force-offline snapshot: generation={} nexus_api_key_present={}",
+                target: "Nexus",
+                "Using force-offline diagnostics snapshot: generation={} api-key-present={}",
                 state.generation,
                 nexus_api_key_present
             );
@@ -379,8 +379,8 @@ fn start_launcher_nexus_diagnostics_with_settings(
     };
 
     log::info!(
-        target: "launcher_nexus",
-        "start launcher nexus diagnostics: generation={generation} force_restart={force_restart} nexus_api_key_present={nexus_api_key_present}"
+        target: "Nexus",
+        "Start diagnostics: generation={generation} force-restart={force_restart} api-key-present={nexus_api_key_present}"
     );
     thread::spawn(move || run_launcher_nexus_diagnostics(settings, generation, app));
 }

@@ -47,7 +47,7 @@ fn resolve_game_launch_target(
     let game_root = clean_input_path(game_path);
     log_launcher_trace(
         "launch.resolve",
-        &[("gamePath", normalize_path(&game_root))],
+        &[("game-path", normalize_path(&game_root))],
     );
     let smapi_candidates = smapi_launch_candidates(&game_root);
     if let Some(smapi_path) = smapi_candidates.iter().find(|path| path.is_file()) {
@@ -87,7 +87,7 @@ where
         "launch.start",
         &[
             ("target", format!("{target:?}")),
-            ("executablePath", normalize_path(&executable_path)),
+            ("executable-path", normalize_path(&executable_path)),
         ],
     );
     runner(&executable_path).map_err(|message| {
@@ -103,7 +103,7 @@ where
         "launch.complete",
         &[
             ("target", format!("{target:?}")),
-            ("executablePath", normalize_path(&executable_path)),
+            ("executable-path", normalize_path(&executable_path)),
         ],
     );
     Ok(LauncherGameLaunchResult {

@@ -637,7 +637,7 @@ fn set_mod_enabled_at_path(
     log_launcher_trace(
         "toggle.start",
         &[
-            ("modPath", normalize_path(current_path)),
+            ("mod-path", normalize_path(current_path)),
             ("enabled", enabled.to_string()),
         ],
     );
@@ -659,7 +659,7 @@ fn set_mod_enabled_at_path(
         log_launcher_trace(
             "toggle.noop",
             &[
-                ("modPath", normalize_path(current_path)),
+                ("mod-path", normalize_path(current_path)),
                 ("enabled", enabled.to_string()),
             ],
         );
@@ -691,8 +691,8 @@ fn set_mod_enabled_at_path(
     log_launcher_trace(
         "toggle.complete",
         &[
-            ("fromPath", normalize_path(current_path)),
-            ("toPath", normalize_path(&next_path)),
+            ("from-path", normalize_path(current_path)),
+            ("to-path", normalize_path(&next_path)),
             ("enabled", enabled.to_string()),
         ],
     );

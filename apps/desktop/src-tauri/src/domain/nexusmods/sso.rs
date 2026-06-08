@@ -137,11 +137,9 @@ pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
 
         match result {
             Ok(api_key) => {
-                st.status = SsoConnectionStatus::Authorized;
                 st.connection_token = None;
                 drop(st);
 
-                // Persist API key
                 if let Ok(path) = paths::launcher_settings_path() {
                     if let Ok(mut settings) =
                         launcher_settings::load_or_create_settings_at_path(&path)
@@ -151,14 +149,15 @@ pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
                     }
                 }
 
-                match rest_api::validate_user(&api_key) {
+                let validation_result = rest_api::validate_user(&api_key);
+                let mut s = sso_state().lock().expect("sso mutex");
+                s.status = SsoConnectionStatus::Authorized;
+                match validation_result {
                     Ok(info) => {
-                        let mut s = sso_state().lock().expect("sso mutex");
                         s.user_name = Some(info.name);
                         s.is_premium = info.is_premium;
                     }
                     Err(e) => {
-                        let mut s = sso_state().lock().expect("sso mutex");
                         s.error_message = Some(format!("Validation failed: {e}"));
                     }
                 }

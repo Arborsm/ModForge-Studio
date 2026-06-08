@@ -133,8 +133,8 @@ pub fn load_launcher_settings(_app: AppHandle) -> Result<LauncherSettings, Strin
             let settings_path = launcher_settings_path()?;
             let settings = load_or_create_settings_at_path(&settings_path)?;
             log::info!(
-                target: "launcher_settings",
-                "loaded launcher settings: nexus_api_key_present={}",
+                target: "Launcher Settings",
+                "Loaded settings: api-key-present={}",
                 optional_text_present(&settings.nexus_api_key)
             );
             Ok(settings)
@@ -178,8 +178,8 @@ pub fn save_launcher_settings(
             let existing = load_or_create_settings_at_path(&settings_path)?;
             let nexus_api_key_request_state = request.nexus_api_key.state_label();
             log::info!(
-                target: "launcher_settings",
-                "save launcher settings request: nexus_api_key={} existing_nexus_api_key_present={}",
+                target: "Launcher Settings",
+                "Save settings request: api-key={} existing-api-key-present={}",
                 nexus_api_key_request_state,
                 optional_text_present(&existing.nexus_api_key)
             );
@@ -187,8 +187,8 @@ pub fn save_launcher_settings(
             let merged = merge_launcher_settings(existing, request);
             let normalized = normalize_settings(merged);
             log::info!(
-                target: "launcher_settings",
-                "saved launcher settings: nexus_api_key_present={}",
+                target: "Launcher Settings",
+                "Saved settings: api-key-present={}",
                 optional_text_present(&normalized.nexus_api_key)
             );
             save_settings_at_path(&settings_path, &normalized)?;
@@ -203,8 +203,8 @@ pub(crate) fn restart_launcher_nexus_diagnostics_with_app(
     settings: &LauncherSettings,
 ) {
     log::info!(
-        target: "launcher_settings",
-        "restart launcher nexus diagnostics after settings save: nexus_api_key_present={}",
+        target: "Launcher Settings",
+        "Restart Nexus diagnostics after settings save: api-key-present={}",
         optional_text_present(&settings.nexus_api_key)
     );
     crate::domain::nexusmods::diagnostics::restart_launcher_nexus_diagnostics_with_handle(

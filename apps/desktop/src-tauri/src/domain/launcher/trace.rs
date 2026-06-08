@@ -1,4 +1,4 @@
-pub(crate) const LAUNCHER_TRACE_TARGET: &str = "launcher_trace";
+pub(crate) const LAUNCHER_TRACE_TARGET: &str = "Launcher Trace";
 
 pub(crate) fn format_launcher_trace_message(action: &str, fields: &[(&str, String)]) -> String {
     let context = fields

@@ -84,4 +84,10 @@ export type AsideSection = {
   rows: AsideRow[]
 }
 
+export type ObjectDataCard = {
+  key: string
+  title: string
+  rows: AsideRow[]
+}
+
 export type DetailTab = 'info' | 'relations' | 'resources'

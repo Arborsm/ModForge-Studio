@@ -333,15 +333,15 @@ fn validate_nexus_api_key_blocking(app: AppHandle) -> Result<ValidateApiKeyResul
     let settings = settings::load_launcher_settings(app)?;
     let api_key = settings.nexus_api_key.as_deref().unwrap_or("");
     log::info!(
-        target: "launcher_nexus",
-        "validate nexus api key requested: nexus_api_key_present={} nexus_api_key_len={}",
+        target: "Nexus",
+        "Validate API key requested: api-key-present={} api-key-length={}",
         !api_key.trim().is_empty(),
         api_key.len()
     );
     let user_info = rest_api::validate_user(api_key).map_err(|e| e.to_string())?;
     let avatar_url = graphql::load_user_avatar(api_key, user_info.user_id)
         .map_err(|error| {
-            log::warn!("launcher Nexus user avatar lookup failed: {error}");
+            log::warn!(target: "Nexus", "User avatar lookup failed: error={error}");
             error
         })
         .ok()

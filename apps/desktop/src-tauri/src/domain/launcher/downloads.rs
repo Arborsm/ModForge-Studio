@@ -36,9 +36,9 @@ fn open_nexus_manual_download_page(mod_id: i64, file_id: i64, game_id: i64) -> R
     log_launcher_trace(
         "download.manual-page-opened",
         &[
-            ("modId", mod_id.to_string()),
-            ("fileId", file_id.to_string()),
-            ("gameId", game_id.to_string()),
+            ("mod-id", mod_id.to_string()),
+            ("file-id", file_id.to_string()),
+            ("game-id", game_id.to_string()),
             ("url", url),
         ],
     );
@@ -76,15 +76,15 @@ fn log_download_result_complete(result: &DownloadLauncherModResult) {
     log_launcher_trace(
         "download.complete",
         &[
-            ("modId", result.mod_id.to_string()),
-            ("archivePath", result.archive_path.clone()),
+            ("mod-id", result.mod_id.to_string()),
+            ("archive-path", result.archive_path.clone()),
             ("installed", result.installed.to_string()),
             (
-                "installedTargetPath",
+                "installed-target-path",
                 result.installed_target_path.clone().unwrap_or_default(),
             ),
             (
-                "manualDownloadPageOpened",
+                "manual-download-page-opened",
                 result.manual_download_page_opened.to_string(),
             ),
         ],
@@ -257,16 +257,16 @@ pub fn download_launcher_mod(
             log_launcher_trace(
                 "download.start",
                 &[
-                    ("modId", request.mod_id.to_string()),
+                    ("mod-id", request.mod_id.to_string()),
                     (
-                        "requestedFileId",
+                        "requested-file-id",
                         request
                             .file_id
                             .map(|value| value.to_string())
                             .unwrap_or_default(),
                     ),
                     (
-                        "requestedVersion",
+                        "requested-version",
                         request.version.clone().unwrap_or_default(),
                     ),
                 ],
@@ -301,9 +301,9 @@ pub fn download_launcher_mod(
             log_launcher_trace(
                 "download.selected-file",
                 &[
-                    ("modId", request.mod_id.to_string()),
-                    ("fileId", candidate.file_id.to_string()),
-                    ("fileName", candidate.file_name.clone()),
+                    ("mod-id", request.mod_id.to_string()),
+                    ("file-id", candidate.file_id.to_string()),
+                    ("file-name", candidate.file_name.clone()),
                     ("version", candidate.version.clone().unwrap_or_default()),
                 ],
             );
@@ -374,8 +374,8 @@ pub fn download_launcher_mod(
             log_launcher_trace(
                 "download.saved",
                 &[
-                    ("modId", request.mod_id.to_string()),
-                    ("archivePath", normalize_path(&archive_path)),
+                    ("mod-id", request.mod_id.to_string()),
+                    ("archive-path", normalize_path(&archive_path)),
                     ("bytes", bytes_written.to_string()),
                 ],
             );
@@ -393,8 +393,8 @@ pub fn download_launcher_mod(
                 log_launcher_trace(
                     "download.auto-install.complete",
                     &[
-                        ("modId", request.mod_id.to_string()),
-                        ("targetPath", install_result.target_path.clone()),
+                        ("mod-id", request.mod_id.to_string()),
+                        ("target-path", install_result.target_path.clone()),
                     ],
                 );
                 if !settings.keep_downloaded_archives {

@@ -424,6 +424,8 @@ export type ItemsPanelCopy = {
   sourceSectionTitle: string
   noDescription: string
   noneLabel: string
+  yesLabel: string
+  noLabel: string
   priceLabel: string
   edibilityLabel: string
   typeLabel: string
@@ -454,6 +456,41 @@ export type ItemsPanelCopy = {
   kindLabel: string
   spriteIndexLabel: string
   textureSizeLabel: string
+  giftableLabel: string
+  trashableLabel: string
+  colorOverlayLabel: string
+  geodeDefaultDropsLabel: string
+  excludeFishingCollectionLabel: string
+  excludeShippingCollectionLabel: string
+  excludeRandomSaleLabel: string
+  buffDataTitle: string
+  objectDataTitle: string
+  geodeDropsTitle: string
+  artifactSpotChancesTitle: string
+  objectDataEmpty: string
+  durationLabel: string
+  chanceLabel: string
+  conditionLabel: string
+  stackLabel: string
+  qualityLabel: string
+  buffIdLabel: string
+  debuffLabel: string
+  iconLabel: string
+  glowColorLabel: string
+  maxItemsLabel: string
+  toolUpgradeLabel: string
+  recipeLabel: string
+  stackModeLabel: string
+  qualityModeLabel: string
+  stackModifiersLabel: string
+  qualityModifiersLabel: string
+  modDataLabel: string
+  perItemConditionLabel: string
+  precedenceLabel: string
+  setFlagLabel: string
+  outputLabel: string
+  attributesLabel: string
+  modSourcesTitle: string
   recipesPanelTitle: string
   recipesPanelSubtitle: string
   recipesPanelEmpty: string

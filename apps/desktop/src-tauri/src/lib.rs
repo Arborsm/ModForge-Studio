@@ -81,7 +81,10 @@ pub fn run() {
                     }
                 });
             if let Err(error) = diagnostics_start_result {
-                log::warn!("launcher nexus diagnostics startup probe could not start: {error}");
+                log::warn!(
+                    target: "Nexus",
+                    "Startup diagnostics probe could not start: error={error}"
+                );
             }
             Ok(())
         })

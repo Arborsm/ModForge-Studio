@@ -108,6 +108,10 @@ function startSidecar() {
 
   sidecar = spawn(resolveSidecarPath(), [], {
     cwd: isDev ? path.resolve(__dirname, '..') : process.resourcesPath,
+    env: {
+      ...process.env,
+      MODFORGE_LOG_COLOR: process.env.MODFORGE_LOG_COLOR ?? (isDev ? 'always' : 'auto'),
+    },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
@@ -120,7 +124,7 @@ function startSidecar() {
   })
 
   sidecar.stderr.on('data', (chunk) => {
-    console.error(`[modforge-sidecar] ${String(chunk).trimEnd()}`)
+    console.error(String(chunk).trimEnd())
   })
 
   createInterface({ input: sidecar.stdout }).on('line', (line) => {
@@ -194,8 +198,20 @@ function createMainWindow() {
   mainWindow.once('ready-to-show', () => mainWindow?.show())
 
   if (isDev) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const key = input.key.toLowerCase()
+      const togglesDevTools =
+        input.type === 'keyDown' && (key === 'f12' || (key === 'i' && input.shift && (input.control || (input.meta && input.alt))))
+
+      if (togglesDevTools) {
+        event.preventDefault()
+        mainWindow?.webContents.toggleDevTools()
+      }
+    })
+  }
+
+  if (isDev) {
     void mainWindow.loadURL(devUrl)
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     void mainWindow.loadFile(path.resolve(__dirname, '../dist/index.html'))
   }

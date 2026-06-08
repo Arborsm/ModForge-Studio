@@ -19,6 +19,7 @@ describe('observability', () => {
   afterEach(async () => {
     await syncDebugDiagnosticsEnabled(false)
     configureObservability({})
+    vi.restoreAllMocks()
   })
 
   it('suppresses debug events while debug diagnostics are disabled', () => {
@@ -164,5 +165,38 @@ describe('observability', () => {
         message: 'Background refresh complete',
       }),
     )
+  })
+
+  it('forwards direct console warnings through the observability adapter', () => {
+    const bridgedWarn = console.warn
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation((...args) => {
+      bridgedWarn(...args)
+    })
+
+    console.warn('Failed to sample palette preview row.', new Error('canvas unavailable'))
+
+    expect(warnSpy).toHaveBeenCalledWith('Failed to sample palette preview row.', expect.any(Error))
+    expect(writeFrontendLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        level: 'warning',
+        message: expect.stringContaining('Failed to sample palette preview row.'),
+        keyValues: {
+          source: 'console',
+          method: 'warn',
+        },
+      }),
+    )
+  })
+
+  it('does not forward frontend log console mirrors back into the adapter', () => {
+    window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = true
+
+    try {
+      console.warn('[webview][WARN] Launcher settings save failed source=launcher-settings')
+    } finally {
+      window.__MODFORGE_MIRRORING_FRONTEND_LOG__ = false
+    }
+
+    expect(writeFrontendLog).not.toHaveBeenCalled()
   })
 })

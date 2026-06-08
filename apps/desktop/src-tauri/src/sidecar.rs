@@ -369,7 +369,11 @@ pub fn run_stdio() -> Result<(), String> {
     });
     let debug_logging_state = DebugLoggingState::new();
     if let Err(error) = logging::init_sidecar_logging(&debug_logging_state) {
-        eprintln!("modforge sidecar logging init failed: {error}");
+        logging::write_sidecar_fallback_log(
+            log::Level::Error,
+            "Sidecar",
+            format!("modforge sidecar logging init failed: {error}"),
+        );
     }
     debug_logging_state.set_enabled(false);
 
@@ -384,7 +388,10 @@ pub fn run_stdio() -> Result<(), String> {
             }
         });
     if let Err(error) = diagnostics_start_result {
-        eprintln!("launcher nexus diagnostics startup probe could not start: {error}");
+        log::warn!(
+            target: "Nexus",
+            "Startup diagnostics probe could not start: error={error}"
+        );
     }
 
     let ctx = SidecarContext {

@@ -35,12 +35,25 @@ export type ObservabilityAdapter = {
   writeFrontendLog?: (request: FrontendLogRequest) => Promise<void> | void
 }
 
+const CONSOLE_METHODS = ['debug', 'info', 'warn', 'error'] as const
+
+type ConsoleMethodName = (typeof CONSOLE_METHODS)[number]
+
+declare global {
+  interface Window {
+    __MODFORGE_MIRRORING_FRONTEND_LOG__?: boolean
+  }
+}
+
 let debugDiagnosticsEnabled = false
 let observabilityAdapter: ObservabilityAdapter = {}
+let consoleBridgeInstalled = false
+let forwardingConsoleLog = false
 
 /** Configures the observability adapter used by reportAppEvent. */
 export function configureObservability(adapter: ObservabilityAdapter) {
   observabilityAdapter = adapter
+  installConsoleLogBridge()
 }
 
 function shouldForceNotification(level: AppEventLevel) {
@@ -79,6 +92,82 @@ function buildLogMessage({ title, description, logMessage }: ReportAppEventReque
   }
 
   return title
+}
+
+function toConsoleBridgeLevel(method: ConsoleMethodName): FrontendLogLevel {
+  switch (method) {
+    case 'debug':
+      return 'debug'
+    case 'info':
+      return 'info'
+    case 'warn':
+      return 'warning'
+    case 'error':
+      return 'error'
+  }
+}
+
+function stringifyConsoleArgument(argument: unknown) {
+  if (argument instanceof Error) {
+    return argument.stack || argument.message
+  }
+
+  if (typeof argument === 'string') {
+    return argument
+  }
+
+  try {
+    return JSON.stringify(argument)
+  } catch {
+    return String(argument)
+  }
+}
+
+function buildConsoleBridgeLogMessage(args: unknown[]) {
+  return args.map(stringifyConsoleArgument).join(' ')
+}
+
+function installConsoleLogBridge() {
+  if (consoleBridgeInstalled || typeof console === 'undefined') {
+    return
+  }
+
+  for (const method of CONSOLE_METHODS) {
+    const original = console[method].bind(console) as typeof console.debug
+
+    console[method] = ((...args: unknown[]) => {
+      original(...args)
+
+      if (
+        forwardingConsoleLog ||
+        !observabilityAdapter.writeFrontendLog ||
+        (typeof window !== 'undefined' && window.__MODFORGE_MIRRORING_FRONTEND_LOG__)
+      ) {
+        return
+      }
+
+      const message = buildConsoleBridgeLogMessage(args)
+      if (!message.trim()) {
+        return
+      }
+
+      forwardingConsoleLog = true
+      try {
+        void observabilityAdapter.writeFrontendLog({
+          level: toConsoleBridgeLevel(method),
+          message,
+          keyValues: {
+            source: 'console',
+            method,
+          },
+        })
+      } finally {
+        forwardingConsoleLog = false
+      }
+    }) as typeof console.debug
+  }
+
+  consoleBridgeInstalled = true
 }
 
 /** Syncs the debug diagnostics toggle with in-memory state and the host logger. */

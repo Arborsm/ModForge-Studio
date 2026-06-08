@@ -239,8 +239,6 @@ describe('desktop facade', () => {
         },
       },
     })
-    expect(warnSpy).toHaveBeenCalledWith('Launcher settings save failed', {
-      source: 'launcher-settings',
-    })
+    expect(warnSpy).toHaveBeenCalledWith('[webview][WARN] Launcher settings save failed source=launcher-settings')
   })
 })
