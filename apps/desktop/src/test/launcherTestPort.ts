@@ -69,6 +69,8 @@ export function createMockLauncherPort(overrides: Partial<LauncherPort> = {}): L
     checkUpdates: unimplemented('checkUpdates'),
     listenToUpdateProgress: vi.fn().mockResolvedValue(() => {}),
     downloadMod: unimplemented('downloadMod'),
+    cancelDownload: vi.fn().mockResolvedValue(undefined),
+    listenToDownloadProgress: vi.fn().mockResolvedValue(() => {}),
     installArchive: unimplemented('installArchive'),
     listInstallBackups: unimplemented('listInstallBackups'),
     restoreInstallBackup: unimplemented('restoreInstallBackup'),

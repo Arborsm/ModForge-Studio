@@ -787,6 +787,8 @@ pub fn list_launcher_install_backups(
                 .map(|session| LauncherInstallBackupSummary {
                     backup_id: session.backup_id,
                     backup_path: session.backup_path,
+                    delete_count: session.delete_count,
+                    overwrite_count: session.overwrite_count,
                 })
                 .collect())
         })(),

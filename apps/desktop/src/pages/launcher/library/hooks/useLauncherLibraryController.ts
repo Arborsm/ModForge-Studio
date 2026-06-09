@@ -698,6 +698,7 @@ export function useLauncherLibraryController({
         void refreshLibrary()
       } catch (nextError) {
         setInstallBackupsError(nextError instanceof Error ? nextError.message : copy.library.installBackupsError)
+        setInstallBackupsState('error')
       } finally {
         setRestoringBackupId(null)
       }

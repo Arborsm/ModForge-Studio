@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useEditorCopy } from '@locales/localeContext'
 import { publishNotification } from '@shared/ui/notifications'
-import type { DownloadLauncherModResult, LauncherSettings } from './launcherContracts'
+import type { DownloadLauncherModResult, LauncherDownloadProgressPayload, LauncherSettings } from './launcherContracts'
 import { useLauncherPort } from './launcherPortContext'
 import type {
   LauncherDownloadQueueItem,
@@ -12,6 +12,7 @@ import type {
 
 const MAX_CONCURRENT_LAUNCHER_DOWNLOADS = 3
 const SAVE_DOWNLOAD_QUEUE_DEBOUNCE_MS = 300
+const DOWNLOAD_PROGRESS_FLUSH_MS = 150
 const DEBUG_SIMULATION_DURATION_SECONDS = 10
 const DEBUG_SIMULATION_BYTES_PER_SECOND = 2 * 1024 * 1024
 const DEBUG_SIMULATION_TOTAL_BYTES = DEBUG_SIMULATION_DURATION_SECONDS * DEBUG_SIMULATION_BYTES_PER_SECOND
@@ -40,19 +41,36 @@ function isQueueStatus(value: string): value is LauncherDownloadQueueStatus {
 }
 
 function normalizeQueueItem(item: LauncherDownloadQueueItem): LauncherDownloadQueueItem {
+  const staleDownloading = item.status === 'downloading'
   return {
     ...item,
+    status: staleDownloading ? 'queued' : item.status,
     fileId: item.fileId ?? null,
     version: item.version ?? null,
     imageUrl: item.imageUrl ?? null,
     archivePath: item.archivePath ?? null,
     installedTargetPath: item.installedTargetPath ?? null,
-    error: item.error ?? null,
-    completedAt: item.completedAt ?? null,
+    error: staleDownloading ? null : (item.error ?? null),
+    completedAt: staleDownloading ? null : (item.completedAt ?? null),
     totalBytes: item.totalBytes ?? null,
-    downloadedBytes: item.downloadedBytes ?? null,
-    bytesPerSecond: item.bytesPerSecond ?? null,
+    downloadedBytes: staleDownloading ? null : (item.downloadedBytes ?? null),
+    bytesPerSecond: staleDownloading ? null : (item.bytesPerSecond ?? null),
   }
+}
+
+function normalizeInFlightQueueForPersistence(items: LauncherDownloadQueueItem[]) {
+  return items.map((item) =>
+    item.status === 'downloading'
+      ? {
+          ...item,
+          status: 'queued' as const,
+          error: null,
+          completedAt: null,
+          downloadedBytes: null,
+          bytesPerSecond: null,
+        }
+      : item,
+  )
 }
 
 function normalizeLoadedQueue(items: LauncherDownloadQueueItem[]) {
@@ -75,6 +93,35 @@ function updateQueueItem(
   updater: (item: LauncherDownloadQueueItem) => LauncherDownloadQueueItem,
 ) {
   return items.map((item) => (item.id === id ? updater(item) : item))
+}
+
+function applyDownloadProgressUpdates(
+  items: LauncherDownloadQueueItem[],
+  progressUpdates: LauncherDownloadProgressPayload[],
+): LauncherDownloadQueueItem[] {
+  if (!progressUpdates.length) {
+    return items
+  }
+
+  const progressById = new Map(progressUpdates.map((payload) => [payload.downloadId, payload]))
+  let changed = false
+  const nextItems = items.map((item) => {
+    const payload = progressById.get(item.id)
+    if (!payload || (item.status !== 'queued' && item.status !== 'downloading')) {
+      return item
+    }
+
+    changed = true
+    return {
+      ...item,
+      status: item.status === 'queued' ? 'downloading' : item.status,
+      totalBytes: typeof payload.totalBytes === 'number' ? payload.totalBytes : item.totalBytes,
+      downloadedBytes: payload.downloadedBytes,
+      bytesPerSecond: typeof payload.bytesPerSecond === 'number' ? payload.bytesPerSecond : item.bytesPerSecond,
+    }
+  })
+
+  return changed ? nextItems : items
 }
 
 function mapDownloadResultToQueueState(item: LauncherDownloadQueueItem, result: DownloadLauncherModResult): LauncherDownloadQueueItem {
@@ -158,6 +205,8 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   const saveDownloadQueueTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debugSimulationIntervalsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map())
   const debugSimulationTicksRef = useRef<Map<string, number>>(new Map())
+  const pendingProgressRef = useRef<Map<string, LauncherDownloadProgressPayload>>(new Map())
+  const progressFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hydratedRef = useRef(false)
 
   const clearDebugSimulation = useCallback((id: string) => {
@@ -174,6 +223,40 @@ export function useLauncherDownloads(settings: LauncherSettings) {
     debugSimulationIntervalsRef.current.clear()
     debugSimulationTicksRef.current.clear()
   }, [])
+
+  const flushDownloadProgress = useCallback(() => {
+    if (progressFlushTimeoutRef.current) {
+      clearTimeout(progressFlushTimeoutRef.current)
+      progressFlushTimeoutRef.current = null
+    }
+
+    const progressUpdates = Array.from(pendingProgressRef.current.values())
+    pendingProgressRef.current.clear()
+    if (!progressUpdates.length) {
+      return
+    }
+
+    setItems((current) => applyDownloadProgressUpdates(current, progressUpdates))
+  }, [])
+
+  const flushDownloadProgressToLatestItemsRef = useCallback(() => {
+    if (progressFlushTimeoutRef.current) {
+      clearTimeout(progressFlushTimeoutRef.current)
+      progressFlushTimeoutRef.current = null
+    }
+
+    const progressUpdates = Array.from(pendingProgressRef.current.values())
+    pendingProgressRef.current.clear()
+    latestItemsRef.current = applyDownloadProgressUpdates(latestItemsRef.current, progressUpdates)
+  }, [])
+
+  const scheduleDownloadProgressFlush = useCallback(() => {
+    if (progressFlushTimeoutRef.current) {
+      return
+    }
+
+    progressFlushTimeoutRef.current = setTimeout(flushDownloadProgress, DOWNLOAD_PROGRESS_FLUSH_MS)
+  }, [flushDownloadProgress])
 
   useEffect(() => {
     let active = true
@@ -201,19 +284,26 @@ export function useLauncherDownloads(settings: LauncherSettings) {
 
   useEffect(() => {
     return () => {
+      flushDownloadProgressToLatestItemsRef()
+      const latestItems = latestItemsRef.current
+      const downloadingItems = latestItems.filter((item) => item.status === 'downloading')
+      downloadingItems.forEach((item) => {
+        void launcherPort.cancelDownload(item.id).catch(() => {})
+      })
       clearAllDebugSimulations()
       if (manualDownloadNotificationTimeoutRef.current) {
         clearTimeout(manualDownloadNotificationTimeoutRef.current)
       }
+      const shouldPersistQueueOnUnmount = Boolean(saveDownloadQueueTimeoutRef.current) || downloadingItems.length > 0
       if (saveDownloadQueueTimeoutRef.current) {
         clearTimeout(saveDownloadQueueTimeoutRef.current)
         saveDownloadQueueTimeoutRef.current = null
-        if (hydratedRef.current) {
-          void launcherPort.saveDownloadQueue({ items: latestItemsRef.current })
-        }
+      }
+      if (hydratedRef.current && shouldPersistQueueOnUnmount) {
+        void launcherPort.saveDownloadQueue({ items: normalizeInFlightQueueForPersistence(latestItemsRef.current) })
       }
     }
-  }, [clearAllDebugSimulations, launcherPort])
+  }, [clearAllDebugSimulations, flushDownloadProgressToLatestItemsRef, launcherPort])
 
   const publishManualDownloadOpenedNotification = useCallback(() => {
     if (manualDownloadNotificationVisibleRef.current) {
@@ -274,9 +364,33 @@ export function useLauncherDownloads(settings: LauncherSettings) {
 
     saveDownloadQueueTimeoutRef.current = setTimeout(() => {
       saveDownloadQueueTimeoutRef.current = null
-      void launcherPort.saveDownloadQueue({ items })
+      void launcherPort.saveDownloadQueue({ items: normalizeInFlightQueueForPersistence(items) })
     }, SAVE_DOWNLOAD_QUEUE_DEBOUNCE_MS)
   }, [items, launcherPort])
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null
+    let disposed = false
+
+    void launcherPort
+      .listenToDownloadProgress((payload) => {
+        pendingProgressRef.current.set(payload.downloadId, payload)
+        scheduleDownloadProgressFlush()
+      })
+      .then((dispose) => {
+        if (disposed) {
+          dispose()
+          return
+        }
+        unlisten = dispose
+      })
+      .catch(() => {})
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [launcherPort, scheduleDownloadProgressFlush])
 
   const refreshUpdatesAfterInstall = useCallback(() => {
     if (!settings.modsPath) {
@@ -329,6 +443,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           error: credentialError,
           completedAt: credentialError ? Date.now() : null,
           downloadedBytes: null,
+          totalBytes: null,
           bytesPerSecond: null,
         })),
       )
@@ -348,6 +463,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
               error: credentialError,
               completedAt: credentialError ? Date.now() : null,
               downloadedBytes: null,
+              totalBytes: null,
               bytesPerSecond: null,
             }
           : item,
@@ -389,10 +505,12 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   const removeItem = useCallback(
     (id: string) => {
       clearDebugSimulation(id)
+      pendingProgressRef.current.delete(id)
       processingIdsRef.current.delete(id)
+      void launcherPort.cancelDownload(id).catch(() => {})
       setItems((current) => current.filter((item) => item.id !== id))
     },
-    [clearDebugSimulation],
+    [clearDebugSimulation, launcherPort],
   )
 
   const removeCompleted = useCallback(() => {
@@ -406,10 +524,15 @@ export function useLauncherDownloads(settings: LauncherSettings) {
   }, [clearDebugSimulation])
 
   const clearAll = useCallback(() => {
+    latestItemsRef.current
+      .filter((item) => item.status === 'downloading')
+      .forEach((item) => {
+        void launcherPort.cancelDownload(item.id).catch(() => {})
+      })
     clearAllDebugSimulations()
     processingIdsRef.current.clear()
     setItems([])
-  }, [clearAllDebugSimulations])
+  }, [clearAllDebugSimulations, launcherPort])
 
   const markArchivesInstalled = useCallback((archivePaths: string[]) => {
     const installedLookup = new Set(archivePaths.map((path) => path.trim()).filter(Boolean))
@@ -445,18 +568,21 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           status: 'downloading',
           error: null,
           downloadedBytes: null,
+          totalBytes: null,
           bytesPerSecond: null,
         })),
       )
 
       void launcherPort
         .downloadMod({
+          downloadId: queuedItem.id,
           modId: queuedItem.modId,
           fileId: queuedItem.fileId,
           version: queuedItem.version,
           title: queuedItem.title,
         })
         .then(async (result) => {
+          flushDownloadProgress()
           if (result.manualDownloadPageOpened) {
             clearDebugSimulation(queuedItem.id)
             setItems((current) => current.filter((item) => item.id !== queuedItem.id))
@@ -473,6 +599,7 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           setItems((current) => updateQueueItem(current, queuedItem.id, (item) => mapDownloadResultToQueueState(item, result)))
         })
         .catch((nextError) => {
+          flushDownloadProgress()
           setItems((current) =>
             updateQueueItem(current, queuedItem.id, (item) => ({
               ...item,
@@ -484,10 +611,11 @@ export function useLauncherDownloads(settings: LauncherSettings) {
           )
         })
         .finally(() => {
+          pendingProgressRef.current.delete(queuedItem.id)
           processingIdsRef.current.delete(queuedItem.id)
         })
     },
-    [clearDebugSimulation, launcherPort, publishManualDownloadOpenedNotification, refreshUpdatesAfterInstall],
+    [clearDebugSimulation, flushDownloadProgress, launcherPort, publishManualDownloadOpenedNotification, refreshUpdatesAfterInstall],
   )
 
   const startDebugSimulation = useCallback(

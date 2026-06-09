@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::io::{self, BufRead, Write};
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 type DispatchResult = Result<Value, Value>;
 
@@ -44,6 +45,15 @@ struct RpcEventFrame<'a> {
 struct SidecarContext {
     app: AppHandle,
     debug_logging_state: DebugLoggingState,
+}
+
+impl Clone for SidecarContext {
+    fn clone(&self) -> Self {
+        Self {
+            app: self.app.clone(),
+            debug_logging_state: self.debug_logging_state.clone(),
+        }
+    }
 }
 
 fn arg<T>(args: &Value, key: &str) -> Result<T, Value>
@@ -249,6 +259,10 @@ fn dispatch(ctx: &SidecarContext, command: &str, args: &Value) -> DispatchResult
             ctx.app.clone(),
             arg(args, "request")?,
         ))),
+        "cancel_launcher_download" => ok(commands::launcher::cancel_launcher_download(arg(
+            args,
+            "downloadId",
+        )?)),
         "search_launcher_catalog" => ok(block_on(commands::launcher::search_launcher_catalog(
             ctx.app.clone(),
             arg(args, "request")?,
@@ -356,6 +370,27 @@ fn write_json_line<T: Serialize>(stdout: &Arc<Mutex<io::Stdout>>, value: &T) -> 
         .map_err(|error| format!("Failed to flush sidecar frame: {error}"))
 }
 
+fn dispatches_in_background(command: &str) -> bool {
+    matches!(command, "download_launcher_mod")
+}
+
+fn dispatch_response(ctx: &SidecarContext, request: RpcRequest) -> RpcResponse {
+    match dispatch(ctx, &request.command, &request.args) {
+        Ok(result) => RpcResponse {
+            id: request.id,
+            ok: true,
+            result: Some(result),
+            error: None,
+        },
+        Err(error) => RpcResponse {
+            id: request.id,
+            ok: false,
+            result: None,
+            error: Some(error),
+        },
+    }
+}
+
 pub fn run_stdio() -> Result<(), String> {
     let stdout = Arc::new(Mutex::new(io::stdout()));
     let event_stdout = Arc::clone(&stdout);
@@ -406,20 +441,18 @@ pub fn run_stdio() -> Result<(), String> {
         }
 
         let response = match serde_json::from_str::<RpcRequest>(&line) {
-            Ok(request) => match dispatch(&ctx, &request.command, &request.args) {
-                Ok(result) => RpcResponse {
-                    id: request.id,
-                    ok: true,
-                    result: Some(result),
-                    error: None,
-                },
-                Err(error) => RpcResponse {
-                    id: request.id,
-                    ok: false,
-                    result: None,
-                    error: Some(error),
-                },
-            },
+            Ok(request) if dispatches_in_background(&request.command) => {
+                let thread_ctx = ctx.clone();
+                let thread_stdout = Arc::clone(&stdout);
+                thread::spawn(move || {
+                    let response = dispatch_response(&thread_ctx, request);
+                    if let Err(error) = write_json_line(&thread_stdout, &response) {
+                        log::error!(target: "Sidecar", "Failed to write async sidecar response: {error}");
+                    }
+                });
+                continue;
+            }
+            Ok(request) => dispatch_response(&ctx, request),
             Err(error) => RpcResponse {
                 id: Value::Null,
                 ok: false,

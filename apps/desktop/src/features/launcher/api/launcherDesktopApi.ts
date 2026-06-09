@@ -11,6 +11,7 @@ import type {
   InstallLauncherArchiveRequest,
   InstallLauncherArchiveResult,
   LauncherCatalogPageResult,
+  LauncherDownloadProgressPayload,
   LauncherDownloadQueueState,
   LauncherGameLaunchResult,
   LauncherInstallBackupSummary,
@@ -56,6 +57,7 @@ const searchLauncherCatalogCache = createPromiseCache<LauncherCatalogPageResult>
 const loadLauncherRemoteModDetailCache = createPromiseCache<LauncherRemoteModDetail>()
 const loadLauncherUpdateChangelogCache = createPromiseCache<LauncherUpdateChangelogResult>()
 const LAUNCHER_UPDATE_PROGRESS_EVENT = 'launcher://update-check-progress'
+const LAUNCHER_DOWNLOAD_PROGRESS_EVENT = 'launcher://download-progress'
 const LAUNCHER_UPDATES_CACHE_TTL_MS = 30 * 60 * 1000
 const launcherUpdatesPendingRequests = new Map<string, Promise<LauncherUpdatesResult>>()
 const launcherUpdatesSnapshots = new Map<string, { result: LauncherUpdatesResult; isFinal: boolean; sessionId: string | null }>()
@@ -510,6 +512,16 @@ export function listenToLauncherUpdateProgress(listener: (payload: LauncherUpdat
 /** Queues or starts a remote mod archive download. */
 export function downloadLauncherMod(request: DownloadLauncherModRequest) {
   return invokeDesktop<DownloadLauncherModResult>('download_launcher_mod', { request })
+}
+
+/** Cancels one in-flight launcher download by queue item id. */
+export function cancelLauncherDownload(downloadId: string) {
+  return invokeDesktop<void>('cancel_launcher_download', { downloadId })
+}
+
+/** Listens to chunk-level progress events emitted by active launcher downloads. */
+export function listenToLauncherDownloadProgress(listener: (payload: LauncherDownloadProgressPayload) => void): Promise<UnlistenFn> {
+  return getPlatformPorts().hostEvents.listen<LauncherDownloadProgressPayload>(LAUNCHER_DOWNLOAD_PROGRESS_EVENT, listener)
 }
 
 /** Installs a local archive into the Mods folder and invalidates library/update caches. */

@@ -223,6 +223,12 @@ pub struct LauncherDownloadQueueItem {
     pub error: Option<String>,
     pub added_at: u128,
     pub completed_at: Option<u128>,
+    #[serde(default)]
+    pub total_bytes: Option<u64>,
+    #[serde(default)]
+    pub downloaded_bytes: Option<u64>,
+    #[serde(default)]
+    pub bytes_per_second: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -536,6 +542,15 @@ pub struct LauncherUpdateProgressPayload {
     pub updates: Option<Vec<LauncherUpdateSummary>>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LauncherDownloadProgressPayload {
+    pub download_id: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: Option<u64>,
+    pub bytes_per_second: Option<u64>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateSummary {
@@ -571,6 +586,7 @@ fn default_launcher_updates_result_is_complete() -> bool {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadLauncherModRequest {
+    pub download_id: Option<String>,
     pub mod_id: i64,
     pub file_id: Option<i64>,
     pub version: Option<String>,
@@ -627,6 +643,8 @@ pub struct InstallLauncherArchiveResult {
 pub struct LauncherInstallBackupSummary {
     pub backup_id: String,
     pub backup_path: String,
+    pub delete_count: usize,
+    pub overwrite_count: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]

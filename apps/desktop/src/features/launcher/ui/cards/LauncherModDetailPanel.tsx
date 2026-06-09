@@ -297,8 +297,8 @@ export function LauncherModDetailPanel({
       file.category ?? null,
       file.uploadedAt ? formatDate(file.uploadedAt, copy.common.none) : null,
       formatSize(file.size, file.sizeBytes, copy.common.none),
-      file.uniqueDownloads ? `Unique ${compactNumber(file.uniqueDownloads, copy.common.none)}` : null,
-      file.totalDownloads ? `Total ${compactNumber(file.totalDownloads, copy.common.none)}` : null,
+      file.uniqueDownloads ? detailCopy.uniqueDownloads(compactNumber(file.uniqueDownloads, copy.common.none)) : null,
+      file.totalDownloads ? detailCopy.totalDownloads(compactNumber(file.totalDownloads, copy.common.none)) : null,
     ]
       .filter(Boolean)
       .join(' · ')
@@ -306,7 +306,7 @@ export function LauncherModDetailPanel({
     return {
       id: `${file.fileId ?? fileName}`,
       name: fileName,
-      meta: [meta, file.archiveType, file.managerDownloadEnabled ? 'Mod manager' : null].filter(Boolean).join(' · '),
+      meta: [meta, file.archiveType, file.managerDownloadEnabled ? detailCopy.modManagerDownload : null].filter(Boolean).join(' · '),
       status: '',
       description,
       fileId: file.fileId ?? null,

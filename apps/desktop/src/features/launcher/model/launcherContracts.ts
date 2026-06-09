@@ -354,10 +354,18 @@ export type LauncherUpdateProgressPayload = {
 }
 
 export type DownloadLauncherModRequest = {
+  downloadId?: string | null
   modId: number
   fileId?: number | null
   version?: string | null
   title?: string | null
+}
+
+export type LauncherDownloadProgressPayload = {
+  downloadId: string
+  downloadedBytes: number
+  totalBytes?: number | null
+  bytesPerSecond?: number | null
 }
 
 export type DownloadLauncherModResult = {
@@ -430,6 +438,8 @@ export type InstallLauncherArchiveResult = {
 export type LauncherInstallBackupSummary = {
   backupId: string
   backupPath: string
+  deleteCount: number
+  overwriteCount: number
 }
 
 export type ListLauncherInstallBackupsRequest = {

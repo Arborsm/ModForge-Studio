@@ -686,10 +686,11 @@ describe('LauncherConfigurationPage', () => {
       ssoId: 'test-sso-id',
     })
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ startNexusSso, getNexusSsoStatus }))
+    const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ startNexusSso, getNexusSsoStatus }))
 
     const nexusPanel = screen.getByRole('region', { name: copy.settings.nexusAccessTitle })
-    fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusReauthorize }))
+    fireEvent.click(screen.getByRole('button', { name: copy.settings.nexusSignInAction }))
     fireEvent.click(screen.getByRole('button', { name: copy.configuration.nexusDiagnosticsTitle }))
 
     await waitFor(() => {
@@ -712,9 +713,10 @@ describe('LauncherConfigurationPage', () => {
     const pendingStart = createDeferred<{ ssoId: string; status: 'connecting' }>()
     const startNexusSso = vi.fn().mockReturnValue(pendingStart.promise)
 
-    renderConfigurationPage(undefined, createMockLauncherPort({ startNexusSso }))
+    const settingsState = createSettingsState(createSettings({ nexusApiKey: null }))
+    renderConfigurationPage({ settingsState: settingsState as never }, createMockLauncherPort({ startNexusSso }))
 
-    const signInButton = screen.getByRole('button', { name: copy.settings.nexusReauthorize })
+    const signInButton = screen.getByRole('button', { name: copy.settings.nexusSignInAction })
     fireEvent.click(signInButton)
 
     expect(signInButton).toBeDisabled()

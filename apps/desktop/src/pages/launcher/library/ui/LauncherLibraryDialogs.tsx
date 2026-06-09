@@ -56,6 +56,7 @@ type LauncherLibraryDialogsProps = {
   installBackups: LauncherInstallBackupSummary[]
   installBackupsError: string | null
   restoringBackupId: string | null
+  modsPath: string | null
   childModPicker: LauncherChildModPickerState | null
   childModManager: LauncherChildModManagerState | null
   mods: LauncherLibraryItem[]
@@ -117,6 +118,7 @@ export function LauncherLibraryDialogs({
   installBackups,
   installBackupsError,
   restoringBackupId,
+  modsPath,
   childModPicker,
   childModManager,
   mods,
@@ -175,6 +177,7 @@ export function LauncherLibraryDialogs({
         backups={installBackups}
         error={installBackupsState === 'error' ? installBackupsError : null}
         restoringBackupId={restoringBackupId}
+        modsPath={modsPath}
         onClose={onCloseInstallBackupsDialog}
         onRestore={onRestoreInstallBackup}
       />

@@ -168,6 +168,11 @@ pub async fn download_launcher_mod(
 }
 
 #[tauri::command]
+pub fn cancel_launcher_download(download_id: String) -> Result<(), String> {
+    downloads::cancel_launcher_download(download_id)
+}
+
+#[tauri::command]
 pub async fn search_launcher_catalog(
     app: AppHandle,
     request: SearchLauncherCatalogRequest,
