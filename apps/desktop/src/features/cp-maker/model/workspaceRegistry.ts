@@ -71,18 +71,22 @@ export interface WorkspacePlugin {
 
 const workspaceRegistry = new Map<WorkspaceId, WorkspacePlugin>()
 
+/** Registers a CP Maker workspace editor plugin during workbench assembly. */
 export function registerWorkspacePlugin(plugin: WorkspacePlugin) {
   workspaceRegistry.set(plugin.id, plugin)
 }
 
+/** Returns a registered CP Maker workspace editor plugin by workspace id. */
 export function getWorkspacePlugin(id: WorkspaceId): WorkspacePlugin | undefined {
   return workspaceRegistry.get(id)
 }
 
+/** Lists registered CP Maker workspace editor plugins in registration order. */
 export function listWorkspacePlugins(): WorkspacePlugin[] {
   return Array.from(workspaceRegistry.values())
 }
 
+/** Lists registered CP Maker workspace editor ids in registration order. */
 export function getWorkspacePluginIds(): WorkspaceId[] {
   return Array.from(workspaceRegistry.keys())
 }

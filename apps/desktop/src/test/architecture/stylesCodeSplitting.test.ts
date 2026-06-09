@@ -36,7 +36,7 @@ describe('style code splitting', () => {
     expect(indexStyles).toContain('@source "../app/App.tsx";')
     expect(indexStyles).toContain('@source "../app/app-shell/AppShell.tsx";')
     expect(indexStyles).toContain('@source "../app/app-shell/SettingsWindow.tsx";')
-    expect(indexStyles).toContain('@source "../app/app-shell/WorkbenchShellSkeleton.tsx";')
+    expect(indexStyles).toContain('@source "../shared/ui/WorkbenchShellSkeleton.tsx";')
     expect(indexStyles).toContain('@source "../pages/launcher";')
     expect(indexStyles).toContain('@source "../features/launcher";')
     expect(indexStyles).toContain('@source "../shared/ui/loading-motion/LoadingMotionHost.tsx";')

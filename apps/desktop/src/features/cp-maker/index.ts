@@ -17,6 +17,8 @@ export {
 export { buildEventPatchHubPatches, type EventPatchHubPatch } from '@entities/event'
 export { getPatchActionColor } from './model/patchActionColor'
 export { formatStudioTimestamp, getStudioProjectStatusLabel, handleStudioKeyboardAction } from './model/studioDeskFormatting'
+export { getWorkspacePlugin, getWorkspacePluginIds, listWorkspacePlugins, registerWorkspacePlugin } from './model/workspaceRegistry'
+export type { WorkspacePlugin } from './model/workspaceRegistry'
 export { AddPatchDialog } from './ui/AddPatchDialog'
 export { ConfigSchemaDialog } from './ui/ConfigSchemaDialog'
 export { CreateDraftDialog } from './ui/CreateDraftDialog'
