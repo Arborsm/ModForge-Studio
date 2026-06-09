@@ -13,7 +13,7 @@ import type { GameDirectoryInfo, ResourcePreloadState, WorkspaceLayoutHandle, Wo
 import type { WorkspaceStatus, WorkspaceStoredState } from '@shared/contracts'
 import type { WorkspacePanelConfig } from '@shared/contracts'
 import { WorkbenchLayoutHost } from './WorkbenchLayoutHost'
-import { WorkbenchMapPreviewRuntime, type MapPreviewStatusSnapshot } from './WorkbenchMapPreviewRuntime'
+import type { MapPreviewStatusSnapshot } from './WorkbenchMapPreviewRuntime'
 import { createPreviewPanelDefaults } from './workbenchPreviewPanelDefaults'
 
 const EMPTY_RESOURCE_PRELOAD_STATE: ResourcePreloadState = {
@@ -526,24 +526,7 @@ function ItemsPreviewRuntime({
 /** Dispatches preview workspaces so inactive preview hooks do not mount or scan. */
 export function WorkbenchPreviewRuntime(props: WorkbenchPreviewRuntimeProps) {
   if (props.workspaceMode === 'map') {
-    return (
-      <WorkbenchMapPreviewRuntime
-        copy={props.copy}
-        locale={props.locale}
-        theme={props.theme}
-        accentColor={props.accentColor}
-        desktopHost={props.desktopHost}
-        directoryInfo={props.directoryInfo}
-        heavyWorkspaceReady={props.heavyWorkspaceReady}
-        workspaceLayoutRef={props.workspaceLayoutRef}
-        workspaceLayoutStorageKey={props.workspaceLayoutStorageKey}
-        workspaceLayouts={props.workspaceLayouts}
-        onPersistStateChange={props.onPersistStateChange}
-        onLayoutMetaChange={props.onLayoutMetaChange}
-        onDirectoryInvalid={props.onDirectoryInvalid}
-        onStatusSnapshotChange={props.onMapStatusSnapshotChange}
-      />
-    )
+    return null
   }
 
   if (props.workspaceMode === 'events') {

@@ -14,6 +14,7 @@ import {
 } from '@pages/workbench/workspaces/item/entities/item'
 import { configureImageDataUrlLoader } from '@shared/lib/assets'
 import { configureDesktopPlatformPorts } from '@shared/lib/desktop'
+import { createElectronPlatformPorts, isElectronHost } from '@platform/electron'
 import { createTauriPlatformPorts } from '@platform/tauri'
 import {
   EventResourcePicker,
@@ -31,7 +32,7 @@ type DevResourceBrowserLabProps = {
 }
 
 if (import.meta.env.DEV) {
-  configureDesktopPlatformPorts(createTauriPlatformPorts())
+  configureDesktopPlatformPorts(isElectronHost() ? createElectronPlatformPorts() : createTauriPlatformPorts())
   configureImageDataUrlLoader(loadImageDataUrl)
 }
 

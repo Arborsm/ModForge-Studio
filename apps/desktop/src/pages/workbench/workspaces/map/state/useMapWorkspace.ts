@@ -495,12 +495,17 @@ export function useMapWorkspace({
       if (cancelled || isCancelled()) {
         return
       }
-      await preloadResources(assets, info, () => cancelled || isCancelled())
-      if (!cancelled && !isCancelled() && activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
-        await openWorldAtlasRef.current(assets, info, WORLD_ROOT_MAP_NAME, { preserveActiveTab: true })
-      }
-      if (!cancelled && !isCancelled()) {
-        setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+      try {
+        await preloadResources(assets, info, () => cancelled || isCancelled())
+        if (!cancelled && !isCancelled() && activeTabIdRef.current === WORLD_ATLAS_TAB_ID) {
+          await openWorldAtlasRef.current(assets, info, WORLD_ROOT_MAP_NAME, { preserveActiveTab: true })
+        }
+      } catch (error) {
+        console.warn(`[resource-preload] skipped idle preload: ${formatPreloadError(error)}`)
+      } finally {
+        if (!cancelled && !isCancelled()) {
+          setResourcePreloadState(EMPTY_RESOURCE_PRELOAD_STATE)
+        }
       }
     })()
 

@@ -11,6 +11,7 @@ import { createPreviewPanelDefaults } from './workbenchPreviewPanelDefaults'
 
 type ModWorkspaceGuardHandle = {
   hasUnsavedChanges: boolean
+  hasPendingUnsavedDecision: boolean
   requestUnsavedChangeDecision: (action: () => void | Promise<void>) => Promise<boolean>
 }
 
@@ -78,6 +79,7 @@ export function WorkbenchModPreviewRuntime({
   })
   const modI18nCopy = localeBundles[locale].modI18n
   const requestUnsavedChangeDecisionRef = useRef(modWorkspace.requestUnsavedChangeDecision)
+  const hasPendingUnsavedDecision = Boolean(modWorkspace.pendingUnsavedChangeDecision)
 
   useEffect(() => {
     requestUnsavedChangeDecisionRef.current = modWorkspace.requestUnsavedChangeDecision
@@ -91,6 +93,7 @@ export function WorkbenchModPreviewRuntime({
     onGuardHandleChange((current) => {
       if (
         current?.hasUnsavedChanges === modWorkspace.hasUnsavedChanges &&
+        current.hasPendingUnsavedDecision === hasPendingUnsavedDecision &&
         current.requestUnsavedChangeDecision === requestUnsavedChangeDecision
       ) {
         return current
@@ -98,11 +101,12 @@ export function WorkbenchModPreviewRuntime({
 
       return {
         hasUnsavedChanges: modWorkspace.hasUnsavedChanges,
+        hasPendingUnsavedDecision,
         requestUnsavedChangeDecision,
       }
     })
     return () => onGuardHandleChange(null)
-  }, [modWorkspace.hasUnsavedChanges, onGuardHandleChange, requestUnsavedChangeDecision])
+  }, [hasPendingUnsavedDecision, modWorkspace.hasUnsavedChanges, onGuardHandleChange, requestUnsavedChangeDecision])
 
   useEffect(() => {
     const snapshot = {

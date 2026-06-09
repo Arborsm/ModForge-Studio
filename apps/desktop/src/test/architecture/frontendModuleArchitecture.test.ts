@@ -227,6 +227,16 @@ describe('frontend module architecture', () => {
     expect(provider).toContain('isElectronHost()')
   })
 
+  it('keeps Electron force close bypassing renderer beforeunload guards', async () => {
+    const electronMain = await readFile(sourcePath('electron/main.ts'), 'utf8')
+    const forceCloseHandler = electronMain.match(/ipcMain\.handle\('modforge:window-force-close'[\s\S]*?\n\}\)/)?.[0] ?? ''
+
+    expect(forceCloseHandler).toContain('window.destroy()')
+    expect(forceCloseHandler).not.toContain('window.close()')
+    expect(electronMain).toContain('function stopSidecar()')
+    expect(electronMain).toContain('sidecarStdout?.close()')
+  })
+
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {
     const launcherLibraryPage = await readFile(sourcePath('src/pages/launcher/ui/LauncherLibraryPage.tsx'), 'utf8')
 

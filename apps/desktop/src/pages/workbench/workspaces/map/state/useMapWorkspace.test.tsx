@@ -210,4 +210,25 @@ describe('useMapWorkspace', () => {
       expect(result.current.worldAtlasViews).toHaveLength(1)
     })
   })
+
+  it('clears the preload notification state after idle resource preload completes', async () => {
+    const { result } = renderHook(() =>
+      useMapWorkspace({
+        copy: editorCopy['en-US'],
+        locale: 'en-US',
+        desktopHost: true,
+        active: true,
+        directoryInfo: gameDirectoryInfo,
+        getWorldAtlasViewLabel,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.mapAssets).toHaveLength(2)
+    })
+
+    await waitFor(() => {
+      expect(result.current.resourcePreloadState.active).toBe(false)
+    })
+  })
 })

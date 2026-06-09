@@ -67,6 +67,11 @@
     color: #4f6681;
   }
 
+  .workbench-dock-home.workbench-dock-item-active,
+  .workbench-dock-project.workbench-dock-item-active {
+    color: #2278f2;
+  }
+
   .workbench-dock-item-active::after {
     content: "";
     position: absolute;

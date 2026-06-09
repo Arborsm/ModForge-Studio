@@ -930,7 +930,7 @@ const localeBundle = {
       objectLabel: (id) => `对象 ${id}`,
     },
     messages: {
-      browserHostPrompt: '请在 Tauri 桌面宿主中运行，以访问本地 Stardew Valley 目录。',
+      browserHostPrompt: '请在桌面宿主中运行，以访问本地 Stardew Valley 目录。',
       detectingDefaultInstall: '正在检测默认 Stardew Valley 安装目录...',
       automaticDetectionFailed: '自动检测失败，请手动选择目录。',
       enterFolderBeforeValidating: '请先输入 Stardew Valley 安装目录。',
@@ -1032,6 +1032,8 @@ const localeBundle = {
         },
         pageRange: (start, end, total) => `第 ${start}-${end} 条，共 ${total} 条`,
         pageInfo: (page, pageCount) => `第 ${page} / ${pageCount} 页`,
+        pageSizeLabel: '每页',
+        pageSizeOption: (size) => `${size} 个`,
         detailAction: '查看详情',
         detailsTitle: '资源详情',
         detailsGeneral: '通用标识 / General',

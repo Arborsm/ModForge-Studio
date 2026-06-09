@@ -45,37 +45,87 @@ describe('WorkbenchLaunchpadNavigation', () => {
     expect(props.onOpenChange).toHaveBeenCalledWith(true)
   })
 
-  it('renders only home, the current root page, and recent pages in the dock', () => {
+  it('renders home, project manager, and the current root page without adding the fixed project page to recents', () => {
     renderNavigation({ workspaceMode: 'characters' })
 
     const dock = screen.getByRole('navigation', { name: copy.recentPages })
 
     expect(within(dock).getByRole('button', { name: copy.home })).toBeTruthy()
+    expect(within(dock).getByRole('button', { name: 'Project Manager' })).toBeTruthy()
     expect(within(dock).getByRole('button', { name: 'Characters' })).toBeTruthy()
-    expect(within(dock).getByRole('button', { name: 'Project Page' })).toBeTruthy()
+    expect(within(dock).queryByRole('button', { name: 'Project Page' })).toBeNull()
     expect(within(dock).queryByRole('button', { name: 'Translations' })).toBeNull()
     expect(within(dock).queryByRole('button', { name: 'Events' })).toBeNull()
   })
 
-  it('adds the active project page to the recent dock list', () => {
-    renderNavigation({ workspaceMode: 'events', workspaceViewMode: 'edit', hasActiveProject: true })
+  it('keeps the project page out of recent pages while it remains a fixed project section entry', () => {
+    renderNavigation({ open: true, workspaceMode: 'mods', workspaceViewMode: 'edit', hasActiveProject: true })
 
     const dock = screen.getByRole('navigation', { name: copy.recentPages })
+    const dialog = screen.getByRole('dialog', { name: copy.title })
 
-    expect(within(dock).getByRole('button', { name: `${copy.projectChildren}: Events` })).toHaveAttribute('aria-current', 'page')
-    expect(within(dock).getByRole('button', { name: 'Project Page' })).toBeTruthy()
+    expect(within(dock).queryByRole('button', { name: 'Project Page' })).toBeNull()
+    expect(within(dialog).getByRole('button', { name: 'Project Page' })).toBeTruthy()
   })
 
-  it('routes project recent pages through project workspace navigation', () => {
-    const { props } = renderNavigation({ workspaceMode: 'events', workspaceViewMode: 'edit', hasActiveProject: true })
+  it('marks the project manager dock entry active only when the launchpad is closed on the project manager page', () => {
+    const { rerender, props } = renderNavigation({
+      open: true,
+      workspaceMode: 'mods',
+      workspaceViewMode: 'edit',
+      projectManagementActive: true,
+    })
 
-    fireEvent.click(screen.getByRole('button', { name: `${copy.projectChildren}: Events` }))
+    const home = screen.getByRole('button', { name: copy.home })
+    const projectManager = screen.getByRole('button', { name: 'Project Manager' })
 
-    expect(props.onProjectWorkspaceOpen).toHaveBeenCalledWith('events')
-    expect(props.onRootWorkspaceOpen).not.toHaveBeenCalled()
+    expect(home).toHaveAttribute('aria-current', 'page')
+    expect(projectManager).not.toHaveAttribute('aria-current')
+    expect(projectManager).not.toHaveClass('workbench-dock-item-active')
+
+    rerender(
+      <LocaleProvider locale="en-US">
+        <WorkbenchLaunchpadNavigation {...props} open={false} projectManagementActive />
+      </LocaleProvider>,
+    )
+
+    expect(screen.getByRole('button', { name: 'Project Manager' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: 'Project Manager' })).toHaveClass('workbench-dock-item-active')
   })
 
-  it('moves visited root pages to the front of the recent dock list', () => {
+  it('keeps dock recent order stable when clicking an existing recent page', () => {
+    const { props, rerender } = renderNavigation({ open: true, workspaceMode: 'mods' })
+
+    fireEvent.click(within(screen.getByRole('dialog', { name: copy.title })).getByRole('button', { name: 'Map Browser' }))
+    rerender(
+      <LocaleProvider locale="en-US">
+        <WorkbenchLaunchpadNavigation {...props} open workspaceMode="map" />
+      </LocaleProvider>,
+    )
+    fireEvent.click(within(screen.getByRole('dialog', { name: copy.title })).getByRole('button', { name: 'Event Browser' }))
+    rerender(
+      <LocaleProvider locale="en-US">
+        <WorkbenchLaunchpadNavigation {...props} open={false} workspaceMode="events" />
+      </LocaleProvider>,
+    )
+
+    const dock = screen.getByRole('navigation', { name: copy.recentPages })
+    const beforeClick = within(dock)
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('aria-label'))
+
+    fireEvent.click(within(dock).getByRole('button', { name: 'Map' }))
+
+    const afterClick = within(dock)
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('aria-label'))
+
+    expect(beforeClick).toEqual([copy.home, 'Project Manager', 'Map', 'Events'])
+    expect(afterClick).toEqual(beforeClick)
+    expect(props.onRootWorkspaceOpen).toHaveBeenLastCalledWith('map')
+  })
+
+  it('appends visited root pages and never adds project page to the recent dock list', () => {
     const { props, rerender } = renderNavigation({ open: true, workspaceMode: 'mods' })
 
     const dialog = screen.getByRole('dialog', { name: copy.title })
@@ -93,7 +143,32 @@ describe('WorkbenchLaunchpadNavigation', () => {
       .getAllByRole('button')
       .map((button) => button.getAttribute('aria-label'))
 
-    expect(buttons).toEqual([copy.home, 'Project Manager', 'Map', 'Project Page'])
+    expect(buttons).toEqual([copy.home, 'Project Manager', 'Map'])
+  })
+
+  it('replaces the oldest recent page instead of promoting or growing the dock', () => {
+    const { props, rerender } = renderNavigation({ open: true, workspaceMode: 'mods' })
+    const visitRootPage = (mode: 'map' | 'events' | 'characters' | 'buildings' | 'items') => {
+      fireEvent.click(within(screen.getByRole('dialog', { name: copy.title })).getByRole('button', { name: copy.rootModeLabels[mode] }))
+      rerender(
+        <LocaleProvider locale="en-US">
+          <WorkbenchLaunchpadNavigation {...props} open workspaceMode={mode} />
+        </LocaleProvider>,
+      )
+    }
+
+    visitRootPage('map')
+    visitRootPage('events')
+    visitRootPage('characters')
+    visitRootPage('buildings')
+    visitRootPage('items')
+
+    const dock = screen.getByRole('navigation', { name: copy.recentPages })
+    const buttons = within(dock)
+      .getAllByRole('button')
+      .map((button) => button.getAttribute('aria-label'))
+
+    expect(buttons).toEqual([copy.home, 'Project Manager', 'Events', 'Characters', 'Buildings', 'Items'])
   })
 
   it('does not render plugin tools or export center entries', () => {
@@ -168,12 +243,14 @@ describe('WorkbenchLaunchpadNavigation', () => {
 
     const dialog = screen.getByRole('dialog', { name: copy.title })
     expect(within(dialog).getByText('No target project')).toBeTruthy()
-    expect(within(dialog).getByRole('button', { name: 'New project' })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'New project' }))
+    expect(props.onOpenChange).toHaveBeenCalledWith(false)
+    expect(props.onProjectCreateOpen).toHaveBeenCalledTimes(1)
     const mapMaking = within(dialog).getByRole('button', { name: 'Map Making' })
 
     expect(mapMaking).toBeDisabled()
     fireEvent.click(mapMaking)
-    expect(props.onProjectCreateOpen).not.toHaveBeenCalled()
+    expect(props.onProjectCreateOpen).toHaveBeenCalledTimes(1)
     expect(props.onProjectWorkspaceOpen).not.toHaveBeenCalled()
   })
 

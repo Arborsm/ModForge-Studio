@@ -948,7 +948,7 @@ const localeBundle: LocaleBundle = {
       objectLabel: (id) => `Object ${id}`,
     },
     messages: {
-      browserHostPrompt: 'Run this screen inside the Tauri desktop host to access the local Stardew Valley directory.',
+      browserHostPrompt: 'Run this screen inside the desktop host to access the local Stardew Valley directory.',
       detectingDefaultInstall: 'Detecting a default Stardew Valley installation...',
       automaticDetectionFailed: 'Automatic detection failed. Choose the folder manually.',
       enterFolderBeforeValidating: 'Enter a Stardew Valley folder before validating.',
@@ -1049,6 +1049,8 @@ const localeBundle: LocaleBundle = {
         },
         pageRange: (start, end, total) => `${start}-${end} of ${total}`,
         pageInfo: (page, pageCount) => `Page ${page} / ${pageCount}`,
+        pageSizeLabel: 'Per page',
+        pageSizeOption: (size) => `${size}`,
         detailAction: 'View details',
         detailsTitle: 'Resource Details',
         detailsGeneral: 'General',

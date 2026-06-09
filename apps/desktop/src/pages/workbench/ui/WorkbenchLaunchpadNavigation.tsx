@@ -16,6 +16,7 @@ type WorkbenchLaunchpadNavigationProps = {
   workspaceMode: WorkspaceMode
   workspaceViewMode: 'edit' | 'preview'
   hasActiveProject: boolean
+  projectManagementActive?: boolean
   dockPlacement?: 'floating' | 'titlebar'
   projectSummaries: CpMakerDraftSummary[]
   devViews?: readonly DevWorkbenchViewNavigationItem[]
@@ -51,7 +52,7 @@ type RecentPage =
     }
 
 const ROOT_MODES: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n']
-const DEFAULT_RECENT_PAGES: RecentPage[] = [{ kind: 'project', mode: 'mods' }]
+const DEFAULT_RECENT_PAGES: RecentPage[] = []
 const MAX_RECENT_MODES = 4
 const ICON_BY_MODE: Record<WorkspaceMode, ComponentType<{ className?: string }>> = {
   mods: Library,
@@ -67,11 +68,16 @@ function getRecentPageKey(page: RecentPage) {
   return page.kind === 'dev' ? `${page.kind}:${page.viewId}` : `${page.kind}:${page.mode}`
 }
 
+function canRememberRecentPage(page: RecentPage) {
+  return page.kind === 'dev' || page.mode !== 'mods'
+}
+
 export default function WorkbenchLaunchpadNavigation({
   open,
   workspaceMode,
   workspaceViewMode,
   hasActiveProject,
+  projectManagementActive = false,
   dockPlacement = 'floating',
   projectSummaries,
   devViews = [],
@@ -89,7 +95,7 @@ export default function WorkbenchLaunchpadNavigation({
   const [query, setQuery] = useState('')
   const [pendingProjectMode, setPendingProjectMode] = useState<WorkspaceMode | null>(null)
   const [recentPages, setRecentPages] = useState<RecentPage[]>(() =>
-    workspaceViewMode === 'preview'
+    workspaceViewMode === 'preview' && workspaceMode !== 'mods'
       ? [
           { kind: 'root', mode: workspaceMode },
           ...DEFAULT_RECENT_PAGES.filter((page) => page.kind !== 'dev' && page.mode !== workspaceMode),
@@ -102,10 +108,22 @@ export default function WorkbenchLaunchpadNavigation({
   const openLaunchpad = useCallback(() => onOpenChange(true), [onOpenChange])
   const closeProjectPicker = useCallback(() => setPendingProjectMode(null), [])
   const rememberRecentPage = useCallback((page: RecentPage) => {
+    if (!canRememberRecentPage(page)) {
+      return
+    }
+
     const pageKey = getRecentPageKey(page)
-    setRecentPages((current) =>
-      [page, ...current.filter((candidate) => getRecentPageKey(candidate) !== pageKey)].slice(0, MAX_RECENT_MODES),
-    )
+    setRecentPages((current) => {
+      if (current.some((candidate) => getRecentPageKey(candidate) === pageKey)) {
+        return current
+      }
+
+      if (current.length < MAX_RECENT_MODES) {
+        return [...current, page]
+      }
+
+      return [...current.slice(1), page]
+    })
   }, [])
 
   const openProjectManagement = useCallback(() => {
@@ -121,9 +139,8 @@ export default function WorkbenchLaunchpadNavigation({
 
     closeProjectPicker()
     closeLaunchpad()
-    rememberRecentPage({ kind: 'project', mode: 'mods' })
     onProjectWorkspaceOpen('mods')
-  }, [closeLaunchpad, closeProjectPicker, hasActiveProject, onProjectWorkspaceOpen, rememberRecentPage])
+  }, [closeLaunchpad, closeProjectPicker, hasActiveProject, onProjectWorkspaceOpen])
 
   const openProjectWorkspace = useCallback(
     (mode: WorkspaceMode) => {
@@ -155,6 +172,12 @@ export default function WorkbenchLaunchpadNavigation({
     ],
   )
 
+  const openProjectCreate = useCallback(() => {
+    closeProjectPicker()
+    closeLaunchpad()
+    onProjectCreateOpen()
+  }, [closeLaunchpad, closeProjectPicker, onProjectCreateOpen])
+
   useEffect(() => {
     if (devViews.some((view) => view.active)) {
       return
@@ -176,7 +199,7 @@ export default function WorkbenchLaunchpadNavigation({
       }
     }
 
-    if (workspaceMode === 'mods' || hasActiveProject) {
+    if (workspaceMode !== 'mods' && hasActiveProject) {
       rememberActivePage({ kind: 'project', mode: workspaceMode })
     }
 
@@ -321,17 +344,9 @@ export default function WorkbenchLaunchpadNavigation({
   const visibleRootCards = filterCards(rootCards)
   const visibleProjectCards = filterCards(projectCards)
   const activeDevView = devViews.find((view) => view.active)
-  const activeRecentPage: RecentPage | null = activeDevView
-    ? { kind: 'dev', viewId: activeDevView.viewId }
-    : workspaceViewMode === 'preview'
-      ? { kind: 'root', mode: workspaceMode }
-      : workspaceMode === 'mods' || hasActiveProject
-        ? { kind: 'project', mode: workspaceMode }
-        : null
-  const activeRecentPageKey = activeRecentPage ? getRecentPageKey(activeRecentPage) : null
-  const visibleRecentPages = (
-    activeRecentPage ? [activeRecentPage, ...recentPages.filter((page) => getRecentPageKey(page) !== activeRecentPageKey)] : recentPages
-  ).slice(0, MAX_RECENT_MODES)
+  const visibleRecentPages = recentPages.slice(0, MAX_RECENT_MODES)
+  const navigationActive = open || Boolean(pendingProjectMode)
+  const projectManagerActive = projectManagementActive && !navigationActive
   const overlayRoot = document.querySelector<HTMLElement>('.app-window-frame') ?? document.body
   const overlay =
     open || pendingProjectMode ? (
@@ -384,7 +399,7 @@ export default function WorkbenchLaunchpadNavigation({
                       selectProjectAction={projectSummaries.length ? navCopy.selectProjectAction : null}
                       createProjectAction={navCopy.createProjectAction}
                       onSelectProject={openProjectManagement}
-                      onCreateProject={onProjectCreateOpen}
+                      onCreateProject={openProjectCreate}
                     />
                   ) : null
                 }
@@ -423,8 +438,9 @@ export default function WorkbenchLaunchpadNavigation({
       >
         <button
           type="button"
-          className="workbench-dock-item workbench-dock-home"
+          className={cx('workbench-dock-item workbench-dock-home', navigationActive && 'workbench-dock-item-active')}
           aria-label={navCopy.home}
+          aria-current={navigationActive ? 'page' : undefined}
           title={navCopy.home}
           onClick={openLaunchpad}
         >
@@ -432,8 +448,9 @@ export default function WorkbenchLaunchpadNavigation({
         </button>
         <button
           type="button"
-          className="workbench-dock-item workbench-dock-project"
+          className={cx('workbench-dock-item workbench-dock-project', projectManagerActive && 'workbench-dock-item-active')}
           aria-label={navCopy.projectLobby}
+          aria-current={projectManagerActive ? 'page' : undefined}
           title={navCopy.projectLobby}
           onClick={openProjectManagement}
         >
@@ -469,7 +486,6 @@ export default function WorkbenchLaunchpadNavigation({
               aria-current={active ? 'page' : undefined}
               title={label}
               onClick={() => {
-                rememberRecentPage(page)
                 if (page.kind === 'dev') {
                   onDevViewOpen?.(page.viewId)
                   return

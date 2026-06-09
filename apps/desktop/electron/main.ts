@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import fs from 'node:fs/promises'
-import { createInterface } from 'node:readline'
+import { createInterface, type Interface as ReadlineInterface } from 'node:readline'
 import path from 'node:path'
 import type { OpenDialogOptions } from '../src/shared/contracts/platform'
 
@@ -22,6 +22,7 @@ const isDev = !app.isPackaged
 const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 let mainWindow: BrowserWindow | null = null
 let sidecar: ChildProcessWithoutNullStreams | null = null
+let sidecarStdout: ReadlineInterface | null = null
 let nextRpcId = 0
 let closeAllowed = false
 const pendingRpc = new Map<number, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>()
@@ -103,10 +104,17 @@ function forwardHostEvent(event: string, payload: unknown) {
   mainWindow?.webContents.send('modforge:host-event', event, payload)
 }
 
+function stopSidecar() {
+  sidecarStdout?.close()
+  sidecarStdout = null
+  sidecar?.kill()
+  sidecar = null
+}
+
 function requestWindowClose(window: BrowserWindow) {
   if (window.webContents.isDestroyed()) {
     closeAllowed = true
-    window.close()
+    window.destroy()
     return
   }
 
@@ -128,6 +136,8 @@ function startSidecar() {
   })
 
   sidecar.on('exit', () => {
+    sidecarStdout?.close()
+    sidecarStdout = null
     sidecar = null
     for (const { reject } of pendingRpc.values()) {
       reject(new Error('ModForge sidecar exited.'))
@@ -139,7 +149,8 @@ function startSidecar() {
     console.error(String(chunk).trimEnd())
   })
 
-  createInterface({ input: sidecar.stdout }).on('line', (line) => {
+  sidecarStdout = createInterface({ input: sidecar.stdout })
+  sidecarStdout.on('line', (line) => {
     let frame: RpcResponse
     try {
       frame = JSON.parse(line) as RpcResponse
@@ -208,6 +219,9 @@ function createMainWindow() {
   })
 
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  mainWindow.once('closed', () => {
+    mainWindow = null
+  })
   mainWindow.on('close', (event) => {
     if (closeAllowed) {
       return
@@ -261,7 +275,7 @@ ipcMain.handle('modforge:window-close', () => requestWindowClose(currentWindow()
 ipcMain.handle('modforge:window-force-close', () => {
   const window = currentWindow()
   closeAllowed = true
-  window.close()
+  window.destroy()
 })
 ipcMain.handle('modforge:window-is-maximized', () => currentWindow().isMaximized())
 ipcMain.handle('modforge:window-is-fullscreen', () => currentWindow().isFullScreen())
@@ -300,6 +314,5 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  sidecar?.kill()
-  sidecar = null
+  stopSidecar()
 })

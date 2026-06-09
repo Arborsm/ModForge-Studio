@@ -17,6 +17,7 @@ import {
 import { useEventStageCopy } from '@locales/localeContext'
 import { ItemSprite, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
 import { cx } from '@shared/lib/cx'
+import { CompactSelect } from '@shared/ui/CompactSelect'
 
 export type EventResourceKind = 'actor' | 'item' | 'location' | 'music' | 'sound'
 
@@ -77,7 +78,8 @@ type EventResourcePickerProps = {
 type ResourceFilterId = 'all' | 'game' | 'project' | 'catalog'
 type ResourceViewMode = 'grid' | 'list'
 
-const PAGE_SIZE = 24
+const DEFAULT_PAGE_SIZE = 9
+const PAGE_SIZE_OPTIONS = [9, 18, 27, 36] as const
 const RESOURCE_FILTERS: ResourceFilterId[] = ['all', 'game', 'project', 'catalog']
 const CATEGORY_TONES = ['#2563eb', '#0891b2', '#ea580c', '#7c3aed', '#16a34a', '#e11d48', '#0d9488', '#d97706', '#64748b']
 
@@ -163,29 +165,46 @@ function formatOptionPath(option: EventResourceOption) {
 }
 
 function getPageItems(page: number, pageCount: number) {
-  if (pageCount <= 7) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1)
+  const safePageCount = Math.max(1, pageCount)
+  const safePage = Math.min(Math.max(1, page), safePageCount)
+
+  if (safePageCount <= 7) {
+    return Array.from({ length: safePageCount }, (_, index) => index + 1)
   }
 
-  const middlePages = [page - 1, page, page + 1].filter((candidate) => candidate > 1 && candidate < pageCount)
-  const pages: Array<number | 'ellipsis-start' | 'ellipsis-end'> = [1]
-
-  if ((middlePages[0] ?? 0) > 2) {
-    pages.push('ellipsis-start')
+  const pages = new Set<number>([1, safePageCount, safePage - 1, safePage, safePage + 1])
+  if (safePage <= 3) {
+    pages.add(2)
+    pages.add(3)
+    pages.add(4)
   }
 
-  for (const middlePage of middlePages) {
-    if (!pages.includes(middlePage)) {
-      pages.push(middlePage)
+  if (safePage >= safePageCount - 2) {
+    pages.add(safePageCount - 3)
+    pages.add(safePageCount - 2)
+    pages.add(safePageCount - 1)
+  }
+
+  const sortedPages = Array.from(pages)
+    .filter((candidate) => candidate >= 1 && candidate <= safePageCount)
+    .sort((left, right) => left - right)
+  const pageItems: Array<number | 'ellipsis-start' | 'ellipsis-end'> = []
+
+  sortedPages.forEach((pageItem, index) => {
+    const previousPage = sortedPages[index - 1]
+    if (previousPage != null) {
+      const gap = pageItem - previousPage
+      if (gap === 2) {
+        pageItems.push(previousPage + 1)
+      } else if (gap > 2) {
+        pageItems.push(previousPage === 1 ? 'ellipsis-start' : 'ellipsis-end')
+      }
     }
-  }
 
-  if ((middlePages.at(-1) ?? 1) < pageCount - 1) {
-    pages.push('ellipsis-end')
-  }
+    pageItems.push(pageItem)
+  })
 
-  pages.push(pageCount)
-  return pages
+  return pageItems
 }
 
 function ResourcePreview({ option, size = 'default' }: { option: EventResourceOption; size?: 'default' | 'large' }) {
@@ -332,6 +351,7 @@ export function EventResourcePicker({
   const [activeFilter, setActiveFilter] = useState<ResourceFilterId>('all')
   const [viewMode, setViewMode] = useState<ResourceViewMode>('grid')
   const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [draftValue, setDraftValue] = useState(value)
   const [detailOption, setDetailOption] = useState<EventResourceOption | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -377,9 +397,9 @@ export function EventResourcePicker({
   )
   const trimmedQuery = query.trim()
   const canApplyQuery = trimmedQuery.length > 0 && filtered.length === 0 && !options.some((option) => option.value === trimmedQuery)
-  const pageCount = Math.max(1, Math.ceil((categoryFiltered.length + (canApplyQuery ? 1 : 0)) / PAGE_SIZE))
+  const pageCount = Math.max(1, Math.ceil((categoryFiltered.length + (canApplyQuery ? 1 : 0)) / pageSize))
   const safeCurrentPage = Math.min(currentPage, pageCount)
-  const pageStartIndex = (safeCurrentPage - 1) * PAGE_SIZE
+  const pageStartIndex = (safeCurrentPage - 1) * pageSize
   const customOption =
     canApplyQuery && pageStartIndex === 0
       ? ({
@@ -391,13 +411,17 @@ export function EventResourcePicker({
         } satisfies EventResourceOption)
       : null
   const pageOptionStartIndex = customOption ? Math.max(0, pageStartIndex - 1) : pageStartIndex - (canApplyQuery ? 1 : 0)
-  const pageOptions = categoryFiltered.slice(pageOptionStartIndex, pageOptionStartIndex + PAGE_SIZE - (customOption ? 1 : 0))
+  const pageOptions = categoryFiltered.slice(pageOptionStartIndex, pageOptionStartIndex + pageSize - (customOption ? 1 : 0))
   const rangeStart = categoryFiltered.length || canApplyQuery ? pageStartIndex + 1 : 0
-  const rangeEnd = Math.min(pageStartIndex + PAGE_SIZE, categoryFiltered.length + (canApplyQuery ? 1 : 0))
+  const rangeEnd = Math.min(pageStartIndex + pageSize, categoryFiltered.length + (canApplyQuery ? 1 : 0))
   const triggerTitle = value ? `${label}: ${value}` : label
   const draftLabel = draftSelected?.label ?? draftValue ?? placeholder
   const effectiveEmptyLabel = emptyLabel ?? copy.none
   const usesConfirmSelection = selectionMode === 'confirm'
+  const pageSizeOptions = PAGE_SIZE_OPTIONS.map((size) => ({
+    value: size,
+    label: copy.pageSizeOption(size),
+  }))
 
   useEffect(() => {
     if (!open) {
@@ -416,18 +440,10 @@ export function EventResourcePicker({
       }
     }
 
-    function handlePointerDown(event: MouseEvent) {
-      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
-        closeDialog()
-      }
-    }
-
     document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('mousedown', handlePointerDown)
     return () => {
       window.clearTimeout(timeout)
       document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('mousedown', handlePointerDown)
     }
   }, [detailOption, open])
 
@@ -460,6 +476,11 @@ export function EventResourcePicker({
 
   function updateQuery(nextQuery: string) {
     setQuery(nextQuery)
+    setCurrentPage(1)
+  }
+
+  function updatePageSize(nextPageSize: number) {
+    setPageSize(nextPageSize)
     setCurrentPage(1)
   }
 
@@ -772,6 +793,18 @@ export function EventResourcePicker({
               <span className="resource-picker__selected" title={draftValue}>
                 {copy.selectedLabel(draftLabel)}
               </span>
+              <label className="resource-picker__page-size">
+                <span>{copy.pageSizeLabel}</span>
+                <CompactSelect
+                  ariaLabel={copy.pageSizeLabel}
+                  value={pageSize}
+                  options={pageSizeOptions}
+                  onChange={updatePageSize}
+                  triggerClassName="resource-picker__page-size-trigger"
+                  menuClassName="resource-picker__page-size-menu"
+                  placement="top-end"
+                />
+              </label>
               <nav className="resource-picker__pagination" aria-label={copy.pageInfo(safeCurrentPage, pageCount)}>
                 <button
                   type="button"

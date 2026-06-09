@@ -41,6 +41,7 @@ function createModWorkspaceMock() {
       return true
     }),
     hasUnsavedChanges: true,
+    pendingUnsavedChangeDecision: null,
     diagnostics: [],
     modProjects: [],
     projectDetail: null,
@@ -100,7 +101,6 @@ function createModWorkspaceMock() {
     handleOpenScaleUpEditor: vi.fn(),
     handleScaleUpContentChange: vi.fn(),
     handleCloseScaleUpEditor: vi.fn(),
-    pendingUnsavedChangeDecision: null,
     pendingExportOverwriteDecision: null,
     confirmUnsavedSaveAndContinue: vi.fn(),
     confirmUnsavedDiscardAndContinue: vi.fn(),

@@ -153,6 +153,8 @@ export type EventStageCopy = {
     filterLabels: Record<'all' | 'game' | 'project' | 'catalog', string>
     pageRange: (start: number, end: number, total: number) => string
     pageInfo: (page: number, pageCount: number) => string
+    pageSizeLabel: string
+    pageSizeOption: (size: number) => string
     detailAction: string
     detailsTitle: string
     detailsGeneral: string
