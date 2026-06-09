@@ -9,6 +9,21 @@ It combines mod library management, game asset inspection, Content Patcher
 authoring, and desktop launch workflows in one desktop application. The active
 product workspace is `apps/desktop`.
 
+## Quick Map
+
+- `apps/desktop/src` - React application code organized by app, pages, widgets,
+  features, entities, shared contracts, platform adapters, locales, and styles.
+- `apps/desktop/src-tauri` - Rust backend, Tauri commands, domain logic,
+  infrastructure, and regression tests.
+- `apps/desktop/electron` - Electron host code used for Linux development and
+  packaging.
+- `apps/desktop/scripts` - desktop host dispatch, Vite/Tauri/Electron helpers,
+  verification scripts, and release helpers.
+- `docs/frontend-architecture.md` - frontend layer boundaries, platform DI,
+  registry, event/command, CSS, and architecture-test rules.
+- `docs/maintenance.md` - operational commands, release paths, CI/signing notes,
+  validation expectations, and repository hygiene.
+
 ## Features
 
 - Manage Stardew Valley game locations, launcher settings, mod libraries, and
@@ -20,6 +35,24 @@ product workspace is `apps/desktop`.
 - Diagnose Nexus Mods connectivity and support download-oriented mod management
   flows.
 - Produce desktop release packages for Linux, macOS, and Windows.
+
+## Feature Index
+
+- Launcher and mod library management: `apps/desktop/src/features`,
+  `apps/desktop/src/widgets`, and `apps/desktop/src-tauri/src/domain/launcher`.
+- Workbench pages and project flows: `apps/desktop/src/pages`,
+  `apps/desktop/src/widgets`, and
+  `apps/desktop/src-tauri/src/domain/workbench_project`.
+- Content Patcher and CP maker flows: frontend slices under
+  `apps/desktop/src/features` and Rust domains under
+  `apps/desktop/src-tauri/src/domain/content_patcher` and
+  `apps/desktop/src-tauri/src/domain/cp_maker`.
+- Game asset, save, map, event, character, building, item, and mod models:
+  `apps/desktop/src/entities` plus the matching Rust domain/infrastructure
+  modules under `apps/desktop/src-tauri/src`.
+- Desktop host integration: `apps/desktop/src/platform/electron`,
+  `apps/desktop/src/platform/tauri`, `apps/desktop/electron`, and
+  `apps/desktop/src-tauri`.
 
 ## Tech Stack
 
@@ -39,8 +72,9 @@ pnpm dev
 ```
 
 Use `pnpm desktop:dev` to run the full desktop application with the Rust
-backend. On Linux this starts Electron; macOS and Windows continue to use
-Tauri. Use `pnpm build` for the frontend production build.
+backend. The root dispatcher starts Electron on Linux and Tauri on macOS and
+Windows. Use `pnpm build` for the frontend production build and
+`pnpm desktop:build` for the current platform's desktop build path.
 
 Common checks:
 
@@ -61,6 +95,25 @@ workspace.
 Linux builds use Electron packages. Release automation is available, but
 platform signing and distribution credentials are expected to be provided by CI
 or the local release environment.
+
+## Common Change Paths
+
+- Frontend UI or state changes: place page-local code in `pages`, shared page
+  regions in `widgets`, reusable user actions in `features`, reusable domain
+  models in `entities`, and host-agnostic contracts in `shared/contracts`.
+- Desktop capability changes: update `shared/contracts/platform.ts`, implement
+  adapters in `platform/electron` and `platform/tauri`, then wire providers from
+  `app/providers`.
+- Rust command changes: keep command wrappers thin in `src-tauri/src/commands`
+  and put business behavior in the relevant `src-tauri/src/domain` module.
+- Styling changes: use `apps/desktop/src/styles/index.css` as the global entry,
+  keep primitives/workspace/features separated, and split large CSS files before
+  they exceed the architecture-test limit.
+- New user-visible text: update the typed locale bundles in
+  `apps/desktop/src/locales`; do not hard-code UI strings inside React
+  components.
+- Architecture changes: update `docs/frontend-architecture.md` and the relevant
+  tests under `apps/desktop/src/test/architecture`.
 
 ## Documentation
 

@@ -17,10 +17,15 @@ pnpm install --frozen-lockfile
 pnpm dev
 pnpm desktop:dev
 pnpm build
+pnpm desktop:build
 pnpm lint
 pnpm format:check
 pnpm --filter @modforge/desktop test
 ```
+
+`pnpm dev` starts the Vite-only frontend path. `pnpm desktop:dev` uses the root
+desktop host dispatcher: Linux starts Electron, while macOS and Windows start
+Tauri. `pnpm desktop:build` uses the same platform split for build mode.
 
 Rust backend checks:
 
@@ -37,6 +42,8 @@ Current release entry points are exposed from the root package and delegated to
 
 ```bash
 pnpm release:linux
+pnpm release:linux:deb
+pnpm release:linux:rpm
 pnpm release:macos
 pnpm release:windows
 pnpm release:all
@@ -50,6 +57,46 @@ one archive.
 
 Linux releases use Electron Builder to generate Debian, RPM, and AppImage
 artifacts. macOS and Windows releases continue to use Tauri packaging.
+
+Linux-specific package scripts can be run directly when only one package format
+is needed: `pnpm release:linux:deb` or `pnpm release:linux:rpm`.
+
+## Validation Expectations
+
+Run the smallest useful check while iterating, but report the final validation
+surface before handing work back.
+
+Frontend changes normally need:
+
+```bash
+pnpm lint
+pnpm build
+pnpm --filter @modforge/desktop test
+```
+
+Rust changes need formatting plus the relevant check or test:
+
+```bash
+cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+```
+
+UI and layout changes should be verified with a screenshot, Playwright-backed
+interaction script, or a clear manual path. Architecture changes should update
+or add tests under `apps/desktop/src/test/architecture`.
+
+## Implementation Completeness
+
+Do not treat a minimal visible path as complete. New functionality should land
+as a real product slice with data loading, state transitions, loading/empty/error
+states, persistence, localization, host permission/path handling, and tests
+according to the affected area.
+
+Avoid placeholder UI, fake data, no-op commands, TODO-only flows, swallowed
+errors, hard-coded fallbacks, and compatibility shims that require another task
+before users can rely on the feature. If a change is too large, split it into
+independently usable vertical slices rather than shipping a partial shell.
 
 ## CI and GitHub Actions
 
@@ -84,14 +131,27 @@ release credentials.
 
 - pnpm is the only JavaScript package manager for this repository. Keep
   `pnpm-lock.yaml` and do not commit `package-lock.json`.
+- Keep the root `packageManager` field and documentation in sync when the pnpm
+  version changes.
 - Keep required `apps/desktop` configuration files in place, including
   `package.json`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`,
-  `postcss.config.cjs`, `index.html`, and `.npmrc`.
+  `postcss.config.cjs`, and `index.html`.
 - Generated build outputs belong in ignored directories such as
-  `apps/desktop/dist` and `apps/desktop/src-tauri/target`.
+  `apps/desktop/dist`, `apps/desktop/electron-dist`, and
+  `apps/desktop/src-tauri/target`.
+- Do not introduce unrelated Python or environment-management tooling into
+  project docs or scripts unless the repository actually adopts it.
 
 ## Documentation Scope
 
 The README is the project homepage. Long-lived maintenance details belong here
 or in another file under `docs/`. Shared architecture notes belong in
-`docs/frontend-architecture.md`;
+`docs/frontend-architecture.md`.
+
+Use `.devDocs/**` for local investigation artifacts, screenshots, traces,
+sketches, and superpowers output. Superpowers-generated documents must live
+under `.devDocs/superpowers/` and should not be committed.
+
+When adding a new top-level directory, important feature directory, or
+developer-facing entry point, update the README Quick Map, Feature Index, or
+Common Change Paths so future agents know where to look.
