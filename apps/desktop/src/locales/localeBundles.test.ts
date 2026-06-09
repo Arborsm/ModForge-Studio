@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { localeBundles } from '.'
 import {
   getEditorCopy,
@@ -8,6 +11,8 @@ import {
   getViewMenuCopy,
   getWorkspaceModeLabel,
 } from '@locales/editor-shell'
+
+const localeDir = dirname(fileURLToPath(import.meta.url))
 
 describe('typed locale bundles', () => {
   it('exposes locale copy through typed bundle accessors', () => {
@@ -106,5 +111,10 @@ describe('typed locale bundles', () => {
     expect(launcher.library.loadingMissingCoversStageProgress(launcher.library.loadingMissingCoversStages.apiCover, 1, 3)).toBe(
       'API Cover · 1 / 3',
     )
+  })
+
+  it('keeps locale bundles typechecked without ts-nocheck', async () => {
+    await expect(readFile(join(localeDir, 'en-US.ts'), 'utf8')).resolves.not.toContain('@ts-nocheck')
+    await expect(readFile(join(localeDir, 'zh-CN.ts'), 'utf8')).resolves.not.toContain('@ts-nocheck')
   })
 })

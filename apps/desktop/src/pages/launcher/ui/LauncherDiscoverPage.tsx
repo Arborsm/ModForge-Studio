@@ -46,60 +46,43 @@ const CATEGORY_OPTIONS = [
 
 const LANGUAGE_OPTIONS = ['Any', 'English', 'Chinese', 'Japanese', 'Spanish', 'German', 'French']
 
-const TIME_RANGE_OPTIONS: DiscoverOption<'all' | 'day' | 'week' | 'month' | 'year'>[] = [
-  { value: 'all', label: 'All time' },
-  { value: 'day', label: '24 hours' },
-  { value: 'week', label: '7 days' },
-  { value: 'month', label: '30 days' },
-  { value: 'year', label: '1 year' },
-]
-
-const SORT_OPTIONS: DiscoverOption<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name'>[] = [
-  { value: 'newest', label: 'Newest' },
-  { value: 'updated', label: 'Updated' },
-  { value: 'trending', label: 'Trending' },
-  { value: 'downloads', label: 'Downloads' },
-  { value: 'endorsements', label: 'Endorsements' },
-  { value: 'name', label: 'Name' },
-]
-
-const PAGE_SIZE_OPTIONS: DiscoverOption<number>[] = [
-  { value: 20, label: '20 items' },
-  { value: 40, label: '40 items' },
-  { value: 80, label: '80 items' },
-]
+const TIME_RANGE_VALUES = ['all', 'day', 'week', 'month', 'year'] as const
+const SORT_VALUES = ['newest', 'updated', 'trending', 'downloads', 'endorsements', 'name'] as const
+const PAGE_SIZE_VALUES = [20, 40, 80] as const
 
 type DiscoverAccordionSection = 'category' | 'tags' | 'search' | 'language' | 'limits'
 type DiscoverItem = ReturnType<typeof useLauncherDiscover>['items'][number]
 type DiscoverFilters = ReturnType<typeof useLauncherDiscover>['filters']
+type RangePresetKey = 'any' | 'lt10kb' | '10to100kb' | 'gt100kb' | '10kPlus' | '100kPlus' | '500kPlus' | '1kPlus' | '5kPlus'
 
 const DEFAULT_DISCOVER_OPEN_SECTION: DiscoverAccordionSection = 'category'
 
 type RangePreset = {
+  key: RangePresetKey
   label: string
   min: string
   max: string
 }
 
 const FILE_SIZE_PRESETS: RangePreset[] = [
-  { label: 'Any', min: '', max: '' },
-  { label: '< 10 KB', min: '', max: '10240' },
-  { label: '10-100 KB', min: '10240', max: '102400' },
-  { label: '> 100 KB', min: '102400', max: '' },
+  { key: 'any', label: 'Any', min: '', max: '' },
+  { key: 'lt10kb', label: '< 10 KB', min: '', max: '10240' },
+  { key: '10to100kb', label: '10-100 KB', min: '10240', max: '102400' },
+  { key: 'gt100kb', label: '> 100 KB', min: '102400', max: '' },
 ]
 
 const DOWNLOAD_PRESETS: RangePreset[] = [
-  { label: 'Any', min: '', max: '' },
-  { label: '10K+', min: '10000', max: '' },
-  { label: '100K+', min: '100000', max: '' },
-  { label: '500K+', min: '500000', max: '' },
+  { key: 'any', label: 'Any', min: '', max: '' },
+  { key: '10kPlus', label: '10K+', min: '10000', max: '' },
+  { key: '100kPlus', label: '100K+', min: '100000', max: '' },
+  { key: '500kPlus', label: '500K+', min: '500000', max: '' },
 ]
 
 const ENDORSEMENT_PRESETS: RangePreset[] = [
-  { label: 'Any', min: '', max: '' },
-  { label: '1K+', min: '1000', max: '' },
-  { label: '5K+', min: '5000', max: '' },
-  { label: '10K+', min: '10000', max: '' },
+  { key: 'any', label: 'Any', min: '', max: '' },
+  { key: '1kPlus', label: '1K+', min: '1000', max: '' },
+  { key: '5kPlus', label: '5K+', min: '5000', max: '' },
+  { key: '10kPlus', label: '10K+', min: '10000', max: '' },
 ]
 
 function parseTagTokens(value: string) {
@@ -406,6 +389,10 @@ function RangePresetGroup({
   maxFilter,
   presets,
   advancedOpen,
+  advancedLabel,
+  presetsLabel,
+  noMinimumPlaceholder,
+  noMaximumPlaceholder,
   onToggleAdvanced,
   onUpdateFilter,
 }: {
@@ -416,6 +403,10 @@ function RangePresetGroup({
   maxFilter: keyof DiscoverFilters
   presets: RangePreset[]
   advancedOpen: boolean
+  advancedLabel: string
+  presetsLabel: string
+  noMinimumPlaceholder: string
+  noMaximumPlaceholder: string
   onToggleAdvanced: () => void
   onUpdateFilter: <Key extends keyof DiscoverFilters>(key: Key, value: DiscoverFilters[Key]) => void
 }) {
@@ -426,10 +417,10 @@ function RangePresetGroup({
       <div className="launcher-discover-range-heading">
         <span className="launcher-discover-range-label">{label}</span>
         <button type="button" className="launcher-discover-range-advanced" onClick={onToggleAdvanced}>
-          Advanced
+          {advancedLabel}
         </button>
       </div>
-      <div className="launcher-discover-range-presets" role="group" aria-label={`${label} presets`}>
+      <div className="launcher-discover-range-presets" role="group" aria-label={presetsLabel}>
         {presets.map((preset) => (
           <button
             key={preset.label}
@@ -453,14 +444,14 @@ function RangePresetGroup({
             className="control-input"
             value={minValue}
             onChange={(event) => onUpdateFilter(minFilter, event.target.value as DiscoverFilters[typeof minFilter])}
-            placeholder="No min"
+            placeholder={noMinimumPlaceholder}
             inputMode="numeric"
           />
           <input
             className="control-input"
             value={maxValue}
             onChange={(event) => onUpdateFilter(maxFilter, event.target.value as DiscoverFilters[typeof maxFilter])}
-            placeholder="No max"
+            placeholder={noMaximumPlaceholder}
             inputMode="numeric"
           />
         </div>
@@ -656,6 +647,23 @@ function LauncherDiscoverPageContent({
   const effectiveOpenMenuId = discoverBlocked || discoverRequestFailed ? null : openMenuId
   const effectiveBlockedDetailsExpanded = discoverBlocked ? blockedDetailsExpanded : false
   const resultCount = discover.totalCount || discover.items.length
+  const timeRangeOptions: DiscoverOption<(typeof TIME_RANGE_VALUES)[number]>[] = TIME_RANGE_VALUES.map((value) => ({
+    value,
+    label: copy.discover.timeRangeOptions[value],
+  }))
+  const sortOptions: DiscoverOption<(typeof SORT_VALUES)[number]>[] = SORT_VALUES.map((value) => ({
+    value,
+    label: copy.discover.sortOptions[value],
+  }))
+  const pageSizeOptions: DiscoverOption<number>[] = PAGE_SIZE_VALUES.map((value) => ({
+    value,
+    label: copy.discover.pageSizeOption(value),
+  }))
+  const fileSizePresets = FILE_SIZE_PRESETS.map((preset) => ({ ...preset, label: copy.discover.rangePresetLabels[preset.key] }))
+  const downloadPresets = DOWNLOAD_PRESETS.map((preset) => ({ ...preset, label: copy.discover.rangePresetLabels[preset.key] }))
+  const endorsementPresets = ENDORSEMENT_PRESETS.map((preset) => ({ ...preset, label: copy.discover.rangePresetLabels[preset.key] }))
+  const formatCategoryLabel = (name: string) => copy.discover.categoryLabels[name] ?? name
+  const formatLanguageLabel = (name: string) => copy.discover.languageLabels[name] ?? name
   const categoryOptions = discover.facets.categories.length
     ? discover.facets.categories
     : CATEGORY_OPTIONS.map((name) => ({ name, count: 0 }))
@@ -803,9 +811,9 @@ function LauncherDiscoverPageContent({
         <div className="launcher-discover-console-top">
           <div className="launcher-discover-console-heading">
             <div className="launcher-discover-console-title-row">
-              <h1 className="launcher-discover-console-title">Nexus Mods</h1>
+              <h1 className="launcher-discover-console-title">{copy.discover.consoleTitle}</h1>
             </div>
-            <p className="launcher-discover-console-subtitle">{`Showing ${rangeStart} - ${rangeEnd} of ${formattedResultCount} results`}</p>
+            <p className="launcher-discover-console-subtitle">{copy.discover.resultRange(rangeStart, rangeEnd, formattedResultCount)}</p>
           </div>
           <div className="launcher-discover-console-toolbar">
             <label className="launcher-discover-searchbar">
@@ -814,8 +822,8 @@ function LauncherDiscoverPageContent({
                 className="launcher-discover-searchbar-input"
                 value={discover.query}
                 onChange={(event) => discover.setQuery(event.target.value)}
-                placeholder="Search Nexus Mods"
-                aria-label="Search Nexus Mods"
+                placeholder={copy.discover.searchPlaceholder}
+                aria-label={copy.discover.searchPlaceholder}
                 spellCheck={false}
                 disabled={discoverBlocked || discoverRequestFailed}
               />
@@ -827,13 +835,13 @@ function LauncherDiscoverPageContent({
               disabled={discoverBlocked || discoverRequestFailed}
             >
               <Filter className="h-4 w-4" />
-              <span>{effectiveFiltersHidden ? 'Show filters' : 'Hide filters'}</span>
+              <span>{effectiveFiltersHidden ? copy.discover.showFilters : copy.discover.hideFilters}</span>
             </button>
             <div className="launcher-discover-console-actions">
               <DiscoverMenu
-                label="Time range"
+                label={copy.discover.timeRangeLabel}
                 value={discover.timeRange}
-                options={TIME_RANGE_OPTIONS}
+                options={timeRangeOptions}
                 open={effectiveOpenMenuId === 'time'}
                 disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'time' ? null : 'time'))}
@@ -843,9 +851,9 @@ function LauncherDiscoverPageContent({
                 }}
               />
               <DiscoverMenu
-                label="Sort"
+                label={copy.discover.sortLabel}
                 value={discover.sort}
-                options={SORT_OPTIONS}
+                options={sortOptions}
                 open={effectiveOpenMenuId === 'sort'}
                 disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'sort' ? null : 'sort'))}
@@ -860,12 +868,12 @@ function LauncherDiscoverPageContent({
                 onClick={() => discover.setAscending(!discover.ascending)}
                 disabled={discoverBlocked}
               >
-                {discover.ascending ? 'Asc.' : 'Desc.'}
+                {discover.ascending ? copy.discover.ascendingShort : copy.discover.descendingShort}
               </button>
               <DiscoverMenu
-                label="Page size"
+                label={copy.discover.pageSizeLabel}
                 value={discover.pageSize}
-                options={PAGE_SIZE_OPTIONS}
+                options={pageSizeOptions}
                 open={effectiveOpenMenuId === 'size'}
                 disabled={discoverBlocked}
                 onToggle={() => setOpenMenuId((current) => (current === 'size' ? null : 'size'))}
@@ -877,7 +885,7 @@ function LauncherDiscoverPageContent({
               <button
                 type="button"
                 className="launcher-discover-icon-button control-button"
-                aria-label="Grid view"
+                aria-label={copy.discover.gridViewLabel}
                 disabled={discoverBlocked}
               >
                 <LayoutGrid className="h-4 w-4" />
@@ -907,7 +915,12 @@ function LauncherDiscoverPageContent({
           >
             <fieldset className="launcher-discover-sidebar-fieldset" disabled={discoverBlocked}>
               <div className="launcher-discover-sidebar-accordion">
-                <DiscoverRailSection id="category" title="Category" open={openSection === 'category'} onToggle={toggleSection}>
+                <DiscoverRailSection
+                  id="category"
+                  title={copy.discover.categorySection}
+                  open={openSection === 'category'}
+                  onToggle={toggleSection}
+                >
                   <div className="launcher-discover-category-list">
                     {categoryOptions.map((category) => (
                       <label
@@ -925,7 +938,7 @@ function LauncherDiscoverPageContent({
                           }
                         />
                         <span>
-                          {category.name}
+                          {formatCategoryLabel(category.name)}
                           {category.count ? ` (${formatCompactNumber(category.count)})` : ''}
                         </span>
                       </label>
@@ -933,71 +946,81 @@ function LauncherDiscoverPageContent({
                   </div>
                 </DiscoverRailSection>
 
-                <DiscoverRailSection id="tags" title="Tags" open={openSection === 'tags'} onToggle={toggleSection}>
+                <DiscoverRailSection id="tags" title={copy.discover.tagsSection} open={openSection === 'tags'} onToggle={toggleSection}>
                   <TagSuggestionField
-                    label="Includes"
+                    label={copy.discover.tagsIncludeLabel}
                     value={discover.filters.tagsInclude}
-                    placeholder="e.g. expansion, ui"
+                    placeholder={copy.discover.tagsIncludePlaceholder}
                     suggestionsId="launcher-discover-include-suggestions"
-                    suggestionsLabel="Includes suggestions"
+                    suggestionsLabel={copy.discover.tagsIncludeSuggestionsLabel}
                     suggestions={popularTags}
                     onChange={(value) => discover.updateFilter('tagsInclude', value)}
                   />
                   <TagSuggestionField
-                    label="Excludes"
+                    label={copy.discover.tagsExcludeLabel}
                     value={discover.filters.tagsExclude}
-                    placeholder="e.g. nsfw, cheats"
+                    placeholder={copy.discover.tagsExcludePlaceholder}
                     suggestionsId="launcher-discover-exclude-suggestions"
-                    suggestionsLabel="Excludes suggestions"
+                    suggestionsLabel={copy.discover.tagsExcludeSuggestionsLabel}
                     suggestions={popularTags}
                     onChange={(value) => discover.updateFilter('tagsExclude', value)}
                   />
                 </DiscoverRailSection>
 
-                <DiscoverRailSection id="search" title="Search Parameters" open={openSection === 'search'} onToggle={toggleSection}>
+                <DiscoverRailSection
+                  id="search"
+                  title={copy.discover.searchParametersSection}
+                  open={openSection === 'search'}
+                  onToggle={toggleSection}
+                >
                   <label className="launcher-discover-rail-field">
-                    <span>Title contains</span>
+                    <span>{copy.discover.titleContainsLabel}</span>
                     <input
                       className="control-input"
                       value={discover.filters.titleQuery}
                       onChange={(event) => discover.updateFilter('titleQuery', event.target.value)}
-                      placeholder="Search titles"
+                      placeholder={copy.discover.titleSearchPlaceholder}
                       spellCheck={false}
                     />
                   </label>
                   <label className="launcher-discover-rail-field">
-                    <span>Description contains</span>
+                    <span>{copy.discover.descriptionContainsLabel}</span>
                     <input
                       className="control-input"
                       value={discover.filters.descriptionQuery}
                       onChange={(event) => discover.updateFilter('descriptionQuery', event.target.value)}
-                      placeholder="Search descriptions"
+                      placeholder={copy.discover.descriptionSearchPlaceholder}
                       spellCheck={false}
                     />
                   </label>
                   <label className="launcher-discover-rail-field">
-                    <span>Author contains</span>
+                    <span>{copy.discover.authorContainsLabel}</span>
                     <input
                       className="control-input"
                       value={discover.filters.authorQuery}
                       onChange={(event) => discover.updateFilter('authorQuery', event.target.value)}
-                      placeholder="Search authors"
+                      placeholder={copy.discover.authorSearchPlaceholder}
                       spellCheck={false}
                     />
                   </label>
                   <label className="launcher-discover-rail-field">
-                    <span>Uploader contains</span>
+                    <span>{copy.discover.uploaderContainsLabel}</span>
                     <input
                       className="control-input"
                       value={discover.filters.uploaderQuery}
                       onChange={(event) => discover.updateFilter('uploaderQuery', event.target.value)}
-                      placeholder="Search uploaders"
+                      placeholder={copy.discover.uploaderSearchPlaceholder}
                       spellCheck={false}
                     />
                   </label>
                 </DiscoverRailSection>
 
-                <DiscoverRailSection id="language" title="Language Support" open={openSection === 'language'} onToggle={toggleSection}>
+                <DiscoverRailSection
+                  id="language"
+                  title={copy.discover.languageSection}
+                  open={openSection === 'language'}
+                  onToggle={toggleSection}
+                >
                   <div className="launcher-discover-category-list">
                     <label
                       className={cx(
@@ -1006,7 +1029,7 @@ function LauncherDiscoverPageContent({
                       )}
                     >
                       <input type="checkbox" checked={!discover.filters.language} onChange={() => discover.updateFilter('language', '')} />
-                      <span>Any</span>
+                      <span>{copy.discover.anyLabel}</span>
                     </label>
                     {languageOptions.map((language) => (
                       <label
@@ -1023,52 +1046,71 @@ function LauncherDiscoverPageContent({
                             discover.updateFilter('language', discover.filters.language === language.name ? '' : language.name)
                           }
                         />
-                        {language.name}
-                        {language.count ? ` (${formatCompactNumber(language.count)})` : ''}
+                        <span>
+                          {formatLanguageLabel(language.name)}
+                          {language.count ? ` (${formatCompactNumber(language.count)})` : ''}
+                        </span>
                       </label>
                     ))}
                   </div>
                 </DiscoverRailSection>
 
-                <DiscoverRailSection id="limits" title="Limits" open={openSection === 'limits'} onToggle={toggleSection}>
+                <DiscoverRailSection
+                  id="limits"
+                  title={copy.discover.limitsSection}
+                  open={openSection === 'limits'}
+                  onToggle={toggleSection}
+                >
                   <label className="launcher-discover-toggle-row">
                     <input
                       type="checkbox"
                       checked={discover.filters.includeAdult}
                       onChange={(event) => discover.updateFilter('includeAdult', event.target.checked)}
                     />
-                    <span>Include adult content</span>
+                    <span>{copy.discover.includeAdultContent}</span>
                   </label>
                   <RangePresetGroup
-                    label="File size"
+                    label={copy.discover.fileSizeLabel}
                     minValue={discover.filters.minFileSize}
                     maxValue={discover.filters.maxFileSize}
                     minFilter="minFileSize"
                     maxFilter="maxFileSize"
-                    presets={FILE_SIZE_PRESETS}
+                    presets={fileSizePresets}
                     advancedOpen={advancedLimitId === 'fileSize'}
+                    advancedLabel={copy.discover.advancedAction}
+                    presetsLabel={copy.discover.rangePresetsLabel(copy.discover.fileSizeLabel)}
+                    noMinimumPlaceholder={copy.discover.noMinimumPlaceholder}
+                    noMaximumPlaceholder={copy.discover.noMaximumPlaceholder}
                     onToggleAdvanced={() => setAdvancedLimitId((current) => (current === 'fileSize' ? null : 'fileSize'))}
                     onUpdateFilter={discover.updateFilter}
                   />
                   <RangePresetGroup
-                    label="Downloads"
+                    label={copy.discover.downloadsLabel}
                     minValue={discover.filters.minDownloads}
                     maxValue={discover.filters.maxDownloads}
                     minFilter="minDownloads"
                     maxFilter="maxDownloads"
-                    presets={DOWNLOAD_PRESETS}
+                    presets={downloadPresets}
                     advancedOpen={advancedLimitId === 'downloads'}
+                    advancedLabel={copy.discover.advancedAction}
+                    presetsLabel={copy.discover.rangePresetsLabel(copy.discover.downloadsLabel)}
+                    noMinimumPlaceholder={copy.discover.noMinimumPlaceholder}
+                    noMaximumPlaceholder={copy.discover.noMaximumPlaceholder}
                     onToggleAdvanced={() => setAdvancedLimitId((current) => (current === 'downloads' ? null : 'downloads'))}
                     onUpdateFilter={discover.updateFilter}
                   />
                   <RangePresetGroup
-                    label="Endorsements"
+                    label={copy.discover.endorsementsLabel}
                     minValue={discover.filters.minEndorsements}
                     maxValue={discover.filters.maxEndorsements}
                     minFilter="minEndorsements"
                     maxFilter="maxEndorsements"
-                    presets={ENDORSEMENT_PRESETS}
+                    presets={endorsementPresets}
                     advancedOpen={advancedLimitId === 'endorsements'}
+                    advancedLabel={copy.discover.advancedAction}
+                    presetsLabel={copy.discover.rangePresetsLabel(copy.discover.endorsementsLabel)}
+                    noMinimumPlaceholder={copy.discover.noMinimumPlaceholder}
+                    noMaximumPlaceholder={copy.discover.noMaximumPlaceholder}
                     onToggleAdvanced={() => setAdvancedLimitId((current) => (current === 'endorsements' ? null : 'endorsements'))}
                     onUpdateFilter={discover.updateFilter}
                   />
@@ -1193,7 +1235,7 @@ function LauncherDiscoverPageContent({
                     <div
                       className="launcher-discover-loading-overlay"
                       role="status"
-                      aria-label="Loading discover results"
+                      aria-label={copy.discover.loadingResultsLabel}
                       onWheel={(event) => event.preventDefault()}
                       onWheelCapture={(event) => event.preventDefault()}
                     >
@@ -1208,12 +1250,12 @@ function LauncherDiscoverPageContent({
                   <button
                     type="button"
                     className="launcher-discover-pagination-button"
-                    aria-label="Previous page"
+                    aria-label={copy.discover.previousPage}
                     disabled={discover.page <= 1}
                     onClick={goToPreviousDiscoverPage}
                   >
                     <ChevronLeft className="h-4 w-4" />
-                    <span>Previous</span>
+                    <span>{copy.discover.previousPage}</span>
                   </button>
 
                   <div className="launcher-discover-pagination-pages">
@@ -1230,7 +1272,7 @@ function LauncherDiscoverPageContent({
                             'launcher-discover-pagination-page',
                             item === discover.page && 'launcher-discover-pagination-page-active',
                           )}
-                          aria-label={`Page ${item}`}
+                          aria-label={copy.discover.pageLabel(item)}
                           aria-current={item === discover.page ? 'page' : undefined}
                           onClick={() => setDiscoverPage(item)}
                         >
@@ -1243,18 +1285,18 @@ function LauncherDiscoverPageContent({
                   <button
                     type="button"
                     className="launcher-discover-pagination-button"
-                    aria-label="Next page"
+                    aria-label={copy.discover.nextPage}
                     disabled={discover.totalPages > 0 && discover.page >= discover.totalPages}
                     onClick={goToNextDiscoverPage}
                   >
-                    <span>Next</span>
+                    <span>{copy.discover.nextPage}</span>
                     <ChevronRight className="h-4 w-4" />
                   </button>
 
                   <label className="launcher-discover-pagination-jump">
-                    <span>Jump to</span>
+                    <span>{copy.discover.jumpToPage}</span>
                     <input
-                      aria-label="Jump to page"
+                      aria-label={copy.discover.jumpToPage}
                       className="control-input"
                       value={jumpPageValue}
                       onChange={(event) => {
@@ -1272,7 +1314,7 @@ function LauncherDiscoverPageContent({
                       }}
                       inputMode="numeric"
                     />
-                    <span>page</span>
+                    <span>{copy.discover.pageUnit}</span>
                   </label>
                 </div>
               ) : null}

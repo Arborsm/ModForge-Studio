@@ -579,6 +579,7 @@ export type LauncherCopy = {
     createStorageFolder: string
     moveToStorageFolder: string
     addSelectionToPack: string
+    launchFailed: string
   }
   fields: {
     filterLibrary: string
@@ -685,6 +686,9 @@ export type LauncherCopy = {
       optionalFiles: string
       oldFiles: string
       oldAndArchivedFiles: string
+      uniqueDownloads: (count: string) => string
+      totalDownloads: (count: string) => string
+      modManagerDownload: string
       filesLoading: string
       changelogEmpty: string
     }
@@ -725,6 +729,9 @@ export type LauncherCopy = {
     installBackupsError: string
     manageInstallBackups: string
     restoreInstallBackup: string
+    restoreInstallBackupConfirmTitle: string
+    restoreInstallBackupConfirmMessage: (backupId: string, modsPath: string, deleteCount: number, overwriteCount: number) => string
+    restoreInstallBackupConfirmAction: string
     installBackupIdLabel: string
     filteredEmpty: string
     scopeTitle: string
@@ -814,6 +821,8 @@ export type LauncherCopy = {
     loadingResults: string
     loadingPage: (page: number) => string
     loadingCover: string
+    updateAvailable: string
+    fallbackCategory: string
     blockedTitle: string
     blockedDetail: string
     blockedIssueLabel: string
@@ -824,6 +833,60 @@ export type LauncherCopy = {
     blockedCopyLogsAction: string
     errorTitle: string
     errorDetail: string
+    consoleTitle: string
+    resultRange: (start: number, end: number, total: string) => string
+    searchPlaceholder: string
+    showFilters: string
+    hideFilters: string
+    timeRangeLabel: string
+    timeRangeOptions: Record<'all' | 'day' | 'week' | 'month' | 'year', string>
+    sortLabel: string
+    sortOptions: Record<'newest' | 'updated' | 'trending' | 'downloads' | 'endorsements' | 'name', string>
+    ascendingShort: string
+    descendingShort: string
+    pageSizeLabel: string
+    pageSizeOption: (count: number) => string
+    gridViewLabel: string
+    categorySection: string
+    categoryLabels: Record<string, string>
+    tagsSection: string
+    tagsIncludeLabel: string
+    tagsExcludeLabel: string
+    tagsIncludePlaceholder: string
+    tagsExcludePlaceholder: string
+    tagsIncludeSuggestionsLabel: string
+    tagsExcludeSuggestionsLabel: string
+    searchParametersSection: string
+    titleContainsLabel: string
+    descriptionContainsLabel: string
+    authorContainsLabel: string
+    uploaderContainsLabel: string
+    titleSearchPlaceholder: string
+    descriptionSearchPlaceholder: string
+    authorSearchPlaceholder: string
+    uploaderSearchPlaceholder: string
+    languageSection: string
+    languageLabels: Record<string, string>
+    anyLabel: string
+    limitsSection: string
+    includeAdultContent: string
+    fileSizeLabel: string
+    downloadsLabel: string
+    endorsementsLabel: string
+    advancedAction: string
+    rangePresetLabels: Record<
+      'any' | 'lt10kb' | '10to100kb' | 'gt100kb' | '10kPlus' | '100kPlus' | '500kPlus' | '1kPlus' | '5kPlus',
+      string
+    >
+    rangePresetsLabel: (label: string) => string
+    noMinimumPlaceholder: string
+    noMaximumPlaceholder: string
+    loadingResultsLabel: string
+    previousPage: string
+    nextPage: string
+    pageLabel: (page: number) => string
+    jumpToPage: string
+    pageUnit: string
   }
   updates: {
     title: string
@@ -1112,6 +1175,10 @@ export type EditorCopy = {
     detected: string
     clickToUse: string
     none: string
+    status: string
+    error: string
+    retry: string
+    chooseDirectory: string
   }
   leftDock: {
     project: string
@@ -1360,6 +1427,7 @@ export type EditorCopy = {
     neverExported: string
     noActiveDraftTitle: string
     noActiveDraftSubtitle: string
+    unsavedChangesMessage: string
     createDraft: string
     importDraft: string
     noEntries: string
@@ -1416,6 +1484,95 @@ export type EditorCopy = {
       exporting: string
       selectDirectory: string
     }
+    addPatchDialog: {
+      selectActionTitle: string
+      includeFileTitle: string
+      selectTargetTitle: string
+      closeLabel: string
+      back: string
+      includeFromFilePlaceholder: string
+      fromFileDescription: string
+      customTarget: string
+      customTargetPlaceholder: string
+      cancel: string
+      addPatch: string
+      actionLabels: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
+      actionDescriptions: Record<'EditData' | 'EditImage' | 'EditMap' | 'Load' | 'Include', string>
+    }
+    editorPage: {
+      patchNotFound: string
+      noEditorRegistered: (workspaceId: string) => string
+    }
+    referencePreview: {
+      workspaceLabels: Record<'mods' | 'map' | 'events' | 'characters' | 'buildings' | 'items', string>
+      noGameDirectoryTitle: string
+      noGameDirectorySubtitle: string
+      title: (workspaceLabel: string) => string
+      resourcesCount: (count: number) => string
+      scanning: string
+      noResourcesFound: string
+      loadingMap: string
+      loadingResource: string
+      selectMap: string
+      selectResourceTitle: string
+      selectResourceSubtitle: string
+      unsupportedMapFormat: (format: string) => string
+      buildingTextureLoadFailed: string
+      fields: {
+        version: string
+        author: string
+        path: string
+        root: string
+        type: string
+      }
+      description: string
+      noDescription: string
+      contentPreview: string
+      moreCharacters: (count: number) => string
+      noPreview: string
+    }
+    configSchemaDialog: {
+      propertiesTab: string
+      configTab: string
+      closeLabel: string
+      patchPropertiesTitle: (name: string) => string
+      noPatchSelected: string
+      priority: string
+      priorityLoadPlaceholder: string
+      priorityPatchPlaceholder: string
+      enabled: string
+      enabledModeBoolean: string
+      enabledModeToken: string
+      enabledState: string
+      disabledState: string
+      enabledTokenPlaceholder: string
+      targetLocale: string
+      targetLocalePlaceholder: string
+      update: string
+      updateDefault: string
+      when: string
+      whenKeyPlaceholder: string
+      whenValuePlaceholder: string
+      addCondition: string
+      localTokens: string
+      tokenNamePlaceholder: string
+      valuePlaceholder: string
+      addToken: string
+      configDescription: string
+      keyPlaceholder: string
+      defaultPlaceholder: string
+      allowValuesLabel: string
+      allowValuesPlaceholder: string
+      descriptionLabel: string
+      descriptionPlaceholder: string
+      sectionLabel: string
+      sectionPlaceholder: string
+      allowBlank: string
+      allowMultiple: string
+      addConfigEntry: string
+      cancel: string
+      save: string
+    }
     toolbar: {
       back: string
       forward: string
@@ -1447,6 +1604,7 @@ export type EditorCopy = {
       emptyTitle: string
       emptySubtitle: string
       selectedPatch: string
+      allPatches: string
       editPatch: string
       action: string
       target: string
@@ -1458,6 +1616,8 @@ export type EditorCopy = {
       disablePatch: string
       when: string
       conditions: (count: number) => string
+      quickSearchPlaceholder: string
+      noSearchMatches: string
       selectPrompt: string
       deleteTitle: string
       deleteMessage: (name: string) => string
@@ -1782,6 +1942,12 @@ export type ModWorkspaceCopy = {
   emptyStateSubtitle: string
   browserTitle: string
   browserSubtitle: string
+  browserQuickStartTitle: string
+  browserLibraryTitle: string
+  browserLibraryHasProjectsDescription: string
+  browserLibraryEmptyDescription: string
+  browserLibraryEmptyTitle: string
+  browserLibraryActive: string
   browserFilterPlaceholder: string
   browserEmpty: string
   contentPatcherOnly: string
@@ -1844,6 +2010,159 @@ export type ModWorkspaceCopy = {
   noPatchesLabel: string
   diagnosticsListTitle: string
   noDiagnosticsLabel: string
+  contentPatcherPatchProperties: {
+    title: string
+    add: string
+    remove: string
+    empty: string
+    defaultPatchMode: string
+    toggleEnabledType: string
+    enabledTokenPlaceholder: string
+  }
+  contentPatcherExport: {
+    title: string
+    defaultSubtitle: string
+    readyLabel: string
+    blockedLabel: string
+    empty: string
+    resultTargetTitle: string
+    exportableDescription: string
+    blockedDescription: string
+    exportPngResult: string
+    exportJsonResult: string
+    exportMapResult: string
+    lastExportTitle: string
+    lastExportSubtitle: string
+  }
+  contentPatcherPreview: {
+    loading: string
+    empty: string
+    targetTitle: (path: string) => string
+    previewAriaLabel: string
+  }
+  contentPatcherNavigator: {
+    jsonTargets: string
+    imageTargets: string
+    mapTargets: string
+    otherTargets: (kind: string) => string
+    patchesTab: string
+    targetsTab: string
+    patchesMeta: (count: number) => string
+    targetsMeta: (count: number) => string
+    noTargets: string
+    scaleUp: string
+    openHint: string
+    renderPreview: string
+    parameterSettings: string
+  }
+  contentPatcherDiagnostics: {
+    title: string
+    defaultSubtitle: string
+    noField: string
+    noFieldInformation: string
+    empty: string
+  }
+  contentPatcherTrace: {
+    title: string
+    defaultSubtitle: string
+    noDetails: string
+    action: string
+    source: string
+    empty: string
+  }
+  contentPatcherImagePreview: {
+    original: string
+    patched: string
+    toolbarLabel: string
+    layers: string
+    split: string
+    zoomOut: string
+    actualSize: string
+    zoomIn: string
+    fitToScreen: string
+    centerView: string
+    diffOnly: string
+    focusedChanges: string
+    overlay: string
+    patchBounds: string
+    blend: string
+    simulationContext: string
+    viewportLabel: (targetPath: string) => string
+    originalViewportLabel: (targetPath: string) => string
+    patchedViewportLabel: (targetPath: string) => string
+    originalAlt: (targetPath: string) => string
+    patchedAlt: (targetPath: string) => string
+  }
+  contentPatcherScaleUp: {
+    sourceExisting: string
+    sourceDerived: string
+    close: string
+    metrics: {
+      scale: string
+      padding: string
+      resultSheet: string
+      originalSheet: string
+    }
+    renderPreviewTitle: string
+    renderPreviewDescription: string
+    sheetAlt: (targetPath: string) => string
+    regions: {
+      headshot: string
+      minimap: string
+      chest: string
+    }
+    cropPreviews: {
+      headshot: string
+      minimap: string
+    }
+    parameterSettingsTitle: string
+    parameterSettingsDescription: string
+    fields: {
+      scale: string
+      paddingWidth: string
+      paddingHeight: string
+      breathType: string
+      headShotX: string
+      headShotY: string
+      headShotXRenderOffset: string
+      headShotYRenderOffset: string
+      miniMapXOffset: string
+      miniMapYOffset: string
+      chestSourceX: string
+      chestSourceY: string
+      chestSourceWidth: string
+      chestSourceHeight: string
+      chestAdjustX: string
+      chestAdjustY: string
+    }
+    breathTypes: Record<'None' | 'Male' | 'Female', string>
+    noSpriteSettings: string
+  }
+  contentPatcherSimulation: {
+    title: string
+    ignoreEntryWhenConditions: string
+    ignoreEntryWhenConditionsAria: string
+    ignoreWhenNo: string
+    ignoreWhenYes: string
+    any: string
+    trueLabel: string
+    falseLabel: string
+    commaSeparatedPlaceholder: string
+    showAdvanced: string
+    hideAdvanced: string
+    dynamicTokens: string
+    configLabel: (key: string) => string
+    fields: Record<string, string>
+    options: {
+      seasons: Record<string, string>
+      weather: Record<string, string>
+      daysOfWeek: Record<string, string>
+      playerGender: Record<string, string>
+      farmType: Record<string, string>
+      petType: Record<string, string>
+      farmCave: Record<string, string>
+    }
+  }
   manifestPathLabel: string
   contentPathLabel: string
   manifestName: string
@@ -1856,6 +2175,15 @@ export type ModWorkspaceCopy = {
   selectProjectFolder: string
   importedFrom: (path: string) => string
   missingRequiredDependencies: (dependencies: string) => string
+  unsavedChangesTitle: string
+  unsavedChangesMessage: string
+  unsavedSaveAndContinue: string
+  unsavedDiscardAndContinue: string
+  unsavedCancel: string
+  unsavedCannotSave: string
+  exportOverwriteTitle: string
+  exportOverwriteMessage: (path: string) => string
+  exportOverwriteConfirm: string
   saveFailed: string
   exportFailed: string
   saveSuccess: (path: string) => string

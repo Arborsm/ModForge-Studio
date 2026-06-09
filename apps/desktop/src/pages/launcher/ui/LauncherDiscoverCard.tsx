@@ -152,7 +152,7 @@ export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload }: L
               {image.loading ? <span className="launcher-discover-wall-cover-status">{copy.discover.loadingCover}</span> : null}
             </span>
           ) : null}
-          {item.updateAvailable ? <span className="launcher-discover-wall-badge">Update available</span> : null}
+          {item.updateAvailable ? <span className="launcher-discover-wall-badge">{copy.discover.updateAvailable}</span> : null}
         </button>
         <button
           type="button"
@@ -171,7 +171,7 @@ export function LauncherDiscoverCard({ item, onOpenDetails, onQueueDownload }: L
             <DiscoverCardTitle title={item.title} />
           </div>
           <p className="launcher-discover-wall-author">{item.author ?? item.uploader ?? `Nexus #${item.modId}`}</p>
-          <p className="launcher-discover-wall-category">{item.category ?? 'Stardew Valley Mod'}</p>
+          <p className="launcher-discover-wall-category">{item.category ?? copy.discover.fallbackCategory}</p>
           <div className="launcher-discover-wall-summary-slot">
             <p className="launcher-discover-wall-summary">{item.summary ?? copy.states.noSummary}</p>
           </div>

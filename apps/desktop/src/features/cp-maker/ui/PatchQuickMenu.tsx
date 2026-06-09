@@ -1,6 +1,7 @@
 import { ChevronDown, FileCode, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DraftPatch } from '@shared/contracts'
+import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
 import { PatchSummaryCard } from './PatchSummaryCard'
 
@@ -21,6 +22,7 @@ function groupPatches(patches: DraftPatch[]) {
 }
 
 export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQuickMenuProps) {
+  const copy = useEditorCopy().studioDesk.patchCatalog
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -85,7 +87,7 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
         aria-haspopup="menu"
       >
         <FileCode className="h-4 w-4" />
-        <span className="truncate">{activePatch?.logName || activePatch?.target || 'All Patches'}</span>
+        <span className="truncate">{activePatch?.logName || activePatch?.target || copy.allPatches}</span>
         <ChevronDown className="h-4 w-4" />
       </button>
 
@@ -99,7 +101,7 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
               setOpen(false)
             }}
           >
-            <span className="font-semibold text-[var(--text-primary)]">All Patches</span>
+            <span className="font-semibold text-[var(--text-primary)]">{copy.allPatches}</span>
             <span className="dock-chip">{patches.length}</span>
           </button>
 
@@ -109,7 +111,7 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
               className="control-input h-9 pl-9 text-xs"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search patches"
+              placeholder={copy.quickSearchPlaceholder}
               spellCheck={false}
               autoFocus
             />
@@ -144,7 +146,7 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
                 </section>
               ))
             ) : (
-              <div className="panel-empty-state text-center text-xs">No patches match the current search.</div>
+              <div className="panel-empty-state text-center text-xs">{copy.noSearchMatches}</div>
             )}
           </div>
         </div>
