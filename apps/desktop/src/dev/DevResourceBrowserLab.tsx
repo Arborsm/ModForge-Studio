@@ -411,6 +411,7 @@ export function DevResourceBrowserLab({ locale = 'zh-CN', directoryInfo = null }
                     label={`${resource.title}资源浏览器`}
                     placeholder={resource.placeholder}
                     options={registry[resource.kind]}
+                    selectionMode="confirm"
                     onSelect={(value) => {
                       setActiveKind(resource.kind)
                       setSelections((current) => ({

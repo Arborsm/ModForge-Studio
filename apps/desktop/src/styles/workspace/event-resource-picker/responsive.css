@@ -1,0 +1,97 @@
+@layer components {
+  @media (max-width: 900px) {
+    .resource-picker__dialog {
+      height: min(780px, calc(100vh - 24px));
+      width: min(760px, calc(100vw - 24px));
+    }
+
+    .resource-picker__sidebar {
+      width: 180px;
+    }
+
+    .resource-picker__items-grid {
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    }
+
+    .resource-picker__toolbar {
+      flex-wrap: wrap;
+      height: auto;
+      min-height: 58px;
+      padding: 10px 16px;
+    }
+
+    .resource-picker__search {
+      max-width: none;
+    }
+
+    .resource-picker__footer {
+      grid-template-columns: 1fr;
+    }
+
+    .resource-picker__pagination,
+    .resource-picker__actions {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .resource-picker__overlay {
+      padding: 8px;
+    }
+
+    .resource-picker__dialog {
+      width: calc(100vw - 16px);
+      height: calc(100vh - 16px);
+      border-radius: 12px;
+    }
+
+    .resource-picker__body {
+      flex-direction: column;
+    }
+
+    .resource-picker__sidebar {
+      width: 100%;
+      max-height: 170px;
+      border-right: 0;
+      border-bottom: 1px solid var(--resource-picker-divider);
+    }
+
+    .resource-picker__category-list {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 8px;
+    }
+
+    .resource-picker__category-item {
+      width: auto;
+      flex: 0 0 auto;
+    }
+
+    .resource-picker__filters,
+    .resource-picker__toolbar-count,
+    .resource-picker__page-info {
+      display: none;
+    }
+
+    .resource-picker__list-header,
+    .resource-picker__list-row-main {
+      grid-template-columns: 36px minmax(120px, 1fr) 72px 34px;
+    }
+
+    .resource-picker__list-header span:nth-child(4),
+    .resource-picker__list-header span:nth-child(5),
+    .resource-picker__list-header span:nth-child(6),
+    .resource-picker__list-row-main .resource-picker__item-type,
+    .resource-picker__list-row-weight,
+    .resource-picker__list-row-path {
+      display: none;
+    }
+
+    .resource-picker__detail-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  }
+}
