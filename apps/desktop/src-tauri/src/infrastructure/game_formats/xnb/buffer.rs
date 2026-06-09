@@ -92,14 +92,17 @@ impl CursorReader {
 
         loop {
             let byte = self.read_u8()?;
+            if bits_read >= 32 {
+                return Err("Invalid 7-bit encoded integer.".to_string());
+            }
+            if bits_read == 28 && (byte & 0x70) != 0 {
+                return Err("Invalid 7-bit encoded integer.".to_string());
+            }
             result |= ((byte & 0x7F) as u32) << bits_read;
             if (byte & 0x80) == 0 {
                 break;
             }
             bits_read += 7;
-            if bits_read > 35 {
-                return Err("Invalid 7-bit encoded integer.".to_string());
-            }
         }
 
         Ok(result)
@@ -114,5 +117,30 @@ impl CursorReader {
         let ls_b = self.read_u8()? as u16;
         let ms_b = self.read_u8()? as u16;
         Ok((ls_b << 8) | ms_b)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CursorReader;
+
+    #[test]
+    fn malformed_7bit_int_returns_error_instead_of_panicking() {
+        let mut reader = CursorReader::new(vec![0x80, 0x80, 0x80, 0x80, 0x80, 0x00]);
+        let error = reader.read_7bit_int().expect_err("malformed varint");
+        assert!(error.contains("Invalid 7-bit"));
+    }
+
+    #[test]
+    fn overflowing_fifth_7bit_int_byte_returns_error() {
+        let mut reader = CursorReader::new(vec![0x80, 0x80, 0x80, 0x80, 0x10]);
+        let error = reader.read_7bit_int().expect_err("overflowing varint");
+        assert!(error.contains("Invalid 7-bit"));
+    }
+
+    #[test]
+    fn maximum_u32_7bit_int_value_is_allowed() {
+        let mut reader = CursorReader::new(vec![0xff, 0xff, 0xff, 0xff, 0x0f]);
+        assert_eq!(reader.read_7bit_int().expect("max u32"), u32::MAX);
     }
 }

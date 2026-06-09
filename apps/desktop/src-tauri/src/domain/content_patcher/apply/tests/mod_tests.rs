@@ -38,23 +38,24 @@ fn load_target_base_only_loads_image_state_for_image_targets() {
         Some("E:\\Game"),
         |_, _| {
             json_calls.set(json_calls.get() + 1);
-            json!({})
+            Ok(json!({}))
         },
         |_, _| {
             image_calls.set(image_calls.get() + 1);
-            LoadedBaseImageAsset {
+            Ok(LoadedBaseImageAsset {
                 image: RgbaImage::from_pixel(1, 1, image::Rgba([0, 0, 0, 0])),
                 source: "Game content".to_string(),
-            }
+            })
         },
         |_, _| {
             map_calls.set(map_calls.get() + 1);
-            LoadedMapAsset {
+            Ok(LoadedMapAsset {
                 document: empty_map_document(),
                 debug: ContentPatcherMapDebugSummary::default(),
-            }
+            })
         },
-    );
+    )
+    .expect("load target base");
 
     assert!(matches!(loaded, LoadedTargetBase::Image { .. }));
     assert_eq!(json_calls.get(), 0);

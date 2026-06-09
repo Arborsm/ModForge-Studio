@@ -7,6 +7,7 @@ use infrastructure::game_formats::xact;
 use std::{fs, path::PathBuf, time::Instant};
 
 #[test]
+#[ignore = "manual regression against installed Stardew XACT sound banks"]
 fn loads_reference_xact_cues_as_wav_data_urls() {
     let game_root = test_support::resolve_game_root();
     assert!(

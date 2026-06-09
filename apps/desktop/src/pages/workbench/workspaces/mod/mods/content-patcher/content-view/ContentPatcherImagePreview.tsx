@@ -4,6 +4,7 @@ import type { ContentPatcherBackendSimulationContext } from '../content-model/co
 import { usePanZoomViewport } from '@shared/lib/viewports'
 import { ContentPatcherSimulationForm } from './ContentPatcherSimulationForm'
 import { prepareImageCompareAssets, type ImageCompareBounds, type PreparedImageCompareAssets } from '../content-model/imageCompare'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 
 type CompareMode = 'layers' | 'split'
 
@@ -95,6 +96,7 @@ export function ContentPatcherImagePreview({
   onSimulationContextChange,
   dynamicTokens,
 }: ContentPatcherImagePreviewProps) {
+  const copy = useModWorkspaceCopy().contentPatcherImagePreview
   const [compareMode, setCompareMode] = useState<CompareMode>('split')
   const [diffOnly, setDiffOnly] = useState(false)
   const [overlayOpacity, setOverlayOpacity] = useState(0.62)
@@ -182,12 +184,12 @@ export function ContentPatcherImagePreview({
         {compareEnabled && compareMode === 'split' ? (
           <div className="cp-debugger-compare-split">
             <figure className="cp-debugger-compare-pane">
-              <figcaption className="cp-debugger-compare-label">Original</figcaption>
+              <figcaption className="cp-debugger-compare-label">{copy.original}</figcaption>
               <div className="cp-debugger-compare-pane-body">
-                <PanZoomFrame panZoom={panZoom} measure label={`${targetPath} original viewport`}>
+                <PanZoomFrame panZoom={panZoom} measure label={copy.originalViewportLabel(targetPath)}>
                   <ImageFrame
                     src={displaySources.original}
-                    alt={`${targetPath} original`}
+                    alt={copy.originalAlt(targetPath)}
                     width={frameWidth}
                     height={frameHeight}
                     bounds={patchBounds}
@@ -197,12 +199,12 @@ export function ContentPatcherImagePreview({
               </div>
             </figure>
             <figure className="cp-debugger-compare-pane">
-              <figcaption className="cp-debugger-compare-label">Patched</figcaption>
+              <figcaption className="cp-debugger-compare-label">{copy.patched}</figcaption>
               <div className="cp-debugger-compare-pane-body">
-                <PanZoomFrame panZoom={panZoom} label={`${targetPath} patched viewport`}>
+                <PanZoomFrame panZoom={panZoom} label={copy.patchedViewportLabel(targetPath)}>
                   <ImageFrame
                     src={displaySources.patched}
-                    alt={`${targetPath} patched`}
+                    alt={copy.patchedAlt(targetPath)}
                     width={frameWidth}
                     height={frameHeight}
                     bounds={patchBounds}
@@ -214,7 +216,7 @@ export function ContentPatcherImagePreview({
           </div>
         ) : compareEnabled ? (
           <div className="cp-debugger-compare-overlay cp-debugger-compare-overlay-centered">
-            <PanZoomFrame panZoom={panZoom} measure label={`${targetPath} viewport`}>
+            <PanZoomFrame panZoom={panZoom} measure label={copy.viewportLabel(targetPath)}>
               <ImageFrame
                 src={displaySources.original}
                 overlaySrc={displaySources.patched}
@@ -229,7 +231,7 @@ export function ContentPatcherImagePreview({
           </div>
         ) : (
           <div className="cp-debugger-compare-single">
-            <PanZoomFrame panZoom={panZoom} measure label={`${targetPath} viewport`}>
+            <PanZoomFrame panZoom={panZoom} measure label={copy.viewportLabel(targetPath)}>
               <ImageFrame
                 src={imageDataUrl}
                 alt={targetPath}
@@ -242,7 +244,7 @@ export function ContentPatcherImagePreview({
           </div>
         )}
 
-        <div className="cp-debugger-image-toolbar" role="toolbar" aria-label="image compare controls">
+        <div className="cp-debugger-image-toolbar" role="toolbar" aria-label={copy.toolbarLabel}>
           {compareEnabled ? (
             <div className="cp-debugger-toolbar-group">
               <button
@@ -251,7 +253,7 @@ export function ContentPatcherImagePreview({
                 aria-pressed={compareMode === 'layers'}
                 onClick={() => setCompareMode('layers')}
               >
-                Layers
+                {copy.layers}
               </button>
               <button
                 type="button"
@@ -259,7 +261,7 @@ export function ContentPatcherImagePreview({
                 aria-pressed={compareMode === 'split'}
                 onClick={() => setCompareMode('split')}
               >
-                Split
+                {copy.split}
               </button>
             </div>
           ) : null}
@@ -268,9 +270,9 @@ export function ContentPatcherImagePreview({
             <button
               type="button"
               className="cp-debugger-toolbar-icon-button"
-              aria-label="Zoom out"
+              aria-label={copy.zoomOut}
               aria-keyshortcuts="-"
-              title="Zoom out (-)"
+              title={`${copy.zoomOut} (-)`}
               onClick={panZoom.zoomOut}
             >
               <ZoomOut className="h-4 w-4" />
@@ -278,9 +280,9 @@ export function ContentPatcherImagePreview({
             <button
               type="button"
               className="cp-debugger-toolbar-icon-button"
-              aria-label="Actual size"
+              aria-label={copy.actualSize}
               aria-keyshortcuts="1"
-              title="Actual size (1)"
+              title={`${copy.actualSize} (1)`}
               onClick={panZoom.setOneToOne}
             >
               <Grip className="h-4 w-4" />
@@ -289,9 +291,9 @@ export function ContentPatcherImagePreview({
             <button
               type="button"
               className="cp-debugger-toolbar-icon-button"
-              aria-label="Zoom in"
+              aria-label={copy.zoomIn}
               aria-keyshortcuts="+"
-              title="Zoom in (+)"
+              title={`${copy.zoomIn} (+)`}
               onClick={panZoom.zoomIn}
             >
               <ZoomIn className="h-4 w-4" />
@@ -299,9 +301,9 @@ export function ContentPatcherImagePreview({
             <button
               type="button"
               className="cp-debugger-toolbar-icon-button"
-              aria-label="Fit to screen"
+              aria-label={copy.fitToScreen}
               aria-keyshortcuts="0"
-              title="Fit to screen (0)"
+              title={`${copy.fitToScreen} (0)`}
               onClick={panZoom.fitToScreen}
             >
               <Maximize className="h-4 w-4" />
@@ -309,9 +311,9 @@ export function ContentPatcherImagePreview({
             <button
               type="button"
               className="cp-debugger-toolbar-icon-button"
-              aria-label="Center view"
+              aria-label={copy.centerView}
               aria-keyshortcuts="C"
-              title="Center view (C)"
+              title={`${copy.centerView} (C)`}
               onClick={panZoom.centerView}
             >
               <Move className="h-4 w-4" />
@@ -326,16 +328,16 @@ export function ContentPatcherImagePreview({
                 aria-pressed={diffOnly}
                 onClick={() => setDiffOnly((current) => !current)}
               >
-                Diff Only
+                {copy.diffOnly}
               </button>
-              {focusedChanges ? <span className="cp-debugger-toolbar-badge">Focused changes</span> : null}
+              {focusedChanges ? <span className="cp-debugger-toolbar-badge">{copy.focusedChanges}</span> : null}
             </div>
           ) : null}
 
           {compareEnabled && compareMode === 'layers' ? (
             <div className="cp-debugger-toolbar-group">
               <button type="button" className={toolbarButtonClass(true)} aria-pressed="true" onClick={() => setCompareMode('layers')}>
-                Overlay
+                {copy.overlay}
               </button>
             </div>
           ) : null}
@@ -349,14 +351,14 @@ export function ContentPatcherImagePreview({
                 disabled={!canShowPatchBounds}
                 onClick={() => setShowPatchBounds((current) => !current)}
               >
-                Patch Bounds
+                {copy.patchBounds}
               </button>
             </div>
           ) : null}
 
           {compareEnabled && compareMode === 'layers' ? (
             <label className="cp-debugger-toolbar-slider" htmlFor="cp-debugger-overlay-opacity">
-              <span>Blend</span>
+              <span>{copy.blend}</span>
               <input
                 id="cp-debugger-overlay-opacity"
                 type="range"
@@ -378,11 +380,16 @@ export function ContentPatcherImagePreview({
               aria-controls="cp-debugger-simulation-popup"
               onClick={() => setSimulationPopupOpen((current) => !current)}
             >
-              Simulation Context
+              {copy.simulationContext}
             </button>
 
             {simulationPopupOpen ? (
-              <div id="cp-debugger-simulation-popup" className="cp-debugger-toolbar-popup" role="dialog" aria-label="Simulation Context">
+              <div
+                id="cp-debugger-simulation-popup"
+                className="cp-debugger-toolbar-popup"
+                role="dialog"
+                aria-label={copy.simulationContext}
+              >
                 <ContentPatcherSimulationForm
                   compact
                   configEntries={simulationConfigEntries}

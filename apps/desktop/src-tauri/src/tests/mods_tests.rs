@@ -373,6 +373,7 @@ fn save_mod_project_exports_and_preserves_other_files() {
     let request = SaveModProjectRequest {
         source_path: source.to_string_lossy().into_owned(),
         output_path: Some(export.to_string_lossy().into_owned()),
+        overwrite_existing_export: false,
         manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
         content_json: sample_content().replace("spring", "summer"),
         i18n_files: vec![],
@@ -393,6 +394,113 @@ fn save_mod_project_exports_and_preserves_other_files() {
 }
 
 #[test]
+fn save_mod_project_rejects_non_empty_export_without_confirmation() {
+    let root = create_temp_dir("mods-save-non-empty");
+    let source = root.join("SourcePack");
+    let export = root.join("ExportPack");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    write_file(&export.join("keep.txt"), "do not delete");
+
+    let request = SaveModProjectRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        output_path: Some(export.to_string_lossy().into_owned()),
+        overwrite_existing_export: false,
+        manifest_json: sample_manifest().to_string(),
+        content_json: sample_content().to_string(),
+        i18n_files: vec![],
+    };
+
+    let error = save_mod_project(request).expect_err("non-empty export target should be rejected");
+    assert!(error.contains("not empty"));
+    assert!(export.join("keep.txt").is_file());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_project_overwrites_non_empty_export_after_confirmation() {
+    let root = create_temp_dir("mods-save-overwrite");
+    let source = root.join("SourcePack");
+    let export = root.join("ExportPack");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    write_file(&source.join("assets").join("abigail.png"), "png-data");
+    write_file(&export.join("old.txt"), "delete me");
+
+    let request = SaveModProjectRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        output_path: Some(export.to_string_lossy().into_owned()),
+        overwrite_existing_export: true,
+        manifest_json: sample_manifest().replace("Example Pack", "Exported Pack"),
+        content_json: sample_content().to_string(),
+        i18n_files: vec![],
+    };
+
+    save_mod_project(request).expect("confirmed export overwrite");
+    assert!(!export.join("old.txt").exists());
+    assert!(export.join("assets").join("abigail.png").is_file());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_project_rejects_export_to_source_parent_even_after_confirmation() {
+    let root = create_temp_dir("mods-save-parent-overwrite");
+    let source = root.join("SourcePack");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    write_file(&source.join("assets").join("abigail.png"), "png-data");
+    write_file(&root.join("OtherPack").join("manifest.json"), "{}");
+
+    let request = SaveModProjectRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        output_path: Some(root.to_string_lossy().into_owned()),
+        overwrite_existing_export: true,
+        manifest_json: sample_manifest().to_string(),
+        content_json: sample_content().to_string(),
+        i18n_files: vec![],
+    };
+
+    let error = save_mod_project(request).expect_err("source parent export should be rejected");
+    assert!(error.contains("parent or ancestor"));
+    assert!(source.join("manifest.json").is_file());
+    assert!(source.join("assets").join("abigail.png").is_file());
+    assert!(root.join("OtherPack").join("manifest.json").is_file());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
+fn save_mod_project_rejects_export_inside_source_even_after_confirmation() {
+    let root = create_temp_dir("mods-save-child-overwrite");
+    let source = root.join("SourcePack");
+    let export = source.join("NestedExport");
+    write_file(&source.join("manifest.json"), sample_manifest());
+    write_file(&source.join("content.json"), sample_content());
+    write_file(&source.join("assets").join("abigail.png"), "png-data");
+    write_file(&export.join("old.txt"), "delete me");
+
+    let request = SaveModProjectRequest {
+        source_path: source.to_string_lossy().into_owned(),
+        output_path: Some(export.to_string_lossy().into_owned()),
+        overwrite_existing_export: true,
+        manifest_json: sample_manifest().to_string(),
+        content_json: sample_content().to_string(),
+        i18n_files: vec![],
+    };
+
+    let error = save_mod_project(request).expect_err("source child export should be rejected");
+    assert!(error.contains("nested inside the source mod directory"));
+    assert!(source.join("manifest.json").is_file());
+    assert!(source.join("content.json").is_file());
+    assert!(source.join("assets").join("abigail.png").is_file());
+    assert!(export.join("old.txt").is_file());
+
+    fs::remove_dir_all(root).expect("cleanup");
+}
+
+#[test]
 fn save_mod_project_writes_requested_i18n_files() {
     let root = create_temp_dir("mods-save-i18n");
     let source = root.join("SourcePack");
@@ -406,6 +514,7 @@ fn save_mod_project_writes_requested_i18n_files() {
     let request = SaveModProjectRequest {
         source_path: source.to_string_lossy().into_owned(),
         output_path: None,
+        overwrite_existing_export: false,
         manifest_json: sample_manifest().to_string(),
         content_json: sample_content().to_string(),
         i18n_files: vec![

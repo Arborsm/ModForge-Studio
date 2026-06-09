@@ -6,6 +6,7 @@ mod test_support;
 use infrastructure::game_formats::xnb;
 
 #[test]
+#[ignore = "manual regression against installed Stardew LZXD XNB data"]
 fn parses_installed_reference_xnbs() {
     let game_root = test_support::resolve_game_root();
 

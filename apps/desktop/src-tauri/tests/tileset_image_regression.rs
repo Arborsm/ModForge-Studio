@@ -19,6 +19,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 #[test]
+#[ignore = "manual regression against installed Stardew map and tileset data"]
 fn loads_farm_tileset_images_as_data_urls() {
     let game_root = test_support::resolve_game_root();
     let map_path = game_root.join("Content/Maps/Farm.xnb");

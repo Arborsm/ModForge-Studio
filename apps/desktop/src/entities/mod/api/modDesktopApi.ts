@@ -84,7 +84,7 @@ export function exportContentPatcherAsset(request: ExportContentPatcherAssetRequ
 
 /** Saves a mod project, then clears project and mod index caches affected by the write. */
 export async function saveModProject(request: SaveModProjectRequest) {
-  const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', request)
+  const result = await invokeDesktop<SaveModProjectResult>('save_mod_project', { request })
   const normalizedSource = normalizeCachePathSegment(request.sourcePath)
   const normalizedTarget = request.outputPath ? normalizeCachePathSegment(request.outputPath) : normalizedSource
   loadModProjectCache.delete(normalizedSource)

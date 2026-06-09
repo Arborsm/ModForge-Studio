@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { loadContentPatcherResultAsset, saveModProject, scanModProjects, simulateContentPatcher } from '@entities/mod/api'
 import { chooseDirectory } from '@shared/lib/desktop'
 import { reportAppEvent } from '@shared/lib/observability'
@@ -146,6 +146,11 @@ vi.mock('@shared/lib/observability', () => ({
 vi.mock('@shared/lib/desktop', () => ({
   chooseDirectory: vi.fn(),
 }))
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
 
 describe('useModWorkspace', () => {
   it('reads scan status copy from editor-shell during initial project scan', async () => {
@@ -488,5 +493,225 @@ describe('useModWorkspace', () => {
         level: 'success',
       }),
     )
+  })
+
+  it('prompts before selecting another project when the active project has unsaved changes', async () => {
+    vi.mocked(scanModProjects).mockResolvedValueOnce([
+      {
+        id: 'cp-pack',
+        name: 'CP Pack',
+        author: 'ModForge',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'ModForge.CPPack',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'CPPack',
+        absolutePath: 'E:\\Mods\\CPPack',
+        manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+        contentPath: 'E:\\Mods\\CPPack\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'ready',
+        missingRequiredDependencies: [],
+      },
+      {
+        id: 'cp-pack-two',
+        name: 'CP Pack Two',
+        author: 'ModForge',
+        version: '1.0.0',
+        description: null,
+        uniqueId: 'ModForge.CPPackTwo',
+        contentPackFor: 'Pathoschild.ContentPatcher',
+        folderName: 'CPPackTwo',
+        absolutePath: 'E:\\Mods\\CPPackTwo',
+        manifestPath: 'E:\\Mods\\CPPackTwo\\manifest.json',
+        contentPath: 'E:\\Mods\\CPPackTwo\\content.json',
+        pluginKind: 'content-patcher',
+        status: 'ready',
+        missingRequiredDependencies: [],
+      },
+    ])
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.activeProjectPath).toBe('E:\\Mods\\CPPack')
+    })
+
+    act(() => {
+      result.current.handleManifestTextChange('{\n  "Name": "Edited Pack"\n}\n')
+    })
+
+    await waitFor(() => {
+      expect(result.current.hasUnsavedChanges).toBe(true)
+    })
+
+    act(() => {
+      result.current.handleSelectProject('E:\\Mods\\CPPackTwo')
+    })
+
+    expect(result.current.activeProjectPath).toBe('E:\\Mods\\CPPack')
+    expect(result.current.pendingUnsavedChangeDecision).toEqual({ saving: false, error: null })
+
+    await act(async () => {
+      await result.current.confirmUnsavedDiscardAndContinue()
+    })
+
+    expect(result.current.activeProjectPath).toBe('E:\\Mods\\CPPackTwo')
+    expect(result.current.pendingUnsavedChangeDecision).toBeNull()
+  })
+
+  it('saves before continuing a guarded refresh', async () => {
+    vi.mocked(saveModProject).mockResolvedValueOnce({
+      pluginKind: 'content-patcher',
+      targetPath: 'E:\\Mods\\CPPack',
+      manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+      contentPath: 'E:\\Mods\\CPPack\\content.json',
+      diagnostics: [],
+    })
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    act(() => {
+      result.current.handleContentTextChange('{\n  "Changes": [{ "Action": "EditData", "Target": "Data/Objects" }]\n}\n')
+    })
+
+    await waitFor(() => {
+      expect(result.current.hasUnsavedChanges).toBe(true)
+    })
+
+    await act(async () => {
+      await result.current.handleRefreshProjects()
+    })
+
+    expect(result.current.pendingUnsavedChangeDecision).toEqual({ saving: false, error: null })
+
+    await act(async () => {
+      await result.current.confirmUnsavedSaveAndContinue()
+    })
+
+    expect(vi.mocked(saveModProject)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourcePath: 'E:\\Mods\\CPPack',
+        overwriteExistingExport: false,
+      }),
+    )
+    expect(result.current.pendingUnsavedChangeDecision).toBeNull()
+  })
+
+  it('does not open the import picker until unsaved changes are resolved', async () => {
+    vi.mocked(chooseDirectory).mockResolvedValueOnce('E:\\Mods\\ImportedPack' as never)
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    act(() => {
+      result.current.handleManifestTextChange('{\n  "Name": "Edited Pack"\n}\n')
+    })
+
+    await waitFor(() => {
+      expect(result.current.hasUnsavedChanges).toBe(true)
+    })
+
+    await act(async () => {
+      await result.current.handleImportProject()
+    })
+
+    expect(vi.mocked(chooseDirectory)).not.toHaveBeenCalled()
+    expect(result.current.pendingUnsavedChangeDecision).toEqual({ saving: false, error: null })
+
+    await act(async () => {
+      await result.current.confirmUnsavedDiscardAndContinue()
+    })
+
+    expect(vi.mocked(chooseDirectory)).toHaveBeenCalledTimes(1)
+    expect(result.current.activeProjectPath).toBe('E:\\Mods\\ImportedPack')
+  })
+
+  it('asks for overwrite confirmation before retrying a non-empty export target', async () => {
+    vi.mocked(chooseDirectory).mockResolvedValueOnce('E:\\Exports' as never)
+    vi.mocked(saveModProject)
+      .mockRejectedValueOnce(new Error('Export target E:\\Exports is not empty. Choose an empty folder or confirm overwrite.'))
+      .mockResolvedValueOnce({
+        pluginKind: 'content-patcher',
+        targetPath: 'E:\\Exports',
+        manifestPath: 'E:\\Exports\\manifest.json',
+        contentPath: 'E:\\Exports\\content.json',
+        diagnostics: [],
+      })
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    await act(async () => {
+      await result.current.handleExportProject()
+    })
+
+    expect(result.current.pendingExportOverwriteDecision).toEqual({
+      targetPath: 'E:\\Exports',
+      saving: false,
+      error: null,
+    })
+
+    await act(async () => {
+      await result.current.confirmExportOverwrite()
+    })
+
+    expect(vi.mocked(saveModProject)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        outputPath: 'E:\\Exports',
+        overwriteExistingExport: true,
+      }),
+    )
+    expect(result.current.pendingExportOverwriteDecision).toBeNull()
   })
 })

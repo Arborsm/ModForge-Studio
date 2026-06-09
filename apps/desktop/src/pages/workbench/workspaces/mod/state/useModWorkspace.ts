@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   type ContentPatcherPatchSummary,
   type ContentPatcherI18nFile,
@@ -41,6 +41,19 @@ type UseModWorkspaceOptions = {
   locale: LocaleCode
 }
 
+type PendingUnsavedChangeDecision = {
+  saving: boolean
+  error: string | null
+}
+
+type PendingExportOverwriteDecision = {
+  targetPath: string
+  saving: boolean
+  error: string | null
+}
+
+type GuardedWorkspaceAction = () => void | Promise<void>
+
 function normalizeEditorState(text: string): JsonEditorState {
   const parsed = parseJsonText(text)
   return {
@@ -78,6 +91,11 @@ function getNextActiveProjectPath(projects: ModProjectSummary[], currentPath: st
   }
 
   return getDefaultModProjectPath(projects)
+}
+
+function isExportOverwriteRequiredError(message: string) {
+  const normalized = message.toLowerCase()
+  return normalized.includes('not empty') && normalized.includes('confirm overwrite')
 }
 
 function createDefaultSimulationContext(): ContentPatcherBackendSimulationContext {
@@ -171,6 +189,10 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
   const [contentPatcherResultError, setContentPatcherResultError] = useState<string | null>(null)
   const [simulationContext, setSimulationContext] = useState<ContentPatcherBackendSimulationContext>(createDefaultSimulationContext)
   const [i18nFiles, setI18nFiles] = useState<ContentPatcherI18nFile[]>([])
+  const [projectReloadNonce, setProjectReloadNonce] = useState(0)
+  const [pendingUnsavedChangeDecision, setPendingUnsavedChangeDecision] = useState<PendingUnsavedChangeDecision | null>(null)
+  const [pendingExportOverwriteDecision, setPendingExportOverwriteDecision] = useState<PendingExportOverwriteDecision | null>(null)
+  const pendingGuardedActionRef = useRef<GuardedWorkspaceAction | null>(null)
   const deferredFilter = useDeferredValue(modFilter.trim().toLowerCase())
 
   const filteredModProjects = useMemo(
@@ -368,7 +390,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     return () => {
       cancelled = true
     }
-  }, [activeProjectPath])
+  }, [activeProjectPath, projectReloadNonce])
 
   useEffect(() => {
     if (projectDetail?.pluginKind !== 'content-patcher' || !projectDetail.contentPatcher || !projectDetail.summary.absolutePath) {
@@ -556,7 +578,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     setContentEditor(normalizeEditorState(stringifyPrettyJson(nextValue)))
   }
 
-  function handleSelectProject(path: string) {
+  function selectProjectNow(path: string) {
     const selectedProject = modProjects.find((project) => project.absolutePath === path)
     if (selectedProject && isIncompatibleProject(selectedProject)) {
       return
@@ -575,14 +597,82 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     setSimulationContext(createDefaultSimulationContext())
   }
 
-  async function handleImportProject() {
-    const selected = await chooseDirectory(copy.selectProjectFolder)
-    if (!selected) {
+  async function requestUnsavedChangeDecision(action: GuardedWorkspaceAction) {
+    if (!hasUnsavedChanges) {
+      await action()
+      return true
+    }
+
+    pendingGuardedActionRef.current = action
+    setPendingUnsavedChangeDecision({ saving: false, error: null })
+    return false
+  }
+
+  async function runPendingGuardedAction() {
+    const action = pendingGuardedActionRef.current
+    pendingGuardedActionRef.current = null
+    setPendingUnsavedChangeDecision(null)
+    if (action) {
+      await action()
+    }
+  }
+
+  async function confirmUnsavedSaveAndContinue() {
+    if (!pendingGuardedActionRef.current) {
+      setPendingUnsavedChangeDecision(null)
       return
     }
 
-    setActiveProjectPath(selected)
-    setStatusMessage(copy.importedFrom(selected))
+    if (!canPersist) {
+      setPendingUnsavedChangeDecision((current) => (current ? { ...current, error: copy.unsavedCannotSave } : current))
+      return
+    }
+
+    setPendingUnsavedChangeDecision((current) => (current ? { ...current, saving: true, error: null } : current))
+    try {
+      await persistProject()
+      await runPendingGuardedAction()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setPendingUnsavedChangeDecision((current) => (current ? { ...current, saving: false, error: message } : current))
+    }
+  }
+
+  async function confirmUnsavedDiscardAndContinue() {
+    if (!pendingGuardedActionRef.current) {
+      setPendingUnsavedChangeDecision(null)
+      return
+    }
+
+    setProjectReloadNonce((current) => current + 1)
+    await runPendingGuardedAction()
+  }
+
+  function cancelUnsavedChangeDecision() {
+    pendingGuardedActionRef.current = null
+    setPendingUnsavedChangeDecision(null)
+  }
+
+  function handleSelectProject(path: string) {
+    if (path === activeProjectPath) {
+      return
+    }
+
+    void requestUnsavedChangeDecision(() => {
+      selectProjectNow(path)
+    })
+  }
+
+  async function handleImportProject() {
+    await requestUnsavedChangeDecision(async () => {
+      const selected = await chooseDirectory(copy.selectProjectFolder)
+      if (!selected) {
+        return
+      }
+
+      selectProjectNow(selected)
+      setStatusMessage(copy.importedFrom(selected))
+    })
   }
 
   async function handleRefreshProjects() {
@@ -590,10 +680,13 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       return
     }
 
-    const projects = await scanModProjects(directoryInfo.rootPath)
-    setModProjects(projects)
-    setStatusMessage(copy.scanStatus(projects.length))
-    setActiveProjectPath((current) => getNextActiveProjectPath(projects, current))
+    await requestUnsavedChangeDecision(async () => {
+      const projects = await scanModProjects(directoryInfo.rootPath)
+      setModProjects(projects)
+      setStatusMessage(copy.scanStatus(projects.length))
+      setActiveProjectPath((current) => getNextActiveProjectPath(projects, current))
+      setProjectReloadNonce((current) => current + 1)
+    })
   }
 
   function handleManifestFieldChange(field: string, value: string) {
@@ -665,7 +758,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     }
   }
 
-  async function persistProject(outputPath?: string | null) {
+  async function persistProject(outputPath?: string | null, overwriteExistingExport = false) {
     const sourcePath = projectDetail?.summary.absolutePath
     if (!sourcePath || !canPersist) {
       return null
@@ -680,6 +773,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
         operation: outputPath ? 'export' : 'save',
         source_path: sourcePath,
         output_path: outputPath ?? undefined,
+        overwrite_existing_export: String(overwriteExistingExport),
       },
     })
 
@@ -687,6 +781,7 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       const result = await saveModProject({
         sourcePath,
         outputPath,
+        overwriteExistingExport,
         manifestJson: manifestEditor.text,
         contentJson: contentEditor.text,
         i18nFiles: i18nFiles.map((file) => ({
@@ -755,7 +850,44 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
       return null
     }
 
-    return persistProject(selected)
+    try {
+      return await persistProject(selected)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (isExportOverwriteRequiredError(message)) {
+        setPendingExportOverwriteDecision({
+          targetPath: selected,
+          saving: false,
+          error: null,
+        })
+        return null
+      }
+
+      throw error
+    }
+  }
+
+  async function confirmExportOverwrite() {
+    const targetPath = pendingExportOverwriteDecision?.targetPath
+    if (!targetPath) {
+      setPendingExportOverwriteDecision(null)
+      return null
+    }
+
+    setPendingExportOverwriteDecision((current) => (current ? { ...current, saving: true, error: null } : current))
+    try {
+      const result = await persistProject(targetPath, true)
+      setPendingExportOverwriteDecision(null)
+      return result
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setPendingExportOverwriteDecision((current) => (current ? { ...current, saving: false, error: message } : current))
+      throw error
+    }
+  }
+
+  function cancelExportOverwrite() {
+    setPendingExportOverwriteDecision(null)
   }
 
   function handleSimulationContextChange(nextContext: ContentPatcherBackendSimulationContext) {
@@ -858,6 +990,14 @@ function useModWorkspace({ directoryInfo, locale }: UseModWorkspaceOptions) {
     patchWhenError,
     statusMessage,
     hasUnsavedChanges,
+    pendingUnsavedChangeDecision,
+    requestUnsavedChangeDecision,
+    confirmUnsavedSaveAndContinue,
+    confirmUnsavedDiscardAndContinue,
+    cancelUnsavedChangeDecision,
+    pendingExportOverwriteDecision,
+    confirmExportOverwrite,
+    cancelExportOverwrite,
     canPersist,
     lastSaveResult,
     contentPatcherSnapshot,

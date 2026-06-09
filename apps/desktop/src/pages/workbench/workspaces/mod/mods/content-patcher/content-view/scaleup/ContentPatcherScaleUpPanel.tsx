@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 import { measureImageDimensions } from '@shared/lib/assets'
 import {
   getScaleUpEditorState,
@@ -222,6 +223,7 @@ export function ContentPatcherScaleUpPanel({
   onContentChange,
   onClose,
 }: ContentPatcherScaleUpPanelProps) {
+  const copy = useModWorkspaceCopy().contentPatcherScaleUp
   const [activeSection, setActiveSection] = useState<'preview' | 'settings'>(focusSection)
   const [images, setImages] = useState<{
     resultImage?: ScaleUpImageDimensions | null
@@ -309,7 +311,7 @@ export function ContentPatcherScaleUpPanel({
               ScaleUp
             </span>
             <span className="text-xs text-[var(--text-tertiary)]">
-              {editorState.source === 'existing' ? 'Existing attachment entry' : 'Derived from image metrics'}
+              {editorState.source === 'existing' ? copy.sourceExisting : copy.sourceDerived}
             </span>
           </div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)]">{targetPath}</h3>
@@ -322,7 +324,7 @@ export function ContentPatcherScaleUpPanel({
             aria-pressed={activeSection === 'preview'}
             onClick={() => setActiveSection('preview')}
           >
-            Render Preview
+            {copy.renderPreviewTitle}
           </button>
           <button
             type="button"
@@ -330,33 +332,33 @@ export function ContentPatcherScaleUpPanel({
             aria-pressed={activeSection === 'settings'}
             onClick={() => setActiveSection('settings')}
           >
-            Parameter Settings
+            {copy.parameterSettingsTitle}
           </button>
           <button
             type="button"
             className="rounded-full border border-[var(--border-color)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]"
             onClick={onClose}
           >
-            Close
+            {copy.close}
           </button>
         </div>
       </header>
 
       <div className="mb-4 grid gap-3 md:grid-cols-4">
         <div className={metricCardClass()}>
-          <p className={labelClass()}>Scale</p>
+          <p className={labelClass()}>{copy.metrics.scale}</p>
           <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{draft.scale}</p>
         </div>
         <div className={metricCardClass()}>
-          <p className={labelClass()}>Padding</p>
+          <p className={labelClass()}>{copy.metrics.padding}</p>
           <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{`${draft.paddingWidth} x ${draft.paddingHeight}`}</p>
         </div>
         <div className={metricCardClass()}>
-          <p className={labelClass()}>Result Sheet</p>
+          <p className={labelClass()}>{copy.metrics.resultSheet}</p>
           <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{`${preview.sheet.width} x ${preview.sheet.height}`}</p>
         </div>
         <div className={metricCardClass()}>
-          <p className={labelClass()}>Original Sheet</p>
+          <p className={labelClass()}>{copy.metrics.originalSheet}</p>
           <p className="mt-1 text-base font-semibold text-[var(--text-primary)]">{`${preview.sheet.originalWidth} x ${preview.sheet.originalHeight}`}</p>
         </div>
       </div>
@@ -364,19 +366,17 @@ export function ContentPatcherScaleUpPanel({
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <section className={sectionCardClass(activeSection === 'preview')}>
           <header className="mb-3">
-            <h4 className="text-base font-semibold text-[var(--text-primary)]">Render Preview</h4>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Preview the oversized sheet with ScaleUp crop regions and exported sub-previews.
-            </p>
+            <h4 className="text-base font-semibold text-[var(--text-primary)]">{copy.renderPreviewTitle}</h4>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{copy.renderPreviewDescription}</p>
           </header>
 
           <div className="rounded-[24px] border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_84%,white_8%)] p-3">
             <div className="relative overflow-hidden rounded-[20px] border border-[var(--border-color)]">
-              <img src={resultImageDataUrl} alt={`${targetPath} ScaleUp sheet`} className="block h-auto w-full" style={imageStyle()} />
+              <img src={resultImageDataUrl} alt={copy.sheetAlt(targetPath)} className="block h-auto w-full" style={imageStyle()} />
               <div className="pointer-events-none absolute inset-0">
                 {preview.headshot ? (
                   <PreviewRect
-                    label="Headshot"
+                    label={copy.regions.headshot}
                     colorClassName="border-sky-400/90 bg-sky-400/10"
                     rect={preview.headshot.sourceRect}
                     sheetWidth={preview.sheet.width}
@@ -385,7 +385,7 @@ export function ContentPatcherScaleUpPanel({
                 ) : null}
                 {preview.miniMap ? (
                   <PreviewRect
-                    label="Minimap"
+                    label={copy.regions.minimap}
                     colorClassName="border-amber-400/90 bg-amber-400/12"
                     rect={preview.miniMap.sourceRect}
                     sheetWidth={preview.sheet.width}
@@ -394,7 +394,7 @@ export function ContentPatcherScaleUpPanel({
                 ) : null}
                 {preview.chestOverlay ? (
                   <PreviewRect
-                    label="Chest"
+                    label={copy.regions.chest}
                     colorClassName="border-emerald-400/90 bg-emerald-400/12"
                     rect={preview.chestOverlay.sourceRect}
                     sheetWidth={preview.sheet.width}
@@ -408,7 +408,7 @@ export function ContentPatcherScaleUpPanel({
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {preview.headshot ? (
               <CropPreview
-                title="Headshot Preview"
+                title={copy.cropPreviews.headshot}
                 imageDataUrl={resultImageDataUrl}
                 sheetWidth={preview.sheet.width}
                 sheetHeight={preview.sheet.height}
@@ -417,12 +417,12 @@ export function ContentPatcherScaleUpPanel({
               />
             ) : (
               <article className="rounded-2xl border border-dashed border-[var(--border-color)] p-3 text-sm text-[var(--text-secondary)]">
-                Headshot Preview
+                {copy.cropPreviews.headshot}
               </article>
             )}
             {preview.miniMap ? (
               <CropPreview
-                title="Minimap Preview"
+                title={copy.cropPreviews.minimap}
                 imageDataUrl={resultImageDataUrl}
                 sheetWidth={preview.sheet.width}
                 sheetHeight={preview.sheet.height}
@@ -430,7 +430,7 @@ export function ContentPatcherScaleUpPanel({
               />
             ) : (
               <article className="rounded-2xl border border-dashed border-[var(--border-color)] p-3 text-sm text-[var(--text-secondary)]">
-                Minimap Preview
+                {copy.cropPreviews.minimap}
               </article>
             )}
           </div>
@@ -438,22 +438,25 @@ export function ContentPatcherScaleUpPanel({
 
         <section className={sectionCardClass(activeSection === 'settings')}>
           <header className="mb-3">
-            <h4 className="text-base font-semibold text-[var(--text-primary)]">Parameter Settings</h4>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              Editing these fields writes the ScaleUp entry back into <code>content.json</code>.
-            </p>
+            <h4 className="text-base font-semibold text-[var(--text-primary)]">{copy.parameterSettingsTitle}</h4>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">{copy.parameterSettingsDescription}</p>
           </header>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <NumberField label="Scale" value={draft.scale} min={1} onChange={(nextValue) => updateRootField('scale', nextValue)} />
             <NumberField
-              label="Padding Width"
+              label={copy.fields.scale}
+              value={draft.scale}
+              min={1}
+              onChange={(nextValue) => updateRootField('scale', nextValue)}
+            />
+            <NumberField
+              label={copy.fields.paddingWidth}
               value={draft.paddingWidth}
               min={0}
               onChange={(nextValue) => updateRootField('paddingWidth', nextValue)}
             />
             <NumberField
-              label="Padding Height"
+              label={copy.fields.paddingHeight}
               value={draft.paddingHeight}
               min={0}
               onChange={(nextValue) => updateRootField('paddingHeight', nextValue)}
@@ -464,53 +467,53 @@ export function ContentPatcherScaleUpPanel({
             <>
               <div className="mt-4">
                 <label className="flex flex-col gap-1.5">
-                  <span className={labelClass()}>Breath Type</span>
+                  <span className={labelClass()}>{copy.fields.breathType}</span>
                   <select
-                    aria-label="Breath Type"
+                    aria-label={copy.fields.breathType}
                     className={fieldClass()}
                     value={draft.sprite.breathType}
                     onChange={(event) => updateBreathType(event.target.value as ScaleUpBreathType)}
                   >
-                    <option value="None">None</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
+                    <option value="None">{copy.breathTypes.None}</option>
+                    <option value="Male">{copy.breathTypes.Male}</option>
+                    <option value="Female">{copy.breathTypes.Female}</option>
                   </select>
                 </label>
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <NumberField
-                  label="HeadShot X"
+                  label={copy.fields.headShotX}
                   value={draft.sprite.headShotX}
                   min={0}
                   onChange={(nextValue) => updateSpriteField('headShotX', nextValue)}
                 />
                 <NumberField
-                  label="HeadShot Y"
+                  label={copy.fields.headShotY}
                   value={draft.sprite.headShotY}
                   min={0}
                   onChange={(nextValue) => updateSpriteField('headShotY', nextValue)}
                 />
                 <NumberField
-                  label="HeadShot X Render Offset"
+                  label={copy.fields.headShotXRenderOffset}
                   value={draft.sprite.headShotXRenderOffset}
                   nullable
                   onChange={(nextValue) => updateSpriteField('headShotXRenderOffset', nextValue)}
                 />
                 <NumberField
-                  label="HeadShot Y Render Offset"
+                  label={copy.fields.headShotYRenderOffset}
                   value={draft.sprite.headShotYRenderOffset}
                   nullable
                   onChange={(nextValue) => updateSpriteField('headShotYRenderOffset', nextValue)}
                 />
                 <NumberField
-                  label="MiniMap X Offset"
+                  label={copy.fields.miniMapXOffset}
                   value={draft.sprite.miniMapXOffset}
                   nullable
                   onChange={(nextValue) => updateSpriteField('miniMapXOffset', nextValue)}
                 />
                 <NumberField
-                  label="MiniMap Y Offset"
+                  label={copy.fields.miniMapYOffset}
                   value={draft.sprite.miniMapYOffset}
                   nullable
                   onChange={(nextValue) => updateSpriteField('miniMapYOffset', nextValue)}
@@ -519,37 +522,37 @@ export function ContentPatcherScaleUpPanel({
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 <NumberField
-                  label="Chest Source X"
+                  label={copy.fields.chestSourceX}
                   value={draft.sprite.chestSourceX}
                   nullable
                   onChange={(nextValue) => updateSpriteField('chestSourceX', nextValue)}
                 />
                 <NumberField
-                  label="Chest Source Y"
+                  label={copy.fields.chestSourceY}
                   value={draft.sprite.chestSourceY}
                   nullable
                   onChange={(nextValue) => updateSpriteField('chestSourceY', nextValue)}
                 />
                 <NumberField
-                  label="Chest Source Width"
+                  label={copy.fields.chestSourceWidth}
                   value={draft.sprite.chestSourceWidth}
                   nullable
                   onChange={(nextValue) => updateSpriteField('chestSourceWidth', nextValue)}
                 />
                 <NumberField
-                  label="Chest Source Height"
+                  label={copy.fields.chestSourceHeight}
                   value={draft.sprite.chestSourceHeight}
                   nullable
                   onChange={(nextValue) => updateSpriteField('chestSourceHeight', nextValue)}
                 />
                 <NumberField
-                  label="Chest Adjust X"
+                  label={copy.fields.chestAdjustX}
                   value={draft.sprite.chestAdjustX}
                   nullable
                   onChange={(nextValue) => updateSpriteField('chestAdjustX', nextValue)}
                 />
                 <NumberField
-                  label="Chest Adjust Y"
+                  label={copy.fields.chestAdjustY}
                   value={draft.sprite.chestAdjustY}
                   nullable
                   onChange={(nextValue) => updateSpriteField('chestAdjustY', nextValue)}
@@ -557,9 +560,7 @@ export function ContentPatcherScaleUpPanel({
               </div>
             </>
           ) : (
-            <p className="mt-4 text-sm text-[var(--text-secondary)]">
-              This target only uses ScaleUp sizing data and does not expose sprite-specific settings.
-            </p>
+            <p className="mt-4 text-sm text-[var(--text-secondary)]">{copy.noSpriteSettings}</p>
           )}
         </section>
       </div>

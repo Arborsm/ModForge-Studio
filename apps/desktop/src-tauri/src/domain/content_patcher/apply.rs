@@ -137,27 +137,27 @@ fn load_target_base_with<FJson, FImage, FMap>(
     load_json: FJson,
     load_image: FImage,
     load_map: FMap,
-) -> LoadedTargetBase
+) -> Result<LoadedTargetBase, String>
 where
-    FJson: FnOnce(&str, Option<&str>) -> Value,
-    FImage: FnOnce(&str, Option<&str>) -> LoadedBaseImageAsset,
-    FMap: FnOnce(&str, Option<&str>) -> LoadedMapAsset,
+    FJson: FnOnce(&str, Option<&str>) -> Result<Value, String>,
+    FImage: FnOnce(&str, Option<&str>) -> Result<LoadedBaseImageAsset, String>,
+    FMap: FnOnce(&str, Option<&str>) -> Result<LoadedMapAsset, String>,
 {
     match asset_kind {
         "image" => {
-            let base_image = load_image(target, game_root_path);
-            LoadedTargetBase::Image {
+            let base_image = load_image(target, game_root_path)?;
+            Ok(LoadedTargetBase::Image {
                 result_image: base_image.image.clone(),
                 original_image: base_image.image,
                 original_image_source: base_image.source,
-            }
+            })
         }
-        "map" => LoadedTargetBase::Map {
-            result_map: load_map(target, game_root_path),
-        },
-        _ => LoadedTargetBase::Json {
-            result_json: load_json(target, game_root_path),
-        },
+        "map" => Ok(LoadedTargetBase::Map {
+            result_map: load_map(target, game_root_path)?,
+        }),
+        _ => Ok(LoadedTargetBase::Json {
+            result_json: load_json(target, game_root_path)?,
+        }),
     }
 }
 
@@ -165,7 +165,7 @@ fn load_target_base(
     asset_kind: &str,
     target: &str,
     game_root_path: Option<&str>,
-) -> LoadedTargetBase {
+) -> Result<LoadedTargetBase, String> {
     load_target_base_with(
         asset_kind,
         target,
@@ -174,6 +174,14 @@ fn load_target_base(
         load_base_image_asset,
         load_base_map_asset,
     )
+}
+
+pub(crate) fn validate_target_base(
+    asset_kind: &str,
+    target: &str,
+    game_root_path: Option<&str>,
+) -> Result<(), String> {
+    load_target_base(asset_kind, target, game_root_path).map(|_| ())
 }
 
 pub fn load_target_result(
@@ -209,7 +217,7 @@ pub fn load_target_result(
     let mut diagnostics = snapshot.diagnostics.clone();
     let mut has_apply_error = false;
     let mut has_indeterminate = false;
-    let mut loaded_target = load_target_base(&asset_kind, target, game_root_path);
+    let mut loaded_target = load_target_base(&asset_kind, target, game_root_path)?;
     let project_root_path = snapshot.summary.absolute_path.as_deref();
 
     for patch in &target_patches {

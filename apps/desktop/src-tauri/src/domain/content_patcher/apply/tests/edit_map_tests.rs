@@ -1,7 +1,9 @@
 use super::super::super::assets::LoadedMapAsset;
 use super::super::super::types::{ContentPatcherMapDebugSummary, ContentPatcherProjectSnapshot};
 use super::apply_edit_map_patch;
-use crate::infrastructure::game_formats::tbin::{MapDocument, MapLayer, MapPropertyValue};
+use crate::infrastructure::game_formats::tbin::{
+    MapDocument, MapLayer, MapPropertyValue, serialize_tbin_map,
+};
 use serde_json::{Map, Value, json};
 use std::collections::HashMap;
 
@@ -294,4 +296,56 @@ fn apply_remove_layer_and_add_layer_combined() {
             .find(|l| l.name == "Buildings")
             .is_some()
     );
+}
+
+#[test]
+fn apply_replace_by_layer_adds_source_only_layer() {
+    let temp_dir = std::env::temp_dir().join("modforge-edit-map-replace-by-layer");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(temp_dir.join("assets")).expect("assets dir");
+
+    let mut source_document = empty_map_document();
+    source_document.layers = vec![MapLayer {
+        id: 1,
+        name: "Buildings".to_string(),
+        kind: "tile".to_string(),
+        width: 4,
+        height: 4,
+        visible: true,
+        opacity: 1.0,
+        offset_x: 0.0,
+        offset_y: 0.0,
+        properties: HashMap::new(),
+        gids: vec![7; 16],
+        non_empty_tiles: 16,
+    }];
+    let source_bytes = serialize_tbin_map(&source_document).expect("serialize source map");
+    std::fs::write(temp_dir.join("assets").join("source.tbin"), source_bytes)
+        .expect("write source map");
+
+    let snapshot = ContentPatcherProjectSnapshot {
+        summary: crate::domain::content_patcher::types::ContentPatcherProjectSummary {
+            absolute_path: Some(temp_dir.to_string_lossy().into_owned()),
+            ..Default::default()
+        },
+        ..empty_snapshot()
+    };
+    let mut map = loaded_map();
+    let patch = patch_from(json!({
+        "FromFile": "assets/source.tbin"
+    }));
+
+    let result = apply_edit_map_patch(&snapshot, &mut map, &patch, "content.json");
+    assert!(result.is_ok(), "{result:?}");
+    let buildings = map
+        .document
+        .layers
+        .iter()
+        .find(|layer| layer.name == "Buildings")
+        .expect("source-only layer");
+    assert_eq!(buildings.kind, "tile");
+    assert_eq!(buildings.non_empty_tiles, 16);
+    assert_eq!(buildings.gids[0], 7);
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }

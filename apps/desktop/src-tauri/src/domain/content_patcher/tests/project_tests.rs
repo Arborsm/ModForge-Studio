@@ -384,11 +384,14 @@ fn load_content_patcher_project_normalizes_dot_segment_include_within_root() {
 }
 
 #[test]
+#[ignore = "requires local Stardew Valley Content Patcher mods"]
 fn load_real_cp_mods_produces_valid_snapshots() {
     let mods_dir = std::path::PathBuf::from("E:/SteamLibrary/steamapps/common/Stardew Valley/Mods");
-    if !mods_dir.is_dir() {
-        return;
-    }
+    assert!(
+        mods_dir.is_dir(),
+        "missing real Stardew Mods directory: {}",
+        mods_dir.display()
+    );
 
     let test_mods = [
         "[CP] DaisyNiko's Tilesheets",

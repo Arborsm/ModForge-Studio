@@ -184,7 +184,7 @@ pub struct ExportContentPatcherAssetRequest {
     pub fingerprint: Option<ContentPatcherPreviewFingerprint>,
     pub context: Option<SimulationContext>,
     pub target: String,
-    pub output_path: String,
+    pub output_directory: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -269,7 +269,7 @@ mod preview_request_tests {
     fn export_asset_requests_accept_preview_fields() {
         let request: ExportContentPatcherAssetRequest = serde_json::from_value(json!({
             "target": "TileSheets/crops",
-            "outputPath": "E:\\Exports\\crops.png",
+            "outputDirectory": "E:\\Exports",
             "virtualAssets": [
                 {
                     "relativePath": "assets/generated/crops.png",
@@ -287,7 +287,7 @@ mod preview_request_tests {
         .expect("deserialize export request");
 
         assert_eq!(request.target, "TileSheets/crops");
-        assert_eq!(request.output_path, "E:\\Exports\\crops.png");
+        assert_eq!(request.output_directory, "E:\\Exports");
         assert_eq!(request.virtual_assets.as_ref().map(Vec::len), Some(1));
         assert_eq!(
             request.available_capabilities.as_ref().map(Vec::len),

@@ -2,18 +2,20 @@ import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 import { contentPatcherStatusClass } from '../content-model/presentation'
+import { useModWorkspaceCopy } from '@locales/localeContext'
 
 type ContentPatcherDiagnosticsPanelProps = {
   result: LoadContentPatcherResultAssetResult | null
 }
 
 export function ContentPatcherDiagnosticsPanel({ result }: ContentPatcherDiagnosticsPanelProps) {
+  const copy = useModWorkspaceCopy().contentPatcherDiagnostics
   const diagnostics = result?.diagnostics ?? []
 
   return (
     <PanelFrame
-      title="Diagnostics"
-      subtitle={result?.target.path ?? 'Selected target diagnostics'}
+      title={copy.title}
+      subtitle={result?.target.path ?? copy.defaultSubtitle}
       className="h-full"
       bodyClassName="overflow-auto"
       headerAction={<span className="dock-chip">{diagnostics.length}</span>}
@@ -24,16 +26,14 @@ export function ContentPatcherDiagnosticsPanel({ result }: ContentPatcherDiagnos
             <PanelSection
               key={`${diagnostic.message}:${index}`}
               title={diagnostic.message}
-              subtitle={diagnostic.field ?? 'No field'}
+              subtitle={diagnostic.field ?? copy.noField}
               action={<span className={contentPatcherStatusClass(diagnostic.severity)}>{diagnostic.severity}</span>}
             >
-              <div className="text-xs leading-5 text-[var(--text-secondary)]">
-                {diagnostic.field ?? 'No additional diagnostic field information.'}
-              </div>
+              <div className="text-xs leading-5 text-[var(--text-secondary)]">{diagnostic.field ?? copy.noFieldInformation}</div>
             </PanelSection>
           ))
         ) : (
-          <PanelEmptyState>No diagnostics for the selected target.</PanelEmptyState>
+          <PanelEmptyState>{copy.empty}</PanelEmptyState>
         )}
       </div>
     </PanelFrame>

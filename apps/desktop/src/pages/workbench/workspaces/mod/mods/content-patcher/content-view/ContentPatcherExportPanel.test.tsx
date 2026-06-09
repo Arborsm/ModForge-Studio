@@ -84,6 +84,7 @@ describe('ContentPatcherExportPanel', () => {
     })
     const request = vi.mocked(exportContentPatcherAsset).mock.calls[0]?.[0]
     expect(request?.target).toBe('Data/Objects')
+    expect(request?.outputDirectory).toBe('E:\\Exports')
     expect(request?.gameRootPath).toContain('Stardew Valley')
   })
 })

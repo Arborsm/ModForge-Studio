@@ -716,6 +716,71 @@ fn load_content_patcher_result_asset_uses_game_content_json_as_base() {
 }
 
 #[test]
+fn content_patcher_blocks_export_when_existing_base_json_fails_to_parse() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-bad-base-json");
+    let game_root = temp_dir.join("game");
+    let pack_root = temp_dir.join("pack");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(game_root.join("Content").join("Data")).expect("game data dir");
+    std::fs::create_dir_all(&pack_root).expect("pack dir");
+    std::fs::write(
+        game_root.join("Content").join("Data").join("Objects.json"),
+        r#"{ "24": { "Name": "Parsnip", "Price": "#,
+    )
+    .expect("bad base json");
+    std::fs::write(
+        pack_root.join("manifest.json"),
+        r#"{
+  "Name": "Bad Base Json Pack",
+  "UniqueID": "ModForge.BadBaseJsonPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    )
+    .expect("manifest");
+    std::fs::write(
+        pack_root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "EditData",
+      "Target": "Data/Objects",
+      "Entries": { "24": { "Price": 35 } }
+    }
+  ]
+}"#,
+    )
+    .expect("content");
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulation");
+    let target = simulation
+        .targets
+        .iter()
+        .find(|target| target.path == "Data/Objects")
+        .expect("target");
+    assert_eq!(target.result_state, "error");
+
+    let error = export_content_patcher_asset(ExportContentPatcherAssetRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        context: Some(SimulationContext::default()),
+        target: "Data/Objects".to_string(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
+        ..Default::default()
+    })
+    .expect_err("bad base json blocks export");
+    assert!(error.contains("Failed to load base JSON asset"));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
+}
+
+#[test]
 fn load_content_patcher_result_asset_applies_target_field_entries_to_character_appearance() {
     let temp_dir = std::env::temp_dir().join("modforge-cp-characters-target-field-pack");
     let game_root = temp_dir.join("game");
@@ -837,15 +902,13 @@ fn export_content_patcher_asset_writes_json_result() {
         ),
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
-        output_path: temp_dir
-            .join("Data-Objects.json")
-            .to_string_lossy()
-            .into_owned(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
         ..Default::default()
     };
 
     let result = export_content_patcher_asset(request).expect("json export");
     assert_eq!(result.format, "json");
+    assert!(result.output_path.ends_with("Data-Objects.json"));
     assert!(
         std::fs::read_to_string(&result.output_path)
             .unwrap()
@@ -883,15 +946,139 @@ fn export_content_patcher_asset_rejects_indeterminate_target() {
         ),
         context: Some(SimulationContext::default()),
         target: "Data/Objects".to_string(),
-        output_path: std::env::temp_dir()
-            .join("blocked.json")
-            .to_string_lossy()
-            .into_owned(),
+        output_directory: std::env::temp_dir().to_string_lossy().into_owned(),
         ..Default::default()
     };
 
     let error = export_content_patcher_asset(request).expect_err("blocked export");
     assert!(error.contains("indeterminate"));
+}
+
+#[test]
+fn export_content_patcher_asset_rejects_parent_segment_output_directory() {
+    let request = ExportContentPatcherAssetRequest {
+        path: None,
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: Some(
+            r#"{
+  "Name": "Inline Pack",
+  "UniqueID": "ModForge.BadExportDir",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#
+            .to_string(),
+        ),
+        content_json: Some(
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "EditData", "Target": "Data/Objects", "Entries": { "24": { "Price": 35 } } }
+  ]
+}"#
+            .to_string(),
+        ),
+        context: Some(SimulationContext::default()),
+        target: "Data/Objects".to_string(),
+        output_directory: std::env::temp_dir()
+            .join("modforge-cp-export")
+            .join("..")
+            .to_string_lossy()
+            .into_owned(),
+        ..Default::default()
+    };
+
+    let error = export_content_patcher_asset(request).expect_err("bad output directory");
+    assert!(error.contains("parent path"));
+}
+
+#[cfg(unix)]
+#[test]
+fn export_content_patcher_asset_rejects_symlink_parent_output_directory() {
+    use std::os::unix::fs::symlink;
+
+    let temp_dir = std::env::temp_dir().join("modforge-cp-export-symlink-parent");
+    let real_output = temp_dir.join("real-output");
+    let linked_output = temp_dir.join("linked-output");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&real_output).expect("real output dir");
+    symlink(&real_output, &linked_output).expect("output symlink");
+
+    let request = ExportContentPatcherAssetRequest {
+        path: None,
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: Some(
+            r#"{
+  "Name": "Inline Pack",
+  "UniqueID": "ModForge.SymlinkExportDir",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#
+            .to_string(),
+        ),
+        content_json: Some(
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "EditData", "Target": "Data/Objects", "Entries": { "24": { "Price": 35 } } }
+  ]
+}"#
+            .to_string(),
+        ),
+        context: Some(SimulationContext::default()),
+        target: "Data/Objects".to_string(),
+        output_directory: linked_output.join("nested").to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+
+    let error = export_content_patcher_asset(request).expect_err("bad output directory");
+    assert!(error.contains("symbolic link"));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn export_content_patcher_asset_rejects_symlink_output_directory() {
+    use std::os::unix::fs::symlink;
+
+    let temp_dir = std::env::temp_dir().join("modforge-cp-export-symlink-self");
+    let real_output = temp_dir.join("real-output");
+    let linked_output = temp_dir.join("linked-output");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(&real_output).expect("real output dir");
+    symlink(&real_output, &linked_output).expect("output symlink");
+
+    let request = ExportContentPatcherAssetRequest {
+        path: None,
+        game_root_path: None,
+        snapshot: None,
+        manifest_json: Some(
+            r#"{
+  "Name": "Inline Pack",
+  "UniqueID": "ModForge.SymlinkSelfExportDir",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#
+            .to_string(),
+        ),
+        content_json: Some(
+            r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "EditData", "Target": "Data/Objects", "Entries": { "24": { "Price": 35 } } }
+  ]
+}"#
+            .to_string(),
+        ),
+        context: Some(SimulationContext::default()),
+        target: "Data/Objects".to_string(),
+        output_directory: linked_output.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+
+    let error = export_content_patcher_asset(request).expect_err("bad output directory");
+    assert!(error.contains("symbolic link"));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
 
 #[test]
@@ -1130,6 +1317,79 @@ fn load_content_patcher_result_asset_uses_game_content_image_as_base() {
     assert_eq!(original_image.get_pixel(1, 1).0, [0, 0, 255, 255]);
     assert_eq!(original_image.get_pixel(3, 3).0, [0, 255, 0, 255]);
     assert!(original_source.contains("Content/TileSheets/crops.png"));
+}
+
+#[test]
+fn content_patcher_blocks_export_when_existing_base_image_fails_to_parse() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-bad-base-image");
+    let game_root = temp_dir.join("game");
+    let pack_root = temp_dir.join("pack");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(game_root.join("Content").join("TileSheets"))
+        .expect("game content dir");
+    std::fs::create_dir_all(pack_root.join("assets")).expect("pack assets dir");
+    std::fs::write(
+        game_root
+            .join("Content")
+            .join("TileSheets")
+            .join("crops.png"),
+        b"not-a-png",
+    )
+    .expect("bad base image");
+    let overlay = RgbaImage::from_pixel(2, 2, image::Rgba([255, 0, 0, 255]));
+    overlay
+        .save(pack_root.join("assets").join("overlay.png"))
+        .expect("write overlay");
+    std::fs::write(
+        pack_root.join("manifest.json"),
+        r#"{
+  "Name": "Bad Base Image Pack",
+  "UniqueID": "ModForge.BadBaseImagePack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    )
+    .expect("manifest");
+    std::fs::write(
+        pack_root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    {
+      "Action": "EditImage",
+      "Target": "TileSheets/crops",
+      "FromFile": "assets/overlay.png"
+    }
+  ]
+}"#,
+    )
+    .expect("content");
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulation");
+    let target = simulation
+        .targets
+        .iter()
+        .find(|target| target.path == "TileSheets/crops")
+        .expect("target");
+    assert_eq!(target.result_state, "error");
+
+    let error = export_content_patcher_asset(ExportContentPatcherAssetRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        context: Some(SimulationContext::default()),
+        target: "TileSheets/crops".to_string(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
+        ..Default::default()
+    })
+    .expect_err("bad base image blocks export");
+    assert!(error.contains("Failed to load base image asset"));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
 }
 
 #[test]
@@ -1613,10 +1873,7 @@ fn export_content_patcher_asset_writes_png_result() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "TileSheets/crops".to_string(),
-        output_path: temp_dir
-            .join("TileSheets-crops.png")
-            .to_string_lossy()
-            .into_owned(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
         ..Default::default()
     })
     .expect("png export");
@@ -1681,10 +1938,7 @@ fn export_content_patcher_asset_writes_png_from_virtual_preview_asset() {
         fingerprint: Some(preview_fingerprint()),
         context: Some(SimulationContext::default()),
         target: "TileSheets/crops".to_string(),
-        output_path: temp_dir
-            .join("TileSheets-crops.png")
-            .to_string_lossy()
-            .into_owned(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
     })
     .expect("png export");
 
@@ -1770,10 +2024,7 @@ fn export_content_patcher_asset_writes_map_tbin_snapshot() {
         content_json: None,
         context: Some(SimulationContext::default()),
         target: "Maps/Town".to_string(),
-        output_path: temp_dir
-            .join("Maps-Town.tbin")
-            .to_string_lossy()
-            .into_owned(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
         ..Default::default()
     })
     .expect("map export");
@@ -1790,11 +2041,75 @@ fn export_content_patcher_asset_writes_map_tbin_snapshot() {
 }
 
 #[test]
+fn content_patcher_blocks_export_when_existing_base_map_fails_to_parse() {
+    let temp_dir = std::env::temp_dir().join("modforge-cp-bad-base-map");
+    let game_root = temp_dir.join("game");
+    let pack_root = temp_dir.join("pack");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    std::fs::create_dir_all(game_root.join("Content").join("Maps")).expect("game maps dir");
+    std::fs::create_dir_all(&pack_root).expect("pack dir");
+    std::fs::write(
+        game_root.join("Content").join("Maps").join("Town.xnb"),
+        b"not-a-valid-xnb",
+    )
+    .expect("bad base map");
+    std::fs::write(
+        pack_root.join("manifest.json"),
+        r#"{
+  "Name": "Bad Base Map Pack",
+  "UniqueID": "ModForge.BadBaseMapPack",
+  "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" }
+}"#,
+    )
+    .expect("manifest");
+    std::fs::write(
+        pack_root.join("content.json"),
+        r#"{
+  "Format": "2.0.0",
+  "Changes": [
+    { "Action": "EditMap", "Target": "Maps/Town", "MapProperties": { "Music": "spring" } }
+  ]
+}"#,
+    )
+    .expect("content");
+
+    let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        context: Some(SimulationContext::default()),
+        ..Default::default()
+    })
+    .expect("simulation");
+    let target = simulation
+        .targets
+        .iter()
+        .find(|target| target.path == "Maps/Town")
+        .expect("target");
+    assert_eq!(target.result_state, "error");
+
+    let error = export_content_patcher_asset(ExportContentPatcherAssetRequest {
+        path: Some(pack_root.to_string_lossy().into_owned()),
+        game_root_path: Some(game_root.to_string_lossy().into_owned()),
+        context: Some(SimulationContext::default()),
+        target: "Maps/Town".to_string(),
+        output_directory: temp_dir.to_string_lossy().into_owned(),
+        ..Default::default()
+    })
+    .expect_err("bad base map blocks export");
+    assert!(error.contains("Failed to load base map asset"));
+
+    std::fs::remove_dir_all(temp_dir).expect("cleanup");
+}
+
+#[test]
+#[ignore = "requires local Skimpy VN Portraits II install"]
 fn simulate_skimpy_vn_portraits_ii_loads_without_errors() {
     let pack_root = real_skimpy_scaleup_pack_ii_path();
-    if !pack_root.join("manifest.json").is_file() {
-        return;
-    }
+    assert!(
+        pack_root.join("manifest.json").is_file(),
+        "missing manifest.json for real pack: {}",
+        pack_root.display()
+    );
 
     let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
         path: Some(pack_root.to_string_lossy().into_owned()),
@@ -1845,13 +2160,16 @@ fn simulate_skimpy_vn_portraits_ii_loads_without_errors() {
 }
 
 #[test]
+#[ignore = "requires local DaisyNiko Tilesheets install"]
 fn simulate_daisyniko_tilesheets_loads_without_errors() {
     let pack_root = PathBuf::from(
         r"E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\[CP] DaisyNiko's Tilesheets",
     );
-    if !pack_root.join("manifest.json").is_file() {
-        return;
-    }
+    assert!(
+        pack_root.join("manifest.json").is_file(),
+        "missing manifest.json for real pack: {}",
+        pack_root.display()
+    );
 
     let simulation = simulate_content_patcher(SimulateContentPatcherRequest {
         path: Some(pack_root.to_string_lossy().into_owned()),

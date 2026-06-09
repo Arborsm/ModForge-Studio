@@ -1,11 +1,11 @@
-use self::apply::load_target_result;
+use self::apply::{load_target_result, validate_target_base};
 use self::assets::{infer_target_asset_kind, with_virtual_preview_assets};
 use self::common::{
     as_non_empty_string, build_snapshot_diagnostics, content_pack_for_unique_id, when_to_value,
 };
 use self::conditions::evaluate_patch_status;
 use self::context::SimulationContext;
-use self::export::write_result_asset;
+use self::export::{build_export_output_path, write_result_asset};
 use self::plan::{
     build_effective_context, build_patch_plan_with_context, resolve_dynamic_tokens_for_snapshot,
 };
@@ -203,6 +203,7 @@ fn build_target_summaries(
     plan: &types::ContentPatcherPatchPlan,
     patch_statuses: &[types::ContentPatcherPatchStatus],
     attached_api_registry: &AttachedApiRegistry,
+    game_root_path: Option<&str>,
 ) -> Vec<ContentPatcherTargetSummary> {
     let mut grouped = BTreeMap::<String, Vec<(String, String, String)>>::new();
     let mut target_order = Vec::new();
@@ -238,7 +239,23 @@ fn build_target_summaries(
                 .filter(|patch| patch.target == target)
                 .map(|patch| patch.from_file.clone())
                 .collect::<Vec<_>>();
-            let result_state = if patch_rows.iter().any(|row| row.2 == "error") {
+            let asset_kind =
+                infer_target_asset_kind(&target, &actions, &from_files, attached_api_registry);
+            let base_result_state = if patch_rows
+                .iter()
+                .any(|row| row.2 == "applied" || row.2 == "indeterminate")
+            {
+                game_root_path.and_then(|root| {
+                    validate_target_base(&asset_kind, &target, Some(root))
+                        .err()
+                        .map(|_| "error".to_string())
+                })
+            } else {
+                None
+            };
+            let result_state = if base_result_state.as_deref() == Some("error")
+                || patch_rows.iter().any(|row| row.2 == "error")
+            {
                 "error".to_string()
             } else if patch_rows.iter().any(|row| row.2 == "indeterminate") {
                 "indeterminate".to_string()
@@ -247,12 +264,7 @@ fn build_target_summaries(
             };
             ContentPatcherTargetSummary {
                 path: target.clone(),
-                asset_kind: infer_target_asset_kind(
-                    &target,
-                    &actions,
-                    &from_files,
-                    attached_api_registry,
-                ),
+                asset_kind,
                 touched_patch_count: patch_rows.len(),
                 result_state,
                 patch_ids: patch_rows.into_iter().map(|row| row.0).collect(),
@@ -286,7 +298,12 @@ pub fn simulate_content_patcher(
                     status
                 })
                 .collect::<Vec<_>>();
-            let targets = build_target_summaries(&plan, &patch_statuses, &attached_api_registry);
+            let targets = build_target_summaries(
+                &plan,
+                &patch_statuses,
+                &attached_api_registry,
+                request.game_root_path.as_deref(),
+            );
 
             Ok(SimulateContentPatcherResult {
                 plan,
@@ -342,7 +359,6 @@ pub fn export_content_patcher_asset(
         "export_content_patcher_asset",
         (|| {
             let target = request.target.clone();
-            let output_path = request.output_path.clone();
             let result = load_content_patcher_result_asset(LoadContentPatcherResultAssetRequest {
                 path: request.path,
                 game_root_path: request.game_root_path,
@@ -363,6 +379,9 @@ pub fn export_content_patcher_asset(
                 ));
             }
 
+            let output_path =
+                build_export_output_path(&target, &request.output_directory, &result.result)?;
+            let output_path = output_path.to_string_lossy().into_owned();
             write_result_asset(&target, &output_path, &result.result)
         })(),
     )
