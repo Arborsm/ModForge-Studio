@@ -1,7 +1,7 @@
 @layer components {
   .top-menu-bar {
     position: relative;
-    z-index: 140;
+    z-index: 260;
     overflow: visible;
     border-bottom: 0;
     background: color-mix(in srgb, var(--bg-panel) 94%, transparent);

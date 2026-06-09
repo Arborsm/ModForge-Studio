@@ -14,8 +14,10 @@ export {
 } from './dialogs'
 export {
   closeCurrentWindow,
+  forceCloseCurrentWindow,
   isCurrentWindowFullscreen,
   isCurrentWindowMaximized,
+  listenToWindowCloseRequest,
   minimizeCurrentWindow,
   setFullscreenCurrentWindow,
   toggleFullscreenCurrentWindow,

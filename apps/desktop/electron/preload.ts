@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('modforgeElectron', {
   close() {
     return ipcRenderer.invoke('modforge:window-close') as Promise<void>
   },
+  forceClose() {
+    return ipcRenderer.invoke('modforge:window-force-close') as Promise<void>
+  },
   isFullscreen() {
     return ipcRenderer.invoke('modforge:window-is-fullscreen') as Promise<boolean>
   },

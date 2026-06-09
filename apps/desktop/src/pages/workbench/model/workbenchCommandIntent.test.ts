@@ -47,6 +47,15 @@ function createMockCpMaker(overrides: Partial<UseCpMakerReturn> = {}): UseCpMake
   }
 }
 
+async function runWithGuard(action: () => void | Promise<void>) {
+  await action()
+  return true
+}
+
+async function holdForUnsavedDecision() {
+  return false
+}
+
 describe('resolveWorkbenchOpenAssetTarget', () => {
   it('returns the patch workspace and asset id when patch exists', () => {
     const cpMaker = createMockCpMaker({
@@ -130,6 +139,8 @@ describe('useWorkbenchCommandIntent', () => {
           pendingIntent,
           cpMaker: createMockCpMaker(),
           setWorkspaceMode,
+          runWithModUnsavedGuard: runWithGuard,
+          runWithCpMakerUnsavedGuard: runWithGuard,
           setWorkspaceViewMode,
           navigateToPatch,
           clearPendingIntent,
@@ -196,6 +207,8 @@ describe('useWorkbenchCommandIntent', () => {
         pendingIntent: intent,
         cpMaker: gp,
         setWorkspaceMode,
+        runWithModUnsavedGuard: runWithGuard,
+        runWithCpMakerUnsavedGuard: runWithGuard,
         setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
@@ -258,6 +271,8 @@ describe('useWorkbenchCommandIntent', () => {
         pendingIntent: intent,
         cpMaker: gp,
         setWorkspaceMode,
+        runWithModUnsavedGuard: runWithGuard,
+        runWithCpMakerUnsavedGuard: runWithGuard,
         setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
@@ -269,6 +284,141 @@ describe('useWorkbenchCommandIntent', () => {
     })
     await new Promise((resolve) => setTimeout(resolve, 20))
 
+    expect(clearPendingIntent).not.toHaveBeenCalled()
+    expect(setWorkspaceMode).not.toHaveBeenCalled()
+    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
+    expect(navigateToPatch).not.toHaveBeenCalled()
+  })
+
+  it('waits for the CP Maker dirty guard before loading a cross-draft open-asset intent', async () => {
+    const setWorkspaceMode = vi.fn()
+    const setWorkspaceViewMode = vi.fn()
+    const navigateToPatch = vi.fn()
+    const clearPendingIntent = vi.fn()
+    const loadDraft = vi.fn()
+    const runWithCpMakerUnsavedGuard = vi.fn(holdForUnsavedDecision)
+
+    const gp = createMockCpMaker({
+      isDirty: true,
+      loadDraft,
+      activeDraft: {
+        draftStorageKey: 'draft-current',
+        projectMetadata: {
+          projectName: 'Current',
+          projectDescription: '',
+          projectAuthor: '',
+          projectVersion: '1.0.0',
+          projectUniqueId: 'Author.Current',
+          gameRootPath: null,
+          contentPackForUniqueId: 'Pathoschild.ContentPatcher',
+        },
+        overlayTargets: [],
+        configSchema: [],
+        patches: [],
+        virtualAssets: [],
+        dynamicTokens: [],
+        customLocations: [],
+        aliasTokenNames: {},
+        eventSourceSnapshotsByTarget: {},
+      } as UseCpMakerReturn['activeDraft'],
+    })
+
+    const intent: PendingWorkbenchCommandIntent = {
+      id: 'intent-cross-draft-dirty',
+      command: {
+        type: 'workbench/open-asset',
+        assetId: 'patch-from-target-draft',
+        assetKind: 'event',
+        sourceId: 'draft-target',
+      },
+    }
+
+    renderHook(() =>
+      useWorkbenchCommandIntent({
+        pendingIntent: intent,
+        cpMaker: gp,
+        setWorkspaceMode,
+        runWithModUnsavedGuard: runWithGuard,
+        runWithCpMakerUnsavedGuard,
+        setWorkspaceViewMode,
+        navigateToPatch,
+        clearPendingIntent,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(runWithCpMakerUnsavedGuard).toHaveBeenCalled()
+    })
+
+    expect(loadDraft).not.toHaveBeenCalled()
+    expect(clearPendingIntent).not.toHaveBeenCalled()
+    expect(setWorkspaceMode).not.toHaveBeenCalled()
+    expect(setWorkspaceViewMode).not.toHaveBeenCalled()
+    expect(navigateToPatch).not.toHaveBeenCalled()
+  })
+
+  it('waits for the Mod workspace dirty guard before loading a cross-draft open-asset intent', async () => {
+    const setWorkspaceMode = vi.fn()
+    const setWorkspaceViewMode = vi.fn()
+    const navigateToPatch = vi.fn()
+    const clearPendingIntent = vi.fn()
+    const loadDraft = vi.fn()
+    const runWithModUnsavedGuard = vi.fn(holdForUnsavedDecision)
+    const runWithCpMakerUnsavedGuard = vi.fn(runWithGuard)
+
+    const gp = createMockCpMaker({
+      loadDraft,
+      activeDraft: {
+        draftStorageKey: 'draft-current',
+        projectMetadata: {
+          projectName: 'Current',
+          projectDescription: '',
+          projectAuthor: '',
+          projectVersion: '1.0.0',
+          projectUniqueId: 'Author.Current',
+          gameRootPath: null,
+          contentPackForUniqueId: 'Pathoschild.ContentPatcher',
+        },
+        overlayTargets: [],
+        configSchema: [],
+        patches: [],
+        virtualAssets: [],
+        dynamicTokens: [],
+        customLocations: [],
+        aliasTokenNames: {},
+        eventSourceSnapshotsByTarget: {},
+      } as UseCpMakerReturn['activeDraft'],
+    })
+
+    const intent: PendingWorkbenchCommandIntent = {
+      id: 'intent-cross-draft-mod-dirty',
+      command: {
+        type: 'workbench/open-asset',
+        assetId: 'patch-from-target-draft',
+        assetKind: 'event',
+        sourceId: 'draft-target',
+      },
+    }
+
+    renderHook(() =>
+      useWorkbenchCommandIntent({
+        pendingIntent: intent,
+        cpMaker: gp,
+        setWorkspaceMode,
+        runWithModUnsavedGuard,
+        runWithCpMakerUnsavedGuard,
+        setWorkspaceViewMode,
+        navigateToPatch,
+        clearPendingIntent,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(runWithModUnsavedGuard).toHaveBeenCalled()
+    })
+
+    expect(runWithCpMakerUnsavedGuard).not.toHaveBeenCalled()
+    expect(loadDraft).not.toHaveBeenCalled()
     expect(clearPendingIntent).not.toHaveBeenCalled()
     expect(setWorkspaceMode).not.toHaveBeenCalled()
     expect(setWorkspaceViewMode).not.toHaveBeenCalled()
@@ -291,6 +441,8 @@ describe('useWorkbenchCommandIntent', () => {
         pendingIntent: intent,
         cpMaker: createMockCpMaker(),
         setWorkspaceMode,
+        runWithModUnsavedGuard: runWithGuard,
+        runWithCpMakerUnsavedGuard: runWithGuard,
         setWorkspaceViewMode,
         navigateToPatch,
         clearPendingIntent,
@@ -324,6 +476,8 @@ describe('useWorkbenchCommandIntent', () => {
           pendingIntent,
           cpMaker: createMockCpMaker(),
           setWorkspaceMode,
+          runWithModUnsavedGuard: runWithGuard,
+          runWithCpMakerUnsavedGuard: runWithGuard,
           setWorkspaceViewMode,
           navigateToPatch,
           clearPendingIntent,

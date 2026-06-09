@@ -6,10 +6,15 @@ type InitializationOverlayProps = {
   desktopHost: boolean
   gameDirectory: string
   detectedDirectories: string[]
+  loading?: boolean
+  status?: string | null
+  error?: string | null
   onGameDirectoryChange: (value: string) => void
   onSelectDirectory: (value: string) => void
   onChooseDirectory: () => void
   onScanAndOpenTown: () => void
+  onRetry?: () => void
+  onChooseDirectoryAction?: () => void
   onClose?: () => void
 }
 
@@ -17,10 +22,15 @@ export default function InitializationOverlay({
   desktopHost,
   gameDirectory,
   detectedDirectories,
+  loading = false,
+  status,
+  error,
   onGameDirectoryChange,
   onSelectDirectory,
   onChooseDirectory,
   onScanAndOpenTown,
+  onRetry,
+  onChooseDirectoryAction,
   onClose,
 }: InitializationOverlayProps) {
   const copy = useEditorCopy()
@@ -73,13 +83,32 @@ export default function InitializationOverlay({
         </div>
 
         <div className="initialization-overlay-actions">
-          <button type="button" className="control-button h-10" onClick={onChooseDirectory}>
+          <button type="button" className="control-button h-10" onClick={onChooseDirectory} disabled={loading}>
             {copy.controls.browse}
           </button>
-          <button type="button" className="control-button control-button-primary h-10" onClick={onScanAndOpenTown}>
+          <button type="button" className="control-button control-button-primary h-10" onClick={onScanAndOpenTown} disabled={loading}>
             {copy.controls.scanAndOpenTown}
           </button>
         </div>
+
+        {status || error ? (
+          <div className={`launcher-state-block ${error ? 'launcher-state-block-error' : ''}`}>
+            <p className="launcher-state-block-title">{error ? copy.initialization.error : copy.initialization.status}</p>
+            <p className="launcher-state-block-detail">{error ?? status}</p>
+            {error ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {onRetry ? (
+                  <button type="button" className="control-button h-9" onClick={onRetry}>
+                    {loading ? copy.initialization.status : copy.initialization.retry}
+                  </button>
+                ) : null}
+                <button type="button" className="control-button h-9" onClick={onChooseDirectoryAction ?? onChooseDirectory}>
+                  {copy.initialization.chooseDirectory}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="initialization-overlay-host">
           <p className="initialization-overlay-host-label">{copy.leftDock.hostMode}</p>
@@ -99,6 +128,7 @@ export default function InitializationOverlay({
                   type="button"
                   className="initialization-overlay-detected-chip"
                   title={path}
+                  disabled={loading}
                   onClick={() => onSelectDirectory(path)}
                 >
                   <span className="initialization-overlay-detected-chip-text">{path}</span>

@@ -5,6 +5,8 @@ import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LocaleProvider } from '@locales/localeContext'
 import type { AppEvent, WorkbenchViewRegistration } from '@shared/contracts'
 import type { CpMakerDraft } from '@shared/contracts'
+import type { ModWorkspaceGuardHandle } from './WorkbenchModPreviewRuntime'
+import { validateGameDirectory } from '@entities/game/api'
 
 const applyAppUiStatePatchSpy = vi.hoisted(() => vi.fn(() => Promise.resolve()))
 
@@ -43,6 +45,10 @@ const useCpMakerState = vi.hoisted(() => ({
     lastExportedAt: number | null
   }>,
 }))
+const modPreviewState = vi.hoisted(() => ({
+  dirty: false,
+  requested: false,
+}))
 
 vi.mock('@features/cp-maker', async () => {
   const actual = await vi.importActual<typeof import('@features/cp-maker')>('@features/cp-maker')
@@ -56,6 +62,51 @@ vi.mock('@features/cp-maker', async () => {
       isDirty: false,
       loadDraft: loadDraftSpy,
     }),
+  }
+})
+
+vi.mock('@entities/game/api', () => ({
+  detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+  listKnownGameDirectories: vi.fn().mockResolvedValue([]),
+  scanMaps: vi.fn().mockResolvedValue([]),
+  validateGameDirectory: vi.fn(),
+}))
+
+const validateGameDirectoryMock = vi.mocked(validateGameDirectory)
+
+vi.mock('./WorkbenchPreviewRuntime', () => ({
+  WorkbenchPreviewRuntime: ({ workspaceMode }: { workspaceMode: string }) => (
+    <div>{workspaceMode === 'map' ? 'Viewport' : `${workspaceMode} preview`}</div>
+  ),
+}))
+
+vi.mock('./WorkbenchModPreviewRuntime', async () => {
+  const { useEffect } = await vi.importActual<typeof import('react')>('react')
+  return {
+    WorkbenchModPreviewRuntime: ({
+      onGuardHandleChange,
+    }: {
+      onGuardHandleChange: (
+        update: ModWorkspaceGuardHandle | null | ((current: ModWorkspaceGuardHandle | null) => ModWorkspaceGuardHandle | null),
+      ) => void
+    }) => {
+      useEffect(() => {
+        if (!modPreviewState.dirty) {
+          onGuardHandleChange(null)
+          return
+        }
+
+        onGuardHandleChange({
+          hasUnsavedChanges: true,
+          requestUnsavedChangeDecision: async () => {
+            modPreviewState.requested = true
+            return false
+          },
+        })
+      }, [onGuardHandleChange])
+
+      return <div>Mods preview</div>
+    },
   }
 })
 
@@ -131,8 +182,11 @@ describe('WorkbenchExperience launchpad navigation', () => {
   beforeEach(() => {
     useCpMakerState.activeDraft = null
     useCpMakerState.drafts = []
+    modPreviewState.dirty = false
+    modPreviewState.requested = false
     loadDraftSpy.mockClear()
     applyAppUiStatePatchSpy.mockClear()
+    validateGameDirectoryMock.mockReset()
   })
 
   it('opens the launchpad by default without restoring the previous workspace page', () => {
@@ -160,6 +214,29 @@ describe('WorkbenchExperience launchpad navigation', () => {
     })
     expect(screen.getByText('Viewport')).toBeTruthy()
     expect(screen.queryByText('studio-desk')).toBeNull()
+  })
+
+  it('guards game directory validation before committing a new root while mod preview has unsaved edits', async () => {
+    modPreviewState.dirty = true
+    renderExperience()
+
+    const dialog = screen.getByRole('dialog', { name: 'Workbench Navigation' })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Translation Browser' }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Workbench Navigation' })).toBeNull()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Project' }))
+    fireEvent.change(screen.getByPlaceholderText('Select the Stardew Valley install folder'), {
+      target: { value: '/tmp/Stardew Valley' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Scan and Load Resources' }))
+
+    await waitFor(() => {
+      expect(modPreviewState.requested).toBe(true)
+    })
+    expect(validateGameDirectoryMock).not.toHaveBeenCalled()
   })
 
   it('keeps the project page locked while no project is active', () => {

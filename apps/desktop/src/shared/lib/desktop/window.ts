@@ -1,5 +1,7 @@
 import { canUseDesktopHost, getPlatformPorts } from './runtime'
 
+const WINDOW_CLOSE_REQUEST_EVENT = 'app://window-close-requested'
+
 /** Minimizes the current desktop window when running inside Tauri. */
 export async function minimizeCurrentWindow() {
   if (!canUseDesktopHost()) {
@@ -61,4 +63,22 @@ export async function closeCurrentWindow() {
   }
 
   await getPlatformPorts().desktopWindow.close()
+}
+
+/** Closes the current desktop window without re-emitting a host close request. */
+export async function forceCloseCurrentWindow() {
+  if (!canUseDesktopHost()) {
+    return
+  }
+
+  await getPlatformPorts().desktopWindow.forceClose()
+}
+
+/** Listens for native host close requests such as Alt-F4 or window manager close. */
+export async function listenToWindowCloseRequest(listener: () => void) {
+  if (!canUseDesktopHost()) {
+    return () => {}
+  }
+
+  return getPlatformPorts().hostEvents.listen(WINDOW_CLOSE_REQUEST_EVENT, listener)
 }

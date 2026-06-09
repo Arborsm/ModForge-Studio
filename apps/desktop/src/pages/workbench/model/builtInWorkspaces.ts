@@ -1,7 +1,7 @@
 import { EventPatchEditor } from '../workspaces/event-stage'
 import { ImagePatchEditor } from '../workspaces/image-patch'
 import { MapPatchEditor } from '../workspaces/map'
-import { registerWorkspacePlugin, type WorkspacePlugin } from '@platform/plugins/workspaceRegistry'
+import { registerWorkspacePlugin, type WorkspacePlugin } from '@features/cp-maker'
 
 const mapWorkspacePlugin: WorkspacePlugin = {
   id: 'map',

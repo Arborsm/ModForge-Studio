@@ -3,6 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import fs from 'node:fs/promises'
 import { createInterface } from 'node:readline'
 import path from 'node:path'
+import type { OpenDialogOptions } from '../src/shared/contracts/platform'
 
 type RpcResponse = {
   id?: number
@@ -22,6 +23,7 @@ const devUrl = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173'
 let mainWindow: BrowserWindow | null = null
 let sidecar: ChildProcessWithoutNullStreams | null = null
 let nextRpcId = 0
+let closeAllowed = false
 const pendingRpc = new Map<number, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void }>()
 
 if (process.platform === 'linux') {
@@ -99,6 +101,16 @@ function resolveSidecarPath() {
 
 function forwardHostEvent(event: string, payload: unknown) {
   mainWindow?.webContents.send('modforge:host-event', event, payload)
+}
+
+function requestWindowClose(window: BrowserWindow) {
+  if (window.webContents.isDestroyed()) {
+    closeAllowed = true
+    window.close()
+    return
+  }
+
+  forwardHostEvent('app://window-close-requested', {})
 }
 
 function startSidecar() {
@@ -196,6 +208,14 @@ function createMainWindow() {
   })
 
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  mainWindow.on('close', (event) => {
+    if (closeAllowed) {
+      return
+    }
+
+    event.preventDefault()
+    requestWindowClose(mainWindow!)
+  })
 
   if (isDev) {
     mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -237,7 +257,12 @@ ipcMain.handle('modforge:window-toggle-maximize', () => {
     return true
   }
 })
-ipcMain.handle('modforge:window-close', () => currentWindow().close())
+ipcMain.handle('modforge:window-close', () => requestWindowClose(currentWindow()))
+ipcMain.handle('modforge:window-force-close', () => {
+  const window = currentWindow()
+  closeAllowed = true
+  window.close()
+})
 ipcMain.handle('modforge:window-is-maximized', () => currentWindow().isMaximized())
 ipcMain.handle('modforge:window-is-fullscreen', () => currentWindow().isFullScreen())
 ipcMain.handle('modforge:window-set-fullscreen', (_event, fullscreen: boolean) => currentWindow().setFullScreen(fullscreen))
@@ -247,13 +272,13 @@ ipcMain.handle('modforge:window-toggle-fullscreen', () => {
   window.setFullScreen(nextFullscreen)
   return nextFullscreen
 })
-ipcMain.handle('modforge:open-dialog', async (_event, options?: Electron.OpenDialogOptions) => {
+ipcMain.handle('modforge:open-dialog', async (_event, options?: OpenDialogOptions) => {
   const result = await dialog.showOpenDialog(currentWindow(), {
     title: options?.title,
     properties: [options?.directory ? 'openDirectory' : 'openFile', options?.multiple ? 'multiSelections' : undefined].filter(
       Boolean,
     ) as Electron.OpenDialogOptions['properties'],
-    filters: options?.filters,
+    filters: options?.filters?.map((filter) => ({ name: filter.name, extensions: [...filter.extensions] })),
   })
 
   if (result.canceled) {

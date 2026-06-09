@@ -75,6 +75,11 @@ export function createTauriPlatformPorts(): PlatformPorts {
           await getCurrentWindow().close()
         }
       },
+      async forceClose() {
+        if (canUseTauriHost()) {
+          await getCurrentWindow().destroy()
+        }
+      },
       async isFullscreen() {
         return canUseTauriHost() ? getCurrentWindow().isFullscreen() : false
       },
@@ -115,6 +120,13 @@ export function createTauriPlatformPorts(): PlatformPorts {
       async listen<T>(event: string, listener: (payload: T) => void) {
         if (!canUseTauriHost()) {
           return () => {}
+        }
+
+        if (event === 'app://window-close-requested') {
+          return getCurrentWindow().onCloseRequested((closeEvent) => {
+            closeEvent.preventDefault()
+            listener({} as T)
+          })
         }
 
         return listen<T>(event, (nextEvent) => listener(nextEvent.payload))

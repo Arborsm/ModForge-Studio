@@ -1,9 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   canUseDesktopHost,
-  closeCurrentWindow,
+  forceCloseCurrentWindow,
   isCurrentWindowFullscreen,
   isCurrentWindowMaximized,
+  listenToWindowCloseRequest,
   loadAppUiState,
   minimizeCurrentWindow,
   patchAppUiState,
@@ -51,7 +52,7 @@ import { createWorkbenchOrchestration } from '../providers/workbenchOrchestratio
 import { LauncherPage as LauncherPageView } from '@pages/launcher'
 import { DevDebugOverlay } from '@pages/workbench/ui/DevDebugOverlay'
 import type { PendingWorkbenchCommandIntent, SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
-import { WorkbenchShellSkeleton } from './WorkbenchShellSkeleton'
+import { WorkbenchShellSkeleton } from '@shared/ui/WorkbenchShellSkeleton'
 
 const SettingsWindow = lazy(() => import('./SettingsWindow'))
 const WorkbenchPage = lazy(async () => {
@@ -150,6 +151,9 @@ export default function App() {
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
+  const windowCloseRequestRef = useRef<() => void>(() => {
+    void forceCloseCurrentWindow()
+  })
 
   const copy = editorCopy[locale]
   const desktopHost = canUseDesktopHost()
@@ -180,6 +184,12 @@ export default function App() {
   }, [launcherPage])
 
   useEffect(() => eventBus.subscribe(workbenchOrchestration.handleEvent), [eventBus, workbenchOrchestration])
+
+  useEffect(() => {
+    windowCloseRequestRef.current = () => {
+      void forceCloseCurrentWindow()
+    }
+  }, [])
 
   useEffect(() => {
     if (!desktopHost) {
@@ -468,6 +478,39 @@ export default function App() {
     })
   }, [])
 
+  const requestGuardedWindowClose = useCallback(() => {
+    windowCloseRequestRef.current()
+  }, [])
+  const handleWindowCloseRequestChange = useCallback((handler: (() => void) | null) => {
+    windowCloseRequestRef.current = handler ?? (() => void forceCloseCurrentWindow())
+  }, [])
+
+  useEffect(() => {
+    if (!desktopHost) {
+      return
+    }
+
+    let disposed = false
+    let unlisten: (() => void) | null = null
+
+    void listenToWindowCloseRequest(() => {
+      requestGuardedWindowClose()
+    })
+      .then((nextUnlisten) => {
+        if (disposed) {
+          nextUnlisten()
+          return
+        }
+        unlisten = nextUnlisten
+      })
+      .catch(() => {})
+
+    return () => {
+      disposed = true
+      unlisten?.()
+    }
+  }, [desktopHost, requestGuardedWindowClose])
+
   const handleAppModeChange = useCallback((nextMode: AppMode) => {
     if (nextMode === 'workbench') {
       setWorkbenchHasOpened(true)
@@ -617,7 +660,7 @@ export default function App() {
                 onLauncherPageChange={handleLauncherPageChange}
                 onMinimizeWindow={() => void minimizeCurrentWindow()}
                 onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
-                onCloseWindow={() => void closeCurrentWindow()}
+                onCloseWindow={() => void forceCloseCurrentWindow()}
                 onOpenSettings={openSettingsWindow}
                 onToggleDebugMode={() => setDebugEnabled((current) => !current)}
                 onNavigateToDiagnostics={handleViewLauncherDiagnostics}
@@ -642,7 +685,8 @@ export default function App() {
                   onOpenSettings={openSettingsWindow}
                   onMinimizeWindow={() => void minimizeCurrentWindow()}
                   onToggleMaximizeWindow={() => void handleToggleMaximizeWindow()}
-                  onCloseWindow={() => void closeCurrentWindow()}
+                  onCloseWindow={() => void forceCloseCurrentWindow()}
+                  onWindowCloseRequestChange={handleWindowCloseRequestChange}
                   onWorkbenchEvent={eventBus.emit}
                   pendingWorkbenchIntent={pendingWorkbenchIntent}
                   onClearPendingIntent={appCommandHandler.clearPendingIntent}

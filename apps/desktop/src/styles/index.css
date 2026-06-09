@@ -21,7 +21,7 @@
 @source "../app/App.tsx";
 @source "../app/app-shell/AppShell.tsx";
 @source "../app/app-shell/SettingsWindow.tsx";
-@source "../app/app-shell/WorkbenchShellSkeleton.tsx";
+@source "../shared/ui/WorkbenchShellSkeleton.tsx";
 @source "../pages/workbench/ui/DevDebugOverlay.tsx";
 @source "../pages/launcher";
 @source "../features/launcher";

@@ -26,6 +26,8 @@ type WorkbenchViewHostProps = {
   onWorkbenchEvent: (event: AppEvent) => void
   navigateToPatch: (patchId: string | null) => void
   onSetWorkspaceMode: (mode: WorkspaceId) => void
+  onRunWithModUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
+  onRunWithCpMakerUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
   onSetWorkspaceViewMode: (mode: 'edit' | 'preview') => void
   studioDeskGalleryOpen: boolean
   onStudioDeskGalleryOpenChange: (open: boolean) => void
@@ -52,6 +54,8 @@ export function WorkbenchViewHost({
   onWorkbenchEvent,
   navigateToPatch,
   onSetWorkspaceMode,
+  onRunWithModUnsavedGuard,
+  onRunWithCpMakerUnsavedGuard,
   onSetWorkspaceViewMode,
   studioDeskGalleryOpen,
   onStudioDeskGalleryOpenChange,
@@ -73,24 +77,30 @@ export function WorkbenchViewHost({
                 'projectName' | 'projectDescription' | 'projectAuthor' | 'projectVersion' | 'projectUniqueId'
               >,
             ) => {
-              void cpMaker.createDraft({
-                ...metadata,
-                gameRootPath: directoryInfo?.rootPath ?? null,
+              void onRunWithCpMakerUnsavedGuard(() => {
+                void cpMaker.createDraft({
+                  ...metadata,
+                  gameRootPath: directoryInfo?.rootPath ?? null,
+                })
               })
             },
             onImportDraft: async () => {
-              const selectedPath = await cpMaker.chooseDirectory(copy.studioDesk.importDraft)
-              if (!selectedPath) {
-                return
-              }
-              const draft = await cpMaker.importPack(selectedPath)
-              onWorkbenchEvent({
-                type: 'cp-maker/draft-selected',
-                draftKey: draft.draftStorageKey,
+              await onRunWithModUnsavedGuard(async () => {
+                await onRunWithCpMakerUnsavedGuard(async () => {
+                  const selectedPath = await cpMaker.chooseDirectory(copy.studioDesk.importDraft)
+                  if (!selectedPath) {
+                    return
+                  }
+                  const draft = await cpMaker.importPack(selectedPath)
+                  onWorkbenchEvent({
+                    type: 'cp-maker/draft-selected',
+                    draftKey: draft.draftStorageKey,
+                  })
+                  onSetWorkspaceMode('mods')
+                  onSetWorkspaceViewMode('edit')
+                  navigateToPatch(null)
+                })
               })
-              onSetWorkspaceMode('mods')
-              onSetWorkspaceViewMode('edit')
-              navigateToPatch(null)
             },
             onCreatePatch: (action: DraftPatch['action'], nextWorkspace: WorkspaceId) => {
               if (!cpMaker.activeDraft) {
@@ -106,38 +116,46 @@ export function WorkbenchViewHost({
               navigateToPatch(id)
             },
             onOpenWorkspace: (nextWorkspace: WorkspaceId) => {
-              onWorkbenchEvent({
-                type: 'workbench/view-selected',
-                viewId: nextWorkspace === 'mods' ? 'studio-desk' : 'workspace-editor',
+              void onRunWithModUnsavedGuard(() => {
+                onWorkbenchEvent({
+                  type: 'workbench/view-selected',
+                  viewId: nextWorkspace === 'mods' ? 'studio-desk' : 'workspace-editor',
+                })
+                onSetWorkspaceMode(nextWorkspace)
+                onSetWorkspaceViewMode('edit')
+                navigateToPatch(null)
               })
-              onSetWorkspaceMode(nextWorkspace)
-              onSetWorkspaceViewMode('edit')
-              navigateToPatch(null)
             },
             onOpenPatch: (patchId: string) => {
               const patch = cpMaker.activeDraft?.patches.find((candidate) => candidate.id === patchId)
               if (!patch) {
                 return
               }
-              onWorkbenchEvent({
-                type: 'cp-maker/asset-selected',
-                draftKey: cpMaker.activeDraft?.draftStorageKey ?? '',
-                assetId: patchId,
-                assetKind: patch.workspace === 'map' ? 'map' : patch.workspace === 'events' ? 'event' : 'data',
+              void onRunWithModUnsavedGuard(() => {
+                onWorkbenchEvent({
+                  type: 'cp-maker/asset-selected',
+                  draftKey: cpMaker.activeDraft?.draftStorageKey ?? '',
+                  assetId: patchId,
+                  assetKind: patch.workspace === 'map' ? 'map' : patch.workspace === 'events' ? 'event' : 'data',
+                })
+                onSetWorkspaceMode(patch.workspace)
+                onSetWorkspaceViewMode('edit')
+                navigateToPatch(patchId)
               })
-              onSetWorkspaceMode(patch.workspace)
-              onSetWorkspaceViewMode('edit')
-              navigateToPatch(patchId)
             },
             onOpenDraft: (draftStorageKey: string) => {
-              void cpMaker.loadDraft(draftStorageKey)
-              onWorkbenchEvent({
-                type: 'cp-maker/draft-selected',
-                draftKey: draftStorageKey,
+              void onRunWithModUnsavedGuard(async () => {
+                await onRunWithCpMakerUnsavedGuard(async () => {
+                  await cpMaker.loadDraft(draftStorageKey)
+                  onWorkbenchEvent({
+                    type: 'cp-maker/draft-selected',
+                    draftKey: draftStorageKey,
+                  })
+                  onSetWorkspaceMode('mods')
+                  onSetWorkspaceViewMode('edit')
+                  navigateToPatch(null)
+                })
               })
-              onSetWorkspaceMode('mods')
-              onSetWorkspaceViewMode('edit')
-              navigateToPatch(null)
             },
             onCopyDraft: (draftStorageKey: string) => {
               void cpMaker.copyDraft(draftStorageKey)

@@ -6,6 +6,8 @@ export type WorkbenchCommandIntentDeps = {
   pendingIntent: PendingWorkbenchCommandIntent | null
   cpMaker: UseCpMakerReturn
   setWorkspaceMode: (mode: string) => void
+  runWithModUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
+  runWithCpMakerUnsavedGuard: (action: () => void | Promise<void>) => Promise<boolean>
   setWorkspaceViewMode: (mode: 'edit' | 'preview') => void
   navigateToPatch: (patchId: string | null) => void
   clearPendingIntent: () => void
@@ -31,6 +33,8 @@ export function useWorkbenchCommandIntent({
   pendingIntent: pendingIntentProp,
   cpMaker,
   setWorkspaceMode,
+  runWithModUnsavedGuard,
+  runWithCpMakerUnsavedGuard,
   setWorkspaceViewMode,
   navigateToPatch,
   clearPendingIntent,
@@ -58,13 +62,17 @@ export function useWorkbenchCommandIntent({
 
       if (cmd.type === 'navigation/open-workbench-view') {
         if (cmd.viewId === 'studio-desk') {
-          setWorkspaceMode('mods')
-          setWorkspaceViewMode('edit')
-          navigateToPatch(null)
+          void runWithModUnsavedGuard(() => {
+            setWorkspaceMode('mods')
+            setWorkspaceViewMode('edit')
+            navigateToPatch(null)
+          })
         } else if (cmd.viewId === 'workspace-editor') {
-          // Preserve current workspace, switch to edit mode
-          setWorkspaceViewMode('edit')
-          navigateToPatch(null)
+          void runWithModUnsavedGuard(() => {
+            // Preserve current workspace, switch to edit mode
+            setWorkspaceViewMode('edit')
+            navigateToPatch(null)
+          })
         }
 
         // Unsupported view ids: safe no-op (just clear intent)
@@ -80,9 +88,14 @@ export function useWorkbenchCommandIntent({
         const needsLoad = cmd.sourceId && cmd.sourceId !== currentDraftKey
 
         if (needsLoad && cmd.sourceId) {
-          if (!loadAttemptedRef.current.has(cmd.sourceId)) {
-            loadAttemptedRef.current.add(cmd.sourceId)
-            void cpMaker.loadDraft(cmd.sourceId)
+          const sourceId = cmd.sourceId
+          if (!loadAttemptedRef.current.has(sourceId)) {
+            void runWithModUnsavedGuard(async () => {
+              await runWithCpMakerUnsavedGuard(() => {
+                loadAttemptedRef.current.add(sourceId)
+                return cpMaker.loadDraft(sourceId)
+              })
+            })
           } else if (!cpMaker.draftLoading && cpMaker.draftError) {
             consumedIntentIdsRef.current.add(intent.id)
             clearPendingIntent()
@@ -102,14 +115,24 @@ export function useWorkbenchCommandIntent({
         }
 
         consumedIntentIdsRef.current.add(intent.id)
-        setWorkspaceMode(target.workspaceId)
-        setWorkspaceViewMode('edit')
-        navigateToPatch(target.assetId)
+        void runWithModUnsavedGuard(() => {
+          setWorkspaceMode(target.workspaceId)
+          setWorkspaceViewMode('edit')
+          navigateToPatch(target.assetId)
+        })
         clearPendingIntent()
         setConsumedIntentId(intent.id)
       }
     },
-    [cpMaker, setWorkspaceMode, setWorkspaceViewMode, navigateToPatch, clearPendingIntent],
+    [
+      cpMaker,
+      setWorkspaceMode,
+      runWithModUnsavedGuard,
+      runWithCpMakerUnsavedGuard,
+      setWorkspaceViewMode,
+      navigateToPatch,
+      clearPendingIntent,
+    ],
   )
 
   // Trigger consumption when pending intent changes
