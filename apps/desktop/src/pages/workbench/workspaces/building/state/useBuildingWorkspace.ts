@@ -45,7 +45,7 @@ function getMapAssetName(document: MapDocument) {
 }
 
 async function runWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T, index: number) => Promise<R>) {
-  const results = new Array<R>(items.length)
+  const results = Array.from<R>({ length: items.length })
   let nextIndex = 0
 
   async function consumeNext() {

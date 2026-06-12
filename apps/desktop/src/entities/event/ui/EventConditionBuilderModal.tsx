@@ -13,7 +13,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react'
-import { useMemo, useState, type PointerEvent } from 'react'
+import { useState, type PointerEvent } from 'react'
 import { cx } from '@shared/lib/cx'
 import { EventGameStateQueryBuilderModal, type GameStateQueryBuilderResult } from './EventGameStateQueryBuilderModal'
 import { EventConditionBuilderLogicChain } from './EventConditionBuilderLogicChain'
@@ -90,25 +90,24 @@ export function EventConditionBuilderModal({ event, allEvents, alias, hubCopy, c
   const [catalogArgs, setCatalogArgs] = useState<Record<string, string>>({})
   const [openCatalogCategories, setOpenCatalogCategories] = useState<Partial<Record<ConditionCategory, boolean>>>({})
 
-  const eventSuggestions = useMemo(() => {
-    const normalized = storyQuery.trim().toLowerCase()
-    return allEvents
-      .filter((item) => item.key !== event.key)
-      .filter((item) => !normalized || item.eventId.toLowerCase().includes(normalized) || item.title.toLowerCase().includes(normalized))
-      .slice(0, 5)
-  }, [allEvents, event.key, storyQuery])
+  const normalizedStoryQuery = storyQuery.trim().toLowerCase()
+  const eventSuggestions = allEvents
+    .filter((item) => item.key !== event.key)
+    .filter(
+      (item) =>
+        !normalizedStoryQuery ||
+        item.eventId.toLowerCase().includes(normalizedStoryQuery) ||
+        item.title.toLowerCase().includes(normalizedStoryQuery),
+    )
+    .slice(0, 5)
 
-  const filteredNpcs = useMemo(() => {
-    const normalized = npcQuery.trim().toLowerCase()
-    return NPC_OPTIONS.filter((name) => !normalized || name.toLowerCase().includes(normalized)).slice(0, 5)
-  }, [npcQuery])
+  const normalizedNpcQuery = npcQuery.trim().toLowerCase()
+  const filteredNpcs = NPC_OPTIONS.filter((name) => !normalizedNpcQuery || name.toLowerCase().includes(normalizedNpcQuery)).slice(0, 5)
 
-  const filteredItems = useMemo(() => {
-    const normalized = itemQuery.trim().toLowerCase()
-    return ITEM_SUGGESTIONS.filter(
-      (item) => !normalized || item.id.includes(normalized) || item.label.toLowerCase().includes(normalized),
-    ).slice(0, 4)
-  }, [itemQuery])
+  const normalizedItemQuery = itemQuery.trim().toLowerCase()
+  const filteredItems = ITEM_SUGGESTIONS.filter(
+    (item) => !normalizedItemQuery || item.id.includes(normalizedItemQuery) || item.label.toLowerCase().includes(normalizedItemQuery),
+  ).slice(0, 4)
 
   const hasWeatherConflict = selectedWeathers.includes('sunny') && selectedWeathers.includes('rainy')
   const compactLogicChain = chips.length >= COMPACT_CHAIN_THRESHOLD

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { EditorCopy } from '@locales'
 import type { StudioDeskModel, StudioDeskWorldBible, StudioDeskWorldBibleEntry } from '../model/studioDeskModel'
@@ -70,16 +70,13 @@ export function StudioDeskWorldBible({
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState<BibleTab>('tokens')
 
-  const entriesByTab = useMemo<Record<BibleTab, StudioDeskWorldBibleEntry[]>>(
-    () => ({
-      actors: bible.actors,
-      tokens: [...bible.tokens, ...bible.configSchema],
-      story: bible.story,
-      items: bible.items,
-      scenes: bible.scenes.length ? bible.scenes : bible.customLocations,
-    }),
-    [bible.actors, bible.configSchema, bible.customLocations, bible.items, bible.scenes, bible.story, bible.tokens],
-  )
+  const entriesByTab: Record<BibleTab, StudioDeskWorldBibleEntry[]> = {
+    actors: bible.actors,
+    tokens: [...bible.tokens, ...bible.configSchema],
+    story: bible.story,
+    items: bible.items,
+    scenes: bible.scenes.length ? bible.scenes : bible.customLocations,
+  }
   const activeEntries = filterEntries(entriesByTab[activeTab], query)
   const activeEntryCount = activeEntries.length
 

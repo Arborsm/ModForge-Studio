@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::io::IsTerminal;
-use std::path::PathBuf;
+use std::fs::{self, File, OpenOptions};
+use std::io::{IsTerminal, Write};
+use std::path::{Path, PathBuf};
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -12,8 +13,6 @@ use log::{LevelFilter, Metadata, Record, RecordBuilder};
 use owo_colors::OwoColorize;
 use serde::Deserialize;
 use sheen::{Formatter as _, Level as SheenLevel};
-use tauri::{Runtime, plugin::TauriPlugin};
-use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 const LOG_FILE_NAME: &str = "modforge-studio";
 const LOG_FILE_SIZE_BYTES: u128 = 1_000_000;
@@ -110,6 +109,20 @@ impl DebugLoggingState {
 struct SidecarStderrLogger {
     state: DebugLoggingState,
     terminal_noise: TerminalNoiseState,
+}
+
+struct HostLogger {
+    state: DebugLoggingState,
+    terminal_noise: TerminalNoiseState,
+    file: Mutex<HostLogFile>,
+}
+
+struct HostLogFile {
+    path: PathBuf,
+    current_size_bytes: u64,
+    file: Option<File>,
+    max_file_size_bytes: u64,
+    retained_file_count: usize,
 }
 
 #[derive(Clone)]
@@ -417,6 +430,144 @@ impl log::Log for SidecarStderrLogger {
     fn flush(&self) {}
 }
 
+impl HostLogFile {
+    fn new(config: LogFileConfig) -> Result<Self, String> {
+        fs::create_dir_all(&config.directory).map_err(|error| {
+            format!(
+                "Failed to create log directory {}: {error}",
+                config.directory.display()
+            )
+        })?;
+
+        let path = host_log_path(&config.directory, config.file_name);
+        let file = open_host_log_file(&path)?;
+        let current_size_bytes = file.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+
+        Ok(Self {
+            path,
+            current_size_bytes,
+            file: Some(file),
+            max_file_size_bytes: config.max_file_size_bytes.min(u64::MAX as u128) as u64,
+            retained_file_count: config.retained_file_count.max(1),
+        })
+    }
+
+    fn write_line(&mut self, line: &str) -> Result<(), String> {
+        let line_size = line.len() as u64 + 1;
+        if self.current_size_bytes.saturating_add(line_size) > self.max_file_size_bytes {
+            self.rotate()?;
+        }
+
+        let Some(file) = self.file.as_mut() else {
+            return Err("Host log file is not open.".to_string());
+        };
+
+        file.write_all(line.as_bytes())
+            .and_then(|_| file.write_all(b"\n"))
+            .and_then(|_| file.flush())
+            .map_err(|error| {
+                format!("Failed to write host log {}: {error}", self.path.display())
+            })?;
+        self.current_size_bytes = self.current_size_bytes.saturating_add(line_size);
+        Ok(())
+    }
+
+    fn rotate(&mut self) -> Result<(), String> {
+        self.file.take();
+
+        for index in (1..=self.retained_file_count).rev() {
+            let source = rotated_host_log_path(&self.path, index);
+            if !source.exists() {
+                continue;
+            }
+
+            if index == self.retained_file_count {
+                fs::remove_file(&source).map_err(|error| {
+                    format!(
+                        "Failed to remove old host log {}: {error}",
+                        source.display()
+                    )
+                })?;
+            } else {
+                let target = rotated_host_log_path(&self.path, index + 1);
+                fs::rename(&source, &target).map_err(|error| {
+                    format!(
+                        "Failed to rotate host log {} to {}: {error}",
+                        source.display(),
+                        target.display()
+                    )
+                })?;
+            }
+        }
+
+        if self.path.exists() {
+            fs::rename(&self.path, rotated_host_log_path(&self.path, 1)).map_err(|error| {
+                format!("Failed to rotate host log {}: {error}", self.path.display())
+            })?;
+        }
+
+        self.file = Some(open_host_log_file(&self.path)?);
+        self.current_size_bytes = 0;
+        Ok(())
+    }
+}
+
+impl log::Log for HostLogger {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
+        self.state.should_log_metadata(metadata)
+    }
+
+    fn log(&self, record: &Record<'_>) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+
+        if self.terminal_noise.should_emit(record.metadata()) {
+            println!(
+                "{}",
+                format_record_for_terminal(
+                    record,
+                    Some(HOST_LOG_PREFIX),
+                    should_colorize_terminal_output(std::io::stdout().is_terminal())
+                )
+            );
+        }
+
+        let file_line = format_record_for_terminal(record, Some(HOST_LOG_PREFIX), false);
+        if let Ok(mut file) = self.file.lock() {
+            if let Err(error) = file.write_line(&file_line) {
+                eprintln!("{error}");
+            }
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+fn host_log_path(directory: &Path, file_name: &str) -> PathBuf {
+    directory.join(format!("{file_name}.log"))
+}
+
+fn rotated_host_log_path(path: &Path, index: usize) -> PathBuf {
+    let file_stem = path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("modforge-studio");
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("log");
+    path.with_file_name(format!("{file_stem}.{index}.{extension}"))
+}
+
+fn open_host_log_file(path: &Path) -> Result<File, String> {
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|error| format!("Failed to open host log {}: {error}", path.display()))
+}
+
 pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLoggerError> {
     log::set_boxed_logger(Box::new(SidecarStderrLogger {
         state: state.clone(),
@@ -426,40 +577,15 @@ pub fn init_sidecar_logging(state: &DebugLoggingState) -> Result<(), log::SetLog
     Ok(())
 }
 
-pub fn build_logging_plugin<R: Runtime>(state: DebugLoggingState) -> TauriPlugin<R> {
-    let filter_state = state.clone();
-    let terminal_noise = TerminalNoiseState::new();
-    let file_config = log_file_config().expect("failed to resolve ModForge Studio log directory");
-
-    tauri_plugin_log::Builder::default()
-        .clear_targets()
-        .targets([
-            Target::new(TargetKind::Stdout)
-                .filter(move |metadata| terminal_noise.should_emit(metadata))
-                .format(|out, message, record| {
-                    out.finish(format_args!(
-                        "{}",
-                        format_layered_terminal_log_line(
-                            &current_log_timestamp(),
-                            Some(HOST_LOG_PREFIX),
-                            record.level(),
-                            record.target(),
-                            &message.to_string(),
-                            should_colorize_terminal_output(std::io::stdout().is_terminal()),
-                        )
-                    ));
-                }),
-            Target::new(TargetKind::Folder {
-                path: file_config.directory,
-                file_name: Some(file_config.file_name.into()),
-            }),
-        ])
-        .level(LevelFilter::Debug)
-        .filter(move |metadata| filter_state.should_log_metadata(metadata))
-        .rotation_strategy(RotationStrategy::KeepSome(file_config.retained_file_count))
-        .max_file_size(file_config.max_file_size_bytes)
-        .timezone_strategy(TimezoneStrategy::UseLocal)
-        .build()
+pub fn init_host_logging(state: &DebugLoggingState) -> Result<(), String> {
+    log::set_boxed_logger(Box::new(HostLogger {
+        state: state.clone(),
+        terminal_noise: TerminalNoiseState::new(),
+        file: Mutex::new(HostLogFile::new(log_file_config()?)?),
+    }))
+    .map_err(|error| format!("Failed to install ModForge host logger: {error}"))?;
+    log::set_max_level(LevelFilter::Info);
+    Ok(())
 }
 
 fn format_tauri_command_error(command_name: &str, error_message: &str) -> String {
@@ -522,12 +648,6 @@ pub fn write_frontend_log(request: FrontendLogRequest) {
         .line(request.line);
 
     let key_values = request.key_values.unwrap_or_default();
-    let mut kv = HashMap::new();
-    for (key, value) in key_values.iter() {
-        kv.insert(key.as_str(), value.as_str());
-    }
-    builder.key_values(&kv);
-
     let message = format_frontend_log_message(&request.message, &key_values);
     log::logger().log(&builder.args(format_args!("{message}")).build());
     log::logger().flush();

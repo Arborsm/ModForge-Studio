@@ -43,7 +43,7 @@ function createLauncherDiagnosticsResult(
       attempts: 1,
       maxAttempts: 3,
       ...route,
-      ...(overrides[routeId] ?? {}),
+      ...overrides[routeId],
     })),
   }
 }

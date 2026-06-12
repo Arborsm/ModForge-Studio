@@ -17,7 +17,6 @@ import {
   useMemo,
   useContext,
 } from 'react'
-/* eslint-disable react-refresh/only-export-components */
 import {
   type LoadingMotionStage,
   type LoadingMotionIntensityId,

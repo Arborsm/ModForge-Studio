@@ -9,15 +9,39 @@ async function loadViteConfig() {
   return module.default
 }
 
-async function loadManualChunks() {
-  const config = await loadViteConfig()
-  const output = config.build?.rolldownOptions?.output
+async function loadChunkGroupResolver() {
+  vi.resetModules()
+  const module = await import('../../../vite.config.ts')
+  return module.resolveRolldownChunkGroup
+}
 
-  if (!output || Array.isArray(output) || typeof output.manualChunks !== 'function') {
-    throw new Error('Expected vite config to expose build.rolldownOptions.output.manualChunks')
+async function loadReactDevtoolsHtmlPluginFactory() {
+  vi.resetModules()
+  const module = await import('../../../vite.config.ts')
+  return module.reactDevtoolsStandaloneHtmlPlugin
+}
+
+type VitePluginProbe = {
+  name?: string
+  resolveId?: (source: string) => string | null
+  load?: (id: string) => string | null
+  transformIndexHtml?: unknown
+}
+
+function flattenPluginProbes(value: unknown): VitePluginProbe[] {
+  if (!Array.isArray(value)) {
+    return [value as VitePluginProbe]
   }
 
-  return output.manualChunks
+  return value.flatMap((entry) => flattenPluginProbes(entry))
+}
+
+function runTransformIndexHtml(plugin: { transformIndexHtml?: unknown }) {
+  if (typeof plugin.transformIndexHtml !== 'function') {
+    throw new Error('Expected plugin transformIndexHtml hook to be a function')
+  }
+
+  return plugin.transformIndexHtml()
 }
 
 afterEach(() => {
@@ -62,56 +86,125 @@ describe('vite config', () => {
     expect(config.server?.warmup).toBeUndefined()
   })
 
-  it('splits event and building workspace code into focused manual chunks', async () => {
-    const manualChunks = await loadManualChunks()
-    const context: Parameters<typeof manualChunks>[1] = { getModuleInfo: () => null }
+  it('serves React Compiler runtime through a named export interop module', async () => {
+    const config = await loadViteConfig()
+    const plugins = flattenPluginProbes(config.plugins ?? [])
+    const interopPlugin = plugins.find((plugin) => plugin.name === 'modforge:react-compiler-runtime-interop')
 
-    expect(manualChunks('E:/repo/apps/desktop/node_modules/@tauri-apps/api/core.js', context)).toBe('desktop-host-vendor')
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStageTemporarySprites.ts', context)).toBe(
+    expect(interopPlugin).toBeDefined()
+
+    const interopId = interopPlugin?.resolveId?.('react/compiler-runtime')
+
+    expect(interopId).toBe('\0modforge/react-compiler-runtime-interop')
+    expect(interopPlugin?.load?.(interopId ?? '')).toContain('export function c(size)')
+  })
+
+  it('does not inject standalone React DevTools into default dev html', async () => {
+    const createPlugin = await loadReactDevtoolsHtmlPluginFactory()
+    const plugin = createPlugin({})
+
+    expect(runTransformIndexHtml(plugin)).toEqual([])
+  })
+
+  it('injects standalone React DevTools before React only when explicitly enabled', async () => {
+    const createPlugin = await loadReactDevtoolsHtmlPluginFactory()
+    const plugin = createPlugin({ MODFORGE_REACT_DEVTOOLS: '1' })
+
+    expect(runTransformIndexHtml(plugin)).toEqual([
+      {
+        tag: 'script',
+        attrs: {
+          src: 'http://localhost:8097',
+        },
+        injectTo: 'head-prepend',
+      },
+    ])
+  })
+
+  it('splits event and building workspace code into focused Rolldown groups', async () => {
+    const resolveChunkGroup = await loadChunkGroupResolver()
+
+    expect(resolveChunkGroup('E:/repo/apps/desktop/node_modules/@tauri-apps/api/core.js')).toBe('desktop-host-vendor')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/stage/eventStageTemporarySprites.ts')).toBe(
       'event-stage-runtime',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/stage/eventStagePlayback.ts', context)).toBe('event-stage-runtime')
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/ui/EventStageWorkspace.tsx', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/stage/eventStageSpecificSpriteEffectCases.ts')).toBe(
+      'event-stage-effects',
+    )
+    expect(
+      resolveChunkGroup(
+        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventPatchEditor.tsx',
+      ),
+    ).toBe('event-stage-workflow-view')
+    expect(
+      resolveChunkGroup(
+        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/commandSchema.ts',
+      ),
+    ).toBe('event-stage-workflow-model')
+    expect(
+      resolveChunkGroup(
+        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-model/command-schemas/visual.ts',
+      ),
+    ).toBe('event-stage-workflow-schemas')
+    expect(
+      resolveChunkGroup(
+        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventResourcePicker.tsx',
+      ),
+    ).toBe('event-stage-resource-picker')
+    expect(
+      resolveChunkGroup(
+        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/ScriptCard.tsx',
+      ),
+    ).toBe('event-stage-script-editor')
+    expect(
+      resolveChunkGroup(
+        'E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/event-workflow/workflow-view/EventStagePreview.tsx',
+      ),
+    ).toBe('event-stage-preview')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/editors/EventPatchEditor.tsx')).toBe(
+      'event-stage-authoring',
+    )
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/stage/eventStagePlayback.ts')).toBe('event-stage-runtime')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/event-stage/ui/EventStageWorkspace.tsx')).toBe(
       'event-stage-runtime',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/parser.ts', context)).toBe('event-authoring-model')
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/commandCatalog.ts', context)).toBe('event-authoring-model')
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/preconditionSemantics.ts', context)).toBe('event-condition-model')
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/gameStateQueryCatalog.ts', context)).toBe('event-condition-model')
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/gameStateQuerySemantics.ts', context)).toBe('event-condition-model')
-    expect(manualChunks('E:/repo/apps/desktop/src/entities/event/model/patchHub.ts', context)).toBe('event-authoring-model')
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/item/ui/ItemWorkspace.tsx', context)).toBe('item-workspace')
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/character/ui/CharacterWorkspace.tsx', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/parser.ts')).toBe('event-authoring-model')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/commandCatalog.ts')).toBe('event-authoring-model')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/preconditionSemantics.ts')).toBe('event-condition-model')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/gameStateQueryCatalog.ts')).toBe('event-condition-model')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/gameStateQuerySemantics.ts')).toBe('event-condition-model')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/entities/event/model/patchHub.ts')).toBe('event-authoring-model')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/item/ui/ItemWorkspace.tsx')).toBe('item-workspace')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/character/ui/CharacterWorkspace.tsx')).toBe(
       'character-workspace',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/state/useBuildingWorkspace.ts', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/state/useBuildingWorkspace.ts')).toBe(
       'building-workspace-state',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/state/buildingWorldEntries.ts', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/state/buildingWorldEntries.ts')).toBe(
       'building-workspace-state',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/view/BuildingWorkspace.tsx', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/view/BuildingWorkspace.tsx')).toBe(
       'building-workspace-view',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/view/buildingViewHelpers.ts', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/view/buildingViewHelpers.ts')).toBe(
       'building-workspace-view',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingBrowserPanel.tsx', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingBrowserPanel.tsx')).toBe(
       'building-workspace-panels',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingInspectorPanel.tsx', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingInspectorPanel.tsx')).toBe(
       'building-workspace-panels',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingDetailsPanel.tsx', context)).toBe(
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/ui/workspace-panels/building/BuildingDetailsPanel.tsx')).toBe(
       'building-workspace-panels',
     )
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/index.ts', context)).toBe('building-workspace')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/building/index.ts')).toBe('building-workspace')
     expect(
-      manualChunks(
+      resolveChunkGroup(
         'E:/repo/apps/desktop/src/pages/workbench/workspaces/mod/mods/content-patcher/content-view/ContentPatcherWorkspace.tsx',
-        context,
       ),
     ).toBe('mod-workspace')
-    expect(manualChunks('E:/repo/apps/desktop/src/pages/workbench/workspaces/map/model/useMapWorkspace.ts', context)).toBe('map-workspace')
+    expect(resolveChunkGroup('E:/repo/apps/desktop/src/pages/workbench/workspaces/map/model/useMapWorkspace.ts')).toBe('map-workspace')
   })
 })

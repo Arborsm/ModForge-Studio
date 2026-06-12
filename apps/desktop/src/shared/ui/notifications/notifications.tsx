@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useSyncExternalStore, type ReactNode } from 'react'
 import { NotificationViewport } from './NotificationViewport'
 import { playNotificationSound } from './notificationSounds'

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createResourceCache } from '@shared/lib/resources'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherPort } from './launcherPort'
@@ -31,7 +31,7 @@ function getCachedLauncherImageUrl(url: string | null) {
 
 export function useLauncherImage(url: string | null) {
   const launcherPort = useLauncherPort()
-  const cachedImageUrl = useMemo(() => getCachedLauncherImageUrl(url), [url])
+  const cachedImageUrl = getCachedLauncherImageUrl(url)
   const [loadedImage, setLoadedImage] = useState<{ url: string; imageUrl: string } | null>(null)
   const [loadError, setLoadError] = useState<{ url: string; error: string } | null>(null)
 

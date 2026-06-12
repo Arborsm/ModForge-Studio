@@ -14,8 +14,9 @@
 
 - 活跃产品工作区是 `apps/desktop`；仓库是 pnpm workspace，根 `packageManager` 当前锁定 `pnpm@11.5.1`。
 - 桌面宿主当前是 Linux 使用 Electron，macOS 和 Windows 使用 Tauri v2；Rust 仍负责桌面能力、解析、文件系统、启动器和打包侧能力。
-- 前端主栈是 React 19、TypeScript 6、Vite 8、Tailwind CSS 4；测试使用 Vitest/jsdom、Testing Library 和必要的 Playwright 验证脚本。
+- 前端主栈是 React 19、React Compiler、TypeScript 6、Vite 8、Rolldown、Oxc/Oxlint、Tailwind CSS 4；测试使用 Vitest/jsdom、Testing Library 和必要的 Playwright 验证脚本。
 - 前端源码在 `apps/desktop/src`，桌面/Rust 代码在 `apps/desktop/src-tauri`，Electron 宿主代码在 `apps/desktop/electron`。
+- React Compiler 已启用；不要为默认渲染性能新增手写 `useMemo` / `useCallback`。清理既有 memo 时只删纯性能缓存，保留 provider value、effect 依赖稳定性、external store、virtualizer、拖拽和第三方 callback identity 需要的稳定引用。
 
 ## CodeGraph
 
@@ -86,7 +87,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ## 验证要求
 
-- 前端改动最低验证：`pnpm lint`、`pnpm build`、`pnpm --filter @modforge/desktop test`。按影响范围可先跑更小测试，但最终交付需说明已跑或未跑的原因。
+- 前端改动最低验证：`pnpm lint`、`pnpm build`、`pnpm --filter @modforge/desktop test`。`pnpm lint` 使用 Oxlint；`pnpm build` 保留 TypeScript 类型检查并通过 Vite 8/Rolldown 构建。按影响范围可先跑更小测试，但最终交付需说明已跑或未跑的原因。
 - Rust 改动先跑 `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml`，再跑对应 `cargo check` 或 `cargo test`。
 - 架构迁移必须补充或更新架构测试，覆盖依赖方向、平台 API 泄漏、旧根目录回归、feature 横向依赖和实体层 UI 类型污染。
 - UI/布局变更需要能用截图、Playwright 验证脚本或明确手动路径证明；不要只凭静态阅读宣布完成。

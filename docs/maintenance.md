@@ -74,6 +74,16 @@ pnpm build
 pnpm --filter @modforge/desktop test
 ```
 
+`pnpm lint` uses Oxlint as the default frontend linter. `pnpm build` keeps the
+TypeScript `tsc --noEmit` checks and then runs the Vite 8 production build on
+Rolldown. React Compiler is enabled in the Vite React pipeline; do not add
+manual `useMemo` or `useCallback` solely for render performance unless a
+measurement or compiler diagnostic proves it is needed. Existing memoization
+should only be removed when it is a pure render-performance cache; keep it for
+provider values, effect dependency stability, external store or virtualizer
+integration, drag-and-drop handlers, and third-party callback identity
+requirements.
+
 Rust changes need formatting plus the relevant check or test:
 
 ```bash
@@ -134,8 +144,8 @@ release credentials.
 - Keep the root `packageManager` field and documentation in sync when the pnpm
   version changes.
 - Keep required `apps/desktop` configuration files in place, including
-  `package.json`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`,
-  `postcss.config.cjs`, and `index.html`.
+  `package.json`, `vite.config.ts`, `tsconfig*.json`, `postcss.config.cjs`, and
+  `index.html`.
 - Generated build outputs belong in ignored directories such as
   `apps/desktop/dist`, `apps/desktop/electron-dist`, and
   `apps/desktop/src-tauri/target`.

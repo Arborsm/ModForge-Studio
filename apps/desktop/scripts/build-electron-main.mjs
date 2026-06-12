@@ -1,24 +1,36 @@
-import { build } from 'esbuild'
+import { build } from 'rolldown'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const desktopRoot = path.resolve(__dirname, '..')
 
 const commonOptions = {
-  bundle: true,
+  cwd: desktopRoot,
   platform: 'node',
-  target: 'node22',
   external: ['electron'],
   logLevel: 'info',
+  output: {
+    format: 'cjs',
+  },
 }
 
 await Promise.all([
   build({
     ...commonOptions,
-    entryPoints: ['electron/main.ts'],
-    outfile: 'electron-dist/main.cjs',
-    format: 'cjs',
+    input: 'electron/main.ts',
+    output: {
+      ...commonOptions.output,
+      file: 'electron-dist/main.cjs',
+    },
   }),
   build({
     ...commonOptions,
-    entryPoints: ['electron/preload.ts'],
-    outfile: 'electron-dist/preload.cjs',
-    format: 'cjs',
+    input: 'electron/preload.ts',
+    output: {
+      ...commonOptions.output,
+      file: 'electron-dist/preload.cjs',
+    },
   }),
 ])

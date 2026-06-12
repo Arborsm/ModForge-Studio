@@ -53,18 +53,18 @@ use commands::logging::{set_debug_logging_enabled, write_frontend_log};
 use commands::mods::{load_mod_project, save_mod_project, scan_mod_asset_index, scan_mod_projects};
 use commands::resource_registry::load_resource_registry;
 use commands::saves::scan_default_save_slots;
-use support::logging::{DebugLoggingState, build_logging_plugin};
+use support::logging::{DebugLoggingState, init_host_logging};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let debug_logging_state = DebugLoggingState::new();
     debug_logging_state.set_enabled(false);
+    init_host_logging(&debug_logging_state).expect("failed to initialize ModForge host logger");
 
     tauri::Builder::<AppRuntime>::default()
         .manage(debug_logging_state.clone())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(build_logging_plugin(debug_logging_state))
         .setup(|app| {
             app.state::<DebugLoggingState>().set_enabled(false);
             let diagnostics_start_result = domain::app_ui::load_app_ui_state()

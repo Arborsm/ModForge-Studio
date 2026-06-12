@@ -1,5 +1,5 @@
 import { ChevronDown, FileCode, Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useDeferredValue, useEffect, useRef, useState, type UIEvent } from 'react'
 import type { DraftPatch } from '@shared/contracts'
 import { useEditorCopy } from '@locales/localeContext'
 import { cx } from '@shared/lib/cx'
@@ -11,6 +11,9 @@ type PatchQuickMenuProps = {
   onSelectPatch: (patchId: string | null) => void
 }
 
+const INITIAL_VISIBLE_PATCHES = 72
+const VISIBLE_PATCH_INCREMENT = 72
+
 function groupPatches(patches: DraftPatch[]) {
   const groups = new Map<string, DraftPatch[]>()
   for (const patch of patches) {
@@ -21,24 +24,63 @@ function groupPatches(patches: DraftPatch[]) {
   return Array.from(groups.entries())
 }
 
+function limitPatchGroups(groups: Array<[string, DraftPatch[]]>, visiblePatchCount: number) {
+  let remaining = visiblePatchCount
+  const visibleGroups: Array<[string, DraftPatch[]]> = []
+
+  for (const [action, items] of groups) {
+    if (remaining <= 0) {
+      break
+    }
+
+    const visibleItems = items.slice(0, remaining)
+    if (visibleItems.length) {
+      visibleGroups.push([action, visibleItems])
+      remaining -= visibleItems.length
+    }
+  }
+
+  return visibleGroups
+}
+
 export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQuickMenuProps) {
   const copy = useEditorCopy().studioDesk.patchCatalog
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const [visiblePatchCount, setVisiblePatchCount] = useState(INITIAL_VISIBLE_PATCHES)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const activePatch = activePatchId ? (patches.find((patch) => patch.id === activePatchId) ?? null) : null
 
-  const filteredPatches = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
+  const filteredPatches = (() => {
+    const normalized = deferredQuery.trim().toLowerCase()
     if (!normalized) {
       return patches
     }
     return patches.filter((patch) =>
       `${patch.logName} ${patch.action} ${patch.target} ${patch.fromFile ?? ''}`.toLowerCase().includes(normalized),
     )
-  }, [patches, query])
+  })()
 
-  const patchGroups = useMemo(() => groupPatches(filteredPatches), [filteredPatches])
+  const patchGroups = groupPatches(filteredPatches)
+  const visiblePatchGroups = limitPatchGroups(patchGroups, visiblePatchCount)
+  const hasMorePatches = filteredPatches.length > visiblePatchCount
+
+  function handlePatchScroll(event: UIEvent<HTMLDivElement>) {
+    if (!hasMorePatches) {
+      return
+    }
+
+    const target = event.currentTarget
+    const remainingScroll = target.scrollHeight - target.scrollTop - target.clientHeight
+    if (remainingScroll > 180) {
+      return
+    }
+
+    startTransition(() => {
+      setVisiblePatchCount((current) => Math.min(current + VISIBLE_PATCH_INCREMENT, filteredPatches.length))
+    })
+  }
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -77,6 +119,10 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
     }
   }, [open])
 
+  useEffect(() => {
+    startTransition(() => setVisiblePatchCount(INITIAL_VISIBLE_PATCHES))
+  }, [deferredQuery, patches])
+
   return (
     <div ref={rootRef} className="edit-patch-menu">
       <button
@@ -110,20 +156,23 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
             <input
               className="control-input h-9 pl-9 text-xs"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                startTransition(() => setVisiblePatchCount(INITIAL_VISIBLE_PATCHES))
+              }}
               placeholder={copy.quickSearchPlaceholder}
               spellCheck={false}
               autoFocus
             />
           </div>
 
-          <div className="edit-patch-menu-scroll">
-            {patchGroups.length ? (
-              patchGroups.map(([action, items]) => (
+          <div className="edit-patch-menu-scroll" onScroll={handlePatchScroll}>
+            {visiblePatchGroups.length ? (
+              visiblePatchGroups.map(([action, items]) => (
                 <section key={action} className="edit-patch-menu-group">
                   <div className="edit-patch-menu-group-header">
                     <span>{action}</span>
-                    <span>{items.length}</span>
+                    <span>{patchGroups.find(([groupAction]) => groupAction === action)?.[1].length ?? items.length}</span>
                   </div>
                   <div className="grid gap-2">
                     {items.map((patch) => (
@@ -148,6 +197,19 @@ export function PatchQuickMenu({ patches, activePatchId, onSelectPatch }: PatchQ
             ) : (
               <div className="panel-empty-state text-center text-xs">{copy.noSearchMatches}</div>
             )}
+            {hasMorePatches ? (
+              <button
+                type="button"
+                className="control-button edit-patch-menu-more"
+                onClick={() =>
+                  startTransition(() => {
+                    setVisiblePatchCount((current) => Math.min(current + VISIBLE_PATCH_INCREMENT, filteredPatches.length))
+                  })
+                }
+              >
+                {Math.min(visiblePatchCount, filteredPatches.length)} / {filteredPatches.length} {copy.patches}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

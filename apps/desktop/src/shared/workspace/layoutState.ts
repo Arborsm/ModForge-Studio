@@ -177,7 +177,7 @@ export function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefine
     const forcedDock = getForcedDockForPanel()
     const nextPanelState: WorkspacePanelState = {
       ...defaults.panels[panel.id],
-      ...(snapshot?.panels?.[panel.id] ?? {}),
+      ...snapshot?.panels?.[panel.id],
       ...(forcedDock ? { dock: forcedDock } : {}),
     }
 
@@ -195,7 +195,7 @@ export function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefine
       slot,
       {
         ...defaults.slots[slot],
-        ...(snapshot?.slots?.[slot] ?? {}),
+        ...snapshot?.slots?.[slot],
       },
     ]),
   ) as Record<SlotId, WorkspaceSlotState>
@@ -206,7 +206,7 @@ export function sanitizeSnapshot(snapshot: Partial<WorkspaceSnapshot> | undefine
     chrome: normalizeChrome(
       {
         ...defaults.chrome,
-        ...(snapshot?.chrome ?? {}),
+        ...snapshot?.chrome,
       },
       panels,
     ),

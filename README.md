@@ -58,11 +58,14 @@ product workspace is `apps/desktop`.
 
 - Desktop shell: Electron on Linux; Tauri v2 on macOS and Windows; Rust remains
   the backend for desktop capabilities.
-- Frontend: React 19, TypeScript 6, Vite 8, Tailwind CSS 4.
+- Frontend: React 19 with React Compiler, TypeScript 6, Vite 8 on Rolldown,
+  Tailwind CSS 4.
 - UI/runtime libraries: Radix UI, Floating UI, lucide-react, React Resizable
   Panels, TanStack Virtual, XYFlow, Zustand.
 - Testing: Vitest, jsdom, Testing Library, Playwright verification scripts.
 - Package manager: pnpm 11.5.1.
+- Frontend lint/build tooling: Oxlint for `pnpm lint`; Vite/Rolldown for
+  production builds.
 
 ## Quick Start
 
@@ -75,6 +78,13 @@ Use `pnpm desktop:dev` to run the full desktop application with the Rust
 backend. The root dispatcher starts Electron on Linux and Tauri on macOS and
 Windows. Use `pnpm build` for the frontend production build and
 `pnpm desktop:build` for the current platform's desktop build path.
+
+React Compiler is enabled through the Vite React pipeline. Do not add manual
+`useMemo` or `useCallback` only for render performance unless there is a
+measurement or compiler diagnostic that requires it. Keep stable-reference
+hooks when identity is semantic, such as provider values, effect dependencies,
+external stores, virtualizers, drag-and-drop handlers, and third-party callback
+contracts.
 
 Common checks:
 

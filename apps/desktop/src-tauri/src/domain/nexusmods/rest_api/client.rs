@@ -114,7 +114,12 @@ pub(crate) struct UserInfo {
     pub key: String,
     pub name: String,
     pub is_premium: bool,
-    #[serde(default, alias = "premium_expiry", alias = "premium_expires", alias = "premium_until")]
+    #[serde(
+        default,
+        alias = "premium_expiry",
+        alias = "premium_expires",
+        alias = "premium_until"
+    )]
     pub premium_expires_at: Option<Value>,
     #[serde(
         default,
