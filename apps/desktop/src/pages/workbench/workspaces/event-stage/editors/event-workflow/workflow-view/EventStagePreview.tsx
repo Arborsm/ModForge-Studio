@@ -24,6 +24,7 @@ type EventStagePreviewProps = {
   viewportLabels?: ViewportLabels
   className?: string
   additionalViewportOverlay?: ReactNode
+  hideViewportStatus?: boolean
   hideHeader?: boolean
   onTileClick?: (tileX: number, tileY: number) => void
   onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
@@ -73,6 +74,7 @@ export function EventStagePreview({
   viewportLabels = EMPTY_VIEWPORT_LABELS,
   className,
   additionalViewportOverlay,
+  hideViewportStatus,
   hideHeader,
   onTileClick,
   onContextMenuAction,
@@ -169,6 +171,7 @@ export function EventStagePreview({
       className={className}
       hideHeader={hideHeader}
       additionalViewportOverlay={additionalViewportOverlay}
+      hideViewportStatus={hideViewportStatus}
       onTileClick={onTileClick}
       onContextMenuAction={onContextMenuAction}
       conditionBuilderLabel={conditionBuilderLabel}

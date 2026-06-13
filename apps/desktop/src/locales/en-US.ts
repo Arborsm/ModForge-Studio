@@ -1734,8 +1734,6 @@ const localeBundle: LocaleBundle = {
         back: 'Back',
         forward: 'Forward',
         editView: 'Edit view',
-        editor: 'Editor',
-        reference: 'Reference',
         unsaved: 'Unsaved',
         saved: 'Saved',
         project: 'Project',

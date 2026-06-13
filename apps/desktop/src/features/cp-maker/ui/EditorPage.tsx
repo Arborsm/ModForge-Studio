@@ -6,7 +6,6 @@ import type { GameDirectoryInfo } from '../model/cpMakerPort'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { useEditorCopy } from '@locales/localeContext'
 import { getWorkspacePlugin } from '../model/workspaceRegistry'
-import { PreviewModeShell } from './PreviewModeShell'
 import type { PlayerAppearanceProfile } from '@entities/event'
 
 interface EditorPageProps {
@@ -25,7 +24,7 @@ interface EditorPageProps {
   directoryInfo: GameDirectoryInfo | null
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
-  viewMode: 'editor' | 'reference'
+  onSelectedEventKeyChange?: (eventKey: string | null) => void
 }
 
 export function EditorPage({
@@ -44,10 +43,9 @@ export function EditorPage({
   directoryInfo,
   playerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
-  viewMode,
+  onSelectedEventKeyChange,
 }: EditorPageProps) {
   const copy = useEditorCopy().studioDesk.editorPage
-  const showReferenceTab = Boolean(gameRootPath && directoryInfo && locale && theme)
 
   if (!patch || !draft) {
     return <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">{copy.patchNotFound}</div>
@@ -55,22 +53,11 @@ export function EditorPage({
 
   const plugin = getWorkspacePlugin(workspaceId)
   const Editor = plugin?.editMode.editor
-  const shouldShowReference = viewMode === 'reference' && showReferenceTab
 
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-hidden">
-        {shouldShowReference ? (
-          <PreviewModeShell
-            workspaceMode={workspaceId}
-            gameRootPath={gameRootPath}
-            directoryInfo={directoryInfo}
-            locale={locale!}
-            theme={theme!}
-            accentColor={accentColor ?? '#6366f1'}
-            viewportLabels={viewportLabels ?? ({} as ViewportLabels)}
-          />
-        ) : Editor ? (
+        {Editor ? (
           <Editor
             patch={patch}
             draft={draft}
@@ -86,6 +73,7 @@ export function EditorPage({
             directoryInfo={directoryInfo}
             playerAppearanceProfile={playerAppearanceProfile}
             onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
+            onSelectedEventKeyChange={onSelectedEventKeyChange}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">

@@ -35,20 +35,7 @@ export type EditorComponent = ComponentType<{
   directoryInfo?: GameDirectoryInfo | null
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
-}>
-
-export type PreviewRendererComponent = ComponentType<{
-  gameRootPath: string | null
-  directoryInfo: {
-    rootPath: string
-    executablePath: string
-    mapsPath: string | null
-    mapCount: number
-  } | null
-  locale: LocaleCode
-  theme: ThemeMode
-  accentColor: string
-  viewportLabels: ViewportLabels
+  onSelectedEventKeyChange?: (eventKey: string | null) => void
 }>
 
 export interface WorkspacePlugin {
@@ -59,9 +46,6 @@ export interface WorkspacePlugin {
     patchListFields: PatchListField[]
     targetPicker: TargetPickerComponent
     editor: EditorComponent
-  }
-  previewMode?: {
-    renderer: PreviewRendererComponent
   }
   serializer: {
     toChangeEntry: (patch: DraftPatch) => Record<string, unknown>

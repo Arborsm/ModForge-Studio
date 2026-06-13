@@ -258,6 +258,7 @@ export function useEventStageWorkspace({
   const [effectAssets, setEffectAssets] = useState<Record<string, EffectAssetState>>({})
   const lastAudioCommandIdRef = useRef<string | null>(null)
   const lastSyncedMusicCueKeyRef = useRef<string | null>(null)
+  const lastAnimationNowMsRef = useRef(animationNowMs)
   const onSelectTimelineEntryRef = useRef(onSelectTimelineEntry)
 
   useEffect(() => {
@@ -675,7 +676,10 @@ export function useEventStageWorkspace({
     let frameId = 0
     const tick = () => {
       const nowMs = performance.now()
-      setAnimationNowMs(nowMs)
+      if (nowMs - lastAnimationNowMsRef.current >= 16) {
+        lastAnimationNowMsRef.current = nowMs
+        setAnimationNowMs(nowMs)
+      }
       setPlaybackState((current) =>
         advancePlaybackTimeState(current, nowMs, {
           autoPlay,

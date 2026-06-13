@@ -104,13 +104,23 @@ export function EditModeShell({
 }: EditModeShellProps) {
   const activePatch = activePatchId ? (patches.find((p) => p.id === activePatchId) ?? null) : null
   const [activeEventKey, setActiveEventKey] = useState<string | null>(null)
-  const [editorViewMode, setEditorViewMode] = useState<'editor' | 'reference'>('editor')
   const [addPatchDialogOpen, setAddPatchDialogOpen] = useState(false)
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
-  const showReference = Boolean(gameRootPath && directoryInfo && locale && theme)
-  const activeEditorViewMode = showReference ? editorViewMode : 'editor'
   const isWipWorkspace = workspaceId !== 'events'
   const isEventPatchHub = !isWipWorkspace && activePatchId === null
+  const eventAliases =
+    workspaceId === 'events' &&
+    activePatch?.editorState &&
+    typeof activePatch.editorState === 'object' &&
+    !Array.isArray(activePatch.editorState) &&
+    'eventAliases' in activePatch.editorState &&
+    typeof activePatch.editorState.eventAliases === 'object' &&
+    activePatch.editorState.eventAliases !== null &&
+    !Array.isArray(activePatch.editorState.eventAliases)
+      ? (activePatch.editorState.eventAliases as Record<string, string>)
+      : {}
+  const toolbarContextTitle = workspaceId === 'events' && activeEventKey ? activeEventKey : null
+  const toolbarContextSubtitle = toolbarContextTitle ? (eventAliases[toolbarContextTitle] ?? null) : null
 
   function handleSelectPatch(patchId: string | null) {
     if (patchId === null) {
@@ -164,15 +174,14 @@ export function EditModeShell({
           patches={patches}
           activePatchId={activePatchId}
           activePatch={activePatch}
-          viewMode={activeEditorViewMode}
-          showReference={showReference}
+          contextTitle={toolbarContextTitle}
+          contextSubtitle={toolbarContextSubtitle}
           isDirty={isDirty}
           canGoBack={canGoBack}
           canGoForward={canGoForward}
           onGoBack={onGoBack}
           onGoForward={onGoForward}
           onSelectPatch={handleSelectPatch}
-          onViewModeChange={setEditorViewMode}
           onAddPatch={() => {
             setAddPatchDialogOpen(true)
           }}
@@ -221,7 +230,7 @@ export function EditModeShell({
             directoryInfo={directoryInfo ?? null}
             playerAppearanceProfile={playerAppearanceProfile}
             onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
-            viewMode={activeEditorViewMode}
+            onSelectedEventKeyChange={setActiveEventKey}
           />
         )}
       </div>

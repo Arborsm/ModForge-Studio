@@ -1715,8 +1715,6 @@ const localeBundle = {
         back: '后退',
         forward: '前进',
         editView: '编辑视图',
-        editor: '编辑器',
-        reference: '参考',
         unsaved: '未保存',
         saved: '已保存',
         project: '项目',

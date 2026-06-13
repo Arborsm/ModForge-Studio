@@ -1622,8 +1622,6 @@ export type EditorCopy = {
       back: string
       forward: string
       editView: string
-      editor: string
-      reference: string
       unsaved: string
       saved: string
       project: string

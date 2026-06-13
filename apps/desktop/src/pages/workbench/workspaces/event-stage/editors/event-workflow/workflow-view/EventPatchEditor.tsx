@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { Clapperboard, Database, GitBranch, Map, MapPin, Plus, Sparkles, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useReducer, useRef, useState, type CSSProperties } from 'react'
+import { Camera, Database, Map, MapPin, MoreHorizontal, Music, Plus, Sparkles, Trash2, UserPlus } from 'lucide-react'
 import type { DraftPatch, CpMakerDraft, GameDirectoryInfo } from '@shared/contracts'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
@@ -12,11 +12,11 @@ import {
 } from '@pages/workbench/workspaces/item/entities/item'
 import { serializeRaw } from '../workflow-model/rawSerializer'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
-import type { EventScript, EventSceneSetup, PlayerAppearanceProfile } from '@entities/event'
+import type { EventSceneActor, EventScript, EventSceneSetup, PlayerAppearanceProfile } from '@entities/event'
 import { EventStagePreview, type EventStagePreviewAssetLoader } from './EventStagePreview'
 import { PickModeOverlay } from './PickModeOverlay'
-import { SceneSetupBar } from './SceneSetupBar'
 import { ScriptEditor } from './ScriptEditor'
+import { EventResourcePicker } from './EventResourcePicker'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { useEditorCopy, useLocale } from '@locales/localeContext'
 import { buildEventPatchHubPatches } from '@entities/event'
@@ -66,7 +66,9 @@ const EVENT_LOCATIONS = ['Town', 'Beach', 'Mine', 'Forest', 'Saloon', 'Farm', 'M
 type EventScenarioPreset = {
   id: string
   label: string
+  labelZh: string
   description: string
+  descriptionZh: string
   location: (typeof EVENT_LOCATIONS)[number]
   eventKey: string
   alias: string
@@ -80,7 +82,9 @@ const EVENT_SCENARIO_PRESETS: EventScenarioPreset[] = [
   {
     id: 'town-market',
     label: 'Town market introduction',
+    labelZh: '小镇集市开场',
     description: 'Town scene with two NPCs, dialogue, movement, emotion, a reward, and a clean ending.',
+    descriptionZh: '小镇双 NPC、对话、移动、表情、奖励与收尾。',
     location: 'Town',
     eventKey: '900001/Season spring/Time 900 1400/Weather Sun',
     alias: 'Spring market meeting',
@@ -104,7 +108,9 @@ const EVENT_SCENARIO_PRESETS: EventScenarioPreset[] = [
   {
     id: 'beach-find',
     label: 'Beach lost item',
+    labelZh: '海滩失物',
     description: 'Beach item event with props, sound, player animation, head-held item, and friendship reward.',
+    descriptionZh: '海滩道具、音效、玩家动画、头顶物品与好感奖励。',
     location: 'Beach',
     eventKey: '900002/Season summer/Time 1200 1800',
     alias: 'Lost shell on the pier',
@@ -128,7 +134,9 @@ const EVENT_SCENARIO_PRESETS: EventScenarioPreset[] = [
   {
     id: 'mine-rescue',
     label: 'Mine rescue branch',
+    labelZh: '矿井救援分支',
     description: 'Mine scene with temporary actor, movement path, animation, sound, shake, choice, and branch hook.',
+    descriptionZh: '矿井临时角色、路径、动画、音效、震屏、选择与分支。',
     location: 'Mine',
     eventKey: '900003/PlayerGender male female/MailReceived guildMember',
     alias: 'Lantern in the dark',
@@ -166,6 +174,7 @@ interface EventPatchEditorProps {
   directoryInfo?: GameDirectoryInfo | null
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
+  onSelectedEventKeyChange?: (eventKey: string | null) => void
   assetLoader?: EventStagePreviewAssetLoader
 }
 
@@ -176,6 +185,105 @@ type TextOperation = {
   search?: string
   delimiter?: string
   replaceMode?: 'First' | 'All'
+}
+
+function eventShellStyle(theme: ThemeMode | undefined, accentColor: string | undefined): CSSProperties | undefined {
+  const style: Record<string, string> = {}
+
+  if (theme === 'dark') {
+    Object.assign(style, {
+      '--color-success': '#22c55e',
+      '--color-warning': '#f59e0b',
+      '--color-danger': '#f87171',
+      '--surface-app': '#12151c',
+      '--surface-panel': '#1a1f27',
+      '--surface-panel-muted': '#151a21',
+      '--surface-viewport': '#0a0d12',
+      '--surface-active': '#2a3242',
+      '--surface-elevated': 'rgba(24, 28, 36, 0.95)',
+      '--text-primary': '#f3f6fb',
+      '--text-secondary': '#b4bdcb',
+      '--text-tertiary': '#7d8798',
+      '--text-inverse': '#f8fbff',
+      '--surface-inverse': '#05070c',
+      '--border-subtle': 'rgba(166, 176, 192, 0.2)',
+      '--bg-app': '#12151c',
+      '--bg-panel': '#1a1f27',
+      '--bg-panel-muted': '#151a21',
+      '--bg-viewport': '#0a0d12',
+      '--bg-active': '#2a3242',
+      '--bg-elevated': 'rgba(24, 28, 36, 0.95)',
+      '--border-color': 'rgba(166, 176, 192, 0.2)',
+      '--success': '#22c55e',
+      '--warning': '#f59e0b',
+      '--danger': '#f87171',
+    })
+  }
+
+  if (accentColor) {
+    const accentSoft = rgbaFromHex(accentColor, theme === 'dark' ? 0.18 : 0.14)
+    const activeSurface = rgbaFromHex(accentColor, theme === 'dark' ? 0.22 : 0.12)
+    Object.assign(style, {
+      '--color-accent': accentColor,
+      '--accent': accentColor,
+      '--accent-soft': accentSoft,
+      '--surface-active': activeSurface,
+      '--bg-active': activeSurface,
+    })
+  }
+
+  return Object.keys(style).length > 0 ? (style as CSSProperties) : undefined
+}
+
+function rgbaFromHex(value: string, alpha: number) {
+  const normalized = value.trim().replace(/^#/u, '')
+  if (!/^(?:[\da-f]{3}|[\da-f]{6})$/iu.test(normalized)) {
+    return `rgba(79, 70, 229, ${alpha})`
+  }
+
+  const hex =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : normalized
+  const parsed = Number.parseInt(hex, 16)
+
+  const r = (parsed >> 16) & 255
+  const g = (parsed >> 8) & 255
+  const b = parsed & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function getEventComposerCopy(locale: LocaleCode | undefined) {
+  const zh = locale !== 'en-US'
+  return {
+    addEvent: zh ? '新建事件' : 'New event',
+    eventsHeading: zh ? '事件' : 'Events',
+    searchEvents: zh ? '搜索事件、地点或角色' : 'Search events, locations, or actors',
+    noEvents: zh ? '没有匹配的事件。' : 'No events found.',
+    fromPreset: zh ? '从预设开始' : 'From preset',
+    chooseEvent: zh ? '从左侧选择事件。' : 'Choose an event entry from the list.',
+    configureGameRoot: zh ? '配置游戏目录后可渲染地图预览。' : 'Configure the game root to render the map preview.',
+    music: zh ? '音乐' : 'Music',
+    actor: zh ? '角色' : 'Actor',
+    actors: zh ? '角色:' : 'Actors:',
+    addActor: zh ? '添加角色' : 'Add actor',
+    pick: zh ? '拾取' : 'Pick',
+    pickCamera: zh ? '拾取镜头位置' : 'Pick camera position',
+    commandCountShort: (count: number) => (zh ? `${count} 命令` : `${count} commands`),
+    presetLabel: (preset: EventScenarioPreset) => (zh ? preset.labelZh : preset.label),
+    presetDescription: (preset: EventScenarioPreset) => (zh ? preset.descriptionZh : preset.description),
+    pathPointHint: (count: number) => (zh ? `已选择 ${count} 个路径点。` : `${count} path points selected.`),
+    pathPickHint: zh ? '点击地图格子创建移动路径。' : 'Click map tiles to build the movement path.',
+    coordinatePickHint: zh ? '点击地图选择坐标。' : 'Click the map to choose coordinates.',
+    cameraPickHint: zh ? '点击地图设置镜头目标。' : 'Click the map to set the camera target.',
+    actorPickHint: zh ? '点击地图放置角色。' : 'Click the map to place the actor.',
+    donePath: zh ? '完成路径' : 'Done',
+    clearPath: zh ? '清空路径' : 'Clear',
+    cancelPick: zh ? '取消拾取' : 'Cancel',
+  }
 }
 
 export function EventPatchEditor({
@@ -192,6 +300,7 @@ export function EventPatchEditor({
   directoryInfo,
   playerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
+  onSelectedEventKeyChange,
   assetLoader,
 }: EventPatchEditorProps) {
   void onAddVirtualAsset
@@ -216,6 +325,11 @@ export function EventPatchEditor({
         ? selectedEventKey
         : (entryKeys[0] ?? null)
   const setSelectedKey = setLocalSelectedKey
+
+  useEffect(() => {
+    onSelectedEventKeyChange?.(selectedKey)
+  }, [onSelectedEventKeyChange, selectedKey])
+
   const hubPatch = useMemo(() => buildEventPatchHubPatches([patch])[0] ?? null, [patch])
   const conditionBuilderEvent = selectedKey ? (hubPatch?.events.find((event) => event.key === selectedKey) ?? null) : null
   const eventAliases = eventAliasesFromState(editorState)
@@ -294,25 +408,6 @@ export function EventPatchEditor({
     setConditionBuilderOpen(false)
   }
 
-  function updatePatchLocation(location: string) {
-    const trimmed = location.trim()
-    if (!trimmed) {
-      return
-    }
-
-    const nextEventLocations = selectedKey
-      ? { ...eventLocationsFromState(editorState), [selectedKey]: trimmed }
-      : eventLocationsFromState(editorState)
-    onPatchChange(patch.id, {
-      target: `Data/Events/${trimmed}`,
-      logName: patch.logName || `${trimmed} event scenes`,
-      editorState: {
-        ...editorState,
-        eventLocations: nextEventLocations,
-      },
-    })
-  }
-
   function addBlankEvent() {
     const location = activeLocation || 'Town'
     const suffix = Object.keys(entries).length + 1
@@ -377,33 +472,22 @@ export function EventPatchEditor({
   }
 
   return (
-    <div className="event-edit-shell">
-      <EventComposerHeader
-        activeLocation={activeLocation}
-        eventCount={entryKeys.length}
-        commandCount={countEntryCommands(entries)}
-        patchTarget={patch.target}
-        presets={EVENT_SCENARIO_PRESETS}
-        onAddBlankEvent={addBlankEvent}
-        onApplyPreset={applyScenarioPreset}
-        selectedEventKey={selectedKey}
-        eventAliases={eventAliases}
-        entries={entries}
-        onSelectEvent={setSelectedKey}
-        onLocationChange={updatePatchLocation}
-        onOpenConditionBuilder={() => selectedKey && setConditionBuilderOpen(true)}
-      />
+    <div className={theme === 'dark' ? 'event-edit-shell dark' : 'event-edit-shell'} style={eventShellStyle(theme, accentColor)}>
       {activeTab === 'events' ? (
         <EventsEditor
           entries={entries}
           selectedKey={selectedKey}
+          onSelectEvent={setSelectedKey}
           updateEntries={updateEntries}
           updateCommand={updateCommand}
           patch={patch}
           draftPatches={draft.patches}
+          presets={EVENT_SCENARIO_PRESETS}
+          eventAliases={eventAliases}
           eventLocations={eventLocations}
-          patchTarget={patch.target}
           activeLocation={activeLocation}
+          onAddBlankEvent={addBlankEvent}
+          onApplyPreset={applyScenarioPreset}
           gameRootPath={gameRootPath}
           locale={effectiveLocale}
           theme={theme}
@@ -482,15 +566,6 @@ function removeEntriesWithEventId<T>(records: Record<string, T>, eventId: string
   return Object.fromEntries(Object.entries(records).filter(([key]) => getEventIdFromKey(key) !== eventId))
 }
 
-function countEntryCommands(entries: Record<string, unknown>): number {
-  return Object.values(entries).reduce<number>((total, value) => {
-    if (typeof value !== 'string') {
-      return total
-    }
-    return total + Math.max(0, parseEventCommands(value).length - 3)
-  }, 0)
-}
-
 function createUniqueEventKey(entries: Record<string, unknown>, startAt: number) {
   for (let offset = 0; offset < 1000; offset += 1) {
     const suffix = startAt + offset
@@ -502,219 +577,20 @@ function createUniqueEventKey(entries: Record<string, unknown>, startAt: number)
   return `900${Date.now()}/Season spring/Time 900 1700`
 }
 
-function getStarterMusic(location: string) {
-  switch (location) {
-    case 'Beach':
-      return 'wavy'
-    case 'Mine':
-      return 'Cavern'
-    case 'Forest':
-      return 'woodsTheme'
-    case 'Saloon':
-      return 'saloon1'
-    case 'Mountain':
-      return 'spring3'
-    default:
-      return 'spring2'
-  }
-}
-
-function getStarterActorName(location: string) {
-  switch (location) {
-    case 'Beach':
-      return 'Elliott'
-    case 'Mine':
-      return 'Marlon'
-    case 'Forest':
-      return 'JunimoGuide'
-    case 'Saloon':
-      return 'Gus'
-    case 'Mountain':
-      return 'Linus'
-    default:
-      return 'Abigail'
-  }
-}
-
-function buildStarterFlowScript(scene: EventSceneSetup, location: string) {
-  const farmer = scene.actors.find((actor) => /^farmer\d*$/iu.test(actor.actorName)) ?? scene.actors[0]
-  const farmerTileX = farmer?.tileX ?? 12
-  const farmerTileY = farmer?.tileY ?? 14
-  const farmerDirection = farmer?.facingDirection ?? 0
-  const actorName = scene.actors.find((actor) => !/^farmer\d*$/iu.test(actor.actorName))?.actorName ?? getStarterActorName(location)
-  const actorTileX = farmerTileX + 2
-  const actorTileY = Math.max(0, farmerTileY - 1)
-  const objectTileX = actorTileX + 1
-  const objectTileY = actorTileY
-  const camera = `${Math.max(0, farmerTileX + 1)} ${Math.max(0, farmerTileY - 1)}`
-
-  return [
-    getStarterMusic(location),
-    camera,
-    `farmer ${farmerTileX} ${farmerTileY} ${farmerDirection} ${actorName} ${actorTileX} ${actorTileY} 3`,
-    'skippable',
-    `viewport ${Math.max(0, farmerTileX + 1)} ${Math.max(0, farmerTileY - 1)}`,
-    `speak ${actorName} "I brought a small scene draft. We can tune every beat from here."`,
-    `emote ${actorName} 16`,
-    `move ${actorName} 1 0 1 ${actorName} 0 1 2`,
-    `addObject ${objectTileX} ${objectTileY} "(O)72"`,
-    'itemAboveHead "(O)72"',
-    `animate ${actorName} true true 120 16 17 18 19`,
-    'addItem "(O)72" 1',
-    'message "The starter event now has movement, an item, and animation."',
-    'end dialogue',
-  ].join('/')
-}
-
-function EventComposerHeader({
-  activeLocation,
-  eventCount,
-  commandCount,
-  patchTarget,
-  presets,
-  selectedEventKey,
-  eventAliases,
-  entries,
-  onAddBlankEvent,
-  onApplyPreset,
-  onSelectEvent,
-  onLocationChange,
-  onOpenConditionBuilder,
-}: {
-  activeLocation: string
-  eventCount: number
-  commandCount: number
-  patchTarget: string
-  presets: EventScenarioPreset[]
-  selectedEventKey: string | null
-  eventAliases: Record<string, string>
-  entries: Record<string, unknown>
-  onAddBlankEvent: () => void
-  onApplyPreset: (preset: EventScenarioPreset) => void
-  onSelectEvent: (key: string | null) => void
-  onLocationChange: (location: string) => void
-  onOpenConditionBuilder: () => void
-}) {
-  const eventCards = Object.entries(entries).flatMap(([key, value]) => {
-    if (typeof value !== 'string') {
-      return []
-    }
-
-    const segments = parseEventCommands(value)
-    const scene = parseEventSceneSetup(segments)
-    return [
-      {
-        key,
-        label: eventAliases[key] || key.split('/')[0] || key,
-        actors: scene.actors.map((actor) => actor.actorName),
-        commandCount: Math.max(0, segments.length - 3),
-      },
-    ]
-  })
-
-  return (
-    <div className="border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2 py-1 text-[11px] font-semibold text-[var(--text-primary)]">
-            <Clapperboard className="h-3.5 w-3.5 text-[var(--accent)]" />
-            Graphical event maker
-          </span>
-          <label className="inline-flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-            <MapPin className="h-3.5 w-3.5" />
-            Location
-            <select
-              className="control-input h-7 w-40 text-xs"
-              value={activeLocation}
-              onChange={(event) => onLocationChange(event.target.value)}
-            >
-              {EVENT_LOCATIONS.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="rounded-full bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
-            {eventCount} events
-          </span>
-          <span className="rounded-full bg-[var(--bg-panel-muted)] px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">
-            {commandCount} commands
-          </span>
-          <span className="max-w-[260px] truncate rounded-full bg-[var(--bg-panel-muted)] px-2 py-0.5 font-mono text-[10px] text-[var(--text-tertiary)]">
-            {patchTarget}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button type="button" className="control-button h-7" onClick={onOpenConditionBuilder}>
-            <GitBranch className="h-3.5 w-3.5" />
-            <span>Trigger</span>
-          </button>
-          <button type="button" className="control-button h-7" onClick={onAddBlankEvent}>
-            <Plus className="h-3.5 w-3.5" />
-            <span>Event</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-2 flex gap-2 overflow-x-auto pb-0.5">
-        {presets.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            className="group flex max-w-[260px] min-w-[220px] items-start gap-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2.5 py-2 text-left transition-colors hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border-color))]"
-            onClick={() => onApplyPreset(preset)}
-          >
-            <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-            <span className="min-w-0">
-              <span className="block truncate text-[11px] font-semibold text-[var(--text-primary)]">{preset.label}</span>
-              <span className="block truncate text-[10px] text-[var(--text-tertiary)]">
-                {preset.location} · {preset.description}
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {eventCards.length > 0 ? (
-        <div className="mt-2 flex gap-2 overflow-x-auto border-t border-[var(--border-color)] pt-2">
-          {eventCards.map((event) => {
-            const selected = event.key === selectedEventKey
-            return (
-              <button
-                key={event.key}
-                type="button"
-                className={`max-w-[240px] min-w-[190px] rounded-md border px-2.5 py-2 text-left transition-colors ${
-                  selected
-                    ? 'border-[color-mix(in_srgb,var(--accent)_65%,var(--border-color))] bg-[color-mix(in_srgb,var(--accent-soft)_70%,transparent)]'
-                    : 'border-[var(--border-color)] bg-[var(--bg-app)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border-color))]'
-                }`}
-                onClick={() => onSelectEvent(event.key)}
-              >
-                <span className="block truncate text-[11px] font-semibold text-[var(--text-primary)]">{event.label}</span>
-                <span className="mt-1 block truncate text-[10px] text-[var(--text-tertiary)]">
-                  {event.actors.length ? event.actors.join(', ') : 'No actors'} · {event.commandCount} commands
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
 function EventsEditor({
   entries,
   selectedKey,
+  onSelectEvent,
   updateEntries,
   updateCommand,
   patch,
   draftPatches,
+  presets,
+  eventAliases,
   eventLocations,
-  patchTarget,
   activeLocation,
+  onAddBlankEvent,
+  onApplyPreset,
   gameRootPath,
   locale,
   theme,
@@ -729,13 +605,17 @@ function EventsEditor({
 }: {
   entries: Record<string, unknown>
   selectedKey: string | null
+  onSelectEvent: (key: string | null) => void
   updateEntries: (entries: Record<string, unknown>) => void
   updateCommand: (index: number, newRaw: string) => void
   patch: DraftPatch
   draftPatches: DraftPatch[]
+  presets: EventScenarioPreset[]
+  eventAliases: Record<string, string>
   eventLocations: Record<string, string>
-  patchTarget: string
   activeLocation: string
+  onAddBlankEvent: () => void
+  onApplyPreset: (preset: EventScenarioPreset) => void
   gameRootPath: string | null
   locale?: LocaleCode
   theme?: ThemeMode
@@ -748,6 +628,7 @@ function EventsEditor({
   conditionBuilderLabel: string
   onOpenConditionBuilder: () => void
 }) {
+  const copy = getEventComposerCopy(locale)
   const selectedEntry = selectedKey ? (entries[selectedKey] ?? null) : null
   const selectedEntryString = typeof selectedEntry === 'string' ? selectedEntry : null
   const [pickingActorIndex, setPickingActorIndex] = useState<number | null>(null)
@@ -757,6 +638,7 @@ function EventsEditor({
   const [globalResourceRegistry, dispatchGlobalResourceRegistry] = useReducer(globalResourceRegistryReducer, null)
   const [itemCatalogState, dispatchItemCatalog] = useReducer(itemCatalogReducer, { entries: [], texturesByAssetName: {} })
   const [draftPathPoints, setDraftPathPoints] = useState<DraftPathPoint[]>([])
+  const [eventSearch, setEventSearch] = useState('')
   const previousSelectedKeyRef = useRef<string | null>(null)
   const isPickMode = useEditorStore((state) => state.isPickMode)
   const pickModeTarget = useEditorStore((state) => state.pickModeTarget)
@@ -787,9 +669,39 @@ function EventsEditor({
     }
   }, [parsedEvent, selectedEntryString, selectedKey])
 
-  const mapName = useMemo(() => {
-    return activeLocation || getLocationFromTarget(patchTarget) || null
-  }, [activeLocation, patchTarget])
+  const mapName = activeLocation || null
+
+  const eventSummaries = useMemo(() => {
+    const needle = eventSearch.trim().toLowerCase()
+    return Object.entries(entries)
+      .flatMap(([key, value]) => {
+        if (typeof value !== 'string') {
+          return []
+        }
+        const segments = parseEventCommands(value)
+        const scene = parseEventSceneSetup(segments)
+        return [
+          {
+            key,
+            label: eventAliases[key] || key.split('/')[0] || key,
+            location: eventLocations[key] || mapName || 'Town',
+            actors: scene.actors.map((actor) => actor.actorName),
+            commandCount: Math.max(0, segments.length - 3),
+          },
+        ]
+      })
+      .filter((event) => {
+        if (!needle) {
+          return true
+        }
+        return (
+          event.key.toLowerCase().includes(needle) ||
+          event.label.toLowerCase().includes(needle) ||
+          event.location.toLowerCase().includes(needle) ||
+          event.actors.join(' ').toLowerCase().includes(needle)
+        )
+      })
+  }, [entries, eventAliases, eventLocations, eventSearch, mapName])
 
   const resourceRegistry = useMemo<EventResourceRegistry>(
     () =>
@@ -925,13 +837,6 @@ function EventsEditor({
       ...parsedEvent.segments.slice(3),
     ])
     updateEntries({ ...entries, [selectedKey]: newSegments.join('/') })
-  }
-
-  function applyStarterFlow() {
-    if (!selectedKey || !parsedEvent) {
-      return
-    }
-    updateEntries({ ...entries, [selectedKey]: buildStarterFlowScript(parsedEvent.scene, mapName ?? activeLocation) })
   }
 
   function directionFromPreviousPoint(points: DraftPathPoint[], tileX: number, tileY: number) {
@@ -1096,59 +1001,116 @@ function EventsEditor({
   }
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <div className="flex min-w-0 flex-[7] flex-col border-r border-[var(--border-color)]">
-        {parsedEvent ? (
-          <div className="border-b border-[var(--border-color)] bg-[var(--bg-panel)] px-3 py-2">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="min-w-[220px] flex-1 truncate rounded-md border border-[var(--border-color)] bg-[var(--bg-app)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)]">
-                Trigger: <strong className="font-semibold text-[var(--text-primary)]">{selectedKey?.split('/')[0] ?? 'New event'}</strong>
-              </span>
-              <button type="button" className="control-button h-8" onClick={applyStarterFlow}>
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Starter flow</span>
-              </button>
-              <button type="button" className="control-button h-8" onClick={onOpenConditionBuilder}>
-                <GitBranch className="h-3.5 w-3.5" />
-                <span>Design trigger</span>
-              </button>
-            </div>
-            <SceneSetupBar
-              scene={parsedEvent.scene}
-              locale={locale}
-              pickMode={pickingActorIndex !== null || cameraPickMode || isPickMode}
-              cameraPickMode={cameraPickMode}
-              pickingActorIndex={pickingActorIndex}
-              onPickModeToggle={() => {
-                if (isPickMode) {
-                  useEditorStore.getState().setPickModeTarget(null)
-                  setDraftPathPoints([])
-                }
-                setCameraPickMode(false)
-                setPickingActorIndex((current) => (current !== null ? null : 0))
-              }}
-              onPickCamera={() => {
-                if (isPickMode) {
-                  useEditorStore.getState().setPickModeTarget(null)
-                }
-                setPickingActorIndex(null)
-                setCameraPickMode((current) => !current)
-              }}
-              onPickActor={(index) => {
-                if (isPickMode) {
-                  useEditorStore.getState().setPickModeTarget(null)
-                }
-                setCameraPickMode(false)
-                setPickingActorIndex(index)
-              }}
-              onSceneChange={handleSceneChange}
-              resourceRegistry={resourceRegistry}
-              className="border-0"
-            />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(230px,260px)_minmax(0,1fr)_minmax(380px,430px)]">
+        <aside className="flex min-h-0 flex-col border-r border-[var(--border-color)] bg-[var(--bg-panel)]">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <span className="flex-1 text-[10px] font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">
+              {copy.eventsHeading}
+            </span>
+            <button type="button" className="icon-button" onClick={onAddBlankEvent} title={copy.addEvent} aria-label={copy.addEvent}>
+              <Plus className="h-3.5 w-3.5" />
+            </button>
           </div>
-        ) : null}
+          <input
+            className="control-input mx-3 mb-2 h-7 text-xs"
+            value={eventSearch}
+            onChange={(event) => setEventSearch(event.target.value)}
+            placeholder={copy.searchEvents}
+          />
+          <div className="flex-1 overflow-y-auto px-2 pb-2">
+            <div className="flex flex-col gap-1">
+              {eventSummaries.length ? (
+                eventSummaries.map((event) => {
+                  const selected = event.key === selectedKey
+                  return (
+                    <button
+                      key={event.key}
+                      type="button"
+                      className={`rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                        selected
+                          ? 'border-[color-mix(in_srgb,var(--accent)_55%,var(--border-color))] bg-[var(--accent-soft)]'
+                          : 'border-transparent bg-transparent hover:border-[color-mix(in_srgb,var(--accent)_28%,var(--border-color))] hover:bg-[color-mix(in_srgb,var(--bg-active)_44%,transparent)]'
+                      }`}
+                      onClick={() => onSelectEvent(event.key)}
+                    >
+                      <span className="block truncate text-[12px] font-semibold text-[var(--text-primary)]">{event.label}</span>
+                      <span className="mt-1 flex gap-2 text-[10px] text-[var(--text-tertiary)]">
+                        <span className="font-mono">{event.key.split('/')[0] ?? event.key}</span>
+                        <span>{copy.commandCountShort(event.commandCount)}</span>
+                      </span>
+                      <span className="mt-1 block truncate text-[10px] text-[var(--text-tertiary)]">{event.location}</span>
+                    </button>
+                  )
+                })
+              ) : (
+                <div className="rounded-lg border border-dashed border-[var(--border-color)] px-3 py-8 text-center text-[11px] text-[var(--text-tertiary)]">
+                  {copy.noEvents}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="border-t border-[var(--border-color)] p-2">
+            <button type="button" className="control-button new-event-btn" onClick={onAddBlankEvent}>
+              <Plus className="h-3.5 w-3.5" />
+              <span>{copy.addEvent}</span>
+            </button>
+            <div className="preset-head">{copy.fromPreset}</div>
+            <div className="flex flex-col gap-1">
+              {presets.map((preset) => (
+                <button key={preset.id} type="button" className="preset-item" onClick={() => onApplyPreset(preset)}>
+                  <Sparkles className="ic" />
+                  <span>
+                    <b>{copy.presetLabel(preset)}</b>
+                    <small>
+                      {preset.location} · {copy.presetDescription(preset)}
+                    </small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
 
-        <div className="relative min-h-0 flex-1">
+        <section className="relative min-h-0 min-w-0 overflow-hidden bg-[var(--bg-viewport)]">
+          <div className="pointer-events-none absolute inset-x-3 top-5 z-20 flex justify-center">
+            <div className="pointer-events-auto max-w-[calc(100%-1rem)]">
+              {parsedEvent ? (
+                <ComposerSceneStrip
+                  scene={parsedEvent.scene}
+                  locale={locale}
+                  pickMode={pickingActorIndex !== null || cameraPickMode || isPickMode}
+                  cameraPickMode={cameraPickMode}
+                  pickingActorIndex={pickingActorIndex}
+                  onPickModeToggle={() => {
+                    if (isPickMode) {
+                      useEditorStore.getState().setPickModeTarget(null)
+                      setDraftPathPoints([])
+                    }
+                    setCameraPickMode(false)
+                    setPickingActorIndex((current) => (current !== null ? null : 0))
+                  }}
+                  onPickCamera={() => {
+                    if (isPickMode) {
+                      useEditorStore.getState().setPickModeTarget(null)
+                    }
+                    setPickingActorIndex(null)
+                    setCameraPickMode((current) => !current)
+                  }}
+                  onPickActor={(index) => {
+                    if (isPickMode) {
+                      useEditorStore.getState().setPickModeTarget(null)
+                    }
+                    setCameraPickMode(false)
+                    setPickingActorIndex(index)
+                  }}
+                  onSceneChange={handleSceneChange}
+                  resourceRegistry={resourceRegistry}
+                />
+              ) : null}
+            </div>
+          </div>
+
           {eventScript ? (
             <EventStagePreview
               eventScript={eventScript}
@@ -1164,58 +1126,234 @@ function EventsEditor({
               onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
               className="h-full"
               hideHeader
+              hideViewportStatus
               onTileClick={handleTileClick}
               onContextMenuAction={handleContextMenuAction}
               conditionBuilderLabel={conditionBuilderLabel}
               onActorAssetsChange={setActorAssetPreviews}
               onPlaybackCommandChange={setCurrentPlaybackCommandId}
-              additionalViewportOverlay={
-                <PickModeOverlay
-                  active={isPickMode || pickingActorIndex !== null || cameraPickMode}
-                  label={
-                    pathPickingActive
-                      ? draftPathPoints.length > 0
-                        ? `${draftPathPoints.length} path points selected.`
-                        : 'Click map tiles to build the movement path.'
-                      : isPickMode
-                        ? 'Click the map to choose coordinates'
-                        : cameraPickMode
-                          ? 'Click the map to set the camera target'
-                          : pickingActorIndex !== null
-                            ? 'Click the map to place the actor'
-                            : undefined
-                  }
-                  completeLabel={locale === 'zh-CN' ? '完成路径' : 'Done'}
-                  clearLabel={locale === 'zh-CN' ? '清空路径' : 'Clear'}
-                  cancelLabel={locale === 'zh-CN' ? '取消拾取' : 'Cancel'}
-                  onComplete={pathPickingActive ? finishPickMode : undefined}
-                  onClear={pathPickingActive ? clearActivePath : undefined}
-                  onCancel={finishPickMode}
-                />
-              }
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-[var(--text-secondary)]">
               <Map className="h-8 w-8 opacity-40" />
-              <p className="text-xs">Choose an event entry from the menu above.</p>
-              {gameRootPath ? null : <p className="text-[10px]">Configure the game root to render the map preview.</p>}
+              <p className="text-xs">{copy.chooseEvent}</p>
+              {gameRootPath ? null : <p className="text-[10px]">{copy.configureGameRoot}</p>}
             </div>
           )}
-        </div>
-      </div>
 
-      <div className="flex min-w-0 flex-[3] flex-col">
-        <ScriptEditor
-          script={eventScript}
-          locale={locale}
-          resourceRegistry={resourceRegistry}
-          currentPlaybackCommandId={currentPlaybackCommandId}
-          onScriptChange={handleScriptChange}
-          className="h-full"
-        />
+          <PickModeOverlay
+            active={isPickMode || pickingActorIndex !== null || cameraPickMode || pathPickingActive}
+            label={
+              pathPickingActive
+                ? draftPathPoints.length > 0
+                  ? copy.pathPointHint(draftPathPoints.length)
+                  : copy.pathPickHint
+                : isPickMode
+                  ? copy.coordinatePickHint
+                  : cameraPickMode
+                    ? copy.cameraPickHint
+                    : pickingActorIndex !== null
+                      ? copy.actorPickHint
+                      : undefined
+            }
+            completeLabel={copy.donePath}
+            clearLabel={copy.clearPath}
+            cancelLabel={copy.cancelPick}
+            onComplete={pathPickingActive ? finishPickMode : undefined}
+            onClear={pathPickingActive ? clearActivePath : undefined}
+            onCancel={finishPickMode}
+            className="!top-auto !right-auto !bottom-4 !left-4 !justify-start !px-0"
+          />
+        </section>
+
+        <aside className="flex min-h-0 flex-col border-l border-[var(--border-color)] bg-[var(--bg-panel)]">
+          <ScriptEditor
+            script={eventScript}
+            locale={locale}
+            resourceRegistry={resourceRegistry}
+            currentPlaybackCommandId={currentPlaybackCommandId}
+            onScriptChange={handleScriptChange}
+            className="h-full"
+          />
+        </aside>
       </div>
     </div>
   )
+}
+
+function ComposerSceneStrip({
+  scene,
+  locale = 'zh-CN',
+  pickMode,
+  cameraPickMode,
+  pickingActorIndex,
+  onPickModeToggle,
+  onPickCamera,
+  onPickActor,
+  onSceneChange,
+  resourceRegistry,
+}: {
+  scene: EventSceneSetup
+  locale?: LocaleCode
+  pickMode: boolean
+  cameraPickMode: boolean
+  pickingActorIndex: number | null
+  onPickModeToggle: () => void
+  onPickCamera: () => void
+  onPickActor: (index: number | null) => void
+  onSceneChange: (scene: EventSceneSetup) => void
+  resourceRegistry: EventResourceRegistry
+}) {
+  const copy = getEventComposerCopy(locale)
+  const musicLabel = copy.music
+  const actorLabel = copy.actor
+  const pickLabel = copy.pick
+  const addActorLabel = copy.addActor
+  const cameraTarget = parseSceneCameraTarget(scene.cameraInstruction)
+
+  function commitActors(nextActors: EventSceneActor[]) {
+    onSceneChange({ ...scene, actors: nextActors, characterInstruction: nextActors.map(formatSceneActorToken).join(' ') })
+  }
+
+  function updateActor(index: number, patch: Partial<EventSceneActor>) {
+    commitActors(scene.actors.map((actor, actorIndex) => (actorIndex === index ? { ...actor, ...patch } : actor)))
+  }
+
+  function addActor() {
+    const used = new Set(scene.actors.map((actor) => actor.actorName))
+    const nextName = resourceRegistry.actor.find((option) => !used.has(option.value))?.value ?? `actor${scene.actors.length + 1}`
+    commitActors([
+      ...scene.actors,
+      { id: `actor-${scene.actors.length + 1}-${nextName}`, actorName: nextName, tileX: 0, tileY: 0, facingDirection: 2 },
+    ])
+  }
+
+  return (
+    <div
+      className="mx-auto inline-flex w-auto max-w-[min(calc(100vw_-_2rem),72rem)] flex-wrap items-center justify-center gap-1.5 overflow-visible rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-elevated)_94%,transparent)] px-2 py-1.5 shadow-[var(--shadow-float)]"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--bg-panel-muted)_70%,transparent)] px-2 text-[11px] text-[var(--text-secondary)]">
+        <Music className="h-3.5 w-3.5" />
+        <EventResourcePicker
+          value={scene.musicCue ?? ''}
+          label={musicLabel}
+          placeholder={musicLabel}
+          options={resourceRegistry.music}
+          onSelect={(value) => onSceneChange({ ...scene, musicCue: value || null })}
+          triggerClassName="h-5 border-0 bg-transparent px-1 font-mono"
+        />
+      </span>
+
+      <button
+        type="button"
+        className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-2 font-mono text-[11px] transition-colors ${
+          cameraPickMode
+            ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+            : 'border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_70%,transparent)] text-[var(--text-primary)] hover:border-[color-mix(in_srgb,var(--accent)_42%,var(--border-color))]'
+        }`}
+        title={copy.pickCamera}
+        onClick={() => {
+          if (!cameraTarget) {
+            onSceneChange({ ...scene, cameraInstruction: '0 0' })
+          }
+          onPickCamera()
+        }}
+      >
+        <Camera className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+        {cameraTarget ? `${cameraTarget.x},${cameraTarget.y}` : (scene.cameraInstruction ?? 'follow')}
+        <MapPin className="h-3.5 w-3.5 text-[var(--accent)]" />
+      </button>
+
+      <span className="shrink-0 text-[11px] text-[var(--text-secondary)]">{copy.actors}</span>
+      {scene.actors.map((actor, index) => {
+        const isPicking = pickingActorIndex === index
+        return (
+          <span
+            key={actor.id}
+            className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full border px-1.5 text-[11px] ${
+              isPicking
+                ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
+                : 'border-[color-mix(in_srgb,var(--accent)_28%,var(--border-color))] bg-[var(--accent-soft)]'
+            }`}
+          >
+            <EventResourcePicker
+              value={actor.actorName}
+              label={actorLabel}
+              placeholder={actorLabel}
+              options={resourceRegistry.actor}
+              onSelect={(actorName) => updateActor(index, { actorName })}
+              triggerClassName="h-5 max-w-24 border-0 bg-transparent px-1 font-mono"
+            />
+            <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+              {actor.tileX},{actor.tileY}
+            </span>
+            <button
+              type="button"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent-soft)_80%,transparent)]"
+              title={pickLabel}
+              onClick={() => onPickActor(isPicking ? null : index)}
+            >
+              {directionArrow(actor.facingDirection)}
+            </button>
+          </span>
+        )
+      })}
+
+      <button
+        type="button"
+        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-[var(--border-color)] bg-transparent px-2 text-[11px] font-medium text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--accent)_42%,var(--border-color))] hover:text-[var(--accent)]"
+        onClick={addActor}
+      >
+        <UserPlus className="h-3.5 w-3.5" />
+        {addActorLabel}
+      </button>
+
+      <button
+        type="button"
+        className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors ${
+          pickMode
+            ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+            : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]'
+        }`}
+        title={pickLabel}
+        onClick={onPickModeToggle}
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  )
+}
+
+function formatSceneActorToken(actor: EventSceneActor) {
+  return `${actor.actorName} ${actor.tileX} ${actor.tileY} ${actor.facingDirection}`
+}
+
+function parseSceneCameraTarget(value: string | null | undefined) {
+  if (!value) {
+    return null
+  }
+  const [xRaw, yRaw] = value.trim().split(/\s+/u)
+  const x = Number.parseInt(xRaw ?? '', 10)
+  const y = Number.parseInt(yRaw ?? '', 10)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null
+  }
+  return { x, y }
+}
+
+function directionArrow(direction: number) {
+  switch (direction) {
+    case 0:
+      return '↑'
+    case 1:
+      return '→'
+    case 3:
+      return '←'
+    default:
+      return '↓'
+  }
 }
 
 function FieldsEditor({

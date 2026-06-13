@@ -140,6 +140,8 @@ describe('EventPatchEditor secondary page shell', () => {
           selectedEventKey: 'event_square_meeting_1900',
           onPatchChange: vi.fn(),
           onAddVirtualAsset: vi.fn(),
+          theme: 'dark',
+          accentColor: '#3b82f6',
         } as ComponentProps<typeof EventPatchEditor> & { selectedEventKey: string })}
       />,
       'zh-CN',
@@ -147,6 +149,10 @@ describe('EventPatchEditor secondary page shell', () => {
 
     expect(container.querySelector('.event-edit-toolbar')).toBeNull()
     expect(container.querySelector('.event-edit-target-row')).toBeNull()
+    const shell = container.querySelector('.event-edit-shell') as HTMLElement
+    expect(shell.classList.contains('dark')).toBe(true)
+    expect(shell.style.getPropertyValue('--accent')).toBe('#3b82f6')
+    expect(shell.style.getPropertyValue('--bg-panel')).toBe('#1a1f27')
   })
 
   test('opens the condition builder from the event editor context action', () => {
@@ -245,7 +251,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Beach lost item/u }))
+    fireEvent.click(screen.getByRole('button', { name: /海滩失物/u }))
     expect(onPatchChange).toHaveBeenLastCalledWith('patch-town', expect.not.objectContaining({ target: expect.anything() }))
     expect(onPatchChange).toHaveBeenLastCalledWith(
       'patch-town',
@@ -264,7 +270,7 @@ describe('EventPatchEditor secondary page shell', () => {
       }),
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Mine rescue branch/u }))
+    fireEvent.click(screen.getByRole('button', { name: /矿井救援分支/u }))
     expect(onPatchChange).toHaveBeenLastCalledWith('patch-town', expect.not.objectContaining({ target: expect.anything() }))
     expect(onPatchChange).toHaveBeenLastCalledWith(
       'patch-town',
@@ -308,7 +314,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Town market introduction/u }))
+    fireEvent.click(screen.getByRole('button', { name: /小镇集市开场/u }))
 
     await waitFor(() =>
       expect(onPatchChange).toHaveBeenLastCalledWith(
@@ -487,7 +493,7 @@ describe('EventPatchEditor secondary page shell', () => {
         }),
       ),
     )
-    expect(screen.getByText('Click map tiles to build the movement path.')).toBeTruthy()
+    expect(screen.getByText('点击地图格子创建移动路径。')).toBeTruthy()
   })
 
   test('adds a command from the visible graphical command palette and edits it', async () => {
@@ -558,8 +564,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
-    fireEvent.change(screen.getByRole('combobox', { name: /Location/u }), { target: { value: 'Forest' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Event' }))
+    fireEvent.click(screen.getAllByRole('button', { name: '新建事件' })[0]!)
 
     await waitFor(() =>
       expect(onPatchChange).toHaveBeenLastCalledWith(
@@ -570,10 +575,10 @@ describe('EventPatchEditor secondary page shell', () => {
               '900002/Season spring/Time 900 1700': 'spring2/12 12/farmer 12 14 0/skippable/end dialogue',
             }),
             eventAliases: expect.objectContaining({
-              '900002/Season spring/Time 900 1700': 'Untitled Forest event 2',
+              '900002/Season spring/Time 900 1700': 'Untitled Town event 2',
             }),
             eventLocations: expect.objectContaining({
-              '900002/Season spring/Time 900 1700': 'Forest',
+              '900002/Season spring/Time 900 1700': 'Town',
             }),
           }),
         }),
@@ -708,90 +713,6 @@ describe('EventPatchEditor secondary page shell', () => {
       ),
     )
   }, 15_000)
-
-  test('expands a blank event into a complete graphical starter flow', async () => {
-    const onPatchChange = vi.fn()
-    renderWithLocale(
-      <StatefulEventPatchEditor
-        initialPatch={{
-          ...patch(),
-          editorState: {
-            entries: {
-              event_square_meeting_1900: 'spring2/12 12/farmer 12 14 0/skippable/end dialogue',
-            },
-            eventLocations: {
-              event_square_meeting_1900: 'Forest',
-            },
-          },
-        }}
-        onPatchChange={onPatchChange}
-      />,
-      'zh-CN',
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Starter flow' }))
-
-    await waitFor(() =>
-      expect(onPatchChange).toHaveBeenLastCalledWith(
-        'patch-town',
-        expect.objectContaining({
-          editorState: expect.objectContaining({
-            entries: expect.objectContaining({
-              event_square_meeting_1900: expect.stringContaining('farmer 12 14 0 JunimoGuide 14 13 3'),
-            }),
-          }),
-        }),
-      ),
-    )
-    const nextEditorState = onPatchChange.mock.lastCall?.[1]?.editorState as { entries: Record<string, string> }
-    const nextScript = nextEditorState.entries.event_square_meeting_1900
-    expect(nextScript).toContain('woodsTheme/13 13/farmer 12 14 0 JunimoGuide 14 13 3')
-    expect(nextScript).toContain('move JunimoGuide 1 0 1 JunimoGuide 0 1 2')
-    expect(nextScript).toContain('addObject 15 13 "(O)72"')
-    expect(nextScript).toContain('itemAboveHead "(O)72"')
-    expect(nextScript).toContain('animate JunimoGuide true true 120 16 17 18 19')
-    expect(nextScript).toContain('addItem "(O)72" 1')
-    expect(nextScript).toContain('message "The starter event now has movement, an item, and animation."')
-  })
-
-  test.each([
-    { location: 'Beach', music: 'wavy', actor: 'Elliott' },
-    { location: 'Mine', music: 'Cavern', actor: 'Marlon' },
-    { location: 'Forest', music: 'woodsTheme', actor: 'JunimoGuide' },
-  ])('creates a complete graphical starter flow for $location', async ({ location, music, actor }) => {
-    const onPatchChange = vi.fn()
-    renderWithLocale(
-      <StatefulEventPatchEditor
-        initialPatch={{
-          ...patch(),
-          editorState: {
-            entries: {
-              event_square_meeting_1900: 'spring2/12 12/farmer 12 14 0/skippable/end dialogue',
-            },
-            eventLocations: {
-              event_square_meeting_1900: location,
-            },
-          },
-        }}
-        onPatchChange={onPatchChange}
-      />,
-      'zh-CN',
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Starter flow' }))
-
-    await waitFor(() => {
-      const nextEditorState = onPatchChange.mock.lastCall?.[1]?.editorState as { entries?: Record<string, string> } | undefined
-      expect(nextEditorState?.entries?.event_square_meeting_1900).toContain(`${music}/13 13/farmer 12 14 0 ${actor} 14 13 3`)
-    })
-    const nextEditorState = onPatchChange.mock.lastCall?.[1]?.editorState as { entries: Record<string, string> }
-    const nextScript = nextEditorState.entries.event_square_meeting_1900
-    expect(nextScript).toContain(`move ${actor} 1 0 1 ${actor} 0 1 2`)
-    expect(nextScript).toContain('addObject 15 13 "(O)72"')
-    expect(nextScript).toContain('itemAboveHead "(O)72"')
-    expect(nextScript).toContain(`animate ${actor} true true 120 16 17 18 19`)
-    expect(nextScript).toContain('addItem "(O)72" 1')
-  })
 
   test('picks coordinates graphically for warp and edits quick choice branches as fields', async () => {
     const onPatchChange = vi.fn()

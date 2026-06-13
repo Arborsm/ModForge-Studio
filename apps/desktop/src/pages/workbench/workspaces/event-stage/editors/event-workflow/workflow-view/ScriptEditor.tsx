@@ -20,6 +20,19 @@ export type ScriptEditorProps = {
   className?: string
 }
 
+function getScriptEditorCopy(locale: 'zh-CN' | 'en-US') {
+  const zh = locale === 'zh-CN'
+  return {
+    addCommand: zh ? '添加命令' : 'Add command',
+    addCommandShortcut: zh ? '添加命令 (Ctrl/Cmd+K)' : 'Add command (Ctrl/Cmd+K)',
+    lineNumbers: zh ? '行号' : 'Line numbers',
+    compactView: zh ? '紧凑视图' : 'Compact view',
+    comfortableView: zh ? '舒适视图' : 'Comfortable view',
+    mapPickMode: zh ? '地图拾取中' : 'Map pick mode',
+    commandsCount: (count: number) => (zh ? `${count} 条命令` : `${count} commands`),
+  }
+}
+
 export function ScriptEditor({
   script,
   locale = 'zh-CN',
@@ -90,6 +103,7 @@ export function ScriptEditor({
     }
     return script?.commands ?? []
   }, [currentScript, script])
+  const copy = getScriptEditorCopy(locale)
 
   const handleUpdateArg = useCallback(
     (commandIndex: number, argIndex: number, value: string) => {
@@ -175,18 +189,13 @@ export function ScriptEditor({
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [commands.length])
 
-  const eventId = script?.eventId ?? '-'
-  const preconditions = script?.preconditions.slice(1).join(' / ') ?? ''
-
   return (
     <div className={cx('flex h-full flex-col bg-[var(--bg-panel)]', className)}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-[var(--border-color)] px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-xs font-semibold text-[var(--text-primary)]">{eventId}</span>
-          {preconditions && <span className="truncate text-[10px] text-[var(--text-tertiary)]">{preconditions}</span>}
-        </div>
-
+      <div className="flex min-h-9 items-center justify-end gap-1.5 border-b border-[var(--border-color)] px-2.5 py-1.5">
+        <span className="shrink-0 rounded-full bg-[var(--bg-panel-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">
+          {copy.commandsCount(commands.length)}
+        </span>
         <div className="flex items-center gap-0.5">
           <button
             type="button"
@@ -196,7 +205,8 @@ export function ScriptEditor({
               state.setCommandPaletteInsertIndex(commands.length)
               state.setCommandPaletteOpen(true)
             }}
-            title={locale === 'zh-CN' ? '添加命令' : 'Add command'}
+            title={copy.addCommand}
+            aria-label={copy.addCommand}
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
@@ -209,7 +219,8 @@ export function ScriptEditor({
                 : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
             )}
             onClick={() => useEditorStore.getState().setShowLineNumbers(!showLineNumbers)}
-            title="行号"
+            title={copy.lineNumbers}
+            aria-label={copy.lineNumbers}
           >
             <ListOrdered className="h-3.5 w-3.5" />
           </button>
@@ -222,7 +233,8 @@ export function ScriptEditor({
                 : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
             )}
             onClick={() => useEditorStore.getState().setCardView(cardView === 'compact' ? 'comfortable' : 'compact')}
-            title="紧凑视图"
+            title={cardView === 'compact' ? copy.comfortableView : copy.compactView}
+            aria-label={cardView === 'compact' ? copy.comfortableView : copy.compactView}
           >
             {cardView === 'compact' ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
           </button>
@@ -246,8 +258,8 @@ export function ScriptEditor({
 
       {/* Status bar */}
       <div className="flex items-center justify-between border-t border-[var(--border-color)] px-3 py-1.5 text-[10px] text-[var(--text-tertiary)]">
-        <span>{commands.length} 条命令</span>
-        <span>{isPickMode ? '地图拾取模式' : ''}</span>
+        <span>{copy.addCommandShortcut}</span>
+        <span>{isPickMode ? copy.mapPickMode : copy.commandsCount(commands.length)}</span>
       </div>
 
       {/* Command Palette */}

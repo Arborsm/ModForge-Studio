@@ -32,6 +32,7 @@ type EventStageWorkspaceProps = {
   className?: string
   hideHeader?: boolean
   additionalViewportOverlay?: ReactNode
+  hideViewportStatus?: boolean
   onTileClick?: (tileX: number, tileY: number) => void
   onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
   conditionBuilderLabel?: string
@@ -56,6 +57,7 @@ export default function EventStageWorkspace({
   className,
   hideHeader = false,
   additionalViewportOverlay,
+  hideViewportStatus = false,
   onTileClick,
   onContextMenuAction,
   conditionBuilderLabel,
@@ -341,27 +343,31 @@ export default function EventStageWorkspace({
       ) : null}
       {screenEffectsOverlay}
       <div className="absolute inset-0 flex flex-col justify-between p-4">
-        <div className="flex justify-between gap-3">
-          <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase shadow-[var(--shadow-panel)]">
-            {selectedEvent?.eventId ?? labels.scene}
+        {!hideViewportStatus ? (
+          <div className="flex justify-between gap-3">
+            <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--bg-panel)_82%,transparent)] px-3 py-1 text-[11px] font-semibold tracking-[0.16em] text-[var(--text-primary)] uppercase shadow-[var(--shadow-panel)]">
+              {selectedEvent?.eventId ?? labels.scene}
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              {playbackStatusChips.map((chip) => (
+                <div
+                  key={chip.id}
+                  className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]"
+                >
+                  <span className="font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{chip.label}</span>{' '}
+                  <span>{chip.value}</span>
+                </div>
+              ))}
+              {playbackState.activeEventKey && selectedEvent && playbackState.activeEventKey !== selectedEvent.key ? (
+                <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
+                  {labels.branch}
+                </div>
+              ) : null}
+            </div>
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
-            {playbackStatusChips.map((chip) => (
-              <div
-                key={chip.id}
-                className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]"
-              >
-                <span className="font-semibold tracking-[0.14em] text-[var(--text-secondary)] uppercase">{chip.label}</span>{' '}
-                <span>{chip.value}</span>
-              </div>
-            ))}
-            {playbackState.activeEventKey && selectedEvent && playbackState.activeEventKey !== selectedEvent.key ? (
-              <div className="pointer-events-none rounded-full border border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,var(--bg-panel))] px-3 py-1 text-[11px] text-[var(--text-primary)] shadow-[var(--shadow-panel)]">
-                {labels.branch}
-              </div>
-            ) : null}
-          </div>
-        </div>
+        ) : (
+          <span />
+        )}
         <div className="flex justify-start">
           {playbackState.notices.length ? (
             <div className="pointer-events-none flex max-w-md flex-col gap-2">

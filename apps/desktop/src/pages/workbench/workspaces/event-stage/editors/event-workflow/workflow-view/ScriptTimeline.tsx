@@ -30,7 +30,7 @@ export type ScriptTimelineProps = {
 
 function GapInsertButton({ index, onClick }: { index: number; onClick: (index: number) => void }) {
   return (
-    <div className="group relative flex h-3 items-center justify-center py-0.5 transition-all">
+    <div className="group relative flex h-2.5 items-center justify-center py-0.5 transition-all">
       <div className="absolute inset-x-0 top-1/2 h-px bg-transparent transition-colors group-hover:bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]" />
       <button
         type="button"
@@ -255,10 +255,12 @@ export function ScriptTimeline({
     .filter(({ index }) => !shouldFoldPauseIntoPrevious(commands, index))
   const sortableIds = visibleCommandEntries.map(({ cmd }) => cmd.id)
   const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
+  const emptyTitle = locale === 'zh-CN' ? '暂无命令' : 'No commands'
+  const emptyAction = locale === 'zh-CN' ? '添加命令' : 'Add command'
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col gap-0.5 px-3 py-2">
+      <div className="flex flex-col gap-0.5 px-2.5 py-1.5">
         <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
           {visibleCommandEntries.map(({ cmd, index: i }) => (
             <div key={cmd.id} data-cmd-index={i}>
@@ -294,14 +296,14 @@ export function ScriptTimeline({
 
         {commands.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--border-color)] py-12 text-[var(--text-tertiary)]">
-            <p className="text-sm">暂无命令</p>
+            <p className="text-sm">{emptyTitle}</p>
             <button
               type="button"
               onClick={() => handleInsert(0)}
               className="mt-2 inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-inverse)] transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
-              添加命令
+              {emptyAction}
             </button>
           </div>
         )}
