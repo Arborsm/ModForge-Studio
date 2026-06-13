@@ -14,6 +14,9 @@ import { MapViewport, type MapViewportHandle } from '@entities/map'
 import { EventStageActorSprite } from './EventStageActorSprite'
 import { EventStagePlaybackToolbar } from './EventStagePlaybackToolbar'
 import type { TileHoverInfo } from '@shared/contracts'
+import { cx } from '@shared/lib/cx'
+
+export type EventStageWorkspaceChromeMode = 'workspace' | 'console'
 
 type EventStageWorkspaceProps = {
   locale: LocaleCode
@@ -31,6 +34,7 @@ type EventStageWorkspaceProps = {
   onOpenPlayerAppearanceWindow: () => void
   className?: string
   hideHeader?: boolean
+  chromeMode?: EventStageWorkspaceChromeMode
   additionalViewportOverlay?: ReactNode
   hideViewportStatus?: boolean
   onTileClick?: (tileX: number, tileY: number) => void
@@ -56,6 +60,7 @@ export default function EventStageWorkspace({
   onOpenPlayerAppearanceWindow,
   className,
   hideHeader = false,
+  chromeMode = 'workspace',
   additionalViewportOverlay,
   hideViewportStatus = false,
   onTileClick,
@@ -65,6 +70,7 @@ export default function EventStageWorkspace({
   onActorAssetsChange,
 }: EventStageWorkspaceProps) {
   const copy = useEventStageCopy()
+  const consoleChrome = chromeMode === 'console'
   const [hoverInfo, setHoverInfo] = useState<TileHoverInfo | null>(null)
   const mapViewportRef = useRef<MapViewportHandle | null>(null)
   const {
@@ -480,7 +486,7 @@ export default function EventStageWorkspace({
               <p className="mt-2 text-base leading-7 text-[var(--text-primary)]">{playbackState.currentEntry.detail}</p>
             </div>
           </div>
-        ) : (
+        ) : consoleChrome ? null : (
           <div className="pointer-events-none rounded-full border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel)_84%,transparent)] px-4 py-2 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-panel)]">
             {labels.sceneIdle}
           </div>
@@ -504,7 +510,7 @@ export default function EventStageWorkspace({
   }
 
   return (
-    <div className={`panel-surface h-full ${className ?? ''}`}>
+    <div className={cx('panel-surface h-full', consoleChrome && 'event-stage-console-surface', className)}>
       {!hideHeader ? (
         <div className="panel-header">
           <div>
@@ -513,7 +519,7 @@ export default function EventStageWorkspace({
           </div>
         </div>
       ) : null}
-      <div className={`panel-body ${hideHeader ? 'h-full' : 'h-[calc(100%-58px)]'} min-h-0 p-3`}>
+      <div className={cx('panel-body min-h-0', hideHeader ? 'h-full' : 'h-[calc(100%-58px)]', !consoleChrome && 'p-3')}>
         <div className="relative h-full">
           <MapViewport
             ref={mapViewportRef}

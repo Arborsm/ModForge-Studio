@@ -8,8 +8,6 @@ import {
   ArrowUpCircle,
   Box,
   ChefHat,
-  ChevronDown,
-  ChevronUp,
   CircleDot,
   Clapperboard,
   Coins,
@@ -43,7 +41,6 @@ import {
   Music,
   Octagon,
   Package,
-  Pause,
   Play,
   PlayCircle,
   Route,
@@ -71,6 +68,7 @@ import type { EventCommand } from '@entities/event'
 import { getSchema } from '../workflow-model/commandSchemaRegistry'
 import { renderTemplate, type RenderedNode } from '../workflow-model/templateRenderer'
 import { ParamPill } from './ParamPill'
+import type { ScriptEditorCopy } from './ScriptEditor'
 import type { UIControlType } from '../workflow-model/commandSchema'
 import type { EventResourceRegistry } from './eventResourceRegistry'
 import { formatInlineDelay, type InlineDelayCandidate } from '../workflow-model/commandInlineDelay'
@@ -168,6 +166,7 @@ export type ScriptCardProps = {
   showLineNumber?: boolean
   cardView?: 'compact' | 'comfortable'
   locale?: 'zh-CN' | 'en-US'
+  copy: ScriptEditorCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay?: InlineDelayCandidate | null
   onSelect?: () => void
@@ -198,10 +197,10 @@ export function ScriptCard({
   showLineNumber = true,
   cardView = 'comfortable',
   locale = 'zh-CN',
+  copy,
   resourceRegistry,
   inlineDelay = null,
   onSelect,
-  onToggleExpand,
   onUpdateArg,
   onEnterPickMode,
   onUpdateArgs,
@@ -354,135 +353,97 @@ export function ScriptCard({
 
   const beatTone = playing ? 'playing' : selected ? 'selected' : 'default'
   const isCompact = cardView === 'compact'
+  const categoryClass = schema ? `cat-${schema.category}` : 'cat-other'
 
   return (
-    <div className={cx('relative', isCompact ? 'mb-1.5' : 'mb-2.5')}>
+    <div className={cx('relative', isCompact ? 'mb-1' : 'mb-1.5')}>
       <div
         className={cx(
-          'group/script relative cursor-pointer rounded-md transition-colors',
-          'hover:bg-[color-mix(in_srgb,var(--bg-active)_42%,transparent)]',
-          selected && 'bg-[color-mix(in_srgb,var(--accent-soft)_78%,transparent)]',
-          playing && 'bg-[color-mix(in_srgb,var(--success)_10%,transparent)]',
+          'cmd',
+          isDialogueCard && 'dialogue',
+          beatTone === 'selected' && 'script-card-selected',
+          beatTone === 'playing' && 'script-card-playing',
         )}
         onClick={onSelect}
       >
-        <div className={cx('flex items-baseline', isCompact ? 'min-h-7 py-0.5' : 'min-h-8 py-1')}>
-          <div
-            className={cx(
-              'w-9 shrink-0 pr-2 text-right font-mono text-[12px] leading-[1.5] font-medium text-[var(--text-tertiary)] tabular-nums opacity-55',
-              beatTone === 'selected' && 'font-semibold text-[var(--accent)] opacity-100',
-              beatTone === 'playing' && 'font-semibold text-[var(--success)] opacity-100',
-            )}
+        {dragHandleProps ? (
+          <button
+            type="button"
+            className="cmd-grip"
+            onClick={(event) => event.stopPropagation()}
+            title="拖动排序"
+            {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
           >
-            {showLineNumber ? index + 1 : null}
-          </div>
-          <div className="flex w-7 shrink-0 items-center justify-center leading-[1.5]">
-            <Icon
-              className={cx(
-                'h-4 w-4 stroke-[1.5] text-[var(--text-tertiary)] transition-colors group-hover/script:text-[var(--text-secondary)]',
-                beatTone === 'selected' && 'text-[var(--accent)]',
-                beatTone === 'playing' && 'text-[var(--success)]',
-              )}
+            <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <span className="cmd-grip" aria-hidden />
+        )}
+        <span className="cmd-num">{showLineNumber ? index + 1 : null}</span>
+        <span className={cx('cmd-icon', categoryClass)}>
+          <Icon className="h-4 w-4 stroke-[1.5]" />
+        </span>
+        <span className="cmd-body" onClick={handleInteractiveContentClick}>
+          {schema?.key === 'viewport' ? <span className="cmd-label">[视角]</span> : null}
+          {isDialogueCard ? renderDialogueHeader() : renderTemplateNodes()}
+        </span>
+        <span className="cmd-tail">
+          {inlineDelay ? (
+            <InlineDelayControl
+              delay={inlineDelay}
+              copy={copy}
+              locale={locale}
+              onSetDelay={onSetInlineDelay}
+              onRemoveDelay={onRemoveInlineDelay}
             />
-          </div>
-          <div
-            className={cx(
-              'flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1 gap-y-0 border-l-2 border-transparent pl-2 text-sm leading-[1.45] text-[var(--text-primary)]',
-              beatTone === 'selected' && 'border-[color-mix(in_srgb,var(--accent)_44%,transparent)]',
-              beatTone === 'playing' && 'border-[color-mix(in_srgb,var(--success)_46%,transparent)]',
+          ) : null}
+          <span className="cmd-actions">
+            {onPlayFromHere && (
+              <button
+                type="button"
+                className="play"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onPlayFromHere()
+                }}
+                title={copy.playFromHere}
+              >
+                <Play className="h-3.5 w-3.5" />
+              </button>
             )}
-            onClick={handleInteractiveContentClick}
-          >
-            {schema?.key === 'viewport' ? <span className="mr-0.5 text-xs font-medium text-[var(--text-tertiary)]">[视角]</span> : null}
-            {isDialogueCard ? renderDialogueHeader() : renderTemplateNodes()}
-          </div>
-          <div className="flex w-20 shrink-0 items-center justify-end gap-1 pl-2">
-            {inlineDelay ? (
-              <InlineDelayControl delay={inlineDelay} locale={locale} onSetDelay={onSetInlineDelay} onRemoveDelay={onRemoveInlineDelay} />
-            ) : null}
-            <div
-              className={cx(
-                'flex items-center gap-0.5 opacity-0 transition-opacity group-hover/script:opacity-100',
-                (selected || playing) && 'opacity-100',
-              )}
-            >
-              {dragHandleProps && (
-                <button
-                  type="button"
-                  className="flex h-5 w-5 cursor-grab items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-secondary)] active:cursor-grabbing"
-                  onClick={(event) => event.stopPropagation()}
-                  {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
-                >
-                  <GripVertical className="h-3 w-3" />
-                </button>
-              )}
-              {onPlayFromHere && (
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[color-mix(in_srgb,var(--success)_10%,transparent)] hover:text-[var(--success)]"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onPlayFromHere()
-                  }}
-                  title={locale === 'zh-CN' ? '从这里播放' : 'Play from here'}
-                >
-                  {playing ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-                </button>
-              )}
-              {onDuplicate && (
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-secondary)]"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onDuplicate()
-                  }}
-                  title="复制"
-                >
-                  <Copy className="h-3 w-3" />
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onDelete()
-                  }}
-                  title="删除"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              )}
-              {onToggleExpand && (
-                <button
-                  type="button"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-secondary)]"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    onToggleExpand()
-                  }}
-                >
-                  {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+            {onDuplicate && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDuplicate()
+                }}
+                title={copy.duplicate}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="del"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDelete()
+                }}
+                title={copy.delete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </span>
+        </span>
 
         {isDialogueCard && dialogueTextNode ? (
-          <div className={cx('flex items-baseline', isCompact ? 'min-h-7 py-0.5' : 'min-h-8 py-1')}>
-            <div className="w-9 shrink-0 pr-2" />
-            <div className="w-7 shrink-0" />
-            <div className="min-w-0 flex-1 pl-2" onClick={handleInteractiveContentClick}>
-              <div className="mt-0.5 border-l-2 border-[var(--border-color)] pl-4">
-                <span className="text-sm leading-[1.45] text-[var(--text-primary)] italic">"</span>
-                {renderParamNode(dialogueTextNode, nodes?.indexOf(dialogueTextNode) ?? 0)}
-                <span className="text-sm leading-[1.45] text-[var(--text-primary)] italic">"</span>
-              </div>
-            </div>
-            <div className="w-20 shrink-0" />
+          <div className="cmd-quote" onClick={handleInteractiveContentClick}>
+            <span>"</span>
+            {renderParamNode(dialogueTextNode, nodes?.indexOf(dialogueTextNode) ?? 0)}
+            <span>"</span>
           </div>
         ) : null}
 
@@ -490,9 +451,7 @@ export function ScriptCard({
           <div className="overflow-hidden">
             <div className="flex flex-col gap-2.5 py-2 pr-1 pl-[68px]">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold tracking-[0.06em] text-[var(--text-tertiary)] uppercase">
-                  {locale === 'zh-CN' ? '原始命令' : 'Raw command'}
-                </span>
+                <span className="text-[11px] font-semibold tracking-[0.06em] text-[var(--text-tertiary)] uppercase">{copy.rawCommand}</span>
                 <code className="block rounded-lg border border-[var(--border-color)] bg-[color-mix(in_srgb,var(--bg-panel-muted)_76%,transparent)] px-3 py-2 font-mono text-xs leading-[1.55] text-[var(--text-secondary)]">
                   {command.raw}
                 </code>
@@ -503,7 +462,7 @@ export function ScriptCard({
                     <div key={argIndex} className="flex min-w-0 items-center gap-1.5">
                       <span className="font-mono text-[10px] text-[var(--text-tertiary)]">[{argIndex}]</span>
                       <span className="truncate text-[11px] text-[var(--text-primary)]">
-                        {arg || <span className="text-[var(--text-tertiary)] italic">空</span>}
+                        {arg || <span className="text-[var(--text-tertiary)] italic">{copy.emptyArg}</span>}
                       </span>
                     </div>
                   ))}
@@ -523,29 +482,20 @@ function isPickControl(control: UIControlType): control is 'tile_picker' | 'npc_
 
 function InlineDelayControl({
   delay,
+  copy,
   locale,
   onSetDelay,
   onRemoveDelay,
 }: {
   delay: InlineDelayCandidate
+  copy: ScriptEditorCopy
   locale: 'zh-CN' | 'en-US'
   onSetDelay?: (pauseCommandIndex: number | null, valueMs: number) => void
   onRemoveDelay?: (pauseCommandIndex: number) => void
 }) {
   const [editing, setEditing] = useState(false)
   const hasPause = delay.pauseCommandIndex != null
-  const label =
-    delay.kind === 'step'
-      ? locale === 'zh-CN'
-        ? '帧延迟'
-        : 'Step delay'
-      : delay.kind === 'hold'
-        ? locale === 'zh-CN'
-          ? '停留'
-          : 'Hold'
-        : locale === 'zh-CN'
-          ? '延迟'
-          : 'Delay'
+  const label = delay.kind === 'step' ? copy.delayStep : delay.kind === 'hold' ? copy.delayHold : copy.delayGeneric
   const addLabel =
     locale === 'zh-CN'
       ? `+ ${label} ${formatInlineDelay(delay.defaultMs)}`
@@ -555,7 +505,7 @@ function InlineDelayControl({
     return (
       <button
         type="button"
-        className="shrink-0 bg-transparent text-[12px] font-medium whitespace-nowrap text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)]"
+        className="delay"
         title={addLabel}
         onClick={(event) => {
           event.stopPropagation()
@@ -601,8 +551,8 @@ function InlineDelayControl({
         <button
           type="button"
           className="flex h-5 w-5 items-center justify-center rounded text-[var(--text-tertiary)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] hover:text-[var(--danger)]"
-          title={locale === 'zh-CN' ? '移除延迟' : 'Remove delay'}
-          aria-label={locale === 'zh-CN' ? '移除延迟' : 'Remove delay'}
+          title={copy.removeDelay}
+          aria-label={copy.removeDelay}
           onClick={(event) => {
             event.stopPropagation()
             onRemoveDelay?.(pauseCommandIndex)
@@ -617,7 +567,7 @@ function InlineDelayControl({
   return (
     <button
       type="button"
-      className="shrink-0 bg-transparent text-[12px] font-medium whitespace-nowrap text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)]"
+      className="delay"
       title={`${label}: ${formatInlineDelay(delay.valueMs)}`}
       onClick={(event) => {
         event.stopPropagation()
@@ -650,7 +600,7 @@ function CoordinateParamPill({
   if (editing) {
     return (
       <span
-        className="inline-flex items-center gap-1 rounded border border-transparent px-1 py-px text-sm leading-[1.45] text-[var(--text-secondary)] hover:bg-[color-mix(in_srgb,var(--bg-active)_52%,transparent)]"
+        className="pill accent"
         title={`${xLabel}: ${x}, ${yLabel}: ${y}`}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
@@ -684,7 +634,7 @@ function CoordinateParamPill({
   return (
     <button
       type="button"
-      className="inline-flex items-center rounded border border-transparent px-1 py-px font-mono text-[13px] leading-[1.45] text-[var(--text-secondary)] transition-colors hover:bg-[color-mix(in_srgb,var(--bg-active)_52%,transparent)]"
+      className="pill accent"
       title={`${xLabel}: ${x}, ${yLabel}: ${y}`}
       onClick={(event) => {
         event.stopPropagation()

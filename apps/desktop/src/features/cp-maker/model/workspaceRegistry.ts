@@ -36,6 +36,9 @@ export type EditorComponent = ComponentType<{
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
   onSelectedEventKeyChange?: (eventKey: string | null) => void
+  onOpenConfig?: () => void
+  onSaveDraft?: () => void
+  isDirty?: boolean
 }>
 
 export interface WorkspacePlugin {

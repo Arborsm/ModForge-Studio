@@ -108,6 +108,7 @@ export function EditModeShell({
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
   const isWipWorkspace = workspaceId !== 'events'
   const isEventPatchHub = !isWipWorkspace && activePatchId === null
+  const isEventScriptEditor = workspaceId === 'events' && activePatchId !== null
   const eventAliases =
     workspaceId === 'events' &&
     activePatch?.editorState &&
@@ -168,7 +169,7 @@ export function EditModeShell({
 
   return (
     <div className="edit-mode-shell">
-      {!isEventPatchHub ? (
+      {!isEventPatchHub && !isEventScriptEditor ? (
         <EditModeToolbar
           workspaceId={workspaceId}
           patches={patches}
@@ -231,6 +232,9 @@ export function EditModeShell({
             playerAppearanceProfile={playerAppearanceProfile}
             onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
             onSelectedEventKeyChange={setActiveEventKey}
+            onOpenConfig={() => setConfigDialogOpen(true)}
+            onSaveDraft={onSaveDraft}
+            isDirty={isDirty}
           />
         )}
       </div>

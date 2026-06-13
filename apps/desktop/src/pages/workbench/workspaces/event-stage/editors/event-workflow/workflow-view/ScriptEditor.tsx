@@ -1,7 +1,7 @@
 // 右侧剧本编辑器容器
 
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { ListOrdered, Maximize2, Minimize2, Plus } from 'lucide-react'
+import { ListOrdered, Plus, Rows3 } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
 import type { EventScript } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
@@ -16,20 +16,40 @@ export type ScriptEditorProps = {
   locale?: 'zh-CN' | 'en-US'
   resourceRegistry?: EventResourceRegistry
   currentPlaybackCommandId?: string | null
+  eventId?: string | null
   onScriptChange?: (script: EventScript) => void
   className?: string
 }
 
-function getScriptEditorCopy(locale: 'zh-CN' | 'en-US') {
+export type ScriptEditorCopy = ReturnType<typeof getScriptEditorCopy>
+
+export function getScriptEditorCopy(locale: 'zh-CN' | 'en-US') {
   const zh = locale === 'zh-CN'
   return {
+    heading: zh ? '剧本' : 'Script',
     addCommand: zh ? '添加命令' : 'Add command',
+    insertCommand: zh ? '在此处添加命令' : 'Insert command here',
     addCommandShortcut: zh ? '添加命令 (Ctrl/Cmd+K)' : 'Add command (Ctrl/Cmd+K)',
     lineNumbers: zh ? '行号' : 'Line numbers',
     compactView: zh ? '紧凑视图' : 'Compact view',
     comfortableView: zh ? '舒适视图' : 'Comfortable view',
     mapPickMode: zh ? '地图拾取中' : 'Map pick mode',
     commandsCount: (count: number) => (zh ? `${count} 条命令` : `${count} commands`),
+    // Timeline 空状态
+    emptyTitle: zh ? '暂无命令' : 'No commands',
+    emptyHint: zh ? '按 Ctrl/Cmd+K 添加命令' : 'Press Ctrl/Cmd+K to add a command',
+    emptyAction: zh ? '添加命令' : 'Add command',
+    // ScriptCard 行内操作 / 标签
+    playFromHere: zh ? '从这里播放' : 'Play from here',
+    duplicate: zh ? '复制' : 'Duplicate',
+    delete: zh ? '删除' : 'Delete',
+    removeDelay: zh ? '移除延迟' : 'Remove delay',
+    rawCommand: zh ? '原始命令' : 'Raw command',
+    emptyArg: zh ? '空' : 'empty',
+    delayStep: zh ? '帧延迟' : 'Step delay',
+    delayHold: zh ? '停留' : 'Hold',
+    delayGeneric: zh ? '延迟' : 'Delay',
+    branchWhenChoice: zh ? '当选择' : 'When choosing',
   }
 }
 
@@ -38,6 +58,7 @@ export function ScriptEditor({
   locale = 'zh-CN',
   resourceRegistry,
   currentPlaybackCommandId = null,
+  eventId,
   onScriptChange,
   className,
 }: ScriptEditorProps) {
@@ -45,7 +66,6 @@ export function ScriptEditor({
   const currentScript = useEditorStore((s) => s.currentScript)
   const showLineNumbers = useEditorStore((s) => s.showLineNumbers)
   const cardView = useEditorStore((s) => s.cardView)
-  const isPickMode = useEditorStore((s) => s.isPickMode)
   const commandPaletteOpen = useEditorStore((s) => s.commandPaletteOpen)
 
   const prevKeyRef = useRef<string | null>(null)
@@ -190,34 +210,17 @@ export function ScriptEditor({
   }, [commands.length])
 
   return (
-    <div className={cx('flex h-full flex-col bg-[var(--bg-panel)]', className)}>
-      {/* Toolbar */}
-      <div className="flex min-h-9 items-center justify-end gap-1.5 border-b border-[var(--border-color)] px-2.5 py-1.5">
-        <span className="shrink-0 rounded-full bg-[var(--bg-panel-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-tertiary)]">
+    <div className={cx('script-panel', className)}>
+      <div className="script-toolbar">
+        <span className="count-pill">
+          {eventId ? <span className="mono">{eventId}</span> : null}
+          {eventId ? ' · ' : null}
           {copy.commandsCount(commands.length)}
         </span>
-        <div className="flex items-center gap-0.5">
+        <div className="script-tools">
           <button
             type="button"
-            className="rounded p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-panel-muted)] hover:text-[var(--accent)]"
-            onClick={() => {
-              const state = useEditorStore.getState()
-              state.setCommandPaletteInsertIndex(commands.length)
-              state.setCommandPaletteOpen(true)
-            }}
-            title={copy.addCommand}
-            aria-label={copy.addCommand}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            className={cx(
-              'rounded p-1.5 transition-colors',
-              showLineNumbers
-                ? 'bg-[var(--bg-active)] text-[var(--accent)]'
-                : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
-            )}
+            className={cx('icon-btn', showLineNumbers && 'on')}
             onClick={() => useEditorStore.getState().setShowLineNumbers(!showLineNumbers)}
             title={copy.lineNumbers}
             aria-label={copy.lineNumbers}
@@ -226,26 +229,35 @@ export function ScriptEditor({
           </button>
           <button
             type="button"
-            className={cx(
-              'rounded p-1.5 transition-colors',
-              cardView === 'compact'
-                ? 'bg-[var(--bg-active)] text-[var(--accent)]'
-                : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-panel-muted)] hover:text-[var(--text-primary)]',
-            )}
+            className={cx('icon-btn', cardView === 'compact' && 'on')}
             onClick={() => useEditorStore.getState().setCardView(cardView === 'compact' ? 'comfortable' : 'compact')}
             title={cardView === 'compact' ? copy.comfortableView : copy.compactView}
             aria-label={cardView === 'compact' ? copy.comfortableView : copy.compactView}
           >
-            {cardView === 'compact' ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+            <Rows3 className="h-3.5 w-3.5" />
+          </button>
+          <span className="tool-sep" />
+          <button
+            type="button"
+            className="icon-btn add"
+            onClick={() => {
+              const state = useEditorStore.getState()
+              state.setCommandPaletteInsertIndex(commands.length)
+              state.setCommandPaletteOpen(true)
+            }}
+            title={copy.addCommand}
+            aria-label={copy.addCommand}
+          >
+            <Plus className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Timeline */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="script-list">
         <ScriptTimeline
           commands={commands}
           locale={locale}
+          copy={copy}
           resourceRegistry={resourceRegistry}
           currentPlaybackCommandId={currentPlaybackCommandId}
           onUpdateArg={handleUpdateArg}
@@ -256,13 +268,23 @@ export function ScriptEditor({
         />
       </div>
 
-      {/* Status bar */}
-      <div className="flex items-center justify-between border-t border-[var(--border-color)] px-3 py-1.5 text-[10px] text-[var(--text-tertiary)]">
-        <span>{copy.addCommandShortcut}</span>
-        <span>{isPickMode ? copy.mapPickMode : copy.commandsCount(commands.length)}</span>
+      <div className="script-foot">
+        <button
+          type="button"
+          className="foot-add"
+          onClick={() => {
+            const state = useEditorStore.getState()
+            state.setCommandPaletteInsertIndex(commands.length)
+            state.setCommandPaletteOpen(true)
+          }}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {copy.addCommand}
+          <span className="kbd">Ctrl/Cmd + K</span>
+        </button>
+        <span>{copy.commandsCount(commands.length)}</span>
       </div>
 
-      {/* Command Palette */}
       <CommandPalette
         key={commandPaletteOpen ? 'open' : 'closed'}
         open={commandPaletteOpen}

@@ -7,6 +7,7 @@
 @import "./features/player-appearance.css";
 @import "./features/content-patcher.css";
 @import "./features/cp-maker-edit.css";
+@import "./features/script-console.css";
 @import "./features/event-patch-hub.css";
 @import "./features/condition-builder.css";
 @import "./features/studio-desk.css";

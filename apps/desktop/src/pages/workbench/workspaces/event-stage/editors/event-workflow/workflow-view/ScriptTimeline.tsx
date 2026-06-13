@@ -1,13 +1,14 @@
 // 流式时间轴 — 卡片列表 + 间隙插入 + 拖拽排序
 
-import { useCallback, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
+import { GitFork, Plus, ListPlus } from 'lucide-react'
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { EventCommand } from '@entities/event'
 import { useEditorStore } from '../workflow-model/editorStore'
 import { ScriptCard } from './ScriptCard'
+import type { ScriptEditorCopy } from './ScriptEditor'
 import type { EventResourceRegistry } from './eventResourceRegistry'
 import {
   getInlineDelayCandidate,
@@ -19,6 +20,7 @@ import {
 export type ScriptTimelineProps = {
   commands: EventCommand[]
   locale?: 'zh-CN' | 'en-US'
+  copy: ScriptEditorCopy
   resourceRegistry?: EventResourceRegistry
   currentPlaybackCommandId?: string | null
   onUpdateArg: (commandIndex: number, argIndex: number, value: string) => void
@@ -28,15 +30,11 @@ export type ScriptTimelineProps = {
   onEnterPickMode: (commandIndex: number, paramIndex: number, controlType: 'tile_picker' | 'npc_selector' | 'path_picker') => void
 }
 
-function GapInsertButton({ index, onClick }: { index: number; onClick: (index: number) => void }) {
+function GapInsertButton({ index, label, onClick }: { index: number; label: string; onClick: (index: number) => void }) {
   return (
-    <div className="group relative flex h-2.5 items-center justify-center py-0.5 transition-all">
-      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent transition-colors group-hover:bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]" />
-      <button
-        type="button"
-        onClick={() => onClick(index)}
-        className="relative z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-panel)] text-[var(--text-tertiary)] opacity-0 shadow-sm transition-all group-hover:opacity-100 hover:border-[var(--accent)] hover:text-[var(--accent)]"
-      >
+    <div className="gap-insert">
+      <div className="gap-insert-line" />
+      <button type="button" onClick={() => onClick(index)} className="gap-insert-button" title={label} aria-label={label}>
         <Plus className="h-3 w-3" />
       </button>
     </div>
@@ -52,6 +50,7 @@ function SortableScriptCard({
   showLineNumber,
   cardView,
   locale,
+  copy,
   resourceRegistry,
   inlineDelay,
   onSelect,
@@ -65,6 +64,7 @@ function SortableScriptCard({
   onDelete,
   onPlayFromHere,
   onInsert,
+  branchLabel,
 }: {
   cmd: EventCommand
   index: number
@@ -74,6 +74,7 @@ function SortableScriptCard({
   showLineNumber: boolean
   cardView: 'compact' | 'comfortable'
   locale: 'zh-CN' | 'en-US'
+  copy: ScriptEditorCopy
   resourceRegistry?: EventResourceRegistry
   inlineDelay: InlineDelayCandidate | null
   onSelect: () => void
@@ -87,6 +88,7 @@ function SortableScriptCard({
   onDelete: () => void
   onPlayFromHere: () => void
   onInsert: (index: number) => void
+  branchLabel?: string | null
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: cmd.id })
 
@@ -97,37 +99,63 @@ function SortableScriptCard({
 
   return (
     <div ref={setNodeRef} style={style} className={isDragging ? 'opacity-50' : ''}>
-      <GapInsertButton index={index} onClick={onInsert} />
-      <ScriptCard
-        command={cmd}
-        index={index}
-        selected={selected}
-        playing={playing}
-        expanded={expanded}
-        showLineNumber={showLineNumber}
-        cardView={cardView}
-        locale={locale}
-        resourceRegistry={resourceRegistry}
-        onSelect={onSelect}
-        onToggleExpand={onToggleExpand}
-        onUpdateArg={onUpdateArg}
-        onUpdateArgs={onUpdateArgs}
-        inlineDelay={inlineDelay}
-        onSetInlineDelay={onSetInlineDelay}
-        onRemoveInlineDelay={onRemoveInlineDelay}
-        onEnterPickMode={onEnterPickMode}
-        onDuplicate={onDuplicate}
-        onDelete={onDelete}
-        onPlayFromHere={onPlayFromHere}
-        dragHandleProps={{ ...attributes, ...listeners }}
-      />
+      <GapInsertButton index={index} label={copy.insertCommand} onClick={onInsert} />
+      {branchLabel ? (
+        <div className="branch-label">
+          <GitFork className="h-3.5 w-3.5" />
+          {copy.branchWhenChoice}
+          <span className="opt">{branchLabel}</span>
+        </div>
+      ) : null}
+      <div className={branchLabel ? 'branch' : undefined}>
+        <ScriptCard
+          command={cmd}
+          index={index}
+          selected={selected}
+          playing={playing}
+          expanded={expanded}
+          showLineNumber={showLineNumber}
+          cardView={cardView}
+          locale={locale}
+          copy={copy}
+          resourceRegistry={resourceRegistry}
+          onSelect={onSelect}
+          onToggleExpand={onToggleExpand}
+          onUpdateArg={onUpdateArg}
+          onUpdateArgs={onUpdateArgs}
+          inlineDelay={inlineDelay}
+          onSetInlineDelay={onSetInlineDelay}
+          onRemoveInlineDelay={onRemoveInlineDelay}
+          onEnterPickMode={onEnterPickMode}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          onPlayFromHere={onPlayFromHere}
+          dragHandleProps={{ ...attributes, ...listeners }}
+        />
+      </div>
     </div>
   )
+}
+
+function getBranchLabel(previousCommand: EventCommand | undefined, command: EventCommand, locale: 'zh-CN' | 'en-US') {
+  if (command.command !== 'switchEvent' || previousCommand?.command !== 'quickQuestion') {
+    return null
+  }
+  const choice = previousCommand.choices?.[0]?.label
+  if (!choice) {
+    return null
+  }
+  if (locale === 'zh-CN') {
+    if (/^yes$/iu.test(choice)) return '是 · Yes'
+    if (/^no$/iu.test(choice)) return '否 · No'
+  }
+  return choice
 }
 
 export function ScriptTimeline({
   commands,
   locale = 'zh-CN',
+  copy,
   resourceRegistry,
   currentPlaybackCommandId = null,
   onUpdateArg,
@@ -158,7 +186,12 @@ export function ScriptTimeline({
     }
   }, [selectedCommandIndex])
 
+  // Only scroll when the playback position actually moves — not on every edit
+  // that mutates `commands` (which would jolt the view on each keystroke).
+  const lastPlaybackIdRef = useRef<string | null>(null)
   useEffect(() => {
+    if (currentPlaybackCommandId === lastPlaybackIdRef.current) return
+    lastPlaybackIdRef.current = currentPlaybackCommandId
     const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
     if (playbackCommandIndex == null) return
     const el = document.querySelector(`[data-cmd-index="${playbackCommandIndex}"]`)
@@ -255,24 +288,24 @@ export function ScriptTimeline({
     .filter(({ index }) => !shouldFoldPauseIntoPrevious(commands, index))
   const sortableIds = visibleCommandEntries.map(({ cmd }) => cmd.id)
   const playbackCommandIndex = getVisiblePlaybackCommandIndex(commands, currentPlaybackCommandId)
-  const emptyTitle = locale === 'zh-CN' ? '暂无命令' : 'No commands'
-  const emptyAction = locale === 'zh-CN' ? '添加命令' : 'Add command'
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col gap-0.5 px-2.5 py-1.5">
+      <div className="script-timeline">
         <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-          {visibleCommandEntries.map(({ cmd, index: i }) => (
+          {visibleCommandEntries.map(({ cmd, index: i }, visibleIndex) => (
             <div key={cmd.id} data-cmd-index={i}>
               <SortableScriptCard
                 cmd={cmd}
                 index={i}
+                branchLabel={getBranchLabel(visibleCommandEntries[visibleIndex - 1]?.cmd, cmd, locale)}
                 selected={selectedCommandIndex === i}
                 playing={playbackCommandIndex === i}
                 expanded={expandedCards.has(cmd.id)}
                 showLineNumber={showLineNumbers}
                 cardView={cardView}
                 locale={locale}
+                copy={copy}
                 resourceRegistry={resourceRegistry}
                 inlineDelay={getInlineDelayCandidate(commands, i)}
                 onSelect={() => handleSelect(i)}
@@ -292,18 +325,20 @@ export function ScriptTimeline({
         </SortableContext>
 
         {/* Bottom gap after all items */}
-        <GapInsertButton index={commands.length} onClick={handleInsert} />
+        <GapInsertButton index={commands.length} label={copy.insertCommand} onClick={handleInsert} />
 
         {commands.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[var(--border-color)] py-12 text-[var(--text-tertiary)]">
-            <p className="text-sm">{emptyTitle}</p>
+          <div className="script-empty">
+            <ListPlus className="h-7 w-7 opacity-40" />
+            <p className="text-sm font-medium text-[var(--text-secondary)]">{copy.emptyTitle}</p>
+            <p className="text-[11px]">{copy.emptyHint}</p>
             <button
               type="button"
               onClick={() => handleInsert(0)}
-              className="mt-2 inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-inverse)] transition-opacity hover:opacity-90"
+              className="mt-1 inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--text-inverse)] transition-opacity hover:opacity-90"
             >
               <Plus className="h-3.5 w-3.5" />
-              {emptyAction}
+              {copy.emptyAction}
             </button>
           </div>
         )}

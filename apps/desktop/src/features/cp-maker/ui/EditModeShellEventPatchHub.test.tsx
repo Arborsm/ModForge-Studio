@@ -14,14 +14,20 @@ registerWorkspacePlugin({
     patchListFields: [],
     targetPicker: () => null,
     editor: ({ patch, selectedEventKey, onSelectedEventKeyChange }) => {
+      const editorState = (patch.editorState as Record<string, unknown> | undefined) ?? {}
+      const entries = (editorState.entries as Record<string, unknown> | undefined) ?? {}
+      const eventAliases = (editorState.eventAliases as Record<string, string> | undefined) ?? {}
       useEffect(() => {
-        const entries = ((patch.editorState as Record<string, unknown> | undefined)?.entries as Record<string, unknown> | undefined) ?? {}
         onSelectedEventKeyChange?.(selectedEventKey ?? Object.keys(entries)[0] ?? null)
-      }, [onSelectedEventKeyChange, patch.editorState, selectedEventKey])
+      }, [entries, onSelectedEventKeyChange, selectedEventKey])
 
       return (
         <div>
-          <aside className="border-l">script tools</aside>
+          <aside className="border-l">
+            script tools
+            <span data-testid="selected-event-key">{selectedEventKey}</span>
+            <span data-testid="selected-event-alias">{selectedEventKey ? eventAliases[selectedEventKey] : null}</span>
+          </aside>
         </div>
       )
     },
@@ -110,7 +116,7 @@ describe('EditModeShell event patch hub header', () => {
     expect(onSaveDraft).toHaveBeenCalledTimes(1)
   })
 
-  test('moves the selected event key into the workbench toolbar context', async () => {
+  test('moves the selected event key into the event editor context', async () => {
     const patches = [eventPatch()]
     const { container } = renderWithLocale(
       <EditModeShell
@@ -135,11 +141,11 @@ describe('EditModeShell event patch hub header', () => {
       'zh-CN',
     )
 
-    const toolbarContext = container.querySelector('.edit-mode-toolbar-context') as HTMLElement
-    await waitFor(() => expect(within(toolbarContext).getByText('event_square_meeting_1900')).toBeTruthy())
-    expect(within(toolbarContext).getByText('Square meeting')).toBeTruthy()
+    expect(container.querySelector('.edit-mode-toolbar-context')).toBeNull()
+    await waitFor(() => expect(screen.getByTestId('selected-event-key').textContent).toBe('event_square_meeting_1900'))
+    expect(screen.getByTestId('selected-event-alias').textContent).toBe('Square meeting')
 
     const scriptPanel = container.querySelector('aside.border-l') as HTMLElement
-    expect(within(scriptPanel).queryByText('event_square_meeting_1900')).toBeNull()
+    expect(within(scriptPanel).getByText('script tools')).toBeTruthy()
   })
 })

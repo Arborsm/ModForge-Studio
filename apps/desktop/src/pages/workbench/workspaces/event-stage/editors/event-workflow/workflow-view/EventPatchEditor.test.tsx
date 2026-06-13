@@ -130,6 +130,14 @@ function clickLastPathPicker() {
   fireEvent.click(screen.getAllByTitle(/^路径(?::|$)/u).at(-1)!)
 }
 
+function openEventPicker() {
+  const picker = document.querySelector('.event-picker') as HTMLButtonElement | null
+  if (!picker) {
+    throw new Error('Event picker was not rendered')
+  }
+  fireEvent.click(picker)
+}
+
 describe('EventPatchEditor secondary page shell', () => {
   test('omits the duplicated event toolbar and target row', () => {
     const { container } = renderWithLocale(
@@ -251,6 +259,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
+    openEventPicker()
     fireEvent.click(screen.getByRole('button', { name: /海滩失物/u }))
     expect(onPatchChange).toHaveBeenLastCalledWith('patch-town', expect.not.objectContaining({ target: expect.anything() }))
     expect(onPatchChange).toHaveBeenLastCalledWith(
@@ -270,6 +279,7 @@ describe('EventPatchEditor secondary page shell', () => {
       }),
     )
 
+    openEventPicker()
     fireEvent.click(screen.getByRole('button', { name: /矿井救援分支/u }))
     expect(onPatchChange).toHaveBeenLastCalledWith('patch-town', expect.not.objectContaining({ target: expect.anything() }))
     expect(onPatchChange).toHaveBeenLastCalledWith(
@@ -314,6 +324,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
+    openEventPicker()
     fireEvent.click(screen.getByRole('button', { name: /小镇集市开场/u }))
 
     await waitFor(() =>
@@ -379,6 +390,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
+    openEventPicker()
     fireEvent.click(screen.getByRole('button', { name: /Lost shell on the pier/u }))
     expect(screen.getByTestId('stage-event-id').textContent).toBe('900002/Season summer/Time 1200 1800')
 
@@ -564,6 +576,7 @@ describe('EventPatchEditor secondary page shell', () => {
       'zh-CN',
     )
 
+    openEventPicker()
     fireEvent.click(screen.getAllByRole('button', { name: '新建事件' })[0]!)
 
     await waitFor(() =>

@@ -25,6 +25,9 @@ interface EditorPageProps {
   playerAppearanceProfile?: PlayerAppearanceProfile | null
   onOpenPlayerAppearanceWindow?: () => void
   onSelectedEventKeyChange?: (eventKey: string | null) => void
+  onOpenConfig?: () => void
+  onSaveDraft?: () => void
+  isDirty?: boolean
 }
 
 export function EditorPage({
@@ -44,6 +47,9 @@ export function EditorPage({
   playerAppearanceProfile,
   onOpenPlayerAppearanceWindow,
   onSelectedEventKeyChange,
+  onOpenConfig,
+  onSaveDraft,
+  isDirty,
 }: EditorPageProps) {
   const copy = useEditorCopy().studioDesk.editorPage
 
@@ -74,6 +80,9 @@ export function EditorPage({
             playerAppearanceProfile={playerAppearanceProfile}
             onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow}
             onSelectedEventKeyChange={onSelectedEventKeyChange}
+            onOpenConfig={onOpenConfig}
+            onSaveDraft={onSaveDraft}
+            isDirty={isDirty}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-xs text-(--text-secondary)">

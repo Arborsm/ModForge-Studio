@@ -5,7 +5,7 @@ import type { GameDirectoryInfo, MapAssetContent } from '@entities/game/api'
 import { validateGameDirectory } from '@entities/game/api'
 import type { EventScript, ParsedEventAsset, PlayerAppearanceProfile } from '@entities/event'
 import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
-import EventStageWorkspace from '../../../view/EventStageWorkspace'
+import EventStageWorkspace, { type EventStageWorkspaceChromeMode } from '../../../view/EventStageWorkspace'
 import { useEditorStore } from '../workflow-model/editorStore'
 
 export type EventStagePreviewAssetLoader = {
@@ -26,6 +26,7 @@ type EventStagePreviewProps = {
   additionalViewportOverlay?: ReactNode
   hideViewportStatus?: boolean
   hideHeader?: boolean
+  chromeMode?: EventStageWorkspaceChromeMode
   onTileClick?: (tileX: number, tileY: number) => void
   onContextMenuAction?: (action: 'addActor' | 'setCamera' | 'addWarp' | 'conditionBuilder', tileX: number, tileY: number) => void
   conditionBuilderLabel?: string
@@ -76,6 +77,7 @@ export function EventStagePreview({
   additionalViewportOverlay,
   hideViewportStatus,
   hideHeader,
+  chromeMode = 'workspace',
   onTileClick,
   onContextMenuAction,
   conditionBuilderLabel,
@@ -170,6 +172,7 @@ export function EventStagePreview({
       onOpenPlayerAppearanceWindow={onOpenPlayerAppearanceWindow ?? (() => {})}
       className={className}
       hideHeader={hideHeader}
+      chromeMode={chromeMode}
       additionalViewportOverlay={additionalViewportOverlay}
       hideViewportStatus={hideViewportStatus}
       onTileClick={onTileClick}

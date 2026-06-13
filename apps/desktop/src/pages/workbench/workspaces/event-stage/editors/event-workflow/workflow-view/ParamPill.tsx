@@ -307,17 +307,12 @@ export function ParamPill({
   const baseClasses =
     variant === 'script'
       ? cx(
-          'inline-flex cursor-pointer select-none items-center gap-1 rounded border border-transparent px-1 py-px text-sm leading-[1.45] transition-colors',
-          control === 'npc_selector' && 'font-medium text-[var(--text-primary)]',
-          control === 'tile_picker' && 'font-mono text-[13px] text-[var(--text-secondary)]',
-          control === 'path_picker' && 'text-[13px] text-[var(--text-secondary)]',
-          control === 'direction' && 'text-[13px] text-[var(--text-secondary)]',
-          control === 'number' && 'font-mono text-[13px] text-[var(--text-secondary)]',
-          control === 'textarea' && 'text-[var(--text-primary)] italic',
-          control === 'item' && 'text-[var(--text-primary)]',
+          'pill',
+          (control === 'npc_selector' || control === 'tile_picker' || control === 'item') && 'accent',
+          (control === 'path_picker' || control === 'direction' || control === 'toggle' || control === 'quick_question') && 'muted',
+          control === 'textarea' && 'italic',
           isEmpty && 'text-[var(--text-tertiary)] italic',
           disabled && 'cursor-not-allowed opacity-50',
-          !disabled && 'hover:bg-[color-mix(in_srgb,var(--bg-active)_52%,transparent)]',
         )
       : cx(
           'inline-flex items-center gap-1 rounded-md border font-medium transition-all cursor-pointer select-none',
@@ -400,7 +395,7 @@ export function ParamPill({
           onSelect={(nextValue) => onChange?.(nextValue)}
           triggerClassName={cx(
             variant === 'script'
-              ? 'h-auto min-h-0 border-0 bg-transparent px-0 py-0 text-sm font-medium leading-[1.5] text-inherit hover:border-transparent'
+              ? 'h-auto min-h-0 border-0 bg-transparent px-0 py-0 font-mono text-xs font-medium leading-none text-inherit hover:border-transparent'
               : 'h-5 border-0 bg-transparent px-1',
             size === 'sm' ? 'max-w-28' : 'max-w-36',
           )}
