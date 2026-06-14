@@ -198,7 +198,7 @@ describe('desktop facade', () => {
       },
       appearance: {
         locale: 'zh-CN',
-        themeId: 'warm-paper',
+        themeId: 'neutral-tool',
         windowBorderTone: 'accent',
         windowBorderWeight: 'standard',
         recentGameDirectories: [],

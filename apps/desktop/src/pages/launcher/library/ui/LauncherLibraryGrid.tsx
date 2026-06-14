@@ -30,7 +30,8 @@ import {
   clampLibraryRevealBatchSize,
   computeLibraryRevealBatchSize,
   FALLBACK_LIBRARY_REVEAL_BATCH_SIZE,
-  getLauncherFolderTone,
+  getLauncherFolderToneIndex,
+  getLauncherFolderToneStyle,
   type LauncherFolderPreviewItem,
   type LauncherLibraryDisplayItem,
 } from '../model/launcherLibraryDisplay'
@@ -131,10 +132,24 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     clampLibraryRevealBatchSize(FALLBACK_LIBRARY_REVEAL_BATCH_SIZE, items.length),
   )
   const [hasPlayedInitialReveal, setHasPlayedInitialReveal] = useState(false)
+  const [viewportScrollTop, setViewportScrollTop] = useState(0)
+  const [viewportScrollLeft, setViewportScrollLeft] = useState(0)
+  const [isBoxSelecting, setIsBoxSelecting] = useState(false)
   const setViewportNode = useCallback((node: HTMLDivElement | null) => {
     viewportRef.current = node
     setViewportElement((current) => (current === node ? current : node))
   }, [])
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+    const syncScroll = () => {
+      setViewportScrollTop(viewport.scrollTop)
+      setViewportScrollLeft(viewport.scrollLeft)
+    }
+    syncScroll()
+    viewport.addEventListener('scroll', syncScroll, { passive: true })
+    return () => viewport.removeEventListener('scroll', syncScroll)
+  }, [viewportElement])
   const selectedIdLookup = useMemo(
     () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
     [boxSelectionIds, editMode, editingSelectionIds],
@@ -169,6 +184,17 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
       if (!viewport || !grid) {
         return
       }
+
+      // `@air/react-drag-to-select` computes coordinates relative to the
+      // eventsElement without accounting for its scroll offset, so we must
+      // manually adjust the box so it aligns with the visible card positions.
+      const scrollAdjustedBox: Box = {
+        left: box.left - viewport.scrollLeft,
+        top: box.top - viewport.scrollTop,
+        width: box.width,
+        height: box.height,
+      }
+
       const selectedIds = Array.from(grid.querySelectorAll<HTMLElement>('[data-launcher-mod-card-id]'))
         .filter((element) => {
           const id = element.getAttribute('data-launcher-mod-card-id')
@@ -176,7 +202,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
             return false
           }
           const rect = element.getBoundingClientRect()
-          return boxesIntersect(box, {
+          return boxesIntersect(scrollAdjustedBox, {
             left: rect.left,
             top: rect.top,
             width: rect.width,
@@ -193,6 +219,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     eventsElement: viewportElement,
     isEnabled: enableBoxSelection && !editMode,
     isValidSelectionStart: () => true,
+    onSelectionStart: () => setIsBoxSelecting(true),
+    onSelectionEnd: () => setIsBoxSelecting(false),
     onSelectionChange: updateDragSelection,
     selectionProps: {
       'data-testid': 'launcher-library-box-select',
@@ -334,7 +362,9 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     }
 
     const updateGridMetrics = () => {
-      const viewportWidth = viewport.getBoundingClientRect().width
+      const viewportStyle = window.getComputedStyle(viewport)
+      const horizontalPadding = Number.parseFloat(viewportStyle.paddingLeft) + Number.parseFloat(viewportStyle.paddingRight)
+      const viewportWidth = Math.max(0, viewport.getBoundingClientRect().width - horizontalPadding)
       const nextColumnCount = Math.max(
         1,
         Math.floor((viewportWidth + LAUNCHER_LIBRARY_GRID_GAP_PX) / (cardMinWidth + LAUNCHER_LIBRARY_GRID_GAP_PX)),
@@ -416,10 +446,22 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   return (
     <div
       ref={setViewportNode}
-      className={cx('launcher-library-grid-viewport', editMode && 'launcher-library-grid-viewport-editing')}
+      className={cx(
+        'launcher-library-grid-viewport',
+        editMode && 'launcher-library-grid-viewport-editing',
+        isBoxSelecting && 'launcher-library-grid-viewport-selecting',
+      )}
       data-launcher-blank-drop-id={blankDropId}
     >
-      <DragSelection />
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 7,
+          transform: `translate(${viewportScrollLeft}px, ${viewportScrollTop}px)`,
+        }}
+      >
+        <DragSelection />
+      </div>
       <div
         ref={gridRef}
         className="launcher-library-grid launcher-library-virtual-grid"
@@ -588,6 +630,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                     openLabel={openFolderLabel(displayItem.folder.name)}
                     getContextActions={getFolderContextActions}
                     onOpen={onOpenLibraryFolder}
+                    toneIndex={index}
                   />
                 </LoadingMotionRevealItem>
               ) : null}
@@ -605,6 +648,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                     openLabel={openFolderLabel(displayItem.folder.name)}
                     getContextActions={getFolderContextActions}
                     onOpen={onOpenLibraryFolder}
+                    toneIndex={index}
                   />
                 </div>
               ) : null}
@@ -640,6 +684,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   onCloseLibraryFolder={onCloseLibraryFolder}
                   getFolderContextActions={getFolderContextActions}
                   getContextActions={getContextActions}
+                  toneIndex={index}
                 />
               ) : null}
             </Fragment>
@@ -820,6 +865,7 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
   openLabel,
   getContextActions,
   onOpen,
+  toneIndex,
 }: {
   folder: LauncherVirtualFolder
   mods: LauncherLibraryItem[]
@@ -828,13 +874,14 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
   openLabel: string
   getContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   onOpen: (folderId: string) => void
+  toneIndex?: number
 }) {
   const pointerDrag = useContext(LauncherPointerDragContext)
   const previewItems = buildLauncherFolderPreviewItems(mods, childFolders)
   const previewCount = Math.min(4, previewItems.length)
   const previewKind = previewCount === 1 ? previewItems[0]?.kind : previewCount === 0 ? 'empty' : 'mixed'
   const emptyPreviewItems = Array.from({ length: 4 }, (_, index) => index)
-  const tone = getLauncherFolderTone(folder.id)
+  const toneStyle = getLauncherFolderToneStyle(toneIndex ?? getLauncherFolderToneIndex(folder.id))
   const dragSource: LauncherPointerDragSource = { kind: 'folder', folderId: folder.id, title: folder.name, previewItems }
   const [resolvedContextActions, setResolvedContextActions] = useState<LauncherContextMenuAction[] | null>(null)
   const handleOpen = useCallback(() => onOpen(folder.id), [folder.id, onOpen])
@@ -854,7 +901,7 @@ const DraggableLauncherFolderCard = memo(function DraggableLauncherFolderCard({
       type="button"
       className="launcher-library-folder-card launcher-library-draggable-card"
       data-draggable="true"
-      data-folder-tone={tone}
+      style={toneStyle}
       aria-label={openLabel}
       data-launcher-folder-drop-id={folder.id}
       onContextMenuCapture={handleContextMenuCapture}
@@ -1242,6 +1289,7 @@ function LauncherLibraryFolderPanel({
   onCloseLibraryFolder,
   getFolderContextActions,
   getContextActions,
+  toneIndex,
 }: {
   folder: LauncherVirtualFolder
   items: LauncherLibraryDisplayItem[]
@@ -1273,6 +1321,7 @@ function LauncherLibraryFolderPanel({
   onCloseLibraryFolder?: (folderId: string) => void
   getFolderContextActions: (folder: LauncherVirtualFolder) => LauncherContextMenuAction[] | undefined
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
+  toneIndex?: number
 }) {
   const selectedIdLookup = useMemo(
     () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
@@ -1298,12 +1347,12 @@ function LauncherLibraryFolderPanel({
       className="launcher-library-folder-panel"
       role="region"
       aria-label={folder.name}
-      data-folder-tone={getLauncherFolderTone(folder.id)}
       data-launcher-folder-panel-id={folder.id}
       onContextMenuCapture={handleContextMenuCapture}
       style={{
         gridColumn: `${columnStart + 1} / span ${columnSpan}`,
         gridRow: `${rowStart + 1} / span ${rowSpan}`,
+        ...getLauncherFolderToneStyle(toneIndex ?? getLauncherFolderToneIndex(folder.id)),
       }}
     >
       {onCloseLibraryFolder ? (

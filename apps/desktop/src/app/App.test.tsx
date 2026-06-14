@@ -95,7 +95,7 @@ function createMockAppUiState(overrides: MockAppUiStateOverrides = {}): MockAppU
     },
     appearance: {
       locale: overrides.appearance?.locale ?? 'en-US',
-      themeId: overrides.appearance?.themeId ?? 'warm-paper',
+      themeId: overrides.appearance?.themeId ?? 'neutral-tool',
       windowBorderTone: overrides.appearance?.windowBorderTone ?? 'accent',
       windowBorderWeight: overrides.appearance?.windowBorderWeight ?? 'standard',
       recentGameDirectories: overrides.appearance?.recentGameDirectories ?? [],

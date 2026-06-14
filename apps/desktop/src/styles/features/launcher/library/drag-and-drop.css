@@ -60,6 +60,8 @@
     overflow-x: hidden;
     overflow-y: auto;
     overflow-anchor: none;
+    scrollbar-gutter: stable;
+    padding: 12px 20px 20px;
   }
 
   .launcher-library-box-select {
@@ -70,8 +72,14 @@
     width: 0;
     height: 0;
     pointer-events: none;
-    border: 1px solid color-mix(in srgb, var(--accent) 64%, transparent);
+    border: 0;
     border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .launcher-library-grid-viewport-selecting .launcher-library-box-select {
+    border: 1px solid color-mix(in srgb, var(--accent) 64%, transparent);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
     box-shadow:
       inset 0 0 0 1px color-mix(in srgb, white 34%, transparent),

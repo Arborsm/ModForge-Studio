@@ -40,16 +40,24 @@ type LauncherLibraryGridPlacement = {
   rowSpan: number
 }
 
+type LauncherLibraryPanelPlacementMode = 'balanced' | 'max-columns'
+
 export function getLauncherLibraryPanelPlacement(
   itemCount: number,
   gridColumnCount: number,
-  minColumnSpan = 2,
+  minColumnSpan = 1,
+  mode: LauncherLibraryPanelPlacementMode = 'balanced',
 ): LauncherLibraryGridPlacement {
+  const contentSize = Math.max(1, itemCount)
   if (gridColumnCount <= 1) {
-    return { columnSpan: 1, rowSpan: Math.max(1, itemCount) }
+    return { columnSpan: 1, rowSpan: contentSize }
   }
 
-  const contentSize = Math.max(1, itemCount)
+  if (mode === 'max-columns') {
+    const columnSpan = Math.min(gridColumnCount, Math.max(minColumnSpan, contentSize))
+    return { columnSpan, rowSpan: Math.max(1, Math.ceil(contentSize / columnSpan)) }
+  }
+
   const preferredSpan = Math.max(minColumnSpan, Math.ceil(Math.sqrt(contentSize)))
   const columnSpan = Math.min(gridColumnCount, preferredSpan)
   return { columnSpan, rowSpan: Math.max(1, Math.ceil(contentSize / columnSpan)) }
@@ -86,7 +94,7 @@ export function buildLauncherLibraryGridBlocks(
   items.forEach((displayItem, index) => {
     const isOpenFolder = displayItem.kind === 'folder' && isLibraryFolderOpen(displayItem.folder.id)
     const placement = isOpenFolder
-      ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount)
+      ? getLauncherLibraryPanelPlacement(displayItem.mods.length + displayItem.childFolders.length, gridColumnCount, 1, 'balanced')
       : { columnSpan: 1, rowSpan: 1 }
 
     let rowStart = firstOpenRow
@@ -128,21 +136,35 @@ export function buildLauncherLibraryGridBlocks(
     })
   })
 
-  const blockCount = Math.max(1, Math.ceil(occupiedRows.length / LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT))
-  return Array.from({ length: blockCount }, (_, blockIndex): LauncherLibraryGridBlock => {
-    const rowStart = blockIndex * LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
-    const rowEnd = rowStart + LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
-    const blockItems = placedItems.filter((item) => item.rowStart < rowEnd && item.rowStart + item.rowSpan > rowStart)
-    const occupiedBlockRowCount = Math.max(0, ...blockItems.map((item) => item.rowStart + item.rowSpan - rowStart))
-    const rowCount = Math.max(
-      1,
-      Math.min(LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT, Math.max(0, occupiedRows.length - rowStart), occupiedBlockRowCount),
-    )
-    return {
+  const blocks: LauncherLibraryGridBlock[] = []
+  let blockRowStart = 0
+  const totalRows = occupiedRows.length
+
+  while (blockRowStart < totalRows) {
+    const blockRowTargetEnd = blockRowStart + LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
+    // Only include items that START in this block's row range.
+    // Items that start earlier belong to a previous block, even if they span into this range.
+    const blockItems = placedItems.filter((item) => item.rowStart >= blockRowStart && item.rowStart < blockRowTargetEnd)
+
+    if (blockItems.length === 0) {
+      // No items start in this window — advance and try the next window.
+      blockRowStart = blockRowTargetEnd
+      continue
+    }
+
+    // The block must be tall enough to hold every item that starts in it.
+    const maxItemEnd = Math.max(...blockItems.map((item) => item.rowStart + item.rowSpan - blockRowStart), 0)
+    const rowCount = Math.min(Math.max(LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT, maxItemEnd), totalRows - blockRowStart)
+
+    blocks.push({
       items: blockItems,
-      rowStart,
+      rowStart: blockRowStart,
       rowCount,
       estimatedHeight: rowCount * estimatedRowHeight + Math.max(0, rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX,
-    }
-  }).filter((block) => block.items.length > 0)
+    })
+
+    blockRowStart += rowCount
+  }
+
+  return blocks
 }
