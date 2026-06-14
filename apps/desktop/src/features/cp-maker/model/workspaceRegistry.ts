@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react'
 import type { DraftPatch, CpMakerDraft, GameDirectoryInfo, WorkspaceId } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 
 export interface PatchListField {

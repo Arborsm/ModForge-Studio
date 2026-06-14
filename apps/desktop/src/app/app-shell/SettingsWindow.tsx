@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { cx } from '@shared/lib/cx'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
-import type { LocaleCode } from '@locales/editor-shell'
+import type { LocaleCode } from '@locales/api'
 import type { SettingsWindowCategory, WindowBorderTone, WindowBorderWeight } from '@shared/contracts'
 import type {
   LoadingMotionIntensityId,

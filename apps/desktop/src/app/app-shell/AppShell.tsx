@@ -14,7 +14,7 @@ import {
   writeFrontendLog,
 } from '@shared/lib/desktop'
 import { clearGameAssetLocaleCache, loadImageDataUrl } from '@entities/game/api'
-import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/editor-shell'
+import { editorCopy, getSettingsMenuCopy, type AppMode, type LauncherPage, type LocaleCode, type ThemeMode } from '@locales/api'
 import { normalizeAppShellState } from '@shared/lib/app-state'
 import { normalizeLoadingMotionPreference } from '@shared/lib/loading-motion'
 import {
@@ -31,7 +31,7 @@ import type {
 import { LoadingMotionFallback, LoadingMotionProvider } from '@shared/ui/loading-motion'
 import { THEME_PRESETS } from './constants'
 import { clearLocalizedStageMetadataCache } from '@entities/event/model/stage/stageMetadataCache'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, setNotificationSoundEnabled } from '@shared/ui/notifications'
 import { configureObservability, syncDebugDiagnosticsEnabled } from '@shared/lib/observability'
 import { applyAppUiStatePatch, configureAppUiStatePersistence, getAppUiStateSnapshot, initializeAppUiState } from '@shared/lib/app-state'

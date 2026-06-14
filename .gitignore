@@ -36,3 +36,4 @@ services/**/obj/
 package-lock.json
 .omp/
 .codegraph/
+.bitfun/

@@ -1,6 +1,6 @@
 import { ChevronDown, Code2, Crown, Download, MessageSquare, Network, ScrollText } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
-import type { LauncherCopy } from '@locales/schema'
+import type { LauncherCopy } from '@locales/model'
 import { cx } from '@shared/lib/cx'
 import { canUseDesktopHost } from '@shared/lib/desktop'
 import { LoadingMotionReveal } from '@shared/ui/loading-motion'

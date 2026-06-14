@@ -17,7 +17,7 @@ import {
   loadLauncherUpdateChangelog,
   subscribeLauncherUpdates,
 } from '@features/launcher/api'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { NotificationProvider, clearNotifications } from '@shared/ui/notifications'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'

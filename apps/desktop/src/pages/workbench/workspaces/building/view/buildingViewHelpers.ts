@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/editor-shell'
+import type { BuildingsPanelCopy } from '@locales/api'
 import type { MapDocument } from '@shared/contracts'
 
 export function buildAbsoluteSpriteLayerStyle({

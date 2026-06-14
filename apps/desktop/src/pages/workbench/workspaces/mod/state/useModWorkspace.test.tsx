@@ -5,8 +5,8 @@ import { chooseDirectory } from '@shared/lib/desktop'
 import { reportAppEvent } from '@shared/lib/observability'
 import useModWorkspace from './useModWorkspace'
 
-vi.mock('@locales/editor-shell', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@locales/editor-shell')>()
+vi.mock('@locales/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@locales/api')>()
   const enUSCopy = {
     ...actual.getModWorkspaceCopy('en-US'),
     scanStatus: () => 'TASK2-SCAN-1',

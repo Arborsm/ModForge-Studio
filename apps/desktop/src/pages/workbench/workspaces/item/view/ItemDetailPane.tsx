@@ -1,4 +1,4 @@
-import { useItemsCopy } from '@locales/localeContext'
+import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'

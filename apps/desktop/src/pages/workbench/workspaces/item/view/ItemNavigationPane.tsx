@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { useItemsCopy } from '@locales/localeContext'
+import { useItemsCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { BrowserSourceSwitch } from '@shared/ui/BrowserSourceSwitch'
 import type { BrowserSourceMode } from '@pages/workbench/workspaces/mod'

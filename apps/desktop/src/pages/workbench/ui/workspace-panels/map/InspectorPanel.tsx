@@ -1,6 +1,6 @@
 import { Settings2 } from 'lucide-react'
 import { PanelFrame } from '@shared/ui/PanelFrame'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import type { InspectorPanelProps } from '../common/rightShared'
 import { ModSourceList } from '@shared/ui/ModSourceList'
 

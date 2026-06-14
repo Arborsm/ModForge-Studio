@@ -1,6 +1,6 @@
 import { useDeferredValue, useState, type ReactNode } from 'react'
 import { localeBundles } from '@locales'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { LauncherPortContext } from '@features/launcher/model/launcherPortContext'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherDiscoverDetail, LauncherLibraryItem } from '@features/launcher/model/types'
@@ -14,16 +14,8 @@ import { EventConditionBuilderModal } from '@entities/event/ui/EventConditionBui
 import { EventGameStateQueryBuilderModal } from '@entities/event/ui/EventGameStateQueryBuilderModal'
 import type { ContentPatcherI18nFile, ModProjectDetail } from '@entities/mod/api'
 import type { EventPatchHubEvent } from '@entities/event'
-import type {
-  DraftPatch,
-  WorkspaceId,
-} from '@shared/contracts'
-import type {
-  StudioDeskGalleryProject,
-  StudioDeskInspiration,
-  StudioDeskModel,
-  StudioDeskWorldBibleModel,
-} from '@features/cp-maker'
+import type { DraftPatch, WorkspaceId } from '@shared/contracts'
+import type { StudioDeskGalleryProject, StudioDeskInspiration, StudioDeskModel, StudioDeskWorldBibleModel } from '@features/cp-maker'
 
 const copy = localeBundles['en-US']
 const editorCopy = copy.editor
@@ -174,7 +166,9 @@ function createStudioDeskModel(count: number): StudioDeskModel {
 }
 
 function createI18nFiles(count: number): ContentPatcherI18nFile[] {
-  const sourceEntries = Object.fromEntries(range(count).map((index) => [`perf.key.${index}`, `Source string with {{token${index % 9}}} ${index}`]))
+  const sourceEntries = Object.fromEntries(
+    range(count).map((index) => [`perf.key.${index}`, `Source string with {{token${index % 9}}} ${index}`]),
+  )
   const targetEntries = Object.fromEntries(
     range(count).map((index) => [`perf.key.${index}`, index % 5 === 0 ? '' : `Translated string with {{token${index % 9}}} ${index}`]),
   )

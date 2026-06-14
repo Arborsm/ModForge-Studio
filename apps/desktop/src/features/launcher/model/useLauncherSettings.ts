@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings } from './launcherContracts'
-import { getLauncherCopy, type LocaleCode } from '@locales/editor-shell'
+import { getLauncherCopy, type LocaleCode } from '@locales/api'
 import { reportAppEvent } from '@shared/lib/observability'
 import type { LauncherViewState } from './types'
 

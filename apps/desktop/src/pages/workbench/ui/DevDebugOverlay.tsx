@@ -4,7 +4,7 @@ import { getGameAssetCacheStats } from '@entities/game/api'
 import { getModApiCacheStats } from '@entities/mod/api'
 import { clearFileCache, canUseDesktopHost, getFileCacheStats, type FileCacheStats } from '@shared/lib/desktop'
 import { getMapViewportCacheStats } from '@shared/lib/maps'
-import type { WorkspaceMode } from '@locales/editor-shell'
+import type { WorkspaceMode } from '@locales/api'
 import { formatBytes } from '@shared/lib/formatting'
 
 type DebugOverlayMode = WorkspaceMode | 'launcher'

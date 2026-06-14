@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react'
 import type { DraftPatch, CpMakerDraft, WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { AddPatchDialog } from './AddPatchDialog'
 import { ConfigSchemaDialog } from './ConfigSchemaDialog'
 import { EditModeToolbar } from './EditModeToolbar'
 import { PatchListPage } from './PatchListPage'
 import { EditorPage } from './EditorPage'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 
 interface EditModeShellProps {
   workspaceId: WorkspaceId

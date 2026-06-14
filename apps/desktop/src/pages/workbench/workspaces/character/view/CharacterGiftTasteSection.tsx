@@ -1,6 +1,6 @@
 import { getSpringObjectsSourceRect } from '@entities/event'
-import type { CharactersPanelCopy } from '@locales/editor-shell'
-import { useCharactersCopy } from '@locales/localeContext'
+import type { CharactersPanelCopy } from '@locales/api'
+import { useCharactersCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { ItemGroupPopover } from '@shared/ui/ItemGroupPopover'
 import type { CharacterGiftGroup, CharacterGiftGroupKind, CharacterGiftItem } from '../entities/character'

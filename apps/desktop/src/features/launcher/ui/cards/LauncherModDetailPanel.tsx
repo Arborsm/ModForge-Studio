@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { ExternalLink, FolderOpen, ImageIcon, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherRemoteModDetail } from '@features/launcher/model/useLauncherRemoteModDetail'
 import { cx } from '@shared/lib/cx'

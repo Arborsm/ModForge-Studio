@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, CopyPlus, FolderOpen, Plus, Trash2, UserRound, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { buildGameContentPath } from '@shared/lib/assets'
-import type { LocaleCode } from '@locales/editor-shell'
+import type { LocaleCode } from '@locales/api'
 import { loadTextFile, scanDefaultSaveSlots, type DefaultSaveSlotSummary } from '@entities/game/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import {

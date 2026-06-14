@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import type { LauncherDownloadQueueItem } from '@features/launcher'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 import { LauncherDownloadsPopover } from './LauncherDownloadsPopover'

@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react'
 import { cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import TopMenuBar from './ui/TopMenuBar'
-import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/editor-shell'
+import { editorCopy, getSettingsMenuCopy, getViewMenuCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale.tsx'
 
 const copy = editorCopy['en-US']

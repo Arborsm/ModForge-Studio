@@ -1,7 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type {
   InstallLauncherArchiveResult,
@@ -13,7 +13,7 @@ import type {
   LauncherSettings,
 } from '@features/launcher/api'
 import * as desktop from '@features/launcher/api'
-import { getLauncherCopy } from '@locales/editor-shell'
+import { getLauncherCopy } from '@locales/api'
 import { useLauncherLibrary } from '@features/launcher'
 import { LauncherTestWrapper } from '@test/launcherTestWrapper'
 import { createMockLauncherPort } from '@test/launcherTestPort'

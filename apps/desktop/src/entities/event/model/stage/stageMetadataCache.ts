@@ -1,4 +1,4 @@
-import type { LocaleCode } from '@locales/editor-shell'
+import type { LocaleCode } from '@locales/api'
 import type { FarmerHairMetadataEntry } from './farmerAppearanceRenderer'
 
 export type HatMetadataEntry = {

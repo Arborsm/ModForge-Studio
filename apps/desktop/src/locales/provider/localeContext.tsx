@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { localeBundles } from '@locales'
-import type { LocaleCode } from '@locales'
+import { localeBundles } from '../dictionaries'
+import type { LocaleCode } from '../model'
 
 const LocaleContext = createContext<LocaleCode | null>(null)
 

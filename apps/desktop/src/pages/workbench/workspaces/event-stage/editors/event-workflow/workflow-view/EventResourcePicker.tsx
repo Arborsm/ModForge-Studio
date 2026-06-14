@@ -14,7 +14,7 @@ import {
   Tag,
   X,
 } from 'lucide-react'
-import { useEventStageCopy } from '@locales/localeContext'
+import { useEventStageCopy } from '@locales/provider'
 import { ItemSprite, type ItemTextureAssetState, type ItemWorkspaceEntry } from '@pages/workbench/workspaces/item/entities/item'
 import { cx } from '@shared/lib/cx'
 import { CompactSelect } from '@shared/ui/CompactSelect'

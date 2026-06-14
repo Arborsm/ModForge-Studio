@@ -1,7 +1,7 @@
 import { ChevronDown, FileCode, Search } from 'lucide-react'
 import { startTransition, useDeferredValue, useEffect, useRef, useState, type UIEvent } from 'react'
 import type { DraftPatch } from '@shared/contracts'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { PatchSummaryCard } from './PatchSummaryCard'
 

@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import SettingsWindow from './SettingsWindow'
 import { THEME_PRESETS } from '@app/app-shell/constants'
-import { getSettingsMenuCopy } from '@locales/editor-shell'
+import { getSettingsMenuCopy } from '@locales/api'
 
 const copy = getSettingsMenuCopy('en-US')
 

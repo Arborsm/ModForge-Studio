@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle2, Clock3, DownloadCloud, Trash2 } from 'lucide-react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import type { LauncherDownloadQueueItem } from '../../model/types'
 import { ProgressRing } from '@shared/ui/ProgressRing.tsx'
 

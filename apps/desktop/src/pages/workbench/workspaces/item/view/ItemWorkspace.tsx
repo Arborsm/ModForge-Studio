@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react'
-import { useItemsCopy } from '@locales/localeContext'
+import { useItemsCopy } from '@locales/provider'
 import type { ModBrowserEntry } from '@pages/workbench/workspaces/mod'
 import type { ItemWorkspaceEntry } from '../entities/item'
 import { paginateItems, sortItemsBySearchPriority } from './itemCatalogPagination'

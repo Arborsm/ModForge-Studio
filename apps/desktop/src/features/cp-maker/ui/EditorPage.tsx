@@ -3,8 +3,8 @@
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import type { GameDirectoryInfo } from '../model/cpMakerPort'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
-import { useEditorCopy } from '@locales/localeContext'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
+import { useEditorCopy } from '@locales/provider'
 import { getWorkspacePlugin } from '../model/workspaceRegistry'
 import type { PlayerAppearanceProfile } from '@entities/event'
 

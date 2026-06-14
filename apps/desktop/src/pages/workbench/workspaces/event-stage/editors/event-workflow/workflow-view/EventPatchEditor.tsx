@@ -15,7 +15,7 @@ import {
   UserPlus,
 } from 'lucide-react'
 import type { DraftPatch, CpMakerDraft, GameDirectoryInfo } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import { parseEventCommand, parseEventCommands, parseEventSceneSetup } from '@entities/event'
 import { loadResourceRegistry, type ResourceRegistry } from '@entities/game/api'
 import {
@@ -32,7 +32,7 @@ import { PickModeOverlay } from './PickModeOverlay'
 import { ScriptEditor } from './ScriptEditor'
 import { EventResourcePicker } from './EventResourcePicker'
 import { useEditorStore } from '../workflow-model/editorStore'
-import { useEditorCopy, useLocale } from '@locales/localeContext'
+import { useEditorCopy, useLocale } from '@locales/provider'
 import { buildEventPatchHubPatches } from '@entities/event'
 import { EventConditionBuilderModal, type EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { scheduleDeferred } from '@shared/lib/react'

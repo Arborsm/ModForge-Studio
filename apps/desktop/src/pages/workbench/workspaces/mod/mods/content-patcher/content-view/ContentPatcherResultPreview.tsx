@@ -1,7 +1,7 @@
 import type { LoadContentPatcherResultAssetResult } from '@entities/mod/api'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
 import { ContentPatcherImagePreview } from './ContentPatcherImagePreview'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 
 type ContentPatcherResultPreviewProps = {
   result: LoadContentPatcherResultAssetResult | null

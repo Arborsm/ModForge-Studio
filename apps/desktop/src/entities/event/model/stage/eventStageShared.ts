@@ -1,5 +1,5 @@
 import { loadTextAsset } from '@entities/game/api'
-import type { LocaleCode } from '@locales/editor-shell'
+import type { LocaleCode } from '@locales/api'
 import {
   getFarmerDirectionalFrame,
   getFarmerWalkAnimation,

@@ -1,9 +1,9 @@
 import { getSpringObjectsSourceRect } from '@entities/event'
 import { buildAbsoluteSpriteLayerStyle } from './buildingViewHelpers'
 import { formatPoint } from '@shared/lib/geometryFormatting'
-import { useBuildingsCopy } from '@locales/localeContext'
+import { useBuildingsCopy } from '@locales/provider'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry, WorldBuildingEntrance } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/editor-shell'
+import type { BuildingsPanelCopy } from '@locales/api'
 
 export type BuildingMaterialsPanelProps = {
   building: BuildingWorkspaceEntry

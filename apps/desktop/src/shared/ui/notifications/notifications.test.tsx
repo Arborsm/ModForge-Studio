@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { LocaleProvider } from '@locales/localeContext'
+import { LocaleProvider } from '@locales/provider'
 import { clearNotifications, dismissNotification, NotificationProvider, publishNotification } from './notifications'
 import { playNotificationSound } from './notificationSounds'
 

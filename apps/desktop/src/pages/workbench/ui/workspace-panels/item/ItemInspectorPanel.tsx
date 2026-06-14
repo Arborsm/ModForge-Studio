@@ -1,4 +1,4 @@
-import { useItemsCopy } from '@locales/localeContext'
+import { useItemsCopy } from '@locales/provider'
 import { getContainedItemSpriteScale, type ItemTextureAssetState, type ItemWorkspaceEntry } from '../../../workspaces/item'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { ItemSprite } from '../../../workspaces/item'

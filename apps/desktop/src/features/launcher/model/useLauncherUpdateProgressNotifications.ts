@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type { LauncherUpdateProgressPayload } from './launcherContracts'
-import { getLauncherCopy, type LocaleCode } from '@locales/editor-shell'
+import { getLauncherCopy, type LocaleCode } from '@locales/api'
 
 export const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_ID = 'launcher-updates-progress'
 const LAUNCHER_UPDATES_PROGRESS_NOTIFICATION_THROTTLE_MS = 250

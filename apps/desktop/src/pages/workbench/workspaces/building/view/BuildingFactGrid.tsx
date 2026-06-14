@@ -1,6 +1,6 @@
 import { formatPoint, formatRect } from '@shared/lib/geometryFormatting'
 import type { BuildingWorkspaceEntry } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/editor-shell'
+import type { BuildingsPanelCopy } from '@locales/api'
 
 export type BuildingFactGridProps = {
   building: BuildingWorkspaceEntry

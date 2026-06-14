@@ -1,5 +1,5 @@
 import { dismissNotification, publishNotification, type NotificationChip, type PublishNotificationRequest } from '@shared/ui/notifications'
-import type { LauncherCopy } from '@locales/editor-shell'
+import type { LauncherCopy } from '@locales/api'
 import type { LauncherNexusDiagnosticsResult } from './launcherContracts'
 import {
   canAutoCheckLauncherUpdates,

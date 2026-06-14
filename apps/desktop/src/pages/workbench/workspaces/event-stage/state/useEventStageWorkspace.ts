@@ -5,7 +5,7 @@ import type { MapDocument } from '@shared/contracts'
 import { scheduleDeferred } from '@shared/lib/react'
 import { EVENT_SETUP_ENTRY_ID } from '@entities/event'
 import type { EventScript, ParsedEventAsset } from '@entities/event'
-import type { EventStageCopy, LocaleCode, ViewportLabels } from '@locales/editor-shell'
+import type { EventStageCopy, LocaleCode, ViewportLabels } from '@locales/api'
 import {
   CHARACTER_DATA_PATH,
   EVENT_STAGE_INITIAL_ZOOM,

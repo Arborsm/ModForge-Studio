@@ -1,4 +1,4 @@
-import { useCharactersCopy, useEditorCopy } from '@locales/localeContext'
+import { useCharactersCopy, useEditorCopy } from '@locales/provider'
 import type { CharacterWorkspaceEntry } from '../../../workspaces/character'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'

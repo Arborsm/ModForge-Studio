@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo } from 'react'
-import type { LauncherPage } from '@locales/editor-shell'
+import type { LauncherPage } from '@locales/api'
 import type { LauncherNexusDiagnosticsResult } from '@shared/contracts'
 import { LoadingMotionFallback } from '@shared/ui/loading-motion'
 import { useLauncherDownloads } from '@features/launcher/model/useLauncherDownloads'

@@ -1,7 +1,7 @@
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../../../workspaces/building'
 import { formatPoint, formatRect } from '@shared/lib/geometryFormatting'
 import type { ModSourceEntry } from '@pages/workbench/workspaces/mod'
-import { useBuildingsCopy } from '@locales/localeContext'
+import { useBuildingsCopy } from '@locales/provider'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import { PanelEmptyState, PanelSection } from '@shared/ui/PanelSection'
 import { ModSourceList } from '@shared/ui/ModSourceList'

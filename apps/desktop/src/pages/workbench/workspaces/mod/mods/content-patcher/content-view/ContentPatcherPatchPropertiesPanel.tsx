@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 
 type ContentPatcherPatchPropertiesPanelProps = {
   patch: Record<string, unknown> | null

@@ -4,7 +4,7 @@ import { screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import CharacterWorkspace from './CharacterWorkspace'
 import { createCharacterEntryIndex, type CharacterVisualAssetState } from '../entities/character'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import { renderWithLocale } from '@test/renderWithLocale'
 
 const copy = editorCopy['en-US'].charactersPanel

@@ -1,10 +1,10 @@
 import { CheckCircle2, FolderSearch, TriangleAlert } from 'lucide-react'
 import type { GameDirectoryInfo, MapAssetSummary } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
-import type { AppMode, LauncherPage, WorkspaceMode, WorkspaceTone } from '@locales/editor-shell'
+import type { AppMode, LauncherPage, WorkspaceMode, WorkspaceTone } from '@locales/api'
 import type { MapDocument } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 
 type StatusBarProps = {
   appMode: AppMode

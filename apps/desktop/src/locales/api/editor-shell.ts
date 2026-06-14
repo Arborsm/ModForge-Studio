@@ -1,4 +1,4 @@
-import { localeBundles } from '../locales'
+import { localeBundles } from '../dictionaries'
 import type {
   EditorCopy,
   LauncherCopy,
@@ -10,7 +10,7 @@ import type {
   ViewMenuCopy,
   WorkspaceMode,
   WorldAtlasViewId,
-} from '../locales'
+} from '../model'
 
 export type {
   BuildingsPanelCopy,
@@ -34,7 +34,7 @@ export type {
   WorkspaceMode,
   WorkspaceTone,
   WorldAtlasViewId,
-} from '../locales'
+} from '../model'
 
 export const workspaceModes: WorkspaceMode[] = ['map', 'events', 'characters', 'buildings', 'items', 'mod-i18n', 'mods']
 export const launcherPages: LauncherPage[] = ['library', 'discover', 'updates', 'configuration']

@@ -1,6 +1,6 @@
 import * as ContextMenu from '@radix-ui/react-context-menu'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
-import type { ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { ThemeMode, ViewportLabels } from '@locales/api'
 import type { TileHoverInfo } from '@shared/contracts'
 import type { MapDocument, MapLayer, MapObjectGroup } from '@shared/contracts'
 import { rgbaFromHex } from './mapViewportHelpers'

@@ -1,5 +1,5 @@
 import type { InstallLauncherArchiveResult } from '../../model/launcherContracts'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { PanelSection } from '@shared/ui/PanelSection'
 
 type LauncherInstallSummaryDialogProps = {

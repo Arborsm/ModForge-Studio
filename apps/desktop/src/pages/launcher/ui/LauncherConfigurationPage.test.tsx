@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { editorCopy } from '@locales/editor-shell'
+import { editorCopy } from '@locales/api'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import type { LauncherLibraryModSummary, LauncherSettings } from '@features/launcher/api'
 import {

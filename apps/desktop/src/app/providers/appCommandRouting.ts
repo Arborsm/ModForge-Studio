@@ -1,5 +1,5 @@
 import type { AppCommand, PendingWorkbenchCommandIntent } from '@shared/contracts'
-import type { AppMode } from '@locales/editor-shell'
+import type { AppMode } from '@locales/api'
 
 let nextIntentId = 0
 

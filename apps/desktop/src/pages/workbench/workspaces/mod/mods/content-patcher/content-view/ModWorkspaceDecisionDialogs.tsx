@@ -1,4 +1,4 @@
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 import { AlertTriangle, X } from 'lucide-react'
 
 type PendingUnsavedChangeDecision = {

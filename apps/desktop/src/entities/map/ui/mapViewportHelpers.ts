@@ -8,7 +8,7 @@ import {
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import { viewportImageCache as imageCache, viewportImagePromiseCache as imagePromiseCache } from '@shared/lib/maps'
 import { clampPanZoomZoom } from '@shared/lib/viewports'
-import type { LocaleCode, ThemeMode } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode } from '@locales/api'
 import type { HoverObjectInfo, TileHoverInfo } from '@shared/contracts'
 import type { MapAtlasPoint, MapAtlasPortal, MapAtlasWarpRoute, MapDocument, MapObject, MapTileset } from '@shared/contracts'
 import type { LoadedTilesetImage } from './mapViewportTypes'

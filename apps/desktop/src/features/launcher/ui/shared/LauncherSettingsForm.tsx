@@ -1,7 +1,7 @@
 import { ArrowUpRight, FolderOpen, KeyRound } from 'lucide-react'
 import { useId } from 'react'
 import type { ReactNode } from 'react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { cx } from '@shared/lib/cx'
 import { useLauncherPort } from '@features/launcher/model/launcherPortContext'
 import { useLauncherSettings } from '../../model/useLauncherSettings'

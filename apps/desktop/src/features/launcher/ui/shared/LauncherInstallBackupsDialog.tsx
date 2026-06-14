@@ -1,5 +1,5 @@
 import type { LauncherInstallBackupSummary } from '../../model/launcherContracts'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { PanelEmptyState } from '@shared/ui/PanelSection'
 import { useState } from 'react'
 

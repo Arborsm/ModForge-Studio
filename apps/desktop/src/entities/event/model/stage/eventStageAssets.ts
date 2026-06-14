@@ -8,7 +8,7 @@ import {
   type FarmerHairMetadataEntry,
   type FarmerRenderState,
 } from './farmerAppearanceRenderer'
-import type { LocaleCode } from '@locales/editor-shell'
+import type { LocaleCode } from '@locales/api'
 import { loadImageResourceFromPath } from '@shared/lib/assets'
 import type { PlayerAppearanceProfile } from '@entities/event'
 import { buildGameContentPath } from '@shared/lib/assets'

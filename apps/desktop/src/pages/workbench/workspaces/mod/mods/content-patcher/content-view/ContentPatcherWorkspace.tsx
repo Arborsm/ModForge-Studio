@@ -7,7 +7,7 @@ import type {
   SaveModProjectResult,
 } from '@entities/mod/api'
 import type { ContentPatcherBackendSimulationContext } from '../content-model/contentPatcher'
-import { useModWorkspaceCopy } from '@locales/localeContext'
+import { useModWorkspaceCopy } from '@locales/provider'
 import type { WorkspacePluginDefinition } from '../content-model/types'
 import { ContentPatcherResultPreview } from './ContentPatcherResultPreview'
 import { ContentPatcherPatchPropertiesPanel } from './ContentPatcherPatchPropertiesPanel'

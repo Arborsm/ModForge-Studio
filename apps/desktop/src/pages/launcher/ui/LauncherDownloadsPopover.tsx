@@ -1,5 +1,5 @@
 import { RefreshCw } from 'lucide-react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { useLauncherDownloads } from '@features/launcher/model/useLauncherDownloads'
 import { LauncherDownloadRow } from '@features/launcher/ui/cards/LauncherDownloadRow'
 import { LauncherStateBlock } from '@features/launcher/ui/shared/LauncherStateBlock'

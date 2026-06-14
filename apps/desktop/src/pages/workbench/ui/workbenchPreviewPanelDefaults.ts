@@ -1,5 +1,5 @@
 import { localeBundles } from '@locales'
-import { getModWorkspaceCopy, type EditorCopy, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/editor-shell'
+import { getModWorkspaceCopy, type EditorCopy, type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
 import { createDefaultContentPatcherSimulationContext } from '../workspaces/mod'
 import type { BuildWorkspacePanelsOptions } from '../model/workspace-panels/buildWorkspacePanels'
 import type { GameDirectoryInfo, WorkspaceStatus } from '@shared/contracts'

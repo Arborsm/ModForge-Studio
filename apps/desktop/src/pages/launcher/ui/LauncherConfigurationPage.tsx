@@ -2,7 +2,7 @@ import { ArrowUpRight, Database, FolderOpen, HelpCircle, Image, KeyRound, Networ
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { applyAppUiStatePatch, getAppUiStateSnapshot } from '@shared/lib/app-state'
 import { cx } from '@shared/lib/cx'
-import { useEditorCopy, useSettingsMenuCopy } from '@locales/localeContext'
+import { useEditorCopy, useSettingsMenuCopy } from '@locales/provider'
 import { LoadingMotionReveal, LoadingMotionRevealItem } from '@shared/ui/loading-motion'
 import {
   clearLauncherImageCache,
@@ -29,7 +29,7 @@ import {
   writeCachedLauncherConfigurationRuntimeInfo,
   writeCachedLauncherConfigurationSsoStatus,
 } from '@features/launcher'
-import type { LauncherCopy } from '@locales/schema'
+import type { LauncherCopy } from '@locales/model'
 import type { LauncherRuntimeInfo, ValidateApiKeyResult } from '@features/launcher/model/launcherContracts'
 import type { LauncherPort } from '@features/launcher/model/launcherPort'
 import { LauncherConfigurationMoreTools } from './LauncherConfigurationMoreTools'

@@ -3,7 +3,7 @@ import { AlertCircle, CheckCircle2, Crosshair, Hammer, Loader2, Plus, Trash2, X 
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { VirtualPreviewAsset } from '@shared/contracts'
 import type { TileHoverInfo } from '@shared/contracts'
-import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/editor-shell'
+import type { LocaleCode, ThemeMode, ViewportLabels } from '@locales/api'
 import type { MapDocument } from '@shared/contracts'
 import { loadMapAsset } from '@entities/game/api'
 import { buildCpMakerMapAsset } from '@features/cp-maker/api'

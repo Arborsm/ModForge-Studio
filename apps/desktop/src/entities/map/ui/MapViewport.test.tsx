@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { vi } from 'vitest'
 import type { MapDocument } from '@shared/contracts'
-import type { ViewportLabels } from '@locales/editor-shell'
+import type { ViewportLabels } from '@locales/api'
 import { MapViewport } from './MapViewport'
 
 const labels: ViewportLabels = {

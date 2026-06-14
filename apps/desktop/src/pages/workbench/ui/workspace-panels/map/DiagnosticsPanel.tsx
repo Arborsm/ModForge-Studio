@@ -1,5 +1,5 @@
 import { Activity } from 'lucide-react'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { PanelFrame } from '@shared/ui/PanelFrame'
 import type { DiagnosticsPanelProps } from '../common/rightShared'
 

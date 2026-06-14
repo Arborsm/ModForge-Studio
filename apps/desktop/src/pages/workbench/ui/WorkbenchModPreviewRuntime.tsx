@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 import { localeBundles } from '@locales'
-import { type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/editor-shell'
+import { type LocaleCode, type ThemeMode, type WorkspaceMode } from '@locales/api'
 import { ModWorkspaceDecisionDialogs, useModWorkspace } from '../workspaces/mod'
 import type { ModI18nStatusFilter } from '../workspaces/mod-i18n'
 import { buildWorkspacePanels } from '../model/workspace-panels/buildWorkspacePanels'
@@ -24,7 +24,7 @@ type ModPreviewStatusSnapshot = {
 }
 
 type WorkbenchModPreviewRuntimeProps = {
-  copy: (typeof import('@locales/editor-shell').editorCopy)[LocaleCode]
+  copy: (typeof import('@locales/api').editorCopy)[LocaleCode]
   locale: LocaleCode
   theme: ThemeMode
   accentColor: string

@@ -26,7 +26,7 @@ import { lazy, Suspense, useMemo, useRef, useState, type MouseEvent } from 'reac
 import type { DraftPatch, CpMakerDraft } from '@shared/contracts'
 import type { WorkspaceId } from '@shared/contracts'
 import { cx } from '@shared/lib/cx'
-import { useEditorCopy } from '@locales/localeContext'
+import { useEditorCopy } from '@locales/provider'
 import { buildEventPatchHubPatches, type EventPatchHubEvent, type EventPatchHubPatch } from '@entities/event'
 import type { EventConditionBuilderResult } from './EventConditionBuilderModal'
 import { formatEventPreconditionForHub, type ParsedEventPrecondition } from '@entities/event'

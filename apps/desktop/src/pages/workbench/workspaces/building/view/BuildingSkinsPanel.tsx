@@ -1,6 +1,6 @@
 import { formatPoint } from '@shared/lib/geometryFormatting'
 import type { BuildingTextureAssetState, BuildingWorkspaceEntry } from '../entities/building'
-import type { BuildingsPanelCopy } from '@locales/editor-shell'
+import type { BuildingsPanelCopy } from '@locales/api'
 
 export type BuildingSkinsPanelProps = {
   building: BuildingWorkspaceEntry
