@@ -198,7 +198,7 @@
     height: 38px;
     min-height: 38px;
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast);
   }
 
   .event-stage-console-surface .viewport-scroll-hidden {

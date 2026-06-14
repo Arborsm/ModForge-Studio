@@ -42,7 +42,7 @@
   .control-button-primary {
     border-color: color-mix(in srgb, var(--accent) 52%, transparent);
     background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, white 14%), var(--accent));
-    color: white;
+    color: var(--text-inverse);
   }
 
   .icon-button {
@@ -67,7 +67,7 @@
 
   .window-control-close:hover {
     background: color-mix(in srgb, var(--danger) 82%, transparent);
-    color: white;
+    color: var(--accent-contrast);
   }
 
   .tool-button {
@@ -82,7 +82,7 @@
 
   .tool-button-active {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
   }
 
   .compact-select {

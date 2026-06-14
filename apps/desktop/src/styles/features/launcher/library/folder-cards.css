@@ -205,7 +205,7 @@
       );
     padding: var(--launcher-folder-preview-padding);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.76),
+      inset 0 1px 0 var(--bevel-highlight),
       inset 0 -14px 24px rgba(15, 23, 42, 0.08),
       0 14px 24px rgba(15, 23, 42, 0.16);
   }
@@ -252,7 +252,7 @@
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 48%), color-mix(in srgb, var(--launcher-folder-front) 72%, white 28%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.52),
+      inset 0 1px 0 var(--bevel-highlight),
       inset 0 -14px 18px rgba(15, 23, 42, 0.04);
     content: "";
   }
@@ -320,7 +320,7 @@
     font-weight: 850;
     box-shadow:
       0 3px 7px rgba(15, 23, 42, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      inset 0 1px 0 var(--bevel-highlight);
   }
 
   .launcher-library-folder-preview-cover-item {
@@ -389,7 +389,7 @@
       linear-gradient(180deg, color-mix(in srgb, white 48%, transparent), transparent 42%),
       linear-gradient(145deg, var(--launcher-folder-back), var(--launcher-folder-front));
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.74),
+      inset 0 1px 0 var(--bevel-highlight),
       0 7px 14px rgba(15, 23, 42, 0.1);
   }
 
@@ -400,7 +400,7 @@
       linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.32)),
       color-mix(in srgb, var(--launcher-folder-bg) 72%, white);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      inset 0 1px 0 var(--bevel-highlight),
       0 2px 5px rgba(15, 23, 42, 0.06);
   }
 

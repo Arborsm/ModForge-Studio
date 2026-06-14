@@ -327,7 +327,7 @@
   }
 
   .launcher-configuration-page .control-button-primary:hover {
-    background: color-mix(in srgb, var(--accent) 88%, var(--text-primary) 12%);
+    background: var(--accent-strong);
     color: var(--text-inverse);
   }
 
@@ -351,7 +351,7 @@
   }
 
   .launcher-config-main .launcher-settings-subsection-verification > .launcher-form-grid .control-button:first-child:hover {
-    background: color-mix(in srgb, var(--accent) 88%, var(--text-primary) 12%);
+    background: var(--accent-strong);
   }
 
   .launcher-configuration-page .settings-switch {

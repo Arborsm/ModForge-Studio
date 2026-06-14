@@ -117,7 +117,7 @@
     min-width: 280px;
     border: 1px solid var(--border-color);
     border-radius: 14px;
-    background: color-mix(in srgb, var(--bg-elevated) 98%, transparent);
+    background: var(--bg-overlay);
     box-shadow: var(--shadow-float);
     padding: 12px;
     backdrop-filter: blur(12px);
@@ -201,7 +201,7 @@
     border-radius: 999px;
     padding: 0 6px;
     background: color-mix(in srgb, var(--accent) 82%, white 18%);
-    color: white;
+    color: var(--accent-contrast);
     font-size: 10px;
     font-weight: 800;
     line-height: 1;
@@ -252,7 +252,7 @@
     border-radius: 999px;
     padding: 0 5px;
     background: color-mix(in srgb, var(--accent) 82%, white 18%);
-    color: white;
+    color: var(--accent-contrast);
     font-size: 10px;
     font-weight: 800;
     line-height: 1;
@@ -272,7 +272,7 @@
     align-items: flex-start;
     justify-content: flex-end;
     padding: 72px 24px 24px;
-    background: rgba(8, 12, 20, 0.24);
+    background: var(--scrim);
     backdrop-filter: blur(6px);
   }
 

@@ -159,7 +159,7 @@
   .launcher-detail-info-heading span {
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+    color: var(--accent-strong);
     padding: 2px 7px;
     font-size: 10px;
     font-weight: 760;
@@ -215,7 +215,7 @@
     width: 26px;
     height: 26px;
     border: 3px solid color-mix(in srgb, var(--accent) 16%, var(--border-color));
-    border-top-color: color-mix(in srgb, var(--accent) 82%, var(--text-primary));
+    border-top-color: var(--accent-strong);
     border-radius: 999px;
     animation: launcher-mod-detail-data-spinner 760ms linear infinite;
   }
@@ -430,7 +430,7 @@
   .launcher-mod-detail-data-item.is-primary .launcher-mod-detail-file-mark {
     border-color: color-mix(in srgb, var(--accent) 28%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 72%, var(--text-primary));
+    color: var(--accent-strong);
   }
 
   .launcher-mod-detail-file-chevron {
@@ -460,7 +460,7 @@
   .launcher-mod-detail-file-action:hover {
     border-color: color-mix(in srgb, var(--accent) 32%, var(--border-color));
     background: color-mix(in srgb, var(--accent-soft) 42%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 80%, var(--text-primary));
+    color: var(--accent-strong);
   }
 
   .launcher-mod-detail-file-archive-toggle {
@@ -495,7 +495,7 @@
     justify-content: center;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent-soft) 62%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 74%, var(--text-primary));
+    color: var(--accent-strong);
     padding: 2px 7px;
     font-size: 11px;
   }
@@ -580,7 +580,7 @@
     place-items: center;
     border-radius: 999px;
     background: color-mix(in srgb, var(--accent-soft) 74%, var(--bg-panel));
-    color: color-mix(in srgb, var(--accent) 78%, var(--text-primary));
+    color: var(--accent-strong);
   }
 
   .launcher-mod-detail-key-icon span {

@@ -154,7 +154,7 @@
   }
 
   .launcher-debug-tools-stack .control-button-primary:hover {
-    background: color-mix(in srgb, var(--accent) 85%, #000);
+    background: var(--accent-strong);
   }
 
   .launcher-debug-tools-stack .launcher-config-danger-button {

@@ -11,10 +11,10 @@
     --studio-line: color-mix(in srgb, var(--border-color) 86%, var(--bg-panel-muted));
     --studio-shadow: color-mix(in srgb, var(--surface-inverse) 10%, transparent);
     --studio-shadow-strong: color-mix(in srgb, var(--surface-inverse) 14%, transparent);
-    --studio-map-base: color-mix(in srgb, var(--success) 12%, var(--bg-panel-muted));
+    --studio-map-base: var(--success-soft);
     --studio-map-accent: color-mix(in srgb, var(--success) 36%, var(--bg-panel));
     --studio-character-accent: color-mix(in srgb, var(--accent) 62%, var(--danger) 38%);
-    --studio-danger-soft: color-mix(in srgb, var(--danger) 12%, var(--bg-panel));
+    --studio-danger-soft: var(--danger-soft);
     --studio-pointer-x: 50%;
     --studio-pointer-y: 50%;
     --studio-grid-shift-x: 0px;
@@ -311,17 +311,17 @@
   }
 
   .studio-project-row .studio-current-label {
-    background: color-mix(in srgb, var(--success) 13%, var(--bg-panel) 87%);
+    background: var(--success-soft);
     color: color-mix(in srgb, var(--success) 78%, var(--text-primary) 22%);
   }
 
   .studio-status-pill-export {
-    background: color-mix(in srgb, var(--warning, #d68a16) 13%, var(--bg-panel) 87%);
+    background: var(--warning-soft);
     color: color-mix(in srgb, var(--warning, #d68a16) 84%, var(--text-primary) 16%);
   }
 
   .studio-status-pill-conflict {
-    background: color-mix(in srgb, var(--danger) 12%, var(--bg-panel) 88%);
+    background: var(--danger-soft);
     color: color-mix(in srgb, var(--danger) 86%, var(--text-primary) 14%);
   }
 

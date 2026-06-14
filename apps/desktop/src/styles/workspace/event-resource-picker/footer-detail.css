@@ -102,7 +102,7 @@
   }
 
   .resource-picker__button--primary:hover {
-    background: color-mix(in srgb, var(--accent) 88%, #111827 12%);
+    background: var(--accent-strong);
   }
 
   .resource-picker__detail-overlay {

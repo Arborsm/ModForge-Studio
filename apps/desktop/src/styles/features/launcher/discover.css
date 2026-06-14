@@ -767,7 +767,7 @@
   }
 
   .launcher-discover-wall-cover-overlay:hover {
-    background: color-mix(in srgb, var(--accent) 88%, var(--surface-inverse));
+    background: var(--accent-strong);
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--text-inverse) 22%, transparent),
       0 8px 20px color-mix(in srgb, var(--shadow-color) 32%, transparent);
@@ -776,7 +776,7 @@
   }
 
   .launcher-discover-wall-cover-overlay:active {
-    background: color-mix(in srgb, var(--accent) 74%, var(--surface-inverse));
+    background: var(--accent-strong);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-inverse) 18%, transparent);
     transform: translateY(1px) scale(0.98);
   }

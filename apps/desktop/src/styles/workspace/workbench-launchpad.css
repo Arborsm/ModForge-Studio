@@ -313,7 +313,7 @@
 
   .workbench-project-required-button-primary:hover,
   .workbench-project-required-button-primary:focus-visible {
-    background: color-mix(in srgb, var(--accent) 86%, #000);
+    background: var(--accent-strong);
     color: var(--text-inverse);
   }
 
@@ -450,7 +450,7 @@
     z-index: 150;
     display: grid;
     place-items: center;
-    background: rgba(24, 34, 53, 0.42);
+    background: var(--scrim);
   }
 
   .workbench-project-picker-panel {

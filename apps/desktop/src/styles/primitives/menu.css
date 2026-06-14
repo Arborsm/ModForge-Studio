@@ -1,7 +1,7 @@
 @layer components {
   .context-menu-content {
     border: 1px solid var(--border-color);
-    background: color-mix(in srgb, var(--bg-elevated) 100%, transparent);
+    background: var(--bg-overlay);
     box-shadow: var(--shadow-float);
     @apply z-50 w-max max-w-[240px] min-w-[136px] rounded-xl p-1 backdrop-blur-xl;
   }

@@ -325,7 +325,7 @@
     gap: 6px;
     padding: 14px 16px;
     border-radius: 18px;
-    background: color-mix(in srgb, var(--warning) 12%, var(--bg-panel));
+    background: var(--warning-soft);
     border: 1px solid color-mix(in srgb, var(--warning) 22%, transparent);
     text-align: left;
   }

@@ -2,7 +2,7 @@
   .settings-window-backdrop {
     z-index: 220;
     padding: 28px;
-    background: color-mix(in srgb, var(--bg-app) 26%, rgba(15, 23, 42, 0.42));
+    background: var(--scrim);
     backdrop-filter: blur(10px);
   }
 
