@@ -18,7 +18,7 @@
       color-mix(in srgb, var(--bg-panel-muted) 88%, transparent)
     );
     padding: 18px 20px;
-    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+    box-shadow: var(--shadow-panel);
   }
 
   .launcher-page-shell-copy {

@@ -31,9 +31,10 @@ export type SettingsMenuCopy = {
     launcher: string
     debug: string
   }
-  accentLabel: string
-  resetAccentLabel: string
-  accentDescription: string
+  themeLabel: string
+  resetThemeLabel: string
+  themeDescription: string
+  themeLabels: Record<string, string>
   languageLabel: string
   languageDescription: string
   localeLabels: Record<LocaleCode, string>

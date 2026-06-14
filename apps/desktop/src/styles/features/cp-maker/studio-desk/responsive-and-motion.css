@@ -100,7 +100,7 @@
 
   @media (min-width: 861px) {
     .studio-desk {
-      --studio-shell-bg: #f6f9fd;
+      --studio-shell-bg: color-mix(in srgb, var(--bg-app) 92%, var(--bg-panel) 8%);
       grid-template-columns:
         clamp(300px, 18vw, 330px)
         minmax(720px, 1fr)
@@ -111,10 +111,10 @@
       gap: 16px;
       overflow: hidden;
       background:
-        radial-gradient(circle 240px at var(--studio-pointer-x) var(--studio-pointer-y), rgba(79, 141, 247, 0.055), transparent 72%),
-        linear-gradient(135deg, rgba(79, 141, 247, 0.035) 0 1px, transparent 1px 48px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.17) 0 1px, transparent 1px 96px),
-        linear-gradient(180deg, rgba(148, 163, 184, 0.15) 0 1px, transparent 1px 96px), var(--studio-shell-bg);
+        radial-gradient(circle 240px at var(--studio-pointer-x) var(--studio-pointer-y), var(--accent-soft), transparent 72%),
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 4%, transparent) 0 1px, transparent 1px 48px),
+        linear-gradient(90deg, var(--grid-major) 0 1px, transparent 1px 96px),
+        linear-gradient(180deg, var(--grid-minor) 0 1px, transparent 1px 96px), var(--studio-shell-bg);
       background-position:
         0 0,
         var(--studio-grid-shift-x) var(--studio-grid-shift-y),
@@ -140,9 +140,9 @@
       height: 48px;
       min-height: 48px;
       margin: 0 -24px;
-      border-bottom: 1px solid rgba(203, 216, 231, 0.92);
-      background: #ffffff;
-      box-shadow: 0 10px 26px rgba(28, 43, 68, 0.06);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-panel);
+      box-shadow: var(--shadow-panel);
       padding: 0 24px;
     }
 
@@ -155,9 +155,9 @@
       overflow: hidden;
       padding: 24px;
       background:
-        radial-gradient(circle 260px at 40% 16%, rgba(79, 141, 247, 0.055), transparent 72%),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.13) 1px, transparent 1px),
-        linear-gradient(180deg, rgba(148, 163, 184, 0.13) 1px, transparent 1px), #f7fbff;
+        radial-gradient(circle 260px at 40% 16%, var(--accent-soft), transparent 72%),
+        linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px), linear-gradient(180deg, var(--grid-minor) 1px, transparent 1px),
+        var(--studio-shell-bg);
       background-size:
         auto,
         48px 48px,
@@ -173,8 +173,8 @@
       min-height: 40px;
       border: 0;
       border-radius: 14px;
-      background: rgba(255, 255, 255, 0.72);
-      box-shadow: inset 0 0 0 1px rgba(220, 229, 240, 0.92);
+      background: color-mix(in srgb, var(--bg-panel) 72%, transparent);
+      box-shadow: inset 0 0 0 1px var(--border-color);
       padding: 0 12px;
     }
 
@@ -217,7 +217,7 @@
       width: 1px;
       height: 24px;
       margin-left: 12px;
-      background: rgba(203, 216, 231, 0.92);
+      background: var(--border-color);
     }
   }
 

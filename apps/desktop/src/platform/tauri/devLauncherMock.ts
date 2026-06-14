@@ -141,7 +141,7 @@ function createInitialAppUiState(): AppUiState {
     },
     appearance: {
       locale: 'en-US',
-      accentPresetId: 'blue',
+      themeId: 'neutral-tool',
       windowBorderTone: 'accent',
       windowBorderWeight: 'standard',
       recentGameDirectories: [],

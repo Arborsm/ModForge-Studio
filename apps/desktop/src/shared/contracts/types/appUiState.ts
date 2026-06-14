@@ -3,6 +3,9 @@ import type { LoadingMotionIntensityId, LoadingMotionSpeedId, LoadingMotionSpeed
 export type WindowBorderTone = 'accent' | 'neutral'
 export type WindowBorderWeight = 'standard' | 'thin' | 'none'
 
+/** Full color theme ids. Each owns its accent + neutral scale + status colors in `styles/tokens.css`. */
+export type ThemeId = 'warm-paper' | 'neutral-tool' | 'slate-blue' | 'forest' | 'twilight' | 'stardew-wood' | 'crimson' | 'blossom'
+
 export type AppUiShellState = {
   appMode: string
   launcherPage: string
@@ -12,7 +15,7 @@ export type AppUiShellState = {
 
 export type AppUiAppearanceState = {
   locale: string
-  accentPresetId: string
+  themeId: string
   windowBorderTone: WindowBorderTone
   windowBorderWeight: WindowBorderWeight
   recentGameDirectories: string[]

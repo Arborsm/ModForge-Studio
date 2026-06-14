@@ -205,12 +205,12 @@
     border-radius: 28px;
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--bg-panel) 96%, white 4%),
+      color-mix(in srgb, var(--bg-panel) 96%, var(--bg-panel) 4%),
       color-mix(in srgb, var(--bg-panel-muted) 86%, var(--bg-panel) 14%)
     );
     box-shadow:
       0 24px 48px rgba(15, 23, 42, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      inset 0 1px 0 color-mix(in srgb, var(--text-inverse) 30%, transparent);
     text-align: center;
   }
 
@@ -250,7 +250,7 @@
   .launcher-blocked-illustration-orb-front {
     inset: 20px;
     border: 1px solid color-mix(in srgb, var(--warning) 26%, transparent);
-    background: color-mix(in srgb, var(--bg-panel) 92%, white 8%);
+    background: color-mix(in srgb, var(--bg-panel) 92%, var(--bg-panel) 8%);
   }
 
   .launcher-blocked-state-error .launcher-blocked-illustration-orb-front {

@@ -141,7 +141,7 @@
     height: 20px;
     border: 0;
     border-radius: 999px;
-    background: #cbd5e1;
+    background: var(--border-color);
     cursor: pointer;
     padding: 0;
     transition: background-color 160ms ease;
@@ -159,8 +159,8 @@
     width: 16px;
     height: 16px;
     border-radius: 999px;
-    background: white;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
     transition: transform 160ms ease;
   }
 
@@ -323,12 +323,12 @@
 
   .launcher-configuration-page .control-button-primary {
     background: var(--config-primary);
-    color: white;
+    color: var(--text-inverse);
   }
 
   .launcher-configuration-page .control-button-primary:hover {
-    background: color-mix(in srgb, var(--accent) 88%, #111827 12%);
-    color: white;
+    background: color-mix(in srgb, var(--accent) 88%, var(--text-primary) 12%);
+    color: var(--text-inverse);
   }
 
   .launcher-config-main .launcher-settings-inline-actions .control-button {
@@ -347,11 +347,11 @@
 
   .launcher-config-main .launcher-settings-subsection-verification > .launcher-form-grid .control-button:first-child {
     background: var(--config-primary);
-    color: white;
+    color: var(--text-inverse);
   }
 
   .launcher-config-main .launcher-settings-subsection-verification > .launcher-form-grid .control-button:first-child:hover {
-    background: color-mix(in srgb, var(--accent) 88%, #111827 12%);
+    background: color-mix(in srgb, var(--accent) 88%, var(--text-primary) 12%);
   }
 
   .launcher-configuration-page .settings-switch {
@@ -393,7 +393,7 @@
     width: 44px;
     height: 24px;
     border-radius: 999px;
-    background: #d1d5db;
+    background: var(--border-color);
     padding: 2px;
     transition: background-color 160ms ease;
   }
@@ -406,8 +406,8 @@
     width: 20px;
     height: 20px;
     border-radius: 999px;
-    background: white;
-    box-shadow: 0 1px 3px rgba(31, 41, 55, 0.16);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
     transform: translateX(0);
     transition: transform 160ms ease;
   }

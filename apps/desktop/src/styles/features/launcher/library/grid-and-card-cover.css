@@ -42,7 +42,7 @@
     min-width: 0;
     --launcher-modules-panel-surface: #ffffff;
     --launcher-modules-panel-grid-surface: #f8fafc;
-    --launcher-modules-panel-soft: #eef4ff;
+    --launcher-modules-panel-soft: var(--accent-soft);
     border: 1px solid color-mix(in srgb, var(--launcher-border) 92%, white);
     border-radius: 12px;
     background: var(--launcher-modules-panel-surface);
@@ -137,9 +137,9 @@
 
   .launcher-library-modules-floating-close:hover,
   .launcher-library-modules-floating-close:focus-visible {
-    color: #2563eb;
-    border-color: color-mix(in srgb, #2563eb 34%, transparent);
-    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 12%, transparent);
     transform: translateY(-1px);
   }
 
@@ -209,7 +209,7 @@
   .launcher-library-module-tile-selected {
     border-color: color-mix(in srgb, var(--accent) 58%, var(--launcher-border));
     box-shadow:
-      0 10px 22px rgba(37, 99, 235, 0.12),
+      0 10px 22px color-mix(in srgb, var(--accent) 12%, transparent),
       0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
   }
 
@@ -281,9 +281,9 @@
 
   .launcher-library-module-actions button:hover,
   .launcher-library-module-actions button:focus-visible {
-    color: #2563eb;
-    border-color: color-mix(in srgb, #2563eb 34%, transparent);
-    box-shadow: 0 7px 14px rgba(37, 99, 235, 0.1);
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+    box-shadow: 0 7px 14px color-mix(in srgb, var(--accent) 10%, transparent);
     transform: translateY(-1px);
   }
 
@@ -330,10 +330,10 @@
     min-height: 24px;
     max-width: 124px;
     padding: 4px 6px 4px 8px;
-    border: 1px solid color-mix(in srgb, #2563eb 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
     border-radius: 999px;
-    background: color-mix(in srgb, #2563eb 14%, rgba(255, 255, 255, 0.94));
-    color: color-mix(in srgb, #1d4ed8 82%, var(--launcher-text-primary));
+    background: color-mix(in srgb, var(--accent) 14%, color-mix(in srgb, var(--bg-panel) 94%, transparent));
+    color: color-mix(in srgb, var(--accent) 82%, var(--launcher-text-primary));
     font-size: 11px;
     font-weight: 800;
     line-height: 1.2;
@@ -365,17 +365,17 @@
   }
 
   .launcher-mod-card-child-count[aria-expanded="true"] {
-    border-color: color-mix(in srgb, #2563eb 42%, transparent);
-    background: color-mix(in srgb, #dbeafe 94%, var(--launcher-surface-base));
-    color: #1d4ed8;
+    border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 94%, var(--launcher-surface-base));
+    color: var(--accent);
   }
 
   .launcher-mod-card-child-count:hover,
   .launcher-mod-card-child-count:focus-visible {
-    border-color: color-mix(in srgb, #2563eb 36%, transparent);
-    background: color-mix(in srgb, #dbeafe 92%, var(--launcher-surface-base));
-    color: #1d4ed8;
-    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.1);
+    border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 92%, var(--launcher-surface-base));
+    color: var(--accent);
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 10%, transparent);
     transform: translateY(-1px);
   }
 

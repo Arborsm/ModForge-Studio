@@ -150,10 +150,10 @@
     min-height: 0;
     grid-template-rows: auto auto;
     gap: 12px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 92%, #ffffff 8%);
+    border: 1px solid var(--border-color);
     border-radius: 18px;
-    background: #ffffff;
-    box-shadow: 0 3px 12px rgba(28, 43, 68, 0.1);
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-panel);
     padding: 16px;
   }
 
@@ -186,7 +186,7 @@
     height: 22px;
     place-items: center;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--accent-soft) 84%, white 16%);
+    background: var(--accent-soft);
     color: var(--accent);
     padding: 0 8px;
     font-size: 11px;
@@ -196,7 +196,7 @@
   .studio-project-list-head .studio-control-search {
     width: min(280px, 100%);
     border-radius: 14px;
-    background: #ffffff;
+    background: var(--bg-panel);
     gap: 8px;
   }
 
@@ -222,9 +222,9 @@
     grid-template-columns: 56px minmax(0, 1fr) auto;
     align-items: center;
     gap: 14px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 90%, #ffffff 10%);
+    border: 1px solid var(--border-color);
     border-radius: 14px;
-    background: #ffffff;
+    background: var(--bg-panel);
     color: inherit;
     padding: 14px;
     text-align: left;
@@ -240,13 +240,13 @@
   .studio-project-row:focus-visible {
     transform: translateX(2px);
     border-color: color-mix(in srgb, var(--accent) 34%, var(--studio-line));
-    box-shadow: 0 6px 18px rgba(28, 43, 68, 0.12);
+    box-shadow: var(--shadow-panel);
     outline: 0;
   }
 
   .studio-project-row.is-current {
     border-color: color-mix(in srgb, var(--accent) 45%, var(--studio-line));
-    background: linear-gradient(90deg, #ffffff, color-mix(in srgb, var(--accent-soft) 74%, #ffffff 26%));
+    background: linear-gradient(90deg, var(--bg-panel), color-mix(in srgb, var(--accent-soft) 74%, var(--bg-panel) 26%));
   }
 
   .studio-project-row.is-current::before {
@@ -266,10 +266,10 @@
     height: 56px;
     place-items: center;
     overflow: hidden;
-    border: 3px solid rgba(255, 255, 255, 0.96);
+    border: 3px solid color-mix(in srgb, var(--bg-panel) 80%, transparent);
     border-radius: 16px;
-    box-shadow: 0 10px 22px rgba(28, 43, 68, 0.1);
-    color: #ffffff;
+    box-shadow: var(--shadow-panel);
+    color: var(--text-inverse);
     font-size: 12px;
     font-weight: 950;
     letter-spacing: 0.04em;
@@ -311,17 +311,17 @@
   }
 
   .studio-project-row .studio-current-label {
-    background: color-mix(in srgb, var(--success) 13%, #ffffff 87%);
+    background: color-mix(in srgb, var(--success) 13%, var(--bg-panel) 87%);
     color: color-mix(in srgb, var(--success) 78%, var(--text-primary) 22%);
   }
 
   .studio-status-pill-export {
-    background: color-mix(in srgb, var(--warning, #d68a16) 13%, #ffffff 87%);
+    background: color-mix(in srgb, var(--warning, #d68a16) 13%, var(--bg-panel) 87%);
     color: color-mix(in srgb, var(--warning, #d68a16) 84%, var(--text-primary) 16%);
   }
 
   .studio-status-pill-conflict {
-    background: color-mix(in srgb, var(--danger) 12%, #ffffff 88%);
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg-panel) 88%);
     color: color-mix(in srgb, var(--danger) 86%, var(--text-primary) 14%);
   }
 
@@ -346,7 +346,7 @@
     gap: 5px;
     border: 1px solid var(--studio-line);
     border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-panel-muted) 72%, #ffffff 28%);
+    background: color-mix(in srgb, var(--bg-panel-muted) 72%, var(--bg-panel) 28%);
     padding: 0 8px;
   }
 

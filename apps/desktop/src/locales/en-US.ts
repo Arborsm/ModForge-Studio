@@ -3033,9 +3033,20 @@ const localeBundle: LocaleBundle = {
       launcher: 'Launcher',
       debug: 'Debug',
     },
-    accentLabel: 'Accent Color',
-    resetAccentLabel: 'Reset Accent Color',
-    accentDescription: 'Controls the viewport background, portal highlights, and accent-driven UI states.',
+    themeLabel: 'Color Theme',
+    resetThemeLabel: 'Reset Theme',
+    themeDescription:
+      'A full color theme: accent, surfaces, cards, and status colors switch together. Light/dark stays an independent toggle.',
+    themeLabels: {
+      'warm-paper': 'Warm Paper',
+      'neutral-tool': 'Neutral Tool',
+      'slate-blue': 'Slate Blue',
+      forest: 'Forest',
+      twilight: 'Twilight',
+      'stardew-wood': 'Stardew Wood',
+      crimson: 'Crimson',
+      blossom: 'Blossom',
+    },
     languageLabel: 'Language',
     languageDescription: 'Choose how the editor labels and menus are displayed.',
     localeLabels: {

@@ -12,10 +12,15 @@ import type {
   LoadingMotionStyleId,
 } from '@shared/contracts/types/loadingMotion'
 
-type AccentOption = {
+type ThemeOption = {
   id: string
   label: string
-  color: string
+  accent: string
+  preview: {
+    surface: string
+    panel: string
+    text: string
+  }
 }
 
 type LocaleOption = {
@@ -52,9 +57,9 @@ type SettingsWindowProps = {
     launcher: string
     debug: string
   }
-  accentLabel: string
-  resetAccentLabel: string
-  accentDescription: string
+  themeLabel: string
+  resetThemeLabel: string
+  themeDescription: string
   languageLabel: string
   languageDescription: string
   localeOptions: LocaleOption[]
@@ -84,10 +89,10 @@ type SettingsWindowProps = {
   disableNotificationSoundLabel: string
   notificationSoundEnabled: boolean
   activeCategory?: SettingsWindowCategory
-  accentOptions: AccentOption[]
-  activeAccentId: string
-  onSelectAccent: (id: string) => void
-  onResetAccent: () => void
+  themeOptions: ThemeOption[]
+  activeThemeId: string
+  onSelectTheme: (id: string) => void
+  onResetTheme: () => void
   onSelectLocale: (locale: LocaleCode) => void
   onSelectWindowBorderTone: (tone: WindowBorderTone) => void
   onSelectWindowBorderWeight: (weight: WindowBorderWeight) => void
@@ -181,9 +186,9 @@ export default function SettingsWindow({
   title,
   categories,
   categoryDescriptions,
-  accentLabel,
-  resetAccentLabel,
-  accentDescription,
+  themeLabel,
+  resetThemeLabel,
+  themeDescription,
   languageLabel,
   languageDescription,
   localeOptions,
@@ -213,10 +218,10 @@ export default function SettingsWindow({
   disableNotificationSoundLabel,
   notificationSoundEnabled,
   activeCategory: controlledActiveCategory,
-  accentOptions,
-  activeAccentId,
-  onSelectAccent,
-  onResetAccent,
+  themeOptions,
+  activeThemeId,
+  onSelectTheme,
+  onResetTheme,
   onSelectLocale,
   onSelectWindowBorderTone,
   onSelectWindowBorderWeight,
@@ -365,27 +370,31 @@ export default function SettingsWindow({
                   <div>
                     <div className="flex items-center gap-2">
                       <Palette className="h-4 w-4 text-[var(--accent)]" />
-                      <p className="settings-window-section-title">{accentLabel}</p>
+                      <p className="settings-window-section-title">{themeLabel}</p>
                     </div>
-                    <p className="settings-window-section-copy">{accentDescription}</p>
+                    <p className="settings-window-section-copy">{themeDescription}</p>
                   </div>
-                  <button type="button" className="control-button h-8 shrink-0" onClick={onResetAccent}>
-                    {resetAccentLabel}
+                  <button type="button" className="control-button h-8 shrink-0" onClick={onResetTheme}>
+                    {resetThemeLabel}
                   </button>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  {accentOptions.map((option) => {
-                    const active = option.id === activeAccentId
+                  {themeOptions.map((option) => {
+                    const active = option.id === activeThemeId
 
                     return (
                       <button
                         key={option.id}
                         type="button"
-                        className={cx('settings-accent-card', active && 'settings-accent-card-active')}
-                        onClick={() => onSelectAccent(option.id)}
+                        className={cx('settings-theme-card', active && 'settings-theme-card-active')}
+                        onClick={() => onSelectTheme(option.id)}
                       >
-                        <span className="settings-accent-swatch" style={{ backgroundColor: option.color }} />
+                        <span className="settings-theme-swatch" style={{ backgroundColor: option.preview.surface }}>
+                          <span className="settings-theme-swatch-panel" style={{ backgroundColor: option.preview.panel }} />
+                          <span className="settings-theme-swatch-accent" style={{ backgroundColor: option.accent }} />
+                          <span className="settings-theme-swatch-text" style={{ backgroundColor: option.preview.text }} />
+                        </span>
                         <span className="truncate text-sm font-medium">{option.label}</span>
                       </button>
                     )
