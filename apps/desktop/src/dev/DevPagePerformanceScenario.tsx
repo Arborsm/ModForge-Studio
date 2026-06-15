@@ -585,6 +585,36 @@ function createLauncherUpdateResults(count: number) {
   }))
 }
 
+function createLauncherLibraryMods(count: number) {
+  return range(count).map((index) => ({
+    id: `launcher-perf-mod-${index}`,
+    labelKey: `ModForge.Performance.${index}`,
+    name: `Launcher Library Mod ${index}`,
+    author: `Author ${index % 12}`,
+    version: `1.${index % 7}.0`,
+    description: `Generated launcher library fixture ${index}`,
+    uniqueId: `ModForge.Performance.${index}`,
+    folderName: `PerformanceMod${index}`,
+    absolutePath: `E:/ModForge Dev/Stardew Valley/Mods/PerformanceMod${index}`,
+    enabled: index % 9 !== 0,
+    nexusModId: 950000 + index,
+    updateKeys: [`Nexus:${950000 + index}`],
+    modUrl: `https://example.invalid/mods/${950000 + index}`,
+    imageUrl: null,
+    requiredDependencies: [],
+    missingRequiredDependencies: [],
+  }))
+}
+
+const launcherLibraryMods = createLauncherLibraryMods(120)
+const launcherLibraryFolders = range(12).map((index) => ({
+  id: `launcher-perf-folder-${index}`,
+  name: `Performance Folder ${index + 1}`,
+  parentFolderId: null,
+  modKeys: launcherLibraryMods.slice(index === 0 ? 0 : 24 + (index - 1) * 8, index === 0 ? 24 : 24 + index * 8).map((mod) => mod.uniqueId),
+  coverModKeys: [],
+}))
+
 const launcherSettings = {
   gamePath: 'E:\\ModForge Dev\\Stardew Valley',
   modsPath: 'E:\\ModForge Dev\\Stardew Valley\\Mods',
@@ -633,15 +663,15 @@ const launcherDiagnostics = {
 const performanceLauncherPort: LauncherPort = {
   loadSettings: async () => launcherSettings,
   saveSettings: async (request) => ({ ...launcherSettings, ...request }),
-  scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: [] }),
+  scanLibrary: async () => ({ modsPath: launcherSettings.modsPath, mods: launcherLibraryMods }),
   loadRuntimeInfo: async () => ({ gameVersion: '1.6.15', smapiVersion: '4.3.0' }),
   loadLibraryState: async () =>
     ({
       storageFolders: [],
       hiddenModKeys: [],
       packPresets: [],
-      childModGroups: [],
-      libraryFolders: [],
+      childModGroups: [{ parentModKey: 'ModForge.Performance.0', childModKeys: ['ModForge.Performance.1', 'ModForge.Performance.2'] }],
+      libraryFolders: launcherLibraryFolders,
       currentPackId: null,
       scopeMode: 'all',
     }) as any,
@@ -831,12 +861,12 @@ const performanceCpMakerPort: CpMakerPort = {
 
 function ScenarioFrame({ id, children }: { id: PageScenarioId; children: ReactNode }) {
   return (
-    <div className="dev-performance-scenario h-screen min-h-0 bg-[var(--bg-app)]" data-mf-page-perf-scenario={id}>
+    <div className="dev-performance-scenario dev-page-performance-scenario" data-mf-page-perf-scenario={id}>
       <header className="panel-surface p-3">
         <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase">Page performance scenario</p>
         <h1 className="text-lg font-semibold text-[var(--text-primary)]">{id}</h1>
       </header>
-      <main className="h-[calc(100vh-78px)] min-h-0 overflow-hidden">{children}</main>
+      <main className="dev-page-performance-scenario-main">{children}</main>
     </div>
   )
 }

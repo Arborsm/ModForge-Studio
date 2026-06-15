@@ -148,13 +148,11 @@ export function useLauncherLibraryController({
   const [editMode, setEditMode] = useState(false)
   const [editingSelectionIds, setEditingSelectionIds] = useState<string[]>([])
   const [boxSelectionIds, setBoxSelectionIds] = useState<string[]>([])
+  const [childModSelection, setChildModSelection] = useState<{ parentMod: LauncherLibraryItem; selectedModIds: string[] } | null>(null)
   const [archiveDropActive, setArchiveDropActive] = useState(false)
   const [expandedParentIds, setExpandedParentIds] = useState<string[]>([])
   const [childModManager, setChildModManager] = useState<
     import('@features/launcher/ui/shared/LauncherChildModsDialogs').LauncherChildModManagerState | null
-  >(null)
-  const [childModPicker, setChildModPicker] = useState<
-    import('@features/launcher/ui/shared/LauncherChildModsDialogs').LauncherChildModPickerState | null
   >(null)
   const [openLibraryFolderIds, setOpenLibraryFolderIds] = useState<string[]>([])
   const [readyLibraryFolderIds, setReadyLibraryFolderIds] = useState<string[]>([])
@@ -907,20 +905,6 @@ export function useLauncherLibraryController({
     })
   }, [library, runLibraryAction])
 
-  const assignDraggedModsToParent = useCallback(
-    async (parentModId: string, childModIds: string[]) => {
-      const nextChildIds = childModIds.filter((id) => id !== parentModId)
-      if (!nextChildIds.length) {
-        return
-      }
-      await runLibraryAction(async () => {
-        await library.setChildMods(parentModId, nextChildIds)
-      })
-      setExpandedParentIds((current) => (current.includes(parentModId) ? current : [...current, parentModId]))
-    },
-    [library, runLibraryAction],
-  )
-
   const removeDraggedChildModsFromParent = useCallback(
     (modIds: string[]) => {
       const draggedChildIds = modIds.filter((modId) => {
@@ -988,19 +972,26 @@ export function useLauncherLibraryController({
     [library, runLibraryAction],
   )
 
-  const openChildModPicker = useCallback(
+  const startChildModSelection = useCallback(
     (parentMod: LauncherLibraryItem) => {
       const parentLookup = normalizeLookupKey(getModKey(parentMod))
       const selectedModIds = (childGroupLookup.get(parentLookup)?.childModKeys ?? [])
         .map((childKey) => modByKeyLookup.get(normalizeLookupKey(childKey))?.id)
         .filter((id): id is string => Boolean(id))
-      setChildModPicker({ parentMod, selectedModIds })
+      setChildModSelection({ parentMod, selectedModIds })
+      setEditMode(false)
+      setEditingSelectionIds([])
+      setBoxSelectionIds([])
+      setQuickSwitchOpen(false)
+      setPackActionMenuId(null)
+      setSortMenuOpen(false)
+      setDrawerOpen(false)
     },
     [childGroupLookup, modByKeyLookup],
   )
 
-  const toggleChildModPickerSelection = useCallback((modId: string) => {
-    setChildModPicker((current) =>
+  const toggleChildModSelection = useCallback((modId: string) => {
+    setChildModSelection((current) =>
       current
         ? {
             ...current,
@@ -1012,21 +1003,28 @@ export function useLauncherLibraryController({
     )
   }, [])
 
-  const submitChildModPicker = useCallback(async () => {
-    if (!childModPicker) {
+  const cancelChildModSelection = useCallback(() => {
+    setChildModSelection(null)
+  }, [])
+
+  const submitChildModSelection = useCallback(async () => {
+    if (!childModSelection) {
       return
     }
     await runLibraryAction(async () => {
-      await library.replaceChildMods(childModPicker.parentMod.id, childModPicker.selectedModIds)
+      await library.replaceChildMods(childModSelection.parentMod.id, childModSelection.selectedModIds)
     })
-    setExpandedParentIds((current) => (current.includes(childModPicker.parentMod.id) ? current : [...current, childModPicker.parentMod.id]))
-    setChildModPicker(null)
-  }, [childModPicker, library, runLibraryAction])
+    setExpandedParentIds((current) =>
+      current.includes(childModSelection.parentMod.id) ? current : [...current, childModSelection.parentMod.id],
+    )
+    setChildModSelection(null)
+  }, [childModSelection, library, runLibraryAction])
 
   const startEditMode = useCallback(() => {
     if (!library.currentPack) {
       return
     }
+    setChildModSelection(null)
     setEditingSelectionIds(getPackModIds(library.currentPack, library.mods))
     setEditMode(true)
     setQuickSwitchOpen(false)
@@ -1168,12 +1166,6 @@ export function useLauncherLibraryController({
 
   const isParentExpanded = useCallback((modId: string) => expandedParentIds.includes(modId), [expandedParentIds])
   const openGridModFolder = useCallback((mod: LauncherLibraryItem) => void openModFolder(mod), [openModFolder])
-  const assignDraggedModsToParentFromDnd = useCallback(
-    (parentModId: string, modIds: string[]) => {
-      void assignDraggedModsToParent(parentModId, modIds)
-    },
-    [assignDraggedModsToParent],
-  )
   const assignDraggedModsToLibraryFolderFromDnd = useCallback(
     (folderId: string, modIds: string[]) => {
       void assignDraggedModsToLibraryFolder(folderId, modIds)
@@ -1203,7 +1195,7 @@ export function useLauncherLibraryController({
         { label: copy.actions.viewDetails, onSelect: () => openModDetails(mod.id) },
         { label: copy.actions.openFolder, onSelect: () => void openModFolder(mod) },
         { label: mod.enabled ? copy.actions.disable : copy.actions.enable, onSelect: () => void library.toggleEnabled(mod) },
-        { label: copy.library.setAsChildMod, onSelect: () => openChildModPicker(mod) },
+        { label: copy.library.chooseChildMods, onSelect: () => startChildModSelection(mod) },
         ...(isChild ? [{ label: copy.library.removeFromParent, onSelect: () => removeChildMod(mod.id) }] : []),
         ...(hasChildren
           ? [{ label: copy.library.manageChildMods, onSelect: () => setChildModManager({ parentMod: mod, childMods: childMods ?? [] }) }]
@@ -1231,17 +1223,17 @@ export function useLauncherLibraryController({
       copy.actions,
       copy.library.manageChildMods,
       copy.library.removeFromParent,
-      copy.library.setAsChildMod,
+      copy.library.chooseChildMods,
       hiddenModKeyLookup,
       library,
       modByKeyLookup,
-      openChildModPicker,
       openGalleryCoverDialog,
       openModDetails,
       openModFolder,
       removeChildMod,
       runLibraryAction,
       setModCover,
+      startChildModSelection,
     ],
   )
 
@@ -1325,12 +1317,12 @@ export function useLauncherLibraryController({
       folderDialog,
       galleryCoverDialog,
       childModManager,
-      childModPicker,
     },
     dragState: {
       editMode,
       editingSelectionIds,
       boxSelectionIds,
+      childModSelection,
       archiveDropActive,
       expandedParentIds,
     },
@@ -1368,20 +1360,19 @@ export function useLauncherLibraryController({
       openModDetails,
       toggleEditSelection,
       updateBoxSelection,
+      toggleChildModSelection,
+      cancelChildModSelection,
+      submitChildModSelection,
       selectPack,
       selectHiddenView,
       resolveDraggedModIds,
       createLibraryFolder,
-      assignDraggedModsToParent,
       removeDraggedChildModsFromParent,
       assignDraggedModsToLibraryFolder,
       removeDraggedModsFromLibraryFolders,
       moveDraggedFolderToFolder,
       toggleParentExpanded,
       removeChildMod,
-      openChildModPicker,
-      toggleChildModPickerSelection,
-      submitChildModPicker,
       startEditMode,
       startEditingPack,
       cancelEditMode,
@@ -1396,7 +1387,6 @@ export function useLauncherLibraryController({
       submitFolderDialog,
       isParentExpanded,
       openGridModFolder,
-      assignDraggedModsToParentFromDnd,
       assignDraggedModsToLibraryFolderFromDnd,
       addDraggedModsToPack,
       directActionsForMod,
@@ -1429,7 +1419,6 @@ export function useLauncherLibraryController({
       setArchiveDropActive,
       setExpandedParentIds,
       setChildModManager,
-      setChildModPicker,
       isLibraryFolderOpen,
       getLibraryFolderModIds,
       toggleLibraryFolderOpen,

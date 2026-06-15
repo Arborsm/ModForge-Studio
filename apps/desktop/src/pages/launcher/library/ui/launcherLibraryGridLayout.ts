@@ -141,29 +141,39 @@ export function buildLauncherLibraryGridBlocks(
   const totalRows = occupiedRows.length
 
   while (blockRowStart < totalRows) {
-    const blockRowTargetEnd = blockRowStart + LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT
-    // Only include items that START in this block's row range.
-    // Items that start earlier belong to a previous block, even if they span into this range.
-    const blockItems = placedItems.filter((item) => item.rowStart >= blockRowStart && item.rowStart < blockRowTargetEnd)
+    let blockRowEnd = Math.min(blockRowStart + LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT, totalRows)
+    let blockItems = placedItems.filter((item) => item.rowStart >= blockRowStart && item.rowStart < blockRowEnd)
 
     if (blockItems.length === 0) {
       // No items start in this window — advance and try the next window.
-      blockRowStart = blockRowTargetEnd
+      blockRowStart = blockRowEnd
       continue
     }
 
-    // The block must be tall enough to hold every item that starts in it.
-    const maxItemEnd = Math.max(...blockItems.map((item) => item.rowStart + item.rowSpan - blockRowStart), 0)
-    const rowCount = Math.min(Math.max(LAUNCHER_LIBRARY_VIRTUAL_GRID_BLOCK_ROW_COUNT, maxItemEnd), totalRows - blockRowStart)
+    while (true) {
+      const nextBlockRowEnd = Math.min(Math.max(blockRowEnd, ...blockItems.map((item) => item.rowStart + item.rowSpan)), totalRows)
+      if (nextBlockRowEnd === blockRowEnd) {
+        break
+      }
+      blockRowEnd = nextBlockRowEnd
+      blockItems = placedItems.filter((item) => item.rowStart >= blockRowStart && item.rowStart < blockRowEnd)
+    }
+
+    const rowCount = blockRowEnd - blockRowStart
 
     blocks.push({
       items: blockItems,
       rowStart: blockRowStart,
       rowCount,
-      estimatedHeight: rowCount * estimatedRowHeight + Math.max(0, rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX,
+      estimatedHeight: Math.max(
+        ...blockItems.map((item) => {
+          return item.rowSpan * estimatedRowHeight + Math.max(0, item.rowSpan - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX
+        }),
+        rowCount * estimatedRowHeight + Math.max(0, rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX,
+      ),
     })
 
-    blockRowStart += rowCount
+    blockRowStart = blockRowEnd
   }
 
   return blocks

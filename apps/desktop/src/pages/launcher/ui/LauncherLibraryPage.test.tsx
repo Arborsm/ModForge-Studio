@@ -30,6 +30,8 @@ import type { LauncherPort } from '@features/launcher/model/launcherPort'
 const archiveDragDropListeners: Array<
   (payload: { type: string; paths?: string[]; position?: { x: number; y: number } }) => void | Promise<void>
 > = []
+const measureVirtualGridRowMock = vi.fn()
+const measureVirtualGridRowFactoryMock = vi.fn()
 
 vi.mock('@radix-ui/react-context-menu', async () => {
   function Root({ children }: { children: ReactNode }) {
@@ -79,9 +81,18 @@ vi.mock('@radix-ui/react-context-menu', async () => {
 })
 
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+  useVirtualizer: ({
+    count,
+    estimateSize,
+    measureElement,
+  }: {
+    count: number
+    estimateSize: () => number
+    measureElement?: (element: Element) => number
+  }) => {
     const rowSize = estimateSize()
     const visibleRowCount = Math.min(count, 8)
+    measureVirtualGridRowFactoryMock(measureElement)
     return {
       getTotalSize: () => count * rowSize,
       getVirtualItems: () =>
@@ -93,7 +104,7 @@ vi.mock('@tanstack/react-virtual', () => ({
           end: (index + 1) * rowSize,
           lane: 0,
         })),
-      measureElement: vi.fn(),
+      measureElement: measureVirtualGridRowMock,
     }
   },
 }))
@@ -710,6 +721,7 @@ describe('LauncherLibraryPage', () => {
     expect(within(folderRegion).getByRole('article', { name: /npc adventures/i })).not.toBeNull()
     const folderGrid = folderRegion.querySelector<HTMLElement>('.launcher-library-folder-panel-grid')
     expect(folderGrid?.style.gridTemplateColumns).toContain('260px')
+    expect(folderGrid?.style.gridAutoRows).toContain('260px')
   })
 
   it('does not repeat the empty-library auto refresh after local folder state changes', () => {
@@ -861,17 +873,20 @@ describe('LauncherLibraryPage', () => {
     expect(screen.queryByRole('dialog', { name: 'NPC Adventures modules' })).toBeNull()
   })
 
-  it('opens a multi-select child mod picker from a parent card and confirms selected children', () => {
+  it('enters inline child-mod selection from a parent card and confirms selected children', () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
     renderLibraryPage()
 
     fireEvent.contextMenu(screen.getByRole('article', { name: /npc adventures/i }))
-    fireEvent.click(screen.getAllByText('Set as child mod')[0]!)
-    const dialog = screen.getByRole('dialog', { name: 'Choose child mods' })
-    expect(dialog).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole('button', { name: /vintage interface redux/i }))
+    fireEvent.click(screen.getAllByText('Choose child mods')[0]!)
+    expect(screen.getByText('Choosing child mods for NPC Adventures')).toBeTruthy()
+    expect(screen.getByText('0 child mods selected')).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: 'Choose child mods' })).toBeNull()
+
+    fireEvent.click(screen.getByRole('article', { name: /vintage interface redux/i }))
+    expect(screen.getByText('1 child mod selected')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm child mods' }))
 
     expect(library.replaceChildMods).toHaveBeenCalledWith('mod-1', ['mod-2'])
@@ -1647,6 +1662,44 @@ describe('LauncherLibraryPage', () => {
     }
   })
 
+  it('does not select cards whose center is outside a wide drag-to-select rectangle', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const wrapper = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const viewport = card.closest('.launcher-library-grid-viewport') as HTMLElement
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
+        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === wrapper || this === card) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+      act(() => {
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 180, clientY: 180 })
+      })
+
+      await screen.findByTestId('launcher-library-box-select')
+      await waitFor(() => {
+        expect(wrapper).not.toHaveClass('launcher-library-draggable-card-box-selected')
+      })
+
+      act(() => {
+        fireEvent.mouseUp(window, { button: 0, clientX: 180, clientY: 180 })
+      })
+    } finally {
+      boundsSpy.mockRestore()
+    }
+  })
+
   it('shows a lifted drag preview while a library card is being dragged', () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
@@ -1676,7 +1729,7 @@ describe('LauncherLibraryPage', () => {
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
   })
 
-  it('highlights folder, parent mod, and blank drop targets while dragging', async () => {
+  it('highlights folder and blank drop targets while dragging without parent-mod targets', async () => {
     const library = {
       ...createLibraryState(),
       libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
@@ -1690,8 +1743,8 @@ describe('LauncherLibraryPage', () => {
     const folder = screen.getByRole('button', { name: 'Open folder Visuals' }).closest('[data-launcher-folder-drop-id]') as HTMLElement
     const targetMod = screen
       .getByRole('article', { name: /vintage interface redux/i })
-      .closest('[data-launcher-parent-drop-id]') as HTMLElement
-    const targetParentDropId = targetMod.getAttribute('data-launcher-parent-drop-id')
+      .closest('[data-launcher-mod-card-id]') as HTMLElement
+    expect(targetMod.closest('[data-launcher-parent-drop-id]')).toBeNull()
     const blank = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this === blank) {
@@ -1729,7 +1782,8 @@ describe('LauncherLibraryPage', () => {
         pointerDragMove(window, 440, 180)
       })
       await waitFor(() => {
-        expect(document.querySelector(`[data-launcher-dnd-target-id="launcher-parent:${targetParentDropId}"]`)).toHaveClass(
+        expect(document.querySelector('[data-launcher-dnd-target-id^="launcher-parent:"]')).toBeNull()
+        expect(document.querySelector('[data-launcher-dnd-target-id="launcher-library-blank"]')).toHaveClass(
           'launcher-library-dnd-target-box-active',
         )
       })
@@ -2345,6 +2399,9 @@ describe('LauncherLibraryPage', () => {
 
     const virtualRows = Array.from(document.querySelectorAll<HTMLElement>('.launcher-library-virtual-row'))
     expect(virtualRows.length).toBeGreaterThan(0)
+    expect(measureVirtualGridRowFactoryMock).toHaveBeenCalledWith(expect.any(Function))
+    expect(measureVirtualGridRowMock).toHaveBeenCalled()
+    expect(virtualRows[0]?.style.paddingBottom).toBe('20px')
     expect(screen.getAllByRole('article').length).toBeLessThanOrEqual(library.mods.length)
 
     boundsSpy.mockRestore()

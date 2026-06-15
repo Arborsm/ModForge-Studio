@@ -4,8 +4,6 @@ import {
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,
   LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
   LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
-  LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE,
-  LAUNCHER_LIBRARY_PARENT_DROP_PREFIX,
   getLauncherDropIdFromElement,
   getLauncherDropTargetAtPoint,
   getLauncherFolderIdFromBlankDropId,
@@ -18,7 +16,7 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherFolderIdFromBlankDropId(LAUNCHER_LIBRARY_BLANK_DROP_ID)).toBeNull()
   })
 
-  it('reads drop ids from blank, folder, pack, and parent targets', () => {
+  it('reads drop ids from blank, folder, and pack targets', () => {
     const blank = document.createElement('div')
     blank.setAttribute('data-launcher-blank-drop-id', LAUNCHER_LIBRARY_BLANK_DROP_ID)
     expect(getLauncherDropIdFromElement(blank)).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
@@ -30,10 +28,12 @@ describe('launcherLibraryDrag', () => {
     const pack = document.createElement('div')
     pack.setAttribute('data-launcher-pack-drop-id', 'pack-a')
     expect(getLauncherDropIdFromElement(pack)).toBe(`${LAUNCHER_LIBRARY_PACK_DROP_PREFIX}pack-a`)
+  })
 
+  it('does not treat mod cards as parent drop targets', () => {
     const parent = document.createElement('div')
-    parent.setAttribute(LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE, 'mod-a')
-    expect(getLauncherDropIdFromElement(parent)).toBe(`${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`)
+    parent.setAttribute('data-launcher-parent-drop-id', 'mod-a')
+    expect(getLauncherDropIdFromElement(parent)).toBeNull()
   })
 
   it('measures visible drop targets and skips source descendants', () => {
@@ -90,33 +90,21 @@ describe('launcherLibraryDrag', () => {
         containerFolderId: null,
         rect: { left: 20, top: 20, width: 100, height: 100 },
       },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`,
-        kind: 'parent' as const,
-        containerFolderId: null,
-        rect: { left: 140, top: 20, width: 100, height: 100 },
-      },
     ]
 
     expect(getLauncherDropTargetAtPoint(targets, 40, 40)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX}visuals`)
-    expect(getLauncherDropTargetAtPoint(targets, 160, 40)?.dropId).toBe(`${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`)
+    expect(getLauncherDropTargetAtPoint(targets, 160, 40)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
     expect(getLauncherDropTargetAtPoint(targets, 300, 40)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
     expect(getLauncherDropTargetAtPoint(targets, 520, 40)).toBeNull()
   })
 
-  it('prioritizes folder targets over parent mod targets when dragging into the library', () => {
+  it('prioritizes folder targets when dragging into the library', () => {
     const targets = [
       {
         dropId: LAUNCHER_LIBRARY_BLANK_DROP_ID,
         kind: 'blank' as const,
         containerFolderId: null,
         rect: { left: 0, top: 0, width: 300, height: 300 },
-      },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`,
-        kind: 'parent' as const,
-        containerFolderId: null,
-        rect: { left: 20, top: 20, width: 200, height: 200 },
       },
       {
         dropId: `${LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX}visuals`,
@@ -129,7 +117,7 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherDropTargetAtPoint(targets, 80, 80)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX}visuals`)
   })
 
-  it('prioritizes expanded folder blank targets over parent mod targets when dragging into a folder panel', () => {
+  it('prioritizes expanded folder blank targets when dragging into a folder panel', () => {
     const targets = [
       {
         dropId: LAUNCHER_LIBRARY_BLANK_DROP_ID,
@@ -143,30 +131,37 @@ describe('launcherLibraryDrag', () => {
         containerFolderId: 'gameplay',
         rect: { left: 20, top: 20, width: 300, height: 300 },
       },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`,
-        kind: 'parent' as const,
-        containerFolderId: 'gameplay',
-        rect: { left: 20, top: 20, width: 140, height: 140 },
-      },
     ]
 
     expect(getLauncherDropTargetAtPoint(targets, 80, 80)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}gameplay`)
   })
 
-  it('ignores parent mod targets below a mod being released from a folder', () => {
+  it('keeps releases beside an expanded folder on the library blank target', () => {
+    const targets = [
+      {
+        dropId: LAUNCHER_LIBRARY_BLANK_DROP_ID,
+        kind: 'blank' as const,
+        containerFolderId: null,
+        rect: { left: 0, top: 0, width: 800, height: 600 },
+      },
+      {
+        dropId: `${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}gameplay`,
+        kind: 'folderBlank' as const,
+        containerFolderId: 'gameplay',
+        rect: { left: 20, top: 20, width: 260, height: 420 },
+      },
+    ]
+
+    expect(getLauncherDropTargetAtPoint(targets, 360, 160)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
+  })
+
+  it('uses the library blank target when releasing a foldered mod outside folder targets', () => {
     const targets = [
       {
         dropId: LAUNCHER_LIBRARY_BLANK_DROP_ID,
         kind: 'blank' as const,
         containerFolderId: null,
         rect: { left: 0, top: 0, width: 300, height: 300 },
-      },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`,
-        kind: 'parent' as const,
-        containerFolderId: null,
-        rect: { left: 20, top: 20, width: 200, height: 200 },
       },
     ]
     const source = {
@@ -184,19 +179,13 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherDropTargetAtPoint(targets, 80, 80, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
   })
 
-  it('prioritizes same-folder parent targets over folder targets when dragging a child mod inside its folder', () => {
+  it('keeps child mod releases inside their current folder blank target', () => {
     const targets = [
       {
         dropId: `${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}visuals`,
         kind: 'folderBlank' as const,
         containerFolderId: 'visuals',
         rect: { left: 0, top: 0, width: 300, height: 300 },
-      },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`,
-        kind: 'parent' as const,
-        containerFolderId: 'visuals',
-        rect: { left: 20, top: 20, width: 200, height: 200 },
       },
       {
         dropId: `${LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX}nested`,
@@ -217,7 +206,7 @@ describe('launcherLibraryDrag', () => {
       originParentId: 'parent-a',
     }
 
-    expect(getLauncherDropTargetAtPoint(targets, 80, 80, source)?.dropId).toBe(`${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`)
+    expect(getLauncherDropTargetAtPoint(targets, 80, 80, source)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}visuals`)
   })
 
   it('does not assign a child mod to an outer folder when dragging it out of its parent', () => {
@@ -233,12 +222,6 @@ describe('launcherLibraryDrag', () => {
         kind: 'folderBlank' as const,
         containerFolderId: 'visuals',
         rect: { left: 20, top: 20, width: 300, height: 300 },
-      },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`,
-        kind: 'parent' as const,
-        containerFolderId: 'visuals',
-        rect: { left: 30, top: 30, width: 120, height: 120 },
       },
     ]
     const source = {
@@ -256,19 +239,13 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherDropTargetAtPoint(targets, 200, 200, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
   })
 
-  it('does not assign a top-level child mod to another top-level parent while releasing it', () => {
+  it('uses the library blank target when releasing a top-level child mod', () => {
     const targets = [
       {
         dropId: LAUNCHER_LIBRARY_BLANK_DROP_ID,
         kind: 'blank' as const,
         containerFolderId: null,
         rect: { left: 260, top: 260, width: 200, height: 200 },
-      },
-      {
-        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-b`,
-        kind: 'parent' as const,
-        containerFolderId: null,
-        rect: { left: 30, top: 30, width: 180, height: 180 },
       },
     ]
     const source = {
@@ -283,6 +260,37 @@ describe('launcherLibraryDrag', () => {
       originParentId: 'parent-a',
     }
 
-    expect(getLauncherDropTargetAtPoint(targets, 100, 100, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
+    expect(getLauncherDropTargetAtPoint(targets, 300, 300, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
+  })
+
+  it('keeps the latest pointer position authoritative for folder drop resolution', () => {
+    const targets = [
+      {
+        dropId: LAUNCHER_LIBRARY_BLANK_DROP_ID,
+        kind: 'blank' as const,
+        containerFolderId: null,
+        rect: { left: 0, top: 0, width: 800, height: 600 },
+      },
+      {
+        dropId: `${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}visuals`,
+        kind: 'folderBlank' as const,
+        containerFolderId: 'visuals',
+        rect: { left: 100, top: 100, width: 280, height: 360 },
+      },
+    ]
+    const source = {
+      kind: 'mod' as const,
+      modId: 'child-a',
+      title: 'Child A',
+      meta: '',
+      imageUrl: null,
+      previewImageUrl: null,
+      enabled: true,
+      originFolderId: null,
+      originParentId: null,
+    }
+
+    expect(getLauncherDropTargetAtPoint(targets, 120, 120, source)?.dropId).toBe(`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}visuals`)
+    expect(getLauncherDropTargetAtPoint(targets, 420, 120, source)?.dropId).toBe(LAUNCHER_LIBRARY_BLANK_DROP_ID)
   })
 })

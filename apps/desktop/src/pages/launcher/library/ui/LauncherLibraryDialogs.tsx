@@ -6,11 +6,7 @@ import { useLauncherImage } from '@features/launcher/model/imageLoader'
 import { LauncherArchiveInstallDialog } from '@features/launcher/ui/shared/LauncherArchiveInstallDialog'
 import { LauncherInstallBackupsDialog } from '@features/launcher/ui/shared/LauncherInstallBackupsDialog'
 import { LauncherInstallSummaryDialog } from '@features/launcher/ui/shared/LauncherInstallSummaryDialog'
-import {
-  LauncherChildModsDialogs,
-  type LauncherChildModManagerState,
-  type LauncherChildModPickerState,
-} from '@features/launcher/ui/shared/LauncherChildModsDialogs'
+import { LauncherChildModsDialogs, type LauncherChildModManagerState } from '@features/launcher/ui/shared/LauncherChildModsDialogs'
 import type {
   ArchivePreviewState,
   FolderDialogState,
@@ -32,9 +28,6 @@ type LauncherLibraryDialogsLabels = {
   galleryCoverSubtitle: string
   galleryCoverImageLabel: (index: number) => string
   setCover: string
-  chooseChildMods: string
-  chooseChildModsSubtitle: (name: string) => string
-  confirmChildMods: string
   manageChildMods: string
   parentModLabel: (name: string) => string
   removeFromParent: string
@@ -57,9 +50,7 @@ type LauncherLibraryDialogsProps = {
   installBackupsError: string | null
   restoringBackupId: string | null
   modsPath: string | null
-  childModPicker: LauncherChildModPickerState | null
   childModManager: LauncherChildModManagerState | null
-  mods: LauncherLibraryItem[]
   galleryCoverDialog: GalleryCoverDialogState | null
   packDialog: PackDialogState | null
   folderDialog: FolderDialogState | null
@@ -72,9 +63,6 @@ type LauncherLibraryDialogsProps = {
   onOpenInstallBackupsFromSummary: () => void
   onCloseInstallBackupsDialog: () => void
   onRestoreInstallBackup: (backupId: string) => void
-  onCloseChildModPicker: () => void
-  onToggleChildModPickerSelection: (modId: string) => void
-  onSubmitChildModPicker: () => void
   onCloseChildModManager: () => void
   onRemoveChildMod: (modId: string) => void
   onChildModManagerChildrenChange: (childMods: LauncherLibraryItem[]) => void
@@ -119,9 +107,7 @@ export function LauncherLibraryDialogs({
   installBackupsError,
   restoringBackupId,
   modsPath,
-  childModPicker,
   childModManager,
-  mods,
   galleryCoverDialog,
   packDialog,
   folderDialog,
@@ -134,9 +120,6 @@ export function LauncherLibraryDialogs({
   onOpenInstallBackupsFromSummary,
   onCloseInstallBackupsDialog,
   onRestoreInstallBackup,
-  onCloseChildModPicker,
-  onToggleChildModPickerSelection,
-  onSubmitChildModPicker,
   onCloseChildModManager,
   onRemoveChildMod,
   onChildModManagerChildrenChange,
@@ -183,22 +166,14 @@ export function LauncherLibraryDialogs({
       />
 
       <LauncherChildModsDialogs
-        picker={childModPicker}
         manager={childModManager}
-        mods={mods}
         labels={{
-          chooseChildMods: labels.chooseChildMods,
-          chooseChildModsSubtitle: labels.chooseChildModsSubtitle,
-          confirmChildMods: labels.confirmChildMods,
           cancelEdit: labels.cancelEdit,
           manageChildMods: labels.manageChildMods,
           parentModLabel: labels.parentModLabel,
           removeFromParent: labels.removeFromParent,
           closeDialog: labels.closeDialog,
         }}
-        onClosePicker={onCloseChildModPicker}
-        onTogglePickerSelection={onToggleChildModPickerSelection}
-        onSubmitPicker={onSubmitChildModPicker}
         onCloseManager={onCloseChildModManager}
         onRemoveChild={onRemoveChildMod}
         onManagerChildrenChange={onChildModManagerChildrenChange}

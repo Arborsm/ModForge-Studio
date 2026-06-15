@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LauncherLibraryItem, LauncherVirtualFolder } from '@features/launcher/model/types'
 import type { LauncherLibraryDisplayItem } from '../model/launcherLibraryDisplay'
-import { buildLauncherLibraryGridBlocks, getLauncherLibraryPanelPlacement } from './launcherLibraryGridLayout'
+import { buildLauncherLibraryGridBlocks, getLauncherLibraryPanelPlacement, LAUNCHER_LIBRARY_GRID_GAP_PX } from './launcherLibraryGridLayout'
 
 function mod(id: string): LauncherLibraryItem {
   return {
@@ -30,7 +30,7 @@ function folder(id: string, modCount: number): LauncherLibraryDisplayItem {
     id,
     name: id,
     parentFolderId: null,
-    modKeys: mods.map((item) => item.uniqueId),
+    modKeys: mods.map((item) => item.uniqueId).filter((value): value is string => Boolean(value)),
     coverModKeys: [],
   }
   return { kind: 'folder', folder: virtualFolder, mods, childFolders: [] }
@@ -71,5 +71,78 @@ describe('launcherLibraryGridLayout', () => {
       columnSpan: 1,
       rowSpan: 6,
     })
+  })
+
+  it('does not add artificial chrome height to opened folder block estimates', () => {
+    const rowHeight = 260
+    const [block] = buildLauncherLibraryGridBlocks(
+      [
+        folder('large-folder', 20),
+        ...Array.from(
+          { length: 16 },
+          (_, index): LauncherLibraryDisplayItem => ({ kind: 'mod', mod: mod(`mod-${index}`), childMods: [], isChild: false }),
+        ),
+      ],
+      4,
+      (folderId) => folderId === 'large-folder',
+      rowHeight,
+    )
+
+    expect(block?.items[0]).toMatchObject({
+      columnSpan: 4,
+      rowSpan: 5,
+      rowStart: 0,
+    })
+    expect(block?.estimatedHeight).toBe(5 * rowHeight + 4 * LAUNCHER_LIBRARY_GRID_GAP_PX)
+  })
+
+  it('keeps later rows in the same virtual block when an opened folder creates a tall packed region', () => {
+    const rowHeight = 260
+    const blocks = buildLauncherLibraryGridBlocks(
+      [
+        ...Array.from(
+          { length: 11 },
+          (_, index): LauncherLibraryDisplayItem => ({ kind: 'mod', mod: mod(`leading-mod-${index}`), childMods: [], isChild: false }),
+        ),
+        folder('large-folder', 20),
+        ...Array.from(
+          { length: 20 },
+          (_, index): LauncherLibraryDisplayItem => ({ kind: 'mod', mod: mod(`mod-${index}`), childMods: [], isChild: false }),
+        ),
+      ],
+      7,
+      (folderId) => folderId === 'large-folder',
+      rowHeight,
+    )
+
+    expect(blocks[0]?.items.find((item) => item.displayItem.kind === 'folder')).toMatchObject({
+      columnSpan: 5,
+      rowSpan: 4,
+      columnStart: 0,
+      rowStart: 2,
+    })
+    expect(blocks[0]?.items.some((item) => item.rowStart >= 3 && item.rowStart <= 4)).toBe(true)
+  })
+
+  it('uses the same estimated row height for opened folder content and the surrounding virtual grid', () => {
+    const rowHeight = 260
+    const blocks = buildLauncherLibraryGridBlocks(
+      [
+        folder('visual-folder', 8),
+        ...Array.from(
+          { length: 6 },
+          (_, index): LauncherLibraryDisplayItem => ({ kind: 'mod', mod: mod(`mod-${index}`), childMods: [], isChild: false }),
+        ),
+      ],
+      4,
+      (folderId) => folderId === 'visual-folder',
+      rowHeight,
+    )
+
+    const firstBlock = blocks[0]
+    expect(firstBlock?.rowCount).toBeGreaterThan(0)
+    expect(firstBlock?.estimatedHeight).toBe(
+      firstBlock?.rowCount ? firstBlock.rowCount * rowHeight + (firstBlock.rowCount - 1) * LAUNCHER_LIBRARY_GRID_GAP_PX : 0,
+    )
   })
 })

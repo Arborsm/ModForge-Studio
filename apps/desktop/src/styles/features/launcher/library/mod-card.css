@@ -7,7 +7,7 @@
     border: 1px solid var(--border-color);
     border-radius: 12px;
     background: var(--launcher-surface-base);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--surface-inverse) 10%, transparent);
     overflow: hidden;
     contain: content;
     contain-intrinsic-size: 200px 260px;
@@ -27,8 +27,8 @@
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--accent) 54%, transparent);
     box-shadow:
-      0 12px 24px rgba(15, 23, 42, 0.1),
-      0 4px 12px rgba(15, 23, 42, 0.08),
+      0 10px 20px color-mix(in srgb, var(--surface-inverse) 7%, transparent),
+      0 4px 10px color-mix(in srgb, var(--surface-inverse) 5%, transparent),
       0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
   }
 
@@ -65,7 +65,7 @@
     transform: translateY(-2px);
     border-color: color-mix(in srgb, var(--accent) 58%, transparent);
     box-shadow:
-      0 12px 24px rgba(15, 23, 42, 0.1),
+      0 10px 20px color-mix(in srgb, var(--surface-inverse) 7%, transparent),
       0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
   }
 

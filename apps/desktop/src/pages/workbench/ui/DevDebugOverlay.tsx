@@ -27,6 +27,14 @@ type CacheStats = {
 
 type MetricItem = [string, string]
 
+function createCacheStatsSnapshot(): CacheStats {
+  return {
+    desktop: getDesktopCacheStats(),
+    stage: getStageMetadataCacheStats(),
+    viewport: getMapViewportCacheStats(),
+  }
+}
+
 const debugOverlayPrecision = (_size: number, value: number, unit: string) => {
   if (unit === 'MB') {
     return value >= 100 * 1024 * 1024 ? 0 : 1
@@ -95,12 +103,9 @@ export function DevDebugOverlay({
   const [collapsed, setCollapsed] = useState(false)
   const [position, setPosition] = useState({ x: 20, y: 84 })
   const [clearing, setClearing] = useState(false)
+  const [refreshingFileCache, setRefreshingFileCache] = useState(false)
   const [clearMessage, setClearMessage] = useState<string | null>(null)
-  const [cacheStats, setCacheStats] = useState<CacheStats>({
-    desktop: getDesktopCacheStats(),
-    stage: getStageMetadataCacheStats(),
-    viewport: getMapViewportCacheStats(),
-  })
+  const [cacheStats, setCacheStats] = useState<CacheStats>(() => createCacheStatsSnapshot())
   const [fileCacheStats, setFileCacheStats] = useState<FileCacheStats | null>(null)
   const pointerOffsetRef = useRef({ x: 0, y: 0 })
   const dragPointerIdRef = useRef<number | null>(null)
@@ -111,13 +116,9 @@ export function DevDebugOverlay({
   useEffect(() => {
     let disposed = false
 
-    const updateStats = async () => {
-      setCacheStats({
-        desktop: getDesktopCacheStats(),
-        stage: getStageMetadataCacheStats(),
-        viewport: getMapViewportCacheStats(),
-      })
+    setCacheStats(createCacheStatsSnapshot())
 
+    const loadInitialFileCacheStats = async () => {
       if (!desktopHost) {
         if (!disposed) {
           setFileCacheStats(null)
@@ -137,14 +138,10 @@ export function DevDebugOverlay({
       }
     }
 
-    void updateStats()
-    const interval = window.setInterval(() => {
-      void updateStats()
-    }, 1000)
+    void loadInitialFileCacheStats()
 
     return () => {
       disposed = true
-      window.clearInterval(interval)
     }
   }, [desktopHost])
 
@@ -237,7 +234,7 @@ export function DevDebugOverlay({
   }
 
   const handleClearFileCache = async () => {
-    if (!desktopHost || clearing) {
+    if (!desktopHost || clearing || refreshingFileCache) {
       return
     }
 
@@ -252,6 +249,25 @@ export function DevDebugOverlay({
       setClearMessage(error instanceof Error ? error.message : String(error))
     } finally {
       setClearing(false)
+    }
+  }
+
+  const handleRefreshFileCache = async () => {
+    if (!desktopHost || refreshingFileCache || clearing) {
+      return
+    }
+
+    setRefreshingFileCache(true)
+    setClearMessage(null)
+    setCacheStats(createCacheStatsSnapshot())
+    try {
+      const nextStats = await getFileCacheStats()
+      setFileCacheStats(nextStats)
+    } catch (error) {
+      setFileCacheStats(null)
+      setClearMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setRefreshingFileCache(false)
     }
   }
 
@@ -316,14 +332,24 @@ export function DevDebugOverlay({
                       : 'Loading...'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => void handleClearFileCache()}
-                  disabled={clearing}
-                >
-                  {clearing ? 'Clearing...' : 'Clear'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void handleRefreshFileCache()}
+                    disabled={refreshingFileCache || clearing}
+                  >
+                    {refreshingFileCache ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-[var(--border-color)] px-2 py-1 text-[11px] text-[var(--text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => void handleClearFileCache()}
+                    disabled={clearing || refreshingFileCache}
+                  >
+                    {clearing ? 'Clearing...' : 'Clear'}
+                  </button>
+                </div>
               </div>
               <p className="mt-2 text-[11px] break-all text-[var(--text-tertiary)]">{fileCacheStats?.rootPath ?? 'n/a'}</p>
               {clearMessage ? <p className="mt-2 text-[11px] text-[var(--text-secondary)]">{clearMessage}</p> : null}

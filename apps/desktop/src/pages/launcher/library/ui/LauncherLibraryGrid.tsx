@@ -13,7 +13,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import * as ContextMenu from '@radix-ui/react-context-menu'
-import { useSelectionContainer, boxesIntersect, type Box } from '@air/react-drag-to-select'
+import { useSelectionContainer, type Box } from '@air/react-drag-to-select'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ExternalLink, Folder, Info, X } from 'lucide-react'
 import { cx } from '@shared/lib/cx'
@@ -48,7 +48,6 @@ import {
 import {
   LAUNCHER_LIBRARY_BLANK_DROP_ID,
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,
-  LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE,
   getLauncherFolderIdFromBlankDropId,
   type LauncherPointerDragSource,
 } from '../model/launcherLibraryDrag'
@@ -58,6 +57,14 @@ import { LauncherContextMenuItem, type LauncherContextMenuAction } from './Launc
 export { LauncherLibraryDndScope } from './LauncherLibraryDndScope'
 
 export type { LauncherContextMenuAction } from './LauncherLibraryContextMenuItem'
+
+function isBoxPointInside(box: Box, point: { x: number; y: number }) {
+  return point.x >= box.left && point.x <= box.left + box.width && point.y >= box.top && point.y <= box.top + box.height
+}
+
+function measureLauncherLibraryVirtualRow(element: Element) {
+  return Math.ceil(element.getBoundingClientRect().height)
+}
 
 export type VirtualizedLauncherGridProps = {
   items: LauncherLibraryDisplayItem[]
@@ -69,6 +76,9 @@ export type VirtualizedLauncherGridProps = {
   editMode: boolean
   editingSelectionIds: string[]
   boxSelectionIds: string[]
+  childModSelectionMode?: boolean
+  childModSelectionParentId?: string | null
+  childModSelectionIds?: string[]
   noneLabel: string
   childCountLabel: (count: number) => string
   expandLabel: (name: string) => string
@@ -78,6 +88,7 @@ export type VirtualizedLauncherGridProps = {
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
   onBoxSelectionChange: (modIds: string[]) => void
+  onToggleChildModSelection?: (modId: string) => void
   onToggleParentExpanded: (modId: string, anchorElement?: HTMLElement | null) => void
   isParentExpanded: (modId: string) => boolean
   onOpenModDetails: (modId: string) => void
@@ -99,6 +110,9 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   editMode,
   editingSelectionIds,
   boxSelectionIds,
+  childModSelectionMode = false,
+  childModSelectionParentId = null,
+  childModSelectionIds = [],
   noneLabel,
   childCountLabel,
   expandLabel,
@@ -108,6 +122,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   closeFolderLabel,
   onToggleSelection,
   onBoxSelectionChange,
+  onToggleChildModSelection,
   onToggleParentExpanded,
   isParentExpanded,
   onOpenModDetails,
@@ -151,8 +166,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     return () => viewport.removeEventListener('scroll', syncScroll)
   }, [viewportElement])
   const selectedIdLookup = useMemo(
-    () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
-    [boxSelectionIds, editMode, editingSelectionIds],
+    () => new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds),
+    [boxSelectionIds, childModSelectionIds, childModSelectionMode, editMode, editingSelectionIds],
   )
   const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
   const originFolderId = getLauncherFolderIdFromBlankDropId(blankDropId)
@@ -169,13 +184,25 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     count: gridBlocks.length,
     getScrollElement: () => viewportElement,
     estimateSize: (index) => (gridBlocks[index]?.estimatedHeight ?? estimatedRowHeight) + LAUNCHER_LIBRARY_GRID_GAP_PX,
+    measureElement: measureLauncherLibraryVirtualRow,
     overscan: 1,
+    useAnimationFrameWithResizeObserver: true,
   })
   useEffect(() => {
-    gridBlocks.forEach((block, index) => {
-      rowVirtualizer.resizeItem?.(index, block.estimatedHeight + LAUNCHER_LIBRARY_GRID_GAP_PX)
-    })
-  }, [estimatedRowHeight, gridBlocks, rowVirtualizer])
+    let frameId: number | null = null
+    const measureVisibleRows = () => {
+      frameId = null
+      gridRef.current
+        ?.querySelectorAll<HTMLElement>('.launcher-library-virtual-row[data-index]')
+        .forEach((row) => rowVirtualizer.measureElement(row))
+    }
+    frameId = window.requestAnimationFrame(measureVisibleRows)
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [gridBlocks, openFolderItemsById, rowVirtualizer])
   const virtualRows = rowVirtualizer.getVirtualItems()
   const updateDragSelection = useCallback(
     (box: Box) => {
@@ -202,12 +229,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
             return false
           }
           const rect = element.getBoundingClientRect()
-          return boxesIntersect(scrollAdjustedBox, {
-            left: rect.left,
-            top: rect.top,
-            width: rect.width,
-            height: rect.height,
-          })
+          return isBoxPointInside(scrollAdjustedBox, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
         })
         .map((element) => element.getAttribute('data-launcher-mod-card-id'))
         .filter((id): id is string => Boolean(id))
@@ -217,7 +239,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   )
   const { DragSelection } = useSelectionContainer<HTMLDivElement>({
     eventsElement: viewportElement,
-    isEnabled: enableBoxSelection && !editMode,
+    isEnabled: enableBoxSelection && !editMode && !childModSelectionMode,
     isValidSelectionStart: () => true,
     onSelectionStart: () => setIsBoxSelecting(true),
     onSelectionEnd: () => setIsBoxSelecting(false),
@@ -435,6 +457,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
     }
   }, [cardMinWidth, items.length, shouldRevealItems])
 
+  const toggleCardSelection = childModSelectionMode ? onToggleChildModSelection : onToggleSelection
+
   useEffect(() => {
     if (!enableRevealMotion || isFolderGrid || hasPlayedInitialReveal) {
       return
@@ -475,12 +499,14 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
           return (
             <div
               key={virtualRow.key}
+              ref={rowVirtualizer.measureElement}
               className="launcher-library-virtual-row launcher-library-virtual-grid-block"
               data-index={virtualRow.index}
               style={{
                 transform: `translateY(${virtualRow.start + LAUNCHER_LIBRARY_VIRTUAL_GRID_TOP_PADDING_PX}px)`,
                 gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))`,
-                gridTemplateRows: `repeat(${blockRowCount}, ${estimatedRowHeight}px)`,
+                gridTemplateRows: `repeat(${blockRowCount}, minmax(${estimatedRowHeight}px, auto))`,
+                paddingBottom: LAUNCHER_LIBRARY_GRID_GAP_PX,
               }}
             >
               {block ? (
@@ -491,19 +517,23 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   editMode={editMode}
                   editingSelectionIds={editingSelectionIds}
                   boxSelectionIds={boxSelectionIds}
+                  childModSelectionMode={childModSelectionMode}
+                  childModSelectionIds={childModSelectionIds}
+                  childModSelectionParentId={childModSelectionParentId}
                   noneLabel={noneLabel}
                   selectedIdLookup={selectedIdLookup}
                   boxSelectionIdLookup={boxSelectionIdLookup}
                   originFolderId={originFolderId}
                   shouldRevealItems={shouldRevealItems}
                   revealBatchSize={revealBatchSize}
+                  estimatedRowHeight={estimatedRowHeight}
                   childCountLabel={childCountLabel}
                   expandLabel={expandLabel}
                   collapseLabel={collapseLabel}
                   folderCountLabel={folderCountLabel}
                   openFolderLabel={openFolderLabel}
                   closeFolderLabel={closeFolderLabel}
-                  onToggleSelection={onToggleSelection}
+                  onToggleSelection={toggleCardSelection ?? onToggleSelection}
                   onToggleParentExpanded={handleToggleParentModulesPanel}
                   isParentExpanded={isParentExpanded}
                   onOpenModDetails={onOpenModDetails}
@@ -529,6 +559,8 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
           editMode={editMode}
           editingSelectionIds={editingSelectionIds}
           boxSelectionIds={boxSelectionIds}
+          childModSelectionMode={childModSelectionMode}
+          childModSelectionIds={childModSelectionIds}
           noneLabel={noneLabel}
           childCountLabel={childCountLabel}
           collapseLabel={collapseLabel}
@@ -553,12 +585,16 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   editMode,
   editingSelectionIds,
   boxSelectionIds,
+  childModSelectionMode,
+  childModSelectionParentId,
+  childModSelectionIds,
   noneLabel,
   selectedIdLookup,
   boxSelectionIdLookup,
   originFolderId,
   shouldRevealItems,
   revealBatchSize,
+  estimatedRowHeight,
   childCountLabel,
   expandLabel,
   collapseLabel,
@@ -582,12 +618,16 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   editMode: boolean
   editingSelectionIds: string[]
   boxSelectionIds: string[]
+  childModSelectionMode: boolean
+  childModSelectionParentId: string | null
+  childModSelectionIds: string[]
   noneLabel: string
   selectedIdLookup: Set<string>
   boxSelectionIdLookup: Set<string>
   originFolderId: string | null
   shouldRevealItems: boolean
   revealBatchSize: number
+  estimatedRowHeight: number
   childCountLabel: (count: number) => string
   expandLabel: (name: string) => string
   collapseLabel: (name: string) => string
@@ -664,10 +704,14 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   columnStart={columnStart}
                   rowStart={blockRelativeRowStart}
                   blankDropId={`${LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX}${displayItem.folder.id}`}
+                  estimatedRowHeight={estimatedRowHeight}
                   latestVersionByModId={latestVersionByModId}
                   editMode={editMode}
                   editingSelectionIds={editingSelectionIds}
                   boxSelectionIds={boxSelectionIds}
+                  childModSelectionMode={childModSelectionMode}
+                  childModSelectionParentId={childModSelectionParentId}
+                  childModSelectionIds={childModSelectionIds}
                   noneLabel={noneLabel}
                   childCountLabel={childCountLabel}
                   expandLabel={expandLabel}
@@ -693,6 +737,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
         const item = displayItem.mod
         const childCount = displayItem.childMods.length
         const expanded = childCount > 0 && isParentExpanded(item.id)
+        const isChildModSelectionParent = childModSelectionMode && item.id === childModSelectionParentId
         const content = (
           <DraggableLauncherLibraryCard
             item={item}
@@ -701,7 +746,8 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
             boxSelected={boxSelectionIdLookup.has(item.id)}
             originFolderId={originFolderId}
             originParentId={null}
-            selectionMode={editMode}
+            selectionMode={editMode || childModSelectionMode}
+            selectionDisabled={isChildModSelectionParent}
             selected={selectedIdLookup.has(item.id)}
             childCount={childCount}
             childCountLabel={childCount ? childCountLabel(childCount) : undefined}
@@ -709,10 +755,10 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
             expandLabel={childCount ? expandLabel(item.name) : undefined}
             collapseLabel={childCount ? collapseLabel(item.name) : undefined}
             onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}
-            onToggleSelection={editMode ? onToggleSelection : undefined}
-            onOpenModDetails={editMode ? undefined : onOpenModDetails}
-            onOpenModFolder={editMode ? undefined : onOpenModFolder}
-            getContextActions={editMode ? undefined : getContextActions}
+            onToggleSelection={editMode || childModSelectionMode ? onToggleSelection : undefined}
+            onOpenModDetails={editMode || childModSelectionMode ? undefined : onOpenModDetails}
+            onOpenModFolder={editMode || childModSelectionMode ? undefined : onOpenModFolder}
+            getContextActions={editMode || childModSelectionMode ? undefined : getContextActions}
           />
         )
         if (!shouldRevealItems) {
@@ -749,6 +795,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   originFolderId,
   originParentId,
   selectionMode,
+  selectionDisabled,
   selected,
   childCount,
   childCountLabel,
@@ -768,6 +815,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
   originFolderId: string | null
   originParentId: string | null
   selectionMode: boolean
+  selectionDisabled?: boolean
   selected: boolean
   childCount: number
   childCountLabel?: string
@@ -821,7 +869,6 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
       className={cx('launcher-library-draggable-card', boxSelected && 'launcher-library-draggable-card-box-selected')}
       data-launcher-mod-card-id={item.id}
       data-draggable="true"
-      {...(!selectionMode ? { [LAUNCHER_LIBRARY_PARENT_DROP_ATTRIBUTE]: item.id } : {})}
       onPointerDownCapture={(event) => {
         pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)
         if (!selectionMode) {
@@ -848,7 +895,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
         expandLabel={expandLabel}
         collapseLabel={collapseLabel}
         onToggleExpanded={onToggleParentExpanded ? handleToggleExpanded : undefined}
-        onSelect={onToggleSelection ? handleSelect : undefined}
+        onSelect={!selectionDisabled && onToggleSelection ? handleSelect : undefined}
         onOpenDetails={onOpenModDetails ? handleOpenDetails : undefined}
         onOpenDirectTarget={onOpenModFolder ? handleOpenDirectTarget : undefined}
         getContextActions={getContextActions ? resolveContextActions : undefined}
@@ -965,6 +1012,8 @@ function LauncherLibraryModulesFloatingPanel({
   editMode,
   editingSelectionIds,
   boxSelectionIds,
+  childModSelectionMode = false,
+  childModSelectionIds = [],
   noneLabel,
   childCountLabel,
   collapseLabel,
@@ -982,6 +1031,8 @@ function LauncherLibraryModulesFloatingPanel({
   editMode: boolean
   editingSelectionIds: string[]
   boxSelectionIds: string[]
+  childModSelectionMode?: boolean
+  childModSelectionIds?: string[]
   noneLabel: string
   childCountLabel: (count: number) => string
   collapseLabel: (name: string) => string
@@ -992,8 +1043,8 @@ function LauncherLibraryModulesFloatingPanel({
   getContextActions: (mod: LauncherLibraryItem) => LauncherContextMenuAction[] | undefined
 }) {
   const selectedIdLookup = useMemo(
-    () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
-    [boxSelectionIds, editMode, editingSelectionIds],
+    () => new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds),
+    [boxSelectionIds, childModSelectionIds, childModSelectionMode, editMode, editingSelectionIds],
   )
   const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
   const panelLabel = `${parentMod.name} modules`
@@ -1269,10 +1320,14 @@ function LauncherLibraryFolderPanel({
   columnStart,
   rowStart,
   blankDropId,
+  estimatedRowHeight,
   latestVersionByModId,
   editMode,
   editingSelectionIds,
   boxSelectionIds,
+  childModSelectionMode = false,
+  childModSelectionParentId = null,
+  childModSelectionIds = [],
   noneLabel,
   childCountLabel,
   expandLabel,
@@ -1301,10 +1356,14 @@ function LauncherLibraryFolderPanel({
   columnStart: number
   rowStart: number
   blankDropId: string
+  estimatedRowHeight: number
   latestVersionByModId: Record<number, string>
   editMode: boolean
   editingSelectionIds: string[]
   boxSelectionIds: string[]
+  childModSelectionMode?: boolean
+  childModSelectionParentId?: string | null
+  childModSelectionIds?: string[]
   noneLabel: string
   childCountLabel: (count: number) => string
   expandLabel: (name: string) => string
@@ -1324,8 +1383,8 @@ function LauncherLibraryFolderPanel({
   toneIndex?: number
 }) {
   const selectedIdLookup = useMemo(
-    () => new Set(editMode ? editingSelectionIds : boxSelectionIds),
-    [boxSelectionIds, editMode, editingSelectionIds],
+    () => new Set(childModSelectionMode ? childModSelectionIds : editMode ? editingSelectionIds : boxSelectionIds),
+    [boxSelectionIds, childModSelectionIds, childModSelectionMode, editMode, editingSelectionIds],
   )
   const boxSelectionIdLookup = useMemo(() => new Set(boxSelectionIds), [boxSelectionIds])
   const closeLabel = closeFolderLabel ?? folder.name
@@ -1377,11 +1436,15 @@ function LauncherLibraryFolderPanel({
         <strong>{folder.name}</strong>
         <span>{folderCountLabel(contentReady ? items.length : itemCount)}</span>
       </div>
-      <div className="launcher-library-folder-panel-scroll" data-launcher-blank-drop-id={blankDropId}>
+      <div className="launcher-library-folder-panel-scroll">
         {contentReady ? (
           <div
             className="launcher-library-folder-panel-grid"
-            style={{ gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))` }}
+            data-launcher-blank-drop-id={blankDropId}
+            style={{
+              gridTemplateColumns: `repeat(${gridColumnCount}, minmax(${LAUNCHER_LIBRARY_CARD_MIN_WIDTH_PX}px, 1fr))`,
+              gridAutoRows: `minmax(${estimatedRowHeight}px, auto)`,
+            }}
           >
             {items.map((displayItem) => {
               if (displayItem.kind === 'folder') {
@@ -1402,6 +1465,7 @@ function LauncherLibraryFolderPanel({
 
               const item = displayItem.mod
               const childCount = displayItem.childMods.length
+              const isChildModSelectionParent = childModSelectionMode && item.id === childModSelectionParentId
               return (
                 <div key={`${displayItem.kind}-${item.id}`} className="launcher-library-grid-reveal">
                   <DraggableLauncherLibraryCard
@@ -1411,7 +1475,8 @@ function LauncherLibraryFolderPanel({
                     boxSelected={boxSelectionIdLookup.has(item.id)}
                     originFolderId={folder.id}
                     originParentId={null}
-                    selectionMode={editMode}
+                    selectionMode={editMode || childModSelectionMode}
+                    selectionDisabled={isChildModSelectionParent}
                     selected={selectedIdLookup.has(item.id)}
                     childCount={childCount}
                     childCountLabel={childCount ? childCountLabel(childCount) : undefined}
@@ -1419,17 +1484,21 @@ function LauncherLibraryFolderPanel({
                     expandLabel={childCount ? expandLabel(item.name) : undefined}
                     collapseLabel={childCount ? collapseLabel(item.name) : undefined}
                     onToggleParentExpanded={childCount ? onToggleParentExpanded : undefined}
-                    onToggleSelection={editMode ? onToggleSelection : undefined}
-                    onOpenModDetails={editMode ? undefined : onOpenModDetails}
-                    onOpenModFolder={editMode ? undefined : onOpenModFolder}
-                    getContextActions={editMode ? undefined : getContextActions}
+                    onToggleSelection={editMode || childModSelectionMode ? onToggleSelection : undefined}
+                    onOpenModDetails={editMode || childModSelectionMode ? undefined : onOpenModDetails}
+                    onOpenModFolder={editMode || childModSelectionMode ? undefined : onOpenModFolder}
+                    getContextActions={editMode || childModSelectionMode ? undefined : getContextActions}
                   />
                 </div>
               )
             })}
           </div>
         ) : (
-          <div className="launcher-library-folder-panel-grid launcher-library-folder-panel-grid-pending" aria-hidden="true">
+          <div
+            className="launcher-library-folder-panel-grid launcher-library-folder-panel-grid-pending"
+            data-launcher-blank-drop-id={blankDropId}
+            aria-hidden="true"
+          >
             <span />
             <span />
             <span />

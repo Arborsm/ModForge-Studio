@@ -1,4 +1,18 @@
 @layer components {
+  .dev-page-performance-scenario {
+    display: grid;
+    height: 100vh;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    background: var(--bg-app);
+  }
+
+  .dev-page-performance-scenario-main {
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .launcher-performance-test .panel-list-card.launcher-mod-card,
   .launcher-performance-test .launcher-mod-card:hover,
   .launcher-performance-test .launcher-mod-card:focus-within,

@@ -1,6 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getFileCacheStats } from '@shared/lib/desktop'
 import { DevDebugOverlay } from './DevDebugOverlay'
+
+const desktopMockState = vi.hoisted(() => ({
+  canUseDesktopHost: false,
+}))
 
 vi.mock('@entities/event', () => ({
   getStageMetadataCacheStats: () => ({
@@ -10,7 +15,7 @@ vi.mock('@entities/event', () => ({
 }))
 
 vi.mock('@shared/lib/desktop', () => ({
-  canUseDesktopHost: () => false,
+  canUseDesktopHost: () => desktopMockState.canUseDesktopHost,
   clearFileCache: vi.fn(),
   getDesktopCacheStats: () => ({
     scanMaps: 1,
@@ -62,6 +67,8 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
+  desktopMockState.canUseDesktopHost = false
+  vi.mocked(getFileCacheStats).mockReset()
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1)
   vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined)
 })
@@ -134,5 +141,38 @@ describe('DevDebugOverlay', () => {
 
     expect(overlay?.style.left).toBe('140px')
     expect(overlay?.style.top).toBe('184px')
+  })
+
+  it('loads file cache stats once and refreshes manually without polling', async () => {
+    desktopMockState.canUseDesktopHost = true
+    vi.mocked(getFileCacheStats)
+      .mockResolvedValueOnce({
+        rootPath: 'C:/cache/assets-v1',
+        entryCount: 2,
+        totalSizeBytes: 2048,
+      })
+      .mockResolvedValueOnce({
+        rootPath: 'C:/cache/assets-v1',
+        entryCount: 3,
+        totalSizeBytes: 4096,
+      })
+    const setIntervalSpy = vi.spyOn(window, 'setInterval')
+
+    render(<DevDebugOverlay workspaceMode="map" mapName="Town" eventName={null} currentEventCommandId={null} actorCount={0} />)
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(getFileCacheStats).toHaveBeenCalledTimes(1)
+    expect(setIntervalSpy).not.toHaveBeenCalled()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+      await Promise.resolve()
+    })
+
+    expect(getFileCacheStats).toHaveBeenCalledTimes(2)
+    expect(screen.getByText(/3 entries/)).toBeInTheDocument()
+    expect(setIntervalSpy).not.toHaveBeenCalled()
   })
 })
