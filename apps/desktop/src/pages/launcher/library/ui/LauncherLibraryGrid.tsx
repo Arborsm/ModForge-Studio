@@ -58,8 +58,22 @@ export { LauncherLibraryDndScope } from './LauncherLibraryDndScope'
 
 export type { LauncherContextMenuAction } from './LauncherLibraryContextMenuItem'
 
-function isBoxPointInside(box: Box, point: { x: number; y: number }) {
-  return point.x >= box.left && point.x <= box.left + box.width && point.y >= box.top && point.y <= box.top + box.height
+export type LauncherLibrarySelectionBox = Box
+
+export type LauncherLibrarySelectionRect = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export function doesLauncherLibrarySelectionIntersect(selectionBox: LauncherLibrarySelectionBox, rect: LauncherLibrarySelectionRect) {
+  return (
+    selectionBox.left <= rect.left + rect.width &&
+    selectionBox.left + selectionBox.width >= rect.left &&
+    selectionBox.top <= rect.top + rect.height &&
+    selectionBox.top + selectionBox.height >= rect.top
+  )
 }
 
 function measureLauncherLibraryVirtualRow(element: Element) {
@@ -212,16 +226,6 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
         return
       }
 
-      // `@air/react-drag-to-select` computes coordinates relative to the
-      // eventsElement without accounting for its scroll offset, so we must
-      // manually adjust the box so it aligns with the visible card positions.
-      const scrollAdjustedBox: Box = {
-        left: box.left - viewport.scrollLeft,
-        top: box.top - viewport.scrollTop,
-        width: box.width,
-        height: box.height,
-      }
-
       const selectedIds = Array.from(grid.querySelectorAll<HTMLElement>('[data-launcher-mod-card-id]'))
         .filter((element) => {
           const id = element.getAttribute('data-launcher-mod-card-id')
@@ -229,7 +233,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
             return false
           }
           const rect = element.getBoundingClientRect()
-          return isBoxPointInside(scrollAdjustedBox, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+          return doesLauncherLibrarySelectionIntersect(box, rect)
         })
         .map((element) => element.getAttribute('data-launcher-mod-card-id'))
         .filter((id): id is string => Boolean(id))
@@ -868,6 +872,7 @@ const DraggableLauncherLibraryCard = memo(function DraggableLauncherLibraryCard(
     <div
       className={cx('launcher-library-draggable-card', boxSelected && 'launcher-library-draggable-card-box-selected')}
       data-launcher-mod-card-id={item.id}
+      data-launcher-parent-drop-id={item.id}
       data-draggable="true"
       onPointerDownCapture={(event) => {
         pointerDrag?.setDraggableActivatorNodeRef(event.currentTarget)

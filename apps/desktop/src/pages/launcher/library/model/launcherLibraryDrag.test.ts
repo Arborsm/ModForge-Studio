@@ -4,6 +4,7 @@ import {
   LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX,
   LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX,
   LAUNCHER_LIBRARY_PACK_DROP_PREFIX,
+  LAUNCHER_LIBRARY_PARENT_DROP_PREFIX,
   getLauncherDropIdFromElement,
   getLauncherDropTargetAtPoint,
   getLauncherFolderIdFromBlankDropId,
@@ -30,10 +31,10 @@ describe('launcherLibraryDrag', () => {
     expect(getLauncherDropIdFromElement(pack)).toBe(`${LAUNCHER_LIBRARY_PACK_DROP_PREFIX}pack-a`)
   })
 
-  it('does not treat mod cards as parent drop targets', () => {
+  it('reads parent drop ids from parent mod cards', () => {
     const parent = document.createElement('div')
     parent.setAttribute('data-launcher-parent-drop-id', 'mod-a')
-    expect(getLauncherDropIdFromElement(parent)).toBeNull()
+    expect(getLauncherDropIdFromElement(parent)).toBe(`${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}mod-a`)
   })
 
   it('measures visible drop targets and skips source descendants', () => {
@@ -130,6 +131,12 @@ describe('launcherLibraryDrag', () => {
         kind: 'folderBlank' as const,
         containerFolderId: 'gameplay',
         rect: { left: 20, top: 20, width: 300, height: 300 },
+      },
+      {
+        dropId: `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}parent-a`,
+        kind: 'parent' as const,
+        containerFolderId: 'gameplay',
+        rect: { left: 80, top: 80, width: 160, height: 120 },
       },
     ]
 

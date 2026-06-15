@@ -3,6 +3,7 @@ import type { LauncherFolderPreviewItem } from './launcherLibraryDisplay'
 
 export const LAUNCHER_LIBRARY_PACK_DROP_PREFIX = 'launcher-pack:'
 export const LAUNCHER_LIBRARY_FOLDER_DROP_PREFIX = 'launcher-folder:'
+export const LAUNCHER_LIBRARY_PARENT_DROP_PREFIX = 'launcher-parent:'
 export const LAUNCHER_LIBRARY_BLANK_DROP_ID = 'launcher-library-blank'
 export const LAUNCHER_LIBRARY_FOLDER_BLANK_DROP_PREFIX = 'launcher-folder-blank:'
 export const LAUNCHER_LIBRARY_ACTIVE_DRAGGABLE_ID = 'launcher-library-active-drag'
@@ -12,6 +13,7 @@ export const LAUNCHER_LIBRARY_DROP_TARGET_SELECTORS = [
   '[data-launcher-blank-drop-id]',
   '[data-launcher-folder-drop-id]',
   '[data-launcher-pack-drop-id]',
+  '[data-launcher-parent-drop-id]',
 ]
 
 export type LauncherPointerDragSource =
@@ -55,7 +57,7 @@ export type LauncherDndKitDropData = {
 
 export type LauncherDndKitDropTarget = {
   dropId: string
-  kind: 'blank' | 'folder' | 'folderBlank' | 'pack'
+  kind: 'blank' | 'folder' | 'folderBlank' | 'pack' | 'parent'
   containerFolderId: string | null
   rect: {
     left: number
@@ -128,6 +130,9 @@ function getLauncherDropTargetKind(dropId: string): LauncherDndKitDropTarget['ki
   if (dropId.startsWith(LAUNCHER_LIBRARY_PACK_DROP_PREFIX)) {
     return 'pack'
   }
+  if (dropId.startsWith(LAUNCHER_LIBRARY_PARENT_DROP_PREFIX)) {
+    return 'parent'
+  }
   return 'blank'
 }
 
@@ -156,6 +161,10 @@ export function getLauncherDropIdFromElement(element: HTMLElement) {
   const packDropId = element.getAttribute('data-launcher-pack-drop-id')
   if (packDropId) {
     return `${LAUNCHER_LIBRARY_PACK_DROP_PREFIX}${packDropId}`
+  }
+  const parentDropId = element.getAttribute('data-launcher-parent-drop-id')
+  if (parentDropId) {
+    return `${LAUNCHER_LIBRARY_PARENT_DROP_PREFIX}${parentDropId}`
   }
   return null
 }

@@ -1618,7 +1618,7 @@ describe('LauncherLibraryPage', () => {
     })
   })
 
-  it('uses the drag-to-select package to show a selection rectangle and mark intersecting cards', async () => {
+  it('uses the drag-to-select package to show a selection rectangle and mark partially intersecting cards', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1640,7 +1640,7 @@ describe('LauncherLibraryPage', () => {
     try {
       fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
       act(() => {
-        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 260, clientY: 260 })
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 150, clientY: 150 })
       })
 
       const selectionBox = await screen.findByTestId('launcher-library-box-select')
@@ -1650,7 +1650,7 @@ describe('LauncherLibraryPage', () => {
       })
 
       act(() => {
-        fireEvent.mouseUp(window, { button: 0, clientX: 260, clientY: 260 })
+        fireEvent.mouseUp(window, { button: 0, clientX: 150, clientY: 150 })
       })
 
       await waitFor(() => {
@@ -1662,7 +1662,7 @@ describe('LauncherLibraryPage', () => {
     }
   })
 
-  it('does not select cards whose center is outside a wide drag-to-select rectangle', async () => {
+  it('does not select cards that do not intersect the drag-to-select rectangle', async () => {
     const library = createLibraryState()
     useLauncherLibraryMock.mockReturnValue(library)
 
@@ -1684,7 +1684,7 @@ describe('LauncherLibraryPage', () => {
     try {
       fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
       act(() => {
-        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 180, clientY: 180 })
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 80, clientY: 80 })
       })
 
       await screen.findByTestId('launcher-library-box-select')
@@ -1693,7 +1693,47 @@ describe('LauncherLibraryPage', () => {
       })
 
       act(() => {
-        fireEvent.mouseUp(window, { button: 0, clientX: 180, clientY: 180 })
+        fireEvent.mouseUp(window, { button: 0, clientX: 80, clientY: 80 })
+      })
+    } finally {
+      boundsSpy.mockRestore()
+    }
+  })
+
+  it('keeps drag-to-select hit testing aligned with visible cards after the grid scrolls', async () => {
+    const library = createLibraryState()
+    useLauncherLibraryMock.mockReturnValue(library)
+
+    renderLibraryPage()
+
+    const card = screen.getByRole('article', { name: /npc adventures/i })
+    const wrapper = card.closest('[data-launcher-mod-card-id]') as HTMLElement
+    const viewport = card.closest('.launcher-library-grid-viewport') as HTMLElement
+    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 160 })
+    Object.defineProperty(viewport, 'scrollLeft', { configurable: true, value: 0 })
+    const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this === viewport || this.getAttribute('data-launcher-blank-drop-id') === 'launcher-library-blank') {
+        return { width: 900, height: 640, top: 80, left: 80, bottom: 720, right: 980, x: 80, y: 80, toJSON: () => ({}) }
+      }
+      if (this === wrapper || this === card) {
+        return { width: 220, height: 180, top: 120, left: 120, bottom: 300, right: 340, x: 120, y: 120, toJSON: () => ({}) }
+      }
+      return { width: 1, height: 1, top: 0, left: 0, bottom: 1, right: 1, x: 0, y: 0, toJSON: () => ({}) }
+    })
+
+    try {
+      fireEvent.mouseDown(viewport, { button: 0, buttons: 1, clientX: 100, clientY: 100 })
+      act(() => {
+        fireEvent.mouseMove(viewport, { button: 0, buttons: 1, clientX: 150, clientY: 150 })
+      })
+
+      await screen.findByTestId('launcher-library-box-select')
+      await waitFor(() => {
+        expect(wrapper).toHaveClass('launcher-library-draggable-card-box-selected')
+      })
+
+      act(() => {
+        fireEvent.mouseUp(window, { button: 0, clientX: 150, clientY: 150 })
       })
     } finally {
       boundsSpy.mockRestore()
@@ -1729,7 +1769,7 @@ describe('LauncherLibraryPage', () => {
     return waitFor(() => expect(screen.queryByTestId('launcher-library-drag-preview')).toBeNull())
   })
 
-  it('highlights folder and blank drop targets while dragging without parent-mod targets', async () => {
+  it('highlights folder and blank drop targets without activating parent-mod targets', async () => {
     const library = {
       ...createLibraryState(),
       libraryFolders: [{ id: 'visuals', name: 'Visuals', parentFolderId: null, modKeys: [], coverModKeys: [] }],
@@ -1744,7 +1784,7 @@ describe('LauncherLibraryPage', () => {
     const targetMod = screen
       .getByRole('article', { name: /vintage interface redux/i })
       .closest('[data-launcher-mod-card-id]') as HTMLElement
-    expect(targetMod.closest('[data-launcher-parent-drop-id]')).toBeNull()
+    expect(targetMod.getAttribute('data-launcher-parent-drop-id')).toBe('mod-2')
     const blank = card.closest('[data-launcher-blank-drop-id]') as HTMLElement
     const boundsSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this === blank) {
@@ -1782,7 +1822,10 @@ describe('LauncherLibraryPage', () => {
         pointerDragMove(window, 440, 180)
       })
       await waitFor(() => {
-        expect(document.querySelector('[data-launcher-dnd-target-id^="launcher-parent:"]')).toBeNull()
+        expect(document.querySelector('[data-launcher-dnd-target-id^="launcher-parent:"]')).not.toBeNull()
+        expect(
+          document.querySelector('[data-launcher-dnd-target-id^="launcher-parent:"].launcher-library-dnd-target-box-active'),
+        ).toBeNull()
         expect(document.querySelector('[data-launcher-dnd-target-id="launcher-library-blank"]')).toHaveClass(
           'launcher-library-dnd-target-box-active',
         )
