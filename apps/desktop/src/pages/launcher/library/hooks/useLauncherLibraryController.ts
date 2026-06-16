@@ -221,7 +221,6 @@ export function useLauncherLibraryController({
     currentPackLabel,
     supportedArchiveFormatsLabel,
     isLibraryFolderOpen,
-    getLibraryFolderItemCount,
     getLibraryFolderModIds,
   } = displayState
 
@@ -272,25 +271,19 @@ export function useLauncherLibraryController({
     input.select()
   }, [packDialog])
 
-  const toggleLibraryFolderOpen = useCallback(
-    (folderId: string) => {
-      const folderLookup = normalizeLookupKey(folderId)
-      if (getLibraryFolderItemCount(folderId) <= 0) {
-        return
-      }
+  const toggleLibraryFolderOpen = useCallback((folderId: string) => {
+    const folderLookup = normalizeLookupKey(folderId)
 
-      setOpenLibraryFolderIds((current) => {
-        const willClose = current.some((id) => normalizeLookupKey(id) === folderLookup)
-        if (willClose) {
-          setReadyLibraryFolderIds((ready) => ready.filter((id) => normalizeLookupKey(id) !== folderLookup))
-          return current.filter((id) => normalizeLookupKey(id) !== folderLookup)
-        }
-        setReadyLibraryFolderIds((ready) => (ready.some((id) => normalizeLookupKey(id) === folderLookup) ? ready : [...ready, folderId]))
-        return [...current, folderId]
-      })
-    },
-    [getLibraryFolderItemCount],
-  )
+    setOpenLibraryFolderIds((current) => {
+      const willClose = current.some((id) => normalizeLookupKey(id) === folderLookup)
+      if (willClose) {
+        setReadyLibraryFolderIds((ready) => ready.filter((id) => normalizeLookupKey(id) !== folderLookup))
+        return current.filter((id) => normalizeLookupKey(id) !== folderLookup)
+      }
+      setReadyLibraryFolderIds((ready) => (ready.some((id) => normalizeLookupKey(id) === folderLookup) ? ready : [...ready, folderId]))
+      return [...current, folderId]
+    })
+  }, [])
 
   const closeLibraryFolder = useCallback((folderId: string) => {
     const folderLookup = normalizeLookupKey(folderId)

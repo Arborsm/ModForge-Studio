@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import { useEditorCopy } from '@locales/provider'
+import { TaskCancelledError, useLatestTask, useTaskScope, type TaskScope } from '@shared/lib/task-runtime'
 import { dismissNotification, publishNotification } from '@shared/ui/notifications'
 import type {
   LauncherLibraryModSummary,
@@ -214,8 +215,15 @@ async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T
 
 type AutoCoverProgressStage = 'local' | 'apiCover' | 'apiGallery' | 'remoteCover' | 'remoteGallery'
 
+function isTaskCancelled(error: unknown) {
+  return error instanceof TaskCancelledError || (error instanceof DOMException && error.name === 'AbortError')
+}
+
 export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const launcherPort = useLauncherPort()
+  const runLibraryStateSaveTask = useLatestTask('launcher-library-state-save')
+  const libraryRefreshTaskScope = useTaskScope('launcher-library-refresh')
+  const autoCoverTaskScope = useTaskScope('launcher-library-auto-cover')
   const copy = useEditorCopy().launcher
   const [mods, setMods] = useState<LauncherLibraryModSummary[]>([])
   const [libraryState, setLibraryState] = useState<LauncherLibraryState>(createDefaultLibraryState())
@@ -228,18 +236,20 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
   const [error, setError] = useState<string | null>(null)
   const [latestVersionByModId, setLatestVersionByModId] = useState<Record<number, string>>({})
   const autoCoverFetchInFlightRef = useRef(false)
-  const autoCoverTaskTokenRef = useRef(0)
-  const refreshRequestTokenRef = useRef(0)
-  const mountedRef = useRef(true)
 
   const persistLibraryState = useCallback(
     async (nextState: LauncherLibraryState) => {
-      const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
-      const normalized = normalizeLibraryState(persisted)
-      setLibraryState(normalized)
-      return normalized
+      libraryRefreshTaskScope.cancel(new TaskCancelledError('Launcher library state was mutated.'))
+      return runLibraryStateSaveTask(async (scope) => {
+        const persisted = await launcherPort.saveLibraryState(normalizeLibraryState(nextState))
+        const normalized = normalizeLibraryState(persisted)
+        if (scope.isCurrent()) {
+          setLibraryState(normalized)
+        }
+        return normalized
+      })
     },
-    [launcherPort],
+    [launcherPort, libraryRefreshTaskScope, runLibraryStateSaveTask],
   )
 
   const cancelAutoCoverFetch = useCallback(() => {
@@ -247,10 +257,10 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
       return
     }
 
-    autoCoverTaskTokenRef.current += 1
+    autoCoverTaskScope.cancel(new TaskCancelledError('Launcher library auto-cover task was cancelled.'))
     autoCoverFetchInFlightRef.current = false
     dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
-  }, [])
+  }, [autoCoverTaskScope])
 
   const startAutoCoverFetch = useCallback(
     (eligibleMods: LauncherLibraryModSummary[]) => {
@@ -258,214 +268,223 @@ export function useLauncherLibrary(settings: LauncherSettingsDraft) {
         return
       }
 
-      const taskToken = autoCoverTaskTokenRef.current + 1
-      autoCoverTaskTokenRef.current = taskToken
       autoCoverFetchInFlightRef.current = true
       let completed = 0
 
-      const isTaskActive = () => mountedRef.current && autoCoverTaskTokenRef.current === taskToken
+      void autoCoverTaskScope.runtime
+        .latest(autoCoverTaskScope.key, async (scope) => {
+          const activeScope = autoCoverTaskScope.capture(scope)
+          const isTaskActive = () => autoCoverTaskScope.isCurrent(activeScope)
 
-      const publishAutoCoverNotification = (modName: string, stage: AutoCoverProgressStage, nextCompleted: number) => {
-        if (!isTaskActive()) {
-          return
-        }
-
-        publishNotification({
-          id: LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID,
-          level: 'info',
-          title: copy.library.loadingMissingCoversCurrentMod(modName),
-          description: copy.library.loadingMissingCoversStageProgress(
-            copy.library.loadingMissingCoversStages[stage],
-            nextCompleted,
-            eligibleMods.length,
-          ),
-          autoDismissMs: null,
-          progress: eligibleMods.length > 0 ? (nextCompleted / eligibleMods.length) * 100 : 0,
-        })
-      }
-
-      void runWithConcurrency(eligibleMods, LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY, async (item) => {
-        if (!isTaskActive() || item.nexusModId == null) {
-          return
-        }
-
-        let activeStage: AutoCoverProgressStage = 'local'
-
-        try {
-          publishAutoCoverNotification(item.name, activeStage, completed)
-          activeStage = 'apiCover'
-          publishAutoCoverNotification(item.name, activeStage, completed)
-
-          const detail = await launcherPort.loadRemoteModDetail({ modId: item.nexusModId })
-          if (!isTaskActive()) {
-            return
-          }
-
-          let imageUrl = detail.imageUrl?.trim() || null
-          if (imageUrl) {
-            activeStage = 'remoteCover'
-            publishAutoCoverNotification(item.name, activeStage, completed)
-          } else {
-            activeStage = 'apiGallery'
-            publishAutoCoverNotification(item.name, activeStage, completed)
-            imageUrl = detail.galleryImages.find((value) => value.trim())?.trim() || null
-            if (imageUrl) {
-              activeStage = 'remoteGallery'
-              publishAutoCoverNotification(item.name, activeStage, completed)
+          const publishAutoCoverNotification = (modName: string, stage: AutoCoverProgressStage, nextCompleted: number) => {
+            if (!isTaskActive()) {
+              return
             }
-          }
-          if (!imageUrl) {
-            return
+
+            publishNotification({
+              id: LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID,
+              level: 'info',
+              title: copy.library.loadingMissingCoversCurrentMod(modName),
+              description: copy.library.loadingMissingCoversStageProgress(
+                copy.library.loadingMissingCoversStages[stage],
+                nextCompleted,
+                eligibleMods.length,
+              ),
+              autoDismissMs: null,
+              progress: eligibleMods.length > 0 ? (nextCompleted / eligibleMods.length) * 100 : 0,
+            })
           }
 
-          const coverKey = getLauncherCoverKey(item)
-          const covers = await launcherPort.persistLibraryRemoteCover({
-            labelKey: coverKey,
-            imageUrl,
+          await runWithConcurrency(eligibleMods, LAUNCHER_LIBRARY_AUTO_COVER_CONCURRENCY, async (item) => {
+            if (!isTaskActive() || item.nexusModId == null) {
+              return
+            }
+
+            let activeStage: AutoCoverProgressStage = 'local'
+
+            try {
+              publishAutoCoverNotification(item.name, activeStage, completed)
+              activeStage = 'apiCover'
+              publishAutoCoverNotification(item.name, activeStage, completed)
+
+              const detail = await launcherPort.loadRemoteModDetail({ modId: item.nexusModId })
+              if (!isTaskActive()) {
+                return
+              }
+
+              let imageUrl = detail.imageUrl?.trim() || null
+              if (imageUrl) {
+                activeStage = 'remoteCover'
+                publishAutoCoverNotification(item.name, activeStage, completed)
+              } else {
+                activeStage = 'apiGallery'
+                publishAutoCoverNotification(item.name, activeStage, completed)
+                imageUrl = detail.galleryImages.find((value) => value.trim())?.trim() || null
+                if (imageUrl) {
+                  activeStage = 'remoteGallery'
+                  publishAutoCoverNotification(item.name, activeStage, completed)
+                }
+              }
+              if (!imageUrl) {
+                return
+              }
+
+              const coverKey = getLauncherCoverKey(item)
+              const covers = await launcherPort.persistLibraryRemoteCover({
+                labelKey: coverKey,
+                imageUrl,
+              })
+
+              if (!isTaskActive()) {
+                return
+              }
+
+              const persistedImagePath =
+                covers.covers.find((cover) => normalizeLookupKey(cover.labelKey) === normalizeLookupKey(coverKey))?.imagePath ?? null
+              if (persistedImagePath) {
+                setMods((current) =>
+                  current.map((mod) =>
+                    normalizeLookupKey(getLauncherCoverKey(mod)) === normalizeLookupKey(coverKey)
+                      ? { ...mod, imageUrl: persistedImagePath }
+                      : mod,
+                  ),
+                )
+              }
+            } catch {
+              // Individual auto-cover failures should not fail the library page.
+            } finally {
+              if (isTaskActive()) {
+                completed += 1
+                publishAutoCoverNotification(item.name, activeStage, completed)
+              }
+            }
           })
 
-          if (!isTaskActive()) {
-            return
-          }
-
-          const persistedImagePath =
-            covers.covers.find((cover) => normalizeLookupKey(cover.labelKey) === normalizeLookupKey(coverKey))?.imagePath ?? null
-          if (persistedImagePath) {
-            setMods((current) =>
-              current.map((mod) =>
-                normalizeLookupKey(getLauncherCoverKey(mod)) === normalizeLookupKey(coverKey)
-                  ? { ...mod, imageUrl: persistedImagePath }
-                  : mod,
-              ),
-            )
-          }
-        } catch {
-          // Individual auto-cover failures should not fail the library page.
-        } finally {
           if (isTaskActive()) {
-            completed += 1
-            publishAutoCoverNotification(item.name, activeStage, completed)
+            autoCoverFetchInFlightRef.current = false
+            dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
           }
-        }
-      }).finally(() => {
-        if (!isTaskActive()) {
-          return
-        }
-
-        autoCoverFetchInFlightRef.current = false
-        dismissNotification(LAUNCHER_LIBRARY_AUTO_COVER_NOTIFICATION_ID)
-      })
+        })
+        .catch((nextError) => {
+          if (!isTaskCancelled(nextError)) {
+            throw nextError
+          }
+        })
     },
-    [copy.library, launcherPort],
+    [autoCoverTaskScope, copy.library, launcherPort],
   )
 
   useEffect(() => {
-    mountedRef.current = true
-
     return () => {
-      mountedRef.current = false
       cancelAutoCoverFetch()
     }
   }, [cancelAutoCoverFetch])
 
   const refresh = useCallback(async () => {
-    const requestToken = refreshRequestTokenRef.current + 1
-    refreshRequestTokenRef.current = requestToken
-    const isRefreshActive = () => mountedRef.current && refreshRequestTokenRef.current === requestToken
+    await libraryRefreshTaskScope.runtime
+      .latest(libraryRefreshTaskScope.key, async (scope: TaskScope) => {
+        const activeScope = libraryRefreshTaskScope.capture(scope)
+        const isRefreshActive = () => libraryRefreshTaskScope.isCurrent(activeScope)
 
-    cancelAutoCoverFetch()
-    launcherPort.clearLibraryReadCaches(settings.modsPath)
-    setState('loading')
-    setError(null)
-    setLatestVersionByModId({})
+        cancelAutoCoverFetch()
+        launcherPort.clearLibraryReadCaches(settings.modsPath)
+        setState('loading')
+        setError(null)
+        setLatestVersionByModId({})
 
-    try {
-      const suppressedUpdateModIdsPromise = settings.modsPath
-        ? launcherPort.loadSuppressedUpdateModIds({ modsPath: settings.modsPath }).catch(() => null)
-        : Promise.resolve(null)
+        try {
+          const suppressedUpdateModIdsPromise = settings.modsPath
+            ? launcherPort.loadSuppressedUpdateModIds({ modsPath: settings.modsPath }).catch(() => null)
+            : Promise.resolve(null)
 
-      const [diagnostics, loadedLibraryState, loadedCovers, scan, suppressedUpdateModIdsResult] = await Promise.all([
-        launcherPort.loadNexusDiagnostics().catch(() => null),
-        launcherPort.loadLibraryState(),
-        launcherPort.loadLibraryCovers(),
-        settings.modsPath
-          ? launcherPort.scanLibrary({ modsPath: settings.modsPath })
-          : Promise.resolve({
-              modsPath: settings.modsPath ?? '',
-              mods: [],
-            }),
-        suppressedUpdateModIdsPromise,
-      ])
+          const [diagnostics, loadedLibraryState, loadedCovers, scan, suppressedUpdateModIdsResult] = await Promise.all([
+            launcherPort.loadNexusDiagnostics().catch(() => null),
+            launcherPort.loadLibraryState(),
+            launcherPort.loadLibraryCovers(),
+            settings.modsPath
+              ? launcherPort.scanLibrary({ modsPath: settings.modsPath })
+              : Promise.resolve({
+                  modsPath: settings.modsPath ?? '',
+                  mods: [],
+                }),
+            suppressedUpdateModIdsPromise,
+          ])
 
-      const savedCoverLookup = new Set(loadedCovers.covers.map((cover) => normalizeLookupKey(cover.labelKey)))
-      const suppressedUpdateModIds = normalizeSuppressedModIds(suppressedUpdateModIdsResult?.modIds)
-      const eligibleMods = scan.mods.filter(
-        (item) =>
-          item.nexusModId != null &&
-          !suppressedUpdateModIds.has(item.nexusModId) &&
-          !item.imageUrl?.trim() &&
-          !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value))),
-      )
+          const savedCoverLookup = new Set(loadedCovers.covers.map((cover) => normalizeLookupKey(cover.labelKey)))
+          const suppressedUpdateModIds = normalizeSuppressedModIds(suppressedUpdateModIdsResult?.modIds)
+          const eligibleMods = scan.mods.filter(
+            (item) =>
+              item.nexusModId != null &&
+              !suppressedUpdateModIds.has(item.nexusModId) &&
+              !item.imageUrl?.trim() &&
+              !getLauncherCoverKeyCandidates(item).some((value) => savedCoverLookup.has(normalizeLookupKey(value))),
+          )
 
-      if (!isRefreshActive()) {
-        return
-      }
-
-      setLibraryState(normalizeLibraryState(loadedLibraryState))
-      setMods(scan.mods)
-      setSelectedModId((current) => current ?? scan.mods[0]?.id ?? null)
-      setSelectedModIds((current) => current.filter((id) => scan.mods.some((item) => item.id === id)))
-      setState('ready')
-      if (canAutoFetchLauncherRemoteCovers(diagnostics)) {
-        startAutoCoverFetch(eligibleMods)
-      }
-      const updateModsPath = scan.modsPath || settings.modsPath || ''
-      if (settings.autoCheckModUpdates && scan.mods.length > 0 && updateModsPath && canAutoCheckLauncherUpdates(diagnostics)) {
-        const applyUpdateHints = (updates: LauncherUpdateSummary[] | null | undefined) => {
-          if (!updates?.length || !isRefreshActive()) {
+          if (!isRefreshActive()) {
             return
           }
 
-          setLatestVersionByModId(
-            Object.fromEntries(
-              updates.filter((update) => update.latestVersion.trim()).map((update) => [update.modId, update.latestVersion.trim()]),
-            ),
-          )
+          setLibraryState(normalizeLibraryState(loadedLibraryState))
+          setMods(scan.mods)
+          setSelectedModId((current) => current ?? scan.mods[0]?.id ?? null)
+          setSelectedModIds((current) => current.filter((id) => scan.mods.some((item) => item.id === id)))
+          setState('ready')
+          if (canAutoFetchLauncherRemoteCovers(diagnostics)) {
+            startAutoCoverFetch(eligibleMods)
+          }
+          const updateModsPath = scan.modsPath || settings.modsPath || ''
+          if (settings.autoCheckModUpdates && scan.mods.length > 0 && updateModsPath && canAutoCheckLauncherUpdates(diagnostics)) {
+            const applyUpdateHints = (updates: LauncherUpdateSummary[] | null | undefined) => {
+              if (!updates?.length || !isRefreshActive()) {
+                return
+              }
+
+              setLatestVersionByModId(
+                Object.fromEntries(
+                  updates.filter((update) => update.latestVersion.trim()).map((update) => [update.modId, update.latestVersion.trim()]),
+                ),
+              )
+            }
+
+            void launcherPort
+              .loadCachedUpdates({ modsPath: updateModsPath })
+              .then((cached) => {
+                if (!isRefreshActive()) {
+                  return
+                }
+                applyUpdateHints(cached?.updates)
+                if (cached && cached.isComplete !== false) {
+                  return
+                }
+
+                return launcherPort
+                  .checkUpdates({
+                    modsPath: updateModsPath,
+                    forceRefresh: false,
+                  })
+                  .then((result) => {
+                    applyUpdateHints(result.updates)
+                  })
+              })
+              .catch(() => {
+                // Background update cache warming should not interrupt the library page.
+              })
+          }
+        } catch (nextError) {
+          if (!isRefreshActive()) {
+            return
+          }
+
+          setError(nextError instanceof Error ? nextError.message : 'Failed to scan launcher library.')
+          setState('error')
         }
-
-        void launcherPort
-          .loadCachedUpdates({ modsPath: updateModsPath })
-          .then((cached) => {
-            if (!isRefreshActive()) {
-              return
-            }
-            applyUpdateHints(cached?.updates)
-            if (cached && cached.isComplete !== false) {
-              return
-            }
-
-            return launcherPort
-              .checkUpdates({
-                modsPath: updateModsPath,
-                forceRefresh: false,
-              })
-              .then((result) => {
-                applyUpdateHints(result.updates)
-              })
-          })
-          .catch(() => {
-            // Background update cache warming should not interrupt the library page.
-          })
-      }
-    } catch (nextError) {
-      if (!isRefreshActive()) {
-        return
-      }
-
-      setError(nextError instanceof Error ? nextError.message : 'Failed to scan launcher library.')
-      setState('error')
-    }
-  }, [cancelAutoCoverFetch, launcherPort, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
+      })
+      .catch((nextError) => {
+        if (!isTaskCancelled(nextError)) {
+          throw nextError
+        }
+      })
+  }, [cancelAutoCoverFetch, launcherPort, libraryRefreshTaskScope, settings.autoCheckModUpdates, settings.modsPath, startAutoCoverFetch])
 
   const storageFolders = libraryState.storageFolders
   const hiddenModKeys = libraryState.hiddenModKeys

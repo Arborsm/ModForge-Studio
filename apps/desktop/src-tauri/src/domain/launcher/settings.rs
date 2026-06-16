@@ -4,6 +4,22 @@ use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{clean_input_path, normalize_path};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
+
+static LAUNCHER_SETTINGS_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_launcher_settings_file() -> MutexGuard<'static, ()> {
+    match LAUNCHER_SETTINGS_FILE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+    {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "Launcher Settings", "Launcher settings file lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 pub(crate) fn normalize_settings(settings: LauncherSettings) -> LauncherSettings {
     let game_path = normalize_optional_path(settings.game_path);
@@ -62,6 +78,13 @@ fn optional_text_present(value: &Option<String>) -> bool {
 pub(crate) fn load_or_create_settings_at_path(
     settings_path: &Path,
 ) -> Result<LauncherSettings, String> {
+    let _settings_file_guard = lock_launcher_settings_file();
+    load_or_create_settings_at_path_unlocked(settings_path)
+}
+
+fn load_or_create_settings_at_path_unlocked(
+    settings_path: &Path,
+) -> Result<LauncherSettings, String> {
     if settings_path.is_file() {
         let content = fs::read_to_string(settings_path).map_err(|error| {
             format!(
@@ -79,11 +102,19 @@ pub(crate) fn load_or_create_settings_at_path(
     }
 
     let defaults = normalize_settings(LauncherSettings::default());
-    save_settings_at_path(settings_path, &defaults)?;
+    save_settings_at_path_unlocked(settings_path, &defaults)?;
     Ok(defaults)
 }
 
 pub(crate) fn save_settings_at_path(
+    settings_path: &Path,
+    settings: &LauncherSettings,
+) -> Result<(), String> {
+    let _settings_file_guard = lock_launcher_settings_file();
+    save_settings_at_path_unlocked(settings_path, settings)
+}
+
+fn save_settings_at_path_unlocked(
     settings_path: &Path,
     settings: &LauncherSettings,
 ) -> Result<(), String> {
@@ -175,7 +206,8 @@ pub fn save_launcher_settings(
         "save_launcher_settings",
         (|| {
             let settings_path = launcher_settings_path()?;
-            let existing = load_or_create_settings_at_path(&settings_path)?;
+            let _settings_file_guard = lock_launcher_settings_file();
+            let existing = load_or_create_settings_at_path_unlocked(&settings_path)?;
             let nexus_api_key_request_state = request.nexus_api_key.state_label();
             log::info!(
                 target: "Launcher Settings",
@@ -191,7 +223,7 @@ pub fn save_launcher_settings(
                 "Saved settings: api-key-present={}",
                 optional_text_present(&normalized.nexus_api_key)
             );
-            save_settings_at_path(&settings_path, &normalized)?;
+            save_settings_at_path_unlocked(&settings_path, &normalized)?;
             restart_launcher_nexus_diagnostics_with_app(&app, &normalized);
             Ok(normalized)
         })(),

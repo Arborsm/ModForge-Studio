@@ -16,8 +16,8 @@ use crate::domain::nexusmods::mod_detail::{
 use crate::domain::launcher::runtime::launch_game_with_runner;
 use crate::domain::launcher::library::{
     load_or_create_library_covers_at_path, load_or_create_library_state_at_path,
-    persist_auto_library_cover_at_path, save_library_covers_at_path, save_library_state_at_path,
-    scan_library_at_path, set_launcher_mod_enabled_blocking,
+    persist_auto_library_cover_at_path, save_library_state_at_path, scan_library_at_path,
+    set_launcher_mod_enabled_blocking,
 };
 use crate::domain::launcher::trace::format_launcher_trace_message;
 use crate::domain::launcher::types::{
@@ -144,6 +144,14 @@ fn launcher_trace_message_skips_blank_values() {
         message,
         r#"launcher.toggle.complete mod-path="E:\\Games\\Mods\\ExamplePack" enabled="false""#
     );
+}
+
+fn write_library_covers_state(path: &Path, state: &LauncherLibraryCoversState) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create launcher cover test directory");
+    }
+    let json = serde_json::to_string_pretty(state).expect("serialize launcher cover test state");
+    fs::write(path, format!("{json}\n")).expect("write launcher cover test state");
 }
 
 #[test]
@@ -455,7 +463,7 @@ fn launcher_library_covers_create_default_and_save_roundtrip() {
             image_path: existing_cover_path.to_string_lossy().to_string(),
         }],
     };
-    save_library_covers_at_path(&covers_path, &saved_state).expect("save library covers");
+    write_library_covers_state(&covers_path, &saved_state);
 
     let reloaded =
         load_or_create_library_covers_at_path(&covers_path).expect("reload saved covers");
@@ -473,7 +481,7 @@ fn launcher_library_auto_cover_persistence_adds_missing_cover_without_overwritin
     write_file(&existing_cover_path, "visible-cover");
     write_file(&missing_cover_path, "missing-cover");
 
-    save_library_covers_at_path(
+    write_library_covers_state(
         &covers_path,
         &LauncherLibraryCoversState {
             covers: vec![LauncherLibraryCover {
@@ -481,8 +489,7 @@ fn launcher_library_auto_cover_persistence_adds_missing_cover_without_overwritin
                 image_path: existing_cover_path.to_string_lossy().to_string(),
             }],
         },
-    )
-    .expect("save initial covers");
+    );
 
     let updated =
         persist_auto_library_cover_at_path(&covers_path, "ModForge.Missing", &missing_cover_path)
@@ -514,7 +521,7 @@ fn launcher_library_covers_prune_missing_files_on_load() {
     let existing_cover_path = root.join("covers").join("visible.png");
     write_file(&existing_cover_path, "visible-cover");
 
-    save_library_covers_at_path(
+    write_library_covers_state(
         &covers_path,
         &LauncherLibraryCoversState {
             covers: vec![
@@ -532,8 +539,7 @@ fn launcher_library_covers_prune_missing_files_on_load() {
                 },
             ],
         },
-    )
-    .expect("save covers with stale entry");
+    );
 
     let reloaded =
         load_or_create_library_covers_at_path(&covers_path).expect("reload pruned launcher covers");

@@ -64,7 +64,7 @@ export async function writeFrontendLog(request: FrontendLogRequest) {
     return
   }
 
-  await invokeDesktop<void>('write_frontend_log', { request })
+  await invokeDesktop<void>('write_frontend_log', { request }, { kind: 'serviceGate', key: 'frontend-log' })
 }
 
 /** Enables or disables verbose desktop-side debug logging. */
@@ -73,5 +73,5 @@ export async function setDesktopDebugLoggingEnabled(enabled: boolean) {
     return
   }
 
-  await invokeDesktop<void>('set_debug_logging_enabled', { enabled })
+  await invokeDesktop<void>('set_debug_logging_enabled', { enabled }, { kind: 'serviceGate', key: 'debug-logging' })
 }

@@ -724,7 +724,7 @@ describe('LauncherLibraryPage', () => {
     expect(folderGrid?.style.gridAutoRows).toContain('260px')
   })
 
-  it('does not repeat the empty-library auto refresh after local folder state changes', () => {
+  it('opens empty virtual folders without repeating the empty-library auto refresh', () => {
     const library = {
       ...createLibraryState(),
       mods: [],
@@ -745,7 +745,8 @@ describe('LauncherLibraryPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open folder Visuals' }))
 
-    expect(screen.queryByRole('region', { name: 'Visuals' })).toBeNull()
+    const folderRegion = screen.getByRole('region', { name: 'Visuals' })
+    expect(within(folderRegion).getByText('This folder is empty.')).toBeTruthy()
     expect(library.refresh).toHaveBeenCalledTimes(1)
   })
 

@@ -1,31 +1,48 @@
-import type { CpMakerPort } from '@features/cp-maker/provider'
+import { scanEvents, scanMaps } from '@entities/game/api'
+import { scanModProjects } from '@entities/mod/api'
+import {
+  copyCpMakerDraft,
+  deleteCpMakerDraft,
+  exportCpMakerPack,
+  importCpMakerPack,
+  listCpMakerDrafts,
+  loadCpMakerDraft,
+  saveCpMakerDraft,
+} from '@features/cp-maker/api'
+import type { CpMakerDraftRecord as CpMakerPortDraftRecord, CpMakerPort } from '@features/cp-maker/provider'
+import type { CpMakerDraftRecord as CpMakerApiDraftRecord } from '@features/cp-maker/api'
 import type { PlatformPorts } from '@shared/contracts'
+import { loadImageDataUrl, loadMapAsset, loadTextAsset } from '@entities/game/api'
 
-export function createCpMakerPortAdapter({ dialog, fileSystem }: PlatformPorts): CpMakerPort {
+function normalizeCpMakerDraftForPersistence(draft: CpMakerPortDraftRecord): CpMakerApiDraftRecord {
+  return {
+    ...draft,
+    eventSourceSnapshotsByTarget: draft.eventSourceSnapshotsByTarget ?? {},
+  }
+}
+
+export function createCpMakerPortAdapter({ dialog }: PlatformPorts): CpMakerPort {
   return {
     // Draft CRUD
-    listDrafts: () => fileSystem.invokeCommand('list_cp_maker_drafts'),
-    loadDraft: (draftStorageKey) => fileSystem.invokeCommand('load_cp_maker_draft', { draftStorageKey }),
-    saveDraft: (draft) => fileSystem.invokeCommand('save_cp_maker_draft', { draft }),
-    deleteDraft: (draftStorageKey) => fileSystem.invokeCommand('delete_cp_maker_draft', { draftStorageKey }),
-    copyDraft: (sourceDraftStorageKey) =>
-      fileSystem.invokeCommand('copy_cp_maker_draft', {
-        request: { source_draft_storage_key: sourceDraftStorageKey },
-      }),
+    listDrafts: () => listCpMakerDrafts(),
+    loadDraft: (draftStorageKey) => loadCpMakerDraft(draftStorageKey),
+    saveDraft: (draft) => saveCpMakerDraft(normalizeCpMakerDraftForPersistence(draft)),
+    deleteDraft: (draftStorageKey) => deleteCpMakerDraft(draftStorageKey),
+    copyDraft: (sourceDraftStorageKey) => copyCpMakerDraft({ source_draft_storage_key: sourceDraftStorageKey }),
 
     // Import / Export
-    importPack: (modDirectoryPath) => fileSystem.invokeCommand('import_cp_maker_pack', { modDirectoryPath }),
-    exportPack: (request) => fileSystem.invokeCommand('export_cp_maker_pack', { request }),
+    importPack: (modDirectoryPath) => importCpMakerPack(modDirectoryPath),
+    exportPack: (request) => exportCpMakerPack(request),
 
     // Directory selection
     chooseDirectory: (title) => dialog.chooseDirectory(title),
 
     // Preview scan / load
-    scanMaps: (path, locale) => fileSystem.invokeCommand('scan_maps', { path, locale }),
-    scanEvents: (path) => fileSystem.invokeCommand('scan_events', { path }),
-    scanModProjects: (rootPath) => fileSystem.invokeCommand('scan_mod_projects', { rootPath }),
-    loadMapAsset: (rootPath, mapPath, locale) => fileSystem.invokeCommand('load_map_asset', { rootPath, mapPath, locale }),
-    loadTextAsset: (rootPath, assetPath, locale) => fileSystem.invokeCommand('load_text_asset', { rootPath, assetPath, locale }),
-    loadImageDataUrl: (path, locale) => fileSystem.invokeCommand('load_image_data_url', { path, locale }),
+    scanMaps: (path, locale) => scanMaps(path, locale),
+    scanEvents: (path) => scanEvents(path),
+    scanModProjects: (rootPath) => scanModProjects(rootPath),
+    loadMapAsset: (rootPath, mapPath, locale) => loadMapAsset(rootPath, mapPath, locale),
+    loadTextAsset: (rootPath, assetPath, locale) => loadTextAsset(rootPath, assetPath, locale),
+    loadImageDataUrl: (path, locale) => loadImageDataUrl(path, locale),
   }
 }

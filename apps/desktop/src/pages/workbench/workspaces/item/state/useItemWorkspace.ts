@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import type { GameDirectoryInfo } from '@entities/game/api'
 import type { ItemsPanelCopy, LocaleCode } from '@locales'
 import {
@@ -38,6 +38,11 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
   const [activeModItemSelectionId, setActiveModItemSelectionId] = useState<string | null>(null)
   const { modIndex } = useModAssetIndex(directoryInfo)
   const rootPath = directoryInfo?.rootPath ?? null
+  const workspaceSignatureRef = useRef({ rootPath, locale })
+
+  useEffect(() => {
+    workspaceSignatureRef.current = { rootPath, locale }
+  }, [locale, rootPath])
 
   const deferredFilter = useDeferredValue(itemFilter.trim().toLowerCase())
   const filteredItems = useMemo(() => items.filter((item) => itemMatchesFilter(item, deferredFilter)), [deferredFilter, items])
@@ -134,11 +139,18 @@ export function useItemWorkspace({ directoryInfo, locale, copy }: UseItemWorkspa
       }
 
       void (async () => {
+        const requestRootPath = rootPath
+        const requestLocale = locale
         const entries = await Promise.all(
           pendingAssetNames.map(async (assetName) => {
-            return [assetName, await loadItemTextureAssetState(rootPath, assetName, locale)] as const
+            return [assetName, await loadItemTextureAssetState(requestRootPath, assetName, requestLocale)] as const
           }),
         )
+
+        const currentSignature = workspaceSignatureRef.current
+        if (currentSignature.rootPath !== requestRootPath || currentSignature.locale !== requestLocale) {
+          return
+        }
 
         setTextureStatesByAssetName((current) => ({
           ...current,

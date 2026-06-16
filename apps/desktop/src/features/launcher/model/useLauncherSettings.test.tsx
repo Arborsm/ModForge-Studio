@@ -33,6 +33,16 @@ function createWrapper(port: LauncherPort) {
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 describe('useLauncherSettings', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -249,6 +259,61 @@ describe('useLauncherSettings', () => {
         autoCheckModUpdates: false,
       }),
     )
+  })
+
+  it('does not let slow hydration overwrite edits made after loading started', async () => {
+    const loadSettingsRequest = createDeferred<LauncherSettings>()
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockReturnValue(loadSettingsRequest.promise),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+    })
+
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
+
+    act(() => {
+      result.current.updateField('nexusApiKey', 'typed-api-key')
+    })
+
+    await act(async () => {
+      loadSettingsRequest.resolve(createSettings({ nexusApiKey: 'stale-api-key' }))
+      await loadSettingsRequest.promise
+    })
+
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+      expect(result.current.settings.nexusApiKey).toBe('typed-api-key')
+    })
+  })
+
+  it('does not let a slow save overwrite edits made after that save started', async () => {
+    const saveSettingsRequest = createDeferred<LauncherSettings>()
+    const port = createMockLauncherPort({
+      loadSettings: vi.fn().mockResolvedValue(createSettings()),
+      detectDefaultGameDirectory: vi.fn().mockResolvedValue(null),
+      saveSettings: vi.fn().mockReturnValue(saveSettingsRequest.promise),
+    })
+
+    const { result } = renderHook(() => useLauncherSettings(), { wrapper: createWrapper(port) })
+    await waitFor(() => {
+      expect(result.current.state).toBe('ready')
+    })
+
+    let savePromise!: Promise<LauncherSettings>
+    await act(async () => {
+      result.current.updateField('nexusApiKey', 'first-api-key')
+      savePromise = result.current.save({ notifySuccess: false })
+    })
+
+    act(() => {
+      result.current.updateField('nexusApiKey', 'second-api-key')
+    })
+
+    await act(async () => {
+      saveSettingsRequest.resolve(createSettings({ nexusApiKey: 'first-api-key' }))
+      await savePromise
+    })
+
+    expect(result.current.settings.nexusApiKey).toBe('second-api-key')
   })
 
   it('flushes unsaved launcher settings before the page unloads', async () => {

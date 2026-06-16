@@ -12,6 +12,7 @@ const XACT_URL_CACHE = new Map<string, string>()
 
 let activeMusicElement: HTMLAudioElement | null = null
 let activeMusicCue: string | null = null
+let musicRequestGeneration = 0
 const activeSoundElements = new Map<string, HTMLAudioElement[]>()
 
 function normalizeCue(value: string) {
@@ -93,6 +94,7 @@ function stopAudioElement(element: HTMLAudioElement | null) {
 }
 
 export function stopMusicPreview() {
+  musicRequestGeneration += 1
   stopAudioElement(activeMusicElement)
   activeMusicElement = null
   activeMusicCue = null
@@ -176,11 +178,18 @@ export async function playMusicCue(rootPath: string, cue: string) {
     return true
   }
 
+  const requestGeneration = musicRequestGeneration + 1
+  musicRequestGeneration = requestGeneration
+
   const { url } = await resolveCueUrl(rootPath, cue, 'music')
+  if (musicRequestGeneration !== requestGeneration) {
+    return false
+  }
+
   if (!url) {
     return false
   }
-  stopMusicPreview()
+  stopAudioElement(activeMusicElement)
 
   const audio = new Audio(url)
   audio.loop = true

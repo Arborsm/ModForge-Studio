@@ -200,6 +200,7 @@ const library: LauncherLibraryCopy = {
   enableLibraryFolder: 'Enable folder mods',
   disableLibraryFolder: 'Disable folder mods',
   libraryFolderCount: (count) => `${count} ${count === 1 ? 'item' : 'items'}`,
+  libraryFolderEmpty: 'This folder is empty.',
   openLibraryFolder: (name) => `Open folder ${name}`,
   closeLibraryFolder: 'Close folder',
   loadingMissingCoversTitle: 'Fetching Missing Covers',

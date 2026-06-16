@@ -1,82 +1,120 @@
 use crate::domain::content_patcher::types::VirtualPreviewAsset;
-use crate::domain::cp_maker as domain_cp_maker;
 use crate::domain::cp_maker::types::{
     BuildCpMakerMapAssetRequest, CopyCpMakerDraftRequest, CpMakerDraftError, CpMakerDraftRecord,
     CpMakerDraftSummary, CpMakerExportRequest, CpMakerExportResult,
 };
+use crate::support::logging::DebugLoggingState;
+use crate::{AppHandle, AppRuntime};
+use serde_json::json;
+use tauri::State;
 
 #[tauri::command]
-pub fn list_cp_maker_drafts() -> Result<Vec<CpMakerDraftSummary>, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+pub fn list_cp_maker_drafts(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+) -> Result<Vec<CpMakerDraftSummary>, CpMakerDraftError> {
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "list_cp_maker_drafts",
-        domain_cp_maker::list_cp_maker_drafts(),
+        json!({}),
     )
 }
 
 #[tauri::command]
 pub fn load_cp_maker_draft(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     draft_storage_key: String,
 ) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "load_cp_maker_draft",
-        domain_cp_maker::load_cp_maker_draft(draft_storage_key),
+        json!({ "draftStorageKey": draft_storage_key }),
     )
 }
 
 #[tauri::command]
 pub fn save_cp_maker_draft(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     draft: CpMakerDraftRecord,
 ) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "save_cp_maker_draft",
-        domain_cp_maker::save_cp_maker_draft(draft),
+        json!({ "draft": draft }),
     )
 }
 
 #[tauri::command]
-pub fn delete_cp_maker_draft(draft_storage_key: String) -> Result<(), CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+pub fn delete_cp_maker_draft(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    draft_storage_key: String,
+) -> Result<(), CpMakerDraftError> {
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "delete_cp_maker_draft",
-        domain_cp_maker::delete_cp_maker_draft(draft_storage_key),
+        json!({ "draftStorageKey": draft_storage_key }),
     )
 }
 
 #[tauri::command]
 pub fn copy_cp_maker_draft(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: CopyCpMakerDraftRequest,
 ) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "copy_cp_maker_draft",
-        domain_cp_maker::copy_cp_maker_draft(request),
+        json!({ "request": request }),
     )
 }
 
 #[tauri::command]
 pub fn export_cp_maker_pack(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: CpMakerExportRequest,
 ) -> Result<CpMakerExportResult, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "export_cp_maker_pack",
-        domain_cp_maker::export_cp_maker_pack(request),
+        json!({ "request": request }),
     )
 }
 
 #[tauri::command]
 pub fn build_cp_maker_map_asset(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     request: BuildCpMakerMapAssetRequest,
 ) -> Result<VirtualPreviewAsset, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "build_cp_maker_map_asset",
-        domain_cp_maker::build_cp_maker_map_asset(request),
+        json!({ "request": request }),
     )
 }
 
 #[tauri::command]
 pub fn import_cp_maker_pack(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
     mod_directory_path: String,
 ) -> Result<CpMakerDraftRecord, CpMakerDraftError> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+    crate::commands::runtime::execute_tauri_command_typed_error(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "import_cp_maker_pack",
-        domain_cp_maker::import_cp_maker_pack(&mod_directory_path),
+        json!({ "modDirectoryPath": mod_directory_path }),
     )
 }

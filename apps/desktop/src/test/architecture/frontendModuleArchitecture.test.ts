@@ -233,8 +233,19 @@ describe('frontend module architecture', () => {
 
     expect(forceCloseHandler).toContain('window.destroy()')
     expect(forceCloseHandler).not.toContain('window.close()')
-    expect(electronMain).toContain('function stopSidecar()')
+    expect(electronMain).toContain('class SidecarTransport')
+    expect(electronMain).toContain('stop()')
     expect(electronMain).toContain('sidecarStdout?.close()')
+  })
+
+  it('keeps host command policy declared by call sites instead of a default command table', async () => {
+    const runtime = await readFile(sourcePath('src/shared/lib/desktop/runtime.ts'), 'utf8')
+    const hostCommandClient = await readFile(sourcePath('src/shared/lib/host-command-client/index.ts'), 'utf8')
+
+    expect(runtime).not.toContain('defaultHostCommandPolicy')
+    expect(hostCommandClient).not.toContain('defaultHostCommandPolicy')
+    expect(runtime).toContain('policy: HostCommandPolicy')
+    expect(runtime).not.toContain('policy?: HostCommandPolicy')
   })
 
   it('keeps launcher library drag measuring out of the always-on layout path', async () => {
@@ -258,6 +269,7 @@ describe('frontend module architecture', () => {
   it('blocks direct Tauri imports and invoke calls from new business layers', async () => {
     const scannedRoots = ['src/pages', 'src/widgets', 'src/features', 'src/entities', 'src/shared']
     const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const allowedInvokeFiles = new Set(['src/shared/lib/host-command-client/index.ts', 'src/shared/lib/host-command-client/index.test.ts'])
     const violations: string[] = []
 
     for (const filePath of sourceFiles.flat()) {
@@ -268,9 +280,26 @@ describe('frontend module architecture', () => {
         violations.push(`${relativePath} imports @tauri-apps/api`)
       }
 
-      if (/\binvoke\s*\(/.test(source)) {
+      if (!allowedInvokeFiles.has(relativePath) && /\binvoke\s*\(/.test(source)) {
         violations.push(`${relativePath} calls invoke(`)
       }
+    }
+
+    expect(violations).toEqual([])
+  }, 10000)
+
+  it('blocks business and provider code from bypassing HostCommandClient with raw file system commands', async () => {
+    const scannedRoots = ['src/app', 'src/pages', 'src/widgets', 'src/features', 'src/entities']
+    const sourceFiles = await Promise.all(scannedRoots.map((root) => collectSourceFiles(sourcePath(root))))
+    const violations: string[] = []
+
+    for (const filePath of sourceFiles.flat()) {
+      const source = await readFile(filePath, 'utf8')
+      if (!source.includes('fileSystem.invokeCommand')) {
+        continue
+      }
+      const relativePath = relative(sourcePath(), filePath).replaceAll('\\', '/')
+      violations.push(`${relativePath} calls fileSystem.invokeCommand`)
     }
 
     expect(violations).toEqual([])

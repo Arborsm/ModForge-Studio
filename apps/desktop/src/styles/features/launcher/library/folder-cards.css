@@ -677,6 +677,19 @@
     align-items: start;
   }
 
+  .launcher-library-folder-panel-empty {
+    display: grid;
+    min-height: 226px;
+    place-items: center;
+    border: 1px dashed color-mix(in srgb, var(--launcher-folder-border) 78%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--launcher-folder-bg) 68%, transparent);
+    color: var(--launcher-text-muted);
+    font-size: 12px;
+    font-weight: 760;
+    text-align: center;
+  }
+
   .launcher-library-folder-panel-close {
     position: absolute;
     top: 0;

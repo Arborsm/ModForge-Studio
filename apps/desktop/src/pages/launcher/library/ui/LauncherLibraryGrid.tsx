@@ -98,6 +98,7 @@ export type VirtualizedLauncherGridProps = {
   expandLabel: (name: string) => string
   collapseLabel: (name: string) => string
   folderCountLabel: (count: number) => string
+  folderEmptyLabel: string
   openFolderLabel: (name: string) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
@@ -132,6 +133,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
   expandLabel,
   collapseLabel,
   folderCountLabel,
+  folderEmptyLabel,
   openFolderLabel,
   closeFolderLabel,
   onToggleSelection,
@@ -535,6 +537,7 @@ export const VirtualizedLauncherGrid = memo(function VirtualizedLauncherGrid({
                   expandLabel={expandLabel}
                   collapseLabel={collapseLabel}
                   folderCountLabel={folderCountLabel}
+                  folderEmptyLabel={folderEmptyLabel}
                   openFolderLabel={openFolderLabel}
                   closeFolderLabel={closeFolderLabel}
                   onToggleSelection={toggleCardSelection ?? onToggleSelection}
@@ -603,6 +606,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   expandLabel,
   collapseLabel,
   folderCountLabel,
+  folderEmptyLabel,
   openFolderLabel,
   closeFolderLabel,
   onToggleSelection,
@@ -636,6 +640,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
   expandLabel: (name: string) => string
   collapseLabel: (name: string) => string
   folderCountLabel: (count: number) => string
+  folderEmptyLabel: string
   openFolderLabel: (name: string) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
@@ -721,6 +726,7 @@ const LauncherLibraryVirtualBlockContent = memo(function LauncherLibraryVirtualB
                   expandLabel={expandLabel}
                   collapseLabel={collapseLabel}
                   folderCountLabel={folderCountLabel}
+                  folderEmptyLabel={folderEmptyLabel}
                   openFolderLabel={openFolderLabel}
                   closeFolderLabel={closeFolderLabel}
                   onToggleSelection={onToggleSelection}
@@ -1338,6 +1344,7 @@ function LauncherLibraryFolderPanel({
   expandLabel,
   collapseLabel,
   folderCountLabel,
+  folderEmptyLabel,
   openFolderLabel,
   closeFolderLabel,
   onToggleSelection,
@@ -1374,6 +1381,7 @@ function LauncherLibraryFolderPanel({
   expandLabel: (name: string) => string
   collapseLabel: (name: string) => string
   folderCountLabel: (count: number) => string
+  folderEmptyLabel: string
   openFolderLabel: (name: string) => string
   closeFolderLabel?: string
   onToggleSelection: (modId: string) => void
@@ -1442,7 +1450,7 @@ function LauncherLibraryFolderPanel({
         <span>{folderCountLabel(contentReady ? items.length : itemCount)}</span>
       </div>
       <div className="launcher-library-folder-panel-scroll">
-        {contentReady ? (
+        {contentReady && items.length ? (
           <div
             className="launcher-library-folder-panel-grid"
             data-launcher-blank-drop-id={blankDropId}
@@ -1497,6 +1505,10 @@ function LauncherLibraryFolderPanel({
                 </div>
               )
             })}
+          </div>
+        ) : contentReady ? (
+          <div className="launcher-library-folder-panel-empty" data-launcher-blank-drop-id={blankDropId} role="status" aria-live="polite">
+            <span>{folderEmptyLabel}</span>
           </div>
         ) : (
           <div

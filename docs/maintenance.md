@@ -27,6 +27,18 @@ pnpm --filter @modforge/desktop test
 desktop host dispatcher: Linux starts Electron, while macOS and Windows start
 Tauri. `pnpm desktop:build` uses the same platform split for build mode.
 
+To trace Host Runtime command scheduling, start the desktop host with:
+
+```bash
+MODFORGE_COMMAND_TRACE=1 pnpm desktop:dev
+```
+
+This enables `HostRuntime` command start/finish/failure debug lines, including
+command id, command name, lane, worker, queue time, elapsed time, resources, and
+error state. It is intentionally separate from the in-app debug diagnostics
+toggle: UI debug keeps other backend debug/trace output, while command
+scheduler traces require `MODFORGE_COMMAND_TRACE`.
+
 Rust backend checks:
 
 ```bash

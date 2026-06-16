@@ -1,9 +1,19 @@
+use crate::support::logging::DebugLoggingState;
+use crate::{AppHandle, AppRuntime};
+use serde_json::json;
+use tauri::State;
+
 #[tauri::command]
-pub fn load_xact_audio_data_url(root_path: String, cue: String) -> Result<String, String> {
-    modforge_studio_desktop_lib::logging::log_tauri_command_error(
+pub fn load_xact_audio_data_url(
+    app: tauri::AppHandle<AppRuntime>,
+    debug_logging_state: State<'_, DebugLoggingState>,
+    root_path: String,
+    cue: String,
+) -> Result<String, String> {
+    crate::commands::runtime::execute_tauri_command(
+        AppHandle::from_tauri(app),
+        debug_logging_state,
         "load_xact_audio_data_url",
-        crate::infrastructure::game_formats::xact::load_xact_audio_data_url_for_paths(
-            &root_path, &cue,
-        ),
+        json!({ "rootPath": root_path, "cue": cue }),
     )
 }

@@ -8,6 +8,7 @@ import { clearNotifications, publishNotification } from '@shared/ui/notification
 import { LauncherTestWrapper } from '@test/launcherTestWrapper.tsx'
 import { createMockLauncherPort } from '@test/launcherTestPort'
 import type { LauncherPort } from './launcherPort'
+import type { LauncherDownloadQueueItem } from './types'
 
 vi.mock('@shared/ui/notifications', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@shared/ui/notifications')>()
@@ -78,6 +79,64 @@ describe('useLauncherDownloads', () => {
       expect(result.current.items).toHaveLength(1)
     })
     expect(result.current.items[0]?.id).toBe('persisted-job')
+  })
+
+  it('merges persisted hydration with downloads queued before storage returns', async () => {
+    let resolveLoadQueue: (value: { items: LauncherDownloadQueueItem[] }) => void = () => {}
+    const loadQueuePromise = new Promise<{ items: LauncherDownloadQueueItem[] }>((resolve) => {
+      resolveLoadQueue = resolve
+    })
+    const port = createMockLauncherPort({
+      loadDownloadQueue: vi.fn().mockReturnValue(loadQueuePromise),
+      saveDownloadQueue: vi.fn().mockResolvedValue({ items: [] }),
+    })
+
+    const { result } = renderHook(() => useLauncherDownloads(createSettings()), { wrapper: createWrapper(port) })
+
+    act(() => {
+      result.current.queueDownload({
+        modId: 202,
+        title: 'Queued During Hydration',
+        imageUrl: null,
+        source: 'discover',
+      })
+    })
+
+    expect(result.current.items).toEqual([expect.objectContaining({ modId: 202, title: 'Queued During Hydration' })])
+
+    await act(async () => {
+      resolveLoadQueue({
+        items: [
+          {
+            id: 'persisted-job',
+            modId: 101,
+            fileId: null,
+            title: 'Persisted Download',
+            version: '1.0.0',
+            imageUrl: null,
+            source: 'discover',
+            status: 'queued',
+            archivePath: null,
+            installedTargetPath: null,
+            error: null,
+            addedAt: 1,
+            completedAt: null,
+            totalBytes: null,
+            downloadedBytes: null,
+            bytesPerSecond: null,
+          },
+        ],
+      })
+      await loadQueuePromise
+    })
+
+    expect(result.current.items).toHaveLength(2)
+    expect(result.current.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'persisted-job', modId: 101 }),
+        expect.objectContaining({ modId: 202, title: 'Queued During Hydration' }),
+      ]),
+    )
   })
 
   it('normalizes stale persisted downloading items back to queued', async () => {

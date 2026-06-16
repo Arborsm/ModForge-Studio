@@ -38,9 +38,16 @@ const gameDirectoryInfo: GameDirectoryInfo = {
   mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
   mapCount: 2,
 }
+const alternateGameDirectoryInfo: GameDirectoryInfo = {
+  rootPath: 'D:\\Games\\Stardew Valley',
+  executablePath: 'D:\\Games\\Stardew Valley\\Stardew Valley.exe',
+  mapsPath: 'D:\\Games\\Stardew Valley\\Content\\Maps',
+  mapCount: 1,
+}
 
 const townAsset = makeMapAsset('Town')
 const forestAsset = makeMapAsset('Forest')
+const alternateTownAsset = makeMapAsset('Town', alternateGameDirectoryInfo.rootPath)
 
 function createDeferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void
@@ -53,23 +60,23 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject }
 }
 
-function makeMapAsset(name: string): MapAssetSummary {
+function makeMapAsset(name: string, rootPath = gameDirectoryInfo.rootPath): MapAssetSummary {
   return {
     id: `asset-${name.toLowerCase()}`,
     name,
     fileName: `${name}.xnb`,
     format: 'xnb',
-    absolutePath: `E:\\Games\\Stardew Valley\\Content\\Maps\\${name}.xnb`,
+    absolutePath: `${rootPath}\\Content\\Maps\\${name}.xnb`,
     relativePath: `Content\\Maps\\${name}.xnb`,
     sizeBytes: 128,
   }
 }
 
-function makeMapDocument(name: string): MapDocument {
+function makeMapDocument(name: string, rootPath = gameDirectoryInfo.rootPath): MapDocument {
   return {
     name,
     format: 'xnb',
-    sourcePath: `E:\\Games\\Stardew Valley\\Content\\Maps\\${name}.xnb`,
+    sourcePath: `${rootPath}\\Content\\Maps\\${name}.xnb`,
     relativePath: `Content\\Maps\\${name}.xnb`,
     width: 4,
     height: 4,
@@ -101,8 +108,8 @@ function makeMapDocument(name: string): MapDocument {
   }
 }
 
-function makeMapAssetContent(name: string): MapAssetContent {
-  const document = makeMapDocument(name)
+function makeMapAssetContent(name: string, rootPath = gameDirectoryInfo.rootPath): MapAssetContent {
+  const document = makeMapDocument(name, rootPath)
   return {
     name,
     format: 'xnb',
@@ -112,9 +119,9 @@ function makeMapAssetContent(name: string): MapAssetContent {
   }
 }
 
-function makeWorldMapAsset(): TextAssetContent {
+function makeWorldMapAsset(rootPath = gameDirectoryInfo.rootPath): TextAssetContent {
   return {
-    absolutePath: 'E:\\Games\\Stardew Valley\\Content\\Data\\WorldMap.xnb',
+    absolutePath: `${rootPath}\\Content\\Data\\WorldMap.xnb`,
     relativePath: 'Content\\Data\\WorldMap.xnb',
     content: JSON.stringify({
       Default: {
@@ -230,5 +237,48 @@ describe('useMapWorkspace', () => {
     await waitFor(() => {
       expect(result.current.resourcePreloadState.active).toBe(false)
     })
+  })
+
+  it('does not let an older directory scan publish after the directory changes', async () => {
+    const oldScan = createDeferred<MapAssetSummary[]>()
+    vi.mocked(scanMaps).mockReturnValueOnce(oldScan.promise).mockResolvedValueOnce([alternateTownAsset])
+    vi.mocked(loadTextAsset).mockImplementation(async (rootPath) => makeWorldMapAsset(rootPath))
+    vi.mocked(loadMapAsset).mockImplementation(async (rootPath, mapPath) => {
+      if (/Town\.xnb$/iu.test(mapPath)) {
+        return makeMapAssetContent('Town', rootPath)
+      }
+      if (/Forest\.xnb$/iu.test(mapPath)) {
+        return makeMapAssetContent('Forest', rootPath)
+      }
+      throw new Error(`Unexpected map path: ${mapPath}`)
+    })
+
+    const { result, rerender } = renderHook(
+      ({ directoryInfo }) =>
+        useMapWorkspace({
+          copy: editorCopy['en-US'],
+          locale: 'en-US',
+          desktopHost: true,
+          active: true,
+          directoryInfo,
+          getWorldAtlasViewLabel,
+        }),
+      { initialProps: { directoryInfo: gameDirectoryInfo } },
+    )
+
+    rerender({ directoryInfo: alternateGameDirectoryInfo })
+
+    await waitFor(() => {
+      expect(result.current.mapAssets).toEqual([alternateTownAsset])
+      expect(result.current.mapDocument?.sourcePath).toContain(alternateGameDirectoryInfo.rootPath)
+    })
+
+    await act(async () => {
+      oldScan.resolve([townAsset, forestAsset])
+      await oldScan.promise
+    })
+
+    expect(result.current.mapAssets).toEqual([alternateTownAsset])
+    expect(result.current.mapDocument?.sourcePath).toContain(alternateGameDirectoryInfo.rootPath)
   })
 })

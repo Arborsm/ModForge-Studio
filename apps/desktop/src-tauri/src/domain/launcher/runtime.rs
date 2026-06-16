@@ -3,7 +3,8 @@ use super::settings::load_or_create_settings_at_path;
 use super::trace::log_launcher_trace;
 use super::types::{
     LauncherGameLaunchError, LauncherGameLaunchErrorCode, LauncherGameLaunchResult,
-    LauncherGameLaunchTarget, LauncherSettings, OpenLauncherPathRequest, OpenLauncherUrlRequest,
+    LauncherGameLaunchTarget, LauncherRuntimeInfo, LauncherSettings, OpenLauncherPathRequest,
+    OpenLauncherUrlRequest,
 };
 use crate::AppHandle;
 use crate::infrastructure::fs::pathing::{
@@ -155,6 +156,32 @@ pub fn get_launcher_backup_directory(_app: AppHandle) -> Result<String, String> 
             Ok(normalize_path(&backup_dir))
         })(),
     )
+}
+
+pub fn load_launcher_runtime_info(app: AppHandle) -> Result<LauncherRuntimeInfo, String> {
+    let settings = super::settings::load_launcher_settings(app)?;
+    let Some(game_path) = settings
+        .game_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(LauncherRuntimeInfo {
+            game_version: None,
+            smapi_version: None,
+        });
+    };
+
+    let game_root = clean_input_path(game_path);
+    let versions = super::updates::resolve_smapi_runtime_versions_with_reader(
+        Some(game_root.as_path()),
+        super::updates::read_windows_file_version,
+    );
+
+    Ok(LauncherRuntimeInfo {
+        game_version: Some(versions.game_version),
+        smapi_version: Some(versions.api_version),
+    })
 }
 
 pub fn open_launcher_path(request: OpenLauncherPathRequest) -> Result<(), String> {

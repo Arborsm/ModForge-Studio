@@ -3,8 +3,21 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use crate::domain::app_paths::app_ui_state_path;
+
+static APP_UI_STATE_FILE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_app_ui_state_file() -> MutexGuard<'static, ()> {
+    match APP_UI_STATE_FILE_LOCK.get_or_init(|| Mutex::new(())).lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "App UI", "App UI state file lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -467,7 +480,7 @@ fn normalize_app_ui_state(state: AppUiState) -> AppUiState {
     }
 }
 
-fn save_app_ui_state_at_path(path: &Path, state: &AppUiState) -> Result<(), String> {
+fn save_app_ui_state_at_path_unlocked(path: &Path, state: &AppUiState) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             format!(
@@ -484,17 +497,22 @@ fn save_app_ui_state_at_path(path: &Path, state: &AppUiState) -> Result<(), Stri
 }
 
 pub(crate) fn load_or_create_app_ui_state_at_path(path: &Path) -> Result<AppUiState, String> {
+    let _app_ui_file_guard = lock_app_ui_state_file();
+    load_or_create_app_ui_state_at_path_unlocked(path)
+}
+
+fn load_or_create_app_ui_state_at_path_unlocked(path: &Path) -> Result<AppUiState, String> {
     if path.is_file() {
         let content = fs::read_to_string(path)
             .map_err(|error| format!("Failed to read app UI state {}: {error}", path.display()))?;
         let parsed = serde_json::from_str::<AppUiState>(&content).unwrap_or_default();
         let normalized = normalize_app_ui_state(parsed);
-        save_app_ui_state_at_path(path, &normalized)?;
+        save_app_ui_state_at_path_unlocked(path, &normalized)?;
         return Ok(normalized);
     }
 
     let default_state = AppUiState::default();
-    save_app_ui_state_at_path(path, &default_state)?;
+    save_app_ui_state_at_path_unlocked(path, &default_state)?;
     Ok(default_state)
 }
 
@@ -502,7 +520,8 @@ pub(crate) fn patch_app_ui_state_at_path(
     path: &Path,
     patch: AppUiStatePatch,
 ) -> Result<AppUiState, String> {
-    let mut state = load_or_create_app_ui_state_at_path(path)?;
+    let _app_ui_file_guard = lock_app_ui_state_file();
+    let mut state = load_or_create_app_ui_state_at_path_unlocked(path)?;
     if let Some(shell) = patch.shell {
         state.shell = AppUiShellState {
             app_mode: normalize_app_mode(&shell.app_mode),
@@ -580,7 +599,7 @@ pub(crate) fn patch_app_ui_state_at_path(
         }
     }
     let normalized = normalize_app_ui_state(state);
-    save_app_ui_state_at_path(path, &normalized)?;
+    save_app_ui_state_at_path_unlocked(path, &normalized)?;
     Ok(normalized)
 }
 

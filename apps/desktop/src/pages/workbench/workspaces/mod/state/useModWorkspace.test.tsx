@@ -5,6 +5,16 @@ import { chooseDirectory } from '@shared/lib/desktop'
 import { reportAppEvent } from '@shared/lib/observability'
 import useModWorkspace from './useModWorkspace'
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+  return { promise, resolve, reject }
+}
+
 vi.mock('@locales/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@locales/api')>()
   const enUSCopy = {
@@ -417,6 +427,55 @@ describe('useModWorkspace', () => {
         level: 'success',
       }),
     )
+  })
+
+  it('does not let a slow save refresh overwrite edits made after saving started', async () => {
+    const saveRequest = createDeferred<{
+      pluginKind: 'content-patcher'
+      targetPath: string
+      manifestPath: string
+      contentPath: string
+      diagnostics: []
+    }>()
+    vi.mocked(saveModProject).mockReturnValueOnce(saveRequest.promise)
+
+    const { result } = renderHook(() =>
+      useModWorkspace({
+        directoryInfo: {
+          rootPath: 'E:\\Games\\Stardew Valley',
+          executablePath: 'E:\\Games\\Stardew Valley\\Stardew Valley.exe',
+          mapsPath: 'E:\\Games\\Stardew Valley\\Content\\Maps',
+          mapCount: 42,
+        },
+        locale: 'en-US',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(result.current.projectDetail?.summary.absolutePath).toBe('E:\\Mods\\CPPack')
+    })
+
+    let savePromise!: Promise<unknown>
+    await act(async () => {
+      savePromise = result.current.handleSaveProject()
+    })
+
+    act(() => {
+      result.current.handleManifestTextChange('{\n  "Name": "Edited While Saving"\n}\n')
+    })
+
+    await act(async () => {
+      saveRequest.resolve({
+        pluginKind: 'content-patcher',
+        targetPath: 'E:\\Mods\\CPPack',
+        manifestPath: 'E:\\Mods\\CPPack\\manifest.json',
+        contentPath: 'E:\\Mods\\CPPack\\content.json',
+        diagnostics: [],
+      })
+      await savePromise
+    })
+
+    expect(result.current.manifestEditor.text).toBe('{\n  "Name": "Edited While Saving"\n}\n')
   })
 
   it('publishes an error notification when project save fails', async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLauncherPort } from './launcherPortContext'
+import { TaskCancelledError, useLatestTask, type TaskScope } from '@shared/lib/task-runtime'
 import type { LauncherCatalogFacets, SearchLauncherCatalogRequest } from './launcherContracts'
 import { normalizeLauncherDiscoverToolbarState, type LauncherDiscoverToolbarState } from './launcherDiscoverToolbarState'
 import { canAutoLoadLauncherDiscover, getLauncherDiscoverUnavailableReason } from './nexusDiagnostics'
@@ -133,8 +134,46 @@ function parseOptionalNumber(value: string) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof TaskCancelledError || (error instanceof DOMException && error.name === 'AbortError')
+}
+
+function waitForDiscoverDelay(delayMs: number, scope: TaskScope) {
+  if (delayMs <= 0) {
+    return Promise.resolve()
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    let handle: number | null = null
+    const cleanup = () => {
+      if (handle != null) {
+        window.clearTimeout(handle)
+        handle = null
+      }
+      scope.signal.removeEventListener('abort', abort)
+    }
+    const complete = () => {
+      cleanup()
+      resolve()
+    }
+    const abort = () => {
+      cleanup()
+      reject(scope.signal.reason ?? new TaskCancelledError('Launcher discover request was superseded.'))
+    }
+
+    if (scope.signal.aborted) {
+      abort()
+      return
+    }
+
+    scope.signal.addEventListener('abort', abort, { once: true })
+    handle = window.setTimeout(complete, delayMs)
+  })
+}
+
 export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscoverToolbarState> | null) {
   const launcherPort = useLauncherPort()
+  const runDiscoverTask = useLatestTask('launcher-discover')
   const normalizedToolbarState = normalizeLauncherDiscoverToolbarState(initialToolbarState)
   const [items, setItems] = useState<LauncherDiscoverItem[]>([])
   const [query, setQuery] = useState('')
@@ -153,15 +192,17 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [blockedReason, setBlockedReason] = useState<string | null>(null)
-  const requestIdRef = useRef(0)
   const manualRefreshBypassRef = useRef(false)
 
   useEffect(() => {
-    const requestId = requestIdRef.current + 1
-    requestIdRef.current = requestId
     const bypassDiagnostics = manualRefreshBypassRef.current
     manualRefreshBypassRef.current = false
-    const handle = window.setTimeout(() => {
+    void runDiscoverTask(async (scope) => {
+      await waitForDiscoverDelay(requestDelayMs, scope)
+      if (!scope.isCurrent()) {
+        return
+      }
+
       setState('loading')
       setError(null)
       setBlockedReason(null)
@@ -190,57 +231,54 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
         maxEndorsements: parseOptionalNumber(filters.maxEndorsements),
       } satisfies SearchLauncherCatalogRequest
 
-      void (bypassDiagnostics ? Promise.resolve(null) : launcherPort.loadNexusDiagnostics().catch(() => null))
-        .then((diagnostics) => {
-          if (requestIdRef.current !== requestId) {
-            return null
-          }
+      try {
+        const diagnostics = bypassDiagnostics ? null : await launcherPort.loadNexusDiagnostics().catch(() => null)
+        if (!scope.isCurrent()) {
+          return
+        }
 
-          const unavailableReason =
-            diagnostics && !canAutoLoadLauncherDiscover(diagnostics, { query, sort })
-              ? getLauncherDiscoverUnavailableReason(diagnostics, { query, sort })
-              : null
-          if (unavailableReason) {
-            setItems([])
-            setTotalCount(0)
-            setHasMore(false)
-            setBlockedReason(unavailableReason)
-            setState('ready')
-            return null
-          }
-
-          return launcherPort.searchCatalog(requestPayload)
-        })
-        .then((result) => {
-          if (!result || requestIdRef.current !== requestId) {
-            return
-          }
-
-          setItems(result.results)
-          setTotalCount(result.totalCount)
-          setHasMore(result.hasMore)
-          setFacets(result.facets)
-          if (isBaseFacetRequest(requestPayload)) {
-            setBaseFacets(result.facets)
-          }
-          setBlockedReason(null)
+        const unavailableReason =
+          diagnostics && !canAutoLoadLauncherDiscover(diagnostics, { query, sort })
+            ? getLauncherDiscoverUnavailableReason(diagnostics, { query, sort })
+            : null
+        if (unavailableReason) {
+          setItems([])
+          setTotalCount(0)
+          setHasMore(false)
+          setBlockedReason(unavailableReason)
           setState('ready')
-        })
-        .catch((nextError) => {
-          if (requestIdRef.current !== requestId) {
-            return
-          }
+          return
+        }
 
-          setBlockedReason(null)
-          setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher discover results.')
-          setState('error')
-        })
-    }, requestDelayMs)
+        const result = await launcherPort.searchCatalog(requestPayload)
+        if (!scope.isCurrent()) {
+          return
+        }
 
-    return () => {
-      window.clearTimeout(handle)
-    }
-  }, [ascending, filters, page, pageSize, query, refreshToken, requestDelayMs, sort, timeRange, launcherPort])
+        setItems(result.results)
+        setTotalCount(result.totalCount)
+        setHasMore(result.hasMore)
+        setFacets(result.facets)
+        if (isBaseFacetRequest(requestPayload)) {
+          setBaseFacets(result.facets)
+        }
+        setBlockedReason(null)
+        setState('ready')
+      } catch (nextError) {
+        if (!scope.isCurrent() || isAbortError(nextError)) {
+          return
+        }
+
+        setBlockedReason(null)
+        setError(nextError instanceof Error ? nextError.message : 'Failed to load launcher discover results.')
+        setState('error')
+      }
+    }).catch((nextError) => {
+      if (!isAbortError(nextError)) {
+        throw nextError
+      }
+    })
+  }, [ascending, filters, page, pageSize, query, refreshToken, requestDelayMs, sort, timeRange, launcherPort, runDiscoverTask])
 
   const resetToFirstPage = () => {
     setPageState(1)
@@ -257,7 +295,6 @@ export function useLauncherDiscover(initialToolbarState?: Partial<LauncherDiscov
   }
 
   const revalidate = () => {
-    requestIdRef.current += 1
     setRequestDelayMs(0)
     resetToFirstPage()
     setRefreshToken((current) => current + 1)

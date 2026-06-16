@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { SetStateAction } from 'react'
 import { useLauncherPort } from './launcherPortContext'
 import type { LauncherSettings } from './launcherContracts'
 import { getLauncherCopy, type LocaleCode } from '@locales/api'
@@ -90,7 +91,7 @@ type UseLauncherSettingsOptions = {
 export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOptions = {}) {
   const launcherPort = useLauncherPort()
   const launcherCopy = getLauncherCopy(locale)
-  const [settings, setSettings] = useState<LauncherSettings>(DEFAULT_SETTINGS)
+  const [settings, setSettingsState] = useState<LauncherSettings>(DEFAULT_SETTINGS)
   const [state, setState] = useState<LauncherViewState>('idle')
   const [error, setError] = useState<string | null>(null)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -100,56 +101,67 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
   const lastPersistedSettingsRef = useRef(lastPersistedSettings)
   const saveSettingsRef = useRef(launcherPort.saveSettings)
   const exitFlushRequestedRef = useRef(false)
+  const settingsVersionRef = useRef(0)
+
+  const refreshWithVersion = useCallback(
+    async (settingsVersionAtStart: number) => {
+      setState('loading')
+      setError(null)
+
+      try {
+        const persisted = normalizePersistedLauncherSettings(await launcherPort.loadSettings())
+        const nextSettings = { ...persisted }
+        if (!nextSettings.gamePath?.trim()) {
+          try {
+            const detectedGamePath = await launcherPort.detectDefaultGameDirectory()
+            if (detectedGamePath?.trim()) {
+              nextSettings.gamePath = detectedGamePath
+              if (!nextSettings.modsPath?.trim()) {
+                nextSettings.modsPath = deriveModsPath(detectedGamePath)
+              }
+            }
+          } catch {
+            // Detection failure should not block loading persisted launcher settings.
+          }
+        }
+        const resolved = resolveLauncherSettings(nextSettings)
+        if (settingsVersionRef.current === settingsVersionAtStart) {
+          setSettingsState(resolved)
+        }
+        setLastPersistedSettings(persisted)
+        setState('ready')
+      } catch (nextError) {
+        const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.loadFailed
+        setError(message)
+        setState('error')
+        reportAppEvent({
+          level: 'error',
+          title: launcherCopy.settings.loadFailed,
+          description: message,
+          keyValues: {
+            source: 'launcher-settings',
+            operation: 'load',
+          },
+        })
+      }
+    },
+    [launcherCopy.settings.loadFailed, launcherPort],
+  )
 
   const refresh = useCallback(async () => {
-    setState('loading')
-    setError(null)
-
-    try {
-      const persisted = normalizePersistedLauncherSettings(await launcherPort.loadSettings())
-      const nextSettings = { ...persisted }
-      if (!nextSettings.gamePath?.trim()) {
-        try {
-          const detectedGamePath = await launcherPort.detectDefaultGameDirectory()
-          if (detectedGamePath?.trim()) {
-            nextSettings.gamePath = detectedGamePath
-            if (!nextSettings.modsPath?.trim()) {
-              nextSettings.modsPath = deriveModsPath(detectedGamePath)
-            }
-          }
-        } catch {
-          // Detection failure should not block loading persisted launcher settings.
-        }
-      }
-      const resolved = resolveLauncherSettings(nextSettings)
-      setSettings(resolved)
-      setLastPersistedSettings(persisted)
-      setState('ready')
-    } catch (nextError) {
-      const message = nextError instanceof Error ? nextError.message : launcherCopy.settings.loadFailed
-      setError(message)
-      setState('error')
-      reportAppEvent({
-        level: 'error',
-        title: launcherCopy.settings.loadFailed,
-        description: message,
-        keyValues: {
-          source: 'launcher-settings',
-          operation: 'load',
-        },
-      })
-    }
-  }, [launcherCopy.settings.loadFailed, launcherPort])
+    await refreshWithVersion(settingsVersionRef.current)
+  }, [refreshWithVersion])
 
   useEffect(() => {
+    const settingsVersionAtSchedule = settingsVersionRef.current
     const handle = window.setTimeout(() => {
-      void refresh()
+      void refreshWithVersion(settingsVersionAtSchedule)
     }, 0)
 
     return () => {
       window.clearTimeout(handle)
     }
-  }, [refresh])
+  }, [refreshWithVersion])
 
   const resolvedSettings = useMemo<LauncherSettings>(() => resolveLauncherSettings(settings), [settings])
 
@@ -160,8 +172,15 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
     saveSettingsRef.current = launcherPort.saveSettings
   }, [lastPersistedSettings, launcherPort.saveSettings, resolvedSettings, state])
 
+  const setSettings = useCallback((nextSettings: SetStateAction<LauncherSettings>) => {
+    settingsVersionRef.current += 1
+    setSettingsState(nextSettings)
+    setSaveMessage(null)
+  }, [])
+
   const updateField = useCallback(<TKey extends keyof LauncherSettings>(field: TKey, value: LauncherSettings[TKey]) => {
-    setSettings((current) => ({
+    settingsVersionRef.current += 1
+    setSettingsState((current) => ({
       ...current,
       [field]: value,
     }))
@@ -171,6 +190,7 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
   const persistSettings = useCallback(
     async (nextSettings: LauncherSettings, options?: { notifySuccess?: boolean }) => {
       const notifySuccess = options?.notifySuccess ?? true
+      const settingsVersionAtStart = settingsVersionRef.current
 
       setError(null)
       setSaveMessage(null)
@@ -186,7 +206,9 @@ export function useLauncherSettings({ locale = 'en-US' }: UseLauncherSettingsOpt
 
       try {
         const persisted = resolveLauncherSettings(await launcherPort.saveSettings(nextSettings))
-        setSettings(persisted)
+        if (settingsVersionRef.current === settingsVersionAtStart) {
+          setSettingsState(persisted)
+        }
         setLastPersistedSettings(persisted)
         setSaveMessage('saved')
         setState('ready')

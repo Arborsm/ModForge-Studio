@@ -1,10 +1,13 @@
 import type { PlatformPorts } from '@shared/contracts'
+import { createHostCommandClient, type HostCommandClient, type HostCommandPolicy } from '@shared/lib/host-command-client'
 
 let platformPorts: PlatformPorts | null = null
+let hostCommandClient: HostCommandClient | null = null
 
 /** Installs the platform ports used by desktop infrastructure helpers. */
 export function configureDesktopPlatformPorts(ports: PlatformPorts) {
   platformPorts = ports
+  hostCommandClient = createHostCommandClient(ports)
 }
 
 /** Returns configured platform ports or throws when the app has not mounted a provider. */
@@ -22,12 +25,17 @@ export function canUseDesktopHost() {
 }
 
 /** Invokes a typed desktop command through the configured file system port. */
-export async function invokeDesktop<T>(command: string, args?: Record<string, unknown>) {
+export async function invokeDesktop<T>(command: string, args: Record<string, unknown> | undefined, policy: HostCommandPolicy) {
   if (!canUseDesktopHost()) {
     throw new Error('This feature is only available in the desktop host.')
   }
 
-  return getPlatformPorts().fileSystem.invokeCommand<T>(command, args)
+  const client = hostCommandClient ?? createHostCommandClient(getPlatformPorts())
+  return client.invoke<Record<string, unknown>, T>({
+    command,
+    args,
+    policy,
+  })
 }
 
 /** Converts a local path into a webview-safe asset URL. */

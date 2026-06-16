@@ -188,6 +188,7 @@ export type LauncherLibraryCopy = {
   enableLibraryFolder: string
   disableLibraryFolder: string
   libraryFolderCount: (count: number) => string
+  libraryFolderEmpty: string
   openLibraryFolder: (name: string) => string
   closeLibraryFolder: string
   loadingMissingCoversTitle: string

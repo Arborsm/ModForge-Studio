@@ -50,6 +50,13 @@ pub(crate) struct SsoSnapshot {
     pub sso_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SsoStartResult {
+    pub sso_id: String,
+    pub status: SsoConnectionStatus,
+}
+
 // ---- Internal state ----
 
 struct SsoState {
@@ -61,6 +68,7 @@ struct SsoState {
     sso_id: Option<String>,
     connection_token: Option<String>,
     cancel_flag: bool,
+    generation: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,6 +76,12 @@ struct SsoConnectionResponse {
     authorization_url: Option<String>,
     connection_token: Option<String>,
     api_key: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SsoAuthorizationResponse {
+    connection_token: Option<String>,
+    api_key: String,
 }
 
 impl Default for SsoState {
@@ -81,6 +95,7 @@ impl Default for SsoState {
             sso_id: None,
             connection_token: None,
             cancel_flag: false,
+            generation: 0,
         }
     }
 }
@@ -95,8 +110,27 @@ fn running_flag() -> &'static AtomicBool {
     FLAG.get_or_init(|| AtomicBool::new(false))
 }
 
-fn is_cancelled() -> bool {
-    sso_state().lock().expect("sso mutex").cancel_flag
+fn is_session_cancelled(generation: u64) -> bool {
+    let state = sso_state().lock().expect("sso mutex");
+    state.generation != generation || state.cancel_flag
+}
+
+fn session_connection_token(generation: u64) -> Option<String> {
+    let state = sso_state().lock().expect("sso mutex");
+    if state.generation != generation || state.cancel_flag {
+        None
+    } else {
+        state.connection_token.clone()
+    }
+}
+
+fn store_session_connection_token(generation: u64, connection_token: String) -> bool {
+    let mut state = sso_state().lock().expect("sso mutex");
+    if state.generation != generation || state.cancel_flag {
+        return false;
+    }
+    state.connection_token = Some(connection_token);
+    true
 }
 
 // ---- Public API ----
@@ -109,6 +143,8 @@ pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
     }
 
     let sso_id = uuid::Uuid::new_v4().to_string();
+    state.generation = state.generation.wrapping_add(1);
+    let generation = state.generation;
     state.status = SsoConnectionStatus::Connecting;
     state.sso_id = Some(sso_id.clone());
     state.connection_token = None;
@@ -124,22 +160,32 @@ pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
     let tid = sso_id.clone();
 
     thread::spawn(move || {
-        let result = if is_cancelled() {
+        let result = if is_session_cancelled(generation) {
             Err((
                 SsoErrorKind::Cancelled,
                 "Cancelled before start.".to_string(),
             ))
         } else {
-            run_sso_flow(&app_handle, &tid)
+            run_sso_flow(&app_handle, &tid, generation)
         };
-
-        let mut st = sso_state().lock().expect("sso mutex");
 
         match result {
             Ok(api_key) => {
-                st.connection_token = None;
-                drop(st);
+                {
+                    let mut state = sso_state().lock().expect("sso mutex");
+                    if state.generation != generation
+                        || state.sso_id.as_deref() != Some(tid.as_str())
+                    {
+                        return;
+                    }
+                    state.connection_token = None;
+                }
 
+                let validation_result = rest_api::validate_user(&api_key);
+                let mut state = sso_state().lock().expect("sso mutex");
+                if state.generation != generation || state.sso_id.as_deref() != Some(tid.as_str()) {
+                    return;
+                }
                 if let Ok(path) = paths::launcher_settings_path() {
                     if let Ok(mut settings) =
                         launcher_settings::load_or_create_settings_at_path(&path)
@@ -148,35 +194,45 @@ pub(crate) fn start_sso(app: &AppHandle) -> Result<String, String> {
                         let _ = launcher_settings::save_settings_at_path(&path, &settings);
                     }
                 }
-
-                let validation_result = rest_api::validate_user(&api_key);
-                let mut s = sso_state().lock().expect("sso mutex");
-                s.status = SsoConnectionStatus::Authorized;
+                state.status = SsoConnectionStatus::Authorized;
+                state.error_kind = None;
                 match validation_result {
                     Ok(info) => {
-                        s.user_name = Some(info.name);
-                        s.is_premium = info.is_premium;
+                        state.user_name = Some(info.name);
+                        state.is_premium = info.is_premium;
                     }
                     Err(e) => {
-                        s.error_message = Some(format!("Validation failed: {e}"));
+                        state.error_message = Some(format!("Validation failed: {e}"));
                     }
                 }
+                running_flag().store(false, Ordering::Relaxed);
             }
             Err((kind, msg)) => {
-                st.status = SsoConnectionStatus::Failed;
-                st.error_kind = Some(kind);
-                st.error_message = Some(msg);
+                let mut state = sso_state().lock().expect("sso mutex");
+                if state.generation != generation || state.sso_id.as_deref() != Some(tid.as_str()) {
+                    return;
+                }
+                state.status = SsoConnectionStatus::Failed;
+                state.error_kind = Some(kind);
+                state.error_message = Some(msg);
+                running_flag().store(false, Ordering::Relaxed);
             }
         }
-
-        running_flag().store(false, Ordering::Relaxed);
     });
 
     Ok(sso_id)
 }
 
+pub(crate) fn start_sso_with_status(app: &AppHandle) -> Result<SsoStartResult, String> {
+    let sso_id = start_sso(app)?;
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    let status = get_sso_status().status;
+    Ok(SsoStartResult { sso_id, status })
+}
+
 pub(crate) fn cancel_sso() {
     let mut state = sso_state().lock().expect("sso mutex");
+    state.generation = state.generation.wrapping_add(1);
     state.cancel_flag = true;
     state.status = SsoConnectionStatus::Failed;
     state.error_kind = Some(SsoErrorKind::Cancelled);
@@ -199,8 +255,12 @@ pub(crate) fn get_sso_status() -> SsoSnapshot {
 
 // ---- SSO flow (background thread) ----
 
-fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind, String)> {
-    if is_cancelled() {
+fn run_sso_flow(
+    _app: &AppHandle,
+    sso_id: &str,
+    generation: u64,
+) -> Result<String, (SsoErrorKind, String)> {
+    if is_session_cancelled(generation) {
         return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
     }
 
@@ -210,7 +270,7 @@ fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind,
     let mut last_err = String::new();
 
     while start.elapsed() < CONNECTION_TIMEOUT {
-        if is_cancelled() {
+        if is_session_cancelled(generation) {
             return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
         }
 
@@ -233,15 +293,11 @@ fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind,
         )
     })?;
 
-    if is_cancelled() {
+    if is_session_cancelled(generation) {
         return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
     }
 
-    let connection_token = sso_state()
-        .lock()
-        .expect("sso mutex")
-        .connection_token
-        .clone();
+    let connection_token = session_connection_token(generation);
 
     ws.send(Message::Text(
         build_handshake_payload(sso_id, connection_token.as_deref()).into(),
@@ -251,11 +307,11 @@ fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind,
     // Set read timeout on underlying TCP stream for polling
     set_tcp_timeout(&mut ws, Duration::from_millis(500));
 
-    if is_cancelled() {
+    if is_session_cancelled(generation) {
         return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
     }
 
-    let connection_response = read_with_cancel(&mut ws, CONNECTION_TIMEOUT)
+    let connection_response = read_with_cancel(&mut ws, CONNECTION_TIMEOUT, generation)
         .ok_or_else(|| {
             (
                 SsoErrorKind::ConnectionTimeout,
@@ -265,8 +321,9 @@ fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind,
         .and_then(|message| parse_sso_connection_response(&message))?;
 
     if let Some(connection_token) = connection_response.connection_token.clone() {
-        let mut state = sso_state().lock().expect("sso mutex");
-        state.connection_token = Some(connection_token);
+        if !store_session_connection_token(generation, connection_token) {
+            return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
+        }
     }
 
     if let Some(api_key) = connection_response.api_key {
@@ -278,6 +335,9 @@ fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind,
     // Update state to awaiting_authorization
     {
         let mut state = sso_state().lock().expect("sso mutex");
+        if state.generation != generation || state.cancel_flag {
+            return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
+        }
         state.status = SsoConnectionStatus::AwaitingAuthorization;
     }
 
@@ -286,12 +346,18 @@ fn run_sso_flow(_app: &AppHandle, sso_id: &str) -> Result<String, (SsoErrorKind,
     // Read authorization response (120s timeout)
     set_tcp_timeout(&mut ws, Duration::from_secs(1));
 
-    match read_with_cancel(&mut ws, AUTHORIZATION_TIMEOUT) {
+    match read_with_cancel(&mut ws, AUTHORIZATION_TIMEOUT, generation) {
         Some(msg) => {
-            if is_cancelled() {
+            if is_session_cancelled(generation) {
                 return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
             }
-            parse_sso_response(&msg)
+            let response = parse_sso_authorization_response(&msg)?;
+            if let Some(connection_token) = response.connection_token {
+                if !store_session_connection_token(generation, connection_token) {
+                    return Err((SsoErrorKind::Cancelled, "Cancelled.".to_string()));
+                }
+            }
+            Ok(response.api_key)
         }
         None => Err((
             SsoErrorKind::AuthorizationTimeout,
@@ -319,12 +385,13 @@ fn set_tcp_timeout(
 fn read_with_cancel(
     ws: &mut WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>,
     total_timeout: Duration,
+    generation: u64,
 ) -> Option<String> {
     let start = Instant::now();
     let mut last_ping = Instant::now();
 
     while start.elapsed() < total_timeout {
-        if is_cancelled() {
+        if is_session_cancelled(generation) {
             return None;
         }
 
@@ -437,13 +504,18 @@ fn parse_sso_connection_response(
     })
 }
 
-fn parse_sso_response(msg: &str) -> Result<String, (SsoErrorKind, String)> {
+fn parse_sso_authorization_response(
+    msg: &str,
+) -> Result<SsoAuthorizationResponse, (SsoErrorKind, String)> {
     let trimmed = msg.trim();
     if !trimmed.starts_with('{') {
         return if trimmed.is_empty() {
             Err((SsoErrorKind::NetworkError, "Missing api_key.".to_string()))
         } else {
-            Ok(trimmed.to_string())
+            Ok(SsoAuthorizationResponse {
+                connection_token: None,
+                api_key: trimmed.to_string(),
+            })
         };
     }
 
@@ -455,21 +527,25 @@ fn parse_sso_response(msg: &str) -> Result<String, (SsoErrorKind, String)> {
         return Err(classify_sso_error(err));
     }
 
-    if let Some(connection_token) = v
+    let connection_token = v
         .get("data")
         .and_then(|d| d.get("connection_token"))
         .and_then(|x| x.as_str())
-    {
-        let mut state = sso_state().lock().expect("sso mutex");
-        state.connection_token = Some(connection_token.to_string());
-    }
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
 
     if let Some(api_key) = v
         .get("data")
         .and_then(|d| d.get("api_key"))
         .and_then(|x| x.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
     {
-        return Ok(api_key.to_string());
+        return Ok(SsoAuthorizationResponse {
+            connection_token,
+            api_key: api_key.to_string(),
+        });
     }
 
     if v.get("data")
@@ -533,8 +609,8 @@ fn open_browser(url: &str) {
 #[cfg(test)]
 mod tests {
     use super::{
-        SsoConnectionResponse, SsoErrorKind, build_handshake_payload,
-        parse_sso_connection_response, parse_sso_response, resolve_authorization_url,
+        SsoAuthorizationResponse, SsoConnectionResponse, SsoErrorKind, build_handshake_payload,
+        parse_sso_authorization_response, parse_sso_connection_response, resolve_authorization_url,
     };
 
     #[test]
@@ -569,9 +645,25 @@ mod tests {
 
     #[test]
     fn parse_sso_response_reads_api_key_from_authorization_message() {
-        let api_key = parse_sso_response("abc123").expect("plain api key response");
+        let response = parse_sso_authorization_response("abc123").expect("plain api key response");
 
-        assert_eq!(api_key, "abc123");
+        assert_eq!(response.api_key, "abc123");
+    }
+
+    #[test]
+    fn parse_sso_authorization_response_returns_connection_token_without_global_state() {
+        let response = parse_sso_authorization_response(
+            r#"{"success":true,"data":{"api_key":"abc123","connection_token":"token-456"}}"#,
+        )
+        .expect("authorization response should parse");
+
+        assert_eq!(
+            response,
+            SsoAuthorizationResponse {
+                connection_token: Some("token-456".to_string()),
+                api_key: "abc123".to_string(),
+            }
+        );
     }
 
     #[test]
@@ -627,7 +719,7 @@ mod tests {
 
     #[test]
     fn parse_sso_response_classifies_denied_authorization() {
-        let error = parse_sso_response(r#"{"success":false,"error":"Denied"}"#)
+        let error = parse_sso_authorization_response(r#"{"success":false,"error":"Denied"}"#)
             .expect_err("denied response");
 
         assert_eq!(

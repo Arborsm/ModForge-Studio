@@ -9,7 +9,23 @@ use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static LAUNCHER_INSTALL_TREE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn lock_launcher_install_tree() -> MutexGuard<'static, ()> {
+    match LAUNCHER_INSTALL_TREE_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+    {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!(target: "Launcher", "Launcher install tree lock was poisoned");
+            poisoned.into_inner()
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct InstallManagerInstalledMod {
@@ -164,6 +180,7 @@ pub(crate) fn install_staged_bundle_at_path(
     mods_path: &Path,
     backup_root: &Path,
 ) -> Result<InstallManagerSessionResult, String> {
+    let _install_tree_guard = lock_launcher_install_tree();
     if !bundle_root.is_dir() {
         return Err(format!(
             "Bundle root {} does not exist.",
@@ -330,6 +347,7 @@ pub(crate) fn restore_backup_session_at_path(
     backup_path: &Path,
     expected_mods_path: Option<&Path>,
 ) -> Result<InstallManagerRestoreResult, String> {
+    let _install_tree_guard = lock_launcher_install_tree();
     let metadata = load_backup_metadata(&backup_path.join("metadata.json"))?;
     if let Some(expected_mods_path) = expected_mods_path {
         let backup_mods_path = normalize_path(&clean_input_path(&metadata.mods_path));

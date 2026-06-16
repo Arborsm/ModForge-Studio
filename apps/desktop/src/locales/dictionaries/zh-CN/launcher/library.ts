@@ -198,6 +198,7 @@ const library: LauncherLibraryCopy = {
   enableLibraryFolder: '启用文件夹内模组',
   disableLibraryFolder: '禁用文件夹内模组',
   libraryFolderCount: (count) => `${count} 个项目`,
+  libraryFolderEmpty: '这个文件夹还是空的。',
   openLibraryFolder: (name) => `打开文件夹 ${name}`,
   closeLibraryFolder: '关闭文件夹',
   loadingMissingCoversTitle: '正在获取缺失封面',

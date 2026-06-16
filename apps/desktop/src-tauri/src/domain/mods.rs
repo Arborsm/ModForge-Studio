@@ -27,7 +27,7 @@ const SKIPPED_SCAN_DIRECTORIES: &[&str] = &[
     "obj",
 ];
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModProjectSummary {
     pub id: String,
@@ -46,7 +46,7 @@ pub struct ModProjectSummary {
     pub missing_required_dependencies: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModProjectDiagnostic {
     pub severity: String,
@@ -54,7 +54,7 @@ pub struct ModProjectDiagnostic {
     pub field: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherPatchSummary {
     pub id: String,
@@ -68,7 +68,7 @@ pub struct ContentPatcherPatchSummary {
     pub update_keys: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherI18nFile {
     pub locale: String,
@@ -78,7 +78,7 @@ pub struct ContentPatcherI18nFile {
     pub entry_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherProjectData {
     pub manifest_path: String,
@@ -95,7 +95,7 @@ pub struct ContentPatcherProjectData {
     pub patches: Vec<ContentPatcherPatchSummary>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModProjectDetail {
     pub plugin_kind: String,
@@ -105,7 +105,7 @@ pub struct ModProjectDetail {
     pub content_patcher: Option<ContentPatcherProjectData>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveModProjectRequest {
     pub source_path: String,
@@ -118,14 +118,14 @@ pub struct SaveModProjectRequest {
     pub i18n_files: Vec<ContentPatcherI18nFileInput>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentPatcherI18nFileInput {
     pub locale: String,
     pub raw_json: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveModProjectResult {
     pub plugin_kind: String,
@@ -135,7 +135,7 @@ pub struct SaveModProjectResult {
     pub diagnostics: Vec<ModProjectDiagnostic>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModAssetReference {
     pub key: String,
@@ -144,7 +144,7 @@ pub struct ModAssetReference {
     pub patch_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModAssetIndexGroup {
     pub mod_id: String,
@@ -158,7 +158,7 @@ pub struct ModAssetIndexGroup {
     pub items: Vec<ModAssetReference>,
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModAssetIndex {
     pub mods: Vec<ModAssetIndexGroup>,

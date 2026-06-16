@@ -531,17 +531,23 @@ export function useEventStageWorkspace({
         if (cue) {
           void playSoundCue(rootPath, cue).then((result) => {
             if (!result.played) {
-              setPlaybackState((current) => ({
-                ...current,
-                notices: enqueuePlaybackNotice(current, {
-                  id: `${command.id}:sound-error`,
-                  title: command.title,
-                  detail: result.reason,
-                  tone: 'loss',
-                  durationMs: 4200,
-                  symbol: 'sound',
-                }),
-              }))
+              setPlaybackState((current) => {
+                if (current.currentCommandId !== command.id || directoryInfo?.rootPath !== rootPath) {
+                  return current
+                }
+
+                return {
+                  ...current,
+                  notices: enqueuePlaybackNotice(current, {
+                    id: `${command.id}:sound-error`,
+                    title: command.title,
+                    detail: result.reason,
+                    tone: 'loss',
+                    durationMs: 4200,
+                    symbol: 'sound',
+                  }),
+                }
+              })
             }
           })
         } else {

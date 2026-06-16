@@ -150,6 +150,7 @@ export default function App() {
   const launcherPageRef = useRef<LauncherPage>(launcherPage)
   const launcherDiagnosticsRetryRef = useRef<(() => Promise<void>) | null>(null)
   const latestLauncherDiagnosticsRef = useRef<LauncherNexusDiagnosticsResult | null>(null)
+  const appMountedRef = useRef(true)
   const windowCloseRequestRef = useRef<() => void>(() => {
     void forceCloseCurrentWindow()
   })
@@ -177,6 +178,14 @@ export default function App() {
     () => createWorkbenchOrchestration({ dispatch: appCommandHandler.handleCommand }),
     [appCommandHandler],
   )
+
+  useEffect(() => {
+    appMountedRef.current = true
+
+    return () => {
+      appMountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     launcherPageRef.current = launcherPage
@@ -445,12 +454,20 @@ export default function App() {
 
   const handleToggleBorderlessFullscreen = useCallback(async () => {
     const nextFullscreen = await toggleFullscreenCurrentWindow()
+    if (!appMountedRef.current) {
+      return
+    }
+
     setWindowIsFullscreen(nextFullscreen)
     if (nextFullscreen) {
       setWindowIsMaximized(false)
     }
     window.requestAnimationFrame(() => {
       void Promise.all([isCurrentWindowFullscreen(), isCurrentWindowMaximized()]).then(([fullscreen, maximized]) => {
+        if (!appMountedRef.current) {
+          return
+        }
+
         setWindowIsFullscreen(fullscreen)
         setWindowIsMaximized(maximized)
       })
@@ -459,9 +476,19 @@ export default function App() {
 
   const handleToggleMaximizeWindow = useCallback(async () => {
     const nextMaximized = await toggleMaximizeCurrentWindow()
+    if (!appMountedRef.current) {
+      return
+    }
+
     setWindowIsMaximized(nextMaximized)
     window.requestAnimationFrame(() => {
-      void isCurrentWindowMaximized().then(setWindowIsMaximized)
+      void isCurrentWindowMaximized().then((maximized) => {
+        if (!appMountedRef.current) {
+          return
+        }
+
+        setWindowIsMaximized(maximized)
+      })
     })
   }, [])
 

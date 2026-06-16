@@ -323,6 +323,7 @@ export function LauncherLibraryPageContent({
                     expandLabel={copy.library.expandChildMods}
                     collapseLabel={copy.library.collapseChildMods}
                     folderCountLabel={copy.library.libraryFolderCount}
+                    folderEmptyLabel={copy.library.libraryFolderEmpty}
                     openFolderLabel={copy.library.openLibraryFolder}
                     closeFolderLabel={copy.library.closeLibraryFolder}
                     onToggleSelection={toggleEditSelection}

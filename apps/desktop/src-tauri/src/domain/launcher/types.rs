@@ -1,4 +1,4 @@
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub(crate) const UNSORTED_STORAGE_FOLDER_ID: &str = "unsorted";
 pub(crate) const UNSORTED_STORAGE_FOLDER_NAME: &str = "Unsorted";
@@ -50,6 +50,10 @@ impl<T> NullablePatch<T> {
             Self::Value(_) => "value",
         }
     }
+
+    pub fn is_missing(&self) -> bool {
+        matches!(self, Self::Missing)
+    }
 }
 
 impl<T> Default for NullablePatch<T> {
@@ -73,26 +77,41 @@ where
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+impl<T> Serialize for NullablePatch<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::Missing | Self::Null => serializer.serialize_none(),
+            Self::Value(value) => value.serialize(serializer),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveLauncherSettingsRequest {
     pub game_path: Option<String>,
     pub mods_path: Option<String>,
     pub download_path: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "NullablePatch::is_missing")]
     pub nexus_api_key: NullablePatch<String>,
     pub auto_install_downloads: Option<bool>,
     pub keep_downloaded_archives: Option<bool>,
     pub auto_check_mod_updates: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanLauncherLibraryRequest {
     pub mods_path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherLibraryModSummary {
     pub id: String,
@@ -114,14 +133,14 @@ pub struct LauncherLibraryModSummary {
     pub missing_required_dependencies: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherLibraryScanResult {
     pub mods_path: String,
     pub mods: Vec<LauncherLibraryModSummary>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherRuntimeInfo {
     pub game_version: Option<String>,
@@ -237,47 +256,47 @@ pub struct LauncherDownloadQueueState {
     pub items: Vec<LauncherDownloadQueueItem>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetLauncherModEnabledRequest {
     pub mod_path: String,
     pub enabled: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetLauncherLibraryCoverRequest {
     pub label_key: String,
     pub image_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersistLauncherLibraryRemoteCoverRequest {
     pub label_key: String,
     pub image_url: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetLauncherModEnabledResult {
     pub absolute_path: String,
     pub enabled: bool,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenLauncherPathRequest {
     pub path: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenLauncherUrlRequest {
     pub url: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchLauncherCatalogRequest {
     pub query: Option<String>,
@@ -303,7 +322,7 @@ pub struct SearchLauncherCatalogRequest {
     pub max_endorsements: Option<u64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadLauncherRemoteModDetailRequest {
     pub mod_id: i64,
@@ -315,13 +334,13 @@ fn default_include_remote_files() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadLauncherUpdateChangelogRequest {
     pub mod_id: i64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogResult {
     pub mod_id: i64,
@@ -340,14 +359,14 @@ pub struct LauncherCatalogResult {
     pub update_available: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogFacetEntry {
     pub name: String,
     pub count: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogFacets {
     pub categories: Vec<LauncherCatalogFacetEntry>,
@@ -355,7 +374,7 @@ pub struct LauncherCatalogFacets {
     pub tags: Vec<LauncherCatalogFacetEntry>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherCatalogPageResult {
     pub page: usize,
@@ -366,7 +385,7 @@ pub struct LauncherCatalogPageResult {
     pub results: Vec<LauncherCatalogResult>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherRemoteModDetail {
     pub mod_id: i64,
@@ -427,7 +446,7 @@ pub struct LauncherRemoteModDetail {
     pub files: Vec<LauncherRemoteModFile>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherRemoteModRequirement {
     pub name: String,
@@ -439,7 +458,7 @@ pub struct LauncherRemoteModRequirement {
     pub external: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherRemoteModFile {
     #[serde(default)]
@@ -478,7 +497,7 @@ pub struct LauncherRemoteModFile {
     pub archive_type: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateChangelogResult {
     pub mod_id: i64,
@@ -488,14 +507,14 @@ pub struct LauncherUpdateChangelogResult {
     pub changelog: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveLauncherImageRequest {
     pub url: String,
     pub refresh: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveLauncherImageResult {
     pub source_url: String,
@@ -503,7 +522,7 @@ pub struct ResolveLauncherImageResult {
     pub mime_type: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckLauncherUpdatesRequest {
     pub mods_path: String,
@@ -511,26 +530,26 @@ pub struct CheckLauncherUpdatesRequest {
     pub session_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadCachedLauncherUpdatesRequest {
     pub mods_path: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadSuppressedLauncherUpdateModIdsRequest {
     pub mods_path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherSuppressedUpdateModIdsResult {
     pub mods_path: String,
     pub mod_ids: Vec<i64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherUpdateProgressPayload {
     pub mods_path: String,
@@ -542,7 +561,7 @@ pub struct LauncherUpdateProgressPayload {
     pub updates: Option<Vec<LauncherUpdateSummary>>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherDownloadProgressPayload {
     pub download_id: String,
@@ -583,7 +602,7 @@ fn default_launcher_updates_result_is_complete() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadLauncherModRequest {
     pub download_id: Option<String>,
@@ -593,7 +612,7 @@ pub struct DownloadLauncherModRequest {
     pub title: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadLauncherModResult {
     pub mod_id: i64,
@@ -606,7 +625,7 @@ pub struct DownloadLauncherModResult {
     pub manual_download_page_opened: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallLauncherArchiveInstalledMod {
     pub mod_name: String,
@@ -617,14 +636,14 @@ pub struct InstallLauncherArchiveInstalledMod {
     pub preserved_i18n_files: usize,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallLauncherArchiveRequest {
     pub archive_path: String,
     pub mods_path: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallLauncherArchiveResult {
     pub mod_name: String,
@@ -638,7 +657,7 @@ pub struct InstallLauncherArchiveResult {
     pub backup_path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherInstallBackupSummary {
     pub backup_id: String,
@@ -647,20 +666,20 @@ pub struct LauncherInstallBackupSummary {
     pub overwrite_count: usize,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListLauncherInstallBackupsRequest {
     pub mods_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestoreLauncherInstallBackupRequest {
     pub backup_id: String,
     pub mods_path: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestoreLauncherInstallBackupResult {
     pub backup_id: String,
@@ -668,13 +687,13 @@ pub struct RestoreLauncherInstallBackupResult {
     pub restored_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InspectLauncherArchiveRequest {
     pub archive_path: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LauncherArchiveTreeNode {
     pub name: String,
@@ -684,7 +703,7 @@ pub struct LauncherArchiveTreeNode {
     pub children: Vec<LauncherArchiveTreeNode>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InspectLauncherArchiveResult {
     pub archive_path: String,
@@ -715,6 +734,15 @@ pub enum LauncherGameLaunchErrorCode {
 pub struct LauncherGameLaunchError {
     pub code: LauncherGameLaunchErrorCode,
     pub message: String,
+}
+
+impl From<String> for LauncherGameLaunchError {
+    fn from(message: String) -> Self {
+        Self {
+            code: LauncherGameLaunchErrorCode::LaunchFailed,
+            message,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

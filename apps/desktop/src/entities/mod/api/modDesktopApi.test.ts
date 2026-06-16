@@ -28,6 +28,6 @@ describe('modDesktopApi', () => {
     vi.mocked(invokeDesktop).mockResolvedValueOnce(result)
 
     await expect(saveModProject(request)).resolves.toBe(result)
-    expect(invokeDesktop).toHaveBeenCalledWith('save_mod_project', { request })
+    expect(invokeDesktop).toHaveBeenCalledWith('save_mod_project', { request }, { kind: 'exclusiveMutation', resource: 'ModProject' })
   })
 })

@@ -303,6 +303,16 @@ impl Display for CpMakerDraftError {
     }
 }
 
+impl From<String> for CpMakerDraftError {
+    fn from(message: String) -> Self {
+        Self::new(
+            CpMakerDraftErrorCode::ReadFailed,
+            CpMakerDraftOperation::Load,
+            message,
+        )
+    }
+}
+
 fn default_content_pack_for_unique_id() -> String {
     "Pathoschild.ContentPatcher".to_string()
 }

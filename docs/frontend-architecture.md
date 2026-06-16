@@ -216,6 +216,30 @@ Rules:
 
 This keeps entities/features testable and prevents host APIs from leaking into business code.
 
+## Host Command Client And Task Runtime
+
+Desktop command calls sit above platform ports and below business APIs.
+
+Rules:
+
+- Electron and Tauri adapters expose raw host transport through platform ports only.
+- Business code must call typed desktop APIs or `HostCommandClient`; it must not call `fileSystem.invokeCommand`, `window.modforgeElectron`, Tauri `invoke`, or Electron preload globals directly.
+- `HostCommandClient` owns frontend command policy and maps calls to the shared task runtime.
+- Feature and entity APIs must declare a policy at the call site, such as `latest`, `keyedLatest`, `exclusiveMutation`, `queuedMutation`, `parallelPool`, or `serviceGate`.
+- Hooks should not invent local `cancelled`, `requestId`, or `versionRef` guards when the task runtime can express the same ownership rule.
+- Late host command results must not publish into a stale scope. For commands that cannot be physically aborted, task runtime scope invalidation still owns whether the result can update UI state.
+- Mutations that write shared durable state should use `exclusiveMutation` or `queuedMutation` in frontend policy and matching Rust resource locks in the Host Runtime.
+
+Typical policy mapping:
+
+- Search and catalog refresh use `latest`.
+- Resource loads keyed by root path, locale, mod id, file id, or project path use `keyedLatest`.
+- Settings, library state, covers, app UI state, mod project saves, installs, restore, cache clear, and draft writes use mutation policies.
+- Image/audio/preload fan-out uses `parallelPool` or `serviceGate`.
+- Cancellation actions, such as cancelling a launcher download, use `serviceGate` and must not queue behind the long-running command being cancelled.
+
+Backend command scheduling is documented as agent/backend rules in `AGENTS.md`; frontend architecture only owns how business code reaches the host and how UI state publication is scoped.
+
 ## Implementation Completeness
 
 Architecture boundaries are not a reason to ship hollow slices. Do not add placeholder UI, no-op commands, fake data, TODO flows, silent catches, or happy-path-only implementations just to satisfy a visible acceptance point.
